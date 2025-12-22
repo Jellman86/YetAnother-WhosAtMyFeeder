@@ -8,9 +8,9 @@ services:
     container_name: wamf-backend
     restart: unless-stopped
     volumes:
-      - /mnt/Storage-SSD/development/development_environment/YA-WAMF/backend:/app
-      - /mnt/Storage-SSD/development/development_environment/YA-WAMF/config:/config
-      - /mnt/Storage-SSD/development/development_environment/YA-WAMF/data:/data
+      - ${configlocation}/YA-WAMF/backend:/app
+      - ${configlocation}/YA-WAMF/config:/config
+      - ${configlocation}/YA-WAMF/data:/data
     networks:
       general_brg:
     ports:
