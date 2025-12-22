@@ -1,0 +1,13 @@
+node_modules
+dist
+.git
+.DS_Store
+.svelte-kit
+coverage
+.env
+.env.local
+.env.*.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
