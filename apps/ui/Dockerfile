@@ -1,15 +1,12 @@
 # Stage 1: Build
-FROM node:20-slim as builder
+FROM node:20 as builder
 
 WORKDIR /app
 
-# Increase memory limit for build to avoid OOM on smaller instances
-ENV NODE_OPTIONS="--max-old-space-size=4096"
-
-# Copy package files (including lock file for reproducible builds)
+# Copy package files
 COPY package.json package-lock.json ./
 
-# Clean install with ci for reproducible builds
+# Install dependencies
 RUN npm ci
 
 # Copy source files
