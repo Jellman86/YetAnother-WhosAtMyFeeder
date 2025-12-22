@@ -1,30 +1,35 @@
 # Stage 1: Build
-FROM node:20-alpine as builder
+# Use Debian-based slim image instead of Alpine to avoid musl/glibc compatibility issues
+# with native binaries (like esbuild) which often cause "exit code 1" failures.
+FROM node:20-slim as builder
+
 WORKDIR /app
 
-# Install build dependencies that might be needed
-RUN apk add --no-cache python3 make g++
+# Increase memory limit for build to avoid OOM on smaller instances
+ENV NODE_OPTIONS="--max-old-space-size=4096"
 
-# Increase memory limit for build
-ENV NODE_OPTIONS="--max-old-space-size=2048"
+# Install basics
+RUN apt-get update && apt-get install -y python3 make g++
 
 # Copy package files
-# CRITICAL: We only copy package.json (NOT package-lock.json) to ensure we get fresh,
-# architecture-correct binaries for the container's OS/CPU.
+# We only copy package.json to ensure we get fresh, architecture-correct binaries
 COPY package.json ./
 
-# Clean install (use npm ci if you have package-lock.json)
-RUN npm install --legacy-peer-deps
+# Clean install
+RUN npm install
 
 # Copy source files
 COPY . .
 
-# Add verbose logging to see what's failing
-RUN npm run build --verbose
+# Run build with verbose logging to help debug if it still fails
+RUN npm run build
 
 # Stage 2: Serve
 FROM nginx:alpine
+
 COPY --from=builder /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
+
 EXPOSE 80
+
 CMD ["nginx", "-g", "daemon off;"]
