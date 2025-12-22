@@ -1,6 +1,5 @@
 # Stage 1: Build
 # Use Debian-based slim image instead of Alpine to avoid musl/glibc compatibility issues
-# with native binaries (like esbuild) which often cause "exit code 1" failures.
 FROM node:20-slim as builder
 
 WORKDIR /app
@@ -11,18 +10,27 @@ ENV NODE_OPTIONS="--max-old-space-size=4096"
 # Install basics
 RUN apt-get update && apt-get install -y python3 make g++
 
+# Debug: Check environment
+RUN node -v && npm -v
+
 # Copy package files
-# We only copy package.json to ensure we get fresh, architecture-correct binaries
 COPY package.json ./
 
-# Clean install
-RUN npm install
+# Debug: List files
+RUN ls -la
+
+# Clean install with verbose output to see dependency issues
+RUN npm install --verbose
 
 # Copy source files
 COPY . .
 
-# Run build with verbose logging to help debug if it still fails
-RUN npm run build
+# Debug: List source files to ensure everything was copied
+RUN ls -laR src/
+
+# Run build with debug logging for Vite
+# passing --logLevel debug to vite via npm run
+RUN npm run build -- --logLevel debug
 
 # Stage 2: Serve
 FROM nginx:alpine
