@@ -85,13 +85,13 @@
 
 <div class="min-h-screen bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white font-sans transition-colors duration-200">
   <Header {currentRoute} onNavigate={navigate}>
-      <div slot="status">
+      {#snippet status()}
           {#if connected}
               <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)] animate-pulse" title="Live"></span>
           {:else}
               <span class="w-2.5 h-2.5 rounded-full bg-red-500" title="Disconnected"></span>
           {/if}
-      </div>
+      {/snippet}
   </Header>
 
   <!-- Main Content -->

@@ -1,9 +1,10 @@
 <script lang="ts">
     import { theme } from '../stores/theme';
     
-    let { currentRoute, onNavigate } = $props<{ 
+    let { currentRoute, onNavigate, status } = $props<{ 
         currentRoute: string; 
-        onNavigate: (path: string) => void 
+        onNavigate: (path: string) => void;
+        status?: import('svelte').Snippet;
     }>();
 
     let connected = $state(false); // This will need to be passed in or handled via a store later, simpler to pass as prop for now? 
@@ -17,7 +18,7 @@
                 WhosAtMyFeeder
             </h1>
             <div class="flex items-center">
-                 <slot name="status"></slot>
+                 {@render status?.()}
             </div>
         </div>
         

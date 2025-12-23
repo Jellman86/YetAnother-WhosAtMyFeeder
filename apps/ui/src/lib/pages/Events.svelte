@@ -1,7 +1,7 @@
 <script lang="ts">
     import { onMount } from 'svelte';
     import { fetchEvents, type Detection, getThumbnailUrl } from '../api';
-    import DetectionCard from './DetectionCard.svelte';
+    import DetectionCard from '../components/DetectionCard.svelte';
 
     let events: Detection[] = $state([]);
     let loading = $state(true);
@@ -202,6 +202,9 @@
         <div
             class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden"
             onclick={(e) => e.stopPropagation()}
+            onkeydown={(e) => e.stopPropagation()}
+            role="document"
+            tabindex="-1"
         >
             <div class="relative">
                 <img

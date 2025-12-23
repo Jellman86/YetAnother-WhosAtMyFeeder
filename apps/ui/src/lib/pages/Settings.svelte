@@ -272,6 +272,7 @@
                      <button 
                         role="switch" 
                         aria-checked={mqttAuth}
+                        aria-label="Toggle MQTT Authentication"
                         onclick={() => mqttAuth = !mqttAuth}
                         class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2
                                {mqttAuth ? 'bg-teal-500' : 'bg-slate-200 dark:bg-slate-600'}"
@@ -352,9 +353,9 @@
             </h3>
 
             <div>
-                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">
+                <span class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">
                     Theme
-                </label>
+                </span>
                 <div class="flex gap-2">
                     {#each [
                         { value: 'light', label: 'Light', icon: '☀️' },
