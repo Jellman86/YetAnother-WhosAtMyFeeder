@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import Header from './lib/components/Header.svelte';
+  import Footer from './lib/components/Footer.svelte';
   import Dashboard from './lib/pages/Dashboard.svelte';
   import Events from './lib/pages/Events.svelte';
   import Species from './lib/pages/Species.svelte';
@@ -83,7 +84,7 @@
   });
 </script>
 
-<div class="min-h-screen bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white font-sans transition-colors duration-200">
+<div class="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white font-sans transition-colors duration-200">
   <Header {currentRoute} onNavigate={navigate}>
       {#snippet status()}
           {#if connected}
@@ -95,7 +96,7 @@
   </Header>
 
   <!-- Main Content -->
-  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+  <main class="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
       {#if currentRoute === '/' || currentRoute === ''}
           <Dashboard {detections} />
       {:else if currentRoute === '/events'}
@@ -106,4 +107,6 @@
            <Settings />
       {/if}
   </main>
+
+  <Footer />
 </div>
