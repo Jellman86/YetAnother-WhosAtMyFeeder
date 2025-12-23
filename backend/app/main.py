@@ -55,10 +55,11 @@ async def classifier_status():
 @app.post("/api/classifier/download")
 async def download_default_model():
     """Download the default bird classifier model."""
-    import urllib.request
+    import httpx
     from pathlib import Path
 
-    MODEL_URL = "https://storage.googleapis.com/tfhub-lite-models/google/lite-model/aiy/vision/classifier/birds_V1/3.tflite"
+    # TFHub model URL - using the direct tfhub.dev URL which handles redirects properly
+    MODEL_URL = "https://tfhub.dev/google/lite-model/aiy/vision/classifier/birds_V1/3?lite-format=tflite"
     LABELS_URL = "https://raw.githubusercontent.com/google-coral/edgetpu/master/test_data/inat_bird_labels.txt"
 
     assets_dir = Path(__file__).parent / "assets"
@@ -66,25 +67,28 @@ async def download_default_model():
     model_path = assets_dir / "model.tflite"
     labels_path = assets_dir / "labels.txt"
 
-    # Create a request with proper headers to avoid 403 errors
+    # Headers to mimic a browser request
     headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': '*/*',
     }
 
     try:
-        # Download model
-        log.info("Downloading bird classifier model...")
-        model_request = urllib.request.Request(MODEL_URL, headers=headers)
-        with urllib.request.urlopen(model_request) as response:
+        async with httpx.AsyncClient(follow_redirects=True, timeout=60.0) as client:
+            # Download model
+            log.info("Downloading bird classifier model...")
+            model_response = await client.get(MODEL_URL, headers=headers)
+            model_response.raise_for_status()
             with open(model_path, 'wb') as f:
-                f.write(response.read())
+                f.write(model_response.content)
+            log.info("Model downloaded", size=len(model_response.content))
 
-        # Download labels
-        log.info("Downloading labels...")
-        labels_request = urllib.request.Request(LABELS_URL, headers=headers)
-        with urllib.request.urlopen(labels_request) as response:
+            # Download labels
+            log.info("Downloading labels...")
+            labels_response = await client.get(LABELS_URL, headers=headers)
+            labels_response.raise_for_status()
             with open(labels_path, 'wb') as f:
-                f.write(response.read())
+                f.write(labels_response.content)
 
         # Process labels to extract common names
         with open(labels_path, 'r') as f:
@@ -117,6 +121,9 @@ async def download_default_model():
             "message": f"Downloaded model with {len(processed_labels)} species",
             "labels_count": len(processed_labels)
         }
+    except httpx.HTTPStatusError as e:
+        log.error("Failed to download model - HTTP error", status=e.response.status_code, url=str(e.request.url))
+        return {"status": "error", "message": f"HTTP {e.response.status_code}: Failed to download from {e.request.url}"}
     except Exception as e:
         log.error("Failed to download model", error=str(e))
         return {"status": "error", "message": str(e)}
