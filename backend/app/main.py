@@ -58,8 +58,12 @@ async def download_default_model():
     import httpx
     from pathlib import Path
 
-    # TFHub model URL - using the direct tfhub.dev URL which handles redirects properly
-    MODEL_URL = "https://tfhub.dev/google/lite-model/aiy/vision/classifier/birds_V1/3?lite-format=tflite"
+    # Direct Google Cloud Storage URL for the TFLite model
+    # Alternative URLs to try in order of preference
+    MODEL_URLS = [
+        "https://storage.googleapis.com/download.tensorflow.org/models/tflite/aiy_vision_classifier_birds_V1_3.tflite",
+        "https://storage.googleapis.com/tfhub-lite-models/google/lite-model/aiy/vision/classifier/birds_V1/3.tflite",
+    ]
     LABELS_URL = "https://raw.githubusercontent.com/google-coral/edgetpu/master/test_data/inat_bird_labels.txt"
 
     assets_dir = Path(__file__).parent / "assets"
@@ -70,18 +74,40 @@ async def download_default_model():
     # Headers to mimic a browser request
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': '*/*',
+        'Accept': 'application/octet-stream, */*',
     }
 
     try:
-        async with httpx.AsyncClient(follow_redirects=True, timeout=60.0) as client:
-            # Download model
-            log.info("Downloading bird classifier model...")
-            model_response = await client.get(MODEL_URL, headers=headers)
-            model_response.raise_for_status()
+        async with httpx.AsyncClient(follow_redirects=True, timeout=120.0) as client:
+            # Try each model URL until one works
+            model_content = None
+            last_error = None
+
+            for model_url in MODEL_URLS:
+                try:
+                    log.info("Trying to download model", url=model_url)
+                    model_response = await client.get(model_url, headers=headers)
+                    model_response.raise_for_status()
+
+                    # Validate it's actually a TFLite file (not HTML)
+                    content = model_response.content
+                    if content[:4] == b'<htm' or content[:4] == b'<!DO' or len(content) < 1000:
+                        log.warning("Downloaded content appears to be HTML, trying next URL")
+                        continue
+
+                    model_content = content
+                    log.info("Model downloaded successfully", size=len(content), url=model_url)
+                    break
+                except httpx.HTTPStatusError as e:
+                    last_error = f"HTTP {e.response.status_code} from {model_url}"
+                    log.warning("Model URL failed", url=model_url, status=e.response.status_code)
+                    continue
+
+            if model_content is None:
+                raise Exception(f"All model download URLs failed. Last error: {last_error}")
+
             with open(model_path, 'wb') as f:
-                f.write(model_response.content)
-            log.info("Model downloaded", size=len(model_response.content))
+                f.write(model_content)
 
             # Download labels
             log.info("Downloading labels...")
