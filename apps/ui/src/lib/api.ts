@@ -75,6 +75,17 @@ export async function checkHealth(): Promise<{ status: string; service: string }
     return handleResponse<{ status: string; service: string }>(response);
 }
 
+export interface FrigateTestResult {
+    status: string;
+    frigate_url: string;
+    version: string;
+}
+
+export async function testFrigateConnection(): Promise<FrigateTestResult> {
+    const response = await fetch(`${API_BASE}/frigate/test`);
+    return handleResponse<FrigateTestResult>(response);
+}
+
 export async function fetchFrigateConfig(): Promise<any> {
     const response = await fetch(`${API_BASE}/frigate/config`);
     return handleResponse<any>(response);

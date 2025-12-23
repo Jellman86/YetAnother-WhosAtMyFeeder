@@ -1,6 +1,6 @@
 <script lang="ts">
     import { onMount } from 'svelte';
-    import { fetchSettings, updateSettings, checkHealth, fetchFrigateConfig } from '../api';
+    import { fetchSettings, updateSettings, testFrigateConnection, fetchFrigateConfig } from '../api';
     import { theme, type Theme } from '../stores/theme';
 
     let frigateUrl = $state('');
@@ -92,14 +92,15 @@
         testing = true;
         message = null;
         try {
-            const health = await checkHealth();
-            if (health.status === 'ok') {
-                message = { type: 'success', text: 'Backend connection successful!' };
+            const result = await testFrigateConnection();
+            if (result.status === 'ok') {
+                message = { type: 'success', text: `Connected to Frigate v${result.version} at ${result.frigate_url}` };
             } else {
-                message = { type: 'error', text: 'Backend returned unexpected status' };
+                message = { type: 'error', text: 'Frigate returned unexpected status' };
             }
-        } catch (e) {
-            message = { type: 'error', text: 'Failed to connect to backend' };
+        } catch (e: any) {
+            const errorMsg = e.message || 'Failed to connect to Frigate';
+            message = { type: 'error', text: errorMsg };
         } finally {
             testing = false;
         }
@@ -173,11 +174,10 @@
                         onclick={testConnection}
                         disabled={testing}
                         class="px-4 py-2 text-sm font-medium rounded-lg
-                               bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300
-                               hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors
-                               disabled:opacity-50"
+                               bg-brand-500 hover:bg-brand-600 text-white
+                               transition-colors disabled:opacity-50"
                     >
-                        {testing ? 'Testing...' : 'Test Backend Connection'}
+                        {testing ? 'Testing...' : 'Test Frigate Connection'}
                     </button>
                     
                     <button

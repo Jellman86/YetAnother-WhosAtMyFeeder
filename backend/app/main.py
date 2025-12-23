@@ -23,7 +23,7 @@ async def lifespan(app: FastAPI):
     # Shutdown
     await mqtt_service.stop()
 
-app = FastAPI(title="WhosAtMyFeeder API", version="2.0.0", lifespan=lifespan)
+app = FastAPI(title="Yet Another WhosAtMyFeeder API", version="2.0.0", lifespan=lifespan)
 
 # Setup structured logging
 log = structlog.get_logger()
@@ -45,7 +45,7 @@ app.include_router(species.router, prefix="/api")
 
 @app.get("/health")
 async def health_check():
-    return {"status": "ok", "service": "whosatmyfeeder-backend"}
+    return {"status": "ok", "service": "ya-wamf-backend"}
 
 @app.get("/metrics")
 async def metrics():
