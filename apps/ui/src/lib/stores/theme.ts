@@ -1,6 +1,6 @@
 import { writable } from 'svelte/store';
 
-type Theme = 'light' | 'dark' | 'system';
+export type Theme = 'light' | 'dark' | 'system';
 
 function createThemeStore() {
     const stored = localStorage.getItem('theme') as Theme | null;
