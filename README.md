@@ -1,85 +1,190 @@
-# Yet Another WhosAtMyFeeder (YA-WAMF) 🐦
+# Yet Another WhosAtMyFeeder (YA-WAMF)
 
-![License](https://img.shields.io/badge/license-MIT-blue.svg)
-![Python](https://img.shields.io/badge/python-3.12-blue.svg)
-![Svelte](https://img.shields.io/badge/svelte-5.0-orange.svg)
-![Docker](https://img.shields.io/badge/docker-compose-green.svg)
+A bird classification system that works with [Frigate NVR](https://frigate.video/) to identify the birds visiting your feeder.
 
-**YA-WAMF** is a modern, real-time bird classification system designed to work alongside [Frigate NVR](https://frigate.video/). It listens for "bird" detection events, fetches high-quality snapshots, classifies the species using TensorFlow Lite, and displays the results in a beautiful, reactive dashboard.
+## About This Project
 
-Inspired by the UI/UX of [BirdNET-Go](https://github.com/t飕t/birdnet-go), this project aims to provide a robust and visually appealing way to catalog your backyard visitors.
+This is a personal project I started to experiment with AI-assisted coding. I noticed the original [WhosAtMyFeeder](https://github.com/mmcc-xx/WhosAtMyFeeder) wasn't being maintained anymore and thought it would be a fun way to learn while building something useful.
 
----
+The whole thing has been built with help from AI coding assistants - it's been an interesting way to see what's possible with these tools. If you spot any rough edges, that's probably why!
 
-## ✨ Features
+## What It Does
 
-*   **Real-time Dashboard:** Live updates of bird detections via Server-Sent Events (SSE). No page refreshes needed.
-*   **Frigate Integration:** Seamlessly fetches snapshots and clips from your existing Frigate instance.
-*   **Species Classification:** Uses TFLite models to identify bird species with configurable confidence thresholds.
-*   **Leaderboard:** Track which species visit most frequently.
-*   **Events Explorer:** Browse historical detections with filtering and date ranges.
-*   **Modern Stack:** Built with Python 3.12 (FastAPI) and Svelte 5 (Vite + Tailwind CSS).
-*   **Docker First:** Easy deployment with Docker Compose.
+When Frigate detects a bird at your feeder, YA-WAMF:
+1. Grabs the snapshot image
+2. Runs it through a bird classification model
+3. Shows you what species it thinks it is
+4. Keeps track of all your visitors in a nice dashboard
 
-## 🚀 Quick Start
+## How It Works
 
-### Prerequisites
-*   Docker & Docker Compose
-*   A running instance of [Frigate](https://frigate.video/) with MQTT enabled.
+Here's the flow from bird to identification:
 
-### Installation
+```
+┌─────────────┐     MQTT Event      ┌─────────────┐
+│   Frigate   │ ─────────────────>  │  YA-WAMF    │
+│   (NVR)     │   "bird detected"   │  Backend    │
+└─────────────┘                     └──────┬──────┘
+                                           │
+                                           v
+                                    ┌──────────────┐
+                                    │ Fetch image  │
+                                    │ from Frigate │
+                                    └──────┬───────┘
+                                           │
+                                           v
+                                    ┌──────────────┐
+                                    │  TFLite ML   │
+                                    │  Classifier  │
+                                    └──────┬───────┘
+                                           │
+                                           v
+                                    ┌──────────────┐
+                                    │ Save to DB & │
+                                    │ Update UI    │
+                                    └──────────────┘
+```
 
-1.  **Clone the repository:**
-    ```bash
-    git clone https://github.com/yourusername/YA-WAMF.git
-    cd YA-WAMF
-    ```
+**Step by step:**
 
-2.  **Configure environment:**
-    Copy the example environment file (or just create a .env):
-    ```bash
-    cp .env.example .env
-    ```
-    *Note: If no example exists, create one with:*
-    ```env
-    FRIGATE_URL=http://your-frigate-ip:5000
-    MQTT_SERVER=your-mqtt-broker-ip
-    ```
+1. **Frigate spots a bird** - Your camera picks up movement, Frigate's object detection identifies it as a bird
+2. **MQTT message sent** - Frigate publishes an event to `frigate/events` on your MQTT broker
+3. **YA-WAMF receives the event** - The backend is subscribed to that MQTT topic and picks up the message
+4. **Snapshot fetched** - The backend calls Frigate's API to grab a clean snapshot of the bird
+5. **Classification runs** - The image goes through a TensorFlow Lite model trained on bird species
+6. **Results stored** - If the confidence is high enough, the detection gets saved to the database
+7. **Dashboard updates** - The frontend gets a real-time update via Server-Sent Events (SSE)
 
-3.  **Run with Docker Compose:**
-    ```bash
-    docker compose up -d
-    ```
+## Getting Started with Docker Compose
 
-4.  **Access the Dashboard:**
-    Open `http://localhost:3000` in your browser.
+### What You'll Need
 
-## ⚙️ Configuration
+- Docker and Docker Compose installed
+- Frigate already running with MQTT enabled
+- Your MQTT broker details (usually mosquitto running alongside Frigate)
 
-You can configure YA-WAMF via the Web UI (Settings page) or by editing `config.json` directly.
+### Setup Steps
 
-| Setting | Description | Default |
-|---------|-------------|---------|
-| `frigate_url` | URL to your Frigate NVR | `http://localhost:5000` |
-| `mqtt_server` | MQTT Broker address | `mqtt` |
-| `classification_threshold` | Minimum confidence to save a detection | `0.7` |
+**1. Create a directory and grab the compose file:**
 
-## 🏗️ Architecture
+```bash
+mkdir ya-wamf && cd ya-wamf
+curl -O https://raw.githubusercontent.com/Jellman86/YetAnother-WhatAtMyFeeder/main/docker-compose.yml
+curl -O https://raw.githubusercontent.com/Jellman86/YetAnother-WhatAtMyFeeder/main/.env.example
+```
 
-*   **Backend:** Python 3.12, FastAPI, SQLite (aiosqlite), Pydantic. Handles MQTT ingestion, image processing, and API requests.
-*   **Frontend:** Svelte 5, Tailwind CSS, Vite. A Single Page Application (SPA) served via Nginx.
-*   **Data:** SQLite database stored in `/data/speciesid.db`.
+**2. Create your environment file:**
 
-## 🤝 Contributing
+```bash
+cp .env.example .env
+```
 
-We welcome contributions! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details on our code of conduct and the process for submitting pull requests.
+**3. Edit the .env file with your settings:**
 
-## 🛡️ License
+```env
+# The Docker network where Frigate and your MQTT broker live
+# (check with: docker network ls)
+DOCKER_NETWORK=your_frigate_network_name
 
-This project is licensed under the MIT License - see the `LICENSE` file for details.
+# Your Frigate instance
+FRIGATE_URL=http://frigate:5000
 
-## 🙏 Acknowledgements
+# Your MQTT broker (usually 'mosquitto' if running in Docker)
+MQTT_SERVER=mosquitto
+MQTT_PORT=1883
 
-*   Original [WhosAtMyFeeder](https://github.com/simonmaggio/WhosAtMyFeeder) project.
-*   [BirdNET-Go](https://github.com/t飕t/birdnet-go) for UI inspiration.
-*   [Frigate](https://frigate.video/) for the amazing NVR platform.
+# If your MQTT needs authentication
+MQTT_AUTH=true
+MQTT_USERNAME=your_username
+MQTT_PASSWORD=your_password
+
+# Your timezone
+TZ=Europe/London
+```
+
+**4. Make sure the external network exists:**
+
+The containers need to join the same Docker network as your Frigate/MQTT setup. Check your network name:
+
+```bash
+docker network ls
+```
+
+Look for whatever network your Frigate containers are using.
+
+**5. Create the data directories:**
+
+```bash
+mkdir -p config data
+```
+
+**6. Start it up:**
+
+```bash
+docker compose up -d
+```
+
+**7. Open the dashboard:**
+
+Go to `http://your-server-ip:9852` in your browser.
+
+**8. Download the bird model:**
+
+On first run, you'll need to download the classification model. Go to Settings in the web UI and click the download button, or the backend will prompt you.
+
+### Checking It's Working
+
+```bash
+# Check container status
+docker compose ps
+
+# Check backend logs
+docker compose logs yawamf-backend
+
+# You should see something like:
+# MQTT config: auth=True port=1883 server=mosquitto
+# Connected to MQTT topic=frigate/events
+```
+
+### Troubleshooting
+
+**MQTT connection errors?**
+- Make sure `DOCKER_NETWORK` is set to the right network name
+- Check that your MQTT server hostname is correct
+- Verify MQTT credentials if authentication is enabled
+
+**Frontend not loading?**
+- Check the frontend container is healthy: `docker compose ps`
+- Look at frontend logs: `docker compose logs yawamf-frontend`
+
+**No detections appearing?**
+- Make sure Frigate is detecting birds and publishing to MQTT
+- Check the backend logs for incoming events
+- Verify the classification model was downloaded
+
+## Configuration
+
+Most settings can be changed through the web UI under Settings. They get saved to `config/config.json`.
+
+| Setting | What it does | Default |
+|---------|--------------|---------|
+| Frigate URL | Where to fetch snapshots from | http://frigate:5000 |
+| MQTT Server | Your MQTT broker hostname | mqtt |
+| Classification Threshold | How confident the model needs to be (0-1) | 0.7 |
+
+## Tech Stack
+
+- **Backend:** Python 3.12, FastAPI, SQLite
+- **Frontend:** Svelte 5, Tailwind CSS
+- **ML:** TensorFlow Lite bird classifier
+- **Messaging:** MQTT for Frigate events, SSE for live UI updates
+
+## Contributing
+
+Feel free to open issues or PRs if you find bugs or have improvements. Just keep in mind this is a hobby project maintained in spare time.
+
+## Thanks To
+
+- The original [WhosAtMyFeeder](https://github.com/mmcc-xx/WhosAtMyFeeder) project for the idea
+- [Frigate](https://frigate.video/) for being such a great NVR
+- The AI assistants that helped build this thing
