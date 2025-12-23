@@ -3,6 +3,16 @@
 ## Task Overview
 Refactor the YA-WAMF (Yet Another WhosAtMyFeeder) frontend into a modern, clean, and neutral UI with full functionality.
 
+## Extra notes from scott:
+I asked gemini to implement the steps in this ocument, which it did but there are some serious issues:
+- the dark mode button does not respond when first pressed, if you toggle on and off then it responds.
+- please improve the theme, its abit boring and basic.
+- when viewing via mobile, none of the other sections are visable, only the first front page about how many birds have been detected today.
+- in the settings page there is test frigate connection button which allways comes up with an error, however note that it actually does fetch the configured cameras from frigate so could this be working but the error actually is incorrect?
+- can you implement the new auth method aswell as the falback frigate port 5000 please.
+- Please give the system its proper name in the container, currently its called whos at my feeder, but the proper title is yet another whos at my feeder. 
+- please check over all the work that gemini has done, i have no faith in that guy.
+
 ## Current State
 - **Framework**: Svelte 5 + TypeScript + Tailwind CSS + Vite
 - **Location**: `/apps/ui/src/`
