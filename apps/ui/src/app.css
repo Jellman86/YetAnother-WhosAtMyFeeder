@@ -13,6 +13,11 @@ html {
   transition: background-color 0.3s ease, color 0.3s ease;
 }
 
+/* Custom selection */
+::selection {
+  @apply bg-brand-500/30 text-inherit;
+}
+
 /* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
@@ -20,11 +25,11 @@ html {
 }
 
 ::-webkit-scrollbar-track {
-  @apply bg-slate-100 dark:bg-slate-800;
+  @apply bg-transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  @apply bg-slate-300 dark:bg-slate-600 rounded-full;
+  @apply bg-slate-300 dark:bg-slate-600 rounded-full border-2 border-transparent bg-clip-padding;
 }
 
 ::-webkit-scrollbar-thumb:hover {
@@ -34,7 +39,7 @@ html {
 /* Focus ring styling */
 @layer utilities {
   .focus-ring {
-    @apply focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-slate-900;
+    @apply focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-surface-dark;
   }
 }
 
@@ -42,5 +47,16 @@ html {
 @layer utilities {
   .text-gradient {
     @apply bg-clip-text text-transparent bg-gradient-to-r from-brand-500 to-teal-400;
+  }
+}
+
+/* Smooth card transitions */
+@layer components {
+  .card-base {
+    @apply bg-white/80 dark:bg-slate-800/50 rounded-2xl border border-slate-200/80 dark:border-slate-700/50 shadow-card dark:shadow-card-dark backdrop-blur-sm transition-all duration-300;
+  }
+
+  .card-base:hover {
+    @apply shadow-card-hover dark:shadow-card-dark-hover;
   }
 }

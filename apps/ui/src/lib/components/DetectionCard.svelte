@@ -49,10 +49,11 @@
 <button
     type="button"
     {onclick}
-    class="group bg-white dark:bg-slate-800 rounded-xl shadow-sm hover:shadow-lg
-           border border-slate-200 dark:border-slate-700
-           overflow-hidden transition-all duration-300 hover:-translate-y-1
-           text-left w-full cursor-pointer"
+    class="group bg-white dark:bg-slate-800/80 rounded-2xl shadow-card dark:shadow-card-dark
+           hover:shadow-card-hover dark:hover:shadow-card-dark-hover
+           border border-slate-200/80 dark:border-slate-700/50
+           overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:border-brand-300 dark:hover:border-brand-600
+           text-left w-full cursor-pointer backdrop-blur-sm"
 >
     <!-- Image Container -->
     <div class="relative aspect-[4/3] bg-slate-100 dark:bg-slate-700 overflow-hidden">

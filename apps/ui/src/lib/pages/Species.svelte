@@ -130,7 +130,7 @@
         <!-- Stats Cards -->
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {#each sortedSpecies().slice(0, 3) as topSpecies, index}
-                <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4">
+                <div class="bg-white/80 dark:bg-slate-800/50 rounded-2xl border border-slate-200/80 dark:border-slate-700/50 p-5 shadow-card dark:shadow-card-dark backdrop-blur-sm transition-all duration-300 hover:shadow-card-hover dark:hover:shadow-card-dark-hover">
                     <div class="flex items-center gap-3">
                         <span class="text-3xl">{getMedal(index)}</span>
                         <div class="flex-1 min-w-0">
@@ -150,12 +150,12 @@
         </div>
 
         <!-- Full Leaderboard -->
-        <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
-            <div class="p-4 border-b border-slate-200 dark:border-slate-700">
+        <div class="bg-white/80 dark:bg-slate-800/50 rounded-2xl border border-slate-200/80 dark:border-slate-700/50 overflow-hidden shadow-card dark:shadow-card-dark backdrop-blur-sm">
+            <div class="p-4 border-b border-slate-200/80 dark:border-slate-700/50">
                 <h3 class="font-semibold text-slate-900 dark:text-white">All Species</h3>
             </div>
 
-            <div class="divide-y divide-slate-100 dark:divide-slate-700">
+            <div class="divide-y divide-slate-100/80 dark:divide-slate-700/50">
                 {#each sortedSpecies() as item, index (item.species)}
                     <div class="p-4 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
                         <div class="flex items-center gap-4">

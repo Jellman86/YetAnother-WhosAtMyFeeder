@@ -193,14 +193,14 @@
 <!-- Detail Modal -->
 {#if selectedEvent}
     <div
-        class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+        class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-surface-dark/80 backdrop-blur-md"
         onclick={() => selectedEvent = null}
         onkeydown={(e) => e.key === 'Escape' && (selectedEvent = null)}
         role="dialog"
         tabindex="-1"
     >
         <div
-            class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden"
+            class="bg-white dark:bg-slate-800/95 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden border border-slate-200/80 dark:border-slate-700/50 backdrop-blur-sm animate-fade-in"
             onclick={(e) => e.stopPropagation()}
             onkeydown={(e) => e.stopPropagation()}
             role="document"

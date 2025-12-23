@@ -3,7 +3,7 @@
     const year = new Date().getFullYear();
 </script>
 
-<footer class="bg-slate-100 dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 mt-auto">
+<footer class="bg-white/50 dark:bg-slate-900/50 border-t border-slate-200/80 dark:border-slate-700/50 mt-auto backdrop-blur-sm">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <div class="flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-slate-600 dark:text-slate-400">
             <div class="flex flex-col sm:flex-row items-center gap-2 sm:gap-4">
@@ -35,7 +35,7 @@
             </div>
         </div>
 
-        <div class="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700 text-center text-xs text-slate-500 dark:text-slate-500">
+        <div class="mt-4 pt-4 border-t border-slate-200/60 dark:border-slate-700/40 text-center text-xs text-slate-500 dark:text-slate-500">
             Built with AI assistance for the love of bird watching
         </div>
     </div>

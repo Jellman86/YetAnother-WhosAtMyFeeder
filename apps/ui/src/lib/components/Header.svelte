@@ -22,7 +22,7 @@
     }
 </script>
 
-<header class="bg-white/80 dark:bg-slate-900/80 shadow-sm sticky top-0 z-50 backdrop-blur-lg border-b border-slate-200 dark:border-slate-800 transition-colors duration-300">
+<header class="bg-white/90 dark:bg-slate-900/90 shadow-sm sticky top-0 z-50 backdrop-blur-xl border-b border-slate-200/80 dark:border-slate-700/50 transition-all duration-300">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="h-16 flex items-center justify-between">
             <!-- Logo -->
@@ -106,7 +106,7 @@
 
     <!-- Mobile Navigation Menu -->
     {#if mobileMenuOpen}
-        <div class="md:hidden border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+        <div class="md:hidden border-t border-slate-200/80 dark:border-slate-700/50 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl">
             <nav class="px-4 py-3 space-y-1">
                 {#each navItems as item}
                     <button

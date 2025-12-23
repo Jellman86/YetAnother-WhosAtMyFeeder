@@ -84,7 +84,7 @@
   });
 </script>
 
-<div class="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white font-sans transition-colors duration-200">
+<div class="min-h-screen flex flex-col bg-surface-light dark:bg-surface-dark text-slate-900 dark:text-white font-sans transition-colors duration-300">
   <Header {currentRoute} onNavigate={navigate}>
       {#snippet status()}
           {#if connected}
