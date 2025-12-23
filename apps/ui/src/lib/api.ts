@@ -91,6 +91,18 @@ export async function fetchFrigateConfig(): Promise<any> {
     return handleResponse<any>(response);
 }
 
+export interface ClassifierStatus {
+    loaded: boolean;
+    error: string | null;
+    labels_count: number;
+    enabled: boolean;
+}
+
+export async function fetchClassifierStatus(): Promise<ClassifierStatus> {
+    const response = await fetch(`${API_BASE}/classifier/status`);
+    return handleResponse<ClassifierStatus>(response);
+}
+
 export function getSnapshotUrl(frigateEvent: string): string {
     return `${API_BASE}/frigate/${frigateEvent}/snapshot.jpg`;
 }

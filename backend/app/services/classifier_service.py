@@ -19,40 +19,56 @@ class ClassifierService:
     def __init__(self):
         self.interpreter = None
         self.labels = []
+        self.model_loaded = False
+        self.model_error: str | None = None
         self._load_model()
+
+    def get_status(self) -> dict:
+        """Return the current status of the classifier."""
+        return {
+            "loaded": self.model_loaded,
+            "error": self.model_error,
+            "labels_count": len(self.labels),
+            "enabled": self.interpreter is not None,
+        }
 
     def _load_model(self):
         assets_dir = os.path.join(os.path.dirname(__file__), "../assets")
         model_path = os.path.join(assets_dir, settings.classification.model)
         labels_path = os.path.join(assets_dir, "labels.txt")
-        
+
         # Load labels
         if os.path.exists(labels_path):
             try:
                 with open(labels_path, 'r') as f:
-                    self.labels = [line.strip() for line in f.readlines()]
+                    self.labels = [line.strip() for line in f.readlines() if line.strip()]
                 log.info(f"Loaded {len(self.labels)} labels")
             except Exception as e:
                 log.error("Failed to load labels", error=str(e))
 
         if not os.path.exists(model_path):
-            log.error("Model file not found", path=model_path)
+            self.model_error = f"Model file not found: {model_path}"
+            log.warning("Model file not found - classification disabled. Run 'python download_model.py' to download.", path=model_path)
             return
 
         if tflite is None:
+            self.model_error = "TFLite runtime not installed"
             log.error("TFLite runtime not installed, classifier disabled")
             return
 
         try:
             self.interpreter = tflite.Interpreter(model_path=model_path)
             self.interpreter.allocate_tensors()
-            
+
             # Get input and output details
             self.input_details = self.interpreter.get_input_details()
             self.output_details = self.interpreter.get_output_details()
-            
+
+            self.model_loaded = True
+            self.model_error = None
             log.info("Model loaded successfully")
         except Exception as e:
+            self.model_error = f"Failed to load model: {str(e)}"
             log.error("Failed to load model", error=str(e))
 
     def classify(self, image: Image.Image):

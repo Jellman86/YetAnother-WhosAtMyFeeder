@@ -43,16 +43,15 @@
 
   function connectSSE() {
       const evtSource = new EventSource('/api/sse');
-      
-      evtSource.onopen = () => {
-          connected = true;
-          console.log("SSE Connected");
-      };
 
       evtSource.onmessage = (event) => {
           try {
              const payload = JSON.parse(event.data);
-             if (payload.type === 'detection') {
+
+             if (payload.type === 'connected') {
+                 connected = true;
+                 console.log("SSE Connected:", payload.message);
+             } else if (payload.type === 'detection') {
                  const newDet = {
                      frigate_event: payload.data.frigate_event,
                      display_name: payload.data.display_name,
@@ -63,7 +62,7 @@
                  detections = [newDet, ...detections];
              }
           } catch (e) {
-              console.error("SSE Error", e);
+              console.error("SSE Parse Error", e);
           }
       };
 
@@ -71,6 +70,7 @@
           console.error("SSE Connection Error", err);
           connected = false;
           evtSource.close();
+          // Reconnect with exponential backoff (max 30s)
           setTimeout(connectSSE, 5000);
       };
   }

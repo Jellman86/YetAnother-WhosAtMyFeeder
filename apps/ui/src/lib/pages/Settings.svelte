@@ -1,6 +1,6 @@
 <script lang="ts">
     import { onMount } from 'svelte';
-    import { fetchSettings, updateSettings, testFrigateConnection, fetchFrigateConfig } from '../api';
+    import { fetchSettings, updateSettings, testFrigateConnection, fetchFrigateConfig, fetchClassifierStatus, type ClassifierStatus } from '../api';
     import { theme, type Theme } from '../stores/theme';
 
     let frigateUrl = $state('');
@@ -11,7 +11,7 @@
     let mqttPassword = $state('');
     let threshold = $state(0.7);
     let selectedCameras = $state<string[]>([]);
-    
+
     let availableCameras = $state<string[]>([]);
     let camerasLoading = $state(false);
 
@@ -21,12 +21,25 @@
     let message = $state<{ type: 'success' | 'error'; text: string } | null>(null);
     let currentTheme: Theme = $state('system');
 
+    let classifierStatus = $state<ClassifierStatus | null>(null);
+
     theme.subscribe(t => currentTheme = t);
 
     onMount(async () => {
-        await loadSettings();
-        await loadCameras();
+        await Promise.all([
+            loadSettings(),
+            loadCameras(),
+            loadClassifierStatus()
+        ]);
     });
+
+    async function loadClassifierStatus() {
+        try {
+            classifierStatus = await fetchClassifierStatus();
+        } catch (e) {
+            console.error('Failed to load classifier status', e);
+        }
+    }
 
     async function loadSettings() {
         loading = true;
@@ -323,6 +336,35 @@
             <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
                 🎯 Classification
             </h3>
+
+            <!-- Model Status -->
+            {#if classifierStatus}
+                <div class="mb-4 p-3 rounded-lg {classifierStatus.enabled
+                    ? 'bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800'
+                    : 'bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800'}">
+                    <div class="flex items-center gap-2">
+                        {#if classifierStatus.enabled}
+                            <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                            <span class="text-sm font-medium text-emerald-700 dark:text-emerald-400">
+                                Model Loaded ({classifierStatus.labels_count} species)
+                            </span>
+                        {:else}
+                            <span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
+                            <span class="text-sm font-medium text-amber-700 dark:text-amber-400">
+                                Classification Disabled
+                            </span>
+                        {/if}
+                    </div>
+                    {#if classifierStatus.error}
+                        <p class="mt-1 text-xs text-amber-600 dark:text-amber-400">
+                            {classifierStatus.error}
+                        </p>
+                        <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                            Run <code class="px-1 py-0.5 bg-slate-200 dark:bg-slate-700 rounded">python download_model.py</code> in the backend to download the default model.
+                        </p>
+                    {/if}
+                </div>
+            {/if}
 
             <div>
                 <label for="threshold" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">

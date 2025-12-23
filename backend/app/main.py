@@ -47,6 +47,11 @@ app.include_router(species.router, prefix="/api")
 async def health_check():
     return {"status": "ok", "service": "ya-wamf-backend"}
 
+@app.get("/api/classifier/status")
+async def classifier_status():
+    """Return the status of the bird classifier model."""
+    return classifier_service.get_status()
+
 @app.get("/metrics")
 async def metrics():
     # Placeholder for Prometheus metrics
