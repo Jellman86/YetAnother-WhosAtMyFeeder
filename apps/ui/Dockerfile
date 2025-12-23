@@ -24,6 +24,9 @@ RUN npm run build 2>&1
 # Stage 2: Serve
 FROM nginx:alpine
 
+# Install curl for health checks
+RUN apk add --no-cache curl
+
 COPY --from=builder /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 

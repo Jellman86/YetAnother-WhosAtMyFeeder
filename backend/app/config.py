@@ -59,10 +59,12 @@ class Settings(BaseSettings):
                 with open(CONFIG_PATH, 'r') as f:
                     file_data = json.load(f)
                 # Merge file data with env vars (env vars win)
+                # Only use file values if the env var is not set at all
+                # (checking 'in os.environ' ensures empty strings from compose defaults are respected)
                 if 'frigate' in file_data:
                     for key, value in file_data['frigate'].items():
                         env_key = f'FRIGATE__{key.upper()}'
-                        if not os.environ.get(env_key):
+                        if env_key not in os.environ:
                             frigate_data[key] = value
 
                 log.info("Loaded config from file", path=str(CONFIG_PATH))

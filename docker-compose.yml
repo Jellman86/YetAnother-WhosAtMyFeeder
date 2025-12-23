@@ -46,7 +46,7 @@ services:
     depends_on:
       - yawamf-backend
     healthcheck:
-      test: [ "CMD", "wget", "--spider", "-q", "http://localhost/" ]
+      test: [ "CMD", "curl", "-f", "http://localhost/" ]
       interval: 30s
       timeout: 10s
       retries: 3
