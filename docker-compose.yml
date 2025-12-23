@@ -1,6 +1,16 @@
 name: YetAnother-WhatAtMyFeeder
 #-----------------------------------------------
-# Uses pre-built images from GitHub Container Registry
+# Yet Another WhosAtMyFeeder - Bird Detection System
+#
+# Configuration via environment variables (set in .env file or your orchestration system):
+#   FRIGATE_URL         - URL to your Frigate instance (default: http://frigate:5000)
+#   FRIGATE_AUTH_TOKEN  - Optional Bearer token for Frigate authentication
+#   MQTT_SERVER         - MQTT broker hostname (default: mqtt)
+#   MQTT_PORT           - MQTT broker port (default: 1883)
+#   MQTT_AUTH           - Enable MQTT authentication (default: false)
+#   MQTT_USERNAME       - MQTT username (if auth enabled)
+#   MQTT_PASSWORD       - MQTT password (if auth enabled)
+#   TZ                  - Timezone (default: UTC)
 #-----------------------------------------------
 services:
   yawamf-backend:
@@ -8,19 +18,19 @@ services:
     container_name: yawamf-backend
     restart: unless-stopped
     volumes:
-      - ${configlocation}/YA-WAMF/config:/config
-      - ${configlocation}/YA-WAMF/data:/data
-    networks:
-      general_brg:
+      - ./config:/config
+      - ./data:/data
     ports:
-      - "8946:8000"
+      - "8000:8000"
     environment:
-      - TZ=Europe/London
-      - FRIGATE__MQTT_SERVER=mosquitto
-      - FRIGATE__MQTT_PORT=1883
-      - FRIGATE__MQTT_AUTH=true
-      - FRIGATE__MQTT_USERNAME=jellman86
-      - FRIGATE__MQTT_PASSWORD=${MQTT_PASSWORD}
+      - TZ=${TZ:-UTC}
+      - FRIGATE__FRIGATE_URL=${FRIGATE_URL:-http://frigate:5000}
+      - FRIGATE__FRIGATE_AUTH_TOKEN=${FRIGATE_AUTH_TOKEN:-}
+      - FRIGATE__MQTT_SERVER=${MQTT_SERVER:-mqtt}
+      - FRIGATE__MQTT_PORT=${MQTT_PORT:-1883}
+      - FRIGATE__MQTT_AUTH=${MQTT_AUTH:-false}
+      - FRIGATE__MQTT_USERNAME=${MQTT_USERNAME:-}
+      - FRIGATE__MQTT_PASSWORD=${MQTT_PASSWORD:-}
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:8000/health" ]
       interval: 30s
@@ -31,10 +41,8 @@ services:
     image: ghcr.io/jellman86/wamf-frontend:latest
     container_name: yawamf-frontend
     restart: unless-stopped
-    networks:
-      general_brg:
     ports:
-      - "8947:80"
+      - "8080:80"
     depends_on:
       - yawamf-backend
     healthcheck:
@@ -42,7 +50,3 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-#-----------------------------------------------
-networks:
-  general_brg:
-    external: true
