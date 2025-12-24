@@ -146,40 +146,63 @@
                     </button>
                 </div>
             {:else if stats}
-                <!-- Wikipedia Section -->
-                {#if info}
-                    <section class="flex gap-4 flex-col sm:flex-row">
-                        {#if info.thumbnail_url}
+                <!-- Hero Image from Wikipedia -->
+                {#if info?.thumbnail_url}
+                    <section class="relative -mx-6 -mt-6 mb-6">
+                        <div class="relative h-48 sm:h-64 overflow-hidden">
                             <img
                                 src={info.thumbnail_url}
                                 alt={speciesName}
-                                class="w-32 h-32 object-cover rounded-lg flex-shrink-0"
+                                class="w-full h-full object-cover"
+                                onerror={(e) => {
+                                    const target = e.target as HTMLImageElement;
+                                    target.parentElement?.classList.add('hidden');
+                                }}
                             />
-                        {/if}
-                        <div class="flex-1">
-                            {#if info.description}
-                                <p class="text-sm text-slate-600 dark:text-slate-300 mb-2">
-                                    {info.description}
-                                </p>
-                            {/if}
-                            {#if info.extract}
-                                <p class="text-sm text-slate-600 dark:text-slate-400 line-clamp-4">
-                                    {info.extract}
-                                </p>
-                            {/if}
-                            {#if info.wikipedia_url}
-                                <a
-                                    href={info.wikipedia_url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    class="inline-flex items-center gap-1 mt-2 text-sm text-teal-600 dark:text-teal-400 hover:underline"
-                                >
-                                    Read more on Wikipedia
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                                    </svg>
-                                </a>
-                            {/if}
+                            <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
+                            <div class="absolute bottom-4 left-6 right-6">
+                                <h3 class="text-2xl font-bold text-white drop-shadow-lg">{speciesName}</h3>
+                                {#if info.description}
+                                    <p class="text-sm text-white/90 mt-1 drop-shadow">{info.description}</p>
+                                {/if}
+                            </div>
+                        </div>
+                    </section>
+                {/if}
+
+                <!-- Wikipedia Description -->
+                {#if info}
+                    <section class="bg-slate-50 dark:bg-slate-700/30 rounded-xl p-4">
+                        <div class="flex items-start gap-3">
+                            <div class="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-600 flex items-center justify-center flex-shrink-0">
+                                <svg class="w-5 h-5 text-slate-500 dark:text-slate-400" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z"/>
+                                </svg>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                {#if info.extract}
+                                    <p class="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+                                        {info.extract}
+                                    </p>
+                                {:else if !info.thumbnail_url}
+                                    <p class="text-sm text-slate-500 dark:text-slate-400 italic">
+                                        No Wikipedia information available for this species.
+                                    </p>
+                                {/if}
+                                {#if info.wikipedia_url}
+                                    <a
+                                        href={info.wikipedia_url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        class="inline-flex items-center gap-1 mt-3 text-sm font-medium text-teal-600 dark:text-teal-400 hover:underline"
+                                    >
+                                        Read more on Wikipedia
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                        </svg>
+                                    </a>
+                                {/if}
+                            </div>
                         </div>
                     </section>
                 {/if}

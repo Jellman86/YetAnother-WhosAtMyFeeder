@@ -12,6 +12,17 @@
     let imageError = $state(false);
     let imageLoaded = $state(false);
 
+    // Reset image loading state when detection changes
+    $effect(() => {
+        // Access detection.frigate_event to track changes
+        const _eventId = detection.frigate_event;
+        imageError = false;
+        imageLoaded = false;
+    });
+
+    // Derive the image URL from the detection
+    let imageUrl = $derived(getSnapshotUrl(detection.frigate_event));
+
     function formatTime(dateString: string): string {
         try {
             const date = new Date(dateString);
@@ -59,11 +70,10 @@
     <div class="relative aspect-[4/3] bg-slate-100 dark:bg-slate-700 overflow-hidden">
         {#if !imageError}
             <img
-                src={getSnapshotUrl(detection.frigate_event)}
+                src={imageUrl}
                 alt={detection.display_name}
                 class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105
                        {imageLoaded ? 'opacity-100' : 'opacity-0'}"
-                loading="lazy"
                 onload={() => imageLoaded = true}
                 onerror={() => imageError = true}
             />

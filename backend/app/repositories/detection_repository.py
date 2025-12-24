@@ -75,13 +75,85 @@ class DetectionRepository:
         """, (detection.detection_time, detection.detection_index, detection.score, detection.display_name, detection.category_name, detection.frigate_event))
         await self.db.commit()
 
-    async def get_all(self, limit: int = 50, offset: int = 0) -> list[Detection]:
-        async with self.db.execute(
-            "SELECT id, detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name FROM detections ORDER BY detection_time DESC LIMIT ? OFFSET ?",
-            (limit, offset)
-        ) as cursor:
+    async def get_all(
+        self,
+        limit: int = 50,
+        offset: int = 0,
+        start_date: datetime | None = None,
+        end_date: datetime | None = None
+    ) -> list[Detection]:
+        query = "SELECT id, detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name FROM detections"
+        params: list = []
+        conditions = []
+
+        if start_date:
+            conditions.append("detection_time >= ?")
+            params.append(start_date.isoformat())
+        if end_date:
+            conditions.append("detection_time <= ?")
+            params.append(end_date.isoformat())
+
+        if conditions:
+            query += " WHERE " + " AND ".join(conditions)
+
+        query += " ORDER BY detection_time DESC LIMIT ? OFFSET ?"
+        params.extend([limit, offset])
+
+        async with self.db.execute(query, params) as cursor:
             rows = await cursor.fetchall()
             return [_row_to_detection(row) for row in rows]
+
+    async def get_count(
+        self,
+        start_date: datetime | None = None,
+        end_date: datetime | None = None
+    ) -> int:
+        """Get total count of detections, optionally filtered by date range."""
+        query = "SELECT COUNT(*) FROM detections"
+        params: list = []
+        conditions = []
+
+        if start_date:
+            conditions.append("detection_time >= ?")
+            params.append(start_date.isoformat())
+        if end_date:
+            conditions.append("detection_time <= ?")
+            params.append(end_date.isoformat())
+
+        if conditions:
+            query += " WHERE " + " AND ".join(conditions)
+
+        async with self.db.execute(query, params) as cursor:
+            row = await cursor.fetchone()
+            return row[0] if row else 0
+
+    async def delete_older_than(self, cutoff_date: datetime) -> int:
+        """Delete detections older than the cutoff date. Returns count of deleted rows."""
+        async with self.db.execute(
+            "SELECT COUNT(*) FROM detections WHERE detection_time < ?",
+            (cutoff_date.isoformat(),)
+        ) as cursor:
+            row = await cursor.fetchone()
+            count = row[0] if row else 0
+
+        if count > 0:
+            await self.db.execute(
+                "DELETE FROM detections WHERE detection_time < ?",
+                (cutoff_date.isoformat(),)
+            )
+            await self.db.commit()
+
+        return count
+
+    async def get_oldest_detection_date(self) -> datetime | None:
+        """Get the date of the oldest detection."""
+        async with self.db.execute(
+            "SELECT MIN(detection_time) FROM detections"
+        ) as cursor:
+            row = await cursor.fetchone()
+            if row and row[0]:
+                return _parse_datetime(row[0])
+            return None
 
     async def get_species_counts(self) -> list[dict]:
         async with self.db.execute(

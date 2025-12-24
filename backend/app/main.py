@@ -2,25 +2,74 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import structlog
 import asyncio
+from datetime import datetime, timedelta
 
-from app.database import init_db
+from app.database import init_db, get_db
 from app.services.mqtt_service import MQTTService
 from app.services.classifier_service import ClassifierService
 from app.services.event_processor import EventProcessor
+from app.repositories.detection_repository import DetectionRepository
 from app.routers import events, stream, proxy, settings as settings_router, species
+from app.config import settings
 from contextlib import asynccontextmanager
 
 classifier_service = ClassifierService()
 event_processor = EventProcessor(classifier_service)
 mqtt_service = MQTTService()
+log = structlog.get_logger()
+
+# Cleanup task control
+cleanup_task = None
+cleanup_running = True
+
+async def cleanup_old_detections():
+    """Background task that runs cleanup daily."""
+    global cleanup_running
+    while cleanup_running:
+        try:
+            # Wait until next cleanup time (run at 3 AM daily, or every 24 hours)
+            await asyncio.sleep(3600)  # Check every hour
+
+            # Only run cleanup once per day around 3 AM
+            now = datetime.now()
+            if now.hour == 3:
+                if settings.maintenance.retention_days > 0 and settings.maintenance.cleanup_enabled:
+                    cutoff = now - timedelta(days=settings.maintenance.retention_days)
+                    async with get_db() as db:
+                        repo = DetectionRepository(db)
+                        deleted_count = await repo.delete_older_than(cutoff)
+                    if deleted_count > 0:
+                        log.info("Automatic cleanup completed",
+                                deleted_count=deleted_count,
+                                retention_days=settings.maintenance.retention_days,
+                                cutoff=cutoff.isoformat())
+                # Sleep for 2 hours to avoid running again at 3 AM
+                await asyncio.sleep(7200)
+        except asyncio.CancelledError:
+            break
+        except Exception as e:
+            log.error("Cleanup task error", error=str(e))
+            await asyncio.sleep(3600)  # Wait an hour before retrying
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    global cleanup_task, cleanup_running
     # Startup
     await init_db()
     asyncio.create_task(mqtt_service.start(event_processor.process_mqtt_message))
+    cleanup_task = asyncio.create_task(cleanup_old_detections())
+    log.info("Background cleanup task started",
+             retention_days=settings.maintenance.retention_days,
+             enabled=settings.maintenance.cleanup_enabled)
     yield
     # Shutdown
+    cleanup_running = False
+    if cleanup_task:
+        cleanup_task.cancel()
+        try:
+            await cleanup_task
+        except asyncio.CancelledError:
+            pass
     await mqtt_service.stop()
 
 app = FastAPI(title="Yet Another WhosAtMyFeeder API", version="2.0.0", lifespan=lifespan)

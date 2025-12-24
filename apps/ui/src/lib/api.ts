@@ -23,6 +23,7 @@ export interface Settings {
     mqtt_password?: string;
     classification_threshold: number;
     cameras: string[];
+    retention_days: number;
 }
 
 export interface SettingsUpdate {
@@ -34,6 +35,21 @@ export interface SettingsUpdate {
     mqtt_password?: string;
     classification_threshold: number;
     cameras: string[];
+    retention_days: number;
+}
+
+export interface MaintenanceStats {
+    total_detections: number;
+    oldest_detection: string | null;
+    retention_days: number;
+    detections_to_cleanup: number;
+}
+
+export interface CleanupResult {
+    status: string;
+    deleted_count: number;
+    message?: string;
+    cutoff_date?: string;
 }
 
 const API_BASE = '/api';
@@ -46,9 +62,33 @@ async function handleResponse<T>(response: Response): Promise<T> {
     return response.json();
 }
 
-export async function fetchEvents(limit = 50, offset = 0): Promise<Detection[]> {
-    const response = await fetch(`${API_BASE}/events?limit=${limit}&offset=${offset}`);
+export interface FetchEventsOptions {
+    limit?: number;
+    offset?: number;
+    startDate?: string;  // YYYY-MM-DD format
+    endDate?: string;    // YYYY-MM-DD format
+}
+
+export async function fetchEvents(options: FetchEventsOptions = {}): Promise<Detection[]> {
+    const { limit = 50, offset = 0, startDate, endDate } = options;
+    const params = new URLSearchParams();
+    params.set('limit', limit.toString());
+    params.set('offset', offset.toString());
+    if (startDate) params.set('start_date', startDate);
+    if (endDate) params.set('end_date', endDate);
+
+    const response = await fetch(`${API_BASE}/events?${params.toString()}`);
     return handleResponse<Detection[]>(response);
+}
+
+export async function fetchMaintenanceStats(): Promise<MaintenanceStats> {
+    const response = await fetch(`${API_BASE}/maintenance/stats`);
+    return handleResponse<MaintenanceStats>(response);
+}
+
+export async function runCleanup(): Promise<CleanupResult> {
+    const response = await fetch(`${API_BASE}/maintenance/cleanup`, { method: 'POST' });
+    return handleResponse<CleanupResult>(response);
 }
 
 export async function fetchSpecies(): Promise<SpeciesCount[]> {

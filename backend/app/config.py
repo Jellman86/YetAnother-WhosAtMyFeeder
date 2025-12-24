@@ -26,9 +26,14 @@ class ClassificationSettings(BaseModel):
     model: str = "model.tflite"
     threshold: float = 0.7
 
+class MaintenanceSettings(BaseModel):
+    retention_days: int = Field(default=0, ge=0, description="Days to keep detections (0 = unlimited)")
+    cleanup_enabled: bool = Field(default=True, description="Enable automatic cleanup")
+
 class Settings(BaseSettings):
     frigate: FrigateSettings
     classification: ClassificationSettings = ClassificationSettings()
+    maintenance: MaintenanceSettings = MaintenanceSettings()
     
     # General app settings
     log_level: str = "INFO"
@@ -53,6 +58,12 @@ class Settings(BaseSettings):
             'mqtt_password': os.environ.get('FRIGATE__MQTT_PASSWORD', ''),
         }
 
+        # Maintenance settings
+        maintenance_data = {
+            'retention_days': int(os.environ.get('MAINTENANCE__RETENTION_DAYS', '0')),
+            'cleanup_enabled': os.environ.get('MAINTENANCE__CLEANUP_ENABLED', 'true').lower() == 'true',
+        }
+
         # Load from config file if it exists, env vars take precedence
         if CONFIG_PATH.exists():
             try:
@@ -67,12 +78,22 @@ class Settings(BaseSettings):
                         if env_key not in os.environ:
                             frigate_data[key] = value
 
+                if 'maintenance' in file_data:
+                    for key, value in file_data['maintenance'].items():
+                        env_key = f'MAINTENANCE__{key.upper()}'
+                        if env_key not in os.environ:
+                            maintenance_data[key] = value
+
                 log.info("Loaded config from file", path=str(CONFIG_PATH))
             except Exception as e:
                 log.warning("Failed to load config from file", path=str(CONFIG_PATH), error=str(e))
 
         log.info("MQTT config", server=frigate_data['mqtt_server'], port=frigate_data['mqtt_port'], auth=frigate_data['mqtt_auth'])
+        log.info("Maintenance config", retention_days=maintenance_data['retention_days'])
 
-        return cls(frigate=FrigateSettings(**frigate_data))
+        return cls(
+            frigate=FrigateSettings(**frigate_data),
+            maintenance=MaintenanceSettings(**maintenance_data)
+        )
 
 settings = Settings.load()

@@ -36,7 +36,7 @@
 
   async function loadInitial() {
       try {
-          detections = await fetchEvents();
+          detections = await fetchEvents({ limit: 50 });
       } catch (e) {
           console.error(e);
       }

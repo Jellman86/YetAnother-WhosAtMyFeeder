@@ -117,9 +117,22 @@ async def _fetch_wikipedia_info(species_name: str) -> SpeciesInfo:
                 # Common patterns: "Genus species" at start of description
                 description = data.get("description", "")
 
+                # Get the best available image - prefer originalimage, fall back to thumbnail
+                # and request a larger size
                 thumbnail_url = None
-                if "thumbnail" in data:
-                    thumbnail_url = data["thumbnail"].get("source")
+                if "originalimage" in data:
+                    thumbnail_url = data["originalimage"].get("source")
+                elif "thumbnail" in data:
+                    # Get thumbnail URL and try to get a larger version
+                    thumb_url = data["thumbnail"].get("source", "")
+                    # Wikipedia thumbnail URLs have format: .../320px-Image.jpg
+                    # We can request a larger size by changing the number
+                    if "/thumb/" in thumb_url and "px-" in thumb_url:
+                        # Replace the size with 800px for a larger image
+                        import re
+                        thumbnail_url = re.sub(r'/\d+px-', '/800px-', thumb_url)
+                    else:
+                        thumbnail_url = thumb_url
 
                 return SpeciesInfo(
                     title=data.get("title", species_name),

@@ -12,6 +12,37 @@
     let offset = $state(0);
     let hasMore = $state(true);
 
+    // Date filters
+    type DatePreset = 'all' | 'today' | 'week' | 'month' | 'custom';
+    let datePreset = $state<DatePreset>('all');
+    let customStartDate = $state('');
+    let customEndDate = $state('');
+
+    // Computed date range based on preset
+    let dateRange = $derived(() => {
+        const today = new Date();
+        const formatDate = (d: Date) => d.toISOString().split('T')[0];
+
+        switch (datePreset) {
+            case 'today':
+                return { start: formatDate(today), end: formatDate(today) };
+            case 'week': {
+                const weekAgo = new Date(today);
+                weekAgo.setDate(weekAgo.getDate() - 7);
+                return { start: formatDate(weekAgo), end: formatDate(today) };
+            }
+            case 'month': {
+                const monthAgo = new Date(today);
+                monthAgo.setDate(monthAgo.getDate() - 30);
+                return { start: formatDate(monthAgo), end: formatDate(today) };
+            }
+            case 'custom':
+                return { start: customStartDate || undefined, end: customEndDate || undefined };
+            default:
+                return { start: undefined, end: undefined };
+        }
+    });
+
     // Filters
     let speciesFilter = $state('');
     let cameraFilter = $state('');
@@ -59,7 +90,13 @@
         loading = true;
         error = null;
         try {
-            const newEvents = await fetchEvents(limit, append ? offset : 0);
+            const range = dateRange();
+            const newEvents = await fetchEvents({
+                limit,
+                offset: append ? offset : 0,
+                startDate: range.start,
+                endDate: range.end
+            });
             if (append) {
                 events = [...events, ...newEvents];
             } else {
@@ -73,6 +110,19 @@
         } finally {
             loading = false;
         }
+    }
+
+    function handleDatePresetChange(preset: DatePreset) {
+        datePreset = preset;
+        // Reset pagination when date filter changes
+        offset = 0;
+        loadEvents(false);
+    }
+
+    function applyCustomDateRange() {
+        datePreset = 'custom';
+        offset = 0;
+        loadEvents(false);
     }
 
     function loadMore() {
@@ -103,7 +153,67 @@
         </div>
     </div>
 
-    <!-- Filters -->
+    <!-- Date Filters -->
+    <div class="flex flex-wrap items-center gap-2">
+        <span class="text-sm text-slate-500 dark:text-slate-400">Date:</span>
+        {#each [
+            { value: 'all', label: 'All Time' },
+            { value: 'today', label: 'Today' },
+            { value: 'week', label: 'Week' },
+            { value: 'month', label: 'Month' },
+        ] as preset}
+            <button
+                onclick={() => handleDatePresetChange(preset.value as DatePreset)}
+                class="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors
+                       {datePreset === preset.value
+                           ? 'bg-teal-500 text-white'
+                           : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'}"
+            >
+                {preset.label}
+            </button>
+        {/each}
+        <button
+            onclick={() => datePreset = 'custom'}
+            class="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors
+                   {datePreset === 'custom'
+                       ? 'bg-teal-500 text-white'
+                       : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'}"
+        >
+            Custom
+        </button>
+    </div>
+
+    <!-- Custom Date Range -->
+    {#if datePreset === 'custom'}
+        <div class="flex flex-wrap items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
+            <div class="flex items-center gap-2">
+                <label class="text-sm text-slate-600 dark:text-slate-400">From:</label>
+                <input
+                    type="date"
+                    bind:value={customStartDate}
+                    class="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600
+                           bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm"
+                />
+            </div>
+            <div class="flex items-center gap-2">
+                <label class="text-sm text-slate-600 dark:text-slate-400">To:</label>
+                <input
+                    type="date"
+                    bind:value={customEndDate}
+                    class="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600
+                           bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm"
+                />
+            </div>
+            <button
+                onclick={applyCustomDateRange}
+                class="px-4 py-1.5 rounded-lg text-sm font-medium bg-teal-500 text-white hover:bg-teal-600 transition-colors"
+            >
+                Apply
+            </button>
+        </div>
+    {/if}
+
+    <!-- Species/Camera/Sort Filters -->
     <div class="flex flex-wrap gap-3">
         <select
             bind:value={speciesFilter}

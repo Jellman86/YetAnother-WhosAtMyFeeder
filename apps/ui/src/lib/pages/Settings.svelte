@@ -1,6 +1,17 @@
 <script lang="ts">
     import { onMount } from 'svelte';
-    import { fetchSettings, updateSettings, testFrigateConnection, fetchFrigateConfig, fetchClassifierStatus, downloadDefaultModel, type ClassifierStatus } from '../api';
+    import {
+        fetchSettings,
+        updateSettings,
+        testFrigateConnection,
+        fetchFrigateConfig,
+        fetchClassifierStatus,
+        downloadDefaultModel,
+        fetchMaintenanceStats,
+        runCleanup,
+        type ClassifierStatus,
+        type MaintenanceStats
+    } from '../api';
     import { theme, type Theme } from '../stores/theme';
 
     let frigateUrl = $state('');
@@ -11,6 +22,7 @@
     let mqttPassword = $state('');
     let threshold = $state(0.7);
     let selectedCameras = $state<string[]>([]);
+    let retentionDays = $state(0);
 
     let availableCameras = $state<string[]>([]);
     let camerasLoading = $state(false);
@@ -24,15 +36,45 @@
     let classifierStatus = $state<ClassifierStatus | null>(null);
     let downloadingModel = $state(false);
 
+    let maintenanceStats = $state<MaintenanceStats | null>(null);
+    let cleaningUp = $state(false);
+
     theme.subscribe(t => currentTheme = t);
 
     onMount(async () => {
         await Promise.all([
             loadSettings(),
             loadCameras(),
-            loadClassifierStatus()
+            loadClassifierStatus(),
+            loadMaintenanceStats()
         ]);
     });
+
+    async function loadMaintenanceStats() {
+        try {
+            maintenanceStats = await fetchMaintenanceStats();
+        } catch (e) {
+            console.error('Failed to load maintenance stats', e);
+        }
+    }
+
+    async function handleCleanup() {
+        cleaningUp = true;
+        message = null;
+        try {
+            const result = await runCleanup();
+            if (result.status === 'completed') {
+                message = { type: 'success', text: `Cleanup complete! Deleted ${result.deleted_count} old detections.` };
+            } else {
+                message = { type: 'success', text: result.message || 'No cleanup needed.' };
+            }
+            await loadMaintenanceStats();
+        } catch (e: any) {
+            message = { type: 'error', text: e.message || 'Cleanup failed' };
+        } finally {
+            cleaningUp = false;
+        }
+    }
 
     async function loadClassifierStatus() {
         try {
@@ -74,6 +116,7 @@
             mqttPassword = settings.mqtt_password || '';
             threshold = settings.classification_threshold;
             selectedCameras = settings.cameras || [];
+            retentionDays = settings.retention_days || 0;
         } catch (e) {
             message = { type: 'error', text: 'Failed to load settings' };
         } finally {
@@ -111,9 +154,11 @@
                 mqtt_username: mqttUsername,
                 mqtt_password: mqttPassword,
                 classification_threshold: threshold,
-                cameras: selectedCameras
+                cameras: selectedCameras,
+                retention_days: retentionDays
             });
             message = { type: 'success', text: 'Settings saved successfully!' };
+            await loadMaintenanceStats();  // Refresh stats after save
         } catch (e) {
             message = { type: 'error', text: 'Failed to save settings' };
         } finally {
@@ -428,6 +473,93 @@
                     <span>0% (All)</span>
                     <span>100% (Strict)</span>
                 </div>
+            </div>
+        </section>
+
+        <!-- Database Maintenance -->
+        <section class="bg-white/80 dark:bg-slate-800/50 rounded-2xl border border-slate-200/80 dark:border-slate-700/50 p-6 shadow-card dark:shadow-card-dark backdrop-blur-sm">
+            <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+                🗄️ Database Maintenance
+            </h3>
+
+            <!-- Stats -->
+            {#if maintenanceStats}
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+                    <div class="bg-slate-50 dark:bg-slate-700/50 rounded-lg p-3 text-center">
+                        <p class="text-2xl font-bold text-slate-900 dark:text-white">
+                            {maintenanceStats.total_detections.toLocaleString()}
+                        </p>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">Total Detections</p>
+                    </div>
+                    <div class="bg-slate-50 dark:bg-slate-700/50 rounded-lg p-3 text-center">
+                        <p class="text-sm font-medium text-slate-900 dark:text-white">
+                            {maintenanceStats.oldest_detection
+                                ? new Date(maintenanceStats.oldest_detection).toLocaleDateString()
+                                : 'N/A'}
+                        </p>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">Oldest Record</p>
+                    </div>
+                    <div class="bg-slate-50 dark:bg-slate-700/50 rounded-lg p-3 text-center">
+                        <p class="text-2xl font-bold text-slate-900 dark:text-white">
+                            {retentionDays === 0 ? '∞' : retentionDays}
+                        </p>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">Retention Days</p>
+                    </div>
+                    <div class="bg-slate-50 dark:bg-slate-700/50 rounded-lg p-3 text-center">
+                        <p class="text-2xl font-bold {maintenanceStats.detections_to_cleanup > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-slate-900 dark:text-white'}">
+                            {maintenanceStats.detections_to_cleanup.toLocaleString()}
+                        </p>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">Pending Cleanup</p>
+                    </div>
+                </div>
+            {/if}
+
+            <!-- Retention Setting -->
+            <div class="mb-4">
+                <label for="retention-days" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                    Data Retention Period
+                </label>
+                <div class="flex items-center gap-3">
+                    <select
+                        id="retention-days"
+                        bind:value={retentionDays}
+                        class="flex-1 px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600
+                               bg-white dark:bg-slate-700 text-slate-900 dark:text-white
+                               focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                    >
+                        <option value={0}>Unlimited (keep forever)</option>
+                        <option value={7}>7 days</option>
+                        <option value={14}>14 days</option>
+                        <option value={30}>30 days</option>
+                        <option value={60}>60 days</option>
+                        <option value={90}>90 days</option>
+                        <option value={180}>180 days</option>
+                        <option value={365}>1 year</option>
+                    </select>
+                </div>
+                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                    Detections older than this will be automatically deleted daily at 3 AM.
+                </p>
+            </div>
+
+            <!-- Manual Cleanup Button -->
+            <div class="flex items-center justify-between pt-4 border-t border-slate-200 dark:border-slate-700">
+                <div class="text-sm text-slate-500 dark:text-slate-400">
+                    {#if maintenanceStats && maintenanceStats.detections_to_cleanup > 0}
+                        {maintenanceStats.detections_to_cleanup} detections ready for cleanup
+                    {:else}
+                        No old detections to clean up
+                    {/if}
+                </div>
+                <button
+                    onclick={handleCleanup}
+                    disabled={cleaningUp || retentionDays === 0 || (maintenanceStats?.detections_to_cleanup ?? 0) === 0}
+                    class="px-4 py-2 text-sm font-medium rounded-lg
+                           bg-amber-500 hover:bg-amber-600 text-white
+                           transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                    {cleaningUp ? 'Cleaning...' : 'Run Cleanup Now'}
+                </button>
             </div>
         </section>
 
