@@ -21,6 +21,7 @@ class SettingsUpdate(BaseModel):
     classification_threshold: float = Field(..., ge=0.0, le=1.0, description="Classification confidence threshold (0-1)")
     cameras: List[str] = Field(default_factory=list, description="List of cameras to monitor")
     retention_days: int = Field(0, ge=0, description="Days to keep detections (0 = unlimited)")
+    blocked_labels: List[str] = Field(default_factory=list, description="Labels to filter out from detections")
 
     @field_validator('frigate_url')
     @classmethod
@@ -40,7 +41,8 @@ async def get_settings():
         "mqtt_password": settings.frigate.mqtt_password,
         "classification_threshold": settings.classification.threshold,
         "cameras": settings.frigate.camera,
-        "retention_days": settings.maintenance.retention_days
+        "retention_days": settings.maintenance.retention_days,
+        "blocked_labels": settings.classification.blocked_labels
     }
 
 @router.post("/settings")
@@ -57,6 +59,7 @@ async def update_settings(update: SettingsUpdate):
     settings.frigate.camera = update.cameras
     settings.classification.threshold = update.classification_threshold
     settings.maintenance.retention_days = update.retention_days
+    settings.classification.blocked_labels = update.blocked_labels
     settings.save()
     return {"status": "updated"}
 

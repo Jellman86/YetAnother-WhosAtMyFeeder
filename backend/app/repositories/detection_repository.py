@@ -60,6 +60,18 @@ class DetectionRepository:
                 return _row_to_detection(row)
             return None
 
+    async def delete_by_id(self, detection_id: int) -> bool:
+        """Delete a detection by ID. Returns True if deleted."""
+        await self.db.execute("DELETE FROM detections WHERE id = ?", (detection_id,))
+        await self.db.commit()
+        return self.db.total_changes > 0
+
+    async def delete_by_frigate_event(self, frigate_event: str) -> bool:
+        """Delete a detection by Frigate event ID. Returns True if deleted."""
+        await self.db.execute("DELETE FROM detections WHERE frigate_event = ?", (frigate_event,))
+        await self.db.commit()
+        return self.db.total_changes > 0
+
     async def create(self, detection: Detection):
         await self.db.execute("""
             INSERT INTO detections (detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name)

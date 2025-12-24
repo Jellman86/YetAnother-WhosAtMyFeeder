@@ -43,3 +43,13 @@ async def get_events_count(
 
         count = await repo.get_count(start_date=start_datetime, end_date=end_datetime)
         return {"count": count}
+
+@router.delete("/events/{event_id}")
+async def delete_event(event_id: str):
+    """Delete a detection by its Frigate event ID."""
+    async with get_db() as db:
+        repo = DetectionRepository(db)
+        deleted = await repo.delete_by_frigate_event(event_id)
+        if deleted:
+            return {"status": "deleted", "event_id": event_id}
+        raise HTTPException(status_code=404, detail="Detection not found")

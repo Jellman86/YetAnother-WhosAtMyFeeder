@@ -66,9 +66,18 @@ class EventProcessor:
 
                    top = results[0]
                    score = top['score']
-                   # TODO: Map label to common name
-                   label = top['label'] 
-                   
+                   label = top['label']
+
+                   # Filter out blocked labels (e.g., "background")
+                   if label in settings.classification.blocked_labels:
+                       log.debug("Filtered blocked label", label=label, event=frigate_event)
+                       return
+
+                   # Check minimum confidence floor
+                   if score < settings.classification.min_confidence:
+                       log.debug("Below minimum confidence", score=score, min=settings.classification.min_confidence)
+                       return
+
                    if score > settings.classification.threshold:
                        await self._save_detection(after, top, frigate_event)
                        await self._set_sublabel(frigate_event, label)

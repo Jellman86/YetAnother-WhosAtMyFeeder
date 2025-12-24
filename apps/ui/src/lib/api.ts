@@ -24,6 +24,7 @@ export interface Settings {
     classification_threshold: number;
     cameras: string[];
     retention_days: number;
+    blocked_labels: string[];
 }
 
 export interface SettingsUpdate {
@@ -36,6 +37,7 @@ export interface SettingsUpdate {
     classification_threshold: number;
     cameras: string[];
     retention_days: number;
+    blocked_labels: string[];
 }
 
 export interface MaintenanceStats {
@@ -89,6 +91,13 @@ export async function fetchMaintenanceStats(): Promise<MaintenanceStats> {
 export async function runCleanup(): Promise<CleanupResult> {
     const response = await fetch(`${API_BASE}/maintenance/cleanup`, { method: 'POST' });
     return handleResponse<CleanupResult>(response);
+}
+
+export async function deleteDetection(frigateEventId: string): Promise<{ status: string }> {
+    const response = await fetch(`${API_BASE}/events/${encodeURIComponent(frigateEventId)}`, {
+        method: 'DELETE'
+    });
+    return handleResponse<{ status: string }>(response);
 }
 
 export async function fetchSpecies(): Promise<SpeciesCount[]> {

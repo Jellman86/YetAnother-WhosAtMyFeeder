@@ -1,6 +1,6 @@
 <script lang="ts">
     import type { Detection } from '../api';
-    import { getSnapshotUrl } from '../api';
+    import { getThumbnailUrl } from '../api';
 
     interface Props {
         detection: Detection;
@@ -10,18 +10,6 @@
     let { detection, onclick }: Props = $props();
 
     let imageError = $state(false);
-    let imageLoaded = $state(false);
-
-    // Reset image loading state when detection changes
-    $effect(() => {
-        // Access detection.frigate_event to track changes
-        const _eventId = detection.frigate_event;
-        imageError = false;
-        imageLoaded = false;
-    });
-
-    // Derive the image URL from the detection
-    let imageUrl = $derived(getSnapshotUrl(detection.frigate_event));
 
     function formatTime(dateString: string): string {
         try {
@@ -70,16 +58,12 @@
     <div class="relative aspect-[4/3] bg-slate-100 dark:bg-slate-700 overflow-hidden">
         {#if !imageError}
             <img
-                src={imageUrl}
+                src={getThumbnailUrl(detection.frigate_event)}
                 alt={detection.display_name}
-                class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105
-                       {imageLoaded ? 'opacity-100' : 'opacity-0'}"
-                onload={() => imageLoaded = true}
+                class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                 onerror={() => imageError = true}
             />
-        {/if}
-
-        {#if !imageLoaded || imageError}
+        {:else}
             <div class="absolute inset-0 flex items-center justify-center text-4xl">
                 🐦
             </div>

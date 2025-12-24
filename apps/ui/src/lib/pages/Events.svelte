@@ -1,12 +1,13 @@
 <script lang="ts">
     import { onMount } from 'svelte';
-    import { fetchEvents, type Detection, getThumbnailUrl } from '../api';
+    import { fetchEvents, deleteDetection, type Detection, getThumbnailUrl } from '../api';
     import DetectionCard from '../components/DetectionCard.svelte';
     import SpeciesDetailModal from '../components/SpeciesDetailModal.svelte';
 
     let events: Detection[] = $state([]);
     let loading = $state(true);
     let error = $state<string | null>(null);
+    let deleting = $state(false);
 
     let limit = $state(24);
     let offset = $state(0);
@@ -133,6 +134,24 @@
         speciesFilter = '';
         cameraFilter = '';
         sortOrder = 'newest';
+    }
+
+    async function handleDelete() {
+        if (!selectedEvent) return;
+        if (!confirm(`Delete this ${selectedEvent.display_name} detection?`)) return;
+
+        deleting = true;
+        try {
+            await deleteDetection(selectedEvent.frigate_event);
+            // Remove from local list
+            events = events.filter(e => e.frigate_event !== selectedEvent?.frigate_event);
+            selectedEvent = null;
+        } catch (e) {
+            console.error('Failed to delete detection', e);
+            alert('Failed to delete detection');
+        } finally {
+            deleting = false;
+        }
     }
 </script>
 
@@ -365,17 +384,29 @@
                     </div>
                 </div>
 
-                <button
-                    onclick={() => {
-                        selectedSpecies = selectedEvent?.display_name ?? null;
-                        selectedEvent = null;
-                    }}
-                    class="mt-4 w-full px-4 py-2 text-sm font-medium text-teal-600 dark:text-teal-400
-                           bg-teal-50 dark:bg-teal-900/20 rounded-lg
-                           hover:bg-teal-100 dark:hover:bg-teal-900/40 transition-colors"
-                >
-                    View Species Details
-                </button>
+                <div class="mt-4 flex gap-2">
+                    <button
+                        onclick={() => {
+                            selectedSpecies = selectedEvent?.display_name ?? null;
+                            selectedEvent = null;
+                        }}
+                        class="flex-1 px-4 py-2 text-sm font-medium text-teal-600 dark:text-teal-400
+                               bg-teal-50 dark:bg-teal-900/20 rounded-lg
+                               hover:bg-teal-100 dark:hover:bg-teal-900/40 transition-colors"
+                    >
+                        View Species Details
+                    </button>
+                    <button
+                        onclick={handleDelete}
+                        disabled={deleting}
+                        class="px-4 py-2 text-sm font-medium text-red-600 dark:text-red-400
+                               bg-red-50 dark:bg-red-900/20 rounded-lg
+                               hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors
+                               disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        {deleting ? 'Deleting...' : 'Delete'}
+                    </button>
+                </div>
             </div>
         </div>
     </div>

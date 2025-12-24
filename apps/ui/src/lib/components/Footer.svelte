@@ -1,6 +1,58 @@
 <script lang="ts">
+    import { onMount } from 'svelte';
+
     const version = "2.0.0";
     const year = new Date().getFullYear();
+
+    // Bird facts - mix of real and funny
+    const birdFacts = [
+        // Real facts
+        "Hummingbirds can fly backwards and are the only birds that can hover in place",
+        "Crows can recognize human faces and remember people who have wronged them",
+        "The Arctic Tern migrates over 44,000 miles annually - the longest migration of any bird",
+        "Owls cannot move their eyeballs, which is why they can rotate their heads up to 270 degrees",
+        "A group of flamingos is called a 'flamboyance'",
+        "Pigeons can do math at roughly the same level as monkeys",
+        "The Peregrine Falcon can dive at speeds over 240 mph, making it the fastest animal on Earth",
+        "A woodpecker's tongue wraps around its skull to cushion its brain from impacts",
+        "Ravens can imitate human speech and other sounds like car engines and toilets flushing",
+        "The European Robin will attack its own reflection thinking it's a rival",
+        "Some parrots can live for over 80 years",
+        "A hummingbird's heart beats up to 1,260 times per minute",
+        "Chickens can distinguish over 100 different faces of their own species",
+        "The Bassian Thrush farts to find food - the gas startles worms out of hiding",
+        "Penguins propose to their mates with a pebble",
+        "Blue jays can mimic the calls of hawks to scare other birds away from feeders",
+        "Cardinals and robins have been observed 'anting' - letting ants crawl on them to ward off parasites",
+        "Some species of birds sleep with one eye open to watch for predators",
+        "A bird's feathers weigh more than its skeleton",
+        "Starlings can mimic over 20 different bird species",
+        // Funny ones
+        "Birds aren't real - they're government surveillance drones (allegedly)",
+        "If you've ever been pooped on by a bird, congratulations on your blessing from above",
+        "Scientists say pigeons are just beach chickens",
+        "The early bird gets the worm, but the second mouse gets the cheese",
+        "Geese have teeth on their tongues. Sleep well tonight!",
+        "Ducks have been known to commit crimes. They're fowl play experts",
+    ];
+
+    let currentFactIndex = $state(0);
+    let isTransitioning = $state(false);
+
+    onMount(() => {
+        const interval = setInterval(() => {
+            isTransitioning = true;
+            setTimeout(() => {
+                currentFactIndex = (currentFactIndex + 1) % birdFacts.length;
+                isTransitioning = false;
+            }, 300);
+        }, 8000);
+
+        // Randomize starting fact
+        currentFactIndex = Math.floor(Math.random() * birdFacts.length);
+
+        return () => clearInterval(interval);
+    });
 </script>
 
 <footer class="bg-white/50 dark:bg-slate-900/50 border-t border-slate-200/80 dark:border-slate-700/50 mt-auto backdrop-blur-sm">
@@ -35,7 +87,21 @@
             </div>
         </div>
 
-        <div class="mt-4 pt-4 border-t border-slate-200/60 dark:border-slate-700/40 text-center text-xs text-slate-500 dark:text-slate-500">
+        <!-- Bird Facts Ticker -->
+        <div class="mt-4 pt-4 border-t border-slate-200/60 dark:border-slate-700/40">
+            <div class="flex items-center justify-center gap-2 text-xs text-slate-600 dark:text-slate-400">
+                <span class="text-amber-500 dark:text-amber-400 flex-shrink-0">Did you know?</span>
+                <span
+                    class="transition-opacity duration-300 text-center"
+                    class:opacity-0={isTransitioning}
+                    class:opacity-100={!isTransitioning}
+                >
+                    {birdFacts[currentFactIndex]}
+                </span>
+            </div>
+        </div>
+
+        <div class="mt-3 text-center text-xs text-slate-500 dark:text-slate-500">
             Built with AI assistance for the love of bird watching
         </div>
     </div>

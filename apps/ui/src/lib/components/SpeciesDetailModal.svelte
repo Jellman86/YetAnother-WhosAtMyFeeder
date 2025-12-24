@@ -5,7 +5,7 @@
         fetchSpeciesInfo,
         type SpeciesStats,
         type SpeciesInfo,
-        getSnapshotUrl
+        getThumbnailUrl
     } from '../api';
     import SimpleBarChart from './SimpleBarChart.svelte';
 
@@ -298,7 +298,7 @@
                                 <div class="bg-slate-100 dark:bg-slate-700 rounded-lg overflow-hidden">
                                     <div class="aspect-square bg-slate-200 dark:bg-slate-600 relative">
                                         <img
-                                            src={getSnapshotUrl(sighting.frigate_event)}
+                                            src={getThumbnailUrl(sighting.frigate_event)}
                                             alt={sighting.display_name}
                                             class="w-full h-full object-cover"
                                             loading="lazy"

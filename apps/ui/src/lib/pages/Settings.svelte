@@ -23,6 +23,8 @@
     let threshold = $state(0.7);
     let selectedCameras = $state<string[]>([]);
     let retentionDays = $state(0);
+    let blockedLabels = $state<string[]>([]);
+    let newBlockedLabel = $state('');
 
     let availableCameras = $state<string[]>([]);
     let camerasLoading = $state(false);
@@ -117,6 +119,7 @@
             threshold = settings.classification_threshold;
             selectedCameras = settings.cameras || [];
             retentionDays = settings.retention_days || 0;
+            blockedLabels = settings.blocked_labels || [];
         } catch (e) {
             message = { type: 'error', text: 'Failed to load settings' };
         } finally {
@@ -155,7 +158,8 @@
                 mqtt_password: mqttPassword,
                 classification_threshold: threshold,
                 cameras: selectedCameras,
-                retention_days: retentionDays
+                retention_days: retentionDays,
+                blocked_labels: blockedLabels
             });
             message = { type: 'success', text: 'Settings saved successfully!' };
             await loadMaintenanceStats();  // Refresh stats after save
@@ -194,6 +198,18 @@
 
     function setTheme(t: Theme) {
         theme.set(t);
+    }
+
+    function addBlockedLabel() {
+        const label = newBlockedLabel.trim();
+        if (label && !blockedLabels.includes(label)) {
+            blockedLabels = [...blockedLabels, label];
+            newBlockedLabel = '';
+        }
+    }
+
+    function removeBlockedLabel(label: string) {
+        blockedLabels = blockedLabels.filter(l => l !== label);
     }
 </script>
 
@@ -473,6 +489,65 @@
                     <span>0% (All)</span>
                     <span>100% (Strict)</span>
                 </div>
+            </div>
+
+            <!-- Blocked Labels -->
+            <div class="pt-4 border-t border-slate-200 dark:border-slate-700">
+                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                    Blocked Labels
+                </label>
+                <p class="text-xs text-slate-500 dark:text-slate-400 mb-3">
+                    Classification results matching these labels will be filtered out (e.g., "background", "unknown").
+                </p>
+
+                <!-- Add new label -->
+                <div class="flex gap-2 mb-3">
+                    <input
+                        type="text"
+                        bind:value={newBlockedLabel}
+                        placeholder="Enter label to block..."
+                        onkeydown={(e) => e.key === 'Enter' && addBlockedLabel()}
+                        class="flex-1 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600
+                               bg-white dark:bg-slate-700 text-slate-900 dark:text-white text-sm
+                               focus:ring-2 focus:ring-teal-500 focus:border-transparent
+                               placeholder:text-slate-400 dark:placeholder:text-slate-500"
+                    />
+                    <button
+                        onclick={addBlockedLabel}
+                        disabled={!newBlockedLabel.trim()}
+                        class="px-4 py-2 text-sm font-medium rounded-lg
+                               bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300
+                               hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors
+                               disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        Add
+                    </button>
+                </div>
+
+                <!-- Current blocked labels -->
+                {#if blockedLabels.length > 0}
+                    <div class="flex flex-wrap gap-2">
+                        {#each blockedLabels as label}
+                            <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm
+                                        bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400
+                                        border border-red-200 dark:border-red-800">
+                                {label}
+                                <button
+                                    onclick={() => removeBlockedLabel(label)}
+                                    class="w-4 h-4 rounded-full hover:bg-red-200 dark:hover:bg-red-800
+                                           flex items-center justify-center transition-colors"
+                                    title="Remove"
+                                >
+                                    <span class="text-xs">×</span>
+                                </button>
+                            </span>
+                        {/each}
+                    </div>
+                {:else}
+                    <p class="text-sm text-slate-400 dark:text-slate-500 italic">
+                        No labels blocked. Common ones to block: "background", "Background"
+                    </p>
+                {/if}
             </div>
         </section>
 

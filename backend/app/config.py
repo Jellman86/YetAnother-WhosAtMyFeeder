@@ -25,6 +25,11 @@ class FrigateSettings(BaseModel):
 class ClassificationSettings(BaseModel):
     model: str = "model.tflite"
     threshold: float = 0.7
+    min_confidence: float = Field(default=0.4, ge=0.0, le=1.0, description="Minimum confidence floor (reject below this)")
+    blocked_labels: list[str] = Field(
+        default=["background", "Background"],
+        description="Labels to filter out (non-bird classifications)"
+    )
 
 class MaintenanceSettings(BaseModel):
     retention_days: int = Field(default=0, ge=0, description="Days to keep detections (0 = unlimited)")

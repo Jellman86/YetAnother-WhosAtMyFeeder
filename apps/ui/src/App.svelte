@@ -98,7 +98,7 @@
   <!-- Main Content -->
   <main class="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
       {#if currentRoute === '/' || currentRoute === ''}
-          <Dashboard {detections} />
+          <Dashboard {detections} ondelete={(eventId) => detections = detections.filter(d => d.frigate_event !== eventId)} />
       {:else if currentRoute === '/events'}
           <Events />
       {:else if currentRoute === '/species'}
