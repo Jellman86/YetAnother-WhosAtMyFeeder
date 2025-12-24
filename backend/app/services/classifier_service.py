@@ -33,7 +33,19 @@ class ClassifierService:
         }
 
     def _load_model(self):
-        assets_dir = os.path.join(os.path.dirname(__file__), "../assets")
+        # Use persistent /data/models directory (volume mounted) for model storage
+        # Falls back to local assets dir if /data/models doesn't exist (dev mode)
+        persistent_dir = "/data/models"
+        fallback_dir = os.path.join(os.path.dirname(__file__), "../assets")
+
+        # Check persistent location first, then fallback
+        if os.path.exists(os.path.join(persistent_dir, settings.classification.model)):
+            assets_dir = persistent_dir
+            log.info("Using persistent model directory", path=persistent_dir)
+        else:
+            assets_dir = fallback_dir
+            log.info("Using fallback model directory", path=fallback_dir)
+
         model_path = os.path.join(assets_dir, settings.classification.model)
         labels_path = os.path.join(assets_dir, "labels.txt")
 

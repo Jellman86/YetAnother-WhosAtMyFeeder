@@ -65,10 +65,21 @@ async def download_default_model():
     ]
     LABELS_URL = "https://raw.githubusercontent.com/google-coral/edgetpu/master/test_data/inat_bird_labels.txt"
 
-    assets_dir = Path(__file__).parent / "assets"
-    assets_dir.mkdir(parents=True, exist_ok=True)
-    model_path = assets_dir / "model.tflite"
-    labels_path = assets_dir / "labels.txt"
+    # Use persistent /data/models directory (volume mounted) for model storage
+    # This ensures models survive container updates
+    models_dir = Path("/data/models")
+    models_dir.mkdir(parents=True, exist_ok=True)
+    model_path = models_dir / "model.tflite"
+    labels_path = models_dir / "labels.txt"
+
+    # Check if model already exists
+    if model_path.exists() and labels_path.exists():
+        log.info("Model already exists, skipping download", path=str(model_path))
+        return {
+            "status": "ok",
+            "message": "Model already downloaded",
+            "path": str(model_path)
+        }
 
     # Headers to mimic a browser request
     headers = {

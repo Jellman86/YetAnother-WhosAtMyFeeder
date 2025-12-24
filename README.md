@@ -115,8 +115,13 @@ Look for whatever network your Frigate containers are using.
 **5. Create the data directories:**
 
 ```bash
-mkdir -p config data
+mkdir -p config data/models
 ```
+
+The directory structure:
+- `config/` - Configuration files (config.json)
+- `data/` - Persistent data
+  - `data/models/` - Downloaded ML models (persists across container updates)
 
 **6. Start it up:**
 
@@ -130,7 +135,7 @@ Go to `http://your-server-ip:9852` in your browser.
 
 **8. Download the bird model:**
 
-On first run, you'll need to download the classification model. Go to Settings in the web UI and click the download button, or the backend will prompt you.
+On first run, you'll need to download the classification model. Go to Settings in the web UI and click the download button. The model is saved to `data/models/` and will persist across container updates - you only need to download it once.
 
 ### Checking It's Working
 

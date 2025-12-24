@@ -21,8 +21,8 @@ services:
     networks:
       - yawamf_network
     volumes:
-      - ./config:/config
-      - ./data:/data
+      - ./config:/config        # Configuration files (config.json)
+      - ./data:/data            # Persistent data (database, models)
     ports:
       - "8946:8000"
     environment:
