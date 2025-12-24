@@ -92,7 +92,10 @@ class DetectionRepository:
         limit: int = 50,
         offset: int = 0,
         start_date: datetime | None = None,
-        end_date: datetime | None = None
+        end_date: datetime | None = None,
+        species: str | None = None,
+        camera: str | None = None,
+        sort: str = "newest"
     ) -> list[Detection]:
         query = "SELECT id, detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name FROM detections"
         params: list = []
@@ -104,11 +107,25 @@ class DetectionRepository:
         if end_date:
             conditions.append("detection_time <= ?")
             params.append(end_date.isoformat())
+        if species:
+            conditions.append("display_name = ?")
+            params.append(species)
+        if camera:
+            conditions.append("camera_name = ?")
+            params.append(camera)
 
         if conditions:
             query += " WHERE " + " AND ".join(conditions)
 
-        query += " ORDER BY detection_time DESC LIMIT ? OFFSET ?"
+        # Apply sort order
+        if sort == "oldest":
+            query += " ORDER BY detection_time ASC"
+        elif sort == "confidence":
+            query += " ORDER BY score DESC, detection_time DESC"
+        else:  # newest (default)
+            query += " ORDER BY detection_time DESC"
+
+        query += " LIMIT ? OFFSET ?"
         params.extend([limit, offset])
 
         async with self.db.execute(query, params) as cursor:
@@ -118,9 +135,11 @@ class DetectionRepository:
     async def get_count(
         self,
         start_date: datetime | None = None,
-        end_date: datetime | None = None
+        end_date: datetime | None = None,
+        species: str | None = None,
+        camera: str | None = None
     ) -> int:
-        """Get total count of detections, optionally filtered by date range."""
+        """Get total count of detections, optionally filtered."""
         query = "SELECT COUNT(*) FROM detections"
         params: list = []
         conditions = []
@@ -131,6 +150,12 @@ class DetectionRepository:
         if end_date:
             conditions.append("detection_time <= ?")
             params.append(end_date.isoformat())
+        if species:
+            conditions.append("display_name = ?")
+            params.append(species)
+        if camera:
+            conditions.append("camera_name = ?")
+            params.append(camera)
 
         if conditions:
             query += " WHERE " + " AND ".join(conditions)
@@ -138,6 +163,22 @@ class DetectionRepository:
         async with self.db.execute(query, params) as cursor:
             row = await cursor.fetchone()
             return row[0] if row else 0
+
+    async def get_unique_species(self) -> list[str]:
+        """Get list of unique species names, sorted alphabetically."""
+        async with self.db.execute(
+            "SELECT DISTINCT display_name FROM detections ORDER BY display_name ASC"
+        ) as cursor:
+            rows = await cursor.fetchall()
+            return [row[0] for row in rows]
+
+    async def get_unique_cameras(self) -> list[str]:
+        """Get list of unique camera names, sorted alphabetically."""
+        async with self.db.execute(
+            "SELECT DISTINCT camera_name FROM detections ORDER BY camera_name ASC"
+        ) as cursor:
+            rows = await cursor.fetchall()
+            return [row[0] for row in rows]
 
     async def delete_older_than(self, cutoff_date: datetime) -> int:
         """Delete detections older than the cutoff date. Returns count of deleted rows."""

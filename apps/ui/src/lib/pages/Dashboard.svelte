@@ -4,11 +4,32 @@
     import type { Detection } from '../api';
     import { getThumbnailUrl, deleteDetection } from '../api';
 
-    let { detections, ondelete } = $props<{ detections: Detection[], ondelete?: (eventId: string) => void }>();
+    interface Props {
+        detections: Detection[];
+        totalDetectionsToday?: number;
+        ondelete?: (eventId: string) => void;
+        onnavigate?: (path: string) => void;
+    }
+
+    let { detections, totalDetectionsToday = 0, ondelete, onnavigate }: Props = $props();
 
     let selectedEvent = $state<Detection | null>(null);
     let selectedSpecies = $state<string | null>(null);
     let deleting = $state(false);
+
+    // Compute stats from current detections
+    let topSpecies = $derived(() => {
+        const counts: Record<string, number> = {};
+        detections.forEach(d => {
+            counts[d.display_name] = (counts[d.display_name] || 0) + 1;
+        });
+        const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+        return sorted.length > 0 ? sorted[0][0] : null;
+    });
+
+    let uniqueSpeciesCount = $derived(() => {
+        return new Set(detections.map(d => d.display_name)).size;
+    });
 
     async function handleDelete() {
         if (!selectedEvent) return;
@@ -27,10 +48,49 @@
             deleting = false;
         }
     }
+
+    function viewAllEvents() {
+        onnavigate?.('/events');
+    }
 </script>
 
-<div class="mb-8">
-    <h2 class="text-2xl font-bold mb-4 text-gray-900 dark:text-white">Live Detections</h2>
+<!-- Header with stats -->
+<div class="mb-6">
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <h2 class="text-2xl font-bold text-slate-900 dark:text-white">Live Detections</h2>
+        <button
+            onclick={viewAllEvents}
+            class="inline-flex items-center gap-2 text-sm font-medium text-teal-600 dark:text-teal-400
+                   hover:text-teal-700 dark:hover:text-teal-300 transition-colors"
+        >
+            View all detections
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+        </button>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+        <div class="bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700 shadow-sm">
+            <p class="text-2xl font-bold text-teal-600 dark:text-teal-400">{totalDetectionsToday}</p>
+            <p class="text-sm text-slate-500 dark:text-slate-400">Today's Detections</p>
+        </div>
+        <div class="bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700 shadow-sm">
+            <p class="text-2xl font-bold text-slate-900 dark:text-white">{detections.length}</p>
+            <p class="text-sm text-slate-500 dark:text-slate-400">Showing Recent</p>
+        </div>
+        <div class="bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700 shadow-sm">
+            <p class="text-2xl font-bold text-slate-900 dark:text-white">{uniqueSpeciesCount()}</p>
+            <p class="text-sm text-slate-500 dark:text-slate-400">Species Seen</p>
+        </div>
+        <div class="bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700 shadow-sm">
+            <p class="text-lg font-bold text-slate-900 dark:text-white truncate" title={topSpecies() || 'N/A'}>
+                {topSpecies() || 'N/A'}
+            </p>
+            <p class="text-sm text-slate-500 dark:text-slate-400">Most Common</p>
+        </div>
+    </div>
 </div>
 
 <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">

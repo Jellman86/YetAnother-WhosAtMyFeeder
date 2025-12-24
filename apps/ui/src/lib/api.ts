@@ -69,18 +69,58 @@ export interface FetchEventsOptions {
     offset?: number;
     startDate?: string;  // YYYY-MM-DD format
     endDate?: string;    // YYYY-MM-DD format
+    species?: string;
+    camera?: string;
+    sort?: 'newest' | 'oldest' | 'confidence';
 }
 
 export async function fetchEvents(options: FetchEventsOptions = {}): Promise<Detection[]> {
-    const { limit = 50, offset = 0, startDate, endDate } = options;
+    const { limit = 50, offset = 0, startDate, endDate, species, camera, sort } = options;
     const params = new URLSearchParams();
     params.set('limit', limit.toString());
     params.set('offset', offset.toString());
     if (startDate) params.set('start_date', startDate);
     if (endDate) params.set('end_date', endDate);
+    if (species) params.set('species', species);
+    if (camera) params.set('camera', camera);
+    if (sort) params.set('sort', sort);
 
     const response = await fetch(`${API_BASE}/events?${params.toString()}`);
     return handleResponse<Detection[]>(response);
+}
+
+export interface EventFilters {
+    species: string[];
+    cameras: string[];
+}
+
+export async function fetchEventFilters(): Promise<EventFilters> {
+    const response = await fetch(`${API_BASE}/events/filters`);
+    return handleResponse<EventFilters>(response);
+}
+
+export interface EventsCountOptions {
+    startDate?: string;
+    endDate?: string;
+    species?: string;
+    camera?: string;
+}
+
+export interface EventsCountResponse {
+    count: number;
+    filtered: boolean;
+}
+
+export async function fetchEventsCount(options: EventsCountOptions = {}): Promise<EventsCountResponse> {
+    const { startDate, endDate, species, camera } = options;
+    const params = new URLSearchParams();
+    if (startDate) params.set('start_date', startDate);
+    if (endDate) params.set('end_date', endDate);
+    if (species) params.set('species', species);
+    if (camera) params.set('camera', camera);
+
+    const response = await fetch(`${API_BASE}/events/count?${params.toString()}`);
+    return handleResponse<EventsCountResponse>(response);
 }
 
 export async function fetchMaintenanceStats(): Promise<MaintenanceStats> {

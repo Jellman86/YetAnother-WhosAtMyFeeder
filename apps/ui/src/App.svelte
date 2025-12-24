@@ -9,6 +9,9 @@
   import { fetchEvents, type Detection } from './lib/api';
   import { theme } from './lib/stores/theme';
 
+  // Maximum detections to keep in memory for Dashboard
+  const MAX_DASHBOARD_DETECTIONS = 24;
+
   // Router state
   let currentRoute = $state('/');
 
@@ -23,20 +26,27 @@
           currentRoute = window.location.pathname;
       };
       window.addEventListener('popstate', handlePopState);
-      
+
       // Initialize theme
       theme.init();
 
       return () => window.removeEventListener('popstate', handlePopState);
   });
-  
+
   // Dashboard Logic
   let detections: Detection[] = $state([]);
   let connected = $state(false);
+  let totalDetectionsToday = $state(0);
 
   async function loadInitial() {
       try {
-          detections = await fetchEvents({ limit: 50 });
+          // Load recent detections for dashboard
+          detections = await fetchEvents({ limit: MAX_DASHBOARD_DETECTIONS });
+
+          // Get today's count for stats
+          const today = new Date().toISOString().split('T')[0];
+          const todayEvents = await fetchEvents({ limit: 1000, startDate: today, endDate: today });
+          totalDetectionsToday = todayEvents.length;
       } catch (e) {
           console.error(e);
       }
@@ -60,7 +70,9 @@
                      detection_time: payload.data.timestamp,
                      camera_name: payload.data.camera
                  };
-                 detections = [newDet, ...detections];
+                 // Add new detection and cap the array to prevent memory leak
+                 detections = [newDet, ...detections].slice(0, MAX_DASHBOARD_DETECTIONS);
+                 totalDetectionsToday++;
              }
           } catch (e) {
               console.error("SSE Parse Error", e);
@@ -82,6 +94,11 @@
       loadInitial();
       connectSSE();
   });
+
+  function handleDeleteDetection(eventId: string) {
+      detections = detections.filter(d => d.frigate_event !== eventId);
+      if (totalDetectionsToday > 0) totalDetectionsToday--;
+  }
 </script>
 
 <div class="min-h-screen flex flex-col bg-surface-light dark:bg-surface-dark text-slate-900 dark:text-white font-sans transition-colors duration-300">
@@ -98,7 +115,12 @@
   <!-- Main Content -->
   <main class="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
       {#if currentRoute === '/' || currentRoute === ''}
-          <Dashboard {detections} ondelete={(eventId) => detections = detections.filter(d => d.frigate_event !== eventId)} />
+          <Dashboard
+              {detections}
+              {totalDetectionsToday}
+              ondelete={handleDeleteDetection}
+              onnavigate={navigate}
+          />
       {:else if currentRoute === '/events'}
           <Events />
       {:else if currentRoute === '/species'}

@@ -1,17 +1,24 @@
 <script lang="ts">
     import { onMount } from 'svelte';
-    import { fetchEvents, deleteDetection, type Detection, getThumbnailUrl } from '../api';
+    import { fetchEvents, fetchEventFilters, fetchEventsCount, deleteDetection, type Detection, getThumbnailUrl } from '../api';
     import DetectionCard from '../components/DetectionCard.svelte';
     import SpeciesDetailModal from '../components/SpeciesDetailModal.svelte';
+    import Pagination from '../components/Pagination.svelte';
 
     let events: Detection[] = $state([]);
     let loading = $state(true);
     let error = $state<string | null>(null);
     let deleting = $state(false);
 
-    let limit = $state(24);
-    let offset = $state(0);
-    let hasMore = $state(true);
+    // Pagination state
+    let currentPage = $state(1);
+    let pageSize = $state(24);
+    let totalCount = $state(0);
+    let totalPages = $derived(Math.ceil(totalCount / pageSize));
+
+    // Filter options from server
+    let availableSpecies: string[] = $state([]);
+    let availableCameras: string[] = $state([]);
 
     // Date filters
     type DatePreset = 'all' | 'today' | 'week' | 'month' | 'custom';
@@ -44,97 +51,173 @@
         }
     });
 
-    // Filters
+    // Filters - now server-side
     let speciesFilter = $state('');
     let cameraFilter = $state('');
     let sortOrder = $state<'newest' | 'oldest' | 'confidence'>('newest');
-
-    // Derived unique values for filters
-    let uniqueSpecies = $derived([...new Set(events.map(e => e.display_name))].sort());
-    let uniqueCameras = $derived([...new Set(events.map(e => e.camera_name))].sort());
-
-    // Filtered and sorted events
-    let filteredEvents = $derived(() => {
-        let result = [...events];
-
-        if (speciesFilter) {
-            result = result.filter(e => e.display_name === speciesFilter);
-        }
-
-        if (cameraFilter) {
-            result = result.filter(e => e.camera_name === cameraFilter);
-        }
-
-        switch (sortOrder) {
-            case 'oldest':
-                result.sort((a, b) => new Date(a.detection_time).getTime() - new Date(b.detection_time).getTime());
-                break;
-            case 'confidence':
-                result.sort((a, b) => b.score - a.score);
-                break;
-            default: // newest
-                result.sort((a, b) => new Date(b.detection_time).getTime() - new Date(a.detection_time).getTime());
-        }
-
-        return result;
-    });
 
     // Selected event for modal
     let selectedEvent = $state<Detection | null>(null);
     let selectedSpecies = $state<string | null>(null);
 
+    // Mobile filter panel state
+    let showMobileFilters = $state(false);
+
+    // Read URL params on mount
+    function parseUrlParams() {
+        const params = new URLSearchParams(window.location.search);
+
+        const page = params.get('page');
+        if (page) currentPage = Math.max(1, parseInt(page) || 1);
+
+        const size = params.get('size');
+        if (size) pageSize = [12, 24, 48].includes(parseInt(size)) ? parseInt(size) : 24;
+
+        const species = params.get('species');
+        if (species) speciesFilter = species;
+
+        const camera = params.get('camera');
+        if (camera) cameraFilter = camera;
+
+        const sort = params.get('sort');
+        if (sort && ['newest', 'oldest', 'confidence'].includes(sort)) {
+            sortOrder = sort as typeof sortOrder;
+        }
+
+        const preset = params.get('date');
+        if (preset && ['all', 'today', 'week', 'month', 'custom'].includes(preset)) {
+            datePreset = preset as DatePreset;
+        }
+
+        const start = params.get('start');
+        if (start) customStartDate = start;
+
+        const end = params.get('end');
+        if (end) customEndDate = end;
+    }
+
+    // Update URL with current state
+    function updateUrl() {
+        const params = new URLSearchParams();
+
+        if (currentPage > 1) params.set('page', currentPage.toString());
+        if (pageSize !== 24) params.set('size', pageSize.toString());
+        if (speciesFilter) params.set('species', speciesFilter);
+        if (cameraFilter) params.set('camera', cameraFilter);
+        if (sortOrder !== 'newest') params.set('sort', sortOrder);
+        if (datePreset !== 'all') params.set('date', datePreset);
+        if (datePreset === 'custom' && customStartDate) params.set('start', customStartDate);
+        if (datePreset === 'custom' && customEndDate) params.set('end', customEndDate);
+
+        const search = params.toString();
+        const newUrl = search ? `${window.location.pathname}?${search}` : window.location.pathname;
+        window.history.replaceState(null, '', newUrl);
+    }
+
     onMount(async () => {
+        parseUrlParams();
+
+        // Load filter options
+        try {
+            const filters = await fetchEventFilters();
+            availableSpecies = filters.species;
+            availableCameras = filters.cameras;
+        } catch (e) {
+            console.error('Failed to load filters', e);
+        }
+
         await loadEvents();
     });
 
-    async function loadEvents(append = false) {
+    async function loadEvents() {
         loading = true;
         error = null;
         try {
             const range = dateRange();
-            const newEvents = await fetchEvents({
-                limit,
-                offset: append ? offset : 0,
-                startDate: range.start,
-                endDate: range.end
-            });
-            if (append) {
-                events = [...events, ...newEvents];
-            } else {
-                events = newEvents;
-                offset = 0;
+            const offset = (currentPage - 1) * pageSize;
+
+            // Fetch events and count in parallel
+            const [newEvents, countResponse] = await Promise.all([
+                fetchEvents({
+                    limit: pageSize,
+                    offset,
+                    startDate: range.start,
+                    endDate: range.end,
+                    species: speciesFilter || undefined,
+                    camera: cameraFilter || undefined,
+                    sort: sortOrder
+                }),
+                fetchEventsCount({
+                    startDate: range.start,
+                    endDate: range.end,
+                    species: speciesFilter || undefined,
+                    camera: cameraFilter || undefined
+                })
+            ]);
+
+            events = newEvents;
+            totalCount = countResponse.count;
+
+            // Ensure current page is valid
+            const maxPage = Math.max(1, Math.ceil(totalCount / pageSize));
+            if (currentPage > maxPage) {
+                currentPage = maxPage;
+                await loadEvents();
+                return;
             }
-            hasMore = newEvents.length === limit;
-            offset += newEvents.length;
+
+            updateUrl();
         } catch (e) {
             error = 'Failed to load events';
+            console.error(e);
         } finally {
             loading = false;
         }
     }
 
+    function handlePageChange(page: number) {
+        currentPage = page;
+        loadEvents();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function handlePageSizeChange(size: number) {
+        pageSize = size;
+        currentPage = 1;
+        loadEvents();
+    }
+
+    function handleFilterChange() {
+        currentPage = 1;
+        loadEvents();
+    }
+
     function handleDatePresetChange(preset: DatePreset) {
         datePreset = preset;
-        // Reset pagination when date filter changes
-        offset = 0;
-        loadEvents(false);
+        currentPage = 1;
+        loadEvents();
     }
 
     function applyCustomDateRange() {
         datePreset = 'custom';
-        offset = 0;
-        loadEvents(false);
-    }
-
-    function loadMore() {
-        loadEvents(true);
+        currentPage = 1;
+        loadEvents();
     }
 
     function clearFilters() {
         speciesFilter = '';
         cameraFilter = '';
         sortOrder = 'newest';
+        datePreset = 'all';
+        customStartDate = '';
+        customEndDate = '';
+        currentPage = 1;
+        loadEvents();
     }
+
+    let hasActiveFilters = $derived(
+        speciesFilter || cameraFilter || sortOrder !== 'newest' || datePreset !== 'all'
+    );
 
     async function handleDelete() {
         if (!selectedEvent) return;
@@ -143,8 +226,8 @@
         deleting = true;
         try {
             await deleteDetection(selectedEvent.frigate_event);
-            // Remove from local list
             events = events.filter(e => e.frigate_event !== selectedEvent?.frigate_event);
+            totalCount = Math.max(0, totalCount - 1);
             selectedEvent = null;
         } catch (e) {
             console.error('Failed to delete detection', e);
@@ -159,115 +242,154 @@
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <h2 class="text-2xl font-bold text-slate-900 dark:text-white">Events</h2>
 
-        <div class="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
-            <span>{filteredEvents().length} events</span>
-            {#if speciesFilter || cameraFilter}
+        <div class="flex items-center gap-3 text-sm text-slate-500 dark:text-slate-400">
+            <span class="font-medium text-slate-900 dark:text-white">{totalCount.toLocaleString()}</span>
+            <span>total detections</span>
+            {#if hasActiveFilters}
                 <button
                     onclick={clearFilters}
-                    class="text-teal-500 hover:text-teal-600"
+                    class="text-teal-500 hover:text-teal-600 flex items-center gap-1"
                 >
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
                     Clear filters
                 </button>
             {/if}
         </div>
     </div>
 
-    <!-- Date Filters -->
-    <div class="flex flex-wrap items-center gap-2">
-        <span class="text-sm text-slate-500 dark:text-slate-400">Date:</span>
-        {#each [
-            { value: 'all', label: 'All Time' },
-            { value: 'today', label: 'Today' },
-            { value: 'week', label: 'Week' },
-            { value: 'month', label: 'Month' },
-        ] as preset}
-            <button
-                onclick={() => handleDatePresetChange(preset.value as DatePreset)}
-                class="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors
-                       {datePreset === preset.value
-                           ? 'bg-teal-500 text-white'
-                           : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'}"
-            >
-                {preset.label}
-            </button>
-        {/each}
-        <button
-            onclick={() => datePreset = 'custom'}
-            class="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors
-                   {datePreset === 'custom'
-                       ? 'bg-teal-500 text-white'
-                       : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'}"
+    <!-- Mobile Filter Toggle -->
+    <button
+        onclick={() => showMobileFilters = !showMobileFilters}
+        class="sm:hidden w-full flex items-center justify-between px-4 py-3 rounded-xl
+               bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700
+               text-slate-700 dark:text-slate-300"
+    >
+        <span class="flex items-center gap-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+            </svg>
+            Filters & Sort
+            {#if hasActiveFilters}
+                <span class="px-2 py-0.5 rounded-full bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 text-xs font-medium">
+                    Active
+                </span>
+            {/if}
+        </span>
+        <svg
+            class="w-5 h-5 transition-transform duration-200 {showMobileFilters ? 'rotate-180' : ''}"
+            fill="none" stroke="currentColor" viewBox="0 0 24 24"
         >
-            Custom
-        </button>
-    </div>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+        </svg>
+    </button>
 
-    <!-- Custom Date Range -->
-    {#if datePreset === 'custom'}
-        <div class="flex flex-wrap items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
-            <div class="flex items-center gap-2">
-                <label class="text-sm text-slate-600 dark:text-slate-400">From:</label>
-                <input
-                    type="date"
-                    bind:value={customStartDate}
-                    class="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600
-                           bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm"
-                />
+    <!-- Filter Panel (collapsible on mobile) -->
+    <div class="{showMobileFilters ? 'block' : 'hidden'} sm:block space-y-4">
+        <!-- Date Filters -->
+        <div class="flex flex-wrap items-center gap-2">
+            <span class="text-sm text-slate-500 dark:text-slate-400 w-full sm:w-auto mb-1 sm:mb-0">Date:</span>
+            <div class="flex flex-wrap gap-2">
+                {#each [
+                    { value: 'all', label: 'All Time' },
+                    { value: 'today', label: 'Today' },
+                    { value: 'week', label: 'Week' },
+                    { value: 'month', label: 'Month' },
+                ] as preset}
+                    <button
+                        onclick={() => handleDatePresetChange(preset.value as DatePreset)}
+                        class="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors
+                               {datePreset === preset.value
+                                   ? 'bg-teal-500 text-white'
+                                   : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'}"
+                    >
+                        {preset.label}
+                    </button>
+                {/each}
+                <button
+                    onclick={() => datePreset = 'custom'}
+                    class="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors
+                           {datePreset === 'custom'
+                               ? 'bg-teal-500 text-white'
+                               : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'}"
+                >
+                    Custom
+                </button>
             </div>
-            <div class="flex items-center gap-2">
-                <label class="text-sm text-slate-600 dark:text-slate-400">To:</label>
-                <input
-                    type="date"
-                    bind:value={customEndDate}
-                    class="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600
-                           bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm"
-                />
-            </div>
-            <button
-                onclick={applyCustomDateRange}
-                class="px-4 py-1.5 rounded-lg text-sm font-medium bg-teal-500 text-white hover:bg-teal-600 transition-colors"
-            >
-                Apply
-            </button>
         </div>
-    {/if}
 
-    <!-- Species/Camera/Sort Filters -->
-    <div class="flex flex-wrap gap-3">
-        <select
-            bind:value={speciesFilter}
-            class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600
-                   bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm
-                   focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-        >
-            <option value="">All Species</option>
-            {#each uniqueSpecies as species}
-                <option value={species}>{species}</option>
-            {/each}
-        </select>
+        <!-- Custom Date Range -->
+        {#if datePreset === 'custom'}
+            <div class="flex flex-col sm:flex-row flex-wrap items-start sm:items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
+                <div class="flex items-center gap-2 w-full sm:w-auto">
+                    <label class="text-sm text-slate-600 dark:text-slate-400 w-12 sm:w-auto">From:</label>
+                    <input
+                        type="date"
+                        bind:value={customStartDate}
+                        class="flex-1 sm:flex-none px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600
+                               bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm"
+                    />
+                </div>
+                <div class="flex items-center gap-2 w-full sm:w-auto">
+                    <label class="text-sm text-slate-600 dark:text-slate-400 w-12 sm:w-auto">To:</label>
+                    <input
+                        type="date"
+                        bind:value={customEndDate}
+                        class="flex-1 sm:flex-none px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600
+                               bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm"
+                    />
+                </div>
+                <button
+                    onclick={applyCustomDateRange}
+                    class="w-full sm:w-auto px-4 py-1.5 rounded-lg text-sm font-medium bg-teal-500 text-white hover:bg-teal-600 transition-colors"
+                >
+                    Apply
+                </button>
+            </div>
+        {/if}
 
-        <select
-            bind:value={cameraFilter}
-            class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600
-                   bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm
-                   focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-        >
-            <option value="">All Cameras</option>
-            {#each uniqueCameras as camera}
-                <option value={camera}>{camera}</option>
-            {/each}
-        </select>
+        <!-- Species/Camera/Sort Filters -->
+        <div class="grid grid-cols-1 sm:flex sm:flex-wrap gap-3">
+            <select
+                bind:value={speciesFilter}
+                onchange={handleFilterChange}
+                class="w-full sm:w-auto px-3 py-2.5 sm:py-2 rounded-lg border border-slate-300 dark:border-slate-600
+                       bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm
+                       focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+            >
+                <option value="">All Species ({availableSpecies.length})</option>
+                {#each availableSpecies as species}
+                    <option value={species}>{species}</option>
+                {/each}
+            </select>
 
-        <select
-            bind:value={sortOrder}
-            class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600
-                   bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm
-                   focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-        >
-            <option value="newest">Newest First</option>
-            <option value="oldest">Oldest First</option>
-            <option value="confidence">Highest Confidence</option>
-        </select>
+            <select
+                bind:value={cameraFilter}
+                onchange={handleFilterChange}
+                class="w-full sm:w-auto px-3 py-2.5 sm:py-2 rounded-lg border border-slate-300 dark:border-slate-600
+                       bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm
+                       focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+            >
+                <option value="">All Cameras ({availableCameras.length})</option>
+                {#each availableCameras as camera}
+                    <option value={camera}>{camera}</option>
+                {/each}
+            </select>
+
+            <select
+                bind:value={sortOrder}
+                onchange={handleFilterChange}
+                class="w-full sm:w-auto px-3 py-2.5 sm:py-2 rounded-lg border border-slate-300 dark:border-slate-600
+                       bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm
+                       focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+            >
+                <option value="newest">Newest First</option>
+                <option value="oldest">Oldest First</option>
+                <option value="confidence">Highest Confidence</option>
+            </select>
+        </div>
     </div>
 
     {#if error}
@@ -283,41 +405,68 @@
                 <div class="aspect-[4/3] bg-slate-100 dark:bg-slate-800 rounded-xl animate-pulse"></div>
             {/each}
         </div>
-    {:else if filteredEvents().length === 0}
-        <div class="text-center py-16">
-            <span class="text-6xl mb-4 block">🔍</span>
+    {:else if events.length === 0}
+        <div class="text-center py-16 bg-white/80 dark:bg-slate-800/50 rounded-2xl border border-slate-200/80 dark:border-slate-700/50">
+            <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-slate-100 dark:bg-slate-700/50 flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-slate-400 dark:text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+            </div>
             <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-2">No events found</h3>
-            <p class="text-slate-500 dark:text-slate-400">
-                {#if speciesFilter || cameraFilter}
-                    Try adjusting your filters
+            <p class="text-slate-500 dark:text-slate-400 mb-4">
+                {#if hasActiveFilters}
+                    No detections match your current filters.
                 {:else}
-                    No bird detections yet
+                    No bird detections have been recorded yet.
                 {/if}
             </p>
+            {#if hasActiveFilters}
+                <button
+                    onclick={clearFilters}
+                    class="px-4 py-2 rounded-lg text-sm font-medium bg-teal-500 text-white hover:bg-teal-600 transition-colors"
+                >
+                    Clear all filters
+                </button>
+            {/if}
         </div>
     {:else}
-        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {#each filteredEvents() as event (event.frigate_event)}
-                <DetectionCard
-                    detection={event}
-                    onclick={() => selectedEvent = event}
-                />
-            {/each}
+        <!-- Top pagination -->
+        <Pagination
+            {currentPage}
+            {totalPages}
+            totalItems={totalCount}
+            itemsPerPage={pageSize}
+            onPageChange={handlePageChange}
+            onPageSizeChange={handlePageSizeChange}
+        />
+
+        <!-- Loading overlay for filter changes -->
+        <div class="relative">
+            {#if loading}
+                <div class="absolute inset-0 bg-white/50 dark:bg-slate-900/50 z-10 flex items-center justify-center rounded-xl">
+                    <div class="w-8 h-8 border-4 border-teal-500 border-t-transparent rounded-full animate-spin"></div>
+                </div>
+            {/if}
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {#each events as event (event.frigate_event)}
+                    <DetectionCard
+                        detection={event}
+                        onclick={() => selectedEvent = event}
+                    />
+                {/each}
+            </div>
         </div>
 
-        {#if hasMore && !speciesFilter && !cameraFilter}
-            <div class="flex justify-center pt-4">
-                <button
-                    onclick={loadMore}
-                    disabled={loading}
-                    class="px-6 py-3 rounded-lg font-medium text-teal-600 dark:text-teal-400
-                           bg-teal-50 dark:bg-teal-900/20 hover:bg-teal-100 dark:hover:bg-teal-900/40
-                           disabled:opacity-50 transition-colors"
-                >
-                    {loading ? 'Loading...' : 'Load More'}
-                </button>
-            </div>
-        {/if}
+        <!-- Bottom pagination -->
+        <Pagination
+            {currentPage}
+            {totalPages}
+            totalItems={totalCount}
+            itemsPerPage={pageSize}
+            onPageChange={handlePageChange}
+            onPageSizeChange={handlePageSizeChange}
+        />
     {/if}
 </div>
 

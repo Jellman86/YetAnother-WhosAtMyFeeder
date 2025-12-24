@@ -10,6 +10,27 @@
     let { detection, onclick }: Props = $props();
 
     let imageError = $state(false);
+    let imageLoaded = $state(false);
+    let cardElement = $state<HTMLElement | null>(null);
+    let isVisible = $state(false);
+
+    // Lazy load with intersection observer
+    $effect(() => {
+        if (!cardElement) return;
+
+        const observer = new IntersectionObserver(
+            (entries) => {
+                if (entries[0].isIntersecting) {
+                    isVisible = true;
+                    observer.disconnect();
+                }
+            },
+            { rootMargin: '100px' }
+        );
+
+        observer.observe(cardElement);
+        return () => observer.disconnect();
+    });
 
     function formatTime(dateString: string): string {
         try {
@@ -47,26 +68,43 @@
 
 <button
     type="button"
+    bind:this={cardElement}
     {onclick}
     class="group bg-white dark:bg-slate-800/80 rounded-2xl shadow-card dark:shadow-card-dark
-           hover:shadow-card-hover dark:hover:shadow-card-dark-hover
+           hover:shadow-lg hover:shadow-teal-500/10 dark:hover:shadow-teal-400/5
            border border-slate-200/80 dark:border-slate-700/50
-           overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:border-brand-300 dark:hover:border-brand-600
-           text-left w-full cursor-pointer backdrop-blur-sm"
+           overflow-hidden transition-all duration-300 ease-out
+           hover:-translate-y-1.5 hover:border-teal-300 dark:hover:border-teal-600
+           text-left w-full cursor-pointer backdrop-blur-sm
+           focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900"
 >
     <!-- Image Container -->
     <div class="relative aspect-[4/3] bg-slate-100 dark:bg-slate-700 overflow-hidden">
-        {#if !imageError}
+        {#if !imageError && isVisible}
+            <!-- Skeleton while loading -->
+            {#if !imageLoaded}
+                <div class="absolute inset-0 bg-gradient-to-r from-slate-200 via-slate-100 to-slate-200
+                            dark:from-slate-700 dark:via-slate-600 dark:to-slate-700 animate-shimmer"
+                     style="background-size: 200% 100%"></div>
+            {/if}
             <img
                 src={getThumbnailUrl(detection.frigate_event)}
                 alt={detection.display_name}
-                class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                class="w-full h-full object-cover transition-all duration-500
+                       group-hover:scale-110 group-hover:brightness-105
+                       {imageLoaded ? 'opacity-100' : 'opacity-0'}"
+                onload={() => imageLoaded = true}
                 onerror={() => imageError = true}
             />
-        {:else}
-            <div class="absolute inset-0 flex items-center justify-center text-4xl">
-                🐦
+        {:else if imageError}
+            <div class="absolute inset-0 flex items-center justify-center text-4xl bg-slate-50 dark:bg-slate-700">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12 text-slate-300 dark:text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
             </div>
+        {:else}
+            <!-- Placeholder before visible -->
+            <div class="absolute inset-0 bg-slate-100 dark:bg-slate-700"></div>
         {/if}
 
         <!-- Confidence Badge -->
