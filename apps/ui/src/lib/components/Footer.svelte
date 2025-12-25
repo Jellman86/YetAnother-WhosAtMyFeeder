@@ -1,10 +1,14 @@
 <script lang="ts">
     import { onMount } from 'svelte';
+    import { fetchVersion } from '../api';
 
-    // Version is injected at build time by Vite
-    declare const __APP_VERSION__: string;
-    const version = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : "2.0.0";
+    let version = $state("2.0.0");
     const year = new Date().getFullYear();
+
+    onMount(async () => {
+        const versionInfo = await fetchVersion();
+        version = versionInfo.version;
+    });
 
     // Bird facts - mix of real and funny
     const birdFacts = [

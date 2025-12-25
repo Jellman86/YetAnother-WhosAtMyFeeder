@@ -91,17 +91,23 @@ async def proxy_snapshot(event_id: str = Path(..., min_length=1, max_length=64))
 
 @router.head("/frigate/{event_id}/clip.mp4")
 async def check_clip_exists(event_id: str = Path(..., min_length=1, max_length=64)):
-    """Check if a clip exists for an event (HEAD request - no body returned)."""
+    """Check if a clip exists for an event by checking the event details."""
     if not validate_event_id(event_id):
         raise HTTPException(status_code=400, detail="Invalid event ID format")
-    url = f"{settings.frigate.frigate_url}/api/events/{event_id}/clip.mp4"
+    # Frigate doesn't support HEAD for clips, so check event exists instead
+    url = f"{settings.frigate.frigate_url}/api/events/{event_id}"
     client = get_http_client()
     headers = get_frigate_headers()
     try:
-        resp = await client.head(url, headers=headers, timeout=10.0)
+        resp = await client.get(url, headers=headers, timeout=10.0)
         if resp.status_code == 404:
-            raise HTTPException(status_code=404, detail="Clip not found")
+            raise HTTPException(status_code=404, detail="Event not found")
         resp.raise_for_status()
+        # Check if event has a clip
+        event_data = resp.json()
+        has_clip = event_data.get("has_clip", False)
+        if not has_clip:
+            raise HTTPException(status_code=404, detail="Clip not available for this event")
         return Response(status_code=200)
     except httpx.TimeoutException:
         raise HTTPException(status_code=504, detail="Frigate request timed out")
@@ -113,24 +119,42 @@ async def check_clip_exists(event_id: str = Path(..., min_length=1, max_length=6
 
 @router.get("/frigate/{event_id}/clip.mp4")
 async def proxy_clip(event_id: str = Path(..., min_length=1, max_length=64)):
+    """Stream video clip from Frigate."""
+    from fastapi.responses import StreamingResponse
+
     if not validate_event_id(event_id):
         raise HTTPException(status_code=400, detail="Invalid event ID format")
     url = f"{settings.frigate.frigate_url}/api/events/{event_id}/clip.mp4"
-    client = get_http_client()
     headers = get_frigate_headers()
+
+    async def stream_clip():
+        async with httpx.AsyncClient(timeout=None) as client:
+            async with client.stream("GET", url, headers=headers) as resp:
+                if resp.status_code == 404:
+                    return
+                resp.raise_for_status()
+                async for chunk in resp.aiter_bytes(chunk_size=65536):
+                    yield chunk
+
+    # First check if clip exists
+    client = get_http_client()
     try:
-        # Note: Streaming proxy is better for large files, but for short clips this is okay for now.
-        resp = await client.get(url, headers=headers, timeout=60.0)  # Longer timeout for video
-        if resp.status_code == 404:
+        check_resp = await client.head(url, headers=headers, timeout=10.0)
+        if check_resp.status_code == 404:
             raise HTTPException(status_code=404, detail="Clip not found")
-        resp.raise_for_status()
-        return Response(content=resp.content, media_type=resp.headers.get("content-type", "video/mp4"))
-    except httpx.TimeoutException:
-        raise HTTPException(status_code=504, detail="Frigate request timed out")
     except httpx.HTTPStatusError as e:
-        raise HTTPException(status_code=e.response.status_code, detail="Frigate error")
+        if e.response.status_code == 404:
+            raise HTTPException(status_code=404, detail="Clip not found")
+        # If HEAD fails for other reasons, try streaming anyway
     except httpx.RequestError:
-        raise HTTPException(status_code=502, detail="Failed to connect to Frigate")
+        # If HEAD fails, try streaming anyway - some servers don't support HEAD
+        pass
+
+    return StreamingResponse(
+        stream_clip(),
+        media_type="video/mp4",
+        headers={"Content-Disposition": f"inline; filename={event_id}.mp4"}
+    )
 
 @router.get("/frigate/{event_id}/thumbnail.jpg")
 async def proxy_thumb(event_id: str = Path(..., min_length=1, max_length=64)):

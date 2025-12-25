@@ -9,6 +9,12 @@ export interface Detection {
     category_name?: string;
 }
 
+export interface VersionInfo {
+    version: string;
+    base_version: string;
+    git_hash: string;
+}
+
 export interface SpeciesCount {
     species: string;
     count: number;
@@ -62,6 +68,18 @@ async function handleResponse<T>(response: Response): Promise<T> {
         throw new Error(error || `HTTP ${response.status}`);
     }
     return response.json();
+}
+
+export async function fetchVersion(): Promise<VersionInfo> {
+    try {
+        const response = await fetch(`${API_BASE}/version`);
+        if (response.ok) {
+            return await response.json();
+        }
+    } catch {
+        // Ignore errors - return fallback
+    }
+    return { version: "2.0.0", base_version: "2.0.0", git_hash: "unknown" };
 }
 
 export interface FetchEventsOptions {
