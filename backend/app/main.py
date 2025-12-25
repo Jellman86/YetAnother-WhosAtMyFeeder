@@ -9,7 +9,7 @@ from app.services.mqtt_service import MQTTService
 from app.services.classifier_service import ClassifierService
 from app.services.event_processor import EventProcessor
 from app.repositories.detection_repository import DetectionRepository
-from app.routers import events, stream, proxy, settings as settings_router, species
+from app.routers import events, stream, proxy, settings as settings_router, species, backfill
 from app.config import settings
 from contextlib import asynccontextmanager
 
@@ -91,6 +91,7 @@ app.include_router(stream.router, prefix="/api")
 app.include_router(proxy.router, prefix="/api")
 app.include_router(settings_router.router, prefix="/api")
 app.include_router(species.router, prefix="/api")
+app.include_router(backfill.router, prefix="/api", tags=["backfill"])
 
 @app.get("/health")
 async def health_check():

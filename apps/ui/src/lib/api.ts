@@ -259,3 +259,29 @@ export async function fetchSpeciesInfo(speciesName: string): Promise<SpeciesInfo
     const response = await fetch(`${API_BASE}/species/${encodeURIComponent(speciesName)}/info`);
     return handleResponse<SpeciesInfo>(response);
 }
+
+// Backfill types and functions
+export interface BackfillRequest {
+    date_range: 'day' | 'week' | 'month' | 'custom';
+    start_date?: string;  // YYYY-MM-DD format
+    end_date?: string;    // YYYY-MM-DD format
+    cameras?: string[];
+}
+
+export interface BackfillResult {
+    status: string;
+    processed: number;
+    new_detections: number;
+    skipped: number;
+    errors: number;
+    message: string;
+}
+
+export async function runBackfill(request: BackfillRequest): Promise<BackfillResult> {
+    const response = await fetch(`${API_BASE}/backfill`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(request),
+    });
+    return handleResponse<BackfillResult>(response);
+}

@@ -9,8 +9,10 @@
         downloadDefaultModel,
         fetchMaintenanceStats,
         runCleanup,
+        runBackfill,
         type ClassifierStatus,
-        type MaintenanceStats
+        type MaintenanceStats,
+        type BackfillResult
     } from '../api';
     import { theme, type Theme } from '../stores/theme';
 
@@ -40,6 +42,13 @@
 
     let maintenanceStats = $state<MaintenanceStats | null>(null);
     let cleaningUp = $state(false);
+
+    // Backfill state
+    let backfillDateRange = $state<'day' | 'week' | 'month' | 'custom'>('week');
+    let backfillStartDate = $state('');
+    let backfillEndDate = $state('');
+    let backfilling = $state(false);
+    let backfillResult = $state<BackfillResult | null>(null);
 
     theme.subscribe(t => currentTheme = t);
 
@@ -75,6 +84,30 @@
             message = { type: 'error', text: e.message || 'Cleanup failed' };
         } finally {
             cleaningUp = false;
+        }
+    }
+
+    async function handleBackfill() {
+        backfilling = true;
+        message = null;
+        backfillResult = null;
+        try {
+            const result = await runBackfill({
+                date_range: backfillDateRange,
+                start_date: backfillDateRange === 'custom' ? backfillStartDate : undefined,
+                end_date: backfillDateRange === 'custom' ? backfillEndDate : undefined
+            });
+            backfillResult = result;
+            if (result.new_detections > 0) {
+                message = { type: 'success', text: result.message };
+            } else {
+                message = { type: 'success', text: result.message };
+            }
+            await loadMaintenanceStats();
+        } catch (e: any) {
+            message = { type: 'error', text: e.message || 'Backfill failed' };
+        } finally {
+            backfilling = false;
         }
     }
 
@@ -636,6 +669,117 @@
                     {cleaningUp ? 'Cleaning...' : 'Run Cleanup Now'}
                 </button>
             </div>
+        </section>
+
+        <!-- Backfill Detections -->
+        <section class="bg-white/80 dark:bg-slate-800/50 rounded-2xl border border-slate-200/80 dark:border-slate-700/50 p-6 shadow-card dark:shadow-card-dark backdrop-blur-sm">
+            <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+                🔄 Fetch Previous Detections
+            </h3>
+
+            <p class="text-sm text-slate-500 dark:text-slate-400 mb-4">
+                Fetch historical bird detections from Frigate that may have been missed.
+                This will query Frigate's event history, classify any new detections, and add them to your database.
+            </p>
+
+            <!-- Date Range Selection -->
+            <div class="mb-4">
+                <label for="backfill-range" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                    Date Range
+                </label>
+                <select
+                    id="backfill-range"
+                    bind:value={backfillDateRange}
+                    class="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600
+                           bg-white dark:bg-slate-700 text-slate-900 dark:text-white
+                           focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                >
+                    <option value="day">Last 24 Hours</option>
+                    <option value="week">Last Week</option>
+                    <option value="month">Last Month</option>
+                    <option value="custom">Custom Range</option>
+                </select>
+            </div>
+
+            <!-- Custom Date Range -->
+            {#if backfillDateRange === 'custom'}
+                <div class="grid grid-cols-2 gap-4 mb-4 animate-in fade-in slide-in-from-top-4 duration-300">
+                    <div>
+                        <label for="backfill-start" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                            Start Date
+                        </label>
+                        <input
+                            id="backfill-start"
+                            type="date"
+                            bind:value={backfillStartDate}
+                            class="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600
+                                   bg-white dark:bg-slate-700 text-slate-900 dark:text-white
+                                   focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                        />
+                    </div>
+                    <div>
+                        <label for="backfill-end" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                            End Date
+                        </label>
+                        <input
+                            id="backfill-end"
+                            type="date"
+                            bind:value={backfillEndDate}
+                            class="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600
+                                   bg-white dark:bg-slate-700 text-slate-900 dark:text-white
+                                   focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                        />
+                    </div>
+                </div>
+            {/if}
+
+            <!-- Backfill Result -->
+            {#if backfillResult}
+                <div class="mb-4 p-3 rounded-lg bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600">
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+                        <div>
+                            <p class="text-lg font-bold text-slate-900 dark:text-white">{backfillResult.processed}</p>
+                            <p class="text-xs text-slate-500 dark:text-slate-400">Processed</p>
+                        </div>
+                        <div>
+                            <p class="text-lg font-bold text-emerald-600 dark:text-emerald-400">{backfillResult.new_detections}</p>
+                            <p class="text-xs text-slate-500 dark:text-slate-400">New</p>
+                        </div>
+                        <div>
+                            <p class="text-lg font-bold text-slate-500 dark:text-slate-400">{backfillResult.skipped}</p>
+                            <p class="text-xs text-slate-500 dark:text-slate-400">Already Existed</p>
+                        </div>
+                        <div>
+                            <p class="text-lg font-bold {backfillResult.errors > 0 ? 'text-red-600 dark:text-red-400' : 'text-slate-500 dark:text-slate-400'}">{backfillResult.errors}</p>
+                            <p class="text-xs text-slate-500 dark:text-slate-400">Errors</p>
+                        </div>
+                    </div>
+                </div>
+            {/if}
+
+            <!-- Backfill Button -->
+            <button
+                onclick={handleBackfill}
+                disabled={backfilling || (backfillDateRange === 'custom' && (!backfillStartDate || !backfillEndDate))}
+                class="w-full px-4 py-3 text-sm font-medium rounded-lg
+                       bg-brand-500 hover:bg-brand-600 text-white
+                       transition-colors disabled:opacity-50 disabled:cursor-not-allowed
+                       flex items-center justify-center gap-2"
+            >
+                {#if backfilling}
+                    <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Fetching Detections...
+                {:else}
+                    Fetch Previous Detections
+                {/if}
+            </button>
+
+            <p class="mt-2 text-xs text-slate-500 dark:text-slate-400 text-center">
+                This may take a while depending on the number of events in Frigate.
+            </p>
         </section>
 
         <!-- Appearance -->
