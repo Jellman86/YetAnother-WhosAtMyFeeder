@@ -1,6 +1,16 @@
 <script lang="ts">
     import { onMount } from 'svelte';
-    import { fetchEvents, fetchEventFilters, fetchEventsCount, deleteDetection, type Detection, getThumbnailUrl } from '../api';
+    import {
+        fetchEvents,
+        fetchEventFilters,
+        fetchEventsCount,
+        deleteDetection,
+        fetchClassifierLabels,
+        reclassifyDetection,
+        updateDetectionSpecies,
+        type Detection,
+        getThumbnailUrl
+    } from '../api';
     import DetectionCard from '../components/DetectionCard.svelte';
     import SpeciesDetailModal from '../components/SpeciesDetailModal.svelte';
     import Pagination from '../components/Pagination.svelte';
@@ -63,6 +73,13 @@
     // Mobile filter panel state
     let showMobileFilters = $state(false);
 
+    // Reclassify and manual tag state
+    let reclassifying = $state(false);
+    let showTagDropdown = $state(false);
+    let classifierLabels = $state<string[]>([]);
+    let tagSearchQuery = $state('');
+    let updatingTag = $state(false);
+
     // Read URL params on mount
     function parseUrlParams() {
         const params = new URLSearchParams(window.location.search);
@@ -117,11 +134,15 @@
     onMount(async () => {
         parseUrlParams();
 
-        // Load filter options
+        // Load filter options and classifier labels in parallel
         try {
-            const filters = await fetchEventFilters();
+            const [filters, labelsResponse] = await Promise.all([
+                fetchEventFilters(),
+                fetchClassifierLabels().catch(() => ({ labels: [] }))
+            ]);
             availableSpecies = filters.species;
             availableCameras = filters.cameras;
+            classifierLabels = labelsResponse.labels;
         } catch (e) {
             console.error('Failed to load filters', e);
         }
@@ -236,6 +257,68 @@
             deleting = false;
         }
     }
+
+    async function handleReclassify() {
+        if (!selectedEvent) return;
+
+        reclassifying = true;
+        try {
+            const result = await reclassifyDetection(selectedEvent.frigate_event);
+            if (result.updated) {
+                // Update the local event data
+                selectedEvent = { ...selectedEvent, display_name: result.new_species, score: result.new_score };
+                // Update in the events list too
+                events = events.map(e =>
+                    e.frigate_event === selectedEvent?.frigate_event
+                        ? { ...e, display_name: result.new_species, score: result.new_score }
+                        : e
+                );
+                alert(`Reclassified: ${result.old_species} → ${result.new_species} (${(result.new_score * 100).toFixed(1)}%)`);
+            } else {
+                alert(`Classification unchanged: ${result.new_species} (${(result.new_score * 100).toFixed(1)}%)`);
+            }
+        } catch (e: any) {
+            console.error('Failed to reclassify', e);
+            alert(e.message || 'Failed to reclassify detection');
+        } finally {
+            reclassifying = false;
+        }
+    }
+
+    async function handleManualTag(newSpecies: string) {
+        if (!selectedEvent || !newSpecies.trim()) return;
+
+        updatingTag = true;
+        try {
+            const result = await updateDetectionSpecies(selectedEvent.frigate_event, newSpecies.trim());
+            if (result.status === 'updated') {
+                // Update the local event data
+                selectedEvent = { ...selectedEvent, display_name: newSpecies.trim() };
+                // Update in the events list too
+                events = events.map(e =>
+                    e.frigate_event === selectedEvent?.frigate_event
+                        ? { ...e, display_name: newSpecies.trim() }
+                        : e
+                );
+            }
+            showTagDropdown = false;
+            tagSearchQuery = '';
+        } catch (e: any) {
+            console.error('Failed to update species', e);
+            alert(e.message || 'Failed to update species');
+        } finally {
+            updatingTag = false;
+        }
+    }
+
+    // Filter labels based on search query
+    let filteredLabels = $derived(
+        tagSearchQuery.trim()
+            ? classifierLabels.filter(label =>
+                label.toLowerCase().includes(tagSearchQuery.toLowerCase())
+              ).slice(0, 20)
+            : classifierLabels.slice(0, 20)
+    );
 </script>
 
 <div class="space-y-6">
@@ -550,8 +633,8 @@
                     <span class="font-medium">{selectedEvent.camera_name}</span>
                 </div>
 
-                <!-- Action buttons -->
-                <div class="flex gap-2">
+                <!-- Action buttons - Row 1 -->
+                <div class="flex gap-2 mb-2">
                     <button
                         onclick={() => {
                             selectedSpecies = selectedEvent?.display_name ?? null;
@@ -589,6 +672,91 @@
                         {/if}
                         {deleting ? 'Deleting...' : 'Delete'}
                     </button>
+                </div>
+
+                <!-- Action buttons - Row 2: Reclassify & Manual Tag -->
+                <div class="flex gap-2">
+                    <button
+                        onclick={handleReclassify}
+                        disabled={reclassifying}
+                        class="flex-1 px-4 py-2.5 text-sm font-medium text-slate-700 dark:text-slate-300
+                               bg-slate-100 dark:bg-slate-700 rounded-lg
+                               hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors
+                               disabled:opacity-50 disabled:cursor-not-allowed
+                               flex items-center justify-center gap-2"
+                    >
+                        {#if reclassifying}
+                            <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                        {:else}
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                      d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                        {/if}
+                        {reclassifying ? 'Reclassifying...' : 'Reclassify'}
+                    </button>
+                    <div class="relative flex-1">
+                        <button
+                            onclick={() => showTagDropdown = !showTagDropdown}
+                            disabled={updatingTag}
+                            class="w-full px-4 py-2.5 text-sm font-medium text-slate-700 dark:text-slate-300
+                                   bg-slate-100 dark:bg-slate-700 rounded-lg
+                                   hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors
+                                   disabled:opacity-50 disabled:cursor-not-allowed
+                                   flex items-center justify-center gap-2"
+                        >
+                            {#if updatingTag}
+                                <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                            {:else}
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                          d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                                </svg>
+                            {/if}
+                            {updatingTag ? 'Updating...' : 'Manual Tag'}
+                        </button>
+
+                        <!-- Tag Dropdown -->
+                        {#if showTagDropdown}
+                            <div class="absolute bottom-full left-0 right-0 mb-2 bg-white dark:bg-slate-800
+                                        rounded-lg shadow-xl border border-slate-200 dark:border-slate-700
+                                        max-h-64 overflow-hidden z-10">
+                                <div class="p-2 border-b border-slate-200 dark:border-slate-700">
+                                    <input
+                                        type="text"
+                                        bind:value={tagSearchQuery}
+                                        placeholder="Search species..."
+                                        class="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-600
+                                               bg-white dark:bg-slate-700 text-slate-900 dark:text-white
+                                               focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                                    />
+                                </div>
+                                <div class="max-h-48 overflow-y-auto">
+                                    {#each filteredLabels as label}
+                                        <button
+                                            onclick={() => handleManualTag(label)}
+                                            class="w-full px-3 py-2 text-left text-sm text-slate-700 dark:text-slate-300
+                                                   hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors
+                                                   {label === selectedEvent?.display_name ? 'bg-teal-50 dark:bg-teal-900/20 text-teal-700 dark:text-teal-300' : ''}"
+                                        >
+                                            {label}
+                                        </button>
+                                    {/each}
+                                    {#if filteredLabels.length === 0}
+                                        <p class="px-3 py-2 text-sm text-slate-500 dark:text-slate-400 italic">
+                                            No matching species found
+                                        </p>
+                                    {/if}
+                                </div>
+                            </div>
+                        {/if}
+                    </div>
                 </div>
             </div>
         </div>

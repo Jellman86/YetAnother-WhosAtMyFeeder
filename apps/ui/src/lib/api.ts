@@ -260,6 +260,45 @@ export async function fetchSpeciesInfo(speciesName: string): Promise<SpeciesInfo
     return handleResponse<SpeciesInfo>(response);
 }
 
+// Reclassify and manual tagging types and functions
+export interface ReclassifyResult {
+    status: string;
+    event_id: string;
+    old_species: string;
+    new_species: string;
+    new_score: number;
+    updated: boolean;
+}
+
+export interface UpdateDetectionResult {
+    status: string;
+    event_id: string;
+    old_species?: string;
+    new_species?: string;
+    species?: string;
+}
+
+export async function fetchClassifierLabels(): Promise<{ labels: string[] }> {
+    const response = await fetch(`${API_BASE}/classifier/labels`);
+    return handleResponse<{ labels: string[] }>(response);
+}
+
+export async function reclassifyDetection(eventId: string): Promise<ReclassifyResult> {
+    const response = await fetch(`${API_BASE}/events/${encodeURIComponent(eventId)}/reclassify`, {
+        method: 'POST',
+    });
+    return handleResponse<ReclassifyResult>(response);
+}
+
+export async function updateDetectionSpecies(eventId: string, displayName: string): Promise<UpdateDetectionResult> {
+    const response = await fetch(`${API_BASE}/events/${encodeURIComponent(eventId)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ display_name: displayName }),
+    });
+    return handleResponse<UpdateDetectionResult>(response);
+}
+
 // Backfill types and functions
 export interface BackfillRequest {
     date_range: 'day' | 'week' | 'month' | 'custom';

@@ -102,6 +102,11 @@ async def classifier_status():
     """Return the status of the bird classifier model."""
     return classifier_service.get_status()
 
+@app.get("/api/classifier/labels")
+async def classifier_labels():
+    """Return the list of species labels from the classifier model."""
+    return {"labels": classifier_service.labels}
+
 @app.post("/api/classifier/download")
 async def download_default_model():
     """Download the default bird classifier model."""
