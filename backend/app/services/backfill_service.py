@@ -117,7 +117,7 @@ class BackfillService:
                 repo = DetectionRepository(db)
                 existing = await repo.get_by_frigate_event(frigate_event)
                 if existing:
-                    log.debug("Event already exists, skipping", event=frigate_event)
+                    log.debug("Event already exists, skipping", event_id=frigate_event)
                     return 'skipped'
 
             # Fetch snapshot from Frigate
@@ -133,7 +133,7 @@ class BackfillService:
             )
 
             if response.status_code != 200:
-                log.warning("Failed to fetch snapshot", event=frigate_event, status=response.status_code)
+                log.warning("Failed to fetch snapshot", event_id=frigate_event, status=response.status_code)
                 return 'error'
 
             # Classify the image
@@ -141,7 +141,7 @@ class BackfillService:
             results = self.classifier.classify(image)
 
             if not results:
-                log.debug("No classification results", event=frigate_event)
+                log.debug("No classification results", event_id=frigate_event)
                 return 'error'
 
             top = results[0]
@@ -150,15 +150,15 @@ class BackfillService:
 
             # Apply same filters as real-time processing
             if label in settings.classification.blocked_labels:
-                log.debug("Filtered blocked label", label=label, event=frigate_event)
+                log.debug("Filtered blocked label", label=label, event_id=frigate_event)
                 return 'skipped'
 
             if score < settings.classification.min_confidence:
-                log.debug("Below minimum confidence", score=score, event=frigate_event)
+                log.debug("Below minimum confidence", score=score, event_id=frigate_event)
                 return 'skipped'
 
             if score <= settings.classification.threshold:
-                log.debug("Below threshold", score=score, event=frigate_event)
+                log.debug("Below threshold", score=score, event_id=frigate_event)
                 return 'skipped'
 
             # Save to database
@@ -179,7 +179,7 @@ class BackfillService:
                 repo = DetectionRepository(db)
                 await repo.create(detection)
 
-            log.info("Backfilled detection", event=frigate_event, species=label, score=score)
+            log.info("Backfilled detection", event_id=frigate_event, species=label, score=score)
 
             # Broadcast to connected clients
             await broadcaster.broadcast({
@@ -196,7 +196,7 @@ class BackfillService:
             return 'new'
 
         except Exception as e:
-            log.error("Error processing historical event", event=frigate_event, error=str(e))
+            log.error("Error processing historical event", event_id=frigate_event, error=str(e))
             return 'error'
 
     async def run_backfill(self, start: datetime, end: datetime, cameras: list[str] = None) -> BackfillResult:
