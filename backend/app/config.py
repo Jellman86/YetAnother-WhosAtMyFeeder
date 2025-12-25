@@ -27,8 +27,12 @@ class ClassificationSettings(BaseModel):
     threshold: float = 0.7
     min_confidence: float = Field(default=0.4, ge=0.0, le=1.0, description="Minimum confidence floor (reject below this)")
     blocked_labels: list[str] = Field(
+        default=[],
+        description="Labels to filter out completely (won't be saved)"
+    )
+    unknown_bird_labels: list[str] = Field(
         default=["background", "Background"],
-        description="Labels to filter out (non-bird classifications)"
+        description="Labels to relabel as 'Unknown Bird' (unidentifiable detections)"
     )
 
 class MaintenanceSettings(BaseModel):
@@ -74,7 +78,8 @@ class Settings(BaseSettings):
             'model': 'model.tflite',
             'threshold': 0.7,
             'min_confidence': 0.4,
-            'blocked_labels': ["background", "Background"]
+            'blocked_labels': [],
+            'unknown_bird_labels': ["background", "Background"]
         }
 
         # Load from config file if it exists, env vars take precedence
@@ -111,7 +116,8 @@ class Settings(BaseSettings):
         log.info("Classification config",
                  threshold=classification_data['threshold'],
                  min_confidence=classification_data['min_confidence'],
-                 blocked_labels=classification_data['blocked_labels'])
+                 blocked_labels=classification_data['blocked_labels'],
+                 unknown_bird_labels=classification_data['unknown_bird_labels'])
 
         return cls(
             frigate=FrigateSettings(**frigate_data),

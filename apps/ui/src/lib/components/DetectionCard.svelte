@@ -1,6 +1,7 @@
 <script lang="ts">
     import type { Detection } from '../api';
-    import { getThumbnailUrl } from '../api';
+    import { getThumbnailUrl, checkClipAvailable } from '../api';
+    import VideoPlayer from './VideoPlayer.svelte';
 
     interface Props {
         detection: Detection;
@@ -13,6 +14,9 @@
     let imageLoaded = $state(false);
     let cardElement = $state<HTMLElement | null>(null);
     let isVisible = $state(false);
+    let hasClip = $state(false);
+    let showVideo = $state(false);
+    let checkingClip = $state(false);
 
     // Lazy load with intersection observer
     $effect(() => {
@@ -31,6 +35,22 @@
         observer.observe(cardElement);
         return () => observer.disconnect();
     });
+
+    // Check for clip availability when visible
+    $effect(() => {
+        if (!isVisible || checkingClip || hasClip) return;
+
+        checkingClip = true;
+        checkClipAvailable(detection.frigate_event).then((available) => {
+            hasClip = available;
+            checkingClip = false;
+        });
+    });
+
+    function handlePlayClick(event: MouseEvent) {
+        event.stopPropagation();
+        showVideo = true;
+    }
 
     function formatTime(dateString: string): string {
         try {
@@ -119,6 +139,28 @@
                     bg-black/60 backdrop-blur-sm text-white text-xs">
             📷 {detection.camera_name}
         </div>
+
+        <!-- Play Button (shows when clip is available) -->
+        {#if hasClip}
+            <button
+                type="button"
+                onclick={handlePlayClick}
+                class="absolute inset-0 flex items-center justify-center
+                       bg-black/0 hover:bg-black/40 transition-colors duration-200
+                       group/play focus:outline-none"
+                aria-label="Play video clip"
+            >
+                <div class="w-14 h-14 rounded-full bg-white/90 dark:bg-slate-800/90
+                            flex items-center justify-center shadow-lg
+                            opacity-0 group-hover:opacity-100 group-focus/play:opacity-100
+                            transform scale-75 group-hover:scale-100 group-focus/play:scale-100
+                            transition-all duration-200">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-teal-600 dark:text-teal-400 ml-1" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M8 5v14l11-7z"/>
+                    </svg>
+                </div>
+            </button>
+        {/if}
     </div>
 
     <!-- Content -->
@@ -134,3 +176,11 @@
         </div>
     </div>
 </button>
+
+<!-- Video Player Modal -->
+{#if showVideo}
+    <VideoPlayer
+        frigateEvent={detection.frigate_event}
+        onClose={() => showVideo = false}
+    />
+{/if}

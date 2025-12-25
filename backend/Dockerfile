@@ -22,6 +22,10 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
+# Git hash for version tracking (passed at build time)
+ARG GIT_HASH=unknown
+ENV GIT_HASH=${GIT_HASH}
+
 # Install runtime libs for opencv/tflite
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libgl1 \

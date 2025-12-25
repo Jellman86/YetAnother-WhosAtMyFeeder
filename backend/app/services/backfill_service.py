@@ -148,6 +148,12 @@ class BackfillService:
             score = top['score']
             label = top['label']
 
+            # Relabel unknown bird classifications (e.g., "background" -> "Unknown Bird")
+            if label in settings.classification.unknown_bird_labels:
+                log.info("Relabeled to Unknown Bird", original=label, event_id=frigate_event)
+                label = "Unknown Bird"
+                top = {**top, 'label': label}
+
             # Apply same filters as real-time processing
             if label in settings.classification.blocked_labels:
                 log.debug("Filtered blocked label", label=label, event_id=frigate_event)

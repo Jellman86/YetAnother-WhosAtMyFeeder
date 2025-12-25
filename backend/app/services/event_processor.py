@@ -68,7 +68,13 @@ class EventProcessor:
                    score = top['score']
                    label = top['label']
 
-                   # Filter out blocked labels (e.g., "background")
+                   # Relabel unknown bird classifications (e.g., "background" -> "Unknown Bird")
+                   if label in settings.classification.unknown_bird_labels:
+                       log.info("Relabeled to Unknown Bird", original=label, event=frigate_event)
+                       label = "Unknown Bird"
+                       top = {**top, 'label': label}
+
+                   # Filter out blocked labels (if any configured)
                    if label in settings.classification.blocked_labels:
                        log.debug("Filtered blocked label", label=label, event=frigate_event)
                        return

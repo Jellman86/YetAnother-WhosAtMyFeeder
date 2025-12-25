@@ -217,6 +217,17 @@ export function getClipUrl(frigateEvent: string): string {
     return `${API_BASE}/frigate/${frigateEvent}/clip.mp4`;
 }
 
+export async function checkClipAvailable(frigateEvent: string): Promise<boolean> {
+    try {
+        const response = await fetch(`${API_BASE}/frigate/${frigateEvent}/clip.mp4`, {
+            method: 'HEAD'
+        });
+        return response.ok;
+    } catch {
+        return false;
+    }
+}
+
 // Species detail types
 export interface CameraStats {
     camera_name: string;

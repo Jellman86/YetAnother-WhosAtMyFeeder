@@ -19,6 +19,71 @@ CACHE_TTL_FAILURE = timedelta(minutes=15)  # Short TTL for failures to allow ret
 # User-Agent is required by Wikipedia API - they block requests without it
 WIKIPEDIA_USER_AGENT = "YA-WAMF/2.0 (Bird Watching App; https://github.com/Jellman86/YetAnother-WhosAtMyFeeder)"
 
+# Species names that should NOT trigger Wikipedia lookup (no valid article exists)
+SKIP_WIKIPEDIA_LOOKUP = {"Unknown Bird", "unknown bird", "background", "Background"}
+
+
+def _is_bird_article(data: dict) -> bool:
+    """
+    Strictly validate that a Wikipedia article is about a bird species.
+    Uses the description field which is very reliable for bird articles.
+    """
+    description = data.get("description", "").lower()
+    extract = data.get("extract", "").lower()
+
+    # Strong indicators in description - Wikipedia bird articles almost always have these
+    # Examples: "species of bird", "species of passerine bird", "species of songbird"
+    bird_description_phrases = [
+        "species of bird",
+        "species of passerine",
+        "species of songbird",
+        "species of finch",
+        "species of sparrow",
+        "species of warbler",
+        "species of thrush",
+        "species of wren",
+        "species of crow",
+        "species of jay",
+        "species of tit",
+        "species of duck",
+        "species of goose",
+        "species of owl",
+        "species of hawk",
+        "species of eagle",
+        "species of heron",
+        "species of gull",
+        "species of woodpecker",
+        "species of hummingbird",
+        "genus of bird",
+        "family of bird",
+        "order of bird",
+    ]
+
+    # Check description first - this is very reliable
+    for phrase in bird_description_phrases:
+        if phrase in description:
+            return True
+
+    # If description doesn't match, check for bird-specific terms in extract
+    # But be stricter - require multiple bird-related terms
+    bird_extract_keywords = ["bird", "avian", "ornithology", "plumage", "wingspan", "migratory"]
+    taxonomy_keywords = ["passeriformes", "aves", "passerine", "oscine", "corvidae", "paridae", "fringillidae"]
+
+    # Count how many bird-specific keywords are present
+    bird_keyword_count = sum(1 for kw in bird_extract_keywords if kw in extract)
+    taxonomy_count = sum(1 for kw in taxonomy_keywords if kw in extract)
+
+    # Require at least 2 bird keywords OR 1 taxonomy term to be confident
+    if bird_keyword_count >= 2 or taxonomy_count >= 1:
+        return True
+
+    # Special case: if "bird" is in description (not just extract), that's usually good enough
+    if "bird" in description:
+        return True
+
+    return False
+
+
 @router.get("/species")
 async def get_species_list():
     """Get list of all species with counts."""
@@ -89,6 +154,20 @@ async def clear_species_cache(species_name: str):
 async def get_species_info(species_name: str, refresh: bool = False):
     """Get Wikipedia information for a species. Use refresh=true to bypass cache."""
     log.info("Fetching species info", species=species_name, refresh=refresh)
+
+    # Skip Wikipedia lookup for non-identifiable species (e.g., "Unknown Bird")
+    if species_name in SKIP_WIKIPEDIA_LOOKUP:
+        log.info("Skipping Wikipedia lookup for non-identifiable species", species=species_name)
+        return SpeciesInfo(
+            title=species_name,
+            description="Unidentified bird species",
+            extract="This detection could not be classified to a specific species. The bird may be at an unusual angle, partially visible, or not in the model's training data.",
+            thumbnail_url=None,
+            wikipedia_url=None,
+            scientific_name=None,
+            conservation_status=None,
+            cached_at=datetime.now()
+        )
 
     # Check cache first (unless refresh requested)
     if not refresh and species_name in _wiki_cache:
@@ -208,16 +287,8 @@ async def _find_wikipedia_article(client: httpx.AsyncClient, species_name: str) 
 
             if response.status_code == 200:
                 data = response.json()
-                # Verify it's about a bird by checking the extract or description
-                extract = data.get("extract", "").lower()
-                description = data.get("description", "").lower()
-                combined = extract + " " + description
-
-                bird_keywords = ["bird", "species", "passerine", "family", "genus",
-                               "songbird", "finch", "sparrow", "tit", "warbler",
-                               "thrush", "wren", "robin", "crow", "jay"]
-
-                if any(word in combined for word in bird_keywords):
+                # Verify it's about a bird using strict validation
+                if _is_bird_article(data):
                     log.info("Found Wikipedia article via direct lookup",
                             species=species_name, article=data.get("title"), tried=title)
                     return data.get("title")
@@ -264,16 +335,16 @@ async def _find_wikipedia_article(client: httpx.AsyncClient, species_name: str) 
                     title = result.get("title", "")
                     snippet = result.get("snippet", "").lower()
 
-                    # Look for bird-related content
+                    # Quick check on snippet before making another API call
                     if any(word in snippet for word in ["bird", "species", "passerine", "avian"]):
-                        # Verify with a page summary lookup
+                        # Verify with a page summary lookup using strict validation
                         verify_url = f"{base_url}/{quote(title.replace(' ', '_'))}"
                         try:
                             verify_response = await client.get(verify_url)
                             if verify_response.status_code == 200:
                                 verify_data = verify_response.json()
-                                verify_extract = verify_data.get("extract", "").lower()
-                                if any(word in verify_extract for word in ["bird", "species", "passerine"]):
+                                # Use strict validation
+                                if _is_bird_article(verify_data):
                                     log.info("Found Wikipedia article via search",
                                             species=species_name, article=title, query=search_query)
                                     return title

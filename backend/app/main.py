@@ -2,6 +2,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import structlog
 import asyncio
+import os
+import subprocess
 from datetime import datetime, timedelta
 
 from app.database import init_db, get_db
@@ -17,6 +19,34 @@ classifier_service = ClassifierService()
 event_processor = EventProcessor(classifier_service)
 mqtt_service = MQTTService()
 log = structlog.get_logger()
+
+# Version management
+BASE_VERSION = "2.0.0"
+
+def get_git_hash() -> str:
+    """Get git commit hash from environment or by running git."""
+    # First check environment variable (set during Docker build)
+    git_hash = os.environ.get('GIT_HASH', '').strip()
+    if git_hash:
+        return git_hash
+
+    # Try to get from git command (for development)
+    try:
+        result = subprocess.run(
+            ['git', 'rev-parse', '--short', 'HEAD'],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        if result.returncode == 0:
+            return result.stdout.strip()
+    except (subprocess.SubprocessError, FileNotFoundError):
+        pass
+
+    return "unknown"
+
+GIT_HASH = get_git_hash()
+APP_VERSION = f"{BASE_VERSION}+{GIT_HASH}"
 
 # Cleanup task control
 cleanup_task = None
@@ -72,7 +102,7 @@ async def lifespan(app: FastAPI):
             pass
     await mqtt_service.stop()
 
-app = FastAPI(title="Yet Another WhosAtMyFeeder API", version="2.0.0", lifespan=lifespan)
+app = FastAPI(title="Yet Another WhosAtMyFeeder API", version=APP_VERSION, lifespan=lifespan)
 
 # Setup structured logging
 log = structlog.get_logger()
@@ -95,7 +125,16 @@ app.include_router(backfill.router, prefix="/api", tags=["backfill"])
 
 @app.get("/health")
 async def health_check():
-    return {"status": "ok", "service": "ya-wamf-backend"}
+    return {"status": "ok", "service": "ya-wamf-backend", "version": APP_VERSION}
+
+@app.get("/api/version")
+async def get_version():
+    """Return the application version info."""
+    return {
+        "version": APP_VERSION,
+        "base_version": BASE_VERSION,
+        "git_hash": GIT_HASH
+    }
 
 @app.get("/api/classifier/status")
 async def classifier_status():

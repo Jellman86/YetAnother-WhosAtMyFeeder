@@ -3,6 +3,10 @@ FROM node:20 as builder
 
 WORKDIR /app
 
+# Git hash for version tracking (passed at build time)
+ARG GIT_HASH=unknown
+ENV GIT_HASH=${GIT_HASH}
+
 # Copy package files
 COPY package.json package-lock.json ./
 
@@ -17,6 +21,7 @@ RUN echo "=== Files in /app ===" && ls -la
 RUN echo "=== Files in /app/src ===" && ls -la src/
 RUN echo "=== Node version ===" && node --version
 RUN echo "=== NPM version ===" && npm --version
+RUN echo "=== Git hash ===" && echo $GIT_HASH
 
 # Run build with full output
 RUN npm run build 2>&1

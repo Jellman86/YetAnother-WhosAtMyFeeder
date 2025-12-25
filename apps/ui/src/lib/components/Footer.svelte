@@ -1,7 +1,9 @@
 <script lang="ts">
     import { onMount } from 'svelte';
 
-    const version = "2.0.0";
+    // Version is injected at build time by Vite
+    declare const __APP_VERSION__: string;
+    const version = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : "2.0.0";
     const year = new Date().getFullYear();
 
     // Bird facts - mix of real and funny

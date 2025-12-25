@@ -89,6 +89,28 @@ async def proxy_snapshot(event_id: str = Path(..., min_length=1, max_length=64))
     except httpx.RequestError:
         raise HTTPException(status_code=502, detail="Failed to connect to Frigate")
 
+@router.head("/frigate/{event_id}/clip.mp4")
+async def check_clip_exists(event_id: str = Path(..., min_length=1, max_length=64)):
+    """Check if a clip exists for an event (HEAD request - no body returned)."""
+    if not validate_event_id(event_id):
+        raise HTTPException(status_code=400, detail="Invalid event ID format")
+    url = f"{settings.frigate.frigate_url}/api/events/{event_id}/clip.mp4"
+    client = get_http_client()
+    headers = get_frigate_headers()
+    try:
+        resp = await client.head(url, headers=headers, timeout=10.0)
+        if resp.status_code == 404:
+            raise HTTPException(status_code=404, detail="Clip not found")
+        resp.raise_for_status()
+        return Response(status_code=200)
+    except httpx.TimeoutException:
+        raise HTTPException(status_code=504, detail="Frigate request timed out")
+    except httpx.HTTPStatusError as e:
+        raise HTTPException(status_code=e.response.status_code, detail="Frigate error")
+    except httpx.RequestError:
+        raise HTTPException(status_code=502, detail="Failed to connect to Frigate")
+
+
 @router.get("/frigate/{event_id}/clip.mp4")
 async def proxy_clip(event_id: str = Path(..., min_length=1, max_length=64)):
     if not validate_event_id(event_id):
