@@ -183,11 +183,13 @@ async def reclassify_event(event_id: str):
                 # Update if species changed
                 updated = False
                 if new_species != old_species:
-                    detection.display_name = new_species
-                    detection.category_name = new_species
-                    detection.score = new_score
-                    detection.detection_index = top['index']
-                    await repo.update(detection)
+                    # Execute update directly for reliability
+                    await db.execute("""
+                        UPDATE detections
+                        SET display_name = ?, category_name = ?, score = ?, detection_index = ?
+                        WHERE frigate_event = ?
+                    """, (new_species, new_species, new_score, top['index'], event_id))
+                    await db.commit()
                     updated = True
                     log.info("Reclassified detection",
                              event_id=event_id,
@@ -225,6 +227,12 @@ async def update_event(event_id: str, request: UpdateDetectionRequest):
         old_species = detection.display_name
         new_species = request.display_name.strip()
 
+        log.debug("Manual tag request",
+                  event_id=event_id,
+                  old_species=old_species,
+                  new_species=new_species,
+                  frigate_event=detection.frigate_event)
+
         if old_species == new_species:
             return {
                 "status": "unchanged",
@@ -232,10 +240,17 @@ async def update_event(event_id: str, request: UpdateDetectionRequest):
                 "species": new_species
             }
 
-        # Update the detection
+        # Update the detection - create new object to ensure all fields are set
         detection.display_name = new_species
         detection.category_name = new_species
-        await repo.update(detection)
+
+        # Execute update directly for reliability
+        await db.execute("""
+            UPDATE detections
+            SET display_name = ?, category_name = ?
+            WHERE frigate_event = ?
+        """, (new_species, new_species, event_id))
+        await db.commit()
 
         log.info("Manually updated detection species",
                  event_id=event_id,
