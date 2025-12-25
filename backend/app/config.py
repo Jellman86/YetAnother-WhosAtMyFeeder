@@ -69,6 +69,14 @@ class Settings(BaseSettings):
             'cleanup_enabled': os.environ.get('MAINTENANCE__CLEANUP_ENABLED', 'true').lower() == 'true',
         }
 
+        # Classification settings (loaded from file only, no env vars)
+        classification_data = {
+            'model': 'model.tflite',
+            'threshold': 0.7,
+            'min_confidence': 0.4,
+            'blocked_labels': ["background", "Background"]
+        }
+
         # Load from config file if it exists, env vars take precedence
         if CONFIG_PATH.exists():
             try:
@@ -89,15 +97,25 @@ class Settings(BaseSettings):
                         if env_key not in os.environ:
                             maintenance_data[key] = value
 
+                if 'classification' in file_data:
+                    for key, value in file_data['classification'].items():
+                        if value is not None:  # Guard against null values in config
+                            classification_data[key] = value
+
                 log.info("Loaded config from file", path=str(CONFIG_PATH))
             except Exception as e:
                 log.warning("Failed to load config from file", path=str(CONFIG_PATH), error=str(e))
 
         log.info("MQTT config", server=frigate_data['mqtt_server'], port=frigate_data['mqtt_port'], auth=frigate_data['mqtt_auth'])
         log.info("Maintenance config", retention_days=maintenance_data['retention_days'])
+        log.info("Classification config",
+                 threshold=classification_data['threshold'],
+                 min_confidence=classification_data['min_confidence'],
+                 blocked_labels=classification_data['blocked_labels'])
 
         return cls(
             frigate=FrigateSettings(**frigate_data),
+            classification=ClassificationSettings(**classification_data),
             maintenance=MaintenanceSettings(**maintenance_data)
         )
 
