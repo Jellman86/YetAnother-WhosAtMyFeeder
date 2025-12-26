@@ -126,15 +126,23 @@ async def get_events(
         event_ids = [e.frigate_event for e in events]
         clip_availability = await batch_check_clips(event_ids)
 
+        # Get labels that should be displayed as "Unknown Bird"
+        unknown_labels = settings.classification.unknown_bird_labels
+
         # Convert to response models with clip info
         response_events = []
         for event in events:
+            # Transform unknown bird labels for display
+            display_name = event.display_name
+            if display_name in unknown_labels:
+                display_name = "Unknown Bird"
+
             response_event = DetectionResponse(
                 id=event.id,
                 detection_time=event.detection_time,
                 detection_index=event.detection_index,
                 score=event.score,
-                display_name=event.display_name,
+                display_name=display_name,
                 category_name=event.category_name,
                 frigate_event=event.frigate_event,
                 camera_name=event.camera_name,

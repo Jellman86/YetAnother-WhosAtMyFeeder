@@ -142,11 +142,11 @@ async def proxy_clip(
     if range_header:
         headers["Range"] = range_header
 
+    client = httpx.AsyncClient(timeout=120.0)
     try:
-        client = httpx.AsyncClient(timeout=120.0)
         req = client.build_request("GET", clip_url, headers=headers)
         r = await client.send(req, stream=True)
-        
+
         if r.status_code == 404:
             await r.aclose()
             await client.aclose()
@@ -157,7 +157,7 @@ async def proxy_clip(
             "Accept-Ranges": "bytes",
             "Content-Disposition": f"inline; filename={event_id}.mp4",
         }
-        
+
         if "content-length" in r.headers:
             response_headers["Content-Length"] = r.headers["content-length"]
         if "content-range" in r.headers:
@@ -167,14 +167,19 @@ async def proxy_clip(
         else:
             response_headers["Content-Type"] = "video/mp4"
 
+        async def cleanup():
+            await r.aclose()
+            await client.aclose()
+
         return StreamingResponse(
             r.aiter_bytes(),
             status_code=r.status_code,
             headers=response_headers,
-            background=BackgroundTask(client.aclose)
+            background=BackgroundTask(cleanup)
         )
 
     except httpx.RequestError:
+        await client.aclose()
         raise HTTPException(status_code=502, detail="Failed to connect to Frigate")
 
 @router.get("/frigate/{event_id}/thumbnail.jpg")

@@ -7,6 +7,7 @@ import structlog
 from app.database import get_db
 from app.repositories.detection_repository import DetectionRepository
 from app.models import SpeciesStats, SpeciesInfo, CameraStats, Detection
+from app.config import settings
 
 router = APIRouter()
 log = structlog.get_logger()
@@ -90,7 +91,25 @@ async def get_species_list():
     async with get_db() as db:
         repo = DetectionRepository(db)
         stats = await repo.get_species_counts()
-        return stats
+
+        # Transform unknown bird labels for display and aggregate counts
+        unknown_labels = settings.classification.unknown_bird_labels
+        unknown_count = 0
+        filtered_stats = []
+
+        for s in stats:
+            if s["species"] in unknown_labels:
+                unknown_count += s["count"]
+            else:
+                filtered_stats.append(s)
+
+        # Add aggregated "Unknown Bird" entry if any were found
+        if unknown_count > 0:
+            filtered_stats.append({"species": "Unknown Bird", "count": unknown_count})
+            # Re-sort by count descending
+            filtered_stats.sort(key=lambda x: x["count"], reverse=True)
+
+        return filtered_stats
 
 @router.get("/species/{species_name}/stats", response_model=SpeciesStats)
 async def get_species_stats(species_name: str):
@@ -98,26 +117,89 @@ async def get_species_stats(species_name: str):
     async with get_db() as db:
         repo = DetectionRepository(db)
 
-        # Get all stats in parallel-ish (they're all DB queries)
-        basic_stats = await repo.get_species_basic_stats(species_name)
+        # For "Unknown Bird" queries, we need to aggregate stats from all unknown labels
+        unknown_labels = settings.classification.unknown_bird_labels
+        is_unknown_query = species_name == "Unknown Bird"
 
-        if basic_stats["total"] == 0:
+        if is_unknown_query:
+            # Aggregate stats for all unknown bird labels
+            query_labels = list(unknown_labels)
+        else:
+            query_labels = [species_name]
+
+        # Get all stats - aggregate if multiple labels
+        total_stats = {"total": 0, "first_seen": None, "last_seen": None,
+                       "avg_confidence": 0.0, "max_confidence": 0.0, "min_confidence": 1.0}
+        all_camera_stats = []
+        hourly = [0] * 24
+        daily = [0] * 7
+        monthly = [0] * 12
+        recent = []
+        confidence_sum = 0.0
+        confidence_count = 0
+
+        for label in query_labels:
+            basic_stats = await repo.get_species_basic_stats(label)
+            if basic_stats["total"] > 0:
+                total_stats["total"] += basic_stats["total"]
+                if basic_stats["first_seen"]:
+                    if total_stats["first_seen"] is None or basic_stats["first_seen"] < total_stats["first_seen"]:
+                        total_stats["first_seen"] = basic_stats["first_seen"]
+                if basic_stats["last_seen"]:
+                    if total_stats["last_seen"] is None or basic_stats["last_seen"] > total_stats["last_seen"]:
+                        total_stats["last_seen"] = basic_stats["last_seen"]
+                total_stats["max_confidence"] = max(total_stats["max_confidence"], basic_stats["max_confidence"])
+                total_stats["min_confidence"] = min(total_stats["min_confidence"], basic_stats["min_confidence"])
+                confidence_sum += basic_stats["avg_confidence"] * basic_stats["total"]
+                confidence_count += basic_stats["total"]
+
+                # Aggregate distributions
+                label_hourly = await repo.get_hourly_distribution(label)
+                label_daily = await repo.get_daily_distribution(label)
+                label_monthly = await repo.get_monthly_distribution(label)
+                hourly = [h + lh for h, lh in zip(hourly, label_hourly)]
+                daily = [d + ld for d, ld in zip(daily, label_daily)]
+                monthly = [m + lm for m, lm in zip(monthly, label_monthly)]
+
+                # Get camera breakdown
+                label_cameras = await repo.get_camera_breakdown(label)
+                all_camera_stats.extend(label_cameras)
+
+                # Get recent sightings
+                label_recent = await repo.get_recent_by_species(label, limit=5)
+                recent.extend(label_recent)
+
+        if total_stats["total"] == 0:
             raise HTTPException(status_code=404, detail=f"No sightings found for species: {species_name}")
 
-        camera_breakdown = await repo.get_camera_breakdown(species_name)
-        hourly = await repo.get_hourly_distribution(species_name)
-        daily = await repo.get_daily_distribution(species_name)
-        monthly = await repo.get_monthly_distribution(species_name)
-        recent = await repo.get_recent_by_species(species_name, limit=5)
+        # Calculate average confidence
+        if confidence_count > 0:
+            total_stats["avg_confidence"] = confidence_sum / confidence_count
+
+        # Aggregate camera stats
+        camera_counts = {}
+        for cs in all_camera_stats:
+            cam = cs["camera_name"]
+            camera_counts[cam] = camera_counts.get(cam, 0) + cs["count"]
+        total_cam_count = sum(camera_counts.values())
+        camera_breakdown = [
+            {"camera_name": cam, "count": count, "percentage": (count / total_cam_count * 100) if total_cam_count > 0 else 0.0}
+            for cam, count in sorted(camera_counts.items(), key=lambda x: x[1], reverse=True)
+        ]
+
+        # Sort recent by time and limit to 5
+        recent.sort(key=lambda x: x.detection_time, reverse=True)
+        recent = recent[:5]
 
         # Convert dataclass detections to Pydantic models
+        # Also transform display_name for unknown bird labels
         recent_detections = [
             Detection(
                 id=d.id,
                 detection_time=d.detection_time,
                 detection_index=d.detection_index,
                 score=d.score,
-                display_name=d.display_name,
+                display_name="Unknown Bird" if d.display_name in unknown_labels else d.display_name,
                 category_name=d.category_name,
                 frigate_event=d.frigate_event,
                 camera_name=d.camera_name
@@ -127,16 +209,16 @@ async def get_species_stats(species_name: str):
 
         return SpeciesStats(
             species_name=species_name,
-            total_sightings=basic_stats["total"],
-            first_seen=basic_stats["first_seen"],
-            last_seen=basic_stats["last_seen"],
+            total_sightings=total_stats["total"],
+            first_seen=total_stats["first_seen"],
+            last_seen=total_stats["last_seen"],
             cameras=[CameraStats(**c) for c in camera_breakdown],
             hourly_distribution=hourly,
             daily_distribution=daily,
             monthly_distribution=monthly,
-            avg_confidence=basic_stats["avg_confidence"],
-            max_confidence=basic_stats["max_confidence"],
-            min_confidence=basic_stats["min_confidence"],
+            avg_confidence=total_stats["avg_confidence"],
+            max_confidence=total_stats["max_confidence"],
+            min_confidence=total_stats["min_confidence"],
             recent_sightings=recent_detections
         )
 

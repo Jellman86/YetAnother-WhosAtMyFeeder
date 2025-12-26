@@ -28,6 +28,7 @@ export interface Settings {
     mqtt_auth: boolean;
     mqtt_username?: string;
     mqtt_password?: string;
+    clips_enabled: boolean;
     classification_threshold: number;
     cameras: string[];
     retention_days: number;
@@ -41,6 +42,7 @@ export interface SettingsUpdate {
     mqtt_auth: boolean;
     mqtt_username?: string;
     mqtt_password?: string;
+    clips_enabled: boolean;
     classification_threshold: number;
     cameras: string[];
     retention_days: number;
