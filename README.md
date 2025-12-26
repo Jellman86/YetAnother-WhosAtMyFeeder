@@ -17,6 +17,8 @@ When Frigate detects a bird at your feeder, YA-WAMF:
 4. Keeps track of all your visitors in a nice dashboard
 5. Proxies video clips from Frigate with full streaming and seeking support
 
+**Bonus:** If something other than a bird shows up (squirrels, raccoons, foxes...), you can use the optional **Wildlife Classifier** to identify it!
+
 ## How It Works
 
 Here's the flow from bird to identification:
@@ -178,6 +180,7 @@ Most settings can be changed through the web UI under Settings. They get saved t
 | MQTT Server | Your MQTT broker hostname | mqtt |
 | Classification Threshold | How confident the model needs to be (0-1) | 0.7 |
 | Fetch Video Clips | Enable/disable proxying clips from Frigate (saves bandwidth) | Enabled |
+| Wildlife Model | Optional general animal classifier (download in Settings) | Not installed |
 
 ## Tech Stack
 
@@ -192,6 +195,25 @@ YA-WAMF includes a robust video proxy that streams clips directly from Frigate. 
 - **Instant Playback:** Starts playing immediately without waiting for the whole file.
 - **Seeking:** You can jump to any part of the video (scrubbing) thanks to HTTP Range support.
 - **Bandwidth Control:** If you are on a metered connection or want to reduce load, you can disable "Fetch Video Clips" in the Settings. This prevents the backend from fetching heavy video files.
+
+## Wildlife Classification (Optional)
+
+Sometimes non-birds show up at your feeder - squirrels, raccoons, foxes, and more. YA-WAMF includes an optional wildlife classifier to identify these visitors.
+
+**Setup:**
+1. Go to **Settings** in the web UI
+2. Find the **Wildlife Classifier** section
+3. Click **Download Wildlife Model** (one-time ~50MB download)
+
+**Usage:**
+- When viewing any detection, click the **Identify Animal** button
+- The classifier will suggest what animal it might be
+- Click a result to apply it as the species label
+
+**Model Details:**
+- Uses EfficientNet-Lite4 trained on ImageNet (1000+ classes)
+- Runs entirely on CPU (~2-3 seconds per image)
+- Includes common backyard animals: squirrels, foxes, rabbits, raccoons, deer, skunks, and more
 
 ## Contributing
 

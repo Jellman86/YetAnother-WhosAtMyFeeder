@@ -97,8 +97,17 @@ class ModelInstance:
         input_data = np.expand_dims(padded_image, axis=0)
 
         # Check input type and normalize accordingly
+        # Note: Different models expect different normalization:
+        # - MobileNet/Bird model: [-1, 1] range via (x - 127.5) / 127.5
+        # - EfficientNet-Lite: [0, 1] range via x / 255.0
         if input_details['dtype'] == np.float32:
-            input_data = (np.float32(input_data) - 127.5) / 127.5
+            # Check if this is likely EfficientNet (300x300 input) vs MobileNet (224x224)
+            if target_height == 300 or target_width == 300:
+                # EfficientNet-Lite expects [0, 1] normalization
+                input_data = np.float32(input_data) / 255.0
+            else:
+                # MobileNet/Bird classifier expects [-1, 1] normalization
+                input_data = (np.float32(input_data) - 127.5) / 127.5
         elif input_details['dtype'] == np.uint8:
             input_data = np.uint8(input_data)
 

@@ -243,11 +243,17 @@ async def download_wildlife_model():
             labels_response = await client.get(LABELS_URL, headers=headers)
             labels_response.raise_for_status()
 
-            # ImageNet labels file has 1001 classes (index 0 is "background")
+            # ImageNet labels file has 1001 classes: index 0 is "background", indices 1-1000 are the classes
+            # EfficientNet outputs indices 0-999 for the 1000 ImageNet classes
+            # So we skip the first "background" label to align indices correctly
             lines = labels_response.text.strip().split('\n')
             processed_labels = []
-            for line in lines:
+            for i, line in enumerate(lines):
                 label = line.strip()
+                # Skip the "background" label at index 0
+                if i == 0 and label.lower() == 'background':
+                    log.debug("Skipping background label at index 0")
+                    continue
                 if label:
                     processed_labels.append(label)
 

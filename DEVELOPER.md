@@ -39,7 +39,7 @@ YA-WAMF is a full-stack application that integrates with [Frigate NVR](https://f
 │                        YA-WAMF Backend                               │
 │  ┌─────────────┐  ┌──────────────┐  ┌─────────────────────────┐     │
 │  │ MQTTService │──│EventProcessor│──│  ClassifierService      │     │
-│  │ (listener)  │  │ (orchestrator)│  │  (TFLite bird model)   │     │
+│  │ (listener)  │  │ (orchestrator)│  │  (Bird + Wildlife ML)  │     │
 │  └─────────────┘  └──────┬───────┘  └─────────────────────────┘     │
 │                          │                                           │
 │                          ▼                                           │
@@ -144,8 +144,10 @@ YA-WAMF/
 ├── data/                        # Persistent data (volume mount)
 │   ├── speciesid.db             # SQLite database
 │   └── models/                  # Downloaded ML models
-│       ├── model.tflite
-│       └── labels.txt
+│       ├── model.tflite         # Bird classifier (Google AIY)
+│       ├── labels.txt           # Bird species labels
+│       ├── wildlife_model.tflite # Wildlife classifier (EfficientNet-Lite4, optional)
+│       └── wildlife_labels.txt  # ImageNet animal labels (optional)
 │
 ├── docker-compose.yml           # Deployment configuration
 ├── .env.example                 # Environment template
@@ -642,13 +644,22 @@ sort: "newest" | "oldest" | "confidence"
 | GET | `/api/frigate/{id}/clip.mp4` | Stream video clip |
 | HEAD | `/api/frigate/{id}/clip.mp4` | Check clip exists |
 
-#### Classifier
+#### Classifier (Bird Model)
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/api/classifier/status` | Model status |
-| GET | `/api/classifier/labels` | Available species |
-| POST | `/api/classifier/download` | Download default model |
+| GET | `/api/classifier/status` | Bird model status |
+| GET | `/api/classifier/labels` | Available bird species |
+| POST | `/api/classifier/download` | Download bird model |
+
+#### Wildlife Classifier (Optional)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/classifier/wildlife/status` | Wildlife model status |
+| GET | `/api/classifier/wildlife/labels` | Available animal classes |
+| POST | `/api/classifier/wildlife/download` | Download EfficientNet-Lite4 model |
+| POST | `/api/events/{id}/classify-wildlife` | Classify detection as wildlife |
 
 #### Streaming
 
@@ -872,6 +883,16 @@ unknown_bird_labels: list[str] = Field(
    - `labels.txt` - One label per line
 
 2. Restart the backend
+
+### Wildlife Classifier Notes
+
+The wildlife classifier uses EfficientNet-Lite4 trained on ImageNet-1000:
+- **Input size:** 300x300 (auto-detected from model)
+- **Normalization:** [0, 1] range (different from MobileNet's [-1, 1])
+- **Classes:** 1000 ImageNet categories (animals, objects, etc.)
+- **Inference:** ~2-3 seconds per image on CPU
+
+The classifier service auto-detects the model type based on input dimensions and applies the correct preprocessing.
 
 ### Backing Up Data
 
