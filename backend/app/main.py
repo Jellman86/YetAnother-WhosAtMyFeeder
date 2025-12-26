@@ -159,43 +159,61 @@ async def wildlife_classifier_labels():
 
 @app.get("/api/classifier/wildlife/debug")
 async def wildlife_classifier_debug():
-    """Debug endpoint to inspect wildlife model details."""
-    wildlife = classifier_service._models.get("wildlife")
-    if not wildlife:
-        # Try to load it
+    """Debug endpoint to inspect wildlife model details and test classification."""
+    import numpy as np
+    from PIL import Image
+    import io
+
+    try:
         wildlife = classifier_service._get_wildlife_model()
 
-    if not wildlife or not wildlife.loaded:
-        return {"error": "Wildlife model not loaded", "status": wildlife.get_status() if wildlife else None}
+        if not wildlife or not wildlife.loaded:
+            return {"error": "Wildlife model not loaded"}
 
-    input_details = wildlife.input_details[0] if wildlife.input_details else None
-    output_details = wildlife.output_details[0] if wildlife.output_details else None
+        input_details = wildlife.input_details[0]
+        output_details = wildlife.output_details[0]
 
-    result = {
-        "model_loaded": wildlife.loaded,
-        "labels_count": len(wildlife.labels),
-        "first_10_labels": wildlife.labels[:10] if wildlife.labels else [],
-    }
+        # Create a simple test image (solid red)
+        test_img = Image.new('RGB', (224, 224), color=(255, 0, 0))
+        img_array = np.array(test_img, dtype=np.uint8)
+        img_array = np.expand_dims(img_array, axis=0)
 
-    if input_details:
-        result["input"] = {
-            "shape": input_details['shape'].tolist() if hasattr(input_details['shape'], 'tolist') else list(input_details['shape']),
-            "dtype": str(input_details['dtype']),
-            "index": input_details['index'],
-            "quantization": input_details.get('quantization', None),
-            "quantization_parameters": input_details.get('quantization_parameters', None),
+        # Run inference
+        wildlife.interpreter.set_tensor(input_details['index'], img_array)
+        wildlife.interpreter.invoke()
+        raw_output = wildlife.interpreter.get_tensor(output_details['index'])
+
+        # Get stats on raw output
+        raw_squeezed = np.squeeze(raw_output)
+
+        result = {
+            "input_dtype": str(input_details['dtype']),
+            "input_shape": [int(x) for x in input_details['shape']],
+            "output_dtype": str(output_details['dtype']),
+            "output_shape": [int(x) for x in output_details['shape']],
+            "raw_output_min": float(raw_squeezed.min()),
+            "raw_output_max": float(raw_squeezed.max()),
+            "raw_output_mean": float(raw_squeezed.mean()),
+            "top_5_raw_indices": [int(x) for x in raw_squeezed.argsort()[-5:][::-1]],
+            "top_5_raw_values": [float(raw_squeezed[i]) for i in raw_squeezed.argsort()[-5:][::-1]],
+            "labels_count": len(wildlife.labels),
         }
 
-    if output_details:
-        result["output"] = {
-            "shape": output_details['shape'].tolist() if hasattr(output_details['shape'], 'tolist') else list(output_details['shape']),
-            "dtype": str(output_details['dtype']),
-            "index": output_details['index'],
-            "quantization": output_details.get('quantization', None),
-            "quantization_parameters": output_details.get('quantization_parameters', None),
-        }
+        # Check quantization params
+        qp = output_details.get('quantization_parameters')
+        if qp:
+            result["quant_scales"] = [float(x) for x in qp.get('scales', [])] if qp.get('scales') is not None else None
+            result["quant_zero_points"] = [int(x) for x in qp.get('zero_points', [])] if qp.get('zero_points') is not None else None
 
-    return result
+        # Also check legacy quantization tuple
+        legacy_q = output_details.get('quantization')
+        if legacy_q:
+            result["legacy_quantization"] = str(legacy_q)
+
+        return result
+    except Exception as e:
+        import traceback
+        return {"error": str(e), "traceback": traceback.format_exc()}
 
 @app.post("/api/classifier/wildlife/download")
 async def download_wildlife_model():
