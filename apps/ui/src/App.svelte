@@ -99,6 +99,11 @@
       detections = detections.filter(d => d.frigate_event !== eventId);
       if (totalDetectionsToday > 0) totalDetectionsToday--;
   }
+
+  function handleHideDetection(eventId: string) {
+      // Remove from dashboard view (hidden detections are not shown on dashboard)
+      detections = detections.filter(d => d.frigate_event !== eventId);
+  }
 </script>
 
 <div class="min-h-screen flex flex-col bg-surface-light dark:bg-surface-dark text-slate-900 dark:text-white font-sans transition-colors duration-300">
@@ -119,6 +124,7 @@
               {detections}
               {totalDetectionsToday}
               ondelete={handleDeleteDetection}
+              onhide={handleHideDetection}
               onnavigate={navigate}
           />
       {:else if currentRoute === '/events'}

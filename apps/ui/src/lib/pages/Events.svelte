@@ -4,7 +4,9 @@
         fetchEvents,
         fetchEventFilters,
         fetchEventsCount,
+        fetchHiddenCount,
         deleteDetection,
+        hideDetection,
         fetchClassifierLabels,
         reclassifyDetection,
         updateDetectionSpecies,
@@ -19,6 +21,11 @@
     let loading = $state(true);
     let error = $state<string | null>(null);
     let deleting = $state(false);
+    let hiding = $state(false);
+
+    // Hidden detections state
+    let showHidden = $state(false);
+    let hiddenCount = $state(0);
 
     // Pagination state
     let currentPage = $state(1);
@@ -134,15 +141,17 @@
     onMount(async () => {
         parseUrlParams();
 
-        // Load filter options and classifier labels in parallel
+        // Load filter options, classifier labels, and hidden count in parallel
         try {
-            const [filters, labelsResponse] = await Promise.all([
+            const [filters, labelsResponse, hiddenResponse] = await Promise.all([
                 fetchEventFilters(),
-                fetchClassifierLabels().catch(() => ({ labels: [] }))
+                fetchClassifierLabels().catch(() => ({ labels: [] })),
+                fetchHiddenCount().catch(() => ({ hidden_count: 0 }))
             ]);
             availableSpecies = filters.species;
             availableCameras = filters.cameras;
             classifierLabels = labelsResponse.labels;
+            hiddenCount = hiddenResponse.hidden_count;
         } catch (e) {
             console.error('Failed to load filters', e);
         }
@@ -166,13 +175,15 @@
                     endDate: range.end,
                     species: speciesFilter || undefined,
                     camera: cameraFilter || undefined,
-                    sort: sortOrder
+                    sort: sortOrder,
+                    includeHidden: showHidden
                 }),
                 fetchEventsCount({
                     startDate: range.start,
                     endDate: range.end,
                     species: speciesFilter || undefined,
-                    camera: cameraFilter || undefined
+                    camera: cameraFilter || undefined,
+                    includeHidden: showHidden
                 })
             ]);
 
@@ -256,6 +267,46 @@
         } finally {
             deleting = false;
         }
+    }
+
+    async function handleHide() {
+        if (!selectedEvent) return;
+
+        hiding = true;
+        try {
+            const result = await hideDetection(selectedEvent.frigate_event);
+            // Update local state
+            selectedEvent = { ...selectedEvent, is_hidden: result.is_hidden };
+            events = events.map(e =>
+                e.frigate_event === selectedEvent?.frigate_event
+                    ? { ...e, is_hidden: result.is_hidden }
+                    : e
+            );
+
+            // Update hidden count
+            if (result.is_hidden) {
+                hiddenCount++;
+                // If not showing hidden, remove from view
+                if (!showHidden) {
+                    events = events.filter(e => e.frigate_event !== selectedEvent?.frigate_event);
+                    totalCount = Math.max(0, totalCount - 1);
+                    selectedEvent = null;
+                }
+            } else {
+                hiddenCount = Math.max(0, hiddenCount - 1);
+            }
+        } catch (e) {
+            console.error('Failed to hide detection', e);
+            alert('Failed to hide detection');
+        } finally {
+            hiding = false;
+        }
+    }
+
+    function handleShowHiddenToggle() {
+        showHidden = !showHidden;
+        currentPage = 1;
+        loadEvents();
     }
 
     async function handleReclassify() {
@@ -472,6 +523,31 @@
                 <option value="oldest">Oldest First</option>
                 <option value="confidence">Highest Confidence</option>
             </select>
+
+            <!-- Show Ignored Toggle -->
+            {#if hiddenCount > 0 || showHidden}
+                <button
+                    onclick={handleShowHiddenToggle}
+                    class="w-full sm:w-auto px-3 py-2.5 sm:py-2 rounded-lg text-sm font-medium transition-colors
+                           flex items-center justify-center gap-2
+                           {showHidden
+                               ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-700'
+                               : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-600'}"
+                >
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        {#if showHidden}
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        {:else}
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                        {/if}
+                    </svg>
+                    {showHidden ? 'Showing' : 'Show'} ignored ({hiddenCount})
+                </button>
+            {/if}
         </div>
     </div>
 
@@ -649,6 +725,36 @@
                                   d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                         Species Info
+                    </button>
+                    <button
+                        onclick={handleHide}
+                        disabled={hiding}
+                        class="px-4 py-2.5 text-sm font-medium rounded-lg transition-colors
+                               disabled:opacity-50 disabled:cursor-not-allowed
+                               flex items-center justify-center gap-2
+                               {selectedEvent.is_hidden
+                                   ? 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 hover:bg-amber-100 dark:hover:bg-amber-900/40'
+                                   : 'text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600'}"
+                    >
+                        {#if hiding}
+                            <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                        {:else}
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                {#if selectedEvent.is_hidden}
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                          d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                          d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                {:else}
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                          d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                                {/if}
+                            </svg>
+                        {/if}
+                        {hiding ? 'Updating...' : (selectedEvent.is_hidden ? 'Unhide' : 'Hide')}
                     </button>
                     <button
                         onclick={handleDelete}

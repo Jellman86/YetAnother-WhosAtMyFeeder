@@ -10,6 +10,7 @@ class Detection(BaseModel):
     category_name: str
     frigate_event: str
     camera_name: str
+    is_hidden: bool = False
 
 class DetectionResponse(Detection):
     common_name: str | None = None

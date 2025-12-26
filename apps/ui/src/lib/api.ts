@@ -8,6 +8,7 @@ export interface Detection {
     detection_index?: number;
     category_name?: string;
     has_clip?: boolean;  // Clip availability from backend
+    is_hidden?: boolean; // Hidden/ignored status
 }
 
 export interface VersionInfo {
@@ -93,10 +94,11 @@ export interface FetchEventsOptions {
     species?: string;
     camera?: string;
     sort?: 'newest' | 'oldest' | 'confidence';
+    includeHidden?: boolean;  // Include hidden/ignored detections
 }
 
 export async function fetchEvents(options: FetchEventsOptions = {}): Promise<Detection[]> {
-    const { limit = 50, offset = 0, startDate, endDate, species, camera, sort } = options;
+    const { limit = 50, offset = 0, startDate, endDate, species, camera, sort, includeHidden } = options;
     const params = new URLSearchParams();
     params.set('limit', limit.toString());
     params.set('offset', offset.toString());
@@ -105,6 +107,7 @@ export async function fetchEvents(options: FetchEventsOptions = {}): Promise<Det
     if (species) params.set('species', species);
     if (camera) params.set('camera', camera);
     if (sort) params.set('sort', sort);
+    if (includeHidden) params.set('include_hidden', 'true');
 
     const response = await fetch(`${API_BASE}/events?${params.toString()}`);
     return handleResponse<Detection[]>(response);
@@ -125,6 +128,7 @@ export interface EventsCountOptions {
     endDate?: string;
     species?: string;
     camera?: string;
+    includeHidden?: boolean;
 }
 
 export interface EventsCountResponse {
@@ -133,12 +137,13 @@ export interface EventsCountResponse {
 }
 
 export async function fetchEventsCount(options: EventsCountOptions = {}): Promise<EventsCountResponse> {
-    const { startDate, endDate, species, camera } = options;
+    const { startDate, endDate, species, camera, includeHidden } = options;
     const params = new URLSearchParams();
     if (startDate) params.set('start_date', startDate);
     if (endDate) params.set('end_date', endDate);
     if (species) params.set('species', species);
     if (camera) params.set('camera', camera);
+    if (includeHidden) params.set('include_hidden', 'true');
 
     const response = await fetch(`${API_BASE}/events/count?${params.toString()}`);
     return handleResponse<EventsCountResponse>(response);
@@ -159,6 +164,24 @@ export async function deleteDetection(frigateEventId: string): Promise<{ status:
         method: 'DELETE'
     });
     return handleResponse<{ status: string }>(response);
+}
+
+export interface HideDetectionResult {
+    status: string;
+    event_id: string;
+    is_hidden: boolean;
+}
+
+export async function hideDetection(frigateEventId: string): Promise<HideDetectionResult> {
+    const response = await fetch(`${API_BASE}/events/${encodeURIComponent(frigateEventId)}/hide`, {
+        method: 'POST'
+    });
+    return handleResponse<HideDetectionResult>(response);
+}
+
+export async function fetchHiddenCount(): Promise<{ hidden_count: number }> {
+    const response = await fetch(`${API_BASE}/events/hidden-count`);
+    return handleResponse<{ hidden_count: number }>(response);
 }
 
 export async function fetchSpecies(): Promise<SpeciesCount[]> {

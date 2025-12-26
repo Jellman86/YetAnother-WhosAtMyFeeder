@@ -86,7 +86,8 @@
            overflow-hidden transition-all duration-300 ease-out
            hover:-translate-y-1.5 hover:border-teal-300 dark:hover:border-teal-600
            text-left w-full cursor-pointer backdrop-blur-sm
-           focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900"
+           focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900
+           {detection.is_hidden ? 'opacity-60 hover:opacity-90 border-amber-300 dark:border-amber-700' : ''}"
 >
     <!-- Image Container -->
     <div class="relative aspect-[4/3] bg-slate-100 dark:bg-slate-700 overflow-hidden">
@@ -123,6 +124,18 @@
             <span class="w-1.5 h-1.5 rounded-full {getConfidenceColor(detection.score)}"></span>
             {(detection.score * 100).toFixed(0)}%
         </div>
+
+        <!-- Hidden Badge -->
+        {#if detection.is_hidden}
+            <div class="absolute top-2 left-2 flex items-center gap-1 px-2 py-1 rounded-full
+                        bg-amber-500/90 backdrop-blur-sm text-white text-xs font-medium">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                </svg>
+                Hidden
+            </div>
+        {/if}
 
         <!-- Camera Badge -->
         <div class="absolute bottom-2 left-2 px-2 py-1 rounded-full

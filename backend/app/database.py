@@ -16,13 +16,24 @@ async def init_db():
                 display_name TEXT NOT NULL,
                 category_name TEXT NOT NULL,
                 frigate_event TEXT NOT NULL UNIQUE,
-                camera_name TEXT NOT NULL
+                camera_name TEXT NOT NULL,
+                is_hidden INTEGER DEFAULT 0
             )
         """)
         # Add indexes for common query patterns
         await db.execute("CREATE INDEX IF NOT EXISTS idx_detections_time ON detections(detection_time DESC)")
         await db.execute("CREATE INDEX IF NOT EXISTS idx_detections_species ON detections(display_name)")
         await db.execute("CREATE INDEX IF NOT EXISTS idx_detections_camera ON detections(camera_name)")
+        await db.execute("CREATE INDEX IF NOT EXISTS idx_detections_hidden ON detections(is_hidden)")
+
+        # Migration: Add is_hidden column to existing databases
+        try:
+            await db.execute("ALTER TABLE detections ADD COLUMN is_hidden INTEGER DEFAULT 0")
+            log.info("Added is_hidden column to detections table")
+        except Exception:
+            # Column already exists, ignore
+            pass
+
         await db.commit()
         log.info("Database initialized", path=DB_PATH)
 

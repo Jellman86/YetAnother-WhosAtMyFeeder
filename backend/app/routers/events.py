@@ -102,7 +102,8 @@ async def get_events(
     end_date: Optional[date] = Query(default=None, description="Filter events until this date (inclusive)"),
     species: Optional[str] = Query(default=None, description="Filter by species name"),
     camera: Optional[str] = Query(default=None, description="Filter by camera name"),
-    sort: Literal["newest", "oldest", "confidence"] = Query(default="newest", description="Sort order")
+    sort: Literal["newest", "oldest", "confidence"] = Query(default="newest", description="Sort order"),
+    include_hidden: bool = Query(default=False, description="Include hidden/ignored detections")
 ):
     """Get paginated events with optional filters."""
     async with get_db() as db:
@@ -119,7 +120,8 @@ async def get_events(
             end_date=end_datetime,
             species=species,
             camera=camera,
-            sort=sort
+            sort=sort,
+            include_hidden=include_hidden
         )
 
         # Batch fetch clip availability from Frigate (eliminates N individual HEAD requests)
@@ -146,11 +148,26 @@ async def get_events(
                 category_name=event.category_name,
                 frigate_event=event.frigate_event,
                 camera_name=event.camera_name,
-                has_clip=clip_availability.get(event.frigate_event, False)
+                has_clip=clip_availability.get(event.frigate_event, False),
+                is_hidden=event.is_hidden
             )
             response_events.append(response_event)
 
         return response_events
+
+
+class HiddenCountResponse(BaseModel):
+    """Response for hidden count endpoint."""
+    hidden_count: int
+
+
+@router.get("/events/hidden-count", response_model=HiddenCountResponse)
+async def get_hidden_count():
+    """Get count of hidden detections."""
+    async with get_db() as db:
+        repo = DetectionRepository(db)
+        count = await repo.get_hidden_count()
+        return HiddenCountResponse(hidden_count=count)
 
 
 @router.get("/events/count", response_model=EventsCountResponse)
@@ -158,7 +175,8 @@ async def get_events_count(
     start_date: Optional[date] = Query(default=None, description="Filter events from this date (inclusive)"),
     end_date: Optional[date] = Query(default=None, description="Filter events until this date (inclusive)"),
     species: Optional[str] = Query(default=None, description="Filter by species name"),
-    camera: Optional[str] = Query(default=None, description="Filter by camera name")
+    camera: Optional[str] = Query(default=None, description="Filter by camera name"),
+    include_hidden: bool = Query(default=False, description="Include hidden/ignored detections")
 ):
     """Get total count of events (optionally filtered)."""
     async with get_db() as db:
@@ -171,7 +189,8 @@ async def get_events_count(
             start_date=start_datetime,
             end_date=end_datetime,
             species=species,
-            camera=camera
+            camera=camera,
+            include_hidden=include_hidden
         )
 
         # Determine if any filters are applied
@@ -188,6 +207,33 @@ async def delete_event(event_id: str):
         if deleted:
             return {"status": "deleted", "event_id": event_id}
         raise HTTPException(status_code=404, detail="Detection not found")
+
+
+class HideResponse(BaseModel):
+    """Response for hide/unhide action."""
+    status: str
+    event_id: str
+    is_hidden: bool
+
+
+@router.post("/events/{event_id}/hide", response_model=HideResponse)
+async def toggle_hide_event(event_id: str):
+    """Toggle the hidden/ignored status of a detection."""
+    async with get_db() as db:
+        repo = DetectionRepository(db)
+        new_status = await repo.toggle_hidden(event_id)
+
+        if new_status is None:
+            raise HTTPException(status_code=404, detail="Detection not found")
+
+        action = "hidden" if new_status else "unhidden"
+        log.info(f"Detection {action}", event_id=event_id, is_hidden=new_status)
+
+        return HideResponse(
+            status="updated",
+            event_id=event_id,
+            is_hidden=new_status
+        )
 
 
 class UpdateDetectionRequest(BaseModel):

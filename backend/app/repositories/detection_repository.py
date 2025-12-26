@@ -13,6 +13,7 @@ class Detection:
     frigate_event: str
     camera_name: str
     id: Optional[int] = None
+    is_hidden: bool = False
 
 
 def _parse_datetime(value) -> datetime:
@@ -42,7 +43,8 @@ def _row_to_detection(row) -> Detection:
         display_name=row[4],
         category_name=row[5],
         frigate_event=row[6],
-        camera_name=row[7]
+        camera_name=row[7],
+        is_hidden=bool(row[8]) if len(row) > 8 else False
     )
 
 
@@ -52,13 +54,35 @@ class DetectionRepository:
 
     async def get_by_frigate_event(self, frigate_event: str) -> Optional[Detection]:
         async with self.db.execute(
-            "SELECT id, detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name FROM detections WHERE frigate_event = ?",
+            "SELECT id, detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, is_hidden FROM detections WHERE frigate_event = ?",
             (frigate_event,)
         ) as cursor:
             row = await cursor.fetchone()
             if row:
                 return _row_to_detection(row)
             return None
+
+    async def toggle_hidden(self, frigate_event: str) -> Optional[bool]:
+        """Toggle the hidden status of a detection. Returns new hidden status or None if not found."""
+        detection = await self.get_by_frigate_event(frigate_event)
+        if not detection:
+            return None
+
+        new_status = not detection.is_hidden
+        await self.db.execute(
+            "UPDATE detections SET is_hidden = ? WHERE frigate_event = ?",
+            (1 if new_status else 0, frigate_event)
+        )
+        await self.db.commit()
+        return new_status
+
+    async def get_hidden_count(self) -> int:
+        """Get count of hidden detections."""
+        async with self.db.execute(
+            "SELECT COUNT(*) FROM detections WHERE is_hidden = 1"
+        ) as cursor:
+            row = await cursor.fetchone()
+            return row[0] if row else 0
 
     async def delete_by_id(self, detection_id: int) -> bool:
         """Delete a detection by ID. Returns True if deleted."""
@@ -95,11 +119,16 @@ class DetectionRepository:
         end_date: datetime | None = None,
         species: str | None = None,
         camera: str | None = None,
-        sort: str = "newest"
+        sort: str = "newest",
+        include_hidden: bool = False
     ) -> list[Detection]:
-        query = "SELECT id, detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name FROM detections"
+        query = "SELECT id, detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, is_hidden FROM detections"
         params: list = []
         conditions = []
+
+        # By default, exclude hidden detections
+        if not include_hidden:
+            conditions.append("(is_hidden = 0 OR is_hidden IS NULL)")
 
         if start_date:
             conditions.append("detection_time >= ?")
@@ -137,12 +166,17 @@ class DetectionRepository:
         start_date: datetime | None = None,
         end_date: datetime | None = None,
         species: str | None = None,
-        camera: str | None = None
+        camera: str | None = None,
+        include_hidden: bool = False
     ) -> int:
         """Get total count of detections, optionally filtered."""
         query = "SELECT COUNT(*) FROM detections"
         params: list = []
         conditions = []
+
+        # By default, exclude hidden detections
+        if not include_hidden:
+            conditions.append("(is_hidden = 0 OR is_hidden IS NULL)")
 
         if start_date:
             conditions.append("detection_time >= ?")
@@ -306,14 +340,21 @@ class DetectionRepository:
                 distribution[month] = row[1]
             return distribution
 
-    async def get_recent_by_species(self, species_name: str, limit: int = 5) -> list[Detection]:
+    async def get_recent_by_species(self, species_name: str, limit: int = 5, include_hidden: bool = False) -> list[Detection]:
         """Get most recent detections for a species."""
-        async with self.db.execute(
-            """SELECT id, detection_time, detection_index, score, display_name,
-                      category_name, frigate_event, camera_name
-               FROM detections WHERE display_name = ?
-               ORDER BY detection_time DESC LIMIT ?""",
-            (species_name, limit)
-        ) as cursor:
+        if include_hidden:
+            query = """SELECT id, detection_time, detection_index, score, display_name,
+                          category_name, frigate_event, camera_name, is_hidden
+                   FROM detections WHERE display_name = ?
+                   ORDER BY detection_time DESC LIMIT ?"""
+            params = (species_name, limit)
+        else:
+            query = """SELECT id, detection_time, detection_index, score, display_name,
+                          category_name, frigate_event, camera_name, is_hidden
+                   FROM detections WHERE display_name = ? AND (is_hidden = 0 OR is_hidden IS NULL)
+                   ORDER BY detection_time DESC LIMIT ?"""
+            params = (species_name, limit)
+
+        async with self.db.execute(query, params) as cursor:
             rows = await cursor.fetchall()
             return [_row_to_detection(row) for row in rows]
