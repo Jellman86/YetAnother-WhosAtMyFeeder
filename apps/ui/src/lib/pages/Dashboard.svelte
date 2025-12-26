@@ -23,6 +23,14 @@
     let wildlifeResults = $state<WildlifeClassification[]>([]);
     let applyingWildlife = $state(false);
 
+    // Reset wildlife results when switching detections
+    $effect(() => {
+        if (selectedEvent) {
+            showWildlifeResults = false;
+            wildlifeResults = [];
+        }
+    });
+
     // Compute stats from current detections
     let topSpecies = $derived(() => {
         const counts: Record<string, number> = {};

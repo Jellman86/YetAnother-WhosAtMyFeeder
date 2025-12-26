@@ -94,6 +94,15 @@
     let showWildlifeResults = $state(false);
     let wildlifeResults = $state<WildlifeClassification[]>([]);
 
+    // Reset wildlife results when switching detections
+    $effect(() => {
+        // This runs whenever selectedEvent changes
+        if (selectedEvent) {
+            showWildlifeResults = false;
+            wildlifeResults = [];
+        }
+    });
+
     // Read URL params on mount
     function parseUrlParams() {
         const params = new URLSearchParams(window.location.search);
