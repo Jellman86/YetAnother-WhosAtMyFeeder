@@ -72,6 +72,7 @@ class ModelInstance:
     def classify(self, image: Image.Image) -> list[dict]:
         """Classify an image using this model."""
         if not self.loaded or not self.interpreter:
+            log.warning(f"{self.name} model not loaded, cannot classify")
             return []
 
         # Get expected input size from model (supports different models like 224x224, 300x300)
@@ -83,25 +84,29 @@ class ModelInstance:
         else:
             target_height, target_width = 224, 224  # Fallback
 
-        max_size = (target_width, target_height)
-        image = image.copy()
-        image.thumbnail(max_size)
+        log.debug(f"{self.name} classify: input image mode={image.mode}, size={image.size}")
 
-        # Pad to fill target size
-        delta_w = max_size[0] - image.size[0]
-        delta_h = max_size[1] - image.size[1]
-        padding = (delta_w // 2, delta_h // 2, delta_w - (delta_w // 2), delta_h - (delta_h // 2))
-        padded_image = ImageOps.expand(image, padding, fill='black')
+        # CRITICAL: Convert to RGB mode first (handles RGBA, grayscale, palette, etc.)
+        image = image.convert('RGB')
 
-        # Convert to numpy
-        input_data = np.expand_dims(padded_image, axis=0)
+        # Resize to exact target size (not thumbnail which preserves aspect ratio)
+        # Using LANCZOS for high-quality downsampling
+        image = image.resize((target_width, target_height), Image.Resampling.LANCZOS)
 
-        # Normalize based on model input type
-        # - Float models (FP32): normalize to [-1, 1] range
-        # - Quantized models (uint8): use raw pixel values [0, 255]
+        # Convert to numpy array - shape will be (height, width, 3)
+        input_data = np.array(image, dtype=np.uint8)
+
+        # Add batch dimension - shape becomes (1, height, width, 3)
+        input_data = np.expand_dims(input_data, axis=0)
+
+        log.debug(f"{self.name} classify: input_data shape={input_data.shape}, dtype={input_data.dtype}")
+
+        # Handle input type conversion
         if input_details['dtype'] == np.float32:
+            # Float models: normalize to [-1, 1] range (MobileNet style)
             input_data = (np.float32(input_data) - 127.5) / 127.5
         elif input_details['dtype'] == np.uint8:
+            # Quantized models: use raw uint8 pixel values [0, 255]
             input_data = np.uint8(input_data)
 
         self.interpreter.set_tensor(input_details['index'], input_data)
@@ -110,22 +115,46 @@ class ModelInstance:
         output_details = self.output_details[0]
         output_data = self.interpreter.get_tensor(output_details['index'])
 
-        # Process output
-        results = np.squeeze(output_data)
+        log.debug(f"{self.name} classify: output shape={output_data.shape}, dtype={output_data.dtype}")
+
+        # Process output - handle quantized outputs properly
+        results = np.squeeze(output_data).astype(np.float32)
+
+        # Dequantize output if needed (check OUTPUT dtype, not input)
+        if output_details['dtype'] == np.uint8:
+            # Get quantization parameters from output details
+            quant_params = output_details.get('quantization_parameters', {})
+            scales = quant_params.get('scales', None)
+            zero_points = quant_params.get('zero_points', None)
+
+            log.debug(f"{self.name} classify: output quant params scales={scales}, zero_points={zero_points}")
+
+            if scales is not None and len(scales) > 0:
+                # Proper dequantization: real_value = (quantized - zero_point) * scale
+                scale = scales[0]
+                zero_point = zero_points[0] if zero_points is not None and len(zero_points) > 0 else 0
+                results = (results - zero_point) * scale
+                log.debug(f"{self.name} classify: dequantized with scale={scale}, zero_point={zero_point}")
+            else:
+                # Fallback: simple normalization to [0, 1]
+                results = results / 255.0
+                log.debug(f"{self.name} classify: fallback normalization (div 255)")
+
+        # Get top-5 predictions
         top_k = results.argsort()[-5:][::-1]
 
         classifications = []
         for i in top_k:
             score = float(results[i])
-            if input_details['dtype'] == np.uint8:
-                score = score / 255.0
-
             label = self.labels[i] if i < len(self.labels) else f"Class {i}"
             classifications.append({
                 "index": int(i),
                 "score": score,
                 "label": label
             })
+
+        top_results = [(c['label'], round(c['score'], 3)) for c in classifications[:3]]
+        log.info(f"{self.name} classify: top results: {top_results}")
 
         return classifications
 

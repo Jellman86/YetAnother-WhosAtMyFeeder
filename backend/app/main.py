@@ -157,6 +157,46 @@ async def wildlife_classifier_labels():
     """Return the list of labels from the wildlife classifier model."""
     return {"labels": classifier_service.get_wildlife_labels()}
 
+@app.get("/api/classifier/wildlife/debug")
+async def wildlife_classifier_debug():
+    """Debug endpoint to inspect wildlife model details."""
+    wildlife = classifier_service._models.get("wildlife")
+    if not wildlife:
+        # Try to load it
+        wildlife = classifier_service._get_wildlife_model()
+
+    if not wildlife or not wildlife.loaded:
+        return {"error": "Wildlife model not loaded", "status": wildlife.get_status() if wildlife else None}
+
+    input_details = wildlife.input_details[0] if wildlife.input_details else None
+    output_details = wildlife.output_details[0] if wildlife.output_details else None
+
+    result = {
+        "model_loaded": wildlife.loaded,
+        "labels_count": len(wildlife.labels),
+        "first_10_labels": wildlife.labels[:10] if wildlife.labels else [],
+    }
+
+    if input_details:
+        result["input"] = {
+            "shape": input_details['shape'].tolist() if hasattr(input_details['shape'], 'tolist') else list(input_details['shape']),
+            "dtype": str(input_details['dtype']),
+            "index": input_details['index'],
+            "quantization": input_details.get('quantization', None),
+            "quantization_parameters": input_details.get('quantization_parameters', None),
+        }
+
+    if output_details:
+        result["output"] = {
+            "shape": output_details['shape'].tolist() if hasattr(output_details['shape'], 'tolist') else list(output_details['shape']),
+            "dtype": str(output_details['dtype']),
+            "index": output_details['index'],
+            "quantization": output_details.get('quantization', None),
+            "quantization_parameters": output_details.get('quantization_parameters', None),
+        }
+
+    return result
+
 @app.post("/api/classifier/wildlife/download")
 async def download_wildlife_model():
     """Download a general wildlife/animal classifier model.
