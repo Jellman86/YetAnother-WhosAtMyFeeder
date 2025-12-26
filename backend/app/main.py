@@ -226,7 +226,7 @@ async def test_wildlife_classifier(image: UploadFile = File(...)):
         contents = await image.read()
         pil_image = Image.open(io.BytesIO(contents))
 
-        results = classifier.classify_wildlife(pil_image)
+        results = classifier_service.classify_wildlife(pil_image)
 
         return {
             "status": "ok",
