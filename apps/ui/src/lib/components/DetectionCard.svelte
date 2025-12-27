@@ -6,9 +6,11 @@
     interface Props {
         detection: Detection;
         onclick?: () => void;
+        onReclassify?: (detection: Detection) => void;
+        onRetag?: (detection: Detection) => void;
     }
 
-    let { detection, onclick }: Props = $props();
+    let { detection, onclick, onReclassify, onRetag }: Props = $props();
 
     let imageError = $state(false);
     let imageLoaded = $state(false);
@@ -18,6 +20,16 @@
 
     // Use has_clip from detection response (no individual HEAD requests needed)
     let hasClip = $derived(detection.has_clip ?? false);
+
+    function handleReclassifyClick(event: MouseEvent) {
+        event.stopPropagation();
+        onReclassify?.(detection);
+    }
+
+    function handleRetagClick(event: MouseEvent) {
+        event.stopPropagation();
+        onRetag?.(detection);
+    }
 
     // Lazy load with intersection observer
     $effect(() => {
@@ -163,6 +175,42 @@
                     </svg>
                 </div>
             </button>
+        {/if}
+
+        <!-- Action Buttons Overlay (bottom-right) -->
+        {#if onReclassify || onRetag}
+            <div class="absolute bottom-2 right-2 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                {#if onReclassify}
+                    <button
+                        type="button"
+                        onclick={handleReclassifyClick}
+                        class="w-8 h-8 rounded-full bg-black/60 backdrop-blur-sm text-white
+                               hover:bg-teal-500 transition-colors duration-150
+                               flex items-center justify-center shadow-lg"
+                        title="Re-run bird classifier"
+                    >
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                    </button>
+                {/if}
+                {#if onRetag}
+                    <button
+                        type="button"
+                        onclick={handleRetagClick}
+                        class="w-8 h-8 rounded-full bg-black/60 backdrop-blur-sm text-white
+                               hover:bg-amber-500 transition-colors duration-150
+                               flex items-center justify-center shadow-lg"
+                        title="Manual retag"
+                    >
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                        </svg>
+                    </button>
+                {/if}
+            </div>
         {/if}
     </div>
 

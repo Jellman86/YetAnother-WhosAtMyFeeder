@@ -89,6 +89,11 @@
     let tagSearchQuery = $state('');
     let updatingTag = $state(false);
 
+    // Quick action state (for overlay buttons)
+    let quickRetagEvent = $state<Detection | null>(null);
+    let quickRetagSearchQuery = $state('');
+    let quickReclassifying = $state<string | null>(null); // frigate_event id being reclassified
+
     // Wildlife classification state
     let classifyingWildlife = $state(false);
     let showWildlifeResults = $state(false);
@@ -387,6 +392,66 @@
             : classifierLabels.slice(0, 20)
     );
 
+    // Filter labels for quick retag dropdown
+    let quickFilteredLabels = $derived(
+        quickRetagSearchQuery.trim()
+            ? classifierLabels.filter(label =>
+                label.toLowerCase().includes(quickRetagSearchQuery.toLowerCase())
+              ).slice(0, 15)
+            : classifierLabels.slice(0, 15)
+    );
+
+    // Quick reclassify handler (from overlay button)
+    async function handleQuickReclassify(detection: Detection) {
+        if (quickReclassifying) return;
+
+        quickReclassifying = detection.frigate_event;
+        try {
+            const result = await reclassifyDetection(detection.frigate_event);
+            if (result.updated) {
+                // Update in the events list
+                events = events.map(e =>
+                    e.frigate_event === detection.frigate_event
+                        ? { ...e, display_name: result.new_species, score: result.new_score }
+                        : e
+                );
+            }
+        } catch (e: any) {
+            console.error('Failed to reclassify', e);
+            alert(e.message || 'Failed to reclassify detection');
+        } finally {
+            quickReclassifying = null;
+        }
+    }
+
+    // Quick retag handler (opens dropdown near card)
+    function handleQuickRetag(detection: Detection) {
+        quickRetagEvent = detection;
+        quickRetagSearchQuery = '';
+    }
+
+    // Apply quick retag
+    async function applyQuickRetag(newSpecies: string) {
+        if (!quickRetagEvent || !newSpecies.trim()) return;
+
+        const eventId = quickRetagEvent.frigate_event;
+        try {
+            const result = await updateDetectionSpecies(eventId, newSpecies.trim());
+            if (result.status === 'updated') {
+                events = events.map(e =>
+                    e.frigate_event === eventId
+                        ? { ...e, display_name: newSpecies.trim() }
+                        : e
+                );
+            }
+            quickRetagEvent = null;
+            quickRetagSearchQuery = '';
+        } catch (e: any) {
+            console.error('Failed to update species', e);
+            alert(e.message || 'Failed to update species');
+        }
+    }
+
     async function handleClassifyWildlife() {
         if (!selectedEvent) return;
 
@@ -672,10 +737,20 @@
 
             <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                 {#each events as event (event.frigate_event)}
-                    <DetectionCard
-                        detection={event}
-                        onclick={() => selectedEvent = event}
-                    />
+                    <div class="relative">
+                        <DetectionCard
+                            detection={event}
+                            onclick={() => selectedEvent = event}
+                            onReclassify={handleQuickReclassify}
+                            onRetag={handleQuickRetag}
+                        />
+                        <!-- Reclassifying indicator -->
+                        {#if quickReclassifying === event.frigate_event}
+                            <div class="absolute inset-0 bg-black/40 rounded-2xl flex items-center justify-center pointer-events-none">
+                                <div class="w-8 h-8 border-3 border-white border-t-transparent rounded-full animate-spin"></div>
+                            </div>
+                        {/if}
+                    </div>
                 {/each}
             </div>
         </div>
@@ -1002,4 +1077,81 @@
         speciesName={selectedSpecies}
         onclose={() => selectedSpecies = null}
     />
+{/if}
+
+<!-- Quick Retag Modal -->
+{#if quickRetagEvent}
+    <div
+        class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+        onclick={() => { quickRetagEvent = null; quickRetagSearchQuery = ''; }}
+        onkeydown={(e) => e.key === 'Escape' && (quickRetagEvent = null)}
+        role="dialog"
+        tabindex="-1"
+    >
+        <div
+            class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden
+                   border border-slate-200 dark:border-slate-700"
+            onclick={(e) => e.stopPropagation()}
+            onkeydown={(e) => e.stopPropagation()}
+            role="document"
+            tabindex="-1"
+        >
+            <!-- Header with thumbnail -->
+            <div class="relative h-32 bg-slate-100 dark:bg-slate-700">
+                <img
+                    src={getThumbnailUrl(quickRetagEvent.frigate_event)}
+                    alt={quickRetagEvent.display_name}
+                    class="w-full h-full object-cover"
+                />
+                <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent"></div>
+                <div class="absolute bottom-0 left-0 right-0 p-4">
+                    <p class="text-sm text-white/80">Current tag:</p>
+                    <h3 class="text-lg font-bold text-white">{quickRetagEvent.display_name}</h3>
+                </div>
+                <button
+                    onclick={() => { quickRetagEvent = null; quickRetagSearchQuery = ''; }}
+                    class="absolute top-2 right-2 w-8 h-8 rounded-full bg-black/40 text-white/90
+                           flex items-center justify-center hover:bg-black/60 transition-colors"
+                    aria-label="Close"
+                >
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Search and labels -->
+            <div class="p-4">
+                <div class="mb-3">
+                    <input
+                        type="text"
+                        bind:value={quickRetagSearchQuery}
+                        placeholder="Search bird species..."
+                        class="w-full px-4 py-2.5 text-sm rounded-lg border border-slate-300 dark:border-slate-600
+                               bg-white dark:bg-slate-700 text-slate-900 dark:text-white
+                               focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                    />
+                </div>
+                <div class="max-h-64 overflow-y-auto space-y-1">
+                    {#each quickFilteredLabels as label}
+                        <button
+                            onclick={() => applyQuickRetag(label)}
+                            class="w-full px-3 py-2 text-left text-sm rounded-lg transition-colors
+                                   hover:bg-slate-100 dark:hover:bg-slate-700
+                                   {label === quickRetagEvent?.display_name
+                                       ? 'bg-teal-50 dark:bg-teal-900/20 text-teal-700 dark:text-teal-300 font-medium'
+                                       : 'text-slate-700 dark:text-slate-300'}"
+                        >
+                            {label}
+                        </button>
+                    {/each}
+                    {#if quickFilteredLabels.length === 0}
+                        <p class="px-3 py-4 text-sm text-slate-500 dark:text-slate-400 italic text-center">
+                            No matching species found
+                        </p>
+                    {/if}
+                </div>
+            </div>
+        </div>
+    </div>
 {/if}
