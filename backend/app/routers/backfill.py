@@ -5,14 +5,13 @@ from pydantic import BaseModel, Field
 import structlog
 
 from app.services.backfill_service import BackfillService
-from app.services.classifier_service import ClassifierService
+from app.services.classifier_service import get_classifier
 
 router = APIRouter()
 log = structlog.get_logger()
 
-# Initialize the classifier and backfill service
-classifier = ClassifierService()
-backfill_service = BackfillService(classifier)
+# Use shared classifier instance
+backfill_service = BackfillService(get_classifier())
 
 
 class BackfillRequest(BaseModel):

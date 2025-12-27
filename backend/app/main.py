@@ -8,14 +8,15 @@ from datetime import datetime, timedelta
 
 from app.database import init_db, get_db
 from app.services.mqtt_service import MQTTService
-from app.services.classifier_service import ClassifierService
+from app.services.classifier_service import get_classifier
 from app.services.event_processor import EventProcessor
 from app.repositories.detection_repository import DetectionRepository
 from app.routers import events, stream, proxy, settings as settings_router, species, backfill
 from app.config import settings
 from contextlib import asynccontextmanager
 
-classifier_service = ClassifierService()
+# Use shared classifier instance
+classifier_service = get_classifier()
 event_processor = EventProcessor(classifier_service)
 mqtt_service = MQTTService()
 log = structlog.get_logger()
@@ -156,6 +157,113 @@ async def wildlife_classifier_status():
 async def wildlife_classifier_labels():
     """Return the list of labels from the wildlife classifier model."""
     return {"labels": classifier_service.get_wildlife_labels()}
+
+@app.get("/api/classifier/debug")
+async def bird_classifier_debug():
+    """Debug endpoint to inspect bird model details."""
+    import numpy as np
+    from PIL import Image
+
+    try:
+        bird = classifier_service._models.get("bird")
+
+        if not bird or not bird.loaded:
+            return {"error": "Bird model not loaded"}
+
+        input_details = bird.input_details[0]
+        output_details = bird.output_details[0]
+
+        # Create a simple test image
+        target_height, target_width = input_details['shape'][1], input_details['shape'][2]
+        test_img = Image.new('RGB', (target_width, target_height), color=(100, 150, 200))
+
+        # Prepare input based on model dtype
+        if input_details['dtype'] == np.uint8:
+            img_array = np.array(test_img, dtype=np.uint8)
+        else:
+            img_array = np.array(test_img, dtype=np.float32)
+            img_array = (img_array - 127.0) / 128.0
+        img_array = np.expand_dims(img_array, axis=0)
+
+        # Run inference
+        bird.interpreter.set_tensor(input_details['index'], img_array)
+        bird.interpreter.invoke()
+        raw_output = bird.interpreter.get_tensor(output_details['index'])
+
+        # Get stats on raw output
+        raw_squeezed = np.squeeze(raw_output).astype(np.float32)
+
+        result = {
+            "model_name": "bird",
+            "input_dtype": str(input_details['dtype']),
+            "input_shape": [int(x) for x in input_details['shape']],
+            "output_dtype": str(output_details['dtype']),
+            "output_shape": [int(x) for x in output_details['shape']],
+            "raw_output_min": float(raw_squeezed.min()),
+            "raw_output_max": float(raw_squeezed.max()),
+            "raw_output_sum": float(raw_squeezed.sum()),
+            "raw_output_mean": float(raw_squeezed.mean()),
+            "top_5_raw_indices": [int(x) for x in raw_squeezed.argsort()[-5:][::-1]],
+            "top_5_raw_values": [float(raw_squeezed[i]) for i in raw_squeezed.argsort()[-5:][::-1]],
+            "labels_count": len(bird.labels),
+        }
+
+        # Check quantization params
+        qp = output_details.get('quantization_parameters')
+        if qp:
+            result["quant_scales"] = [float(x) for x in qp.get('scales', [])] if qp.get('scales') is not None else None
+            result["quant_zero_points"] = [int(x) for x in qp.get('zero_points', [])] if qp.get('zero_points') is not None else None
+
+        # Also check legacy quantization tuple
+        legacy_q = output_details.get('quantization')
+        if legacy_q:
+            result["legacy_quantization"] = str(legacy_q)
+
+        # Dequantize if uint8
+        if output_details['dtype'] == np.uint8:
+            scales = qp.get('scales') if qp else None
+            zero_points = qp.get('zero_points') if qp else None
+            if scales is not None and len(scales) > 0:
+                scale = scales[0]
+                zero_point = zero_points[0] if zero_points is not None and len(zero_points) > 0 else 0
+                dequant = (raw_squeezed - zero_point) * scale
+                result["dequant_method"] = f"(x - {zero_point}) * {scale}"
+            else:
+                dequant = raw_squeezed / 255.0
+                result["dequant_method"] = "x / 255.0"
+            result["dequant_min"] = float(dequant.min())
+            result["dequant_max"] = float(dequant.max())
+            result["dequant_sum"] = float(dequant.sum())
+            result["top_5_dequant_values"] = [float(dequant[i]) for i in raw_squeezed.argsort()[-5:][::-1]]
+
+        return result
+    except Exception as e:
+        import traceback
+        return {"error": str(e), "traceback": traceback.format_exc()}
+
+
+@app.post("/api/classifier/test")
+async def test_bird_classifier(image: UploadFile = File(...)):
+    """Test bird classifier with an uploaded image."""
+    from PIL import Image
+    import io
+
+    try:
+        contents = await image.read()
+        pil_image = Image.open(io.BytesIO(contents))
+
+        results = classifier_service.classify(pil_image)
+
+        return {
+            "status": "ok",
+            "image_size": pil_image.size,
+            "image_mode": pil_image.mode,
+            "results": results
+        }
+    except Exception as e:
+        import traceback
+        return {"error": str(e), "traceback": traceback.format_exc()}
+
 
 @app.get("/api/classifier/wildlife/debug")
 async def wildlife_classifier_debug():

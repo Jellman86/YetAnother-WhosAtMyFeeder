@@ -11,7 +11,7 @@ from app.database import get_db
 from app.models import DetectionResponse
 from app.repositories.detection_repository import DetectionRepository
 from app.config import settings
-from app.services.classifier_service import ClassifierService
+from app.services.classifier_service import get_classifier, ClassifierService
 
 router = APIRouter()
 log = structlog.get_logger()
@@ -62,14 +62,7 @@ async def batch_check_clips(event_ids: list[str]) -> dict[str, bool]:
 
     return result
 
-# Classifier instance for reclassification
-_classifier = None
-
-def get_classifier() -> ClassifierService:
-    global _classifier
-    if _classifier is None:
-        _classifier = ClassifierService()
-    return _classifier
+# get_classifier is now imported from classifier_service
 
 
 class EventFilters(BaseModel):

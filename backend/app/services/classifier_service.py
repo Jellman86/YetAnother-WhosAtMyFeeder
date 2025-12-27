@@ -16,6 +16,17 @@ from app.config import settings
 
 log = structlog.get_logger()
 
+# Global singleton instance
+_classifier_instance: Optional['ClassifierService'] = None
+
+
+def get_classifier() -> 'ClassifierService':
+    """Get the shared classifier service instance."""
+    global _classifier_instance
+    if _classifier_instance is None:
+        _classifier_instance = ClassifierService()
+    return _classifier_instance
+
 
 class ModelInstance:
     """Represents a loaded TFLite model with its labels."""
@@ -144,15 +155,34 @@ class ModelInstance:
             else:
                 results = results / 255.0
 
-        # Check if output is already probabilities (sums to ~1, all positive)
-        # Some models (like EfficientNet-Lite4) have softmax built-in
-        if results.min() >= 0 and 0.99 < results.sum() < 1.01:
-            log.debug(f"{self.name}: Output is probabilities, skipping softmax")
+        # Check if output is already probabilities vs logits
+        # Probabilities: all values >= 0, max <= 1.0, sum close to 1.0
+        # Logits: can have negative values, or values > 2-3, sum is arbitrary
+        output_sum = float(results.sum())
+        output_min = float(results.min())
+        output_max = float(results.max())
+        log.info(f"{self.name}: Raw output stats - min={output_min:.6f}, max={output_max:.6f}, sum={output_sum:.6f}")
+
+        # Detect if output looks like probabilities (post-softmax)
+        # - All values are non-negative
+        # - Max value is reasonable for a probability (< 1.5 to allow for quantization error)
+        # - Sum is somewhat close to 1.0 (0.8 to 1.2 to allow for quantization error)
+        is_probability = output_min >= 0 and output_max < 1.5 and 0.8 < output_sum < 1.2
+
+        if is_probability:
+            # Already probabilities, just normalize to ensure they sum to 1.0
+            # This handles quantization error without applying softmax
+            if abs(output_sum - 1.0) > 0.001:
+                log.info(f"{self.name}: Normalizing probabilities (sum={output_sum:.4f})")
+                results = results / output_sum
+            else:
+                log.info(f"{self.name}: Output is probabilities (sum={output_sum:.4f}), no adjustment needed")
         else:
-            # Apply softmax to convert logits to probabilities
+            # Logits - apply softmax to convert to probabilities
+            log.info(f"{self.name}: Applying softmax to logits (sum was {output_sum:.4f})")
             exp_results = np.exp(results - np.max(results))
             results = exp_results / np.sum(exp_results)
-            log.debug(f"{self.name}: Applied softmax to logits")
+            log.info(f"{self.name}: After softmax - max={float(results.max()):.6f}")
 
         # Get top-5 predictions
         top_k = results.argsort()[-5:][::-1]
