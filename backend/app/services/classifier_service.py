@@ -80,6 +80,36 @@ class ModelInstance:
             log.error(f"Failed to load {self.name} model", error=str(e))
             return False
 
+    def _preprocess_image(self, image: Image.Image, target_width: int, target_height: int) -> np.ndarray:
+        """
+        Preprocess image: resize with padding (letterbox) to maintain aspect ratio,
+        then normalize.
+        """
+        # Convert to RGB
+        image = image.convert('RGB')
+        
+        # Calculate scale to fit within target dims while maintaining aspect ratio
+        iw, ih = image.size
+        w, h = target_width, target_height
+        scale = min(w / iw, h / ih)
+        nw = int(iw * scale)
+        nh = int(ih * scale)
+
+        # Resize image
+        image = image.resize((nw, nh), Image.Resampling.BICUBIC)
+
+        # Create new image with gray padding (common for EfficientNet, or black for others)
+        # Using black (0) for generic approach as it works well with MobileNet too
+        new_image = Image.new('RGB', (w, h), (0, 0, 0))
+        
+        # Paste resized image in center
+        new_image.paste(image, ((w - nw) // 2, (h - nh) // 2))
+
+        # Convert to numpy array
+        input_data = np.array(new_image, dtype=np.float32)
+        
+        return input_data
+
     def classify(self, image: Image.Image) -> list[dict]:
         """Classify an image using this model.
 
@@ -105,14 +135,10 @@ class ModelInstance:
         log.info(f"{self.name} classify: input image mode={image.mode}, size={image.size}, "
                  f"target={target_width}x{target_height}, model_dtype={input_details['dtype']}")
 
-        # Step 1: Convert to RGB (handles RGBA, grayscale, palette, etc.)
-        image = image.convert('RGB')
-
-        # Step 2: Resize to exact target size using high-quality resampling
-        image = image.resize((target_width, target_height), Image.Resampling.LANCZOS)
-
-        # Step 3: Convert to numpy array (uint8, range 0-255)
-        input_data = np.array(image, dtype=np.float32)
+        # Preprocess: Letterbox resize (maintain aspect ratio)
+        # Previously we squashed: image = image.resize((target_width, target_height), Image.Resampling.LANCZOS)
+        # Now using letterbox to reduce distortion and improve accuracy
+        input_data = self._preprocess_image(image, target_width, target_height)
 
         # Step 4: Normalize based on model input type
         if input_details['dtype'] == np.float32:
@@ -121,7 +147,7 @@ class ModelInstance:
             log.debug(f"{self.name}: Normalized to [-1,1], range=[{input_data.min():.2f}, {input_data.max():.2f}]")
         elif input_details['dtype'] == np.uint8:
             # Quantized models: keep as uint8
-            input_data = np.array(image, dtype=np.uint8)
+            input_data = input_data.astype(np.uint8)
 
         # Step 5: Add batch dimension - shape becomes (1, height, width, 3)
         input_data = np.expand_dims(input_data, axis=0)
