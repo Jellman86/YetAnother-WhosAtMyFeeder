@@ -1,6 +1,7 @@
 <script lang="ts">
     import DetectionCard from '../components/DetectionCard.svelte';
     import SpeciesDetailModal from '../components/SpeciesDetailModal.svelte';
+    import VideoPlayer from '../components/VideoPlayer.svelte';
     import type { Detection, WildlifeClassification } from '../api';
     import { getThumbnailUrl, deleteDetection, hideDetection, classifyWildlife, updateDetectionSpecies } from '../api';
 
@@ -23,11 +24,18 @@
     let wildlifeResults = $state<WildlifeClassification[]>([]);
     let applyingWildlife = $state(false);
 
-    // Reset wildlife results when switching detections
+    // Video playback state
+    let showVideo = $state(false);
+
+    // Derive hasClip from selected event
+    let selectedHasClip = $derived(selectedEvent?.has_clip ?? false);
+
+    // Reset wildlife results and video when switching detections
     $effect(() => {
         if (selectedEvent) {
             showWildlifeResults = false;
             wildlifeResults = [];
+            showVideo = false;
         }
     });
 
@@ -222,6 +230,27 @@
                         })}
                     </p>
                 </div>
+                <!-- Play Video Button (shows when clip is available) -->
+                {#if selectedHasClip}
+                    <button
+                        type="button"
+                        onclick={() => showVideo = true}
+                        class="absolute inset-0 flex items-center justify-center
+                               bg-black/0 hover:bg-black/30 transition-colors duration-200
+                               group/play focus:outline-none"
+                        aria-label="Play video clip"
+                    >
+                        <div class="w-16 h-16 rounded-full bg-white/90 dark:bg-slate-800/90
+                                    flex items-center justify-center shadow-lg
+                                    opacity-70 group-hover/play:opacity-100
+                                    transform scale-90 group-hover/play:scale-100
+                                    transition-all duration-200">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-7 h-7 text-teal-600 dark:text-teal-400 ml-1" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M8 5v14l11-7z"/>
+                            </svg>
+                        </div>
+                    </button>
+                {/if}
                 <!-- Close button -->
                 <button
                     onclick={() => selectedEvent = null}
@@ -396,5 +425,13 @@
     <SpeciesDetailModal
         speciesName={selectedSpecies}
         onclose={() => selectedSpecies = null}
+    />
+{/if}
+
+<!-- Video Player Modal -->
+{#if showVideo && selectedEvent}
+    <VideoPlayer
+        frigateEvent={selectedEvent.frigate_event}
+        onClose={() => showVideo = false}
     />
 {/if}

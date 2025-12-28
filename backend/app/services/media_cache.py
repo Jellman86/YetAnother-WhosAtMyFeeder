@@ -140,24 +140,34 @@ class MediaCacheService:
             return None
 
     def get_clip_path(self, event_id: str) -> Optional[Path]:
-        """Get path to a cached clip if it exists.
+        """Get path to a cached clip if it exists and has content.
 
         Args:
             event_id: Frigate event ID
 
         Returns:
-            Path to cached clip, or None if not cached
+            Path to cached clip, or None if not cached or empty
         """
         path = self._clip_path(event_id)
         if path.exists():
-            # Update access time
-            os.utime(path, None)
-            return path
+            # Check that file has content (not 0 bytes from failed download)
+            if path.stat().st_size > 0:
+                # Update access time
+                os.utime(path, None)
+                return path
+            else:
+                # Remove empty/corrupt file so it will be refetched
+                try:
+                    path.unlink()
+                    log.warning("Removed empty cached clip", event_id=event_id)
+                except:
+                    pass
         return None
 
     def has_clip(self, event_id: str) -> bool:
-        """Check if a clip is cached."""
-        return self._clip_path(event_id).exists()
+        """Check if a clip is cached and has content."""
+        path = self._clip_path(event_id)
+        return path.exists() and path.stat().st_size > 0
 
     async def delete_cached_media(self, event_id: str):
         """Delete all cached media for an event.

@@ -5,6 +5,13 @@ from contextlib import asynccontextmanager
 log = structlog.get_logger()
 DB_PATH = "/data/speciesid.db"
 
+async def column_exists(db, table: str, column: str) -> bool:
+    """Check if a column exists in a table using PRAGMA table_info."""
+    cursor = await db.execute(f"PRAGMA table_info({table})")
+    columns = await cursor.fetchall()
+    return any(col[1] == column for col in columns)
+
+
 async def init_db():
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute("""
@@ -22,13 +29,14 @@ async def init_db():
         """)
 
         # Migration: Add is_hidden column to existing databases
-        # Must run BEFORE creating the index on is_hidden
-        try:
-            await db.execute("ALTER TABLE detections ADD COLUMN is_hidden INTEGER DEFAULT 0")
-            log.info("Added is_hidden column to detections table")
-        except Exception:
-            # Column already exists, ignore
-            pass
+        # Check if column exists before attempting to add it
+        if not await column_exists(db, "detections", "is_hidden"):
+            try:
+                await db.execute("ALTER TABLE detections ADD COLUMN is_hidden INTEGER DEFAULT 0")
+                log.info("Added is_hidden column to detections table")
+            except Exception as e:
+                log.error("Failed to add is_hidden column", error=str(e))
+                raise  # Re-raise to prevent startup with broken schema
 
         # Add indexes for common query patterns (after migrations)
         await db.execute("CREATE INDEX IF NOT EXISTS idx_detections_time ON detections(detection_time DESC)")

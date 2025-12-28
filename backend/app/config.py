@@ -47,7 +47,7 @@ class MaintenanceSettings(BaseModel):
 class MediaCacheSettings(BaseModel):
     enabled: bool = Field(default=True, description="Enable local media caching")
     cache_snapshots: bool = Field(default=True, description="Cache snapshot images locally")
-    cache_clips: bool = Field(default=True, description="Cache video clips locally")
+    cache_clips: bool = Field(default=False, description="Cache video clips locally (may cause initial playback delay)")
     retention_days: int = Field(default=0, ge=0, description="Days to keep cached media (0 = follow detection retention)")
 
 class Settings(BaseSettings):
@@ -99,7 +99,7 @@ class Settings(BaseSettings):
         media_cache_data = {
             'enabled': os.environ.get('MEDIA_CACHE__ENABLED', 'true').lower() == 'true',
             'cache_snapshots': os.environ.get('MEDIA_CACHE__CACHE_SNAPSHOTS', 'true').lower() == 'true',
-            'cache_clips': os.environ.get('MEDIA_CACHE__CACHE_CLIPS', 'true').lower() == 'true',
+            'cache_clips': os.environ.get('MEDIA_CACHE__CACHE_CLIPS', 'false').lower() == 'true',  # Disabled by default to avoid blocking
             'retention_days': int(os.environ.get('MEDIA_CACHE__RETENTION_DAYS', '0')),
         }
 
