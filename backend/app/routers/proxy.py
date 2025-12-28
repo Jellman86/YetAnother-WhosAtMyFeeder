@@ -228,6 +228,14 @@ async def proxy_clip(
         "Content-Disposition": f"inline; filename={event_id}.mp4",
     }
 
+    # If we are here, we are proxying directly.
+    # Check if we got valid content length from Frigate to ensure it's not empty
+    content_len = r.headers.get("content-length")
+    if content_len and int(content_len) == 0:
+        await r.aclose()
+        await client.aclose()
+        raise HTTPException(status_code=502, detail="Frigate returned an empty video clip")
+
     if "content-length" in r.headers:
         response_headers["Content-Length"] = r.headers["content-length"]
     if "content-range" in r.headers:
