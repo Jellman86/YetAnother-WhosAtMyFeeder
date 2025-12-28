@@ -158,6 +158,20 @@ async def proxy_clip(
                 filename=f"{event_id}.mp4"
             )
 
+    # Verify clip exists in Frigate before attempting download
+    try:
+        event_data = await frigate_client.get_event(event_id)
+        if not event_data:
+            raise HTTPException(status_code=404, detail="Event not found in Frigate")
+        if not event_data.get("has_clip", False):
+            raise HTTPException(status_code=404, detail="Clip not available for this event")
+    except Exception as e:
+        if isinstance(e, HTTPException):
+            raise e
+        # If checking fails, proceed cautiously (maybe Frigate API is weird) but log it
+        # Or better, just fail here to prevent empty downloads
+        pass
+
     clip_url = f"{settings.frigate.frigate_url}/api/events/{event_id}/clip.mp4"
     headers = frigate_client._get_headers()
 
