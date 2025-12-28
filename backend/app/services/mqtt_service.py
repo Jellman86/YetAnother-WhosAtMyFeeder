@@ -3,18 +3,17 @@ import json
 import structlog
 import uuid
 from aiomqtt import Client, MqttError
-from app.config import settings, APP_VERSION
+from app.config import settings
 
 log = structlog.get_logger()
 
-# Generate a unique session ID for this instance
-SESSION_ID = str(uuid.uuid4())
-
 class MQTTService:
-    def __init__(self):
+    def __init__(self, version: str = "unknown"):
         self.client = None
         self.running = False
-        self.client_id = f"YAWAMF-{APP_VERSION}-{SESSION_ID}"
+        # Generate a unique session ID for this instance
+        session_id = str(uuid.uuid4())[:8]
+        self.client_id = f"YAWAMF-{version}-{session_id}"
 
     async def start(self, message_callback):
         self.running = True
