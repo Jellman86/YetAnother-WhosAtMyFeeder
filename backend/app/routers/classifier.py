@@ -320,6 +320,9 @@ async def download_wildlife_model():
                 for label in processed_labels:
                     f.write(f"{label}\n")
 
+            # Reload the classifier service to pick up the new model
+            classifier_service.reload_wildlife_model()
+
             log.info("Wildlife model downloaded and ready",
                      labels_count=len(processed_labels),
                      model_size_mb=len(tflite_content) / (1024 * 1024))

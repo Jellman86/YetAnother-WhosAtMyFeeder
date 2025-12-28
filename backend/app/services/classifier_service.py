@@ -341,3 +341,16 @@ class ClassifierService:
         """Get the list of wildlife labels."""
         wildlife = self._get_wildlife_model()
         return wildlife.labels
+
+    def reload_wildlife_model(self):
+        """Force reload of the wildlife model (e.g. after download)."""
+        if "wildlife" in self._models:
+            del self._models["wildlife"]
+            log.info("Cleared cached wildlife model instance")
+        
+        # Trigger reload to pick up new file
+        try:
+            self._get_wildlife_model()
+            log.info("Reloaded wildlife model")
+        except Exception as e:
+            log.error("Failed to reload wildlife model", error=str(e))
