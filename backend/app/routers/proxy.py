@@ -4,24 +4,19 @@ from fastapi.responses import StreamingResponse
 from starlette.background import BackgroundTask
 import httpx
 from app.config import settings
+from app.services.frigate_client import frigate_client
 
 router = APIRouter()
 
 # Shared HTTP client for better connection pooling
 _http_client: httpx.AsyncClient | None = None
 
+
 def get_http_client() -> httpx.AsyncClient:
     global _http_client
     if _http_client is None:
         _http_client = httpx.AsyncClient(timeout=30.0)
     return _http_client
-
-def get_frigate_headers() -> dict:
-    """Build headers for Frigate requests, including auth token if configured."""
-    headers = {}
-    if settings.frigate.frigate_auth_token:
-        headers['Authorization'] = f'Bearer {settings.frigate.frigate_auth_token}'
-    return headers
 
 # Validate event_id format (Frigate uses UUIDs, numeric IDs, or timestamp-based IDs with dots)
 EVENT_ID_PATTERN = re.compile(r'^[a-zA-Z0-9\-_.]+$')
@@ -34,7 +29,7 @@ async def test_frigate_connection():
     """Test connection to Frigate and return status with details."""
     url = f"{settings.frigate.frigate_url}/api/version"
     client = get_http_client()
-    headers = get_frigate_headers()
+    headers = frigate_client._get_headers()
     try:
         resp = await client.get(url, headers=headers, timeout=10.0)
         resp.raise_for_status()
@@ -57,7 +52,7 @@ async def test_frigate_connection():
 async def proxy_config():
     url = f"{settings.frigate.frigate_url}/api/config"
     client = get_http_client()
-    headers = get_frigate_headers()
+    headers = frigate_client._get_headers()
     try:
         resp = await client.get(url, headers=headers)
         resp.raise_for_status()
@@ -87,7 +82,7 @@ async def proxy_snapshot(event_id: str = Path(..., min_length=1, max_length=64))
     # Fetch from Frigate
     url = f"{settings.frigate.frigate_url}/api/events/{event_id}/snapshot.jpg"
     client = get_http_client()
-    headers = get_frigate_headers()
+    headers = frigate_client._get_headers()
     try:
         resp = await client.get(url, headers=headers)
         if resp.status_code == 404:
@@ -117,7 +112,7 @@ async def check_clip_exists(event_id: str = Path(..., min_length=1, max_length=6
     # Frigate doesn't support HEAD for clips, so check event exists instead
     url = f"{settings.frigate.frigate_url}/api/events/{event_id}"
     client = get_http_client()
-    headers = get_frigate_headers()
+    headers = frigate_client._get_headers()
     try:
         resp = await client.get(url, headers=headers, timeout=10.0)
         if resp.status_code == 404:
@@ -164,7 +159,7 @@ async def proxy_clip(
             )
 
     clip_url = f"{settings.frigate.frigate_url}/api/events/{event_id}/clip.mp4"
-    headers = get_frigate_headers()
+    headers = frigate_client._get_headers()
 
     # Forward Range header if present (only when not caching)
     range_header = request.headers.get("range")
@@ -197,7 +192,7 @@ async def proxy_clip(
             else:
                 # Cache failed, refetch and stream without caching
                 client = httpx.AsyncClient(timeout=120.0)
-                req = client.build_request("GET", clip_url, headers=get_frigate_headers())
+                req = client.build_request("GET", clip_url, headers=frigate_client._get_headers())
                 r = await client.send(req, stream=True)
 
         # Stream directly from Frigate (caching disabled or failed)
@@ -246,7 +241,7 @@ async def proxy_thumb(event_id: str = Path(..., min_length=1, max_length=64)):
 
     url = f"{settings.frigate.frigate_url}/api/events/{event_id}/thumbnail.jpg"
     client = get_http_client()
-    headers = get_frigate_headers()
+    headers = frigate_client._get_headers()
     try:
         resp = await client.get(url, headers=headers)
         if resp.status_code == 404:

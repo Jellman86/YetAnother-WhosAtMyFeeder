@@ -105,11 +105,85 @@ class DetectionRepository:
 
     async def update(self, detection: Detection):
         await self.db.execute("""
-            UPDATE detections 
+            UPDATE detections
             SET detection_time = ?, detection_index = ?, score = ?, display_name = ?, category_name = ?
             WHERE frigate_event = ?
         """, (detection.detection_time, detection.detection_index, detection.score, detection.display_name, detection.category_name, detection.frigate_event))
         await self.db.commit()
+
+    async def upsert_if_higher_score(self, detection: Detection) -> tuple[bool, bool]:
+        """Atomically insert or update a detection, only updating if new score is higher.
+
+        Uses SQLite's ON CONFLICT clause to prevent race conditions.
+
+        Args:
+            detection: The detection to insert or update
+
+        Returns:
+            Tuple of (was_inserted, was_updated)
+        """
+        # First, try to insert. If conflict on frigate_event, update only if score is higher.
+        # SQLite's ON CONFLICT DO UPDATE with WHERE clause handles this atomically.
+        await self.db.execute("""
+            INSERT INTO detections (detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(frigate_event) DO UPDATE SET
+                detection_time = excluded.detection_time,
+                detection_index = excluded.detection_index,
+                score = excluded.score,
+                display_name = excluded.display_name,
+                category_name = excluded.category_name
+            WHERE excluded.score > detections.score
+        """, (
+            detection.detection_time,
+            detection.detection_index,
+            detection.score,
+            detection.display_name,
+            detection.category_name,
+            detection.frigate_event,
+            detection.camera_name
+        ))
+
+        changes = self.db.total_changes
+        await self.db.commit()
+
+        # Determine what happened:
+        # - If changes > 0 and row was new: inserted
+        # - If changes > 0 and row existed: updated (score was higher)
+        # - If changes == 0: row existed but score wasn't higher
+        # We can't perfectly distinguish insert vs update without extra query,
+        # but for logging purposes we return (changes > 0, False) for simplicity
+        return (changes > 0, False)
+
+    async def insert_if_not_exists(self, detection: Detection) -> bool:
+        """Atomically insert a detection only if it doesn't already exist.
+
+        Uses SQLite's INSERT OR IGNORE to prevent race conditions.
+        Useful for backfill operations where we don't want to update existing records.
+
+        Args:
+            detection: The detection to insert
+
+        Returns:
+            True if inserted, False if already existed
+        """
+        await self.db.execute("""
+            INSERT OR IGNORE INTO detections
+            (detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, (
+            detection.detection_time,
+            detection.detection_index,
+            detection.score,
+            detection.display_name,
+            detection.category_name,
+            detection.frigate_event,
+            detection.camera_name
+        ))
+
+        changes = self.db.total_changes
+        await self.db.commit()
+        return changes > 0
 
     async def get_all(
         self,

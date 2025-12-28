@@ -1,5 +1,4 @@
 import structlog
-import httpx
 from datetime import datetime
 from dataclasses import dataclass
 from io import BytesIO
@@ -8,6 +7,7 @@ from PIL import Image
 from app.config import settings
 from app.services.classifier_service import ClassifierService
 from app.services.broadcaster import broadcaster
+from app.services.frigate_client import frigate_client
 from app.database import get_db
 from app.repositories.detection_repository import DetectionRepository, Detection
 
@@ -28,32 +28,12 @@ class BackfillService:
 
     def __init__(self, classifier: ClassifierService):
         self.classifier = classifier
-        self.http_client = httpx.AsyncClient()
-
-    def _get_frigate_headers(self) -> dict:
-        """Build headers for Frigate requests, including auth token if configured."""
-        headers = {}
-        if settings.frigate.frigate_auth_token:
-            headers['Authorization'] = f'Bearer {settings.frigate.frigate_auth_token}'
-        return headers
 
     async def fetch_frigate_events(self, after_ts: float, before_ts: float, cameras: list[str] = None) -> list[dict]:
         """
         Fetch bird events from Frigate API for a given time range.
-        Handles pagination automatically.
         """
         all_events = []
-        frigate_url = settings.frigate.frigate_url
-        headers = self._get_frigate_headers()
-
-        # Build base params
-        params = {
-            "after": after_ts,
-            "before": before_ts,
-            "label": "bird",
-            "has_snapshot": 1,
-            "limit": 100
-        }
 
         # If cameras are configured, fetch events for each camera
         camera_list = cameras or settings.frigate.camera or []
@@ -61,12 +41,24 @@ class BackfillService:
         if camera_list:
             # Fetch for each configured camera
             for camera in camera_list:
-                camera_params = {**params, "camera": camera}
-                events = await self._fetch_events_paginated(frigate_url, camera_params, headers)
+                events = await frigate_client.list_events(
+                    after=after_ts,
+                    before=before_ts,
+                    label="bird",
+                    camera=camera,
+                    has_snapshot=True,
+                    limit=100
+                )
                 all_events.extend(events)
         else:
             # Fetch all cameras
-            events = await self._fetch_events_paginated(frigate_url, params, headers)
+            events = await frigate_client.list_events(
+                after=after_ts,
+                before=before_ts,
+                label="bird",
+                has_snapshot=True,
+                limit=100
+            )
             all_events.extend(events)
 
         # Remove duplicates by event ID (in case same event appears for multiple cameras)
@@ -81,27 +73,6 @@ class BackfillService:
         log.info("Fetched events from Frigate", count=len(unique_events), after=after_ts, before=before_ts)
         return unique_events
 
-    async def _fetch_events_paginated(self, frigate_url: str, params: dict, headers: dict) -> list[dict]:
-        """Fetch events with pagination support."""
-        events = []
-        url = f"{frigate_url}/api/events"
-
-        try:
-            response = await self.http_client.get(url, params=params, headers=headers, timeout=30.0)
-            if response.status_code == 200:
-                batch = response.json()
-                events.extend(batch)
-
-                # If we got a full page, there might be more - but for simplicity,
-                # we'll just fetch the first 100 per camera. Can add pagination later if needed.
-                log.debug("Fetched event batch", count=len(batch), camera=params.get('camera'))
-            else:
-                log.warning("Failed to fetch events from Frigate", status=response.status_code)
-        except Exception as e:
-            log.error("Error fetching events from Frigate", error=str(e))
-
-        return events
-
     async def process_historical_event(self, event: dict) -> str:
         """
         Process a single historical event.
@@ -112,32 +83,13 @@ class BackfillService:
             return 'error'
 
         try:
-            # Check if already exists in database
-            async with get_db() as db:
-                repo = DetectionRepository(db)
-                existing = await repo.get_by_frigate_event(frigate_event)
-                if existing:
-                    log.debug("Event already exists, skipping", event_id=frigate_event)
-                    return 'skipped'
-
-            # Fetch snapshot from Frigate
-            frigate_url = settings.frigate.frigate_url
-            snapshot_url = f"{frigate_url}/api/events/{frigate_event}/snapshot.jpg"
-            headers = self._get_frigate_headers()
-
-            response = await self.http_client.get(
-                snapshot_url,
-                params={"crop": 1, "quality": 95},
-                headers=headers,
-                timeout=30.0
-            )
-
-            if response.status_code != 200:
-                log.warning("Failed to fetch snapshot", event_id=frigate_event, status=response.status_code)
+            # Fetch snapshot from Frigate using centralized client
+            snapshot_data = await frigate_client.get_snapshot(frigate_event, crop=True, quality=95)
+            if not snapshot_data:
                 return 'error'
 
             # Classify the image
-            image = Image.open(BytesIO(response.content))
+            image = Image.open(BytesIO(snapshot_data))
             results = self.classifier.classify(image)
 
             if not results:
@@ -167,7 +119,7 @@ class BackfillService:
                 log.debug("Below threshold", score=score, event_id=frigate_event)
                 return 'skipped'
 
-            # Save to database
+            # Save to database (atomic insert - skips if already exists)
             timestamp = datetime.fromtimestamp(event.get('start_time', datetime.now().timestamp()))
             camera_name = event.get('camera', 'unknown')
 
@@ -183,7 +135,11 @@ class BackfillService:
 
             async with get_db() as db:
                 repo = DetectionRepository(db)
-                await repo.create(detection)
+                inserted = await repo.insert_if_not_exists(detection)
+
+            if not inserted:
+                log.debug("Event already exists, skipped", event_id=frigate_event)
+                return 'skipped'
 
             log.info("Backfilled detection", event_id=frigate_event, species=label, score=score)
 

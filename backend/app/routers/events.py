@@ -3,7 +3,6 @@ from typing import List, Optional, Literal
 from datetime import datetime, date
 from io import BytesIO
 from pydantic import BaseModel, Field
-import httpx
 import structlog
 from PIL import Image
 
@@ -12,17 +11,10 @@ from app.models import DetectionResponse
 from app.repositories.detection_repository import DetectionRepository
 from app.config import settings
 from app.services.classifier_service import get_classifier, ClassifierService
+from app.services.frigate_client import frigate_client
 
 router = APIRouter()
 log = structlog.get_logger()
-
-
-def get_frigate_headers() -> dict:
-    """Build headers for Frigate requests, including auth token if configured."""
-    headers = {}
-    if settings.frigate.frigate_auth_token:
-        headers['Authorization'] = f'Bearer {settings.frigate.frigate_auth_token}'
-    return headers
 
 
 async def batch_check_clips(event_ids: list[str]) -> dict[str, bool]:
@@ -33,32 +25,13 @@ async def batch_check_clips(event_ids: list[str]) -> dict[str, bool]:
     if not event_ids:
         return {}
 
-    frigate_url = settings.frigate.frigate_url
-    headers = get_frigate_headers()
     result = {}
-
-    try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            # Fetch events from Frigate - it returns all matching events
-            # We'll check each one for has_clip
-            for event_id in event_ids:
-                try:
-                    resp = await client.get(
-                        f"{frigate_url}/api/events/{event_id}",
-                        headers=headers,
-                        timeout=5.0
-                    )
-                    if resp.status_code == 200:
-                        data = resp.json()
-                        result[event_id] = data.get("has_clip", False)
-                    else:
-                        result[event_id] = False
-                except Exception:
-                    result[event_id] = False
-    except Exception as e:
-        log.warning("Failed to batch check clips", error=str(e))
-        # Return empty dict - frontend will show no play buttons
-        return {eid: False for eid in event_ids}
+    for event_id in event_ids:
+        try:
+            event_data = await frigate_client.get_event(event_id)
+            result[event_id] = event_data.get("has_clip", False) if event_data else False
+        except Exception:
+            result[event_id] = False
 
     return result
 
@@ -259,70 +232,48 @@ async def reclassify_event(event_id: str):
 
         old_species = detection.display_name
 
-        # Fetch snapshot from Frigate
-        frigate_url = settings.frigate.frigate_url
-        snapshot_url = f"{frigate_url}/api/events/{event_id}/snapshot.jpg"
+        # Fetch snapshot from Frigate using centralized client
+        snapshot_data = await frigate_client.get_snapshot(event_id, crop=True, quality=95)
+        if not snapshot_data:
+            raise HTTPException(status_code=502, detail="Failed to fetch snapshot from Frigate")
 
-        headers = {}
-        if settings.frigate.frigate_auth_token:
-            headers['Authorization'] = f'Bearer {settings.frigate.frigate_auth_token}'
+        # Classify the image
+        image = Image.open(BytesIO(snapshot_data))
+        classifier = get_classifier()
+        results = classifier.classify(image)
 
-        try:
-            async with httpx.AsyncClient() as client:
-                response = await client.get(
-                    snapshot_url,
-                    params={"crop": 1, "quality": 95},
-                    headers=headers,
-                    timeout=30.0
-                )
+        if not results:
+            raise HTTPException(status_code=500, detail="Classification returned no results")
 
-                if response.status_code != 200:
-                    raise HTTPException(
-                        status_code=502,
-                        detail=f"Failed to fetch snapshot from Frigate: {response.status_code}"
-                    )
+        top = results[0]
+        new_species = top['label']
+        new_score = top['score']
 
-                # Classify the image
-                image = Image.open(BytesIO(response.content))
-                classifier = get_classifier()
-                results = classifier.classify(image)
+        # Update if species changed
+        updated = False
+        if new_species != old_species:
+            # Execute update directly for reliability
+            await db.execute("""
+                UPDATE detections
+                SET display_name = ?, category_name = ?, score = ?, detection_index = ?
+                WHERE frigate_event = ?
+            """, (new_species, new_species, new_score, top['index'], event_id))
+            await db.commit()
+            updated = True
+            log.info("Reclassified detection",
+                     event_id=event_id,
+                     old_species=old_species,
+                     new_species=new_species,
+                     score=new_score)
 
-                if not results:
-                    raise HTTPException(status_code=500, detail="Classification returned no results")
-
-                top = results[0]
-                new_species = top['label']
-                new_score = top['score']
-
-                # Update if species changed
-                updated = False
-                if new_species != old_species:
-                    # Execute update directly for reliability
-                    await db.execute("""
-                        UPDATE detections
-                        SET display_name = ?, category_name = ?, score = ?, detection_index = ?
-                        WHERE frigate_event = ?
-                    """, (new_species, new_species, new_score, top['index'], event_id))
-                    await db.commit()
-                    updated = True
-                    log.info("Reclassified detection",
-                             event_id=event_id,
-                             old_species=old_species,
-                             new_species=new_species,
-                             score=new_score)
-
-                return ReclassifyResponse(
-                    status="success",
-                    event_id=event_id,
-                    old_species=old_species,
-                    new_species=new_species,
-                    new_score=new_score,
-                    updated=updated
-                )
-
-        except httpx.RequestError as e:
-            log.error("Failed to fetch snapshot", event_id=event_id, error=str(e))
-            raise HTTPException(status_code=502, detail=f"Failed to connect to Frigate: {str(e)}")
+        return ReclassifyResponse(
+            status="success",
+            event_id=event_id,
+            old_species=old_species,
+            new_species=new_species,
+            new_score=new_score,
+            updated=updated
+        )
 
 
 @router.patch("/events/{event_id}")
@@ -407,62 +358,42 @@ async def classify_wildlife(event_id: str):
         if not detection:
             raise HTTPException(status_code=404, detail="Detection not found")
 
-        # Fetch snapshot from Frigate
-        frigate_url = settings.frigate.frigate_url
-        snapshot_url = f"{frigate_url}/api/events/{event_id}/snapshot.jpg"
+        # Fetch snapshot from Frigate using centralized client
+        snapshot_data = await frigate_client.get_snapshot(event_id, crop=True, quality=95)
+        if not snapshot_data:
+            raise HTTPException(status_code=502, detail="Failed to fetch snapshot from Frigate")
 
-        headers = get_frigate_headers()
+        # Classify with wildlife model
+        image = Image.open(BytesIO(snapshot_data))
+        classifier = get_classifier()
+        results = classifier.classify_wildlife(image)
 
-        try:
-            async with httpx.AsyncClient() as client:
-                response = await client.get(
-                    snapshot_url,
-                    params={"crop": 1, "quality": 95},
-                    headers=headers,
-                    timeout=30.0
+        if not results:
+            # Wildlife model not available or no results
+            wildlife_status = classifier.get_wildlife_status()
+            if not wildlife_status.get("enabled"):
+                raise HTTPException(
+                    status_code=503,
+                    detail="Wildlife model not available. Please download the wildlife model first."
                 )
+            raise HTTPException(status_code=500, detail="Classification returned no results")
 
-                if response.status_code != 200:
-                    raise HTTPException(
-                        status_code=502,
-                        detail=f"Failed to fetch snapshot from Frigate: {response.status_code}"
-                    )
+        classifications = [
+            WildlifeClassification(
+                label=r['label'],
+                score=r['score'],
+                index=r['index']
+            )
+            for r in results
+        ]
 
-                # Classify with wildlife model
-                image = Image.open(BytesIO(response.content))
-                classifier = get_classifier()
-                results = classifier.classify_wildlife(image)
+        log.info("Wildlife classification complete",
+                 event_id=event_id,
+                 top_result=results[0]['label'] if results else None,
+                 top_score=results[0]['score'] if results else None)
 
-                if not results:
-                    # Wildlife model not available or no results
-                    wildlife_status = classifier.get_wildlife_status()
-                    if not wildlife_status.get("enabled"):
-                        raise HTTPException(
-                            status_code=503,
-                            detail="Wildlife model not available. Please download the wildlife model first."
-                        )
-                    raise HTTPException(status_code=500, detail="Classification returned no results")
-
-                classifications = [
-                    WildlifeClassification(
-                        label=r['label'],
-                        score=r['score'],
-                        index=r['index']
-                    )
-                    for r in results
-                ]
-
-                log.info("Wildlife classification complete",
-                         event_id=event_id,
-                         top_result=results[0]['label'] if results else None,
-                         top_score=results[0]['score'] if results else None)
-
-                return WildlifeClassifyResponse(
-                    status="success",
-                    event_id=event_id,
-                    classifications=classifications
-                )
-
-        except httpx.RequestError as e:
-            log.error("Failed to fetch snapshot for wildlife classification", event_id=event_id, error=str(e))
-            raise HTTPException(status_code=502, detail=f"Failed to connect to Frigate: {str(e)}")
+        return WildlifeClassifyResponse(
+            status="success",
+            event_id=event_id,
+            classifications=classifications
+        )
