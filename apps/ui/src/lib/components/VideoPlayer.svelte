@@ -10,7 +10,6 @@
 
     let videoError = $state(false);
     let videoForbidden = $state(false);
-    let videoLoaded = $state(false);
     let retryCount = $state(0);
     let clipUrl = $state(getClipUrl(frigateEvent));
     const maxRetries = 2;
@@ -41,7 +40,6 @@
             retryCount++;
             videoError = false;
             videoForbidden = false;
-            videoLoaded = false;
             // Add cache buster to force reload
             clipUrl = getClipUrl(frigateEvent) + `?retry=${retryCount}`;
         }
@@ -125,25 +123,11 @@
                     {/if}
                 </div>
             {:else}
-                <!-- Loading spinner - shows until video is ready -->
-                {#if !videoLoaded}
-                    <div class="absolute inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm z-10 transition-opacity duration-300">
-                        <div class="flex flex-col items-center gap-4">
-                            <div class="relative w-16 h-16">
-                                <div class="absolute inset-0 border-4 border-white/20 rounded-full"></div>
-                                <div class="absolute inset-0 border-4 border-t-teal-500 border-r-transparent border-b-transparent border-l-transparent rounded-full animate-spin"></div>
-                            </div>
-                            <p class="text-white/80 font-medium tracking-wide">Loading Clip...</p>
-                        </div>
-                    </div>
-                {/if}
-
                 <video
                     controls
                     autoplay
                     playsinline
                     class="w-full h-full object-contain"
-                    onloadeddata={() => videoLoaded = true}
                     onerror={handleError}
                 >
                     <source src={clipUrl} type="video/mp4" />
