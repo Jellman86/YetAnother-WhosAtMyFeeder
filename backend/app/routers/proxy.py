@@ -73,8 +73,18 @@ async def proxy_config():
 
 @router.get("/frigate/{event_id}/snapshot.jpg")
 async def proxy_snapshot(event_id: str = Path(..., min_length=1, max_length=64)):
+    from app.services.media_cache import media_cache
+
     if not validate_event_id(event_id):
         raise HTTPException(status_code=400, detail="Invalid event ID format")
+
+    # Check cache first
+    if settings.media_cache.enabled and settings.media_cache.cache_snapshots:
+        cached = await media_cache.get_snapshot(event_id)
+        if cached:
+            return Response(content=cached, media_type="image/jpeg")
+
+    # Fetch from Frigate
     url = f"{settings.frigate.frigate_url}/api/events/{event_id}/snapshot.jpg"
     client = get_http_client()
     headers = get_frigate_headers()
@@ -83,6 +93,11 @@ async def proxy_snapshot(event_id: str = Path(..., min_length=1, max_length=64))
         if resp.status_code == 404:
             raise HTTPException(status_code=404, detail="Snapshot not found")
         resp.raise_for_status()
+
+        # Cache the response
+        if settings.media_cache.enabled and settings.media_cache.cache_snapshots:
+            await media_cache.cache_snapshot(event_id, resp.content)
+
         return Response(content=resp.content, media_type=resp.headers.get("content-type", "image/jpeg"))
     except httpx.TimeoutException:
         raise HTTPException(status_code=504, detail="Frigate request timed out")
@@ -128,18 +143,32 @@ async def proxy_clip(
     event_id: str = Path(..., min_length=1, max_length=64)
 ):
     """Proxy video clip from Frigate with Range support and streaming."""
+    from fastapi.responses import FileResponse
+    from app.services.media_cache import media_cache
+
     if not settings.frigate.clips_enabled:
         raise HTTPException(status_code=403, detail="Clip fetching is disabled")
 
     if not validate_event_id(event_id):
         raise HTTPException(status_code=400, detail="Invalid event ID format")
 
+    # Check cache first
+    if settings.media_cache.enabled and settings.media_cache.cache_clips:
+        cached_path = media_cache.get_clip_path(event_id)
+        if cached_path:
+            # Serve from cache - FileResponse handles Range requests automatically
+            return FileResponse(
+                path=cached_path,
+                media_type="video/mp4",
+                filename=f"{event_id}.mp4"
+            )
+
     clip_url = f"{settings.frigate.frigate_url}/api/events/{event_id}/clip.mp4"
     headers = get_frigate_headers()
-    
-    # Forward Range header if present
+
+    # Forward Range header if present (only when not caching)
     range_header = request.headers.get("range")
-    if range_header:
+    if range_header and not (settings.media_cache.enabled and settings.media_cache.cache_clips):
         headers["Range"] = range_header
 
     client = httpx.AsyncClient(timeout=120.0)
@@ -152,7 +181,26 @@ async def proxy_clip(
             await client.aclose()
             raise HTTPException(status_code=404, detail="Clip not found")
 
-        # Forward specific headers
+        # If caching is enabled, download and cache the clip first
+        if settings.media_cache.enabled and settings.media_cache.cache_clips:
+            cached_path = await media_cache.cache_clip_streaming(event_id, r.aiter_bytes())
+            await r.aclose()
+            await client.aclose()
+
+            if cached_path:
+                # Serve from cache
+                return FileResponse(
+                    path=cached_path,
+                    media_type="video/mp4",
+                    filename=f"{event_id}.mp4"
+                )
+            else:
+                # Cache failed, refetch and stream without caching
+                client = httpx.AsyncClient(timeout=120.0)
+                req = client.build_request("GET", clip_url, headers=get_frigate_headers())
+                r = await client.send(req, stream=True)
+
+        # Stream directly from Frigate (caching disabled or failed)
         response_headers = {
             "Accept-Ranges": "bytes",
             "Content-Disposition": f"inline; filename={event_id}.mp4",
@@ -184,8 +232,18 @@ async def proxy_clip(
 
 @router.get("/frigate/{event_id}/thumbnail.jpg")
 async def proxy_thumb(event_id: str = Path(..., min_length=1, max_length=64)):
+    from app.services.media_cache import media_cache
+
     if not validate_event_id(event_id):
         raise HTTPException(status_code=400, detail="Invalid event ID format")
+
+    # Thumbnails share cache with snapshots (they're the same image in Frigate)
+    # Check cache first
+    if settings.media_cache.enabled and settings.media_cache.cache_snapshots:
+        cached = await media_cache.get_snapshot(event_id)
+        if cached:
+            return Response(content=cached, media_type="image/jpeg")
+
     url = f"{settings.frigate.frigate_url}/api/events/{event_id}/thumbnail.jpg"
     client = get_http_client()
     headers = get_frigate_headers()
@@ -194,6 +252,11 @@ async def proxy_thumb(event_id: str = Path(..., min_length=1, max_length=64)):
         if resp.status_code == 404:
             raise HTTPException(status_code=404, detail="Thumbnail not found")
         resp.raise_for_status()
+
+        # Cache the response (as snapshot since they're interchangeable)
+        if settings.media_cache.enabled and settings.media_cache.cache_snapshots:
+            await media_cache.cache_snapshot(event_id, resp.content)
+
         return Response(content=resp.content, media_type=resp.headers.get("content-type", "image/jpeg"))
     except httpx.TimeoutException:
         raise HTTPException(status_code=504, detail="Frigate request timed out")

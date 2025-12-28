@@ -23,6 +23,11 @@ class SettingsUpdate(BaseModel):
     cameras: List[str] = Field(default_factory=list, description="List of cameras to monitor")
     retention_days: int = Field(0, ge=0, description="Days to keep detections (0 = unlimited)")
     blocked_labels: List[str] = Field(default_factory=list, description="Labels to filter out from detections")
+    # Media cache settings
+    media_cache_enabled: bool = Field(True, description="Enable local media caching")
+    media_cache_snapshots: bool = Field(True, description="Cache snapshot images locally")
+    media_cache_clips: bool = Field(True, description="Cache video clips locally")
+    media_cache_retention_days: int = Field(0, ge=0, description="Days to keep cached media (0 = follow detection retention)")
 
     @field_validator('frigate_url')
     @classmethod
@@ -44,7 +49,12 @@ async def get_settings():
         "classification_threshold": settings.classification.threshold,
         "cameras": settings.frigate.camera,
         "retention_days": settings.maintenance.retention_days,
-        "blocked_labels": settings.classification.blocked_labels
+        "blocked_labels": settings.classification.blocked_labels,
+        # Media cache settings
+        "media_cache_enabled": settings.media_cache.enabled,
+        "media_cache_snapshots": settings.media_cache.cache_snapshots,
+        "media_cache_clips": settings.media_cache.cache_clips,
+        "media_cache_retention_days": settings.media_cache.retention_days
     }
 
 @router.post("/settings")
@@ -63,6 +73,13 @@ async def update_settings(update: SettingsUpdate):
     settings.classification.threshold = update.classification_threshold
     settings.maintenance.retention_days = update.retention_days
     settings.classification.blocked_labels = update.blocked_labels
+
+    # Media cache settings
+    settings.media_cache.enabled = update.media_cache_enabled
+    settings.media_cache.cache_snapshots = update.media_cache_snapshots
+    settings.media_cache.cache_clips = update.media_cache_clips
+    settings.media_cache.retention_days = update.media_cache_retention_days
+
     settings.save()
     return {"status": "updated"}
 
@@ -109,4 +126,58 @@ async def run_cleanup():
         "status": "completed",
         "deleted_count": deleted_count,
         "cutoff_date": cutoff.isoformat()
+    }
+
+
+# =============================================================================
+# Media Cache Endpoints
+# =============================================================================
+
+@router.get("/cache/stats")
+async def get_cache_stats():
+    """Get media cache statistics."""
+    from app.services.media_cache import media_cache
+
+    stats = media_cache.get_cache_stats()
+
+    # Add retention info
+    retention = settings.media_cache.retention_days
+    if retention == 0:
+        retention = settings.maintenance.retention_days
+
+    return {
+        **stats,
+        "cache_enabled": settings.media_cache.enabled,
+        "cache_snapshots": settings.media_cache.cache_snapshots,
+        "cache_clips": settings.media_cache.cache_clips,
+        "retention_days": retention,
+        "retention_source": "media_cache" if settings.media_cache.retention_days > 0 else "detection"
+    }
+
+
+@router.post("/cache/cleanup")
+async def run_cache_cleanup():
+    """Manually trigger cleanup of old cached media."""
+    from app.services.media_cache import media_cache
+
+    # Determine retention period
+    retention = settings.media_cache.retention_days
+    if retention == 0:
+        retention = settings.maintenance.retention_days
+
+    if retention <= 0:
+        return {
+            "status": "skipped",
+            "message": "Retention is set to unlimited (0 days)",
+            "snapshots_deleted": 0,
+            "clips_deleted": 0,
+            "bytes_freed": 0
+        }
+
+    stats = await media_cache.cleanup_old_media(retention)
+
+    return {
+        "status": "completed",
+        **stats,
+        "retention_days": retention
     }

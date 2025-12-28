@@ -8,6 +8,7 @@ from PIL import Image
 from app.config import settings
 from app.services.classifier_service import ClassifierService
 from app.services.broadcaster import broadcaster
+from app.services.media_cache import media_cache
 from app.database import get_db
 from app.repositories.detection_repository import DetectionRepository, Detection
 
@@ -57,6 +58,10 @@ class EventProcessor:
                 headers = self._get_frigate_headers()
                 response = await self.http_client.get(snapshot_url, params=params, headers=headers, timeout=30.0)
                 if response.status_code == 200:
+                   # Cache snapshot immediately when processing detection
+                   if settings.media_cache.enabled and settings.media_cache.cache_snapshots:
+                       await media_cache.cache_snapshot(frigate_event, response.content)
+
                    image = Image.open(BytesIO(response.content))
                    
                    # Classify

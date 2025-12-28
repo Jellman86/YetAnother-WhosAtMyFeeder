@@ -43,10 +43,18 @@ class MaintenanceSettings(BaseModel):
     retention_days: int = Field(default=0, ge=0, description="Days to keep detections (0 = unlimited)")
     cleanup_enabled: bool = Field(default=True, description="Enable automatic cleanup")
 
+
+class MediaCacheSettings(BaseModel):
+    enabled: bool = Field(default=True, description="Enable local media caching")
+    cache_snapshots: bool = Field(default=True, description="Cache snapshot images locally")
+    cache_clips: bool = Field(default=True, description="Cache video clips locally")
+    retention_days: int = Field(default=0, ge=0, description="Days to keep cached media (0 = follow detection retention)")
+
 class Settings(BaseSettings):
     frigate: FrigateSettings
     classification: ClassificationSettings = ClassificationSettings()
     maintenance: MaintenanceSettings = MaintenanceSettings()
+    media_cache: MediaCacheSettings = MediaCacheSettings()
     
     # General app settings
     log_level: str = "INFO"
@@ -87,6 +95,14 @@ class Settings(BaseSettings):
             'unknown_bird_labels': ["background", "Background"]
         }
 
+        # Media cache settings
+        media_cache_data = {
+            'enabled': os.environ.get('MEDIA_CACHE__ENABLED', 'true').lower() == 'true',
+            'cache_snapshots': os.environ.get('MEDIA_CACHE__CACHE_SNAPSHOTS', 'true').lower() == 'true',
+            'cache_clips': os.environ.get('MEDIA_CACHE__CACHE_CLIPS', 'true').lower() == 'true',
+            'retention_days': int(os.environ.get('MEDIA_CACHE__RETENTION_DAYS', '0')),
+        }
+
         # Load from config file if it exists, env vars take precedence
         if CONFIG_PATH.exists():
             try:
@@ -112,6 +128,12 @@ class Settings(BaseSettings):
                         if value is not None:  # Guard against null values in config
                             classification_data[key] = value
 
+                if 'media_cache' in file_data:
+                    for key, value in file_data['media_cache'].items():
+                        env_key = f'MEDIA_CACHE__{key.upper()}'
+                        if env_key not in os.environ:
+                            media_cache_data[key] = value
+
                 log.info("Loaded config from file", path=str(CONFIG_PATH))
             except Exception as e:
                 log.warning("Failed to load config from file", path=str(CONFIG_PATH), error=str(e))
@@ -123,11 +145,17 @@ class Settings(BaseSettings):
                  min_confidence=classification_data['min_confidence'],
                  blocked_labels=classification_data['blocked_labels'],
                  unknown_bird_labels=classification_data['unknown_bird_labels'])
+        log.info("Media cache config",
+                 enabled=media_cache_data['enabled'],
+                 cache_snapshots=media_cache_data['cache_snapshots'],
+                 cache_clips=media_cache_data['cache_clips'],
+                 retention_days=media_cache_data['retention_days'])
 
         return cls(
             frigate=FrigateSettings(**frigate_data),
             classification=ClassificationSettings(**classification_data),
-            maintenance=MaintenanceSettings(**maintenance_data)
+            maintenance=MaintenanceSettings(**maintenance_data),
+            media_cache=MediaCacheSettings(**media_cache_data)
         )
 
 settings = Settings.load()

@@ -34,6 +34,11 @@ export interface Settings {
     cameras: string[];
     retention_days: number;
     blocked_labels: string[];
+    // Media cache settings
+    media_cache_enabled: boolean;
+    media_cache_snapshots: boolean;
+    media_cache_clips: boolean;
+    media_cache_retention_days: number;
 }
 
 export interface SettingsUpdate {
@@ -48,6 +53,38 @@ export interface SettingsUpdate {
     cameras: string[];
     retention_days: number;
     blocked_labels: string[];
+    // Media cache settings
+    media_cache_enabled: boolean;
+    media_cache_snapshots: boolean;
+    media_cache_clips: boolean;
+    media_cache_retention_days: number;
+}
+
+export interface CacheStats {
+    snapshot_count: number;
+    snapshot_size_bytes: number;
+    snapshot_size_mb: number;
+    clip_count: number;
+    clip_size_bytes: number;
+    clip_size_mb: number;
+    total_size_bytes: number;
+    total_size_mb: number;
+    oldest_file: string | null;
+    newest_file: string | null;
+    cache_enabled: boolean;
+    cache_snapshots: boolean;
+    cache_clips: boolean;
+    retention_days: number;
+    retention_source: string;
+}
+
+export interface CacheCleanupResult {
+    status: string;
+    snapshots_deleted: number;
+    clips_deleted: number;
+    bytes_freed: number;
+    retention_days?: number;
+    message?: string;
 }
 
 export interface MaintenanceStats {
@@ -423,4 +460,15 @@ export async function downloadWildlifeModel(): Promise<{ status: string; message
         method: 'POST',
     });
     return handleResponse<{ status: string; message: string; labels_count?: number }>(response);
+}
+
+// Media cache functions
+export async function fetchCacheStats(): Promise<CacheStats> {
+    const response = await fetch(`${API_BASE}/cache/stats`);
+    return handleResponse<CacheStats>(response);
+}
+
+export async function runCacheCleanup(): Promise<CacheCleanupResult> {
+    const response = await fetch(`${API_BASE}/cache/cleanup`, { method: 'POST' });
+    return handleResponse<CacheCleanupResult>(response);
 }

@@ -10,6 +10,7 @@ from app.database import init_db, get_db
 from app.services.mqtt_service import MQTTService
 from app.services.classifier_service import get_classifier
 from app.services.event_processor import EventProcessor
+from app.services.media_cache import media_cache
 from app.repositories.detection_repository import DetectionRepository
 from app.routers import events, stream, proxy, settings as settings_router, species, backfill
 from app.config import settings
@@ -74,6 +75,17 @@ async def cleanup_old_detections():
                                 deleted_count=deleted_count,
                                 retention_days=settings.maintenance.retention_days,
                                 cutoff=cutoff.isoformat())
+
+                # Media cache cleanup
+                if settings.media_cache.enabled:
+                    cache_retention = settings.media_cache.retention_days
+                    if cache_retention == 0:
+                        cache_retention = settings.maintenance.retention_days
+                    if cache_retention > 0:
+                        cache_stats = await media_cache.cleanup_old_media(cache_retention)
+                        if cache_stats["snapshots_deleted"] > 0 or cache_stats["clips_deleted"] > 0:
+                            log.info("Media cache cleanup completed", **cache_stats)
+
                 # Sleep for 2 hours to avoid running again at 3 AM
                 await asyncio.sleep(7200)
         except asyncio.CancelledError:

@@ -12,10 +12,14 @@
         fetchMaintenanceStats,
         runCleanup,
         runBackfill,
+        fetchCacheStats,
+        runCacheCleanup,
         type ClassifierStatus,
         type WildlifeModelStatus,
         type MaintenanceStats,
-        type BackfillResult
+        type BackfillResult,
+        type CacheStats,
+        type CacheCleanupResult
     } from '../api';
     import { theme, type Theme } from '../stores/theme';
 
@@ -50,6 +54,14 @@
     let maintenanceStats = $state<MaintenanceStats | null>(null);
     let cleaningUp = $state(false);
 
+    // Media cache state
+    let cacheEnabled = $state(true);
+    let cacheSnapshots = $state(true);
+    let cacheClips = $state(true);
+    let cacheRetentionDays = $state(0);
+    let cacheStats = $state<CacheStats | null>(null);
+    let cleaningCache = $state(false);
+
     // Backfill state
     let backfillDateRange = $state<'day' | 'week' | 'month' | 'custom'>('week');
     let backfillStartDate = $state('');
@@ -65,7 +77,8 @@
             loadCameras(),
             loadClassifierStatus(),
             loadWildlifeStatus(),
-            loadMaintenanceStats()
+            loadMaintenanceStats(),
+            loadCacheStats()
         ]);
     });
 
@@ -92,6 +105,35 @@
             message = { type: 'error', text: e.message || 'Cleanup failed' };
         } finally {
             cleaningUp = false;
+        }
+    }
+
+    async function loadCacheStats() {
+        try {
+            cacheStats = await fetchCacheStats();
+        } catch (e) {
+            console.error('Failed to load cache stats', e);
+        }
+    }
+
+    async function handleCacheCleanup() {
+        cleaningCache = true;
+        message = null;
+        try {
+            const result = await runCacheCleanup();
+            if (result.status === 'completed') {
+                const freed = result.bytes_freed > 1024 * 1024
+                    ? `${(result.bytes_freed / (1024 * 1024)).toFixed(1)} MB`
+                    : `${(result.bytes_freed / 1024).toFixed(1)} KB`;
+                message = { type: 'success', text: `Cache cleanup complete! Deleted ${result.snapshots_deleted} snapshots, ${result.clips_deleted} clips (${freed} freed).` };
+            } else {
+                message = { type: 'success', text: result.message || 'No cleanup needed.' };
+            }
+            await loadCacheStats();
+        } catch (e: any) {
+            message = { type: 'error', text: e.message || 'Cache cleanup failed' };
+        } finally {
+            cleaningCache = false;
         }
     }
 
@@ -188,6 +230,11 @@
             selectedCameras = settings.cameras || [];
             retentionDays = settings.retention_days || 0;
             blockedLabels = settings.blocked_labels || [];
+            // Media cache settings
+            cacheEnabled = settings.media_cache_enabled ?? true;
+            cacheSnapshots = settings.media_cache_snapshots ?? true;
+            cacheClips = settings.media_cache_clips ?? true;
+            cacheRetentionDays = settings.media_cache_retention_days ?? 0;
         } catch (e) {
             message = { type: 'error', text: 'Failed to load settings' };
         } finally {
@@ -228,10 +275,15 @@
                 classification_threshold: threshold,
                 cameras: selectedCameras,
                 retention_days: retentionDays,
-                blocked_labels: blockedLabels
+                blocked_labels: blockedLabels,
+                // Media cache settings
+                media_cache_enabled: cacheEnabled,
+                media_cache_snapshots: cacheSnapshots,
+                media_cache_clips: cacheClips,
+                media_cache_retention_days: cacheRetentionDays
             });
             message = { type: 'success', text: 'Settings saved successfully!' };
-            await loadMaintenanceStats();  // Refresh stats after save
+            await Promise.all([loadMaintenanceStats(), loadCacheStats()]);
         } catch (e) {
             message = { type: 'error', text: 'Failed to save settings' };
         } finally {
@@ -792,6 +844,145 @@
                     {cleaningUp ? 'Cleaning...' : 'Run Cleanup Now'}
                 </button>
             </div>
+        </section>
+
+        <!-- Media Cache -->
+        <section class="bg-white/80 dark:bg-slate-800/50 rounded-2xl border border-slate-200/80 dark:border-slate-700/50 p-6 shadow-card dark:shadow-card-dark backdrop-blur-sm">
+            <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+                💾 Media Cache
+            </h3>
+
+            <p class="text-sm text-slate-500 dark:text-slate-400 mb-4">
+                Cache snapshots and clips locally to preserve them when Frigate removes events due to retention policies.
+            </p>
+
+            <!-- Cache Stats -->
+            {#if cacheStats}
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+                    <div class="bg-slate-50 dark:bg-slate-700/50 rounded-lg p-3 text-center">
+                        <p class="text-2xl font-bold text-slate-900 dark:text-white">
+                            {cacheStats.snapshot_count.toLocaleString()}
+                        </p>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">Snapshots</p>
+                    </div>
+                    <div class="bg-slate-50 dark:bg-slate-700/50 rounded-lg p-3 text-center">
+                        <p class="text-2xl font-bold text-slate-900 dark:text-white">
+                            {cacheStats.clip_count.toLocaleString()}
+                        </p>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">Clips</p>
+                    </div>
+                    <div class="bg-slate-50 dark:bg-slate-700/50 rounded-lg p-3 text-center">
+                        <p class="text-2xl font-bold text-slate-900 dark:text-white">
+                            {cacheStats.total_size_mb} MB
+                        </p>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">Total Size</p>
+                    </div>
+                    <div class="bg-slate-50 dark:bg-slate-700/50 rounded-lg p-3 text-center">
+                        <p class="text-sm font-medium text-slate-900 dark:text-white">
+                            {cacheStats.oldest_file ? new Date(cacheStats.oldest_file).toLocaleDateString() : 'N/A'}
+                        </p>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">Oldest File</p>
+                    </div>
+                </div>
+            {/if}
+
+            <!-- Cache Enable Toggle -->
+            <div class="flex items-center gap-3 py-3 border-b border-slate-200 dark:border-slate-700">
+                <button
+                    role="switch"
+                    aria-checked={cacheEnabled}
+                    aria-label="Toggle Media Caching"
+                    onclick={() => cacheEnabled = !cacheEnabled}
+                    class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2
+                           {cacheEnabled ? 'bg-teal-500' : 'bg-slate-200 dark:bg-slate-600'}"
+                >
+                    <span
+                        class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out
+                               {cacheEnabled ? 'translate-x-5' : 'translate-x-0'}"
+                    ></span>
+                </button>
+                <div>
+                    <span class="block text-sm font-medium text-slate-700 dark:text-slate-300">Enable Media Caching</span>
+                    <span class="block text-xs text-slate-500 dark:text-slate-400">Store media locally for offline access</span>
+                </div>
+            </div>
+
+            {#if cacheEnabled}
+                <div class="space-y-3 py-3 animate-in fade-in slide-in-from-top-4 duration-300">
+                    <!-- Cache Snapshots -->
+                    <div class="flex items-center gap-3">
+                        <button
+                            role="switch"
+                            aria-checked={cacheSnapshots}
+                            onclick={() => cacheSnapshots = !cacheSnapshots}
+                            class="relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out
+                                   {cacheSnapshots ? 'bg-teal-500' : 'bg-slate-200 dark:bg-slate-600'}"
+                        >
+                            <span class="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out
+                                   {cacheSnapshots ? 'translate-x-4' : 'translate-x-0'}"></span>
+                        </button>
+                        <span class="text-sm text-slate-700 dark:text-slate-300">Cache Snapshots</span>
+                    </div>
+
+                    <!-- Cache Clips -->
+                    <div class="flex items-center gap-3">
+                        <button
+                            role="switch"
+                            aria-checked={cacheClips}
+                            onclick={() => cacheClips = !cacheClips}
+                            class="relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out
+                                   {cacheClips ? 'bg-teal-500' : 'bg-slate-200 dark:bg-slate-600'}"
+                        >
+                            <span class="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out
+                                   {cacheClips ? 'translate-x-4' : 'translate-x-0'}"></span>
+                        </button>
+                        <span class="text-sm text-slate-700 dark:text-slate-300">Cache Video Clips</span>
+                    </div>
+                </div>
+
+                <!-- Cache Retention -->
+                <div class="pt-3 border-t border-slate-200 dark:border-slate-700">
+                    <label for="cache-retention" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                        Cache Retention Period
+                    </label>
+                    <select
+                        id="cache-retention"
+                        bind:value={cacheRetentionDays}
+                        class="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600
+                               bg-white dark:bg-slate-700 text-slate-900 dark:text-white
+                               focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                    >
+                        <option value={0}>Follow detection retention ({retentionDays === 0 ? 'unlimited' : retentionDays + ' days'})</option>
+                        <option value={7}>7 days</option>
+                        <option value={14}>14 days</option>
+                        <option value={30}>30 days</option>
+                        <option value={60}>60 days</option>
+                        <option value={90}>90 days</option>
+                        <option value={180}>180 days</option>
+                        <option value={365}>1 year</option>
+                    </select>
+                </div>
+
+                <!-- Manual Cache Cleanup -->
+                <div class="flex items-center justify-between pt-4 mt-4 border-t border-slate-200 dark:border-slate-700">
+                    <div class="text-sm text-slate-500 dark:text-slate-400">
+                        {#if cacheStats}
+                            {cacheStats.total_size_mb} MB cached
+                        {:else}
+                            No cache data
+                        {/if}
+                    </div>
+                    <button
+                        onclick={handleCacheCleanup}
+                        disabled={cleaningCache || !cacheEnabled}
+                        class="px-4 py-2 text-sm font-medium rounded-lg
+                               bg-amber-500 hover:bg-amber-600 text-white
+                               transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        {cleaningCache ? 'Cleaning...' : 'Clean Old Cache'}
+                    </button>
+                </div>
+            {/if}
         </section>
 
         <!-- Backfill Detections -->
