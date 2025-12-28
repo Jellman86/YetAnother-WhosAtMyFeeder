@@ -6,10 +6,8 @@ from PIL import Image
 
 from app.config import settings
 from app.services.classifier_service import ClassifierService
-from app.services.broadcaster import broadcaster
 from app.services.frigate_client import frigate_client
-from app.database import get_db
-from app.repositories.detection_repository import DetectionRepository, Detection
+from app.services.detection_service import DetectionService
 
 log = structlog.get_logger()
 
@@ -28,6 +26,7 @@ class BackfillService:
 
     def __init__(self, classifier: ClassifierService):
         self.classifier = classifier
+        self.detection_service = DetectionService(classifier)
 
     async def fetch_frigate_events(self, after_ts: float, before_ts: float, cameras: list[str] = None) -> list[dict]:
         """
@@ -96,78 +95,36 @@ class BackfillService:
                 log.debug("No classification results", event_id=frigate_event)
                 return 'error'
 
-            top = results[0]
-            score = top['score']
-            label = top['label']
-
-            # Relabel unknown bird classifications (e.g., "background" -> "Unknown Bird")
-            if label in settings.classification.unknown_bird_labels:
-                log.info("Relabeled to Unknown Bird", original=label, event_id=frigate_event)
-                label = "Unknown Bird"
-                top = {**top, 'label': label}
-
-            # Apply same filters as real-time processing
-            if label in settings.classification.blocked_labels:
-                log.debug("Filtered blocked label", label=label, event_id=frigate_event)
+            # Use shared filtering and labeling logic
+            top = self.detection_service.filter_and_label(results[0], frigate_event)
+            if not top:
+                # filter_and_label logs the reason (blocked, threshold, etc)
                 return 'skipped'
 
-            if score < settings.classification.min_confidence:
-                log.debug("Below minimum confidence", score=score, event_id=frigate_event)
-                return 'skipped'
-
-            if score <= settings.classification.threshold:
-                log.debug("Below threshold", score=score, event_id=frigate_event)
-                return 'skipped'
-
-            # Save to database (atomic insert - skips if already exists)
-            timestamp = datetime.fromtimestamp(event.get('start_time', datetime.now().timestamp()))
-            camera_name = event.get('camera', 'unknown')
-            
             # Capture Frigate metadata
-            # Frigate API structure can vary; score often lives in 'data' dict
             frigate_score = event.get('top_score')
             if frigate_score is None and 'data' in event:
                 frigate_score = event['data'].get('top_score')
             
             sub_label = event.get('sub_label')
+            camera_name = event.get('camera', 'unknown')
+            start_time = event.get('start_time', datetime.now().timestamp())
 
-            detection = Detection(
-                detection_time=timestamp,
-                detection_index=top['index'],
-                score=score,
-                display_name=label,
-                category_name=label,
+            # Use upsert logic to ensure metadata is updated even if event exists
+            changed = await self.detection_service.save_detection(
                 frigate_event=frigate_event,
-                camera_name=camera_name,
+                camera=camera_name,
+                start_time=start_time,
+                classification=top,
                 frigate_score=frigate_score,
                 sub_label=sub_label
             )
 
-            async with get_db() as db:
-                repo = DetectionRepository(db)
-                # Note: insert_if_not_exists will skip if the event ID is already in DB.
-                # It won't update existing records with missing metadata.
-                # For a true metadata backfill, we'd need an upsert or separate update logic.
-                inserted = await repo.insert_if_not_exists(detection)
-
-            if not inserted:
-                log.debug("Event already exists, skipped", event_id=frigate_event)
+            if not changed:
+                log.debug("Event already exists and score not improved, skipped", event_id=frigate_event)
                 return 'skipped'
 
-            log.info("Backfilled detection", event_id=frigate_event, species=label, score=score)
-
-            # Broadcast to connected clients
-            await broadcaster.broadcast({
-                "type": "detection",
-                "data": {
-                    "frigate_event": frigate_event,
-                    "display_name": label,
-                    "score": score,
-                    "timestamp": timestamp.isoformat(),
-                    "camera": camera_name
-                }
-            })
-
+            log.info("Backfilled detection", event_id=frigate_event, species=top['label'], score=top['score'])
             return 'new'
 
         except Exception as e:

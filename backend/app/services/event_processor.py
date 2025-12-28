@@ -6,11 +6,9 @@ from PIL import Image
 
 from app.config import settings
 from app.services.classifier_service import ClassifierService
-from app.services.broadcaster import broadcaster
 from app.services.media_cache import media_cache
 from app.services.frigate_client import frigate_client
-from app.database import get_db
-from app.repositories.detection_repository import DetectionRepository, Detection
+from app.services.detection_service import DetectionService
 
 log = structlog.get_logger()
 
@@ -18,7 +16,7 @@ log = structlog.get_logger()
 class EventProcessor:
     def __init__(self, classifier: ClassifierService):
         self.classifier = classifier
-        self.broadcaster = broadcaster
+        self.detection_service = DetectionService(classifier)
 
     async def process_mqtt_message(self, payload: bytes):
         try:
@@ -54,83 +52,35 @@ class EventProcessor:
                 if not results:
                     return
 
-                top = results[0]
-                score = top['score']
+                # Apply common filtering and labeling logic
+                top = self.detection_service.filter_and_label(results[0], frigate_event)
+                if not top:
+                    return
+
                 label = top['label']
+                
+                # Capture Frigate metadata
+                frigate_score = after.get('top_score')
+                if frigate_score is None and 'data' in after:
+                    frigate_score = after['data'].get('top_score')
+                    
+                sub_label = after.get('sub_label')
 
-                # Relabel unknown bird classifications (e.g., "background" -> "Unknown Bird")
-                if label in settings.classification.unknown_bird_labels:
-                    log.info("Relabeled to Unknown Bird", original=label, event=frigate_event)
-                    label = "Unknown Bird"
-                    top = {**top, 'label': label}
-
-                # Filter out blocked labels (if any configured)
-                if label in settings.classification.blocked_labels:
-                    log.debug("Filtered blocked label", label=label, event=frigate_event)
-                    return
-
-                # Check minimum confidence floor
-                if score < settings.classification.min_confidence:
-                    log.debug("Below minimum confidence", score=score, min=settings.classification.min_confidence)
-                    return
-
-                if score > settings.classification.threshold:
-                    await self._save_detection(after, top, frigate_event)
-                    await frigate_client.set_sublabel(frigate_event, label)
+                # Save detection (upsert)
+                await self.detection_service.save_detection(
+                    frigate_event=frigate_event,
+                    camera=camera,
+                    start_time=after['start_time'],
+                    classification=top,
+                    frigate_score=frigate_score,
+                    sub_label=sub_label
+                )
+                
+                # Update Frigate sublabel if we are confident
+                await frigate_client.set_sublabel(frigate_event, label)
 
             except Exception as e:
                 log.error("Error processing event", event=frigate_event, error=str(e))
 
         except json.JSONDecodeError:
             log.error("Invalid JSON payload")
-
-    async def _save_detection(self, after, classification, frigate_event):
-        async with get_db() as db:
-            repo = DetectionRepository(db)
-
-            score = classification['score']
-            display_name = classification['label']
-            category_name = classification['label']  # Simplify for now
-            timestamp = datetime.fromtimestamp(after['start_time'])
-            
-            # Capture Frigate metadata
-            frigate_score = after.get('top_score')
-            if frigate_score is None and 'data' in after:
-                frigate_score = after['data'].get('top_score')
-                
-            sub_label = after.get('sub_label')
-
-            detection = Detection(
-                detection_time=timestamp,
-                detection_index=classification['index'],
-                score=score,
-                display_name=display_name,
-                category_name=category_name,
-                frigate_event=frigate_event,
-                camera_name=after['camera'],
-                frigate_score=frigate_score,
-                sub_label=sub_label
-            )
-
-            # Atomic upsert: insert or update only if score is higher
-            changed, _ = await repo.upsert_if_higher_score(detection)
-
-            if changed:
-                log.info("Saved detection", 
-                         event=frigate_event, 
-                         species=display_name, 
-                         score=score,
-                         frigate_score=frigate_score)
-
-                # Broadcast event only when actually saved/updated
-                await self.broadcaster.broadcast({
-                    "type": "detection",
-                    "data": {
-                        "frigate_event": frigate_event,
-                        "display_name": display_name,
-                        "score": score,
-                        "timestamp": timestamp.isoformat(),
-                        "camera": after['camera'],
-                        "frigate_score": frigate_score
-                    }
-                })
