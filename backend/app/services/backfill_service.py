@@ -122,6 +122,10 @@ class BackfillService:
             # Save to database (atomic insert - skips if already exists)
             timestamp = datetime.fromtimestamp(event.get('start_time', datetime.now().timestamp()))
             camera_name = event.get('camera', 'unknown')
+            
+            # Capture Frigate metadata
+            frigate_score = event.get('top_score')
+            sub_label = event.get('sub_label')
 
             detection = Detection(
                 detection_time=timestamp,
@@ -130,11 +134,16 @@ class BackfillService:
                 display_name=label,
                 category_name=label,
                 frigate_event=frigate_event,
-                camera_name=camera_name
+                camera_name=camera_name,
+                frigate_score=frigate_score,
+                sub_label=sub_label
             )
 
             async with get_db() as db:
                 repo = DetectionRepository(db)
+                # Note: insert_if_not_exists will skip if the event ID is already in DB.
+                # It won't update existing records with missing metadata.
+                # For a true metadata backfill, we'd need an upsert or separate update logic.
                 inserted = await repo.insert_if_not_exists(detection)
 
             if not inserted:
