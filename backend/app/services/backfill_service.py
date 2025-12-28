@@ -124,7 +124,11 @@ class BackfillService:
             camera_name = event.get('camera', 'unknown')
             
             # Capture Frigate metadata
+            # Frigate API structure can vary; score often lives in 'data' dict
             frigate_score = event.get('top_score')
+            if frigate_score is None and 'data' in event:
+                frigate_score = event['data'].get('top_score')
+            
             sub_label = event.get('sub_label')
 
             detection = Detection(

@@ -95,6 +95,9 @@ class EventProcessor:
             
             # Capture Frigate metadata
             frigate_score = after.get('top_score')
+            if frigate_score is None and 'data' in after:
+                frigate_score = after['data'].get('top_score')
+                
             sub_label = after.get('sub_label')
 
             detection = Detection(
