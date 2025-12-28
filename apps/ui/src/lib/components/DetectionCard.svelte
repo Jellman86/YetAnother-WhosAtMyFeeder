@@ -193,12 +193,24 @@
 
     <!-- Content -->
     <div class="p-4">
-        <h3 class="text-lg font-semibold text-slate-900 dark:text-white truncate mb-1"
+        <h3 class="text-lg font-semibold text-slate-900 dark:text-white truncate"
             title={detection.display_name}>
             {detection.display_name}
         </h3>
+        
+        {#if detection.sub_label && detection.sub_label !== detection.display_name}
+            <p class="text-xs font-medium text-teal-600 dark:text-teal-400 mt-0.5 truncate" title="Frigate sub-label: {detection.sub_label}">
+                Frigate: {detection.sub_label}
+            </p>
+        {:else if detection.sub_label}
+            <p class="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5 italic">
+                Confirmed by Frigate
+            </p>
+        {:else}
+            <div class="h-4"></div> <!-- Spacer to keep layout consistent -->
+        {/if}
 
-        <div class="flex items-center justify-between text-sm text-slate-500 dark:text-slate-400">
+        <div class="flex items-center justify-between text-sm text-slate-500 dark:text-slate-400 mt-3">
             <span>{formatDate(detection.detection_time)}</span>
             <span>{formatTime(detection.detection_time)}</span>
         </div>
