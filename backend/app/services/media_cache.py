@@ -188,6 +188,38 @@ class MediaCacheService:
         except Exception as e:
             log.error("Failed to delete cached media", event_id=event_id, error=str(e))
 
+    async def cleanup_empty_files(self) -> dict:
+        """Delete empty/corrupt cached files (0-byte files).
+
+        Returns:
+            Dict with cleanup stats
+        """
+        stats = {"snapshots_deleted": 0, "clips_deleted": 0}
+
+        # Clean empty snapshots
+        for path in SNAPSHOTS_DIR.glob("*.jpg"):
+            try:
+                if path.stat().st_size == 0:
+                    path.unlink()
+                    stats["snapshots_deleted"] += 1
+                    log.debug("Removed empty snapshot", path=str(path))
+            except Exception as e:
+                log.warning("Failed to delete empty snapshot", path=str(path), error=str(e))
+
+        # Clean empty clips
+        for path in CLIPS_DIR.glob("*.mp4"):
+            try:
+                if path.stat().st_size == 0:
+                    path.unlink()
+                    stats["clips_deleted"] += 1
+                    log.debug("Removed empty clip", path=str(path))
+            except Exception as e:
+                log.warning("Failed to delete empty clip", path=str(path), error=str(e))
+
+        if stats["snapshots_deleted"] > 0 or stats["clips_deleted"] > 0:
+            log.info("Empty file cleanup complete", **stats)
+        return stats
+
     async def cleanup_old_media(self, retention_days: int) -> dict:
         """Delete cached media older than retention period.
 
@@ -197,15 +229,26 @@ class MediaCacheService:
         Returns:
             Dict with cleanup stats
         """
+        # Always clean up empty/corrupt files first
+        empty_stats = await self.cleanup_empty_files()
+
         if retention_days <= 0:
-            return {"snapshots_deleted": 0, "clips_deleted": 0, "bytes_freed": 0}
+            return {
+                "snapshots_deleted": empty_stats["snapshots_deleted"],
+                "clips_deleted": empty_stats["clips_deleted"],
+                "bytes_freed": 0
+            }
 
         cutoff = datetime.now() - timedelta(days=retention_days)
         cutoff_timestamp = cutoff.timestamp()
 
-        stats = {"snapshots_deleted": 0, "clips_deleted": 0, "bytes_freed": 0}
+        stats = {
+            "snapshots_deleted": empty_stats["snapshots_deleted"],
+            "clips_deleted": empty_stats["clips_deleted"],
+            "bytes_freed": 0
+        }
 
-        # Clean snapshots
+        # Clean old snapshots
         for path in SNAPSHOTS_DIR.glob("*.jpg"):
             try:
                 if path.stat().st_mtime < cutoff_timestamp:
@@ -216,7 +259,7 @@ class MediaCacheService:
             except Exception as e:
                 log.warning("Failed to delete old snapshot", path=str(path), error=str(e))
 
-        # Clean clips
+        # Clean old clips
         for path in CLIPS_DIR.glob("*.mp4"):
             try:
                 if path.stat().st_mtime < cutoff_timestamp:
