@@ -9,6 +9,8 @@ export interface Detection {
     category_name?: string;
     has_clip?: boolean;  // Clip availability from backend
     is_hidden?: boolean; // Hidden/ignored status
+    frigate_score?: number; // Frigate detection confidence
+    sub_label?: string;     // Frigate sub-label
 }
 
 export interface VersionInfo {

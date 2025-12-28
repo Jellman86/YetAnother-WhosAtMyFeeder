@@ -117,15 +117,27 @@ class MediaCacheService:
             chunks: Async iterator of bytes chunks
 
         Returns:
-            Path to cached file, or None if caching failed
+            Path to cached file, or None if caching failed or file is empty
         """
         try:
             path = self._clip_path(event_id)
             total_size = 0
             async with aiofiles.open(path, 'wb') as f:
                 async for chunk in chunks:
-                    await f.write(chunk)
-                    total_size += len(chunk)
+                    if chunk:
+                        await f.write(chunk)
+                        total_size += len(chunk)
+            
+            if total_size == 0:
+                log.warning("Downloaded empty clip (0 bytes)", event_id=event_id)
+                # Clean up empty file
+                try:
+                    if path.exists():
+                        path.unlink()
+                except:
+                    pass
+                return None
+
             log.debug("Cached clip (streaming)", event_id=event_id, size=total_size)
             return path
         except Exception as e:
