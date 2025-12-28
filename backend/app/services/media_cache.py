@@ -215,6 +215,8 @@ class MediaCacheService:
                     path.unlink()
                     stats["snapshots_deleted"] += 1
                     log.debug("Removed empty snapshot", path=str(path))
+            except FileNotFoundError:
+                pass # Already deleted
             except Exception as e:
                 log.warning("Failed to delete empty snapshot", path=str(path), error=str(e))
 
@@ -225,6 +227,8 @@ class MediaCacheService:
                     path.unlink()
                     stats["clips_deleted"] += 1
                     log.debug("Removed empty clip", path=str(path))
+            except FileNotFoundError:
+                pass # Already deleted
             except Exception as e:
                 log.warning("Failed to delete empty clip", path=str(path), error=str(e))
 
