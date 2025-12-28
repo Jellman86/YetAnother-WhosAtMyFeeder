@@ -14,42 +14,13 @@ from app.services.event_processor import EventProcessor
 from app.services.media_cache import media_cache
 from app.repositories.detection_repository import DetectionRepository
 from app.routers import events, stream, proxy, settings as settings_router, species, backfill, classifier
-from app.config import settings
+from app.config import settings, APP_VERSION, BASE_VERSION, GIT_HASH
 
 # Use shared classifier instance
 classifier_service = get_classifier()
 event_processor = EventProcessor(classifier_service)
 mqtt_service = MQTTService()
 log = structlog.get_logger()
-
-# Version management
-# Reload triggered by agent
-BASE_VERSION = "2.0.0"
-
-def get_git_hash() -> str:
-    """Get git commit hash from environment or by running git."""
-    # First check environment variable (set during Docker build)
-    git_hash = os.environ.get('GIT_HASH', '').strip()
-    if git_hash:
-        return git_hash
-
-    # Try to get from git command (for development)
-    try:
-        result = subprocess.run(
-            ['git', 'rev-parse', '--short', 'HEAD'],
-            capture_output=True,
-            text=True,
-            timeout=5
-        )
-        if result.returncode == 0:
-            return result.stdout.strip()
-    except (subprocess.SubprocessError, FileNotFoundError):
-        pass
-
-    return "unknown"
-
-GIT_HASH = get_git_hash()
-APP_VERSION = f"{BASE_VERSION}+{GIT_HASH}"
 
 # Cleanup task control
 cleanup_task = None

@@ -8,6 +8,34 @@ from pydantic import BaseModel, Field
 
 log = structlog.get_logger()
 
+# Version management
+def get_git_hash() -> str:
+    """Get git commit hash from environment or by running git."""
+    # First check environment variable (set during Docker build)
+    git_hash = os.environ.get('GIT_HASH', '').strip()
+    if git_hash:
+        return git_hash
+
+    # Try to get from git command (for development)
+    try:
+        import subprocess
+        result = subprocess.run(
+            ['git', 'rev-parse', '--short', 'HEAD'],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        if result.returncode == 0:
+            return result.stdout.strip()
+    except Exception:
+        pass
+
+    return "unknown"
+
+BASE_VERSION = "2.0.0"
+GIT_HASH = get_git_hash()
+APP_VERSION = f"{BASE_VERSION}+{GIT_HASH}"
+
 # Use /config directory for persistent config (matches Docker volume mount)
 CONFIG_PATH = Path("/config/config.json")
 

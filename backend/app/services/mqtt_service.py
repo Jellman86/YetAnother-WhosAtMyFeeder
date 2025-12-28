@@ -3,8 +3,7 @@ import json
 import structlog
 import uuid
 from aiomqtt import Client, MqttError
-from app.config import settings
-from app.main import APP_VERSION
+from app.config import settings, APP_VERSION
 
 log = structlog.get_logger()
 
