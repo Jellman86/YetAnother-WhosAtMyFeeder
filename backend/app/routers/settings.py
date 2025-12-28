@@ -185,26 +185,143 @@ async def run_cache_cleanup():
 
 
 
-    # Even if retention is 0, we still run cleanup to remove empty files
-
-
-    stats = await media_cache.cleanup_old_media(retention)
+        # Even if retention is 0, we still run cleanup to remove empty files
 
 
 
 
 
-    return {
+        stats = await media_cache.cleanup_old_media(retention)
 
 
-        "status": "completed",
 
 
-        **stats,
+
+    
 
 
-        "retention_days": retention
 
 
-    }
+
+        # Also run orphaned media cleanup (files not in DB)
+
+
+
+
+
+        async with get_db() as db:
+
+
+
+
+
+            repo = DetectionRepository(db)
+
+
+
+
+
+            # Fetch all valid event IDs
+
+
+
+
+
+            async with db.execute("SELECT frigate_event FROM detections") as cursor:
+
+
+
+
+
+                rows = await cursor.fetchall()
+
+
+
+
+
+                valid_ids = {row[0] for row in rows}
+
+
+
+
+
+                
+
+
+
+
+
+        orphan_stats = await media_cache.cleanup_orphaned_media(valid_ids)
+
+
+
+
+
+        
+
+
+
+
+
+        # Merge stats
+
+
+
+
+
+        stats["snapshots_deleted"] += orphan_stats["snapshots_deleted"]
+
+
+
+
+
+        stats["clips_deleted"] += orphan_stats["clips_deleted"]
+
+
+
+
+
+        stats["bytes_freed"] += orphan_stats["bytes_freed"]
+
+
+
+
+
+    
+
+
+
+
+
+        return {
+
+
+
+
+
+            "status": "completed",
+
+
+
+
+
+            **stats,
+
+
+
+
+
+            "retention_days": retention
+
+
+
+
+
+        }
+
+
+
+
+
+    
 
