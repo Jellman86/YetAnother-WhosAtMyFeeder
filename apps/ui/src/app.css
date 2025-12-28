@@ -11,6 +11,8 @@
 /* Smooth theme transitions */
 html {
   transition: background-color 0.3s ease, color 0.3s ease;
+  /* Add subtle texture to background */
+  @apply bg-surface-light dark:bg-surface-dark bg-noise bg-repeat opacity-100;
 }
 
 /* Custom selection */
@@ -53,10 +55,10 @@ html {
 /* Smooth card transitions */
 @layer components {
   .card-base {
-    @apply bg-white/80 dark:bg-slate-800/50 rounded-2xl border border-slate-200/80 dark:border-slate-700/50 shadow-card dark:shadow-card-dark backdrop-blur-sm transition-all duration-300;
+    @apply bg-white dark:bg-slate-800/50 rounded-2xl border border-slate-200/60 dark:border-slate-700/50 shadow-sm hover:shadow-md dark:shadow-card-dark backdrop-blur-sm transition-all duration-300;
   }
 
   .card-base:hover {
-    @apply shadow-card-hover dark:shadow-card-dark-hover;
+    @apply shadow-lg dark:shadow-card-dark-hover border-teal-500/30 dark:border-teal-500/30;
   }
 }
