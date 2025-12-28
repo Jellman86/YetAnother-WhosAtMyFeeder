@@ -23,6 +23,7 @@ mqtt_service = MQTTService()
 log = structlog.get_logger()
 
 # Version management
+# Reload triggered by agent
 BASE_VERSION = "2.0.0"
 
 def get_git_hash() -> str:

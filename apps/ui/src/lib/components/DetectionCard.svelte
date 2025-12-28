@@ -121,10 +121,19 @@
         {/if}
 
         <!-- Confidence Badge -->
-        <div class="absolute top-2 right-2 flex items-center gap-1.5 px-2 py-1 rounded-full
-                    bg-black/60 backdrop-blur-sm text-white text-xs font-medium">
-            <span class="w-1.5 h-1.5 rounded-full {getConfidenceColor(detection.score)}"></span>
-            {(detection.score * 100).toFixed(0)}%
+        <div class="absolute top-2 right-2 flex flex-col items-end gap-1">
+            <div class="flex items-center gap-1.5 px-2 py-1 rounded-full
+                        bg-black/60 backdrop-blur-sm text-white text-xs font-medium">
+                <span class="w-1.5 h-1.5 rounded-full {getConfidenceColor(detection.score)}"></span>
+                {(detection.score * 100).toFixed(0)}%
+            </div>
+            {#if detection.frigate_score}
+                <div class="flex items-center gap-1 px-1.5 py-0.5 rounded-full
+                            bg-slate-800/40 backdrop-blur-sm text-white/80 text-[10px] font-normal"
+                     title="Frigate Detection Confidence">
+                    F: {(detection.frigate_score * 100).toFixed(0)}%
+                </div>
+            {/if}
         </div>
 
         <!-- Hidden Badge -->

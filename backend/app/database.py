@@ -24,19 +24,27 @@ async def init_db():
                 category_name TEXT NOT NULL,
                 frigate_event TEXT NOT NULL UNIQUE,
                 camera_name TEXT NOT NULL,
-                is_hidden INTEGER DEFAULT 0
+                is_hidden INTEGER DEFAULT 0,
+                frigate_score REAL,
+                sub_label TEXT
             )
         """)
 
-        # Migration: Add is_hidden column to existing databases
-        # Check if column exists before attempting to add it
-        if not await column_exists(db, "detections", "is_hidden"):
-            try:
-                await db.execute("ALTER TABLE detections ADD COLUMN is_hidden INTEGER DEFAULT 0")
-                log.info("Added is_hidden column to detections table")
-            except Exception as e:
-                log.error("Failed to add is_hidden column", error=str(e))
-                raise  # Re-raise to prevent startup with broken schema
+        # Migration: Add columns to existing databases
+        columns_to_add = [
+            ("is_hidden", "INTEGER DEFAULT 0"),
+            ("frigate_score", "REAL"),
+            ("sub_label", "TEXT")
+        ]
+        
+        for col_name, col_def in columns_to_add:
+            if not await column_exists(db, "detections", col_name):
+                try:
+                    await db.execute(f"ALTER TABLE detections ADD COLUMN {col_name} {col_def}")
+                    log.info(f"Added {col_name} column to detections table")
+                except Exception as e:
+                    log.error(f"Failed to add {col_name} column", error=str(e))
+                    raise
 
         # Add indexes for common query patterns (after migrations)
         await db.execute("CREATE INDEX IF NOT EXISTS idx_detections_time ON detections(detection_time DESC)")

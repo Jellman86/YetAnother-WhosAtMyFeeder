@@ -11,6 +11,7 @@
         reclassifyDetection,
         updateDetectionSpecies,
         classifyWildlife,
+        fetchSettings,
         type Detection,
         type WildlifeClassification,
         getThumbnailUrl

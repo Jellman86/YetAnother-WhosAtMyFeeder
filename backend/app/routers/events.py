@@ -115,7 +115,9 @@ async def get_events(
                 frigate_event=event.frigate_event,
                 camera_name=event.camera_name,
                 has_clip=clip_availability.get(event.frigate_event, False),
-                is_hidden=event.is_hidden
+                is_hidden=event.is_hidden,
+                frigate_score=event.frigate_score,
+                sub_label=event.sub_label
             )
             response_events.append(response_event)
 

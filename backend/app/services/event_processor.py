@@ -92,6 +92,10 @@ class EventProcessor:
             display_name = classification['label']
             category_name = classification['label']  # Simplify for now
             timestamp = datetime.fromtimestamp(after['start_time'])
+            
+            # Capture Frigate metadata
+            frigate_score = after.get('top_score')
+            sub_label = after.get('sub_label')
 
             detection = Detection(
                 detection_time=timestamp,
@@ -100,14 +104,20 @@ class EventProcessor:
                 display_name=display_name,
                 category_name=category_name,
                 frigate_event=frigate_event,
-                camera_name=after['camera']
+                camera_name=after['camera'],
+                frigate_score=frigate_score,
+                sub_label=sub_label
             )
 
             # Atomic upsert: insert or update only if score is higher
             changed, _ = await repo.upsert_if_higher_score(detection)
 
             if changed:
-                log.info("Saved detection", event=frigate_event, species=display_name, score=score)
+                log.info("Saved detection", 
+                         event=frigate_event, 
+                         species=display_name, 
+                         score=score,
+                         frigate_score=frigate_score)
 
                 # Broadcast event only when actually saved/updated
                 await self.broadcaster.broadcast({
@@ -117,6 +127,7 @@ class EventProcessor:
                         "display_name": display_name,
                         "score": score,
                         "timestamp": timestamp.isoformat(),
-                        "camera": after['camera']
+                        "camera": after['camera'],
+                        "frigate_score": frigate_score
                     }
                 })
