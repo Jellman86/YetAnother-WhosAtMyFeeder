@@ -16,11 +16,11 @@ name: YetAnother-WhosAtMyFeeder
 services:
   yawamf-backend:
     # Use pre-built image OR build locally (uncomment build section for local development)
-    image: ghcr.io/jellman86/wamf-backend:latest
-    # build:
-    #   context: ./backend
-    #   args:
-    #     GIT_HASH: ${GIT_HASH:-unknown}
+    # image: ghcr.io/jellman86/wamf-backend:latest
+    build:
+      context: ./backend
+      args:
+        GIT_HASH: ${GIT_HASH:-unknown}
     container_name: yawamf-backend
     restart: unless-stopped
     networks:
@@ -28,7 +28,6 @@ services:
     volumes:
       - ./config:/config        # Configuration files (config.json)
       - ./data:/data            # Persistent data (database, models)
-      - ./backend/app:/app/app  # Mount source code for hot-reloading
     ports:
       - "8946:8000"
     environment:
@@ -48,17 +47,15 @@ services:
 
   yawamf-frontend:
     # Use pre-built image OR build locally (uncomment build section for local development)
-    image: ghcr.io/jellman86/wamf-frontend:latest
-    # build:
-    #   context: ./apps/ui
-    #   args:
-    #     GIT_HASH: ${GIT_HASH:-unknown}
+    # image: ghcr.io/jellman86/wamf-frontend:latest
+    build:
+      context: ./apps/ui
+      args:
+        GIT_HASH: ${GIT_HASH:-unknown}
     container_name: yawamf-frontend
     restart: unless-stopped
     networks:
       - yawamf_network
-    volumes:
-      - ./apps/ui/dist:/usr/share/nginx/html # Mount built frontend assets
     ports:
       - "9852:80"
     depends_on:
