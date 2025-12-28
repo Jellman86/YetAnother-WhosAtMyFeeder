@@ -208,19 +208,19 @@ async def proxy_clip(
                     filename=f"{event_id}.mp4"
                 )
             
-            # If caching failed, start a new request for direct streaming
-            client = httpx.AsyncClient(timeout=120.0)
-            req = client.build_request("GET", clip_url, headers=frigate_client._get_headers())
-            r = await client.send(req, stream=True)
+            # If caching returned None, it means the file was empty (0 bytes) or failed.
+            # Do NOT fallback to streaming the broken content.
+            raise HTTPException(status_code=502, detail="Frigate returned an empty video clip")
             
+        except HTTPException:
+            raise
         except Exception:
             # Ensure cleanup if something goes wrong during caching attempt
             await r.aclose()
             await client.aclose()
-            # Start fresh for direct streaming
-            client = httpx.AsyncClient(timeout=120.0)
-            req = client.build_request("GET", clip_url, headers=frigate_client._get_headers())
-            r = await client.send(req, stream=True)
+            # If it was a generic exception (not our empty file check), we might try direct streaming
+            # but usually it's safer to fail.
+            raise HTTPException(status_code=502, detail="Failed to cache/stream clip from Frigate")
 
     # Stream directly from Frigate
     response_headers = {

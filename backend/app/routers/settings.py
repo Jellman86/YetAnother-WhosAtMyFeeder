@@ -156,28 +156,55 @@ async def get_cache_stats():
 
 
 @router.post("/cache/cleanup")
+
+
 async def run_cache_cleanup():
+
+
     """Manually trigger cleanup of old cached media."""
+
+
     from app.services.media_cache import media_cache
 
+
+
+
+
     # Determine retention period
+
+
     retention = settings.media_cache.retention_days
+
+
     if retention == 0:
+
+
         retention = settings.maintenance.retention_days
 
-    if retention <= 0:
-        return {
-            "status": "skipped",
-            "message": "Retention is set to unlimited (0 days)",
-            "snapshots_deleted": 0,
-            "clips_deleted": 0,
-            "bytes_freed": 0
-        }
+
+
+
+
+    # Even if retention is 0, we still run cleanup to remove empty files
+
 
     stats = await media_cache.cleanup_old_media(retention)
 
+
+
+
+
     return {
+
+
         "status": "completed",
+
+
         **stats,
+
+
         "retention_days": retention
+
+
     }
+
