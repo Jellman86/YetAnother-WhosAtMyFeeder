@@ -28,6 +28,7 @@ services:
     volumes:
       - ./config:/config        # Configuration files (config.json)
       - ./data:/data            # Persistent data (database, models)
+      - ./backend/app:/app/app  # Mount source code for hot-reloading
     ports:
       - "8946:8000"
     environment:
@@ -56,6 +57,8 @@ services:
     restart: unless-stopped
     networks:
       - yawamf_network
+    volumes:
+      - ./apps/ui/dist:/usr/share/nginx/html # Mount built frontend assets
     ports:
       - "9852:80"
     depends_on:

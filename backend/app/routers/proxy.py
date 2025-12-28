@@ -163,67 +163,76 @@ async def proxy_clip(
 
     # Forward Range header if present (only when not caching)
     range_header = request.headers.get("range")
-    if range_header and not (settings.media_cache.enabled and settings.media_cache.cache_clips):
+    should_cache = settings.media_cache.enabled and settings.media_cache.cache_clips
+    
+    if range_header and not should_cache:
         headers["Range"] = range_header
 
+    # We need to maintain the client context for the duration of the streaming response
     client = httpx.AsyncClient(timeout=120.0)
-    try:
-        req = client.build_request("GET", clip_url, headers=headers)
-        r = await client.send(req, stream=True)
+    req = client.build_request("GET", clip_url, headers=headers)
+    
+    # Manually handle the request to inspect status before streaming
+    r = await client.send(req, stream=True)
+    
+    if r.status_code == 404:
+        await r.aclose()
+        await client.aclose()
+        raise HTTPException(status_code=404, detail="Clip not found")
 
-        if r.status_code == 404:
-            await r.aclose()
-            await client.aclose()
-            raise HTTPException(status_code=404, detail="Clip not found")
-
-        # If caching is enabled, download and cache the clip first
-        if settings.media_cache.enabled and settings.media_cache.cache_clips:
+    # If caching is enabled, download and cache the clip first (blocking operation)
+    if should_cache:
+        try:
             cached_path = await media_cache.cache_clip_streaming(event_id, r.aiter_bytes())
             await r.aclose()
             await client.aclose()
 
             if cached_path:
-                # Serve from cache
                 return FileResponse(
                     path=cached_path,
                     media_type="video/mp4",
                     filename=f"{event_id}.mp4"
                 )
-            else:
-                # Cache failed, refetch and stream without caching
-                client = httpx.AsyncClient(timeout=120.0)
-                req = client.build_request("GET", clip_url, headers=frigate_client._get_headers())
-                r = await client.send(req, stream=True)
-
-        # Stream directly from Frigate (caching disabled or failed)
-        response_headers = {
-            "Accept-Ranges": "bytes",
-            "Content-Disposition": f"inline; filename={event_id}.mp4",
-        }
-
-        if "content-length" in r.headers:
-            response_headers["Content-Length"] = r.headers["content-length"]
-        if "content-range" in r.headers:
-            response_headers["Content-Range"] = r.headers["content-range"]
-        if "content-type" in r.headers:
-            response_headers["Content-Type"] = r.headers["content-type"]
-        else:
-            response_headers["Content-Type"] = "video/mp4"
-
-        async def cleanup():
+            
+            # If caching failed, start a new request for direct streaming
+            client = httpx.AsyncClient(timeout=120.0)
+            req = client.build_request("GET", clip_url, headers=frigate_client._get_headers())
+            r = await client.send(req, stream=True)
+            
+        except Exception:
+            # Ensure cleanup if something goes wrong during caching attempt
             await r.aclose()
             await client.aclose()
+            # Start fresh for direct streaming
+            client = httpx.AsyncClient(timeout=120.0)
+            req = client.build_request("GET", clip_url, headers=frigate_client._get_headers())
+            r = await client.send(req, stream=True)
 
-        return StreamingResponse(
-            r.aiter_bytes(),
-            status_code=r.status_code,
-            headers=response_headers,
-            background=BackgroundTask(cleanup)
-        )
+    # Stream directly from Frigate
+    response_headers = {
+        "Accept-Ranges": "bytes",
+        "Content-Disposition": f"inline; filename={event_id}.mp4",
+    }
 
-    except httpx.RequestError:
+    if "content-length" in r.headers:
+        response_headers["Content-Length"] = r.headers["content-length"]
+    if "content-range" in r.headers:
+        response_headers["Content-Range"] = r.headers["content-range"]
+    if "content-type" in r.headers:
+        response_headers["Content-Type"] = r.headers["content-type"]
+    else:
+        response_headers["Content-Type"] = "video/mp4"
+
+    async def cleanup():
+        await r.aclose()
         await client.aclose()
-        raise HTTPException(status_code=502, detail="Failed to connect to Frigate")
+
+    return StreamingResponse(
+        r.aiter_bytes(),
+        status_code=r.status_code,
+        headers=response_headers,
+        background=BackgroundTask(cleanup)
+    )
 
 @router.get("/frigate/{event_id}/thumbnail.jpg")
 async def proxy_thumb(event_id: str = Path(..., min_length=1, max_length=64)):
