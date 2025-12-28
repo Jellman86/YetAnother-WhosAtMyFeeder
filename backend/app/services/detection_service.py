@@ -32,23 +32,23 @@ class DetectionService:
 
         # Relabel unknown bird classifications
         if label in settings.classification.unknown_bird_labels:
-            log.info("Relabeled to Unknown Bird", original=label, event=frigate_event)
+            log.info("Relabeled to Unknown Bird", original=label, event_id=frigate_event)
             label = "Unknown Bird"
             top = {**top, 'label': label}
 
         # Filter out blocked labels
         if label in settings.classification.blocked_labels:
-            log.debug("Filtered blocked label", label=label, event=frigate_event)
+            log.debug("Filtered blocked label", label=label, event_id=frigate_event)
             return None
 
         # Check minimum confidence floor
         if score < settings.classification.min_confidence:
-            log.debug("Below minimum confidence", score=score, min=settings.classification.min_confidence, event=frigate_event)
+            log.debug("Below minimum confidence", score=score, min=settings.classification.min_confidence, event_id=frigate_event)
             return None
 
         # Check primary threshold
         if score <= settings.classification.threshold:
-            log.debug("Below threshold", score=score, threshold=settings.classification.threshold, event=frigate_event)
+            log.debug("Below threshold", score=score, threshold=settings.classification.threshold, event_id=frigate_event)
             return None
 
         return top
@@ -84,7 +84,7 @@ class DetectionService:
 
             if changed:
                 log.info("Saved detection", 
-                         event=frigate_event, 
+                         event_id=frigate_event, 
                          species=display_name, 
                          score=score,
                          frigate_score=frigate_score)
