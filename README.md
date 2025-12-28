@@ -215,9 +215,17 @@ Sometimes non-birds show up at your feeder - squirrels, raccoons, foxes, and mor
 - Fast CPU inference (~14MB model)
 - Includes common backyard animals: squirrels, foxes, rabbits, raccoons, deer, skunks, and more
 
+## Help Us Improve! 🧪
+
+This project is in active development, and your feedback is incredibly valuable! If you are using YA-WAMF, please help us by:
+
+1.  **Testing**: Try out all the features (video playback, classification, settings, etc.) and see how it performs in your environment.
+2.  **Reporting Issues**: If you find a bug, something doesn't look right, or you have a suggestion for an improvement, please **[open an issue on GitHub](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues)**.
+3.  **Sharing Success**: Let us know if it's working well for you!
+
 ## Contributing
 
-Feel free to open issues or PRs if you find bugs or have improvements. Just keep in mind this is a hobby project maintained in spare time.
+Feel free to open PRs if you have improvements to share. Just keep in mind this is a hobby project maintained in spare time.
 
 ## License
 

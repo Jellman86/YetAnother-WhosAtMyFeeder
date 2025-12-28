@@ -22,7 +22,7 @@
     }
 </script>
 
-<header class="bg-white/90 dark:bg-slate-900/90 shadow-sm sticky top-0 z-50 backdrop-blur-xl border-b border-slate-200/80 dark:border-slate-700/50 transition-all duration-300">
+<header class="bg-white/90 dark:bg-slate-900/90 shadow-sm sticky top-0 z-50 backdrop-blur-xl border-b border-slate-200/80 dark:border-slate-700/50 transition-all duration-300 before:absolute before:inset-x-0 before:top-0 before:h-0.5 before:bg-gradient-to-r before:from-brand-500/50 before:via-teal-400/50 before:to-brand-500/50">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="h-16 flex items-center justify-between">
             <!-- Logo -->
