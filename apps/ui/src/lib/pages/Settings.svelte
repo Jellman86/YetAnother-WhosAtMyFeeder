@@ -340,9 +340,16 @@
         <button
             onclick={loadSettings}
             disabled={loading}
-            class="text-sm text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+            class="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-lg
+                   text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-800
+                   border border-slate-200 dark:border-slate-700 shadow-sm
+                   hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white
+                   transition-all disabled:opacity-50 disabled:cursor-not-allowed"
         >
-            ↻ Refresh
+            <svg class="w-4 h-4 {loading ? 'animate-spin' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            Refresh
         </button>
     </div>
 

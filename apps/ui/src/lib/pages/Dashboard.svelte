@@ -151,23 +151,35 @@
 
     <!-- Stats Cards -->
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
-        <div class="bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700 shadow-sm">
-            <p class="text-2xl font-bold text-teal-600 dark:text-teal-400">{totalDetectionsToday}</p>
-            <p class="text-sm text-slate-500 dark:text-slate-400">Today's Detections</p>
+        <div class="bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700 shadow-sm relative overflow-hidden">
+            <div class="absolute top-2 right-2 text-teal-500/10 dark:text-teal-400/10">
+                <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            </div>
+            <p class="text-2xl font-bold text-teal-600 dark:text-teal-400 relative z-10">{totalDetectionsToday}</p>
+            <p class="text-sm text-slate-500 dark:text-slate-400 relative z-10">Today's Detections</p>
         </div>
-        <div class="bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700 shadow-sm">
-            <p class="text-2xl font-bold text-slate-900 dark:text-white">{detections.length}</p>
-            <p class="text-sm text-slate-500 dark:text-slate-400">Showing Recent</p>
+        <div class="bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700 shadow-sm relative overflow-hidden">
+            <div class="absolute top-2 right-2 text-slate-500/10 dark:text-slate-400/10">
+                <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
+            </div>
+            <p class="text-2xl font-bold text-slate-900 dark:text-white relative z-10">{detections.length}</p>
+            <p class="text-sm text-slate-500 dark:text-slate-400 relative z-10">Showing Recent</p>
         </div>
-        <div class="bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700 shadow-sm">
-            <p class="text-2xl font-bold text-slate-900 dark:text-white">{uniqueSpeciesCount()}</p>
-            <p class="text-sm text-slate-500 dark:text-slate-400">Species Seen</p>
+        <div class="bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700 shadow-sm relative overflow-hidden">
+            <div class="absolute top-2 right-2 text-slate-500/10 dark:text-slate-400/10">
+                <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" /></svg>
+            </div>
+            <p class="text-2xl font-bold text-slate-900 dark:text-white relative z-10">{uniqueSpeciesCount()}</p>
+            <p class="text-sm text-slate-500 dark:text-slate-400 relative z-10">Species Seen</p>
         </div>
-        <div class="bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700 shadow-sm">
-            <p class="text-lg font-bold text-slate-900 dark:text-white truncate" title={topSpecies() || 'N/A'}>
+        <div class="bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700 shadow-sm relative overflow-hidden">
+            <div class="absolute top-2 right-2 text-slate-500/10 dark:text-slate-400/10">
+                <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" /></svg>
+            </div>
+            <p class="text-lg font-bold text-slate-900 dark:text-white truncate relative z-10" title={topSpecies() || 'N/A'}>
                 {topSpecies() || 'N/A'}
             </p>
-            <p class="text-sm text-slate-500 dark:text-slate-400">Most Common</p>
+            <p class="text-sm text-slate-500 dark:text-slate-400 relative z-10">Most Common</p>
         </div>
     </div>
 </div>
