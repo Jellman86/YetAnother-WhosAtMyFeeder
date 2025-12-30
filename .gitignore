@@ -5,7 +5,6 @@ __pycache__/
 
 # C extensions
 *.so
-agents/
 
 # Distribution / packaging
 .Python
@@ -186,3 +185,5 @@ cython_debug/
 **/node_modules/
 **/dist/
 
+# Agents - project documentation and plans
+agents/
