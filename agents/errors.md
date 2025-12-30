@@ -10,3 +10,9 @@
 - dating for detections is incorrect, im seeing this a couple of ways, the amounts of detections for today is zero but i can clearly see the timestamp in the snapshot shows today. I also know the detection was today. It seems that this logic is incorrect.
 - Please assess weather the system is actually using the frigate sublables and meta information from frigate.
 - Why are the detections from this system different to the detections from frigate? I can see that the bounding box match persentage is different to the detection percentage in the application.
+
+## Errors Seen By Scott (not resolved):
+- Frigate is still more accurate than our suggestions, please investigate this, when frigate has a bird sublable and we have unknown or background please use the frigate sublabel.
+- I manually tagged some birds and then I went back to the live detections tab, the old names were still present with the live detections view. Im assuming we need to refresh data when changing views?
+
+**
