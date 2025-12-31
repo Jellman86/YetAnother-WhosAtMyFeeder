@@ -2,6 +2,8 @@
 
 A bird classification system that works with [Frigate NVR](https://frigate.video/) to identify the birds visiting your feeder.
 
+![YA-WAMF Dashboard](dashboard-preview.png)
+
 ## About This Project
 
 This is a personal project I started to experiment with AI-assisted coding. I noticed the original [WhosAtMyFeeder](https://github.com/mmcc-xx/WhosAtMyFeeder) wasn't being maintained anymore and thought it would be a fun way to learn while building something useful.
