@@ -19,13 +19,17 @@ async def get_installed_models():
 @router.post("/models/{model_id}/download")
 async def download_model(model_id: str, background_tasks: BackgroundTasks):
     """Download and install a specific model."""
-    # We run this in background as it might take time
-    # For simplicity in this iteration, we await it to report immediate success/fail
-    # In a real app, use a task queue or status endpoint
-    success = await model_manager.download_model(model_id)
-    if not success:
-        raise HTTPException(status_code=500, detail="Failed to download model")
-    return {"status": "success", "message": f"Model {model_id} downloaded"}
+    # Run in background
+    background_tasks.add_task(model_manager.download_model, model_id)
+    return {"status": "pending", "message": f"Download started for {model_id}"}
+
+@router.get("/models/download-status/{model_id}", response_model=Optional[DownloadProgress])
+async def get_download_status(model_id: str):
+    """Get the status of an ongoing model download."""
+    status = model_manager.get_download_status(model_id)
+    if not status:
+        return None
+    return status
 
 @router.post("/models/{model_id}/activate")
 async def activate_model(model_id: str):

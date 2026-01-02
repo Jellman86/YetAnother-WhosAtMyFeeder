@@ -23,6 +23,10 @@ class FrigateSettings(BaseModel):
     mqtt_username: str = ""
     mqtt_password: str = ""
     audio_topic: str = "birdnet/text"
+    camera_audio_mapping: dict[str, str] = Field(
+        default_factory=dict, 
+        description="Map Frigate camera name to BirdNET-Go sensor ID (e.g. {'front_feeder': 'front_mic'})"
+    )
 
 class ClassificationSettings(BaseModel):
     model: str = "model.tflite"
@@ -97,6 +101,7 @@ class Settings(BaseSettings):
             'mqtt_username': os.environ.get('FRIGATE__MQTT_USERNAME', ''),
             'mqtt_password': os.environ.get('FRIGATE__MQTT_PASSWORD', ''),
             'audio_topic': os.environ.get('FRIGATE__AUDIO_TOPIC', 'birdnet/text'),
+            'camera_audio_mapping': {},
         }
 
         # Maintenance settings
@@ -148,6 +153,9 @@ class Settings(BaseSettings):
                 # (checking 'in os.environ' ensures empty strings from compose defaults are respected)
                 if 'frigate' in file_data:
                     for key, value in file_data['frigate'].items():
+                        if key == 'camera_audio_mapping':
+                            frigate_data[key] = value
+                            continue
                         env_key = f'FRIGATE__{key.upper()}'
                         if env_key not in os.environ:
                             frigate_data[key] = value

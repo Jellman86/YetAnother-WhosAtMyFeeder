@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from typing import List, Optional, Deque
 from dataclasses import dataclass
 from collections import deque
+from app.config import settings
 
 log = structlog.get_logger()
 
@@ -12,6 +13,7 @@ class AudioDetection:
     timestamp: datetime
     species: str
     confidence: float
+    sensor_id: Optional[str]
     raw_data: dict
 
 class AudioService:
@@ -24,14 +26,12 @@ class AudioService:
     async def add_detection(self, data: dict):
         """Ingest a detection from MQTT."""
         try:
-            # Parse BirdNET-Go JSON payload
-            # Expected format: {"species": "Cardinal", "confidence": 0.85, "timestamp": 1234567890}
-            # Or standard BirdNET: {"scName": "...", "comName": "...", "score": ...}
-            
             timestamp = datetime.now()
             # Handle standard BirdNET format
             species = data.get("comName", data.get("species", "Unknown"))
             confidence = data.get("score", data.get("confidence", 0.0))
+            # Capture sensor/id for camera matching
+            sensor_id = data.get("id", data.get("sensor_id"))
             
             # If timestamp provided in payload, use it
             ts_raw = data.get("timestamp") or data.get("ts")
@@ -45,6 +45,7 @@ class AudioService:
                 timestamp=timestamp,
                 species=species,
                 confidence=float(confidence),
+                sensor_id=sensor_id,
                 raw_data=data
             )
 
@@ -52,7 +53,7 @@ class AudioService:
                 self._buffer.append(detection)
                 self._cleanup_buffer()
             
-            log.info("Audio detection received", species=species, confidence=confidence)
+            log.info("Audio detection received", species=species, confidence=confidence, sensor_id=sensor_id)
 
         except Exception as e:
             log.error("Failed to process audio detection", error=str(e))
@@ -63,18 +64,30 @@ class AudioService:
         while self._buffer and (now - self._buffer[0].timestamp) > self._buffer_duration:
             self._buffer.popleft()
 
-    async def find_match(self, target_time: datetime, window_seconds: int = 15) -> Optional[AudioDetection]:
-        """Find an audio detection matching the visual timestamp."""
+    async def find_match(self, target_time: datetime, camera_name: str = None, window_seconds: int = 15) -> Optional[AudioDetection]:
+        """Find an audio detection matching the visual timestamp and camera.
+        
+        Args:
+            target_time: Timestamp of the visual detection
+            camera_name: Name of the Frigate camera (used for mapping)
+            window_seconds: Match window in seconds
+        """
+        # Determine which sensor ID we are looking for based on camera mapping
+        expected_sensor_id = None
+        if camera_name and settings.frigate.camera_audio_mapping:
+            expected_sensor_id = settings.frigate.camera_audio_mapping.get(camera_name)
+
         async with self._lock:
             best_match = None
             highest_score = 0.0
             
-            # Simple linear search (buffer is small enough)
             for detection in self._buffer:
+                # If a mapping exists, only match if the sensor ID matches
+                if expected_sensor_id and detection.sensor_id != expected_sensor_id:
+                    continue
+
                 delta = abs((detection.timestamp - target_time).total_seconds())
                 if delta <= window_seconds:
-                    # Found a match in time window
-                    # Prioritize confidence score
                     if detection.confidence > highest_score:
                         highest_score = detection.confidence
                         best_match = detection

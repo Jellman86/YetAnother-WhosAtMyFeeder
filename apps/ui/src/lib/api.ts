@@ -39,6 +39,7 @@ export interface Settings {
     mqtt_username?: string;
     mqtt_password?: string;
     audio_topic: string;
+    camera_audio_mapping: Record<string, string>;
     clips_enabled: boolean;
     classification_threshold: number;
     cameras: string[];
@@ -68,6 +69,7 @@ export interface SettingsUpdate {
     mqtt_username?: string;
     mqtt_password?: string;
     audio_topic: string;
+    camera_audio_mapping: Record<string, string>;
     clips_enabled: boolean;
     classification_threshold: number;
     cameras: string[];
@@ -524,6 +526,14 @@ export interface InstalledModel {
     metadata?: ModelMetadata;
 }
 
+export interface DownloadProgress {
+    model_id: string;
+    status: 'pending' | 'downloading' | 'completed' | 'error';
+    progress: number;
+    message?: string;
+    error?: string;
+}
+
 export async function fetchAvailableModels(): Promise<ModelMetadata[]> {
     const response = await fetch(`${API_BASE}/models/available`);
     return handleResponse<ModelMetadata[]>(response);
@@ -539,6 +549,11 @@ export async function downloadModel(modelId: string): Promise<{ status: string; 
         method: 'POST',
     });
     return handleResponse<{ status: string; message: string }>(response);
+}
+
+export async function fetchDownloadStatus(modelId: string): Promise<DownloadProgress | null> {
+    const response = await fetch(`${API_BASE}/models/download-status/${encodeURIComponent(modelId)}`);
+    return handleResponse<DownloadProgress | null>(response);
 }
 
 export async function activateModel(modelId: string): Promise<{ status: string; message: string }> {

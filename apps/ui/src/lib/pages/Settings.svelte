@@ -32,6 +32,7 @@
     let mqttUsername = $state('');
     let mqttPassword = $state('');
     let audioTopic = $state('birdnet/text');
+    let cameraAudioMapping = $state<Record<string, string>>({});
     let clipsEnabled = $state(true);
     let threshold = $state(0.7);
     let selectedCameras = $state<string[]>([]);
@@ -217,6 +218,7 @@
             mqttUsername = settings.mqtt_username || '';
             mqttPassword = settings.mqtt_password || '';
             audioTopic = settings.audio_topic || 'birdnet/text';
+            cameraAudioMapping = settings.camera_audio_mapping || {};
             clipsEnabled = settings.clips_enabled ?? true;
             threshold = settings.classification_threshold;
             selectedCameras = settings.cameras || [];
@@ -272,6 +274,7 @@
                 mqtt_username: mqttUsername,
                 mqtt_password: mqttPassword,
                 audio_topic: audioTopic,
+                camera_audio_mapping: cameraAudioMapping,
                 clips_enabled: clipsEnabled,
                 classification_threshold: threshold,
                 cameras: selectedCameras,
@@ -534,6 +537,31 @@
                                placeholder:text-slate-400 dark:placeholder:text-slate-500"
                     />
                 </div>
+
+                {#if availableCameras.length > 0}
+                    <div class="pt-4 border-t border-slate-200 dark:border-slate-700">
+                        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                            Camera to BirdNET ID Mapping (Optional)
+                        </label>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 mb-3">
+                            Enter the "Sensor ID" configured in BirdNET-Go for each camera to enable precise audio correlation.
+                        </p>
+                        <div class="space-y-3">
+                            {#each availableCameras as camera}
+                                <div class="flex items-center gap-3">
+                                    <span class="text-xs font-medium text-slate-500 w-24 truncate">{camera}</span>
+                                    <input
+                                        type="text"
+                                        placeholder="BirdNET Sensor ID"
+                                        bind:value={cameraAudioMapping[camera]}
+                                        class="flex-1 px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600
+                                               bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm"
+                                    />
+                                </div>
+                            {/each}
+                        </div>
+                    </div>
+                {/if}
 
                 <div class="flex items-center gap-3 py-2">
                      <button 

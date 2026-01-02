@@ -80,7 +80,7 @@ class EventProcessor:
 
                 # --- Audio Correlation ---
                 detection_dt = datetime.fromtimestamp(start_time_ts)
-                audio_match = await audio_service.find_match(detection_dt, window_seconds=30)
+                audio_match = await audio_service.find_match(detection_dt, camera_name=camera, window_seconds=30)
                 
                 audio_confirmed = False
                 audio_species = None

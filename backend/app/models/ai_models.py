@@ -19,3 +19,10 @@ class InstalledModel(BaseModel):
     labels_path: str
     is_active: bool
     metadata: Optional[ModelMetadata] = None
+
+class DownloadProgress(BaseModel):
+    model_id: str
+    status: str # "pending", "downloading", "completed", "error"
+    progress: float # 0-100
+    message: Optional[str] = None
+    error: Optional[str] = None
