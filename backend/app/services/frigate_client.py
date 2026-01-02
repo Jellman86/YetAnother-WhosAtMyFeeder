@@ -128,6 +128,24 @@ class FrigateClient:
             log.error("Error fetching snapshot", event_id=event_id, error=str(e))
         return None
 
+    async def get_clip(self, event_id: str) -> Optional[bytes]:
+        """Fetch video clip for an event.
+
+        Args:
+            event_id: Frigate event ID
+
+        Returns:
+            Video bytes or None if failed
+        """
+        try:
+            resp = await self.get(f"api/events/{event_id}/clip.mp4")
+            if resp.status_code == 200:
+                return resp.content
+            log.warning("Failed to fetch clip", event_id=event_id, status=resp.status_code)
+        except Exception as e:
+            log.error("Error fetching clip", event_id=event_id, error=str(e))
+        return None
+
     async def get_thumbnail(self, event_id: str) -> Optional[bytes]:
         """Fetch thumbnail image for an event."""
         try:

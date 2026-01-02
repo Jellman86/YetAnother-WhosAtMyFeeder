@@ -320,11 +320,17 @@ async def reclassify_event(
 
         top = results[0]
         new_species = top['label']
+        
+        # Relabel unknown birds consistently with EventProcessor
+        if new_species in settings.classification.unknown_bird_labels:
+            new_species = "Unknown Bird"
+            
         new_score = top['score']
 
-        # Update if species changed
+        # Update if species changed OR if score improved significantly
+        # Note: we always update if the species changed, even if score is lower
         updated = False
-        if new_species != old_species:
+        if new_species != old_species or abs(new_score - detection.score) > 0.01:
             # Execute update directly for reliability
             await db.execute("""
                 UPDATE detections
@@ -337,7 +343,8 @@ async def reclassify_event(
                      event_id=event_id,
                      old_species=old_species,
                      new_species=new_species,
-                     score=new_score,
+                     old_score=detection.score,
+                     new_score=new_score,
                      strategy=effective_strategy)
             
             # Broadcast update
