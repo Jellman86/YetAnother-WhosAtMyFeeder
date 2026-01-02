@@ -95,18 +95,18 @@ class BackfillService:
                 log.debug("No classification results", event_id=frigate_event)
                 return 'error'
 
-            # Use shared filtering and labeling logic
-            top = self.detection_service.filter_and_label(results[0], frigate_event)
-            if not top:
-                # filter_and_label logs the reason (blocked, threshold, etc)
-                return 'skipped'
-
-            # Capture Frigate metadata
+            # Capture Frigate metadata (needed for fallback)
             frigate_score = event.get('top_score')
             if frigate_score is None and 'data' in event:
                 frigate_score = event['data'].get('top_score')
-            
+
             sub_label = event.get('sub_label')
+
+            # Use shared filtering and labeling logic (with Frigate sublabel for fallback)
+            top = self.detection_service.filter_and_label(results[0], frigate_event, sub_label)
+            if not top:
+                # filter_and_label logs the reason (blocked, threshold, etc)
+                return 'skipped'
             camera_name = event.get('camera', 'unknown')
             start_time = event.get('start_time', datetime.now().timestamp())
 

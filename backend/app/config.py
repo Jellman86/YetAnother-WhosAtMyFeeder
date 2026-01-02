@@ -35,6 +35,10 @@ class ClassificationSettings(BaseModel):
         default=["background", "Background"],
         description="Labels to relabel as 'Unknown Bird' (unidentifiable detections)"
     )
+    trust_frigate_sublabel: bool = Field(
+        default=True,
+        description="Fall back to Frigate sublabel when YA-WAMF classification fails threshold"
+    )
     # Wildlife/general animal model settings
     wildlife_model: str = Field(default="wildlife_model.tflite", description="Wildlife classification model file")
     wildlife_labels: str = Field(default="wildlife_labels.txt", description="Wildlife labels file")
@@ -92,7 +96,8 @@ class Settings(BaseSettings):
             'threshold': 0.7,
             'min_confidence': 0.4,
             'blocked_labels': [],
-            'unknown_bird_labels': ["background", "Background"]
+            'unknown_bird_labels': ["background", "Background"],
+            'trust_frigate_sublabel': True
         }
 
         # Media cache settings
@@ -144,7 +149,8 @@ class Settings(BaseSettings):
                  threshold=classification_data['threshold'],
                  min_confidence=classification_data['min_confidence'],
                  blocked_labels=classification_data['blocked_labels'],
-                 unknown_bird_labels=classification_data['unknown_bird_labels'])
+                 unknown_bird_labels=classification_data['unknown_bird_labels'],
+                 trust_frigate_sublabel=classification_data['trust_frigate_sublabel'])
         log.info("Media cache config",
                  enabled=media_cache_data['enabled'],
                  cache_snapshots=media_cache_data['cache_snapshots'],

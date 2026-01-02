@@ -52,19 +52,19 @@ class EventProcessor:
                 if not results:
                     return
 
-                # Apply common filtering and labeling logic
-                top = self.detection_service.filter_and_label(results[0], frigate_event)
+                # Capture Frigate metadata (needed for fallback)
+                frigate_score = after.get('top_score')
+                if frigate_score is None and 'data' in after:
+                    frigate_score = after['data'].get('top_score')
+
+                sub_label = after.get('sub_label')
+
+                # Apply common filtering and labeling logic (with Frigate sublabel for fallback)
+                top = self.detection_service.filter_and_label(results[0], frigate_event, sub_label)
                 if not top:
                     return
 
                 label = top['label']
-                
-                # Capture Frigate metadata
-                frigate_score = after.get('top_score')
-                if frigate_score is None and 'data' in after:
-                    frigate_score = after['data'].get('top_score')
-                    
-                sub_label = after.get('sub_label')
 
                 # Save detection (upsert)
                 await self.detection_service.save_detection(

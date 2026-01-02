@@ -21,14 +21,19 @@ class DetectionService:
         self.classifier = classifier
         self.broadcaster = broadcaster
 
-    def filter_and_label(self, classification: dict, frigate_event: str) -> dict | None:
+    def filter_and_label(self, classification: dict, frigate_event: str,
+                         frigate_sub_label: str = None) -> dict | None:
         """
         Apply filtering and relabeling rules to a classification result.
         Returns the modified classification dict or None if filtered out.
+
+        If YA-WAMF classification fails threshold but Frigate has a sublabel,
+        falls back to using Frigate's identification (when trust_frigate_sublabel is enabled).
         """
         top = classification
         score = top['score']
         label = top['label']
+        original_label = label
 
         # Relabel unknown bird classifications
         if label in settings.classification.unknown_bird_labels:
@@ -42,16 +47,37 @@ class DetectionService:
             return None
 
         # Check minimum confidence floor
-        if score < settings.classification.min_confidence:
-            log.debug("Below minimum confidence", score=score, min=settings.classification.min_confidence, event_id=frigate_event)
-            return None
+        below_min_confidence = score < settings.classification.min_confidence
 
         # Check primary threshold
-        if score <= settings.classification.threshold:
-            log.debug("Below threshold", score=score, threshold=settings.classification.threshold, event_id=frigate_event)
-            return None
+        below_threshold = score <= settings.classification.threshold
 
-        return top
+        # If classification passes, return it
+        if not below_min_confidence and not below_threshold:
+            return top
+
+        # Classification failed - check if we can fall back to Frigate sublabel
+        if settings.classification.trust_frigate_sublabel and frigate_sub_label:
+            # Frigate sublabel exists - use it as fallback
+            log.info("Using Frigate sublabel as fallback",
+                     frigate_label=frigate_sub_label,
+                     yawamf_label=original_label,
+                     yawamf_score=score,
+                     event_id=frigate_event)
+            return {
+                'label': frigate_sub_label,
+                'score': score,  # Keep original score for reference
+                'index': top.get('index', -1),
+                'source': 'frigate_fallback'
+            }
+
+        # No fallback available - log the failure reason and return None
+        if below_min_confidence:
+            log.debug("Below minimum confidence", score=score, min=settings.classification.min_confidence, event_id=frigate_event)
+        else:
+            log.debug("Below threshold", score=score, threshold=settings.classification.threshold, event_id=frigate_event)
+
+        return None
 
     async def save_detection(self, frigate_event: str, camera: str, start_time: float, 
                            classification: dict, frigate_score: float = None, sub_label: str = None) -> bool:
