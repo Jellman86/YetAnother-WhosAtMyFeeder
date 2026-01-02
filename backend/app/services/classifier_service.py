@@ -34,10 +34,11 @@ def get_classifier() -> 'ClassifierService':
 class ModelInstance:
     """Represents a loaded TFLite model with its labels."""
 
-    def __init__(self, name: str, model_path: str, labels_path: str):
+    def __init__(self, name: str, model_path: str, labels_path: str, preprocessing: Optional[dict] = None):
         self.name = name
         self.model_path = model_path
         self.labels_path = labels_path
+        self.preprocessing = preprocessing or {}
         self.interpreter = None
         self.labels: list[str] = []
         self.loaded = False
@@ -53,7 +54,7 @@ class ModelInstance:
         # Load labels first
         if os.path.exists(self.labels_path):
             try:
-                with open(self.labels_path, 'r') as f:
+                with open(self.labels_path, 'r', encoding='utf-8', errors='replace') as f:
                     self.labels = [line.strip() for line in f.readlines() if line.strip()]
                 log.info(f"Loaded {len(self.labels)} labels for {self.name}")
             except Exception as e:
@@ -101,9 +102,15 @@ class ModelInstance:
         # Resize image
         image = image.resize((nw, nh), Image.Resampling.BICUBIC)
 
-        # Create new image with gray padding (common for EfficientNet, or black for others)
-        # Using black (0) for generic approach as it works well with MobileNet too
-        new_image = Image.new('RGB', (w, h), (0, 0, 0))
+        # Padding color (128 for iNat models, 0 for generic)
+        pad_color = self.preprocessing.get("padding_color", 0)
+        if isinstance(pad_color, int):
+            fill_color = (pad_color, pad_color, pad_color)
+        else:
+            fill_color = tuple(pad_color)
+
+        # Create new image with padding
+        new_image = Image.new('RGB', (w, h), fill_color)
         
         # Paste resized image in center
         new_image.paste(image, ((w - nw) // 2, (h - nh) // 2))
@@ -135,6 +142,7 @@ class ModelInstance:
         input_data = self._preprocess_image(image, target_width, target_height)
 
         # Normalize based on model input type
+        # Optional: Add custom mean/std logic from self.preprocessing if needed
         if input_details['dtype'] == np.float32:
             input_data = (input_data - 127.0) / 128.0
         elif input_details['dtype'] == np.uint8:
@@ -188,19 +196,6 @@ class ModelInstance:
                 "label": label
             })
         
-        # Sort for logging but return all for ensemble logic if needed
-        # Actually, returning top-k is usually enough, but for ensemble we might want full vector.
-        # For simplicity and compat with existing API, let's return sorted top-k.
-        # But wait, for video ensemble we want to sum scores. 
-        # Ideally we return the full result vector or a large top-k.
-        
-        # Let's return sorted top-10 for standard usage, but sorted list.
-        # For video aggregation we might call this differently?
-        # Actually, let's just return sorted top-5 as usual for external consumers.
-        # Internal aggregation will need raw scores. 
-        # Refactoring to return raw scores is risky for existing consumers.
-        
-        # Let's just return the sorted list as usual.
         classifications.sort(key=lambda x: x['score'], reverse=True)
         return classifications[:5]
 
@@ -210,7 +205,6 @@ class ModelInstance:
             return np.array([])
 
         # Reuse logic from classify, but return raw results array
-        # Duplication is minor here to avoid breaking `classify` API
         input_details = self.input_details[0]
         input_shape = input_details['shape']
         if len(input_shape) == 4:
@@ -298,14 +292,20 @@ class ClassifierService:
         from app.services.model_manager import model_manager
         model_path, labels_path, input_size = model_manager.get_active_model_paths()
         
+        # Fetch preprocessing settings from model_manager registry
+        active_model_id = model_manager.active_model_id
+        from app.services.model_manager import REMOTE_REGISTRY
+        model_meta = next((m for m in REMOTE_REGISTRY if m['id'] == active_model_id), None)
+        preprocessing = model_meta.get('preprocessing') if model_meta else None
+
         if not os.path.exists(model_path):
              model_path, labels_path = self._get_model_paths(
                 settings.classification.model,
                 "labels.txt"
              )
 
-        log.info("Initializing bird model", path=model_path, input_size=input_size)
-        bird_model = ModelInstance("bird", model_path, labels_path)
+        log.info("Initializing bird model", path=model_path, input_size=input_size, preprocessing=preprocessing)
+        bird_model = ModelInstance("bird", model_path, labels_path, preprocessing=preprocessing)
         bird_model.load()
         self._models["bird"] = bird_model
 
