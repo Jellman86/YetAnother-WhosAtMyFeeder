@@ -1,5 +1,6 @@
 <script lang="ts">
     import { onMount } from 'svelte';
+    import { fade, fly } from 'svelte/transition';
     import DetectionCard from '../components/DetectionCard.svelte';
     import SpeciesDetailModal from '../components/SpeciesDetailModal.svelte';
     import VideoPlayer from '../components/VideoPlayer.svelte';
@@ -171,10 +172,14 @@
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div class="lg:col-span-2">
             {#if heroDetection}
-                <LatestDetectionHero 
-                    detection={heroDetection} 
-                    onclick={() => selectedEvent = heroDetection}
-                />
+                {#key heroDetection.frigate_event}
+                    <div in:fly={{ y: 20, duration: 500 }}>
+                        <LatestDetectionHero 
+                            detection={heroDetection} 
+                            onclick={() => selectedEvent = heroDetection}
+                        />
+                    </div>
+                {/key}
             {:else}
                 <div class="h-80 bg-slate-100 dark:bg-slate-800 rounded-2xl flex items-center justify-center border-4 border-dashed border-slate-200 dark:border-slate-700">
                     <p class="text-slate-400">Waiting for the first visitor of the day...</p>
@@ -183,7 +188,9 @@
         </div>
         <div>
             {#if summary}
-                <DailyHistogram data={summary.hourly_distribution} />
+                <div in:fade={{ duration: 800 }}>
+                    <DailyHistogram data={summary.hourly_distribution} />
+                </div>
             {:else}
                 <div class="h-full bg-slate-50 dark:bg-slate-800/30 rounded-2xl animate-pulse"></div>
             {/if}
@@ -192,10 +199,12 @@
 
     <!-- Middle Row: Top Visitors -->
     {#if summary && summary.top_species.length > 0}
-        <TopVisitors 
-            species={summary.top_species} 
-            onSpeciesClick={handleSpeciesSummaryClick}
-        />
+        <div in:fade={{ duration: 500, delay: 200 }}>
+            <TopVisitors 
+                species={summary.top_species} 
+                onSpeciesClick={handleSpeciesSummaryClick}
+            />
+        </div>
     {/if}
 
     <!-- Bottom Row: Recent Feed -->
@@ -214,7 +223,9 @@
 
         <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             {#each detections.slice(1) as detection (detection.frigate_event || detection.id)}
-                <DetectionCard {detection} onclick={() => selectedEvent = detection} />
+                <div in:fly={{ y: 20, duration: 400 }}>
+                    <DetectionCard {detection} onclick={() => selectedEvent = detection} />
+                </div>
             {/each}
 
             {#if detections.length <= 1 && (!summary || summary.top_species.length === 0)}

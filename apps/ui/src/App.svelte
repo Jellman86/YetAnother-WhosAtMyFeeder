@@ -145,11 +145,30 @@
 <div class="min-h-screen flex flex-col bg-surface-light dark:bg-surface-dark text-slate-900 dark:text-white font-sans transition-colors duration-300">
   <Header {currentRoute} onNavigate={navigate}>
       {#snippet status()}
-          {#if connected}
-              <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)] animate-pulse" title="Live"></span>
-          {:else}
-              <span class="w-2.5 h-2.5 rounded-full bg-red-500" title="Disconnected"></span>
-          {/if}
+          <div class="flex items-center gap-4">
+              {#if $settingsStore?.audio_topic}
+                  <div class="flex items-center gap-1.5 px-2 py-1 rounded-full bg-teal-500/10 border border-teal-500/20" title="Audio Analysis Active">
+                      <span class="relative flex h-2 w-2">
+                          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-400 opacity-75"></span>
+                          <span class="relative inline-flex rounded-full h-2 w-2 bg-teal-500"></span>
+                      </span>
+                      <span class="text-[10px] font-bold text-teal-600 dark:text-teal-400 uppercase tracking-tight">Listening</span>
+                  </div>
+              {/if}
+
+              <div class="flex items-center gap-2">
+                  {#if connected}
+                      <span class="relative flex h-2.5 w-2.5">
+                          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                          <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.8)]"></span>
+                      </span>
+                      <span class="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-tight">Live</span>
+                  {:else}
+                      <span class="w-2.5 h-2.5 rounded-full bg-red-500"></span>
+                      <span class="text-[10px] font-bold text-red-600 uppercase tracking-tight">Offline</span>
+                  {/if}
+              </div>
+          </div>
       {/snippet}
   </Header>
 
