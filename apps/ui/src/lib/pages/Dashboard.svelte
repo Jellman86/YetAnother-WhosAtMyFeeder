@@ -1,13 +1,17 @@
 <script lang="ts">
+    import { onMount } from 'svelte';
     import DetectionCard from '../components/DetectionCard.svelte';
     import SpeciesDetailModal from '../components/SpeciesDetailModal.svelte';
     import VideoPlayer from '../components/VideoPlayer.svelte';
-    import type { Detection, WildlifeClassification } from '../api';
-    import { getThumbnailUrl, deleteDetection, hideDetection, classifyWildlife, updateDetectionSpecies, analyzeDetection } from '../api';
+    import DailyHistogram from '../components/DailyHistogram.svelte';
+    import TopVisitors from '../components/TopVisitors.svelte';
+    import LatestDetectionHero from '../components/LatestDetectionHero.svelte';
+    import type { Detection, WildlifeClassification, DailySummary } from '../api';
+    import { getThumbnailUrl, deleteDetection, hideDetection, classifyWildlife, updateDetectionSpecies, analyzeDetection, fetchDailySummary } from '../api';
     import { settingsStore } from '../stores/settings';
 
     interface Props {
-        detections: Detection[];
+        detections: Detection[]; // Recent detections from App.svelte
         totalDetectionsToday?: number;
         ondelete?: (eventId: string) => void;
         onhide?: (eventId: string) => void;
@@ -16,6 +20,7 @@
 
     let { detections, totalDetectionsToday = 0, ondelete, onhide, onnavigate }: Props = $props();
 
+    let summary = $state<DailySummary | null>(null);
     let selectedEvent = $state<Detection | null>(null);
     let selectedSpecies = $state<string | null>(null);
     let deleting = $state(false);
@@ -32,8 +37,23 @@
     // Video playback state
     let showVideo = $state(false);
 
+    // Derive the hero detection (latest one)
+    let heroDetection = $derived(detections[0] || summary?.latest_detection || null);
+
     // Derive hasClip from selected event
     let selectedHasClip = $derived(selectedEvent?.has_clip ?? false);
+
+    onMount(async () => {
+        await loadSummary();
+    });
+
+    async function loadSummary() {
+        try {
+            summary = await fetchDailySummary();
+        } catch (e) {
+            console.error('Failed to load summary', e);
+        }
+    }
 
     // Reset wildlife results and video when switching detections
     $effect(() => {
@@ -43,20 +63,6 @@
             showVideo = false;
             aiAnalysis = null;
         }
-    });
-
-    // Compute stats from current detections
-    let topSpecies = $derived.by(() => {
-        const counts: Record<string, number> = {};
-        detections.forEach(d => {
-            counts[d.display_name] = (counts[d.display_name] || 0) + 1;
-        });
-        const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
-        return sorted.length > 0 ? sorted[0][0] : null;
-    });
-
-    let uniqueSpeciesCount = $derived.by(() => {
-        return new Set(detections.map(d => d.display_name)).size;
     });
 
     async function handleDelete() {
@@ -69,6 +75,7 @@
             const eventId = selectedEvent.frigate_event;
             selectedEvent = null;
             ondelete?.(eventId);
+            await loadSummary(); // Refresh summary stats
         } catch (e) {
             console.error('Failed to delete detection', e);
             alert('Failed to delete detection');
@@ -84,10 +91,10 @@
         try {
             const result = await hideDetection(selectedEvent.frigate_event);
             if (result.is_hidden) {
-                // Remove from view when hidden (dashboard doesn't show hidden detections)
                 const eventId = selectedEvent.frigate_event;
                 selectedEvent = null;
                 onhide?.(eventId);
+                await loadSummary(); // Refresh summary stats
             }
         } catch (e) {
             console.error('Failed to hide detection', e);
@@ -99,6 +106,10 @@
 
     function viewAllEvents() {
         onnavigate?.('/events');
+    }
+
+    function handleSpeciesSummaryClick(species: string) {
+        onnavigate?.(`/events?species=${encodeURIComponent(species)}&date=today`);
     }
 
     async function handleClassifyWildlife() {
@@ -126,10 +137,10 @@
         applyingWildlife = true;
         try {
             await updateDetectionSpecies(selectedEvent.frigate_event, label);
-            // Update the local detection
             selectedEvent.display_name = label;
             showWildlifeResults = false;
             wildlifeResults = [];
+            await loadSummary();
         } catch (e) {
             console.error('Failed to apply wildlife classification', e);
             alert('Failed to update species');
@@ -155,76 +166,73 @@
     }
 </script>
 
-<!-- Header with stats -->
-<div class="mb-6">
-    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-        <h2 class="text-2xl font-bold text-slate-900 dark:text-white">Live Detections</h2>
-        <button
-            onclick={viewAllEvents}
-            class="inline-flex items-center gap-2 text-sm font-medium text-teal-600 dark:text-teal-400
-                   hover:text-teal-700 dark:hover:text-teal-300 transition-colors"
-        >
-            View all detections
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-            </svg>
-        </button>
-    </div>
-
-    <!-- Stats Cards -->
-    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
-        <div class="bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700 shadow-sm relative overflow-hidden">
-            <div class="absolute top-2 right-2 text-teal-500/10 dark:text-teal-400/10">
-                <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-            </div>
-            <p class="text-2xl font-bold text-teal-600 dark:text-teal-400 relative z-10">{totalDetectionsToday}</p>
-            <p class="text-sm text-slate-500 dark:text-slate-400 relative z-10">Today's Detections</p>
-        </div>
-        <div class="bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700 shadow-sm relative overflow-hidden">
-            <div class="absolute top-2 right-2 text-slate-500/10 dark:text-slate-400/10">
-                <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
-            </div>
-            <p class="text-2xl font-bold text-slate-900 dark:text-white relative z-10">{detections.length}</p>
-            <p class="text-sm text-slate-500 dark:text-slate-400 relative z-10">Showing Recent</p>
-        </div>
-        <div class="bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700 shadow-sm relative overflow-hidden">
-            <div class="absolute top-2 right-2 text-slate-500/10 dark:text-slate-400/10">
-                <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" /></svg>
-            </div>
-            <p class="text-2xl font-bold text-slate-900 dark:text-white relative z-10">{uniqueSpeciesCount}</p>
-            <p class="text-sm text-slate-500 dark:text-slate-400 relative z-10">Species Seen</p>
-        </div>
-        <div class="bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700 shadow-sm relative overflow-hidden">
-            <div class="absolute top-2 right-2 text-slate-500/10 dark:text-slate-400/10">
-                <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" /></svg>
-            </div>
-            <p class="text-lg font-bold text-slate-900 dark:text-white truncate relative z-10" title={topSpecies || 'N/A'}>
-                {topSpecies || 'N/A'}
-            </p>
-            <p class="text-sm text-slate-500 dark:text-slate-400 relative z-10">Most Common</p>
-        </div>
-    </div>
-</div>
-
-<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-    {#each detections as detection (detection.frigate_event || detection.id)}
-        <DetectionCard {detection} onclick={() => selectedEvent = detection} />
-    {/each}
-
-    {#if detections.length === 0}
-        <div class="col-span-full text-center py-16 text-slate-500 dark:text-slate-400 bg-white/80 dark:bg-slate-800/50 rounded-2xl shadow-card dark:shadow-card-dark border border-slate-200/80 dark:border-slate-700/50 backdrop-blur-sm">
-            <div class="flex flex-col items-center justify-center">
-                <div class="w-16 h-16 mb-4 rounded-full bg-slate-100 dark:bg-slate-700/50 flex items-center justify-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-slate-400 dark:text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
+<div class="space-y-8">
+    <!-- Top Row: Hero & Histogram -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="lg:col-span-2">
+            {#if heroDetection}
+                <LatestDetectionHero 
+                    detection={heroDetection} 
+                    onclick={() => selectedEvent = heroDetection}
+                />
+            {:else}
+                <div class="h-80 bg-slate-100 dark:bg-slate-800 rounded-2xl flex items-center justify-center border-4 border-dashed border-slate-200 dark:border-slate-700">
+                    <p class="text-slate-400">Waiting for the first visitor of the day...</p>
                 </div>
-                <p class="text-lg font-semibold text-slate-700 dark:text-slate-300">No detections yet</p>
-                <p class="text-sm mt-1">Waiting for birds to visit...</p>
-            </div>
+            {/if}
         </div>
+        <div>
+            {#if summary}
+                <DailyHistogram data={summary.hourly_distribution} />
+            {:else}
+                <div class="h-full bg-slate-50 dark:bg-slate-800/30 rounded-2xl animate-pulse"></div>
+            {/if}
+        </div>
+    </div>
+
+    <!-- Middle Row: Top Visitors -->
+    {#if summary && summary.top_species.length > 0}
+        <TopVisitors 
+            species={summary.top_species} 
+            onSpeciesClick={handleSpeciesSummaryClick}
+        />
     {/if}
+
+    <!-- Bottom Row: Recent Feed -->
+    <div class="space-y-6">
+        <div class="flex items-center justify-between">
+            <h3 class="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                Discovery Feed
+            </h3>
+            <button
+                onclick={viewAllEvents}
+                class="text-xs font-medium text-teal-600 dark:text-teal-400 hover:underline"
+            >
+                See full history
+            </button>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            {#each detections.slice(1) as detection (detection.frigate_event || detection.id)}
+                <DetectionCard {detection} onclick={() => selectedEvent = detection} />
+            {/each}
+
+            {#if detections.length <= 1 && (!summary || summary.top_species.length === 0)}
+                <div class="col-span-full text-center py-16 text-slate-500 dark:text-slate-400 bg-white/80 dark:bg-slate-800/50 rounded-2xl shadow-card dark:shadow-card-dark border border-slate-200/80 dark:border-slate-700/50 backdrop-blur-sm">
+                    <div class="flex flex-col items-center justify-center">
+                        <div class="w-16 h-16 mb-4 rounded-full bg-slate-100 dark:bg-slate-700/50 flex items-center justify-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-slate-400 dark:text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                        </div>
+                        <p class="text-lg font-semibold text-slate-700 dark:text-slate-300">Quiet day so far</p>
+                        <p class="text-sm mt-1">Waiting for more birds to visit...</p>
+                    </div>
+                </div>
+            {/if}
+        </div>
+    </div>
 </div>
 
 <!-- Event Detail Modal -->

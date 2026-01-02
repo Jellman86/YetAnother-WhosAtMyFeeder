@@ -569,3 +569,22 @@ export async function analyzeDetection(eventId: string): Promise<{ analysis: str
     });
     return handleResponse<{ analysis: string }>(response);
 }
+
+// Stats types and functions
+export interface DailySpeciesSummary {
+    species: string;
+    count: number;
+    latest_event: string;
+}
+
+export interface DailySummary {
+    hourly_distribution: number[];
+    top_species: DailySpeciesSummary[];
+    latest_detection: Detection | null;
+    total_count: number;
+}
+
+export async function fetchDailySummary(): Promise<DailySummary> {
+    const response = await fetch(`${API_BASE}/stats/daily-summary`);
+    return handleResponse<DailySummary>(response);
+}

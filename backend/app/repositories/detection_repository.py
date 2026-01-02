@@ -451,6 +451,37 @@ class DetectionRepository:
                 distribution[month] = row[1]
             return distribution
 
+    async def get_global_hourly_distribution(self, start_date: datetime, end_date: datetime) -> list[int]:
+        """Get 24-element list of detection counts per hour for ALL species in range."""
+        async with self.db.execute(
+            """SELECT strftime('%H', detection_time) as hour, COUNT(*)
+               FROM detections 
+               WHERE detection_time >= ? AND detection_time <= ?
+               AND (is_hidden = 0 OR is_hidden IS NULL)
+               GROUP BY hour""",
+            (start_date.isoformat(sep=' '), end_date.isoformat(sep=' '))
+        ) as cursor:
+            rows = await cursor.fetchall()
+            distribution = [0] * 24
+            for row in rows:
+                hour = int(row[0])
+                distribution[hour] = row[1]
+            return distribution
+
+    async def get_daily_species_counts(self, start_date: datetime, end_date: datetime) -> list[dict]:
+        """Get detection counts per species for a specific time range."""
+        async with self.db.execute(
+            """SELECT display_name, COUNT(*) as count, MAX(frigate_event) as latest_event
+               FROM detections 
+               WHERE detection_time >= ? AND detection_time <= ?
+               AND (is_hidden = 0 OR is_hidden IS NULL)
+               GROUP BY display_name 
+               ORDER BY count DESC""",
+            (start_date.isoformat(sep=' '), end_date.isoformat(sep=' '))
+        ) as cursor:
+            rows = await cursor.fetchall()
+            return [{"species": row[0], "count": row[1], "latest_event": row[2]} for row in rows]
+
     async def get_recent_by_species(self, species_name: str, limit: int = 5, include_hidden: bool = False) -> list[Detection]:
         """Get most recent detections for a species."""
         if include_hidden:

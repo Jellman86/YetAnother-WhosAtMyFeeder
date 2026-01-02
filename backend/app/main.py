@@ -16,7 +16,7 @@ from app.services.event_processor import EventProcessor
 from app.services.media_cache import media_cache
 from app.services.broadcaster import broadcaster
 from app.repositories.detection_repository import DetectionRepository
-from app.routers import events, stream, proxy, settings as settings_router, species, backfill, classifier, models, ai
+from app.routers import events, stream, proxy, settings as settings_router, species, backfill, classifier, models, ai, stats
 from app.config import settings
 
 # Version management
@@ -160,6 +160,7 @@ app.include_router(backfill.router, prefix="/api", tags=["backfill"])
 app.include_router(classifier.router, prefix="/api")
 app.include_router(models.router, prefix="/api", tags=["models"])
 app.include_router(ai.router, prefix="/api", tags=["ai"])
+app.include_router(stats.router, prefix="/api", tags=["stats"])
 
 @app.get("/health")
 async def health_check():
