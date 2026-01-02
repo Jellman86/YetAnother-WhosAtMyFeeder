@@ -258,6 +258,16 @@ class ModelInstance:
             
         return results
 
+    def get_status(self) -> dict:
+        """Return the current status of this model."""
+        return {
+            "loaded": self.loaded,
+            "error": self.error,
+            "labels_count": len(self.labels),
+            "enabled": self.interpreter is not None,
+            "model_path": self.model_path,
+        }
+
 
 class ClassifierService:
     """Service for managing multiple classification models."""
