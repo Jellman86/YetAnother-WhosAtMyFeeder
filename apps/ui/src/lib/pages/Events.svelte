@@ -148,6 +148,9 @@
         const preset = params.get('date');
         if (preset && ['all', 'today', 'week', 'month', 'custom'].includes(preset)) {
             datePreset = preset as DatePreset;
+        } else if (preset === 'today') {
+            // Handle explicit today passed from Dashboard
+            datePreset = 'today';
         }
 
         const start = params.get('start');

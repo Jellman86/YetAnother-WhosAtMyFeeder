@@ -21,7 +21,9 @@ REMOTE_REGISTRY = [
         "file_size_mb": 3.4,
         "accuracy_tier": "Medium",
         "inference_speed": "Fast",
-        "download_url": "https://raw.githubusercontent.com/google-coral/test_data/master/tf2_mobilenet_v2_1.0_224_ptq.tflite",
+        "download_url": "https://storage.googleapis.com/download.tensorflow.org/models/tflite/mobilenet_v2_1.0_224_quant_and_labels.zip", # We will need to unzip this one, or just use the direct tflite if available. Let's use a direct link for now to simplify.
+        # Actually, let's use the Coral model which is standard
+        "download_url": "https://raw.githubusercontent.com/google-coral/test_data/master/tf2_mobilenet_v2_1.0_224_ptq.tflite", 
         "labels_url": "https://raw.githubusercontent.com/google-coral/test_data/master/inat_bird_labels.txt",
         "input_size": 224
     },
@@ -33,7 +35,10 @@ REMOTE_REGISTRY = [
         "file_size_mb": 13.0,
         "accuracy_tier": "High",
         "inference_speed": "Slow",
-        "download_url": "https://raw.githubusercontent.com/tensorflow/tflite-support/master/tensorflow_lite_support/metadata/python/tests/testdata/image_classifier/efficientnet_lite4.tflite",
+        "download_url": "https://raw.githubusercontent.com/tensorflow/tflite-support/master/tensorflow_lite_support/metadata/python/tests/testdata/image_classifier/efficientnet_lite0.tflite", # Fallback to lite0 for test stability if lite4 is gone, but let's try a better source.
+        # Using a reliable mirror or the official one if found. 
+        # Ideally: https://storage.googleapis.com/cloud-tpu-checkpoints/efficientnet/lite/efficientnet-lite4-int8.tflite
+        "download_url": "https://storage.googleapis.com/cloud-tpu-checkpoints/efficientnet/lite/efficientnet-lite4-int8.tflite",
         "labels_url": "https://storage.googleapis.com/download.tensorflow.org/data/ImageNetLabels.txt",
         "input_size": 300
     }
@@ -72,15 +77,33 @@ class ModelManager:
         return [ModelMetadata(**m) for m in REMOTE_REGISTRY]
 
     async def list_installed_models(self) -> List[InstalledModel]:
-        """List models currently present in the models directory."""
+        """List models currently present in the models directory or bundled assets."""
         installed = []
         available = await self.list_available_models()
         available_map = {m.id: m for m in available}
+        
+        # Paths to check
+        paths_to_check = [MODELS_DIR]
+        
+        # Add bundled assets path
+        # backend/app/services/model_manager.py -> backend/app/assets
+        assets_dir = os.path.join(os.path.dirname(__file__), "../assets")
+        if os.path.exists(assets_dir):
+            paths_to_check.append(assets_dir)
 
-        # Scan directory
-        if os.path.exists(MODELS_DIR):
-            for item in os.listdir(MODELS_DIR):
-                model_dir = os.path.join(MODELS_DIR, item)
+        seen_ids = set()
+
+        # Helper to check a directory for models
+        def check_dir(base_dir, is_bundled=False):
+            if not os.path.exists(base_dir):
+                return
+
+            # Check for directory-based models (e.g. /data/models/mobilenet_v2_birds/)
+            for item in os.listdir(base_dir):
+                if item in seen_ids:
+                    continue
+                    
+                model_dir = os.path.join(base_dir, item)
                 if os.path.isdir(model_dir):
                     tflite_path = os.path.join(model_dir, "model.tflite")
                     labels_path = os.path.join(model_dir, "labels.txt")
@@ -94,6 +117,32 @@ class ModelManager:
                             is_active=(item == self.active_model_id),
                             metadata=metadata
                         ))
+                        seen_ids.add(item)
+            
+            # Check for flat-file models (legacy/bundled structure: /assets/model.tflite)
+            # We map "model.tflite" in root of assets to the default ID "mobilenet_v2_birds"
+            default_id = "mobilenet_v2_birds"
+            if default_id not in seen_ids:
+                flat_model = os.path.join(base_dir, "model.tflite")
+                flat_labels = os.path.join(base_dir, "labels.txt")
+                
+                if os.path.exists(flat_model):
+                    metadata = available_map.get(default_id)
+                    installed.append(InstalledModel(
+                        id=default_id,
+                        path=flat_model,
+                        labels_path=flat_labels,
+                        is_active=(default_id == self.active_model_id),
+                        metadata=metadata
+                    ))
+                    seen_ids.add(default_id)
+
+        # Check persistent storage first (overrides bundled)
+        check_dir(MODELS_DIR)
+        
+        # Check bundled assets
+        check_dir(assets_dir, is_bundled=True)
+        
         return installed
 
     def _cleanup_downloads(self):
