@@ -282,8 +282,18 @@ async def reclassify_event(
         results = []
         
         if effective_strategy == "video":
-            # Fetch clip
-            clip_data = await frigate_client.get_clip(event_id)
+            # Fetch clip - check cache first
+            from app.services.media_cache import media_cache
+            clip_data = None
+            cached_path = media_cache.get_clip_path(event_id)
+            
+            if cached_path:
+                log.info("Using cached clip for reclassification", event_id=event_id)
+                with open(cached_path, 'rb') as f:
+                    clip_data = f.read()
+            else:
+                clip_data = await frigate_client.get_clip(event_id)
+
             if not clip_data:
                 log.warning("Failed to fetch clip data, falling back to snapshot", event_id=event_id)
                 effective_strategy = "snapshot"
