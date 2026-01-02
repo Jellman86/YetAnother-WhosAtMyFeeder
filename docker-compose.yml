@@ -75,8 +75,7 @@ services:
   #   networks:
   #     - yawamf_network
   #   volumes:
-  #     - ./config/birdnet:
-  /config
+  #     - ./config/birdnet:/config
   #   environment:
   #     - MQTT_SERVER=${MQTT_SERVER:-mqtt}
   #     - MQTT_PORT=${MQTT_PORT:-1883}

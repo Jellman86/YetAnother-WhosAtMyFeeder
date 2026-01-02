@@ -94,7 +94,9 @@
         class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden
                border border-slate-200 dark:border-slate-700 animate-fade-in"
         onclick={(e) => e.stopPropagation()}
+        onkeydown={(e) => e.stopPropagation()}
         role="document"
+        tabindex="-1"
     >
         <!-- Header -->
         <div class="flex items-start justify-between p-6 border-b border-slate-200 dark:border-slate-700">
