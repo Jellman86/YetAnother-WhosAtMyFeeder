@@ -19,41 +19,33 @@ async def init_db():
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 detection_time TIMESTAMP NOT NULL,
                 detection_index INTEGER NOT NULL,
-                score REAL NOT NULL,
+                score FLOAT NOT NULL,
                 display_name TEXT NOT NULL,
                 category_name TEXT NOT NULL,
-                frigate_event TEXT NOT NULL UNIQUE,
+                frigate_event TEXT UNIQUE NOT NULL,
                 camera_name TEXT NOT NULL,
-                is_hidden INTEGER DEFAULT 0,
-                frigate_score REAL,
+                is_hidden BOOLEAN DEFAULT 0,
+                frigate_score FLOAT,
                 sub_label TEXT
             )
         """)
-
-        # Migration: Add columns to existing databases
-        columns_to_add = [
-            ("is_hidden", "INTEGER DEFAULT 0"),
-            ("frigate_score", "REAL"),
-            ("sub_label", "TEXT")
-        ]
         
-        for col_name, col_def in columns_to_add:
-            if not await column_exists(db, "detections", col_name):
-                try:
-                    await db.execute(f"ALTER TABLE detections ADD COLUMN {col_name} {col_def}")
-                    log.info(f"Added {col_name} column to detections table")
-                except Exception as e:
-                    log.error(f"Failed to add {col_name} column", error=str(e))
-                    raise
-
-        # Add indexes for common query patterns (after migrations)
-        await db.execute("CREATE INDEX IF NOT EXISTS idx_detections_time ON detections(detection_time DESC)")
-        await db.execute("CREATE INDEX IF NOT EXISTS idx_detections_species ON detections(display_name)")
-        await db.execute("CREATE INDEX IF NOT EXISTS idx_detections_camera ON detections(camera_name)")
-        await db.execute("CREATE INDEX IF NOT EXISTS idx_detections_hidden ON detections(is_hidden)")
-
+        # Migrations: Add new columns if they don't exist
+        # Check for frigate_score (v1 migration)
+        cursor = await db.execute("PRAGMA table_info(detections)")
+        columns = [row[1] for row in await cursor.fetchall()]
+        
+        if "frigate_score" not in columns:
+            await db.execute("ALTER TABLE detections ADD COLUMN frigate_score FLOAT")
+            await db.execute("ALTER TABLE detections ADD COLUMN sub_label TEXT")
+            
+        # Check for audio columns (v2 migration)
+        if "audio_confirmed" not in columns:
+            await db.execute("ALTER TABLE detections ADD COLUMN audio_confirmed BOOLEAN DEFAULT 0")
+            await db.execute("ALTER TABLE detections ADD COLUMN audio_species TEXT")
+            await db.execute("ALTER TABLE detections ADD COLUMN audio_score FLOAT")
+            
         await db.commit()
-        log.info("Database initialized", path=DB_PATH)
 
 @asynccontextmanager
 async def get_db():

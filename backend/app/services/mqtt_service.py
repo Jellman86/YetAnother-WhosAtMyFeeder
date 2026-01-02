@@ -15,7 +15,7 @@ class MQTTService:
         session_id = str(uuid.uuid4())[:8]
         self.client_id = f"YAWAMF-{version}-{session_id}"
 
-    async def start(self, message_callback):
+    async def start(self, event_processor):
         self.running = True
 
         # Validate MQTT settings
@@ -39,12 +39,24 @@ class MQTTService:
 
                 async with Client(**client_kwargs) as client:
                     self.client = client
-                    topic = f"{settings.frigate.main_topic}/events"
-                    await client.subscribe(topic)
-                    log.info("Connected to MQTT", topic=topic)
+                    
+                    # Frigate Topic
+                    frigate_topic = f"{settings.frigate.main_topic}/events"
+                    await client.subscribe(frigate_topic)
+                    
+                    # BirdNET Topic (BirdNET-Go default)
+                    birdnet_topic = "birdnet/text" # BirdNET-Go default JSON output is often here or configurable
+                    await client.subscribe(birdnet_topic)
+                    
+                    log.info("Connected to MQTT", topics=[frigate_topic, birdnet_topic])
 
                     async for message in client.messages:
-                        await message_callback(message.payload)
+                        topic = message.topic.value
+                        if topic == frigate_topic:
+                            await event_processor.process_mqtt_message(message.payload)
+                        elif topic == birdnet_topic:
+                            await event_processor.process_audio_message(message.payload)
+                            
             except MqttError as e:
                 log.error("MQTT connection lost", error=str(e))
                 await asyncio.sleep(5)  # Reconnect delay

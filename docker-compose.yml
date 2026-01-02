@@ -66,6 +66,24 @@ services:
       timeout: 10s
       retries: 3
 
+  # Audio Analysis (Optional)
+  # Uncomment to run a local BirdNET-Go instance
+  # birdnet-go:
+  #   image: ghcr.io/tphacyj/birdnet-go:latest
+  #   container_name: birdnet-go
+  #   restart: unless-stopped
+  #   networks:
+  #     - yawamf_network
+  #   volumes:
+  #     - ./config/birdnet:
+  /config
+  #   environment:
+  #     - MQTT_SERVER=${MQTT_SERVER:-mqtt}
+  #     - MQTT_PORT=${MQTT_PORT:-1883}
+  #     - RTSP_URL=rtsp://frigate:554/birdcam # Replace with your camera stream
+  #   ports:
+  #     - "8080:8080"
+
 networks:
   yawamf_network:
     name: ${DOCKER_NETWORK:-yawamf_default}

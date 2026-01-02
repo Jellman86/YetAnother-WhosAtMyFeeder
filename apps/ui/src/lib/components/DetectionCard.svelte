@@ -149,9 +149,23 @@
         {/if}
 
         <!-- Camera Badge -->
-        <div class="absolute bottom-2 left-2 px-2 py-1 rounded-full
-                    bg-black/60 backdrop-blur-sm text-white text-xs">
-            📷 {detection.camera_name}
+        <div class="absolute bottom-2 left-2 flex gap-1">
+            <div class="px-2 py-1 rounded-full bg-black/60 backdrop-blur-sm text-white text-xs flex items-center gap-1">
+                📷 {detection.camera_name}
+            </div>
+            
+            {#if detection.audio_confirmed}
+                <div class="px-2 py-1 rounded-full bg-teal-500/90 backdrop-blur-sm text-white text-xs flex items-center gap-1"
+                     title="Confirmed by Audio Analysis">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                              d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                    </svg>
+                    {#if detection.audio_score}
+                        {(detection.audio_score * 100).toFixed(0)}%
+                    {/if}
+                </div>
+            {/if}
         </div>
 
         <!-- Action Buttons Overlay (bottom-right) -->

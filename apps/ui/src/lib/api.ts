@@ -11,6 +11,10 @@ export interface Detection {
     is_hidden?: boolean; // Hidden/ignored status
     frigate_score?: number; // Frigate detection confidence
     sub_label?: string;     // Frigate sub-label
+    // Audio fields
+    audio_confirmed?: boolean;
+    audio_species?: string;
+    audio_score?: number;
 }
 
 export interface VersionInfo {

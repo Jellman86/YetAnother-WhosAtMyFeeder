@@ -120,7 +120,7 @@ async def lifespan(app: FastAPI):
     global cleanup_task, cleanup_running
     # Startup
     await init_db()
-    asyncio.create_task(mqtt_service.start(event_processor.process_mqtt_message))
+    asyncio.create_task(mqtt_service.start(event_processor))
     cleanup_task = asyncio.create_task(cleanup_scheduler())
     log.info("Background cleanup scheduler started",
              interval_hours=CLEANUP_INTERVAL_HOURS,

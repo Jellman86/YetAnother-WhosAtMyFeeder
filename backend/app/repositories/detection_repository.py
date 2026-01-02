@@ -16,6 +16,10 @@ class Detection:
     is_hidden: bool = False
     frigate_score: Optional[float] = None
     sub_label: Optional[str] = None
+    # Audio correlation fields
+    audio_confirmed: bool = False
+    audio_species: Optional[str] = None
+    audio_score: Optional[float] = None
 
 
 def _parse_datetime(value) -> datetime:
@@ -48,7 +52,10 @@ def _row_to_detection(row) -> Detection:
         camera_name=row[7],
         is_hidden=bool(row[8]) if len(row) > 8 else False,
         frigate_score=row[9] if len(row) > 9 else None,
-        sub_label=row[10] if len(row) > 10 else None
+        sub_label=row[10] if len(row) > 10 else None,
+        audio_confirmed=bool(row[11]) if len(row) > 11 else False,
+        audio_species=row[12] if len(row) > 12 else None,
+        audio_score=row[13] if len(row) > 13 else None
     )
 
 
@@ -58,7 +65,7 @@ class DetectionRepository:
 
     async def get_by_frigate_event(self, frigate_event: str) -> Optional[Detection]:
         async with self.db.execute(
-            "SELECT id, detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label FROM detections WHERE frigate_event = ?",
+            "SELECT id, detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label, audio_confirmed, audio_species, audio_score FROM detections WHERE frigate_event = ?",
             (frigate_event,)
         ) as cursor:
             row = await cursor.fetchone()
@@ -102,17 +109,17 @@ class DetectionRepository:
 
     async def create(self, detection: Detection):
         await self.db.execute("""
-            INSERT INTO detections (detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, frigate_score, sub_label)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (detection.detection_time, detection.detection_index, detection.score, detection.display_name, detection.category_name, detection.frigate_event, detection.camera_name, detection.frigate_score, detection.sub_label))
+            INSERT INTO detections (detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, frigate_score, sub_label, audio_confirmed, audio_species, audio_score)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (detection.detection_time, detection.detection_index, detection.score, detection.display_name, detection.category_name, detection.frigate_event, detection.camera_name, detection.frigate_score, detection.sub_label, detection.audio_confirmed, detection.audio_species, detection.audio_score))
         await self.db.commit()
 
     async def update(self, detection: Detection):
         await self.db.execute("""
             UPDATE detections
-            SET detection_time = ?, detection_index = ?, score = ?, display_name = ?, category_name = ?, frigate_score = ?, sub_label = ?
+            SET detection_time = ?, detection_index = ?, score = ?, display_name = ?, category_name = ?, frigate_score = ?, sub_label = ?, audio_confirmed = ?, audio_species = ?, audio_score = ?
             WHERE frigate_event = ?
-        """, (detection.detection_time, detection.detection_index, detection.score, detection.display_name, detection.category_name, detection.frigate_score, detection.sub_label, detection.frigate_event))
+        """, (detection.detection_time, detection.detection_index, detection.score, detection.display_name, detection.category_name, detection.frigate_score, detection.sub_label, detection.audio_confirmed, detection.audio_species, detection.audio_score, detection.frigate_event))
         await self.db.commit()
 
     async def upsert_if_higher_score(self, detection: Detection) -> tuple[bool, bool]:
@@ -129,8 +136,8 @@ class DetectionRepository:
         # First, try to insert. If conflict on frigate_event, update only if score is higher.
         # SQLite's ON CONFLICT DO UPDATE with WHERE clause handles this atomically.
         await self.db.execute("""
-            INSERT INTO detections (detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, frigate_score, sub_label)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO detections (detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, frigate_score, sub_label, audio_confirmed, audio_species, audio_score)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(frigate_event) DO UPDATE SET
                 detection_time = excluded.detection_time,
                 detection_index = excluded.detection_index,
@@ -138,8 +145,11 @@ class DetectionRepository:
                 display_name = excluded.display_name,
                 category_name = excluded.category_name,
                 frigate_score = excluded.frigate_score,
-                sub_label = excluded.sub_label
-            WHERE excluded.score > detections.score
+                sub_label = excluded.sub_label,
+                audio_confirmed = excluded.audio_confirmed,
+                audio_species = excluded.audio_species,
+                audio_score = excluded.audio_score
+            WHERE excluded.score > detections.score OR (excluded.audio_confirmed = 1 AND detections.audio_confirmed = 0)
         """, (
             detection.detection_time,
             detection.detection_index,
@@ -149,7 +159,10 @@ class DetectionRepository:
             detection.frigate_event,
             detection.camera_name,
             detection.frigate_score,
-            detection.sub_label
+            detection.sub_label,
+            detection.audio_confirmed,
+            detection.audio_species,
+            detection.audio_score
         ))
 
         changes = self.db.total_changes
@@ -177,8 +190,8 @@ class DetectionRepository:
         """
         await self.db.execute("""
             INSERT OR IGNORE INTO detections
-            (detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, frigate_score, sub_label)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, frigate_score, sub_label, audio_confirmed, audio_species, audio_score)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             detection.detection_time,
             detection.detection_index,
@@ -188,7 +201,10 @@ class DetectionRepository:
             detection.frigate_event,
             detection.camera_name,
             detection.frigate_score,
-            detection.sub_label
+            detection.sub_label,
+            detection.audio_confirmed,
+            detection.audio_species,
+            detection.audio_score
         ))
 
         changes = self.db.total_changes
@@ -206,7 +222,7 @@ class DetectionRepository:
         sort: str = "newest",
         include_hidden: bool = False
     ) -> list[Detection]:
-        query = "SELECT id, detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label FROM detections"
+        query = "SELECT id, detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label, audio_confirmed, audio_species, audio_score FROM detections"
         params: list = []
         conditions = []
 
@@ -428,13 +444,15 @@ class DetectionRepository:
         """Get most recent detections for a species."""
         if include_hidden:
             query = """SELECT id, detection_time, detection_index, score, display_name,
-                          category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label
+                          category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label,
+                          audio_confirmed, audio_species, audio_score
                    FROM detections WHERE display_name = ?
                    ORDER BY detection_time DESC LIMIT ?"""
             params = (species_name, limit)
         else:
             query = """SELECT id, detection_time, detection_index, score, display_name,
-                          category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label
+                          category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label,
+                          audio_confirmed, audio_species, audio_score
                    FROM detections WHERE display_name = ? AND (is_hidden = 0 OR is_hidden IS NULL)
                    ORDER BY detection_time DESC LIMIT ?"""
             params = (species_name, limit)

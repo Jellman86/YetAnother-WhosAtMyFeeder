@@ -46,41 +46,49 @@ class DetectionService:
             log.debug("Filtered blocked label", label=label, event_id=frigate_event)
             return None
 
+        # Determine effective minimum confidence (floor)
+        # If user sets threshold lower than min_confidence, use threshold as floor
+        effective_min = min(settings.classification.min_confidence, settings.classification.threshold)
+
         # Check minimum confidence floor
-        below_min_confidence = score < settings.classification.min_confidence
+        below_min_confidence = score < effective_min
 
         # Check primary threshold
         below_threshold = score <= settings.classification.threshold
 
-        # If classification passes, return it
-        if not below_min_confidence and not below_threshold:
+        # If classification passes primary threshold, return it
+        # (Implicitly passes min_confidence because threshold >= effective_min)
+        if not below_threshold:
             return top
 
-        # Classification failed - check if we can fall back to Frigate sublabel
+        # Classification failed primary threshold - check if we can fall back to Frigate sublabel
         if settings.classification.trust_frigate_sublabel and frigate_sub_label:
-            # Frigate sublabel exists - use it as fallback
-            log.info("Using Frigate sublabel as fallback",
-                     frigate_label=frigate_sub_label,
-                     yawamf_label=original_label,
-                     yawamf_score=score,
-                     event_id=frigate_event)
-            return {
-                'label': frigate_sub_label,
-                'score': score,  # Keep original score for reference
-                'index': top.get('index', -1),
-                'source': 'frigate_fallback'
-            }
+            # Only allow fallback if above the absolute floor (effective_min)
+            if not below_min_confidence:
+                # Frigate sublabel exists - use it as fallback
+                log.info("Using Frigate sublabel as fallback",
+                         frigate_label=frigate_sub_label,
+                         yawamf_label=original_label,
+                         yawamf_score=score,
+                         event_id=frigate_event)
+                return {
+                    'label': frigate_sub_label,
+                    'score': score,  # Keep original score for reference
+                    'index': top.get('index', -1),
+                    'source': 'frigate_fallback'
+                }
 
-        # No fallback available - log the failure reason and return None
+        # No fallback available or below absolute floor
         if below_min_confidence:
-            log.debug("Below minimum confidence", score=score, min=settings.classification.min_confidence, event_id=frigate_event)
+            log.debug("Below minimum confidence", score=score, min=effective_min, event_id=frigate_event)
         else:
             log.debug("Below threshold", score=score, threshold=settings.classification.threshold, event_id=frigate_event)
 
         return None
 
     async def save_detection(self, frigate_event: str, camera: str, start_time: float, 
-                           classification: dict, frigate_score: float = None, sub_label: str = None) -> bool:
+                           classification: dict, frigate_score: float = None, sub_label: str = None,
+                           audio_confirmed: bool = False, audio_species: str = None, audio_score: float = None) -> bool:
         """
         Save or update a detection in the database and broadcast the event.
         Returns True if a change was made (insert or update).
@@ -102,7 +110,10 @@ class DetectionService:
                 frigate_event=frigate_event,
                 camera_name=camera,
                 frigate_score=frigate_score,
-                sub_label=sub_label
+                sub_label=sub_label,
+                audio_confirmed=audio_confirmed,
+                audio_species=audio_species,
+                audio_score=audio_score
             )
 
             # Atomic upsert: insert or update only if score is higher
@@ -113,7 +124,8 @@ class DetectionService:
                          event_id=frigate_event, 
                          species=display_name, 
                          score=score,
-                         frigate_score=frigate_score)
+                         frigate_score=frigate_score,
+                         audio_confirmed=audio_confirmed)
 
                 # Broadcast event only when actually saved/updated
                 await self.broadcaster.broadcast({
@@ -125,7 +137,10 @@ class DetectionService:
                         "timestamp": timestamp.isoformat(),
                         "camera": camera,
                         "frigate_score": frigate_score,
-                        "sub_label": sub_label
+                        "sub_label": sub_label,
+                        "audio_confirmed": audio_confirmed,
+                        "audio_species": audio_species,
+                        "audio_score": audio_score
                     }
                 })
             

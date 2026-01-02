@@ -9,6 +9,7 @@ from app.services.classifier_service import ClassifierService
 from app.services.media_cache import media_cache
 from app.services.frigate_client import frigate_client
 from app.services.detection_service import DetectionService
+from app.services.audio.audio_service import audio_service
 
 log = structlog.get_logger()
 
@@ -17,6 +18,14 @@ class EventProcessor:
     def __init__(self, classifier: ClassifierService):
         self.classifier = classifier
         self.detection_service = DetectionService(classifier)
+
+    async def process_audio_message(self, payload: bytes):
+        """Process audio detections from BirdNET-Go."""
+        try:
+            data = json.loads(payload)
+            await audio_service.add_detection(data)
+        except Exception as e:
+            log.error("Failed to process audio message", error=str(e))
 
     async def process_mqtt_message(self, payload: bytes):
         try:
@@ -34,6 +43,7 @@ class EventProcessor:
                 return
 
             frigate_event = after['id']
+            start_time_ts = after['start_time']
 
             try:
                 # Fetch snapshot using centralized Frigate client
@@ -65,19 +75,52 @@ class EventProcessor:
                     return
 
                 label = top['label']
+                score = top['score']
+
+                # --- Audio Correlation ---
+                detection_dt = datetime.fromtimestamp(start_time_ts)
+                audio_match = await audio_service.find_match(detection_dt, window_seconds=30)
+                
+                audio_confirmed = False
+                audio_species = None
+                audio_score = None
+
+                if audio_match:
+                    audio_species = audio_match.species
+                    audio_score = audio_match.confidence
+                    
+                    # Logic 1: Confirmation
+                    if audio_species.lower() == label.lower():
+                        audio_confirmed = True
+                        log.info("Audio confirmed visual detection", event=frigate_event, species=label)
+                    
+                    # Logic 2: Enhancement (Unknown -> Audio Label)
+                    # If visual is generic/unknown but audio is strong, upgrade it
+                    elif label in settings.classification.unknown_bird_labels or label == "Unknown Bird":
+                        if audio_score > 0.7: # High confidence audio
+                            log.info("Upgrading visual detection with audio", old=label, new=audio_species)
+                            label = audio_species
+                            top['label'] = label # Update the classification dict passed to filtering
+                            audio_confirmed = True # Implicitly confirmed by audio source
+                # -------------------------
 
                 # Save detection (upsert)
                 await self.detection_service.save_detection(
                     frigate_event=frigate_event,
                     camera=camera,
-                    start_time=after['start_time'],
+                    start_time=start_time_ts,
                     classification=top,
                     frigate_score=frigate_score,
-                    sub_label=sub_label
+                    sub_label=sub_label,
+                    audio_confirmed=audio_confirmed,
+                    audio_species=audio_species,
+                    audio_score=audio_score
                 )
                 
-                # Update Frigate sublabel if we are confident
-                await frigate_client.set_sublabel(frigate_event, label)
+                # Update Frigate sublabel if we are confident (visual or audio confirmed)
+                # Only if score is high enough or audio confirmed it
+                if score > settings.classification.threshold or audio_confirmed:
+                    await frigate_client.set_sublabel(frigate_event, label)
 
             except Exception as e:
                 log.error("Error processing event", event=frigate_event, error=str(e))
