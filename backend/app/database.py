@@ -39,6 +39,9 @@ async def init_db():
             await db.execute("ALTER TABLE detections ADD COLUMN frigate_score FLOAT")
             await db.execute("ALTER TABLE detections ADD COLUMN sub_label TEXT")
             
+        if "is_hidden" not in columns:
+            await db.execute("ALTER TABLE detections ADD COLUMN is_hidden BOOLEAN DEFAULT 0")
+            
         # Check for audio columns (v2 migration)
         if "audio_confirmed" not in columns:
             await db.execute("ALTER TABLE detections ADD COLUMN audio_confirmed BOOLEAN DEFAULT 0")

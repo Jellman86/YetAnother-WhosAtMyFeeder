@@ -44,6 +44,13 @@
     // Derive hasClip from selected event
     let selectedHasClip = $derived(selectedEvent?.has_clip ?? false);
 
+    // Refresh summary when detections change (real-time updates)
+    $effect(() => {
+        if (detections.length > 0) {
+            loadSummary();
+        }
+    });
+
     onMount(async () => {
         await loadSummary();
     });
@@ -124,9 +131,13 @@
             const result = await classifyWildlife(selectedEvent.frigate_event);
             wildlifeResults = result.classifications;
             showWildlifeResults = true;
-        } catch (e) {
+        } catch (e: any) {
             console.error('Failed to classify wildlife', e);
-            alert('Failed to identify animal. Make sure the wildlife model is downloaded.');
+            if (e.message?.includes('503') || e.message?.includes('not available')) {
+                alert('Wildlife model not available. Please download it from Settings.');
+            } else {
+                alert(e.message || 'Failed to identify animal.');
+            }
         } finally {
             classifyingWildlife = false;
         }

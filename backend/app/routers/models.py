@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, BackgroundTasks
-from typing import List
+from typing import List, Optional
 from app.services.model_manager import model_manager
-from app.models.ai_models import ModelMetadata, InstalledModel
+from app.models.ai_models import ModelMetadata, InstalledModel, DownloadProgress
 from app.services.classifier_service import get_classifier
 
 router = APIRouter()

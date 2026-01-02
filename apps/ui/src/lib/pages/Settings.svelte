@@ -219,6 +219,9 @@
             mqttPassword = settings.mqtt_password || '';
             audioTopic = settings.audio_topic || 'birdnet/text';
             cameraAudioMapping = settings.camera_audio_mapping || {};
+            if (typeof cameraAudioMapping !== 'object' || Array.isArray(cameraAudioMapping)) {
+                cameraAudioMapping = {};
+            }
             clipsEnabled = settings.clips_enabled ?? true;
             threshold = settings.classification_threshold;
             selectedCameras = settings.cameras || [];

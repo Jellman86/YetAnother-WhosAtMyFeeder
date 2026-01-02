@@ -4,6 +4,7 @@ import shutil
 import aiofiles
 import httpx
 import structlog
+from datetime import datetime
 from typing import List, Optional, Dict
 from app.config import settings
 from app.models.ai_models import ModelMetadata, InstalledModel, DownloadProgress
@@ -45,7 +46,7 @@ class ModelManager:
         # Ensure models directory exists
         os.makedirs(MODELS_DIR, exist_ok=True)
         self.active_model_id = self._load_active_model_id()
-        self.active_downloads: Dict[str, DownloadProgress] = {}
+        self.active_downloads: Dict[str, tuple[DownloadProgress, datetime]] = {}
 
     def _load_active_model_id(self) -> str:
         """Load the active model ID from a local config file."""
@@ -95,8 +96,21 @@ class ModelManager:
                         ))
         return installed
 
+    def _cleanup_downloads(self):
+        """Remove completed or error downloads older than 10 minutes."""
+        now = datetime.now()
+        to_remove = []
+        for model_id, (_, timestamp) in self.active_downloads.items():
+            if (now - timestamp).total_seconds() > 600: # 10 minutes
+                to_remove.append(model_id)
+        
+        for model_id in to_remove:
+            del self.active_downloads[model_id]
+
     def get_download_status(self, model_id: str) -> Optional[DownloadProgress]:
-        return self.active_downloads.get(model_id)
+        self._cleanup_downloads()
+        status_tuple = self.active_downloads.get(model_id)
+        return status_tuple[0] if status_tuple else None
 
     async def download_model(self, model_id: str) -> bool:
         """Download a model from the registry."""
@@ -106,11 +120,12 @@ class ModelManager:
             return False
 
         # Initialize progress
-        self.active_downloads[model_id] = DownloadProgress(
+        progress = DownloadProgress(
             model_id=model_id,
             status="downloading",
             progress=0.0
         )
+        self.active_downloads[model_id] = (progress, datetime.now())
 
         target_dir = os.path.join(MODELS_DIR, model_id)
         os.makedirs(target_dir, exist_ok=True)
@@ -121,14 +136,16 @@ class ModelManager:
                 log.info("Downloading model", url=model_meta['download_url'])
                 async with client.stream("GET", model_meta['download_url'], follow_redirects=True) as response:
                     response.raise_for_status()
-                    total = int(response.headers.get("content-length", 0))
+                    total_header = response.headers.get("content-length")
+                    total = int(total_header) if total_header else 0
                     downloaded = 0
                     async with aiofiles.open(os.path.join(target_dir, "model.tflite"), 'wb') as f:
                         async for chunk in response.aiter_bytes():
                             await f.write(chunk)
                             downloaded += len(chunk)
                             if total > 0:
-                                self.active_downloads[model_id].progress = (downloaded / total) * 90 # Model is 90% of total job
+                                progress.progress = (downloaded / total) * 90 # Model is 90% of total job
+                                self.active_downloads[model_id] = (progress, datetime.now())
 
                 # 2. Download Labels
                 log.info("Downloading labels", url=model_meta['labels_url'])
@@ -137,16 +154,18 @@ class ModelManager:
                 async with aiofiles.open(os.path.join(target_dir, "labels.txt"), 'wb') as f:
                     await f.write(resp.content)
                 
-                self.active_downloads[model_id].progress = 100.0
-                self.active_downloads[model_id].status = "completed"
+                progress.progress = 100.0
+                progress.status = "completed"
+                self.active_downloads[model_id] = (progress, datetime.now())
 
             log.info("Model downloaded successfully", model_id=model_id)
             return True
         except Exception as e:
             log.error("Failed to download model", model_id=model_id, error=str(e))
             if model_id in self.active_downloads:
-                self.active_downloads[model_id].status = "error"
-                self.active_downloads[model_id].error = str(e)
+                progress.status = "error"
+                progress.error = str(e)
+                self.active_downloads[model_id] = (progress, datetime.now())
             shutil.rmtree(target_dir, ignore_errors=True)
             return False
 

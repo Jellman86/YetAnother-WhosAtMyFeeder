@@ -78,10 +78,12 @@
     }
 </script>
 
-<button
-    type="button"
+<div
+    role="button"
+    tabindex="0"
     bind:this={cardElement}
-    {onclick}
+    onclick={onclick}
+    onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && onclick?.()}
     class="group bg-white dark:bg-slate-800/80 rounded-2xl shadow-card dark:shadow-card-dark
            hover:shadow-lg hover:shadow-teal-500/10 dark:hover:shadow-teal-400/5
            border border-slate-200/80 dark:border-slate-700/50
@@ -240,4 +242,4 @@
             {/if}
         </div>
     </div>
-</button>
+</div>
