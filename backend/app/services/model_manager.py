@@ -30,16 +30,16 @@ REMOTE_REGISTRY = [
         }
     },
     {
-        "id": "efficientnet_edgetpu_s_birds",
+        "id": "efficientnet_edgetpu_l_birds",
         "name": "EfficientNet-EdgeTPU (Large)",
-        "description": "High accuracy bird classifier. Significantly better detail recognition but slower on CPU.",
-        "architecture": "EfficientNet-EdgeTPU-S",
-        "file_size_mb": 5.4,
+        "description": "High accuracy general classifier. Excellent detail recognition but slower on CPU.",
+        "architecture": "EfficientNet-EdgeTPU-L",
+        "file_size_mb": 11.8,
         "accuracy_tier": "Very High",
-        "inference_speed": "Medium",
-        "download_url": "https://raw.githubusercontent.com/google-coral/test_data/master/efficientnet_edgetpu_s_inat_bird_quant.tflite",
-        "labels_url": "https://raw.githubusercontent.com/google-coral/test_data/master/inat_bird_labels.txt",
-        "input_size": 224,
+        "inference_speed": "Slow",
+        "download_url": "https://raw.githubusercontent.com/google-coral/test_data/master/efficientnet-edgetpu-L_quant.tflite",
+        "labels_url": "https://raw.githubusercontent.com/google-coral/test_data/master/imagenet_labels.txt",
+        "input_size": 300,
         "preprocessing": {
             "padding_color": 128,
             "normalization": "uint8"
