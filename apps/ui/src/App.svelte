@@ -79,7 +79,12 @@
                      detection_time: payload.data.timestamp,
                      camera_name: payload.data.camera,
                      frigate_score: payload.data.frigate_score,
-                     sub_label: payload.data.sub_label
+                     sub_label: payload.data.sub_label,
+                     audio_confirmed: payload.data.audio_confirmed,
+                     audio_species: payload.data.audio_species,
+                     audio_score: payload.data.audio_score,
+                     temperature: payload.data.temperature,
+                     weather_condition: payload.data.weather_condition
                  };
                  // Add new detection if not already present (avoid duplicates from backfill/re-processing)
                  if (!detections.some(d => d.frigate_event === newDet.frigate_event)) {
@@ -95,7 +100,12 @@
                      camera_name: payload.data.camera,
                      frigate_score: payload.data.frigate_score,
                      sub_label: payload.data.sub_label,
-                     is_hidden: payload.data.is_hidden
+                     is_hidden: payload.data.is_hidden,
+                     audio_confirmed: payload.data.audio_confirmed,
+                     audio_species: payload.data.audio_species,
+                     audio_score: payload.data.audio_score,
+                     temperature: payload.data.temperature,
+                     weather_condition: payload.data.weather_condition
                  };
 
                  if (updatedDet.is_hidden) {

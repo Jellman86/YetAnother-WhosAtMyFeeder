@@ -13,6 +13,13 @@ class Detection(BaseModel):
     is_hidden: bool = False
     frigate_score: float | None = None
     sub_label: str | None = None
+    # Audio correlation fields
+    audio_confirmed: bool = False
+    audio_species: str | None = None
+    audio_score: float | None = None
+    # Weather fields
+    temperature: float | None = None
+    weather_condition: str | None = None
 
 class DetectionResponse(Detection):
     common_name: str | None = None

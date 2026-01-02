@@ -7,6 +7,7 @@
     import DailyHistogram from '../components/DailyHistogram.svelte';
     import TopVisitors from '../components/TopVisitors.svelte';
     import LatestDetectionHero from '../components/LatestDetectionHero.svelte';
+    import StatsRibbon from '../components/StatsRibbon.svelte';
     import type { Detection, WildlifeClassification, DailySummary } from '../api';
     import { getThumbnailUrl, deleteDetection, hideDetection, classifyWildlife, updateDetectionSpecies, analyzeDetection, fetchDailySummary } from '../api';
     import { settingsStore } from '../stores/settings';
@@ -43,6 +44,9 @@
 
     // Derive hasClip from selected event
     let selectedHasClip = $derived(selectedEvent?.has_clip ?? false);
+
+    // Derive audio confirmations count from recent detections
+    let audioConfirmations = $derived(detections.filter(d => d.audio_confirmed).length);
 
     // Refresh summary when detections change (real-time updates)
     $effect(() => {
@@ -179,6 +183,19 @@
 </script>
 
 <div class="space-y-8">
+    <!-- Stats Ribbon -->
+    {#if summary || totalDetectionsToday > 0}
+        <div in:fly={{ y: -20, duration: 500 }}>
+            <StatsRibbon
+                todayCount={totalDetectionsToday}
+                uniqueSpecies={summary?.top_species.length ?? 0}
+                mostSeenSpecies={summary?.top_species[0]?.species ?? null}
+                mostSeenCount={summary?.top_species[0]?.count ?? 0}
+                {audioConfirmations}
+            />
+        </div>
+    {/if}
+
     <!-- Top Row: Hero & Histogram -->
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div class="lg:col-span-2">

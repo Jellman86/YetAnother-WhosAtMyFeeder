@@ -202,7 +202,15 @@ async def get_species_stats(species_name: str):
                 display_name="Unknown Bird" if d.display_name in unknown_labels else d.display_name,
                 category_name=d.category_name,
                 frigate_event=d.frigate_event,
-                camera_name=d.camera_name
+                camera_name=d.camera_name,
+                is_hidden=d.is_hidden,
+                frigate_score=d.frigate_score,
+                sub_label=d.sub_label,
+                audio_confirmed=d.audio_confirmed,
+                audio_species=d.audio_species,
+                audio_score=d.audio_score,
+                temperature=d.temperature,
+                weather_condition=d.weather_condition
             )
             for d in recent
         ]

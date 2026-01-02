@@ -84,13 +84,16 @@
     bind:this={cardElement}
     onclick={onclick}
     onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && onclick?.()}
-    class="group bg-white dark:bg-slate-800/80 rounded-2xl shadow-card dark:shadow-card-dark
-           hover:shadow-lg hover:shadow-teal-500/10 dark:hover:shadow-teal-400/5
+    class="group relative bg-white/90 dark:bg-slate-800/80 rounded-2xl
+           shadow-[0_4px_20px_-4px_rgba(0,0,0,0.08)] dark:shadow-[0_4px_20px_-4px_rgba(0,0,0,0.3)]
+           hover:shadow-[0_12px_40px_-8px_rgba(20,184,166,0.2),0_4px_20px_-8px_rgba(0,0,0,0.1)]
+           dark:hover:shadow-[0_12px_40px_-8px_rgba(20,184,166,0.15),0_4px_20px_-8px_rgba(0,0,0,0.3)]
            border border-slate-200/80 dark:border-slate-700/50
-           overflow-hidden transition-all duration-300 ease-out
-           hover:-translate-y-1.5 hover:border-teal-300 dark:hover:border-teal-600
-           text-left w-full cursor-pointer backdrop-blur-sm
-           focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900
+           hover:border-teal-400/50 dark:hover:border-teal-500/40
+           overflow-hidden transition-all duration-500 ease-out
+           hover:-translate-y-2 hover:scale-[1.02]
+           text-left w-full cursor-pointer backdrop-blur-xl
+           focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:ring-offset-2 dark:focus:ring-offset-slate-900
            {detection.is_hidden ? 'opacity-60 hover:opacity-90 border-amber-300 dark:border-amber-700' : ''}"
 >
     <!-- Image Container -->
@@ -105,12 +108,15 @@
             <img
                 src={getThumbnailUrl(detection.frigate_event)}
                 alt={detection.display_name}
-                class="w-full h-full object-cover transition-all duration-500
-                       group-hover:scale-110 group-hover:brightness-105
+                class="w-full h-full object-cover transition-all duration-700 ease-out
+                       group-hover:scale-110 group-hover:brightness-110
                        {imageLoaded ? 'opacity-100' : 'opacity-0'}"
                 onload={() => imageLoaded = true}
                 onerror={() => imageError = true}
             />
+            <!-- Gradient overlay on hover -->
+            <div class="absolute inset-0 bg-gradient-to-br from-teal-500/10 via-transparent to-emerald-500/10
+                        opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"></div>
         {:else if imageError}
             <div class="absolute inset-0 flex items-center justify-center text-4xl bg-slate-50 dark:bg-slate-700">
                 <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12 text-slate-300 dark:text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -124,14 +130,20 @@
 
         <!-- Confidence Badge -->
         <div class="absolute top-2 right-2 flex flex-col items-end gap-1">
-            <div class="flex items-center gap-1.5 px-2 py-1 rounded-full
-                        bg-black/60 backdrop-blur-sm text-white text-xs font-medium">
-                <span class="w-1.5 h-1.5 rounded-full {getConfidenceColor(detection.score)}"></span>
-                {(detection.score * 100).toFixed(0)}%
+            <div class="relative">
+                {#if detection.score >= 0.9}
+                    <div class="absolute inset-0 rounded-full bg-emerald-500/50 animate-ping"></div>
+                {/if}
+                <div class="relative flex items-center gap-1.5 px-2.5 py-1.5 rounded-full
+                            bg-gradient-to-r from-slate-900/80 to-slate-800/80 backdrop-blur-md
+                            border border-white/10 text-white text-xs font-bold shadow-lg">
+                    <span class="w-2 h-2 rounded-full {getConfidenceColor(detection.score)} {detection.score >= 0.9 ? 'animate-pulse' : ''}"></span>
+                    {(detection.score * 100).toFixed(0)}%
+                </div>
             </div>
             {#if detection.frigate_score}
-                <div class="flex items-center gap-1 px-1.5 py-0.5 rounded-full
-                            bg-slate-800/40 backdrop-blur-sm text-white/80 text-[10px] font-normal"
+                <div class="flex items-center gap-1 px-2 py-1 rounded-full
+                            bg-slate-800/50 backdrop-blur-md border border-white/5 text-white/80 text-[10px] font-medium"
                      title="Frigate Detection Confidence">
                     F: {(detection.frigate_score * 100).toFixed(0)}%
                 </div>
@@ -158,12 +170,14 @@
             
             {#if detection.audio_confirmed}
                 <div class="px-2 py-1 rounded-full bg-teal-500/90 backdrop-blur-sm text-white text-xs flex items-center gap-1"
-                     title="Confirmed by Audio Analysis">
+                     title="Audio: {detection.audio_species || detection.display_name}{detection.audio_score ? ` (${(detection.audio_score * 100).toFixed(0)}%)` : ''}">
                     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                               d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
                     </svg>
-                    {#if detection.audio_score}
+                    {#if detection.audio_species && detection.audio_species !== detection.display_name}
+                        <span class="truncate max-w-[60px]">{detection.audio_species}</span>
+                    {:else if detection.audio_score}
                         {(detection.audio_score * 100).toFixed(0)}%
                     {/if}
                 </div>

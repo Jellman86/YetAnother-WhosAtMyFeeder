@@ -118,7 +118,12 @@ async def get_events(
                 has_clip=clip_availability.get(event.frigate_event, False),
                 is_hidden=event.is_hidden,
                 frigate_score=event.frigate_score,
-                sub_label=event.sub_label
+                sub_label=event.sub_label,
+                audio_confirmed=event.audio_confirmed,
+                audio_species=event.audio_species,
+                audio_score=event.audio_score,
+                temperature=event.temperature,
+                weather_condition=event.weather_condition
             )
             response_events.append(response_event)
 
@@ -211,7 +216,12 @@ async def toggle_hide_event(event_id: str):
                     "camera": detection.camera_name,
                     "is_hidden": detection.is_hidden,
                     "frigate_score": detection.frigate_score,
-                    "sub_label": detection.sub_label
+                    "sub_label": detection.sub_label,
+                    "audio_confirmed": detection.audio_confirmed,
+                    "audio_species": detection.audio_species,
+                    "audio_score": detection.audio_score,
+                    "temperature": detection.temperature,
+                    "weather_condition": detection.weather_condition
                 }
             })
 
@@ -341,7 +351,12 @@ async def reclassify_event(
                     "camera": detection.camera_name,
                     "is_hidden": detection.is_hidden,
                     "frigate_score": detection.frigate_score,
-                    "sub_label": detection.sub_label
+                    "sub_label": detection.sub_label,
+                    "audio_confirmed": detection.audio_confirmed,
+                    "audio_species": detection.audio_species,
+                    "audio_score": detection.audio_score,
+                    "temperature": detection.temperature,
+                    "weather_condition": detection.weather_condition
                 }
             })
 
@@ -412,7 +427,12 @@ async def update_event(event_id: str, request: UpdateDetectionRequest):
                 "camera": detection.camera_name,
                 "is_hidden": detection.is_hidden,
                 "frigate_score": detection.frigate_score,
-                "sub_label": detection.sub_label
+                "sub_label": detection.sub_label,
+                "audio_confirmed": detection.audio_confirmed,
+                "audio_species": detection.audio_species,
+                "audio_score": detection.audio_score,
+                "temperature": detection.temperature,
+                "weather_condition": detection.weather_condition
             }
         })
 

@@ -24,6 +24,7 @@
     import { theme, type Theme } from '../stores/theme';
     import { settingsStore } from '../stores/settings';
     import ModelManager from './models/ModelManager.svelte';
+    import SettingsTabs from '../components/settings/SettingsTabs.svelte';
 
     let frigateUrl = $state('');
     let mqttServer = $state('');
@@ -83,6 +84,9 @@
     let backfillEndDate = $state('');
     let backfilling = $state(false);
     let backfillResult = $state<BackfillResult | null>(null);
+
+    // Tab navigation
+    let activeTab = $state('connection');
 
     theme.subscribe(t => currentTheme = t);
 
@@ -383,6 +387,11 @@
             {/each}
         </div>
     {:else}
+        <!-- Tab Navigation -->
+        <SettingsTabs {activeTab} ontabchange={(tab) => activeTab = tab} />
+
+        <!-- Connection Tab -->
+        {#if activeTab === 'connection'}
         <!-- Frigate Connection -->
         <section class="bg-white/80 dark:bg-slate-800/50 rounded-2xl border border-slate-200/80 dark:border-slate-700/50 p-6 shadow-card dark:shadow-card-dark backdrop-blur-sm">
             <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
@@ -680,7 +689,10 @@
                 {/if}
             </div>
         </section>
+        {/if}
 
+        <!-- Detection Tab -->
+        {#if activeTab === 'detection'}
         <!-- AI Intelligence -->
         <section class="bg-white/80 dark:bg-slate-800/50 rounded-2xl border border-slate-200/80 dark:border-slate-700/50 p-6 shadow-card dark:shadow-card-dark backdrop-blur-sm">
             <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
@@ -858,7 +870,10 @@
                 </div>
             </div>
         </section>
+        {/if}
 
+        <!-- Data Tab -->
+        {#if activeTab === 'data'}
         <!-- Database Maintenance -->
         <section class="bg-white/80 dark:bg-slate-800/50 rounded-2xl border border-slate-200/80 dark:border-slate-700/50 p-6 shadow-card dark:shadow-card-dark backdrop-blur-sm">
             <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
@@ -1197,7 +1212,10 @@
                 This may take a while depending on the number of events in Frigate.
             </p>
         </section>
+        {/if}
 
+        <!-- Appearance Tab -->
+        {#if activeTab === 'appearance'}
         <!-- Appearance -->
         <section class="bg-white/80 dark:bg-slate-800/50 rounded-2xl border border-slate-200/80 dark:border-slate-700/50 p-6 shadow-card dark:shadow-card-dark backdrop-blur-sm">
             <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
@@ -1228,8 +1246,9 @@
                 </div>
             </div>
         </section>
+        {/if}
 
-        <!-- Save Button -->
+        <!-- Save Button (always visible) -->
         <div class="flex justify-end">
             <button
                 onclick={saveSettings}
