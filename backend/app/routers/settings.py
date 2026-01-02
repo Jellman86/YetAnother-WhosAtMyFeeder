@@ -29,6 +29,7 @@ class SettingsUpdate(BaseModel):
     media_cache_enabled: bool = Field(True, description="Enable local media caching")
     media_cache_snapshots: bool = Field(True, description="Cache snapshot images locally")
     media_cache_clips: bool = Field(False, description="Cache video clips locally (may cause initial playback delay)")
+    media_cache_retention_days: int = Field(0, ge=0, description="Days to keep cached media (0 = follow detection)")
     # Location settings
     location_latitude: Optional[float] = Field(None, description="Latitude")
     location_longitude: Optional[float] = Field(None, description="Longitude")
