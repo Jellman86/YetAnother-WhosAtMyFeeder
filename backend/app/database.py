@@ -45,6 +45,11 @@ async def init_db():
             await db.execute("ALTER TABLE detections ADD COLUMN audio_species TEXT")
             await db.execute("ALTER TABLE detections ADD COLUMN audio_score FLOAT")
             
+        # Check for weather columns (v3 migration)
+        if "temperature" not in columns:
+            await db.execute("ALTER TABLE detections ADD COLUMN temperature FLOAT")
+            await db.execute("ALTER TABLE detections ADD COLUMN weather_condition TEXT")
+            
         await db.commit()
 
 @asynccontextmanager

@@ -18,6 +18,7 @@ class SettingsUpdate(BaseModel):
     mqtt_auth: bool = Field(False, description="Enable MQTT authentication")
     mqtt_username: Optional[str] = Field(None, description="MQTT username")
     mqtt_password: Optional[str] = Field(None, description="MQTT password")
+    audio_topic: str = Field("birdnet/text", description="MQTT topic for audio detections")
     clips_enabled: bool = Field(True, description="Enable fetching of video clips from Frigate")
     classification_threshold: float = Field(..., ge=0.0, le=1.0, description="Classification confidence threshold (0-1)")
     cameras: List[str] = Field(default_factory=list, description="List of cameras to monitor")
@@ -27,7 +28,15 @@ class SettingsUpdate(BaseModel):
     media_cache_enabled: bool = Field(True, description="Enable local media caching")
     media_cache_snapshots: bool = Field(True, description="Cache snapshot images locally")
     media_cache_clips: bool = Field(False, description="Cache video clips locally (may cause initial playback delay)")
-    media_cache_retention_days: int = Field(0, ge=0, description="Days to keep cached media (0 = follow detection retention)")
+    # Location settings
+    location_latitude: Optional[float] = Field(None, description="Latitude")
+    location_longitude: Optional[float] = Field(None, description="Longitude")
+    location_automatic: Optional[bool] = Field(True, description="Auto-detect location")
+    # LLM settings
+    llm_enabled: Optional[bool] = Field(False, description="Enable AI behavior analysis")
+    llm_provider: Optional[str] = Field("gemini", description="AI provider")
+    llm_api_key: Optional[str] = Field(None, description="API key")
+    llm_model: Optional[str] = Field("gemini-1.5-flash", description="AI model")
 
     @field_validator('frigate_url')
     @classmethod
@@ -45,6 +54,7 @@ async def get_settings():
         "mqtt_auth": settings.frigate.mqtt_auth,
         "mqtt_username": settings.frigate.mqtt_username,
         "mqtt_password": settings.frigate.mqtt_password,
+        "audio_topic": settings.frigate.audio_topic,
         "clips_enabled": settings.frigate.clips_enabled,
         "classification_threshold": settings.classification.threshold,
         "cameras": settings.frigate.camera,
@@ -54,7 +64,16 @@ async def get_settings():
         "media_cache_enabled": settings.media_cache.enabled,
         "media_cache_snapshots": settings.media_cache.cache_snapshots,
         "media_cache_clips": settings.media_cache.cache_clips,
-        "media_cache_retention_days": settings.media_cache.retention_days
+        "media_cache_retention_days": settings.media_cache.retention_days,
+        # Location settings
+        "location_latitude": settings.location.latitude,
+        "location_longitude": settings.location.longitude,
+        "location_automatic": settings.location.automatic,
+        # LLM settings
+        "llm_enabled": settings.llm.enabled,
+        "llm_provider": settings.llm.provider,
+        "llm_api_key": settings.llm.api_key,
+        "llm_model": settings.llm.model
     }
 
 @router.post("/settings")
@@ -67,6 +86,7 @@ async def update_settings(update: SettingsUpdate):
         settings.frigate.mqtt_username = update.mqtt_username
     if update.mqtt_password is not None:
         settings.frigate.mqtt_password = update.mqtt_password
+    settings.frigate.audio_topic = update.audio_topic
 
     settings.frigate.clips_enabled = update.clips_enabled
     settings.frigate.camera = update.cameras
@@ -79,6 +99,17 @@ async def update_settings(update: SettingsUpdate):
     settings.media_cache.cache_snapshots = update.media_cache_snapshots
     settings.media_cache.cache_clips = update.media_cache_clips
     settings.media_cache.retention_days = update.media_cache_retention_days
+    
+    # Location settings
+    settings.location.latitude = update.location_latitude
+    settings.location.longitude = update.location_longitude
+    settings.location.automatic = update.location_automatic if update.location_automatic is not None else True
+
+    # LLM settings
+    settings.llm.enabled = update.llm_enabled if update.llm_enabled is not None else False
+    settings.llm.provider = update.llm_provider if update.llm_provider else "gemini"
+    settings.llm.api_key = update.llm_api_key
+    settings.llm.model = update.llm_model if update.llm_model else "gemini-1.5-flash"
 
     settings.save()
     return {"status": "updated"}

@@ -11,11 +11,14 @@
         reclassifyDetection,
         updateDetectionSpecies,
         classifyWildlife,
+        analyzeDetection,
         fetchSettings,
         type Detection,
         type WildlifeClassification,
-        getThumbnailUrl
+        getThumbnailUrl,
+        type EventFilters
     } from '../api';
+    import { settingsStore } from '../stores/settings';
     import DetectionCard from '../components/DetectionCard.svelte';
     import SpeciesDetailModal from '../components/SpeciesDetailModal.svelte';
     import Pagination from '../components/Pagination.svelte';
@@ -26,6 +29,10 @@
     let error = $state<string | null>(null);
     let deleting = $state(false);
     let hiding = $state(false);
+
+    // AI Analysis state
+    let analyzingAI = $state(false);
+    let aiAnalysis = $state<string | null>(null);
 
     // Hidden detections state
     let showHidden = $state(false);
@@ -46,31 +53,6 @@
     let datePreset = $state<DatePreset>('all');
     let customStartDate = $state('');
     let customEndDate = $state('');
-
-    // Computed date range based on preset
-    let dateRange = $derived(() => {
-        const today = new Date();
-        const formatDate = (d: Date) => d.toISOString().split('T')[0];
-
-        switch (datePreset) {
-            case 'today':
-                return { start: formatDate(today), end: formatDate(today) };
-            case 'week': {
-                const weekAgo = new Date(today);
-                weekAgo.setDate(weekAgo.getDate() - 7);
-                return { start: formatDate(weekAgo), end: formatDate(today) };
-            }
-            case 'month': {
-                const monthAgo = new Date(today);
-                monthAgo.setDate(monthAgo.getDate() - 30);
-                return { start: formatDate(monthAgo), end: formatDate(today) };
-            }
-            case 'custom':
-                return { start: customStartDate || undefined, end: customEndDate || undefined };
-            default:
-                return { start: undefined, end: undefined };
-        }
-    });
 
     // Filters - now server-side
     let speciesFilter = $state('');
@@ -107,13 +89,38 @@
     // Derive hasClip from selected event
     let selectedHasClip = $derived(selectedEvent?.has_clip ?? false);
 
+    // Computed date range based on preset
+    let dateRange = $derived.by(() => {
+        const today = new Date();
+        const formatDate = (d: Date) => d.toISOString().split('T')[0];
+
+        switch (datePreset) {
+            case 'today':
+                return { start: formatDate(today), end: formatDate(today) };
+            case 'week': {
+                const weekAgo = new Date(today);
+                weekAgo.setDate(weekAgo.getDate() - 7);
+                return { start: formatDate(weekAgo), end: formatDate(today) };
+            }
+            case 'month': {
+                const monthAgo = new Date(today);
+                monthAgo.setDate(monthAgo.getDate() - 30);
+                return { start: formatDate(monthAgo), end: formatDate(today) };
+            }
+            case 'custom':
+                return { start: customStartDate || undefined, end: customEndDate || undefined };
+            default:
+                return { start: undefined, end: undefined };
+        }
+    });
+
     // Reset wildlife results and video when switching detections
     $effect(() => {
-        // This runs whenever selectedEvent changes
         if (selectedEvent) {
             showWildlifeResults = false;
             wildlifeResults = [];
             showVideo = false;
+            aiAnalysis = null;
         }
     });
 
@@ -171,15 +178,14 @@
     onMount(async () => {
         parseUrlParams();
 
-        // Load filter options, classifier labels, and hidden count in parallel
         try {
             const [filters, labelsResponse, hiddenResponse] = await Promise.all([
                 fetchEventFilters(),
                 fetchClassifierLabels().catch(() => ({ labels: [] })),
                 fetchHiddenCount().catch(() => ({ hidden_count: 0 }))
             ]);
-            availableSpecies = filters.species;
-            availableCameras = filters.cameras;
+            availableSpecies = (filters as EventFilters).species;
+            availableCameras = (filters as EventFilters).cameras;
             classifierLabels = labelsResponse.labels;
             hiddenCount = hiddenResponse.hidden_count;
         } catch (e) {
@@ -193,10 +199,9 @@
         loading = true;
         error = null;
         try {
-            const range = dateRange();
+            const range = dateRange;
             const offset = (currentPage - 1) * pageSize;
 
-            // Fetch events and count in parallel
             const [newEvents, countResponse] = await Promise.all([
                 fetchEvents({
                     limit: pageSize,
@@ -220,7 +225,6 @@
             events = newEvents;
             totalCount = countResponse.count;
 
-            // Ensure current page is valid
             const maxPage = Math.max(1, Math.ceil(totalCount / pageSize));
             if (currentPage > maxPage) {
                 currentPage = maxPage;
@@ -278,7 +282,7 @@
     }
 
     let hasActiveFilters = $derived(
-        speciesFilter || cameraFilter || sortOrder !== 'newest' || datePreset !== 'all'
+        speciesFilter !== '' || cameraFilter !== '' || sortOrder !== 'newest' || datePreset !== 'all'
     );
 
     async function handleDelete() {
@@ -305,7 +309,6 @@
         hiding = true;
         try {
             const result = await hideDetection(selectedEvent.frigate_event);
-            // Update local state
             selectedEvent = { ...selectedEvent, is_hidden: result.is_hidden };
             events = events.map(e =>
                 e.frigate_event === selectedEvent?.frigate_event
@@ -313,10 +316,8 @@
                     : e
             );
 
-            // Update hidden count
             if (result.is_hidden) {
                 hiddenCount++;
-                // If not showing hidden, remove from view
                 if (!showHidden) {
                     events = events.filter(e => e.frigate_event !== selectedEvent?.frigate_event);
                     totalCount = Math.max(0, totalCount - 1);
@@ -346,9 +347,7 @@
         try {
             const result = await reclassifyDetection(selectedEvent.frigate_event);
             if (result.updated) {
-                // Update the local event data
                 selectedEvent = { ...selectedEvent, display_name: result.new_species, score: result.new_score };
-                // Update in the events list too
                 events = events.map(e =>
                     e.frigate_event === selectedEvent?.frigate_event
                         ? { ...e, display_name: result.new_species, score: result.new_score }
@@ -373,9 +372,7 @@
         try {
             const result = await updateDetectionSpecies(selectedEvent.frigate_event, newSpecies.trim());
             if (result.status === 'updated') {
-                // Update the local event data
                 selectedEvent = { ...selectedEvent, display_name: newSpecies.trim() };
-                // Update in the events list too
                 events = events.map(e =>
                     e.frigate_event === selectedEvent?.frigate_event
                         ? { ...e, display_name: newSpecies.trim() }
@@ -392,8 +389,7 @@
         }
     }
 
-    // Filter labels based on search query
-    let filteredLabels = $derived(
+    let filteredLabels = $derived.by(() =>
         tagSearchQuery.trim()
             ? classifierLabels.filter(label =>
                 label.toLowerCase().includes(tagSearchQuery.toLowerCase())
@@ -401,8 +397,7 @@
             : classifierLabels.slice(0, 20)
     );
 
-    // Filter labels for quick retag dropdown
-    let quickFilteredLabels = $derived(
+    let quickFilteredLabels = $derived.by(() =>
         quickRetagSearchQuery.trim()
             ? classifierLabels.filter(label =>
                 label.toLowerCase().includes(quickRetagSearchQuery.toLowerCase())
@@ -410,7 +405,6 @@
             : classifierLabels.slice(0, 15)
     );
 
-    // Quick reclassify handler (from overlay button)
     async function handleQuickReclassify(detection: Detection) {
         if (quickReclassifying) return;
 
@@ -418,7 +412,6 @@
         try {
             const result = await reclassifyDetection(detection.frigate_event);
             if (result.updated) {
-                // Update in the events list
                 events = events.map(e =>
                     e.frigate_event === detection.frigate_event
                         ? { ...e, display_name: result.new_species, score: result.new_score }
@@ -433,13 +426,11 @@
         }
     }
 
-    // Quick retag handler (opens dropdown near card)
     function handleQuickRetag(detection: Detection) {
         quickRetagEvent = detection;
         quickRetagSearchQuery = '';
     }
 
-    // Apply quick retag
     async function applyQuickRetag(newSpecies: string) {
         if (!quickRetagEvent || !newSpecies.trim()) return;
 
@@ -458,6 +449,22 @@
         } catch (e: any) {
             console.error('Failed to update species', e);
             alert(e.message || 'Failed to update species');
+        }
+    }
+
+    async function handleAIAnalysis() {
+        if (!selectedEvent) return;
+        
+        analyzingAI = true;
+        aiAnalysis = null;
+        try {
+            const result = await analyzeDetection(selectedEvent.frigate_event);
+            aiAnalysis = result.analysis;
+        } catch (e) {
+            console.error('AI Analysis failed', e);
+            alert('AI Analysis failed. Make sure your API key is configured in Settings.');
+        } finally {
+            analyzingAI = false;
         }
     }
 
@@ -595,8 +602,9 @@
         {#if datePreset === 'custom'}
             <div class="flex flex-col sm:flex-row flex-wrap items-start sm:items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
                 <div class="flex items-center gap-2 w-full sm:w-auto">
-                    <label class="text-sm text-slate-600 dark:text-slate-400 w-12 sm:w-auto">From:</label>
+                    <label for="date-from" class="text-sm text-slate-600 dark:text-slate-400 w-12 sm:w-auto">From:</label>
                     <input
+                        id="date-from"
                         type="date"
                         bind:value={customStartDate}
                         class="flex-1 sm:flex-none px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600
@@ -604,8 +612,9 @@
                     />
                 </div>
                 <div class="flex items-center gap-2 w-full sm:w-auto">
-                    <label class="text-sm text-slate-600 dark:text-slate-400 w-12 sm:w-auto">To:</label>
+                    <label for="date-to" class="text-sm text-slate-600 dark:text-slate-400 w-12 sm:w-auto">To:</label>
                     <input
+                        id="date-to"
                         type="date"
                         bind:value={customEndDate}
                         class="flex-1 sm:flex-none px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600
@@ -869,13 +878,76 @@
                 </div>
 
                 <!-- Camera info -->
-                <div class="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400 mb-5">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                              d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                    </svg>
-                    <span class="font-medium">{selectedEvent.camera_name}</span>
+                <div class="flex items-center justify-between mb-5">
+                    <div class="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                        <span class="font-medium">{selectedEvent.camera_name}</span>
+                    </div>
+                    
+                    {#if selectedEvent.temperature !== undefined && selectedEvent.temperature !== null}
+                        <div class="flex items-center gap-1 text-sm text-slate-500 dark:text-slate-400">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                            </svg>
+                            <span>{selectedEvent.temperature.toFixed(1)}°C</span>
+                            {#if selectedEvent.weather_condition}
+                                <span class="opacity-70 ml-1">• {selectedEvent.weather_condition}</span>
+                            {/if}
+                        </div>
+                    {/if}
                 </div>
+
+                <!-- AI Analysis Button -->
+                {#if $settingsStore?.llm_enabled}
+                    <div class="mb-5">
+                        {#if !aiAnalysis}
+                            <button
+                                onclick={handleAIAnalysis}
+                                disabled={analyzingAI}
+                                class="w-full px-4 py-2.5 text-sm font-medium text-teal-700 dark:text-teal-300
+                                       bg-teal-50 dark:bg-teal-900/20 rounded-lg
+                                       hover:bg-teal-100 dark:hover:bg-teal-900/40 transition-colors
+                                       disabled:opacity-50 disabled:cursor-not-allowed
+                                       flex items-center justify-center gap-2"
+                            >
+                                {#if analyzingAI}
+                                    <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    AI is analyzing...
+                                {:else}
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                              d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.989-2.386l-.548-.547z" />
+                                    </svg>
+                                    Ask AI Naturalist
+                                {/if}
+                            </button>
+                        {:else}
+                            <div class="bg-teal-50 dark:bg-teal-900/10 rounded-xl p-4 border border-teal-100 dark:border-teal-900/30 animate-in fade-in slide-in-from-top-2">
+                                <div class="flex items-center gap-2 mb-2 text-teal-700 dark:text-teal-400">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.989-2.386l-.548-.547z" />
+                                    </svg>
+                                    <span class="text-sm font-bold uppercase tracking-wider">AI Analysis</span>
+                                </div>
+                                <p class="text-sm text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">
+                                    {aiAnalysis}
+                                </p>
+                                <button
+                                    onclick={() => aiAnalysis = null}
+                                    class="mt-3 text-xs text-teal-600 dark:text-teal-400 hover:underline font-medium"
+                                >
+                                    Reset Analysis
+                                </button>
+                            </div>
+                        {/if}
+                    </div>
+                {/if}
 
                 <!-- Action buttons - Row 1 -->
                 <div class="flex gap-2 mb-2">
@@ -1049,6 +1121,7 @@
                                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                             </svg>
+                            Identifying...
                         {:else}
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"

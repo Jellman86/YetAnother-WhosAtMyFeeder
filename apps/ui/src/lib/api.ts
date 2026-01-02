@@ -15,6 +15,9 @@ export interface Detection {
     audio_confirmed?: boolean;
     audio_species?: string;
     audio_score?: number;
+    // Weather fields
+    temperature?: number;
+    weather_condition?: string;
 }
 
 export interface VersionInfo {
@@ -35,6 +38,7 @@ export interface Settings {
     mqtt_auth: boolean;
     mqtt_username?: string;
     mqtt_password?: string;
+    audio_topic: string;
     clips_enabled: boolean;
     classification_threshold: number;
     cameras: string[];
@@ -45,6 +49,15 @@ export interface Settings {
     media_cache_snapshots: boolean;
     media_cache_clips: boolean;
     media_cache_retention_days: number;
+    // Location settings
+    location_latitude?: number | null;
+    location_longitude?: number | null;
+    location_automatic?: boolean;
+    // LLM settings
+    llm_enabled: boolean;
+    llm_provider: string;
+    llm_api_key?: string | null;
+    llm_model: string;
 }
 
 export interface SettingsUpdate {
@@ -54,6 +67,7 @@ export interface SettingsUpdate {
     mqtt_auth: boolean;
     mqtt_username?: string;
     mqtt_password?: string;
+    audio_topic: string;
     clips_enabled: boolean;
     classification_threshold: number;
     cameras: string[];
@@ -64,6 +78,15 @@ export interface SettingsUpdate {
     media_cache_snapshots: boolean;
     media_cache_clips: boolean;
     media_cache_retention_days: number;
+    // Location settings
+    location_latitude?: number | null;
+    location_longitude?: number | null;
+    location_automatic?: boolean;
+    // LLM settings
+    llm_enabled?: boolean;
+    llm_provider?: string;
+    llm_api_key?: string | null;
+    llm_model?: string;
 }
 
 export interface CacheStats {
@@ -523,4 +546,11 @@ export async function activateModel(modelId: string): Promise<{ status: string; 
         method: 'POST',
     });
     return handleResponse<{ status: string; message: string }>(response);
+}
+
+export async function analyzeDetection(eventId: string): Promise<{ analysis: string }> {
+    const response = await fetch(`${API_BASE}/events/${encodeURIComponent(eventId)}/analyze`, {
+        method: 'POST',
+    });
+    return handleResponse<{ analysis: string }>(response);
 }

@@ -225,8 +225,19 @@
         {/if}
 
         <div class="flex items-center justify-between text-sm text-slate-500 dark:text-slate-400 mt-3">
-            <span>{formatDate(detection.detection_time)}</span>
-            <span>{formatTime(detection.detection_time)}</span>
+            <div class="flex flex-col">
+                <span>{formatDate(detection.detection_time)}</span>
+                <span class="text-[10px] opacity-70">{formatTime(detection.detection_time)}</span>
+            </div>
+            
+            {#if detection.temperature !== undefined && detection.temperature !== null}
+                <div class="flex flex-col items-end">
+                    <span class="font-medium text-slate-700 dark:text-slate-300">{detection.temperature.toFixed(1)}°C</span>
+                    {#if detection.weather_condition}
+                        <span class="text-[10px] opacity-70 truncate max-w-[80px]">{detection.weather_condition}</span>
+                    {/if}
+                </div>
+            {/if}
         </div>
     </div>
 </button>

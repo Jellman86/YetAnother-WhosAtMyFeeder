@@ -45,7 +45,7 @@ class MQTTService:
                     await client.subscribe(frigate_topic)
                     
                     # BirdNET Topic (BirdNET-Go default)
-                    birdnet_topic = "birdnet/text" # BirdNET-Go default JSON output is often here or configurable
+                    birdnet_topic = settings.frigate.audio_topic
                     await client.subscribe(birdnet_topic)
                     
                     log.info("Connected to MQTT", topics=[frigate_topic, birdnet_topic])

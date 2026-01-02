@@ -88,7 +88,8 @@ class DetectionService:
 
     async def save_detection(self, frigate_event: str, camera: str, start_time: float, 
                            classification: dict, frigate_score: float = None, sub_label: str = None,
-                           audio_confirmed: bool = False, audio_species: str = None, audio_score: float = None) -> bool:
+                           audio_confirmed: bool = False, audio_species: str = None, audio_score: float = None,
+                           temperature: float = None, weather_condition: str = None) -> bool:
         """
         Save or update a detection in the database and broadcast the event.
         Returns True if a change was made (insert or update).
@@ -113,7 +114,9 @@ class DetectionService:
                 sub_label=sub_label,
                 audio_confirmed=audio_confirmed,
                 audio_species=audio_species,
-                audio_score=audio_score
+                audio_score=audio_score,
+                temperature=temperature,
+                weather_condition=weather_condition
             )
 
             # Atomic upsert: insert or update only if score is higher
@@ -125,7 +128,8 @@ class DetectionService:
                          species=display_name, 
                          score=score,
                          frigate_score=frigate_score,
-                         audio_confirmed=audio_confirmed)
+                         audio_confirmed=audio_confirmed,
+                         weather=weather_condition)
 
                 # Broadcast event only when actually saved/updated
                 await self.broadcaster.broadcast({
@@ -140,7 +144,9 @@ class DetectionService:
                         "sub_label": sub_label,
                         "audio_confirmed": audio_confirmed,
                         "audio_species": audio_species,
-                        "audio_score": audio_score
+                        "audio_score": audio_score,
+                        "temperature": temperature,
+                        "weather_condition": weather_condition
                     }
                 })
             

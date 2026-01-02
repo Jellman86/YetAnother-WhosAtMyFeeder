@@ -10,6 +10,7 @@ from app.services.media_cache import media_cache
 from app.services.frigate_client import frigate_client
 from app.services.detection_service import DetectionService
 from app.services.audio.audio_service import audio_service
+from app.services.weather_service import weather_service
 
 log = structlog.get_logger()
 
@@ -104,6 +105,18 @@ class EventProcessor:
                             audio_confirmed = True # Implicitly confirmed by audio source
                 # -------------------------
 
+                # --- Weather Context ---
+                temperature = None
+                condition = None
+                try:
+                    # Short timeout logic inside service
+                    weather_data = await weather_service.get_current_weather()
+                    temperature = weather_data.get("temperature")
+                    condition = weather_data.get("condition_text")
+                except Exception as we:
+                    log.warning("Weather fetch failed, skipping context", error=str(we))
+                # -----------------------
+
                 # Save detection (upsert)
                 await self.detection_service.save_detection(
                     frigate_event=frigate_event,
@@ -114,7 +127,9 @@ class EventProcessor:
                     sub_label=sub_label,
                     audio_confirmed=audio_confirmed,
                     audio_species=audio_species,
-                    audio_score=audio_score
+                    audio_score=audio_score,
+                    temperature=temperature,
+                    weather_condition=condition
                 )
                 
                 # Update Frigate sublabel if we are confident (visual or audio confirmed)

@@ -8,6 +8,7 @@
   import Settings from './lib/pages/Settings.svelte';
   import { fetchEvents, fetchEventsCount, type Detection } from './lib/api';
   import { theme } from './lib/stores/theme';
+  import { settingsStore } from './lib/stores/settings';
 
   // Maximum detections to keep in memory for Dashboard
   const MAX_DASHBOARD_DETECTIONS = 24;
@@ -27,8 +28,9 @@
       };
       window.addEventListener('popstate', handlePopState);
 
-      // Initialize theme
+      // Initialize theme and settings
       theme.init();
+      settingsStore.load();
 
       return () => window.removeEventListener('popstate', handlePopState);
   });

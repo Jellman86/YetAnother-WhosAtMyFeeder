@@ -22,6 +22,7 @@ class FrigateSettings(BaseModel):
     mqtt_auth: bool = False
     mqtt_username: str = ""
     mqtt_password: str = ""
+    audio_topic: str = "birdnet/text"
 
 class ClassificationSettings(BaseModel):
     model: str = "model.tflite"
@@ -54,11 +55,24 @@ class MediaCacheSettings(BaseModel):
     cache_clips: bool = Field(default=False, description="Cache video clips locally (may cause initial playback delay)")
     retention_days: int = Field(default=0, ge=0, description="Days to keep cached media (0 = follow detection retention)")
 
+class LocationSettings(BaseModel):
+    latitude: Optional[float] = Field(None, description="Latitude for weather/sun data")
+    longitude: Optional[float] = Field(None, description="Longitude for weather/sun data")
+    automatic: bool = Field(True, description="Attempt to detect location automatically via IP")
+
+class LLMSettings(BaseModel):
+    enabled: bool = Field(default=False, description="Enable AI-based behavior analysis")
+    provider: str = Field(default="gemini", description="AI provider (gemini, openai)")
+    api_key: Optional[str] = Field(None, description="API key for the AI provider")
+    model: str = Field(default="gemini-1.5-flash", description="Model name to use")
+
 class Settings(BaseSettings):
     frigate: FrigateSettings
     classification: ClassificationSettings = ClassificationSettings()
     maintenance: MaintenanceSettings = MaintenanceSettings()
     media_cache: MediaCacheSettings = MediaCacheSettings()
+    location: LocationSettings = LocationSettings()
+    llm: LLMSettings = LLMSettings()
     
     # General app settings
     log_level: str = "INFO"
@@ -82,6 +96,7 @@ class Settings(BaseSettings):
             'mqtt_auth': os.environ.get('FRIGATE__MQTT_AUTH', 'false').lower() == 'true',
             'mqtt_username': os.environ.get('FRIGATE__MQTT_USERNAME', ''),
             'mqtt_password': os.environ.get('FRIGATE__MQTT_PASSWORD', ''),
+            'audio_topic': os.environ.get('FRIGATE__AUDIO_TOPIC', 'birdnet/text'),
         }
 
         # Maintenance settings
@@ -106,6 +121,21 @@ class Settings(BaseSettings):
             'cache_snapshots': os.environ.get('MEDIA_CACHE__CACHE_SNAPSHOTS', 'true').lower() == 'true',
             'cache_clips': os.environ.get('MEDIA_CACHE__CACHE_CLIPS', 'false').lower() == 'true',  # Disabled by default to avoid blocking
             'retention_days': int(os.environ.get('MEDIA_CACHE__RETENTION_DAYS', '0')),
+        }
+
+        # Location settings
+        location_data = {
+            'latitude': None,
+            'longitude': None,
+            'automatic': True
+        }
+
+        # LLM settings
+        llm_data = {
+            'enabled': os.environ.get('LLM__ENABLED', 'false').lower() == 'true',
+            'provider': os.environ.get('LLM__PROVIDER', 'gemini'),
+            'api_key': os.environ.get('LLM__API_KEY', None),
+            'model': os.environ.get('LLM__MODEL', 'gemini-1.5-flash'),
         }
 
         # Load from config file if it exists, env vars take precedence
@@ -138,6 +168,16 @@ class Settings(BaseSettings):
                         env_key = f'MEDIA_CACHE__{key.upper()}'
                         if env_key not in os.environ:
                             media_cache_data[key] = value
+                            
+                if 'location' in file_data:
+                    for key, value in file_data['location'].items():
+                        location_data[key] = value
+                        
+                if 'llm' in file_data:
+                    for key, value in file_data['llm'].items():
+                        env_key = f'LLM__{key.upper()}'
+                        if env_key not in os.environ:
+                            llm_data[key] = value
 
                 log.info("Loaded config from file", path=str(CONFIG_PATH))
             except Exception as e:
@@ -156,12 +196,15 @@ class Settings(BaseSettings):
                  cache_snapshots=media_cache_data['cache_snapshots'],
                  cache_clips=media_cache_data['cache_clips'],
                  retention_days=media_cache_data['retention_days'])
+        log.info("LLM config", enabled=llm_data['enabled'], provider=llm_data['provider'])
 
         return cls(
             frigate=FrigateSettings(**frigate_data),
             classification=ClassificationSettings(**classification_data),
             maintenance=MaintenanceSettings(**maintenance_data),
-            media_cache=MediaCacheSettings(**media_cache_data)
+            media_cache=MediaCacheSettings(**media_cache_data),
+            location=LocationSettings(**location_data),
+            llm=LLMSettings(**llm_data)
         )
 
 settings = Settings.load()

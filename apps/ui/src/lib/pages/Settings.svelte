@@ -22,6 +22,7 @@
         type CacheCleanupResult
     } from '../api';
     import { theme, type Theme } from '../stores/theme';
+    import { settingsStore } from '../stores/settings';
     import ModelManager from './models/ModelManager.svelte';
 
     let frigateUrl = $state('');
@@ -30,12 +31,24 @@
     let mqttAuth = $state(false);
     let mqttUsername = $state('');
     let mqttPassword = $state('');
+    let audioTopic = $state('birdnet/text');
     let clipsEnabled = $state(true);
     let threshold = $state(0.7);
     let selectedCameras = $state<string[]>([]);
     let retentionDays = $state(0);
     let blockedLabels = $state<string[]>([]);
     let newBlockedLabel = $state('');
+
+    // Location Settings
+    let locationLat = $state<number | null>(null);
+    let locationLon = $state<number | null>(null);
+    let locationAuto = $state(true);
+
+    // LLM Settings
+    let llmEnabled = $state(false);
+    let llmProvider = $state('gemini');
+    let llmApiKey = $state('');
+    let llmModel = $state('gemini-1.5-flash');
 
     let availableCameras = $state<string[]>([]);
     let camerasLoading = $state(false);
@@ -149,11 +162,7 @@
                 end_date: backfillDateRange === 'custom' ? backfillEndDate : undefined
             });
             backfillResult = result;
-            if (result.new_detections > 0) {
-                message = { type: 'success', text: result.message };
-            } else {
-                message = { type: 'success', text: result.message };
-            }
+            message = { type: 'success', text: result.message };
             await loadMaintenanceStats();
         } catch (e: any) {
             message = { type: 'error', text: e.message || 'Backfill failed' };
@@ -196,25 +205,6 @@
         }
     }
 
-    async function handleDownloadModel() {
-        downloadingModel = true;
-        message = null;
-        try {
-            const result = await downloadDefaultModel();
-            if (result.status === 'ok') {
-                message = { type: 'success', text: result.message };
-                // Reload classifier status
-                await loadClassifierStatus();
-            } else {
-                message = { type: 'error', text: result.message };
-            }
-        } catch (e: any) {
-            message = { type: 'error', text: e.message || 'Failed to download model' };
-        } finally {
-            downloadingModel = false;
-        }
-    }
-
     async function loadSettings() {
         loading = true;
         message = null;
@@ -226,6 +216,7 @@
             mqttAuth = settings.mqtt_auth;
             mqttUsername = settings.mqtt_username || '';
             mqttPassword = settings.mqtt_password || '';
+            audioTopic = settings.audio_topic || 'birdnet/text';
             clipsEnabled = settings.clips_enabled ?? true;
             threshold = settings.classification_threshold;
             selectedCameras = settings.cameras || [];
@@ -236,6 +227,15 @@
             cacheSnapshots = settings.media_cache_snapshots ?? true;
             cacheClips = settings.media_cache_clips ?? true;
             cacheRetentionDays = settings.media_cache_retention_days ?? 0;
+            // Location settings
+            locationLat = settings.location_latitude ?? null;
+            locationLon = settings.location_longitude ?? null;
+            locationAuto = settings.location_automatic ?? true;
+            // LLM settings
+            llmEnabled = settings.llm_enabled ?? false;
+            llmProvider = settings.llm_provider ?? 'gemini';
+            llmApiKey = settings.llm_api_key ?? '';
+            llmModel = settings.llm_model ?? 'gemini-1.5-flash';
         } catch (e) {
             message = { type: 'error', text: 'Failed to load settings' };
         } finally {
@@ -252,7 +252,6 @@
             }
         } catch (e) {
             console.error('Failed to load cameras from Frigate', e);
-            // If we fail to load cameras, we still show the selected ones if they exist
             if (selectedCameras.length > 0 && availableCameras.length === 0) {
                  availableCameras = [...selectedCameras];
             }
@@ -272,17 +271,26 @@
                 mqtt_auth: mqttAuth,
                 mqtt_username: mqttUsername,
                 mqtt_password: mqttPassword,
+                audio_topic: audioTopic,
                 clips_enabled: clipsEnabled,
                 classification_threshold: threshold,
                 cameras: selectedCameras,
                 retention_days: retentionDays,
                 blocked_labels: blockedLabels,
-                // Media cache settings
                 media_cache_enabled: cacheEnabled,
                 media_cache_snapshots: cacheSnapshots,
                 media_cache_clips: cacheClips,
-                media_cache_retention_days: cacheRetentionDays
+                media_cache_retention_days: cacheRetentionDays,
+                location_latitude: locationLat,
+                location_longitude: locationLon,
+                location_automatic: locationAuto,
+                llm_enabled: llmEnabled,
+                llm_provider: llmProvider,
+                llm_api_key: llmApiKey,
+                llm_model: llmModel
             });
+            // Update store
+            await settingsStore.load();
             message = { type: 'success', text: 'Settings saved successfully!' };
             await Promise.all([loadMaintenanceStats(), loadCacheStats()]);
         } catch (e) {
@@ -397,7 +405,7 @@
                         onclick={testConnection}
                         disabled={testing}
                         class="px-4 py-2 text-sm font-medium rounded-lg
-                               bg-brand-500 hover:bg-brand-600 text-white
+                               bg-teal-500 hover:bg-teal-600 text-white
                                transition-colors disabled:opacity-50"
                     >
                         {testing ? 'Testing...' : 'Test Frigate Connection'}
@@ -511,6 +519,22 @@
                     </div>
                 </div>
 
+                <div>
+                    <label for="audio-topic" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                        Audio Detection Topic (BirdNET-Go)
+                    </label>
+                    <input
+                        id="audio-topic"
+                        type="text"
+                        bind:value={audioTopic}
+                        placeholder="birdnet/text"
+                        class="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600
+                               bg-white dark:bg-slate-700 text-slate-900 dark:text-white
+                               focus:ring-2 focus:ring-teal-500 focus:border-transparent
+                               placeholder:text-slate-400 dark:placeholder:text-slate-500"
+                    />
+                </div>
+
                 <div class="flex items-center gap-3 py-2">
                      <button 
                         role="switch" 
@@ -561,6 +585,151 @@
             </div>
         </section>
 
+        <!-- Location Settings -->
+        <section class="bg-white/80 dark:bg-slate-800/50 rounded-2xl border border-slate-200/80 dark:border-slate-700/50 p-6 shadow-card dark:shadow-card-dark backdrop-blur-sm">
+            <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+                🌍 Location & Weather
+            </h3>
+            
+            <p class="text-sm text-slate-500 dark:text-slate-400 mb-4">
+                Used to fetch local weather data for your detections.
+            </p>
+
+            <div class="space-y-4">
+                <div class="flex items-center gap-3">
+                    <button
+                        role="switch"
+                        aria-checked={locationAuto}
+                        aria-label="Toggle Auto Location"
+                        onclick={() => locationAuto = !locationAuto}
+                        class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2
+                               {locationAuto ? 'bg-teal-500' : 'bg-slate-200 dark:bg-slate-600'}"
+                    >
+                        <span
+                            class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out
+                                   {locationAuto ? 'translate-x-5' : 'translate-x-0'}"
+                        ></span>
+                    </button>
+                    <span class="text-sm font-medium text-slate-700 dark:text-slate-300">Detect Automatically (via IP)</span>
+                </div>
+
+                {#if !locationAuto}
+                    <div class="grid grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-4 duration-300">
+                        <div>
+                            <label for="latitude" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                                Latitude
+                            </label>
+                            <input
+                                id="latitude"
+                                type="number"
+                                step="any"
+                                bind:value={locationLat}
+                                placeholder="e.g. 51.5074"
+                                class="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600
+                                       bg-white dark:bg-slate-700 text-slate-900 dark:text-white
+                                       focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                            />
+                        </div>
+                        <div>
+                            <label for="longitude" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                                Longitude
+                            </label>
+                            <input
+                                id="longitude"
+                                type="number"
+                                step="any"
+                                bind:value={locationLon}
+                                placeholder="e.g. -0.1278"
+                                class="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600
+                                       bg-white dark:bg-slate-700 text-slate-900 dark:text-white
+                                       focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                            />
+                        </div>
+                    </div>
+                {/if}
+            </div>
+        </section>
+
+        <!-- AI Intelligence -->
+        <section class="bg-white/80 dark:bg-slate-800/50 rounded-2xl border border-slate-200/80 dark:border-slate-700/50 p-6 shadow-card dark:shadow-card-dark backdrop-blur-sm">
+            <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+                🤖 AI Intelligence
+            </h3>
+            
+            <p class="text-sm text-slate-500 dark:text-slate-400 mb-4">
+                Enable AI-based behavioral analysis and naturalist descriptions for your detections.
+            </p>
+
+            <div class="space-y-4">
+                <div class="flex items-center gap-3">
+                    <button
+                        role="switch"
+                        aria-checked={llmEnabled}
+                        aria-label="Toggle AI Analysis"
+                        onclick={() => llmEnabled = !llmEnabled}
+                        class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2
+                               {llmEnabled ? 'bg-teal-500' : 'bg-slate-200 dark:bg-slate-600'}"
+                    >
+                        <span
+                            class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out
+                                   {llmEnabled ? 'translate-x-5' : 'translate-x-0'}"
+                        ></span>
+                    </button>
+                    <span class="text-sm font-medium text-slate-700 dark:text-slate-300">Enable AI Analysis</span>
+                </div>
+
+                {#if llmEnabled}
+                    <div class="space-y-4 animate-in fade-in slide-in-from-top-4 duration-300">
+                        <div>
+                            <label for="llm-provider" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                                Provider
+                            </label>
+                            <select
+                                id="llm-provider"
+                                bind:value={llmProvider}
+                                class="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600
+                                       bg-white dark:bg-slate-700 text-slate-900 dark:text-white
+                                       focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                            >
+                                <option value="gemini">Google Gemini (Recommended)</option>
+                                <option value="openai">OpenAI</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label for="llm-api-key" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                                API Key
+                            </label>
+                            <input
+                                id="llm-api-key"
+                                type="password"
+                                bind:value={llmApiKey}
+                                placeholder="Enter your API key"
+                                class="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600
+                                       bg-white dark:bg-slate-700 text-slate-900 dark:text-white
+                                       focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                            />
+                        </div>
+
+                        <div>
+                            <label for="llm-model" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                                Model
+                            </label>
+                            <input
+                                id="llm-model"
+                                type="text"
+                                bind:value={llmModel}
+                                placeholder={llmProvider === 'gemini' ? 'gemini-1.5-flash' : 'gpt-4o'}
+                                class="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600
+                                       bg-white dark:bg-slate-700 text-slate-900 dark:text-white
+                                       focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                            />
+                        </div>
+                    </div>
+                {/if}
+            </div>
+        </section>
+
         <!-- Classification Settings -->
         <section class="bg-white/80 dark:bg-slate-800/50 rounded-2xl border border-slate-200/80 dark:border-slate-700/50 p-6 shadow-card dark:shadow-card-dark backdrop-blur-sm">
             <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
@@ -599,7 +768,7 @@
 
                 <!-- Blocked Labels -->
                 <div class="pt-4 mt-4 border-t border-slate-200 dark:border-slate-700">
-                    <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                    <label for="blocked-label-input" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
                         Blocked Labels
                     </label>
                     <p class="text-xs text-slate-500 dark:text-slate-400 mb-3">
@@ -609,6 +778,7 @@
                     <!-- Add new label -->
                     <div class="flex gap-2 mb-3">
                         <input
+                            id="blocked-label-input"
                             type="text"
                             bind:value={newBlockedLabel}
                             placeholder="Enter label to block..."
@@ -656,73 +826,6 @@
                     {/if}
                 </div>
             </div>
-        </section>
-
-        <!-- Wildlife Model (Optional) -->
-        <section class="bg-white/80 dark:bg-slate-800/50 rounded-2xl border border-slate-200/80 dark:border-slate-700/50 p-6 shadow-card dark:shadow-card-dark backdrop-blur-sm">
-            <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
-                🦊 Wildlife Classifier (Optional)
-            </h3>
-
-            <p class="text-sm text-slate-500 dark:text-slate-400 mb-4">
-                The wildlife classifier can identify non-bird animals like squirrels, raccoons, foxes, and more.
-                Use the "Identify Animal" button on detections to classify them as wildlife.
-            </p>
-
-            <!-- Wildlife Model Status -->
-            <div class="p-3 rounded-lg {wildlifeStatus?.enabled
-                ? 'bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800'
-                : 'bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800'}">
-                <div class="flex items-center justify-between">
-                    <div class="flex items-center gap-2">
-                        {#if wildlifeStatus?.enabled}
-                            <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
-                            <span class="text-sm font-medium text-emerald-700 dark:text-emerald-400">
-                                Wildlife Model Ready ({wildlifeStatus.labels_count} species)
-                            </span>
-                        {:else}
-                            <span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
-                            <span class="text-sm font-medium text-amber-700 dark:text-amber-400">
-                                Wildlife Model Not Installed
-                            </span>
-                        {/if}
-                    </div>
-                    {#if !wildlifeStatus?.enabled}
-                        <button
-                            onclick={handleDownloadWildlifeModel}
-                            disabled={downloadingWildlifeModel}
-                            class="px-3 py-1.5 text-sm font-medium rounded-lg
-                                   bg-amber-500 hover:bg-amber-600 text-white
-                                   transition-colors disabled:opacity-50 flex items-center gap-2"
-                        >
-                            {#if downloadingWildlifeModel}
-                                <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                </svg>
-                                Downloading...
-                            {:else}
-                                Download Wildlife Model
-                            {/if}
-                        </button>
-                    {/if}
-                </div>
-                {#if wildlifeStatus?.error && !downloadingWildlifeModel}
-                    <p class="mt-2 text-xs text-amber-600 dark:text-amber-400">
-                        {wildlifeStatus.error}
-                    </p>
-                {/if}
-                {#if downloadingWildlifeModel}
-                    <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">
-                        Downloading MobileNet V2 model (~14MB)...
-                    </p>
-                {/if}
-            </div>
-
-            <p class="mt-3 text-xs text-slate-500 dark:text-slate-400">
-                Uses MobileNet V2 trained on ImageNet (1001 classes including many animals).
-                Fast inference on CPU.
-            </p>
         </section>
 
         <!-- Database Maintenance -->
@@ -880,6 +983,7 @@
                         <button
                             role="switch"
                             aria-checked={cacheSnapshots}
+                            aria-label="Cache Snapshots"
                             onclick={() => cacheSnapshots = !cacheSnapshots}
                             class="relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out
                                    {cacheSnapshots ? 'bg-teal-500' : 'bg-slate-200 dark:bg-slate-600'}"
@@ -895,6 +999,7 @@
                         <button
                             role="switch"
                             aria-checked={cacheClips}
+                            aria-label="Cache Clips"
                             onclick={() => cacheClips = !cacheClips}
                             class="relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out
                                    {cacheClips ? 'bg-teal-500' : 'bg-slate-200 dark:bg-slate-600'}"
@@ -1042,7 +1147,7 @@
                 onclick={handleBackfill}
                 disabled={backfilling || (backfillDateRange === 'custom' && (!backfillStartDate || !backfillEndDate))}
                 class="w-full px-4 py-3 text-sm font-medium rounded-lg
-                       bg-brand-500 hover:bg-brand-600 text-white
+                       bg-teal-500 hover:bg-teal-600 text-white
                        transition-colors disabled:opacity-50 disabled:cursor-not-allowed
                        flex items-center justify-center gap-2"
             >

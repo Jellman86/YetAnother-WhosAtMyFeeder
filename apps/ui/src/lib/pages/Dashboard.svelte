@@ -3,7 +3,8 @@
     import SpeciesDetailModal from '../components/SpeciesDetailModal.svelte';
     import VideoPlayer from '../components/VideoPlayer.svelte';
     import type { Detection, WildlifeClassification } from '../api';
-    import { getThumbnailUrl, deleteDetection, hideDetection, classifyWildlife, updateDetectionSpecies } from '../api';
+    import { getThumbnailUrl, deleteDetection, hideDetection, classifyWildlife, updateDetectionSpecies, analyzeDetection } from '../api';
+    import { settingsStore } from '../stores/settings';
 
     interface Props {
         detections: Detection[];
@@ -24,6 +25,10 @@
     let wildlifeResults = $state<WildlifeClassification[]>([]);
     let applyingWildlife = $state(false);
 
+    // AI Analysis state
+    let analyzingAI = $state(false);
+    let aiAnalysis = $state<string | null>(null);
+
     // Video playback state
     let showVideo = $state(false);
 
@@ -36,11 +41,12 @@
             showWildlifeResults = false;
             wildlifeResults = [];
             showVideo = false;
+            aiAnalysis = null;
         }
     });
 
     // Compute stats from current detections
-    let topSpecies = $derived(() => {
+    let topSpecies = $derived.by(() => {
         const counts: Record<string, number> = {};
         detections.forEach(d => {
             counts[d.display_name] = (counts[d.display_name] || 0) + 1;
@@ -49,7 +55,7 @@
         return sorted.length > 0 ? sorted[0][0] : null;
     });
 
-    let uniqueSpeciesCount = $derived(() => {
+    let uniqueSpeciesCount = $derived.by(() => {
         return new Set(detections.map(d => d.display_name)).size;
     });
 
@@ -131,6 +137,22 @@
             applyingWildlife = false;
         }
     }
+
+    async function handleAIAnalysis() {
+        if (!selectedEvent) return;
+        
+        analyzingAI = true;
+        aiAnalysis = null;
+        try {
+            const result = await analyzeDetection(selectedEvent.frigate_event);
+            aiAnalysis = result.analysis;
+        } catch (e) {
+            console.error('AI Analysis failed', e);
+            alert('AI Analysis failed. Make sure your API key is configured in Settings.');
+        } finally {
+            analyzingAI = false;
+        }
+    }
 </script>
 
 <!-- Header with stats -->
@@ -169,15 +191,15 @@
             <div class="absolute top-2 right-2 text-slate-500/10 dark:text-slate-400/10">
                 <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" /></svg>
             </div>
-            <p class="text-2xl font-bold text-slate-900 dark:text-white relative z-10">{uniqueSpeciesCount()}</p>
+            <p class="text-2xl font-bold text-slate-900 dark:text-white relative z-10">{uniqueSpeciesCount}</p>
             <p class="text-sm text-slate-500 dark:text-slate-400 relative z-10">Species Seen</p>
         </div>
         <div class="bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700 shadow-sm relative overflow-hidden">
             <div class="absolute top-2 right-2 text-slate-500/10 dark:text-slate-400/10">
                 <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" /></svg>
             </div>
-            <p class="text-lg font-bold text-slate-900 dark:text-white truncate relative z-10" title={topSpecies() || 'N/A'}>
-                {topSpecies() || 'N/A'}
+            <p class="text-lg font-bold text-slate-900 dark:text-white truncate relative z-10" title={topSpecies || 'N/A'}>
+                {topSpecies || 'N/A'}
             </p>
             <p class="text-sm text-slate-500 dark:text-slate-400 relative z-10">Most Common</p>
         </div>
@@ -297,13 +319,76 @@
                 </div>
 
                 <!-- Camera info -->
-                <div class="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400 mb-5">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                              d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                    </svg>
-                    <span class="font-medium">{selectedEvent.camera_name}</span>
+                <div class="flex items-center justify-between mb-5">
+                    <div class="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                        <span class="font-medium">{selectedEvent.camera_name}</span>
+                    </div>
+                    
+                    {#if selectedEvent.temperature !== undefined && selectedEvent.temperature !== null}
+                        <div class="flex items-center gap-1 text-sm text-slate-500 dark:text-slate-400">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                            </svg>
+                            <span>{selectedEvent.temperature.toFixed(1)}°C</span>
+                            {#if selectedEvent.weather_condition}
+                                <span class="opacity-70 ml-1">• {selectedEvent.weather_condition}</span>
+                            {/if}
+                        </div>
+                    {/if}
                 </div>
+
+                <!-- AI Analysis Button -->
+                {#if $settingsStore?.llm_enabled}
+                    <div class="mb-5">
+                        {#if !aiAnalysis}
+                            <button
+                                onclick={handleAIAnalysis}
+                                disabled={analyzingAI}
+                                class="w-full px-4 py-2.5 text-sm font-medium text-teal-700 dark:text-teal-300
+                                       bg-teal-50 dark:bg-teal-900/20 rounded-lg
+                                       hover:bg-teal-100 dark:hover:bg-teal-900/40 transition-colors
+                                       disabled:opacity-50 disabled:cursor-not-allowed
+                                       flex items-center justify-center gap-2"
+                            >
+                                {#if analyzingAI}
+                                    <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    AI is analyzing...
+                                {:else}
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                              d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.989-2.386l-.548-.547z" />
+                                    </svg>
+                                    Ask AI Naturalist
+                                {/if}
+                            </button>
+                        {:else}
+                            <div class="bg-teal-50 dark:bg-teal-900/10 rounded-xl p-4 border border-teal-100 dark:border-teal-900/30 animate-in fade-in slide-in-from-top-2">
+                                <div class="flex items-center gap-2 mb-2 text-teal-700 dark:text-teal-400">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.989-2.386l-.548-.547z" />
+                                    </svg>
+                                    <span class="text-sm font-bold uppercase tracking-wider">AI Analysis</span>
+                                </div>
+                                <p class="text-sm text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">
+                                    {aiAnalysis}
+                                </p>
+                                <button
+                                    onclick={() => aiAnalysis = null}
+                                    class="mt-3 text-xs text-teal-600 dark:text-teal-400 hover:underline font-medium"
+                                >
+                                    Reset Analysis
+                                </button>
+                            </div>
+                        {/if}
+                    </div>
+                {/if}
 
                 <!-- Wildlife Classification Section -->
                 <div class="mb-5">
