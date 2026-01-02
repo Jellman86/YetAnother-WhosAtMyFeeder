@@ -241,10 +241,13 @@ class ReclassifyResponse(BaseModel):
 
 
 @router.post("/events/{event_id}/reclassify", response_model=ReclassifyResponse)
-async def reclassify_event(event_id: str):
+async def reclassify_event(
+    event_id: str,
+    strategy: Literal["snapshot", "video"] = Query("snapshot", description="Classification strategy")
+):
     """
     Re-run the classifier on an existing detection.
-    Fetches the snapshot from Frigate and runs it through the ML model again.
+    Can use either a single snapshot or a video clip (Temporal Ensemble).
     """
     async with get_db() as db:
         repo = DetectionRepository(db)
@@ -254,16 +257,53 @@ async def reclassify_event(event_id: str):
             raise HTTPException(status_code=404, detail="Detection not found")
 
         old_species = detection.display_name
-
-        # Fetch snapshot from Frigate using centralized client
-        snapshot_data = await frigate_client.get_snapshot(event_id, crop=True, quality=95)
-        if not snapshot_data:
-            raise HTTPException(status_code=502, detail="Failed to fetch snapshot from Frigate")
-
-        # Classify the image
-        image = Image.open(BytesIO(snapshot_data))
         classifier = get_classifier()
-        results = classifier.classify(image)
+        
+        # Determine effective strategy
+        # If video requested but no clip, fallback to snapshot
+        event_data = await frigate_client.get_event(event_id)
+        has_clip = event_data.get("has_clip", False) if event_data else False
+        
+        effective_strategy = strategy
+        if strategy == "video" and not has_clip:
+            log.warning("Video strategy requested but no clip available, falling back to snapshot", event_id=event_id)
+            effective_strategy = "snapshot"
+
+        results = []
+        
+        if effective_strategy == "video":
+            # Fetch clip
+            clip_data = await frigate_client.get_clip(event_id)
+            if not clip_data:
+                log.warning("Failed to fetch clip data, falling back to snapshot", event_id=event_id)
+                effective_strategy = "snapshot"
+            else:
+                # Save to temp file for OpenCV
+                import tempfile
+                import os
+                
+                with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tmp:
+                    tmp.write(clip_data)
+                    tmp_path = tmp.name
+                
+                try:
+                    results = await classifier.classify_video_async(tmp_path)
+                finally:
+                    if os.path.exists(tmp_path):
+                        os.remove(tmp_path)
+                        
+                if not results:
+                    log.warning("Video classification yielded no results, falling back to snapshot", event_id=event_id)
+                    effective_strategy = "snapshot"
+
+        # Snapshot strategy (Default or Fallback)
+        if effective_strategy == "snapshot":
+            snapshot_data = await frigate_client.get_snapshot(event_id, crop=True, quality=95)
+            if not snapshot_data:
+                raise HTTPException(status_code=502, detail="Failed to fetch snapshot from Frigate")
+
+            image = Image.open(BytesIO(snapshot_data))
+            results = await classifier.classify_async(image)
 
         if not results:
             raise HTTPException(status_code=500, detail="Classification returned no results")
@@ -287,7 +327,8 @@ async def reclassify_event(event_id: str):
                      event_id=event_id,
                      old_species=old_species,
                      new_species=new_species,
-                     score=new_score)
+                     score=new_score,
+                     strategy=effective_strategy)
             
             # Broadcast update
             await broadcaster.broadcast({
@@ -419,7 +460,7 @@ async def classify_wildlife(event_id: str):
         # Classify with wildlife model
         image = Image.open(BytesIO(snapshot_data))
         classifier = get_classifier()
-        results = classifier.classify_wildlife(image)
+        results = await classifier.classify_wildlife_async(image)
 
         if not results:
             # Wildlife model not available or no results

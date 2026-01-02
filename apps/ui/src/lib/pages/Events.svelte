@@ -347,8 +347,10 @@
         if (!selectedEvent) return;
 
         reclassifying = true;
+        const strategy = selectedHasClip ? 'video' : 'snapshot';
+        
         try {
-            const result = await reclassifyDetection(selectedEvent.frigate_event);
+            const result = await reclassifyDetection(selectedEvent.frigate_event, strategy);
             if (result.updated) {
                 selectedEvent = { ...selectedEvent, display_name: result.new_species, score: result.new_score };
                 events = events.map(e =>
@@ -356,9 +358,9 @@
                         ? { ...e, display_name: result.new_species, score: result.new_score }
                         : e
                 );
-                alert(`Reclassified: ${result.old_species} → ${result.new_species} (${(result.new_score * 100).toFixed(1)}%)`);
+                alert(`Reclassified (${strategy}): ${result.old_species} → ${result.new_species} (${(result.new_score * 100).toFixed(1)}%)`);
             } else {
-                alert(`Classification unchanged: ${result.new_species} (${(result.new_score * 100).toFixed(1)}%)`);
+                alert(`Classification unchanged (${strategy}): ${result.new_species} (${(result.new_score * 100).toFixed(1)}%)`);
             }
         } catch (e: any) {
             console.error('Failed to reclassify', e);

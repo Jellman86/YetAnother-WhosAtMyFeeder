@@ -406,8 +406,9 @@ export async function fetchClassifierLabels(): Promise<{ labels: string[] }> {
     return handleResponse<{ labels: string[] }>(response);
 }
 
-export async function reclassifyDetection(eventId: string): Promise<ReclassifyResult> {
-    const response = await fetch(`${API_BASE}/events/${encodeURIComponent(eventId)}/reclassify`, {
+export async function reclassifyDetection(eventId: string, strategy: 'snapshot' | 'video' = 'snapshot'): Promise<ReclassifyResult> {
+    const params = new URLSearchParams({ strategy });
+    const response = await fetch(`${API_BASE}/events/${encodeURIComponent(eventId)}/reclassify?${params.toString()}`, {
         method: 'POST',
     });
     return handleResponse<ReclassifyResult>(response);

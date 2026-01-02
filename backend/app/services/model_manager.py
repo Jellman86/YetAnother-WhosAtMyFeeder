@@ -40,7 +40,6 @@ REMOTE_REGISTRY = [
         "input_size": 300
     }
 ]
-]
 
 MODELS_DIR = "/data/models"
 

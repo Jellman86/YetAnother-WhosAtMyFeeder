@@ -17,5 +17,6 @@ numpy>=1.26.0
 # tflite-support==0.4.4
 tensorflow-cpu; python_version >= '3.12'
 aiomqtt==2.0.1
+opencv-python-headless>=4.9.0
 pytest==8.0.0
 pytest-asyncio==0.23.5

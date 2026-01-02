@@ -58,8 +58,8 @@ class EventProcessor:
 
                 image = Image.open(BytesIO(snapshot_data))
 
-                # Classify
-                results = self.classifier.classify(image)
+                # Classify (async to prevent blocking loop)
+                results = await self.classifier.classify_async(image)
                 if not results:
                     return
 

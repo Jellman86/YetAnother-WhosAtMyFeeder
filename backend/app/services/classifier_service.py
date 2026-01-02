@@ -1,8 +1,11 @@
 import structlog
 import numpy as np
 import os
+import cv2
+import tempfile
+import asyncio
 from PIL import Image, ImageOps
-from typing import Optional
+from typing import Optional, List, Dict
 try:
     # Try importing typical TFLite runtimes
     import tflite_runtime.interpreter as tflite
@@ -111,13 +114,7 @@ class ModelInstance:
         return input_data
 
     def classify(self, image: Image.Image) -> list[dict]:
-        """Classify an image using this model.
-
-        Preprocessing for EfficientNet-Lite4:
-        - Input: 300x300 (or model-specified size) RGB float32
-        - Normalization: (pixel - 127) / 128 → range [-1, 1]
-        - Output: Apply softmax to convert logits to probabilities
-        """
+        """Classify an image using this model."""
         if not self.loaded or not self.interpreter:
             log.warning(f"{self.name} model not loaded, cannot classify")
             return []
@@ -130,29 +127,21 @@ class ModelInstance:
         if len(input_shape) == 4:
             target_height, target_width = input_shape[1], input_shape[2]
         else:
-            target_height, target_width = 300, 300  # EfficientNet-Lite4 default
+            target_height, target_width = 300, 300  # Default fallback
 
-        log.info(f"{self.name} classify: input image mode={image.mode}, size={image.size}, "
-                 f"target={target_width}x{target_height}, model_dtype={input_details['dtype']}")
+        log.debug(f"{self.name} classify: target={target_width}x{target_height}, dtype={input_details['dtype']}")
 
-        # Preprocess: Letterbox resize (maintain aspect ratio)
-        # Previously we squashed: image = image.resize((target_width, target_height), Image.Resampling.LANCZOS)
-        # Now using letterbox to reduce distortion and improve accuracy
+        # Preprocess
         input_data = self._preprocess_image(image, target_width, target_height)
 
-        # Step 4: Normalize based on model input type
+        # Normalize based on model input type
         if input_details['dtype'] == np.float32:
-            # EfficientNet-Lite normalization: (pixel - 127) / 128 → range [-1, 1]
             input_data = (input_data - 127.0) / 128.0
-            log.debug(f"{self.name}: Normalized to [-1,1], range=[{input_data.min():.2f}, {input_data.max():.2f}]")
         elif input_details['dtype'] == np.uint8:
-            # Quantized models: keep as uint8
             input_data = input_data.astype(np.uint8)
 
-        # Step 5: Add batch dimension - shape becomes (1, height, width, 3)
+        # Add batch dimension
         input_data = np.expand_dims(input_data, axis=0)
-
-        log.debug(f"{self.name}: input_data shape={input_data.shape}, dtype={input_data.dtype}")
 
         # Run inference
         self.interpreter.set_tensor(input_details['index'], input_data)
@@ -161,13 +150,9 @@ class ModelInstance:
         # Get output
         output_details = self.output_details[0]
         output_data = self.interpreter.get_tensor(output_details['index'])
-
-        log.debug(f"{self.name}: output shape={output_data.shape}, dtype={output_data.dtype}")
-
-        # Process output
         results = np.squeeze(output_data).astype(np.float32)
 
-        # Dequantize if output is uint8
+        # Dequantize if needed
         if output_details['dtype'] == np.uint8:
             quant_params = output_details.get('quantization_parameters', {})
             scales = quant_params.get('scales', None)
@@ -177,66 +162,101 @@ class ModelInstance:
                 scale = scales[0]
                 zero_point = zero_points[0] if zero_points is not None and len(zero_points) > 0 else 0
                 results = (results - zero_point) * scale
-                log.debug(f"{self.name}: dequantized with scale={scale}, zero_point={zero_point}")
             else:
                 results = results / 255.0
 
-        # Check if output is already probabilities vs logits
-        # Probabilities: all values in [0, 1] range (post-softmax)
-        # Logits: can have negative values or values > 1.0, need softmax
-        output_sum = float(results.sum())
+        # Softmax if needed (logits vs probabilities)
         output_min = float(results.min())
         output_max = float(results.max())
-        log.info(f"{self.name}: Raw output stats - min={output_min:.6f}, max={output_max:.6f}, sum={output_sum:.6f}")
-
-        # Detect if output looks like probabilities (post-softmax)
-        # Key insight: probabilities are always in [0, 1] range
-        # Logits can be negative or > 1.0 (typically in range [-10, 10])
-        # For quantized models, sum may be < 1.0 due to precision loss, so we don't rely on sum
         is_probability = output_min >= 0 and output_max <= 1.0
 
         if is_probability:
-            # Already probabilities - normalize to ensure they sum to 1.0
-            # This handles quantization error without incorrectly applying softmax
+            output_sum = float(results.sum())
             if output_sum > 0:
-                log.info(f"{self.name}: Normalizing probabilities (sum={output_sum:.4f})")
                 results = results / output_sum
-            else:
-                log.warning(f"{self.name}: Output sum is zero, cannot normalize")
         else:
-            # Logits - apply softmax to convert to probabilities
-            log.info(f"{self.name}: Applying softmax to logits (min={output_min:.4f}, max={output_max:.4f})")
             exp_results = np.exp(results - np.max(results))
             results = exp_results / np.sum(exp_results)
-            log.info(f"{self.name}: After softmax - max={float(results.max()):.6f}")
 
-        # Get top-5 predictions
-        top_k = results.argsort()[-5:][::-1]
-
+        # Get all predictions for aggregation
         classifications = []
-        for i in top_k:
-            score = float(results[i])
+        for i, score in enumerate(results):
             label = self.labels[i] if i < len(self.labels) else f"Class {i}"
             classifications.append({
                 "index": int(i),
-                "score": score,
+                "score": float(score),
                 "label": label
             })
+        
+        # Sort for logging but return all for ensemble logic if needed
+        # Actually, returning top-k is usually enough, but for ensemble we might want full vector.
+        # For simplicity and compat with existing API, let's return sorted top-k.
+        # But wait, for video ensemble we want to sum scores. 
+        # Ideally we return the full result vector or a large top-k.
+        
+        # Let's return sorted top-10 for standard usage, but sorted list.
+        # For video aggregation we might call this differently?
+        # Actually, let's just return sorted top-5 as usual for external consumers.
+        # Internal aggregation will need raw scores. 
+        # Refactoring to return raw scores is risky for existing consumers.
+        
+        # Let's just return the sorted list as usual.
+        classifications.sort(key=lambda x: x['score'], reverse=True)
+        return classifications[:5]
 
-        top_results = [(c['label'], f"{c['score']*100:.1f}%") for c in classifications[:3]]
-        log.info(f"{self.name} classify results: {top_results}")
+    def classify_raw(self, image: Image.Image) -> np.ndarray:
+        """Classify and return the raw probability vector (for ensemble)."""
+        if not self.loaded or not self.interpreter:
+            return np.array([])
 
-        return classifications
+        # Reuse logic from classify, but return raw results array
+        # Duplication is minor here to avoid breaking `classify` API
+        input_details = self.input_details[0]
+        input_shape = input_details['shape']
+        if len(input_shape) == 4:
+            target_height, target_width = input_shape[1], input_shape[2]
+        else:
+            target_height, target_width = 300, 300
 
-    def get_status(self) -> dict:
-        """Return the current status of this model."""
-        return {
-            "loaded": self.loaded,
-            "error": self.error,
-            "labels_count": len(self.labels),
-            "enabled": self.interpreter is not None,
-            "model_path": self.model_path,
-        }
+        input_data = self._preprocess_image(image, target_width, target_height)
+        
+        if input_details['dtype'] == np.float32:
+            input_data = (input_data - 127.0) / 128.0
+        elif input_details['dtype'] == np.uint8:
+            input_data = input_data.astype(np.uint8)
+            
+        input_data = np.expand_dims(input_data, axis=0)
+        self.interpreter.set_tensor(input_details['index'], input_data)
+        self.interpreter.invoke()
+        
+        output_details = self.output_details[0]
+        output_data = self.interpreter.get_tensor(output_details['index'])
+        results = np.squeeze(output_data).astype(np.float32)
+
+        if output_details['dtype'] == np.uint8:
+            quant_params = output_details.get('quantization_parameters', {})
+            scales = quant_params.get('scales', None)
+            zero_points = quant_params.get('zero_points', None)
+            if scales is not None and len(scales) > 0:
+                scale = scales[0]
+                zero_point = zero_points[0] if zero_points is not None and len(zero_points) > 0 else 0
+                results = (results - zero_point) * scale
+            else:
+                results = results / 255.0
+
+        output_min = float(results.min())
+        output_max = float(results.max())
+        is_probability = output_min >= 0 and output_max <= 1.0
+
+        if is_probability:
+            output_sum = float(results.sum())
+            if output_sum > 0:
+                results = results / output_sum
+        else:
+            exp_results = np.exp(results - np.max(results))
+            results = exp_results / np.sum(exp_results)
+            
+        return results
 
 
 class ClassifierService:
@@ -251,7 +271,6 @@ class ClassifierService:
         persistent_dir = "/data/models"
         fallback_dir = os.path.join(os.path.dirname(__file__), "../assets")
 
-        # Check persistent location first
         if os.path.exists(os.path.join(persistent_dir, model_file)):
             assets_dir = persistent_dir
             log.info("Using persistent model directory", path=persistent_dir)
@@ -266,14 +285,10 @@ class ClassifierService:
 
     def _init_bird_model(self):
         """Initialize the bird classification model (loaded at startup)."""
-        # Use ModelManager to get active model paths
-        # Avoid circular import by importing here
         from app.services.model_manager import model_manager
-        
         model_path, labels_path, input_size = model_manager.get_active_model_paths()
         
         if not os.path.exists(model_path):
-             # Fallback to default if not found
              model_path, labels_path = self._get_model_paths(
                 settings.classification.model,
                 "labels.txt"
@@ -281,7 +296,7 @@ class ClassifierService:
 
         log.info("Initializing bird model", path=model_path, input_size=input_size)
         bird_model = ModelInstance("bird", model_path, labels_path)
-        bird_model.load()  # Load immediately for bird model
+        bird_model.load()
         self._models["bird"] = bird_model
 
     def reload_bird_model(self):
@@ -306,7 +321,7 @@ class ClassifierService:
 
         return model
 
-    # Legacy properties for backwards compatibility
+    # Legacy properties
     @property
     def interpreter(self):
         return self._models.get("bird", ModelInstance("", "", "")).interpreter
@@ -324,7 +339,6 @@ class ClassifierService:
         return self._models.get("bird", ModelInstance("", "", "")).error
 
     def get_status(self) -> dict:
-        """Return the current status of the bird classifier (legacy)."""
         bird = self._models.get("bird")
         if bird:
             return bird.get_status()
@@ -336,21 +350,16 @@ class ClassifierService:
         }
 
     def get_wildlife_status(self) -> dict:
-        """Return the current status of the wildlife classifier."""
         wildlife = self._models.get("wildlife")
         if wildlife:
             return wildlife.get_status()
 
-        # Check if model file exists without loading
         model_path, labels_path = self._get_model_paths(
             settings.classification.wildlife_model,
             settings.classification.wildlife_labels
         )
-
         model_exists = os.path.exists(model_path)
         labels_exist = os.path.exists(labels_path)
-
-        # Count labels if file exists
         labels_count = 0
         if labels_exist:
             try:
@@ -368,31 +377,128 @@ class ClassifierService:
         }
 
     def classify(self, image: Image.Image) -> list[dict]:
-        """Classify an image using the bird model (legacy method)."""
+        """Classify an image using the bird model."""
         bird = self._models.get("bird")
         if bird:
             return bird.classify(image)
         return []
+
+    async def classify_async(self, image: Image.Image) -> list[dict]:
+        """Async wrapper for classify to prevent blocking the event loop."""
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(None, self.classify, image)
 
     def classify_wildlife(self, image: Image.Image) -> list[dict]:
         """Classify an image using the wildlife model."""
         wildlife = self._get_wildlife_model()
         return wildlife.classify(image)
 
+    async def classify_wildlife_async(self, image: Image.Image) -> list[dict]:
+        """Async wrapper for wildlife classification."""
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(None, self.classify_wildlife, image)
+
     def get_wildlife_labels(self) -> list[str]:
-        """Get the list of wildlife labels."""
         wildlife = self._get_wildlife_model()
         return wildlife.labels
 
     def reload_wildlife_model(self):
-        """Force reload of the wildlife model (e.g. after download)."""
         if "wildlife" in self._models:
             del self._models["wildlife"]
             log.info("Cleared cached wildlife model instance")
-        
-        # Trigger reload to pick up new file
         try:
             self._get_wildlife_model()
             log.info("Reloaded wildlife model")
         except Exception as e:
             log.error("Failed to reload wildlife model", error=str(e))
+
+    def classify_video(self, video_path: str, stride: int = 5, max_frames: int = 15) -> list[dict]:
+        """
+        Classify a video clip using Temporal Ensemble (Soft Voting).
+        
+        Args:
+            video_path: Path to the video file.
+            stride: Process every Nth frame.
+            max_frames: Maximum number of frames to process to limit latency.
+            
+        Returns:
+            List of classifications with aggregated scores.
+        """
+        bird_model = self._models.get("bird")
+        if not bird_model or not bird_model.loaded:
+            log.error("Bird model not loaded for video classification")
+            return []
+
+        try:
+            cap = cv2.VideoCapture(video_path)
+            if not cap.isOpened():
+                log.error(f"Could not open video file: {video_path}")
+                return []
+
+            frame_count = 0
+            processed_count = 0
+            cumulative_scores = None # Will be initialized on first valid frame
+
+            while processed_count < max_frames:
+                ret, frame = cap.read()
+                if not ret:
+                    break
+
+                # Process every 'stride' frames
+                if frame_count % stride == 0:
+                    # Convert BGR (OpenCV) to RGB (PIL)
+                    frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                    image = Image.fromarray(frame_rgb)
+                    
+                    # Get raw probability vector
+                    scores = bird_model.classify_raw(image)
+                    
+                    if len(scores) > 0:
+                        if cumulative_scores is None:
+                            cumulative_scores = scores
+                        else:
+                            # Accumulate scores (Soft Voting)
+                            # Ensure dimensions match (they should if model doesn't change)
+                            if len(scores) == len(cumulative_scores):
+                                cumulative_scores += scores
+                        
+                        processed_count += 1
+
+                frame_count += 1
+
+            cap.release()
+
+            if cumulative_scores is None:
+                log.warning("No frames processed from video")
+                return []
+
+            # Normalize aggregated scores
+            if processed_count > 0:
+                cumulative_scores = cumulative_scores / processed_count
+
+            # Create standard classification list from aggregated scores
+            top_k = cumulative_scores.argsort()[-5:][::-1]
+            
+            classifications = []
+            for i in top_k:
+                score = float(cumulative_scores[i])
+                label = bird_model.labels[i] if i < len(bird_model.labels) else f"Class {i}"
+                classifications.append({
+                    "index": int(i),
+                    "score": score,
+                    "label": label
+                })
+            
+            log.info(f"Video classification complete. Processed {processed_count} frames.", 
+                     top_result=classifications[0]['label'] if classifications else None)
+            
+            return classifications
+
+        except Exception as e:
+            log.error("Error during video classification", error=str(e))
+            return []
+
+    async def classify_video_async(self, video_path: str, stride: int = 5, max_frames: int = 15) -> list[dict]:
+        """Async wrapper for video classification."""
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(None, self.classify_video, video_path, stride, max_frames)
