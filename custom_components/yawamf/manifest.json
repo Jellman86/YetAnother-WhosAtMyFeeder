@@ -1,0 +1,10 @@
+{
+  "domain": "yawamf",
+  "name": "Yet Another WhosAtMyFeeder",
+  "documentation": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder",
+  "requirements": ["httpx>=0.20.0"],
+  "codeowners": ["@Jellman86"],
+  "config_flow": true,
+  "iot_class": "local_polling",
+  "version": "1.0.0"
+}
