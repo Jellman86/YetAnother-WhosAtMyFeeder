@@ -16,28 +16,34 @@ REMOTE_REGISTRY = [
     {
         "id": "mobilenet_v2_birds",
         "name": "MobileNet V2 (Standard)",
-        "description": "Default lightweight bird classifier. Balanced for speed on edge devices.",
+        "description": "Lightweight iNat bird classifier. Balanced for speed on edge devices.",
         "architecture": "MobileNetV2",
         "file_size_mb": 3.4,
         "accuracy_tier": "Medium",
         "inference_speed": "Fast",
-        "download_url": "https://storage.googleapis.com/download.tensorflow.org/models/tflite/mobilenet_v2_1.0_224_quant_and_labels.zip", # We will need to unzip this one, or just use the direct tflite if available. Let's use a direct link for now to simplify.
-        # Actually, let's use the Coral model which is standard
-        "download_url": "https://raw.githubusercontent.com/google-coral/test_data/master/tf2_mobilenet_v2_1.0_224_ptq.tflite", 
+        "download_url": "https://raw.githubusercontent.com/google-coral/test_data/master/mobilenet_v2_1.0_224_inat_bird_quant.tflite", 
         "labels_url": "https://raw.githubusercontent.com/google-coral/test_data/master/inat_bird_labels.txt",
-        "input_size": 224
+        "input_size": 224,
+        "preprocessing": {
+            "padding_color": 128,
+            "normalization": "uint8"
+        }
     },
     {
-        "id": "efficientnet_lite4_birds",
+        "id": "efficientnet_edgetpu_s_birds",
         "name": "EfficientNet-EdgeTPU (Large)",
-        "description": "High accuracy model (300x300 input). Significantly better detail recognition but slower inference.",
-        "architecture": "EfficientNet-EdgeTPU-L",
-        "file_size_mb": 11.8,
+        "description": "High accuracy bird classifier. Significantly better detail recognition but slower on CPU.",
+        "architecture": "EfficientNet-EdgeTPU-S",
+        "file_size_mb": 5.4,
         "accuracy_tier": "Very High",
-        "inference_speed": "Slow",
-        "download_url": "https://raw.githubusercontent.com/google-coral/test_data/master/efficientnet-edgetpu-L_quant.tflite",
+        "inference_speed": "Medium",
+        "download_url": "https://raw.githubusercontent.com/google-coral/test_data/master/efficientnet_edgetpu_s_inat_bird_quant.tflite",
         "labels_url": "https://raw.githubusercontent.com/google-coral/test_data/master/inat_bird_labels.txt",
-        "input_size": 300
+        "input_size": 224,
+        "preprocessing": {
+            "padding_color": 128,
+            "normalization": "uint8"
+        }
     }
 ]
 
@@ -217,12 +223,27 @@ class ModelManager:
 
     async def activate_model(self, model_id: str) -> bool:
         """Set a model as active."""
+        # 1. Check if it's a directory-based model in persistent storage
         target_dir = os.path.join(MODELS_DIR, model_id)
-        if not os.path.exists(target_dir):
-             return False
-        
-        self._save_active_model_id(model_id)
-        return True
+        if os.path.exists(target_dir) and os.path.isdir(target_dir):
+            self._save_active_model_id(model_id)
+            return True
+
+        # 2. Special case for mobilenet_v2_birds (default model)
+        if model_id == "mobilenet_v2_birds":
+            # Check legacy flat files in MODELS_DIR
+            if os.path.exists(os.path.join(MODELS_DIR, "model.tflite")):
+                self._save_active_model_id(model_id)
+                return True
+            
+            # Check bundled assets
+            assets_dir = os.path.join(os.path.dirname(__file__), "../assets")
+            if os.path.exists(os.path.join(assets_dir, "model.tflite")):
+                self._save_active_model_id(model_id)
+                return True
+
+        log.warning("Activation failed: model not found", model_id=model_id)
+        return False
 
     def get_active_model_paths(self) -> tuple[str, str, int]:
         """Get the paths and input size for the currently active model."""
