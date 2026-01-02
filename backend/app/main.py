@@ -1,9 +1,11 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 import structlog
 import asyncio
 import os
 import subprocess
+import json
 from datetime import datetime, timedelta
 from contextlib import asynccontextmanager
 
@@ -12,8 +14,9 @@ from app.services.mqtt_service import MQTTService
 from app.services.classifier_service import get_classifier
 from app.services.event_processor import EventProcessor
 from app.services.media_cache import media_cache
+from app.services.broadcaster import broadcaster
 from app.repositories.detection_repository import DetectionRepository
-from app.routers import events, stream, proxy, settings as settings_router, species, backfill, classifier
+from app.routers import events, stream, proxy, settings as settings_router, species, backfill, classifier, models
 from app.config import settings
 
 # Version management
@@ -155,10 +158,28 @@ app.include_router(settings_router.router, prefix="/api")
 app.include_router(species.router, prefix="/api")
 app.include_router(backfill.router, prefix="/api", tags=["backfill"])
 app.include_router(classifier.router, prefix="/api")
+app.include_router(models.router, prefix="/api", tags=["models"])
 
 @app.get("/health")
 async def health_check():
     return {"status": "ok", "service": "ya-wamf-backend", "version": APP_VERSION}
+
+@app.get("/api/sse")
+async def sse_endpoint():
+    """Server-Sent Events endpoint for real-time updates."""
+    async def event_generator():
+        queue = await broadcaster.subscribe()
+        try:
+            # Send initial connection message
+            yield f"data: {json.dumps({'type': 'connected', 'message': 'SSE Connected'})}\n\n"
+            
+            while True:
+                message = await queue.get()
+                yield f"data: {json.dumps(message)}\n\n"
+        except asyncio.CancelledError:
+            await broadcaster.unsubscribe(queue)
+            
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 @app.get("/api/version")
 async def get_version():

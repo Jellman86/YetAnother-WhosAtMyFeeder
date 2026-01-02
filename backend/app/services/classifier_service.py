@@ -266,14 +266,30 @@ class ClassifierService:
 
     def _init_bird_model(self):
         """Initialize the bird classification model (loaded at startup)."""
-        model_path, labels_path = self._get_model_paths(
-            settings.classification.model,
-            "labels.txt"
-        )
+        # Use ModelManager to get active model paths
+        # Avoid circular import by importing here
+        from app.services.model_manager import model_manager
+        
+        model_path, labels_path, input_size = model_manager.get_active_model_paths()
+        
+        if not os.path.exists(model_path):
+             # Fallback to default if not found
+             model_path, labels_path = self._get_model_paths(
+                settings.classification.model,
+                "labels.txt"
+             )
 
+        log.info("Initializing bird model", path=model_path, input_size=input_size)
         bird_model = ModelInstance("bird", model_path, labels_path)
         bird_model.load()  # Load immediately for bird model
         self._models["bird"] = bird_model
+
+    def reload_bird_model(self):
+        """Reload the bird model (e.g., after switching models)."""
+        if "bird" in self._models:
+            del self._models["bird"]
+        self._init_bird_model()
+        log.info("Reloaded bird model")
 
     def _get_wildlife_model(self) -> ModelInstance:
         """Get or lazily load the wildlife model."""

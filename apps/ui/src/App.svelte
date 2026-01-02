@@ -52,6 +52,13 @@
       }
   }
 
+  // Refresh data when navigating back to dashboard
+  $effect(() => {
+    if (currentRoute === '/' || currentRoute === '') {
+        loadInitial();
+    }
+  });
+
   function connectSSE() {
       const evtSource = new EventSource('/api/sse');
 
@@ -63,16 +70,43 @@
                  connected = true;
                  console.log("SSE Connected:", payload.message);
              } else if (payload.type === 'detection') {
-                 const newDet = {
+                 const newDet: Detection = {
                      frigate_event: payload.data.frigate_event,
                      display_name: payload.data.display_name,
                      score: payload.data.score,
                      detection_time: payload.data.timestamp,
-                     camera_name: payload.data.camera
+                     camera_name: payload.data.camera,
+                     frigate_score: payload.data.frigate_score,
+                     sub_label: payload.data.sub_label
                  };
-                 // Add new detection and cap the array to prevent memory leak
-                 detections = [newDet, ...detections].slice(0, MAX_DASHBOARD_DETECTIONS);
-                 totalDetectionsToday++;
+                 // Add new detection if not already present (avoid duplicates from backfill/re-processing)
+                 if (!detections.some(d => d.frigate_event === newDet.frigate_event)) {
+                    detections = [newDet, ...detections].slice(0, MAX_DASHBOARD_DETECTIONS);
+                    totalDetectionsToday++;
+                 }
+             } else if (payload.type === 'detection_updated') {
+                 const updatedDet: Detection = {
+                     frigate_event: payload.data.frigate_event,
+                     display_name: payload.data.display_name,
+                     score: payload.data.score,
+                     detection_time: payload.data.timestamp,
+                     camera_name: payload.data.camera,
+                     frigate_score: payload.data.frigate_score,
+                     sub_label: payload.data.sub_label,
+                     is_hidden: payload.data.is_hidden
+                 };
+
+                 if (updatedDet.is_hidden) {
+                     // Remove if hidden
+                     detections = detections.filter(d => d.frigate_event !== updatedDet.frigate_event);
+                 } else {
+                     // Update in list if exists
+                     detections = detections.map(d => 
+                        d.frigate_event === updatedDet.frigate_event ? { ...d, ...updatedDet } : d
+                     );
+                 }
+             } else if (payload.type === 'detection_deleted') {
+                 handleDeleteDetection(payload.data.frigate_event);
              }
           } catch (e) {
               console.error("SSE Parse Error", e);

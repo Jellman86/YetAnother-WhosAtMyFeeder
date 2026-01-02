@@ -22,6 +22,7 @@
         type CacheCleanupResult
     } from '../api';
     import { theme, type Theme } from '../stores/theme';
+    import ModelManager from './models/ModelManager.svelte';
 
     let frigateUrl = $state('');
     let mqttServer = $state('');
@@ -566,136 +567,94 @@
                 🎯 Classification
             </h3>
 
-            <!-- Model Status -->
-            {#if classifierStatus}
-                <div class="mb-4 p-3 rounded-lg {classifierStatus.enabled
-                    ? 'bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800'
-                    : 'bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800'}">
-                    <div class="flex items-center justify-between">
-                        <div class="flex items-center gap-2">
-                            {#if classifierStatus.enabled}
-                                <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
-                                <span class="text-sm font-medium text-emerald-700 dark:text-emerald-400">
-                                    Model Loaded ({classifierStatus.labels_count} species)
-                                </span>
-                            {:else}
-                                <span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
-                                <span class="text-sm font-medium text-amber-700 dark:text-amber-400">
-                                    Classification Disabled
-                                </span>
-                            {/if}
-                        </div>
-                        {#if !classifierStatus.enabled}
-                            <button
-                                onclick={handleDownloadModel}
-                                disabled={downloadingModel}
-                                class="px-3 py-1.5 text-sm font-medium rounded-lg
-                                       bg-brand-500 hover:bg-brand-600 text-white
-                                       transition-colors disabled:opacity-50 flex items-center gap-2"
-                            >
-                                {#if downloadingModel}
-                                    <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                    </svg>
-                                    Downloading...
-                                {:else}
-                                    Download Default Model
-                                {/if}
-                            </button>
-                        {/if}
-                    </div>
-                    {#if classifierStatus.error && !downloadingModel}
-                        <p class="mt-2 text-xs text-amber-600 dark:text-amber-400">
-                            {classifierStatus.error}
-                        </p>
-                    {/if}
-                    {#if downloadingModel}
-                        <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">
-                            Downloading Google AIY Bird Classifier (~20MB)...
-                        </p>
-                    {/if}
-                </div>
-            {/if}
-
-            <div>
-                <label for="threshold" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                    Confidence Threshold: {(threshold * 100).toFixed(0)}%
-                </label>
-                <input
-                    id="threshold"
-                    type="range"
-                    min="0"
-                    max="1"
-                    step="0.05"
-                    bind:value={threshold}
-                    class="w-full h-2 rounded-lg appearance-none cursor-pointer
-                           bg-slate-200 dark:bg-slate-700
-                           accent-teal-500"
-                />
-                <div class="flex justify-between text-xs text-slate-500 dark:text-slate-400 mt-1">
-                    <span>0% (All)</span>
-                    <span>100% (Strict)</span>
-                </div>
+            <!-- Model Manager -->
+            <div class="mb-8">
+                <ModelManager />
             </div>
 
-            <!-- Blocked Labels -->
-            <div class="pt-4 border-t border-slate-200 dark:border-slate-700">
-                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                    Blocked Labels
-                </label>
-                <p class="text-xs text-slate-500 dark:text-slate-400 mb-3">
-                    Classification results matching these labels will be filtered out (e.g., "background", "unknown").
-                </p>
-
-                <!-- Add new label -->
-                <div class="flex gap-2 mb-3">
+            <!-- Legacy settings below -->
+            <div class="border-t border-slate-200 dark:border-slate-700 pt-6">
+                <h4 class="text-sm font-semibold text-slate-900 dark:text-white mb-4">Fine Tuning</h4>
+                
+                <div>
+                    <label for="threshold" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                        Confidence Threshold: {(threshold * 100).toFixed(0)}%
+                    </label>
                     <input
-                        type="text"
-                        bind:value={newBlockedLabel}
-                        placeholder="Enter label to block..."
-                        onkeydown={(e) => e.key === 'Enter' && addBlockedLabel()}
-                        class="flex-1 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600
-                               bg-white dark:bg-slate-700 text-slate-900 dark:text-white text-sm
-                               focus:ring-2 focus:ring-teal-500 focus:border-transparent
-                               placeholder:text-slate-400 dark:placeholder:text-slate-500"
+                        id="threshold"
+                        type="range"
+                        min="0"
+                        max="1"
+                        step="0.05"
+                        bind:value={threshold}
+                        class="w-full h-2 rounded-lg appearance-none cursor-pointer
+                               bg-slate-200 dark:bg-slate-700
+                               accent-teal-500"
                     />
-                    <button
-                        onclick={addBlockedLabel}
-                        disabled={!newBlockedLabel.trim()}
-                        class="px-4 py-2 text-sm font-medium rounded-lg
-                               bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300
-                               hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors
-                               disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        Add
-                    </button>
+                    <div class="flex justify-between text-xs text-slate-500 dark:text-slate-400 mt-1">
+                        <span>0% (All)</span>
+                        <span>100% (Strict)</span>
+                    </div>
                 </div>
 
-                <!-- Current blocked labels -->
-                {#if blockedLabels.length > 0}
-                    <div class="flex flex-wrap gap-2">
-                        {#each blockedLabels as label}
-                            <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm
-                                        bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400
-                                        border border-red-200 dark:border-red-800">
-                                {label}
-                                <button
-                                    onclick={() => removeBlockedLabel(label)}
-                                    class="w-4 h-4 rounded-full hover:bg-red-200 dark:hover:bg-red-800
-                                           flex items-center justify-center transition-colors"
-                                    title="Remove"
-                                >
-                                    <span class="text-xs">×</span>
-                                </button>
-                            </span>
-                        {/each}
-                    </div>
-                {:else}
-                    <p class="text-sm text-slate-400 dark:text-slate-500 italic">
-                        No labels blocked. Common ones to block: "background", "Background"
+                <!-- Blocked Labels -->
+                <div class="pt-4 mt-4 border-t border-slate-200 dark:border-slate-700">
+                    <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                        Blocked Labels
+                    </label>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 mb-3">
+                        Classification results matching these labels will be filtered out (e.g., "background", "unknown").
                     </p>
-                {/if}
+
+                    <!-- Add new label -->
+                    <div class="flex gap-2 mb-3">
+                        <input
+                            type="text"
+                            bind:value={newBlockedLabel}
+                            placeholder="Enter label to block..."
+                            onkeydown={(e) => e.key === 'Enter' && addBlockedLabel()}
+                            class="flex-1 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600
+                                   bg-white dark:bg-slate-700 text-slate-900 dark:text-white text-sm
+                                   focus:ring-2 focus:ring-teal-500 focus:border-transparent
+                                   placeholder:text-slate-400 dark:placeholder:text-slate-500"
+                        />
+                        <button
+                            onclick={addBlockedLabel}
+                            disabled={!newBlockedLabel.trim()}
+                            class="px-4 py-2 text-sm font-medium rounded-lg
+                                   bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300
+                                   hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors
+                                   disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            Add
+                        </button>
+                    </div>
+
+                    <!-- Current blocked labels -->
+                    {#if blockedLabels.length > 0}
+                        <div class="flex flex-wrap gap-2">
+                            {#each blockedLabels as label}
+                                <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm
+                                            bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400
+                                            border border-red-200 dark:border-red-800">
+                                    {label}
+                                    <button
+                                        onclick={() => removeBlockedLabel(label)}
+                                        class="w-4 h-4 rounded-full hover:bg-red-200 dark:hover:bg-red-800
+                                               flex items-center justify-center transition-colors"
+                                        title="Remove"
+                                    >
+                                        <span class="text-xs">×</span>
+                                    </button>
+                                </span>
+                            {/each}
+                        </div>
+                    {:else}
+                        <p class="text-sm text-slate-400 dark:text-slate-500 italic">
+                            No labels blocked. Common ones to block: "background", "Background"
+                        </p>
+                    {/if}
+                </div>
             </div>
         </section>
 

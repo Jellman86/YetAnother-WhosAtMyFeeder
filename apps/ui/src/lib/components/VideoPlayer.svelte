@@ -128,7 +128,7 @@
                     autoplay
                     playsinline
                     class="w-full h-full object-contain"
-                    onerror={handleError}
+                    onerror={(e) => handleError(e as any)}
                 >
                     <source src={clipUrl} type="video/mp4" />
                     <track kind="captions" />

@@ -12,6 +12,7 @@ from app.repositories.detection_repository import DetectionRepository
 from app.config import settings
 from app.services.classifier_service import get_classifier, ClassifierService
 from app.services.frigate_client import frigate_client
+from app.services.broadcaster import broadcaster
 
 router = APIRouter()
 log = structlog.get_logger()
@@ -173,6 +174,10 @@ async def delete_event(event_id: str):
         repo = DetectionRepository(db)
         deleted = await repo.delete_by_frigate_event(event_id)
         if deleted:
+            await broadcaster.broadcast({
+                "type": "detection_deleted",
+                "data": {"frigate_event": event_id}
+            })
             return {"status": "deleted", "event_id": event_id}
         raise HTTPException(status_code=404, detail="Detection not found")
 
@@ -193,6 +198,22 @@ async def toggle_hide_event(event_id: str):
 
         if new_status is None:
             raise HTTPException(status_code=404, detail="Detection not found")
+
+        detection = await repo.get_by_frigate_event(event_id)
+        if detection:
+            await broadcaster.broadcast({
+                "type": "detection_updated",
+                "data": {
+                    "frigate_event": event_id,
+                    "display_name": detection.display_name,
+                    "score": detection.score,
+                    "timestamp": detection.detection_time.isoformat(),
+                    "camera": detection.camera_name,
+                    "is_hidden": detection.is_hidden,
+                    "frigate_score": detection.frigate_score,
+                    "sub_label": detection.sub_label
+                }
+            })
 
         action = "hidden" if new_status else "unhidden"
         log.info(f"Detection {action}", event_id=event_id, is_hidden=new_status)
@@ -267,6 +288,21 @@ async def reclassify_event(event_id: str):
                      old_species=old_species,
                      new_species=new_species,
                      score=new_score)
+            
+            # Broadcast update
+            await broadcaster.broadcast({
+                "type": "detection_updated",
+                "data": {
+                    "frigate_event": event_id,
+                    "display_name": new_species,
+                    "score": new_score,
+                    "timestamp": detection.detection_time.isoformat(),
+                    "camera": detection.camera_name,
+                    "is_hidden": detection.is_hidden,
+                    "frigate_score": detection.frigate_score,
+                    "sub_label": detection.sub_label
+                }
+            })
 
         return ReclassifyResponse(
             status="success",
@@ -323,6 +359,21 @@ async def update_event(event_id: str, request: UpdateDetectionRequest):
                  event_id=event_id,
                  old_species=old_species,
                  new_species=new_species)
+
+        # Broadcast update
+        await broadcaster.broadcast({
+            "type": "detection_updated",
+            "data": {
+                "frigate_event": event_id,
+                "display_name": new_species,
+                "score": detection.score,
+                "timestamp": detection.detection_time.isoformat(),
+                "camera": detection.camera_name,
+                "is_hidden": detection.is_hidden,
+                "frigate_score": detection.frigate_score,
+                "sub_label": detection.sub_label
+            }
+        })
 
         return {
             "status": "updated",

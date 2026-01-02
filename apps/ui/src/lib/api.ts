@@ -474,3 +474,49 @@ export async function runCacheCleanup(): Promise<CacheCleanupResult> {
     const response = await fetch(`${API_BASE}/cache/cleanup`, { method: 'POST' });
     return handleResponse<CacheCleanupResult>(response);
 }
+
+// Model Manager types and functions
+export interface ModelMetadata {
+    id: string;
+    name: string;
+    description: string;
+    architecture: string;
+    file_size_mb: number;
+    accuracy_tier: string;
+    inference_speed: string;
+    download_url: string;
+    labels_url: string;
+    input_size: number;
+}
+
+export interface InstalledModel {
+    id: string;
+    path: string;
+    labels_path: string;
+    is_active: boolean;
+    metadata?: ModelMetadata;
+}
+
+export async function fetchAvailableModels(): Promise<ModelMetadata[]> {
+    const response = await fetch(`${API_BASE}/models/available`);
+    return handleResponse<ModelMetadata[]>(response);
+}
+
+export async function fetchInstalledModels(): Promise<InstalledModel[]> {
+    const response = await fetch(`${API_BASE}/models/installed`);
+    return handleResponse<InstalledModel[]>(response);
+}
+
+export async function downloadModel(modelId: string): Promise<{ status: string; message: string }> {
+    const response = await fetch(`${API_BASE}/models/${modelId}/download`, {
+        method: 'POST',
+    });
+    return handleResponse<{ status: string; message: string }>(response);
+}
+
+export async function activateModel(modelId: string): Promise<{ status: string; message: string }> {
+    const response = await fetch(`${API_BASE}/models/${modelId}/activate`, {
+        method: 'POST',
+    });
+    return handleResponse<{ status: string; message: string }>(response);
+}
