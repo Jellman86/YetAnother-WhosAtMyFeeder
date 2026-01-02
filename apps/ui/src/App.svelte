@@ -182,11 +182,11 @@
               onhide={handleHideDetection}
               onnavigate={navigate}
           />
-      {:else if currentRoute === '/events'}
+      {:else if currentRoute.startsWith('/events')}
           <Events />
-      {:else if currentRoute === '/species'}
+      {:else if currentRoute.startsWith('/species')}
           <Species />
-      {:else if currentRoute === '/settings'}
+      {:else if currentRoute.startsWith('/settings')}
            <Settings />
       {/if}
   </main>
