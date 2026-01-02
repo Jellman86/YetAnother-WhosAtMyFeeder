@@ -29,19 +29,17 @@ REMOTE_REGISTRY = [
     },
     {
         "id": "efficientnet_lite4_birds",
-        "name": "EfficientNet-Lite4 (High Res)",
-        "description": "High precision bird classifier. Best for detailed recognition on powerful hardware.",
-        "architecture": "EfficientNet-Lite4",
-        "file_size_mb": 13.0,
-        "accuracy_tier": "High",
+        "name": "EfficientNet-EdgeTPU (Large)",
+        "description": "High accuracy model (300x300 input). Significantly better detail recognition but slower inference.",
+        "architecture": "EfficientNet-EdgeTPU-L",
+        "file_size_mb": 11.8,
+        "accuracy_tier": "Very High",
         "inference_speed": "Slow",
-        "download_url": "https://raw.githubusercontent.com/tensorflow/tflite-support/master/tensorflow_lite_support/metadata/python/tests/testdata/image_classifier/efficientnet_lite0.tflite", # Fallback to lite0 for test stability if lite4 is gone, but let's try a better source.
-        # Using a reliable mirror or the official one if found. 
-        # Ideally: https://storage.googleapis.com/cloud-tpu-checkpoints/efficientnet/lite/efficientnet-lite4-int8.tflite
-        "download_url": "https://storage.googleapis.com/cloud-tpu-checkpoints/efficientnet/lite/efficientnet-lite4-int8.tflite",
-        "labels_url": "https://storage.googleapis.com/download.tensorflow.org/data/ImageNetLabels.txt",
+        "download_url": "https://raw.githubusercontent.com/google-coral/test_data/master/efficientnet-edgetpu-L_quant.tflite",
+        "labels_url": "https://raw.githubusercontent.com/google-coral/test_data/master/inat_bird_labels.txt",
         "input_size": 300
     }
+]
 ]
 
 MODELS_DIR = "/data/models"
