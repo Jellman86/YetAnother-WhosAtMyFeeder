@@ -446,10 +446,9 @@ class ClassifierService:
                 return []
 
             frame_count = 0
-            processed_count = 0
-            cumulative_scores = None # Will be initialized on first valid frame
+            all_scores = []
 
-            while processed_count < max_frames:
+            while len(all_scores) < max_frames:
                 ret, frame = cap.read()
                 if not ret:
                     break
@@ -464,34 +463,34 @@ class ClassifierService:
                     scores = bird_model.classify_raw(image)
                     
                     if len(scores) > 0:
-                        if cumulative_scores is None:
-                            cumulative_scores = scores
-                        else:
-                            # Accumulate scores (Soft Voting)
-                            # Ensure dimensions match (they should if model doesn't change)
-                            if len(scores) == len(cumulative_scores):
-                                cumulative_scores += scores
-                        
-                        processed_count += 1
+                        all_scores.append(scores)
 
                 frame_count += 1
 
             cap.release()
 
-            if cumulative_scores is None:
+            if not all_scores:
                 log.warning("No frames processed from video")
                 return []
 
-            # Normalize aggregated scores
-            if processed_count > 0:
-                cumulative_scores = cumulative_scores / processed_count
+            # Top-K Average (Representative Score Logic)
+            # This focuses on the 'best looks' the model got at the bird.
+            processed_count = len(all_scores)
+            scores_matrix = np.vstack(all_scores)
+            
+            # Use top 5 frames (or all if fewer than 5)
+            k = min(processed_count, 5)
+            
+            # For each class, sort and take the average of the top K scores
+            top_k_per_class = np.sort(scores_matrix, axis=0)[-k:]
+            representative_scores = np.mean(top_k_per_class, axis=0)
 
-            # Create standard classification list from aggregated scores
-            top_k = cumulative_scores.argsort()[-5:][::-1]
+            # Create standard classification list from representative scores
+            top_indices = representative_scores.argsort()[-5:][::-1]
             
             classifications = []
-            for i in top_k:
-                score = float(cumulative_scores[i])
+            for i in top_indices:
+                score = float(representative_scores[i])
                 label = bird_model.labels[i] if i < len(bird_model.labels) else f"Class {i}"
                 classifications.append({
                     "index": int(i),
@@ -499,8 +498,9 @@ class ClassifierService:
                     "label": label
                 })
             
-            log.info(f"Video classification complete. Processed {processed_count} frames.", 
-                     top_result=classifications[0]['label'] if classifications else None)
+            log.info(f"Video classification complete (Top-K). Analyzed {processed_count} frames.", 
+                     top_result=classifications[0]['label'] if classifications else None,
+                     top_score=round(classifications[0]['score'], 3))
             
             return classifications
 
