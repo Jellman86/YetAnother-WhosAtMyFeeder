@@ -6,16 +6,12 @@
         getThumbnailUrl,
         hideDetection,
         deleteDetection,
-        fetchSpecies,
-        checkClipAvailable,
         fetchClassifierLabels,
         reclassifyDetection,
         updateDetectionSpecies,
         fetchHiddenCount,
         fetchEventsCount,
         analyzeDetection,
-        classifyWildlife,
-        type WildlifeClassification,
         type Detection,
         type EventFilters
     } from '../api';
@@ -63,14 +59,14 @@
     let selectedSpecies = $state<string | null>(null);
     let classifierLabels = $state<string[]>([]);
     let tagSearchQuery = $state('');
-    let quickRetagEvent = $state<Detection | null>(null);
-    let quickRetagSearchQuery = $state('');
-    let quickReclassifying = $state<string | null>(null);
-    let classifyingWildlife = $state(false);
-    let showWildlifeResults = $state(false);
-    let wildlifeResults = $state<WildlifeClassification[]>([]);
-    let aiAnalysis = $state<string | null>(null);
-    let showVideo = $state(false);
+    let showTagDropdown = $state(false);
+    let updatingTag = $state(false);
+
+    let filteredLabels = $derived(
+        classifierLabels.filter(l => 
+            l.toLowerCase().includes(tagSearchQuery.toLowerCase())
+        ).slice(0, 50)
+    );
 
     let modalReclassifyProgress = $derived(selectedEvent ? detectionsStore.getReclassificationProgress(selectedEvent.frigate_event) : undefined);
     let modalPrimaryName = $derived(selectedEvent ? (preferScientific ? (selectedEvent.scientific_name || selectedEvent.display_name) : (selectedEvent.common_name || selectedEvent.display_name)) : '');
@@ -104,7 +100,11 @@
         if (params.get('species')) speciesFilter = params.get('species')!;
         if (params.get('date')) datePreset = params.get('date') as any;
         try {
-            const [filters, labels, hidden] = await Promise.all([fetchEventFilters(), fetchClassifierLabels().catch(() => ({labels:[]})), fetchHiddenCount().catch(() => ({hidden_count:0}))]);
+            const [filters, labels, hidden] = await Promise.all([
+                fetchEventFilters(), 
+                fetchClassifierLabels().catch(() => ({labels:[]})), 
+                fetchHiddenCount().catch(() => ({hidden_count:0}))
+            ]);
             availableSpecies = (filters as EventFilters).species;
             availableCameras = (filters as EventFilters).cameras;
             classifierLabels = labels.labels;
@@ -113,9 +113,38 @@
         await loadEvents();
     });
 
+    // Reset state when switching events
+    $effect(() => {
+        if (selectedEvent) {
+            showTagDropdown = false;
+            tagSearchQuery = '';
+        }
+    });
+
     async function handleReclassify() {
         if (!selectedEvent) return;
-        try { await reclassifyDetection(selectedEvent.frigate_event, selectedEvent.has_clip ? 'video' : 'snapshot'); } catch (e: any) { alert(e.message || 'Failed'); }
+        try { 
+            await reclassifyDetection(selectedEvent.frigate_event, selectedEvent.has_clip ? 'video' : 'snapshot'); 
+        } catch (e: any) { 
+            alert(e.message || 'Failed'); 
+        }
+    }
+
+    async function handleManualTag(newSpecies: string) {
+        if (!selectedEvent) return;
+        updatingTag = true;
+        try {
+            await updateDetectionSpecies(selectedEvent.frigate_event, newSpecies);
+            selectedEvent.display_name = newSpecies;
+            // Update local list
+            events = events.map(e => e.frigate_event === selectedEvent?.frigate_event ? { ...e, display_name: newSpecies } : e);
+            detectionsStore.updateDetection({ ...selectedEvent, display_name: newSpecies });
+            showTagDropdown = false;
+        } catch (e) {
+            console.error('Failed to update species', e);
+        } finally {
+            updatingTag = false;
+        }
     }
 
     async function handleHide() {
@@ -142,6 +171,8 @@
             selectedEvent = null;
         } catch {} finally { deleting = false; }
     }
+
+    let showVideo = $state(false);
 </script>
 
 <div class="space-y-6">
@@ -196,9 +227,54 @@
                     <div class="h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden"><div class="h-full rounded-full transition-all duration-700 {selectedEvent.score >= 0.8 ? 'bg-emerald-500' : 'bg-teal-500'}" style="width: {selectedEvent.score * 100}%"></div></div>
                 </div>
                 <div class="flex gap-2">
-                    <button onclick={handleReclassify} class="flex-1 py-3 px-4 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold rounded-xl hover:bg-slate-200 transition-colors">Reclassify</button>
-                    <button onclick={handleHide} class="p-3 bg-slate-100 dark:bg-slate-700 text-slate-600 rounded-xl hover:bg-slate-200"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" /></svg></button>
-                    <button onclick={handleDelete} class="p-3 bg-red-50 dark:bg-red-900/20 text-red-600 rounded-xl hover:bg-red-100"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>
+                    <button 
+                        onclick={handleReclassify} 
+                        class="flex-1 py-3 px-4 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold rounded-xl hover:bg-slate-200 transition-colors"
+                    >
+                        Reclassify
+                    </button>
+                    
+                    <div class="relative flex-1">
+                        <button 
+                            onclick={() => showTagDropdown = !showTagDropdown} 
+                            disabled={updatingTag}
+                            class="w-full py-3 px-4 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold rounded-xl hover:bg-slate-200 transition-colors disabled:opacity-50"
+                        >
+                            {updatingTag ? 'Updating...' : 'Manual Tag'}
+                        </button>
+
+                        {#if showTagDropdown}
+                            <div class="absolute bottom-full left-0 right-0 mb-3 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 max-h-80 overflow-hidden z-50 animate-in fade-in slide-in-from-bottom-2">
+                                <div class="p-3 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50">
+                                    <input 
+                                        type="text" 
+                                        bind:value={tagSearchQuery} 
+                                        placeholder="Search species..." 
+                                        class="w-full px-4 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none"
+                                        onclick={(e) => e.stopPropagation()}
+                                    />
+                                </div>
+                                <div class="max-h-56 overflow-y-auto p-1">
+                                    {#each filteredLabels as label}
+                                        <button 
+                                            onclick={() => handleManualTag(label)}
+                                            class="w-full px-4 py-2.5 text-left text-sm font-medium rounded-lg transition-all hover:bg-teal-50 dark:hover:bg-teal-900/20 hover:text-teal-600 dark:hover:text-teal-400 {label === selectedEvent?.display_name ? 'bg-teal-500/10 text-teal-600 font-bold' : 'text-slate-600 dark:text-slate-300'}"
+                                        >
+                                            {label}
+                                        </button>
+                                    {/each}
+                                    {#if filteredLabels.length === 0}
+                                        <p class="px-4 py-6 text-sm text-slate-400 italic text-center">No matching species found</p>
+                                    {/if}
+                                </div>
+                            </div>
+                        {/if}
+                    </div>
+                </div>
+                <div class="flex gap-2">
+                    <button onclick={handleHide} class="p-3 rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-600 hover:bg-slate-200 transition-colors" title="Hide Detection"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" /></svg></button>
+                    <button onclick={handleDelete} class="p-3 rounded-xl bg-red-50 dark:bg-red-900/20 text-red-600 hover:bg-red-100 transition-colors" title="Delete Detection"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>
+                    <button onclick={() => { selectedSpecies = selectedEvent?.display_name ?? null; selectedEvent = null; }} class="flex-1 bg-teal-500 hover:bg-teal-600 text-white font-black uppercase tracking-widest text-xs rounded-xl transition-all shadow-lg shadow-teal-500/20">Species Info</button>
                 </div>
             </div>
         </div>
