@@ -3,29 +3,31 @@
     import {
         fetchEvents,
         fetchEventFilters,
-        fetchEventsCount,
-        fetchHiddenCount,
-        deleteDetection,
+        getThumbnailUrl,
         hideDetection,
+        deleteDetection,
+        fetchSpecies,
+        checkClipAvailable,
         fetchClassifierLabels,
         reclassifyDetection,
         updateDetectionSpecies,
-        classifyWildlife,
+        fetchHiddenCount,
+        fetchEventsCount,
         analyzeDetection,
-        fetchSettings,
-        type Detection,
+        classifyWildlife,
         type WildlifeClassification,
-        getThumbnailUrl,
+        type Detection,
         type EventFilters
     } from '../api';
-    import { detectionsStore } from '../stores/detections.svelte.ts';
+    import { detectionsStore } from '../stores/detections.svelte';
     import { settingsStore } from '../stores/settings';
-    import DetectionCard from '../components/DetectionCard.svelte';
+    
     import Pagination from '../components/Pagination.svelte';
+    import DetectionCard from '../components/DetectionCard.svelte';
     import SpeciesDetailModal from '../components/SpeciesDetailModal.svelte';
     import VideoPlayer from '../components/VideoPlayer.svelte';
 
-    let events: Detection[] = $state([]);
+    let events = $state<Detection[]>([]);
     let loading = $state(true);
     let error = $state<string | null>(null);
     let deleting = $state(false);

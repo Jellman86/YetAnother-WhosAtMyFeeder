@@ -14,6 +14,8 @@ class DailySpeciesSummary(BaseModel):
     species: str
     count: int
     latest_event: str # Used for thumbnail
+    scientific_name: str | None = None
+    common_name: str | None = None
 
 class DailySummaryResponse(BaseModel):
     hourly_distribution: List[int]

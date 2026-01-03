@@ -2,6 +2,7 @@
     import type { Detection } from '../api';
     import { getThumbnailUrl } from '../api';
     import { detectionsStore } from '../stores/detections.svelte';
+    import { settingsStore } from '../stores/settings';
     import ReclassificationOverlay from './ReclassificationOverlay.svelte';
 
     interface Props {
@@ -88,13 +89,43 @@
         return 'border-red-500/30';
     }
 
-    // Content logic
+    // Dynamic Naming Logic
+    let primaryName = $derived.by(() => {
+        // Default to display_name (what came from DB)
+        let main = detection.display_name;
+        
+        // If we have taxonomy data, check settings
+        if (detection.scientific_name || detection.common_name) {
+             const preferScientific = $settingsStore?.scientific_name_primary ?? false;
+             
+             if (preferScientific) {
+                 main = detection.scientific_name || detection.display_name;
+             } else {
+                 main = detection.common_name || detection.display_name;
+             }
+        }
+        return main;
+    });
+
     let subName = $derived.by(() => {
+        // If no taxonomy data, no sublabel
         if (!detection.scientific_name && !detection.common_name) return null;
-        const other = detection.display_name === detection.common_name 
-            ? detection.scientific_name 
-            : detection.common_name;
-        return (other && other !== detection.display_name) ? other : null;
+        
+        const preferScientific = $settingsStore?.scientific_name_primary ?? false;
+        let secondary = null;
+        
+        if (preferScientific) {
+             // If main is scientific, sub is common
+             secondary = detection.common_name;
+        } else {
+             // If main is common, sub is scientific
+             secondary = detection.scientific_name;
+        }
+        
+        // Don't show if same as primary or null
+        if (!secondary || secondary === primaryName) return null;
+        
+        return secondary;
     });
 
     let isVerified = $derived(detection.audio_confirmed && detection.score > 0.7);
@@ -224,8 +255,8 @@
         <!-- Title & Taxonomy -->
         <div>
             <div class="flex items-center justify-between gap-2">
-                <h3 class="text-xl font-black text-slate-900 dark:text-white truncate tracking-tight leading-tight" title={detection.display_name}>
-                    {detection.display_name}
+                <h3 class="text-xl font-black text-slate-900 dark:text-white truncate tracking-tight leading-tight" title={primaryName}>
+                    {primaryName}
                 </h3>
             </div>
             {#if subName}

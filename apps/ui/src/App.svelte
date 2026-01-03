@@ -9,7 +9,8 @@
   import { fetchEvents, fetchEventsCount, type Detection } from './lib/api';
   import { theme } from './lib/stores/theme';
   import { settingsStore } from './lib/stores/settings';
-  import { detectionsStore } from './lib/stores/detections.svelte.ts';
+  import { detectionsStore } from './lib/stores/detections.svelte';
+
 
   // Router state
   let currentRoute = $state('/');
@@ -218,15 +219,9 @@
 
   <!-- Main Content -->
   <main class="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
-      {#if currentRoute === '/' || currentRoute === ''}
-          <Dashboard
-              detections={detectionsStore.detections}
-              totalDetectionsToday={detectionsStore.totalToday}
-              ondelete={(id) => detectionsStore.removeDetection(id)}
-              onhide={(id) => detectionsStore.removeDetection(id)}
-              onnavigate={navigate}
-          />
-      {:else if currentRoute.startsWith('/events')}
+      {#if currentRoute === '/'} 
+          <Dashboard onnavigate={navigate} />
+      {:else if currentRoute === '/events'}
           <Events />
       {:else if currentRoute.startsWith('/species')}
           <Species />

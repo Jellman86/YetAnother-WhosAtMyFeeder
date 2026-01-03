@@ -41,6 +41,7 @@
     let threshold = $state(0.7);
     let trustFrigateSublabel = $state(true);
     let displayCommonNames = $state(true);
+    let scientificNamePrimary = $state(false);
     let selectedCameras = $state<string[]>([]);
     let retentionDays = $state(0);
     let blockedLabels = $state<string[]>([]);
@@ -269,6 +270,7 @@
             threshold = settings.classification_threshold;
             trustFrigateSublabel = settings.trust_frigate_sublabel ?? true;
             displayCommonNames = settings.display_common_names ?? true;
+            scientificNamePrimary = settings.scientific_name_primary ?? false;
             selectedCameras = settings.cameras || [];
             retentionDays = settings.retention_days || 0;
             blockedLabels = settings.blocked_labels || [];
@@ -327,6 +329,7 @@
                 classification_threshold: threshold,
                 trust_frigate_sublabel: trustFrigateSublabel,
                 display_common_names: displayCommonNames,
+                scientific_name_primary: scientificNamePrimary,
                 cameras: selectedCameras,
                 retention_days: retentionDays,
                 blocked_labels: blockedLabels,
@@ -868,6 +871,26 @@
                     <div>
                         <span class="block text-sm font-medium text-slate-700 dark:text-slate-300">Display Common Names</span>
                         <span class="block text-xs text-slate-500 dark:text-slate-400">Automatically look up and display friendly common names for scientific labels.</span>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-3 mb-6 p-3 bg-teal-500/5 dark:bg-teal-500/10 rounded-xl border border-teal-500/20">
+                    <button
+                        role="switch"
+                        aria-checked={scientificNamePrimary}
+                        aria-label="Scientific Name Primary"
+                        onclick={() => scientificNamePrimary = !scientificNamePrimary}
+                        class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2
+                               {scientificNamePrimary ? 'bg-teal-500' : 'bg-slate-200 dark:bg-slate-600'}"
+                    >
+                        <span
+                            class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out
+                                   {scientificNamePrimary ? 'translate-x-5' : 'translate-x-0'}"
+                        ></span>
+                    </button>
+                    <div>
+                        <span class="block text-sm font-medium text-slate-700 dark:text-slate-300">Scientific Name Primary</span>
+                        <span class="block text-xs text-slate-500 dark:text-slate-400">If enabled, the Scientific Name will be the main title, and Common Name will be the subtitle.</span>
                     </div>
                 </div>
 

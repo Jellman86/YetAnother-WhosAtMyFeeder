@@ -48,6 +48,10 @@ class ClassificationSettings(BaseModel):
         default=True,
         description="Display common names instead of scientific names when available"
     )
+    scientific_name_primary: bool = Field(
+        default=False,
+        description="Show scientific name as the primary label in UI"
+    )
     # Wildlife/general animal model settings
     wildlife_model: str = Field(default="wildlife_model.tflite", description="Wildlife classification model file")
     wildlife_labels: str = Field(default="wildlife_labels.txt", description="Wildlife labels file")
@@ -122,7 +126,8 @@ class Settings(BaseSettings):
             'blocked_labels': [],
             'unknown_bird_labels': ["background", "Background"],
             'trust_frigate_sublabel': True,
-            'display_common_names': True
+            'display_common_names': True,
+            'scientific_name_primary': False
         }
 
         # Media cache settings
@@ -204,7 +209,8 @@ class Settings(BaseSettings):
                  blocked_labels=classification_data['blocked_labels'],
                  unknown_bird_labels=classification_data['unknown_bird_labels'],
                  trust_frigate_sublabel=classification_data['trust_frigate_sublabel'],
-                 display_common_names=classification_data['display_common_names'])
+                 display_common_names=classification_data['display_common_names'],
+                 scientific_name_primary=classification_data['scientific_name_primary'])
         log.info("Media cache config",
                  enabled=media_cache_data['enabled'],
                  cache_snapshots=media_cache_data['cache_snapshots'],

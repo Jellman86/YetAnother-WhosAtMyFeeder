@@ -51,6 +51,7 @@ export interface Settings {
     blocked_labels: string[];
     trust_frigate_sublabel: boolean;
     display_common_names: boolean;
+    scientific_name_primary: boolean;
     // Media cache settings
     media_cache_enabled: boolean;
     media_cache_snapshots: boolean;
@@ -83,6 +84,7 @@ export interface SettingsUpdate {
     blocked_labels: string[];
     trust_frigate_sublabel: boolean;
     display_common_names: boolean;
+    scientific_name_primary?: boolean;
     // Media cache settings
     media_cache_enabled: boolean;
     media_cache_snapshots: boolean;
@@ -605,6 +607,8 @@ export interface DailySpeciesSummary {
     species: string;
     count: number;
     latest_event: string;
+    scientific_name?: string | null;
+    common_name?: string | null;
 }
 
 export interface DailySummary {
