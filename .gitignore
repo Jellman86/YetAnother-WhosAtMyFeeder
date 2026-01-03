@@ -188,6 +188,7 @@ cython_debug/
 agents/
 
 # Models and data
+backend/data/*.db
 backend/data/models/**/*.onnx.data
 backend/data/models/**/*.tflite
 backend/data/models/**/*.onnx
