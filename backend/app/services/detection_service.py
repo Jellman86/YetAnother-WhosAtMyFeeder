@@ -5,6 +5,7 @@ from app.repositories.detection_repository import DetectionRepository, Detection
 from app.services.classifier_service import ClassifierService
 from app.services.frigate_client import frigate_client
 from app.services.broadcaster import broadcaster
+from app.services.taxonomy.taxonomy_service import taxonomy_service
 from app.database import get_db
 
 log = structlog.get_logger()
@@ -94,11 +95,25 @@ class DetectionService:
         Save or update a detection in the database and broadcast the event.
         Returns True if a change was made (insert or update).
         """
+        # 1. Normalize names (Bidirectional Scientific <-> Common)
+        label = classification['label']
+        taxonomy = await taxonomy_service.get_names(label)
+        
+        scientific_name = taxonomy.get("scientific_name") or label
+        common_name = taxonomy.get("common_name")
+        taxa_id = taxonomy.get("taxa_id")
+
+        # 2. Determine display name based on user preference
+        display_name = label
+        if settings.classification.display_common_names and common_name:
+            display_name = common_name
+        elif not settings.classification.display_common_names and scientific_name:
+            display_name = scientific_name
+
         async with get_db() as db:
             repo = DetectionRepository(db)
 
             score = classification['score']
-            display_name = classification['label']
             category_name = classification['label']
             timestamp = datetime.fromtimestamp(start_time)
 
@@ -116,7 +131,10 @@ class DetectionService:
                 audio_species=audio_species,
                 audio_score=audio_score,
                 temperature=temperature,
-                weather_condition=weather_condition
+                weather_condition=weather_condition,
+                scientific_name=scientific_name,
+                common_name=common_name,
+                taxa_id=taxa_id
             )
 
             # Atomic upsert: insert or update only if score is higher
@@ -126,6 +144,7 @@ class DetectionService:
                 log.info("Saved detection", 
                          event_id=frigate_event, 
                          species=display_name, 
+                         scientific=scientific_name,
                          score=score,
                          frigate_score=frigate_score,
                          audio_confirmed=audio_confirmed,
@@ -137,6 +156,9 @@ class DetectionService:
                     "data": {
                         "frigate_event": frigate_event,
                         "display_name": display_name,
+                        "scientific_name": scientific_name,
+                        "common_name": common_name,
+                        "taxa_id": taxa_id,
                         "score": score,
                         "timestamp": timestamp.isoformat(),
                         "camera": camera,

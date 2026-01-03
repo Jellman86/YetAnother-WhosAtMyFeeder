@@ -44,6 +44,10 @@ class ClassificationSettings(BaseModel):
         default=True,
         description="Fall back to Frigate sublabel when YA-WAMF classification fails threshold"
     )
+    display_common_names: bool = Field(
+        default=True,
+        description="Display common names instead of scientific names when available"
+    )
     # Wildlife/general animal model settings
     wildlife_model: str = Field(default="wildlife_model.tflite", description="Wildlife classification model file")
     wildlife_labels: str = Field(default="wildlife_labels.txt", description="Wildlife labels file")
@@ -117,7 +121,8 @@ class Settings(BaseSettings):
             'min_confidence': 0.4,
             'blocked_labels': [],
             'unknown_bird_labels': ["background", "Background"],
-            'trust_frigate_sublabel': True
+            'trust_frigate_sublabel': True,
+            'display_common_names': True
         }
 
         # Media cache settings
@@ -198,7 +203,8 @@ class Settings(BaseSettings):
                  min_confidence=classification_data['min_confidence'],
                  blocked_labels=classification_data['blocked_labels'],
                  unknown_bird_labels=classification_data['unknown_bird_labels'],
-                 trust_frigate_sublabel=classification_data['trust_frigate_sublabel'])
+                 trust_frigate_sublabel=classification_data['trust_frigate_sublabel'],
+                 display_common_names=classification_data['display_common_names'])
         log.info("Media cache config",
                  enabled=media_cache_data['enabled'],
                  cache_snapshots=media_cache_data['cache_snapshots'],

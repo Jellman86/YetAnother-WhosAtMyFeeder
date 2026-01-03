@@ -46,6 +46,7 @@ export interface Settings {
     retention_days: number;
     blocked_labels: string[];
     trust_frigate_sublabel: boolean;
+    display_common_names: boolean;
     // Media cache settings
     media_cache_enabled: boolean;
     media_cache_snapshots: boolean;
@@ -77,6 +78,7 @@ export interface SettingsUpdate {
     retention_days: number;
     blocked_labels: string[];
     trust_frigate_sublabel: boolean;
+    display_common_names: boolean;
     // Media cache settings
     media_cache_enabled: boolean;
     media_cache_snapshots: boolean;
