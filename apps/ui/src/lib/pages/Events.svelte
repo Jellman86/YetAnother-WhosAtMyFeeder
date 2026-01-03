@@ -29,15 +29,6 @@
     let deleting = $state(false);
     let hiding = $state(false);
 
-    // Reactive state for settings
-    let preferScientific = $state(false);
-    $effect(() => {
-        const unsubscribe = settingsStore.subscribe(s => {
-            preferScientific = s?.scientific_name_primary ?? false;
-        });
-        return unsubscribe;
-    });
-
     // Filters and state
     let showHidden = $state(false);
     let hiddenCount = $state(0);
@@ -69,8 +60,8 @@
     );
 
     let modalReclassifyProgress = $derived(selectedEvent ? detectionsStore.getReclassificationProgress(selectedEvent.frigate_event) : undefined);
-    let modalPrimaryName = $derived(selectedEvent ? (preferScientific ? (selectedEvent.scientific_name || selectedEvent.display_name) : (selectedEvent.common_name || selectedEvent.display_name)) : '');
-    let modalSubName = $derived(selectedEvent ? (preferScientific ? selectedEvent.common_name : selectedEvent.scientific_name) : null);
+    let modalPrimaryName = $derived(selectedEvent ? (($settingsStore?.scientific_name_primary ?? false) ? (selectedEvent.scientific_name || selectedEvent.display_name) : (selectedEvent.common_name || selectedEvent.display_name)) : '');
+    let modalSubName = $derived(selectedEvent ? (($settingsStore?.scientific_name_primary ?? false) ? selectedEvent.common_name : selectedEvent.scientific_name) : null);
 
     let dateRange = $derived.by(() => {
         const today = new Date();

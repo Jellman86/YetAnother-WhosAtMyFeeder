@@ -26,6 +26,13 @@
     let deleting = $state(false);
     let hiding = $state(false);
 
+    // AI Analysis state
+    let analyzingAI = $state(false);
+    let aiAnalysis = $state<string | null>(null);
+
+    // Video playback state
+    let showVideo = $state(false);
+
     // Manual Tag state
     let classifierLabels = $state<string[]>([]);
     let tagSearchQuery = $state('');
@@ -38,24 +45,6 @@
         ).slice(0, 50)
     );
 
-    // Reactive state for settings
-    let preferScientific = $state(false);
-    let llmEnabled = $state(false);
-    $effect(() => {
-        const unsubscribe = settingsStore.subscribe(s => {
-            preferScientific = s?.scientific_name_primary ?? false;
-            llmEnabled = s?.llm_enabled ?? false;
-        });
-        return unsubscribe;
-    });
-
-    // AI Analysis state
-    let analyzingAI = $state(false);
-    let aiAnalysis = $state<string | null>(null);
-
-    // Video playback state
-    let showVideo = $state(false);
-
     // Derive the hero detection (latest one)
     let heroDetection = $derived(detectionsStore.detections[0] || summary?.latest_detection || null);
 
@@ -66,10 +55,10 @@
 
     // Derive naming logic for the modal
     let modalPrimaryName = $derived(
-        selectedEvent ? (preferScientific ? (selectedEvent.scientific_name || selectedEvent.display_name) : (selectedEvent.common_name || selectedEvent.display_name)) : ''
+        selectedEvent ? (($settingsStore?.scientific_name_primary ?? false) ? (selectedEvent.scientific_name || selectedEvent.display_name) : (selectedEvent.common_name || selectedEvent.display_name)) : ''
     );
     let modalSubName = $derived(
-        selectedEvent ? (preferScientific ? selectedEvent.common_name : selectedEvent.scientific_name) : null
+        selectedEvent ? (($settingsStore?.scientific_name_primary ?? false) ? selectedEvent.common_name : selectedEvent.scientific_name) : null
     );
 
     // Derive audio confirmations count from recent detections
@@ -344,7 +333,7 @@
                 <div class="flex gap-2 pt-2">
                     <button onclick={handleDelete} class="p-3 rounded-xl bg-red-50 dark:bg-red-900/20 text-red-600 hover:bg-red-100 transition-colors" title="Delete Detection"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>
                     <button onclick={handleHide} class="p-3 rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-600 hover:bg-slate-200 transition-colors" title="Hide Detection"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" /></svg></button>
-                    <button onclick={() => { selectedSpecies = selectedEvent?.display_name ?? null; selectedEvent = null; }} class="flex-1 bg-teal-500 hover:bg-teal-600 text-white font-black uppercase tracking-widest text-xs rounded-xl transition-all shadow-lg shadow-teal-500/20">Species Details</button>
+                    <button onclick={() => { selectedSpecies = selectedEvent?.display_name ?? null; selectedEvent = null; }} class="flex-1 bg-teal-500 hover:bg-teal-600 text-white font-black uppercase tracking-widest text-xs rounded-xl transition-all shadow-lg shadow-teal-500/20">Species Info</button>
                 </div>
             </div>
         </div>

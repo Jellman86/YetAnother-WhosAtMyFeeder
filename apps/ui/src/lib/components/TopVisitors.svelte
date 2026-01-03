@@ -9,15 +9,6 @@
     }
 
     let { species, onSpeciesClick }: Props = $props();
-
-    // Reactive state for settings
-    let preferScientific = $state(false);
-    $effect(() => {
-        const unsubscribe = settingsStore.subscribe(s => {
-            preferScientific = s?.scientific_name_primary ?? false;
-        });
-        return unsubscribe;
-    });
 </script>
 
 <div class="space-y-4">
@@ -27,11 +18,12 @@
 
     <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
         {#each species as item}
-            {@const displayName = preferScientific 
+            {@const preferSci = $settingsStore?.scientific_name_primary ?? false}
+            {@const displayName = preferSci
                 ? (item.scientific_name || item.species) 
                 : (item.common_name || item.species)}
             
-            {@const subTitle = preferScientific 
+            {@const subTitle = preferSci 
                 ? (item.common_name && item.common_name !== item.species ? item.common_name : null)
                 : (item.scientific_name && item.scientific_name !== item.species ? item.scientific_name : null)}
             

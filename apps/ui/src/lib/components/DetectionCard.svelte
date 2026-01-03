@@ -23,15 +23,6 @@
     let cardElement = $state<HTMLElement | null>(null);
     let isVisible = $state(false);
 
-    // Reactive state for settings
-    let preferScientific = $state(false);
-    $effect(() => {
-        const unsubscribe = settingsStore.subscribe(s => {
-            preferScientific = s?.scientific_name_primary ?? false;
-        });
-        return unsubscribe;
-    });
-
     function handleReclassifyClick(event: MouseEvent) {
         event.stopPropagation();
         onReclassify?.(detection);
@@ -97,9 +88,9 @@
     }
 
     // Dynamic Naming Logic
-    let primaryName = $derived(preferScientific ? (detection.scientific_name || detection.display_name) : (detection.common_name || detection.display_name));
+    let primaryName = $derived(($settingsStore?.scientific_name_primary ?? false) ? (detection.scientific_name || detection.display_name) : (detection.common_name || detection.display_name));
     let subName = $derived.by(() => {
-        const other = preferScientific ? detection.common_name : detection.scientific_name;
+        const other = ($settingsStore?.scientific_name_primary ?? false) ? detection.common_name : detection.scientific_name;
         return (other && other !== primaryName) ? other : null;
     });
 
