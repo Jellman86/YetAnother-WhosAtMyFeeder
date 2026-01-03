@@ -26,6 +26,7 @@
     import DetectionCard from '../components/DetectionCard.svelte';
     import SpeciesDetailModal from '../components/SpeciesDetailModal.svelte';
     import VideoPlayer from '../components/VideoPlayer.svelte';
+    import ReclassificationOverlay from '../components/ReclassificationOverlay.svelte';
 
     let events = $state<Detection[]>([]);
     let loading = $state(true);
@@ -91,6 +92,11 @@
 
     // Derive hasClip from selected event
     let selectedHasClip = $derived(selectedEvent?.has_clip ?? false);
+
+    // Derive reclassification progress for the modal
+    let modalReclassifyProgress = $derived(
+        selectedEvent ? detectionsStore.getReclassificationProgress(selectedEvent.frigate_event) : undefined
+    );
 
     // Computed date range based on preset
     let dateRange = $derived.by(() => {
@@ -882,6 +888,11 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                     </svg>
                 </button>
+
+                <!-- Reclassification Overlay -->
+                {#if modalReclassifyProgress}
+                    <ReclassificationOverlay progress={modalReclassifyProgress} />
+                {/if}
             </div>
 
             <div class="p-5">
