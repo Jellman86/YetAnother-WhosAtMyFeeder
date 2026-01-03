@@ -156,8 +156,9 @@ class EventProcessor:
             if score > settings.classification.threshold or audio_confirmed:
                 await frigate_client.set_sublabel(frigate_event, label)
 
+        except json.JSONDecodeError as e:
+            log.error("Invalid JSON payload", error=str(e))
         except Exception as e:
-            log.error("Error processing event", event=frigate_event, error=str(e))
-
-        except json.JSONDecodeError:
-            log.error("Invalid JSON payload")
+            # frigate_event may not be defined if error occurred early
+            event_id = locals().get('frigate_event', 'unknown')
+            log.error("Error processing event", event=event_id, error=str(e), exc_info=True)

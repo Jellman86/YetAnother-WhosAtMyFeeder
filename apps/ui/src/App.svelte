@@ -19,6 +19,12 @@
       window.history.pushState(null, '', path);
   }
 
+  // SSE connection management
+  let evtSource: EventSource | null = $state(null);
+  let reconnectAttempts = $state(0);
+  let reconnectTimeout: number | null = $state(null);
+  let isReconnecting = $state(false);
+
   // Handle back button and initial load
   onMount(() => {
       const handlePopState = () => {
@@ -35,75 +41,136 @@
       detectionsStore.loadInitial();
       connectSSE();
 
+      // Handle page visibility changes - reconnect when tab becomes visible
+      const handleVisibilityChange = () => {
+          if (!document.hidden && !detectionsStore.connected && !isReconnecting) {
+              console.log("Tab became visible, attempting to reconnect SSE...");
+              reconnectAttempts = 0; // Reset backoff when user returns to tab
+              scheduleReconnect();
+          }
+      };
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+
       return () => {
           window.removeEventListener('popstate', handlePopState);
+          document.removeEventListener('visibilitychange', handleVisibilityChange);
+          if (evtSource) {
+              evtSource.close();
+              evtSource = null;
+          }
+          if (reconnectTimeout) {
+              clearTimeout(reconnectTimeout);
+              reconnectTimeout = null;
+          }
       };
   });
 
+  function scheduleReconnect() {
+      // Prevent multiple reconnection attempts
+      if (isReconnecting || reconnectTimeout) {
+          return;
+      }
+
+      isReconnecting = true;
+
+      // Exponential backoff: 1s, 2s, 4s, 8s, 16s, max 30s
+      const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000);
+      console.log(`Scheduling SSE reconnect in ${delay}ms (attempt ${reconnectAttempts + 1})`);
+
+      reconnectTimeout = window.setTimeout(() => {
+          reconnectTimeout = null;
+          isReconnecting = false;
+          reconnectAttempts++;
+          connectSSE();
+      }, delay);
+  }
+
   function connectSSE() {
-      const evtSource = new EventSource('/api/sse');
-
-      evtSource.onmessage = (event) => {
-          try {
-             const payload = JSON.parse(event.data);
-
-             if (payload.type === 'connected') {
-                 detectionsStore.setConnected(true);
-                 console.log("SSE Connected:", payload.message);
-             } else if (payload.type === 'detection') {
-                 const newDet: Detection = {
-                     frigate_event: payload.data.frigate_event,
-                     display_name: payload.data.display_name,
-                     score: payload.data.score,
-                     detection_time: payload.data.timestamp,
-                     camera_name: payload.data.camera,
-                     frigate_score: payload.data.frigate_score,
-                     sub_label: payload.data.sub_label,
-                     audio_confirmed: payload.data.audio_confirmed,
-                     audio_species: payload.data.audio_species,
-                     audio_score: payload.data.audio_score,
-                     temperature: payload.data.temperature,
-                     weather_condition: payload.data.weather_condition,
-                     scientific_name: payload.data.scientific_name,
-                     common_name: payload.data.common_name,
-                     taxa_id: payload.data.taxa_id
-                 };
-                 detectionsStore.addDetection(newDet);
-             } else if (payload.type === 'detection_updated') {
-                 const updatedDet: Detection = {
-                     frigate_event: payload.data.frigate_event,
-                     display_name: payload.data.display_name,
-                     score: payload.data.score,
-                     detection_time: payload.data.timestamp,
-                     camera_name: payload.data.camera,
-                     frigate_score: payload.data.frigate_score,
-                     sub_label: payload.data.sub_label,
-                     is_hidden: payload.data.is_hidden,
-                     audio_confirmed: payload.data.audio_confirmed,
-                     audio_species: payload.data.audio_species,
-                     audio_score: payload.data.audio_score,
-                     temperature: payload.data.temperature,
-                     weather_condition: payload.data.weather_condition,
-                     scientific_name: payload.data.scientific_name,
-                     common_name: payload.data.common_name,
-                     taxa_id: payload.data.taxa_id
-                 };
-                 detectionsStore.updateDetection(updatedDet);
-             } else if (payload.type === 'detection_deleted') {
-                 detectionsStore.removeDetection(payload.data.frigate_event, payload.data.timestamp);
-             }
-          } catch (e) {
-              console.error("SSE Parse Error", e);
-          }
-      };
-
-      evtSource.onerror = (err) => {
-          console.error("SSE Connection Error", err);
-          detectionsStore.setConnected(false);
+      // Close existing connection if any
+      if (evtSource) {
           evtSource.close();
-          // Reconnect with exponential backoff (max 30s)
-          setTimeout(connectSSE, 5000);
-      };
+          evtSource = null;
+      }
+
+      try {
+          evtSource = new EventSource('/api/sse');
+
+          evtSource.onopen = () => {
+              console.log("SSE Connection opened");
+          };
+
+          evtSource.onmessage = (event) => {
+              try {
+                 const payload = JSON.parse(event.data);
+
+                 if (payload.type === 'connected') {
+                     detectionsStore.setConnected(true);
+                     reconnectAttempts = 0; // Reset backoff on successful connection
+                     console.log("SSE Connected:", payload.message);
+                 } else if (payload.type === 'detection') {
+                     const newDet: Detection = {
+                         frigate_event: payload.data.frigate_event,
+                         display_name: payload.data.display_name,
+                         score: payload.data.score,
+                         detection_time: payload.data.timestamp,
+                         camera_name: payload.data.camera,
+                         frigate_score: payload.data.frigate_score,
+                         sub_label: payload.data.sub_label,
+                         audio_confirmed: payload.data.audio_confirmed,
+                         audio_species: payload.data.audio_species,
+                         audio_score: payload.data.audio_score,
+                         temperature: payload.data.temperature,
+                         weather_condition: payload.data.weather_condition,
+                         scientific_name: payload.data.scientific_name,
+                         common_name: payload.data.common_name,
+                         taxa_id: payload.data.taxa_id
+                     };
+                     detectionsStore.addDetection(newDet);
+                 } else if (payload.type === 'detection_updated') {
+                     const updatedDet: Detection = {
+                         frigate_event: payload.data.frigate_event,
+                         display_name: payload.data.display_name,
+                         score: payload.data.score,
+                         detection_time: payload.data.timestamp,
+                         camera_name: payload.data.camera,
+                         frigate_score: payload.data.frigate_score,
+                         sub_label: payload.data.sub_label,
+                         is_hidden: payload.data.is_hidden,
+                         audio_confirmed: payload.data.audio_confirmed,
+                         audio_species: payload.data.audio_species,
+                         audio_score: payload.data.audio_score,
+                         temperature: payload.data.temperature,
+                         weather_condition: payload.data.weather_condition,
+                         scientific_name: payload.data.scientific_name,
+                         common_name: payload.data.common_name,
+                         taxa_id: payload.data.taxa_id
+                     };
+                     detectionsStore.updateDetection(updatedDet);
+                 } else if (payload.type === 'detection_deleted') {
+                     detectionsStore.removeDetection(payload.data.frigate_event, payload.data.timestamp);
+                 }
+              } catch (e) {
+                  console.error("SSE Parse Error", e);
+              }
+          };
+
+          evtSource.onerror = (err) => {
+              console.error("SSE Connection Error", err);
+              detectionsStore.setConnected(false);
+
+              if (evtSource) {
+                  evtSource.close();
+                  evtSource = null;
+              }
+
+              // Schedule reconnection with backoff
+              scheduleReconnect();
+          };
+      } catch (error) {
+          console.error("Failed to create SSE connection:", error);
+          detectionsStore.setConnected(false);
+          scheduleReconnect();
+      }
   }
 </script>
 

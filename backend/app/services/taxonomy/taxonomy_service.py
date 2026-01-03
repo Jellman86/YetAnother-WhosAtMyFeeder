@@ -172,13 +172,11 @@ class TaxonomyService:
 
             log.info("Taxonomy background sync completed")
             self._sync_status["current_item"] = "Completed"
+            self._sync_status["is_running"] = False
 
         except Exception as e:
             log.error("Taxonomy sync failed", error=str(e))
             self._sync_status["error"] = str(e)
-        finally:
-            # Keep status available for a few minutes before resetting
-            await asyncio.sleep(300)
             self._sync_status["is_running"] = False
 
 taxonomy_service = TaxonomyService()
