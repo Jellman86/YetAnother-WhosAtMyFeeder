@@ -1089,6 +1089,23 @@
                             ✕
                         </button>
                     </div>
+                {:else if taxonomyStatus.current_item === 'Completed' && taxonomyStatus.total === 0}
+                    <div class="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl flex items-center gap-3 text-blue-700 dark:text-blue-300 animate-in zoom-in duration-300">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <div class="flex-1">
+                            <p class="font-bold">Already Up-to-Date!</p>
+                            <p class="text-xs opacity-80">All detections already have taxonomy data. No species need syncing.</p>
+                        </div>
+                        <button
+                            onclick={() => { if (taxonomyStatus) { taxonomyStatus.current_item = null; taxonomyStatus.processed = 0; taxonomyStatus.total = 0; } }}
+                            class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-200"
+                            title="Dismiss"
+                        >
+                            ✕
+                        </button>
+                    </div>
                 {:else if taxonomyStatus.is_running}
                     <div class="space-y-4 mb-6 animate-in fade-in duration-500">
                         <div class="flex justify-between text-sm mb-1">
