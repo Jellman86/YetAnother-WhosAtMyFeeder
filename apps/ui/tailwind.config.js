@@ -20,7 +20,7 @@ export default {
                 },
                 // Nature-inspired background colors
                 surface: {
-                    light: '#f8faf9', // Very light mint/cream
+                    light: '#f1f5f4', // Light sage gray for better contrast
                     dark: '#020617',
                 },
             },
