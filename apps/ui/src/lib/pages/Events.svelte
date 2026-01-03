@@ -433,7 +433,9 @@
 
         quickReclassifying = detection.frigate_event;
         try {
-            const result = await reclassifyDetection(detection.frigate_event);
+            // Use video strategy if clip is available for better accuracy and progress visualization
+            const strategy = detection.has_clip ? 'video' : 'snapshot';
+            const result = await reclassifyDetection(detection.frigate_event, strategy);
             if (result.updated) {
                 events = events.map(e =>
                     e.frigate_event === detection.frigate_event
@@ -786,20 +788,12 @@
 
             <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                 {#each events as event (event.frigate_event)}
-                    <div class="relative">
-                        <DetectionCard
-                            detection={event}
-                            onclick={() => selectedEvent = event}
-                            onReclassify={handleQuickReclassify}
-                            onRetag={handleQuickRetag}
-                        />
-                        <!-- Reclassifying indicator -->
-                        {#if quickReclassifying === event.frigate_event}
-                            <div class="absolute inset-0 bg-black/40 rounded-2xl flex items-center justify-center pointer-events-none">
-                                <div class="w-8 h-8 border-3 border-white border-t-transparent rounded-full animate-spin"></div>
-                            </div>
-                        {/if}
-                    </div>
+                    <DetectionCard
+                        detection={event}
+                        onclick={() => selectedEvent = event}
+                        onReclassify={handleQuickReclassify}
+                        onRetag={handleQuickRetag}
+                    />
                 {/each}
             </div>
         </div>
