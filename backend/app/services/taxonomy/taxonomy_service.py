@@ -66,20 +66,23 @@ class TaxonomyService:
 
     async def _get_from_cache(self, name: str) -> Optional[Dict]:
         """Check the local taxonomy_cache table."""
-        async with get_db() as db:
-            # Check scientific name first
-            async with db.execute(
-                "SELECT scientific_name, common_name, taxa_id, is_not_found FROM taxonomy_cache WHERE LOWER(scientific_name) = LOWER(?) OR LOWER(common_name) = LOWER(?)",
-                (name, name)
-            ) as cursor:
-                row = await cursor.fetchone()
-                if row:
-                    return {
-                        "scientific_name": row[0],
-                        "common_name": row[1],
-                        "taxa_id": row[2],
-                        "is_not_found": bool(row[3])
-                    }
+        try:
+            async with get_db() as db:
+                # Check scientific name first
+                async with db.execute(
+                    "SELECT scientific_name, common_name, taxa_id, is_not_found FROM taxonomy_cache WHERE LOWER(scientific_name) = LOWER(?) OR LOWER(common_name) = LOWER(?)",
+                    (name, name)
+                ) as cursor:
+                    row = await cursor.fetchone()
+                    if row:
+                        return {
+                            "scientific_name": row[0],
+                            "common_name": row[1],
+                            "taxa_id": row[2],
+                            "is_not_found": bool(row[3])
+                        }
+        except Exception as e:
+            log.warning("Taxonomy cache lookup failed (table might be missing)", error=str(e))
         return None
 
     async def _save_to_cache(self, data: Dict):

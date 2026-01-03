@@ -536,14 +536,16 @@ class DetectionRepository:
         if include_hidden:
             query = """SELECT id, detection_time, detection_index, score, display_name,
                           category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label,
-                          audio_confirmed, audio_species, audio_score, temperature, weather_condition
+                          audio_confirmed, audio_species, audio_score, temperature, weather_condition,
+                          scientific_name, common_name, taxa_id
                    FROM detections WHERE display_name = ?
                    ORDER BY detection_time DESC LIMIT ?"""
             params = (species_name, limit)
         else:
             query = """SELECT id, detection_time, detection_index, score, display_name,
                           category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label,
-                          audio_confirmed, audio_species, audio_score, temperature, weather_condition
+                          audio_confirmed, audio_species, audio_score, temperature, weather_condition,
+                          scientific_name, common_name, taxa_id
                    FROM detections WHERE display_name = ? AND (is_hidden = 0 OR is_hidden IS NULL)
                    ORDER BY detection_time DESC LIMIT ?"""
             params = (species_name, limit)

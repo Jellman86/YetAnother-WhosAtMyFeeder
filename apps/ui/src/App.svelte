@@ -19,19 +19,25 @@
       window.history.pushState(null, '', path);
   }
 
-  // Handle back button
+  // Handle back button and initial load
   onMount(() => {
       const handlePopState = () => {
           currentRoute = window.location.pathname;
       };
       window.addEventListener('popstate', handlePopState);
 
+      const path = window.location.pathname;
+      currentRoute = path === '' ? '/' : path;
+
       // Initialize theme and settings
       theme.init();
       settingsStore.load();
       detectionsStore.loadInitial();
+      connectSSE();
 
-      return () => window.removeEventListener('popstate', handlePopState);
+      return () => {
+          window.removeEventListener('popstate', handlePopState);
+      };
   });
 
   function connectSSE() {
@@ -57,7 +63,10 @@
                      audio_species: payload.data.audio_species,
                      audio_score: payload.data.audio_score,
                      temperature: payload.data.temperature,
-                     weather_condition: payload.data.weather_condition
+                     weather_condition: payload.data.weather_condition,
+                     scientific_name: payload.data.scientific_name,
+                     common_name: payload.data.common_name,
+                     taxa_id: payload.data.taxa_id
                  };
                  detectionsStore.addDetection(newDet);
              } else if (payload.type === 'detection_updated') {
@@ -74,7 +83,10 @@
                      audio_species: payload.data.audio_species,
                      audio_score: payload.data.audio_score,
                      temperature: payload.data.temperature,
-                     weather_condition: payload.data.weather_condition
+                     weather_condition: payload.data.weather_condition,
+                     scientific_name: payload.data.scientific_name,
+                     common_name: payload.data.common_name,
+                     taxa_id: payload.data.taxa_id
                  };
                  detectionsStore.updateDetection(updatedDet);
              } else if (payload.type === 'detection_deleted') {
@@ -93,12 +105,6 @@
           setTimeout(connectSSE, 5000);
       };
   }
-
-  onMount(() => {
-      const path = window.location.pathname;
-      currentRoute = path === '' ? '/' : path;
-      connectSSE();
-  });
 </script>
 
 <div class="min-h-screen flex flex-col bg-surface-light dark:bg-surface-dark text-slate-900 dark:text-white font-sans transition-colors duration-300">

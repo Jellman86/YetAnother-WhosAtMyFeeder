@@ -123,7 +123,10 @@ async def get_events(
                 audio_species=event.audio_species,
                 audio_score=event.audio_score,
                 temperature=event.temperature,
-                weather_condition=event.weather_condition
+                weather_condition=event.weather_condition,
+                scientific_name=event.scientific_name,
+                common_name=event.common_name,
+                taxa_id=event.taxa_id
             )
             response_events.append(response_event)
 
@@ -228,7 +231,10 @@ async def toggle_hide_event(event_id: str):
                     "audio_species": detection.audio_species,
                     "audio_score": detection.audio_score,
                     "temperature": detection.temperature,
-                    "weather_condition": detection.weather_condition
+                    "weather_condition": detection.weather_condition,
+                    "scientific_name": detection.scientific_name,
+                    "common_name": detection.common_name,
+                    "taxa_id": detection.taxa_id
                 }
             })
 
@@ -380,7 +386,10 @@ async def reclassify_event(
                     "audio_species": detection.audio_species,
                     "audio_score": detection.audio_score,
                     "temperature": detection.temperature,
-                    "weather_condition": detection.weather_condition
+                    "weather_condition": detection.weather_condition,
+                    "scientific_name": detection.scientific_name,
+                    "common_name": detection.common_name,
+                    "taxa_id": detection.taxa_id
                 }
             })
 
@@ -456,7 +465,10 @@ async def update_event(event_id: str, request: UpdateDetectionRequest):
                 "audio_species": detection.audio_species,
                 "audio_score": detection.audio_score,
                 "temperature": detection.temperature,
-                "weather_condition": detection.weather_condition
+                "weather_condition": detection.weather_condition,
+                "scientific_name": detection.scientific_name,
+                "common_name": detection.common_name,
+                "taxa_id": detection.taxa_id
             }
         })
 

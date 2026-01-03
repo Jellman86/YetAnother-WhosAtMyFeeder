@@ -210,7 +210,10 @@ async def get_species_stats(species_name: str):
                 audio_species=d.audio_species,
                 audio_score=d.audio_score,
                 temperature=d.temperature,
-                weather_condition=d.weather_condition
+                weather_condition=d.weather_condition,
+                scientific_name=d.scientific_name,
+                common_name=d.common_name,
+                taxa_id=d.taxa_id
             )
             for d in recent
         ]

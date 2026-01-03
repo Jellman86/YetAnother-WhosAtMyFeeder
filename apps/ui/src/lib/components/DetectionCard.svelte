@@ -77,6 +77,12 @@
         return 'text-red-500';
     }
 
+    function getConfidenceBg(score: number): string {
+        if (score >= 0.9) return 'border-emerald-500/30';
+        if (score >= 0.7) return 'border-amber-500/30';
+        return 'border-red-500/30';
+    }
+
     // Content logic
     let subName = $derived.by(() => {
         if (!detection.scientific_name && !detection.common_name) return null;

@@ -18,6 +18,10 @@ export interface Detection {
     // Weather fields
     temperature?: number;
     weather_condition?: string;
+    // Taxonomy fields
+    scientific_name?: string;
+    common_name?: string;
+    taxa_id?: number;
 }
 
 export interface VersionInfo {

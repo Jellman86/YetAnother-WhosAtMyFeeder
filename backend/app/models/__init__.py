@@ -20,9 +20,12 @@ class Detection(BaseModel):
     # Weather fields
     temperature: float | None = None
     weather_condition: str | None = None
+    # Taxonomy fields
+    scientific_name: str | None = None
+    common_name: str | None = None
+    taxa_id: int | None = None
 
 class DetectionResponse(Detection):
-    common_name: str | None = None
     has_clip: bool = False  # Clip availability from Frigate
 
 class FrigateEvent(BaseModel):

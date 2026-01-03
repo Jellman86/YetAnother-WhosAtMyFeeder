@@ -37,6 +37,19 @@ async def init_db():
                 taxa_id INTEGER
             )
         """)
+
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS taxonomy_cache (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                scientific_name TEXT NOT NULL UNIQUE,
+                common_name TEXT,
+                taxa_id INTEGER,
+                is_not_found BOOLEAN DEFAULT 0,
+                last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        await db.execute("CREATE INDEX IF NOT EXISTS idx_taxonomy_scientific ON taxonomy_cache(scientific_name)")
+        await db.execute("CREATE INDEX IF NOT EXISTS idx_taxonomy_common ON taxonomy_cache(common_name)")
         
         # Migrations: Add new columns if they don't exist
         cursor = await db.execute("PRAGMA table_info(detections)")
