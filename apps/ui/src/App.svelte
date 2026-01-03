@@ -9,7 +9,7 @@
   import { fetchEvents, fetchEventsCount, type Detection } from './lib/api';
   import { theme } from './lib/stores/theme';
   import { settingsStore } from './lib/stores/settings';
-  import { detectionsStore } from './lib/stores/detections.svelte';
+  import { detectionsStore } from './lib/stores/detections.svelte.ts';
 
   // Router state
   let currentRoute = $state('/');

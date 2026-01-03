@@ -59,11 +59,13 @@ async def init_db():
             
         # v4: Weather context
         if "temperature" not in columns:
+            log.info("Migration: Adding temperature and weather columns")
             await db.execute("ALTER TABLE detections ADD COLUMN temperature FLOAT")
             await db.execute("ALTER TABLE detections ADD COLUMN weather_condition TEXT")
 
         # v5: Taxonomy normalization
         if "scientific_name" not in columns:
+            log.info("Migration: Adding taxonomy columns")
             await db.execute("ALTER TABLE detections ADD COLUMN scientific_name TEXT")
             await db.execute("ALTER TABLE detections ADD COLUMN common_name TEXT")
             await db.execute("ALTER TABLE detections ADD COLUMN taxa_id INTEGER")

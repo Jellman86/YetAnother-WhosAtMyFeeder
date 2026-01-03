@@ -8,7 +8,7 @@
     import TopVisitors from '../components/TopVisitors.svelte';
     import LatestDetectionHero from '../components/LatestDetectionHero.svelte';
     import StatsRibbon from '../components/StatsRibbon.svelte';
-    import { detectionsStore } from '../stores/detections.svelte';
+    import { detectionsStore } from '../stores/detections.svelte.ts';
     import type { Detection, WildlifeClassification, DailySummary } from '../api';
     import { getThumbnailUrl, deleteDetection, hideDetection, classifyWildlife, updateDetectionSpecies, analyzeDetection, fetchDailySummary } from '../api';
     import { settingsStore } from '../stores/settings';
