@@ -509,6 +509,24 @@ export async function runCacheCleanup(): Promise<CacheCleanupResult> {
     return handleResponse<CacheCleanupResult>(response);
 }
 
+export interface TaxonomySyncStatus {
+    is_running: boolean;
+    total: number;
+    processed: number;
+    current_item: string | null;
+    error: string | null;
+}
+
+export async function fetchTaxonomyStatus(): Promise<TaxonomySyncStatus> {
+    const response = await fetch(`${API_BASE}/maintenance/taxonomy/status`);
+    return handleResponse<TaxonomySyncStatus>(response);
+}
+
+export async function startTaxonomySync(): Promise<{ status: string }> {
+    const response = await fetch(`${API_BASE}/maintenance/taxonomy/sync`, { method: 'POST' });
+    return handleResponse<{ status: string }>(response);
+}
+
 // Model Manager types and functions
 export interface ModelMetadata {
     id: string;

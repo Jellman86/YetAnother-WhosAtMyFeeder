@@ -14,12 +14,15 @@
         runBackfill,
         fetchCacheStats,
         runCacheCleanup,
+        fetchTaxonomyStatus,
+        startTaxonomySync,
         type ClassifierStatus,
         type WildlifeModelStatus,
         type MaintenanceStats,
         type BackfillResult,
         type CacheStats,
-        type CacheCleanupResult
+        type CacheCleanupResult,
+        type TaxonomySyncStatus
     } from '../api';
     import { theme, type Theme } from '../stores/theme';
     import { settingsStore } from '../stores/settings';
@@ -42,6 +45,11 @@
     let retentionDays = $state(0);
     let blockedLabels = $state<string[]>([]);
     let newBlockedLabel = $state('');
+
+    // Taxonomy Sync State
+    let taxonomyStatus = $state<TaxonomySyncStatus | null>(null);
+    let syncingTaxonomy = $state(false);
+    let taxonomyPollInterval: any;
 
     // Location Settings
     let locationLat = $state<number | null>(null);
@@ -99,9 +107,38 @@
             loadClassifierStatus(),
             loadWildlifeStatus(),
             loadMaintenanceStats(),
-            loadCacheStats()
+            loadCacheStats(),
+            loadTaxonomyStatus()
         ]);
+
+        taxonomyPollInterval = setInterval(loadTaxonomyStatus, 3000);
     });
+
+    import { onDestroy } from 'svelte';
+    onDestroy(() => {
+        if (taxonomyPollInterval) clearInterval(taxonomyPollInterval);
+    });
+
+    async function loadTaxonomyStatus() {
+        try {
+            taxonomyStatus = await fetchTaxonomyStatus();
+        } catch (e) {
+            console.error('Failed to load taxonomy status', e);
+        }
+    }
+
+    async function handleStartTaxonomySync() {
+        if (taxonomyStatus?.is_running) return;
+        syncingTaxonomy = true;
+        try {
+            await startTaxonomySync();
+            await loadTaxonomyStatus();
+        } catch (e: any) {
+            alert('Failed to start taxonomy sync: ' + e.message);
+        } finally {
+            syncingTaxonomy = false;
+        }
+    }
 
     async function loadMaintenanceStats() {
         try {
@@ -1003,6 +1040,74 @@
                            transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                     {cleaningUp ? 'Cleaning...' : 'Run Cleanup Now'}
+                </button>
+            </div>
+        </section>
+
+        <!-- Taxonomy Synchronization -->
+        <section class="bg-white/80 dark:bg-slate-800/50 rounded-2xl border border-slate-200/80 dark:border-slate-700/50 p-6 shadow-card dark:shadow-card-dark backdrop-blur-sm">
+            <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+                📖 Taxonomy Sync
+            </h3>
+
+            <p class="text-sm text-slate-500 dark:text-slate-400 mb-6">
+                Connect scientific and common names for all historical detections. This ensures your statistics and leaderboard are accurate across different models.
+            </p>
+
+            {#if taxonomyStatus}
+                {#if taxonomyStatus.is_running}
+                    <div class="space-y-4 mb-6 animate-in fade-in duration-500">
+                        <div class="flex justify-between text-sm mb-1">
+                            <span class="text-teal-600 dark:text-teal-400 font-bold uppercase tracking-wider flex items-center gap-2">
+                                <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                Syncing: {taxonomyStatus.current_item}
+                            </span>
+                            <span class="text-slate-500 font-mono">{taxonomyStatus.processed} / {taxonomyStatus.total}</span>
+                        </div>
+                        <div class="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-3 overflow-hidden border border-slate-200 dark:border-slate-600 shadow-inner">
+                            <div 
+                                class="bg-gradient-to-r from-teal-500 to-emerald-400 h-full transition-all duration-1000 ease-out" 
+                                style="width: {(taxonomyStatus.processed / (taxonomyStatus.total || 1)) * 100}%"
+                            ></div>
+                        </div>
+                        <p class="text-[10px] text-slate-400 italic text-center">
+                            Rate limited to 1 lookup per second to respect iNaturalist.
+                        </p>
+                    </div>
+                {:else if taxonomyStatus.current_item === 'Completed'}
+                    <div class="mb-6 p-4 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-xl flex items-center gap-3 text-emerald-700 dark:text-emerald-300 animate-in zoom-in duration-300">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                        </svg>
+                        <div>
+                            <p class="font-bold">Sync Complete!</p>
+                            <p class="text-xs opacity-80">All {taxonomyStatus.total} unique species names have been normalized.</p>
+                        </div>
+                    </div>
+                {/if}
+            {/if}
+
+            <div class="flex items-center justify-between pt-4 border-t border-slate-200 dark:border-slate-700">
+                <div class="text-xs text-slate-500 dark:text-slate-400 max-w-[60%]">
+                    This will scan your database for incomplete names and fetch the missing scientific/common pairs.
+                </div>
+                <button
+                    onclick={handleStartTaxonomySync}
+                    disabled={taxonomyStatus?.is_running || syncingTaxonomy}
+                    class="px-4 py-2 text-sm font-medium rounded-lg
+                           bg-teal-500 hover:bg-teal-600 text-white
+                           transition-colors disabled:opacity-50 flex items-center gap-2 shadow-md"
+                >
+                    {#if syncingTaxonomy}
+                        <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                    {/if}
+                    Repair Taxonomy
                 </button>
             </div>
         </section>

@@ -8,8 +8,27 @@ from app.config import settings
 from app.database import get_db
 from app.repositories.detection_repository import DetectionRepository
 
+from app.services.taxonomy.taxonomy_service import taxonomy_service
+
+from fastapi import APIRouter, HTTPException, BackgroundTasks
+
 router = APIRouter()
 log = structlog.get_logger()
+
+@router.get("/maintenance/taxonomy/status")
+async def get_taxonomy_status():
+    """Get status of the taxonomy synchronization process."""
+    return taxonomy_service.get_sync_status()
+
+@router.post("/maintenance/taxonomy/sync")
+async def start_taxonomy_sync(background_tasks: BackgroundTasks):
+    """Start the background process to normalize all detection names."""
+    status = taxonomy_service.get_sync_status()
+    if status["is_running"]:
+        return {"status": "already_running"}
+    
+    background_tasks.add_task(taxonomy_service.run_background_sync)
+    return {"status": "started"}
 
 class SettingsUpdate(BaseModel):
     frigate_url: str = Field(..., min_length=1, description="Frigate instance URL")

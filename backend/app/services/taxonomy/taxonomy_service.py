@@ -12,6 +12,18 @@ class TaxonomyService:
     
     API_URL = "https://api.inaturalist.org/v1/taxa"
 
+    def __init__(self):
+        self._sync_status = {
+            "is_running": False,
+            "total": 0,
+            "processed": 0,
+            "current_item": None,
+            "error": None
+        }
+
+    def get_sync_status(self) -> dict:
+        return self._sync_status
+
     async def get_names(self, query_name: str) -> Dict[str, Optional[str]]:
         """
         Get both scientific and common names for a given name.
@@ -90,5 +102,64 @@ class TaxonomyService:
             log.warning("iNaturalist lookup failed", query=name, error=str(e))
             
         return None
+
+    async def run_background_sync(self):
+        """Scan entire database for unsynced species and normalize them."""
+        if self._sync_status["is_running"]:
+            return
+
+        try:
+            self._sync_status = {
+                "is_running": True,
+                "total": 0,
+                "processed": 0,
+                "current_item": "Scanning database...",
+                "error": None
+            }
+
+            # 1. Find all unique species names that don't have scientific_name or common_name populated
+            async with get_db() as db:
+                async with db.execute("""
+                    SELECT DISTINCT display_name 
+                    FROM detections 
+                    WHERE scientific_name IS NULL OR common_name IS NULL
+                """) as cursor:
+                    rows = await cursor.fetchall()
+                    unique_names = [row[0] for row in rows]
+
+            self._sync_status["total"] = len(unique_names)
+            log.info("Starting taxonomy background sync", unique_species=len(unique_names))
+
+            for name in unique_names:
+                self._sync_status["current_item"] = name
+                
+                # Get names (handles cache internally)
+                taxonomy = await self.get_names(name)
+                
+                if taxonomy and (taxonomy.get("scientific_name") or taxonomy.get("common_name")):
+                    # Bulk update all detections matching this display_name
+                    async with get_db() as db:
+                        await db.execute("""
+                            UPDATE detections 
+                            SET scientific_name = ?, common_name = ?, taxa_id = ?
+                            WHERE display_name = ?
+                        """, (taxonomy["scientific_name"], taxonomy["common_name"], taxonomy["taxa_id"], name))
+                        await db.commit()
+                
+                self._sync_status["processed"] += 1
+                
+                # Rate limiting: 1 second delay to be kind to iNaturalist
+                await asyncio.sleep(1.0)
+
+            log.info("Taxonomy background sync completed")
+            self._sync_status["current_item"] = "Completed"
+
+        except Exception as e:
+            log.error("Taxonomy sync failed", error=str(e))
+            self._sync_status["error"] = str(e)
+        finally:
+            # Keep status available for a few minutes before resetting
+            await asyncio.sleep(300)
+            self._sync_status["is_running"] = False
 
 taxonomy_service = TaxonomyService()
