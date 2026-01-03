@@ -156,13 +156,20 @@ class TaxonomyService:
                 taxonomy = await self.get_names(name)
                 
                 if taxonomy and (taxonomy.get("scientific_name") or taxonomy.get("common_name")):
+                    scientific_name = taxonomy.get("scientific_name")
+                    common_name = taxonomy.get("common_name")
+                    taxa_id = taxonomy.get("taxa_id")
+
                     # Bulk update all detections matching this display_name
+                    # If common_name is found, update display_name to it for consistency if it was scientific
+                    # This logic aligns historical data with current "display_common_names" preference if enabled
+                    # BUT for now we only backfill the metadata columns to be safe.
                     async with get_db() as db:
                         await db.execute("""
                             UPDATE detections 
                             SET scientific_name = ?, common_name = ?, taxa_id = ?
                             WHERE display_name = ?
-                        """, (taxonomy["scientific_name"], taxonomy["common_name"], taxonomy["taxa_id"], name))
+                        """, (scientific_name, common_name, taxa_id, name))
                         await db.commit()
                 
                 self._sync_status["processed"] += 1
