@@ -1,6 +1,7 @@
 import httpx
 import structlog
 import asyncio
+import aiosqlite
 from typing import Optional, Tuple, Dict
 from datetime import datetime
 from app.database import get_db
