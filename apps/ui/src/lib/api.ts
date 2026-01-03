@@ -517,6 +517,7 @@ export interface ModelMetadata {
     accuracy_tier: string;
     inference_speed: string;
     download_url: string;
+    weights_url?: string;
     labels_url: string;
     input_size: number;
 }

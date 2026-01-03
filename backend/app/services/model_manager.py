@@ -59,8 +59,9 @@ REMOTE_REGISTRY = [
         "accuracy_tier": "Elite (91%+)",
         "inference_speed": "Slow (~1s)",
         "runtime": "onnx",
-        "download_url": "local", 
-        "labels_url": "local",
+        "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/model.onnx", 
+        "weights_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/model.onnx.data",
+        "labels_url": "https://raw.githubusercontent.com/Jellman86/YetAnother-WhosAtMyFeeder/main/backend/data/models/eva02_large_inat21/labels.txt",
         "input_size": 336,
         "preprocessing": {
             "mean": [0.48145466, 0.4578275, 0.40821073],
@@ -242,7 +243,25 @@ class ModelManager:
                                 progress.progress = (downloaded / total) * 90  # Model is 90% of total job
                                 self.active_downloads[model_id] = (progress, datetime.now())
 
-                # 2. Download Labels
+                # 2. Download Weights (Optional, for large ONNX models)
+                if runtime == 'onnx' and model_meta.get('weights_url'):
+                    weights_filename = f"{model_filename}.data"
+                    log.info("Downloading model weights", url=model_meta['weights_url'])
+                    async with client.stream("GET", model_meta['weights_url'], follow_redirects=True) as response:
+                        response.raise_for_status()
+                        total_header = response.headers.get("content-length")
+                        total = int(total_header) if total_header else 0
+                        downloaded = 0
+                        async with aiofiles.open(os.path.join(target_dir, weights_filename), 'wb') as f:
+                            async for chunk in response.aiter_bytes():
+                                await f.write(chunk)
+                                downloaded += len(chunk)
+                                if total > 0:
+                                    # Weights are usually the bulk of the download
+                                    progress.progress = 10 + (downloaded / total) * 80 
+                                    self.active_downloads[model_id] = (progress, datetime.now())
+
+                # 3. Download Labels
                 log.info("Downloading labels", url=model_meta['labels_url'])
                 resp = await client.get(model_meta['labels_url'], follow_redirects=True)
                 resp.raise_for_status()

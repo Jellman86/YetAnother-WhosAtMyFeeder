@@ -10,6 +10,7 @@ class ModelMetadata(BaseModel):
     accuracy_tier: str # "High", "Medium", "Low"
     inference_speed: str # "Fast", "Medium", "Slow"
     download_url: str
+    weights_url: Optional[str] = None
     labels_url: str
     input_size: int = 224
     
