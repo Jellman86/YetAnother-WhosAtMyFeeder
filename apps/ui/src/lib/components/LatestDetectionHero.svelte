@@ -21,13 +21,13 @@
 
 <button 
     onclick={onclick}
-    class="relative w-full aspect-video sm:aspect-auto sm:h-80 rounded-2xl overflow-hidden group shadow-xl border-4 border-white dark:border-slate-800"
+    class="relative w-full aspect-video sm:aspect-auto sm:h-80 rounded-2xl overflow-hidden group shadow-lg border-4 border-white dark:border-slate-800"
 >
     <!-- Background Image -->
     <img 
         src={getThumbnailUrl(detection.frigate_event)} 
         alt={detection.display_name}
-        class="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105"
+        class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
     />
 
     <!-- Gradient Overlay -->
@@ -37,7 +37,7 @@
     <div class="absolute bottom-0 left-0 right-0 p-6 sm:p-8 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
             <div class="flex items-center gap-2 mb-2">
-                <span class="px-2 py-0.5 bg-teal-500 text-white text-[10px] font-bold uppercase tracking-widest rounded-md animate-pulse">
+                <span class="px-2 py-0.5 bg-teal-500 text-white text-[10px] font-bold uppercase tracking-widest rounded-md">
                     Just Discovered
                 </span>
                 {#if detection.audio_confirmed}
@@ -69,7 +69,7 @@
         </div>
 
         <div class="flex items-center gap-3 self-start sm:self-auto">
-            <div class="flex flex-col items-center justify-center w-16 h-16 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white">
+            <div class="flex flex-col items-center justify-center w-16 h-16 rounded-full bg-slate-900/60 border border-white/20 text-white shadow-lg">
                 <span class="text-lg font-black">{(detection.score * 100).toFixed(0)}</span>
                 <span class="text-[8px] font-bold uppercase opacity-60">Conf</span>
             </div>

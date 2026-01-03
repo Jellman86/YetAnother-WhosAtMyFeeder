@@ -177,11 +177,18 @@ async def delete_event(event_id: str):
     """Delete a detection by its Frigate event ID."""
     async with get_db() as db:
         repo = DetectionRepository(db)
+        detection = await repo.get_by_frigate_event(event_id)
+        if not detection:
+            raise HTTPException(status_code=404, detail="Detection not found")
+            
         deleted = await repo.delete_by_frigate_event(event_id)
         if deleted:
             await broadcaster.broadcast({
                 "type": "detection_deleted",
-                "data": {"frigate_event": event_id}
+                "data": {
+                    "frigate_event": event_id,
+                    "timestamp": detection.detection_time.isoformat()
+                }
             })
             return {"status": "deleted", "event_id": event_id}
         raise HTTPException(status_code=404, detail="Detection not found")

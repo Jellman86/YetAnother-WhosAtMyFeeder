@@ -176,8 +176,13 @@ async def sse_endpoint():
             yield f"data: {json.dumps({'type': 'connected', 'message': 'SSE Connected'})}\n\n"
             
             while True:
-                message = await queue.get()
-                yield f"data: {json.dumps(message)}\n\n"
+                try:
+                    # Wait for a message or a timeout for heartbeat
+                    message = await asyncio.wait_for(queue.get(), timeout=20.0)
+                    yield f"data: {json.dumps(message)}\n\n"
+                except asyncio.TimeoutError:
+                    # Send a heartbeat comment (ignored by clients but keeps connection alive)
+                    yield ": heartbeat\n\n"
         except asyncio.CancelledError:
             await broadcaster.unsubscribe(queue)
             

@@ -49,9 +49,11 @@ async def init_db():
             await db.execute("ALTER TABLE detections ADD COLUMN audio_score FLOAT")
             
         # Check for weather columns (v3 migration)
-        if "temperature" not in columns:
-            await db.execute("ALTER TABLE detections ADD COLUMN temperature FLOAT")
-            await db.execute("ALTER TABLE detections ADD COLUMN weather_condition TEXT")
+        # Index for faster filtering and sorting
+        await db.execute("CREATE INDEX IF NOT EXISTS idx_detections_time ON detections(detection_time)")
+        await db.execute("CREATE INDEX IF NOT EXISTS idx_detections_species ON detections(display_name)")
+        await db.execute("CREATE INDEX IF NOT EXISTS idx_detections_hidden ON detections(is_hidden)")
+        await db.execute("CREATE INDEX IF NOT EXISTS idx_detections_camera ON detections(camera_name)")
             
         await db.commit()
 

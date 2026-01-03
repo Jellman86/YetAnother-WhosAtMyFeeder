@@ -18,11 +18,7 @@
         getThumbnailUrl,
         type EventFilters
     } from '../api';
-    import { settingsStore } from '../stores/settings';
-    import DetectionCard from '../components/DetectionCard.svelte';
-    import SpeciesDetailModal from '../components/SpeciesDetailModal.svelte';
-    import Pagination from '../components/Pagination.svelte';
-    import VideoPlayer from '../components/VideoPlayer.svelte';
+    import { detectionsStore } from '../stores/detections';
 
     let events: Detection[] = $state([]);
     let loading = $state(true);
@@ -295,8 +291,11 @@
         deleting = true;
         try {
             await deleteDetection(selectedEvent.frigate_event);
-            events = events.filter(e => e.frigate_event !== selectedEvent?.frigate_event);
+            const eventId = selectedEvent.frigate_event;
+            events = events.filter(e => e.frigate_event !== eventId);
             totalCount = Math.max(0, totalCount - 1);
+            // Update global store
+            detectionsStore.removeDetection(eventId, selectedEvent.detection_time);
             selectedEvent = null;
         } catch (e) {
             console.error('Failed to delete detection', e);
@@ -312,14 +311,24 @@
         hiding = true;
         try {
             const result = await hideDetection(selectedEvent.frigate_event);
-            selectedEvent = { ...selectedEvent, is_hidden: result.is_hidden };
+            const isHidden = result.is_hidden;
+            selectedEvent = { ...selectedEvent, is_hidden: isHidden };
+            
+            // Update local list
             events = events.map(e =>
                 e.frigate_event === selectedEvent?.frigate_event
-                    ? { ...e, is_hidden: result.is_hidden }
+                    ? { ...e, is_hidden: isHidden }
                     : e
             );
 
-            if (result.is_hidden) {
+            // Sync with global store
+            if (isHidden) {
+                detectionsStore.removeDetection(selectedEvent.frigate_event, selectedEvent.detection_time);
+            } else {
+                detectionsStore.updateDetection({ ...selectedEvent, is_hidden: isHidden });
+            }
+
+            if (isHidden) {
                 hiddenCount++;
                 if (!showHidden) {
                     events = events.filter(e => e.frigate_event !== selectedEvent?.frigate_event);
@@ -358,6 +367,8 @@
                         ? { ...e, display_name: result.new_species, score: result.new_score }
                         : e
                 );
+                // Update global store
+                detectionsStore.updateDetection({ ...selectedEvent });
                 alert(`Reclassified (${strategy}): ${result.old_species} → ${result.new_species} (${(result.new_score * 100).toFixed(1)}%)`);
             } else {
                 alert(`Classification unchanged (${strategy}): ${result.new_species} (${(result.new_score * 100).toFixed(1)}%)`);
@@ -383,6 +394,8 @@
                         ? { ...e, display_name: newSpecies.trim() }
                         : e
                 );
+                // Update global store
+                detectionsStore.updateDetection({ ...selectedEvent });
             }
             showTagDropdown = false;
             tagSearchQuery = '';
@@ -422,6 +435,9 @@
                         ? { ...e, display_name: result.new_species, score: result.new_score }
                         : e
                 );
+                // Update global store
+                const updated = events.find(e => e.frigate_event === detection.frigate_event);
+                if (updated) detectionsStore.updateDetection(updated);
             }
         } catch (e: any) {
             console.error('Failed to reclassify', e);
@@ -448,6 +464,9 @@
                         ? { ...e, display_name: newSpecies.trim() }
                         : e
                 );
+                // Update global store
+                const updated = events.find(e => e.frigate_event === eventId);
+                if (updated) detectionsStore.updateDetection(updated);
             }
             quickRetagEvent = null;
             quickRetagSearchQuery = '';
@@ -509,6 +528,8 @@
                         ? { ...e, display_name: label }
                         : e
                 );
+                // Update global store
+                detectionsStore.updateDetection({ ...selectedEvent });
             }
             showWildlifeResults = false;
             wildlifeResults = [];

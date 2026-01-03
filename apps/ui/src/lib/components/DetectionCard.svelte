@@ -84,15 +84,15 @@
     bind:this={cardElement}
     onclick={onclick}
     onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && onclick?.()}
-    class="group relative bg-white/90 dark:bg-slate-800/80 rounded-2xl
-           shadow-[0_4px_20px_-4px_rgba(0,0,0,0.08)] dark:shadow-[0_4px_20px_-4px_rgba(0,0,0,0.3)]
-           hover:shadow-[0_12px_40px_-8px_rgba(20,184,166,0.2),0_4px_20px_-8px_rgba(0,0,0,0.1)]
-           dark:hover:shadow-[0_12px_40px_-8px_rgba(20,184,166,0.15),0_4px_20px_-8px_rgba(0,0,0,0.3)]
+    class="group relative bg-white dark:bg-slate-800 rounded-2xl
+           shadow-sm dark:shadow-md
+           hover:shadow-[0_12px_40px_-8px_rgba(20,184,166,0.2)]
+           dark:hover:shadow-[0_12px_40px_-8px_rgba(20,184,166,0.15)]
            border border-slate-200/80 dark:border-slate-700/50
            hover:border-teal-400/50 dark:hover:border-teal-500/40
-           overflow-hidden transition-all duration-500 ease-out
-           hover:-translate-y-2 hover:scale-[1.02]
-           text-left w-full cursor-pointer backdrop-blur-xl
+           overflow-hidden transition-all duration-300 ease-out
+           hover:-translate-y-1
+           text-left w-full cursor-pointer
            focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:ring-offset-2 dark:focus:ring-offset-slate-900
            {detection.is_hidden ? 'opacity-60 hover:opacity-90 border-amber-300 dark:border-amber-700' : ''}"
 >
@@ -101,15 +101,14 @@
         {#if !imageError && isVisible}
             <!-- Skeleton while loading -->
             {#if !imageLoaded}
-                <div class="absolute inset-0 bg-gradient-to-r from-slate-200 via-slate-100 to-slate-200
-                            dark:from-slate-700 dark:via-slate-600 dark:to-slate-700 animate-shimmer"
-                     style="background-size: 200% 100%"></div>
+                <div class="absolute inset-0 bg-slate-200 dark:bg-slate-700 animate-pulse"></div>
             {/if}
             <img
                 src={getThumbnailUrl(detection.frigate_event)}
                 alt={detection.display_name}
-                class="w-full h-full object-cover transition-all duration-700 ease-out
-                       group-hover:scale-110 group-hover:brightness-110
+                loading="lazy"
+                class="w-full h-full object-cover transition-transform duration-500 ease-out
+                       group-hover:scale-105
                        {imageLoaded ? 'opacity-100' : 'opacity-0'}"
                 onload={() => imageLoaded = true}
                 onerror={() => imageError = true}
@@ -135,15 +134,14 @@
                     <div class="absolute inset-0 rounded-full bg-emerald-500/50 animate-ping"></div>
                 {/if}
                 <div class="relative flex items-center gap-1.5 px-2.5 py-1.5 rounded-full
-                            bg-gradient-to-r from-slate-900/80 to-slate-800/80 backdrop-blur-md
-                            border border-white/10 text-white text-xs font-bold shadow-lg">
-                    <span class="w-2 h-2 rounded-full {getConfidenceColor(detection.score)} {detection.score >= 0.9 ? 'animate-pulse' : ''}"></span>
+                            bg-slate-900 text-white text-xs font-bold shadow-lg">
+                    <span class="w-2 h-2 rounded-full {getConfidenceColor(detection.score)}"></span>
                     {(detection.score * 100).toFixed(0)}%
                 </div>
             </div>
             {#if detection.frigate_score}
                 <div class="flex items-center gap-1 px-2 py-1 rounded-full
-                            bg-slate-800/50 backdrop-blur-md border border-white/5 text-white/80 text-[10px] font-medium"
+                            bg-slate-800 text-white/80 text-[10px] font-medium"
                      title="Frigate Detection Confidence">
                     F: {(detection.frigate_score * 100).toFixed(0)}%
                 </div>
@@ -153,7 +151,7 @@
         <!-- Hidden Badge -->
         {#if detection.is_hidden}
             <div class="absolute top-2 left-2 flex items-center gap-1 px-2 py-1 rounded-full
-                        bg-amber-500/90 backdrop-blur-sm text-white text-xs font-medium">
+                        bg-amber-500 text-white text-xs font-medium">
                 <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                           d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
@@ -164,12 +162,12 @@
 
         <!-- Camera Badge -->
         <div class="absolute bottom-2 left-2 flex gap-1">
-            <div class="px-2 py-1 rounded-full bg-black/60 backdrop-blur-sm text-white text-xs flex items-center gap-1">
+            <div class="px-2 py-1 rounded-full bg-slate-900/90 text-white text-xs flex items-center gap-1">
                 📷 {detection.camera_name}
             </div>
             
             {#if detection.audio_confirmed}
-                <div class="px-2 py-1 rounded-full bg-teal-500/90 backdrop-blur-sm text-white text-xs flex items-center gap-1"
+                <div class="px-2 py-1 rounded-full bg-teal-600 text-white text-xs flex items-center gap-1"
                      title="Audio: {detection.audio_species || detection.display_name}{detection.audio_score ? ` (${(detection.audio_score * 100).toFixed(0)}%)` : ''}">
                     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -191,7 +189,7 @@
                     <button
                         type="button"
                         onclick={handleReclassifyClick}
-                        class="w-8 h-8 rounded-full bg-black/60 backdrop-blur-sm text-white
+                        class="w-8 h-8 rounded-full bg-slate-900 text-white
                                hover:bg-teal-500 transition-colors duration-150
                                flex items-center justify-center shadow-lg"
                         title="Re-run bird classifier"
@@ -206,7 +204,7 @@
                     <button
                         type="button"
                         onclick={handleRetagClick}
-                        class="w-8 h-8 rounded-full bg-black/60 backdrop-blur-sm text-white
+                        class="w-8 h-8 rounded-full bg-slate-900 text-white
                                hover:bg-amber-500 transition-colors duration-150
                                flex items-center justify-center shadow-lg"
                         title="Manual retag"

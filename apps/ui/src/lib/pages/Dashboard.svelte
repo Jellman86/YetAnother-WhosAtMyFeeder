@@ -8,19 +8,16 @@
     import TopVisitors from '../components/TopVisitors.svelte';
     import LatestDetectionHero from '../components/LatestDetectionHero.svelte';
     import StatsRibbon from '../components/StatsRibbon.svelte';
+    import { detectionsStore } from '../stores/detections';
     import type { Detection, WildlifeClassification, DailySummary } from '../api';
     import { getThumbnailUrl, deleteDetection, hideDetection, classifyWildlife, updateDetectionSpecies, analyzeDetection, fetchDailySummary } from '../api';
     import { settingsStore } from '../stores/settings';
 
     interface Props {
-        detections: Detection[]; // Recent detections from App.svelte
-        totalDetectionsToday?: number;
-        ondelete?: (eventId: string) => void;
-        onhide?: (eventId: string) => void;
         onnavigate?: (path: string) => void;
     }
 
-    let { detections, totalDetectionsToday = 0, ondelete, onhide, onnavigate }: Props = $props();
+    let { onnavigate }: Props = $props();
 
     let summary = $state<DailySummary | null>(null);
     let selectedEvent = $state<Detection | null>(null);
@@ -40,32 +37,42 @@
     let showVideo = $state(false);
 
     // Derive the hero detection (latest one)
-    let heroDetection = $derived(detections[0] || summary?.latest_detection || null);
+    let heroDetection = $derived(detectionsStore.detections[0] || summary?.latest_detection || null);
 
     // Derive hasClip from selected event
     let selectedHasClip = $derived(selectedEvent?.has_clip ?? false);
 
     // Derive audio confirmations count from recent detections
-    let audioConfirmations = $derived(detections.filter(d => d.audio_confirmed).length);
+    let audioConfirmations = $derived(detectionsStore.detections.filter(d => d.audio_confirmed).length);
 
     // Refresh summary when detections change (real-time updates)
     $effect(() => {
-        if (detections.length > 0) {
+        if (detectionsStore.detections.length > 0) {
             loadSummary();
         }
     });
 
-    onMount(async () => {
-        await loadSummary();
-    });
+    // Throttle summary re-fetches to avoid slamming the backend
+    let lastSummaryFetch = 0;
+    const SUMMARY_THROTTLE_MS = 30000; // 30 seconds
 
-    async function loadSummary() {
+    async function loadSummary(force = false) {
+        const now = Date.now();
+        if (!force && now - lastSummaryFetch < SUMMARY_THROTTLE_MS) {
+            return;
+        }
+        
         try {
+            lastSummaryFetch = now;
             summary = await fetchDailySummary();
         } catch (e) {
             console.error('Failed to load summary', e);
         }
     }
+
+    onMount(async () => {
+        await loadSummary(true);
+    });
 
     // Reset wildlife results and video when switching detections
     $effect(() => {
@@ -85,9 +92,10 @@
         try {
             await deleteDetection(selectedEvent.frigate_event);
             const eventId = selectedEvent.frigate_event;
+            const detTime = selectedEvent.detection_time;
+            detectionsStore.removeDetection(eventId, detTime);
             selectedEvent = null;
-            ondelete?.(eventId);
-            await loadSummary(); // Refresh summary stats
+            await loadSummary(true); // Refresh summary stats
         } catch (e) {
             console.error('Failed to delete detection', e);
             alert('Failed to delete detection');
@@ -104,9 +112,10 @@
             const result = await hideDetection(selectedEvent.frigate_event);
             if (result.is_hidden) {
                 const eventId = selectedEvent.frigate_event;
+                const detTime = selectedEvent.detection_time;
+                detectionsStore.removeDetection(eventId, detTime);
                 selectedEvent = null;
-                onhide?.(eventId);
-                await loadSummary(); // Refresh summary stats
+                await loadSummary(true); // Refresh summary stats
             }
         } catch (e) {
             console.error('Failed to hide detection', e);
@@ -154,9 +163,11 @@
         try {
             await updateDetectionSpecies(selectedEvent.frigate_event, label);
             selectedEvent.display_name = label;
+            // Update global store
+            detectionsStore.updateDetection({ ...selectedEvent, display_name: label });
             showWildlifeResults = false;
             wildlifeResults = [];
-            await loadSummary();
+            await loadSummary(true);
         } catch (e) {
             console.error('Failed to apply wildlife classification', e);
             alert('Failed to update species');
@@ -184,10 +195,10 @@
 
 <div class="space-y-8">
     <!-- Stats Ribbon -->
-    {#if summary || totalDetectionsToday > 0}
+    {#if summary || detectionsStore.totalToday > 0}
         <div in:fly={{ y: -20, duration: 500 }}>
             <StatsRibbon
-                todayCount={totalDetectionsToday}
+                todayCount={detectionsStore.totalToday}
                 uniqueSpecies={summary?.top_species.length ?? 0}
                 mostSeenSpecies={summary?.top_species[0]?.species ?? null}
                 mostSeenCount={summary?.top_species[0]?.count ?? 0}
@@ -250,13 +261,13 @@
         </div>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-            {#each detections.slice(1) as detection (detection.frigate_event || detection.id)}
+            {#each detectionsStore.detections.slice(1) as detection (detection.frigate_event || detection.id)}
                 <div in:fly={{ y: 20, duration: 400 }}>
                     <DetectionCard {detection} onclick={() => selectedEvent = detection} />
                 </div>
             {/each}
 
-            {#if detections.length <= 1 && (!summary || summary.top_species.length === 0)}
+            {#if detectionsStore.detections.length <= 1 && (!summary || summary.top_species.length === 0)}
                 <div class="col-span-full text-center py-16 text-slate-500 dark:text-slate-400 bg-white/80 dark:bg-slate-800/50 rounded-2xl shadow-card dark:shadow-card-dark border border-slate-200/80 dark:border-slate-700/50 backdrop-blur-sm">
                     <div class="flex flex-col items-center justify-center">
                         <div class="w-16 h-16 mb-4 rounded-full bg-slate-100 dark:bg-slate-700/50 flex items-center justify-center">

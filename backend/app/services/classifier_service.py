@@ -4,6 +4,7 @@ import os
 import cv2
 import tempfile
 import asyncio
+from concurrent.futures import ThreadPoolExecutor
 from PIL import Image, ImageOps
 from typing import Optional, List, Dict
 try:
@@ -268,6 +269,8 @@ class ClassifierService:
 
     def __init__(self):
         self._models: dict[str, ModelInstance] = {}
+        # Dedicated executor for ML tasks to avoid blocking default executor
+        self._executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="ml_worker")
         self._init_bird_model()
 
     def _get_model_paths(self, model_file: str, labels_file: str) -> tuple[str, str]:
@@ -350,14 +353,20 @@ class ClassifierService:
 
     def get_status(self) -> dict:
         bird = self._models.get("bird")
-        if bird:
-            return bird.get_status()
-        return {
-            "loaded": False,
-            "error": "Bird model not initialized",
-            "labels_count": 0,
-            "enabled": False,
+        status = {
+            "runtime": "tflite-runtime" if "tflite_runtime" in str(tflite) else "tensorflow",
+            "runtime_installed": tflite is not None,
+            "models": {}
         }
+        
+        for name, model in self._models.items():
+            status["models"][name] = model.get_status()
+            
+        if bird:
+            # For backward compatibility
+            status.update(bird.get_status())
+            
+        return status
 
     def get_wildlife_status(self) -> dict:
         wildlife = self._models.get("wildlife")
@@ -396,7 +405,7 @@ class ClassifierService:
     async def classify_async(self, image: Image.Image) -> list[dict]:
         """Async wrapper for classify to prevent blocking the event loop."""
         loop = asyncio.get_running_loop()
-        return await loop.run_in_executor(None, self.classify, image)
+        return await loop.run_in_executor(self._executor, self.classify, image)
 
     def classify_wildlife(self, image: Image.Image) -> list[dict]:
         """Classify an image using the wildlife model."""
@@ -406,7 +415,7 @@ class ClassifierService:
     async def classify_wildlife_async(self, image: Image.Image) -> list[dict]:
         """Async wrapper for wildlife classification."""
         loop = asyncio.get_running_loop()
-        return await loop.run_in_executor(None, self.classify_wildlife, image)
+        return await loop.run_in_executor(self._executor, self.classify_wildlife, image)
 
     def get_wildlife_labels(self) -> list[str]:
         wildlife = self._get_wildlife_model()
@@ -511,4 +520,4 @@ class ClassifierService:
     async def classify_video_async(self, video_path: str, stride: int = 5, max_frames: int = 15) -> list[dict]:
         """Async wrapper for video classification."""
         loop = asyncio.get_running_loop()
-        return await loop.run_in_executor(None, self.classify_video, video_path, stride, max_frames)
+        return await loop.run_in_executor(self._executor, self.classify_video, video_path, stride, max_frames)

@@ -9,9 +9,7 @@
   import { fetchEvents, fetchEventsCount, type Detection } from './lib/api';
   import { theme } from './lib/stores/theme';
   import { settingsStore } from './lib/stores/settings';
-
-  // Maximum detections to keep in memory for Dashboard
-  const MAX_DASHBOARD_DETECTIONS = 24;
+  import { detectionsStore } from './lib/stores/detections';
 
   // Router state
   let currentRoute = $state('/');
@@ -31,34 +29,9 @@
       // Initialize theme and settings
       theme.init();
       settingsStore.load();
+      detectionsStore.loadInitial();
 
       return () => window.removeEventListener('popstate', handlePopState);
-  });
-
-  // Dashboard Logic
-  let detections: Detection[] = $state([]);
-  let connected = $state(false);
-  let totalDetectionsToday = $state(0);
-
-  async function loadInitial() {
-      try {
-          // Load recent detections for dashboard
-          detections = await fetchEvents({ limit: MAX_DASHBOARD_DETECTIONS });
-
-          // Get today's count for stats (use count endpoint, not fetching all events)
-          const today = new Date().toISOString().split('T')[0];
-          const countResult = await fetchEventsCount({ startDate: today, endDate: today });
-          totalDetectionsToday = countResult.count;
-      } catch (e) {
-          console.error(e);
-      }
-  }
-
-  // Refresh data when navigating back to dashboard
-  $effect(() => {
-    if (currentRoute === '/' || currentRoute === '') {
-        loadInitial();
-    }
   });
 
   function connectSSE() {
@@ -69,7 +42,7 @@
              const payload = JSON.parse(event.data);
 
              if (payload.type === 'connected') {
-                 connected = true;
+                 detectionsStore.setConnected(true);
                  console.log("SSE Connected:", payload.message);
              } else if (payload.type === 'detection') {
                  const newDet: Detection = {
@@ -86,11 +59,7 @@
                      temperature: payload.data.temperature,
                      weather_condition: payload.data.weather_condition
                  };
-                 // Add new detection if not already present (avoid duplicates from backfill/re-processing)
-                 if (!detections.some(d => d.frigate_event === newDet.frigate_event)) {
-                    detections = [newDet, ...detections].slice(0, MAX_DASHBOARD_DETECTIONS);
-                    totalDetectionsToday++;
-                 }
+                 detectionsStore.addDetection(newDet);
              } else if (payload.type === 'detection_updated') {
                  const updatedDet: Detection = {
                      frigate_event: payload.data.frigate_event,
@@ -107,18 +76,9 @@
                      temperature: payload.data.temperature,
                      weather_condition: payload.data.weather_condition
                  };
-
-                 if (updatedDet.is_hidden) {
-                     // Remove if hidden
-                     detections = detections.filter(d => d.frigate_event !== updatedDet.frigate_event);
-                 } else {
-                     // Update in list if exists
-                     detections = detections.map(d => 
-                        d.frigate_event === updatedDet.frigate_event ? { ...d, ...updatedDet } : d
-                     );
-                 }
+                 detectionsStore.updateDetection(updatedDet);
              } else if (payload.type === 'detection_deleted') {
-                 handleDeleteDetection(payload.data.frigate_event);
+                 detectionsStore.removeDetection(payload.data.frigate_event, payload.data.timestamp);
              }
           } catch (e) {
               console.error("SSE Parse Error", e);
@@ -127,7 +87,7 @@
 
       evtSource.onerror = (err) => {
           console.error("SSE Connection Error", err);
-          connected = false;
+          detectionsStore.setConnected(false);
           evtSource.close();
           // Reconnect with exponential backoff (max 30s)
           setTimeout(connectSSE, 5000);
@@ -137,19 +97,8 @@
   onMount(() => {
       const path = window.location.pathname;
       currentRoute = path === '' ? '/' : path;
-      loadInitial();
       connectSSE();
   });
-
-  function handleDeleteDetection(eventId: string) {
-      detections = detections.filter(d => d.frigate_event !== eventId);
-      if (totalDetectionsToday > 0) totalDetectionsToday--;
-  }
-
-  function handleHideDetection(eventId: string) {
-      // Remove from dashboard view (hidden detections are not shown on dashboard)
-      detections = detections.filter(d => d.frigate_event !== eventId);
-  }
 </script>
 
 <div class="min-h-screen flex flex-col bg-surface-light dark:bg-surface-dark text-slate-900 dark:text-white font-sans transition-colors duration-300">
@@ -167,7 +116,7 @@
               {/if}
 
               <div class="flex items-center gap-2">
-                  {#if connected}
+                  {#if detectionsStore.connected}
                       <span class="relative flex h-2.5 w-2.5">
                           <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                           <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.8)]"></span>
@@ -186,10 +135,10 @@
   <main class="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
       {#if currentRoute === '/' || currentRoute === ''}
           <Dashboard
-              {detections}
-              {totalDetectionsToday}
-              ondelete={handleDeleteDetection}
-              onhide={handleHideDetection}
+              detections={detectionsStore.detections}
+              totalDetectionsToday={detectionsStore.totalToday}
+              ondelete={(id) => detectionsStore.removeDetection(id)}
+              onhide={(id) => detectionsStore.removeDetection(id)}
               onnavigate={navigate}
           />
       {:else if currentRoute.startsWith('/events')}
