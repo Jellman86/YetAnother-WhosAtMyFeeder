@@ -36,11 +36,15 @@ class EventProcessor:
             if not after:
                 return
 
-            if after.get('label') != 'bird':
+            label = after.get('label')
+            log.info("Processing MQTT event", event_id=after.get('id'), label=label, type=data.get('type'))
+
+            if label != 'bird':
                 return
 
             camera = after.get('camera')
             if settings.frigate.camera and camera not in settings.frigate.camera:
+                log.info("Filtering event by camera", camera=camera, allowed=settings.frigate.camera)
                 return
 
             frigate_event = after['id']

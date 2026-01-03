@@ -53,8 +53,10 @@ class MQTTService:
                     async for message in client.messages:
                         topic = message.topic.value
                         if topic == frigate_topic:
+                            log.info("Received MQTT message on frigate topic", payload_len=len(message.payload))
                             await event_processor.process_mqtt_message(message.payload)
                         elif topic == birdnet_topic:
+                            log.info("Received MQTT message on birdnet topic", payload_len=len(message.payload))
                             await event_processor.process_audio_message(message.payload)
                             
             except MqttError as e:
