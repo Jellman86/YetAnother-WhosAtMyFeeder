@@ -18,7 +18,7 @@
         getThumbnailUrl,
         type EventFilters
     } from '../api';
-    import { detectionsStore } from '../stores/detections';
+    import { detectionsStore } from '../stores/detections.svelte';
     import { settingsStore } from '../stores/settings';
     import DetectionCard from '../components/DetectionCard.svelte';
     import Pagination from '../components/Pagination.svelte';
