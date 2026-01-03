@@ -215,8 +215,13 @@ async def get_species_stats(species_name: str):
             for d in recent
         ]
 
+        # Get taxonomy names for the main species
+        taxonomy = await repo.get_taxonomy_names(species_name)
+
         return SpeciesStats(
             species_name=species_name,
+            scientific_name=taxonomy["scientific_name"],
+            common_name=taxonomy["common_name"],
             total_sightings=total_stats["total"],
             first_seen=total_stats["first_seen"],
             last_seen=total_stats["last_seen"],

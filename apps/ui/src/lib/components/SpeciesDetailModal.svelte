@@ -46,6 +46,18 @@
         }
     });
 
+    // Content
+    let subName = $derived.by(() => {
+        if (!stats) return info?.scientific_name || null;
+        
+        // If the main name is the common name, show scientific as sub
+        if (stats.species_name === stats.common_name) {
+            return stats.scientific_name;
+        }
+        // If main name is scientific, show common as sub
+        return stats.common_name;
+    });
+
     function formatDate(dateStr: string | null): string {
         if (!dateStr) return 'N/A';
         try {
@@ -104,9 +116,9 @@
                 <h2 id="modal-title" class="text-2xl font-bold text-slate-900 dark:text-white">
                     {speciesName}
                 </h2>
-                {#if info?.scientific_name}
+                {#if subName && subName !== speciesName}
                     <p class="text-sm italic text-slate-500 dark:text-slate-400 mt-1">
-                        {info.scientific_name}
+                        {subName}
                     </p>
                 {/if}
             </div>
@@ -167,6 +179,9 @@
                             <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
                             <div class="absolute bottom-4 left-6 right-6">
                                 <h3 class="text-2xl font-bold text-white drop-shadow-lg">{speciesName}</h3>
+                                {#if subName && subName !== speciesName}
+                                    <p class="text-sm italic text-white/80 mt-0.5 drop-shadow">{subName}</p>
+                                {/if}
                                 {#if info.description}
                                     <p class="text-sm text-white/90 mt-1 drop-shadow">{info.description}</p>
                                 {/if}

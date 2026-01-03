@@ -71,11 +71,16 @@
         }
     }
 
-    function getConfidenceColor(score: number): string {
-        if (score >= 0.9) return 'bg-emerald-500';
-        if (score >= 0.7) return 'bg-amber-500';
-        return 'bg-red-500';
-    }
+    // Content
+    let subName = $derived.by(() => {
+        if (!detection.scientific_name && !detection.common_name) return null;
+        
+        const other = detection.display_name === detection.common_name 
+            ? detection.scientific_name 
+            : detection.common_name;
+            
+        return (other && other !== detection.display_name) ? other : null;
+    });
 </script>
 
 <div
@@ -226,15 +231,21 @@
             {detection.display_name}
         </h3>
         
-        {#if detection.sub_label && detection.sub_label !== detection.display_name}
-            <p class="text-xs font-medium text-teal-600 dark:text-teal-400 mt-0.5 truncate" title="Frigate sub-label: {detection.sub_label}">
+        {#if subName}
+            <p class="text-xs italic text-slate-500 dark:text-slate-400 mt-0.5 truncate" title={subName}>
+                {subName}
+            </p>
+        {/if}
+        
+        {#if detection.sub_label && detection.sub_label !== detection.display_name && detection.sub_label !== subName}
+            <p class="text-[10px] font-medium text-teal-600 dark:text-teal-400 mt-1 truncate" title="Frigate sub-label: {detection.sub_label}">
                 Frigate: {detection.sub_label}
             </p>
-        {:else if detection.sub_label}
-            <p class="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5 italic">
+        {:else if detection.sub_label && !subName}
+            <p class="text-[10px] text-slate-400 dark:text-slate-500 mt-1 italic">
                 Confirmed by Frigate
             </p>
-        {:else}
+        {:else if !subName}
             <div class="h-4"></div> <!-- Spacer to keep layout consistent -->
         {/if}
 

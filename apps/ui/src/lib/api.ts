@@ -353,6 +353,8 @@ export interface CameraStats {
 
 export interface SpeciesStats {
     species_name: string;
+    scientific_name?: string | null;
+    common_name?: string | null;
     total_sightings: number;
     first_seen: string | null;
     last_seen: string | null;

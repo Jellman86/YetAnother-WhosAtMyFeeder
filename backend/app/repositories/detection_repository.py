@@ -327,6 +327,17 @@ class DetectionRepository:
             rows = await cursor.fetchall()
             return [row[0] for row in rows]
 
+    async def get_taxonomy_names(self, name: str) -> dict:
+        """Get scientific and common names for a given species name from cache."""
+        async with self.db.execute(
+            "SELECT scientific_name, common_name FROM taxonomy_cache WHERE LOWER(scientific_name) = LOWER(?) OR LOWER(common_name) = LOWER(?)",
+            (name, name)
+        ) as cursor:
+            row = await cursor.fetchone()
+            if row:
+                return {"scientific_name": row[0], "common_name": row[1]}
+        return {"scientific_name": None, "common_name": None}
+
     async def delete_older_than(self, cutoff_date: datetime) -> int:
         """Delete detections older than the cutoff date. Returns count of deleted rows."""
         async with self.db.execute(

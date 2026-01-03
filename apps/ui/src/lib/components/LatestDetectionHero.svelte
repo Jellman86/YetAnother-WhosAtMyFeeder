@@ -9,6 +9,16 @@
 
     let { detection, onclick }: Props = $props();
 
+    let subName = $derived.by(() => {
+        if (!detection.scientific_name && !detection.common_name) return null;
+        
+        const other = detection.display_name === detection.common_name 
+            ? detection.scientific_name 
+            : detection.common_name;
+            
+        return (other && other !== detection.display_name) ? other : null;
+    });
+
     function formatTime(dateString: string): string {
         try {
             const date = new Date(dateString);
@@ -52,6 +62,11 @@
             <h2 class="text-3xl sm:text-4xl font-black text-white drop-shadow-lg tracking-tight">
                 {detection.display_name}
             </h2>
+            {#if subName}
+                <p class="text-lg italic text-white/70 drop-shadow mt-1">
+                    {subName}
+                </p>
+            {/if}
             <div class="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-white/80 text-xs sm:text-sm font-medium">
                 <span class="flex items-center gap-1.5">
                     <span class="w-2 h-2 rounded-full bg-teal-400"></span>
