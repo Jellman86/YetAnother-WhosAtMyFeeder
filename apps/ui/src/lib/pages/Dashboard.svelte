@@ -175,6 +175,7 @@
 </script>
 
 <div class="space-y-8">
+    <!-- Stats Ribbon -->
     {#if summary || detectionsStore.totalToday > 0}
         <div in:fly={{ y: -20, duration: 500 }}>
             <StatsRibbon
@@ -187,6 +188,7 @@
         </div>
     {/if}
 
+    <!-- Top Row: Hero & Histogram -->
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div class="lg:col-span-2">
             {#if heroDetection}
@@ -213,6 +215,7 @@
         </div>
     </div>
 
+    <!-- Middle Row: Top Visitors -->
     {#if summary && summary.top_species.length > 0}
         <div in:fade={{ duration: 500, delay: 200 }}>
             <TopVisitors 
@@ -222,6 +225,7 @@
         </div>
     {/if}
 
+    <!-- Bottom Row: Recent Feed -->
     <div class="space-y-6">
         <div class="flex items-center justify-between">
             <h3 class="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400"> Discovery Feed </h3>
@@ -238,10 +242,12 @@
     </div>
 </div>
 
+<!-- Event Detail Modal -->
 {#if selectedEvent}
     <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onclick={() => selectedEvent = null} onkeydown={(e) => e.key === 'Escape' && (selectedEvent = null)} role="dialog" aria-modal="true" tabindex="-1">
         <div class="relative bg-white dark:bg-slate-800 rounded-3xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-hidden border border-white/20" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.stopPropagation()} role="document" tabindex="-1">
             
+            <!-- Reclassification Overlay (covers entire modal content) -->
             {#if modalReclassifyProgress}
                 <ReclassificationOverlay progress={modalReclassifyProgress} />
             {/if}

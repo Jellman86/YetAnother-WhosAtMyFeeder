@@ -6,6 +6,8 @@
         getThumbnailUrl,
         hideDetection,
         deleteDetection,
+        fetchSpecies,
+        checkClipAvailable,
         fetchClassifierLabels,
         reclassifyDetection,
         updateDetectionSpecies,
@@ -31,7 +33,7 @@
     let deleting = $state(false);
     let hiding = $state(false);
 
-    // Reactive settings state
+    // Reactive state for settings
     let preferScientific = $state(false);
     $effect(() => {
         const unsubscribe = settingsStore.subscribe(s => {
@@ -170,7 +172,7 @@
 </div>
 
 {#if selectedEvent}
-    <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onclick={() => selectedEvent = null} onkeydown={(e) => e.key === 'Escape' && (selectedEvent = null)} role="dialog" tabindex="-1">
+    <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onclick={() => selectedEvent = null} onkeydown={(e) => e.key === 'Escape' && (selectedEvent = null)} role="dialog" aria-modal="true" tabindex="-1">
         <div class="relative bg-white dark:bg-slate-800 rounded-3xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-hidden border border-white/10" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.stopPropagation()} role="document" tabindex="-1">
             
             {#if modalReclassifyProgress}

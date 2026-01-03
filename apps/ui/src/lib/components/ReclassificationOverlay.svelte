@@ -16,11 +16,11 @@
     );
 </script>
 
-<div class="absolute inset-0 z-[100] bg-slate-900/90 dark:bg-slate-950/90 backdrop-blur-xl flex flex-col items-center justify-center p-6 animate-in fade-in duration-300 rounded-2xl">
+<div class="absolute inset-0 z-[100] bg-slate-900/90 dark:bg-slate-950/90 backdrop-blur-xl flex flex-col items-center justify-center p-6 animate-in fade-in duration-300 rounded-[inherit]">
     
     {#if progress.status === 'completed'}
         <!-- Completion UI -->
-        <div class="text-center animate-in zoom-in duration-300 max-w-sm">
+        <div class="text-center animate-in zoom-in duration-300 max-w-sm w-full">
             <div class="w-20 h-20 bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto mb-6 animate-bounce-short">
                 <svg class="w-10 h-10 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" />
@@ -33,12 +33,12 @@
             <div class="bg-white/5 rounded-2xl p-6 border border-white/10 mb-8 backdrop-blur-md">
                 <p class="text-[10px] font-black text-teal-400 uppercase tracking-[0.2em] mb-2">New Identification</p>
                 <p class="text-3xl font-black text-white mb-1 tracking-tight">{finalLabel}</p>
-                <p class="text-emerald-400 font-bold">{(finalScore * 100).toFixed(1)}% Confidence</p>
+                <p class="text-emerald-400 font-bold">{Math.round(finalScore * 100)}% Confidence</p>
             </div>
 
             <button
                 onclick={() => detectionsStore.dismissReclassification(progress.eventId)}
-                class="w-full py-4 bg-emerald-500 hover:bg-emerald-600 text-white font-black uppercase tracking-widest rounded-xl transition-all shadow-lg shadow-emerald-500/20 active:scale-95"
+                class="w-full py-4 bg-emerald-500 hover:bg-emerald-600 text-white font-black uppercase tracking-widest rounded-xl transition-all shadow-lg shadow-emerald-500/30 active:scale-95"
             >
                 Done
             </button>
@@ -80,13 +80,13 @@
         {#if progress.topLabel}
             <div class="w-full max-w-sm bg-black/40 rounded-2xl p-5 border border-white/10 backdrop-blur-sm">
                 <div class="flex items-center justify-between gap-4">
-                    <div class="min-w-0">
+                    <div class="min-w-0 flex-1">
                         <div class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Current Frame</div>
                         <div class="text-lg font-bold text-white truncate leading-tight">{progress.topLabel}</div>
                     </div>
                     <div class="text-right shrink-0">
                         <div class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Conf</div>
-                        <div class="text-lg font-black {(progress.frameScore > 0.7) ? 'text-emerald-400' : 'text-yellow-400'}">
+                        <div class="text-lg font-black {progress.frameScore > 0.7 ? 'text-emerald-400' : 'text-yellow-400'}">
                             {Math.round(progress.frameScore * 100)}%
                         </div>
                     </div>
@@ -99,10 +99,7 @@
             <div class="flex gap-1.5 justify-center">
                 {#each Array(progress.totalFrames) as _, i}
                     <div
-                        class="w-2.5 h-2.5 rounded-full transition-all duration-300 
-                               {(i < progress.currentFrame) ? 'bg-emerald-500' : ''} 
-                               {(i === progress.currentFrame - 1) ? 'bg-teal-500 animate-pulse scale-125' : ''} 
-                               {(i >= progress.currentFrame) ? 'bg-white/10' : ''}"
+                        class="w-2.5 h-2.5 rounded-full transition-all duration-300 {i < progress.currentFrame ? 'bg-emerald-500' : (i === progress.currentFrame - 1 ? 'bg-teal-500 animate-pulse scale-125' : 'bg-white/10')}"
                     ></div>
                 {/each}
             </div>
