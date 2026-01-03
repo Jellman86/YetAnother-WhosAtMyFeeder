@@ -355,10 +355,30 @@ class DetectionRepository:
                 return _parse_datetime(row[0])
             return None
 
-    async def get_species_counts(self) -> list[dict]:
-        async with self.db.execute(
-            "SELECT display_name, COUNT(*) as count FROM detections GROUP BY display_name ORDER BY count DESC"
-        ) as cursor:
+    async def get_species_counts(self, use_common_names: bool = True) -> list[dict]:
+        """Get detection counts per species, correctly merging scientific/common names."""
+        if use_common_names:
+            # Group by common_name if available, else scientific_name
+            query = """
+                SELECT 
+                    COALESCE(common_name, scientific_name, display_name) as species, 
+                    COUNT(*) as count 
+                FROM detections 
+                GROUP BY species 
+                ORDER BY count DESC
+            """
+        else:
+            # Group by scientific_name if available, else display_name
+            query = """
+                SELECT 
+                    COALESCE(scientific_name, display_name) as species, 
+                    COUNT(*) as count 
+                FROM detections 
+                GROUP BY species 
+                ORDER BY count DESC
+            """
+            
+        async with self.db.execute(query) as cursor:
             rows = await cursor.fetchall()
             return [{"species": row[0], "count": row[1]} for row in rows]
 

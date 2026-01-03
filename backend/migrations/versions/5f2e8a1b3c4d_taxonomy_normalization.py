@@ -23,6 +23,7 @@ def upgrade() -> None:
         sa.Column('scientific_name', sa.String(), nullable=False, unique=True),
         sa.Column('common_name', sa.String()),
         sa.Column('taxa_id', sa.Integer()),
+        sa.Column('is_not_found', sa.Boolean(), server_default='0'),
         sa.Column('last_updated', sa.DateTime(), server_default=sa.func.now())
     )
     op.create_index('idx_taxonomy_scientific', 'taxonomy_cache', ['scientific_name'])

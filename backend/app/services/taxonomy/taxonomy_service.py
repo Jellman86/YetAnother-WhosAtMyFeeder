@@ -32,6 +32,13 @@ class TaxonomyService:
         # 1. Check Cache
         cached = await self._get_from_cache(query_name)
         if cached:
+            # If we previously found nothing, return the original name as scientific
+            if cached.get("is_not_found"):
+                return {
+                    "scientific_name": query_name,
+                    "common_name": None,
+                    "taxa_id": None
+                }
             return cached
 
         # 2. Lookup from iNaturalist
@@ -39,9 +46,17 @@ class TaxonomyService:
         result = await self._lookup_inaturalist(query_name)
         
         if result:
-            # 3. Save to Cache
+            # 3. Save Success to Cache
             await self._save_to_cache(result)
             return result
+        else:
+            # 4. Save Failure to Cache (to prevent retrying forever)
+            await self._save_to_cache({
+                "scientific_name": query_name,
+                "common_name": None,
+                "taxa_id": None,
+                "is_not_found": True
+            })
 
         return {
             "scientific_name": query_name,
@@ -54,7 +69,7 @@ class TaxonomyService:
         async with get_db() as db:
             # Check scientific name first
             async with db.execute(
-                "SELECT scientific_name, common_name, taxa_id FROM taxonomy_cache WHERE LOWER(scientific_name) = LOWER(?) OR LOWER(common_name) = LOWER(?)",
+                "SELECT scientific_name, common_name, taxa_id, is_not_found FROM taxonomy_cache WHERE LOWER(scientific_name) = LOWER(?) OR LOWER(common_name) = LOWER(?)",
                 (name, name)
             ) as cursor:
                 row = await cursor.fetchone()
@@ -62,7 +77,8 @@ class TaxonomyService:
                     return {
                         "scientific_name": row[0],
                         "common_name": row[1],
-                        "taxa_id": row[2]
+                        "taxa_id": row[2],
+                        "is_not_found": bool(row[3])
                     }
         return None
 
@@ -71,9 +87,9 @@ class TaxonomyService:
         async with get_db() as db:
             await db.execute(
                 """INSERT OR REPLACE INTO taxonomy_cache 
-                   (scientific_name, common_name, taxa_id, last_updated) 
-                   VALUES (?, ?, ?, ?)""",
-                (data["scientific_name"], data["common_name"], data["taxa_id"], datetime.now())
+                   (scientific_name, common_name, taxa_id, is_not_found, last_updated) 
+                   VALUES (?, ?, ?, ?, ?)""",
+                (data["scientific_name"], data["common_name"], data.get("taxa_id"), 1 if data.get("is_not_found") else 0, datetime.now())
             )
             await db.commit()
 

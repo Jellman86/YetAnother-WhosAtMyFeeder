@@ -90,7 +90,7 @@ async def get_species_list():
     """Get list of all species with counts."""
     async with get_db() as db:
         repo = DetectionRepository(db)
-        stats = await repo.get_species_counts()
+        stats = await repo.get_species_counts(use_common_names=settings.classification.display_common_names)
 
         # Transform unknown bird labels for display and aggregate counts
         unknown_labels = settings.classification.unknown_bird_labels
