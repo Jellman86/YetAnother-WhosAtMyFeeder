@@ -52,7 +52,13 @@ async def get_daily_summary():
                 if not latest_unknown_event or s["latest_event"] > latest_unknown_event:
                     latest_unknown_event = s["latest_event"]
             else:
-                summary_species.append(DailySpeciesSummary(**s))
+                summary_species.append(DailySpeciesSummary(
+                    species=s["species"],
+                    count=s["count"],
+                    latest_event=s["latest_event"],
+                    scientific_name=s.get("scientific_name"),
+                    common_name=s.get("common_name")
+                ))
         
         if unknown_count > 0:
             summary_species.append(DailySpeciesSummary(

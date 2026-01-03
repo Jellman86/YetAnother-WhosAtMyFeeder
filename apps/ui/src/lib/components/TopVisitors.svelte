@@ -10,8 +10,14 @@
 
     let { species, onSpeciesClick }: Props = $props();
 
-    // Derived state for setting preference
-    let preferScientific = $derived($settingsStore?.scientific_name_primary ?? false);
+    // Reactive state for settings
+    let preferScientific = $state(false);
+    $effect(() => {
+        const unsubscribe = settingsStore.subscribe(s => {
+            preferScientific = s?.scientific_name_primary ?? false;
+        });
+        return unsubscribe;
+    });
 </script>
 
 <div class="space-y-4">
