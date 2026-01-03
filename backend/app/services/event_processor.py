@@ -87,73 +87,73 @@ class EventProcessor:
 
             # Apply common filtering and labeling logic (with Frigate sublabel for fallback if needed)
             top = self.detection_service.filter_and_label(results[0], frigate_event, sub_label)
-                if not top:
-                    return
+            if not top:
+                return
 
-                label = top['label']
-                score = top['score']
+            label = top['label']
+            score = top['score']
 
-                # --- Audio Correlation ---
-                detection_dt = datetime.fromtimestamp(start_time_ts)
-                audio_match = await audio_service.find_match(detection_dt, camera_name=camera, window_seconds=30)
+            # --- Audio Correlation ---
+            detection_dt = datetime.fromtimestamp(start_time_ts)
+            audio_match = await audio_service.find_match(detection_dt, camera_name=camera, window_seconds=30)
+            
+            audio_confirmed = False
+            audio_species = None
+            audio_score = None
+
+            if audio_match:
+                audio_species = audio_match.species
+                audio_score = audio_match.confidence
                 
-                audio_confirmed = False
-                audio_species = None
-                audio_score = None
-
-                if audio_match:
-                    audio_species = audio_match.species
-                    audio_score = audio_match.confidence
-                    
-                    # Logic 1: Confirmation
-                    if audio_species.lower() == label.lower():
-                        audio_confirmed = True
-                        log.info("Audio confirmed visual detection", event=frigate_event, species=label)
-                    
-                    # Logic 2: Enhancement (Unknown -> Audio Label)
-                    # If visual is generic/unknown but audio is strong, upgrade it
-                    elif label in settings.classification.unknown_bird_labels or label == "Unknown Bird":
-                        if audio_score > 0.7: # High confidence audio
-                            log.info("Upgrading visual detection with audio", old=label, new=audio_species)
-                            label = audio_species
-                            top['label'] = label # Update the classification dict passed to filtering
-                            audio_confirmed = True # Implicitly confirmed by audio source
-                # -------------------------
-
-                # --- Weather Context ---
-                temperature = None
-                condition = None
-                try:
-                    # Short timeout logic inside service
-                    weather_data = await weather_service.get_current_weather()
-                    temperature = weather_data.get("temperature")
-                    condition = weather_data.get("condition_text")
-                except Exception as we:
-                    log.warning("Weather fetch failed, skipping context", error=str(we))
-                # -----------------------
-
-                # Save detection (upsert)
-                await self.detection_service.save_detection(
-                    frigate_event=frigate_event,
-                    camera=camera,
-                    start_time=start_time_ts,
-                    classification=top,
-                    frigate_score=frigate_score,
-                    sub_label=sub_label,
-                    audio_confirmed=audio_confirmed,
-                    audio_species=audio_species,
-                    audio_score=audio_score,
-                    temperature=temperature,
-                    weather_condition=condition
-                )
+                # Logic 1: Confirmation
+                if audio_species.lower() == label.lower():
+                    audio_confirmed = True
+                    log.info("Audio confirmed visual detection", event=frigate_event, species=label)
                 
-                # Update Frigate sublabel if we are confident (visual or audio confirmed)
-                # Only if score is high enough or audio confirmed it
-                if score > settings.classification.threshold or audio_confirmed:
-                    await frigate_client.set_sublabel(frigate_event, label)
+                # Logic 2: Enhancement (Unknown -> Audio Label)
+                # If visual is generic/unknown but audio is strong, upgrade it
+                elif label in settings.classification.unknown_bird_labels or label == "Unknown Bird":
+                    if audio_score > 0.7: # High confidence audio
+                        log.info("Upgrading visual detection with audio", old=label, new=audio_species)
+                        label = audio_species
+                        top['label'] = label # Update the classification dict passed to filtering
+                        audio_confirmed = True # Implicitly confirmed by audio source
+            # -------------------------
 
-            except Exception as e:
-                log.error("Error processing event", event=frigate_event, error=str(e))
+            # --- Weather Context ---
+            temperature = None
+            condition = None
+            try:
+                # Short timeout logic inside service
+                weather_data = await weather_service.get_current_weather()
+                temperature = weather_data.get("temperature")
+                condition = weather_data.get("condition_text")
+            except Exception as we:
+                log.warning("Weather fetch failed, skipping context", error=str(we))
+            # -----------------------
+
+            # Save detection (upsert)
+            await self.detection_service.save_detection(
+                frigate_event=frigate_event,
+                camera=camera,
+                start_time=start_time_ts,
+                classification=top,
+                frigate_score=frigate_score,
+                sub_label=sub_label,
+                audio_confirmed=audio_confirmed,
+                audio_species=audio_species,
+                audio_score=audio_score,
+                temperature=temperature,
+                weather_condition=condition
+            )
+            
+            # Update Frigate sublabel if we are confident (visual or audio confirmed)
+            # Only if score is high enough or audio confirmed it
+            if score > settings.classification.threshold or audio_confirmed:
+                await frigate_client.set_sublabel(frigate_event, label)
+
+        except Exception as e:
+            log.error("Error processing event", event=frigate_event, error=str(e))
 
         except json.JSONDecodeError:
             log.error("Invalid JSON payload")
