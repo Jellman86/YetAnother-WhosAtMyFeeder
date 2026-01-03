@@ -148,6 +148,11 @@
            {detection.is_hidden ? 'opacity-60 grayscale-[0.5]' : ''}
            {isVerified ? 'ring-2 ring-emerald-500/20 dark:ring-emerald-500/10' : ''}"
 >
+    <!-- Reclassification Overlay -->
+    {#if reclassifyProgress}
+        <ReclassificationOverlay progress={reclassifyProgress} />
+    {/if}
+
     <!-- Image Section -->
     <div class="relative aspect-[4/3] overflow-hidden">
         {#if !imageError && isVisible}
@@ -328,9 +333,4 @@
             </div>
         </div>
     </div>
-
-    <!-- Reclassification Overlay -->
-    {#if reclassifyProgress}
-        <ReclassificationOverlay progress={reclassifyProgress} />
-    {/if}
 </div>

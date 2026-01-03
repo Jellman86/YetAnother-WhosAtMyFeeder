@@ -160,7 +160,10 @@
                          payload.data.top_label
                      );
                  } else if (payload.type === 'reclassification_completed') {
-                     detectionsStore.completeReclassification(payload.data.event_id);
+                     detectionsStore.completeReclassification(
+                         payload.data.event_id,
+                         payload.data.results
+                     );
                  }
               } catch (e) {
                   console.error("SSE Parse Error", e);

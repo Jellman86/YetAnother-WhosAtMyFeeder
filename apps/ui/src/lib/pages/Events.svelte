@@ -382,9 +382,6 @@
                 );
                 // Update global store
                 detectionsStore.updateDetection({ ...selectedEvent });
-                alert(`Reclassified (${strategy}): ${result.old_species} → ${result.new_species} (${(result.new_score * 100).toFixed(1)}%)`);
-            } else {
-                alert(`Classification unchanged (${strategy}): ${result.new_species} (${(result.new_score * 100).toFixed(1)}%)`);
             }
         } catch (e: any) {
             console.error('Failed to reclassify', e);

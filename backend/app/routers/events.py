@@ -348,7 +348,8 @@ async def reclassify_event(
                     await broadcaster.broadcast({
                         "type": "reclassification_completed",
                         "data": {
-                            "event_id": event_id
+                            "event_id": event_id,
+                            "results": results # Pass results to the UI for final display
                         }
                     })
                 finally:
