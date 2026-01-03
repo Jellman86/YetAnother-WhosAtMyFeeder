@@ -1,0 +1,56 @@
+name: YetAnother-WhosAtMyFeeder
+#-----------------------------------------------
+# Yet Another WhosAtMyFeeder - Production Environment
+#
+# This docker-compose file uses the 'latest' tagged images from GHCR
+# Built automatically from the 'main' branch via GitHub Actions
+#
+# Usage: docker compose -f docker-compose.prod.yml up -d
+#-----------------------------------------------
+services:
+  yawamf-backend:
+    image: ghcr.io/jellman86/wamf-backend:latest
+    container_name: yawamf-backend
+    restart: unless-stopped
+    networks:
+      - yawamf_network
+    volumes:
+      - ./config:/config        # Configuration files (config.json)
+      - ./data:/data            # Persistent data (database, models)
+    ports:
+      - "8946:8000"
+    environment:
+      - TZ=${TZ:-UTC}
+      - FRIGATE__FRIGATE_URL=${FRIGATE_URL:-http://frigate:5000}
+      - FRIGATE__FRIGATE_AUTH_TOKEN=${FRIGATE_AUTH_TOKEN:-}
+      - FRIGATE__MQTT_SERVER=${MQTT_SERVER:-mqtt}
+      - FRIGATE__MQTT_PORT=${MQTT_PORT:-1883}
+      - FRIGATE__MQTT_AUTH=${MQTT_AUTH:-false}
+      - FRIGATE__MQTT_USERNAME=${MQTT_USERNAME:-}
+      - FRIGATE__MQTT_PASSWORD=${MQTT_PASSWORD:-}
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8000/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  yawamf-frontend:
+    image: ghcr.io/jellman86/wamf-frontend:latest
+    container_name: yawamf-frontend
+    restart: unless-stopped
+    networks:
+      - yawamf_network
+    ports:
+      - "9852:80"
+    depends_on:
+      - yawamf-backend
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost/" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  yawamf_network:
+    name: ${DOCKER_NETWORK:-yawamf_default}
+    external: true

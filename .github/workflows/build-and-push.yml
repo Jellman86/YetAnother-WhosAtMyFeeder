@@ -2,7 +2,7 @@ name: Build and Push Docker Images
 
 on:
   push:
-    branches: [main]
+    branches: [main, dev]
   workflow_dispatch:  # Allow manual trigger
 
 env:
@@ -32,6 +32,14 @@ jobs:
       - name: Get short SHA
         run: echo "SHORT_SHA=${GITHUB_SHA::7}" >> $GITHUB_ENV
 
+      - name: Determine image tag
+        run: |
+          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            echo "IMAGE_TAG=latest" >> $GITHUB_ENV
+          else
+            echo "IMAGE_TAG=dev" >> $GITHUB_ENV
+          fi
+
       - name: Build and push backend
         uses: docker/build-push-action@v5
         with:
@@ -40,7 +48,7 @@ jobs:
           build-args: |
             GIT_HASH=${{ env.SHORT_SHA }}
           tags: |
-            ghcr.io/${{ env.OWNER_LC }}/wamf-backend:latest
+            ghcr.io/${{ env.OWNER_LC }}/wamf-backend:${{ env.IMAGE_TAG }}
             ghcr.io/${{ env.OWNER_LC }}/wamf-backend:${{ github.sha }}
 
   build-frontend:
@@ -66,6 +74,14 @@ jobs:
       - name: Get short SHA
         run: echo "SHORT_SHA=${GITHUB_SHA::7}" >> $GITHUB_ENV
 
+      - name: Determine image tag
+        run: |
+          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            echo "IMAGE_TAG=latest" >> $GITHUB_ENV
+          else
+            echo "IMAGE_TAG=dev" >> $GITHUB_ENV
+          fi
+
       - name: Build and push frontend
         uses: docker/build-push-action@v5
         with:
@@ -74,5 +90,5 @@ jobs:
           build-args: |
             GIT_HASH=${{ env.SHORT_SHA }}
           tags: |
-            ghcr.io/${{ env.OWNER_LC }}/wamf-frontend:latest
+            ghcr.io/${{ env.OWNER_LC }}/wamf-frontend:${{ env.IMAGE_TAG }}
             ghcr.io/${{ env.OWNER_LC }}/wamf-frontend:${{ github.sha }}
