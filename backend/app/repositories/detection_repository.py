@@ -520,19 +520,24 @@ class DetectionRepository:
     async def get_daily_species_counts(self, start_date: datetime, end_date: datetime) -> list[dict]:
         """Get detection counts per species for a specific time range."""
         async with self.db.execute(
-            """SELECT display_name, COUNT(*) as count, MAX(frigate_event) as latest_event,
-                      MAX(scientific_name) as scientific_name, MAX(common_name) as common_name
+            """SELECT 
+                    COALESCE(scientific_name, display_name) as group_key,
+                    COUNT(*) as count, 
+                    MAX(frigate_event) as latest_event,
+                    MAX(scientific_name) as scientific_name, 
+                    MAX(common_name) as common_name,
+                    MAX(display_name) as display_name
                FROM detections 
                WHERE detection_time >= ? AND detection_time <= ?
                AND (is_hidden = 0 OR is_hidden IS NULL)
-               GROUP BY display_name 
+               GROUP BY group_key
                ORDER BY count DESC""",
             (start_date.isoformat(sep=' '), end_date.isoformat(sep=' '))
         ) as cursor:
             rows = await cursor.fetchall()
             return [
                 {
-                    "species": row[0],
+                    "species": row[5], # Use display_name as the default 'species' label for compatibility
                     "count": row[1],
                     "latest_event": row[2],
                     "scientific_name": row[3],
