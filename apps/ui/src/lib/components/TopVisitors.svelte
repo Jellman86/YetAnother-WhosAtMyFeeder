@@ -9,6 +9,27 @@
     }
 
     let { species, onSpeciesClick }: Props = $props();
+
+    // Derived list with reactive naming logic
+    let processedSpecies = $derived.by(() => {
+        const preferSci = $settingsStore?.scientific_name_primary ?? false;
+        
+        return species.map(item => {
+            const primary = preferSci 
+                ? (item.scientific_name || item.species) 
+                : (item.common_name || item.species);
+            
+            const secondary = preferSci 
+                ? (item.common_name || item.species)
+                : (item.scientific_name || item.species);
+
+            return {
+                ...item,
+                displayName: primary,
+                subName: (primary !== secondary) ? secondary : null
+            };
+        });
+    });
 </script>
 
 <div class="space-y-4">
@@ -17,16 +38,7 @@
     </h3>
 
     <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-        {#each species as item}
-            {@const preferSci = $settingsStore?.scientific_name_primary ?? false}
-            {@const displayName = preferSci
-                ? (item.scientific_name || item.species) 
-                : (item.common_name || item.species)}
-            
-            {@const subTitle = preferSci 
-                ? (item.common_name && item.common_name !== item.species ? item.common_name : null)
-                : (item.scientific_name && item.scientific_name !== item.species ? item.scientific_name : null)}
-            
+        {#each processedSpecies as item}
             <button 
                 onclick={() => onSpeciesClick?.(item.species)}
                 class="bg-white dark:bg-slate-800/50 rounded-xl p-3 border border-slate-200/80 dark:border-slate-700/50 text-left hover:border-teal-500 dark:hover:border-teal-400 transition-all group shadow-sm"
@@ -34,19 +46,19 @@
                 <div class="relative aspect-square rounded-lg overflow-hidden mb-3 bg-slate-100 dark:bg-slate-700">
                     <img 
                         src={getThumbnailUrl(item.latest_event)} 
-                        alt={displayName}
+                        alt={item.displayName}
                         class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                     />
                     <div class="absolute top-1.5 right-1.5 bg-teal-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full shadow-sm">
                         {item.count}
                     </div>
                 </div>
-                <p class="text-xs font-bold text-slate-900 dark:text-white truncate" title={displayName}>
-                    {displayName}
+                <p class="text-xs font-bold text-slate-900 dark:text-white truncate" title={item.displayName}>
+                    {item.displayName}
                 </p>
-                {#if subTitle}
-                    <p class="text-[9px] italic text-slate-500 dark:text-slate-400 truncate opacity-80" title={subTitle}>
-                        {subTitle}
+                {#if item.subName}
+                    <p class="text-[9px] italic text-slate-500 dark:text-slate-400 truncate opacity-80" title={item.subName}>
+                        {item.subName}
                     </p>
                 {/if}
                 <p class="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">

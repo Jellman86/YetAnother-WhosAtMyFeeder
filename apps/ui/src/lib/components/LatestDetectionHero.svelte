@@ -18,14 +18,11 @@
 
     let preferScientific = $derived($settingsStore?.scientific_name_primary ?? false);
 
+    // Dynamic Naming Logic
+    let primaryName = $derived(preferScientific ? (detection.scientific_name || detection.display_name) : (detection.common_name || detection.display_name));
     let subName = $derived.by(() => {
-        if (!detection.scientific_name && !detection.common_name) return null;
-        
-        const other = detection.display_name === detection.common_name 
-            ? detection.scientific_name 
-            : detection.common_name;
-            
-        return (other && other !== detection.display_name) ? other : null;
+        const other = preferScientific ? detection.common_name : detection.scientific_name;
+        return (other && other !== primaryName) ? other : null;
     });
 
     function formatTime(dateString: string): string {
@@ -75,7 +72,7 @@
             </div>
             
             <h2 class="text-3xl sm:text-4xl font-black text-white drop-shadow-lg tracking-tight truncate">
-                {detection.display_name}
+                {primaryName}
             </h2>
             
             {#if subName}
