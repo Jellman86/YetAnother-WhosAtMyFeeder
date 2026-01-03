@@ -40,9 +40,9 @@ REMOTE_REGISTRY = [
         "accuracy_tier": "Very High (90%+)",
         "inference_speed": "Slow (~500-800ms)",
         "runtime": "onnx",
-        "download_url": "pending",  # Will be set after user uploads to GitHub
-        "weights_url": "pending",
-        "labels_url": "https://raw.githubusercontent.com/Jellman86/YetAnother-WhosAtMyFeeder/main/backend/data/models/convnext_large_inat21/labels.txt",
+        "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/convnext_large_inat21.onnx",
+        "weights_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/convnext_large_inat21.onnx.data",
+        "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/convnext_large_inat21_labels.txt",
         "input_size": 384,
         "preprocessing": {
             "mean": [0.485, 0.456, 0.406],
@@ -60,9 +60,9 @@ REMOTE_REGISTRY = [
         "accuracy_tier": "Elite (91%+)",
         "inference_speed": "Slow (~1s)",
         "runtime": "onnx",
-        "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/model.onnx", 
-        "weights_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/model.onnx.data",
-        "labels_url": "https://raw.githubusercontent.com/Jellman86/YetAnother-WhosAtMyFeeder/main/backend/data/models/eva02_large_inat21/labels.txt",
+        "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/eva02_large_inat21.onnx", 
+        "weights_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/eva02_large_inat21.onnx.data",
+        "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/eva02_large_inat21_labels.txt",
         "input_size": 336,
         "preprocessing": {
             "mean": [0.48145466, 0.4578275, 0.40821073],
