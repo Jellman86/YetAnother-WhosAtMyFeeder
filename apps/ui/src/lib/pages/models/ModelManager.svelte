@@ -1,9 +1,10 @@
 <script lang="ts">
     import { onMount, onDestroy } from 'svelte';
-    import { fetchAvailableModels, fetchInstalledModels, downloadModel, fetchDownloadStatus, activateModel, type ModelMetadata, type InstalledModel, type DownloadProgress } from '../../api';
+    import { fetchAvailableModels, fetchInstalledModels, downloadModel, fetchDownloadStatus, activateModel, checkHealth, type ModelMetadata, type InstalledModel, type DownloadProgress } from '../../api';
 
     let availableModels = $state<ModelMetadata[]>([]);
     let installedModels = $state<InstalledModel[]>([]);
+    let health = $state<any>(null);
     let loading = $state(true);
     let error = $state<string | null>(null);
     let downloadStatuses = $state<Record<string, DownloadProgress>>({});
@@ -25,12 +26,14 @@
         loading = true;
         error = null;
         try {
-            const [available, installed] = await Promise.all([
+            const [available, installed, healthData] = await Promise.all([
                 fetchAvailableModels(),
-                fetchInstalledModels()
+                fetchInstalledModels(),
+                checkHealth()
             ]);
             availableModels = available;
             installedModels = installed;
+            health = healthData;
         } catch (e) {
             console.error(e);
             error = "Failed to load models";
@@ -101,17 +104,30 @@
 </script>
 
 <div class="space-y-6">
-    <div class="flex items-center justify-between">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <h2 class="text-2xl font-bold text-slate-900 dark:text-white">Model Manager</h2>
-        <button 
-            onclick={loadData}
-            class="p-2 text-slate-500 hover:text-teal-500 transition-colors"
-            title="Refresh"
-        >
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
-        </button>
+        
+        {#if health}
+            <div class="flex items-center gap-2">
+                <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700" title="TFLite Runtime Status">
+                    <span class="w-2 h-2 rounded-full {health.ml.runtimes.tflite.installed ? 'bg-emerald-500' : 'bg-red-500'}"></span>
+                    <span class="text-xs font-bold text-slate-600 dark:text-slate-400">TFLite</span>
+                </div>
+                <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700" title="ONNX Runtime Status">
+                    <span class="w-2 h-2 rounded-full {health.ml.runtimes.onnx.installed ? 'bg-emerald-500' : 'bg-red-500'}"></span>
+                    <span class="text-xs font-bold text-slate-600 dark:text-slate-400">ONNX</span>
+                </div>
+                <button 
+                    onclick={loadData}
+                    class="p-2 text-slate-500 hover:text-teal-500 transition-colors"
+                    title="Refresh"
+                >
+                    <svg class="w-5 h-5 {loading ? 'animate-spin' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                </button>
+            </div>
+        {/if}
     </div>
 
     {#if loading}
