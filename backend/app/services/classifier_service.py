@@ -659,15 +659,17 @@ class ClassifierService:
         except Exception as e:
             log.error("Failed to reload wildlife model", error=str(e))
 
-    def classify_video(self, video_path: str, stride: int = 5, max_frames: int = 15) -> list[dict]:
+    def classify_video(self, video_path: str, stride: int = 5, max_frames: int = 15, progress_callback=None) -> list[dict]:
         """
         Classify a video clip using Temporal Ensemble (Soft Voting).
-        
+
         Args:
             video_path: Path to the video file.
             stride: Process every Nth frame.
             max_frames: Maximum number of frames to process to limit latency.
-            
+            progress_callback: Optional callback function(current_frame, total_frames, frame_score, top_label)
+                              called after each frame is processed.
+
         Returns:
             List of classifications with aggregated scores.
         """
@@ -695,12 +697,26 @@ class ClassifierService:
                     # Convert BGR (OpenCV) to RGB (PIL)
                     frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                     image = Image.fromarray(frame_rgb)
-                    
+
                     # Get raw probability vector
                     scores = bird_model.classify_raw(image)
-                    
+
                     if len(scores) > 0:
                         all_scores.append(scores)
+
+                        # Call progress callback if provided
+                        if progress_callback:
+                            # Get top prediction for this frame
+                            top_idx = int(np.argmax(scores))
+                            top_score = float(scores[top_idx])
+                            top_label = bird_model.labels[top_idx] if top_idx < len(bird_model.labels) else f"Class {top_idx}"
+
+                            progress_callback(
+                                current_frame=len(all_scores),
+                                total_frames=max_frames,
+                                frame_score=top_score,
+                                top_label=top_label
+                            )
 
                 frame_count += 1
 
@@ -745,7 +761,18 @@ class ClassifierService:
             log.error("Error during video classification", error=str(e))
             return []
 
-    async def classify_video_async(self, video_path: str, stride: int = 5, max_frames: int = 15) -> list[dict]:
+    async def classify_video_async(self, video_path: str, stride: int = 5, max_frames: int = 15, progress_callback=None) -> list[dict]:
         """Async wrapper for video classification."""
         loop = asyncio.get_running_loop()
-        return await loop.run_in_executor(self._executor, self.classify_video, video_path, stride, max_frames)
+
+        # Wrap the callback to make it thread-safe
+        if progress_callback:
+            def sync_callback(current_frame, total_frames, frame_score, top_label):
+                # Schedule the async callback in the event loop from the executor thread
+                asyncio.run_coroutine_threadsafe(
+                    progress_callback(current_frame, total_frames, frame_score, top_label),
+                    loop
+                )
+            return await loop.run_in_executor(self._executor, self.classify_video, video_path, stride, max_frames, sync_callback)
+        else:
+            return await loop.run_in_executor(self._executor, self.classify_video, video_path, stride, max_frames, None)

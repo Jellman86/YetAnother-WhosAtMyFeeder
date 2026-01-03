@@ -299,7 +299,7 @@ async def reclassify_event(
             from app.services.media_cache import media_cache
             clip_data = None
             cached_path = media_cache.get_clip_path(event_id)
-            
+
             if cached_path:
                 log.info("Using cached clip for reclassification", event_id=event_id)
                 with open(cached_path, 'rb') as f:
@@ -314,17 +314,47 @@ async def reclassify_event(
                 # Save to temp file for OpenCV
                 import tempfile
                 import os
-                
+
                 with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tmp:
                     tmp.write(clip_data)
                     tmp_path = tmp.name
-                
+
                 try:
-                    results = await classifier.classify_video_async(tmp_path)
+                    # Broadcast start of video reclassification
+                    await broadcaster.broadcast({
+                        "type": "reclassification_started",
+                        "data": {
+                            "event_id": event_id,
+                            "strategy": "video"
+                        }
+                    })
+
+                    # Define progress callback to broadcast real-time progress via SSE
+                    async def progress_callback(current_frame, total_frames, frame_score, top_label):
+                        await broadcaster.broadcast({
+                            "type": "reclassification_progress",
+                            "data": {
+                                "event_id": event_id,
+                                "current_frame": current_frame,
+                                "total_frames": total_frames,
+                                "frame_score": frame_score,
+                                "top_label": top_label
+                            }
+                        })
+
+                    results = await classifier.classify_video_async(tmp_path, progress_callback=progress_callback)
+
+                    # Broadcast completion
+                    await broadcaster.broadcast({
+                        "type": "reclassification_completed",
+                        "data": {
+                            "event_id": event_id
+                        }
+                    })
                 finally:
                     if os.path.exists(tmp_path):
                         os.remove(tmp_path)
-                        
+
                 if not results:
                     log.warning("Video classification yielded no results, falling back to snapshot", event_id=event_id)
                     effective_strategy = "snapshot"

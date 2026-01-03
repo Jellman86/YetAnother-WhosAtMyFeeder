@@ -1,11 +1,20 @@
 import { type Detection, fetchEvents, fetchEventsCount } from '../api';
 
+export interface ReclassificationProgress {
+    eventId: string;
+    currentFrame: number;
+    totalFrames: number;
+    frameScore: number;
+    topLabel: string;
+}
+
 // Svelte 5 shared state
 class DetectionsStore {
     detections = $state<Detection[]>([]);
     totalToday = $state(0);
     isLoading = $state(false);
     connected = $state(false);
+    progressMap = $state<Map<string, ReclassificationProgress>>(new Map());
 
     private MAX_ITEMS = 50;
 
@@ -71,6 +80,34 @@ class DetectionsStore {
 
     setConnected(status: boolean) {
         this.connected = status;
+    }
+
+    startReclassification(eventId: string) {
+        this.progressMap.set(eventId, {
+            eventId,
+            currentFrame: 0,
+            totalFrames: 15, // default max_frames
+            frameScore: 0,
+            topLabel: ''
+        });
+    }
+
+    updateReclassificationProgress(eventId: string, currentFrame: number, totalFrames: number, frameScore: number, topLabel: string) {
+        this.progressMap.set(eventId, {
+            eventId,
+            currentFrame,
+            totalFrames,
+            frameScore,
+            topLabel
+        });
+    }
+
+    completeReclassification(eventId: string) {
+        this.progressMap.delete(eventId);
+    }
+
+    getReclassificationProgress(eventId: string): ReclassificationProgress | undefined {
+        return this.progressMap.get(eventId);
     }
 }
 

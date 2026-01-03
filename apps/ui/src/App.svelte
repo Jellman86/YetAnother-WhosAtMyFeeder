@@ -148,6 +148,18 @@
                      detectionsStore.updateDetection(updatedDet);
                  } else if (payload.type === 'detection_deleted') {
                      detectionsStore.removeDetection(payload.data.frigate_event, payload.data.timestamp);
+                 } else if (payload.type === 'reclassification_started') {
+                     detectionsStore.startReclassification(payload.data.event_id);
+                 } else if (payload.type === 'reclassification_progress') {
+                     detectionsStore.updateReclassificationProgress(
+                         payload.data.event_id,
+                         payload.data.current_frame,
+                         payload.data.total_frames,
+                         payload.data.frame_score,
+                         payload.data.top_label
+                     );
+                 } else if (payload.type === 'reclassification_completed') {
+                     detectionsStore.completeReclassification(payload.data.event_id);
                  }
               } catch (e) {
                   console.error("SSE Parse Error", e);

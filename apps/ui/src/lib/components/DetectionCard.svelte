@@ -1,6 +1,8 @@
 <script lang="ts">
     import type { Detection } from '../api';
     import { getThumbnailUrl } from '../api';
+    import { detectionsStore } from '../stores/detections.svelte';
+    import ReclassificationOverlay from './ReclassificationOverlay.svelte';
 
     interface Props {
         detection: Detection;
@@ -10,6 +12,9 @@
     }
 
     let { detection, onclick, onReclassify, onRetag }: Props = $props();
+
+    // Check if this detection is being reclassified
+    let reclassifyProgress = $derived(detectionsStore.getReclassificationProgress(detection.frigate_event));
 
     let imageError = $state(false);
     let imageLoaded = $state(false);
@@ -292,4 +297,9 @@
             </div>
         </div>
     </div>
+
+    <!-- Reclassification Overlay -->
+    {#if reclassifyProgress}
+        <ReclassificationOverlay progress={reclassifyProgress} />
+    {/if}
 </div>
