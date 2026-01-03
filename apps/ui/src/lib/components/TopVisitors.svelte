@@ -10,23 +10,26 @@
 
     let { species, onSpeciesClick }: Props = $props();
 
-    // Derived list with reactive naming logic
+    // Ultra-reactive derivation using direct store access
     let processedSpecies = $derived.by(() => {
-        const preferSci = $settingsStore?.scientific_name_primary ?? false;
+        const settings = $settingsStore;
+        const preferSci = settings?.scientific_name_primary ?? false;
         
+        console.log('[TopVisitors] Naming preference updated:', { preferSci });
+
         return species.map(item => {
             const primary = preferSci 
                 ? (item.scientific_name || item.species) 
                 : (item.common_name || item.species);
             
             const secondary = preferSci 
-                ? (item.common_name || item.species)
-                : (item.scientific_name || item.species);
+                ? (item.common_name && item.common_name !== primary ? item.common_name : null)
+                : (item.scientific_name && item.scientific_name !== primary ? item.scientific_name : null);
 
             return {
                 ...item,
                 displayName: primary,
-                subName: (primary !== secondary) ? secondary : null
+                subName: secondary
             };
         });
     });

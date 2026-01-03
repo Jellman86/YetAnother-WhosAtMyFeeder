@@ -64,6 +64,15 @@
     // Derive audio confirmations count from recent detections
     let audioConfirmations = $derived(detectionsStore.detections.filter(d => d.audio_confirmed).length);
 
+    // Derive most seen species name based on preference
+    let mostSeenName = $derived.by(() => {
+        const top = summary?.top_species[0];
+        if (!top) return null;
+        return ($settingsStore?.scientific_name_primary ?? false)
+            ? (top.scientific_name || top.species)
+            : (top.common_name || top.species);
+    });
+
     async function loadSummary(force = false) {
         try {
             const [summaryRes, labelsRes] = await Promise.all([
@@ -176,7 +185,7 @@
             <StatsRibbon
                 todayCount={detectionsStore.totalToday}
                 uniqueSpecies={summary?.top_species.length ?? 0}
-                mostSeenSpecies={summary?.top_species[0]?.species ?? null}
+                mostSeenSpecies={mostSeenName}
                 mostSeenCount={summary?.top_species[0]?.count ?? 0}
                 {audioConfirmations}
             />
