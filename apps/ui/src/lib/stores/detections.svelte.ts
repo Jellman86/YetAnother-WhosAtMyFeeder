@@ -83,27 +83,33 @@ class DetectionsStore {
     }
 
     startReclassification(eventId: string) {
-        this.progressMap.set(eventId, {
+        const newMap = new Map(this.progressMap);
+        newMap.set(eventId, {
             eventId,
             currentFrame: 0,
             totalFrames: 15, // default max_frames
             frameScore: 0,
             topLabel: ''
         });
+        this.progressMap = newMap;
     }
 
     updateReclassificationProgress(eventId: string, currentFrame: number, totalFrames: number, frameScore: number, topLabel: string) {
-        this.progressMap.set(eventId, {
+        const newMap = new Map(this.progressMap);
+        newMap.set(eventId, {
             eventId,
             currentFrame,
             totalFrames,
             frameScore,
             topLabel
         });
+        this.progressMap = newMap;
     }
 
     completeReclassification(eventId: string) {
-        this.progressMap.delete(eventId);
+        const newMap = new Map(this.progressMap);
+        newMap.delete(eventId);
+        this.progressMap = newMap;
     }
 
     getReclassificationProgress(eventId: string): ReclassificationProgress | undefined {
