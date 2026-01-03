@@ -1,6 +1,9 @@
 <script lang="ts">
     import type { Detection } from '../api';
     import { getThumbnailUrl } from '../api';
+    import { settingsStore } from '../stores/settings';
+    import { detectionsStore } from '../stores/detections.svelte';
+    import ReclassificationOverlay from './ReclassificationOverlay.svelte';
 
     interface Props {
         detection: Detection;
@@ -8,6 +11,11 @@
     }
 
     let { detection, onclick }: Props = $props();
+
+    // Check if this detection is being reclassified
+    let reclassifyProgress = $derived(detectionsStore.getReclassificationProgress(detection.frigate_event));
+
+    let preferScientific = $derived($settingsStore?.scientific_name_primary ?? false);
 
     let subName = $derived.by(() => {
         if (!detection.scientific_name && !detection.common_name) return null;
@@ -33,6 +41,11 @@
     onclick={onclick}
     class="relative w-full aspect-video sm:aspect-auto sm:h-80 rounded-2xl overflow-hidden group shadow-lg border-4 border-white dark:border-slate-800 text-left"
 >
+    <!-- Reclassification Overlay -->
+    {#if reclassifyProgress}
+        <ReclassificationOverlay progress={reclassifyProgress} />
+    {/if}
+
     <!-- Background Image -->
     <img 
         src={getThumbnailUrl(detection.frigate_event)} 

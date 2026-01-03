@@ -13,6 +13,7 @@ class TaxonomyService:
     API_URL = "https://api.inaturalist.org/v1/taxa"
 
     def __init__(self):
+        self._client: Optional[httpx.AsyncClient] = None
         self._sync_status = {
             "is_running": False,
             "total": 0,
@@ -21,16 +22,21 @@ class TaxonomyService:
             "error": None
         }
 
+    def _get_client(self) -> httpx.AsyncClient:
+        if self._client is None:
+            self._client = httpx.AsyncClient(timeout=10.0)
+        return self._client
+
     def get_sync_status(self) -> dict:
         return self._sync_status
 
-    async def get_names(self, query_name: str) -> Dict[str, Optional[str]]:
+    async def get_names(self, query_name: str, db: Optional[aiosqlite.Connection] = None) -> Dict[str, Optional[str]]:
         """
         Get both scientific and common names for a given name.
         Checks local cache first, then pings iNaturalist.
         """
         # 1. Check Cache
-        cached = await self._get_from_cache(query_name)
+        cached = await self._get_from_cache(query_name, db=db)
         if cached:
             # If we previously found nothing, return the original name as scientific
             if cached.get("is_not_found"):
@@ -47,7 +53,7 @@ class TaxonomyService:
         
         if result:
             # 3. Save Success to Cache
-            await self._save_to_cache(result)
+            await self._save_to_cache(result, db=db)
             return result
         else:
             # 4. Save Failure to Cache (to prevent retrying forever)
@@ -56,7 +62,7 @@ class TaxonomyService:
                 "common_name": None,
                 "taxa_id": None,
                 "is_not_found": True
-            })
+            }, db=db)
 
         return {
             "scientific_name": query_name,
@@ -64,37 +70,49 @@ class TaxonomyService:
             "taxa_id": None
         }
 
-    async def _get_from_cache(self, name: str) -> Optional[Dict]:
+    async def _get_from_cache(self, name: str, db: Optional[aiosqlite.Connection] = None) -> Optional[Dict]:
         """Check the local taxonomy_cache table."""
         try:
-            async with get_db() as db:
-                # Check scientific name first
-                async with db.execute(
-                    "SELECT scientific_name, common_name, taxa_id, is_not_found FROM taxonomy_cache WHERE LOWER(scientific_name) = LOWER(?) OR LOWER(common_name) = LOWER(?)",
-                    (name, name)
-                ) as cursor:
-                    row = await cursor.fetchone()
-                    if row:
-                        return {
-                            "scientific_name": row[0],
-                            "common_name": row[1],
-                            "taxa_id": row[2],
-                            "is_not_found": bool(row[3])
-                        }
+            if db:
+                return await self._query_cache(db, name)
+            else:
+                async with get_db() as db:
+                    return await self._query_cache(db, name)
         except Exception as e:
-            log.warning("Taxonomy cache lookup failed (table might be missing)", error=str(e))
+            log.warning("Taxonomy cache lookup failed", error=str(e))
         return None
 
-    async def _save_to_cache(self, data: Dict):
+    async def _query_cache(self, db: aiosqlite.Connection, name: str) -> Optional[Dict]:
+        async with db.execute(
+            "SELECT scientific_name, common_name, taxa_id, is_not_found FROM taxonomy_cache WHERE LOWER(scientific_name) = LOWER(?) OR LOWER(common_name) = LOWER(?)",
+            (name, name)
+        ) as cursor:
+            row = await cursor.fetchone()
+            if row:
+                return {
+                    "scientific_name": row[0],
+                    "common_name": row[1],
+                    "taxa_id": row[2],
+                    "is_not_found": bool(row[3])
+                }
+        return None
+
+    async def _save_to_cache(self, data: Dict, db: Optional[aiosqlite.Connection] = None):
         """Save a lookup result to the local cache."""
-        async with get_db() as db:
-            await db.execute(
-                """INSERT OR REPLACE INTO taxonomy_cache 
-                   (scientific_name, common_name, taxa_id, is_not_found, last_updated) 
-                   VALUES (?, ?, ?, ?, ?)""",
-                (data["scientific_name"], data["common_name"], data.get("taxa_id"), 1 if data.get("is_not_found") else 0, datetime.now())
-            )
-            await db.commit()
+        if db:
+            await self._insert_cache(db, data)
+        else:
+            async with get_db() as db:
+                await self._insert_cache(db, data)
+                await db.commit()
+
+    async def _insert_cache(self, db: aiosqlite.Connection, data: Dict):
+        await db.execute(
+            """INSERT OR REPLACE INTO taxonomy_cache 
+               (scientific_name, common_name, taxa_id, is_not_found, last_updated) 
+               VALUES (?, ?, ?, ?, ?)""",
+            (data["scientific_name"], data["common_name"], data.get("taxa_id"), 1 if data.get("is_not_found") else 0, datetime.now())
+        )
 
     async def _lookup_inaturalist(self, name: str) -> Optional[Dict]:
         """Query the iNaturalist API."""
@@ -102,21 +120,21 @@ class TaxonomyService:
             params = {
                 "q": name,
                 "per_page": 1,
-                "locale": "en" # Can be made configurable later
+                "locale": "en"
             }
             
-            async with httpx.AsyncClient(timeout=5.0) as client:
-                resp = await client.get(self.API_URL, params=params)
-                resp.raise_for_status()
-                data = resp.json()
-                
-                if data.get("total_results", 0) > 0:
-                    taxon = data["results"][0]
-                    return {
-                        "scientific_name": taxon.get("name"),
-                        "common_name": taxon.get("preferred_common_name"),
-                        "taxa_id": taxon.get("id")
-                    }
+            client = self._get_client()
+            resp = await client.get(self.API_URL, params=params)
+            resp.raise_for_status()
+            data = resp.json()
+            
+            if data.get("total_results", 0) > 0:
+                taxon = data["results"][0]
+                return {
+                    "scientific_name": taxon.get("name"),
+                    "common_name": taxon.get("preferred_common_name"),
+                    "taxa_id": taxon.get("id")
+                }
         except Exception as e:
             log.warning("iNaturalist lookup failed", query=name, error=str(e))
             
@@ -146,36 +164,32 @@ class TaxonomyService:
                     rows = await cursor.fetchall()
                     unique_names = [row[0] for row in rows]
 
-            self._sync_status["total"] = len(unique_names)
-            log.info("Starting taxonomy background sync", unique_species=len(unique_names))
+                self._sync_status["total"] = len(unique_names)
+                log.info("Starting taxonomy background sync", unique_species=len(unique_names))
 
-            for name in unique_names:
-                self._sync_status["current_item"] = name
-                
-                # Get names (handles cache internally)
-                taxonomy = await self.get_names(name)
-                
-                if taxonomy and (taxonomy.get("scientific_name") or taxonomy.get("common_name")):
-                    scientific_name = taxonomy.get("scientific_name")
-                    common_name = taxonomy.get("common_name")
-                    taxa_id = taxonomy.get("taxa_id")
+                for name in unique_names:
+                    self._sync_status["current_item"] = name
+                    
+                    # Get names (passing existing db connection)
+                    taxonomy = await self.get_names(name, db=db)
+                    
+                    if taxonomy and (taxonomy.get("scientific_name") or taxonomy.get("common_name")):
+                        scientific_name = taxonomy.get("scientific_name")
+                        common_name = taxonomy.get("common_name")
+                        taxa_id = taxonomy.get("taxa_id")
 
-                    # Bulk update all detections matching this display_name
-                    # If common_name is found, update display_name to it for consistency if it was scientific
-                    # This logic aligns historical data with current "display_common_names" preference if enabled
-                    # BUT for now we only backfill the metadata columns to be safe.
-                    async with get_db() as db:
                         await db.execute("""
                             UPDATE detections 
                             SET scientific_name = ?, common_name = ?, taxa_id = ?
                             WHERE display_name = ?
                         """, (scientific_name, common_name, taxa_id, name))
+                        # Commit every few items or at the end for performance
                         await db.commit()
-                
-                self._sync_status["processed"] += 1
-                
-                # Rate limiting: 1 second delay to be kind to iNaturalist
-                await asyncio.sleep(1.0)
+                    
+                    self._sync_status["processed"] += 1
+                    
+                    # Rate limiting: 1 second delay to be kind to iNaturalist
+                    await asyncio.sleep(1.0)
 
             log.info("Taxonomy background sync completed")
             self._sync_status["current_item"] = "Completed"
@@ -185,5 +199,10 @@ class TaxonomyService:
             log.error("Taxonomy sync failed", error=str(e))
             self._sync_status["error"] = str(e)
             self._sync_status["is_running"] = False
+
+    async def close(self):
+        if self._client:
+            await self._client.aclose()
+            self._client = None
 
 taxonomy_service = TaxonomyService()

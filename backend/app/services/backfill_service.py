@@ -87,9 +87,9 @@ class BackfillService:
             if not snapshot_data:
                 return 'error'
 
-            # Classify the image
+            # Classify the image (async to use thread pool)
             image = Image.open(BytesIO(snapshot_data))
-            results = self.classifier.classify(image)
+            results = await self.classifier.classify_async(image)
 
             if not results:
                 log.debug("No classification results", event_id=frigate_event)

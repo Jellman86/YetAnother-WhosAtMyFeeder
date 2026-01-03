@@ -13,6 +13,7 @@ from app.config import settings
 from app.services.classifier_service import get_classifier, ClassifierService
 from app.services.frigate_client import frigate_client
 from app.services.broadcaster import broadcaster
+from app.services.taxonomy.taxonomy_service import taxonomy_service
 
 router = APIRouter()
 log = structlog.get_logger()
@@ -408,26 +409,34 @@ async def reclassify_event(
         new_score = top['score']
 
         # Update if species changed OR if score improved significantly
-        # Note: we always update if the species changed, even if score is lower
         updated = False
         if new_species != old_species or abs(new_score - detection.score) > 0.01:
-            # Execute update directly for reliability
+            # 1. Re-normalize taxonomy for the new classification
+            taxonomy = await taxonomy_service.get_names(new_species)
+            
+            sci_name = taxonomy.get("scientific_name") or new_species
+            com_name = taxonomy.get("common_name")
+            t_id = taxonomy.get("taxa_id")
+
+            # 2. Update DB with new name and taxonomy metadata
             await db.execute("""
                 UPDATE detections
-                SET display_name = ?, category_name = ?, score = ?, detection_index = ?
+                SET display_name = ?, category_name = ?, score = ?, detection_index = ?,
+                    scientific_name = ?, common_name = ?, taxa_id = ?
                 WHERE frigate_event = ?
-            """, (new_species, new_species, new_score, top['index'], event_id))
+            """, (new_species, new_species, new_score, top['index'], sci_name, com_name, t_id, event_id))
             await db.commit()
             updated = True
+            
             log.info("Reclassified detection",
                      event_id=event_id,
                      old_species=old_species,
                      new_species=new_species,
-                     old_score=detection.score,
+                     scientific=sci_name,
                      new_score=new_score,
                      strategy=effective_strategy)
             
-            # Broadcast update
+            # 3. Broadcast full updated metadata
             await broadcaster.broadcast({
                 "type": "detection_updated",
                 "data": {
@@ -444,9 +453,9 @@ async def reclassify_event(
                     "audio_score": detection.audio_score,
                     "temperature": detection.temperature,
                     "weather_condition": detection.weather_condition,
-                    "scientific_name": detection.scientific_name,
-                    "common_name": detection.common_name,
-                    "taxa_id": detection.taxa_id
+                    "scientific_name": sci_name,
+                    "common_name": com_name,
+                    "taxa_id": t_id
                 }
             })
 
