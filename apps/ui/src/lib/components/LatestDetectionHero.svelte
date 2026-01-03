@@ -1,7 +1,6 @@
 <script lang="ts">
     import type { Detection } from '../api';
     import { getThumbnailUrl } from '../api';
-    import { settingsStore } from '../stores/settings';
 
     interface Props {
         detection: Detection;
@@ -10,13 +9,14 @@
 
     let { detection, onclick }: Props = $props();
 
-    let preferScientific = $derived($settingsStore?.scientific_name_primary ?? false);
-
-    let primaryName = $derived(preferScientific ? (detection.scientific_name || detection.display_name) : (detection.common_name || detection.display_name));
-
     let subName = $derived.by(() => {
-        const other = preferScientific ? detection.common_name : detection.scientific_name;
-        return (other && other !== primaryName) ? other : null;
+        if (!detection.scientific_name && !detection.common_name) return null;
+        
+        const other = detection.display_name === detection.common_name 
+            ? detection.scientific_name 
+            : detection.common_name;
+            
+        return (other && other !== detection.display_name) ? other : null;
     });
 
     function formatTime(dateString: string): string {
@@ -61,7 +61,7 @@
             </div>
             
             <h2 class="text-3xl sm:text-4xl font-black text-white drop-shadow-lg tracking-tight truncate">
-                {primaryName}
+                {detection.display_name}
             </h2>
             
             {#if subName}

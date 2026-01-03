@@ -2,6 +2,11 @@
     import type { ReclassificationProgress } from '../stores/detections.svelte';
     import { detectionsStore } from '../stores/detections.svelte';
 
+    let { progress } = $props<{ progress: ReclassificationProgress }>();
+
+    // Calculate progress percentage
+    let progressPercent = $derived((progress.currentFrame / progress.totalFrames) * 100);
+
     // Calculate final results
     let finalLabel = $derived(
         (progress.results && progress.results.length > 0) ? progress.results[0].label : progress.topLabel

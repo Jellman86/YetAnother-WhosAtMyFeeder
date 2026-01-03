@@ -11,19 +11,48 @@
     import ReclassificationOverlay from '../components/ReclassificationOverlay.svelte';
     import { detectionsStore } from '../stores/detections.svelte';
     import type { Detection, WildlifeClassification, DailySummary } from '../api';
-// ...
+    import { getThumbnailUrl, deleteDetection, hideDetection, classifyWildlife, updateDetectionSpecies, analyzeDetection, fetchDailySummary } from '../api';
+    import { settingsStore } from '../stores/settings';
+
+    interface Props {
+        onnavigate?: (path: string) => void;
+    }
+
+    let { onnavigate }: Props = $props();
+
     let summary = $state<DailySummary | null>(null);
     let selectedEvent = $state<Detection | null>(null);
     let selectedSpecies = $state<string | null>(null);
-    let preferScientific = $state(false);
+    let deleting = $state(false);
+    let hiding = $state(false);
+    let classifyingWildlife = $state(false);
+    let showWildlifeResults = $state(false);
+    let wildlifeResults = $state<WildlifeClassification[]>([]);
+    let applyingWildlife = $state(false);
 
-    // Sync settings store to reactive state
+    // Reactive state for settings
+    let preferScientific = $state(false);
+    let llmEnabled = $state(false);
     $effect(() => {
         const unsubscribe = settingsStore.subscribe(s => {
             preferScientific = s?.scientific_name_primary ?? false;
+            llmEnabled = s?.llm_enabled ?? false;
         });
         return unsubscribe;
     });
+
+    // AI Analysis state
+    let analyzingAI = $state(false);
+    let aiAnalysis = $state<string | null>(null);
+
+    // Video playback state
+    let showVideo = $state(false);
+
+    // Derive the hero detection (latest one)
+    let heroDetection = $derived(detectionsStore.detections[0] || summary?.latest_detection || null);
+
+    // Derive hasClip from selected event
+    let selectedHasClip = $derived(selectedEvent?.has_clip ?? false);
 
     // Derive reclassification progress for the modal
     let modalReclassifyProgress = $derived(
@@ -57,7 +86,6 @@
         if (!force && now - lastSummaryFetch < SUMMARY_THROTTLE_MS) {
             return;
         }
-        
         try {
             lastSummaryFetch = now;
             summary = await fetchDailySummary();
@@ -83,7 +111,6 @@
     async function handleDelete() {
         if (!selectedEvent) return;
         if (!confirm(`Delete this ${selectedEvent.display_name} detection?`)) return;
-
         deleting = true;
         try {
             await deleteDetection(selectedEvent.frigate_event);
@@ -91,7 +118,7 @@
             const detTime = selectedEvent.detection_time;
             detectionsStore.removeDetection(eventId, detTime);
             selectedEvent = null;
-            await loadSummary(true); // Refresh summary stats
+            await loadSummary(true);
         } catch (e) {
             console.error('Failed to delete detection', e);
             alert('Failed to delete detection');
@@ -102,7 +129,6 @@
 
     async function handleHide() {
         if (!selectedEvent) return;
-
         hiding = true;
         try {
             const result = await hideDetection(selectedEvent.frigate_event);
@@ -111,7 +137,7 @@
                 const detTime = selectedEvent.detection_time;
                 detectionsStore.removeDetection(eventId, detTime);
                 selectedEvent = null;
-                await loadSummary(true); // Refresh summary stats
+                await loadSummary(true);
             }
         } catch (e) {
             console.error('Failed to hide detection', e);
@@ -131,11 +157,9 @@
 
     async function handleClassifyWildlife() {
         if (!selectedEvent) return;
-
         classifyingWildlife = true;
         showWildlifeResults = false;
         wildlifeResults = [];
-
         try {
             const result = await classifyWildlife(selectedEvent.frigate_event);
             wildlifeResults = result.classifications;
@@ -154,12 +178,10 @@
 
     async function applyWildlifeResult(label: string) {
         if (!selectedEvent) return;
-
         applyingWildlife = true;
         try {
             await updateDetectionSpecies(selectedEvent.frigate_event, label);
             selectedEvent.display_name = label;
-            // Update global store
             detectionsStore.updateDetection({ ...selectedEvent, display_name: label });
             showWildlifeResults = false;
             wildlifeResults = [];
@@ -174,7 +196,6 @@
 
     async function handleAIAnalysis() {
         if (!selectedEvent) return;
-        
         analyzingAI = true;
         aiAnalysis = null;
         try {
@@ -190,7 +211,6 @@
 </script>
 
 <div class="space-y-8">
-    <!-- Stats Ribbon -->
     {#if summary || detectionsStore.totalToday > 0}
         <div in:fly={{ y: -20, duration: 500 }}>
             <StatsRibbon
@@ -202,8 +222,6 @@
             />
         </div>
     {/if}
-
-    <!-- Top Row: Hero & Histogram -->
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div class="lg:col-span-2">
             {#if heroDetection}
@@ -231,8 +249,6 @@
             {/if}
         </div>
     </div>
-
-    <!-- Middle Row: Top Visitors -->
     {#if summary && summary.top_species.length > 0}
         <div in:fade={{ duration: 500, delay: 200 }}>
             <TopVisitors 
@@ -241,8 +257,6 @@
             />
         </div>
     {/if}
-
-    <!-- Bottom Row: Recent Feed -->
     <div class="space-y-6">
         <div class="flex items-center justify-between">
             <h3 class="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
@@ -255,14 +269,12 @@
                 See full history
             </button>
         </div>
-
         <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             {#each detectionsStore.detections.slice(1) as detection (detection.frigate_event || detection.id)}
                 <div in:fly={{ y: 20, duration: 400 }}>
                     <DetectionCard {detection} onclick={() => selectedEvent = detection} />
                 </div>
             {/each}
-
             {#if detectionsStore.detections.length <= 1 && (!summary || summary.top_species.length === 0)}
                 <div class="col-span-full text-center py-16 text-slate-500 dark:text-slate-400 bg-white/80 dark:bg-slate-800/50 rounded-2xl shadow-card dark:shadow-card-dark border border-slate-200/80 dark:border-slate-700/50 backdrop-blur-sm">
                     <div class="flex flex-col items-center justify-center">
@@ -280,8 +292,6 @@
         </div>
     </div>
 </div>
-
-<!-- Event Detail Modal -->
 {#if selectedEvent}
     <div
         class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
@@ -299,14 +309,12 @@
             role="document"
             tabindex="-1"
         >
-            <!-- Image with overlay -->
             <div class="relative aspect-video bg-slate-100 dark:bg-slate-700">
                 <img
                     src={getThumbnailUrl(selectedEvent.frigate_event)}
                     alt={selectedEvent.display_name}
                     class="w-full h-full object-cover"
                 />
-                <!-- Gradient overlay with species name -->
                 <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent"></div>
                 <div class="absolute bottom-0 left-0 right-0 p-4">
                     <h3 class="text-2xl font-bold text-white drop-shadow-lg">
@@ -323,7 +331,6 @@
                         })}
                     </p>
                 </div>
-                <!-- Play Video Button (shows when clip is available) -->
                 {#if selectedHasClip}
                     <button
                         type="button"
@@ -344,7 +351,6 @@
                         </div>
                     </button>
                 {/if}
-                <!-- Close button -->
                 <button
                     onclick={() => selectedEvent = null}
                     class="absolute top-3 right-3 w-8 h-8 rounded-full bg-black/40 text-white/90
@@ -355,15 +361,11 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                     </svg>
                 </button>
-
-                <!-- Reclassification Overlay -->
                 {#if modalReclassifyProgress}
                     <ReclassificationOverlay progress={modalReclassifyProgress} />
                 {/if}
             </div>
-
             <div class="p-5">
-                <!-- Confidence bar -->
                 <div class="mb-4">
                     <div class="flex items-center justify-between mb-1.5">
                         <span class="text-sm font-medium text-slate-600 dark:text-slate-400">Confidence</span>
@@ -381,8 +383,6 @@
                         ></div>
                     </div>
                 </div>
-
-                <!-- Camera info -->
                 <div class="flex items-center justify-between mb-5">
                     <div class="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -391,7 +391,6 @@
                         </svg>
                         <span class="font-medium">{selectedEvent.camera_name}</span>
                     </div>
-                    
                     {#if selectedEvent.temperature !== undefined && selectedEvent.temperature !== null}
                         <div class="flex items-center gap-1 text-sm text-slate-500 dark:text-slate-400">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -404,8 +403,6 @@
                         </div>
                     {/if}
                 </div>
-
-                <!-- AI Analysis Button -->
                 {#if llmEnabled}
                     <div class="mb-5">
                         {#if !aiAnalysis}
@@ -453,9 +450,76 @@
                         {/if}
                     </div>
                 {/if}
-
-                <!-- Wildlife Classification Section -->
-                <div class="mb-5">
+                <div class="flex gap-2 mb-2">
+                    <button
+                        onclick={() => {
+                            selectedSpecies = selectedEvent?.display_name ?? null;
+                            selectedEvent = null;
+                        }}
+                        class="flex-1 px-4 py-2.5 text-sm font-medium text-white
+                               bg-teal-500 hover:bg-teal-600 rounded-lg transition-colors
+                               flex items-center justify-center gap-2"
+                    >
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        Species Info
+                    </button>
+                    <button
+                        onclick={handleHide}
+                        disabled={hiding}
+                        class="px-4 py-2.5 text-sm font-medium rounded-lg transition-colors
+                               disabled:opacity-50 disabled:cursor-not-allowed
+                               flex items-center justify-center gap-2
+                               {selectedEvent.is_hidden
+                                   ? 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 hover:bg-amber-100 dark:hover:bg-amber-900/40'
+                                   : 'text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600'}"
+                    >
+                        {#if hiding}
+                            <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                        {:else}
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                {#if selectedEvent.is_hidden}
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                          d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                          d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                {:else}
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                          d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                                {/if}
+                            </svg>
+                        {/if}
+                        {hiding ? 'Updating...' : (selectedEvent.is_hidden ? 'Unhide' : 'Hide')}
+                    </button>
+                    <button
+                        onclick={handleDelete}
+                        disabled={deleting}
+                        class="px-4 py-2.5 text-sm font-medium text-red-600 dark:text-red-400
+                               bg-red-50 dark:bg-red-900/20 rounded-lg
+                               hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors
+                               disabled:opacity-50 disabled:cursor-not-allowed
+                               flex items-center justify-center gap-2"
+                    >
+                        {#if deleting}
+                            <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                        {:else}
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                        {/if}
+                        {deleting ? 'Deleting...' : 'Delete'}
+                    </button>
+                </div>
+                <div class="flex gap-2">
                     <button
                         onclick={handleClassifyWildlife}
                         disabled={classifyingWildlife}
@@ -479,8 +543,6 @@
                             Identify Animal
                         {/if}
                     </button>
-
-                    <!-- Wildlife Results Dropdown -->
                     {#if showWildlifeResults && wildlifeResults.length > 0}
                         <div class="mt-2 bg-slate-50 dark:bg-slate-700/50 rounded-lg p-3 border border-slate-200 dark:border-slate-600">
                             <p class="text-xs font-medium text-slate-500 dark:text-slate-400 mb-2">
@@ -513,83 +575,16 @@
                         </div>
                     {/if}
                 </div>
-
-                <!-- Action buttons -->
-                <div class="flex gap-2">
-                    <button
-                        onclick={() => {
-                            selectedSpecies = selectedEvent?.display_name ?? null;
-                            selectedEvent = null;
-                        }}
-                        class="flex-1 px-4 py-2.5 text-sm font-medium text-white
-                               bg-teal-500 hover:bg-teal-600 rounded-lg transition-colors
-                               flex items-center justify-center gap-2"
-                    >
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                  d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        Species Info
-                    </button>
-                    <button
-                        onclick={handleHide}
-                        disabled={hiding}
-                        class="px-4 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-400
-                               bg-slate-100 dark:bg-slate-700 rounded-lg
-                               hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors
-                               disabled:opacity-50 disabled:cursor-not-allowed
-                               flex items-center justify-center gap-2"
-                    >
-                        {#if hiding}
-                            <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                            </svg>
-                        {:else}
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                      d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-                            </svg>
-                        {/if}
-                        {hiding ? 'Hiding...' : 'Hide'}
-                    </button>
-                    <button
-                        onclick={handleDelete}
-                        disabled={deleting}
-                        class="px-4 py-2.5 text-sm font-medium text-red-600 dark:text-red-400
-                               bg-red-50 dark:bg-red-900/20 rounded-lg
-                               hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors
-                               disabled:opacity-50 disabled:cursor-not-allowed
-                               flex items-center justify-center gap-2"
-                    >
-                        {#if deleting}
-                            <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                            </svg>
-                        {:else}
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                        {/if}
-                        {deleting ? 'Deleting...' : 'Delete'}
-                    </button>
-                </div>
             </div>
         </div>
     </div>
 {/if}
-
-<!-- Species Detail Modal -->
 {#if selectedSpecies}
     <SpeciesDetailModal
         speciesName={selectedSpecies}
         onclose={() => selectedSpecies = null}
     />
 {/if}
-
-<!-- Video Player Modal -->
 {#if showVideo && selectedEvent}
     <VideoPlayer
         frigateEvent={selectedEvent.frigate_event}

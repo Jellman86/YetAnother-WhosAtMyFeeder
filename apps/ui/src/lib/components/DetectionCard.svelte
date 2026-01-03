@@ -22,6 +22,15 @@
     let cardElement = $state<HTMLElement | null>(null);
     let isVisible = $state(false);
 
+    // Reactive state for settings
+    let preferScientific = $state(false);
+    $effect(() => {
+        const unsubscribe = settingsStore.subscribe(s => {
+            preferScientific = s?.scientific_name_primary ?? false;
+        });
+        return unsubscribe;
+    });
+
     function handleReclassifyClick(event: MouseEvent) {
         event.stopPropagation();
         onReclassify?.(detection);
@@ -35,7 +44,6 @@
     // Lazy load with intersection observer
     $effect(() => {
         if (!cardElement) return;
-
         const observer = new IntersectionObserver(
             (entries) => {
                 if (entries[0].isIntersecting) {
@@ -45,7 +53,6 @@
             },
             { rootMargin: '100px' }
         );
-
         observer.observe(cardElement);
         return () => observer.disconnect();
     });
@@ -65,7 +72,6 @@
             const today = new Date();
             const yesterday = new Date(today);
             yesterday.setDate(yesterday.getDate() - 1);
-
             if (date.toDateString() === today.toDateString()) {
                 return 'Today';
             } else if (date.toDateString() === yesterday.toDateString()) {
@@ -90,42 +96,10 @@
     }
 
     // Dynamic Naming Logic
-    let primaryName = $derived.by(() => {
-        // Default to display_name (what came from DB)
-        let main = detection.display_name;
-        
-        // If we have taxonomy data, check settings
-        if (detection.scientific_name || detection.common_name) {
-             const preferScientific = $settingsStore?.scientific_name_primary ?? false;
-             
-             if (preferScientific) {
-                 main = detection.scientific_name || detection.display_name;
-             } else {
-                 main = detection.common_name || detection.display_name;
-             }
-        }
-        return main;
-    });
-
+    let primaryName = $derived(preferScientific ? (detection.scientific_name || detection.display_name) : (detection.common_name || detection.display_name));
     let subName = $derived.by(() => {
-        // If no taxonomy data, no sublabel
-        if (!detection.scientific_name && !detection.common_name) return null;
-        
-        const preferScientific = $settingsStore?.scientific_name_primary ?? false;
-        let secondary = null;
-        
-        if (preferScientific) {
-             // If main is scientific, sub is common
-             secondary = detection.common_name;
-        } else {
-             // If main is common, sub is scientific
-             secondary = detection.scientific_name;
-        }
-        
-        // Don't show if same as primary or null
-        if (!secondary || secondary === primaryName) return null;
-        
-        return secondary;
+        const other = preferScientific ? detection.common_name : detection.scientific_name;
+        return (other && other !== primaryName) ? other : null;
     });
 
     let isVerified = $derived(detection.audio_confirmed && detection.score > 0.7);
@@ -161,7 +135,7 @@
             {/if}
             <img
                 src={getThumbnailUrl(detection.frigate_event)}
-                alt={detection.display_name}
+                alt={primaryName}
                 loading="lazy"
                 class="w-full h-full object-cover transition-transform duration-700 ease-out
                        group-hover:scale-110 group-hover:rotate-1
@@ -169,8 +143,6 @@
                 onload={() => imageLoaded = true}
                 onerror={() => imageError = true}
             />
-            
-            <!-- Dynamic Overlays -->
             <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20 opacity-60"></div>
             <div class="absolute inset-0 bg-teal-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
         {:else}
@@ -180,8 +152,6 @@
                 </svg>
             </div>
         {/if}
-
-        <!-- Top Badges -->
         <div class="absolute top-3 left-3 right-3 flex justify-between items-start">
             <div class="flex flex-col gap-1.5">
                 {#if isVerified}
@@ -198,7 +168,6 @@
                     </div>
                 {/if}
             </div>
-
             <div class="flex flex-col items-end gap-1.5">
                 <div class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-2xl bg-white/95 dark:bg-slate-900/95 shadow-xl backdrop-blur-md border {getConfidenceBg(detection.score)}">
                     <span class="w-2 h-2 rounded-full {detection.score >= 0.9 ? 'bg-emerald-500 animate-pulse' : detection.score >= 0.7 ? 'bg-amber-500' : 'bg-red-500'}"></span>
@@ -211,8 +180,6 @@
                 {/if}
             </div>
         </div>
-
-        <!-- Time Overlay -->
         <div class="absolute bottom-3 left-3 flex items-center gap-2">
             <div class="px-2.5 py-1.5 rounded-xl bg-black/40 text-white text-[10px] font-bold backdrop-blur-md border border-white/10 flex items-center gap-1.5">
                 <svg class="w-3 h-3 text-teal-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -221,8 +188,6 @@
                 {formatTime(detection.detection_time)}
             </div>
         </div>
-
-        <!-- Quick Actions Overlay -->
         {#if onReclassify || onRetag}
             <div class="absolute bottom-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-2 group-hover:translate-y-0">
                 {#if onReclassify}
@@ -254,10 +219,7 @@
             </div>
         {/if}
     </div>
-
-    <!-- Content Section -->
     <div class="p-5 flex-1 flex flex-col gap-4">
-        <!-- Title & Taxonomy -->
         <div>
             <div class="flex items-center justify-between gap-2">
                 <h3 class="text-xl font-black text-slate-900 dark:text-white truncate tracking-tight leading-tight" title={primaryName}>
@@ -270,8 +232,6 @@
                 </p>
             {/if}
         </div>
-
-        <!-- Audio Insight (If Available) -->
         {#if detection.audio_species || detection.audio_confirmed}
             <div class="p-3 rounded-2xl bg-teal-500/5 dark:bg-teal-500/10 border border-teal-500/10 dark:border-teal-500/20 flex items-center gap-3 group/audio">
                 <div class="w-8 h-8 rounded-xl bg-teal-500/20 flex items-center justify-center flex-shrink-0">
@@ -290,10 +250,7 @@
                 </div>
             </div>
         {/if}
-
-        <!-- Environmental Grid -->
         <div class="mt-auto grid grid-cols-2 gap-2">
-            <!-- Date/Environment Pill -->
             <div class="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-200/50 dark:border-slate-700/50">
                 <svg class="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -302,8 +259,6 @@
                     {formatDate(detection.detection_time)}
                 </span>
             </div>
-
-            <!-- Weather/Temp Pill -->
             {#if detection.temperature !== undefined && detection.temperature !== null}
                 <div class="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-200/50 dark:border-slate-700/50">
                     <svg class="w-3.5 h-3.5 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -314,8 +269,6 @@
                     </span>
                 </div>
             {/if}
-
-            <!-- Camera Pill -->
             <div class="col-span-2 flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-200/50 dark:border-slate-700/50 overflow-hidden">
                 <svg class="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
@@ -323,7 +276,6 @@
                 <span class="text-[10px] font-bold text-slate-500 dark:text-slate-400 truncate">
                     {detection.camera_name}
                 </span>
-                
                 {#if detection.sub_label && detection.sub_label !== detection.display_name && detection.sub_label !== subName}
                     <div class="ml-auto flex items-center gap-1">
                         <div class="w-1 h-1 rounded-full bg-teal-500"></div>
