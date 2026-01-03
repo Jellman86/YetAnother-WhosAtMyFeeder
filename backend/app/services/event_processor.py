@@ -46,32 +46,47 @@ class EventProcessor:
             frigate_event = after['id']
             start_time_ts = after['start_time']
 
-            try:
-                # Fetch snapshot using centralized Frigate client
-                snapshot_data = await frigate_client.get_snapshot(frigate_event, crop=True, quality=95)
-                if not snapshot_data:
+            sub_label = after.get('sub_label')
+            frigate_score = after.get('top_score')
+            if frigate_score is None and 'data' in after:
+                frigate_score = after['data'].get('top_score')
+
+            # --- Trust Frigate Sublabel Logic ---
+            # If Frigate already identified a species and we trust it, skip our classification
+            if settings.classification.trust_frigate_sublabel and sub_label:
+                log.info("Using Frigate sublabel (skipping classification)", 
+                         event=frigate_event, sub_label=sub_label, score=frigate_score)
+                
+                # We still need to format it for the detection service
+                results = [{
+                    "label": sub_label,
+                    "score": frigate_score or 1.0,
+                    "index": -1
+                }]
+            else:
+                # Normal path: YA-WAMF classification
+                try:
+                    # Fetch snapshot using centralized Frigate client
+                    snapshot_data = await frigate_client.get_snapshot(frigate_event, crop=True, quality=95)
+                    if not snapshot_data:
+                        return
+
+                    # Cache snapshot immediately when processing detection
+                    if settings.media_cache.enabled and settings.media_cache.cache_snapshots:
+                        await media_cache.cache_snapshot(frigate_event, snapshot_data)
+
+                    image = Image.open(BytesIO(snapshot_data))
+
+                    # Classify (async to prevent blocking loop)
+                    results = await self.classifier.classify_async(image)
+                    if not results:
+                        return
+                except Exception as e:
+                    log.error("Classification failed", event=frigate_event, error=str(e))
                     return
 
-                # Cache snapshot immediately when processing detection
-                if settings.media_cache.enabled and settings.media_cache.cache_snapshots:
-                    await media_cache.cache_snapshot(frigate_event, snapshot_data)
-
-                image = Image.open(BytesIO(snapshot_data))
-
-                # Classify (async to prevent blocking loop)
-                results = await self.classifier.classify_async(image)
-                if not results:
-                    return
-
-                # Capture Frigate metadata (needed for fallback)
-                frigate_score = after.get('top_score')
-                if frigate_score is None and 'data' in after:
-                    frigate_score = after['data'].get('top_score')
-
-                sub_label = after.get('sub_label')
-
-                # Apply common filtering and labeling logic (with Frigate sublabel for fallback)
-                top = self.detection_service.filter_and_label(results[0], frigate_event, sub_label)
+            # Apply common filtering and labeling logic (with Frigate sublabel for fallback if needed)
+            top = self.detection_service.filter_and_label(results[0], frigate_event, sub_label)
                 if not top:
                     return
 

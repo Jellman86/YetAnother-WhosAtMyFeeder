@@ -11,17 +11,19 @@ from app.models.ai_models import ModelMetadata, InstalledModel, DownloadProgress
 
 log = structlog.get_logger()
 
-# Real TFLite models
+# Model Registry
+# Supports both TFLite and ONNX runtimes
 REMOTE_REGISTRY = [
     {
         "id": "mobilenet_v2_birds",
-        "name": "MobileNet V2 (Standard)",
-        "description": "Lightweight iNat bird classifier. Balanced for speed on edge devices.",
+        "name": "MobileNet V2 (Fast)",
+        "description": "Lightweight iNat bird classifier (~960 species). Fast inference, good for real-time detection.",
         "architecture": "MobileNetV2",
         "file_size_mb": 3.4,
         "accuracy_tier": "Medium",
-        "inference_speed": "Fast",
-        "download_url": "https://raw.githubusercontent.com/google-coral/test_data/master/mobilenet_v2_1.0_224_inat_bird_quant.tflite", 
+        "inference_speed": "Fast (~30ms)",
+        "runtime": "tflite",
+        "download_url": "https://raw.githubusercontent.com/google-coral/test_data/master/mobilenet_v2_1.0_224_inat_bird_quant.tflite",
         "labels_url": "https://raw.githubusercontent.com/google-coral/test_data/master/inat_bird_labels.txt",
         "input_size": 224,
         "preprocessing": {
@@ -30,24 +32,52 @@ REMOTE_REGISTRY = [
         }
     },
     {
-        "id": "efficientnet_edgetpu_l_birds",
-        "name": "EfficientNet-EdgeTPU (Large)",
-        "description": "High accuracy general classifier. Excellent detail recognition but slower on CPU.",
-        "architecture": "EfficientNet-EdgeTPU-L",
-        "file_size_mb": 11.8,
-        "accuracy_tier": "Very High",
-        "inference_speed": "Slow",
-        "download_url": "https://raw.githubusercontent.com/google-coral/test_data/master/efficientnet-edgetpu-L_quant.tflite",
-        "labels_url": "https://raw.githubusercontent.com/google-coral/test_data/master/imagenet_labels.txt",
-        "input_size": 300,
+        "id": "convnext_large_inat21",
+        "name": "ConvNeXt Large (High Accuracy)",
+        "description": "State-of-the-art iNat21 classifier. 90%+ accuracy on 10,000 species including birds, mammals, insects. Slower but much more accurate.",
+        "architecture": "ConvNeXt-Large-MLP",
+        "file_size_mb": 760,
+        "accuracy_tier": "Very High (90%+)",
+        "inference_speed": "Slow (~500-800ms)",
+        "runtime": "onnx",
+        "download_url": "pending",  # Will be set after ONNX export
+        "labels_url": "pending",  # iNat21 labels
+        "input_size": 384,
         "preprocessing": {
-            "padding_color": 128,
-            "normalization": "uint8"
-        }
+            "mean": [0.485, 0.456, 0.406],
+            "std": [0.229, 0.224, 0.225],
+            "normalization": "float32"
+        },
+        "license": "CC-BY-NC-4.0"
+    },
+    {
+        "id": "eva02_large_inat21",
+        "name": "EVA-02 Large (Elite Accuracy)",
+        "description": "State-of-the-art iNat21 classifier. 91%+ accuracy on 10,000 species. Requires ~2GB RAM. Slower but extremely precise.",
+        "architecture": "EVA-02-Large",
+        "file_size_mb": 1200,
+        "accuracy_tier": "Elite (91%+)",
+        "inference_speed": "Slow (~1s)",
+        "runtime": "onnx",
+        "download_url": "local", 
+        "labels_url": "local",
+        "input_size": 336,
+        "preprocessing": {
+            "mean": [0.48145466, 0.4578275, 0.40821073],
+            "std": [0.26862954, 0.26130258, 0.27577711],
+            "normalization": "float32"
+        },
+        "license": "CC-BY-NC-4.0"
     }
 ]
 
-MODELS_DIR = "/data/models"
+# Use /data/models if it exists (standard for container), otherwise use local data dir
+if os.path.exists("/data/models"):
+    MODELS_DIR = "/data/models"
+else:
+    # Fallback to local project directory
+    MODELS_DIR = os.path.join(os.path.dirname(__file__), "../../data/models")
+    os.makedirs(MODELS_DIR, exist_ok=True)
 
 class ModelManager:
     def __init__(self):
@@ -165,11 +195,21 @@ class ModelManager:
         return status_tuple[0] if status_tuple else None
 
     async def download_model(self, model_id: str) -> bool:
-        """Download a model from the registry."""
+        """Download a model from the registry (supports TFLite and ONNX)."""
         model_meta = next((m for m in REMOTE_REGISTRY if m['id'] == model_id), None)
         if not model_meta:
             log.error("Model ID not found in registry", model_id=model_id)
             return False
+
+        # Check if download URLs are configured
+        if model_meta.get('download_url') == 'pending':
+            log.error("Model download URL not configured yet", model_id=model_id)
+            return False
+
+        # Determine file extension based on runtime
+        runtime = model_meta.get('runtime', 'tflite')
+        model_ext = '.onnx' if runtime == 'onnx' else '.tflite'
+        model_filename = f"model{model_ext}"
 
         # Initialize progress
         progress = DownloadProgress(
@@ -181,22 +221,25 @@ class ModelManager:
 
         target_dir = os.path.join(MODELS_DIR, model_id)
         os.makedirs(target_dir, exist_ok=True)
-        
+
         try:
-            async with httpx.AsyncClient() as client:
-                # 1. Download TFLite
-                log.info("Downloading model", url=model_meta['download_url'])
+            # Use longer timeout for large ONNX models
+            timeout = httpx.Timeout(30.0, read=300.0) if runtime == 'onnx' else httpx.Timeout(30.0)
+
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                # 1. Download model file
+                log.info("Downloading model", url=model_meta['download_url'], runtime=runtime)
                 async with client.stream("GET", model_meta['download_url'], follow_redirects=True) as response:
                     response.raise_for_status()
                     total_header = response.headers.get("content-length")
                     total = int(total_header) if total_header else 0
                     downloaded = 0
-                    async with aiofiles.open(os.path.join(target_dir, "model.tflite"), 'wb') as f:
+                    async with aiofiles.open(os.path.join(target_dir, model_filename), 'wb') as f:
                         async for chunk in response.aiter_bytes():
                             await f.write(chunk)
                             downloaded += len(chunk)
                             if total > 0:
-                                progress.progress = (downloaded / total) * 90 # Model is 90% of total job
+                                progress.progress = (downloaded / total) * 90  # Model is 90% of total job
                                 self.active_downloads[model_id] = (progress, datetime.now())
 
                 # 2. Download Labels
@@ -205,12 +248,12 @@ class ModelManager:
                 resp.raise_for_status()
                 async with aiofiles.open(os.path.join(target_dir, "labels.txt"), 'wb') as f:
                     await f.write(resp.content)
-                
+
                 progress.progress = 100.0
                 progress.status = "completed"
                 self.active_downloads[model_id] = (progress, datetime.now())
 
-            log.info("Model downloaded successfully", model_id=model_id)
+            log.info("Model downloaded successfully", model_id=model_id, runtime=runtime)
             return True
         except Exception as e:
             log.error("Failed to download model", model_id=model_id, error=str(e))
@@ -249,13 +292,22 @@ class ModelManager:
         """Get the paths and input size for the currently active model."""
         model_id = self.active_model_id
         target_dir = os.path.join(MODELS_DIR, model_id)
-        
+
         meta = next((m for m in REMOTE_REGISTRY if m['id'] == model_id), None)
         input_size = meta['input_size'] if meta else 224
+        runtime = meta.get('runtime', 'tflite') if meta else 'tflite'
+
+        # Determine model file extension
+        model_ext = '.onnx' if runtime == 'onnx' else '.tflite'
+        model_filename = f"model{model_ext}"
 
         if not os.path.exists(target_dir):
+            # Fallback to default TFLite model
             return "model.tflite", "labels.txt", 224
-            
-        return os.path.join(target_dir, "model.tflite"), os.path.join(target_dir, "labels.txt"), input_size
+
+        model_path = os.path.join(target_dir, model_filename)
+        labels_path = os.path.join(target_dir, "labels.txt")
+
+        return model_path, labels_path, input_size
 
 model_manager = ModelManager()

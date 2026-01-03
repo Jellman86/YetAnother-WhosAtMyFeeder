@@ -71,7 +71,10 @@
     }
 
     onMount(async () => {
-        await loadSummary(true);
+        await Promise.all([
+            loadSummary(true),
+            detectionsStore.loadInitial()
+        ]);
     });
 
     // Reset wildlife results and video when switching detections

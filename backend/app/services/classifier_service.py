@@ -7,14 +7,23 @@ import asyncio
 from concurrent.futures import ThreadPoolExecutor
 from PIL import Image, ImageOps
 from typing import Optional, List, Dict
+
+# TFLite runtime
 try:
-    # Try importing typical TFLite runtimes
     import tflite_runtime.interpreter as tflite
 except ImportError:
     try:
         import tensorflow.lite as tflite
     except ImportError:
         tflite = None
+
+# ONNX runtime (for high-accuracy models)
+try:
+    import onnxruntime as ort
+    ONNX_AVAILABLE = True
+except ImportError:
+    ort = None
+    ONNX_AVAILABLE = False
 
 from app.config import settings
 
@@ -261,14 +270,176 @@ class ModelInstance:
             "labels_count": len(self.labels),
             "enabled": self.interpreter is not None,
             "model_path": self.model_path,
+            "runtime": "tflite",
+        }
+
+
+class ONNXModelInstance:
+    """Represents a loaded ONNX model with its labels (for high-accuracy models)."""
+
+    def __init__(self, name: str, model_path: str, labels_path: str, preprocessing: Optional[dict] = None, input_size: int = 384):
+        self.name = name
+        self.model_path = model_path
+        self.labels_path = labels_path
+        self.preprocessing = preprocessing or {}
+        self.input_size = input_size
+        self.session = None
+        self.labels: list[str] = []
+        self.loaded = False
+        self.error: Optional[str] = None
+
+        # ImageNet normalization defaults (used by timm models)
+        self.mean = np.array(self.preprocessing.get("mean", [0.485, 0.456, 0.406]))
+        self.std = np.array(self.preprocessing.get("std", [0.229, 0.224, 0.225]))
+
+    def load(self) -> bool:
+        """Load the ONNX model and labels. Returns True if successful."""
+        if self.loaded:
+            return True
+
+        if not ONNX_AVAILABLE:
+            self.error = "ONNX Runtime not installed"
+            log.error("ONNX Runtime not installed")
+            return False
+
+        # Load labels first
+        if os.path.exists(self.labels_path):
+            try:
+                with open(self.labels_path, 'r', encoding='utf-8', errors='replace') as f:
+                    self.labels = [line.strip() for line in f.readlines() if line.strip()]
+                log.info(f"Loaded {len(self.labels)} labels for ONNX model {self.name}")
+            except Exception as e:
+                log.error(f"Failed to load labels for {self.name}", error=str(e))
+
+        if not os.path.exists(self.model_path):
+            self.error = f"ONNX model file not found: {self.model_path}"
+            log.warning(f"{self.name} ONNX model not found", path=self.model_path)
+            return False
+
+        try:
+            # Configure ONNX Runtime session with CPU optimizations
+            sess_options = ort.SessionOptions()
+            sess_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
+            sess_options.intra_op_num_threads = 4  # Use multiple threads
+
+            self.session = ort.InferenceSession(
+                self.model_path,
+                sess_options,
+                providers=['CPUExecutionProvider']
+            )
+            self.loaded = True
+            self.error = None
+            log.info(f"{self.name} ONNX model loaded successfully", input_size=self.input_size)
+            return True
+        except Exception as e:
+            self.error = f"Failed to load ONNX model: {str(e)}"
+            log.error(f"Failed to load {self.name} ONNX model", error=str(e))
+            return False
+
+    def _resize_with_padding(self, image: Image.Image, target_size: int) -> Image.Image:
+        """Resize image with padding to maintain aspect ratio."""
+        iw, ih = image.size
+        scale = min(target_size / iw, target_size / ih)
+        nw = int(iw * scale)
+        nh = int(ih * scale)
+
+        image = image.resize((nw, nh), Image.Resampling.BICUBIC)
+
+        # Create new image with gray padding (ImageNet standard)
+        new_image = Image.new('RGB', (target_size, target_size), (128, 128, 128))
+        new_image.paste(image, ((target_size - nw) // 2, (target_size - nh) // 2))
+
+        return new_image
+
+    def _preprocess(self, image: Image.Image) -> np.ndarray:
+        """Preprocess image for ONNX inference."""
+        image = image.convert('RGB')
+        image = self._resize_with_padding(image, self.input_size)
+
+        # Convert to numpy and normalize (ImageNet style for timm models)
+        arr = np.array(image).astype(np.float32) / 255.0
+        arr = (arr - self.mean) / self.std
+        arr = arr.transpose(2, 0, 1)  # HWC -> CHW (ONNX expects NCHW)
+        return arr[np.newaxis, ...].astype(np.float32)  # Add batch dimension
+
+    def _softmax(self, x: np.ndarray) -> np.ndarray:
+        """Apply softmax to convert logits to probabilities."""
+        exp_x = np.exp(x - np.max(x))
+        return exp_x / np.sum(exp_x)
+
+    def classify(self, image: Image.Image, top_k: int = 5) -> list[dict]:
+        """Classify an image using this ONNX model."""
+        if not self.loaded or not self.session:
+            log.warning(f"{self.name} ONNX model not loaded, cannot classify")
+            return []
+
+        try:
+            input_tensor = self._preprocess(image)
+
+            # Get input name from model
+            input_name = self.session.get_inputs()[0].name
+
+            # Run inference
+            outputs = self.session.run(None, {input_name: input_tensor})
+            logits = outputs[0][0]
+
+            # Apply softmax to get probabilities
+            probs = self._softmax(logits)
+
+            # Get top-k results
+            top_indices = np.argsort(probs)[::-1][:top_k]
+
+            classifications = []
+            for i in top_indices:
+                label = self.labels[i] if i < len(self.labels) else f"Class {i}"
+                classifications.append({
+                    "index": int(i),
+                    "score": float(probs[i]),
+                    "label": label
+                })
+
+            return classifications
+
+        except Exception as e:
+            log.error(f"ONNX inference failed for {self.name}", error=str(e))
+            return []
+
+    def classify_raw(self, image: Image.Image) -> np.ndarray:
+        """Classify and return the raw probability vector (for ensemble)."""
+        if not self.loaded or not self.session:
+            return np.array([])
+
+        try:
+            input_tensor = self._preprocess(image)
+            input_name = self.session.get_inputs()[0].name
+            outputs = self.session.run(None, {input_name: input_tensor})
+            logits = outputs[0][0]
+            return self._softmax(logits)
+        except Exception as e:
+            log.error(f"ONNX raw classification failed", error=str(e))
+            return np.array([])
+
+    def get_status(self) -> dict:
+        """Return the current status of this model."""
+        return {
+            "loaded": self.loaded,
+            "error": self.error,
+            "labels_count": len(self.labels),
+            "enabled": self.session is not None,
+            "model_path": self.model_path,
+            "runtime": "onnx",
+            "input_size": self.input_size,
         }
 
 
 class ClassifierService:
-    """Service for managing multiple classification models."""
+    """Service for managing multiple classification models (TFLite and ONNX)."""
+
+    # Union type for model instances
+    ModelType = ModelInstance | ONNXModelInstance
 
     def __init__(self):
-        self._models: dict[str, ModelInstance] = {}
+        self._models: dict[str, ModelInstance | ONNXModelInstance] = {}
         # Dedicated executor for ML tasks to avoid blocking default executor
         self._executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="ml_worker")
         self._init_bird_model()
@@ -292,22 +463,46 @@ class ClassifierService:
 
     def _init_bird_model(self):
         """Initialize the bird classification model (loaded at startup)."""
-        from app.services.model_manager import model_manager
+        from app.services.model_manager import model_manager, REMOTE_REGISTRY
+
         model_path, labels_path, input_size = model_manager.get_active_model_paths()
-        
-        # Fetch preprocessing settings from model_manager registry
+
+        # Fetch metadata from model_manager registry
         active_model_id = model_manager.active_model_id
-        from app.services.model_manager import REMOTE_REGISTRY
         model_meta = next((m for m in REMOTE_REGISTRY if m['id'] == active_model_id), None)
         preprocessing = model_meta.get('preprocessing') if model_meta else None
+        runtime = model_meta.get('runtime', 'tflite') if model_meta else 'tflite'
 
         if not os.path.exists(model_path):
-             model_path, labels_path = self._get_model_paths(
+            model_path, labels_path = self._get_model_paths(
                 settings.classification.model,
                 "labels.txt"
-             )
+            )
 
-        log.info("Initializing bird model", path=model_path, input_size=input_size, preprocessing=preprocessing)
+        log.info("Initializing bird model",
+                 path=model_path,
+                 input_size=input_size,
+                 runtime=runtime,
+                 preprocessing=preprocessing)
+
+        # Create appropriate model instance based on runtime
+        if runtime == 'onnx':
+            if not ONNX_AVAILABLE:
+                log.error("ONNX model requested but onnxruntime not installed, falling back to TFLite")
+                runtime = 'tflite'
+            else:
+                bird_model = ONNXModelInstance(
+                    "bird",
+                    model_path,
+                    labels_path,
+                    preprocessing=preprocessing,
+                    input_size=input_size
+                )
+                bird_model.load()
+                self._models["bird"] = bird_model
+                return
+
+        # Default: TFLite model
         bird_model = ModelInstance("bird", model_path, labels_path, preprocessing=preprocessing)
         bird_model.load()
         self._models["bird"] = bird_model
@@ -333,6 +528,39 @@ class ClassifierService:
             model.load()
 
         return model
+
+    def check_health(self) -> dict:
+        """Detailed health check for the classification service."""
+        bird = self._models.get("bird")
+        
+        # Determine which TFLite runtime is actually in use
+        tflite_type = "none"
+        if tflite:
+            if "tflite_runtime" in str(tflite):
+                tflite_type = "tflite-runtime"
+            else:
+                tflite_type = "tensorflow-full"
+
+        return {
+            "status": "ok" if (bird and bird.loaded) else "error",
+            "runtimes": {
+                "tflite": {
+                    "installed": tflite is not None,
+                    "type": tflite_type
+                },
+                "onnx": {
+                    "installed": ONNX_AVAILABLE,
+                    "available": ort is not None
+                }
+            },
+            "models": {
+                name: {
+                    "loaded": model.loaded,
+                    "runtime": "onnx" if isinstance(model, ONNXModelInstance) else "tflite",
+                    "error": model.error
+                } for name, model in self._models.items()
+            }
+        }
 
     # Legacy properties
     @property

@@ -45,6 +45,7 @@ export interface Settings {
     cameras: string[];
     retention_days: number;
     blocked_labels: string[];
+    trust_frigate_sublabel: boolean;
     // Media cache settings
     media_cache_enabled: boolean;
     media_cache_snapshots: boolean;
@@ -75,6 +76,7 @@ export interface SettingsUpdate {
     cameras: string[];
     retention_days: number;
     blocked_labels: string[];
+    trust_frigate_sublabel: boolean;
     // Media cache settings
     media_cache_enabled: boolean;
     media_cache_snapshots: boolean;

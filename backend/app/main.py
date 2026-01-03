@@ -164,7 +164,18 @@ app.include_router(stats.router, prefix="/api", tags=["stats"])
 
 @app.get("/health")
 async def health_check():
-    return {"status": "ok", "service": "ya-wamf-backend", "version": APP_VERSION}
+    health = {
+        "status": "ok", 
+        "service": "ya-wamf-backend", 
+        "version": APP_VERSION,
+        "ml": classifier_service.check_health()
+    }
+    
+    # If ML is in error state, top-level status should reflect it
+    if health["ml"]["status"] != "ok":
+        health["status"] = "degraded"
+        
+    return health
 
 @app.get("/api/sse")
 async def sse_endpoint():

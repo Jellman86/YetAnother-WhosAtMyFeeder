@@ -36,6 +36,7 @@
     let cameraAudioMapping = $state<Record<string, string>>({});
     let clipsEnabled = $state(true);
     let threshold = $state(0.7);
+    let trustFrigateSublabel = $state(true);
     let selectedCameras = $state<string[]>([]);
     let retentionDays = $state(0);
     let blockedLabels = $state<string[]>([]);
@@ -228,6 +229,7 @@
             }
             clipsEnabled = settings.clips_enabled ?? true;
             threshold = settings.classification_threshold;
+            trustFrigateSublabel = settings.trust_frigate_sublabel ?? true;
             selectedCameras = settings.cameras || [];
             retentionDays = settings.retention_days || 0;
             blockedLabels = settings.blocked_labels || [];
@@ -284,6 +286,7 @@
                 camera_audio_mapping: cameraAudioMapping,
                 clips_enabled: clipsEnabled,
                 classification_threshold: threshold,
+                trust_frigate_sublabel: trustFrigateSublabel,
                 cameras: selectedCameras,
                 retention_days: retentionDays,
                 blocked_labels: blockedLabels,
@@ -788,6 +791,26 @@
             <div class="border-t border-slate-200 dark:border-slate-700 pt-6">
                 <h4 class="text-sm font-semibold text-slate-900 dark:text-white mb-4">Fine Tuning</h4>
                 
+                <div class="flex items-center gap-3 mb-6 p-3 bg-teal-500/5 dark:bg-teal-500/10 rounded-xl border border-teal-500/20">
+                    <button
+                        role="switch"
+                        aria-checked={trustFrigateSublabel}
+                        aria-label="Trust Frigate Sublabels"
+                        onclick={() => trustFrigateSublabel = !trustFrigateSublabel}
+                        class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2
+                               {trustFrigateSublabel ? 'bg-teal-500' : 'bg-slate-200 dark:bg-slate-600'}"
+                    >
+                        <span
+                            class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out
+                                   {trustFrigateSublabel ? 'translate-x-5' : 'translate-x-0'}"
+                        ></span>
+                    </button>
+                    <div>
+                        <span class="block text-sm font-medium text-slate-700 dark:text-slate-300">Trust Frigate Sublabels</span>
+                        <span class="block text-xs text-slate-500 dark:text-slate-400">If Frigate already identified a species (sublabel), use it directly and skip internal classification to save CPU.</span>
+                    </div>
+                </div>
+
                 <div>
                     <label for="threshold" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
                         Confidence Threshold: {(threshold * 100).toFixed(0)}%

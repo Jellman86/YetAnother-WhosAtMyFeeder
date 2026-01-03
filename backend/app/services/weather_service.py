@@ -21,10 +21,13 @@ class WeatherService:
             
         if settings.location.automatic:
             try:
-                async with httpx.AsyncClient(timeout=5.0) as client:
+                # Use short timeout for auto-location to avoid blocking
+                async with httpx.AsyncClient(timeout=2.0) as client:
                     resp = await client.get(self.GEO_URL)
+                    resp.raise_for_status()
                     data = resp.json()
                     if data.get('status') == 'success':
+                        log.info("Detected location via IP", lat=data.get('lat'), lon=data.get('lon'), city=data.get('city'))
                         return data.get('lat'), data.get('lon')
             except Exception as e:
                 log.warning("Failed to detect location via IP", error=str(e))
@@ -33,12 +36,12 @@ class WeatherService:
 
     async def get_current_weather(self) -> dict:
         """Fetch current weather for the configured location."""
-        lat, lon = await self.get_location()
-        
-        if lat is None or lon is None:
-            return {}
-            
         try:
+            lat, lon = await self.get_location()
+            
+            if lat is None or lon is None:
+                return {}
+                
             params = {
                 "latitude": lat,
                 "longitude": lon,
@@ -46,6 +49,7 @@ class WeatherService:
                 "temperature_unit": "celsius"
             }
             
+            # Use short timeout for weather to avoid blocking event processing
             async with httpx.AsyncClient(timeout=3.0) as client:
                 resp = await client.get(self.BASE_URL, params=params)
                 resp.raise_for_status()
@@ -58,6 +62,9 @@ class WeatherService:
                     "is_day": current.get("is_day") == 1,
                     "condition_text": self._get_condition_text(current.get("weather_code"))
                 }
+        except httpx.TimeoutException:
+            log.warning("Weather API timeout - skipping weather context")
+            return {}
         except Exception as e:
             log.error("Failed to fetch weather", error=str(e))
             return {}

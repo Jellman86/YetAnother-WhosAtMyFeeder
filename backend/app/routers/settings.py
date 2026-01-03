@@ -25,6 +25,7 @@ class SettingsUpdate(BaseModel):
     cameras: List[str] = Field(default_factory=list, description="List of cameras to monitor")
     retention_days: int = Field(0, ge=0, description="Days to keep detections (0 = unlimited)")
     blocked_labels: List[str] = Field(default_factory=list, description="Labels to filter out from detections")
+    trust_frigate_sublabel: bool = Field(True, description="Trust Frigate sublabels when available")
     # Media cache settings
     media_cache_enabled: bool = Field(True, description="Enable local media caching")
     media_cache_snapshots: bool = Field(True, description="Cache snapshot images locally")
@@ -63,6 +64,7 @@ async def get_settings():
         "cameras": settings.frigate.camera,
         "retention_days": settings.maintenance.retention_days,
         "blocked_labels": settings.classification.blocked_labels,
+        "trust_frigate_sublabel": settings.classification.trust_frigate_sublabel,
         # Media cache settings
         "media_cache_enabled": settings.media_cache.enabled,
         "media_cache_snapshots": settings.media_cache.cache_snapshots,
@@ -96,6 +98,7 @@ async def update_settings(update: SettingsUpdate):
     settings.classification.threshold = update.classification_threshold
     settings.maintenance.retention_days = update.retention_days
     settings.classification.blocked_labels = update.blocked_labels
+    settings.classification.trust_frigate_sublabel = update.trust_frigate_sublabel
 
     # Media cache settings
     settings.media_cache.enabled = update.media_cache_enabled

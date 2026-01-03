@@ -11,12 +11,15 @@ python-multipart==0.0.9
 Pillow>=10.2.0
 numpy<2.0.0
 # Machine Learning
-# Note: tflite-support wheels for 3.12 might be scarce, fallback to tflite-runtime or tf-cpu might be needed. 
+# Note: tflite-support wheels for 3.12 might be scarce, fallback to tflite-runtime or tf-cpu might be needed.
 # Starting with tflite-runtime if available or large tf-cpu.
 # For now, let's try tflite-support and see if it installs, or use a specific known compatible version.
 # tflite-support==0.4.4
 tensorflow-cpu; python_version >= '3.12'
+# ONNX Runtime for high-accuracy models (ConvNeXt, etc.)
+onnxruntime>=1.16.0
 aiomqtt==2.0.1
+alembic==1.13.1
 opencv-python-headless<4.11
 pytest==8.0.0
 pytest-asyncio==0.23.5

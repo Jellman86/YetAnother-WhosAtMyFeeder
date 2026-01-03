@@ -186,3 +186,9 @@ cython_debug/
 
 # Agents - project documentation and plans
 agents/
+
+# Models and data
+backend/data/models/**/*.onnx.data
+backend/data/models/**/*.tflite
+backend/data/models/**/*.onnx
+!backend/data/models/**/labels.txt
