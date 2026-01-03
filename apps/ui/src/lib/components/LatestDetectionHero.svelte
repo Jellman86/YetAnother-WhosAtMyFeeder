@@ -31,7 +31,7 @@
 
 <button 
     onclick={onclick}
-    class="relative w-full aspect-video sm:aspect-auto sm:h-80 rounded-2xl overflow-hidden group shadow-lg border-4 border-white dark:border-slate-800"
+    class="relative w-full aspect-video sm:aspect-auto sm:h-80 rounded-2xl overflow-hidden group shadow-lg border-4 border-white dark:border-slate-800 text-left"
 >
     <!-- Background Image -->
     <img 
@@ -45,7 +45,7 @@
 
     <!-- Content Overlay -->
     <div class="absolute bottom-0 left-0 right-0 p-6 sm:p-8 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-        <div>
+        <div class="flex-1 min-w-0">
             <div class="flex items-center gap-2 mb-2">
                 <span class="px-2 py-0.5 bg-teal-500 text-white text-[10px] font-bold uppercase tracking-widest rounded-md">
                     Just Discovered
@@ -59,24 +59,26 @@
                     </span>
                 {/if}
             </div>
-            <h2 class="text-3xl sm:text-4xl font-black text-white drop-shadow-lg tracking-tight">
+            
+            <h2 class="text-3xl sm:text-4xl font-black text-white drop-shadow-lg tracking-tight truncate">
                 {detection.display_name}
             </h2>
-                {#if subName}
-                    <p class="text-lg italic text-white/70 drop-shadow mt-1">
-                        {subName}
-                    </p>
-                {/if}
-                
-                {#if detection.audio_species && detection.audio_species !== detection.display_name}
-                    <div class="mt-2 flex items-center gap-2 text-blue-300 text-xs font-bold uppercase tracking-widest bg-blue-500/10 border border-blue-500/20 px-3 py-1.5 rounded-xl w-fit backdrop-blur-md">
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-                        </svg>
-                        Heard: {detection.audio_species}
-                    </div>
-                {/if}
-            </div>
+            
+            {#if subName}
+                <p class="text-lg italic text-white/70 drop-shadow mt-1 truncate">
+                    {subName}
+                </p>
+            {/if}
+            
+            {#if detection.audio_species && detection.audio_species !== detection.display_name}
+                <div class="mt-3 flex items-center gap-2 text-blue-300 text-xs font-bold uppercase tracking-widest bg-blue-500/10 border border-blue-500/20 px-3 py-1.5 rounded-xl w-fit backdrop-blur-md">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                    </svg>
+                    Heard: {detection.audio_species}
+                </div>
+            {/if}
+
             <div class="flex flex-wrap items-center gap-x-4 gap-y-1 mt-4 text-white/80 text-xs sm:text-sm font-medium">
                 <span class="flex items-center gap-1.5">
                     <span class="w-2 h-2 rounded-full bg-teal-400"></span>
@@ -93,7 +95,7 @@
             </div>
         </div>
 
-        <div class="flex items-center gap-3 self-start sm:self-auto">
+        <div class="flex items-center gap-3 self-start sm:self-auto shrink-0">
             <div class="flex flex-col items-center justify-center w-16 h-16 rounded-full bg-slate-900/60 border border-white/20 text-white shadow-lg">
                 <span class="text-lg font-black">{(detection.score * 100).toFixed(0)}</span>
                 <span class="text-[8px] font-bold uppercase opacity-60">Conf</span>

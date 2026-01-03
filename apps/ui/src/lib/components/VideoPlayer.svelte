@@ -11,7 +11,13 @@
     let videoError = $state(false);
     let videoForbidden = $state(false);
     let retryCount = $state(0);
-    let clipUrl = $state(getClipUrl(frigateEvent));
+    let clipUrlBase = $derived(getClipUrl(frigateEvent));
+    let clipUrl = $state("");
+    
+    $effect(() => {
+        clipUrl = retryCount > 0 ? `${clipUrlBase}?retry=${retryCount}` : clipUrlBase;
+    });
+
     const maxRetries = 2;
 
     function handleKeydown(event: KeyboardEvent) {
@@ -40,8 +46,6 @@
             retryCount++;
             videoError = false;
             videoForbidden = false;
-            // Add cache buster to force reload
-            clipUrl = getClipUrl(frigateEvent) + `?retry=${retryCount}`;
         }
     }
     
