@@ -62,12 +62,22 @@
             <h2 class="text-3xl sm:text-4xl font-black text-white drop-shadow-lg tracking-tight">
                 {detection.display_name}
             </h2>
-            {#if subName}
-                <p class="text-lg italic text-white/70 drop-shadow mt-1">
-                    {subName}
-                </p>
-            {/if}
-            <div class="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-white/80 text-xs sm:text-sm font-medium">
+                {#if subName}
+                    <p class="text-lg italic text-white/70 drop-shadow mt-1">
+                        {subName}
+                    </p>
+                {/if}
+                
+                {#if detection.audio_species && detection.audio_species !== detection.display_name}
+                    <div class="mt-2 flex items-center gap-2 text-blue-300 text-xs font-bold uppercase tracking-widest bg-blue-500/10 border border-blue-500/20 px-3 py-1.5 rounded-xl w-fit backdrop-blur-md">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                        </svg>
+                        Heard: {detection.audio_species}
+                    </div>
+                {/if}
+            </div>
+            <div class="flex flex-wrap items-center gap-x-4 gap-y-1 mt-4 text-white/80 text-xs sm:text-sm font-medium">
                 <span class="flex items-center gap-1.5">
                     <span class="w-2 h-2 rounded-full bg-teal-400"></span>
                     {formatTime(detection.detection_time)}
