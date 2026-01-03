@@ -40,8 +40,9 @@ REMOTE_REGISTRY = [
         "accuracy_tier": "Very High (90%+)",
         "inference_speed": "Slow (~500-800ms)",
         "runtime": "onnx",
-        "download_url": "pending",  # Will be set after ONNX export
-        "labels_url": "pending",  # iNat21 labels
+        "download_url": "pending",  # Will be set after user uploads to GitHub
+        "weights_url": "pending",
+        "labels_url": "https://raw.githubusercontent.com/Jellman86/YetAnother-WhosAtMyFeeder/main/backend/data/models/convnext_large_inat21/labels.txt",
         "input_size": 384,
         "preprocessing": {
             "mean": [0.485, 0.456, 0.406],
@@ -206,6 +207,14 @@ class ModelManager:
         # Check if download URLs are configured
         if model_meta.get('download_url') == 'pending':
             log.error("Model download URL not configured yet", model_id=model_id)
+            # Report error to UI immediately
+            progress = DownloadProgress(
+                model_id=model_id,
+                status="error",
+                progress=0.0,
+                error="Model download URL not configured yet"
+            )
+            self.active_downloads[model_id] = (progress, datetime.now())
             return False
 
         # Determine file extension based on runtime
