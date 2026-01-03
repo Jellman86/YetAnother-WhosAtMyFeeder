@@ -19,6 +19,11 @@
         type EventFilters
     } from '../api';
     import { detectionsStore } from '../stores/detections';
+    import { settingsStore } from '../stores/settings';
+    import DetectionCard from '../components/DetectionCard.svelte';
+    import Pagination from '../components/Pagination.svelte';
+    import SpeciesDetailModal from '../components/SpeciesDetailModal.svelte';
+    import VideoPlayer from '../components/VideoPlayer.svelte';
 
     let events: Detection[] = $state([]);
     let loading = $state(true);

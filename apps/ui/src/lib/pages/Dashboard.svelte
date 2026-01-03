@@ -299,7 +299,9 @@
             class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-hidden
                    border border-slate-200 dark:border-slate-700"
             onclick={(e) => e.stopPropagation()}
+            onkeydown={(e) => e.stopPropagation()}
             role="document"
+            tabindex="-1"
         >
             <!-- Image with overlay -->
             <div class="relative aspect-video bg-slate-100 dark:bg-slate-700">
