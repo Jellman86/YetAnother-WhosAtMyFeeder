@@ -13,23 +13,32 @@
     // Ultra-reactive derivation using direct store access
     let processedSpecies = $derived.by(() => {
         const settings = $settingsStore;
+        const showCommon = settings?.display_common_names ?? true;
         const preferSci = settings?.scientific_name_primary ?? false;
         
-        console.log('[TopVisitors] Naming preference updated:', { preferSci });
-
         return species.map(item => {
-            const primary = preferSci 
-                ? (item.scientific_name || item.species) 
-                : (item.common_name || item.species);
-            
-            const secondary = preferSci 
-                ? (item.common_name && item.common_name !== primary ? item.common_name : null)
-                : (item.scientific_name && item.scientific_name !== primary ? item.scientific_name : null);
+            // Determine primary and secondary labels
+            let primary: string;
+            let secondary: string | null = null;
+
+            if (!showCommon) {
+                // If common names are disabled, always show scientific as primary
+                primary = item.scientific_name || item.species;
+                secondary = null;
+            } else if (preferSci) {
+                // Common names enabled, but scientific is preferred as primary
+                primary = item.scientific_name || item.species;
+                secondary = item.common_name;
+            } else {
+                // Common names enabled and preferred as primary
+                primary = item.common_name || item.species;
+                secondary = item.scientific_name;
+            }
 
             return {
                 ...item,
                 displayName: primary,
-                subName: secondary
+                subName: (secondary && secondary !== primary) ? secondary : null
             };
         });
     });

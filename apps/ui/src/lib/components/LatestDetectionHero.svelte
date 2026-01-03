@@ -16,14 +16,34 @@
     // Check if this detection is being reclassified
     let reclassifyProgress = $derived(!hideProgress ? detectionsStore.getReclassificationProgress(detection.frigate_event) : null);
 
-    let preferScientific = $derived($settingsStore?.scientific_name_primary ?? false);
-
     // Dynamic Naming Logic
-    let primaryName = $derived(preferScientific ? (detection.scientific_name || detection.display_name) : (detection.common_name || detection.display_name));
-    let subName = $derived.by(() => {
-        const other = preferScientific ? detection.common_name : detection.scientific_name;
-        return (other && other !== primaryName) ? other : null;
+    let naming = $derived.by(() => {
+        const settings = $settingsStore;
+        const showCommon = settings?.display_common_names ?? true;
+        const preferSci = settings?.scientific_name_primary ?? false;
+
+        let primary: string;
+        let secondary: string | null = null;
+
+        if (!showCommon) {
+            primary = detection.scientific_name || detection.display_name;
+            secondary = null;
+        } else if (preferSci) {
+            primary = detection.scientific_name || detection.display_name;
+            secondary = detection.common_name;
+        } else {
+            primary = detection.common_name || detection.display_name;
+            secondary = detection.scientific_name;
+        }
+
+        return {
+            primary,
+            secondary: (secondary && secondary !== primary) ? secondary : null
+        };
     });
+
+    let primaryName = $derived(naming.primary);
+    let subName = $derived(naming.secondary);
 
     function formatTime(dateString: string): string {
         try {

@@ -59,9 +59,36 @@
         ).slice(0, 50)
     );
 
+    // Derive naming logic for the modal
+    let modalNaming = $derived.by(() => {
+        if (!selectedEvent) return { primary: '', secondary: null };
+        const settings = $settingsStore;
+        const showCommon = settings?.display_common_names ?? true;
+        const preferSci = settings?.scientific_name_primary ?? false;
+
+        let primary: string;
+        let secondary: string | null = null;
+
+        if (!showCommon) {
+            primary = selectedEvent.scientific_name || selectedEvent.display_name;
+            secondary = null;
+        } else if (preferSci) {
+            primary = selectedEvent.scientific_name || selectedEvent.display_name;
+            secondary = selectedEvent.common_name;
+        } else {
+            primary = selectedEvent.common_name || selectedEvent.display_name;
+            secondary = selectedEvent.scientific_name;
+        }
+
+        return {
+            primary,
+            secondary: (secondary && secondary !== primary) ? secondary : null
+        };
+    });
+
     let modalReclassifyProgress = $derived(selectedEvent ? detectionsStore.getReclassificationProgress(selectedEvent.frigate_event) : undefined);
-    let modalPrimaryName = $derived(selectedEvent ? (($settingsStore?.scientific_name_primary ?? false) ? (selectedEvent.scientific_name || selectedEvent.display_name) : (selectedEvent.common_name || selectedEvent.display_name)) : '');
-    let modalSubName = $derived(selectedEvent ? (($settingsStore?.scientific_name_primary ?? false) ? selectedEvent.common_name : selectedEvent.scientific_name) : null);
+    let modalPrimaryName = $derived(modalNaming.primary);
+    let modalSubName = $derived(modalNaming.secondary);
 
     let dateRange = $derived.by(() => {
         const today = new Date();
