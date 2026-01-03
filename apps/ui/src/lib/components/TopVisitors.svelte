@@ -9,6 +9,9 @@
     }
 
     let { species, onSpeciesClick }: Props = $props();
+
+    // Derived state for setting preference
+    let preferScientific = $derived($settingsStore?.scientific_name_primary ?? false);
 </script>
 
 <div class="space-y-4">
@@ -18,8 +21,10 @@
 
     <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
         {#each species as item}
-            {@const preferScientific = $settingsStore?.scientific_name_primary ?? false}
-            {@const displayName = (preferScientific ? (item.scientific_name || item.species) : (item.common_name || item.species))}
+            {@const displayName = preferScientific 
+                ? (item.scientific_name || item.species) 
+                : (item.common_name || item.species)}
+            
             <button 
                 onclick={() => onSpeciesClick?.(item.species)}
                 class="bg-white dark:bg-slate-800/50 rounded-xl p-3 border border-slate-200/80 dark:border-slate-700/50 text-left hover:border-teal-500 dark:hover:border-teal-400 transition-all group shadow-sm"
