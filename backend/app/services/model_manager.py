@@ -140,13 +140,14 @@ class ModelManager:
                 model_dir = os.path.join(base_dir, item)
                 if os.path.isdir(model_dir):
                     tflite_path = os.path.join(model_dir, "model.tflite")
+                    onnx_path = os.path.join(model_dir, "model.onnx")
                     labels_path = os.path.join(model_dir, "labels.txt")
                     
-                    if os.path.exists(tflite_path):
+                    if os.path.exists(tflite_path) or os.path.exists(onnx_path):
                         metadata = available_map.get(item)
                         installed.append(InstalledModel(
                             id=item,
-                            path=tflite_path,
+                            path=tflite_path if os.path.exists(tflite_path) else onnx_path,
                             labels_path=labels_path,
                             is_active=(item == self.active_model_id),
                             metadata=metadata
