@@ -81,22 +81,26 @@
     let quickRetagEvent = $state<Detection | null>(null);
     let quickRetagSearchQuery = $state('');
     let quickReclassifying = $state<string | null>(null); // frigate_event id being reclassified
+    let preferScientific = $state(false);
+
+    // Sync settings store to reactive state
+    $effect(() => {
+        const unsubscribe = settingsStore.subscribe(s => {
+            preferScientific = s?.scientific_name_primary ?? false;
+        });
+        return unsubscribe;
+    });
 
     // Wildlife classification state
-    let classifyingWildlife = $state(false);
-    let showWildlifeResults = $state(false);
-    let wildlifeResults = $state<WildlifeClassification[]>([]);
-
-    // Video playback state
-    let showVideo = $state(false);
-
-    // Derive hasClip from selected event
-    let selectedHasClip = $derived(selectedEvent?.has_clip ?? false);
-
-    // Derive reclassification progress for the modal
-    let modalReclassifyProgress = $derived(
-        selectedEvent ? detectionsStore.getReclassificationProgress(selectedEvent.frigate_event) : undefined
+// ...
+    // Derive naming logic for the modal
+    let modalPrimaryName = $derived(
+        selectedEvent ? (preferScientific ? (selectedEvent.scientific_name || selectedEvent.display_name) : (selectedEvent.common_name || selectedEvent.display_name)) : ''
     );
+    let modalSubName = $derived(
+        selectedEvent ? (preferScientific ? selectedEvent.common_name : selectedEvent.scientific_name) : null
+    );
+
 
     // Computed date range based on preset
     let dateRange = $derived.by(() => {
@@ -843,9 +847,12 @@
                 <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent"></div>
                 <div class="absolute bottom-0 left-0 right-0 p-4">
                     <h3 class="text-2xl font-bold text-white drop-shadow-lg">
-                        {selectedEvent.display_name}
+                        {modalPrimaryName}
                     </h3>
-                    <p class="text-white/80 text-sm mt-1">
+                    {#if modalSubName && modalSubName !== modalPrimaryName}
+                        <p class="text-white/70 text-sm italic drop-shadow -mt-1 mb-1">{modalSubName}</p>
+                    {/if}
+                    <p class="text-white/80 text-[10px] uppercase font-bold tracking-wider">
                         {new Date(selectedEvent.detection_time).toLocaleDateString(undefined, {
                             weekday: 'short', month: 'short', day: 'numeric', year: 'numeric'
                         })} at {new Date(selectedEvent.detection_time).toLocaleTimeString(undefined, {

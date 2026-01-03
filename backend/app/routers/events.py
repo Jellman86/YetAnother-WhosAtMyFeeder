@@ -362,12 +362,38 @@ async def reclassify_event(
 
         # Snapshot strategy (Default or Fallback)
         if effective_strategy == "snapshot":
+            # Broadcast start of reclassification
+            await broadcaster.broadcast({
+                "type": "reclassification_started",
+                "data": {
+                    "event_id": event_id,
+                    "strategy": "snapshot"
+                }
+            })
+
             snapshot_data = await frigate_client.get_snapshot(event_id, crop=True, quality=95)
             if not snapshot_data:
+                # Still broadcast completion if it failed so UI can stop spinner
+                await broadcaster.broadcast({
+                    "type": "reclassification_completed",
+                    "data": {
+                        "event_id": event_id,
+                        "results": []
+                    }
+                })
                 raise HTTPException(status_code=502, detail="Failed to fetch snapshot from Frigate")
 
             image = Image.open(BytesIO(snapshot_data))
             results = await classifier.classify_async(image)
+
+            # Broadcast completion
+            await broadcaster.broadcast({
+                "type": "reclassification_completed",
+                "data": {
+                    "event_id": event_id,
+                    "results": results
+                }
+            })
 
         if not results:
             raise HTTPException(status_code=500, detail="Classification returned no results")

@@ -8,39 +8,35 @@
     import TopVisitors from '../components/TopVisitors.svelte';
     import LatestDetectionHero from '../components/LatestDetectionHero.svelte';
     import StatsRibbon from '../components/StatsRibbon.svelte';
-    import { detectionsStore } from '../stores/detections.svelte.ts';
+    import ReclassificationOverlay from '../components/ReclassificationOverlay.svelte';
+    import { detectionsStore } from '../stores/detections.svelte';
     import type { Detection, WildlifeClassification, DailySummary } from '../api';
-    import { getThumbnailUrl, deleteDetection, hideDetection, classifyWildlife, updateDetectionSpecies, analyzeDetection, fetchDailySummary } from '../api';
-    import { settingsStore } from '../stores/settings';
-
-    interface Props {
-        onnavigate?: (path: string) => void;
-    }
-
-    let { onnavigate }: Props = $props();
-
+// ...
     let summary = $state<DailySummary | null>(null);
     let selectedEvent = $state<Detection | null>(null);
     let selectedSpecies = $state<string | null>(null);
-    let deleting = $state(false);
-    let hiding = $state(false);
-    let classifyingWildlife = $state(false);
-    let showWildlifeResults = $state(false);
-    let wildlifeResults = $state<WildlifeClassification[]>([]);
-    let applyingWildlife = $state(false);
+    let preferScientific = $state(false);
 
-    // AI Analysis state
-    let analyzingAI = $state(false);
-    let aiAnalysis = $state<string | null>(null);
+    // Sync settings store to reactive state
+    $effect(() => {
+        const unsubscribe = settingsStore.subscribe(s => {
+            preferScientific = s?.scientific_name_primary ?? false;
+        });
+        return unsubscribe;
+    });
 
-    // Video playback state
-    let showVideo = $state(false);
+    // Derive reclassification progress for the modal
+    let modalReclassifyProgress = $derived(
+        selectedEvent ? detectionsStore.getReclassificationProgress(selectedEvent.frigate_event) : undefined
+    );
 
-    // Derive the hero detection (latest one)
-    let heroDetection = $derived(detectionsStore.detections[0] || summary?.latest_detection || null);
-
-    // Derive hasClip from selected event
-    let selectedHasClip = $derived(selectedEvent?.has_clip ?? false);
+    // Derive naming logic for the modal
+    let modalPrimaryName = $derived(
+        selectedEvent ? (preferScientific ? (selectedEvent.scientific_name || selectedEvent.display_name) : (selectedEvent.common_name || selectedEvent.display_name)) : ''
+    );
+    let modalSubName = $derived(
+        selectedEvent ? (preferScientific ? selectedEvent.common_name : selectedEvent.scientific_name) : null
+    );
 
     // Derive audio confirmations count from recent detections
     let audioConfirmations = $derived(detectionsStore.detections.filter(d => d.audio_confirmed).length);
@@ -314,8 +310,11 @@
                 <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent"></div>
                 <div class="absolute bottom-0 left-0 right-0 p-4">
                     <h3 class="text-2xl font-bold text-white drop-shadow-lg">
-                        {selectedEvent.display_name}
+                        {modalPrimaryName}
                     </h3>
+                    {#if modalSubName && modalSubName !== modalPrimaryName}
+                        <p class="text-white/70 text-sm italic drop-shadow -mt-1 mb-1">{modalSubName}</p>
+                    {/if}
                     <p class="text-white/80 text-sm mt-1">
                         {new Date(selectedEvent.detection_time).toLocaleDateString(undefined, {
                             weekday: 'short', month: 'short', day: 'numeric', year: 'numeric'
@@ -356,6 +355,11 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                     </svg>
                 </button>
+
+                <!-- Reclassification Overlay -->
+                {#if modalReclassifyProgress}
+                    <ReclassificationOverlay progress={modalReclassifyProgress} />
+                {/if}
             </div>
 
             <div class="p-5">
@@ -402,7 +406,7 @@
                 </div>
 
                 <!-- AI Analysis Button -->
-                {#if $settingsStore?.llm_enabled}
+                {#if llmEnabled}
                     <div class="mb-5">
                         {#if !aiAnalysis}
                             <button
