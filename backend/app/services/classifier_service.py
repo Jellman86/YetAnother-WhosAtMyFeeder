@@ -41,6 +41,8 @@ def get_classifier() -> 'ClassifierService':
     return _classifier_instance
 
 
+import threading
+
 class ModelInstance:
     """Represents a loaded TFLite model with its labels."""
 
@@ -55,13 +57,15 @@ class ModelInstance:
         self.error: Optional[str] = None
         self.input_details = None
         self.output_details = None
+        self._lock = threading.Lock()
 
     def load(self) -> bool:
         """Load the model and labels. Returns True if successful."""
-        if self.loaded:
-            return True
+        with self._lock:
+            if self.loaded:
+                return True
 
-        # Load labels first
+            # Load labels first
         if os.path.exists(self.labels_path):
             try:
                 with open(self.labels_path, 'r', encoding='utf-8', errors='replace') as f:
@@ -161,13 +165,15 @@ class ModelInstance:
         # Add batch dimension
         input_data = np.expand_dims(input_data, axis=0)
 
-        # Run inference
-        self.interpreter.set_tensor(input_details['index'], input_data)
-        self.interpreter.invoke()
+        # Run inference protected by lock
+        with self._lock:
+            self.interpreter.set_tensor(input_details['index'], input_data)
+            self.interpreter.invoke()
 
-        # Get output
-        output_details = self.output_details[0]
-        output_data = self.interpreter.get_tensor(output_details['index'])
+            # Get output
+            output_details = self.output_details[0]
+            output_data = self.interpreter.get_tensor(output_details['index'])
+        
         results = np.squeeze(output_data).astype(np.float32)
 
         # Dequantize if needed
@@ -230,11 +236,14 @@ class ModelInstance:
             input_data = input_data.astype(np.uint8)
             
         input_data = np.expand_dims(input_data, axis=0)
-        self.interpreter.set_tensor(input_details['index'], input_data)
-        self.interpreter.invoke()
         
-        output_details = self.output_details[0]
-        output_data = self.interpreter.get_tensor(output_details['index'])
+        with self._lock:
+            self.interpreter.set_tensor(input_details['index'], input_data)
+            self.interpreter.invoke()
+            
+            output_details = self.output_details[0]
+            output_data = self.interpreter.get_tensor(output_details['index'])
+            
         results = np.squeeze(output_data).astype(np.float32)
 
         if output_details['dtype'] == np.uint8:

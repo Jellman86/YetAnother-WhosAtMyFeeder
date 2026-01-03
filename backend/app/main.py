@@ -114,6 +114,10 @@ async def cleanup_scheduler():
             log.error("Cleanup task error", error=str(e))
             # On error, wait 1 hour before retrying
             await asyncio.sleep(3600)
+        except BaseException as e:
+            # Catch-all for anything else (unlikely but safe)
+            log.critical("Cleanup task critical failure", error=str(e))
+            await asyncio.sleep(3600)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
