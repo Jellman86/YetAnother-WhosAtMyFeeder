@@ -46,6 +46,7 @@ class SettingsUpdate(BaseModel):
     blocked_labels: List[str] = Field(default_factory=list, description="Labels to filter out from detections")
     trust_frigate_sublabel: bool = Field(True, description="Trust Frigate sublabels when available")
     display_common_names: bool = Field(True, description="Display common names instead of scientific")
+    scientific_name_primary: bool = Field(False, description="Show scientific name as the primary label in UI")
     # Media cache settings
     media_cache_enabled: bool = Field(True, description="Enable local media caching")
     media_cache_snapshots: bool = Field(True, description="Cache snapshot images locally")
@@ -86,6 +87,7 @@ async def get_settings():
         "blocked_labels": settings.classification.blocked_labels,
         "trust_frigate_sublabel": settings.classification.trust_frigate_sublabel,
         "display_common_names": settings.classification.display_common_names,
+        "scientific_name_primary": settings.classification.scientific_name_primary,
         # Media cache settings
         "media_cache_enabled": settings.media_cache.enabled,
         "media_cache_snapshots": settings.media_cache.cache_snapshots,
@@ -121,6 +123,7 @@ async def update_settings(update: SettingsUpdate):
     settings.classification.blocked_labels = update.blocked_labels
     settings.classification.trust_frigate_sublabel = update.trust_frigate_sublabel
     settings.classification.display_common_names = update.display_common_names
+    settings.classification.scientific_name_primary = update.scientific_name_primary
 
     # Media cache settings
     settings.media_cache.enabled = update.media_cache_enabled
