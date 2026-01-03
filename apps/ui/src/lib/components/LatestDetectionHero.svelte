@@ -8,12 +8,13 @@
     interface Props {
         detection: Detection;
         onclick?: () => void;
+        hideProgress?: boolean;
     }
 
-    let { detection, onclick }: Props = $props();
+    let { detection, onclick, hideProgress = false }: Props = $props();
 
     // Check if this detection is being reclassified
-    let reclassifyProgress = $derived(detectionsStore.getReclassificationProgress(detection.frigate_event));
+    let reclassifyProgress = $derived(!hideProgress ? detectionsStore.getReclassificationProgress(detection.frigate_event) : null);
 
     let preferScientific = $derived($settingsStore?.scientific_name_primary ?? false);
 

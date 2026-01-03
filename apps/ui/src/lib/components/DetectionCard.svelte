@@ -10,12 +10,13 @@
         onclick?: () => void;
         onReclassify?: (detection: Detection) => void;
         onRetag?: (detection: Detection) => void;
+        hideProgress?: boolean;
     }
 
-    let { detection, onclick, onReclassify, onRetag }: Props = $props();
+    let { detection, onclick, onReclassify, onRetag, hideProgress = false }: Props = $props();
 
     // Check if this detection is being reclassified
-    let reclassifyProgress = $derived(detectionsStore.getReclassificationProgress(detection.frigate_event));
+    let reclassifyProgress = $derived(!hideProgress ? detectionsStore.getReclassificationProgress(detection.frigate_event) : null);
 
     let imageError = $state(false);
     let imageLoaded = $state(false);

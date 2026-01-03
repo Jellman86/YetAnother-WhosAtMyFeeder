@@ -31,6 +31,10 @@
                 ? (item.scientific_name || item.species) 
                 : (item.common_name || item.species)}
             
+            {@const subTitle = preferScientific 
+                ? (item.common_name && item.common_name !== item.species ? item.common_name : null)
+                : (item.scientific_name && item.scientific_name !== item.species ? item.scientific_name : null)}
+            
             <button 
                 onclick={() => onSpeciesClick?.(item.species)}
                 class="bg-white dark:bg-slate-800/50 rounded-xl p-3 border border-slate-200/80 dark:border-slate-700/50 text-left hover:border-teal-500 dark:hover:border-teal-400 transition-all group shadow-sm"
@@ -48,6 +52,11 @@
                 <p class="text-xs font-bold text-slate-900 dark:text-white truncate" title={displayName}>
                     {displayName}
                 </p>
+                {#if subTitle}
+                    <p class="text-[9px] italic text-slate-500 dark:text-slate-400 truncate opacity-80" title={subTitle}>
+                        {subTitle}
+                    </p>
+                {/if}
                 <p class="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
                     {item.count} visits
                 </p>

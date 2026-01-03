@@ -519,25 +519,28 @@ class DetectionRepository:
 
     async def get_daily_species_counts(self, start_date: datetime, end_date: datetime) -> list[dict]:
         """Get detection counts per species for a specific time range."""
-        async with self.db.execute(
-            """SELECT 
-                    COALESCE(scientific_name, display_name) as group_key,
-                    COUNT(*) as count, 
-                    MAX(frigate_event) as latest_event,
-                    MAX(scientific_name) as scientific_name, 
-                    MAX(common_name) as common_name,
-                    MAX(display_name) as display_name
-               FROM detections 
-               WHERE detection_time >= ? AND detection_time <= ?
-               AND (is_hidden = 0 OR is_hidden IS NULL)
-               GROUP BY group_key
-               ORDER BY count DESC""",
-            (start_date.isoformat(sep=' '), end_date.isoformat(sep=' '))
-        ) as cursor:
+        query = """
+            SELECT 
+                COALESCE(t.scientific_name, LOWER(d.display_name)) as unified_id,
+                COUNT(*) as count, 
+                MAX(d.frigate_event) as latest_event,
+                MAX(COALESCE(d.scientific_name, t.scientific_name)) as scientific_name, 
+                MAX(COALESCE(d.common_name, t.common_name)) as common_name,
+                MAX(d.display_name) as display_name
+            FROM detections d
+            LEFT JOIN taxonomy_cache t ON 
+                LOWER(d.display_name) = LOWER(t.scientific_name) OR 
+                LOWER(d.display_name) = LOWER(t.common_name)
+            WHERE d.detection_time >= ? AND d.detection_time <= ?
+            AND (d.is_hidden = 0 OR d.is_hidden IS NULL)
+            GROUP BY unified_id
+            ORDER BY count DESC
+        """
+        async with self.db.execute(query, (start_date.isoformat(sep=' '), end_date.isoformat(sep=' '))) as cursor:
             rows = await cursor.fetchall()
             return [
                 {
-                    "species": row[5], # Use display_name as the default 'species' label for compatibility
+                    "species": row[5], 
                     "count": row[1],
                     "latest_event": row[2],
                     "scientific_name": row[3],

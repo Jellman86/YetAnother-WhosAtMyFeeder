@@ -203,6 +203,7 @@
                         <LatestDetectionHero 
                             detection={heroDetection} 
                             onclick={() => selectedEvent = heroDetection}
+                            hideProgress={selectedEvent?.frigate_event === heroDetection.frigate_event}
                         />
                     </div>
                 {/key}
@@ -241,7 +242,11 @@
         <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             {#each detectionsStore.detections.slice(1) as detection (detection.frigate_event || detection.id)}
                 <div in:fly={{ y: 20, duration: 400 }}>
-                    <DetectionCard {detection} onclick={() => selectedEvent = detection} />
+                    <DetectionCard 
+                        {detection} 
+                        onclick={() => selectedEvent = detection} 
+                        hideProgress={selectedEvent?.frigate_event === detection.frigate_event}
+                    />
                 </div>
             {/each}
         </div>
