@@ -14,12 +14,16 @@ The whole thing has been built with help from AI coding assistants - it's been a
 
 When Frigate detects a bird at your feeder, YA-WAMF:
 1. Grabs the snapshot image
-2. Runs it through a bird classification model
+2. Runs it through an advanced AI model (MobileNetV2, ConvNeXt, or EVA-02)
 3. Shows you what species it thinks it is
 4. Keeps track of all your visitors in a nice dashboard
 5. Proxies video clips from Frigate with full streaming and seeking support
 
-**Bonus:** If something other than a bird shows up (squirrels, raccoons, foxes...), you can use the optional **Wildlife Classifier** to identify it!
+**Advanced Features:**
+- **Elite Accuracy:** Support for state-of-the-art **EVA-02 Large** models (~91% accuracy).
+- **Fast Path Efficiency:** Skip local AI and use Frigate's sublabels directly to save CPU.
+- **Deep Video Analysis:** Scan entire video clips frame-by-frame for the perfect identification.
+- **Wildlife Classifier:** Identify squirrels, foxes, and other non-bird visitors.
 
 ## How It Works
 
@@ -33,14 +37,15 @@ Here's the flow from bird to identification:
                                            │
                                            v
                                     ┌──────────────┐
-                                    │ Fetch image  │
-                                    │ from Frigate │
+                                    │ Fast Path:   │
+                                    │ Use Frigate  │
+                                    │ Sublabels?   │
                                     └──────┬───────┘
                                            │
-                                           v
+                                     (No)  v  (Yes)
                                     ┌──────────────┐
-                                    │  TFLite ML   │
-                                    │  Classifier  │
+                                    │  AI Engine   │
+                                    │ (TFLite/ONNX)│
                                     └──────┬───────┘
                                            │
                                            v
@@ -55,10 +60,10 @@ Here's the flow from bird to identification:
 1. **Frigate spots a bird** - Your camera picks up movement, Frigate's object detection identifies it as a bird
 2. **MQTT message sent** - Frigate publishes an event to `frigate/events` on your MQTT broker
 3. **YA-WAMF receives the event** - The backend is subscribed to that MQTT topic and picks up the message
-4. **Snapshot fetched** - The backend calls Frigate's API to grab a clean snapshot of the bird
-5. **Classification runs** - The image goes through a TensorFlow Lite model trained on bird species
-6. **Results stored** - If the confidence is high enough, the detection gets saved to the database
-7. **Dashboard updates** - The frontend gets a real-time update via Server-Sent Events (SSE)
+4. **Efficiency Check** - If "Trust Frigate Sublabels" is enabled and Frigate already has a label, we use it instantly.
+5. **Classification runs** - Otherwise, the image goes through a local model (TFLite or ONNX) trained on bird species.
+6. **Results stored** - If the confidence is high enough, the detection gets saved to the database.
+7. **Dashboard updates** - The frontend gets a real-time update via Server-Sent Events (SSE).
 
 ## Getting Started with Docker Compose
 
@@ -181,14 +186,14 @@ Most settings can be changed through the web UI under Settings. They get saved t
 | Frigate URL | Where to fetch snapshots from | http://frigate:5000 |
 | MQTT Server | Your MQTT broker hostname | mqtt |
 | Classification Threshold | How confident the model needs to be (0-1) | 0.7 |
-| Fetch Video Clips | Enable/disable proxying clips from Frigate (saves bandwidth) | Enabled |
-| Wildlife Model | Optional general animal classifier (download in Settings) | Not installed |
+| Trust Frigate Sublabels | Skip local AI if Frigate has an identification | Enabled |
+| AI Model | Choose between MobileNet (Fast), ConvNeXt (High), or EVA-02 (Elite) | MobileNet |
 
 ## Tech Stack
 
 - **Backend:** Python 3.12, FastAPI, SQLite
 - **Frontend:** Svelte 5, Tailwind CSS
-- **ML:** TensorFlow Lite bird classifier
+- **ML Engine:** ONNX Runtime & TensorFlow Lite
 - **Messaging:** MQTT for Frigate events, SSE for live UI updates
 
 ## Video Playback & Bandwidth
