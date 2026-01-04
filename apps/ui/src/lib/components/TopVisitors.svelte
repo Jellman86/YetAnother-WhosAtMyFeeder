@@ -31,11 +31,11 @@
             } else if (preferSci) {
                 // Common names enabled, but scientific is preferred as primary
                 primary = (item.scientific_name || item.species) as string;
-                secondary = item.common_name;
+                secondary = item.common_name ?? null;
             } else {
                 // Common names enabled and preferred as primary
                 primary = (item.common_name || item.species) as string;
-                secondary = item.scientific_name;
+                secondary = item.scientific_name ?? null;
             }
 
             return {

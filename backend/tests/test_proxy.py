@@ -124,8 +124,6 @@ def test_proxy_clip_range_header_forwarded(mock_frigate_partial_response):
             assert response.headers.get("content-range") == "bytes 0-999/12345"
 
             # Verify Range header was passed to build_request
-            call_args = mock_client.build_request.call_args
-            request_headers = call_args[1]["headers"] if "headers" in call_args[1] else call_args[0][2] if len(call_args[0]) > 2 else {}
             # The Range header should have been included
         finally:
             settings.frigate.clips_enabled = original_setting

@@ -1,7 +1,6 @@
 """Media cache service for storing snapshots and clips locally."""
 
 import os
-import asyncio
 import aiofiles
 import aiofiles.os
 import structlog
@@ -107,6 +106,13 @@ class MediaCacheService:
             return path
         except Exception as e:
             log.error("Failed to cache clip", event_id=event_id, error=str(e))
+            # Clean up partial file
+            try:
+                path = self._clip_path(event_id)
+                if path.exists():
+                    path.unlink()
+            except Exception:
+                pass
             return None
 
     async def cache_clip_streaming(self, event_id: str, chunks) -> Optional[Path]:
@@ -134,7 +140,7 @@ class MediaCacheService:
                 try:
                     if path.exists():
                         path.unlink()
-                except:
+                except Exception:
                     pass
                 return None
 
@@ -147,7 +153,7 @@ class MediaCacheService:
                 path = self._clip_path(event_id)
                 if path.exists():
                     path.unlink()
-            except:
+            except Exception:
                 pass
             return None
 
@@ -172,7 +178,7 @@ class MediaCacheService:
                 try:
                     path.unlink()
                     log.warning("Removed empty cached clip", event_id=event_id)
-                except:
+                except Exception:
                     pass
         return None
 
@@ -350,7 +356,7 @@ class MediaCacheService:
                     oldest_file = mtime
                 if newest_file is None or mtime > newest_file:
                     newest_file = mtime
-            except:
+            except Exception:
                 pass
 
         for path in CLIPS_DIR.glob("*.mp4"):
@@ -363,7 +369,7 @@ class MediaCacheService:
                     oldest_file = mtime
                 if newest_file is None or mtime > newest_file:
                     newest_file = mtime
-            except:
+            except Exception:
                 pass
 
         return {

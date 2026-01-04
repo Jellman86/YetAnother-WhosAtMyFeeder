@@ -1,10 +1,10 @@
 from fastapi import APIRouter
 from datetime import datetime, time, date
-from typing import List, Dict, Any, Optional
+from typing import List, Optional
 from pydantic import BaseModel
 
 from app.database import get_db
-from app.repositories.detection_repository import DetectionRepository, Detection
+from app.repositories.detection_repository import DetectionRepository
 from app.models import DetectionResponse
 from app.config import settings
 

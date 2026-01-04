@@ -2,11 +2,11 @@ import structlog
 import numpy as np
 import os
 import cv2
-import tempfile
 import asyncio
+import threading
 from concurrent.futures import ThreadPoolExecutor
-from PIL import Image, ImageOps
-from typing import Optional, List, Dict
+from PIL import Image
+from typing import Optional
 
 # TFLite runtime
 try:
@@ -40,8 +40,6 @@ def get_classifier() -> 'ClassifierService':
         _classifier_instance = ClassifierService()
     return _classifier_instance
 
-
-import threading
 
 class ModelInstance:
     """Represents a loaded TFLite model with its labels."""
@@ -425,7 +423,7 @@ class ONNXModelInstance:
             logits = outputs[0][0]
             return self._softmax(logits)
         except Exception as e:
-            log.error(f"ONNX raw classification failed", error=str(e))
+            log.error("ONNX raw classification failed", error=str(e))
             return np.array([])
 
     def get_status(self) -> dict:

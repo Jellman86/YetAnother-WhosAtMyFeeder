@@ -1,7 +1,5 @@
 import onnxruntime as ort
 import numpy as np
-from PIL import Image
-import os
 
 model_path = "YA-WAMF/backend/data/models/eva02_large_inat21/model.onnx"
 labels_path = "YA-WAMF/backend/data/models/eva02_large_inat21/labels.txt"

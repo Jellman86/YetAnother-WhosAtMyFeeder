@@ -3,7 +3,6 @@ from datetime import datetime
 from app.config import settings
 from app.repositories.detection_repository import DetectionRepository, Detection
 from app.services.classifier_service import ClassifierService
-from app.services.frigate_client import frigate_client
 from app.services.broadcaster import broadcaster
 from app.services.taxonomy.taxonomy_service import taxonomy_service
 from app.database import get_db

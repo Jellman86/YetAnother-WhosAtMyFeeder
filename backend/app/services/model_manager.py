@@ -6,7 +6,6 @@ import httpx
 import structlog
 from datetime import datetime
 from typing import List, Optional, Dict
-from app.config import settings
 from app.models.ai_models import ModelMetadata, InstalledModel, DownloadProgress
 
 log = structlog.get_logger()

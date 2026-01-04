@@ -10,7 +10,7 @@ from app.database import get_db
 from app.models import DetectionResponse
 from app.repositories.detection_repository import DetectionRepository
 from app.config import settings
-from app.services.classifier_service import get_classifier, ClassifierService
+from app.services.classifier_service import get_classifier
 from app.services.frigate_client import frigate_client
 from app.services.broadcaster import broadcaster
 from app.services.taxonomy.taxonomy_service import taxonomy_service

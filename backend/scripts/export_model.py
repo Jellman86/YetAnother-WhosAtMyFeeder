@@ -1,8 +1,6 @@
 import torch
 import timm
-import os
 import argparse
-import json
 from pathlib import Path
 
 def export_model(model_name: str, output_dir: str, input_size: int = 336):
@@ -15,7 +13,7 @@ def export_model(model_name: str, output_dir: str, input_size: int = 336):
     print(f"Loading model: {model_name}...")
     try:
         model = timm.create_model(f"hf-hub:{model_name}", pretrained=True)
-    except:
+    except Exception:
         model = timm.create_model(model_name, pretrained=True)
         
     model.eval()

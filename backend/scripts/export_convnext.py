@@ -1,8 +1,6 @@
 import torch
 import timm
-import os
 import argparse
-from pathlib import Path
 
 def export_model(model_name: str, output_path: str, input_size: int = 384):
     print(f"Loading model: {model_name}...")

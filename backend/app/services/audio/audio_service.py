@@ -1,7 +1,7 @@
 import structlog
 import asyncio
 from datetime import datetime, timedelta
-from typing import List, Optional, Deque
+from typing import Optional, Deque
 from dataclasses import dataclass
 from collections import deque
 from app.config import settings

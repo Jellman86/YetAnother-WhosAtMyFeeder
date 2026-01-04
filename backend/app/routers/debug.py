@@ -1,16 +1,11 @@
-from fastapi import APIRouter, HTTPException, Depends
-from typing import Dict, List, Any
+from fastapi import APIRouter
+from typing import Dict, Any
 import shutil
 import os
-import aiosqlite
 import httpx
-from datetime import datetime
 
 from app.config import settings
 from app.database import get_db
-from app.services.classifier_service import get_classifier
-from app.services.frigate_client import frigate_client
-from app.services.model_manager import model_manager
 
 router = APIRouter()
 

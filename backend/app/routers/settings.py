@@ -1,6 +1,6 @@
 from typing import List, Optional
 from datetime import datetime, timedelta
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 from pydantic import BaseModel, Field, field_validator
 import structlog
 
@@ -10,7 +10,7 @@ from app.repositories.detection_repository import DetectionRepository
 
 from app.services.taxonomy.taxonomy_service import taxonomy_service
 
-from fastapi import APIRouter, HTTPException, BackgroundTasks
+from fastapi import BackgroundTasks
 
 router = APIRouter()
 log = structlog.get_logger()
@@ -218,172 +218,34 @@ async def get_cache_stats():
 
 
 @router.post("/cache/cleanup")
-
-
 async def run_cache_cleanup():
-
-
     """Manually trigger cleanup of old cached media."""
-
-
     from app.services.media_cache import media_cache
 
-
-
-
-
     # Determine retention period
-
-
     retention = settings.media_cache.retention_days
-
-
     if retention == 0:
-
-
         retention = settings.maintenance.retention_days
 
+    # Even if retention is 0, we still run cleanup to remove empty files
+    stats = await media_cache.cleanup_old_media(retention)
 
-
-
-
-        # Even if retention is 0, we still run cleanup to remove empty files
-
-
-
-
-
-        stats = await media_cache.cleanup_old_media(retention)
-
-
-
-
-
-    
-
-
-
-
-
-        # Also run orphaned media cleanup (files not in DB)
-
-
-
-
-
-        async with get_db() as db:
-
-
-
-
-
-            repo = DetectionRepository(db)
-
-
-
-
-
-            # Fetch all valid event IDs
-
-
-
-
-
-            async with db.execute("SELECT frigate_event FROM detections") as cursor:
-
-
-
-
-
-                rows = await cursor.fetchall()
-
-
-
-
-
-                valid_ids = {row[0] for row in rows}
-
-
-
-
-
+    # Also run orphaned media cleanup (files not in DB)
+    async with get_db() as db:
+        # Fetch all valid event IDs
+        async with db.execute("SELECT frigate_event FROM detections") as cursor:
+            rows = await cursor.fetchall()
+            valid_ids = {row[0] for row in rows}
                 
-
-
-
-
-
-        orphan_stats = await media_cache.cleanup_orphaned_media(valid_ids)
-
-
-
-
-
+    orphan_stats = await media_cache.cleanup_orphaned_media(valid_ids)
         
+    # Merge stats
+    stats["snapshots_deleted"] += orphan_stats["snapshots_deleted"]
+    stats["clips_deleted"] += orphan_stats["clips_deleted"]
+    stats["bytes_freed"] += orphan_stats["bytes_freed"]
 
-
-
-
-
-        # Merge stats
-
-
-
-
-
-        stats["snapshots_deleted"] += orphan_stats["snapshots_deleted"]
-
-
-
-
-
-        stats["clips_deleted"] += orphan_stats["clips_deleted"]
-
-
-
-
-
-        stats["bytes_freed"] += orphan_stats["bytes_freed"]
-
-
-
-
-
-    
-
-
-
-
-
-        return {
-
-
-
-
-
-            "status": "completed",
-
-
-
-
-
-            **stats,
-
-
-
-
-
-            "retention_days": retention
-
-
-
-
-
-        }
-
-
-
-
-
-    
-
+    return {
+        "status": "completed",
+        **stats,
+        "retention_days": retention
+    }

@@ -295,7 +295,6 @@ async def get_species_info(species_name: str, refresh: bool = False):
 
 async def _fetch_wikipedia_info(species_name: str) -> SpeciesInfo:
     """Fetch species information from Wikipedia API."""
-    import re
 
     headers = {
         "User-Agent": WIKIPEDIA_USER_AGENT,

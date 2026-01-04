@@ -23,7 +23,7 @@ async def sse_stream():
                     yield f"data: {json.dumps(message)}\n\n"
                 except asyncio.TimeoutError:
                     # Send heartbeat to keep connection alive
-                    yield f": heartbeat\n\n"
+                    yield ": heartbeat\n\n"
         except asyncio.CancelledError:
             pass
         finally:

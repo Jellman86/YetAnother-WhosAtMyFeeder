@@ -11,7 +11,6 @@ Usage:
 The model and labels will be saved to backend/app/assets/
 """
 
-import os
 import sys
 import urllib.request
 from pathlib import Path

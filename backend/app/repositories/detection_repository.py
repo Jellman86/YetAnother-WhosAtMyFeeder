@@ -2,6 +2,7 @@ from typing import Optional
 from dataclasses import dataclass
 from datetime import datetime
 import aiosqlite
+import asyncio
 
 @dataclass
 class Detection:
@@ -363,7 +364,7 @@ class DetectionRepository:
             # Delete a chunk of rows
             # We use the rowid (implicit or explicit) or limit if supported by the build
             # Standard SQLite DELETE LIMIT requires compilation option, so we use subquery
-            query = f"""
+            query = """
                 DELETE FROM detections 
                 WHERE id IN (
                     SELECT id FROM detections 

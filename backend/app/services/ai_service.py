@@ -1,7 +1,7 @@
 import httpx
 import structlog
 import base64
-from typing import Optional, List
+from typing import Optional
 from app.config import settings
 
 log = structlog.get_logger()
@@ -55,7 +55,6 @@ class AIService:
             async with httpx.AsyncClient(timeout=30.0) as client:
                 resp = await client.post(url, json=payload)
                 resp.raise_for_status()
-                data = resp.json()
                 
                 # Extract text from response
                 candidates = resp.json().get("candidates", [])

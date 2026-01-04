@@ -45,7 +45,7 @@ async def test_frigate_connection():
         if e.response.status_code == 401:
             raise HTTPException(status_code=401, detail="Frigate authentication failed - check auth token")
         raise HTTPException(status_code=e.response.status_code, detail=f"Frigate returned error: {e.response.status_code}")
-    except httpx.RequestError as e:
+    except httpx.RequestError:
         raise HTTPException(status_code=502, detail=f"Failed to connect to Frigate at {settings.frigate.frigate_url}")
 
 @router.get("/frigate/config")

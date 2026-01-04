@@ -2,7 +2,7 @@ import httpx
 import structlog
 import asyncio
 import aiosqlite
-from typing import Optional, Tuple, Dict
+from typing import Optional, Dict
 from datetime import datetime
 from app.database import get_db
 

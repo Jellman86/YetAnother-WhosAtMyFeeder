@@ -1,13 +1,13 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, Response
 import structlog
 import asyncio
 import os
-import subprocess
 import json
 from datetime import datetime, timedelta
 from contextlib import asynccontextmanager
+from prometheus_client import generate_latest, CONTENT_TYPE_LATEST, Counter
 
 from app.database import init_db, get_db
 from app.services.mqtt_service import MQTTService
@@ -47,6 +47,11 @@ BASE_VERSION = "2.0.0"
 GIT_HASH = get_git_hash()
 APP_VERSION = f"{BASE_VERSION}+{GIT_HASH}"
 
+# Metrics
+EVENTS_PROCESSED = Counter('events_processed_total', 'Total number of events processed')
+DETECTIONS_TOTAL = Counter('detections_total', 'Total number of bird detections')
+API_REQUESTS = Counter('api_requests_total', 'Total API requests')
+
 # Use shared classifier instance
 classifier_service = get_classifier()
 event_processor = EventProcessor(classifier_service)
@@ -61,53 +66,54 @@ CLEANUP_INTERVAL_HOURS = 24  # Run cleanup every 24 hours
 
 async def run_cleanup():
     """Execute cleanup of old detections and media cache."""
-    now = datetime.now()
+    try:
+        now = datetime.now()
 
-    # Detection cleanup
-    if settings.maintenance.retention_days > 0 and settings.maintenance.cleanup_enabled:
-        cutoff = now - timedelta(days=settings.maintenance.retention_days)
-        async with get_db() as db:
-            repo = DetectionRepository(db)
-            deleted_count = await repo.delete_older_than(cutoff)
-        if deleted_count > 0:
-            log.info("Automatic cleanup completed",
-                     deleted_count=deleted_count,
-                     retention_days=settings.maintenance.retention_days,
-                     cutoff=cutoff.isoformat())
+        # Detection cleanup
+        if settings.maintenance.retention_days > 0 and settings.maintenance.cleanup_enabled:
+            cutoff = now - timedelta(days=settings.maintenance.retention_days)
+            async with get_db() as db:
+                repo = DetectionRepository(db)
+                deleted_count = await repo.delete_older_than(cutoff)
+            if deleted_count > 0:
+                log.info("Automatic cleanup completed",
+                         deleted_count=deleted_count,
+                         retention_days=settings.maintenance.retention_days,
+                         cutoff=cutoff.isoformat())
 
-    # Media cache cleanup
-    if settings.media_cache.enabled:
-        cache_retention = settings.media_cache.retention_days
-        if cache_retention == 0:
-            cache_retention = settings.maintenance.retention_days
-        if cache_retention > 0:
-            cache_stats = await media_cache.cleanup_old_media(cache_retention)
-            if cache_stats["snapshots_deleted"] > 0 or cache_stats["clips_deleted"] > 0:
-                log.info("Media cache cleanup completed", **cache_stats)
+        # Media cache cleanup
+        if settings.media_cache.enabled:
+            cache_retention = settings.media_cache.retention_days
+            if cache_retention == 0:
+                cache_retention = settings.maintenance.retention_days
+            if cache_retention > 0:
+                cache_stats = await media_cache.cleanup_old_media(cache_retention)
+                if cache_stats["snapshots_deleted"] > 0 or cache_stats["clips_deleted"] > 0:
+                    log.info("Media cache cleanup completed", **cache_stats)
+    except Exception as e:
+        log.error("Error during cleanup execution", error=str(e))
 
 
 async def cleanup_scheduler():
-    """Background task that runs cleanup on a fixed interval.
-
-    Improvements over 3 AM fixed-time approach:
-    - Runs cleanup immediately on startup (catches missed intervals)
-    - Uses fixed interval (24 hours) instead of polling hourly
-    - Handles container restarts gracefully
-    """
+    """Background task that runs cleanup on a fixed interval."""
     global cleanup_running
 
     # Run cleanup once on startup (handles missed cleanups from downtime)
-    try:
-        await run_cleanup()
-        log.info("Startup cleanup completed")
-    except Exception as e:
-        log.error("Startup cleanup failed", error=str(e))
+    log.info("Running startup cleanup...")
+    await run_cleanup()
 
     # Then run on fixed interval
     while cleanup_running:
         try:
-            await asyncio.sleep(CLEANUP_INTERVAL_HOURS * 3600)
-            await run_cleanup()
+            # Sleep for the interval, checking for cancellation periodically
+            for _ in range(CLEANUP_INTERVAL_HOURS):
+                 if not cleanup_running:
+                     break
+                 await asyncio.sleep(3600) # check every hour
+
+            if cleanup_running:
+                await run_cleanup()
+
         except asyncio.CancelledError:
             break
         except Exception as e:
@@ -167,6 +173,12 @@ app.include_router(ai.router, prefix="/api", tags=["ai"])
 app.include_router(stats.router, prefix="/api", tags=["stats"])
 app.include_router(debug.router, prefix="/api", tags=["debug"])
 
+@app.middleware("http")
+async def count_requests(request, call_next):
+    API_REQUESTS.inc()
+    response = await call_next(request)
+    return response
+
 @app.get("/health")
 async def health_check():
     health = {
@@ -216,6 +228,6 @@ async def get_version():
 
 @app.get("/metrics")
 async def metrics():
-    # Placeholder for Prometheus metrics
-    return "events_processed_total 0\n"
+    """Prometheus metrics endpoint."""
+    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 

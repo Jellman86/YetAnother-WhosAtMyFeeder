@@ -1,9 +1,10 @@
+import os
 import aiosqlite
 import structlog
 from contextlib import asynccontextmanager
 
 log = structlog.get_logger()
-DB_PATH = "/data/speciesid.db"
+DB_PATH = os.environ.get("DB_PATH", "/data/speciesid.db")
 
 async def column_exists(db, table: str, column: str) -> bool:
     """Check if a column exists in a table using PRAGMA table_info."""

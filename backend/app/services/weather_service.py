@@ -72,15 +72,24 @@ class WeatherService:
     def _get_condition_text(self, code: int) -> str:
         """Map WMO weather code to text."""
         # https://open-meteo.com/en/docs
-        if code is None: return "Unknown"
-        if code == 0: return "Clear sky"
-        if code in [1, 2, 3]: return "Partly cloudy"
-        if code in [45, 48]: return "Foggy"
-        if code in [51, 53, 55]: return "Drizzle"
-        if code in [61, 63, 65]: return "Rain"
-        if code in [71, 73, 75]: return "Snow"
-        if code in [80, 81, 82]: return "Rain showers"
-        if code in [95, 96, 99]: return "Thunderstorm"
+        if code is None:
+            return "Unknown"
+        if code == 0:
+            return "Clear sky"
+        if code in [1, 2, 3]:
+            return "Partly cloudy"
+        if code in [45, 48]:
+            return "Foggy"
+        if code in [51, 53, 55]:
+            return "Drizzle"
+        if code in [61, 63, 65]:
+            return "Rain"
+        if code in [71, 73, 75]:
+            return "Snow"
+        if code in [80, 81, 82]:
+            return "Rain showers"
+        if code in [95, 96, 99]:
+            return "Thunderstorm"
         return "Cloudy"
 
 weather_service = WeatherService()
