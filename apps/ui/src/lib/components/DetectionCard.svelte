@@ -10,13 +10,21 @@
         onclick?: () => void;
         onReclassify?: (detection: Detection) => void;
         onRetag?: (detection: Detection) => void;
+        onPlay?: (detection: Detection) => void;
         hideProgress?: boolean;
     }
 
-    let { detection, onclick, onReclassify, onRetag, hideProgress = false }: Props = $props();
+    let { detection, onclick, onReclassify, onRetag, onPlay, hideProgress = false }: Props = $props();
 
     // Check if this detection is being reclassified
     let reclassifyProgress = $derived(!hideProgress ? detectionsStore.getReclassificationProgress(detection.frigate_event) : null);
+
+    let showCommon = $state(true);
+    let preferSci = $state(false);
+    $effect(() => {
+        showCommon = $settingsStore?.display_common_names ?? true;
+        preferSci = $settingsStore?.scientific_name_primary ?? false;
+    });
 
     let imageError = $state(false);
     let imageLoaded = $state(false);
@@ -31,6 +39,11 @@
     function handleRetagClick(event: MouseEvent) {
         event.stopPropagation();
         onRetag?.(detection);
+    }
+
+    function handlePlayClick(event: MouseEvent) {
+        event.stopPropagation();
+        onPlay?.(detection);
     }
 
     // Lazy load with intersection observer
@@ -89,10 +102,6 @@
 
     // Dynamic Naming Logic
     let naming = $derived.by(() => {
-        const settings = $settingsStore;
-        const showCommon = settings?.display_common_names ?? true;
-        const preferSci = settings?.scientific_name_primary ?? false;
-
         let primary: string;
         let secondary: string | null = null;
 
@@ -138,7 +147,7 @@
 >
     <!-- Reclassification Overlay -->
     {#if reclassifyProgress}
-        <ReclassificationOverlay progress={reclassifyProgress} />
+        <ReclassificationOverlay progress={reclassifyProgress} small={true} />
     {/if}
 
     <!-- Image Section -->
@@ -159,6 +168,20 @@
             />
             <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20 opacity-60"></div>
             <div class="absolute inset-0 bg-teal-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+
+            {#if detection.has_clip && onPlay}
+                <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 scale-90 group-hover:scale-100">
+                    <button 
+                        onclick={handlePlayClick}
+                        class="w-14 h-14 rounded-full bg-white/90 dark:bg-slate-800/90 flex items-center justify-center shadow-2xl text-teal-600 dark:text-teal-400 hover:scale-110 active:scale-90 transition-transform"
+                        title="Play Video"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-7 h-7 ml-1" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M8 5v14l11-7z"/>
+                        </svg>
+                    </button>
+                </div>
+            {/if}
         {:else}
             <div class="absolute inset-0 flex items-center justify-center bg-slate-100 dark:bg-slate-800">
                 <svg class="w-12 h-12 text-slate-300 dark:text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">

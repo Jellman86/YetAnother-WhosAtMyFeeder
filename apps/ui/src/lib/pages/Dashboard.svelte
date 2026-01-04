@@ -27,7 +27,10 @@
     let hiding = $state(false);
 
     // Settings state
-    let llmEnabled = $derived($settingsStore?.llm_enabled ?? false);
+    let llmEnabled = $state(false);
+    $effect(() => {
+        llmEnabled = $settingsStore?.llm_enabled ?? false;
+    });
 
     // AI Analysis state
     let analyzingAI = $state(false);
@@ -231,6 +234,7 @@
                         <LatestDetectionHero 
                             detection={heroDetection} 
                             onclick={() => selectedEvent = heroDetection}
+                            onPlay={() => { selectedEvent = heroDetection; showVideo = true; }}
                             hideProgress={selectedEvent?.frigate_event === heroDetection.frigate_event}
                         />
                     </div>
@@ -273,6 +277,7 @@
                     <DetectionCard 
                         {detection} 
                         onclick={() => selectedEvent = detection} 
+                        onPlay={() => { selectedEvent = detection; showVideo = true; }}
                         hideProgress={selectedEvent?.frigate_event === detection.frigate_event}
                     />
                 </div>

@@ -10,12 +10,15 @@
 
     let { species, onSpeciesClick }: Props = $props();
 
-    // Ultra-reactive derivation using direct store access
+    let showCommon = $state(true);
+    let preferSci = $state(false);
+    $effect(() => {
+        showCommon = $settingsStore?.display_common_names ?? true;
+        preferSci = $settingsStore?.scientific_name_primary ?? false;
+    });
+
+    // Ultra-reactive derivation
     let processedSpecies = $derived.by(() => {
-        const settings = $settingsStore;
-        const showCommon = settings?.display_common_names ?? true;
-        const preferSci = settings?.scientific_name_primary ?? false;
-        
         return species.map(item => {
             // Determine primary and secondary labels
             let primary: string;
@@ -28,11 +31,11 @@
             } else if (preferSci) {
                 // Common names enabled, but scientific is preferred as primary
                 primary = (item.scientific_name || item.species) as string;
-                secondary = (item.common_name || null) as string | null;
+                secondary = item.common_name;
             } else {
                 // Common names enabled and preferred as primary
                 primary = (item.common_name || item.species) as string;
-                secondary = (item.scientific_name || null) as string | null;
+                secondary = item.scientific_name;
             }
 
             return {

@@ -57,7 +57,10 @@
     let aiAnalysis = $state<string | null>(null);
 
     // Settings state
-    let llmEnabled = $derived($settingsStore?.llm_enabled ?? false);
+    let llmEnabled = $state(false);
+    $effect(() => {
+        llmEnabled = $settingsStore?.llm_enabled ?? false;
+    });
 
     let filteredLabels = $derived(
         classifierLabels.filter(l => 
@@ -240,6 +243,7 @@
             <DetectionCard 
                 detection={event} 
                 onclick={() => selectedEvent = event} 
+                onPlay={() => { selectedEvent = event; showVideo = true; }}
                 hideProgress={selectedEvent?.frigate_event === event.frigate_event}
             />
         {/each}
