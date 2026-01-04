@@ -568,6 +568,10 @@
                                 </button>
                             </div>
 
+                            <button onclick={handleTestBirdNET} disabled={testingBirdNET} class="w-full px-4 py-3 text-xs font-black uppercase tracking-widest rounded-2xl bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 transition-all border border-indigo-500/20 disabled:opacity-50">
+                                {testingBirdNET ? 'Simulating...' : 'Test MQTT Pipeline'}
+                            </button>
+
                             <div class="pt-6 border-t border-slate-100 dark:border-slate-700/50">
                                 <h4 class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4">MQTT Settings (Frigate Events)</h4>
                                 <div class="space-y-4">
