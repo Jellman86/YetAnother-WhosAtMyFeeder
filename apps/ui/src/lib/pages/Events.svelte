@@ -169,7 +169,7 @@
         try { 
             await reclassifyDetection(selectedEvent.frigate_event, selectedEvent.has_clip ? 'video' : 'snapshot'); 
         } catch (e: any) { 
-            alert(e.message || 'Failed'); 
+            console.error('Failed to start reclassification', e.message);
         }
     }
 
