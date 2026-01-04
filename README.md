@@ -15,15 +15,21 @@ The whole thing has been built with help from AI coding assistants - it's been a
 When Frigate detects a bird at your feeder, YA-WAMF:
 1. Grabs the snapshot image
 2. Runs it through an advanced AI model (MobileNetV2, ConvNeXt, or EVA-02)
-3. Shows you what species it thinks it is
-4. Keeps track of all your visitors in a nice dashboard
-5. Proxies video clips from Frigate with full streaming and seeking support
+3. Cross-references with audio detections from **BirdNET-Go** for multi-sensor confirmation
+4. Enriches detections with local weather data and behavior analysis via **LLMs (Gemini/OpenAI)**
+5. Keeps track of all your visitors in a nice dashboard with taxonomic normalization
+6. Proxies video clips from Frigate with full streaming and seeking support
 
 **Advanced Features:**
+- **Multi-Sensor Correlation:** Matches visual detections with audio identifications from BirdNET-Go.
+- **AI Naturalist Insight:** One-click behavioral analysis of your visitors using state-of-the-art LLMs.
 - **Elite Accuracy:** Support for state-of-the-art **EVA-02 Large** models (~91% accuracy).
+- **Taxonomy Normalization:** Automatic Scientific ↔ Common name mapping using iNaturalist data.
+- **Deep Video Analysis:** Scan entire video clips frame-by-frame for the perfect identification with soft-voting ensembles.
 - **Fast Path Efficiency:** Skip local AI and use Frigate's sublabels directly to save CPU.
-- **Deep Video Analysis:** Scan entire video clips frame-by-frame for the perfect identification.
-- **Wildlife Classifier:** Identify squirrels, foxes, and other non-bird visitors.
+- **Wildlife Classifier:** identify squirrels, foxes, and other non-bird visitors.
+- **Home Assistant Integration:** Full support for tracking the last detected bird and daily counts in HA.
+- **Observability:** Built-in Prometheus metrics for tracking event processing and model health.
 
 ## How It Works
 
@@ -202,6 +208,21 @@ YA-WAMF includes a robust video proxy that streams clips directly from Frigate. 
 - **Instant Playback:** Starts playing immediately without waiting for the whole file.
 - **Seeking:** You can jump to any part of the video (scrubbing) thanks to HTTP Range support.
 - **Bandwidth Control:** If you are on a metered connection or want to reduce load, you can disable "Fetch Video Clips" in the Settings. This prevents the backend from fetching heavy video files.
+
+## Home Assistant Integration
+
+YA-WAMF includes a custom component for Home Assistant to bring your bird sightings into your smart home.
+
+**Features:**
+- **Last Bird Detected Sensor:** Shows the name of the most recent visitor with all metadata (score, camera, weather) as attributes.
+- **Daily Count Sensor:** Keeps track of how many birds have visited today.
+- **Camera Entity:** (Optional) Proxy for the latest bird snapshot.
+
+**Setup:**
+1. Copy the `custom_components/yawamf` folder to your Home Assistant `custom_components` directory.
+2. Restart Home Assistant.
+3. Add the integration via **Settings > Devices & Services > Add Integration**.
+4. Enter your YA-WAMF backend URL (e.g., `http://192.168.1.50:9852`).
 
 ## Wildlife Classification (Optional)
 
