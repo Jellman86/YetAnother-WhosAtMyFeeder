@@ -53,6 +53,12 @@
     let showTagDropdown = $state(false);
     let updatingTag = $state(false);
 
+    let analyzingAI = $state(false);
+    let aiAnalysis = $state<string | null>(null);
+
+    // Settings state
+    let llmEnabled = $derived($settingsStore?.llm_enabled ?? false);
+
     let filteredLabels = $derived(
         classifierLabels.filter(l => 
             l.toLowerCase().includes(tagSearchQuery.toLowerCase())
@@ -70,14 +76,14 @@
         let secondary: string | null = null;
 
         if (!showCommon) {
-            primary = selectedEvent.scientific_name || selectedEvent.display_name;
+            primary = (selectedEvent.scientific_name || selectedEvent.display_name) as string;
             secondary = null;
         } else if (preferSci) {
-            primary = selectedEvent.scientific_name || selectedEvent.display_name;
-            secondary = selectedEvent.common_name;
+            primary = (selectedEvent.scientific_name || selectedEvent.display_name) as string;
+            secondary = (selectedEvent.common_name || null) as string | null;
         } else {
-            primary = selectedEvent.common_name || selectedEvent.display_name;
-            secondary = selectedEvent.scientific_name;
+            primary = (selectedEvent.common_name || selectedEvent.display_name) as string;
+            secondary = (selectedEvent.scientific_name || null) as string | null;
         }
 
         return {
@@ -136,8 +142,24 @@
         if (selectedEvent) {
             showTagDropdown = false;
             tagSearchQuery = '';
+            aiAnalysis = null;
+            analyzingAI = false;
         }
     });
+
+    async function handleAIAnalysis() {
+        if (!selectedEvent) return;
+        analyzingAI = true;
+        aiAnalysis = null;
+        try {
+            const result = await analyzeDetection(selectedEvent.frigate_event);
+            aiAnalysis = result.analysis;
+        } catch (e) {
+            console.error('AI Analysis failed', e);
+        } finally {
+            analyzingAI = false;
+        }
+    }
 
     async function handleReclassify() {
         if (!selectedEvent) return;
@@ -248,6 +270,34 @@
                     <div class="flex items-center justify-between mb-2"><span class="text-xs font-bold text-slate-500 uppercase tracking-widest">Confidence</span><span class="text-sm font-black text-slate-900 dark:text-white">{((selectedEvent.score || 0) * 100).toFixed(1)}%</span></div>
                     <div class="h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden"><div class="h-full rounded-full transition-all duration-700 {(selectedEvent.score || 0) >= 0.8 ? 'bg-emerald-500' : 'bg-teal-500'}" style="width: {(selectedEvent.score || 0) * 100}%"></div></div>
                 </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="flex items-center gap-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-700/50"><svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg><span class="text-sm font-bold text-slate-700 dark:text-slate-300 truncate">{selectedEvent.camera_name}</span></div>
+                    {#if selectedEvent.temperature !== undefined && selectedEvent.temperature !== null}<div class="flex items-center gap-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-700/50"><svg class="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" /></svg><span class="text-sm font-bold text-slate-700 dark:text-slate-300">{selectedEvent.temperature?.toFixed(1)}°C</span></div>{/if}
+                </div>
+
+                {#if llmEnabled && aiAnalysis}
+                    <div class="p-4 rounded-2xl bg-teal-500/5 border border-teal-500/10 animate-in fade-in slide-in-from-top-2">
+                        <p class="text-[10px] font-black text-teal-600 dark:text-teal-400 uppercase tracking-[0.2em] mb-2">AI Naturalist Insight</p>
+                        <p class="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">{aiAnalysis}</p>
+                    </div>
+                {:else if llmEnabled && !analyzingAI}
+                    <button 
+                        onclick={handleAIAnalysis}
+                        class="w-full py-3 px-4 bg-teal-500/10 hover:bg-teal-500/20 text-teal-600 dark:text-teal-400 font-bold rounded-xl transition-all flex items-center justify-center gap-2 border border-teal-500/20"
+                    >
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                        Ask AI Naturalist
+                    </button>
+                {:else if analyzingAI}
+                    <div class="w-full py-3 px-4 bg-slate-100 dark:bg-slate-800 text-slate-500 font-bold rounded-xl flex items-center justify-center gap-3 animate-pulse">
+                        <div class="w-4 h-4 border-2 border-teal-500 border-t-transparent rounded-full animate-spin"></div>
+                        Analyzing behavior...
+                    </div>
+                {/if}
+
                 <div class="flex gap-2">
                     <button 
                         onclick={handleReclassify} 

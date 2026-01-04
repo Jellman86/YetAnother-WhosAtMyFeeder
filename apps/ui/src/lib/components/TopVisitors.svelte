@@ -23,16 +23,16 @@
 
             if (!showCommon) {
                 // If common names are disabled, always show scientific as primary
-                primary = item.scientific_name || item.species;
+                primary = (item.scientific_name || item.species) as string;
                 secondary = null;
             } else if (preferSci) {
                 // Common names enabled, but scientific is preferred as primary
-                primary = item.scientific_name || item.species;
-                secondary = item.common_name;
+                primary = (item.scientific_name || item.species) as string;
+                secondary = (item.common_name || null) as string | null;
             } else {
                 // Common names enabled and preferred as primary
-                primary = item.common_name || item.species;
-                secondary = item.scientific_name;
+                primary = (item.common_name || item.species) as string;
+                secondary = (item.scientific_name || null) as string | null;
             }
 
             return {

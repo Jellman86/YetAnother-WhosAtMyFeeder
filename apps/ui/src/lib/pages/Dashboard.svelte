@@ -67,14 +67,14 @@
         let secondary: string | null = null;
 
         if (!showCommon) {
-            primary = selectedEvent.scientific_name || selectedEvent.display_name;
+            primary = (selectedEvent.scientific_name || selectedEvent.display_name) as string;
             secondary = null;
         } else if (preferSci) {
-            primary = selectedEvent.scientific_name || selectedEvent.display_name;
-            secondary = selectedEvent.common_name;
+            primary = (selectedEvent.scientific_name || selectedEvent.display_name) as string;
+            secondary = (selectedEvent.common_name || null) as string | null;
         } else {
-            primary = selectedEvent.common_name || selectedEvent.display_name;
-            secondary = selectedEvent.scientific_name;
+            primary = (selectedEvent.common_name || selectedEvent.display_name) as string;
+            secondary = (selectedEvent.scientific_name || null) as string | null;
         }
 
         return {
@@ -320,6 +320,21 @@
                     <div class="p-4 rounded-2xl bg-teal-500/5 border border-teal-500/10 animate-in fade-in slide-in-from-top-2">
                         <p class="text-[10px] font-black text-teal-600 dark:text-teal-400 uppercase tracking-[0.2em] mb-2">AI Naturalist Insight</p>
                         <p class="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">{aiAnalysis}</p>
+                    </div>
+                {:else if llmEnabled && !analyzingAI}
+                    <button 
+                        onclick={handleAIAnalysis}
+                        class="w-full py-3 px-4 bg-teal-500/10 hover:bg-teal-500/20 text-teal-600 dark:text-teal-400 font-bold rounded-xl transition-all flex items-center justify-center gap-2 border border-teal-500/20"
+                    >
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                        Ask AI Naturalist
+                    </button>
+                {:else if analyzingAI}
+                    <div class="w-full py-3 px-4 bg-slate-100 dark:bg-slate-800 text-slate-500 font-bold rounded-xl flex items-center justify-center gap-3 animate-pulse">
+                        <div class="w-4 h-4 border-2 border-teal-500 border-t-transparent rounded-full animate-spin"></div>
+                        Analyzing behavior...
                     </div>
                 {/if}
 
