@@ -66,7 +66,12 @@
     );
 
     // Derive naming logic for the modal
-    let modalNaming = $derived(selectedEvent ? getBirdNames(selectedEvent, showCommon, preferSci) : { primary: '', secondary: null });
+    let modalNaming = $derived.by(() => {
+        if (!selectedEvent) return { primary: '', secondary: null };
+        const showCommon = $settingsStore?.display_common_names ?? true;
+        const preferSci = $settingsStore?.scientific_name_primary ?? false;
+        return getBirdNames(selectedEvent, showCommon, preferSci);
+    });
 
     let modalPrimaryName = $derived(modalNaming.primary);
     let modalSubName = $derived(modalNaming.secondary);
@@ -78,6 +83,8 @@
     let mostSeenName = $derived.by(() => {
         const top = summary?.top_species[0];
         if (!top) return null;
+        const showCommon = $settingsStore?.display_common_names ?? true;
+        const preferSci = $settingsStore?.scientific_name_primary ?? false;
         return getBirdNames(top, showCommon, preferSci).primary;
     });
 

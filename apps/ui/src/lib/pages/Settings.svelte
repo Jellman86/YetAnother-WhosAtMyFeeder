@@ -17,6 +17,7 @@
         fetchTaxonomyStatus,
         startTaxonomySync,
         testBirdWeather,
+        testBirdNET,
         type ClassifierStatus,
         type WildlifeModelStatus,
         type MaintenanceStats,
@@ -40,6 +41,7 @@
     let cameraAudioMapping = $state<Record<string, string>>({});
     let clipsEnabled = $state(true);
     let threshold = $state(0.7);
+    let minConfidence = $state(0.4);
     let trustFrigateSublabel = $state(true);
     let displayCommonNames = $state(true);
     let scientificNamePrimary = $state(false);
@@ -75,8 +77,45 @@
     let saving = $state(false);
     let testing = $state(false);
     let testingBirdWeather = $state(false);
+    let testingBirdNET = $state(false);
     let message = $state<{ type: 'success' | 'error'; text: string } | null>(null);
     let currentTheme: Theme = $state('system');
+
+    // Dirty state check
+    let isDirty = $derived.by(() => {
+        const s = $settingsStore;
+        if (!s) return false;
+        
+        return frigateUrl !== s.frigate_url ||
+               mqttServer !== s.mqtt_server ||
+               mqttPort !== s.mqtt_port ||
+               mqttAuth !== s.mqtt_auth ||
+               mqttUsername !== (s.mqtt_username || '') ||
+               mqttPassword !== (s.mqtt_password || '') ||
+               audioTopic !== s.audio_topic ||
+               clipsEnabled !== s.clips_enabled ||
+               threshold !== s.classification_threshold ||
+               trustFrigateSublabel !== s.trust_frigate_sublabel ||
+               displayCommonNames !== s.display_common_names ||
+               scientificNamePrimary !== s.scientific_name_primary ||
+               JSON.stringify(selectedCameras) !== JSON.stringify(s.cameras) ||
+               retentionDays !== s.retention_days ||
+               JSON.stringify(blockedLabels) !== JSON.stringify(s.blocked_labels) ||
+               cacheEnabled !== s.media_cache_enabled ||
+               cacheSnapshots !== s.media_cache_snapshots ||
+               cacheClips !== s.media_cache_clips ||
+               cacheRetentionDays !== s.media_cache_retention_days ||
+               locationLat !== (s.location_latitude ?? null) ||
+               locationLon !== (s.location_longitude ?? null) ||
+               locationAuto !== (s.location_automatic ?? true) ||
+               birdweatherEnabled !== s.birdweather_enabled ||
+               birdweatherStationToken !== (s.birdweather_station_token || '') ||
+               llmEnabled !== s.llm_enabled ||
+               llmProvider !== s.llm_provider ||
+               llmApiKey !== (s.llm_api_key || '') ||
+               llmModel !== s.llm_model ||
+               JSON.stringify(cameraAudioMapping) !== JSON.stringify(s.camera_audio_mapping || {});
+    });
 
     let classifierStatus = $state<ClassifierStatus | null>(null);
     let downloadingModel = $state(false);
@@ -274,6 +313,7 @@
             }
             clipsEnabled = settings.clips_enabled ?? true;
             threshold = settings.classification_threshold;
+            minConfidence = settings.classification_min_confidence ?? 0.4;
             trustFrigateSublabel = settings.trust_frigate_sublabel ?? true;
             displayCommonNames = settings.display_common_names ?? true;
             scientificNamePrimary = settings.scientific_name_primary ?? false;
@@ -336,6 +376,7 @@
                 camera_audio_mapping: cameraAudioMapping,
                 clips_enabled: clipsEnabled,
                 classification_threshold: threshold,
+                classification_min_confidence: minConfidence,
                 trust_frigate_sublabel: trustFrigateSublabel,
                 display_common_names: displayCommonNames,
                 scientific_name_primary: scientificNamePrimary,
@@ -399,6 +440,23 @@
             message = { type: 'error', text: e.message || 'Failed to test BirdWeather' };
         } finally {
             testingBirdWeather = false;
+        }
+    }
+
+    async function handleTestBirdNET() {
+        testingBirdNET = true;
+        message = null;
+        try {
+            const result = await testBirdNET();
+            if (result.status === 'ok') {
+                message = { type: 'success', text: result.message };
+            } else {
+                message = { type: 'error', text: result.message };
+            }
+        } catch (e: any) {
+            message = { type: 'error', text: e.message || 'Failed to test BirdNET-Go' };
+        } finally {
+            testingBirdNET = false;
         }
     }
 
@@ -510,6 +568,34 @@
                                 </button>
                             </div>
 
+                            <div class="pt-6 border-t border-slate-100 dark:border-slate-700/50">
+                                <h4 class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4">MQTT Settings (Frigate Events)</h4>
+                                <div class="space-y-4">
+                                    <div class="grid grid-cols-3 gap-4">
+                                        <div class="col-span-2">
+                                            <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">MQTT Broker</label>
+                                            <input type="text" bind:value={mqttServer} placeholder="mosquitto" class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-teal-500 outline-none" />
+                                        </div>
+                                        <div>
+                                            <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Port</label>
+                                            <input type="number" bind:value={mqttPort} class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-teal-500 outline-none" />
+                                        </div>
+                                    </div>
+
+                                    <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 flex items-center justify-between">
+                                        <span class="text-xs font-bold text-slate-900 dark:text-white">Use Authentication</span>
+                                        <button onclick={() => mqttAuth = !mqttAuth} class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {mqttAuth ? 'bg-teal-500' : 'bg-slate-300 dark:bg-slate-600'}"><span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {mqttAuth ? 'translate-x-5' : 'translate-x-0'}"></span></button>
+                                    </div>
+
+                                    {#if mqttAuth}
+                                        <div class="grid grid-cols-2 gap-4 animate-in fade-in zoom-in-95">
+                                            <div><label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">User</label><input type="text" bind:value={mqttUsername} class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm" /></div>
+                                            <div><label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Pass</label><input type="password" bind:value={mqttPassword} class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm" /></div>
+                                        </div>
+                                    {/if}
+                                </div>
+                            </div>
+
                             <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 flex items-center justify-between">
                                 <div>
                                     <span class="block text-sm font-bold text-slate-900 dark:text-white">Fetch Video Clips</span>
@@ -565,42 +651,38 @@
             <!-- Integrations Tab -->
             {#if activeTab === 'integrations'}
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-                    <!-- MQTT / BirdNET -->
+                    <!-- BirdNET-Go -->
                     <section class="bg-white dark:bg-slate-800/50 rounded-3xl border border-slate-200/80 dark:border-slate-700/50 p-8 shadow-sm backdrop-blur-md">
                         <div class="flex items-center gap-3 mb-6">
                             <div class="w-10 h-10 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-600 dark:text-amber-400">
                                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
                             </div>
-                            <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">Audio Analysis</h3>
+                            <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">BirdNET-Go</h3>
                         </div>
 
                         <div class="space-y-6">
-                            <div class="grid grid-cols-3 gap-4">
-                                <div class="col-span-2">
-                                    <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">MQTT Broker</label>
-                                    <input type="text" bind:value={mqttServer} class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-teal-500 outline-none" />
-                                </div>
-                                <div>
-                                    <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Port</label>
-                                    <input type="number" bind:value={mqttPort} class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-teal-500 outline-none" />
-                                </div>
-                            </div>
-
-                            <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 flex items-center justify-between">
-                                <span class="text-sm font-bold text-slate-900 dark:text-white">MQTT Authentication</span>
-                                <button onclick={() => mqttAuth = !mqttAuth} class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {mqttAuth ? 'bg-teal-500' : 'bg-slate-300 dark:bg-slate-600'}"><span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {mqttAuth ? 'translate-x-5' : 'translate-x-0'}"></span></button>
-                            </div>
-
-                            {#if mqttAuth}
-                                <div class="grid grid-cols-2 gap-4 animate-in fade-in zoom-in-95">
-                                    <div><label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">User</label><input type="text" bind:value={mqttUsername} class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm" /></div>
-                                    <div><label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Pass</label><input type="password" bind:value={mqttPassword} class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm" /></div>
-                                </div>
-                            {/if}
-
                             <div>
-                                <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">BirdNET MQTT Topic</label>
-                                <input type="text" bind:value={audioTopic} class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm" />
+                                <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">MQTT Topic</label>
+                                <input type="text" bind:value={audioTopic} placeholder="birdnet/text" class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-teal-500 outline-none" />
+                            </div>
+
+                            <button onclick={handleTestBirdNET} disabled={testingBirdNET} class="w-full px-4 py-3 text-xs font-black uppercase tracking-widest rounded-2xl bg-amber-500 hover:bg-amber-600 text-white transition-all shadow-lg shadow-amber-500/20 disabled:opacity-50">
+                                {testingBirdNET ? 'Simulating...' : 'Test Audio detection'}
+                            </button>
+
+                            <div class="pt-4 border-t border-slate-100 dark:border-slate-700/50">
+                                <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-4">Sensor Mapping (Optional)</label>
+                                <div class="space-y-3">
+                                    {#each Object.keys(cameraAudioMapping) as camera}
+                                        <div class="flex items-center gap-3">
+                                            <span class="text-[10px] font-black text-slate-400 w-24 truncate uppercase">{camera}</span>
+                                            <input type="text" bind:value={cameraAudioMapping[camera]} placeholder="Sensor ID" class="flex-1 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-xs font-bold" />
+                                        </div>
+                                    {/each}
+                                    {#if availableCameras.length > 0 && Object.keys(cameraAudioMapping).length === 0}
+                                        <p class="text-[10px] text-slate-400 font-bold italic">Add your Frigate cameras to map them to audio sensors.</p>
+                                    {/if}
+                                </div>
                             </div>
                         </div>
                     </section>
@@ -707,6 +789,19 @@
                                     </div>
                                     <input type="range" min="0" max="1" step="0.05" bind:value={threshold} class="w-full h-2 rounded-lg bg-slate-200 dark:bg-slate-700 appearance-none cursor-pointer accent-teal-500" />
                                     <div class="flex justify-between mt-2"><span class="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Loose</span><span class="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Strict</span></div>
+                                </div>
+
+                                <div>
+                                    <div class="flex justify-between mb-4">
+                                        <label class="text-sm font-black text-slate-900 dark:text-white">Minimum Confidence Floor</label>
+                                        <span class="px-2 py-1 bg-amber-500 text-white text-[10px] font-black rounded-lg">{(minConfidence * 100).toFixed(0)}%</span>
+                                    </div>
+                                    <input type="range" min="0" max="1" step="0.05" bind:value={minConfidence} class="w-full h-2 rounded-lg bg-slate-200 dark:bg-slate-700 appearance-none cursor-pointer accent-amber-500" />
+                                    <div class="flex justify-between mt-2">
+                                        <span class="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Capture All</span>
+                                        <span class="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Reject Unsure</span>
+                                    </div>
+                                    <p class="mt-3 text-[10px] text-slate-500 font-bold leading-tight">Events below this floor are ignored completely. Events between floor and threshold are saved as "Unknown Bird".</p>
                                 </div>
 
                                 <div class="p-4 rounded-2xl bg-teal-500/5 border border-teal-500/10 flex items-center justify-between gap-4">
@@ -932,23 +1027,25 @@
         </div>
 
         <!-- Floating Action Button: Save -->
-        <div class="fixed bottom-8 left-1/2 -translate-x-1/2 w-full max-w-4xl px-4 z-40">
-            <div class="bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl p-4 rounded-3xl border border-slate-200/50 dark:border-white/5 shadow-2xl flex items-center justify-between gap-6">
-                <div class="flex-1 hidden sm:block">
-                    <p class="text-xs font-black text-slate-400 uppercase tracking-widest ml-4">Unsaved Changes</p>
+        {#if isDirty}
+            <div class="fixed bottom-8 left-1/2 -translate-x-1/2 w-full max-w-4xl px-4 z-40 animate-in slide-in-from-bottom-10 duration-500">
+                <div class="bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl p-4 rounded-3xl border border-slate-200/50 dark:border-white/5 shadow-2xl flex items-center justify-between gap-6 ring-1 ring-teal-500/20">
+                    <div class="flex-1 hidden sm:block">
+                        <p class="text-xs font-black text-teal-600 dark:text-teal-400 uppercase tracking-widest ml-4">Unsaved Changes</p>
+                    </div>
+                    <button
+                        onclick={saveSettings}
+                        disabled={saving}
+                        class="flex-1 sm:flex-none px-12 py-4 rounded-2xl font-black uppercase tracking-widest text-xs text-white
+                               bg-teal-500 hover:bg-teal-600 active:scale-95
+                               disabled:opacity-50 disabled:cursor-not-allowed
+                               transition-all shadow-xl shadow-teal-500/40"
+                    >
+                        {saving ? 'Saving...' : 'Apply Settings'}
+                    </button>
                 </div>
-                <button
-                    onclick={saveSettings}
-                    disabled={saving}
-                    class="flex-1 sm:flex-none px-12 py-4 rounded-2xl font-black uppercase tracking-widest text-xs text-white
-                           bg-teal-500 hover:bg-teal-600 active:scale-95
-                           disabled:opacity-50 disabled:cursor-not-allowed
-                           transition-all shadow-xl shadow-teal-500/40"
-                >
-                    {saving ? 'Saving...' : 'Apply Settings'}
-                </button>
             </div>
-        </div>
+        {/if}
     {/if}
 </div>
 

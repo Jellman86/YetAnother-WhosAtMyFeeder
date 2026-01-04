@@ -12,15 +12,11 @@
 
     let { species, onSpeciesClick }: Props = $props();
 
-    let showCommon = $state(true);
-    let preferSci = $state(false);
-    $effect(() => {
-        showCommon = $settingsStore?.display_common_names ?? true;
-        preferSci = $settingsStore?.scientific_name_primary ?? false;
-    });
-
     // Ultra-reactive derivation
     let processedSpecies = $derived.by(() => {
+        const showCommon = $settingsStore?.display_common_names ?? true;
+        const preferSci = $settingsStore?.scientific_name_primary ?? false;
+        
         return species.map(item => {
             const naming = getBirdNames(item, showCommon, preferSci);
             return {

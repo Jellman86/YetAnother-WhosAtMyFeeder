@@ -46,6 +46,7 @@ export interface Settings {
     camera_audio_mapping: Record<string, string>;
     clips_enabled: boolean;
     classification_threshold: number;
+    classification_min_confidence: number;
     cameras: string[];
     retention_days: number;
     blocked_labels: string[];
@@ -82,6 +83,7 @@ export interface SettingsUpdate {
     camera_audio_mapping: Record<string, string>;
     clips_enabled: boolean;
     classification_threshold: number;
+    classification_min_confidence: number;
     cameras: string[];
     retention_days: number;
     blocked_labels: string[];
@@ -547,6 +549,11 @@ export async function testBirdWeather(token?: string): Promise<{ status: string;
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token })
     });
+    return handleResponse<{ status: string; message: string }>(response);
+}
+
+export async function testBirdNET(): Promise<{ status: string; message: string }> {
+    const response = await fetch(`${API_BASE}/settings/birdnet/test`, { method: 'POST' });
     return handleResponse<{ status: string; message: string }>(response);
 }
 

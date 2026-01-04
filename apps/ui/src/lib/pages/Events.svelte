@@ -58,24 +58,13 @@
     let analyzingAI = $state(false);
     let aiAnalysis = $state<string | null>(null);
 
-    // Settings state
-    let llmEnabled = $state(false);
-    let showCommon = $state(true);
-    let preferSci = $state(false);
-    $effect(() => {
-        llmEnabled = $settingsStore?.llm_enabled ?? false;
-        showCommon = $settingsStore?.display_common_names ?? true;
-        preferSci = $settingsStore?.scientific_name_primary ?? false;
-    });
-
-    let filteredLabels = $derived(
-        classifierLabels.filter(l => 
-            l.toLowerCase().includes(tagSearchQuery.toLowerCase())
-        ).slice(0, 50)
-    );
-
     // Derive naming logic for the modal
-    let modalNaming = $derived(selectedEvent ? getBirdNames(selectedEvent, showCommon, preferSci) : { primary: '', secondary: null });
+    let modalNaming = $derived.by(() => {
+        if (!selectedEvent) return { primary: '', secondary: null };
+        const showCommon = $settingsStore?.display_common_names ?? true;
+        const preferSci = $settingsStore?.scientific_name_primary ?? false;
+        return getBirdNames(selectedEvent, showCommon, preferSci);
+    });
 
     let modalReclassifyProgress = $derived(selectedEvent ? detectionsStore.getReclassificationProgress(selectedEvent.frigate_event) : undefined);
     let modalPrimaryName = $derived(modalNaming.primary);

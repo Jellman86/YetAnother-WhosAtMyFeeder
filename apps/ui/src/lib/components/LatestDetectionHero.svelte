@@ -18,15 +18,12 @@
     // Check if this detection is being reclassified
     let reclassifyProgress = $derived(!hideProgress ? detectionsStore.getReclassificationProgress(detection.frigate_event) : null);
 
-    let showCommon = $state(true);
-    let preferSci = $state(false);
-    $effect(() => {
-        showCommon = $settingsStore?.display_common_names ?? true;
-        preferSci = $settingsStore?.scientific_name_primary ?? false;
-    });
-
     // Dynamic Naming Logic
-    let naming = $derived(getBirdNames(detection, showCommon, preferSci));
+    let naming = $derived.by(() => {
+        const showCommon = $settingsStore?.display_common_names ?? true;
+        const preferSci = $settingsStore?.scientific_name_primary ?? false;
+        return getBirdNames(detection, showCommon, preferSci);
+    });
 
     let primaryName = $derived(naming.primary);
     let subName = $derived(naming.secondary);

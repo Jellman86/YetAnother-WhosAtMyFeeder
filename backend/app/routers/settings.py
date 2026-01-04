@@ -30,6 +30,24 @@ async def start_taxonomy_sync(background_tasks: BackgroundTasks):
     background_tasks.add_task(taxonomy_service.run_background_sync)
     return {"status": "started"}
 
+@router.post("/settings/birdnet/test")
+async def test_birdnet(background_tasks: BackgroundTasks):
+    """Test BirdNET-Go integration by injecting a mock detection."""
+    from app.services.audio.audio_service import audio_service
+    
+    mock_data = {
+        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "species": "Cyanistes caeruleus",
+        "common_name": "Eurasian Blue Tit (BirdNET Test)",
+        "confidence": 0.95,
+        "sensor_id": "test_mic"
+    }
+    
+    # Process it directly through audio service as if it came from MQTT
+    background_tasks.add_task(audio_service.add_detection, mock_data)
+    
+    return {"status": "ok", "message": "Mock audio detection injected. Check Discovery feed for updates."}
+
 class BirdWeatherTestRequest(BaseModel):
     token: Optional[str] = None
 
