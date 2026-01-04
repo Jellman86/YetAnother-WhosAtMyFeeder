@@ -427,1162 +427,539 @@
     }
 </script>
 
-<div class="max-w-2xl mx-auto space-y-6">
+<div class="max-w-4xl mx-auto space-y-8 pb-20">
+    <!-- Header -->
     <div class="flex items-center justify-between">
-        <h2 class="text-2xl font-bold text-slate-900 dark:text-white">Settings</h2>
+        <div>
+            <h2 class="text-3xl font-black text-slate-900 dark:text-white tracking-tight">Settings</h2>
+            <p class="text-sm text-slate-500 dark:text-slate-400 font-medium">Configure and manage your YA-WAMF instance</p>
+        </div>
         <button
             onclick={loadSettings}
             disabled={loading}
-            class="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-lg
-                   text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-800
+            class="inline-flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-xl
+                   text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-800
                    border border-slate-200 dark:border-slate-700 shadow-sm
-                   hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white
-                   transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                   hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-teal-600 dark:hover:text-teal-400
+                   transition-all disabled:opacity-50"
         >
             <svg class="w-4 h-4 {loading ? 'animate-spin' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
             Refresh
         </button>
     </div>
 
+    <!-- Status Messages -->
     {#if message}
-        <div class="p-4 rounded-lg {message.type === 'success'
-            ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800'
-            : 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-800'}">
-            {message.text}
+        <div class="p-4 rounded-2xl animate-in slide-in-from-top-2 {message.type === 'success'
+            ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20'
+            : 'bg-red-500/10 text-red-700 dark:text-red-400 border border-red-500/20'}">
+            <div class="flex items-center gap-3">
+                {#if message.type === 'success'}
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" /></svg>
+                {:else}
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                {/if}
+                <span class="font-bold text-sm">{message.text}</span>
+            </div>
         </div>
     {/if}
 
     {#if loading}
-        <div class="space-y-4">
-            {#each [1, 2, 3] as _}
-                <div class="h-24 bg-slate-100 dark:bg-slate-800 rounded-xl animate-pulse"></div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {#each [1, 2, 3, 4] as _}
+                <div class="h-48 bg-slate-100 dark:bg-slate-800/50 rounded-3xl animate-pulse border border-slate-200 dark:border-slate-700/50"></div>
             {/each}
         </div>
     {:else}
         <!-- Tab Navigation -->
         <SettingsTabs {activeTab} ontabchange={(tab) => activeTab = tab} />
 
-        <!-- Connection Tab -->
-        {#if activeTab === 'connection'}
-        <!-- Frigate Connection -->
-        <section class="bg-white/80 dark:bg-slate-800/50 rounded-2xl border border-slate-200/80 dark:border-slate-700/50 p-6 shadow-card dark:shadow-card-dark backdrop-blur-sm">
-            <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
-                📹 Frigate Connection
-            </h3>
+        <div class="space-y-6">
+            <!-- Connection Tab -->
+            {#if activeTab === 'connection'}
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                    <!-- Frigate Connection -->
+                    <section class="bg-white dark:bg-slate-800/50 rounded-3xl border border-slate-200/80 dark:border-slate-700/50 p-8 shadow-sm backdrop-blur-md">
+                        <div class="flex items-center gap-3 mb-6">
+                            <div class="w-10 h-10 rounded-2xl bg-teal-500/10 flex items-center justify-center text-teal-600 dark:text-teal-400">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                            </div>
+                            <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">Frigate NVR</h3>
+                        </div>
 
-            <div class="space-y-4">
-                <div>
-                    <label for="frigate-url" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                        Frigate URL
-                    </label>
-                    <input
-                        id="frigate-url"
-                        type="url"
-                        bind:value={frigateUrl}
-                        placeholder="http://frigate_host:5000"
-                        class="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600
-                               bg-white dark:bg-slate-700 text-slate-900 dark:text-white
-                               focus:ring-2 focus:ring-teal-500 focus:border-transparent
-                               placeholder:text-slate-400 dark:placeholder:text-slate-500"
-                    />
-                </div>
+                        <div class="space-y-6">
+                            <div>
+                                <label for="frigate-url" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Server URL</label>
+                                <input
+                                    id="frigate-url"
+                                    type="url"
+                                    bind:value={frigateUrl}
+                                    placeholder="http://frigate:5000"
+                                    class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-teal-500 outline-none transition-all"
+                                />
+                            </div>
 
-                <div class="flex gap-2">
-                     <button
-                        onclick={testConnection}
-                        disabled={testing}
-                        class="px-4 py-2 text-sm font-medium rounded-lg
-                               bg-teal-500 hover:bg-teal-600 text-white
-                               transition-colors disabled:opacity-50"
-                    >
-                        {testing ? 'Testing...' : 'Test Frigate Connection'}
-                    </button>
-                    
-                    <button
-                        onclick={loadCameras}
-                        disabled={camerasLoading}
-                        class="px-4 py-2 text-sm font-medium rounded-lg
-                               bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300
-                               hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors
-                               disabled:opacity-50"
-                    >
-                        {camerasLoading ? 'Fetching Cameras...' : 'Fetch Cameras'}
-                    </button>
-                </div>
+                            <div class="grid grid-cols-2 gap-3">
+                                <button onclick={testConnection} disabled={testing} class="flex-1 px-4 py-3 text-xs font-black uppercase tracking-widest rounded-2xl bg-teal-500 hover:bg-teal-600 text-white transition-all shadow-lg shadow-teal-500/20 disabled:opacity-50">
+                                    {testing ? 'Testing...' : 'Test Connection'}
+                                </button>
+                                <button onclick={loadCameras} disabled={camerasLoading} class="flex-1 px-4 py-3 text-xs font-black uppercase tracking-widest rounded-2xl bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600 transition-all disabled:opacity-50">
+                                    {camerasLoading ? 'Scanning...' : 'Sync Cameras'}
+                                </button>
+                            </div>
 
-                <div class="flex items-center gap-3 pt-2 border-t border-slate-200 dark:border-slate-700 mt-4">
-                     <button 
-                        role="switch" 
-                        aria-checked={clipsEnabled}
-                        aria-label="Toggle Clip Fetching"
-                        onclick={() => clipsEnabled = !clipsEnabled}
-                        class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2
-                               {clipsEnabled ? 'bg-teal-500' : 'bg-slate-200 dark:bg-slate-600'}"
-                    >
-                        <span 
-                            class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out
-                                   {clipsEnabled ? 'translate-x-5' : 'translate-x-0'}"
-                        ></span>
-                    </button>
-                    <div>
-                        <span class="block text-sm font-medium text-slate-700 dark:text-slate-300">Fetch Video Clips</span>
-                        <span class="block text-xs text-slate-500 dark:text-slate-400">Enable fetching and proxying video clips from Frigate. Disable to save bandwidth.</span>
-                    </div>
-                </div>
-            </div>
-        </section>
+                            <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 flex items-center justify-between">
+                                <div>
+                                    <span class="block text-sm font-bold text-slate-900 dark:text-white">Fetch Video Clips</span>
+                                    <span class="block text-[10px] text-slate-500 font-medium">Use Frigate recordings for reclassification</span>
+                                </div>
+                                <button 
+                                    onclick={() => clipsEnabled = !clipsEnabled}
+                                    class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none {clipsEnabled ? 'bg-teal-500' : 'bg-slate-300 dark:bg-slate-600'}"
+                                >
+                                    <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out {clipsEnabled ? 'translate-x-5' : 'translate-x-0'}"></span>
+                                </button>
+                            </div>
+                        </div>
+                    </section>
 
-         <!-- Camera Selection -->
-        <section class="bg-white/80 dark:bg-slate-800/50 rounded-2xl border border-slate-200/80 dark:border-slate-700/50 p-6 shadow-card dark:shadow-card-dark backdrop-blur-sm">
-            <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
-                📷 Camera Selection
-            </h3>
-            
-            <p class="text-sm text-slate-500 dark:text-slate-400 mb-4">
-                Select which cameras to monitor for birds.
-            </p>
-
-            {#if availableCameras.length === 0}
-                 <div class="text-sm text-slate-500 italic">
-                    No cameras found. Please check your Frigate URL and click "Fetch Cameras".
-                </div>
-            {:else}
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {#each availableCameras as camera}
-                        <button
-                            class="flex items-center justify-between p-3 rounded-lg border transition-all
-                                   {selectedCameras.includes(camera)
-                                       ? 'border-teal-500 bg-teal-50 dark:bg-teal-900/20 text-teal-700 dark:text-teal-400'
-                                       : 'border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/50 text-slate-700 dark:text-slate-300 hover:border-teal-300 dark:hover:border-teal-700'}"
-                            onclick={() => toggleCamera(camera)}
-                        >
-                            <span class="font-medium">{camera}</span>
-                            {#if selectedCameras.includes(camera)}
-                                <span class="text-lg text-teal-500">✓</span>
+                    <!-- Camera Selection -->
+                    <section class="bg-white dark:bg-slate-800/50 rounded-3xl border border-slate-200/80 dark:border-slate-700/50 p-8 shadow-sm backdrop-blur-md">
+                        <div class="flex items-center gap-3 mb-6">
+                            <div class="w-10 h-10 rounded-2xl bg-blue-500/10 flex items-center justify-center text-blue-600 dark:text-blue-400">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /></svg>
+                            </div>
+                            <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">Active Cameras</h3>
+                        </div>
+                        
+                        <div class="space-y-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                            {#if availableCameras.length === 0}
+                                <div class="p-8 text-center bg-slate-50 dark:bg-slate-900/30 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-700">
+                                    <p class="text-xs font-bold text-slate-400 uppercase tracking-widest">No Cameras Found</p>
+                                </div>
+                            {:else}
+                                <div class="grid grid-cols-1 gap-2">
+                                    {#each availableCameras as camera}
+                                        <button
+                                            class="flex items-center justify-between p-4 rounded-2xl border-2 transition-all group
+                                                   {selectedCameras.includes(camera)
+                                                       ? 'border-teal-500 bg-teal-500/5 text-teal-700 dark:text-teal-400'
+                                                       : 'border-slate-100 dark:border-slate-700/50 bg-slate-50/50 dark:bg-slate-900/30 text-slate-500 hover:border-teal-500/30'}"
+                                            onclick={() => toggleCamera(camera)}
+                                        >
+                                            <span class="font-bold text-sm">{camera}</span>
+                                            <div class="w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all {selectedCameras.includes(camera) ? 'bg-teal-500 border-teal-500 scale-110' : 'border-slate-300 dark:border-slate-600 group-hover:border-teal-500/50'}">
+                                                {#if selectedCameras.includes(camera)}<svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" /></svg>{/if}
+                                            </div>
+                                        </button>
+                                    {/each}
+                                </div>
                             {/if}
-                        </button>
-                    {/each}
+                        </div>
+                    </section>
                 </div>
             {/if}
-        </section>
-        {/if}
 
-        <!-- Integrations Tab -->
-        {#if activeTab === 'integrations'}
-        <!-- AI Intelligence -->
-        <section class="bg-white/80 dark:bg-slate-800/50 rounded-2xl border border-slate-200/80 dark:border-slate-700/50 p-6 shadow-card dark:shadow-card-dark backdrop-blur-sm">
-            <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
-                🤖 AI Intelligence
-            </h3>
-            
-            <p class="text-sm text-slate-500 dark:text-slate-400 mb-4">
-                Enable AI-based behavioral analysis and naturalist descriptions for your detections.
-            </p>
-
-            <div class="space-y-4">
-                <div class="flex items-center gap-3">
-                    <button
-                        role="switch"
-                        aria-checked={llmEnabled}
-                        aria-label="Toggle AI Analysis"
-                        onclick={() => llmEnabled = !llmEnabled}
-                        class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2
-                               {llmEnabled ? 'bg-teal-500' : 'bg-slate-200 dark:bg-slate-600'}"
-                    >
-                        <span
-                            class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out
-                                   {llmEnabled ? 'translate-x-5' : 'translate-x-0'}"
-                        ></span>
-                    </button>
-                    <span class="text-sm font-medium text-slate-700 dark:text-slate-300">Enable AI Analysis</span>
-                </div>
-
-                {#if llmEnabled}
-                    <div class="space-y-4 animate-in fade-in slide-in-from-top-4 duration-300">
-                        <div>
-                            <label for="llm-provider" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                                Provider
-                            </label>
-                            <select
-                                id="llm-provider"
-                                bind:value={llmProvider}
-                                class="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600
-                                       bg-white dark:bg-slate-700 text-slate-900 dark:text-white
-                                       focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                            >
-                                <option value="gemini">Google Gemini (Recommended)</option>
-                                <option value="openai">OpenAI</option>
-                            </select>
+            <!-- Integrations Tab -->
+            {#if activeTab === 'integrations'}
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                    <!-- MQTT / BirdNET -->
+                    <section class="bg-white dark:bg-slate-800/50 rounded-3xl border border-slate-200/80 dark:border-slate-700/50 p-8 shadow-sm backdrop-blur-md">
+                        <div class="flex items-center gap-3 mb-6">
+                            <div class="w-10 h-10 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-600 dark:text-amber-400">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
+                            </div>
+                            <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">Audio Analysis</h3>
                         </div>
 
-                        <div>
-                            <label for="llm-api-key" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                                API Key
-                            </label>
-                            <input
-                                id="llm-api-key"
-                                type="password"
-                                bind:value={llmApiKey}
-                                placeholder="Enter your API key"
-                                class="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600
-                                       bg-white dark:bg-slate-700 text-slate-900 dark:text-white
-                                       focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                            />
-                        </div>
-
-                        <div>
-                            <label for="llm-model" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                                Model
-                            </label>
-                            <input
-                                id="llm-model"
-                                type="text"
-                                bind:value={llmModel}
-                                placeholder={llmProvider === 'gemini' ? 'gemini-1.5-flash' : 'gpt-4o'}
-                                class="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600
-                                       bg-white dark:bg-slate-700 text-slate-900 dark:text-white
-                                       focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                            />
-                        </div>
-                    </div>
-                {/if}
-            </div>
-        </section>
-
-        <!-- MQTT & BirdNET-Go -->
-        <section class="bg-white/80 dark:bg-slate-800/50 rounded-2xl border border-slate-200/80 dark:border-slate-700/50 p-6 shadow-card dark:shadow-card-dark backdrop-blur-sm">
-            <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
-                📡 MQTT & BirdNET-Go
-            </h3>
-
-            <p class="text-sm text-slate-500 dark:text-slate-400 mb-4">
-                Configure MQTT to receive real-time events from Frigate and audio confirmations from BirdNET-Go.
-            </p>
-
-            <div class="space-y-4">
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div class="md:col-span-2">
-                        <label for="mqtt-server" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                            MQTT Server
-                        </label>
-                        <input
-                            id="mqtt-server"
-                            type="text"
-                            bind:value={mqttServer}
-                            placeholder="mosquitto"
-                            class="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600
-                                   bg-white dark:bg-slate-700 text-slate-900 dark:text-white
-                                   focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                        />
-                    </div>
-                    <div>
-                        <label for="mqtt-port" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                            Port
-                        </label>
-                        <input
-                            id="mqtt-port"
-                            type="number"
-                            bind:value={mqttPort}
-                            class="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600
-                                   bg-white dark:bg-slate-700 text-slate-900 dark:text-white
-                                   focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                        />
-                    </div>
-                </div>
-
-                <div class="flex items-center gap-3 py-2 border-t border-slate-100 dark:border-slate-700/50 mt-2 pt-4">
-                     <button 
-                        role="switch" 
-                        aria-checked={mqttAuth}
-                        onclick={() => mqttAuth = !mqttAuth}
-                        class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2
-                               {mqttAuth ? 'bg-teal-500' : 'bg-slate-200 dark:bg-slate-600'}"
-                    >
-                        <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out {mqttAuth ? 'translate-x-5' : 'translate-x-0'}"></span>
-                    </button>
-                    <span class="text-sm font-medium text-slate-700 dark:text-slate-300">MQTT Authentication</span>
-                </div>
-
-                {#if mqttAuth}
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2">
-                        <div>
-                            <label for="mqtt-username" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Username</label>
-                            <input id="mqtt-username" type="text" bind:value={mqttUsername} class="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-teal-500" />
-                        </div>
-                        <div>
-                            <label for="mqtt-password" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Password</label>
-                            <input id="mqtt-password" type="password" bind:value={mqttPassword} class="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-teal-500" />
-                        </div>
-                    </div>
-                {/if}
-
-                <div class="pt-4 border-t border-slate-200 dark:border-slate-700 mt-4">
-                    <label for="audio-topic" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                        BirdNET-Go MQTT Topic
-                    </label>
-                    <input
-                        id="audio-topic"
-                        type="text"
-                        bind:value={audioTopic}
-                        placeholder="birdnet/text"
-                        class="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600
-                               bg-white dark:bg-slate-700 text-slate-900 dark:text-white
-                               focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                    />
-                </div>
-
-                {#if availableCameras.length > 0}
-                    <div>
-                        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                            Camera to BirdNET ID Mapping (Optional)
-                        </label>
-                        <div class="space-y-2">
-                            {#each availableCameras as camera}
-                                <div class="flex items-center gap-3">
-                                    <span class="text-xs font-medium text-slate-500 w-24 truncate">{camera}</span>
-                                    <input
-                                        type="text"
-                                        placeholder="BirdNET Sensor ID"
-                                        bind:value={cameraAudioMapping[camera]}
-                                        class="flex-1 px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600
-                                               bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm"
-                                    />
+                        <div class="space-y-6">
+                            <div class="grid grid-cols-3 gap-4">
+                                <div class="col-span-2">
+                                    <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">MQTT Broker</label>
+                                    <input type="text" bind:value={mqttServer} class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-teal-500 outline-none" />
                                 </div>
-                            {/each}
-                        </div>
-                    </div>
-                {/if}
-            </div>
-        </section>
-
-        <!-- BirdWeather Integration -->
-        <section class="bg-white/80 dark:bg-slate-800/50 rounded-2xl border border-slate-200/80 dark:border-slate-700/50 p-6 shadow-card dark:shadow-card-dark backdrop-blur-sm">
-            <div class="flex items-center justify-between mb-4">
-                <h3 class="text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
-                    ☁️ BirdWeather
-                </h3>
-                <a href="https://www.birdweather.com" target="_blank" rel="noopener noreferrer" class="text-xs text-teal-600 hover:underline">Visit BirdWeather →</a>
-            </div>
-
-            <p class="text-sm text-slate-500 dark:text-slate-400 mb-6">
-                Automatically report your bird detections to the BirdWeather global network.
-            </p>
-
-            <div class="space-y-4">
-                <div class="flex items-center gap-3">
-                    <button
-                        role="switch"
-                        aria-checked={birdweatherEnabled}
-                        onclick={() => birdweatherEnabled = !birdweatherEnabled}
-                        class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2
-                               {birdweatherEnabled ? 'bg-teal-500' : 'bg-slate-200 dark:bg-slate-600'}"
-                    >
-                        <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out {birdweatherEnabled ? 'translate-x-5' : 'translate-x-0'}"></span>
-                    </button>
-                    <span class="text-sm font-medium text-slate-700 dark:text-slate-300">Enable BirdWeather Reporting</span>
-                </div>
-
-                {#if birdweatherEnabled}
-                    <div class="animate-in fade-in slide-in-from-top-2 duration-300">
-                        <label for="birdweather-token" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                            Station Token
-                        </label>
-                        <input
-                            id="birdweather-token"
-                            type="password"
-                            bind:value={birdweatherStationToken}
-                            placeholder="Enter your BirdWeather Station Token"
-                            class="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600
-                                   bg-white dark:bg-slate-700 text-slate-900 dark:text-white
-                                   focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                        />
-                        <p class="mt-2 text-xs text-slate-500">
-                            Found in your BirdWeather Station settings under "API".
-                        </p>
-                        <button
-                            onclick={handleTestBirdWeather}
-                            disabled={testingBirdWeather || !birdweatherStationToken}
-                            class="mt-4 px-4 py-2 text-sm font-medium rounded-lg
-                                   bg-teal-500 hover:bg-teal-600 text-white
-                                   transition-colors disabled:opacity-50"
-                        >
-                            {testingBirdWeather ? 'Testing...' : 'Test BirdWeather Connection'}
-                        </button>
-                    </div>
-                {/if}
-            </div>
-        </section>
-
-        <!-- Location Settings -->
-        <section class="bg-white/80 dark:bg-slate-800/50 rounded-2xl border border-slate-200/80 dark:border-slate-700/50 p-6 shadow-card dark:shadow-card-dark backdrop-blur-sm">
-            <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
-                🌍 Location & Weather
-            </h3>
-            
-            <p class="text-sm text-slate-500 dark:text-slate-400 mb-4">
-                Used to fetch local weather data for your detections.
-            </p>
-
-            <div class="space-y-4">
-                <div class="flex items-center gap-3">
-                    <button
-                        role="switch"
-                        aria-checked={locationAuto}
-                        aria-label="Toggle Auto Location"
-                        onclick={() => locationAuto = !locationAuto}
-                        class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2
-                               {locationAuto ? 'bg-teal-500' : 'bg-slate-200 dark:bg-slate-600'}"
-                    >
-                        <span
-                            class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out
-                                   {locationAuto ? 'translate-x-5' : 'translate-x-0'}"
-                        ></span>
-                    </button>
-                    <span class="text-sm font-medium text-slate-700 dark:text-slate-300">Detect Automatically (via IP)</span>
-                </div>
-
-                {#if !locationAuto}
-                    <div class="grid grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-4 duration-300">
-                        <div>
-                            <label for="latitude" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                                Latitude
-                            </label>
-                            <input
-                                id="latitude"
-                                type="number"
-                                step="any"
-                                bind:value={locationLat}
-                                placeholder="e.g. 51.5074"
-                                class="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600
-                                       bg-white dark:bg-slate-700 text-slate-900 dark:text-white
-                                       focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                            />
-                        </div>
-                        <div>
-                            <label for="longitude" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                                Longitude
-                            </label>
-                            <input
-                                id="longitude"
-                                type="number"
-                                step="any"
-                                bind:value={locationLon}
-                                placeholder="e.g. -0.1278"
-                                class="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600
-                                       bg-white dark:bg-slate-700 text-slate-900 dark:text-white
-                                       focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                            />
-                        </div>
-                    </div>
-                {/if}
-            </div>
-        </section>
-        {/if}
-
-        <!-- Detection Tab -->
-        {#if activeTab === 'detection'}
-        <!-- Classification Settings -->
-        <section class="bg-white/80 dark:bg-slate-800/50 rounded-2xl border border-slate-200/80 dark:border-slate-700/50 p-6 shadow-card dark:shadow-card-dark backdrop-blur-sm">
-            <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
-                🎯 Classification
-            </h3>
-
-            <!-- Model Manager -->
-            <div class="mb-8">
-                <ModelManager />
-            </div>
-
-            <!-- Legacy settings below -->
-            <div class="border-t border-slate-200 dark:border-slate-700 pt-6">
-                <h4 class="text-sm font-semibold text-slate-900 dark:text-white mb-4">Fine Tuning</h4>
-                
-                <div class="flex items-center gap-3 mb-6 p-3 bg-teal-500/5 dark:bg-teal-500/10 rounded-xl border border-teal-500/20">
-                    <button
-                        role="switch"
-                        aria-checked={trustFrigateSublabel}
-                        aria-label="Trust Frigate Sublabels"
-                        onclick={() => trustFrigateSublabel = !trustFrigateSublabel}
-                        class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2
-                               {trustFrigateSublabel ? 'bg-teal-500' : 'bg-slate-200 dark:bg-slate-600'}"
-                    >
-                        <span
-                            class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out
-                                   {trustFrigateSublabel ? 'translate-x-5' : 'translate-x-0'}"
-                        ></span>
-                    </button>
-                    <div>
-                        <span class="block text-sm font-medium text-slate-700 dark:text-slate-300">Trust Frigate Sublabels</span>
-                        <span class="block text-xs text-slate-500 dark:text-slate-400">If Frigate already identified a species (sublabel), use it directly and skip internal classification to save CPU.</span>
-                    </div>
-                </div>
-
-                <!-- Naming Convention Selection -->
-                <div class="space-y-4 pt-2">
-                    <label class="block text-sm font-semibold text-slate-900 dark:text-white">
-                        Bird Naming Style
-                    </label>
-                    <p class="text-xs text-slate-500 dark:text-slate-400 mb-4">
-                        Choose how bird names are displayed across the dashboard and discovery feed.
-                    </p>
-
-                    <div class="grid grid-cols-1 gap-3">
-                        <!-- Standard Mode -->
-                        <button
-                            onclick={() => { displayCommonNames = true; scientificNamePrimary = false; }}
-                            class="flex items-start gap-4 p-4 rounded-xl border-2 transition-all text-left
-                                   {displayCommonNames && !scientificNamePrimary 
-                                       ? 'border-teal-500 bg-teal-50/50 dark:bg-teal-900/10' 
-                                       : 'border-slate-100 dark:border-slate-700/50 hover:border-teal-200 dark:hover:border-teal-800'}"
-                        >
-                            <div class="flex-shrink-0 mt-1">
-                                <div class="w-5 h-5 rounded-full border-2 flex items-center justify-center {displayCommonNames && !scientificNamePrimary ? 'border-teal-500' : 'border-slate-300'}">
-                                    {#if displayCommonNames && !scientificNamePrimary}<div class="w-2.5 h-2.5 rounded-full bg-teal-500"></div>{/if}
+                                <div>
+                                    <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Port</label>
+                                    <input type="number" bind:value={mqttPort} class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-teal-500 outline-none" />
                                 </div>
+                            </div>
+
+                            <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 flex items-center justify-between">
+                                <span class="text-sm font-bold text-slate-900 dark:text-white">MQTT Authentication</span>
+                                <button onclick={() => mqttAuth = !mqttAuth} class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {mqttAuth ? 'bg-teal-500' : 'bg-slate-300 dark:bg-slate-600'}"><span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {mqttAuth ? 'translate-x-5' : 'translate-x-0'}"></span></button>
+                            </div>
+
+                            {#if mqttAuth}
+                                <div class="grid grid-cols-2 gap-4 animate-in fade-in zoom-in-95">
+                                    <div><label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">User</label><input type="text" bind:value={mqttUsername} class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm" /></div>
+                                    <div><label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Pass</label><input type="password" bind:value={mqttPassword} class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm" /></div>
+                                </div>
+                            {/if}
+
+                            <div>
+                                <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">BirdNET MQTT Topic</label>
+                                <input type="text" bind:value={audioTopic} class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm" />
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- BirdWeather -->
+                    <section class="bg-white dark:bg-slate-800/50 rounded-3xl border border-slate-200/80 dark:border-slate-700/50 p-8 shadow-sm backdrop-blur-md">
+                        <div class="flex items-center justify-between mb-6">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+                                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" /></svg>
+                                </div>
+                                <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">BirdWeather</h3>
+                            </div>
+                            <button onclick={() => birdweatherEnabled = !birdweatherEnabled} class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {birdweatherEnabled ? 'bg-teal-500' : 'bg-slate-300 dark:bg-slate-600'}"><span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {birdweatherEnabled ? 'translate-x-5' : 'translate-x-0'}"></span></button>
+                        </div>
+
+                        <div class="space-y-6">
+                            <div>
+                                <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Station Token</label>
+                                <input type="password" bind:value={birdweatherStationToken} placeholder="Your BirdWeather token" class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm" />
+                            </div>
+                            <button onclick={handleTestBirdWeather} disabled={testingBirdWeather || !birdweatherStationToken} class="w-full px-4 py-3 text-xs font-black uppercase tracking-widest rounded-2xl bg-indigo-500 hover:bg-indigo-600 text-white transition-all shadow-lg shadow-indigo-500/20 disabled:opacity-50">
+                                {testingBirdWeather ? 'Verifying...' : 'Test Connection'}
+                            </button>
+                        </div>
+                    </section>
+
+                    <!-- AI Intelligence -->
+                    <section class="bg-white dark:bg-slate-800/50 rounded-3xl border border-slate-200/80 dark:border-slate-700/50 p-8 shadow-sm backdrop-blur-md">
+                        <div class="flex items-center justify-between mb-6">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-2xl bg-brand-500/10 flex items-center justify-center text-brand-500">
+                                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                                </div>
+                                <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">AI Insights</h3>
+                            </div>
+                            <button onclick={() => llmEnabled = !llmEnabled} class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {llmEnabled ? 'bg-teal-500' : 'bg-slate-300 dark:bg-slate-600'}"><span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {llmEnabled ? 'translate-x-5' : 'translate-x-0'}"></span></button>
+                        </div>
+
+                        <div class="space-y-6">
+                            <div class="grid grid-cols-2 gap-4">
+                                <div><label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Provider</label><select bind:value={llmProvider} class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"><option value="gemini">Google Gemini</option><option value="openai">OpenAI</option></select></div>
+                                <div><label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Model</label><input type="text" bind:value={llmModel} class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm" /></div>
                             </div>
                             <div>
-                                <span class="block text-sm font-bold text-slate-900 dark:text-white">Standard</span>
-                                <span class="block text-xs text-slate-500 dark:text-slate-400 mt-1">
-                                    Common names are primary. Scientific names shown as subtitles.
-                                </span>
-                                <span class="inline-block mt-2 px-2 py-1 bg-white dark:bg-slate-800 rounded border border-slate-200 dark:border-slate-700 text-[10px] font-mono">
-                                    <span class="font-bold text-teal-600">Blue Tit</span> <span class="italic text-slate-400">(Cyanistes caeruleus)</span>
-                                </span>
+                                <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">API Key</label>
+                                <input type="password" bind:value={llmApiKey} class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm" />
                             </div>
-                        </button>
+                        </div>
+                    </section>
 
-                        <!-- Hobbyist Mode -->
-                        <button
-                            onclick={() => { displayCommonNames = true; scientificNamePrimary = true; }}
-                            class="flex items-start gap-4 p-4 rounded-xl border-2 transition-all text-left
-                                   {displayCommonNames && scientificNamePrimary 
-                                       ? 'border-teal-500 bg-teal-50/50 dark:bg-teal-900/10' 
-                                       : 'border-slate-100 dark:border-slate-700/50 hover:border-teal-200 dark:hover:border-teal-800'}"
-                        >
-                            <div class="flex-shrink-0 mt-1">
-                                <div class="w-5 h-5 rounded-full border-2 flex items-center justify-center {displayCommonNames && scientificNamePrimary ? 'border-teal-500' : 'border-slate-300'}">
-                                    {#if displayCommonNames && scientificNamePrimary}<div class="w-2.5 h-2.5 rounded-full bg-teal-500"></div>{/if}
+                    <!-- Location & Weather -->
+                    <section class="bg-white dark:bg-slate-800/50 rounded-3xl border border-slate-200/80 dark:border-slate-700/50 p-8 shadow-sm backdrop-blur-md">
+                        <div class="flex items-center justify-between mb-6">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-2xl bg-orange-500/10 flex items-center justify-center text-orange-600 dark:text-orange-400">
+                                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
+                                </div>
+                                <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">Location</h3>
+                            </div>
+                            <button onclick={() => locationAuto = !locationAuto} class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {locationAuto ? 'bg-teal-500' : 'bg-slate-300 dark:bg-slate-600'}"><span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {locationAuto ? 'translate-x-5' : 'translate-x-0'}"></span></button>
+                        </div>
+
+                        <div class="space-y-6">
+                            <p class="text-xs font-bold text-slate-500 leading-relaxed uppercase tracking-wider">Used for localized weather context during detections.</p>
+                            {#if !locationAuto}
+                                <div class="grid grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2">
+                                    <div><label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Latitude</label><input type="number" step="any" bind:value={locationLat} class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm" /></div>
+                                    <div><label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Longitude</label><input type="number" step="any" bind:value={locationLon} class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm" /></div>
+                                </div>
+                            {:else}
+                                <div class="p-4 rounded-2xl bg-teal-500/5 border border-teal-500/10 text-teal-600 dark:text-teal-400 text-xs font-black uppercase tracking-widest text-center">Auto-detect via IP enabled</div>
+                            {/if}
+                        </div>
+                    </section>
+                </div>
+            {/if}
+
+            <!-- Detection Tab -->
+            {#if activeTab === 'detection'}
+                <div class="space-y-6">
+                    <!-- Classification Model -->
+                    <section class="bg-white dark:bg-slate-800/50 rounded-3xl border border-slate-200/80 dark:border-slate-700/50 p-8 shadow-sm backdrop-blur-md">
+                        <div class="flex items-center gap-3 mb-8">
+                            <div class="w-10 h-10 rounded-2xl bg-teal-500/10 flex items-center justify-center text-teal-600 dark:text-teal-400">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>
+                            </div>
+                            <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">Classification Engine</h3>
+                        </div>
+                        <ModelManager />
+                    </section>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <!-- Tuning -->
+                        <section class="bg-white dark:bg-slate-800/50 rounded-3xl border border-slate-200/80 dark:border-slate-700/50 p-8 shadow-sm">
+                            <h4 class="text-xs font-black uppercase tracking-[0.2em] text-slate-400 mb-6">Fine Tuning</h4>
+                            
+                            <div class="space-y-8">
+                                <div>
+                                    <div class="flex justify-between mb-4">
+                                        <label class="text-sm font-black text-slate-900 dark:text-white">Confidence Threshold</label>
+                                        <span class="px-2 py-1 bg-teal-500 text-white text-[10px] font-black rounded-lg">{(threshold * 100).toFixed(0)}%</span>
+                                    </div>
+                                    <input type="range" min="0" max="1" step="0.05" bind:value={threshold} class="w-full h-2 rounded-lg bg-slate-200 dark:bg-slate-700 appearance-none cursor-pointer accent-teal-500" />
+                                    <div class="flex justify-between mt-2"><span class="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Loose</span><span class="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Strict</span></div>
+                                </div>
+
+                                <div class="p-4 rounded-2xl bg-teal-500/5 border border-teal-500/10 flex items-center justify-between gap-4">
+                                    <div class="flex-1">
+                                        <span class="block text-sm font-black text-slate-900 dark:text-white">Trust Frigate Sublabels</span>
+                                        <span class="block text-[10px] text-slate-500 font-bold leading-tight mt-1">Skip internal classification if Frigate identified species</span>
+                                    </div>
+                                    <button onclick={() => trustFrigateSublabel = !trustFrigateSublabel} class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {trustFrigateSublabel ? 'bg-teal-500' : 'bg-slate-300 dark:bg-slate-600'}"><span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {trustFrigateSublabel ? 'translate-x-5' : 'translate-x-0'}"></span></button>
                                 </div>
                             </div>
-                            <div>
-                                <span class="block text-sm font-bold text-slate-900 dark:text-white">Hobbyist</span>
-                                <span class="block text-xs text-slate-500 dark:text-slate-400 mt-1">
-                                    Scientific names are primary. Common names shown as subtitles.
-                                </span>
-                                <span class="inline-block mt-2 px-2 py-1 bg-white dark:bg-slate-800 rounded border border-slate-200 dark:border-slate-700 text-[10px] font-mono">
-                                    <span class="font-bold text-teal-600">Cyanistes caeruleus</span> <span class="italic text-slate-400">(Blue Tit)</span>
-                                </span>
+                        </section>
+
+                        <!-- Naming -->
+                        <section class="bg-white dark:bg-slate-800/50 rounded-3xl border border-slate-200/80 dark:border-slate-700/50 p-8 shadow-sm">
+                            <h4 class="text-xs font-black uppercase tracking-[0.2em] text-slate-400 mb-6">Bird Naming Style</h4>
+                            
+                            <div class="flex flex-col gap-3">
+                                {#each [
+                                    { id: 'standard', title: 'Standard', sub: 'Common names primary, scientific subtitles.', active: displayCommonNames && !scientificNamePrimary, action: () => { displayCommonNames = true; scientificNamePrimary = false; } },
+                                    { id: 'hobbyist', title: 'Hobbyist', sub: 'Scientific names primary, common subtitles.', active: displayCommonNames && scientificNamePrimary, action: () => { displayCommonNames = true; scientificNamePrimary = true; } },
+                                    { id: 'scientific', title: 'Strictly Scientific', sub: 'Only show scientific names. Hides common names.', active: !displayCommonNames, action: () => { displayCommonNames = false; } }
+                                ] as mode}
+                                    <button onclick={mode.action} class="flex items-center gap-4 p-4 rounded-2xl border-2 text-left transition-all {mode.active ? 'border-teal-500 bg-teal-500/5' : 'border-slate-100 dark:border-slate-700/50 hover:border-teal-500/20'}">
+                                        <div class="w-5 h-5 rounded-full border-2 flex items-center justify-center {mode.active ? 'border-teal-500 bg-teal-500' : 'border-slate-300 dark:border-slate-600'}">
+                                            {#if mode.active}<svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="4" d="M5 13l4 4L19 7" /></svg>{/if}
+                                        </div>
+                                        <div>
+                                            <p class="text-sm font-black text-slate-900 dark:text-white leading-none">{mode.title}</p>
+                                            <p class="text-[10px] font-bold text-slate-500 mt-1">{mode.sub}</p>
+                                        </div>
+                                    </button>
+                                {/each}
                             </div>
-                        </button>
-
-                        <!-- Scientific Only Mode -->
-                        <button
-                            onclick={() => { displayCommonNames = false; }}
-                            class="flex items-start gap-4 p-4 rounded-xl border-2 transition-all text-left
-                                   {!displayCommonNames 
-                                       ? 'border-teal-500 bg-teal-50/50 dark:bg-teal-900/10' 
-                                       : 'border-slate-100 dark:border-slate-700/50 hover:border-teal-200 dark:hover:border-teal-800'}"
-                        >
-                            <div class="flex-shrink-0 mt-1">
-                                <div class="w-5 h-5 rounded-full border-2 flex items-center justify-center {!displayCommonNames ? 'border-teal-500' : 'border-slate-300'}">
-                                    {#if !displayCommonNames}<div class="w-2.5 h-2.5 rounded-full bg-teal-500"></div>{/if}
-                                </div>
-                            </div>
-                            <div>
-                                <span class="block text-sm font-bold text-slate-900 dark:text-white">Strictly Scientific</span>
-                                <span class="block text-xs text-slate-500 dark:text-slate-400 mt-1">
-                                    Show only scientific names. Hides all common names from the UI.
-                                </span>
-                                <span class="inline-block mt-2 px-2 py-1 bg-white dark:bg-slate-800 rounded border border-slate-200 dark:border-slate-700 text-[10px] font-mono">
-                                    <span class="font-bold text-teal-600">Cyanistes caeruleus</span>
-                                </span>
-                            </div>
-                        </button>
-                    </div>
-                </div>
-
-                <div>
-                    <label for="threshold" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                        Confidence Threshold: {(threshold * 100).toFixed(0)}%
-                    </label>
-                    <input
-                        id="threshold"
-                        type="range"
-                        min="0"
-                        max="1"
-                        step="0.05"
-                        bind:value={threshold}
-                        class="w-full h-2 rounded-lg appearance-none cursor-pointer
-                               bg-slate-200 dark:bg-slate-700
-                               accent-teal-500"
-                    />
-                    <div class="flex justify-between text-xs text-slate-500 dark:text-slate-400 mt-1">
-                        <span>0% (All)</span>
-                        <span>100% (Strict)</span>
-                    </div>
-                </div>
-
-                <!-- Blocked Labels -->
-                <div class="pt-4 mt-4 border-t border-slate-200 dark:border-slate-700">
-                    <label for="blocked-label-input" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                        Blocked Labels
-                    </label>
-                    <p class="text-xs text-slate-500 dark:text-slate-400 mb-3">
-                        Classification results matching these labels will be filtered out (e.g., "background", "unknown").
-                    </p>
-
-                    <!-- Add new label -->
-                    <div class="flex gap-2 mb-3">
-                        <input
-                            id="blocked-label-input"
-                            type="text"
-                            bind:value={newBlockedLabel}
-                            placeholder="Enter label to block..."
-                            onkeydown={(e) => e.key === 'Enter' && addBlockedLabel()}
-                            class="flex-1 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600
-                                   bg-white dark:bg-slate-700 text-slate-900 dark:text-white text-sm
-                                   focus:ring-2 focus:ring-teal-500 focus:border-transparent
-                                   placeholder:text-slate-400 dark:placeholder:text-slate-500"
-                        />
-                        <button
-                            onclick={addBlockedLabel}
-                            disabled={!newBlockedLabel.trim()}
-                            class="px-4 py-2 text-sm font-medium rounded-lg
-                                   bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300
-                                   hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors
-                                   disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            Add
-                        </button>
+                        </section>
                     </div>
 
-                    <!-- Current blocked labels -->
-                    {#if blockedLabels.length > 0}
+                    <!-- Blocked Labels -->
+                    <section class="bg-white dark:bg-slate-800/50 rounded-3xl border border-slate-200/80 dark:border-slate-700/50 p-8 shadow-sm">
+                        <div class="flex items-center justify-between mb-6">
+                            <h4 class="text-xs font-black uppercase tracking-[0.2em] text-slate-400">Blocked Labels</h4>
+                            <span class="px-2 py-0.5 bg-red-500/10 text-red-500 text-[9px] font-black rounded uppercase">Ignored by Discovery</span>
+                        </div>
+                        
+                        <div class="flex gap-2 mb-6">
+                            <input bind:value={newBlockedLabel} onkeydown={(e) => e.key === 'Enter' && addBlockedLabel()} placeholder="e.g. background" class="flex-1 px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm" />
+                            <button onclick={addBlockedLabel} disabled={!newBlockedLabel.trim()} class="px-6 py-3 bg-slate-900 dark:bg-slate-700 text-white text-xs font-black uppercase tracking-widest rounded-2xl hover:bg-slate-800 transition-all">Add</button>
+                        </div>
+
                         <div class="flex flex-wrap gap-2">
                             {#each blockedLabels as label}
-                                <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm
-                                            bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400
-                                            border border-red-200 dark:border-red-800">
+                                <span class="group flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300">
                                     {label}
-                                    <button
-                                        onclick={() => removeBlockedLabel(label)}
-                                        class="w-4 h-4 rounded-full hover:bg-red-200 dark:hover:bg-red-800
-                                               flex items-center justify-center transition-colors"
-                                        title="Remove"
-                                    >
-                                        <span class="text-xs">×</span>
-                                    </button>
+                                    <button onclick={() => removeBlockedLabel(label)} class="text-slate-400 hover:text-red-500 transition-colors">✕</button>
                                 </span>
                             {/each}
+                            {#if blockedLabels.length === 0}<p class="text-xs font-bold text-slate-400 italic">No labels blocked yet.</p>{/if}
                         </div>
-                    {:else}
-                        <p class="text-sm text-slate-400 dark:text-slate-500 italic">
-                            No labels blocked. Common ones to block: "background", "Background"
-                        </p>
-                    {/if}
-                </div>
-            </div>
-        </section>
-        {/if}
-
-        <!-- Data Tab -->
-        {#if activeTab === 'data'}
-        <!-- Database Maintenance -->
-        <section class="bg-white/80 dark:bg-slate-800/50 rounded-2xl border border-slate-200/80 dark:border-slate-700/50 p-6 shadow-card dark:shadow-card-dark backdrop-blur-sm">
-            <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
-                🗄️ Database Maintenance
-            </h3>
-
-            <!-- Stats -->
-            {#if maintenanceStats}
-                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-                    <div class="bg-slate-50 dark:bg-slate-700/50 rounded-lg p-3 text-center">
-                        <p class="text-2xl font-bold text-slate-900 dark:text-white">
-                            {maintenanceStats.total_detections.toLocaleString()}
-                        </p>
-                        <p class="text-xs text-slate-500 dark:text-slate-400">Total Detections</p>
-                    </div>
-                    <div class="bg-slate-50 dark:bg-slate-700/50 rounded-lg p-3 text-center">
-                        <p class="text-sm font-medium text-slate-900 dark:text-white">
-                            {maintenanceStats.oldest_detection
-                                ? new Date(maintenanceStats.oldest_detection).toLocaleDateString()
-                                : 'N/A'}
-                        </p>
-                        <p class="text-xs text-slate-500 dark:text-slate-400">Oldest Record</p>
-                    </div>
-                    <div class="bg-slate-50 dark:bg-slate-700/50 rounded-lg p-3 text-center">
-                        <p class="text-2xl font-bold text-slate-900 dark:text-white">
-                            {retentionDays === 0 ? '∞' : retentionDays}
-                        </p>
-                        <p class="text-xs text-slate-500 dark:text-slate-400">Retention Days</p>
-                    </div>
-                    <div class="bg-slate-50 dark:bg-slate-700/50 rounded-lg p-3 text-center">
-                        <p class="text-2xl font-bold {maintenanceStats.detections_to_cleanup > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-slate-900 dark:text-white'}">
-                            {maintenanceStats.detections_to_cleanup.toLocaleString()}
-                        </p>
-                        <p class="text-xs text-slate-500 dark:text-slate-400">Pending Cleanup</p>
-                    </div>
+                    </section>
                 </div>
             {/if}
 
-            <!-- Retention Setting -->
-            <div class="mb-4">
-                <label for="retention-days" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                    Data Retention Period
-                </label>
-                <div class="flex items-center gap-3">
-                    <select
-                        id="retention-days"
-                        bind:value={retentionDays}
-                        class="flex-1 px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600
-                               bg-white dark:bg-slate-700 text-slate-900 dark:text-white
-                               focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                    >
-                        <option value={0}>Unlimited (keep forever)</option>
-                        <option value={7}>7 days</option>
-                        <option value={14}>14 days</option>
-                        <option value={30}>30 days</option>
-                        <option value={60}>60 days</option>
-                        <option value={90}>90 days</option>
-                        <option value={180}>180 days</option>
-                        <option value={365}>1 year</option>
-                    </select>
-                </div>
-                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                    Detections older than this will be automatically deleted daily at 3 AM.
-                </p>
-            </div>
-
-            <!-- Manual Cleanup Button -->
-            <div class="flex items-center justify-between pt-4 border-t border-slate-200 dark:border-slate-700">
-                <div class="text-sm text-slate-500 dark:text-slate-400">
-                    {#if maintenanceStats && maintenanceStats.detections_to_cleanup > 0}
-                        {maintenanceStats.detections_to_cleanup} detections ready for cleanup
-                    {:else}
-                        No old detections to clean up
+            <!-- Data Tab -->
+            {#if activeTab === 'data'}
+                <div class="space-y-6">
+                    <!-- Maintenance Stats -->
+                    {#if maintenanceStats}
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            {#each [
+                                { label: 'Total Records', val: maintenanceStats.total_detections.toLocaleString(), color: 'text-teal-500' },
+                                { label: 'Oldest Seen', val: maintenanceStats.oldest_detection ? new Date(maintenanceStats.oldest_detection).toLocaleDateString() : 'N/A', color: 'text-blue-500' },
+                                { label: 'Retention', val: retentionDays === 0 ? '∞' : `${retentionDays} Days`, color: 'text-indigo-500' },
+                                { label: 'Pending GC', val: maintenanceStats.detections_to_cleanup.toLocaleString(), color: maintenanceStats.detections_to_cleanup > 0 ? 'text-amber-500' : 'text-slate-400' }
+                            ] as stat}
+                                <div class="bg-white dark:bg-slate-800/50 p-6 rounded-3xl border border-slate-200/80 dark:border-slate-700/50 shadow-sm text-center">
+                                    <p class="text-2xl font-black {stat.color} tracking-tight">{stat.val}</p>
+                                    <p class="text-[10px] font-black uppercase tracking-widest text-slate-500 mt-1">{stat.label}</p>
+                                </div>
+                            {/each}
+                        </div>
                     {/if}
-                </div>
-                <button
-                    onclick={handleCleanup}
-                    disabled={cleaningUp || retentionDays === 0 || (maintenanceStats?.detections_to_cleanup ?? 0) === 0}
-                    class="px-4 py-2 text-sm font-medium rounded-lg
-                           bg-amber-500 hover:bg-amber-600 text-white
-                           transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                    {cleaningUp ? 'Cleaning...' : 'Run Cleanup Now'}
-                </button>
-            </div>
-        </section>
 
-        <!-- Taxonomy Synchronization -->
-        <section class="bg-white/80 dark:bg-slate-800/50 rounded-2xl border border-slate-200/80 dark:border-slate-700/50 p-6 shadow-card dark:shadow-card-dark backdrop-blur-sm">
-            <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
-                📖 Taxonomy Sync
-            </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                        <!-- Retention & Cleanup -->
+                        <section class="bg-white dark:bg-slate-800/50 rounded-3xl border border-slate-200/80 dark:border-slate-700/50 p-8 shadow-sm">
+                            <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight mb-6">Retention Policy</h3>
+                            <div class="space-y-6">
+                                <div>
+                                    <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">History Duration</label>
+                                    <select bind:value={retentionDays} class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-teal-500 outline-none transition-all"><option value={0}>Keep Everything (∞)</option><option value={7}>1 Week</option><option value={14}>2 Weeks</option><option value={30}>1 Month</option><option value={90}>3 Months</option><option value={365}>1 Year</option></select>
+                                </div>
+                                <div class="pt-4 border-t border-slate-100 dark:border-slate-700/50 flex flex-col gap-3">
+                                    <button onclick={handleCleanup} disabled={cleaningUp || retentionDays === 0 || (maintenanceStats?.detections_to_cleanup ?? 0) === 0} class="w-full px-4 py-3 text-xs font-black uppercase tracking-widest rounded-2xl bg-amber-500 hover:bg-amber-600 text-white transition-all shadow-lg shadow-amber-500/20 disabled:opacity-50">{cleaningUp ? 'Cleaning...' : 'Purge Old Records'}</button>
+                                    <p class="text-[10px] text-center text-slate-400 font-bold italic">Automatic cleanup runs daily at 3 AM</p>
+                                </div>
+                            </div>
+                        </section>
 
-            <p class="text-sm text-slate-500 dark:text-slate-400 mb-6">
-                Connect scientific and common names for all historical detections. This ensures your statistics and leaderboard are accurate across different models.
-            </p>
+                        <!-- Media Cache -->
+                        <section class="bg-white dark:bg-slate-800/50 rounded-3xl border border-slate-200/80 dark:border-slate-700/50 p-8 shadow-sm">
+                            <div class="flex items-center justify-between mb-6">
+                                <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">Media Cache</h3>
+                                <button onclick={() => cacheEnabled = !cacheEnabled} class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {cacheEnabled ? 'bg-teal-500' : 'bg-slate-300 dark:bg-slate-600'}"><span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {cacheEnabled ? 'translate-x-5' : 'translate-x-0'}"></span></button>
+                            </div>
+                            
+                            {#if cacheEnabled}
+                                <div class="space-y-6 animate-in fade-in slide-in-from-top-2">
+                                    <div class="grid grid-cols-2 gap-3">
+                                        <button onclick={() => cacheSnapshots = !cacheSnapshots} class="p-4 rounded-2xl border-2 transition-all text-center {cacheSnapshots ? 'border-teal-500 bg-teal-500/5 text-teal-600' : 'border-slate-100 dark:border-slate-700/50 text-slate-400'}"><p class="text-xs font-black uppercase tracking-widest">Snapshots</p></button>
+                                        <button onclick={() => cacheClips = !cacheClips} class="p-4 rounded-2xl border-2 transition-all text-center {cacheClips ? 'border-teal-500 bg-teal-500/5 text-teal-600' : 'border-slate-100 dark:border-slate-700/50 text-slate-400'}"><p class="text-xs font-black uppercase tracking-widest">Video Clips</p></button>
+                                    </div>
+                                    <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 flex items-center justify-between">
+                                        <span class="text-xs font-bold text-slate-500 uppercase tracking-widest">Cache Size</span>
+                                        <span class="text-sm font-black text-slate-900 dark:text-white">{cacheStats?.total_size_mb ?? 0} MB</span>
+                                    </div>
+                                    <button onclick={handleCacheCleanup} disabled={cleaningCache} class="w-full px-4 py-3 text-xs font-black uppercase tracking-widest rounded-2xl bg-slate-900 dark:bg-slate-700 text-white hover:bg-slate-800 transition-all">{cleaningCache ? 'Cleaning...' : 'Clear Cached Files'}</button>
+                                </div>
+                            {/if}
+                        </section>
+                    </div>
 
-            {#if taxonomyStatus}
-                {#if taxonomyStatus.error}
-                    <div class="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl flex items-center gap-3 text-red-700 dark:text-red-300 animate-in zoom-in duration-300">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <div class="flex-1">
-                            <p class="font-bold">Sync Failed</p>
-                            <p class="text-xs opacity-80">{taxonomyStatus.error}</p>
+                    <!-- Taxonomy Sync -->
+                    <section class="bg-white dark:bg-slate-800/50 rounded-3xl border border-slate-200/80 dark:border-slate-700/50 p-8 shadow-sm">
+                        <div class="flex items-center justify-between mb-6">
+                            <div>
+                                <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">Taxonomy Repair</h3>
+                                <p class="text-[10px] font-black uppercase tracking-widest text-slate-500 mt-1">Connect scientific and common names</p>
+                            </div>
+                            {#if taxonomyStatus?.is_running}
+                                <div class="flex items-center gap-2 px-3 py-1 rounded-full bg-teal-500/10 text-teal-600 animate-pulse">
+                                    <div class="w-1.5 h-1.5 rounded-full bg-teal-500"></div>
+                                    <span class="text-[10px] font-black uppercase tracking-widest">Syncing</span>
+                                </div>
+                            {/if}
                         </div>
-                        <button
-                            onclick={() => { if (taxonomyStatus) taxonomyStatus.error = null; }}
-                            class="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-200"
-                            title="Dismiss"
-                        >
-                            ✕
-                        </button>
-                    </div>
-                {:else if taxonomyStatus.current_item === 'Completed' && taxonomyStatus.total > 0}
-                    <div class="mb-6 p-4 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-xl flex items-center gap-3 text-emerald-700 dark:text-emerald-300 animate-in zoom-in duration-300">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                        </svg>
-                        <div class="flex-1">
-                            <p class="font-bold">Sync Complete!</p>
-                            <p class="text-xs opacity-80">Successfully normalized {taxonomyStatus.processed} of {taxonomyStatus.total} unique species names.</p>
-                        </div>
-                        <button
-                            onclick={() => { if (taxonomyStatus) { taxonomyStatus.current_item = null; taxonomyStatus.processed = 0; taxonomyStatus.total = 0; } }}
-                            class="text-emerald-600 hover:text-emerald-800 dark:text-emerald-400 dark:hover:text-emerald-200"
-                            title="Dismiss"
-                        >
-                            ✕
-                        </button>
-                    </div>
-                {:else if taxonomyStatus.current_item === 'Completed' && taxonomyStatus.total === 0}
-                    <div class="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl flex items-center gap-3 text-blue-700 dark:text-blue-300 animate-in zoom-in duration-300">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <div class="flex-1">
-                            <p class="font-bold">Already Up-to-Date!</p>
-                            <p class="text-xs opacity-80">All detections already have taxonomy data. No species need syncing.</p>
-                        </div>
-                        <button
-                            onclick={() => { if (taxonomyStatus) { taxonomyStatus.current_item = null; taxonomyStatus.processed = 0; taxonomyStatus.total = 0; } }}
-                            class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-200"
-                            title="Dismiss"
-                        >
-                            ✕
-                        </button>
-                    </div>
-                {:else if taxonomyStatus.is_running}
-                    <div class="space-y-4 mb-6 animate-in fade-in duration-500">
-                        <div class="flex justify-between text-sm mb-1">
-                            <span class="text-teal-600 dark:text-teal-400 font-bold uppercase tracking-wider flex items-center gap-2">
-                                <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                </svg>
-                                Syncing: {taxonomyStatus.current_item || 'Processing...'}
-                            </span>
-                            <span class="text-slate-500 font-mono">{taxonomyStatus.processed} / {taxonomyStatus.total || '?'}</span>
-                        </div>
-                        <div class="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-3 overflow-hidden border border-slate-200 dark:border-slate-600 shadow-inner">
-                            <div
-                                class="bg-gradient-to-r from-teal-500 to-emerald-400 h-full transition-all duration-1000 ease-out"
-                                style="width: {(taxonomyStatus.processed / (taxonomyStatus.total || 1)) * 100}%"
-                            ></div>
-                        </div>
-                        <p class="text-[10px] text-slate-400 italic text-center">
-                            Rate limited to 1 lookup per second to respect iNaturalist.
-                        </p>
-                    </div>
-                {/if}
-            {/if}
 
-            <div class="flex items-center justify-between pt-4 border-t border-slate-200 dark:border-slate-700">
-                <div class="text-xs text-slate-500 dark:text-slate-400 max-w-[60%]">
-                    This will scan your database for incomplete names and fetch the missing scientific/common pairs.
-                </div>
-                <button
-                    onclick={handleStartTaxonomySync}
-                    disabled={taxonomyStatus?.is_running || syncingTaxonomy}
-                    class="px-4 py-2 text-sm font-medium rounded-lg
-                           bg-teal-500 hover:bg-teal-600 text-white
-                           transition-colors disabled:opacity-50 flex items-center gap-2 shadow-md"
-                >
-                    {#if syncingTaxonomy}
-                        <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                    {/if}
-                    Repair Taxonomy
-                </button>
-            </div>
-        </section>
-
-        <!-- Media Cache -->
-        <section class="bg-white/80 dark:bg-slate-800/50 rounded-2xl border border-slate-200/80 dark:border-slate-700/50 p-6 shadow-card dark:shadow-card-dark backdrop-blur-sm">
-            <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
-                💾 Media Cache
-            </h3>
-
-            <p class="text-sm text-slate-500 dark:text-slate-400 mb-4">
-                Cache snapshots and clips locally to preserve them when Frigate removes events due to retention policies.
-            </p>
-
-            <!-- Cache Stats -->
-            {#if cacheStats}
-                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-                    <div class="bg-slate-50 dark:bg-slate-700/50 rounded-lg p-3 text-center">
-                        <p class="text-2xl font-bold text-slate-900 dark:text-white">
-                            {cacheStats.snapshot_count.toLocaleString()}
-                        </p>
-                        <p class="text-xs text-slate-500 dark:text-slate-400">Snapshots</p>
-                    </div>
-                    <div class="bg-slate-50 dark:bg-slate-700/50 rounded-lg p-3 text-center">
-                        <p class="text-2xl font-bold text-slate-900 dark:text-white">
-                            {cacheStats.clip_count.toLocaleString()}
-                        </p>
-                        <p class="text-xs text-slate-500 dark:text-slate-400">Clips</p>
-                    </div>
-                    <div class="bg-slate-50 dark:bg-slate-700/50 rounded-lg p-3 text-center">
-                        <p class="text-2xl font-bold text-slate-900 dark:text-white">
-                            {cacheStats.total_size_mb} MB
-                        </p>
-                        <p class="text-xs text-slate-500 dark:text-slate-400">Total Size</p>
-                    </div>
-                    <div class="bg-slate-50 dark:bg-slate-700/50 rounded-lg p-3 text-center">
-                        <p class="text-sm font-medium text-slate-900 dark:text-white">
-                            {cacheStats.oldest_file ? new Date(cacheStats.oldest_file).toLocaleDateString() : 'N/A'}
-                        </p>
-                        <p class="text-xs text-slate-500 dark:text-slate-400">Oldest File</p>
-                    </div>
-                </div>
-            {/if}
-
-            <!-- Cache Enable Toggle -->
-            <div class="flex items-center gap-3 py-3 border-b border-slate-200 dark:border-slate-700">
-                <button
-                    role="switch"
-                    aria-checked={cacheEnabled}
-                    aria-label="Toggle Media Caching"
-                    onclick={() => cacheEnabled = !cacheEnabled}
-                    class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2
-                           {cacheEnabled ? 'bg-teal-500' : 'bg-slate-200 dark:bg-slate-600'}"
-                >
-                    <span
-                        class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out
-                               {cacheEnabled ? 'translate-x-5' : 'translate-x-0'}"
-                    ></span>
-                </button>
-                <div>
-                    <span class="block text-sm font-medium text-slate-700 dark:text-slate-300">Enable Media Caching</span>
-                    <span class="block text-xs text-slate-500 dark:text-slate-400">Store media locally for offline access</span>
-                </div>
-            </div>
-
-            {#if cacheEnabled}
-                <div class="space-y-3 py-3 animate-in fade-in slide-in-from-top-4 duration-300">
-                    <!-- Cache Snapshots -->
-                    <div class="flex items-center gap-3">
-                        <button
-                            role="switch"
-                            aria-checked={cacheSnapshots}
-                            aria-label="Cache Snapshots"
-                            onclick={() => cacheSnapshots = !cacheSnapshots}
-                            class="relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out
-                                   {cacheSnapshots ? 'bg-teal-500' : 'bg-slate-200 dark:bg-slate-600'}"
-                        >
-                            <span class="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out
-                                   {cacheSnapshots ? 'translate-x-4' : 'translate-x-0'}"></span>
-                        </button>
-                        <span class="text-sm text-slate-700 dark:text-slate-300">Cache Snapshots</span>
-                    </div>
-
-                    <!-- Cache Clips -->
-                    <div class="flex items-center gap-3">
-                        <button
-                            role="switch"
-                            aria-checked={cacheClips}
-                            aria-label="Cache Clips"
-                            onclick={() => cacheClips = !cacheClips}
-                            class="relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out
-                                   {cacheClips ? 'bg-teal-500' : 'bg-slate-200 dark:bg-slate-600'}"
-                        >
-                            <span class="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out
-                                   {cacheClips ? 'translate-x-4' : 'translate-x-0'}"></span>
-                        </button>
-                        <span class="text-sm text-slate-700 dark:text-slate-300">Cache Video Clips</span>
-                    </div>
-                </div>
-
-                <!-- Cache Retention -->
-                <div class="pt-3 border-t border-slate-200 dark:border-slate-700">
-                    <label for="cache-retention" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                        Cache Retention Period
-                    </label>
-                    <select
-                        id="cache-retention"
-                        bind:value={cacheRetentionDays}
-                        class="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600
-                               bg-white dark:bg-slate-700 text-slate-900 dark:text-white
-                               focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                    >
-                        <option value={0}>Follow detection retention ({retentionDays === 0 ? 'unlimited' : retentionDays + ' days'})</option>
-                        <option value={7}>7 days</option>
-                        <option value={14}>14 days</option>
-                        <option value={30}>30 days</option>
-                        <option value={60}>60 days</option>
-                        <option value={90}>90 days</option>
-                        <option value={180}>180 days</option>
-                        <option value={365}>1 year</option>
-                    </select>
-                </div>
-
-                <!-- Manual Cache Cleanup -->
-                <div class="flex items-center justify-between pt-4 mt-4 border-t border-slate-200 dark:border-slate-700">
-                    <div class="text-sm text-slate-500 dark:text-slate-400">
-                        {#if cacheStats}
-                            {cacheStats.total_size_mb} MB cached
-                        {:else}
-                            No cache data
+                        {#if taxonomyStatus && (taxonomyStatus.is_running || taxonomyStatus.total > 0)}
+                            <div class="mb-6 space-y-3">
+                                <div class="flex justify-between text-[10px] font-black uppercase tracking-widest">
+                                    <span class="text-slate-400">{taxonomyStatus.current_item || 'Repairing Database'}</span>
+                                    <span class="text-teal-500">{taxonomyStatus.processed} / {taxonomyStatus.total}</span>
+                                </div>
+                                <div class="w-full h-3 bg-slate-100 dark:bg-slate-900 rounded-full overflow-hidden border border-slate-200 dark:border-slate-700">
+                                    <div class="h-full bg-gradient-to-r from-teal-500 to-emerald-400 transition-all duration-1000 ease-out" style="width: {(taxonomyStatus.processed / (taxonomyStatus.total || 1)) * 100}%"></div>
+                                </div>
+                            </div>
                         {/if}
-                    </div>
-                    <button
-                        onclick={handleCacheCleanup}
-                        disabled={cleaningCache || !cacheEnabled}
-                        class="px-4 py-2 text-sm font-medium rounded-lg
-                               bg-amber-500 hover:bg-amber-600 text-white
-                               transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        {cleaningCache ? 'Cleaning...' : 'Clean Old Cache'}
-                    </button>
-                </div>
-            {/if}
-        </section>
 
-        <!-- Backfill Detections -->
-        <section class="bg-white/80 dark:bg-slate-800/50 rounded-2xl border border-slate-200/80 dark:border-slate-700/50 p-6 shadow-card dark:shadow-card-dark backdrop-blur-sm">
-            <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
-                🔄 Fetch Previous Detections
-            </h3>
-
-            <p class="text-sm text-slate-500 dark:text-slate-400 mb-4">
-                Fetch historical bird detections from Frigate that may have been missed.
-                This will query Frigate's event history, classify any new detections, and add them to your database.
-            </p>
-
-            <!-- Date Range Selection -->
-            <div class="mb-4">
-                <label for="backfill-range" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                    Date Range
-                </label>
-                <select
-                    id="backfill-range"
-                    bind:value={backfillDateRange}
-                    class="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600
-                           bg-white dark:bg-slate-700 text-slate-900 dark:text-white
-                           focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                >
-                    <option value="day">Last 24 Hours</option>
-                    <option value="week">Last Week</option>
-                    <option value="month">Last Month</option>
-                    <option value="custom">Custom Range</option>
-                </select>
-            </div>
-
-            <!-- Custom Date Range -->
-            {#if backfillDateRange === 'custom'}
-                <div class="grid grid-cols-2 gap-4 mb-4 animate-in fade-in slide-in-from-top-4 duration-300">
-                    <div>
-                        <label for="backfill-start" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                            Start Date
-                        </label>
-                        <input
-                            id="backfill-start"
-                            type="date"
-                            bind:value={backfillStartDate}
-                            class="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600
-                                   bg-white dark:bg-slate-700 text-slate-900 dark:text-white
-                                   focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                        />
-                    </div>
-                    <div>
-                        <label for="backfill-end" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                            End Date
-                        </label>
-                        <input
-                            id="backfill-end"
-                            type="date"
-                            bind:value={backfillEndDate}
-                            class="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600
-                                   bg-white dark:bg-slate-700 text-slate-900 dark:text-white
-                                   focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                        />
-                    </div>
-                </div>
-            {/if}
-
-            <!-- Backfill Result -->
-            {#if backfillResult}
-                <div class="mb-4 p-3 rounded-lg bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600">
-                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
-                        <div>
-                            <p class="text-lg font-bold text-slate-900 dark:text-white">{backfillResult.processed}</p>
-                            <p class="text-xs text-slate-500 dark:text-slate-400">Processed</p>
-                        </div>
-                        <div>
-                            <p class="text-lg font-bold text-emerald-600 dark:text-emerald-400">{backfillResult.new_detections}</p>
-                            <p class="text-xs text-slate-500 dark:text-slate-400">New</p>
-                        </div>
-                        <div>
-                            <p class="text-lg font-bold text-slate-500 dark:text-slate-400">{backfillResult.skipped}</p>
-                            <p class="text-xs text-slate-500 dark:text-slate-400">Already Existed</p>
-                        </div>
-                        <div>
-                            <p class="text-lg font-bold {backfillResult.errors > 0 ? 'text-red-600 dark:text-red-400' : 'text-slate-500 dark:text-slate-400'}">{backfillResult.errors}</p>
-                            <p class="text-xs text-slate-500 dark:text-slate-400">Errors</p>
-                        </div>
-                    </div>
-                </div>
-            {/if}
-
-            <!-- Backfill Button -->
-            <button
-                onclick={handleBackfill}
-                disabled={backfilling || (backfillDateRange === 'custom' && (!backfillStartDate || !backfillEndDate))}
-                class="w-full px-4 py-3 text-sm font-medium rounded-lg
-                       bg-teal-500 hover:bg-teal-600 text-white
-                       transition-colors disabled:opacity-50 disabled:cursor-not-allowed
-                       flex items-center justify-center gap-2"
-            >
-                {#if backfilling}
-                    <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Fetching Detections...
-                {:else}
-                    Fetch Previous Detections
-                {/if}
-            </button>
-
-            <p class="mt-2 text-xs text-slate-500 dark:text-slate-400 text-center">
-                This may take a while depending on the number of events in Frigate.
-            </p>
-        </section>
-        {/if}
-
-        <!-- Appearance Tab -->
-        {#if activeTab === 'appearance'}
-        <!-- Appearance -->
-        <section class="bg-white/80 dark:bg-slate-800/50 rounded-2xl border border-slate-200/80 dark:border-slate-700/50 p-6 shadow-card dark:shadow-card-dark backdrop-blur-sm">
-            <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
-                🎨 Appearance
-            </h3>
-
-            <div>
-                <span class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">
-                    Theme
-                </span>
-                <div class="flex gap-2">
-                    {#each [
-                        { value: 'light', label: 'Light', icon: '☀️' },
-                        { value: 'dark', label: 'Dark', icon: '🌙' },
-                        { value: 'system', label: 'System', icon: '💻' }
-                    ] as opt}
-                        <button
-                            onclick={() => setTheme(opt.value as Theme)}
-                            class="flex-1 px-4 py-3 rounded-lg text-sm font-medium transition-all
-                                   {currentTheme === opt.value
-                                       ? 'bg-teal-500 text-white shadow-md'
-                                       : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'}"
-                        >
-                            <span class="block text-lg mb-1">{opt.icon}</span>
-                            {opt.label}
+                        <button onclick={handleStartTaxonomySync} disabled={taxonomyStatus?.is_running || syncingTaxonomy} class="w-full px-4 py-4 text-xs font-black uppercase tracking-widest rounded-2xl bg-teal-500 hover:bg-teal-600 text-white transition-all shadow-lg shadow-teal-500/20 flex items-center justify-center gap-3">
+                            {#if syncingTaxonomy || taxonomyStatus?.is_running}<svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>{/if}
+                            Run Full Taxonomy Repair
                         </button>
-                    {/each}
-                </div>
-            </div>
-        </section>
-        {/if}
+                    </section>
 
-        <!-- Save Button (always visible) -->
-        <div class="flex justify-end">
-            <button
-                onclick={saveSettings}
-                disabled={saving}
-                class="px-6 py-3 rounded-lg font-semibold text-white
-                       bg-teal-500 hover:bg-teal-600 active:bg-teal-700
-                       disabled:opacity-50 disabled:cursor-not-allowed
-                       transition-colors shadow-md hover:shadow-lg"
-            >
-                {saving ? 'Saving...' : 'Save Settings'}
-            </button>
+                    <!-- Missed Detections (Backfill) -->
+                    <section class="bg-white dark:bg-slate-800/50 rounded-3xl border border-slate-200/80 dark:border-slate-700/50 p-8 shadow-sm">
+                        <div class="flex items-center gap-3 mb-6">
+                            <div class="w-10 h-10 rounded-2xl bg-teal-500/10 flex items-center justify-center text-teal-600 dark:text-teal-400"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg></div>
+                            <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">Missed Detections</h3>
+                        </div>
+                        <p class="text-xs font-bold text-slate-500 leading-relaxed uppercase tracking-wider mb-6">Query Frigate history to fetch and classify past events.</p>
+                        
+                        <div class="space-y-6">
+                            <div>
+                                <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Time Window</label>
+                                <select bind:value={backfillDateRange} class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-teal-500 outline-none"><option value="day">Last 24 Hours</option><option value="week">Last Week</option><option value="month">Last Month</option><option value="custom">Custom Range</option></select>
+                            </div>
+
+                            {#if backfillDateRange === 'custom'}
+                                <div class="grid grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2">
+                                    <div><label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Start</label><input type="date" bind:value={backfillStartDate} class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm" /></div>
+                                    <div><label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">End</label><input type="date" bind:value={backfillEndDate} class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm" /></div>
+                                </div>
+                            {/if}
+
+                            {#if backfillResult}
+                                <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 grid grid-cols-4 gap-2 text-center">
+                                    <div><p class="text-sm font-black text-slate-900 dark:text-white">{backfillResult.processed}</p><p class="text-[8px] font-black uppercase text-slate-500 tracking-tighter">Total</p></div>
+                                    <div><p class="text-sm font-black text-emerald-500">{backfillResult.new_detections}</p><p class="text-[8px] font-black uppercase text-slate-500 tracking-tighter">New</p></div>
+                                    <div><p class="text-sm font-black text-slate-400">{backfillResult.skipped}</p><p class="text-[8px] font-black uppercase text-slate-500 tracking-tighter">Skip</p></div>
+                                    <div><p class="text-sm font-black text-red-500">{backfillResult.errors}</p><p class="text-[8px] font-black uppercase text-slate-500 tracking-tighter">Err</p></div>
+                                </div>
+                            {/if}
+
+                            <button onclick={handleBackfill} disabled={backfilling} class="w-full px-4 py-4 text-xs font-black uppercase tracking-widest rounded-2xl bg-teal-500 hover:bg-teal-600 text-white transition-all shadow-lg shadow-teal-500/20 flex items-center justify-center gap-3">
+                                {#if backfilling}<svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>{/if}
+                                {backfilling ? 'Analyzing Frigate...' : 'Scan History'}
+                            </button>
+                        </div>
+                    </section>
+                </div>
+            {/if}
+
+            <!-- Appearance Tab -->
+            {#if activeTab === 'appearance'}
+                <section class="bg-white dark:bg-slate-800/50 rounded-3xl border border-slate-200/80 dark:border-slate-700/50 p-8 shadow-sm backdrop-blur-md">
+                    <div class="flex items-center gap-3 mb-8">
+                        <div class="w-10 h-10 rounded-2xl bg-pink-500/10 flex items-center justify-center text-pink-600 dark:text-pink-400">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" /></svg>
+                        </div>
+                        <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">Theme & Look</h3>
+                    </div>
+
+                    <div class="grid grid-cols-3 gap-4">
+                        {#each [
+                            { value: 'light', label: 'Light', icon: '☀️' },
+                            { value: 'dark', label: 'Dark', icon: '🌙' },
+                            { value: 'system', label: 'System', icon: '💻' }
+                        ] as opt}
+                            <button
+                                onclick={() => setTheme(opt.value as Theme)}
+                                class="flex flex-col items-center gap-3 p-6 rounded-2xl border-2 transition-all
+                                       {currentTheme === opt.value
+                                           ? 'bg-teal-500 border-teal-500 text-white shadow-xl shadow-teal-500/20'
+                                           : 'bg-white dark:bg-slate-900/50 border-slate-100 dark:border-slate-700/50 text-slate-500 hover:border-teal-500/30'}"
+                            >
+                                <span class="text-3xl">{opt.icon}</span>
+                                <span class="text-xs font-black uppercase tracking-widest">{opt.label}</span>
+                            </button>
+                        {/each}
+                    </div>
+                </section>
+            {/if}
+        </div>
+
+        <!-- Floating Action Button: Save -->
+        <div class="fixed bottom-8 left-1/2 -translate-x-1/2 w-full max-w-4xl px-4 z-40">
+            <div class="bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl p-4 rounded-3xl border border-slate-200/50 dark:border-white/5 shadow-2xl flex items-center justify-between gap-6">
+                <div class="flex-1 hidden sm:block">
+                    <p class="text-xs font-black text-slate-400 uppercase tracking-widest ml-4">Unsaved Changes</p>
+                </div>
+                <button
+                    onclick={saveSettings}
+                    disabled={saving}
+                    class="flex-1 sm:flex-none px-12 py-4 rounded-2xl font-black uppercase tracking-widest text-xs text-white
+                           bg-teal-500 hover:bg-teal-600 active:scale-95
+                           disabled:opacity-50 disabled:cursor-not-allowed
+                           transition-all shadow-xl shadow-teal-500/40"
+                >
+                    {saving ? 'Saving...' : 'Apply Settings'}
+                </button>
+            </div>
         </div>
     {/if}
 </div>
+
+<style>
+    .custom-scrollbar::-webkit-scrollbar {
+        width: 4px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: #94a3b833;
+        border-radius: 10px;
+    }
+</style>
