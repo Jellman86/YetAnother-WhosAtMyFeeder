@@ -854,43 +854,87 @@
                     </div>
                 </div>
 
-                <div class="flex items-center gap-3 mb-6 p-3 bg-teal-500/5 dark:bg-teal-500/10 rounded-xl border border-teal-500/20">
-                    <button
-                        role="switch"
-                        aria-checked={displayCommonNames}
-                        aria-label="Display Common Names"
-                        onclick={() => displayCommonNames = !displayCommonNames}
-                        class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2
-                               {displayCommonNames ? 'bg-teal-500' : 'bg-slate-200 dark:bg-slate-600'}"
-                    >
-                        <span
-                            class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out
-                                   {displayCommonNames ? 'translate-x-5' : 'translate-x-0'}"
-                        ></span>
-                    </button>
-                    <div>
-                        <span class="block text-sm font-medium text-slate-700 dark:text-slate-300">Display Common Names</span>
-                        <span class="block text-xs text-slate-500 dark:text-slate-400">Automatically look up and display friendly common names for scientific labels.</span>
-                    </div>
-                </div>
+                <!-- Naming Convention Selection -->
+                <div class="space-y-4 pt-2">
+                    <label class="block text-sm font-semibold text-slate-900 dark:text-white">
+                        Bird Naming Style
+                    </label>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 mb-4">
+                        Choose how bird names are displayed across the dashboard and discovery feed.
+                    </p>
 
-                <div class="flex items-center gap-3 mb-6 p-3 bg-teal-500/5 dark:bg-teal-500/10 rounded-xl border border-teal-500/20">
-                    <button
-                        role="switch"
-                        aria-checked={scientificNamePrimary}
-                        aria-label="Scientific Name Primary"
-                        onclick={() => scientificNamePrimary = !scientificNamePrimary}
-                        class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2
-                               {scientificNamePrimary ? 'bg-teal-500' : 'bg-slate-200 dark:bg-slate-600'}"
-                    >
-                        <span
-                            class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out
-                                   {scientificNamePrimary ? 'translate-x-5' : 'translate-x-0'}"
-                        ></span>
-                    </button>
-                    <div>
-                        <span class="block text-sm font-medium text-slate-700 dark:text-slate-300">Scientific Name Primary</span>
-                        <span class="block text-xs text-slate-500 dark:text-slate-400">If enabled, the Scientific Name will be the main title, and Common Name will be the subtitle.</span>
+                    <div class="grid grid-cols-1 gap-3">
+                        <!-- Standard Mode -->
+                        <button
+                            onclick={() => { displayCommonNames = true; scientificNamePrimary = false; }}
+                            class="flex items-start gap-4 p-4 rounded-xl border-2 transition-all text-left
+                                   {displayCommonNames && !scientificNamePrimary 
+                                       ? 'border-teal-500 bg-teal-50/50 dark:bg-teal-900/10' 
+                                       : 'border-slate-100 dark:border-slate-700/50 hover:border-teal-200 dark:hover:border-teal-800'}"
+                        >
+                            <div class="flex-shrink-0 mt-1">
+                                <div class="w-5 h-5 rounded-full border-2 flex items-center justify-center {displayCommonNames && !scientificNamePrimary ? 'border-teal-500' : 'border-slate-300'}">
+                                    {#if displayCommonNames && !scientificNamePrimary}<div class="w-2.5 h-2.5 rounded-full bg-teal-500"></div>{/if}
+                                </div>
+                            </div>
+                            <div>
+                                <span class="block text-sm font-bold text-slate-900 dark:text-white">Standard</span>
+                                <span class="block text-xs text-slate-500 dark:text-slate-400 mt-1">
+                                    Common names are primary. Scientific names shown as subtitles.
+                                </span>
+                                <span class="inline-block mt-2 px-2 py-1 bg-white dark:bg-slate-800 rounded border border-slate-200 dark:border-slate-700 text-[10px] font-mono">
+                                    <span class="font-bold text-teal-600">Blue Tit</span> <span class="italic text-slate-400">(Cyanistes caeruleus)</span>
+                                </span>
+                            </div>
+                        </button>
+
+                        <!-- Hobbyist Mode -->
+                        <button
+                            onclick={() => { displayCommonNames = true; scientificNamePrimary = true; }}
+                            class="flex items-start gap-4 p-4 rounded-xl border-2 transition-all text-left
+                                   {displayCommonNames && scientificNamePrimary 
+                                       ? 'border-teal-500 bg-teal-50/50 dark:bg-teal-900/10' 
+                                       : 'border-slate-100 dark:border-slate-700/50 hover:border-teal-200 dark:hover:border-teal-800'}"
+                        >
+                            <div class="flex-shrink-0 mt-1">
+                                <div class="w-5 h-5 rounded-full border-2 flex items-center justify-center {displayCommonNames && scientificNamePrimary ? 'border-teal-500' : 'border-slate-300'}">
+                                    {#if displayCommonNames && scientificNamePrimary}<div class="w-2.5 h-2.5 rounded-full bg-teal-500"></div>{/if}
+                                </div>
+                            </div>
+                            <div>
+                                <span class="block text-sm font-bold text-slate-900 dark:text-white">Hobbyist</span>
+                                <span class="block text-xs text-slate-500 dark:text-slate-400 mt-1">
+                                    Scientific names are primary. Common names shown as subtitles.
+                                </span>
+                                <span class="inline-block mt-2 px-2 py-1 bg-white dark:bg-slate-800 rounded border border-slate-200 dark:border-slate-700 text-[10px] font-mono">
+                                    <span class="font-bold text-teal-600">Cyanistes caeruleus</span> <span class="italic text-slate-400">(Blue Tit)</span>
+                                </span>
+                            </div>
+                        </button>
+
+                        <!-- Scientific Only Mode -->
+                        <button
+                            onclick={() => { displayCommonNames = false; }}
+                            class="flex items-start gap-4 p-4 rounded-xl border-2 transition-all text-left
+                                   {!displayCommonNames 
+                                       ? 'border-teal-500 bg-teal-50/50 dark:bg-teal-900/10' 
+                                       : 'border-slate-100 dark:border-slate-700/50 hover:border-teal-200 dark:hover:border-teal-800'}"
+                        >
+                            <div class="flex-shrink-0 mt-1">
+                                <div class="w-5 h-5 rounded-full border-2 flex items-center justify-center {!displayCommonNames ? 'border-teal-500' : 'border-slate-300'}">
+                                    {#if !displayCommonNames}<div class="w-2.5 h-2.5 rounded-full bg-teal-500"></div>{/if}
+                                </div>
+                            </div>
+                            <div>
+                                <span class="block text-sm font-bold text-slate-900 dark:text-white">Strictly Scientific</span>
+                                <span class="block text-xs text-slate-500 dark:text-slate-400 mt-1">
+                                    Show only scientific names. Hides all common names from the UI.
+                                </span>
+                                <span class="inline-block mt-2 px-2 py-1 bg-white dark:bg-slate-800 rounded border border-slate-200 dark:border-slate-700 text-[10px] font-mono">
+                                    <span class="font-bold text-teal-600">Cyanistes caeruleus</span>
+                                </span>
+                            </div>
+                        </button>
                     </div>
                 </div>
 
