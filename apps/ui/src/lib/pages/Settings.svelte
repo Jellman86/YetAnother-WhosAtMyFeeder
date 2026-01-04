@@ -621,6 +621,7 @@
                             <div>
                                 <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Station Token</label>
                                 <input type="password" bind:value={birdweatherStationToken} placeholder="Your BirdWeather token" class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm" />
+                                <p class="mt-2 text-[10px] text-slate-500 font-bold italic">Available in your station settings under "BirdWeather Token".</p>
                             </div>
                             <button onclick={handleTestBirdWeather} disabled={testingBirdWeather || !birdweatherStationToken} class="w-full px-4 py-3 text-xs font-black uppercase tracking-widest rounded-2xl bg-indigo-500 hover:bg-indigo-600 text-white transition-all shadow-lg shadow-indigo-500/20 disabled:opacity-50">
                                 {testingBirdWeather ? 'Verifying...' : 'Test Connection'}
