@@ -32,7 +32,11 @@
     let subName = $derived(naming.secondary);
 
     let isVerified = $derived(detection.audio_confirmed && detection.score > 0.7);
-</script>
+
+    let imageError = $state(false);
+    let imageLoaded = $state(false);
+    let cardElement = $state<HTMLElement | null>(null);
+    let isVisible = $state(false);
 
 <div
     role="button"
