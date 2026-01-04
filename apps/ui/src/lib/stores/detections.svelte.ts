@@ -1,11 +1,15 @@
 import { type Detection, fetchEvents, fetchEventsCount } from '../api';
 
+export interface FrameResult {
+    score: number;
+    label: string;
+}
+
 export interface ReclassificationProgress {
     eventId: string;
     currentFrame: number;
     totalFrames: number;
-    frameScore: number;
-    topLabel: string;
+    frameResults: FrameResult[];
     status: 'running' | 'completed';
     results?: any; // Final results from backend
 }
@@ -87,8 +91,7 @@ class DetectionsStore {
             eventId,
             currentFrame: 0,
             totalFrames: 15,
-            frameScore: 0,
-            topLabel: '',
+            frameResults: [],
             status: 'running'
         });
         this.progressMap = newMap;
@@ -96,15 +99,18 @@ class DetectionsStore {
 
     updateReclassificationProgress(eventId: string, currentFrame: number, totalFrames: number, frameScore: number, topLabel: string) {
         const newMap = new Map(this.progressMap);
-        newMap.set(eventId, {
-            eventId,
-            currentFrame,
-            totalFrames,
-            frameScore,
-            topLabel,
-            status: 'running'
-        });
-        this.progressMap = newMap;
+        const existing = newMap.get(eventId);
+        
+        if (existing) {
+            newMap.set(eventId, {
+                ...existing,
+                currentFrame,
+                totalFrames,
+                frameResults: [...existing.frameResults, { score: frameScore, label: topLabel }],
+                status: 'running'
+            });
+            this.progressMap = newMap;
+        }
     }
 
     completeReclassification(eventId: string, results: any) {

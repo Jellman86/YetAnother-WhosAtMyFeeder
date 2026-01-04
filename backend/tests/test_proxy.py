@@ -38,8 +38,9 @@ def test_proxy_clip_invalid_event_id():
     settings.frigate.clips_enabled = True
 
     try:
-        # Test with invalid characters
-        response = client.get("/api/frigate/../../etc/passwd/clip.mp4")
+        # Use a path that won't be normalized away by the test client/server
+        # but still fails our validation
+        response = client.get("/api/frigate/invalid@event!id/clip.mp4")
         assert response.status_code == 400
         assert "Invalid event ID format" in response.json()["detail"]
     finally:
@@ -86,8 +87,14 @@ def test_proxy_clip_enabled(mock_frigate_response):
     """Test that clips are proxied when clips_enabled is True."""
     original_setting = settings.frigate.clips_enabled
     settings.frigate.clips_enabled = True
+    settings.media_cache.enabled = False # Disable cache for this test
 
-    with patch("app.routers.proxy.httpx.AsyncClient") as MockClient:
+    with patch("app.routers.proxy.httpx.AsyncClient") as MockClient, \
+         patch("app.routers.proxy.frigate_client") as mock_frigate:
+        
+        mock_frigate.get_event = AsyncMock(return_value={"has_clip": True})
+        mock_frigate._get_headers = MagicMock(return_value={})
+
         mock_client = MagicMock()
         mock_client.build_request = MagicMock()
         mock_client.send = AsyncMock(return_value=mock_frigate_response)
@@ -107,8 +114,14 @@ def test_proxy_clip_range_header_forwarded(mock_frigate_partial_response):
     """Test that Range headers are forwarded to Frigate and 206 responses are returned."""
     original_setting = settings.frigate.clips_enabled
     settings.frigate.clips_enabled = True
+    settings.media_cache.enabled = False # Disable cache for this test
 
-    with patch("app.routers.proxy.httpx.AsyncClient") as MockClient:
+    with patch("app.routers.proxy.httpx.AsyncClient") as MockClient, \
+         patch("app.routers.proxy.frigate_client") as mock_frigate:
+        
+        mock_frigate.get_event = AsyncMock(return_value={"has_clip": True})
+        mock_frigate._get_headers = MagicMock(return_value={})
+
         mock_client = MagicMock()
         mock_client.build_request = MagicMock()
         mock_client.send = AsyncMock(return_value=mock_frigate_partial_response)
@@ -122,9 +135,6 @@ def test_proxy_clip_range_header_forwarded(mock_frigate_partial_response):
             )
             assert response.status_code == 206
             assert response.headers.get("content-range") == "bytes 0-999/12345"
-
-            # Verify Range header was passed to build_request
-            # The Range header should have been included
         finally:
             settings.frigate.clips_enabled = original_setting
 
@@ -134,20 +144,12 @@ def test_proxy_clip_404_from_frigate():
     original_setting = settings.frigate.clips_enabled
     settings.frigate.clips_enabled = True
 
-    mock_response = MagicMock()
-    mock_response.status_code = 404
-    mock_response.aclose = AsyncMock()
-
-    with patch("app.routers.proxy.httpx.AsyncClient") as MockClient:
-        mock_client = MagicMock()
-        mock_client.build_request = MagicMock()
-        mock_client.send = AsyncMock(return_value=mock_response)
-        mock_client.aclose = AsyncMock()
-        MockClient.return_value = mock_client
+    with patch("app.routers.proxy.frigate_client") as mock_frigate:
+        mock_frigate.get_event = AsyncMock(return_value=None)
 
         try:
             response = client.get("/api/frigate/test_event_id/clip.mp4")
             assert response.status_code == 404
-            assert response.json()["detail"] == "Clip not found"
+            assert "Event not found in Frigate" in response.json()["detail"]
         finally:
             settings.frigate.clips_enabled = original_setting

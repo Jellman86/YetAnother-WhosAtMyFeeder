@@ -1,31 +1,45 @@
 import pytest
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 from app.services.event_processor import EventProcessor
 
 @pytest.mark.asyncio
 async def test_process_mqtt_message_valid_bird():
     # Mock classifier
     classifier = MagicMock()
-    classifier.classify.return_value = [{"label": "Cardinal", "score": 0.95, "index": 1}]
+    classifier.classify_async = AsyncMock(return_value=[{"label": "Cardinal", "score": 0.95, "index": 1}])
     
-    # Mock EventProcessor methods/dependencies
-    processor = EventProcessor(classifier)
-    processor.http_client.get = AsyncMock()
-    processor.http_client.get.return_value = MagicMock(status_code=200, content=b"fakeimage")
-    processor.http_client.post = AsyncMock()
-    
-    # Mock DB interaction (This is harder without dependency injection or mocking get_db)
-    # Ideally checking side effects or using a test DB. 
-    # For unit test, we might want to mock the _save_detection method if we can't easily mock the context manager.
-    processor._save_detection = AsyncMock() 
-    processor._set_sublabel = AsyncMock()
+    # Mock dependencies
+    with patch("app.services.event_processor.frigate_client") as mock_frigate, \
+         patch("app.services.event_processor.DetectionService") as MockDetectionService, \
+         patch("app.services.event_processor.media_cache") as mock_cache, \
+         patch("app.services.event_processor.audio_service") as mock_audio, \
+         patch("app.services.event_processor.weather_service") as mock_weather, \
+         patch("app.services.event_processor.Image.open") as mock_image_open, \
+         patch("app.services.detection_service.taxonomy_service") as mock_taxonomy:
+        
+        # Mock EventProcessor with dependencies already patched
+        processor = EventProcessor(classifier)
 
-    payload = b'{"after": {"id": "123", "label": "bird", "camera": "cam1", "start_time": 1700000000}}'
-    
-    await processor.process_mqtt_message(payload)
-    
-    processor._save_detection.assert_called_once()
-    processor._set_sublabel.assert_called_with("123", "Cardinal")
+        mock_frigate.get_snapshot = AsyncMock(return_value=b"fakeimage")
+        mock_frigate.set_sublabel = AsyncMock()
+        
+        mock_cache.cache_snapshot = AsyncMock()
+        
+        mock_taxonomy.get_names = AsyncMock(return_value={})
+        
+        mock_det_service = MockDetectionService.return_value
+        mock_det_service.filter_and_label.return_value = {"label": "Cardinal", "score": 0.95}
+        mock_det_service.save_detection = AsyncMock()
+        
+        mock_audio.find_match = AsyncMock(return_value=None)
+        mock_weather.get_current_weather = AsyncMock(return_value={})
+
+        payload = b'{"after": {"id": "123", "label": "bird", "camera": "cam1", "start_time": 1700000000}}'
+        
+        await processor.process_mqtt_message(payload)
+        
+        mock_det_service.save_detection.assert_called_once()
+        mock_frigate.set_sublabel.assert_called_with("123", "Cardinal")
 
 @pytest.mark.asyncio
 async def test_process_mqtt_message_ignore_non_bird():
@@ -35,4 +49,4 @@ async def test_process_mqtt_message_ignore_non_bird():
     payload = b'{"after": {"id": "124", "label": "person", "camera": "cam1"}}'
     await processor.process_mqtt_message(payload)
     
-    classifier.classify.assert_not_called()
+    classifier.classify_async.assert_not_called()

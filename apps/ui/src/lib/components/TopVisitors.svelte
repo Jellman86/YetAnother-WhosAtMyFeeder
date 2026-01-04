@@ -3,6 +3,8 @@
     import { getThumbnailUrl } from '../api';
     import { settingsStore } from '../stores/settings';
 
+    import { getBirdNames } from '../naming';
+
     interface Props {
         species: DailySpeciesSummary[];
         onSpeciesClick?: (species: string) => void;
@@ -20,28 +22,11 @@
     // Ultra-reactive derivation
     let processedSpecies = $derived.by(() => {
         return species.map(item => {
-            // Determine primary and secondary labels
-            let primary: string;
-            let secondary: string | null = null;
-
-            if (!showCommon) {
-                // If common names are disabled, always show scientific as primary
-                primary = (item.scientific_name || item.species) as string;
-                secondary = null;
-            } else if (preferSci) {
-                // Common names enabled, but scientific is preferred as primary
-                primary = (item.scientific_name || item.species) as string;
-                secondary = item.common_name ?? null;
-            } else {
-                // Common names enabled and preferred as primary
-                primary = (item.common_name || item.species) as string;
-                secondary = item.scientific_name ?? null;
-            }
-
+            const naming = getBirdNames(item, showCommon, preferSci);
             return {
                 ...item,
-                displayName: primary,
-                subName: (secondary && secondary !== primary) ? secondary : null
+                displayName: naming.primary,
+                subName: naming.secondary
             };
         });
     });
@@ -56,7 +41,7 @@
         {#each processedSpecies as item}
             <button 
                 onclick={() => onSpeciesClick?.(item.species)}
-                class="bg-white dark:bg-slate-800/50 rounded-xl p-3 border border-slate-200/80 dark:border-slate-700/50 text-left hover:border-teal-500 dark:hover:border-teal-400 transition-all group shadow-sm"
+                class="bg-white dark:bg-slate-800/50 rounded-xl p-3 border border-slate-200/80 dark:border-slate-700/50 text-left hover:border-teal-500 dark:hover:border-teal-400 transition-all group shadow-sm flex flex-col h-full"
             >
                 <div class="relative aspect-square rounded-lg overflow-hidden mb-3 bg-slate-100 dark:bg-slate-700">
                     <img 
@@ -68,15 +53,17 @@
                         {item.count}
                     </div>
                 </div>
-                <p class="text-xs font-bold text-slate-900 dark:text-white truncate" title={item.displayName}>
-                    {item.displayName}
-                </p>
-                {#if item.subName}
-                    <p class="text-[9px] italic text-slate-500 dark:text-slate-400 truncate opacity-80" title={item.subName}>
-                        {item.subName}
+                <div class="flex-1 min-w-0">
+                    <p class="text-xs font-bold text-slate-900 dark:text-white truncate" title={item.displayName}>
+                        {item.displayName}
                     </p>
-                {/if}
-                <p class="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
+                    {#if item.subName}
+                        <p class="text-[10px] italic text-slate-500 dark:text-slate-400 truncate opacity-80 mt-0.5" title={item.subName}>
+                            {item.subName}
+                        </p>
+                    {/if}
+                </div>
+                <p class="text-[10px] text-slate-400 dark:text-slate-500 mt-2 pt-2 border-t border-slate-100 dark:border-slate-700/50">
                     {item.count} visits
                 </p>
             </button>

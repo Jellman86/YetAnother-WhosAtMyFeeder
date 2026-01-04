@@ -61,6 +61,9 @@ export interface Settings {
     location_latitude?: number | null;
     location_longitude?: number | null;
     location_automatic?: boolean;
+    // BirdWeather settings
+    birdweather_enabled: boolean;
+    birdweather_station_token?: string | null;
     // LLM settings
     llm_enabled: boolean;
     llm_provider: string;
@@ -94,6 +97,9 @@ export interface SettingsUpdate {
     location_latitude?: number | null;
     location_longitude?: number | null;
     location_automatic?: boolean;
+    // BirdWeather settings
+    birdweather_enabled?: boolean;
+    birdweather_station_token?: string | null;
     // LLM settings
     llm_enabled?: boolean;
     llm_provider?: string;
@@ -533,6 +539,11 @@ export async function fetchTaxonomyStatus(): Promise<TaxonomySyncStatus> {
 export async function startTaxonomySync(): Promise<{ status: string }> {
     const response = await fetch(`${API_BASE}/maintenance/taxonomy/sync`, { method: 'POST' });
     return handleResponse<{ status: string }>(response);
+}
+
+export async function testBirdWeather(): Promise<{ status: string; message: string }> {
+    const response = await fetch(`${API_BASE}/settings/birdweather/test`, { method: 'POST' });
+    return handleResponse<{ status: string; message: string }>(response);
 }
 
 // Model Manager types and functions

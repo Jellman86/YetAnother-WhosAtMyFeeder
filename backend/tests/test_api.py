@@ -6,4 +6,8 @@ client = TestClient(app)
 def test_health_check():
     response = client.get("/health")
     assert response.status_code == 200
-    assert response.json() == {"status": "ok", "service": "whosatmyfeeder-backend"}
+    data = response.json()
+    assert data["service"] == "ya-wamf-backend"
+    assert "status" in data
+    assert "ml" in data
+

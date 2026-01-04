@@ -72,6 +72,10 @@ class LocationSettings(BaseModel):
     longitude: Optional[float] = Field(None, description="Longitude for weather/sun data")
     automatic: bool = Field(True, description="Attempt to detect location automatically via IP")
 
+class BirdWeatherSettings(BaseModel):
+    enabled: bool = Field(default=False, description="Enable BirdWeather reporting")
+    station_token: Optional[str] = Field(None, description="BirdWeather Station Token")
+
 class LLMSettings(BaseModel):
     enabled: bool = Field(default=False, description="Enable AI-based behavior analysis")
     provider: str = Field(default="gemini", description="AI provider (gemini, openai)")
@@ -84,6 +88,7 @@ class Settings(BaseSettings):
     maintenance: MaintenanceSettings = MaintenanceSettings()
     media_cache: MediaCacheSettings = MediaCacheSettings()
     location: LocationSettings = LocationSettings()
+    birdweather: BirdWeatherSettings = BirdWeatherSettings()
     llm: LLMSettings = LLMSettings()
     
     # General app settings
@@ -145,6 +150,12 @@ class Settings(BaseSettings):
             'automatic': True
         }
 
+        # BirdWeather settings
+        birdweather_data = {
+            'enabled': os.environ.get('BIRDWEATHER__ENABLED', 'false').lower() == 'true',
+            'station_token': os.environ.get('BIRDWEATHER__STATION_TOKEN', None),
+        }
+
         # LLM settings
         llm_data = {
             'enabled': os.environ.get('LLM__ENABLED', 'false').lower() == 'true',
@@ -190,6 +201,12 @@ class Settings(BaseSettings):
                 if 'location' in file_data:
                     for key, value in file_data['location'].items():
                         location_data[key] = value
+
+                if 'birdweather' in file_data:
+                    for key, value in file_data['birdweather'].items():
+                        env_key = f'BIRDWEATHER__{key.upper()}'
+                        if env_key not in os.environ:
+                            birdweather_data[key] = value
                         
                 if 'llm' in file_data:
                     for key, value in file_data['llm'].items():
@@ -216,6 +233,7 @@ class Settings(BaseSettings):
                  cache_snapshots=media_cache_data['cache_snapshots'],
                  cache_clips=media_cache_data['cache_clips'],
                  retention_days=media_cache_data['retention_days'])
+        log.info("BirdWeather config", enabled=birdweather_data['enabled'])
         log.info("LLM config", enabled=llm_data['enabled'], provider=llm_data['provider'])
 
         return cls(
@@ -224,6 +242,7 @@ class Settings(BaseSettings):
             maintenance=MaintenanceSettings(**maintenance_data),
             media_cache=MediaCacheSettings(**media_cache_data),
             location=LocationSettings(**location_data),
+            birdweather=BirdWeatherSettings(**birdweather_data),
             llm=LLMSettings(**llm_data)
         )
 

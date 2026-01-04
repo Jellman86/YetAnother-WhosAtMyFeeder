@@ -7,6 +7,8 @@
         type SpeciesInfo,
         getThumbnailUrl
     } from '../api';
+    import { getBirdNames } from '../naming';
+    import { settingsStore } from '../stores/settings';
     import SimpleBarChart from './SimpleBarChart.svelte';
 
     interface Props {
@@ -21,42 +23,37 @@
     let loading = $state(true);
     let error = $state<string | null>(null);
 
-    // Simplified hour labels - show key times only, hover reveals exact hour
-    const HOUR_LABELS = ['12am', '1', '2', '3', '4', '5', '6am', '7', '8', '9', '10', '11',
-                         '12pm', '1', '2', '3', '4', '5', '6pm', '7', '8', '9', '10', '11'];
-    const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-                          'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-    onMount(async () => {
-        loading = true;
-        error = null;
-        try {
-            const [statsData, infoData] = await Promise.all([
-                fetchSpeciesStats(speciesName),
-                fetchSpeciesInfo(speciesName)
-            ]);
-            stats = statsData;
-            info = infoData;
-        } catch (e) {
-            error = 'Failed to load species information';
-            console.error('Error loading species details:', e);
-        } finally {
-            loading = false;
-        }
+    let showCommon = $state(true);
+    let preferSci = $state(false);
+    $effect(() => {
+        showCommon = $settingsStore?.display_common_names ?? true;
+        preferSci = $settingsStore?.scientific_name_primary ?? false;
     });
 
     // Content
-    let subName = $derived.by(() => {
-        if (!stats) return info?.scientific_name || null;
-        
-        // If the main name is the common name, show scientific as sub
-        if (stats.species_name === stats.common_name) {
-            return stats.scientific_name;
+    let naming = $derived.by(() => {
+        if (stats) {
+            // Create a pseudo-summary object for naming utility
+            const item = {
+                species: stats.species_name,
+                scientific_name: stats.scientific_name,
+                common_name: stats.common_name
+            };
+            return getBirdNames(item as any, showCommon, preferSci);
         }
-        // If main name is scientific, show common as sub
-        return stats.common_name;
+        if (info) {
+            const item = {
+                species: speciesName,
+                scientific_name: info.scientific_name,
+                common_name: null // info doesn't always have common name separate
+            };
+            return getBirdNames(item as any, showCommon, preferSci);
+        }
+        return { primary: speciesName, secondary: null };
     });
+
+    let primaryName = $derived(naming.primary);
+    let subName = $derived(naming.secondary);
 
     function formatDate(dateStr: string | null): string {
         if (!dateStr) return 'N/A';
@@ -114,9 +111,9 @@
         <div class="flex items-start justify-between p-6 border-b border-slate-200 dark:border-slate-700">
             <div>
                 <h2 id="modal-title" class="text-2xl font-bold text-slate-900 dark:text-white">
-                    {speciesName}
+                    {primaryName}
                 </h2>
-                {#if subName && subName !== speciesName}
+                {#if subName && subName !== primaryName}
                     <p class="text-sm italic text-slate-500 dark:text-slate-400 mt-1">
                         {subName}
                     </p>
@@ -169,7 +166,7 @@
                         <div class="relative h-48 sm:h-64 overflow-hidden">
                             <img
                                 src={info.thumbnail_url}
-                                alt={speciesName}
+                                alt={primaryName}
                                 class="w-full h-full object-cover"
                                 onerror={(e) => {
                                     const target = e.target as HTMLImageElement;
@@ -178,8 +175,8 @@
                             />
                             <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
                             <div class="absolute bottom-4 left-6 right-6">
-                                <h3 class="text-2xl font-bold text-white drop-shadow-lg">{speciesName}</h3>
-                                {#if subName && subName !== speciesName}
+                                <h3 class="text-2xl font-bold text-white drop-shadow-lg">{primaryName}</h3>
+                                {#if subName && subName !== primaryName}
                                     <p class="text-sm italic text-white/80 mt-0.5 drop-shadow">{subName}</p>
                                 {/if}
                                 {#if info.description}

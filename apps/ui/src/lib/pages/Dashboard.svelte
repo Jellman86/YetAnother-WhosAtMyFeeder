@@ -14,6 +14,8 @@
     import { getThumbnailUrl, deleteDetection, hideDetection, updateDetectionSpecies, analyzeDetection, fetchDailySummary, fetchClassifierLabels, reclassifyDetection } from '../api';
     import { settingsStore } from '../stores/settings';
 
+    import { getBirdNames } from '../naming';
+
     interface Props {
         onnavigate?: (path: string) => void;
     }
@@ -28,8 +30,12 @@
 
     // Settings state
     let llmEnabled = $state(false);
+    let showCommon = $state(true);
+    let preferSci = $state(false);
     $effect(() => {
         llmEnabled = $settingsStore?.llm_enabled ?? false;
+        showCommon = $settingsStore?.display_common_names ?? true;
+        preferSci = $settingsStore?.scientific_name_primary ?? false;
     });
 
     // AI Analysis state
@@ -60,31 +66,7 @@
     );
 
     // Derive naming logic for the modal
-    let modalNaming = $derived.by(() => {
-        if (!selectedEvent) return { primary: '', secondary: null };
-        const settings = $settingsStore;
-        const showCommon = settings?.display_common_names ?? true;
-        const preferSci = settings?.scientific_name_primary ?? false;
-
-        let primary: string;
-        let secondary: string | null = null;
-
-        if (!showCommon) {
-            primary = (selectedEvent.scientific_name || selectedEvent.display_name) as string;
-            secondary = null;
-        } else if (preferSci) {
-            primary = (selectedEvent.scientific_name || selectedEvent.display_name) as string;
-            secondary = (selectedEvent.common_name || null) as string | null;
-        } else {
-            primary = (selectedEvent.common_name || selectedEvent.display_name) as string;
-            secondary = (selectedEvent.scientific_name || null) as string | null;
-        }
-
-        return {
-            primary,
-            secondary: (secondary && secondary !== primary) ? secondary : null
-        };
-    });
+    let modalNaming = $derived(selectedEvent ? getBirdNames(selectedEvent, showCommon, preferSci) : { primary: '', secondary: null });
 
     let modalPrimaryName = $derived(modalNaming.primary);
     let modalSubName = $derived(modalNaming.secondary);
@@ -96,14 +78,7 @@
     let mostSeenName = $derived.by(() => {
         const top = summary?.top_species[0];
         if (!top) return null;
-        
-        const settings = $settingsStore;
-        const showCommon = settings?.display_common_names ?? true;
-        const preferSci = settings?.scientific_name_primary ?? false;
-
-        if (!showCommon) return top.scientific_name || top.species;
-        if (preferSci) return top.scientific_name || top.species;
-        return top.common_name || top.species;
+        return getBirdNames(top, showCommon, preferSci).primary;
     });
 
     async function loadSummary(force = false) {

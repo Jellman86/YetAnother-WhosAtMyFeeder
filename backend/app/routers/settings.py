@@ -30,6 +30,24 @@ async def start_taxonomy_sync(background_tasks: BackgroundTasks):
     background_tasks.add_task(taxonomy_service.run_background_sync)
     return {"status": "started"}
 
+@router.post("/settings/birdweather/test")
+async def test_birdweather():
+    """Test BirdWeather connectivity and station token."""
+    from app.services.birdweather_service import birdweather_service
+    
+    # Send a dummy test detection
+    success = await birdweather_service.report_detection(
+        scientific_name="Passer domesticus",
+        common_name="House Sparrow (Test)",
+        confidence=1.0,
+        timestamp=datetime.now()
+    )
+    
+    if success:
+        return {"status": "ok", "message": "Test detection reported successfully"}
+    else:
+        return {"status": "error", "message": "Failed to report test detection. Check your token and logs."}
+
 class SettingsUpdate(BaseModel):
     frigate_url: str = Field(..., min_length=1, description="Frigate instance URL")
     mqtt_server: str = Field(..., min_length=1, description="MQTT server hostname")

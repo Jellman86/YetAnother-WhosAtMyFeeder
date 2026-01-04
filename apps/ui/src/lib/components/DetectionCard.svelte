@@ -5,6 +5,8 @@
     import { settingsStore } from '../stores/settings';
     import ReclassificationOverlay from './ReclassificationOverlay.svelte';
 
+    import { getBirdNames } from '../naming';
+
     interface Props {
         detection: Detection;
         onclick?: () => void;
@@ -101,26 +103,7 @@
     }
 
     // Dynamic Naming Logic
-    let naming = $derived.by(() => {
-        let primary: string;
-        let secondary: string | null = null;
-
-        if (!showCommon) {
-            primary = (detection.scientific_name || detection.display_name) as string;
-            secondary = null;
-        } else if (preferSci) {
-            primary = (detection.scientific_name || detection.display_name) as string;
-            secondary = (detection.common_name || null) as string | null;
-        } else {
-            primary = (detection.common_name || detection.display_name) as string;
-            secondary = (detection.scientific_name || null) as string | null;
-        }
-
-        return {
-            primary,
-            secondary: (secondary && secondary !== primary) ? secondary : null
-        };
-    });
+    let naming = $derived(getBirdNames(detection, showCommon, preferSci));
 
     let primaryName = $derived(naming.primary);
     let subName = $derived(naming.secondary);

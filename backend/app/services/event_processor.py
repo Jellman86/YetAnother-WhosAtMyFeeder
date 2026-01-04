@@ -86,7 +86,7 @@ class EventProcessor:
                     if not results:
                         return
                 except Exception as e:
-                    log.error("Classification failed", event=frigate_event, error=str(e))
+                    log.error("Classification failed", event_id=frigate_event, error=str(e))
                     return
 
             # Apply common filtering and labeling logic (with Frigate sublabel for fallback if needed)
@@ -112,7 +112,7 @@ class EventProcessor:
                 # Logic 1: Confirmation
                 if audio_species.lower() == label.lower():
                     audio_confirmed = True
-                    log.info("Audio confirmed visual detection", event=frigate_event, species=label)
+                    log.info("Audio confirmed visual detection", event_id=frigate_event, species=label)
                 
                 # Logic 2: Enhancement (Unknown -> Audio Label)
                 # If visual is generic/unknown but audio is strong, upgrade it
@@ -161,4 +161,4 @@ class EventProcessor:
         except Exception as e:
             # frigate_event may not be defined if error occurred early
             event_id = locals().get('frigate_event', 'unknown')
-            log.error("Error processing event", event=event_id, error=str(e), exc_info=True)
+            log.error("Error processing event", event_id=event_id, error=str(e), exc_info=True)

@@ -668,14 +668,13 @@ class ClassifierService:
 
     def classify_video(self, video_path: str, stride: int = 5, max_frames: int = 15, progress_callback=None) -> list[dict]:
         """
-        Classify a video clip using Temporal Ensemble (Soft Voting).
+        Classify a video clip using Temporal Ensemble (Soft Voting) with Normal Distribution sampling.
 
         Args:
             video_path: Path to the video file.
-            stride: Process every Nth frame.
-            max_frames: Maximum number of frames to process to limit latency.
-            progress_callback: Optional callback function(current_frame, total_frames, frame_score, top_label)
-                              called after each frame is processed.
+            stride: Legacy parameter, no longer used for sampling but kept for API compatibility.
+            max_frames: Maximum number of frames to process.
+            progress_callback: Optional callback function.
 
         Returns:
             List of classifications with aggregated scores.
@@ -691,41 +690,69 @@ class ClassifierService:
                 log.error(f"Could not open video file: {video_path}")
                 return []
 
-            frame_count = 0
+            total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+            fps = cap.get(cv2.CAP_PROP_FPS)
+            
+            if total_frames <= 0:
+                log.warning("Video has no frames", path=video_path)
+                cap.release()
+                return []
+
+            log.info("Analyzing video", frames=total_frames, fps=fps, max_samples=max_frames)
+
+            # --- Normal Distribution Sampling ---
+            # We want to sample frames mostly from the middle where the bird is likely most active/visible
+            # mu = center of video, sigma = 1/4 of video length to cover ~95% of duration
+            mu = total_frames / 2
+            sigma = total_frames / 4
+            
+            # Use a local RNG for deterministic sampling
+            rng = np.random.RandomState(42)
+            
+            # Generate more samples than needed then unique/sort to get high-quality distribution
+            raw_indices = rng.normal(mu, sigma, max_frames * 2)
+            frame_indices = np.clip(raw_indices, 0, total_frames - 1).astype(int)
+            frame_indices = np.unique(np.sort(frame_indices))
+            
+            # If we have too many after unique, take max_frames spread out
+            if len(frame_indices) > max_frames:
+                # Sub-sample to exactly max_frames
+                idx = np.round(np.linspace(0, len(frame_indices) - 1, max_frames)).astype(int)
+                frame_indices = frame_indices[idx]
+            # ------------------------------------
+
             all_scores = []
 
-            while len(all_scores) < max_frames:
+            for idx in frame_indices:
+                # Seek to frame
+                cap.set(cv2.CAP_PROP_POS_FRAMES, idx)
                 ret, frame = cap.read()
                 if not ret:
-                    break
+                    continue
 
-                # Process every 'stride' frames
-                if frame_count % stride == 0:
-                    # Convert BGR (OpenCV) to RGB (PIL)
-                    frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                    image = Image.fromarray(frame_rgb)
+                # Convert BGR (OpenCV) to RGB (PIL)
+                frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                image = Image.fromarray(frame_rgb)
 
-                    # Get raw probability vector
-                    scores = bird_model.classify_raw(image)
+                # Get raw probability vector
+                scores = bird_model.classify_raw(image)
 
-                    if len(scores) > 0:
-                        all_scores.append(scores)
+                if len(scores) > 0:
+                    all_scores.append(scores)
 
-                        # Call progress callback if provided
-                        if progress_callback:
-                            # Get top prediction for this frame
-                            top_idx = int(np.argmax(scores))
-                            top_score = float(scores[top_idx])
-                            top_label = bird_model.labels[top_idx] if top_idx < len(bird_model.labels) else f"Class {top_idx}"
+                    # Call progress callback if provided
+                    if progress_callback:
+                        # Get top prediction for this frame
+                        top_idx = int(np.argmax(scores))
+                        top_score = float(scores[top_idx])
+                        top_label = bird_model.labels[top_idx] if top_idx < len(bird_model.labels) else f"Class {top_idx}"
 
-                            progress_callback(
-                                current_frame=len(all_scores),
-                                total_frames=max_frames,
-                                frame_score=top_score,
-                                top_label=top_label
-                            )
-
-                frame_count += 1
+                        progress_callback(
+                            current_frame=len(all_scores),
+                            total_frames=len(frame_indices),
+                            frame_score=top_score,
+                            top_label=top_label
+                        )
 
             cap.release()
 

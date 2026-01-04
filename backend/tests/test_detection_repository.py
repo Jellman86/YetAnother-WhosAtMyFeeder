@@ -12,11 +12,22 @@ async def test_detection_repository():
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 detection_time TIMESTAMP NOT NULL,
                 detection_index INTEGER NOT NULL,
-                score REAL NOT NULL,
+                score FLOAT NOT NULL,
                 display_name TEXT NOT NULL,
                 category_name TEXT NOT NULL,
-                frigate_event TEXT NOT NULL UNIQUE,
-                camera_name TEXT NOT NULL
+                frigate_event TEXT UNIQUE NOT NULL,
+                camera_name TEXT NOT NULL,
+                is_hidden BOOLEAN DEFAULT 0,
+                frigate_score FLOAT,
+                sub_label TEXT,
+                audio_confirmed BOOLEAN DEFAULT 0,
+                audio_species TEXT,
+                audio_score FLOAT,
+                temperature FLOAT,
+                weather_condition TEXT,
+                scientific_name TEXT,
+                common_name TEXT,
+                taxa_id INTEGER
             )
         """)
         await db.commit()

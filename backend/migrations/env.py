@@ -18,13 +18,16 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
+from app.db_schema import metadata
+
 # YA-WAMF doesn't use SQLAlchemy models for metadata, so we leave this as None
 # or we could manually define it if we wanted autogenerate.
-target_metadata = None
+target_metadata = metadata
 
 def get_url():
     # In YA-WAMF, we use SQLite
-    return "sqlite:////data/speciesid.db"
+    db_path = os.environ.get("DB_PATH", "data/speciesid.db")
+    return f"sqlite:///{db_path}"
 
 def run_migrations_offline() -> None:
     url = get_url()

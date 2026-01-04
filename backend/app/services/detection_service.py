@@ -5,6 +5,7 @@ from app.repositories.detection_repository import DetectionRepository, Detection
 from app.services.classifier_service import ClassifierService
 from app.services.broadcaster import broadcaster
 from app.services.taxonomy.taxonomy_service import taxonomy_service
+from app.services.birdweather_service import birdweather_service
 from app.database import get_db
 
 log = structlog.get_logger()
@@ -170,5 +171,16 @@ class DetectionService:
                         "weather_condition": weather_condition
                     }
                 })
+
+                # 3. Report to BirdWeather (if enabled)
+                if scientific_name and scientific_name != "Unknown Bird":
+                    # Run in background to not block the main loop
+                    import asyncio
+                    asyncio.create_task(birdweather_service.report_detection(
+                        scientific_name=scientific_name,
+                        common_name=common_name,
+                        confidence=score,
+                        timestamp=timestamp
+                    ))
             
             return changed

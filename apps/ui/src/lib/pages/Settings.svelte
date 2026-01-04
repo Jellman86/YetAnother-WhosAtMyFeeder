@@ -16,6 +16,7 @@
         runCacheCleanup,
         fetchTaxonomyStatus,
         startTaxonomySync,
+        testBirdWeather,
         type ClassifierStatus,
         type WildlifeModelStatus,
         type MaintenanceStats,
@@ -57,6 +58,10 @@
     let locationLon = $state<number | null>(null);
     let locationAuto = $state(true);
 
+    // BirdWeather Settings
+    let birdweatherEnabled = $state(false);
+    let birdweatherStationToken = $state('');
+
     // LLM Settings
     let llmEnabled = $state(false);
     let llmProvider = $state('gemini');
@@ -69,6 +74,7 @@
     let loading = $state(true);
     let saving = $state(false);
     let testing = $state(false);
+    let testingBirdWeather = $state(false);
     let message = $state<{ type: 'success' | 'error'; text: string } | null>(null);
     let currentTheme: Theme = $state('system');
 
@@ -283,6 +289,9 @@
             locationLat = settings.location_latitude ?? null;
             locationLon = settings.location_longitude ?? null;
             locationAuto = settings.location_automatic ?? true;
+            // BirdWeather settings
+            birdweatherEnabled = settings.birdweather_enabled ?? false;
+            birdweatherStationToken = settings.birdweather_station_token ?? '';
             // LLM settings
             llmEnabled = settings.llm_enabled ?? false;
             llmProvider = settings.llm_provider ?? 'gemini';
@@ -340,6 +349,8 @@
                 location_latitude: locationLat,
                 location_longitude: locationLon,
                 location_automatic: locationAuto,
+                birdweather_enabled: birdweatherEnabled,
+                birdweather_station_token: birdweatherStationToken,
                 llm_enabled: llmEnabled,
                 llm_provider: llmProvider,
                 llm_api_key: llmApiKey,
@@ -371,6 +382,23 @@
             message = { type: 'error', text: errorMsg };
         } finally {
             testing = false;
+        }
+    }
+
+    async function handleTestBirdWeather() {
+        testingBirdWeather = true;
+        message = null;
+        try {
+            const result = await testBirdWeather();
+            if (result.status === 'ok') {
+                message = { type: 'success', text: result.message };
+            } else {
+                message = { type: 'error', text: result.message };
+            }
+        } catch (e: any) {
+            message = { type: 'error', text: e.message || 'Failed to test BirdWeather' };
+        } finally {
+            testingBirdWeather = false;
         }
     }
 
@@ -539,206 +567,10 @@
                 </div>
             {/if}
         </section>
-
-        <!-- MQTT Settings -->
-        <section class="bg-white/80 dark:bg-slate-800/50 rounded-2xl border border-slate-200/80 dark:border-slate-700/50 p-6 shadow-card dark:shadow-card-dark backdrop-blur-sm">
-            <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
-                📡 MQTT Settings
-            </h3>
-
-            <div class="space-y-4">
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div class="md:col-span-2">
-                        <label for="mqtt-server" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                            MQTT Server
-                        </label>
-                        <input
-                            id="mqtt-server"
-                            type="text"
-                            bind:value={mqttServer}
-                            placeholder="mosquitto"
-                            class="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600
-                                   bg-white dark:bg-slate-700 text-slate-900 dark:text-white
-                                   focus:ring-2 focus:ring-teal-500 focus:border-transparent
-                                   placeholder:text-slate-400 dark:placeholder:text-slate-500"
-                        />
-                    </div>
-                    <div>
-                        <label for="mqtt-port" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                            Port
-                        </label>
-                        <input
-                            id="mqtt-port"
-                            type="number"
-                            bind:value={mqttPort}
-                            placeholder="1883"
-                            class="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600
-                                   bg-white dark:bg-slate-700 text-slate-900 dark:text-white
-                                   focus:ring-2 focus:ring-teal-500 focus:border-transparent
-                                   placeholder:text-slate-400 dark:placeholder:text-slate-500"
-                        />
-                    </div>
-                </div>
-
-                <div>
-                    <label for="audio-topic" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                        Audio Detection Topic (BirdNET-Go)
-                    </label>
-                    <input
-                        id="audio-topic"
-                        type="text"
-                        bind:value={audioTopic}
-                        placeholder="birdnet/text"
-                        class="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600
-                               bg-white dark:bg-slate-700 text-slate-900 dark:text-white
-                               focus:ring-2 focus:ring-teal-500 focus:border-transparent
-                               placeholder:text-slate-400 dark:placeholder:text-slate-500"
-                    />
-                </div>
-
-                {#if availableCameras.length > 0}
-                    <div class="pt-4 border-t border-slate-200 dark:border-slate-700">
-                        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                            Camera to BirdNET ID Mapping (Optional)
-                        </label>
-                        <p class="text-xs text-slate-500 dark:text-slate-400 mb-3">
-                            Enter the "Sensor ID" configured in BirdNET-Go for each camera to enable precise audio correlation.
-                        </p>
-                        <div class="space-y-3">
-                            {#each availableCameras as camera}
-                                <div class="flex items-center gap-3">
-                                    <span class="text-xs font-medium text-slate-500 w-24 truncate">{camera}</span>
-                                    <input
-                                        type="text"
-                                        placeholder="BirdNET Sensor ID"
-                                        bind:value={cameraAudioMapping[camera]}
-                                        class="flex-1 px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600
-                                               bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm"
-                                    />
-                                </div>
-                            {/each}
-                        </div>
-                    </div>
-                {/if}
-
-                <div class="flex items-center gap-3 py-2">
-                     <button 
-                        role="switch" 
-                        aria-checked={mqttAuth}
-                        aria-label="Toggle MQTT Authentication"
-                        onclick={() => mqttAuth = !mqttAuth}
-                        class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2
-                               {mqttAuth ? 'bg-teal-500' : 'bg-slate-200 dark:bg-slate-600'}"
-                    >
-                        <span 
-                            class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out
-                                   {mqttAuth ? 'translate-x-5' : 'translate-x-0'}"
-                        ></span>
-                    </button>
-                    <span class="text-sm font-medium text-slate-700 dark:text-slate-300">Authentication Required</span>
-                </div>
-
-                {#if mqttAuth}
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-4 duration-300">
-                        <div>
-                            <label for="mqtt-username" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                                Username
-                            </label>
-                            <input
-                                id="mqtt-username"
-                                type="text"
-                                bind:value={mqttUsername}
-                                class="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600
-                                       bg-white dark:bg-slate-700 text-slate-900 dark:text-white
-                                       focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                            />
-                        </div>
-                        <div>
-                            <label for="mqtt-password" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                                Password
-                            </label>
-                            <input
-                                id="mqtt-password"
-                                type="password"
-                                bind:value={mqttPassword}
-                                class="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600
-                                       bg-white dark:bg-slate-700 text-slate-900 dark:text-white
-                                       focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                            />
-                        </div>
-                    </div>
-                {/if}
-            </div>
-        </section>
-
-        <!-- Location Settings -->
-        <section class="bg-white/80 dark:bg-slate-800/50 rounded-2xl border border-slate-200/80 dark:border-slate-700/50 p-6 shadow-card dark:shadow-card-dark backdrop-blur-sm">
-            <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
-                🌍 Location & Weather
-            </h3>
-            
-            <p class="text-sm text-slate-500 dark:text-slate-400 mb-4">
-                Used to fetch local weather data for your detections.
-            </p>
-
-            <div class="space-y-4">
-                <div class="flex items-center gap-3">
-                    <button
-                        role="switch"
-                        aria-checked={locationAuto}
-                        aria-label="Toggle Auto Location"
-                        onclick={() => locationAuto = !locationAuto}
-                        class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2
-                               {locationAuto ? 'bg-teal-500' : 'bg-slate-200 dark:bg-slate-600'}"
-                    >
-                        <span
-                            class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out
-                                   {locationAuto ? 'translate-x-5' : 'translate-x-0'}"
-                        ></span>
-                    </button>
-                    <span class="text-sm font-medium text-slate-700 dark:text-slate-300">Detect Automatically (via IP)</span>
-                </div>
-
-                {#if !locationAuto}
-                    <div class="grid grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-4 duration-300">
-                        <div>
-                            <label for="latitude" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                                Latitude
-                            </label>
-                            <input
-                                id="latitude"
-                                type="number"
-                                step="any"
-                                bind:value={locationLat}
-                                placeholder="e.g. 51.5074"
-                                class="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600
-                                       bg-white dark:bg-slate-700 text-slate-900 dark:text-white
-                                       focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                            />
-                        </div>
-                        <div>
-                            <label for="longitude" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                                Longitude
-                            </label>
-                            <input
-                                id="longitude"
-                                type="number"
-                                step="any"
-                                bind:value={locationLon}
-                                placeholder="e.g. -0.1278"
-                                class="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600
-                                       bg-white dark:bg-slate-700 text-slate-900 dark:text-white
-                                       focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                            />
-                        </div>
-                    </div>
-                {/if}
-            </div>
-        </section>
         {/if}
 
-        <!-- Detection Tab -->
-        {#if activeTab === 'detection'}
+        <!-- Integrations Tab -->
+        {#if activeTab === 'integrations'}
         <!-- AI Intelligence -->
         <section class="bg-white/80 dark:bg-slate-800/50 rounded-2xl border border-slate-200/80 dark:border-slate-700/50 p-6 shadow-card dark:shadow-card-dark backdrop-blur-sm">
             <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
@@ -819,6 +651,238 @@
             </div>
         </section>
 
+        <!-- MQTT & BirdNET-Go -->
+        <section class="bg-white/80 dark:bg-slate-800/50 rounded-2xl border border-slate-200/80 dark:border-slate-700/50 p-6 shadow-card dark:shadow-card-dark backdrop-blur-sm">
+            <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+                📡 MQTT & BirdNET-Go
+            </h3>
+
+            <p class="text-sm text-slate-500 dark:text-slate-400 mb-4">
+                Configure MQTT to receive real-time events from Frigate and audio confirmations from BirdNET-Go.
+            </p>
+
+            <div class="space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="md:col-span-2">
+                        <label for="mqtt-server" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                            MQTT Server
+                        </label>
+                        <input
+                            id="mqtt-server"
+                            type="text"
+                            bind:value={mqttServer}
+                            placeholder="mosquitto"
+                            class="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600
+                                   bg-white dark:bg-slate-700 text-slate-900 dark:text-white
+                                   focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                        />
+                    </div>
+                    <div>
+                        <label for="mqtt-port" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                            Port
+                        </label>
+                        <input
+                            id="mqtt-port"
+                            type="number"
+                            bind:value={mqttPort}
+                            class="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600
+                                   bg-white dark:bg-slate-700 text-slate-900 dark:text-white
+                                   focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                        />
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-3 py-2 border-t border-slate-100 dark:border-slate-700/50 mt-2 pt-4">
+                     <button 
+                        role="switch" 
+                        aria-checked={mqttAuth}
+                        onclick={() => mqttAuth = !mqttAuth}
+                        class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2
+                               {mqttAuth ? 'bg-teal-500' : 'bg-slate-200 dark:bg-slate-600'}"
+                    >
+                        <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out {mqttAuth ? 'translate-x-5' : 'translate-x-0'}"></span>
+                    </button>
+                    <span class="text-sm font-medium text-slate-700 dark:text-slate-300">MQTT Authentication</span>
+                </div>
+
+                {#if mqttAuth}
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2">
+                        <div>
+                            <label for="mqtt-username" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Username</label>
+                            <input id="mqtt-username" type="text" bind:value={mqttUsername} class="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-teal-500" />
+                        </div>
+                        <div>
+                            <label for="mqtt-password" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Password</label>
+                            <input id="mqtt-password" type="password" bind:value={mqttPassword} class="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-teal-500" />
+                        </div>
+                    </div>
+                {/if}
+
+                <div class="pt-4 border-t border-slate-200 dark:border-slate-700 mt-4">
+                    <label for="audio-topic" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                        BirdNET-Go MQTT Topic
+                    </label>
+                    <input
+                        id="audio-topic"
+                        type="text"
+                        bind:value={audioTopic}
+                        placeholder="birdnet/text"
+                        class="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600
+                               bg-white dark:bg-slate-700 text-slate-900 dark:text-white
+                               focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                    />
+                </div>
+
+                {#if availableCameras.length > 0}
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                            Camera to BirdNET ID Mapping (Optional)
+                        </label>
+                        <div class="space-y-2">
+                            {#each availableCameras as camera}
+                                <div class="flex items-center gap-3">
+                                    <span class="text-xs font-medium text-slate-500 w-24 truncate">{camera}</span>
+                                    <input
+                                        type="text"
+                                        placeholder="BirdNET Sensor ID"
+                                        bind:value={cameraAudioMapping[camera]}
+                                        class="flex-1 px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600
+                                               bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm"
+                                    />
+                                </div>
+                            {/each}
+                        </div>
+                    </div>
+                {/if}
+            </div>
+        </section>
+
+        <!-- BirdWeather Integration -->
+        <section class="bg-white/80 dark:bg-slate-800/50 rounded-2xl border border-slate-200/80 dark:border-slate-700/50 p-6 shadow-card dark:shadow-card-dark backdrop-blur-sm">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+                    ☁️ BirdWeather
+                </h3>
+                <a href="https://www.birdweather.com" target="_blank" rel="noopener noreferrer" class="text-xs text-teal-600 hover:underline">Visit BirdWeather →</a>
+            </div>
+
+            <p class="text-sm text-slate-500 dark:text-slate-400 mb-6">
+                Automatically report your bird detections to the BirdWeather global network.
+            </p>
+
+            <div class="space-y-4">
+                <div class="flex items-center gap-3">
+                    <button
+                        role="switch"
+                        aria-checked={birdweatherEnabled}
+                        onclick={() => birdweatherEnabled = !birdweatherEnabled}
+                        class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2
+                               {birdweatherEnabled ? 'bg-teal-500' : 'bg-slate-200 dark:bg-slate-600'}"
+                    >
+                        <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out {birdweatherEnabled ? 'translate-x-5' : 'translate-x-0'}"></span>
+                    </button>
+                    <span class="text-sm font-medium text-slate-700 dark:text-slate-300">Enable BirdWeather Reporting</span>
+                </div>
+
+                {#if birdweatherEnabled}
+                    <div class="animate-in fade-in slide-in-from-top-2 duration-300">
+                        <label for="birdweather-token" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                            Station Token
+                        </label>
+                        <input
+                            id="birdweather-token"
+                            type="password"
+                            bind:value={birdweatherStationToken}
+                            placeholder="Enter your BirdWeather Station Token"
+                            class="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600
+                                   bg-white dark:bg-slate-700 text-slate-900 dark:text-white
+                                   focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                        />
+                        <p class="mt-2 text-xs text-slate-500">
+                            Found in your BirdWeather Station settings under "API".
+                        </p>
+                        <button
+                            onclick={handleTestBirdWeather}
+                            disabled={testingBirdWeather || !birdweatherStationToken}
+                            class="mt-4 px-4 py-2 text-sm font-medium rounded-lg
+                                   bg-teal-500 hover:bg-teal-600 text-white
+                                   transition-colors disabled:opacity-50"
+                        >
+                            {testingBirdWeather ? 'Testing...' : 'Test BirdWeather Connection'}
+                        </button>
+                    </div>
+                {/if}
+            </div>
+        </section>
+
+        <!-- Location Settings -->
+        <section class="bg-white/80 dark:bg-slate-800/50 rounded-2xl border border-slate-200/80 dark:border-slate-700/50 p-6 shadow-card dark:shadow-card-dark backdrop-blur-sm">
+            <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+                🌍 Location & Weather
+            </h3>
+            
+            <p class="text-sm text-slate-500 dark:text-slate-400 mb-4">
+                Used to fetch local weather data for your detections.
+            </p>
+
+            <div class="space-y-4">
+                <div class="flex items-center gap-3">
+                    <button
+                        role="switch"
+                        aria-checked={locationAuto}
+                        aria-label="Toggle Auto Location"
+                        onclick={() => locationAuto = !locationAuto}
+                        class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2
+                               {locationAuto ? 'bg-teal-500' : 'bg-slate-200 dark:bg-slate-600'}"
+                    >
+                        <span
+                            class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out
+                                   {locationAuto ? 'translate-x-5' : 'translate-x-0'}"
+                        ></span>
+                    </button>
+                    <span class="text-sm font-medium text-slate-700 dark:text-slate-300">Detect Automatically (via IP)</span>
+                </div>
+
+                {#if !locationAuto}
+                    <div class="grid grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-4 duration-300">
+                        <div>
+                            <label for="latitude" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                                Latitude
+                            </label>
+                            <input
+                                id="latitude"
+                                type="number"
+                                step="any"
+                                bind:value={locationLat}
+                                placeholder="e.g. 51.5074"
+                                class="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600
+                                       bg-white dark:bg-slate-700 text-slate-900 dark:text-white
+                                       focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                            />
+                        </div>
+                        <div>
+                            <label for="longitude" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                                Longitude
+                            </label>
+                            <input
+                                id="longitude"
+                                type="number"
+                                step="any"
+                                bind:value={locationLon}
+                                placeholder="e.g. -0.1278"
+                                class="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600
+                                       bg-white dark:bg-slate-700 text-slate-900 dark:text-white
+                                       focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                            />
+                        </div>
+                    </div>
+                {/if}
+            </div>
+        </section>
+        {/if}
+
+        <!-- Detection Tab -->
+        {#if activeTab === 'detection'}
         <!-- Classification Settings -->
         <section class="bg-white/80 dark:bg-slate-800/50 rounded-2xl border border-slate-200/80 dark:border-slate-700/50 p-6 shadow-card dark:shadow-card-dark backdrop-blur-sm">
             <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">

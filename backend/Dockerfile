@@ -38,6 +38,20 @@ COPY --from=builder /app/requirements.txt .
 
 RUN pip install --no-cache /wheels/*
 
-COPY . .
+# Create a non-root user and setup directories
+RUN useradd -m -u 1000 appuser && \
+    mkdir -p /app /data /app/data/models && \
+    chown -R appuser:appuser /app /data
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+COPY --chown=appuser:appuser . .
+
+# Set environment variables
+ENV DB_PATH=/data/speciesid.db
+ENV MODEL_DIR=/app/data/models
+
+USER appuser
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

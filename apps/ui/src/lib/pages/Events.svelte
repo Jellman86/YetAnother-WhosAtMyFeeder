@@ -23,6 +23,8 @@
     import VideoPlayer from '../components/VideoPlayer.svelte';
     import ReclassificationOverlay from '../components/ReclassificationOverlay.svelte';
 
+    import { getBirdNames } from '../naming';
+
     let events = $state<Detection[]>([]);
     let loading = $state(true);
     let error = $state<string | null>(null);
@@ -58,8 +60,12 @@
 
     // Settings state
     let llmEnabled = $state(false);
+    let showCommon = $state(true);
+    let preferSci = $state(false);
     $effect(() => {
         llmEnabled = $settingsStore?.llm_enabled ?? false;
+        showCommon = $settingsStore?.display_common_names ?? true;
+        preferSci = $settingsStore?.scientific_name_primary ?? false;
     });
 
     let filteredLabels = $derived(
@@ -69,31 +75,7 @@
     );
 
     // Derive naming logic for the modal
-    let modalNaming = $derived.by(() => {
-        if (!selectedEvent) return { primary: '', secondary: null };
-        const settings = $settingsStore;
-        const showCommon = settings?.display_common_names ?? true;
-        const preferSci = settings?.scientific_name_primary ?? false;
-
-        let primary: string;
-        let secondary: string | null = null;
-
-        if (!showCommon) {
-            primary = (selectedEvent.scientific_name || selectedEvent.display_name) as string;
-            secondary = null;
-        } else if (preferSci) {
-            primary = (selectedEvent.scientific_name || selectedEvent.display_name) as string;
-            secondary = (selectedEvent.common_name || null) as string | null;
-        } else {
-            primary = (selectedEvent.common_name || selectedEvent.display_name) as string;
-            secondary = (selectedEvent.scientific_name || null) as string | null;
-        }
-
-        return {
-            primary,
-            secondary: (secondary && secondary !== primary) ? secondary : null
-        };
-    });
+    let modalNaming = $derived(selectedEvent ? getBirdNames(selectedEvent, showCommon, preferSci) : { primary: '', secondary: null });
 
     let modalReclassifyProgress = $derived(selectedEvent ? detectionsStore.getReclassificationProgress(selectedEvent.frigate_event) : undefined);
     let modalPrimaryName = $derived(modalNaming.primary);
