@@ -243,5 +243,5 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - The original [WhosAtMyFeeder](https://github.com/mmcc-xx/WhosAtMyFeeder) project for the idea
 - [Frigate](https://frigate.video/) for being such a great NVR
 - [BirdNET-Go](https://github.com/tbeceele/birdnet-go) for the excellent audio classification integration
-- **Ben Jordan** on YouTube for his inspiring [bird detection video](https://www.youtube.com/watch?v=dQw4w9WgXcQ) (link placeholder, I should check if there is a specific link or just the name)
+- **Ben Jordan** on YouTube for his inspiring [bird detection video](https://youtu.be/hCQCP-5g5bo?si=r__2KjXi6KPGM5FF)
 - The AI assistants that helped build this thing
