@@ -79,6 +79,19 @@ class DetectionService:
                     'source': 'frigate_fallback'
                 }
 
+        # Check for "Unknown Bird" catch-all (middle ground between min_confidence and threshold)
+        if not below_min_confidence:
+            log.info("Low confidence detection, saving as Unknown", 
+                     original=original_label, 
+                     score=score, 
+                     event_id=frigate_event)
+            return {
+                'label': "Unknown Bird",
+                'score': score,
+                'index': top.get('index', -1),
+                'source': 'low_confidence_catchall'
+            }
+
         # No fallback available or below absolute floor
         if below_min_confidence:
             log.debug("Below minimum confidence", score=score, min=effective_min, event_id=frigate_event)
