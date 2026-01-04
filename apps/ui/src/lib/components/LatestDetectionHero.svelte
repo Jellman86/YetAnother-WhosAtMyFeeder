@@ -26,14 +26,14 @@
         let secondary: string | null = null;
 
         if (!showCommon) {
-            primary = detection.scientific_name || detection.display_name;
+            primary = (detection.scientific_name ?? detection.display_name) as string;
             secondary = null;
         } else if (preferSci) {
-            primary = detection.scientific_name || detection.display_name;
-            secondary = detection.common_name;
+            primary = (detection.scientific_name ?? detection.display_name) as string;
+            secondary = (detection.common_name ?? null) as string | null;
         } else {
-            primary = detection.common_name || detection.display_name;
-            secondary = detection.scientific_name;
+            primary = (detection.common_name ?? detection.display_name) as string;
+            secondary = (detection.scientific_name ?? null) as string | null;
         }
 
         return {
