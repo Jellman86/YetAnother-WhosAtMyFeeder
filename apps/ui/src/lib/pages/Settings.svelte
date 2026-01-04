@@ -86,35 +86,45 @@
         const s = $settingsStore;
         if (!s) return false;
         
-        return frigateUrl !== s.frigate_url ||
-               mqttServer !== s.mqtt_server ||
-               mqttPort !== s.mqtt_port ||
-               mqttAuth !== s.mqtt_auth ||
-               mqttUsername !== (s.mqtt_username || '') ||
-               mqttPassword !== (s.mqtt_password || '') ||
-               audioTopic !== s.audio_topic ||
-               clipsEnabled !== s.clips_enabled ||
-               threshold !== s.classification_threshold ||
-               trustFrigateSublabel !== s.trust_frigate_sublabel ||
-               displayCommonNames !== s.display_common_names ||
-               scientificNamePrimary !== s.scientific_name_primary ||
-               JSON.stringify(selectedCameras) !== JSON.stringify(s.cameras) ||
-               retentionDays !== s.retention_days ||
-               JSON.stringify(blockedLabels) !== JSON.stringify(s.blocked_labels) ||
-               cacheEnabled !== s.media_cache_enabled ||
-               cacheSnapshots !== s.media_cache_snapshots ||
-               cacheClips !== s.media_cache_clips ||
-               cacheRetentionDays !== s.media_cache_retention_days ||
-               locationLat !== (s.location_latitude ?? null) ||
-               locationLon !== (s.location_longitude ?? null) ||
-               locationAuto !== (s.location_automatic ?? true) ||
-               birdweatherEnabled !== s.birdweather_enabled ||
-               birdweatherStationToken !== (s.birdweather_station_token || '') ||
-               llmEnabled !== s.llm_enabled ||
-               llmProvider !== s.llm_provider ||
-               llmApiKey !== (s.llm_api_key || '') ||
-               llmModel !== s.llm_model ||
-               JSON.stringify(cameraAudioMapping) !== JSON.stringify(s.camera_audio_mapping || {});
+        const checks = [
+            { key: 'frigateUrl', val: frigateUrl, store: s.frigate_url },
+            { key: 'mqttServer', val: mqttServer, store: s.mqtt_server },
+            { key: 'mqttPort', val: mqttPort, store: s.mqtt_port },
+            { key: 'mqttAuth', val: mqttAuth, store: s.mqtt_auth },
+            { key: 'mqttUsername', val: mqttUsername, store: s.mqtt_username || '' },
+            { key: 'mqttPassword', val: mqttPassword, store: s.mqtt_password || '' },
+            { key: 'audioTopic', val: audioTopic, store: s.audio_topic },
+            { key: 'clipsEnabled', val: clipsEnabled, store: s.clips_enabled },
+            { key: 'threshold', val: threshold, store: s.classification_threshold },
+            { key: 'trustFrigateSublabel', val: trustFrigateSublabel, store: s.trust_frigate_sublabel },
+            { key: 'displayCommonNames', val: displayCommonNames, store: s.display_common_names },
+            { key: 'scientificNamePrimary', val: scientificNamePrimary, store: s.scientific_name_primary },
+            { key: 'selectedCameras', val: JSON.stringify(selectedCameras), store: JSON.stringify(s.cameras) },
+            { key: 'retentionDays', val: retentionDays, store: s.retention_days },
+            { key: 'blockedLabels', val: JSON.stringify(blockedLabels), store: JSON.stringify(s.blocked_labels) },
+            { key: 'cacheEnabled', val: cacheEnabled, store: s.media_cache_enabled },
+            { key: 'cacheSnapshots', val: cacheSnapshots, store: s.media_cache_snapshots },
+            { key: 'cacheClips', val: cacheClips, store: s.media_cache_clips },
+            { key: 'cacheRetentionDays', val: cacheRetentionDays, store: s.media_cache_retention_days },
+            { key: 'locationLat', val: locationLat, store: s.location_latitude ?? null },
+            { key: 'locationLon', val: locationLon, store: s.location_longitude ?? null },
+            { key: 'locationAuto', val: locationAuto, store: s.location_automatic ?? true },
+            { key: 'birdweatherEnabled', val: birdweatherEnabled, store: s.birdweather_enabled },
+            { key: 'birdweatherStationToken', val: birdweatherStationToken, store: s.birdweather_station_token || '' },
+            { key: 'llmEnabled', val: llmEnabled, store: s.llm_enabled },
+            { key: 'llmProvider', val: llmProvider, store: s.llm_provider },
+            { key: 'llmApiKey', val: llmApiKey, store: s.llm_api_key || '' },
+            { key: 'llmModel', val: llmModel, store: s.llm_model },
+            { key: 'cameraAudioMapping', val: JSON.stringify(cameraAudioMapping), store: JSON.stringify(s.camera_audio_mapping || {}) },
+            { key: 'minConfidence', val: minConfidence, store: s.classification_min_confidence }
+        ];
+
+        const dirtyItem = checks.find(c => c.val !== c.store);
+        if (dirtyItem) {
+            console.log(`Dirty Setting: ${dirtyItem.key}`, { current: dirtyItem.val, saved: dirtyItem.store });
+            return true;
+        }
+        return false;
     });
 
     let classifierStatus = $state<ClassifierStatus | null>(null);
