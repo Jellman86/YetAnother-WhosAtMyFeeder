@@ -354,23 +354,33 @@ class DetectionRepository:
                 return {"scientific_name": row[0], "common_name": row[1]}
         return {"scientific_name": None, "common_name": None}
 
-    async def delete_older_than(self, cutoff_date: datetime) -> int:
-        """Delete detections older than the cutoff date. Returns count of deleted rows."""
-        async with self.db.execute(
-            "SELECT COUNT(*) FROM detections WHERE detection_time < ?",
-            (cutoff_date.isoformat(sep=' '),)
-        ) as cursor:
-            row = await cursor.fetchone()
-            count = row[0] if row else 0
+    async def delete_older_than(self, cutoff_date: datetime, chunk_size: int = 1000) -> int:
+        """Delete detections older than the cutoff date in chunks to avoid locking."""
+        total_deleted = 0
+        cutoff_str = cutoff_date.isoformat(sep=' ')
+        
+        while True:
+            # Delete a chunk of rows
+            # We use the rowid (implicit or explicit) or limit if supported by the build
+            # Standard SQLite DELETE LIMIT requires compilation option, so we use subquery
+            query = f"""
+                DELETE FROM detections 
+                WHERE id IN (
+                    SELECT id FROM detections 
+                    WHERE detection_time < ? 
+                    LIMIT ?
+                )
+            """
+            
+            async with self.db.execute(query, (cutoff_str, chunk_size)) as cursor:
+                if cursor.rowcount == 0:
+                    break
+                total_deleted += cursor.rowcount
+                await self.db.commit()
+                # Brief sleep to yield the event loop and allow other queries
+                await asyncio.sleep(0.01)
 
-        if count > 0:
-            await self.db.execute(
-                "DELETE FROM detections WHERE detection_time < ?",
-                (cutoff_date.isoformat(sep=' '),)
-            )
-            await self.db.commit()
-
-        return count
+        return total_deleted
 
     async def get_oldest_detection_date(self) -> datetime | None:
         """Get the date of the oldest detection."""

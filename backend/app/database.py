@@ -14,6 +14,10 @@ async def column_exists(db, table: str, column: str) -> bool:
 
 async def init_db():
     async with aiosqlite.connect(DB_PATH) as db:
+        # Enable Write-Ahead Logging for better concurrency
+        await db.execute("PRAGMA journal_mode=WAL;")
+        await db.execute("PRAGMA synchronous=NORMAL;")
+        
         await db.execute("""
             CREATE TABLE IF NOT EXISTS detections (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -55,42 +59,39 @@ async def init_db():
         cursor = await db.execute("PRAGMA table_info(detections)")
         columns = [row[1] for row in await cursor.fetchall()]
         
-        # v1: Frigate metadata
-        if "frigate_score" not in columns:
-            await db.execute("ALTER TABLE detections ADD COLUMN frigate_score FLOAT")
-            await db.execute("ALTER TABLE detections ADD COLUMN sub_label TEXT")
-            
-        # v2: Hidden toggle
-        if "is_hidden" not in columns:
-            await db.execute("ALTER TABLE detections ADD COLUMN is_hidden BOOLEAN DEFAULT 0")
-            
-        # v3: Audio correlation
-        if "audio_confirmed" not in columns:
-            await db.execute("ALTER TABLE detections ADD COLUMN audio_confirmed BOOLEAN DEFAULT 0")
-            await db.execute("ALTER TABLE detections ADD COLUMN audio_species TEXT")
-            await db.execute("ALTER TABLE detections ADD COLUMN audio_score FLOAT")
-            
-        # v4: Weather context
-        if "temperature" not in columns:
-            log.info("Migration: Adding temperature and weather columns")
-            await db.execute("ALTER TABLE detections ADD COLUMN temperature FLOAT")
-            await db.execute("ALTER TABLE detections ADD COLUMN weather_condition TEXT")
+        migrations = [
+            ("frigate_score", "FLOAT"),
+            ("sub_label", "TEXT"),
+            ("is_hidden", "BOOLEAN DEFAULT 0"),
+            ("audio_confirmed", "BOOLEAN DEFAULT 0"),
+            ("audio_species", "TEXT"),
+            ("audio_score", "FLOAT"),
+            ("temperature", "FLOAT"),
+            ("weather_condition", "TEXT"),
+            ("scientific_name", "TEXT"),
+            ("common_name", "TEXT"),
+            ("taxa_id", "INTEGER")
+        ]
 
-        # v5: Taxonomy normalization
-        if "scientific_name" not in columns:
-            log.info("Migration: Adding taxonomy columns")
-            await db.execute("ALTER TABLE detections ADD COLUMN scientific_name TEXT")
-            await db.execute("ALTER TABLE detections ADD COLUMN common_name TEXT")
-            await db.execute("ALTER TABLE detections ADD COLUMN taxa_id INTEGER")
+        for col_name, col_type in migrations:
+            if col_name not in columns:
+                log.info(f"Auto-healing DB: Adding missing column {col_name}")
+                await db.execute(f"ALTER TABLE detections ADD COLUMN {col_name} {col_type}")
             
         # Index for faster filtering and sorting
-        await db.execute("CREATE INDEX IF NOT EXISTS idx_detections_time ON detections(detection_time)")
-        await db.execute("CREATE INDEX IF NOT EXISTS idx_detections_species ON detections(display_name)")
-        await db.execute("CREATE INDEX IF NOT EXISTS idx_detections_hidden ON detections(is_hidden)")
-        await db.execute("CREATE INDEX IF NOT EXISTS idx_detections_camera ON detections(camera_name)")
-        await db.execute("CREATE INDEX IF NOT EXISTS idx_detections_scientific ON detections(scientific_name)")
-        await db.execute("CREATE INDEX IF NOT EXISTS idx_detections_common ON detections(common_name)")
-        await db.execute("CREATE INDEX IF NOT EXISTS idx_detections_taxa_id ON detections(taxa_id)")
+        indices = [
+            ("idx_detections_time", "detection_time"),
+            ("idx_detections_species", "display_name"),
+            ("idx_detections_hidden", "is_hidden"),
+            ("idx_detections_camera", "camera_name"),
+            ("idx_detections_scientific", "scientific_name"),
+            ("idx_detections_common", "common_name"),
+            ("idx_detections_taxa_id", "taxa_id"),
+            ("idx_detections_frigate_event", "frigate_event")
+        ]
+        
+        for idx_name, col_name in indices:
+            await db.execute(f"CREATE INDEX IF NOT EXISTS {idx_name} ON detections({col_name})")
             
         await db.commit()
 
