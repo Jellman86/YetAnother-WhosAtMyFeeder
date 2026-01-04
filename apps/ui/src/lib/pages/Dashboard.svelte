@@ -234,7 +234,6 @@
                         <LatestDetectionHero 
                             detection={heroDetection} 
                             onclick={() => selectedEvent = heroDetection}
-                            onPlay={() => { selectedEvent = heroDetection; showVideo = true; }}
                             hideProgress={selectedEvent?.frigate_event === heroDetection.frigate_event}
                         />
                     </div>

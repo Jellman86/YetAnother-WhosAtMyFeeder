@@ -8,11 +8,10 @@
     interface Props {
         detection: Detection;
         onclick?: () => void;
-        onPlay?: (detection: Detection) => void;
         hideProgress?: boolean;
     }
 
-    let { detection, onclick, onPlay, hideProgress = false }: Props = $props();
+    let { detection, onclick, hideProgress = false }: Props = $props();
 
     // Check if this detection is being reclassified
     let reclassifyProgress = $derived(!hideProgress ? detectionsStore.getReclassificationProgress(detection.frigate_event) : null);
@@ -57,11 +56,6 @@
             return '';
         }
     }
-
-    function handlePlayClick(event: MouseEvent) {
-        event.stopPropagation();
-        onPlay?.(detection);
-    }
 </script>
 
 <div 
@@ -85,21 +79,6 @@
 
     <!-- Gradient Overlay -->
     <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent"></div>
-
-    <!-- Play Button Overlay -->
-    {#if detection.has_clip && onPlay}
-        <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 scale-90 group-hover:scale-100">
-            <button 
-                onclick={handlePlayClick}
-                class="w-20 h-20 rounded-full bg-white/90 dark:bg-slate-800/90 flex items-center justify-center shadow-2xl text-teal-600 dark:text-teal-400 hover:scale-110 active:scale-90 transition-transform"
-                title="Play Video"
-            >
-                <svg xmlns="http://www.w3.org/2000/svg" class="w-10 h-10 ml-1.5" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M8 5v14l11-7z"/>
-                </svg>
-            </button>
-        </div>
-    {/if}
 
     <!-- Content Overlay -->
     <div class="absolute bottom-0 left-0 right-0 p-6 sm:p-8 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
