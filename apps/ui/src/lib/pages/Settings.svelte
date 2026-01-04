@@ -389,7 +389,7 @@
         testingBirdWeather = true;
         message = null;
         try {
-            const result = await testBirdWeather();
+            const result = await testBirdWeather(birdweatherStationToken);
             if (result.status === 'ok') {
                 message = { type: 'success', text: result.message };
             } else {

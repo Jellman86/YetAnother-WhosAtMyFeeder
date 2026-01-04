@@ -17,14 +17,19 @@ class BirdWeatherService:
         confidence: Optional[float] = None,
         timestamp: Optional[datetime] = None,
         latitude: Optional[float] = None,
-        longitude: Optional[float] = None
+        longitude: Optional[float] = None,
+        token: Optional[str] = None
     ) -> bool:
         """Report a detection to BirdWeather."""
-        if not settings.birdweather.enabled or not settings.birdweather.station_token:
+        # If token is provided (testing), ignore enabled check. Otherwise require enabled + token.
+        active_token = token or settings.birdweather.station_token
+        if not active_token:
+            return False
+            
+        if token is None and not settings.birdweather.enabled:
             return False
 
-        token = settings.birdweather.station_token
-        url = f"{self.api_url}/stations/{token}/detections"
+        url = f"{self.api_url}/stations/{active_token}/detections"
         
         # Format timestamp as ISO8601
         ts = timestamp or datetime.now()

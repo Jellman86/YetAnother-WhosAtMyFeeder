@@ -541,8 +541,12 @@ export async function startTaxonomySync(): Promise<{ status: string }> {
     return handleResponse<{ status: string }>(response);
 }
 
-export async function testBirdWeather(): Promise<{ status: string; message: string }> {
-    const response = await fetch(`${API_BASE}/settings/birdweather/test`, { method: 'POST' });
+export async function testBirdWeather(token?: string): Promise<{ status: string; message: string }> {
+    const response = await fetch(`${API_BASE}/settings/birdweather/test`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token })
+    });
     return handleResponse<{ status: string; message: string }>(response);
 }
 
