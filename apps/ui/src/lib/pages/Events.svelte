@@ -245,8 +245,8 @@
 
             <div class="p-6 space-y-6">
                 <div>
-                    <div class="flex items-center justify-between mb-2"><span class="text-xs font-bold text-slate-500 uppercase tracking-widest">Confidence</span><span class="text-sm font-black text-slate-900 dark:text-white">{(selectedEvent.score * 100).toFixed(1)}%</span></div>
-                    <div class="h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden"><div class="h-full rounded-full transition-all duration-700 {selectedEvent.score >= 0.8 ? 'bg-emerald-500' : 'bg-teal-500'}" style="width: {selectedEvent.score * 100}%"></div></div>
+                    <div class="flex items-center justify-between mb-2"><span class="text-xs font-bold text-slate-500 uppercase tracking-widest">Confidence</span><span class="text-sm font-black text-slate-900 dark:text-white">{((selectedEvent.score || 0) * 100).toFixed(1)}%</span></div>
+                    <div class="h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden"><div class="h-full rounded-full transition-all duration-700 {(selectedEvent.score || 0) >= 0.8 ? 'bg-emerald-500' : 'bg-teal-500'}" style="width: {(selectedEvent.score || 0) * 100}%"></div></div>
                 </div>
                 <div class="flex gap-2">
                     <button 

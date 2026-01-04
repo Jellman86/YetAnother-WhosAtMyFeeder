@@ -146,9 +146,9 @@
                             <p class="text-2xl font-bold text-teal-600 dark:text-teal-400">
                                 {topSpecies.count.toLocaleString()}
                             </p>
-                            <p class="text-xs text-slate-500 dark:text-slate-400">
-                                {((topSpecies.count / totalDetections) * 100).toFixed(1)}% of total
-                            </p>
+                                <p class="text-sm font-bold text-teal-600 dark:text-teal-400">
+                                    {(totalDetections > 0 ? (topSpecies.count / totalDetections) * 100 : 0).toFixed(1)}% of total
+                                </p>
                         </div>
                     </div>
                 </button>
@@ -199,8 +199,9 @@
                                     ></div>
                                 </div>
 
-                                <div class="flex justify-between mt-1 text-xs text-slate-500 dark:text-slate-400">
-                                    <span>{((item.count / totalDetections) * 100).toFixed(1)}% of total</span>
+                                <div class="flex items-center gap-2 text-[10px] text-slate-500 dark:text-slate-400 mt-1">
+                                    <div class="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600"></div>
+                                    <span>{(totalDetections > 0 ? (item.count / totalDetections) * 100 : 0).toFixed(1)}% of total</span>
                                 </div>
                             </div>
                         </div>

@@ -187,7 +187,7 @@
                     <span class="w-2 h-2 rounded-full {detection.score >= 0.9 ? 'bg-emerald-500 animate-pulse' : detection.score >= 0.7 ? 'bg-amber-500' : 'bg-red-500'}"></span>
                     <span class="text-xs font-black {getConfidenceColor(detection.score)} leading-none">{(detection.score * 100).toFixed(0)}%</span>
                 </div>
-                {#if detection.frigate_score}
+                {#if detection.frigate_score !== undefined && detection.frigate_score !== null}
                     <div class="px-2 py-1 rounded-lg bg-black/40 text-white/90 text-[9px] font-bold backdrop-blur-sm tracking-tight border border-white/5">
                         FRIGATE: {(detection.frigate_score * 100).toFixed(0)}%
                     </div>
@@ -246,7 +246,7 @@
                 </p>
             {/if}
         </div>
-        {#if detection.audio_species || detection.audio_confirmed}
+        {#if (detection.audio_species || detection.audio_confirmed) && (detection.audio_score !== undefined && detection.audio_score !== null)}
             <div class="p-3 rounded-2xl bg-teal-500/5 dark:bg-teal-500/10 border border-teal-500/10 dark:border-teal-500/20 flex items-center gap-3 group/audio">
                 <div class="w-8 h-8 rounded-xl bg-teal-500/20 flex items-center justify-center flex-shrink-0">
                     <svg class="w-4 h-4 text-teal-600 dark:text-teal-400 {detection.audio_confirmed ? 'animate-pulse-slow' : ''}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -279,7 +279,7 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
                     </svg>
                     <span class="text-[10px] font-black text-slate-700 dark:text-slate-300">
-                        {detection.temperature.toFixed(1)}°C
+                        {detection.temperature?.toFixed(1)}°C
                     </span>
                 </div>
             {/if}
