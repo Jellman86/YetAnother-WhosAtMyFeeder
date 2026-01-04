@@ -38,6 +38,76 @@
     let cardElement = $state<HTMLElement | null>(null);
     let isVisible = $state(false);
 
+    function handleReclassifyClick(event: MouseEvent) {
+        event.stopPropagation();
+        onReclassify?.(detection);
+    }
+
+    function handleRetagClick(event: MouseEvent) {
+        event.stopPropagation();
+        onRetag?.(detection);
+    }
+
+    function handlePlayClick(event: MouseEvent) {
+        event.stopPropagation();
+        onPlay?.(detection);
+    }
+
+    // Lazy load with intersection observer
+    $effect(() => {
+        if (!cardElement) return;
+        const observer = new IntersectionObserver(
+            (entries) => {
+                if (entries[0].isIntersecting) {
+                    isVisible = true;
+                    observer.disconnect();
+                }
+            },
+            { rootMargin: '100px' }
+        );
+        observer.observe(cardElement);
+        return () => observer.disconnect();
+    });
+
+    function formatTime(dateString: string): string {
+        try {
+            const date = new Date(dateString);
+            return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        } catch {
+            return '';
+        }
+    }
+
+    function formatDate(dateString: string): string {
+        try {
+            const date = new Date(dateString);
+            const today = new Date();
+            const yesterday = new Date(today);
+            yesterday.setDate(yesterday.getDate() - 1);
+            if (date.toDateString() === today.toDateString()) {
+                return 'Today';
+            } else if (date.toDateString() === yesterday.toDateString()) {
+                return 'Yesterday';
+            }
+            return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+        } catch {
+            return '';
+        }
+    }
+
+    function getConfidenceColor(score: number): string {
+        if (score >= 0.9) return 'text-emerald-500';
+        if (score >= 0.7) return 'text-amber-500';
+        return 'text-red-500';
+    }
+
+    function getConfidenceBg(score: number): string {
+        if (score >= 0.9) return 'border-emerald-500/30';
+        if (score >= 0.7) return 'border-amber-500/30';
+        return 'border-red-500/30';
+    }
+</script>
+
 <div
     role="button"
     tabindex="0"
