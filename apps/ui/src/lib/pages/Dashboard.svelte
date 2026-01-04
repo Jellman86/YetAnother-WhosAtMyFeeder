@@ -26,6 +26,9 @@
     let deleting = $state(false);
     let hiding = $state(false);
 
+    // Settings state
+    let llmEnabled = $derived($settingsStore?.llm_enabled ?? false);
+
     // AI Analysis state
     let analyzingAI = $state(false);
     let aiAnalysis = $state<string | null>(null);
