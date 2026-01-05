@@ -99,6 +99,9 @@ class SettingsUpdate(BaseModel):
     location_latitude: Optional[float] = Field(None, description="Latitude")
     location_longitude: Optional[float] = Field(None, description="Longitude")
     location_automatic: Optional[bool] = Field(True, description="Auto-detect location")
+    # BirdWeather settings
+    birdweather_enabled: Optional[bool] = Field(False, description="Enable BirdWeather reporting")
+    birdweather_station_token: Optional[str] = Field(None, description="BirdWeather Station Token")
     # LLM settings
     llm_enabled: Optional[bool] = Field(False, description="Enable AI behavior analysis")
     llm_provider: Optional[str] = Field("gemini", description="AI provider")
@@ -183,6 +186,10 @@ async def update_settings(update: SettingsUpdate):
     settings.location.latitude = update.location_latitude
     settings.location.longitude = update.location_longitude
     settings.location.automatic = update.location_automatic if update.location_automatic is not None else True
+
+    # BirdWeather settings
+    settings.birdweather.enabled = update.birdweather_enabled if update.birdweather_enabled is not None else False
+    settings.birdweather.station_token = update.birdweather_station_token
 
     # LLM settings
     settings.llm.enabled = update.llm_enabled if update.llm_enabled is not None else False
