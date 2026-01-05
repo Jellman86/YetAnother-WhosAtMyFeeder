@@ -19,17 +19,19 @@ When Frigate detects a bird at your feeder, YA-WAMF:
 4. Enriches detections with local weather data and behavior analysis via **LLMs (Gemini/OpenAI)**
 5. Keeps track of all your visitors in a nice dashboard with taxonomic normalization
 6. Proxies video clips from Frigate with full streaming and seeking support
+7. Reports detections to **BirdWeather** (optional) for community science contribution
 
 **Advanced Features:**
-- **Multi-Sensor Correlation:** Matches visual detections with audio identifications from BirdNET-Go.
+- **Multi-Sensor Correlation:** Matches visual detections with audio identifications from BirdNET-Go (now with live dashboard widget!).
+- **Backfill Tool:** Missed some events? Scan your Frigate history to import and classify past detections with detailed skip reporting.
 - **AI Naturalist Insight:** One-click behavioral analysis of your visitors using state-of-the-art LLMs.
 - **Elite Accuracy:** Support for state-of-the-art **EVA-02 Large** models (~91% accuracy).
 - **Taxonomy Normalization:** Automatic Scientific ↔ Common name mapping using iNaturalist data.
 - **Deep Video Analysis:** Scan entire video clips frame-by-frame for the perfect identification with soft-voting ensembles.
-- **Fast Path Efficiency:** Skip local AI and use Frigate's sublabels directly to save CPU.
+- **Fast Path Efficiency:** Skip local AI and use Frigate's sublabels directly to save CPU (now bypasses confidence floor for trusted labels).
 - **Wildlife Classifier:** identify squirrels, foxes, and other non-bird visitors.
 - **Home Assistant Integration:** Full support for tracking the last detected bird and daily counts in HA.
-- **Observability:** Built-in Prometheus metrics for tracking event processing and model health.
+- **Observability:** Built-in Prometheus metrics and real-time MQTT diagnostics.
 
 ## How It Works
 
@@ -192,7 +194,10 @@ Most settings can be changed through the web UI under Settings. They get saved t
 | Frigate URL | Where to fetch snapshots from | http://frigate:5000 |
 | MQTT Server | Your MQTT broker hostname | mqtt |
 | Classification Threshold | How confident the model needs to be (0-1) | 0.7 |
+| Min Confidence Floor | Discard detections below this score (unless Frigate verified) | 0.4 |
 | Trust Frigate Sublabels | Skip local AI if Frigate has an identification | Enabled |
+| BirdWeather Token | Station token for uploading detections to BirdWeather | (none) |
+| BirdNET-Go Topic | MQTT topic for audio detections | birdnet/text |
 | AI Model | Choose between MobileNet (Fast), ConvNeXt (High), or EVA-02 (Elite) | MobileNet |
 
 ## Tech Stack
