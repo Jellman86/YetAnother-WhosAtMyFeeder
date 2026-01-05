@@ -125,6 +125,7 @@ async def get_settings():
         "camera_audio_mapping": settings.frigate.camera_audio_mapping,
         "clips_enabled": settings.frigate.clips_enabled,
         "classification_threshold": settings.classification.threshold,
+        "classification_min_confidence": settings.classification.min_confidence,
         "cameras": settings.frigate.camera,
         "retention_days": settings.maintenance.retention_days,
         "blocked_labels": settings.classification.blocked_labels,
@@ -140,6 +141,9 @@ async def get_settings():
         "location_latitude": settings.location.latitude,
         "location_longitude": settings.location.longitude,
         "location_automatic": settings.location.automatic,
+        # BirdWeather settings
+        "birdweather_enabled": settings.birdweather.enabled,
+        "birdweather_station_token": settings.birdweather.station_token,
         # LLM settings
         "llm_enabled": settings.llm.enabled,
         "llm_provider": settings.llm.provider,

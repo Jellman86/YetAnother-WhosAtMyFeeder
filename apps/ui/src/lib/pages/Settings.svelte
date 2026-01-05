@@ -305,9 +305,9 @@
         }
     }
 
-    async function loadSettings() {
-        loading = true;
-        message = null;
+    async function loadSettings(silent = false) {
+        if (!silent) loading = true;
+        if (!silent) message = null;
         try {
             const settings = await fetchSettings();
             frigateUrl = settings.frigate_url;
@@ -350,7 +350,7 @@
         } catch (e) {
             message = { type: 'error', text: 'Failed to load settings' };
         } finally {
-            loading = false;
+            if (!silent) loading = false;
         }
     }
 
@@ -409,6 +409,8 @@
             });
             // Update store
             await settingsStore.load();
+            // Sync local state to handle server-side normalization (e.g. stripped slashes)
+            await loadSettings(true);
             message = { type: 'success', text: 'Settings saved successfully!' };
             await Promise.all([loadMaintenanceStats(), loadCacheStats()]);
         } catch (e) {

@@ -393,32 +393,34 @@ class DetectionRepository:
                 return _parse_datetime(row[0])
             return None
 
-    async def get_species_counts(self, use_common_names: bool = True) -> list[dict]:
-        """Get detection counts per species, correctly merging scientific/common names."""
-        if use_common_names:
-            # Group by common_name if available, else scientific_name
-            query = """
-                SELECT 
-                    COALESCE(common_name, scientific_name, display_name) as species, 
-                    COUNT(*) as count 
-                FROM detections 
-                GROUP BY species 
-                ORDER BY count DESC
-            """
-        else:
-            # Group by scientific_name if available, else display_name
-            query = """
-                SELECT 
-                    COALESCE(scientific_name, display_name) as species, 
-                    COUNT(*) as count 
-                FROM detections 
-                GROUP BY species 
-                ORDER BY count DESC
-            """
-            
+    async def get_species_counts(self) -> list[dict]:
+        """Get detection counts per species with taxonomic metadata."""
+        query = """
+            SELECT 
+                COALESCE(t.scientific_name, LOWER(d.display_name)) as unified_id,
+                COUNT(*) as count, 
+                MAX(COALESCE(d.scientific_name, t.scientific_name)) as scientific_name, 
+                MAX(COALESCE(d.common_name, t.common_name)) as common_name,
+                MAX(d.display_name) as display_name
+            FROM detections d
+            LEFT JOIN taxonomy_cache t ON 
+                LOWER(d.display_name) = LOWER(t.scientific_name) OR 
+                LOWER(d.display_name) = LOWER(t.common_name)
+            WHERE (d.is_hidden = 0 OR d.is_hidden IS NULL)
+            GROUP BY unified_id
+            ORDER BY count DESC
+        """
         async with self.db.execute(query) as cursor:
             rows = await cursor.fetchall()
-            return [{"species": row[0], "count": row[1]} for row in rows]
+            return [
+                {
+                    "species": row[4], 
+                    "count": row[1],
+                    "scientific_name": row[2],
+                    "common_name": row[3]
+                }
+                for row in rows
+            ]
 
     async def get_species_basic_stats(self, species_name: str) -> dict:
         """Get basic stats for a species: count, min/max dates, confidence stats."""

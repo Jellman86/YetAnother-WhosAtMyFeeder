@@ -90,7 +90,7 @@ async def get_species_list():
     """Get list of all species with counts."""
     async with get_db() as db:
         repo = DetectionRepository(db)
-        stats = await repo.get_species_counts(use_common_names=settings.classification.display_common_names)
+        stats = await repo.get_species_counts()
 
         # Transform unknown bird labels for display and aggregate counts
         unknown_labels = settings.classification.unknown_bird_labels
@@ -101,11 +101,21 @@ async def get_species_list():
             if s["species"] in unknown_labels:
                 unknown_count += s["count"]
             else:
-                filtered_stats.append(s)
+                filtered_stats.append({
+                    "species": s["species"],
+                    "count": s["count"],
+                    "scientific_name": s.get("scientific_name"),
+                    "common_name": s.get("common_name")
+                })
 
         # Add aggregated "Unknown Bird" entry if any were found
         if unknown_count > 0:
-            filtered_stats.append({"species": "Unknown Bird", "count": unknown_count})
+            filtered_stats.append({
+                "species": "Unknown Bird", 
+                "count": unknown_count,
+                "scientific_name": None,
+                "common_name": None
+            })
             # Re-sort by count descending
             filtered_stats.sort(key=lambda x: x["count"], reverse=True)
 

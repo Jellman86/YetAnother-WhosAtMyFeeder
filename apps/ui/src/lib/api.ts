@@ -33,6 +33,8 @@ export interface VersionInfo {
 export interface SpeciesCount {
     species: string;
     count: number;
+    scientific_name?: string | null;
+    common_name?: string | null;
 }
 
 export interface Settings {

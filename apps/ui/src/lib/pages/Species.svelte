@@ -2,6 +2,8 @@
     import { onMount } from 'svelte';
     import { fetchSpecies, type SpeciesCount } from '../api';
     import SpeciesDetailModal from '../components/SpeciesDetailModal.svelte';
+    import { settingsStore } from '../stores/settings';
+    import { getBirdNames } from '../naming';
 
     let species: SpeciesCount[] = $state([]);
     let loading = $state(true);
@@ -9,13 +11,28 @@
     let sortBy = $state<'count' | 'name'>('count');
     let selectedSpecies = $state<string | null>(null);
 
+    // Derived processed species with naming logic
+    let processedSpecies = $derived(() => {
+        const showCommon = $settingsStore?.display_common_names ?? true;
+        const preferSci = $settingsStore?.scientific_name_primary ?? false;
+
+        return species.map(item => {
+            const naming = getBirdNames(item as any, showCommon, preferSci);
+            return {
+                ...item,
+                displayName: naming.primary,
+                subName: naming.secondary
+            };
+        });
+    });
+
     // Derived sorted species
     let sortedSpecies = $derived(() => {
-        const sorted = [...species];
+        const sorted = [...processedSpecies()];
         if (sortBy === 'count') {
             sorted.sort((a, b) => b.count - a.count);
         } else {
-            sorted.sort((a, b) => a.species.localeCompare(b.species));
+            sorted.sort((a, b) => a.displayName.localeCompare(b.displayName));
         }
         return sorted;
     });
@@ -141,8 +158,13 @@
                         <span class="text-3xl">{getMedal(index)}</span>
                         <div class="flex-1 min-w-0">
                             <h4 class="font-semibold text-slate-900 dark:text-white truncate">
-                                {topSpecies.species}
+                                {topSpecies.displayName}
                             </h4>
+                            {#if topSpecies.subName}
+                                <p class="text-[10px] italic text-slate-500 dark:text-slate-400 truncate -mt-0.5">
+                                    {topSpecies.subName}
+                                </p>
+                            {/if}
                             <p class="text-2xl font-bold text-teal-600 dark:text-teal-400">
                                 {topSpecies.count.toLocaleString()}
                             </p>
@@ -182,14 +204,19 @@
 
                             <!-- Species Info -->
                             <div class="flex-1 min-w-0">
-                                <div class="flex items-center justify-between mb-2">
+                                <div class="flex items-center justify-between mb-0.5">
                                     <span class="font-medium text-slate-900 dark:text-white truncate">
-                                        {item.species}
+                                        {item.displayName}
                                     </span>
                                     <span class="text-sm font-semibold text-slate-600 dark:text-slate-300 ml-2">
                                         {item.count.toLocaleString()}
                                     </span>
                                 </div>
+                                {#if item.subName}
+                                    <p class="text-[10px] italic text-slate-500 dark:text-slate-400 truncate mb-1.5">
+                                        {item.subName}
+                                    </p>
+                                {/if}
 
                                 <!-- Progress Bar -->
                                 <div class="h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
