@@ -1,6 +1,7 @@
 import structlog
 from datetime import datetime
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from collections import defaultdict
 from io import BytesIO
 from PIL import Image
 
@@ -19,6 +20,7 @@ class BackfillResult:
     new_detections: int = 0
     skipped: int = 0
     errors: int = 0
+    skipped_reasons: dict[str, int] = field(default_factory=lambda: defaultdict(int))
 
 
 class BackfillService:
@@ -72,20 +74,20 @@ class BackfillService:
         log.info("Fetched events from Frigate", count=len(unique_events), after=after_ts, before=before_ts)
         return unique_events
 
-    async def process_historical_event(self, event: dict) -> str:
+    async def process_historical_event(self, event: dict) -> tuple[str, str | None]:
         """
         Process a single historical event.
-        Returns: 'new', 'skipped', or 'error'
+        Returns: ('new'|'skipped'|'error', reason_code)
         """
         frigate_event = event.get('id')
         if not frigate_event:
-            return 'error'
+            return 'error', 'missing_id'
 
         try:
             # Fetch snapshot from Frigate using centralized client
             snapshot_data = await frigate_client.get_snapshot(frigate_event, crop=True, quality=95)
             if not snapshot_data:
-                return 'error'
+                return 'error', 'fetch_snapshot_failed'
 
             # Classify the image (async to use thread pool)
             image = Image.open(BytesIO(snapshot_data))
@@ -93,7 +95,7 @@ class BackfillService:
 
             if not results:
                 log.debug("No classification results", event_id=frigate_event)
-                return 'error'
+                return 'error', 'classification_failed'
 
             # Capture Frigate metadata (needed for fallback)
             frigate_score = event.get('top_score')
@@ -103,10 +105,10 @@ class BackfillService:
             sub_label = event.get('sub_label')
 
             # Use shared filtering and labeling logic (with Frigate sublabel for fallback)
-            top = self.detection_service.filter_and_label(results[0], frigate_event, sub_label)
+            top, reason = self.detection_service.filter_and_label(results[0], frigate_event, sub_label)
             if not top:
-                # filter_and_label logs the reason (blocked, threshold, etc)
-                return 'skipped'
+                return 'skipped', reason
+            
             camera_name = event.get('camera', 'unknown')
             start_time = event.get('start_time', datetime.now().timestamp())
 
@@ -122,14 +124,14 @@ class BackfillService:
 
             if not changed:
                 log.debug("Event already exists and score not improved, skipped", event_id=frigate_event)
-                return 'skipped'
+                return 'skipped', 'already_exists'
 
             log.info("Backfilled detection", event_id=frigate_event, species=top['label'], score=top['score'])
-            return 'new'
+            return 'new', None
 
         except Exception as e:
             log.error("Error processing historical event", event_id=frigate_event, error=str(e))
-            return 'error'
+            return 'error', 'exception'
 
     async def run_backfill(self, start: datetime, end: datetime, cameras: list[str] = None) -> BackfillResult:
         """
@@ -149,11 +151,13 @@ class BackfillService:
 
         # Process each event
         for event in events:
-            status = await self.process_historical_event(event)
+            status, reason = await self.process_historical_event(event)
             if status == 'new':
                 result.new_detections += 1
             elif status == 'skipped':
                 result.skipped += 1
+                if reason:
+                    result.skipped_reasons[reason] += 1
             else:
                 result.errors += 1
 

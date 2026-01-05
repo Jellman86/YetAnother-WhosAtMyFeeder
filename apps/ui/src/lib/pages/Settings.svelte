@@ -1007,6 +1007,19 @@
                                     <div><p class="text-sm font-black text-slate-400">{backfillResult.skipped}</p><p class="text-[8px] font-black uppercase text-slate-500 tracking-tighter">Skip</p></div>
                                     <div><p class="text-sm font-black text-red-500">{backfillResult.errors}</p><p class="text-[8px] font-black uppercase text-slate-500 tracking-tighter">Err</p></div>
                                 </div>
+                                {#if backfillResult.skipped_reasons && Object.keys(backfillResult.skipped_reasons).length > 0}
+                                    <div class="mt-2 p-3 rounded-xl bg-slate-50/50 dark:bg-slate-900/30 border border-slate-100 dark:border-slate-700/30">
+                                        <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-2">Skipped Breakdown</p>
+                                        <div class="grid grid-cols-2 gap-2">
+                                            {#each Object.entries(backfillResult.skipped_reasons) as [reason, count]}
+                                                <div class="flex justify-between items-center text-xs">
+                                                    <span class="text-slate-500 capitalize">{reason.replace(/_/g, ' ')}</span>
+                                                    <span class="font-bold text-slate-700 dark:text-slate-300">{count}</span>
+                                                </div>
+                                            {/each}
+                                        </div>
+                                    </div>
+                                {/if}
                             {/if}
 
                             <button onclick={handleBackfill} disabled={backfilling} class="w-full px-4 py-4 text-xs font-black uppercase tracking-widest rounded-2xl bg-teal-500 hover:bg-teal-600 text-white transition-all shadow-lg shadow-teal-500/20 flex items-center justify-center gap-3">

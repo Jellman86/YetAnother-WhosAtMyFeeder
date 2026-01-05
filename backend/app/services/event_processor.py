@@ -90,7 +90,7 @@ class EventProcessor:
                     return
 
             # Apply common filtering and labeling logic (with Frigate sublabel for fallback if needed)
-            top = self.detection_service.filter_and_label(results[0], frigate_event, sub_label)
+            top, _ = self.detection_service.filter_and_label(results[0], frigate_event, sub_label)
             if not top:
                 return
 

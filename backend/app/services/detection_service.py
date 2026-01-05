@@ -23,13 +23,11 @@ class DetectionService:
         self.broadcaster = broadcaster
 
     def filter_and_label(self, classification: dict, frigate_event: str,
-                         frigate_sub_label: str = None) -> dict | None:
+                         frigate_sub_label: str = None) -> tuple[dict | None, str | None]:
         """
         Apply filtering and relabeling rules to a classification result.
-        Returns the modified classification dict or None if filtered out.
-
-        If YA-WAMF classification fails threshold but Frigate has a sublabel,
-        falls back to using Frigate's identification (when trust_frigate_sublabel is enabled).
+        Returns (result_dict, reason_code).
+        reason_code is populated when result is None (skip reason) or informative when result exists.
         """
         top = classification
         score = top['score']
@@ -45,7 +43,7 @@ class DetectionService:
         # Filter out blocked labels
         if label in settings.classification.blocked_labels:
             log.debug("Filtered blocked label", label=label, event_id=frigate_event)
-            return None
+            return None, "blocked_label"
 
         # Determine effective minimum confidence (floor)
         # If user sets threshold lower than min_confidence, use threshold as floor
@@ -60,7 +58,7 @@ class DetectionService:
         # If classification passes primary threshold, return it
         # (Implicitly passes min_confidence because threshold >= effective_min)
         if not below_threshold:
-            return top
+            return top, "threshold_passed"
 
         # Classification failed primary threshold - check if we can fall back to Frigate sublabel
         if settings.classification.trust_frigate_sublabel and frigate_sub_label:
@@ -75,7 +73,7 @@ class DetectionService:
                 'score': score,  # Keep original score for reference
                 'index': top.get('index', -1),
                 'source': 'frigate_fallback'
-            }
+            }, "frigate_fallback"
 
         # Check for "Unknown Bird" catch-all (middle ground between min_confidence and threshold)
         if not below_min_confidence:
@@ -88,15 +86,17 @@ class DetectionService:
                 'score': score,
                 'index': top.get('index', -1),
                 'source': 'low_confidence_catchall'
-            }
+            }, "unknown_catchall"
 
         # No fallback available or below absolute floor
         if below_min_confidence:
             log.debug("Below minimum confidence", score=score, min=effective_min, event_id=frigate_event)
+            return None, "low_confidence"
         else:
+            # This branch implies (not below_min and below_threshold) which is handled by catch-all above
+            # But just in case logic drifts:
             log.debug("Below threshold", score=score, threshold=settings.classification.threshold, event_id=frigate_event)
-
-        return None
+            return None, "below_threshold"
 
     async def save_detection(self, frigate_event: str, camera: str, start_time: float, 
                            classification: dict, frigate_score: float = None, sub_label: str = None,

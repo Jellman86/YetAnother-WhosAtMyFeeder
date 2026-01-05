@@ -459,6 +459,7 @@ export interface BackfillResult {
     new_detections: number;
     skipped: number;
     errors: number;
+    skipped_reasons?: Record<string, number>;
     message: string;
 }
 
