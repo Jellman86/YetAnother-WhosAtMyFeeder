@@ -39,6 +39,7 @@ class BackfillResponse(BaseModel):
     new_detections: int
     skipped: int
     errors: int
+    skipped_reasons: dict[str, int] = Field(default_factory=dict)
     message: str
 
 
@@ -120,6 +121,7 @@ async def backfill_detections(request: BackfillRequest):
             new_detections=result.new_detections,
             skipped=result.skipped,
             errors=result.errors,
+            skipped_reasons=result.skipped_reasons,
             message=message
         )
 
