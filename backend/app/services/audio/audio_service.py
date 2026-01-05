@@ -94,4 +94,19 @@ class AudioService:
             
             return best_match
 
+    async def get_recent_detections(self, limit: int = 10) -> list[dict]:
+        """Get the most recent audio detections from the buffer."""
+        async with self._lock:
+            # Sort by timestamp descending
+            sorted_detections = sorted(self._buffer, key=lambda x: x.timestamp, reverse=True)
+            return [
+                {
+                    "timestamp": d.timestamp.isoformat(),
+                    "species": d.species,
+                    "confidence": d.confidence,
+                    "sensor_id": d.sensor_id
+                }
+                for d in sorted_detections[:limit]
+            ]
+
 audio_service = AudioService()

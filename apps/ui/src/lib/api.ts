@@ -631,6 +631,18 @@ export async function analyzeDetection(eventId: string): Promise<{ analysis: str
     return handleResponse<{ analysis: string }>(response);
 }
 
+export interface AudioDetection {
+    timestamp: string;
+    species: string;
+    confidence: number;
+    sensor_id: string | null;
+}
+
+export async function fetchRecentAudio(limit: int = 10): Promise<AudioDetection[]> {
+    const response = await fetch(`${API_BASE}/audio/recent?limit=${limit}`);
+    return handleResponse<AudioDetection[]>(response);
+}
+
 // Stats types and functions
 export interface DailySpeciesSummary {
     species: string;

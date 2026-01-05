@@ -9,6 +9,7 @@
     import LatestDetectionHero from '../components/LatestDetectionHero.svelte';
     import StatsRibbon from '../components/StatsRibbon.svelte';
     import ReclassificationOverlay from '../components/ReclassificationOverlay.svelte';
+    import RecentAudio from '../components/RecentAudio.svelte';
     import { detectionsStore } from '../stores/detections.svelte';
     import type { Detection, DailySummary } from '../api';
     import { getThumbnailUrl, deleteDetection, hideDetection, updateDetectionSpecies, analyzeDetection, fetchDailySummary, fetchClassifierLabels, reclassifyDetection } from '../api';
@@ -208,8 +209,8 @@
     {/if}
 
     <!-- Top Row: Hero & Histogram -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div class="lg:col-span-2">
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div class="lg:col-span-7">
             {#if heroDetection}
                 {#key heroDetection.frigate_event}
                     <div in:fly={{ y: 20, duration: 500 }}>
@@ -221,17 +222,20 @@
                     </div>
                 {/key}
             {:else}
-                <div class="h-80 bg-slate-100 dark:bg-slate-800 rounded-2xl flex items-center justify-center border-4 border-dashed border-slate-200 dark:border-slate-700">
+                <div class="h-full min-h-[320px] bg-slate-100 dark:bg-slate-800 rounded-3xl flex items-center justify-center border-4 border-dashed border-slate-200 dark:border-slate-700">
                     <p class="text-slate-400">Waiting for the first visitor of the day...</p>
                 </div>
             {/if}
         </div>
-        <div>
+        <div class="lg:col-span-5 grid grid-cols-1 gap-6">
             {#if summary}
                 <div in:fade={{ duration: 800 }}>
                     <DailyHistogram data={summary.hourly_distribution} />
                 </div>
             {/if}
+            <div in:fade={{ duration: 800, delay: 200 }}>
+                <RecentAudio />
+            </div>
         </div>
     </div>
 
