@@ -18,6 +18,7 @@
         startTaxonomySync,
         testBirdWeather,
         testBirdNET,
+        testMQTTPublish,
         type ClassifierStatus,
         type WildlifeModelStatus,
         type MaintenanceStats,
@@ -459,14 +460,21 @@
         testingBirdNET = true;
         message = null;
         try {
+            // Test generic MQTT first
+            const mqttResult = await testMQTTPublish();
+            if (mqttResult.status !== 'ok') {
+                throw new Error(mqttResult.message);
+            }
+
+            // Then test BirdNET specific pipeline
             const result = await testBirdNET();
             if (result.status === 'ok') {
-                message = { type: 'success', text: result.message };
+                message = { type: 'success', text: "MQTT Pipeline Verified: Test message sent to 'yawamf/test' and mock bird injected." };
             } else {
                 message = { type: 'error', text: result.message };
             }
         } catch (e: any) {
-            message = { type: 'error', text: e.message || 'Failed to test BirdNET-Go' };
+            message = { type: 'error', text: e.message || 'Failed to test MQTT Pipeline' };
         } finally {
             testingBirdNET = false;
         }

@@ -48,6 +48,27 @@ async def test_birdnet(background_tasks: BackgroundTasks):
     
     return {"status": "ok", "message": "Mock audio detection injected. Check Discovery feed for updates."}
 
+@router.post("/settings/mqtt/test-publish")
+async def test_mqtt_publish():
+    """Publish a test message to the MQTT broker to verify connectivity."""
+    from app.services.broadcaster import broadcaster
+    # Broadcaster uses the shared mqtt_service internally for non-SSE tasks if needed,
+    # but here we should use the mqtt_service directly.
+    from app.services.mqtt_service import mqtt_service
+    
+    try:
+        success = await mqtt_service.publish(
+            "yawamf/test", 
+            {"message": "Hello from YA-WAMF Backend!", "timestamp": datetime.now().isoformat()}
+        )
+        if success:
+            return {"status": "ok", "message": "Test message published to 'yawamf/test'"}
+        else:
+            return {"status": "error", "message": "Failed to publish MQTT message. Check logs."}
+    except Exception as e:
+        log.error("MQTT Test Publish Failed", error=str(e))
+        return {"status": "error", "message": str(e)}
+
 class BirdWeatherTestRequest(BaseModel):
     token: Optional[str] = None
 

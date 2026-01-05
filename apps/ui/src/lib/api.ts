@@ -559,6 +559,11 @@ export async function testBirdNET(): Promise<{ status: string; message: string }
     return handleResponse<{ status: string; message: string }>(response);
 }
 
+export async function testMQTTPublish(): Promise<{ status: string; message: string }> {
+    const response = await fetch(`${API_BASE}/settings/mqtt/test-publish`, { method: 'POST' });
+    return handleResponse<{ status: string; message: string }>(response);
+}
+
 // Model Manager types and functions
 export interface ModelMetadata {
     id: string;
