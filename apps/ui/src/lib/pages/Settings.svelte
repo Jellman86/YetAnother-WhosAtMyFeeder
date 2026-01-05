@@ -1010,10 +1010,24 @@
                                 {#if backfillResult.skipped_reasons && Object.keys(backfillResult.skipped_reasons).length > 0}
                                     <div class="mt-2 p-3 rounded-xl bg-slate-50/50 dark:bg-slate-900/30 border border-slate-100 dark:border-slate-700/30">
                                         <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-2">Skipped Breakdown</p>
-                                        <div class="grid grid-cols-2 gap-2">
+                                        <div class="grid grid-cols-1 gap-2">
                                             {#each Object.entries(backfillResult.skipped_reasons) as [reason, count]}
                                                 <div class="flex justify-between items-center text-xs">
-                                                    <span class="text-slate-500 capitalize">{reason.replace(/_/g, ' ')}</span>
+                                                    <span class="text-slate-500">
+                                                        {#if reason === 'low_confidence'}
+                                                            Below Minimum Confidence Floor
+                                                        {:else if reason === 'below_threshold'}
+                                                            Below Confidence Threshold
+                                                        {:else if reason === 'blocked_label'}
+                                                            Filtered (Blocked Label)
+                                                        {:else if reason === 'already_exists'}
+                                                            Already in Database
+                                                        {:else if reason === 'fetch_snapshot_failed'}
+                                                            Frigate Snapshot Missing
+                                                        {:else}
+                                                            {reason.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                                                        {/if}
+                                                    </span>
                                                     <span class="font-bold text-slate-700 dark:text-slate-300">{count}</span>
                                                 </div>
                                             {/each}
