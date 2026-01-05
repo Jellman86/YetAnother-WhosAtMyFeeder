@@ -209,11 +209,11 @@
     {/if}
 
     <!-- Top Row: Hero & Histogram -->
-    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        <div class="lg:col-span-7">
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+        <div class="lg:col-span-7 h-full">
             {#if heroDetection}
                 {#key heroDetection.frigate_event}
-                    <div in:fly={{ y: 20, duration: 500 }}>
+                    <div in:fly={{ y: 20, duration: 500 }} class="h-full">
                         <LatestDetectionHero 
                             detection={heroDetection} 
                             onclick={() => selectedEvent = heroDetection}
