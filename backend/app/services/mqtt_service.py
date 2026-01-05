@@ -10,9 +10,10 @@ class MQTTService:
     def __init__(self, version: str = "unknown"):
         self.client = None
         self.running = False
-        # Generate a unique session ID for this instance
-        session_id = str(uuid.uuid4())[:8]
-        self.client_id = f"YAWAMF-{version}-{session_id}"
+        # Simplified Client ID: yawamf-{git_hash}
+        # version format is usually "2.0.0+abc1234"
+        git_hash = version.split('+')[-1] if '+' in version else "unknown"
+        self.client_id = f"yawamf-{git_hash}"
 
     async def start(self, event_processor):
         self.running = True
