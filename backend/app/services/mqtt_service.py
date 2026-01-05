@@ -13,7 +13,13 @@ class MQTTService:
         # Simplified Client ID: yawamf-{git_hash}
         # version format is usually "2.0.0+abc1234"
         git_hash = version.split('+')[-1] if '+' in version else "unknown"
-        self.client_id = f"yawamf-{git_hash}"
+        
+        # If hash is unknown (local dev or missing build arg), append session ID to avoid collisions
+        if git_hash == "unknown":
+            session_id = str(uuid.uuid4())[:8]
+            self.client_id = f"yawamf-unknown-{session_id}"
+        else:
+            self.client_id = f"yawamf-{git_hash}"
 
     async def start(self, event_processor):
         self.running = True

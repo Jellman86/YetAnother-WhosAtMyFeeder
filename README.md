@@ -229,25 +229,6 @@ YA-WAMF includes a custom component for Home Assistant to bring your bird sighti
 3. Add the integration via **Settings > Devices & Services > Add Integration**.
 4. Enter your YA-WAMF backend URL (e.g., `http://192.168.1.50:9852`).
 
-## Wildlife Classification (Optional)
-
-Sometimes non-birds show up at your feeder - squirrels, raccoons, foxes, and more. YA-WAMF includes an optional wildlife classifier to identify these visitors.
-
-**Setup:**
-1. Go to **Settings** in the web UI
-2. Find the **Wildlife Classifier** section
-3. Click **Download Wildlife Model** (one-time ~50MB download)
-
-**Usage:**
-- When viewing any detection, click the **Identify Animal** button
-- The classifier will suggest what animal it might be
-- Click a result to apply it as the species label
-
-**Model Details:**
-- Uses MobileNet V2 trained on ImageNet (1001 classes)
-- Fast CPU inference (~14MB model)
-- Includes common backyard animals: squirrels, foxes, rabbits, raccoons, deer, skunks, and more
-
 ## Help the Project Improve! 🧪
 
 This project is in active development, and your feedback is incredibly valuable! If you are using YA-WAMF, please help the project by:
