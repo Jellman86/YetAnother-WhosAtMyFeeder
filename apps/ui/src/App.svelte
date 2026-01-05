@@ -224,7 +224,7 @@
   <main class="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
       {#if currentRoute === '/'} 
           <Dashboard onnavigate={navigate} />
-      {:else if currentRoute === '/events'}
+      {:else if currentRoute.startsWith('/events')}
           <Events />
       {:else if currentRoute.startsWith('/species')}
           <Species />
