@@ -64,20 +64,18 @@ class DetectionService:
 
         # Classification failed primary threshold - check if we can fall back to Frigate sublabel
         if settings.classification.trust_frigate_sublabel and frigate_sub_label:
-            # Only allow fallback if above the absolute floor (effective_min)
-            if not below_min_confidence:
-                # Frigate sublabel exists - use it as fallback
-                log.info("Using Frigate sublabel as fallback",
-                         frigate_label=frigate_sub_label,
-                         yawamf_label=original_label,
-                         yawamf_score=score,
-                         event_id=frigate_event)
-                return {
-                    'label': frigate_sub_label,
-                    'score': score,  # Keep original score for reference
-                    'index': top.get('index', -1),
-                    'source': 'frigate_fallback'
-                }
+            # Frigate sublabel exists - use it as fallback regardless of confidence
+            log.info("Using Frigate sublabel as fallback",
+                     frigate_label=frigate_sub_label,
+                     yawamf_label=original_label,
+                     yawamf_score=score,
+                     event_id=frigate_event)
+            return {
+                'label': frigate_sub_label,
+                'score': score,  # Keep original score for reference
+                'index': top.get('index', -1),
+                'source': 'frigate_fallback'
+            }
 
         # Check for "Unknown Bird" catch-all (middle ground between min_confidence and threshold)
         if not below_min_confidence:
