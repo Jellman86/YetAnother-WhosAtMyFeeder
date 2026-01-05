@@ -65,8 +65,28 @@ class MQTTService:
                 log.error("Unexpected error in MQTT service", error=str(e))
                 await asyncio.sleep(5)
 
+    async def publish(self, topic: str, payload: dict | str) -> bool:
+        """Publish a message to a specific topic."""
+        if not self.client:
+            log.warning("Cannot publish - MQTT client not connected")
+            return False
+            
+        try:
+            import json
+            if isinstance(payload, dict):
+                payload = json.dumps(payload)
+                
+            await self.client.publish(topic, payload)
+            log.info("Published MQTT message", topic=topic)
+            return True
+        except Exception as e:
+            log.error("Failed to publish message", topic=topic, error=str(e))
+            return False
+
     async def stop(self):
         self.running = False
         if self.client:
             # aiomqtt client context manager handles disconnect, but we can break the loop
             pass
+
+mqtt_service = MQTTService()

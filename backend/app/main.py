@@ -10,7 +10,7 @@ from contextlib import asynccontextmanager
 from prometheus_client import generate_latest, CONTENT_TYPE_LATEST, Counter
 
 from app.database import init_db, get_db
-from app.services.mqtt_service import MQTTService
+from app.services.mqtt_service import mqtt_service
 from app.services.classifier_service import get_classifier
 from app.services.event_processor import EventProcessor
 from app.services.media_cache import media_cache
@@ -55,7 +55,6 @@ API_REQUESTS = Counter('api_requests_total', 'Total API requests')
 # Use shared classifier instance
 classifier_service = get_classifier()
 event_processor = EventProcessor(classifier_service)
-mqtt_service = MQTTService(version=APP_VERSION)
 log = structlog.get_logger()
 
 # Cleanup task control
