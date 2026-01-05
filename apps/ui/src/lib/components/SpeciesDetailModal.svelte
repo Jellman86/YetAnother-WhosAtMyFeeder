@@ -18,6 +18,10 @@
 
     let { speciesName, onclose }: Props = $props();
 
+    const HOUR_LABELS = Array.from({ length: 24 }, (_, i) => `${i}:00`);
+    const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
     let stats = $state<SpeciesStats | null>(null);
     let info = $state<SpeciesInfo | null>(null);
     let loading = $state(true);
