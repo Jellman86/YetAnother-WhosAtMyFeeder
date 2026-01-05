@@ -83,6 +83,7 @@ class SettingsUpdate(BaseModel):
     camera_audio_mapping: dict[str, str] = Field(default_factory=dict, description="Map Frigate camera to BirdNET ID")
     clips_enabled: bool = Field(True, description="Enable fetching of video clips from Frigate")
     classification_threshold: float = Field(..., ge=0.0, le=1.0, description="Classification confidence threshold (0-1)")
+    classification_min_confidence: float = Field(0.4, ge=0.0, le=1.0, description="Minimum confidence floor (0-1)")
     cameras: List[str] = Field(default_factory=list, description="List of cameras to monitor")
     retention_days: int = Field(0, ge=0, description="Days to keep detections (0 = unlimited)")
     blocked_labels: List[str] = Field(default_factory=list, description="Labels to filter out from detections")
@@ -161,6 +162,7 @@ async def update_settings(update: SettingsUpdate):
     settings.frigate.clips_enabled = update.clips_enabled
     settings.frigate.camera = update.cameras
     settings.classification.threshold = update.classification_threshold
+    settings.classification.min_confidence = update.classification_min_confidence
     settings.maintenance.retention_days = update.retention_days
     settings.classification.blocked_labels = update.blocked_labels
     settings.classification.trust_frigate_sublabel = update.trust_frigate_sublabel

@@ -14,6 +14,7 @@
 
     // Ultra-reactive derivation
     let processedSpecies = $derived.by(() => {
+        if (!species) return [];
         const showCommon = $settingsStore?.display_common_names ?? true;
         const preferSci = $settingsStore?.scientific_name_primary ?? false;
         

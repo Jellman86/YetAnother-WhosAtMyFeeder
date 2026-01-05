@@ -58,6 +58,11 @@
     let analyzingAI = $state(false);
     let aiAnalysis = $state<string | null>(null);
 
+    let llmEnabled = $state(false);
+    $effect(() => {
+        llmEnabled = $settingsStore?.llm_enabled ?? false;
+    });
+
     // Derive naming logic for the modal
     let modalNaming = $derived.by(() => {
         if (!selectedEvent) return { primary: '', secondary: null };
