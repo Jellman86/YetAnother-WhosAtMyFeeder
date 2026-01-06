@@ -57,6 +57,12 @@ class MQTTService:
                     log.info("Connected to MQTT", topics=[frigate_topic, birdnet_topic])
 
                     async for message in client.messages:
+                        # Check for topic changes in settings
+                        if settings.frigate.audio_topic != birdnet_topic:
+                            log.info("MQTT Audio topic changed in settings, reconnecting...", 
+                                     old=birdnet_topic, new=settings.frigate.audio_topic)
+                            break # This breaks the 'async for', causing a reconnection with new settings
+
                         topic = message.topic.value
                         if topic == frigate_topic:
                             log.info("Received MQTT message on frigate topic", payload_len=len(message.payload))

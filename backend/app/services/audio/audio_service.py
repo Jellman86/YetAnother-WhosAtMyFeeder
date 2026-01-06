@@ -27,11 +27,19 @@ class AudioService:
         """Ingest a detection from MQTT."""
         try:
             timestamp = datetime.now()
-            # Handle standard BirdNET format
-            species = data.get("comName", data.get("species", "Unknown"))
-            confidence = data.get("score", data.get("confidence", 0.0))
+            # Handle standard BirdNET format (camelCase) and BirdNET-Go format (PascalCase)
+            species = data.get("comName", data.get("species"))
+            if not species:
+                species = data.get("CommonName", data.get("ScientificName", "Unknown"))
+                
+            confidence = data.get("score", data.get("confidence"))
+            if confidence is None:
+                confidence = data.get("Confidence", 0.0)
+                
             # Capture sensor/id for camera matching
             sensor_id = data.get("id", data.get("sensor_id"))
+            if not sensor_id and "Source" in data:
+                sensor_id = data.get("Source", {}).get("id")
             
             # If timestamp provided in payload, use it
             ts_raw = data.get("timestamp") or data.get("ts")
