@@ -1,0 +1,40 @@
+# Home Assistant Integration
+
+YA-WAMF provides a custom component for Home Assistant to integrate your bird sightings into your smart home dashboard.
+
+## Installation
+
+### 1. Copy Files
+Copy the `custom_components/yawamf` folder from the YA-WAMF repository to your Home Assistant `config/custom_components/` directory.
+
+### 2. Restart
+Restart Home Assistant to load the new component.
+
+### 3. Add Integration
+Go to **Settings > Devices & Services > Add Integration** and search for "YA-WAMF".
+
+### 4. Configure
+Enter the URL of your YA-WAMF instance (e.g., `http://192.168.1.50:9852`).
+
+## Sensors Provided
+
+| Sensor | Description |
+|--------|-------------|
+| **Last Bird Detected** | The name of the most recent visitor. Attributes include camera, confidence, temperature, and weather. |
+| **Daily Count** | A counter for how many birds have visited since midnight. |
+| **Latest Snapshot** | (Optional) A camera entity showing the last detected bird. |
+
+## Automation Example
+You can use the sensors to trigger automations, like flashing a light when a Cardinal arrives:
+
+```yaml
+alias: "Notify on Cardinal"
+trigger:
+  - platform: state
+    entity_id: sensor.yawamf_last_bird
+    to: "Northern Cardinal"
+action:
+  - service: notify.mobile_app
+    data:
+      message: "A Cardinal is at the feeder!"
+```

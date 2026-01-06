@@ -33,6 +33,16 @@ When Frigate detects a bird at your feeder, YA-WAMF:
 - **Home Assistant Integration:** Full support for tracking the last detected bird and daily counts in HA.
 - **Observability:** Built-in Prometheus metrics and real-time MQTT diagnostics.
 
+## Documentation
+
+For detailed guides on setup, integrations, and troubleshooting, please see the **[Full Documentation Suite](docs/index.md)**.
+
+- [🚀 Getting Started](docs/setup/getting-started.md)
+- [🔗 BirdNET-Go Integration](docs/integrations/birdnet-go.md)
+- [🏠 Home Assistant Setup](docs/integrations/home-assistant.md)
+- [🧠 AI Models & Performance](docs/features/ai-models.md)
+- [🛠 Troubleshooting Guide](docs/troubleshooting/diagnostics.md)
+
 ## How It Works
 
 Here's the flow from bird to identification:
