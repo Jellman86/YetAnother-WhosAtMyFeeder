@@ -777,7 +777,14 @@
                                 </div>
                                 <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">Location</h3>
                             </div>
-                            <button onclick={() => locationAuto = !locationAuto} class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {locationAuto ? 'bg-teal-500' : 'bg-slate-300 dark:bg-slate-600'}"><span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {locationAuto ? 'translate-x-5' : 'translate-x-0'}"></span></button>
+                            
+                            <div class="flex items-center gap-3">
+                                <span class="text-[10px] font-black uppercase tracking-widest {locationAuto ? 'text-teal-500' : 'text-slate-400'}">Auto</span>
+                                <button onclick={() => locationAuto = !locationAuto} class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {locationAuto ? 'bg-teal-500' : 'bg-slate-300 dark:bg-slate-600'}">
+                                    <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {locationAuto ? 'translate-x-5' : 'translate-x-0'}"></span>
+                                </button>
+                                <span class="text-[10px] font-black uppercase tracking-widest {!locationAuto ? 'text-orange-500' : 'text-slate-400'}">Manual</span>
+                            </div>
                         </div>
 
                         <div class="space-y-6">
