@@ -12,6 +12,25 @@ If detections aren't appearing, verify the MQTT connection:
    mosquitto_sub -h localhost -t "yawamf/test" -v
    ```
 
+## 🌐 Network Connectivity
+Since YA-WAMF runs in a Docker network, it must be able to reach your other services. You can test this from inside the backend container:
+
+```bash
+# Test connection to Frigate
+docker exec yawamf-backend curl -s http://frigate:5000/api/version
+
+# Test connection to MQTT (if mosquitto has a healthcheck/api)
+docker exec yawamf-backend ping -c 1 mosquitto
+```
+
+If these fail, verify that all services are on the same `DOCKER_NETWORK` in your `.env` file.
+
+## 🖥 UI Issues
+If the dashboard is blank or buttons don't work:
+1.  **Clear Browser Cache:** Svelte 5 updates sometimes require a hard refresh (`Ctrl + F5`).
+2.  **Check SSE Connection:** YA-WAMF uses Server-Sent Events for live updates. Look for a green "Live" badge in the header. If it says "Offline", check your reverse proxy (Nginx/Traefik) allows long-lived connections and keeps headers.
+3.  **Logs:** Check for 404 or 500 errors in the frontend console (`F12` in your browser).
+
 ## Missed Detections (Backfill)
 If the Backfill tool is skipping events you expected to see, check the **Skipped Breakdown** table in the settings page after a scan.
 

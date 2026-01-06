@@ -1,23 +1,31 @@
 # YA-WAMF Documentation
 
-Welcome to the documentation for **Yet Another WhosAtMyFeeder (YA-WAMF)**.
+Welcome to the documentation for **Yet Another WhosAtMyFeeder (YA-WAMF)**. This guide covers everything from basic setup to advanced AI tuning.
+
+> 🦜 **New to YA-WAMF?** Start with the [Getting Started](setup/getting-started.md) guide to have your feeder online in minutes.
+
+---
 
 ## 🚀 Setup & Installation
-- [Getting Started](setup/getting-started.md) - Quick start guide using Docker Compose.
-- [Docker Stack Example](setup/docker-stack.md) - A full example with Frigate and MQTT.
-- [Recommended Frigate Config](setup/frigate-config.md) - Optimized settings for bird detection.
-- [Configuration](setup/configuration.md) - Detailed explanation of all settings.
+Everything you need to get the containers running and configured correctly.
+- **[Getting Started](setup/getting-started.md)** - Fast-track installation using Docker Compose.
+- **[Full Docker Stack](setup/docker-stack.md)** - A complete example including Frigate and MQTT.
+- **[Recommended Frigate Config](setup/frigate-config.md)** - Optimized settings for bird snapshots.
+- **[Configuration Guide](setup/configuration.md)** - Deep dive into all web UI settings.
 
 ## 🔗 Integrations
-- [Frigate NVR](integrations/frigate.md) - Connecting to your camera system.
-- [BirdNET-Go](integrations/birdnet-go.md) - Audio-visual correlation.
-- [BirdWeather](integrations/birdweather.md) - Community science uploads.
-- [Home Assistant](integrations/home-assistant.md) - Smart home sensors and cards.
+Connect YA-WAMF to the rest of your smart home and community projects.
+- **[Frigate NVR](integrations/frigate.md)** - Connecting to your camera system.
+- **[BirdNET-Go](integrations/birdnet-go.md)** - Multi-sensor audio correlation.
+- **[BirdWeather](integrations/birdweather.md)** - Uploading to community science stations.
+- **[Home Assistant](integrations/home-assistant.md)** - Sensors, cards, and automations.
 
-## 🧠 AI & Logic
-- [AI Models](features/ai-models.md) - Choosing Fast, High, or Elite accuracy models.
-- [Taxonomy](features/taxonomy.md) - How common and scientific names are managed.
-- [Video Analysis](features/video-analysis.md) - Understanding the multi-frame ensemble logic.
+## 🧠 AI & Features
+Understand the "brains" of the operation.
+- **[AI Model Market](features/ai-models.md)** - Choosing Fast, High, or Elite accuracy models.
+- **[Taxonomy & Naming](features/taxonomy.md)** - How Scientific and Common names are managed.
+- **[Deep Video Analysis](features/video-analysis.md)** - The science behind multi-frame identification.
 
-## 🛠 Troubleshooting
-- [Diagnostics](troubleshooting/diagnostics.md) - Using MQTT and Backfill reports to solve issues.
+## 🛠 Help & Troubleshooting
+Solving common issues and using diagnostic tools.
+- **[Diagnostics & Logs](troubleshooting/diagnostics.md)** - Using MQTT tests and Backfill reports.

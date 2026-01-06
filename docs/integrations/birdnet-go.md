@@ -11,14 +11,26 @@ YA-WAMF features deep integration with [BirdNET-Go](https://github.com/tbeceele/
 ## Setup
 
 ### 1. MQTT Topic
-In **Settings > Integrations**, ensure the MQTT topic matches your BirdNET-Go configuration. The default is usually `birdnet`.
+In **Settings > Integrations**, ensure the MQTT topic matches your BirdNET-Go configuration. 
+- **Modern BirdNET-Go:** Use the base topic (e.g., `birdnet`). 
+- **Legacy / Custom:** Use the specific text topic (e.g., `birdnet/text`).
+
+> ℹ️ **Note:** YA-WAMF will automatically reconnect to your MQTT broker if you change the topic in the UI.
 
 ### 2. Sensor Mapping
 For correlation to work, YA-WAMF needs to know which audio sensor belongs to which camera.
 1. Observe the **Recent Audio** widget on the dashboard.
-2. Note the **Sensor ID** displayed in the top-right of the audio entries (e.g., `front_feeder_mic`).
+2. Note the **Sensor ID** displayed in the top-right of the audio entries (e.g., `rtsp_42182153`).
 3. Go to **Settings > Integrations > Sensor Mapping**.
 4. Type that ID next to the corresponding Frigate camera name.
+
+## 🛠 Technical Details
+
+YA-WAMF is compatible with multiple BirdNET message formats:
+- **CamelCase (Original):** `comName`, `score`, `ts`
+- **PascalCase (New BirdNET-Go):** `CommonName`, `Confidence`, `Source -> id`
+
+The system ignores "Sound Level" messages (`birdnet/soundlevel`) and focuses only on valid species identifications.
 
 ## Dashboard Widget
 The dashboard includes a "Recent Audio" widget that shows the most recent standalone detections from BirdNET-Go, even if no visual event occurred. This can be toggled on/off in the settings.

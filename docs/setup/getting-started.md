@@ -41,10 +41,12 @@ docker compose up -d
 > 💡 **Need a full example?** If you haven't set up Frigate or an MQTT broker yet, check out our [Full Docker Stack Example](docker-stack.md).
 
 ### 4. Initial Setup
-1. Open the UI at `http://YOUR_SERVER_IP:9852`.
-2. Go to **Settings > Detection**.
-3. Download your first Bird Model (MobileNet V2 is recommended for the first run).
-4. Verify your camera selection in **Settings > Connection**.
+Once the dashboard is open, follow this checklist to get your first detection:
+
+1.  **Select Cameras:** Go to **Settings > Connection** and select the Frigate cameras you want to monitor.
+2.  **Download Model:** Go to **Settings > Detection** and click "Download" on the **MobileNet V2** model.
+3.  **Set Timezone:** Ensure your `TZ` environment variable in `.env` matches your location for accurate sighting timestamps.
+4.  **Wait for a bird!** Once a bird visits, check the dashboard. If nothing appears after a few minutes, check the [Diagnostics](..//troubleshooting/diagnostics.md) guide.
 
 ## Data Persistence
 YA-WAMF uses two volumes for data:

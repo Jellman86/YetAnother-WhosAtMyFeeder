@@ -108,3 +108,25 @@ mqtt:
 Ensure your host machine has enough space. 
 - **YA-WAMF data:** ~2GB (mostly for large AI models).
 - **Frigate storage:** Depends on your recording settings (usually 100GB+ recommended).
+
+## 🖥 Hardware Requirements
+
+YA-WAMF can run on anything from a Raspberry Pi 4 to a high-end server, but your choice of **AI Model** will dictate your RAM needs:
+
+| Model Tier | CPU | RAM (Recommended) |
+|------------|-----|-------------------|
+| **Fast (MobileNet)** | Low | 512MB |
+| **High (ConvNeXt)** | Medium | 2GB |
+| **Elite (EVA-02)** | High | 4GB+ |
+
+> 💡 **Pro Tip:** If you are running on a Raspberry Pi or low-power NAS, stick with the **MobileNet V2** model for the best experience.
+
+## 🔄 Updating YA-WAMF
+
+To update to the latest version, run the following commands in your `ya-wamf` directory:
+
+```bash
+docker compose pull
+docker compose up -d
+```
+Your settings and history will be preserved because they are stored in the persistent volumes (`/config` and `/data`).
