@@ -48,6 +48,15 @@ class AudioService:
                     timestamp = datetime.fromtimestamp(float(ts_raw))
                 except Exception:
                     pass
+            else:
+                # Try ISO format from BirdNET-Go (BeginTime)
+                iso_ts = data.get("BeginTime") or data.get("EndTime")
+                if iso_ts:
+                    try:
+                        # Handle potential trailing 'Z' or extra precision
+                        timestamp = datetime.fromisoformat(iso_ts.replace('Z', '+00:00'))
+                    except Exception:
+                        pass
 
             detection = AudioDetection(
                 timestamp=timestamp,
@@ -69,8 +78,18 @@ class AudioService:
     def _cleanup_buffer(self):
         """Remove old detections from buffer."""
         now = datetime.now()
-        while self._buffer and (now - self._buffer[0].timestamp) > self._buffer_duration:
-            self._buffer.popleft()
+        # Ensure we are comparing offset-naive or offset-aware correctly
+        # Most of our timestamps are naive (local time)
+        while self._buffer:
+            ts = self._buffer[0].timestamp
+            # If the timestamp is offset-aware (from ISO), make it naive for comparison
+            if ts.tzinfo is not None:
+                ts = ts.replace(tzinfo=None)
+                
+            if (now - ts) > self._buffer_duration:
+                self._buffer.popleft()
+            else:
+                break
 
     async def find_match(self, target_time: datetime, camera_name: str = None, window_seconds: int = 15) -> Optional[AudioDetection]:
         """Find an audio detection matching the visual timestamp and camera.
@@ -80,12 +99,14 @@ class AudioService:
             camera_name: Name of the Frigate camera (used for mapping)
             window_seconds: Match window in seconds
         """
-        # Determine which sensor ID we are looking for based on camera mapping
-        expected_sensor_id = None
-        if camera_name and settings.frigate.camera_audio_mapping:
-            expected_sensor_id = settings.frigate.camera_audio_mapping.get(camera_name)
-
         async with self._lock:
+            self._cleanup_buffer() # Clean before matching
+            
+            # Determine which sensor ID we are looking for based on camera mapping
+            expected_sensor_id = None
+            if camera_name and settings.frigate.camera_audio_mapping:
+                expected_sensor_id = settings.frigate.camera_audio_mapping.get(camera_name)
+
             best_match = None
             highest_score = 0.0
             
@@ -94,7 +115,11 @@ class AudioService:
                 if expected_sensor_id and detection.sensor_id != expected_sensor_id:
                     continue
 
-                delta = abs((detection.timestamp - target_time).total_seconds())
+                # Ensure naive comparison
+                det_ts = detection.timestamp.replace(tzinfo=None) if detection.timestamp.tzinfo else detection.timestamp
+                target_ts = target_time.replace(tzinfo=None) if target_time.tzinfo else target_time
+
+                delta = abs((det_ts - target_ts).total_seconds())
                 if delta <= window_seconds:
                     if detection.confidence > highest_score:
                         highest_score = detection.confidence
@@ -105,6 +130,7 @@ class AudioService:
     async def get_recent_detections(self, limit: int = 10) -> list[dict]:
         """Get the most recent audio detections from the buffer."""
         async with self._lock:
+            self._cleanup_buffer() # Clean before returning to UI
             # Sort by timestamp descending
             sorted_detections = sorted(self._buffer, key=lambda x: x.timestamp, reverse=True)
             return [
