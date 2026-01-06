@@ -59,6 +59,22 @@
     let primaryName = $derived(naming.primary);
     let subName = $derived(naming.secondary);
 
+    onMount(async () => {
+        try {
+            const [statsData, infoData] = await Promise.all([
+                fetchSpeciesStats(speciesName),
+                fetchSpeciesInfo(speciesName)
+            ]);
+            stats = statsData;
+            info = infoData;
+        } catch (e: any) {
+            console.error('Failed to load species details', e);
+            error = e.message || 'Failed to load species details';
+        } finally {
+            loading = false;
+        }
+    });
+
     function formatDate(dateStr: string | null): string {
         if (!dateStr) return 'N/A';
         try {
