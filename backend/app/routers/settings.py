@@ -100,6 +100,7 @@ class SettingsUpdate(BaseModel):
     mqtt_auth: bool = Field(False, description="Enable MQTT authentication")
     mqtt_username: Optional[str] = Field(None, description="MQTT username")
     mqtt_password: Optional[str] = Field(None, description="MQTT password")
+    birdnet_enabled: Optional[bool] = Field(True, description="Enable BirdNET-Go integration")
     audio_topic: str = Field("birdnet/text", description="MQTT topic for audio detections")
     camera_audio_mapping: dict[str, str] = Field(default_factory=dict, description="Map Frigate camera to BirdNET ID")
     clips_enabled: bool = Field(True, description="Enable fetching of video clips from Frigate")
@@ -145,6 +146,7 @@ async def get_settings():
         "mqtt_auth": settings.frigate.mqtt_auth,
         "mqtt_username": settings.frigate.mqtt_username,
         "mqtt_password": settings.frigate.mqtt_password,
+        "birdnet_enabled": settings.frigate.birdnet_enabled,
         "audio_topic": settings.frigate.audio_topic,
         "camera_audio_mapping": settings.frigate.camera_audio_mapping,
         "clips_enabled": settings.frigate.clips_enabled,
@@ -184,6 +186,7 @@ async def update_settings(update: SettingsUpdate):
     if update.mqtt_username is not None:
         settings.frigate.mqtt_username = update.mqtt_username
     settings.frigate.mqtt_password = update.mqtt_password
+    settings.frigate.birdnet_enabled = update.birdnet_enabled if update.birdnet_enabled is not None else True
     settings.frigate.audio_topic = update.audio_topic
     settings.frigate.camera_audio_mapping = update.camera_audio_mapping
 

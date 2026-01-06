@@ -22,6 +22,7 @@ class FrigateSettings(BaseModel):
     mqtt_auth: bool = False
     mqtt_username: str = ""
     mqtt_password: str = ""
+    birdnet_enabled: bool = Field(default=True, description="Enable BirdNET-Go integration")
     audio_topic: str = "birdnet/text"
     camera_audio_mapping: dict[str, str] = Field(
         default_factory=dict, 
@@ -113,6 +114,7 @@ class Settings(BaseSettings):
             'mqtt_auth': os.environ.get('FRIGATE__MQTT_AUTH', 'false').lower() == 'true',
             'mqtt_username': os.environ.get('FRIGATE__MQTT_USERNAME', ''),
             'mqtt_password': os.environ.get('FRIGATE__MQTT_PASSWORD', ''),
+            'birdnet_enabled': os.environ.get('FRIGATE__BIRDNET_ENABLED', 'true').lower() == 'true',
             'audio_topic': os.environ.get('FRIGATE__AUDIO_TOPIC', 'birdnet/text'),
             'camera_audio_mapping': {},
         }

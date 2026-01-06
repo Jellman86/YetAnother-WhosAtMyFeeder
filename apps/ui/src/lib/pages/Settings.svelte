@@ -61,6 +61,9 @@
     let locationLon = $state<number | null>(null);
     let locationAuto = $state(true);
 
+    // BirdNET-Go Settings
+    let birdnetEnabled = $state(true);
+
     // BirdWeather Settings
     let birdweatherEnabled = $state(false);
     let birdweatherStationToken = $state('');
@@ -95,6 +98,7 @@
             { key: 'mqttUsername', val: mqttUsername, store: s.mqtt_username || '' },
             { key: 'mqttPassword', val: mqttPassword, store: s.mqtt_password || '' },
             { key: 'audioTopic', val: audioTopic, store: s.audio_topic || 'birdnet/text' },
+            { key: 'birdnetEnabled', val: birdnetEnabled, store: s.birdnet_enabled ?? true },
             { key: 'clipsEnabled', val: clipsEnabled, store: s.clips_enabled ?? true },
             { key: 'threshold', val: threshold, store: s.classification_threshold },
             { key: 'trustFrigateSublabel', val: trustFrigateSublabel, store: s.trust_frigate_sublabel ?? true },
@@ -317,6 +321,7 @@
             mqttAuth = settings.mqtt_auth;
             mqttUsername = settings.mqtt_username || '';
             mqttPassword = settings.mqtt_password || '';
+            birdnetEnabled = settings.birdnet_enabled ?? true;
             audioTopic = settings.audio_topic || 'birdnet/text';
             cameraAudioMapping = settings.camera_audio_mapping || {};
             if (typeof cameraAudioMapping !== 'object' || Array.isArray(cameraAudioMapping)) {
@@ -383,6 +388,7 @@
                 mqtt_auth: mqttAuth,
                 mqtt_username: mqttUsername,
                 mqtt_password: mqttPassword,
+                birdnet_enabled: birdnetEnabled,
                 audio_topic: audioTopic,
                 camera_audio_mapping: cameraAudioMapping,
                 clips_enabled: clipsEnabled,
@@ -677,11 +683,14 @@
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
                     <!-- BirdNET-Go -->
                     <section class="bg-white dark:bg-slate-800/50 rounded-3xl border border-slate-200/80 dark:border-slate-700/50 p-8 shadow-sm backdrop-blur-md">
-                        <div class="flex items-center gap-3 mb-6">
-                            <div class="w-10 h-10 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-600 dark:text-amber-400">
-                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
+                        <div class="flex items-center justify-between mb-6">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-600 dark:text-amber-400">
+                                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
+                                </div>
+                                <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">BirdNET-Go</h3>
                             </div>
-                            <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">BirdNET-Go</h3>
+                            <button onclick={() => birdnetEnabled = !birdnetEnabled} class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {birdnetEnabled ? 'bg-teal-500' : 'bg-slate-300 dark:bg-slate-600'}"><span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {birdnetEnabled ? 'translate-x-5' : 'translate-x-0'}"></span></button>
                         </div>
 
                         <div class="space-y-6">

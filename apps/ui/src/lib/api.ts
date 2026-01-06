@@ -44,6 +44,7 @@ export interface Settings {
     mqtt_auth: boolean;
     mqtt_username?: string;
     mqtt_password?: string;
+    birdnet_enabled: boolean;
     audio_topic: string;
     camera_audio_mapping: Record<string, string>;
     clips_enabled: boolean;
@@ -81,6 +82,7 @@ export interface SettingsUpdate {
     mqtt_auth: boolean;
     mqtt_username?: string;
     mqtt_password?: string;
+    birdnet_enabled: boolean;
     audio_topic: string;
     camera_audio_mapping: Record<string, string>;
     clips_enabled: boolean;

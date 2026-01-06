@@ -233,9 +233,11 @@
                     <DailyHistogram data={summary.hourly_distribution} />
                 </div>
             {/if}
-            <div in:fade={{ duration: 800, delay: 200 }}>
-                <RecentAudio />
-            </div>
+            {#if $settingsStore?.birdnet_enabled}
+                <div in:fade={{ duration: 800, delay: 200 }}>
+                    <RecentAudio />
+                </div>
+            {/if}
         </div>
     </div>
 
