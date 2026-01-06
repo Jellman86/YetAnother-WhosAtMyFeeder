@@ -58,6 +58,7 @@ services:
       - "5000:5000"
       - "8554:8554" # RTSP feeds
     environment:
+      - TZ=Europe/London # Ensure this matches YA-WAMF
       - FRIGATE_MQTT_PASSWORD=password
 
   # --- The Voice: MQTT Broker ---
@@ -67,6 +68,8 @@ services:
     restart: unless-stopped
     networks:
       - bird_network
+    environment:
+      - TZ=Europe/London
     volumes:
       - ./mosquitto/config:/mosquitto/config
       - ./mosquitto/data:/mosquitto/data
@@ -82,6 +85,7 @@ services:
     networks:
       - bird_network
     environment:
+      - TZ=Europe/London
       - MQTT_SERVER=mosquitto
       - MQTT_PORT=1883
       - RTSP_URL=rtsp://frigate:8554/birdcam # Point this to your camera feed

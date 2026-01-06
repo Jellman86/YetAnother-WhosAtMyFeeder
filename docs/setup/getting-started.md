@@ -38,15 +38,15 @@ Start the containers in detached mode:
 docker compose up -d
 ```
 
-> 💡 **Need a full example?** If you haven't set up Frigate or an MQTT broker yet, check out our [Full Docker Stack Example](docker-stack.md).
+## 🌍 The Importance of Timezone (`TZ`)
+Setting your correct local timezone is **critical** for YA-WAMF to function correctly. Ensure `TZ` is set in your `.env` (e.g., `TZ=Europe/London`).
 
-### 4. Initial Setup
-Once the dashboard is open, follow this checklist to get your first detection:
+If the timezone is incorrect:
+- **Audio correlation will fail:** Visual events from Frigate and Audio events from BirdNET won't align, and birds won't be "Verified".
+- **Histogram will be wrong:** The dashboard Activity Pulse will show birds at the wrong hours.
+- **Cleanup issues:** The system may prematurely delete recent audio detections.
 
-1.  **Select Cameras:** Go to **Settings > Connection** and select the Frigate cameras you want to monitor.
-2.  **Download Model:** Go to **Settings > Detection** and click "Download" on the **MobileNet V2** model.
-3.  **Set Timezone:** Ensure your `TZ` environment variable in `.env` matches your location for accurate sighting timestamps.
-4.  **Wait for a bird!** Once a bird visits, check the dashboard. If nothing appears after a few minutes, check the [Diagnostics](..//troubleshooting/diagnostics.md) guide.
+> 💡 **Tip:** Ensure the same `TZ` value is used for **all** containers in your stack (Frigate, MQTT, BirdNET, and YA-WAMF).
 
 ## Data Persistence
 YA-WAMF uses two volumes for data:

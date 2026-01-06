@@ -24,6 +24,8 @@ For correlation to work, YA-WAMF needs to know which audio sensor belongs to whi
 3. Go to **Settings > Integrations > Sensor Mapping**.
 4. Type that ID next to the corresponding Frigate camera name.
 
+> ⚠️ **Important:** For correlation to work, your **Timezone (TZ)** must be synced across all containers. See the [Getting Started](../setup/getting-started.md#🌍-the-importance-of-timezone-tz) guide for more details.
+
 ## 🛠 Technical Details
 
 YA-WAMF is compatible with multiple BirdNET message formats:

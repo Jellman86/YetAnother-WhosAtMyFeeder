@@ -12,6 +12,13 @@ If detections aren't appearing, verify the MQTT connection:
    mosquitto_sub -h localhost -t "yawamf/test" -v
    ```
 
+## 🔊 Audio Correlation Issues
+If Birds are appearing on the dashboard but never have the **"Verified"** audio badge:
+
+1.  **Check Sensor ID:** Verify that the Sensor ID in the **Recent Audio** widget matches your mapping in Settings.
+2.  **Verify Timezone (TZ):** Run `docker exec -it yawamf-backend date` and compare it to the time on your host. If they differ, audio correlation will fail because events won't align. Ensure all containers (Frigate, BirdNET, YA-WAMF) have the same `TZ` environment variable.
+3.  **Buffer Window:** Correlation only works for events within ±30 seconds of each other.
+
 ## 🌐 Network Connectivity
 Since YA-WAMF runs in a Docker network, it must be able to reach your other services. You can test this from inside the backend container:
 
