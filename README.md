@@ -38,6 +38,7 @@ When Frigate detects a bird at your feeder, YA-WAMF:
 For detailed guides on setup, integrations, and troubleshooting, please see the **[Full Documentation Suite](docs/index.md)**.
 
 - [🚀 Getting Started](docs/setup/getting-started.md)
+- [📦 Full Docker Stack Example](docs/setup/docker-stack.md)
 - [🔗 BirdNET-Go Integration](docs/integrations/birdnet-go.md)
 - [🏠 Home Assistant Setup](docs/integrations/home-assistant.md)
 - [🧠 AI Models & Performance](docs/features/ai-models.md)

@@ -4,6 +4,7 @@ Welcome to the documentation for **Yet Another WhosAtMyFeeder (YA-WAMF)**.
 
 ## 🚀 Setup & Installation
 - [Getting Started](setup/getting-started.md) - Quick start guide using Docker Compose.
+- [Docker Stack Example](setup/docker-stack.md) - A full example with Frigate and MQTT.
 - [Configuration](setup/configuration.md) - Detailed explanation of all settings.
 
 ## 🔗 Integrations

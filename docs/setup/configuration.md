@@ -14,14 +14,29 @@ Settings for communicating with your NVR and messaging broker.
 | **Active Cameras** | Select which Frigate cameras YA-WAMF should monitor for bird events. |
 
 ## Detection Settings
-Fine-tune how AI identifications are handled.
+Fine-tune how AI identifications are handled. This is the most important section for balancing accuracy and noise.
 
 | Setting | Description |
 |---------|-------------|
-| **Confidence Threshold** | The minimum score (0-1) required to label a specific species. Detections below this but above the floor are labeled "Unknown Bird". |
-| **Min Confidence Floor** | Absolute floor. Anything below this is ignored completely as a false positive. **Note:** Trusted Frigate sublabels bypass this check. |
-| **Trust Frigate Sublabels** | If Frigate has already identified a species (via its own sublabel feature), YA-WAMF will skip its local AI and use that label instead. |
-| **Blocked Labels** | A list of species or objects to ignore entirely (e.g., "background"). |
+| **Confidence Threshold** | The "Species Gatekeeper". If the AI score is higher than this (e.g., 0.7), the bird is saved with its specific species name. |
+| **Min Confidence Floor** | The "Existence Gatekeeper". Anything below this score (e.g., 0.2) is discarded as a false positive (shadows, bugs, etc.). |
+| **Trust Frigate Sublabels** | The "Fast Path". If enabled and Frigate provides an identification, YA-WAMF trusts it instantly, bypassing both the local AI and the Confidence Floor. |
+
+### 🛠 How Thresholds Work Together
+The logic follows a three-tier system:
+
+1.  **High Confidence (Score > Threshold):**
+    *   *Result:* Saved as the detected species (e.g., "Northern Cardinal").
+    *   *Action:* Reported to BirdWeather and Home Assistant.
+2.  **Medium Confidence (Floor < Score < Threshold):**
+    *   *Result:* Saved as **"Unknown Bird"**.
+    *   *Why?* The system is sure there is a bird, but not sure enough to bet on the species. This keeps your stats clean while still recording the visit.
+3.  **Low Confidence (Score < Floor):**
+    *   *Result:* **Discarded**.
+    *   *Why?* Likely a false positive or an extremely blurry image that isn't useful.
+
+### 💡 Pro-Tip: The "Bypass"
+If you have **"Trust Frigate Sublabels"** enabled, and Frigate identifies a "Blue Jay", YA-WAMF will save it as a "Blue Jay" even if its own local model only got a 0.1 score. This is useful because Frigate has access to the full motion stream, whereas YA-WAMF's real-time pass only sees a single snapshot.
 
 ## Integration Settings
 Configure third-party services.

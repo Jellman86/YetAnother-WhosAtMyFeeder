@@ -38,6 +38,8 @@ Start the containers in detached mode:
 docker compose up -d
 ```
 
+> 💡 **Need a full example?** If you haven't set up Frigate or an MQTT broker yet, check out our [Full Docker Stack Example](docker-stack.md).
+
 ### 4. Initial Setup
 1. Open the UI at `http://YOUR_SERVER_IP:9852`.
 2. Go to **Settings > Detection**.
