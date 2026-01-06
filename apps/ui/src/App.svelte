@@ -194,7 +194,7 @@
   <Header {currentRoute} onNavigate={navigate}>
       {#snippet status()}
           <div class="flex items-center gap-4">
-              {#if $settingsStore?.audio_topic}
+              {#if $settingsStore?.birdnet_enabled}
                   <div class="flex items-center gap-1.5 px-2 py-1 rounded-full bg-teal-500/10 border border-teal-500/20" title="Audio Analysis Active">
                       <span class="relative flex h-2 w-2">
                           <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-400 opacity-75"></span>
