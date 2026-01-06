@@ -39,6 +39,7 @@ For detailed guides on setup, integrations, and troubleshooting, please see the 
 
 - [🚀 Getting Started](docs/setup/getting-started.md)
 - [📦 Full Docker Stack Example](docs/setup/docker-stack.md)
+- [📷 Recommended Frigate Config](docs/setup/frigate-config.md)
 - [🔗 BirdNET-Go Integration](docs/integrations/birdnet-go.md)
 - [🏠 Home Assistant Setup](docs/integrations/home-assistant.md)
 - [🧠 AI Models & Performance](docs/features/ai-models.md)
