@@ -20,12 +20,12 @@ Connect YA-WAMF to the rest of your smart home and community projects.
 - **[BirdWeather](integrations/birdweather.md)** - Uploading to community science stations.
 - **[Home Assistant](integrations/home-assistant.md)** - Sensors, cards, and automations.
 
-## 🧠 AI & Features
-Understand the "brains" of the operation.
-- **[AI Model Market](features/ai-models.md)** - Choosing Fast, High, or Elite accuracy models.
-- **[Taxonomy & Naming](features/taxonomy.md)** - How Scientific and Common names are managed.
-- **[Deep Video Analysis](features/video-analysis.md)** - The science behind multi-frame identification.
+## Feature Deep Dives
 
-## 🛠 Help & Troubleshooting
+- [🧠 AI Models & Performance](features/ai-models.md) - Understanding MobileNet vs ConvNeXt vs EVA-02
+- [🗂 Taxonomy & Naming](features/taxonomy.md) - How scientific naming works
+- [📊 Telemetry](features/telemetry.md) - Transparency on anonymous usage metrics
+
+## Troubleshooting
 Solving common issues and using diagnostic tools.
 - **[Diagnostics & Logs](troubleshooting/diagnostics.md)** - Using MQTT tests and Backfill reports.
