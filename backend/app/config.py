@@ -88,9 +88,6 @@ class TelemetrySettings(BaseModel):
     url: Optional[str] = Field(default="https://telemetry.yawamf.pownet.uk/heartbeat", description="Telemetry endpoint URL")
     installation_id: Optional[str] = Field(default=None, description="Unique anonymous installation ID")
 
-class FrigateSettings(BaseModel):
-    frigate_url: str = Field(default="http://frigate:5000", description="Frigate NVR URL")
-
 class Settings(BaseSettings):
     frigate: FrigateSettings
     classification: ClassificationSettings = ClassificationSettings()
