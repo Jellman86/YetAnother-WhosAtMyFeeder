@@ -34,3 +34,12 @@ YA-WAMF automatically applies the correct preprocessing for each model:
 
 ## Fast Path Efficiency
 If **"Trust Frigate Sublabels"** is enabled, the system will bypass its own AI classification if Frigate has already identified the species. This saves CPU cycles and is recommended if you have already tuned Frigate's own classification models.
+
+## Behavioral Analysis (LLMs)
+For advanced insights, YA-WAMF can send high-confidence snapshots to a Large Language Model (LLM) to generate a "Naturalist Note".
+
+- **Default Provider:** Google Gemini
+- **Default Model:** `gemini-2.0-flash-exp` (High speed, multimodal)
+- **Alternative:** OpenAI `gpt-4o`
+
+The LLM analyzes the image context (weather, behavior, plumage) and provides a short, educational summary of what the bird is doing. This feature requires an API key.
