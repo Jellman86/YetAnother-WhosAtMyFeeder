@@ -1,0 +1,13 @@
+name = "yawamf-telemetry"
+main = "src/index.ts"
+compatibility_date = "2024-01-01"
+
+# D1 Database Binding
+[[d1_databases]]
+binding = "DB" # Available in your worker as env.DB
+database_name = "yawamf-telemetry"
+database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID" # Run 'wrangler d1 create yawamf-telemetry' to get this
+
+# CORS headers for the API
+[vars]
+ALLOWED_ORIGIN = "*"
