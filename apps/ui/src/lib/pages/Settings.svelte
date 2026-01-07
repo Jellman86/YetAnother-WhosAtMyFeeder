@@ -715,14 +715,14 @@
                             <div class="pt-4 border-t border-slate-100 dark:border-slate-700/50">
                                 <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-4">Sensor Mapping (Optional)</label>
                                 <div class="space-y-3">
-                                    {#each Object.keys(cameraAudioMapping) as camera}
+                                    {#each availableCameras as camera}
                                         <div class="flex items-center gap-3">
                                             <span class="text-[10px] font-black text-slate-400 w-24 truncate uppercase">{camera}</span>
                                             <input type="text" bind:value={cameraAudioMapping[camera]} placeholder="Sensor ID" class="flex-1 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-xs font-bold" />
                                         </div>
                                     {/each}
-                                    {#if availableCameras.length > 0 && Object.keys(cameraAudioMapping).length === 0}
-                                        <p class="text-[10px] text-slate-400 font-bold italic">Add your Frigate cameras to map them to audio sensors. Use <code class="text-teal-500 font-black">*</code> for random/dynamic Sensor IDs.</p>
+                                    {#if availableCameras.length === 0}
+                                        <p class="text-[10px] text-slate-400 font-bold italic">No cameras detected. Check Frigate connection.</p>
                                     {/if}
                                 </div>
                             </div>
