@@ -13,6 +13,13 @@ Everything you need to get the containers running and configured correctly.
 - **[Recommended Frigate Config](setup/frigate-config.md)** - Optimized settings for bird snapshots.
 - **[Configuration Guide](setup/configuration.md)** - Deep dive into all web UI settings.
 
+### Mobile Ready
+YA-WAMF is fully responsive and works great on phones and tablets.
+
+<div align="center">
+  <img src="images/dashboard-mobile.png" width="300" alt="Mobile Dashboard" />
+</div>
+
 ## 🔗 Integrations
 Connect YA-WAMF to the rest of your smart home and community projects.
 - **[Frigate NVR](integrations/frigate.md)** - Connecting to your camera system.

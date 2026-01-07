@@ -38,6 +38,11 @@ Start the containers in detached mode:
 docker compose up -d
 ```
 
+### 4. Verify
+Open your browser to `http://<your-ip>:9852`. You should see the dashboard! Once detections start flowing, they will appear in the Events list:
+
+![Events List](../images/frontend_events.png)
+
 ## 🌍 The Importance of Timezone (`TZ`)
 Setting your correct local timezone is **critical** for YA-WAMF to function correctly. Ensure `TZ` is set in your `.env` (e.g., `TZ=Europe/London`).
 

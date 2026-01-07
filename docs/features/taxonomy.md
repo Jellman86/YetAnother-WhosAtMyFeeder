@@ -15,5 +15,7 @@ You can customize how birds are named in the UI via **Settings > Detection**:
 - **Hobbyist:** Scientific name is primary, Common name is the subtitle.
 - **Strictly Scientific:** Only the Scientific name is shown.
 
+![Species List](../images/frontend_species.png)
+
 ## Taxonomy Repair
 If your database has old detections with inconsistent naming, you can run the **Taxonomy Repair** tool in the settings. This tool will scan your entire history and normalize all labels against the iNaturalist database.

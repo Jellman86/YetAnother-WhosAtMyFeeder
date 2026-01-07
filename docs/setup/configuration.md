@@ -2,6 +2,8 @@
 
 Most settings in YA-WAMF can be managed directly through the web UI. These settings are stored in `/config/config.json`.
 
+![Settings UI](../images/frontend_settings.png)
+
 ## Connection Settings
 Settings for communicating with your NVR and messaging broker.
 
