@@ -28,8 +28,9 @@ When enabled, the system sends a lightweight "heartbeat" JSON payload once every
 - ❌ **Credentials:** No passwords, tokens, or API keys.
 - ❌ **Network Info:** No local IP addresses or network topology.
 
-## Transparency
-When you enable Telemetry in the UI (**Settings > Appearance > Telemetry**), a "Transparency" box appears. This shows you:
+## User Interface & Transparency
+
+When you enable Telemetry in the UI (**Settings > Connections > Telemetry**), a "Transparency" box appears. This shows you:
 1. Your unique Installation ID.
 2. The exact data points being sent.
 

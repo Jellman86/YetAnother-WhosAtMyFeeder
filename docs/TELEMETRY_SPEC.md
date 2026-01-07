@@ -49,9 +49,11 @@ The heartbeat payload is strictly limited to metadata about the installation and
 ```
 
 ## User Control (Opt-Out)
-Telemetry is optional. Users can enable or disable data collection at any time via the **Settings > Appearance > Telemetry** toggle in the UI.
+Telemetry is optional. Users can enable or disable data collection at any time via the **Settings > Connections > Telemetry** toggle in the UI.
 
 ## Source Code & Transparency
-The source code for the telemetry receiver is located in the `apps/telemetry-worker` folder.
+We believe in full transparency regarding the data we collect. You can inspect exactly how the heartbeat is constructed and transmitted in the backend source code:
 
-**Note on Repository Transparency**: While the documentation for the service is public, the `apps/telemetry-worker` source code is excluded from the public git repository (via `.gitignore`) to prevent the exposure of infrastructure IDs and to keep the telemetry database backend secure. The implementation is a standard Cloudflare Worker using Hono and D1 (SQLite).
+- **[Telemetry Service (Backend)](../backend/app/services/telemetry_service.py)**: This module handles the generation of the anonymous Installation ID, gathers the metadata defined above, and transmits the payload via HTTPS.
+
+**Note on Repository Privacy**: While the client-side reporting logic is public, the `apps/telemetry-worker` (the receiver) is excluded from the public repository to protect infrastructure secrets such as database IDs and API keys. The receiver is a standard implementation using Cloudflare Workers and D1.

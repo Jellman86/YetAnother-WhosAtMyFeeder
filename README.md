@@ -248,6 +248,7 @@ This project is in active development, and your feedback is incredibly valuable!
 1.  **Testing**: Try out all the features (video playback, classification, settings, etc.) and see how it performs in your environment.
 2.  **Reporting Issues**: If you find a bug, something doesn't look right, or you have a suggestion for an improvement, please **[open an issue on GitHub](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues)**.
 3.  **Sharing Success**: Let us know if it's working well for you!
+4.  **Enabling Telemetry**: Consider turning on anonymous telemetry in **Settings > Connections**. It helps us understand which models and hardware are most common, so we can focus our efforts where they matter most! (It's strictly anonymous – see the **[Telemetry Spec](docs/TELEMETRY_SPEC.md)** for details).
 
 ## Contributing
 
