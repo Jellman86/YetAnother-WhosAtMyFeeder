@@ -43,7 +43,7 @@ Configure third-party services.
 
 - **BirdNET-Go:** Configure the MQTT topic and map Frigate cameras to audio sensor IDs.
 - **BirdWeather:** Enter your Station Token to contribute detections to the BirdWeather community.
-- **AI Insights:** Connect Google Gemini or OpenAI to get behavioral analysis of your visitors.
+- **AI Insights:** Connect Google Gemini (default: `gemini-2.0-flash-exp`) or OpenAI (GPT-4o) to get behavioral analysis of your visitors.
 
 ## Data Management
 - **Retention Policy:** Choose how long to keep sightings in your history.
