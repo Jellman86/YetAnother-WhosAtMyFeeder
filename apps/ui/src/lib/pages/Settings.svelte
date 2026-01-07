@@ -723,6 +723,8 @@
                                     {/each}
                                     {#if availableCameras.length === 0}
                                         <p class="text-[10px] text-slate-400 font-bold italic">No cameras detected. Check Frigate connection.</p>
+                                    {:else}
+                                        <p class="text-[10px] text-slate-400 font-bold italic">Add your Frigate cameras to map them to audio sensors. Use <code class="text-teal-500 font-black">*</code> for random/dynamic Sensor IDs.</p>
                                     {/if}
                                 </div>
                             </div>
