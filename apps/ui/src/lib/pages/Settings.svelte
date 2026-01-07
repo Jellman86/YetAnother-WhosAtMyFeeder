@@ -77,6 +77,7 @@
     // Telemetry
     let telemetryEnabled = $state(false);
     let telemetryInstallationId = $state<string | undefined>(undefined);
+    let telemetryPlatform = $state<string | undefined>(undefined);
 
     let availableCameras = $state<string[]>([]);
     let camerasLoading = $state(false);
@@ -359,9 +360,9 @@
             llmApiKey = settings.llm_api_key ?? '';
             llmModel = settings.llm_model ?? 'gemini-2.0-flash-exp';
             // Telemetry
-            telemetryEnabled = settings.telemetry_enabled ?? false;
-            telemetryInstallationId = settings.telemetry_installation_id;
-        } catch (e) {
+                    telemetryEnabled = settings.telemetry_enabled ?? false;
+                    telemetryInstallationId = settings.telemetry_installation_id;
+                    telemetryPlatform = settings.telemetry_platform;        } catch (e) {
             message = { type: 'error', text: 'Failed to load settings' };
         } finally {
             if (!silent) loading = false;
@@ -707,7 +708,7 @@
                             <div class="space-y-2 text-[10px] font-mono text-slate-600 dark:text-slate-400">
                                 <div class="flex justify-between"><span>Installation ID:</span><span class="text-slate-900 dark:text-white select-all">{telemetryInstallationId || '...'}</span></div>
                                 <div class="flex justify-between"><span>App Version:</span><span>{ '2.0.0+...' }</span></div>
-                                <div class="flex justify-between"><span>Platform:</span><span>{navigator.platform}</span></div>
+                                <div class="flex justify-between"><span>Platform:</span><span>{telemetryPlatform || '...'}</span></div>
                                 <div class="flex justify-between"><span>Enabled Features:</span><span>[Model, Integrations]</span></div>
                             </div>
                             <p class="text-[9px] text-slate-400 mt-3 italic">This data is sent securely to help us understand how the app is used. No images or personal detection data are ever shared.</p>

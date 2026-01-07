@@ -1,3 +1,4 @@
+import platform
 from typing import List, Optional
 from datetime import datetime, timedelta
 from fastapi import APIRouter
@@ -181,7 +182,8 @@ async def get_settings():
         "llm_model": settings.llm.model,
         # Telemetry
         "telemetry_enabled": settings.telemetry.enabled,
-        "telemetry_installation_id": settings.telemetry.installation_id
+        "telemetry_installation_id": settings.telemetry.installation_id,
+        "telemetry_platform": f"{platform.system()} {platform.machine()}"
     }
 
 @router.post("/settings")
