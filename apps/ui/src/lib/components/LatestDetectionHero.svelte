@@ -36,6 +36,29 @@
             return '';
         }
     }
+
+    function getRelativeTime(dateString: string): string {
+        try {
+            const date = new Date(dateString);
+            const now = new Date();
+            const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+
+            if (diffInSeconds < 3600) { // Less than 1 hour
+                return 'Just Discovered';
+            }
+            
+            const hours = Math.floor(diffInSeconds / 3600);
+            if (hours < 24) {
+                return `${hours} hour${hours > 1 ? 's' : ''} ago`;
+            }
+
+            const days = Math.floor(diffInSeconds / 86400);
+            if (days === 1) return '1 day ago';
+            return `${days} days ago`;
+        } catch {
+            return 'Just Discovered';
+        }
+    }
 </script>
 
 <div 
@@ -65,7 +88,7 @@
         <div class="flex-1 min-w-0">
             <div class="flex items-center gap-2 mb-2">
                 <span class="px-2 py-0.5 bg-teal-500 text-white text-[10px] font-bold uppercase tracking-widest rounded-md">
-                    Just Discovered
+                    {getRelativeTime(detection.detection_time)}
                 </span>
                 {#if detection.audio_confirmed}
                     <span class="px-2 py-0.5 bg-blue-500 text-white text-[10px] font-bold uppercase tracking-widest rounded-md flex items-center gap-1">
