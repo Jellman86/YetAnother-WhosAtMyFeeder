@@ -24,6 +24,12 @@ For correlation to work, YA-WAMF needs to know which audio sensor belongs to whi
 3. Go to **Settings > Integrations > Sensor Mapping**.
 4. Type that ID next to the corresponding Frigate camera name.
 
+### 3. Dynamic Sensor IDs (Wildcard)
+If your audio source (like a re-streaming camera) generates a new Sensor ID every time it restarts, you can use a **wildcard** to match *any* audio detection to a specific camera.
+
+- In the **Sensor Mapping** field, simply enter: `*`
+- This tells YA-WAMF: "Any audio detection that happens at the same time as this camera's visual detection is a match, regardless of the sensor name."
+
 > ⚠️ **Important:** For correlation to work, your **Timezone (TZ)** must be synced across all containers. See the [Getting Started](../setup/getting-started.md#🌍-the-importance-of-timezone-tz) guide for more details.
 
 ## 🛠 Technical Details
