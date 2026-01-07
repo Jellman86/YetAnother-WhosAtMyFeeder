@@ -128,7 +128,7 @@ class SettingsUpdate(BaseModel):
     llm_enabled: Optional[bool] = Field(False, description="Enable AI behavior analysis")
     llm_provider: Optional[str] = Field("gemini", description="AI provider")
     llm_api_key: Optional[str] = Field(None, description="API key")
-    llm_model: Optional[str] = Field("gemini-1.5-flash", description="AI model")
+    llm_model: Optional[str] = Field("gemini-2.0-flash-exp", description="AI model")
 
     @field_validator('frigate_url')
     @classmethod
@@ -219,7 +219,7 @@ async def update_settings(update: SettingsUpdate):
     settings.llm.enabled = update.llm_enabled if update.llm_enabled is not None else False
     settings.llm.provider = update.llm_provider if update.llm_provider else "gemini"
     settings.llm.api_key = update.llm_api_key
-    settings.llm.model = update.llm_model if update.llm_model else "gemini-1.5-flash"
+    settings.llm.model = update.llm_model if update.llm_model else "gemini-2.0-flash-exp"
 
     settings.save()
     return {"status": "updated"}

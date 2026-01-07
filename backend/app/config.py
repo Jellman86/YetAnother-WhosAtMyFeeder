@@ -78,10 +78,13 @@ class BirdWeatherSettings(BaseModel):
     station_token: Optional[str] = Field(None, description="BirdWeather Station Token")
 
 class LLMSettings(BaseModel):
-    enabled: bool = Field(default=False, description="Enable AI-based behavior analysis")
+    enabled: bool = Field(default=False, description="Enable LLM integration")
     provider: str = Field(default="gemini", description="AI provider (gemini, openai)")
-    api_key: Optional[str] = Field(None, description="API key for the AI provider")
-    model: str = Field(default="gemini-1.5-flash", description="Model name to use")
+    api_key: Optional[str] = Field(default=None, description="API Key for the provider")
+    model: str = Field(default="gemini-2.0-flash-exp", description="Model name to use")
+
+class FrigateSettings(BaseModel):
+    frigate_url: str = Field(default="http://frigate:5000", description="Frigate NVR URL")
 
 class Settings(BaseSettings):
     frigate: FrigateSettings
@@ -161,11 +164,10 @@ class Settings(BaseSettings):
         # LLM settings
         llm_data = {
             'enabled': os.environ.get('LLM__ENABLED', 'false').lower() == 'true',
-            'provider': os.environ.get('LLM__PROVIDER', 'gemini'),
-            'api_key': os.environ.get('LLM__API_KEY', None),
-            'model': os.environ.get('LLM__MODEL', 'gemini-1.5-flash'),
-        }
-
+                    'provider': os.environ.get('LLM__PROVIDER', 'gemini'),
+                    'api_key': os.environ.get('LLM__API_KEY', None),
+                    'model': os.environ.get('LLM__MODEL', 'gemini-2.0-flash-exp'),
+                }
         # Load from config file if it exists, env vars take precedence
         if CONFIG_PATH.exists():
             try:

@@ -72,7 +72,7 @@
     let llmEnabled = $state(false);
     let llmProvider = $state('gemini');
     let llmApiKey = $state('');
-    let llmModel = $state('gemini-1.5-flash');
+    let llmModel = $state('gemini-2.0-flash-exp');
 
     let availableCameras = $state<string[]>([]);
     let camerasLoading = $state(false);
@@ -119,7 +119,7 @@
             { key: 'llmEnabled', val: llmEnabled, store: s.llm_enabled ?? false },
             { key: 'llmProvider', val: llmProvider, store: s.llm_provider ?? 'gemini' },
             { key: 'llmApiKey', val: llmApiKey, store: s.llm_api_key || '' },
-            { key: 'llmModel', val: llmModel, store: s.llm_model ?? 'gemini-1.5-flash' },
+            { key: 'llmModel', val: llmModel, store: s.llm_model ?? 'gemini-2.0-flash-exp' },
             { key: 'cameraAudioMapping', val: JSON.stringify(cameraAudioMapping), store: JSON.stringify(s.camera_audio_mapping || {}) },
             { key: 'minConfidence', val: minConfidence, store: s.classification_min_confidence ?? 0.4 }
         ];
@@ -352,7 +352,7 @@
             llmEnabled = settings.llm_enabled ?? false;
             llmProvider = settings.llm_provider ?? 'gemini';
             llmApiKey = settings.llm_api_key ?? '';
-            llmModel = settings.llm_model ?? 'gemini-1.5-flash';
+            llmModel = settings.llm_model ?? 'gemini-2.0-flash-exp';
         } catch (e) {
             message = { type: 'error', text: 'Failed to load settings' };
         } finally {
