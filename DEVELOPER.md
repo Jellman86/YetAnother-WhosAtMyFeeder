@@ -46,11 +46,16 @@ YA-WAMF is a full-stack application that integrates with [Frigate NVR](https://f
 │  ┌───────────────────────────────────────┐  ┌────────────────────┐  │
 │  │     DetectionRepository (SQLite)      │  │   Broadcaster      │  │
 │  │     - Stores classifications          │  │   (SSE to clients) │  │
-│  └───────────────────────────────────────┘  └────────────────────┘  │
+│  └──────┬────────────────────────────────┘  └────────────────────┘  │
+│         │                                                            │
+│         │  ┌────────────────┐  ┌──────────────────┐                  │
+│         └──┤   AIService    │  │ TelemetryService │                  │
+│            │ (Gemini/GPT-4) │  │ (Usage metrics)  │                  │
+│            └────────────────┘  └──────────────────┘                  │
 │                                                                      │
 │  ┌─────────────────────────────────────────────────────────────┐    │
 │  │                    FastAPI Routers                           │    │
-│  │  /events  /species  /settings  /frigate/*  /classifier      │    │
+│  │  /events  /species  /settings  /frigate/*  /classifier  /ai  │    │
 │  └─────────────────────────────────────────────────────────────┘    │
 └─────────────────────────────────────────────────────────────────────┘
                       │ HTTP API + SSE
@@ -70,9 +75,11 @@ YA-WAMF is a full-stack application that integrates with [Frigate NVR](https://f
 | Layer | Technology | Purpose |
 |-------|------------|---------|
 | **Backend** | Python 3.12 + FastAPI | Async web API |
-| **ML Inference** | TensorFlow Lite | Bird species classification |
-| **Database** | SQLite (aiosqlite) | Persistent detection storage |
-| **Message Queue** | MQTT (aiomqtt) | Frigate event subscription |
+| **ML Inference** | ONNX Runtime / TFLite | Bird species classification (EVA-02, ConvNeXt) |
+| **AI Naturalist** | Google Gemini / OpenAI | Behavioral analysis and insights |
+| **Database** | SQLite + SQLAlchemy | Persistent detection storage |
+| **Migrations** | Alembic | Database schema management |
+| **Message Queue** | MQTT (aiomqtt) | Frigate & BirdNET-Go event subscription |
 | **Frontend** | Svelte 5 + TypeScript | Reactive UI |
 | **Styling** | Tailwind CSS | Utility-first CSS |
 | **Build** | Vite | Fast frontend bundling |
@@ -89,7 +96,8 @@ YA-WAMF/
 │   ├── app/
 │   │   ├── main.py              # Application entry, lifespan, routes
 │   │   ├── config.py            # Configuration management
-│   │   ├── database.py          # SQLite initialization
+│   │   ├── database.py          # SQLite/SQLAlchemy initialization
+│   │   ├── db_schema.py         # SQLAlchemy table definitions
 │   │   ├── models.py            # Pydantic response models
 │   │   ├── repositories/
 │   │   │   └── detection_repository.py  # Data access layer
@@ -99,13 +107,22 @@ YA-WAMF/
 │   │   │   ├── settings.py      # /settings endpoints
 │   │   │   ├── proxy.py         # /frigate/* proxy endpoints
 │   │   │   ├── stream.py        # /sse endpoint
-│   │   │   └── backfill.py      # /backfill endpoint
+│   │   │   ├── backfill.py      # /backfill endpoint
+│   │   │   ├── ai.py            # /ai endpoints (LLM)
+│   │   │   └── audio.py         # /audio endpoints (Recent audio)
 │   │   └── services/
 │   │       ├── mqtt_service.py      # MQTT subscription
-│   │       ├── classifier_service.py # TFLite model loading/inference
+│   │       ├── classifier_service.py # ONNX/TFLite model loading/inference
+│   │       ├── ai_service.py        # LLM integration (Gemini/OpenAI)
+│   │       ├── telemetry_service.py # Anonymous usage reporting
 │   │       ├── event_processor.py   # Detection processing pipeline
 │   │       ├── backfill_service.py  # Historical event processing
-│   │       └── broadcaster.py       # SSE event broadcasting
+│   │       ├── broadcaster.py       # SSE event broadcasting
+│   │       ├── audio/
+│   │       │   └── audio_service.py # BirdNET audio buffer and correlation
+│   │       └── taxonomy/
+│   │           └── taxonomy_service.py # iNaturalist name mapping
+│   ├── migrations/              # Alembic database migrations
 │   ├── tests/                   # pytest test files
 │   ├── Dockerfile               # Backend container build
 │   └── requirements.txt         # Python dependencies
@@ -189,26 +206,32 @@ YA-WAMF/
    GET {frigate_url}/api/events/{event_id}/snapshot.jpg?crop=1&quality=95
                     │
                     ▼
-6. ClassifierService runs TFLite inference on image
-   Returns: [{"label": "House Sparrow", "score": 0.87, "index": 42}, ...]
+6. ClassifierService runs ML inference on image (ONNX/TFLite)
+   Returns: [{"label": "House Sparrow", "score": 0.87, ...}, ...]
                     │
                     ▼
-7. EventProcessor applies filters:
+7. EventProcessor enriches detection:
+   - Fetches local weather (temperature, condition)
+   - Correlates with BirdNET-Go audio buffer (AudioService)
+   - Translates names via TaxonomyService (Scientific <-> Common)
+                    │
+                    ▼
+8. EventProcessor applies filters:
    - Score > classification_threshold?
    - Score > min_confidence?
    - Label not in blocked_labels?
    - Transform unknown labels → "Unknown Bird"
                     │
                     ▼
-8. DetectionRepository saves to SQLite:
-   INSERT INTO detections (detection_time, score, display_name, ...)
+9. DetectionRepository saves to SQLite:
+   INSERT INTO detections (detection_time, score, display_name, temperature, audio_species, ...)
                     │
                     ▼
-9. Broadcaster pushes SSE event to connected clients:
+10. Broadcaster pushes SSE event to connected clients:
    {"type": "detection", "data": {...}}
                     │
                     ▼
-10. Frontend Dashboard receives SSE → updates detection grid
+11. Frontend Dashboard receives SSE → updates detection grid
 ```
 
 ### API Request Flow
@@ -517,10 +540,6 @@ export function getThumbnailUrl(frigateEvent: string): string {
 }
 ```
 
----
-
-## Database
-
 ### Schema
 
 ```sql
@@ -529,16 +548,27 @@ CREATE TABLE detections (
     detection_time TIMESTAMP NOT NULL,
     detection_index INTEGER NOT NULL,    -- Model label index
     score REAL NOT NULL,                 -- Confidence 0.0-1.0
-    display_name TEXT NOT NULL,          -- Species common name
-    category_name TEXT NOT NULL,         -- Same as display_name
+    display_name TEXT NOT NULL,          -- Species display name
+    category_name TEXT NOT NULL,
     frigate_event TEXT NOT NULL UNIQUE,  -- Frigate event ID
-    camera_name TEXT NOT NULL
+    camera_name TEXT NOT NULL,
+    is_hidden BOOLEAN DEFAULT 0,
+    audio_confirmed BOOLEAN DEFAULT 0,
+    audio_species TEXT,
+    temperature REAL,
+    weather_condition TEXT,
+    scientific_name TEXT,
+    common_name TEXT,
+    taxa_id INTEGER
 );
 
--- Indexes for common queries
-CREATE INDEX idx_detections_time ON detections(detection_time DESC);
-CREATE INDEX idx_detections_species ON detections(display_name);
-CREATE INDEX idx_detections_camera ON detections(camera_name);
+CREATE TABLE taxonomy_cache (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    scientific_name TEXT NOT NULL UNIQUE,
+    common_name TEXT,
+    taxa_id INTEGER,
+    last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 ```
 
 ### Location
@@ -548,145 +578,35 @@ CREATE INDEX idx_detections_camera ON detections(camera_name);
 
 ### Migrations
 
-Currently no migration system. Schema changes require:
+Schema changes are managed via **Alembic**.
 
-1. Stop the application
-2. Backup the database: `cp data/speciesid.db data/speciesid.db.backup`
-3. Modify `database.py` with new schema
-4. Manually alter table or recreate
-
-**TODO:** Implement Alembic for proper migrations.
-
-### Repository Methods
-
-```python
-class DetectionRepository:
-    async def create(self, detection: Detection)
-    async def update(self, detection: Detection)
-    async def get_by_frigate_event(self, event_id: str) -> Detection | None
-    async def get_all(self, limit, offset, filters...) -> list[Detection]
-    async def get_count(self, filters...) -> int
-    async def delete_by_frigate_event(self, event_id: str) -> bool
-    async def delete_older_than(self, cutoff_date: datetime) -> int
-    async def get_species_counts() -> list[dict]
-    async def get_species_basic_stats(species_name: str) -> dict
-    async def get_hourly_distribution(species_name: str) -> list[int]
-    # ... and more
+```bash
+# Inside backend container
+alembic revision --autogenerate -m "description"
+alembic upgrade head
 ```
 
 ---
 
 ## API Reference
 
-### Authentication
+### Core Endpoints (New/Updated)
 
-No authentication required. The API assumes network-level isolation.
-
-For Frigate proxy endpoints, the backend forwards `Authorization: Bearer {token}` if `FRIGATE__FRIGATE_AUTH_TOKEN` is set.
-
-### OpenAPI Documentation
-
-FastAPI auto-generates OpenAPI docs at:
-- Swagger UI: `http://localhost:8000/docs`
-- ReDoc: `http://localhost:8000/redoc`
-- OpenAPI JSON: `http://localhost:8000/openapi.json`
-
-### Core Endpoints
-
-#### Events
+#### AI Naturalist
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/api/events` | List detections (paginated) |
-| GET | `/api/events/count` | Count detections |
-| GET | `/api/events/filters` | Get available filter options |
-| DELETE | `/api/events/{event_id}` | Delete a detection |
-| PATCH | `/api/events/{event_id}` | Update species manually |
-| POST | `/api/events/{event_id}/reclassify` | Re-run classification |
+| POST | `/api/events/{id}/analyze` | Get LLM behavioral analysis |
 
-**Query Parameters for GET /api/events:**
-```
-limit: int (1-500, default 50)
-offset: int (default 0)
-start_date: YYYY-MM-DD
-end_date: YYYY-MM-DD
-species: string
-camera: string
-sort: "newest" | "oldest" | "confidence"
-```
-
-#### Species
+#### Audio
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/api/species` | List species with counts |
-| GET | `/api/species/{name}/stats` | Detailed statistics |
-| GET | `/api/species/{name}/info` | Wikipedia information |
-| DELETE | `/api/species/{name}/cache` | Clear Wikipedia cache |
+| GET | `/api/audio/recent` | List latest BirdNET audio detections |
 
-#### Settings
+#### Settings (Updated)
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/settings` | Get current settings |
-| POST | `/api/settings` | Update settings |
-| GET | `/api/maintenance/stats` | Database statistics |
-| POST | `/api/maintenance/cleanup` | Trigger data cleanup |
-
-#### Frigate Proxy
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/frigate/test` | Test Frigate connection |
-| GET | `/api/frigate/config` | Get Frigate config |
-| GET | `/api/frigate/{id}/thumbnail.jpg` | Proxy thumbnail |
-| GET | `/api/frigate/{id}/snapshot.jpg` | Proxy snapshot |
-| GET | `/api/frigate/{id}/clip.mp4` | Stream video clip |
-| HEAD | `/api/frigate/{id}/clip.mp4` | Check clip exists |
-
-#### Classifier (Bird Model)
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/classifier/status` | Bird model status |
-| GET | `/api/classifier/labels` | Available bird species |
-| POST | `/api/classifier/download` | Download bird model |
-
-#### Wildlife Classifier (Optional)
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/classifier/wildlife/status` | Wildlife model status |
-| GET | `/api/classifier/wildlife/labels` | Available animal classes |
-| POST | `/api/classifier/wildlife/download` | Download EfficientNet-Lite4 model |
-| POST | `/api/events/{id}/classify-wildlife` | Classify detection as wildlife |
-
-#### Streaming
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/sse` | Server-Sent Events stream |
-
-**SSE Event Format:**
-```json
-{"type": "detection", "data": {"frigate_event": "...", "display_name": "...", ...}}
-{"type": "connected", "message": "SSE connection established"}
-```
-
-#### Backfill
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/backfill` | Process historical events |
-
-**Request Body:**
-```json
-{
-    "date_range": "day" | "week" | "month" | "custom",
-    "start_date": "YYYY-MM-DD",  // if custom
-    "end_date": "YYYY-MM-DD"     // if custom
-}
-```
+Added `llm_*` and `telemetry_*` fields to configuration.
 
 ---
 
@@ -705,6 +625,12 @@ sort: "newest" | "oldest" | "confidence"
 | `FRIGATE__MQTT_PASSWORD` | (none) | MQTT password |
 | `FRIGATE__CLIPS_ENABLED` | `true` | Enable video clip fetching |
 | `MAINTENANCE__RETENTION_DAYS` | `0` | Days to keep data (0=unlimited) |
+| `LLM__ENABLED` | `false` | Enable AI behavioral analysis |
+| `LLM__PROVIDER` | `gemini` | `gemini` or `openai` |
+| `LLM__API_KEY` | (none) | API Key for AI Naturalist |
+| `LLM__MODEL` | `gemini-2.0-flash-exp` | AI model name |
+| `TELEMETRY__ENABLED` | `false` | Enable anonymous usage stats |
+| `TELEMETRY__URL` | `.../heartbeat` | Telemetry destination URL |
 | `TZ` | `UTC` | Timezone |
 
 ### Runtime Configuration (config.json)
@@ -1035,9 +961,8 @@ test: Add integration tests for backfill
 ### High Priority
 
 1. **Minimal test coverage** - Most code paths untested
-2. **No database migrations** - Schema changes require manual intervention
-3. **Memory-based Wikipedia cache** - Lost on restart
-4. **Duplicated Frigate header logic** - In 3 different files
+2. **Memory-based Wikipedia cache** - Lost on restart
+3. **Duplicated Frigate header logic** - In 3 different files
 
 ### Medium Priority
 
@@ -1045,7 +970,6 @@ test: Add integration tests for backfill
 2. **No API authentication** - Relies on network isolation
 3. **Hardcoded model URLs** - Could break if sources change
 4. **No frontend error boundaries** - Errors can crash UI
-5. **Prometheus metrics stubbed** - Returns static placeholder
 
 ### Low Priority
 
@@ -1056,14 +980,13 @@ test: Add integration tests for backfill
 
 ### Improvement Ideas
 
-1. Add Alembic for database migrations
-2. Implement Redis caching for Wikipedia data
-3. Add proper health checks with dependency status
-4. Create admin API with authentication
-5. Add WebSocket support for lower latency updates
-6. Implement batch Frigate API calls
-7. Add model performance metrics
-8. Create plugin system for custom classifiers
+1. Implement Redis caching for Wikipedia data
+2. Add proper health checks with dependency status
+3. Create admin API with authentication
+4. Add WebSocket support for lower latency updates
+5. Implement batch Frigate API calls
+6. Add model performance metrics
+7. Create plugin system for custom classifiers
 
 ---
 
@@ -1075,4 +998,4 @@ test: Add integration tests for backfill
 
 ---
 
-*Last updated: December 2025*
+*Last updated: January 2026*
