@@ -684,6 +684,36 @@
                             {/if}
                         </div>
                     </section>
+
+                <section class="bg-white dark:bg-slate-800/50 rounded-3xl border border-slate-200/80 dark:border-slate-700/50 p-8 shadow-sm backdrop-blur-md">
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
+                            </div>
+                            <div>
+                                <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">Telemetry</h3>
+                                <p class="text-[10px] font-bold text-slate-500 mt-0.5">Help improve YA-WAMF by sharing anonymous usage stats.</p>
+                            </div>
+                        </div>
+                        <button onclick={() => telemetryEnabled = !telemetryEnabled} class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {telemetryEnabled ? 'bg-indigo-500' : 'bg-slate-300 dark:bg-slate-600'}">
+                            <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {telemetryEnabled ? 'translate-x-5' : 'translate-x-0'}"></span>
+                        </button>
+                    </div>
+                    
+                    {#if telemetryEnabled}
+                        <div class="mt-4 p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 animate-in fade-in slide-in-from-top-2">
+                            <p class="text-xs font-black uppercase tracking-widest text-slate-400 mb-3">Transparency: What we send</p>
+                            <div class="space-y-2 text-[10px] font-mono text-slate-600 dark:text-slate-400">
+                                <div class="flex justify-between"><span>Installation ID:</span><span class="text-slate-900 dark:text-white select-all">{telemetryInstallationId || '...'}</span></div>
+                                <div class="flex justify-between"><span>App Version:</span><span>{ '2.0.0+...' }</span></div>
+                                <div class="flex justify-between"><span>Platform:</span><span>{navigator.platform}</span></div>
+                                <div class="flex justify-between"><span>Enabled Features:</span><span>[Model, Integrations]</span></div>
+                            </div>
+                            <p class="text-[9px] text-slate-400 mt-3 italic">This data is sent securely to help us understand how the app is used. No images or personal detection data are ever shared.</p>
+                        </div>
+                    {/if}
+                </section>
                 </div>
             {/if}
 
@@ -1102,35 +1132,7 @@
                     </div>
                 </section>
 
-                <section class="bg-white dark:bg-slate-800/50 rounded-3xl border border-slate-200/80 dark:border-slate-700/50 p-8 shadow-sm backdrop-blur-md">
-                    <div class="flex items-center justify-between mb-2">
-                        <div class="flex items-center gap-3">
-                            <div class="w-10 h-10 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
-                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
-                            </div>
-                            <div>
-                                <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">Telemetry</h3>
-                                <p class="text-[10px] font-bold text-slate-500 mt-0.5">Help improve YA-WAMF by sharing anonymous usage stats.</p>
-                            </div>
-                        </div>
-                        <button onclick={() => telemetryEnabled = !telemetryEnabled} class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {telemetryEnabled ? 'bg-indigo-500' : 'bg-slate-300 dark:bg-slate-600'}">
-                            <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {telemetryEnabled ? 'translate-x-5' : 'translate-x-0'}"></span>
-                        </button>
-                    </div>
-                    
-                    {#if telemetryEnabled}
-                        <div class="mt-4 p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 animate-in fade-in slide-in-from-top-2">
-                            <p class="text-xs font-black uppercase tracking-widest text-slate-400 mb-3">Transparency: What we send</p>
-                            <div class="space-y-2 text-[10px] font-mono text-slate-600 dark:text-slate-400">
-                                <div class="flex justify-between"><span>Installation ID:</span><span class="text-slate-900 dark:text-white select-all">{telemetryInstallationId || '...'}</span></div>
-                                <div class="flex justify-between"><span>App Version:</span><span>{ '2.0.0+...' }</span></div>
-                                <div class="flex justify-between"><span>Platform:</span><span>{navigator.platform}</span></div>
-                                <div class="flex justify-between"><span>Enabled Features:</span><span>[Model, Integrations]</span></div>
-                            </div>
-                            <p class="text-[9px] text-slate-400 mt-3 italic">This data is sent securely to help us understand how the app is used. No images or personal detection data are ever shared.</p>
-                        </div>
-                    {/if}
-                </section>
+
             {/if}
         </div>
 
