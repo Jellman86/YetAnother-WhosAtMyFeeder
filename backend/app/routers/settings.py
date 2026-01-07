@@ -129,6 +129,9 @@ class SettingsUpdate(BaseModel):
     llm_provider: Optional[str] = Field("gemini", description="AI provider")
     llm_api_key: Optional[str] = Field(None, description="API key")
     llm_model: Optional[str] = Field("gemini-2.0-flash-exp", description="AI model")
+    
+    # Telemetry
+    telemetry_enabled: Optional[bool] = Field(True, description="Enable anonymous usage statistics")
 
     @field_validator('frigate_url')
     @classmethod
@@ -174,7 +177,9 @@ async def get_settings():
         "llm_enabled": settings.llm.enabled,
         "llm_provider": settings.llm.provider,
         "llm_api_key": settings.llm.api_key,
-        "llm_model": settings.llm.model
+        "llm_model": settings.llm.model,
+        # Telemetry
+        "telemetry_enabled": settings.telemetry.enabled
     }
 
 @router.post("/settings")
@@ -220,6 +225,9 @@ async def update_settings(update: SettingsUpdate):
     settings.llm.provider = update.llm_provider if update.llm_provider else "gemini"
     settings.llm.api_key = update.llm_api_key
     settings.llm.model = update.llm_model if update.llm_model else "gemini-2.0-flash-exp"
+    
+    # Telemetry
+    settings.telemetry.enabled = update.telemetry_enabled if update.telemetry_enabled is not None else True
 
     settings.save()
     return {"status": "updated"}

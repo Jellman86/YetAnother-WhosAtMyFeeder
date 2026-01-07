@@ -70,10 +70,13 @@ export interface Settings {
     birdweather_station_token?: string | null;
     // LLM settings
     llm_enabled: boolean;
-    llm_provider: string;
-    llm_api_key?: string | null;
-    llm_model: string;
+    llm_provider?: string;
+    llm_api_key?: string;
+    llm_model?: string;
+    telemetry_enabled: boolean;
 }
+
+export type UpdateSettings = Partial<Settings>;
 
 export interface SettingsUpdate {
     frigate_url: string;

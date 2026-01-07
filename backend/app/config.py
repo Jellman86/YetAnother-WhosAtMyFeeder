@@ -83,6 +83,11 @@ class LLMSettings(BaseModel):
     api_key: Optional[str] = Field(default=None, description="API Key for the provider")
     model: str = Field(default="gemini-2.0-flash-exp", description="Model name to use")
 
+class TelemetrySettings(BaseModel):
+    enabled: bool = Field(default=True, description="Enable anonymous usage statistics")
+    url: Optional[str] = Field(default="https://telemetry.yawamf.pownet.uk/heartbeat", description="Telemetry endpoint URL")
+    installation_id: Optional[str] = Field(default=None, description="Unique anonymous installation ID")
+
 class FrigateSettings(BaseModel):
     frigate_url: str = Field(default="http://frigate:5000", description="Frigate NVR URL")
 
@@ -94,6 +99,7 @@ class Settings(BaseSettings):
     location: LocationSettings = LocationSettings()
     birdweather: BirdWeatherSettings = BirdWeatherSettings()
     llm: LLMSettings = LLMSettings()
+    telemetry: TelemetrySettings = TelemetrySettings()
     
     # General app settings
     log_level: str = "INFO"
@@ -168,6 +174,14 @@ class Settings(BaseSettings):
                     'api_key': os.environ.get('LLM__API_KEY', None),
                     'model': os.environ.get('LLM__MODEL', 'gemini-2.0-flash-exp'),
                 }
+        
+        # Telemetry settings
+        telemetry_data = {
+            'enabled': os.environ.get('TELEMETRY__ENABLED', 'true').lower() == 'true',
+            'url': os.environ.get('TELEMETRY__URL', 'https://telemetry.yawamf.pownet.uk/heartbeat'),
+            'installation_id': None
+        }
+
         # Load from config file if it exists, env vars take precedence
         if CONFIG_PATH.exists():
             try:
@@ -217,6 +231,17 @@ class Settings(BaseSettings):
                         env_key = f'LLM__{key.upper()}'
                         if env_key not in os.environ:
                             llm_data[key] = value
+                            
+                if 'telemetry' in file_data:
+                    for key, value in file_data['telemetry'].items():
+                        # We always load installation_id from file as it's not set by env
+                        if key == 'installation_id':
+                            telemetry_data[key] = value
+                            continue
+                            
+                        env_key = f'TELEMETRY__{key.upper()}'
+                        if env_key not in os.environ:
+                            telemetry_data[key] = value
 
                 log.info("Loaded config from file", path=str(CONFIG_PATH))
             except Exception as e:
@@ -239,6 +264,7 @@ class Settings(BaseSettings):
                  retention_days=media_cache_data['retention_days'])
         log.info("BirdWeather config", enabled=birdweather_data['enabled'])
         log.info("LLM config", enabled=llm_data['enabled'], provider=llm_data['provider'])
+        log.info("Telemetry config", enabled=telemetry_data['enabled'], installation_id=telemetry_data['installation_id'])
 
         return cls(
             frigate=FrigateSettings(**frigate_data),
@@ -247,7 +273,8 @@ class Settings(BaseSettings):
             media_cache=MediaCacheSettings(**media_cache_data),
             location=LocationSettings(**location_data),
             birdweather=BirdWeatherSettings(**birdweather_data),
-            llm=LLMSettings(**llm_data)
+            llm=LLMSettings(**llm_data),
+            telemetry=TelemetrySettings(**telemetry_data)
         )
 
 settings = Settings.load()

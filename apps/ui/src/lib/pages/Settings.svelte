@@ -74,6 +74,9 @@
     let llmApiKey = $state('');
     let llmModel = $state('gemini-2.0-flash-exp');
 
+    // Telemetry
+    let telemetryEnabled = $state(true);
+
     let availableCameras = $state<string[]>([]);
     let camerasLoading = $state(false);
 
@@ -121,7 +124,8 @@
             { key: 'llmApiKey', val: llmApiKey, store: s.llm_api_key || '' },
             { key: 'llmModel', val: llmModel, store: s.llm_model ?? 'gemini-2.0-flash-exp' },
             { key: 'cameraAudioMapping', val: JSON.stringify(cameraAudioMapping), store: JSON.stringify(s.camera_audio_mapping || {}) },
-            { key: 'minConfidence', val: minConfidence, store: s.classification_min_confidence ?? 0.4 }
+            { key: 'minConfidence', val: minConfidence, store: s.classification_min_confidence ?? 0.4 },
+            { key: 'telemetryEnabled', val: telemetryEnabled, store: s.telemetry_enabled ?? true }
         ];
 
         const dirtyItem = checks.find(c => c.val !== c.store);
@@ -353,6 +357,8 @@
             llmProvider = settings.llm_provider ?? 'gemini';
             llmApiKey = settings.llm_api_key ?? '';
             llmModel = settings.llm_model ?? 'gemini-2.0-flash-exp';
+            // Telemetry
+            telemetryEnabled = settings.telemetry_enabled ?? true;
         } catch (e) {
             message = { type: 'error', text: 'Failed to load settings' };
         } finally {
@@ -412,7 +418,8 @@
                 llm_enabled: llmEnabled,
                 llm_provider: llmProvider,
                 llm_api_key: llmApiKey,
-                llm_model: llmModel
+                llm_model: llmModel,
+                telemetry_enabled: telemetryEnabled
             });
             // Update store
             await settingsStore.load();
@@ -1088,6 +1095,23 @@
                                 <span class="text-xs font-black uppercase tracking-widest">{opt.label}</span>
                             </button>
                         {/each}
+                    </div>
+                </section>
+
+                <section class="bg-white dark:bg-slate-800/50 rounded-3xl border border-slate-200/80 dark:border-slate-700/50 p-8 shadow-sm backdrop-blur-md">
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
+                            </div>
+                            <div>
+                                <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">Telemetry</h3>
+                                <p class="text-[10px] font-bold text-slate-500 mt-0.5">Help improve YA-WAMF by sharing anonymous usage stats.</p>
+                            </div>
+                        </div>
+                        <button onclick={() => telemetryEnabled = !telemetryEnabled} class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {telemetryEnabled ? 'bg-indigo-500' : 'bg-slate-300 dark:bg-slate-600'}">
+                            <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {telemetryEnabled ? 'translate-x-5' : 'translate-x-0'}"></span>
+                        </button>
                     </div>
                 </section>
             {/if}

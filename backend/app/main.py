@@ -15,6 +15,7 @@ from app.services.classifier_service import get_classifier
 from app.services.event_processor import EventProcessor
 from app.services.media_cache import media_cache
 from app.services.broadcaster import broadcaster
+from app.services.telemetry_service import telemetry_service
 from app.repositories.detection_repository import DetectionRepository
 from app.routers import events, stream, proxy, settings as settings_router, species, backfill, classifier, models, ai, stats, debug, audio
 from app.config import settings
@@ -46,6 +47,7 @@ def get_git_hash() -> str:
 BASE_VERSION = "2.0.0"
 GIT_HASH = get_git_hash()
 APP_VERSION = f"{BASE_VERSION}+{GIT_HASH}"
+os.environ["APP_VERSION"] = APP_VERSION # Make available to other services
 
 # Metrics
 EVENTS_PROCESSED = Counter('events_processed_total', 'Total number of events processed')
@@ -130,6 +132,7 @@ async def lifespan(app: FastAPI):
     # Startup
     await init_db()
     asyncio.create_task(mqtt_service.start(event_processor))
+    await telemetry_service.start()
     cleanup_task = asyncio.create_task(cleanup_scheduler())
     log.info("Background cleanup scheduler started",
              interval_hours=CLEANUP_INTERVAL_HOURS,
@@ -144,6 +147,7 @@ async def lifespan(app: FastAPI):
             await cleanup_task
         except asyncio.CancelledError:
             pass
+    await telemetry_service.stop()
     await mqtt_service.stop()
 
 app = FastAPI(title="Yet Another WhosAtMyFeeder API", version=APP_VERSION, lifespan=lifespan)
