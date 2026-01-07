@@ -59,6 +59,17 @@ async def debug_connectivity():
     except Exception as e:
         results["inaturalist"] = {"status": "error", "error": str(e)}
 
+    # Test Telemetry
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            resp = await client.get(settings.telemetry.url.replace("/heartbeat", "/"))
+            if resp.status_code == 200:
+                results["telemetry"] = {"status": "ok"}
+            else:
+                results["telemetry"] = {"status": "error", "code": resp.status_code}
+    except Exception as e:
+        results["telemetry"] = {"status": "error", "error": str(e)}
+
     return results
 
 @router.get("/debug/fs/models")

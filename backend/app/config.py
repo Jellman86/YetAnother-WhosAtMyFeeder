@@ -175,7 +175,7 @@ class Settings(BaseSettings):
         # Telemetry settings
         telemetry_data = {
             'enabled': os.environ.get('TELEMETRY__ENABLED', 'false').lower() == 'true',
-            'url': os.environ.get('TELEMETRY__URL', 'https://telemetry.yawamf.pownet.uk/heartbeat'),
+            'url': os.environ.get('TELEMETRY__URL', 'https://yawamf-telemetry.ya-wamf.workers.dev/heartbeat'),
             'installation_id': None
         }
 
