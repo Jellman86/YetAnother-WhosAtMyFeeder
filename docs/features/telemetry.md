@@ -20,7 +20,7 @@ When enabled, the system sends a lightweight "heartbeat" JSON payload once every
 | **Installation ID** | `a1b2c3d4-e5f6...` | A random UUID generated on first run. Allows us to count unique active installations without knowing *who* you are. |
 | **App Version** | `2.3.0+a0736ed` | Helps us track adoption of new releases. |
 | **Platform** | `Linux-x86_64` | Helps us decide which Docker architectures to build. |
-| **Configuration** | `{ "model": "eva02", "birdnet": true }` | Helps us understand which features are popular. |
+| **Configuration** | `{ "model_type": "eva02", "birdnet": true }` | Helps us understand which features are popular. |
 
 ## What is NEVER Collected?
 - ❌ **Your Images or Videos:** We never see your birds or your camera feeds.

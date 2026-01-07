@@ -69,6 +69,8 @@ class TelemetryService:
     async def _send_heartbeat(self):
         """Gather stats and send to the telemetry endpoint."""
         try:
+            from app.services.model_manager import model_manager
+            
             # Gather anonymous stats
             payload = {
                 "installation_id": settings.telemetry.installation_id,
@@ -80,7 +82,7 @@ class TelemetryService:
                     "machine": platform.machine(),
                 },
                 "configuration": {
-                    "model_type": settings.classification.model,
+                    "model_type": model_manager.active_model_id,
                     "birdnet_enabled": settings.frigate.birdnet_enabled,
                     "birdweather_enabled": settings.birdweather.enabled,
                     "llm_enabled": settings.llm.enabled,
