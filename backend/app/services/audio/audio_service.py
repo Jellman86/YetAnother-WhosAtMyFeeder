@@ -111,8 +111,8 @@ class AudioService:
             highest_score = 0.0
             
             for detection in self._buffer:
-                # If a mapping exists, only match if the sensor ID matches
-                if expected_sensor_id and detection.sensor_id != expected_sensor_id:
+                # If a mapping exists, only match if the sensor ID matches (unless wildcard used)
+                if expected_sensor_id and expected_sensor_id != "*" and detection.sensor_id != expected_sensor_id:
                     continue
 
                 # Ensure naive comparison
