@@ -131,7 +131,7 @@ class SettingsUpdate(BaseModel):
     llm_model: Optional[str] = Field("gemini-2.0-flash-exp", description="AI model")
     
     # Telemetry
-    telemetry_enabled: Optional[bool] = Field(True, description="Enable anonymous usage statistics")
+    telemetry_enabled: Optional[bool] = Field(False, description="Enable anonymous usage statistics")
 
     @field_validator('frigate_url')
     @classmethod
@@ -179,7 +179,8 @@ async def get_settings():
         "llm_api_key": settings.llm.api_key,
         "llm_model": settings.llm.model,
         # Telemetry
-        "telemetry_enabled": settings.telemetry.enabled
+        "telemetry_enabled": settings.telemetry.enabled,
+        "telemetry_installation_id": settings.telemetry.installation_id
     }
 
 @router.post("/settings")

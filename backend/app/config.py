@@ -84,7 +84,7 @@ class LLMSettings(BaseModel):
     model: str = Field(default="gemini-2.0-flash-exp", description="Model name to use")
 
 class TelemetrySettings(BaseModel):
-    enabled: bool = Field(default=True, description="Enable anonymous usage statistics")
+    enabled: bool = Field(default=False, description="Enable anonymous usage statistics")
     url: Optional[str] = Field(default="https://telemetry.yawamf.pownet.uk/heartbeat", description="Telemetry endpoint URL")
     installation_id: Optional[str] = Field(default=None, description="Unique anonymous installation ID")
 
@@ -177,7 +177,7 @@ class Settings(BaseSettings):
         
         # Telemetry settings
         telemetry_data = {
-            'enabled': os.environ.get('TELEMETRY__ENABLED', 'true').lower() == 'true',
+            'enabled': os.environ.get('TELEMETRY__ENABLED', 'false').lower() == 'true',
             'url': os.environ.get('TELEMETRY__URL', 'https://telemetry.yawamf.pownet.uk/heartbeat'),
             'installation_id': None
         }

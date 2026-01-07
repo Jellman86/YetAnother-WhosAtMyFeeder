@@ -74,6 +74,7 @@ export interface Settings {
     llm_api_key?: string;
     llm_model?: string;
     telemetry_enabled: boolean;
+    telemetry_installation_id?: string;
 }
 
 export type UpdateSettings = Partial<Settings>;

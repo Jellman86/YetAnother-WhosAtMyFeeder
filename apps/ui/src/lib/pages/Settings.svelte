@@ -75,7 +75,8 @@
     let llmModel = $state('gemini-2.0-flash-exp');
 
     // Telemetry
-    let telemetryEnabled = $state(true);
+    let telemetryEnabled = $state(false);
+    let telemetryInstallationId = $state<string | undefined>(undefined);
 
     let availableCameras = $state<string[]>([]);
     let camerasLoading = $state(false);
@@ -358,7 +359,8 @@
             llmApiKey = settings.llm_api_key ?? '';
             llmModel = settings.llm_model ?? 'gemini-2.0-flash-exp';
             // Telemetry
-            telemetryEnabled = settings.telemetry_enabled ?? true;
+            telemetryEnabled = settings.telemetry_enabled ?? false;
+            telemetryInstallationId = settings.telemetry_installation_id;
         } catch (e) {
             message = { type: 'error', text: 'Failed to load settings' };
         } finally {
@@ -1113,6 +1115,19 @@
                             <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {telemetryEnabled ? 'translate-x-5' : 'translate-x-0'}"></span>
                         </button>
                     </div>
+                    
+                    {#if telemetryEnabled}
+                        <div class="mt-4 p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 animate-in fade-in slide-in-from-top-2">
+                            <p class="text-xs font-black uppercase tracking-widest text-slate-400 mb-3">Transparency: What we send</p>
+                            <div class="space-y-2 text-[10px] font-mono text-slate-600 dark:text-slate-400">
+                                <div class="flex justify-between"><span>Installation ID:</span><span class="text-slate-900 dark:text-white select-all">{telemetryInstallationId || '...'}</span></div>
+                                <div class="flex justify-between"><span>App Version:</span><span>{ '2.0.0+...' }</span></div>
+                                <div class="flex justify-between"><span>Platform:</span><span>{navigator.platform}</span></div>
+                                <div class="flex justify-between"><span>Enabled Features:</span><span>[Model, Integrations]</span></div>
+                            </div>
+                            <p class="text-[9px] text-slate-400 mt-3 italic">This data is sent securely to help us understand how the app is used. No images or personal detection data are ever shared.</p>
+                        </div>
+                    {/if}
                 </section>
             {/if}
         </div>
