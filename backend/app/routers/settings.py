@@ -9,6 +9,7 @@ from app.database import get_db
 from app.repositories.detection_repository import DetectionRepository
 
 from app.services.taxonomy.taxonomy_service import taxonomy_service
+from app.services.telemetry_service import telemetry_service
 
 from fastapi import BackgroundTasks
 
@@ -184,7 +185,7 @@ async def get_settings():
     }
 
 @router.post("/settings")
-async def update_settings(update: SettingsUpdate):
+async def update_settings(update: SettingsUpdate, background_tasks: BackgroundTasks):
     settings.frigate.frigate_url = update.frigate_url
     settings.frigate.mqtt_server = update.mqtt_server
     settings.frigate.mqtt_port = update.mqtt_port
@@ -229,6 +230,9 @@ async def update_settings(update: SettingsUpdate):
     
     # Telemetry
     settings.telemetry.enabled = update.telemetry_enabled if update.telemetry_enabled is not None else True
+
+    if settings.telemetry.enabled:
+        background_tasks.add_task(telemetry_service.force_heartbeat)
 
     settings.save()
     return {"status": "updated"}

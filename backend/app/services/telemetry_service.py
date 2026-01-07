@@ -42,6 +42,12 @@ class TelemetryService:
             except asyncio.CancelledError:
                 pass
 
+    async def force_heartbeat(self):
+        """Force an immediate heartbeat if enabled."""
+        if settings.telemetry.enabled:
+            log.info("Forcing telemetry heartbeat")
+            await self._send_heartbeat()
+
     async def _report_loop(self):
         """Periodically send heartbeat."""
         # Initial delay to let app startup
