@@ -68,28 +68,44 @@ class AudioService:
 
             async with self._lock:
                 self._buffer.append(detection)
+                buffer_len = len(self._buffer)
+                log.info("Audio detection added to buffer", species=species, confidence=confidence, sensor_id=sensor_id, ts=timestamp.isoformat(), buffer_len=buffer_len)
                 self._cleanup_buffer()
             
-            log.info("Audio detection received", species=species, confidence=confidence, sensor_id=sensor_id)
-
         except Exception as e:
             log.error("Failed to process audio detection", error=str(e))
 
     def _cleanup_buffer(self):
         """Remove old detections from buffer."""
         now = datetime.now()
-        # Ensure we are comparing offset-naive or offset-aware correctly
-        # Most of our timestamps are naive (local time)
+        removed_count = 0
+        
         while self._buffer:
             ts = self._buffer[0].timestamp
-            # If the timestamp is offset-aware (from ISO), make it naive for comparison
-            if ts.tzinfo is not None:
-                ts = ts.replace(tzinfo=None)
+            # Create a comparison copy
+            check_ts = ts
+            
+            # If the timestamp is offset-aware, convert to naive UTC then to local if needed,
+            # or just blindly strip. 
+            # Ideally: Convert both to UTC timestamps for comparison.
+            
+            # Simple approach: If ts is aware, strip it.
+            # NOTE: This assumes 'ts' was already converted to something comparable to 'now' (local)
+            # OR 'now' should be UTC if 'ts' is UTC.
+            if check_ts.tzinfo is not None:
+                check_ts = check_ts.replace(tzinfo=None)
                 
-            if (now - ts) > self._buffer_duration:
+            age = (now - check_ts).total_seconds()
+            
+            if age > self._buffer_duration.total_seconds():
                 self._buffer.popleft()
+                removed_count += 1
+                log.debug("Removed old audio detection", species=self._buffer[0].species if self._buffer else "unknown", age=age)
             else:
                 break
+        
+        if removed_count > 0:
+            log.info("Cleaned up audio buffer", removed=removed_count, remaining=len(self._buffer))
 
     async def find_match(self, target_time: datetime, camera_name: str = None, window_seconds: int = 15) -> Optional[AudioDetection]:
         """Find an audio detection matching the visual timestamp and camera.
