@@ -85,7 +85,7 @@ class LLMSettings(BaseModel):
 
 class TelemetrySettings(BaseModel):
     enabled: bool = Field(default=False, description="Enable anonymous usage statistics")
-    url: Optional[str] = Field(default="https://telemetry.yawamf.pownet.uk/heartbeat", description="Telemetry endpoint URL")
+    url: Optional[str] = Field(default="https://yawamf-telemetry.ya-wamf.workers.dev/heartbeat", description="Telemetry endpoint URL")
     installation_id: Optional[str] = Field(default=None, description="Unique anonymous installation ID")
 
 class Settings(BaseSettings):
