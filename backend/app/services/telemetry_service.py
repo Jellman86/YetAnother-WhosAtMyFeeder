@@ -89,15 +89,15 @@ class TelemetryService:
                 }
             }
 
-            async with httpx.AsyncClient(timeout=10.0) as client:
+            async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
                 resp = await client.post(settings.telemetry.url, json=payload)
                 if resp.status_code == 200:
-                    log.info("Telemetry heartbeat sent successfully")
+                    log.info("Telemetry heartbeat sent successfully", url=settings.telemetry.url)
                 else:
                     log.warning("Telemetry server returned error", status=resp.status_code)
                     
         except Exception as e:
             # Fail silently-ish to not spam logs too hard
-            log.debug("Failed to send telemetry heartbeat", error=str(e))
+            log.warning("Failed to send telemetry heartbeat", error=str(e), url=settings.telemetry.url)
 
 telemetry_service = TelemetryService()
