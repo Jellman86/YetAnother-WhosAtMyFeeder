@@ -4,7 +4,7 @@ import asyncio
 import httpx
 import platform
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from app.config import settings
 
 log = structlog.get_logger()
@@ -13,15 +13,21 @@ class TelemetryService:
     def __init__(self):
         self._running = False
         self._task = None
-        self._ensure_installation_id()
+        try:
+            self._ensure_installation_id()
+        except Exception as e:
+            log.error("Failed to initialize telemetry ID", error=str(e))
 
     def _ensure_installation_id(self):
         """Generate a persistent anonymous ID if one doesn't exist."""
         if not settings.telemetry.installation_id:
             new_id = str(uuid.uuid4())
             settings.telemetry.installation_id = new_id
-            settings.save()
-            log.info("Generated new anonymous installation ID", id=new_id)
+            try:
+                settings.save()
+                log.info("Generated new anonymous installation ID", id=new_id)
+            except Exception as e:
+                log.warning("Failed to save installation ID to config", error=str(e))
 
     async def start(self):
         """Start the background telemetry reporter."""
@@ -51,7 +57,10 @@ class TelemetryService:
     async def _report_loop(self):
         """Periodically send heartbeat."""
         # Initial delay to let app startup
-        await asyncio.sleep(60) 
+        try:
+            await asyncio.sleep(60) 
+        except asyncio.CancelledError:
+            return
         
         while self._running:
             try:
@@ -74,8 +83,8 @@ class TelemetryService:
             # Gather anonymous stats
             payload = {
                 "installation_id": settings.telemetry.installation_id,
-                "timestamp": datetime.utcnow().isoformat(),
-                "version": os.environ.get("APP_VERSION", "unknown"), # Should be set in main.py or env
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "version": os.environ.get("APP_VERSION", "unknown"),
                 "platform": {
                     "system": platform.system(),
                     "release": platform.release(),

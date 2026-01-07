@@ -176,7 +176,7 @@ class Settings(BaseSettings):
         telemetry_data = {
             'enabled': os.environ.get('TELEMETRY__ENABLED', 'false').lower() == 'true',
             'url': os.environ.get('TELEMETRY__URL', 'https://yawamf-telemetry.ya-wamf.workers.dev/heartbeat'),
-            'installation_id': None
+            'installation_id': os.environ.get('TELEMETRY__INSTALLATION_ID', None)
         }
 
         # Load from config file if it exists, env vars take precedence
@@ -231,11 +231,6 @@ class Settings(BaseSettings):
                             
                 if 'telemetry' in file_data:
                     for key, value in file_data['telemetry'].items():
-                        # We always load installation_id from file as it's not set by env
-                        if key == 'installation_id':
-                            telemetry_data[key] = value
-                            continue
-                            
                         env_key = f'TELEMETRY__{key.upper()}'
                         if env_key not in os.environ:
                             telemetry_data[key] = value
