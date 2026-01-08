@@ -445,8 +445,10 @@ export async function fetchSpecies(): Promise<SpeciesCount[]> {
 }
 
 export async function fetchSettings(): Promise<Settings> {
-    // Settings are global, cancel any pending fetch
-    return fetchWithAbort<Settings>('settings', `${API_BASE}/settings`);
+    // Don't use abort mechanism to avoid race conditions between
+    // loadSettings() and settingsStore.load() that cancel each other
+    const response = await apiFetch(`${API_BASE}/settings`);
+    return handleResponse<Settings>(response);
 }
 
 export async function updateSettings(settings: SettingsUpdate): Promise<{ status: string }> {
