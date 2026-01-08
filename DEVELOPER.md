@@ -974,19 +974,34 @@ test: Add integration tests for backfill
 
 ## Known Issues & Technical Debt
 
-### High Priority
+> **📋 For detailed code review and all issues, see `agents/COMPREHENSIVE_CODE_REVIEW.md`**
 
-1. **Minimal test coverage** - Most code paths untested
-2. **Memory-based Wikipedia cache** - Lost on restart
-3. **Duplicated Frigate header logic** - In 3 different files
+### Critical (P0) - Fix Immediately
 
-### Medium Priority
+1. **Database schema mismatch** (`backend/app/db_schema.py`) - Video classification columns missing
+2. **API auth timing attack** (`backend/app/main.py:40`) - Use `secrets.compare_digest()`
+3. **Redacted secrets bug** (`backend/app/routers/settings.py:298`) - Settings update breaks passwords
+4. **TypeScript type errors** (`apps/ui/src/lib/api.ts:62-63`) - `bool` should be `boolean`
 
-1. **No rate limiting** - Could be DoS'd
-2. **Hardcoded model URLs** - Could break if sources change
-3. **No frontend error boundaries** - Errors can crash UI
+### High Priority (P1)
 
-### Low Priority
+1. **Minimal test coverage** - Only 5% E2E tests, no unit tests
+2. **Memory leak potential** - Auto video classifier has unbounded task dict
+3. **Telegram markdown injection** - Species names not escaped
+4. **Blocking I/O** - Config save blocks event loop (`config.py:146`)
+5. **No rate limiting** - API endpoints vulnerable to DoS
+6. **EventProcessor refactor needed** - 200+ line method needs decomposition
+
+### Medium Priority (P2)
+
+1. **No database connection pooling** - New connection per request
+2. **No retry logic** - Notification failures are permanent
+3. **Path traversal risk** - Media cache uses unsanitized event IDs
+4. **Hardcoded model URLs** - Could break if sources change
+5. **No frontend error boundaries** - Errors can crash UI
+6. **Memory-based Wikipedia cache** - Lost on restart
+
+### Low Priority (P3)
 
 1. **No structured logging config** - All in main.py
 2. **Simple client-side routing** - Not a full router library

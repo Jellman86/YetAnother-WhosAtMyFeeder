@@ -16,22 +16,25 @@ When Frigate detects a bird at your feeder, YA-WAMF:
 1. Grabs the snapshot image
 2. Runs it through an advanced AI model (MobileNetV2, ConvNeXt, or EVA-02)
 3. Cross-references with audio detections from **BirdNET-Go** for multi-sensor confirmation
-4. Enriches detections with local weather data and behavior analysis via **LLMs (Gemini/OpenAI)**
-5. Keeps track of all your visitors in a nice dashboard with taxonomic normalization
-6. Proxies video clips from Frigate with full streaming and seeking support
-7. Reports detections to **BirdWeather** (optional) for community science contribution
+4. **Automatically analyzes the video clip** (optional) for higher accuracy using temporal ensemble logic
+5. Sends **rich notifications** to Discord, Pushover, or Telegram
+6. Enriches detections with local weather data and behavior analysis via **LLMs (Gemini/OpenAI)**
+7. Keeps track of all your visitors in a nice dashboard with taxonomic normalization
+8. Proxies video clips from Frigate with full streaming and seeking support
+9. Reports detections to **BirdWeather** (optional) for community science contribution
 
 **Advanced Features:**
+- **Auto Video Analysis:** Automatically downloads and scans 15+ frames from the event clip to verify snapshot detections.
+- **Multi-Platform Notifications:** Native support for Discord, Pushover, and Telegram with customizable filters (species, confidence, audio-only).
 - **Multi-Sensor Correlation:** Matches visual detections with audio identifications from BirdNET-Go (now with live dashboard widget!).
-- **Backfill Tool:** Missed some events? Scan your Frigate history to import and classify past detections with detailed skip reporting.
+- **Backfill Tool:** Missed some events? Scan your Frigate history to import and classify past detections.
 - **AI Naturalist Insight:** One-click behavioral analysis of your visitors using state-of-the-art LLMs.
 - **Elite Accuracy:** Support for state-of-the-art **EVA-02 Large** models (~91% accuracy).
 - **Taxonomy Normalization:** Automatic Scientific ↔ Common name mapping using iNaturalist data.
-- **Deep Video Analysis:** Scan entire video clips frame-by-frame for the perfect identification with soft-voting ensembles.
-- **Fast Path Efficiency:** Skip local AI and use Frigate's sublabels directly to save CPU (now bypasses confidence floor for trusted labels).
+- **Fast Path Efficiency:** Skip local AI and use Frigate's sublabels directly to save CPU.
 - **Wildlife Classifier:** identify squirrels, foxes, and other non-bird visitors.
 - **Home Assistant Integration:** Full support for tracking the last detected bird and daily counts in HA.
-- **Observability:** Built-in Prometheus metrics and real-time MQTT diagnostics.
+- **Observability:** Built-in Prometheus metrics, Telemetry (opt-in), and real-time MQTT diagnostics.
 
 ## Documentation
 
@@ -71,7 +74,14 @@ Here's the flow from bird to identification:
                                            v
                                     ┌──────────────┐
                                     │ Save to DB & │
-                                    │ Update UI    │
+                                    │ Notify User  │
+                                    └──────┬───────┘
+                                           │
+                                           v
+                                    ┌──────────────┐
+                                    │ Auto Video   │
+                                    │ Analysis     │
+                                    │ (Background) │
                                     └──────────────┘
 ```
 
@@ -82,8 +92,9 @@ Here's the flow from bird to identification:
 3. **YA-WAMF receives the event** - The backend is subscribed to that MQTT topic and picks up the message
 4. **Efficiency Check** - If "Trust Frigate Sublabels" is enabled and Frigate already has a label, we use it instantly.
 5. **Classification runs** - Otherwise, the image goes through a local model (TFLite or ONNX) trained on bird species.
-6. **Results stored** - If the confidence is high enough, the detection gets saved to the database.
-7. **Dashboard updates** - The frontend gets a real-time update via Server-Sent Events (SSE).
+6. **Results stored & Notified** - The detection is saved, and notifications (Discord/Telegram/Pushover) are fired immediately.
+7. **Deep Analysis** - If enabled, a background task waits for the video clip to finalize, then scans it frame-by-frame to refine the ID.
+8. **Dashboard updates** - The frontend gets real-time updates via Server-Sent Events (SSE).
 
 ## Getting Started with Docker Compose
 
@@ -208,6 +219,7 @@ Most settings can be changed through the web UI under Settings. They get saved t
 | Classification Threshold | How confident the model needs to be (0-1) | 0.7 |
 | Min Confidence Floor | Discard detections below this score (unless Frigate verified) | 0.4 |
 | Trust Frigate Sublabels | Skip local AI if Frigate has an identification | Enabled |
+| Auto Video Analysis | Automatically classify clips for higher accuracy | Disabled |
 | BirdWeather Token | Station token for uploading detections to BirdWeather | (none) |
 | BirdNET-Go Topic | MQTT topic for audio detections | birdnet/text |
 | AI Model | Choose between MobileNet (Fast), ConvNeXt (High), or EVA-02 (Elite) | MobileNet |
