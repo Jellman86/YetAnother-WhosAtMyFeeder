@@ -49,6 +49,9 @@
     let trustFrigateSublabel = $state(true);
     let displayCommonNames = $state(true);
     let scientificNamePrimary = $state(false);
+    let autoVideoClassification = $state(false);
+    let videoClassificationDelay = $state(30);
+    let videoClassificationMaxRetries = $state(3);
     let selectedCameras = $state<string[]>([]);
     let retentionDays = $state(0);
     let blockedLabels = $state<string[]>([]);
@@ -136,6 +139,9 @@
             { key: 'trustFrigateSublabel', val: trustFrigateSublabel, store: s.trust_frigate_sublabel ?? true },
             { key: 'displayCommonNames', val: displayCommonNames, store: s.display_common_names ?? true },
             { key: 'scientificNamePrimary', val: scientificNamePrimary, store: s.scientific_name_primary ?? false },
+            { key: 'autoVideoClassification', val: autoVideoClassification, store: s.auto_video_classification ?? false },
+            { key: 'videoClassificationDelay', val: videoClassificationDelay, store: s.video_classification_delay ?? 30 },
+            { key: 'videoClassificationMaxRetries', val: videoClassificationMaxRetries, store: s.video_classification_max_retries ?? 3 },
             { key: 'selectedCameras', val: JSON.stringify(selectedCameras), store: JSON.stringify(s.cameras || []) },
             { key: 'retentionDays', val: retentionDays, store: s.retention_days || 0 },
             { key: 'blockedLabels', val: JSON.stringify(blockedLabels), store: JSON.stringify(s.blocked_labels || []) },
@@ -393,6 +399,9 @@
             trustFrigateSublabel = settings.trust_frigate_sublabel ?? true;
             displayCommonNames = settings.display_common_names ?? true;
             scientificNamePrimary = settings.scientific_name_primary ?? false;
+            autoVideoClassification = settings.auto_video_classification ?? false;
+            videoClassificationDelay = settings.video_classification_delay ?? 30;
+            videoClassificationMaxRetries = settings.video_classification_max_retries ?? 3;
             selectedCameras = settings.cameras || [];
             retentionDays = settings.retention_days || 0;
             blockedLabels = settings.blocked_labels || [];
@@ -479,6 +488,9 @@
                 trust_frigate_sublabel: trustFrigateSublabel,
                 display_common_names: displayCommonNames,
                 scientific_name_primary: scientificNamePrimary,
+                auto_video_classification: autoVideoClassification,
+                video_classification_delay: videoClassificationDelay,
+                video_classification_max_retries: videoClassificationMaxRetries,
                 cameras: selectedCameras,
                 retention_days: retentionDays,
                 blocked_labels: blockedLabels,
@@ -1171,6 +1183,30 @@
                                         <span class="block text-[10px] text-slate-500 font-bold leading-tight mt-1">Skip internal classification if Frigate identified species</span>
                                     </div>
                                     <button onclick={() => trustFrigateSublabel = !trustFrigateSublabel} class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {trustFrigateSublabel ? 'bg-teal-500' : 'bg-slate-300 dark:bg-slate-600'}"><span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {trustFrigateSublabel ? 'translate-x-5' : 'translate-x-0'}"></span></button>
+                                </div>
+
+                                <div class="space-y-4 pt-4 border-t border-slate-100 dark:border-slate-700/50">
+                                    <div class="flex items-center justify-between">
+                                        <div>
+                                            <span class="block text-sm font-black text-slate-900 dark:text-white">Auto Video Analysis</span>
+                                            <span class="block text-[10px] text-slate-500 font-bold leading-tight mt-1">Automatically run deep video reclassification for every event</span>
+                                        </div>
+                                        <button onclick={() => autoVideoClassification = !autoVideoClassification} class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {autoVideoClassification ? 'bg-indigo-500' : 'bg-slate-300 dark:bg-slate-600'}"><span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {autoVideoClassification ? 'translate-x-5' : 'translate-x-0'}"></span></button>
+                                    </div>
+
+                                    {#if autoVideoClassification}
+                                        <div class="grid grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2">
+                                            <div>
+                                                <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Initial Delay (s)</label>
+                                                <input type="number" bind:value={videoClassificationDelay} min="0" class="w-full px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-xs focus:ring-2 focus:ring-indigo-500 outline-none" />
+                                            </div>
+                                            <div>
+                                                <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Max Retries</label>
+                                                <input type="number" bind:value={videoClassificationMaxRetries} min="0" class="w-full px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-xs focus:ring-2 focus:ring-indigo-500 outline-none" />
+                                            </div>
+                                        </div>
+                                        <p class="text-[9px] text-slate-400 italic">Retries use exponential backoff to wait for Frigate clip finalization.</p>
+                                    {/if}
                                 </div>
                             </div>
                         </section>

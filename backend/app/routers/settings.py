@@ -165,6 +165,10 @@ class SettingsUpdate(BaseModel):
     trust_frigate_sublabel: bool = Field(True, description="Trust Frigate sublabels when available")
     display_common_names: bool = Field(True, description="Display common names instead of scientific")
     scientific_name_primary: bool = Field(False, description="Show scientific name as the primary label in UI")
+    # Auto Video Classification
+    auto_video_classification: Optional[bool] = Field(False, description="Automatically classify video clips")
+    video_classification_delay: Optional[int] = Field(30, ge=0, description="Seconds to wait before checking for clip")
+    video_classification_max_retries: Optional[int] = Field(3, ge=0, description="Max retries for clip availability")
     # Media cache settings
     media_cache_enabled: bool = Field(True, description="Enable local media caching")
     media_cache_snapshots: bool = Field(True, description="Cache snapshot images locally")
@@ -237,6 +241,9 @@ async def get_settings():
         "trust_frigate_sublabel": settings.classification.trust_frigate_sublabel,
         "display_common_names": settings.classification.display_common_names,
         "scientific_name_primary": settings.classification.scientific_name_primary,
+        "auto_video_classification": settings.classification.auto_video_classification,
+        "video_classification_delay": settings.classification.video_classification_delay,
+        "video_classification_max_retries": settings.classification.video_classification_max_retries,
         # Media cache settings
         "media_cache_enabled": settings.media_cache.enabled,
         "media_cache_snapshots": settings.media_cache.cache_snapshots,
@@ -302,6 +309,13 @@ async def update_settings(update: SettingsUpdate, background_tasks: BackgroundTa
     settings.classification.trust_frigate_sublabel = update.trust_frigate_sublabel
     settings.classification.display_common_names = update.display_common_names
     settings.classification.scientific_name_primary = update.scientific_name_primary
+    
+    if update.auto_video_classification is not None:
+        settings.classification.auto_video_classification = update.auto_video_classification
+    if update.video_classification_delay is not None:
+        settings.classification.video_classification_delay = update.video_classification_delay
+    if update.video_classification_max_retries is not None:
+        settings.classification.video_classification_max_retries = update.video_classification_max_retries
 
     # Media cache settings
     settings.media_cache.enabled = update.media_cache_enabled

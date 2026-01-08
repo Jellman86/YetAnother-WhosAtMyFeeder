@@ -59,8 +59,11 @@ export interface Settings {
     retention_days: number;
     blocked_labels: string[];
     trust_frigate_sublabel: boolean;
-    display_common_names: boolean;
-    scientific_name_primary: boolean;
+    display_common_names: bool;
+    scientific_name_primary: bool;
+    auto_video_classification: boolean;
+    video_classification_delay: number;
+    video_classification_max_retries: number;
     // Media cache settings
     media_cache_enabled: boolean;
     media_cache_snapshots: boolean;
@@ -121,6 +124,9 @@ export interface SettingsUpdate {
     trust_frigate_sublabel: boolean;
     display_common_names: boolean;
     scientific_name_primary?: boolean;
+    auto_video_classification?: boolean;
+    video_classification_delay?: number;
+    video_classification_max_retries?: number;
     // Media cache settings
     media_cache_enabled: boolean;
     media_cache_snapshots: boolean;
