@@ -160,6 +160,70 @@ export interface CleanupResult {
 
 const API_BASE = '/api';
 
+// Global abort controller map for cancellable requests
+const abortControllers = new Map<string, AbortController>();
+
+/**
+ * Create a fetch request with optional abort signal support
+ * @param key - Unique key for this request (for cancellation)
+ * @param url - URL to fetch
+ * @param options - Fetch options
+ * @returns Promise with response
+ */
+async function fetchWithAbort<T>(
+    key: string | null,
+    url: string,
+    options: RequestInit = {}
+): Promise<T> {
+    // Cancel any existing request with the same key
+    if (key && abortControllers.has(key)) {
+        abortControllers.get(key)!.abort();
+        abortControllers.delete(key);
+    }
+
+    // Create new abort controller if key provided
+    let controller: AbortController | undefined;
+    if (key) {
+        controller = new AbortController();
+        abortControllers.set(key, controller);
+    }
+
+    try {
+        const response = await fetch(url, {
+            ...options,
+            signal: controller?.signal
+        });
+
+        // Clean up controller on success
+        if (key) {
+            abortControllers.delete(key);
+        }
+
+        return await handleResponse<T>(response);
+    } catch (error) {
+        // Clean up controller on error
+        if (key) {
+            abortControllers.delete(key);
+        }
+
+        // Re-throw non-abort errors
+        if (error instanceof Error && error.name === 'AbortError') {
+            console.log(`Request cancelled: ${key || url}`);
+        }
+        throw error;
+    }
+}
+
+/**
+ * Cancel a pending request by key
+ */
+export function cancelRequest(key: string) {
+    if (abortControllers.has(key)) {
+        abortControllers.get(key)!.abort();
+        abortControllers.delete(key);
+    }
+}
+
 async function handleResponse<T>(response: Response): Promise<T> {
     if (!response.ok) {
         const error = await response.text();
@@ -203,8 +267,9 @@ export async function fetchEvents(options: FetchEventsOptions = {}): Promise<Det
     if (sort) params.set('sort', sort);
     if (includeHidden) params.set('include_hidden', 'true');
 
-    const response = await fetch(`${API_BASE}/events?${params.toString()}`);
-    return handleResponse<Detection[]>(response);
+    // Use abort key based on filters to cancel outdated requests
+    const filterKey = `events-${species || 'all'}-${camera || 'all'}-${sort || 'newest'}`;
+    return fetchWithAbort<Detection[]>(filterKey, `${API_BASE}/events?${params.toString()}`);
 }
 
 export interface EventFilters {
@@ -284,8 +349,8 @@ export async function fetchSpecies(): Promise<SpeciesCount[]> {
 }
 
 export async function fetchSettings(): Promise<Settings> {
-    const response = await fetch(`${API_BASE}/settings`);
-    return handleResponse<Settings>(response);
+    // Settings are global, cancel any pending fetch
+    return fetchWithAbort<Settings>('settings', `${API_BASE}/settings`);
 }
 
 export async function updateSettings(settings: SettingsUpdate): Promise<{ status: string }> {
@@ -632,10 +697,12 @@ export async function activateModel(modelId: string): Promise<{ status: string; 
 }
 
 export async function analyzeDetection(eventId: string): Promise<{ analysis: string }> {
-    const response = await fetch(`${API_BASE}/events/${encodeURIComponent(eventId)}/analyze`, {
-        method: 'POST',
-    });
-    return handleResponse<{ analysis: string }>(response);
+    // Use event-specific key to allow multiple analyses, but cancel if same event analyzed again
+    return fetchWithAbort<{ analysis: string }>(
+        `analyze-${eventId}`,
+        `${API_BASE}/events/${encodeURIComponent(eventId)}/analyze`,
+        { method: 'POST' }
+    );
 }
 
 export interface AudioDetection {

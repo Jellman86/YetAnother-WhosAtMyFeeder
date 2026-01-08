@@ -102,71 +102,120 @@
 
           evtSource.onmessage = (event) => {
               try {
-                 const payload = JSON.parse(event.data);
+                 // Parse JSON with validation
+                 let payload: any;
+                 try {
+                     payload = JSON.parse(event.data);
+                 } catch (parseError) {
+                     console.error("SSE JSON Parse Error:", parseError, "Data:", event.data);
+                     return;
+                 }
 
-                 if (payload.type === 'connected') {
-                     detectionsStore.setConnected(true);
-                     reconnectAttempts = 0; // Reset backoff on successful connection
-                     console.log("SSE Connected:", payload.message);
-                 } else if (payload.type === 'detection') {
-                     const newDet: Detection = {
-                         frigate_event: payload.data.frigate_event,
-                         display_name: payload.data.display_name,
-                         score: payload.data.score,
-                         detection_time: payload.data.timestamp,
-                         camera_name: payload.data.camera,
-                         frigate_score: payload.data.frigate_score,
-                         sub_label: payload.data.sub_label,
-                         audio_confirmed: payload.data.audio_confirmed,
-                         audio_species: payload.data.audio_species,
-                         audio_score: payload.data.audio_score,
-                         temperature: payload.data.temperature,
-                         weather_condition: payload.data.weather_condition,
-                         scientific_name: payload.data.scientific_name,
-                         common_name: payload.data.common_name,
-                         taxa_id: payload.data.taxa_id
-                     };
-                     detectionsStore.addDetection(newDet);
-                 } else if (payload.type === 'detection_updated') {
-                     const updatedDet: Detection = {
-                         frigate_event: payload.data.frigate_event,
-                         display_name: payload.data.display_name,
-                         score: payload.data.score,
-                         detection_time: payload.data.timestamp,
-                         camera_name: payload.data.camera,
-                         frigate_score: payload.data.frigate_score,
-                         sub_label: payload.data.sub_label,
-                         is_hidden: payload.data.is_hidden,
-                         audio_confirmed: payload.data.audio_confirmed,
-                         audio_species: payload.data.audio_species,
-                         audio_score: payload.data.audio_score,
-                         temperature: payload.data.temperature,
-                         weather_condition: payload.data.weather_condition,
-                         scientific_name: payload.data.scientific_name,
-                         common_name: payload.data.common_name,
-                         taxa_id: payload.data.taxa_id
-                     };
-                     detectionsStore.updateDetection(updatedDet);
-                 } else if (payload.type === 'detection_deleted') {
-                     detectionsStore.removeDetection(payload.data.frigate_event, payload.data.timestamp);
-                 } else if (payload.type === 'reclassification_started') {
-                     detectionsStore.startReclassification(payload.data.event_id);
-                 } else if (payload.type === 'reclassification_progress') {
-                     detectionsStore.updateReclassificationProgress(
-                         payload.data.event_id,
-                         payload.data.current_frame,
-                         payload.data.total_frames,
-                         payload.data.frame_score,
-                         payload.data.top_label
-                     );
-                 } else if (payload.type === 'reclassification_completed') {
-                     detectionsStore.completeReclassification(
-                         payload.data.event_id,
-                         payload.data.results
-                     );
+                 // Validate payload structure
+                 if (!payload || typeof payload !== 'object') {
+                     console.error("SSE Invalid payload structure:", payload);
+                     return;
+                 }
+
+                 if (!payload.type) {
+                     console.error("SSE Missing payload type:", payload);
+                     return;
+                 }
+
+                 // Handle different message types with error boundaries
+                 try {
+                     if (payload.type === 'connected') {
+                         detectionsStore.setConnected(true);
+                         reconnectAttempts = 0; // Reset backoff on successful connection
+                         console.log("SSE Connected:", payload.message);
+                     } else if (payload.type === 'detection') {
+                         if (!payload.data || !payload.data.frigate_event) {
+                             console.error("SSE Invalid detection data:", payload);
+                             return;
+                         }
+                         const newDet: Detection = {
+                             frigate_event: payload.data.frigate_event,
+                             display_name: payload.data.display_name,
+                             score: payload.data.score,
+                             detection_time: payload.data.timestamp,
+                             camera_name: payload.data.camera,
+                             frigate_score: payload.data.frigate_score,
+                             sub_label: payload.data.sub_label,
+                             audio_confirmed: payload.data.audio_confirmed,
+                             audio_species: payload.data.audio_species,
+                             audio_score: payload.data.audio_score,
+                             temperature: payload.data.temperature,
+                             weather_condition: payload.data.weather_condition,
+                             scientific_name: payload.data.scientific_name,
+                             common_name: payload.data.common_name,
+                             taxa_id: payload.data.taxa_id
+                         };
+                         detectionsStore.addDetection(newDet);
+                     } else if (payload.type === 'detection_updated') {
+                         if (!payload.data || !payload.data.frigate_event) {
+                             console.error("SSE Invalid detection_updated data:", payload);
+                             return;
+                         }
+                         const updatedDet: Detection = {
+                             frigate_event: payload.data.frigate_event,
+                             display_name: payload.data.display_name,
+                             score: payload.data.score,
+                             detection_time: payload.data.timestamp,
+                             camera_name: payload.data.camera,
+                             frigate_score: payload.data.frigate_score,
+                             sub_label: payload.data.sub_label,
+                             is_hidden: payload.data.is_hidden,
+                             audio_confirmed: payload.data.audio_confirmed,
+                             audio_species: payload.data.audio_species,
+                             audio_score: payload.data.audio_score,
+                             temperature: payload.data.temperature,
+                             weather_condition: payload.data.weather_condition,
+                             scientific_name: payload.data.scientific_name,
+                             common_name: payload.data.common_name,
+                             taxa_id: payload.data.taxa_id
+                         };
+                         detectionsStore.updateDetection(updatedDet);
+                     } else if (payload.type === 'detection_deleted') {
+                         if (!payload.data || !payload.data.frigate_event) {
+                             console.error("SSE Invalid detection_deleted data:", payload);
+                             return;
+                         }
+                         detectionsStore.removeDetection(payload.data.frigate_event, payload.data.timestamp);
+                     } else if (payload.type === 'reclassification_started') {
+                         if (!payload.data || !payload.data.event_id) {
+                             console.error("SSE Invalid reclassification_started data:", payload);
+                             return;
+                         }
+                         detectionsStore.startReclassification(payload.data.event_id);
+                     } else if (payload.type === 'reclassification_progress') {
+                         if (!payload.data || !payload.data.event_id) {
+                             console.error("SSE Invalid reclassification_progress data:", payload);
+                             return;
+                         }
+                         detectionsStore.updateReclassificationProgress(
+                             payload.data.event_id,
+                             payload.data.current_frame,
+                             payload.data.total_frames,
+                             payload.data.frame_score,
+                             payload.data.top_label
+                         );
+                     } else if (payload.type === 'reclassification_completed') {
+                         if (!payload.data || !payload.data.event_id) {
+                             console.error("SSE Invalid reclassification_completed data:", payload);
+                             return;
+                         }
+                         detectionsStore.completeReclassification(
+                             payload.data.event_id,
+                             payload.data.results
+                         );
+                     } else {
+                         console.warn("SSE Unknown message type:", payload.type);
+                     }
+                 } catch (handlerError) {
+                     console.error(`SSE Handler error for type '${payload.type}':`, handlerError, "Payload:", payload);
                  }
               } catch (e) {
-                  console.error("SSE Parse Error", e);
+                  console.error("SSE Unexpected error in message handler:", e, "Event:", event);
               }
           };
 
