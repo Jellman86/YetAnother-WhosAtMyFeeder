@@ -144,13 +144,18 @@ class SettingsUpdate(BaseModel):
 
 @router.get("/settings")
 async def get_settings():
+    """
+    Get application settings with secrets redacted.
+    Secrets are never returned via API for security reasons.
+    """
     return {
         "frigate_url": settings.frigate.frigate_url,
         "mqtt_server": settings.frigate.mqtt_server,
         "mqtt_port": settings.frigate.mqtt_port,
         "mqtt_auth": settings.frigate.mqtt_auth,
         "mqtt_username": settings.frigate.mqtt_username,
-        "mqtt_password": settings.frigate.mqtt_password,
+        # SECURITY: Never expose passwords via API
+        "mqtt_password": "***REDACTED***" if settings.frigate.mqtt_password else None,
         "birdnet_enabled": settings.frigate.birdnet_enabled,
         "audio_topic": settings.frigate.audio_topic,
         "camera_audio_mapping": settings.frigate.camera_audio_mapping,
@@ -174,11 +179,13 @@ async def get_settings():
         "location_automatic": settings.location.automatic,
         # BirdWeather settings
         "birdweather_enabled": settings.birdweather.enabled,
-        "birdweather_station_token": settings.birdweather.station_token,
+        # SECURITY: Never expose station tokens via API
+        "birdweather_station_token": "***REDACTED***" if settings.birdweather.station_token else None,
         # LLM settings
         "llm_enabled": settings.llm.enabled,
         "llm_provider": settings.llm.provider,
-        "llm_api_key": settings.llm.api_key,
+        # SECURITY: Never expose API keys via API
+        "llm_api_key": "***REDACTED***" if settings.llm.api_key else None,
         "llm_model": settings.llm.model,
         # Telemetry
         "telemetry_enabled": settings.telemetry.enabled,
