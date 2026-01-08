@@ -421,6 +421,21 @@ frigate_url = settings.frigate.frigate_url
 threshold = settings.classification.threshold
 ```
 
+**Authentication:**
+
+Authentication is optional and "secure by configuration". It is handled via a global dependency in `main.py`.
+
+```python
+# main.py
+api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
+
+async def verify_api_key(key: str = Security(api_key_header)):
+    if settings.api_key and key != settings.api_key:
+        raise HTTPException(status_code=403, detail="Invalid API Key")
+```
+
+If `settings.api_key` is `None` (default), validation is skipped.
+
 ---
 
 ## Frontend Development
@@ -629,6 +644,7 @@ Added `llm_*` and `telemetry_*` fields to configuration.
 | `LLM__PROVIDER` | `gemini` | `gemini` or `openai` |
 | `LLM__API_KEY` | (none) | API Key for AI Naturalist |
 | `LLM__MODEL` | `gemini-2.0-flash-exp` | AI model name |
+| `YA_WAMF_API_KEY` | (none) | Secure the API/UI with a password |
 | `TELEMETRY__ENABLED` | `false` | Enable anonymous usage stats |
 | `TELEMETRY__URL` | `.../heartbeat` | Telemetry destination URL |
 | `TZ` | `UTC` | Timezone |
@@ -967,9 +983,8 @@ test: Add integration tests for backfill
 ### Medium Priority
 
 1. **No rate limiting** - Could be DoS'd
-2. **No API authentication** - Relies on network isolation
-3. **Hardcoded model URLs** - Could break if sources change
-4. **No frontend error boundaries** - Errors can crash UI
+2. **Hardcoded model URLs** - Could break if sources change
+3. **No frontend error boundaries** - Errors can crash UI
 
 ### Low Priority
 

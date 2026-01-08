@@ -212,6 +212,23 @@ Most settings can be changed through the web UI under Settings. They get saved t
 | BirdNET-Go Topic | MQTT topic for audio detections | birdnet/text |
 | AI Model | Choose between MobileNet (Fast), ConvNeXt (High), or EVA-02 (Elite) | MobileNet |
 
+## Security & Authentication
+
+By default, YA-WAMF does not require authentication. It assumes it is running on a trusted local network.
+
+**Enabling Authentication:**
+To protect your dashboard and API with a password (API Key), set the `YA_WAMF_API_KEY` environment variable in your `.env` or `docker-compose.yml` file:
+
+```yaml
+environment:
+  - YA_WAMF_API_KEY=your-super-secret-password
+```
+
+When enabled:
+- The dashboard will present a login screen.
+- All API requests must include the header `X-API-Key: your-super-secret-password`.
+- SSE streams (real-time updates) authenticate via query parameter.
+
 ## Tech Stack
 
 - **Backend:** Python 3.12, FastAPI, SQLite
