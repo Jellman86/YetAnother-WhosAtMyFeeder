@@ -1,4 +1,5 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends, HTTPException, status, Security
+from fastapi.security import APIKeyHeader, APIKeyQuery
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, Response
 import structlog
@@ -19,6 +20,29 @@ from app.services.telemetry_service import telemetry_service
 from app.repositories.detection_repository import DetectionRepository
 from app.routers import events, stream, proxy, settings as settings_router, species, backfill, classifier, models, ai, stats, debug, audio
 from app.config import settings
+
+# Authentication
+api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
+api_key_query = APIKeyQuery(name="api_key", auto_error=False)
+
+async def verify_api_key(
+    header_key: str = Security(api_key_header),
+    query_key: str = Security(api_key_query)
+):
+    """Validate API Key if configured (via Header or Query param)."""
+    if settings.api_key:
+        api_key = header_key or query_key
+        if not api_key:
+             raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Missing API Key",
+            )
+        if api_key != settings.api_key:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Invalid API Key",
+            )
+    return header_key or query_key
 
 # Version management
 def get_base_version() -> str:
@@ -174,18 +198,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(events.router, prefix="/api")
-app.include_router(stream.router, prefix="/api")
-app.include_router(proxy.router, prefix="/api")
-app.include_router(settings_router.router, prefix="/api")
-app.include_router(species.router, prefix="/api")
-app.include_router(backfill.router, prefix="/api", tags=["backfill"])
-app.include_router(classifier.router, prefix="/api")
-app.include_router(models.router, prefix="/api", tags=["models"])
-app.include_router(ai.router, prefix="/api", tags=["ai"])
-app.include_router(stats.router, prefix="/api", tags=["stats"])
-app.include_router(debug.router, prefix="/api", tags=["debug"])
-app.include_router(audio.router, prefix="/api", tags=["audio"])
+app.include_router(events.router, prefix="/api", dependencies=[Depends(verify_api_key)])
+app.include_router(stream.router, prefix="/api", dependencies=[Depends(verify_api_key)])
+app.include_router(proxy.router, prefix="/api", dependencies=[Depends(verify_api_key)])
+app.include_router(settings_router.router, prefix="/api", dependencies=[Depends(verify_api_key)])
+app.include_router(species.router, prefix="/api", dependencies=[Depends(verify_api_key)])
+app.include_router(backfill.router, prefix="/api", tags=["backfill"], dependencies=[Depends(verify_api_key)])
+app.include_router(classifier.router, prefix="/api", dependencies=[Depends(verify_api_key)])
+app.include_router(models.router, prefix="/api", tags=["models"], dependencies=[Depends(verify_api_key)])
+app.include_router(ai.router, prefix="/api", tags=["ai"], dependencies=[Depends(verify_api_key)])
+app.include_router(stats.router, prefix="/api", tags=["stats"], dependencies=[Depends(verify_api_key)])
+app.include_router(debug.router, prefix="/api", tags=["debug"], dependencies=[Depends(verify_api_key)])
+app.include_router(audio.router, prefix="/api", tags=["audio"], dependencies=[Depends(verify_api_key)])
 
 @app.middleware("http")
 async def count_requests(request, call_next):
@@ -208,7 +232,7 @@ async def health_check():
         
     return health
 
-@app.get("/api/sse")
+@app.get("/api/sse", dependencies=[Depends(verify_api_key)])
 async def sse_endpoint():
     """Server-Sent Events endpoint for real-time updates."""
     async def event_generator():

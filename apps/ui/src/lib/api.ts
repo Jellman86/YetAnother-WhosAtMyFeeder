@@ -199,6 +199,49 @@ export interface CleanupResult {
 
 const API_BASE = '/api';
 
+// API Key Management
+let apiKey: string | null = typeof localStorage !== 'undefined' ? localStorage.getItem('api_key') : null;
+
+export function setApiKey(key: string | null) {
+    apiKey = key;
+    if (typeof localStorage !== 'undefined') {
+        if (key) localStorage.setItem('api_key', key);
+        else localStorage.removeItem('api_key');
+    }
+}
+
+export function getApiKey(): string | null {
+    return apiKey;
+}
+
+function getHeaders(customHeaders: HeadersInit = {}): HeadersInit {
+    const headers: any = { ...customHeaders };
+    if (apiKey) {
+        headers['X-API-Key'] = apiKey;
+    }
+    return headers;
+}
+
+// Auth error handling
+let authErrorCallback: (() => void) | null = null;
+
+export function setAuthErrorCallback(callback: () => void) {
+    authErrorCallback = callback;
+}
+
+async function apiFetch(url: string, options: RequestInit = {}): Promise<Response> {
+    const response = await fetch(url, {
+        ...options,
+        headers: getHeaders(options.headers)
+    });
+    
+    if (response.status === 401 && authErrorCallback) {
+        authErrorCallback();
+    }
+    
+    return response;
+}
+
 // Global abort controller map for cancellable requests
 const abortControllers = new Map<string, AbortController>();
 
@@ -228,10 +271,13 @@ async function fetchWithAbort<T>(
     }
 
     try {
-        const response = await fetch(url, {
+        const fetchOptions: RequestInit = {
             ...options,
+            headers: getHeaders(options.headers),
             signal: controller?.signal
-        });
+        };
+        
+        const response = await fetch(url, fetchOptions);
 
         // Clean up controller on success
         if (key) {
@@ -273,7 +319,7 @@ async function handleResponse<T>(response: Response): Promise<T> {
 
 export async function fetchVersion(): Promise<VersionInfo> {
     try {
-        const response = await fetch(`${API_BASE}/version`);
+        const response = await apiFetch(`${API_BASE}/version`);
         if (response.ok) {
             return await response.json();
         }
@@ -317,7 +363,7 @@ export interface EventFilters {
 }
 
 export async function fetchEventFilters(): Promise<EventFilters> {
-    const response = await fetch(`${API_BASE}/events/filters`);
+    const response = await apiFetch(`${API_BASE}/events/filters`);
     return handleResponse<EventFilters>(response);
 }
 
@@ -343,22 +389,22 @@ export async function fetchEventsCount(options: EventsCountOptions = {}): Promis
     if (camera) params.set('camera', camera);
     if (includeHidden) params.set('include_hidden', 'true');
 
-    const response = await fetch(`${API_BASE}/events/count?${params.toString()}`);
+    const response = await apiFetch(`${API_BASE}/events/count?${params.toString()}`);
     return handleResponse<EventsCountResponse>(response);
 }
 
 export async function fetchMaintenanceStats(): Promise<MaintenanceStats> {
-    const response = await fetch(`${API_BASE}/maintenance/stats`);
+    const response = await apiFetch(`${API_BASE}/maintenance/stats`);
     return handleResponse<MaintenanceStats>(response);
 }
 
 export async function runCleanup(): Promise<CleanupResult> {
-    const response = await fetch(`${API_BASE}/maintenance/cleanup`, { method: 'POST' });
+    const response = await apiFetch(`${API_BASE}/maintenance/cleanup`, { method: 'POST' });
     return handleResponse<CleanupResult>(response);
 }
 
 export async function deleteDetection(frigateEventId: string): Promise<{ status: string }> {
-    const response = await fetch(`${API_BASE}/events/${encodeURIComponent(frigateEventId)}`, {
+    const response = await apiFetch(`${API_BASE}/events/${encodeURIComponent(frigateEventId)}`, {
         method: 'DELETE'
     });
     return handleResponse<{ status: string }>(response);
@@ -371,19 +417,19 @@ export interface HideDetectionResult {
 }
 
 export async function hideDetection(frigateEventId: string): Promise<HideDetectionResult> {
-    const response = await fetch(`${API_BASE}/events/${encodeURIComponent(frigateEventId)}/hide`, {
+    const response = await apiFetch(`${API_BASE}/events/${encodeURIComponent(frigateEventId)}/hide`, {
         method: 'POST'
     });
     return handleResponse<HideDetectionResult>(response);
 }
 
 export async function fetchHiddenCount(): Promise<{ hidden_count: number }> {
-    const response = await fetch(`${API_BASE}/events/hidden-count`);
+    const response = await apiFetch(`${API_BASE}/events/hidden-count`);
     return handleResponse<{ hidden_count: number }>(response);
 }
 
 export async function fetchSpecies(): Promise<SpeciesCount[]> {
-    const response = await fetch(`${API_BASE}/species`);
+    const response = await apiFetch(`${API_BASE}/species`);
     return handleResponse<SpeciesCount[]>(response);
 }
 
@@ -393,7 +439,7 @@ export async function fetchSettings(): Promise<Settings> {
 }
 
 export async function updateSettings(settings: SettingsUpdate): Promise<{ status: string }> {
-    const response = await fetch(`${API_BASE}/settings`, {
+    const response = await apiFetch(`${API_BASE}/settings`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(settings),
@@ -402,7 +448,7 @@ export async function updateSettings(settings: SettingsUpdate): Promise<{ status
 }
 
 export async function checkHealth(): Promise<{ status: string; service: string }> {
-    const response = await fetch('/health');
+    const response = await apiFetch('/health');
     return handleResponse<{ status: string; service: string }>(response);
 }
 
@@ -413,12 +459,12 @@ export interface FrigateTestResult {
 }
 
 export async function testFrigateConnection(): Promise<FrigateTestResult> {
-    const response = await fetch(`${API_BASE}/frigate/test`);
+    const response = await apiFetch(`${API_BASE}/frigate/test`);
     return handleResponse<FrigateTestResult>(response);
 }
 
 export async function fetchFrigateConfig(): Promise<any> {
-    const response = await fetch(`${API_BASE}/frigate/config`);
+    const response = await apiFetch(`${API_BASE}/frigate/config`);
     return handleResponse<any>(response);
 }
 
@@ -430,7 +476,7 @@ export interface ClassifierStatus {
 }
 
 export async function fetchClassifierStatus(): Promise<ClassifierStatus> {
-    const response = await fetch(`${API_BASE}/classifier/status`);
+    const response = await apiFetch(`${API_BASE}/classifier/status`);
     return handleResponse<ClassifierStatus>(response);
 }
 
@@ -441,7 +487,7 @@ export interface DownloadModelResult {
 }
 
 export async function downloadDefaultModel(): Promise<DownloadModelResult> {
-    const response = await fetch(`${API_BASE}/classifier/download`, {
+    const response = await apiFetch(`${API_BASE}/classifier/download`, {
         method: 'POST',
     });
     return handleResponse<DownloadModelResult>(response);
@@ -461,7 +507,7 @@ export function getClipUrl(frigateEvent: string): string {
 
 export async function checkClipAvailable(frigateEvent: string): Promise<boolean> {
     try {
-        const response = await fetch(`${API_BASE}/frigate/${frigateEvent}/clip.mp4`, {
+        const response = await apiFetch(`${API_BASE}/frigate/${frigateEvent}/clip.mp4`, {
             method: 'HEAD'
         });
         return response.ok;
@@ -506,12 +552,12 @@ export interface SpeciesInfo {
 }
 
 export async function fetchSpeciesStats(speciesName: string): Promise<SpeciesStats> {
-    const response = await fetch(`${API_BASE}/species/${encodeURIComponent(speciesName)}/stats`);
+    const response = await apiFetch(`${API_BASE}/species/${encodeURIComponent(speciesName)}/stats`);
     return handleResponse<SpeciesStats>(response);
 }
 
 export async function fetchSpeciesInfo(speciesName: string): Promise<SpeciesInfo> {
-    const response = await fetch(`${API_BASE}/species/${encodeURIComponent(speciesName)}/info`);
+    const response = await apiFetch(`${API_BASE}/species/${encodeURIComponent(speciesName)}/info`);
     return handleResponse<SpeciesInfo>(response);
 }
 
@@ -534,20 +580,20 @@ export interface UpdateDetectionResult {
 }
 
 export async function fetchClassifierLabels(): Promise<{ labels: string[] }> {
-    const response = await fetch(`${API_BASE}/classifier/labels`);
+    const response = await apiFetch(`${API_BASE}/classifier/labels`);
     return handleResponse<{ labels: string[] }>(response);
 }
 
 export async function reclassifyDetection(eventId: string, strategy: 'snapshot' | 'video' = 'snapshot'): Promise<ReclassifyResult> {
     const params = new URLSearchParams({ strategy });
-    const response = await fetch(`${API_BASE}/events/${encodeURIComponent(eventId)}/reclassify?${params.toString()}`, {
+    const response = await apiFetch(`${API_BASE}/events/${encodeURIComponent(eventId)}/reclassify?${params.toString()}`, {
         method: 'POST',
     });
     return handleResponse<ReclassifyResult>(response);
 }
 
 export async function updateDetectionSpecies(eventId: string, displayName: string): Promise<UpdateDetectionResult> {
-    const response = await fetch(`${API_BASE}/events/${encodeURIComponent(eventId)}`, {
+    const response = await apiFetch(`${API_BASE}/events/${encodeURIComponent(eventId)}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ display_name: displayName }),
@@ -574,7 +620,7 @@ export interface BackfillResult {
 }
 
 export async function runBackfill(request: BackfillRequest): Promise<BackfillResult> {
-    const response = await fetch(`${API_BASE}/backfill`, {
+    const response = await apiFetch(`${API_BASE}/backfill`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(request),
@@ -604,24 +650,24 @@ export interface WildlifeModelStatus {
 }
 
 export async function classifyWildlife(eventId: string): Promise<WildlifeClassifyResult> {
-    const response = await fetch(`${API_BASE}/events/${encodeURIComponent(eventId)}/classify-wildlife`, {
+    const response = await apiFetch(`${API_BASE}/events/${encodeURIComponent(eventId)}/classify-wildlife`, {
         method: 'POST',
     });
     return handleResponse<WildlifeClassifyResult>(response);
 }
 
 export async function fetchWildlifeModelStatus(): Promise<WildlifeModelStatus> {
-    const response = await fetch(`${API_BASE}/classifier/wildlife/status`);
+    const response = await apiFetch(`${API_BASE}/classifier/wildlife/status`);
     return handleResponse<WildlifeModelStatus>(response);
 }
 
 export async function fetchWildlifeLabels(): Promise<{ labels: string[] }> {
-    const response = await fetch(`${API_BASE}/classifier/wildlife/labels`);
+    const response = await apiFetch(`${API_BASE}/classifier/wildlife/labels`);
     return handleResponse<{ labels: string[] }>(response);
 }
 
 export async function downloadWildlifeModel(): Promise<{ status: string; message: string; labels_count?: number }> {
-    const response = await fetch(`${API_BASE}/classifier/wildlife/download`, {
+    const response = await apiFetch(`${API_BASE}/classifier/wildlife/download`, {
         method: 'POST',
     });
     return handleResponse<{ status: string; message: string; labels_count?: number }>(response);
@@ -629,12 +675,12 @@ export async function downloadWildlifeModel(): Promise<{ status: string; message
 
 // Media cache functions
 export async function fetchCacheStats(): Promise<CacheStats> {
-    const response = await fetch(`${API_BASE}/cache/stats`);
+    const response = await apiFetch(`${API_BASE}/cache/stats`);
     return handleResponse<CacheStats>(response);
 }
 
 export async function runCacheCleanup(): Promise<CacheCleanupResult> {
-    const response = await fetch(`${API_BASE}/cache/cleanup`, { method: 'POST' });
+    const response = await apiFetch(`${API_BASE}/cache/cleanup`, { method: 'POST' });
     return handleResponse<CacheCleanupResult>(response);
 }
 
@@ -647,17 +693,17 @@ export interface TaxonomySyncStatus {
 }
 
 export async function fetchTaxonomyStatus(): Promise<TaxonomySyncStatus> {
-    const response = await fetch(`${API_BASE}/maintenance/taxonomy/status`);
+    const response = await apiFetch(`${API_BASE}/maintenance/taxonomy/status`);
     return handleResponse<TaxonomySyncStatus>(response);
 }
 
 export async function startTaxonomySync(): Promise<{ status: string }> {
-    const response = await fetch(`${API_BASE}/maintenance/taxonomy/sync`, { method: 'POST' });
+    const response = await apiFetch(`${API_BASE}/maintenance/taxonomy/sync`, { method: 'POST' });
     return handleResponse<{ status: string }>(response);
 }
 
 export async function testNotification(platform: string, credentials: any = {}): Promise<{ status: string; message: string }> {
-    const response = await fetch(`${API_BASE}/settings/notifications/test`, {
+    const response = await apiFetch(`${API_BASE}/settings/notifications/test`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ platform, ...credentials })
@@ -666,7 +712,7 @@ export async function testNotification(platform: string, credentials: any = {}):
 }
 
 export async function testBirdWeather(token?: string): Promise<{ status: string; message: string }> {
-    const response = await fetch(`${API_BASE}/settings/birdweather/test`, {
+    const response = await apiFetch(`${API_BASE}/settings/birdweather/test`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token })
@@ -675,12 +721,12 @@ export async function testBirdWeather(token?: string): Promise<{ status: string;
 }
 
 export async function testBirdNET(): Promise<{ status: string; message: string }> {
-    const response = await fetch(`${API_BASE}/settings/birdnet/test`, { method: 'POST' });
+    const response = await apiFetch(`${API_BASE}/settings/birdnet/test`, { method: 'POST' });
     return handleResponse<{ status: string; message: string }>(response);
 }
 
 export async function testMQTTPublish(): Promise<{ status: string; message: string }> {
-    const response = await fetch(`${API_BASE}/settings/mqtt/test-publish`, { method: 'POST' });
+    const response = await apiFetch(`${API_BASE}/settings/mqtt/test-publish`, { method: 'POST' });
     return handleResponse<{ status: string; message: string }>(response);
 }
 
@@ -716,29 +762,29 @@ export interface DownloadProgress {
 }
 
 export async function fetchAvailableModels(): Promise<ModelMetadata[]> {
-    const response = await fetch(`${API_BASE}/models/available`);
+    const response = await apiFetch(`${API_BASE}/models/available`);
     return handleResponse<ModelMetadata[]>(response);
 }
 
 export async function fetchInstalledModels(): Promise<InstalledModel[]> {
-    const response = await fetch(`${API_BASE}/models/installed`);
+    const response = await apiFetch(`${API_BASE}/models/installed`);
     return handleResponse<InstalledModel[]>(response);
 }
 
 export async function downloadModel(modelId: string): Promise<{ status: string; message: string }> {
-    const response = await fetch(`${API_BASE}/models/${modelId}/download`, {
+    const response = await apiFetch(`${API_BASE}/models/${modelId}/download`, {
         method: 'POST',
     });
     return handleResponse<{ status: string; message: string }>(response);
 }
 
 export async function fetchDownloadStatus(modelId: string): Promise<DownloadProgress | null> {
-    const response = await fetch(`${API_BASE}/models/download-status/${encodeURIComponent(modelId)}`);
+    const response = await apiFetch(`${API_BASE}/models/download-status/${encodeURIComponent(modelId)}`);
     return handleResponse<DownloadProgress | null>(response);
 }
 
 export async function activateModel(modelId: string): Promise<{ status: string; message: string }> {
-    const response = await fetch(`${API_BASE}/models/${modelId}/activate`, {
+    const response = await apiFetch(`${API_BASE}/models/${modelId}/activate`, {
         method: 'POST',
     });
     return handleResponse<{ status: string; message: string }>(response);
@@ -761,7 +807,7 @@ export interface AudioDetection {
 }
 
 export async function fetchRecentAudio(limit: number = 10): Promise<AudioDetection[]> {
-    const response = await fetch(`${API_BASE}/audio/recent?limit=${limit}`);
+    const response = await apiFetch(`${API_BASE}/audio/recent?limit=${limit}`);
     return handleResponse<AudioDetection[]>(response);
 }
 
@@ -782,6 +828,6 @@ export interface DailySummary {
 }
 
 export async function fetchDailySummary(): Promise<DailySummary> {
-    const response = await fetch(`${API_BASE}/stats/daily-summary`);
+    const response = await apiFetch(`${API_BASE}/stats/daily-summary`);
     return handleResponse<DailySummary>(response);
 }

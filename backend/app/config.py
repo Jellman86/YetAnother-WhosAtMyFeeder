@@ -53,6 +53,12 @@ class ClassificationSettings(BaseModel):
         default=False,
         description="Show scientific name as the primary label in UI"
     )
+    # Auto Video Classification
+    auto_video_classification: bool = Field(default=False, description="Automatically classify video clips when available")
+    video_classification_delay: int = Field(default=30, description="Seconds to wait before checking for clip (allow Frigate to finalize)")
+    video_classification_max_retries: int = Field(default=3, description="Max retries for clip availability")
+    video_classification_retry_interval: int = Field(default=15, description="Seconds between retries")
+
     # Wildlife/general animal model settings
     wildlife_model: str = Field(default="wildlife_model.tflite", description="Wildlife classification model file")
     wildlife_labels: str = Field(default="wildlife_labels.txt", description="Wildlife labels file")
@@ -132,6 +138,7 @@ class Settings(BaseSettings):
     
     # General app settings
     log_level: str = "INFO"
+    api_key: Optional[str] = None
     
     model_config = SettingsConfigDict(env_nested_delimiter='__', env_file='.env', extra='ignore')
 
@@ -141,6 +148,9 @@ class Settings(BaseSettings):
             
     @classmethod
     def load(cls):
+        # API Key
+        api_key = os.environ.get('YA_WAMF_API_KEY', None)
+
         # Build frigate settings from environment variables
         frigate_data = {
             'frigate_url': os.environ.get('FRIGATE__FRIGATE_URL', 'http://frigate:5000'),
@@ -172,7 +182,11 @@ class Settings(BaseSettings):
             'unknown_bird_labels': ["background", "Background"],
             'trust_frigate_sublabel': True,
             'display_common_names': True,
-            'scientific_name_primary': False
+            'scientific_name_primary': False,
+            'auto_video_classification': os.environ.get('CLASSIFICATION__AUTO_VIDEO_CLASSIFICATION', 'false').lower() == 'true',
+            'video_classification_delay': int(os.environ.get('CLASSIFICATION__VIDEO_CLASSIFICATION_DELAY', '30')),
+            'video_classification_max_retries': int(os.environ.get('CLASSIFICATION__VIDEO_CLASSIFICATION_MAX_RETRIES', '3')),
+            'video_classification_retry_interval': int(os.environ.get('CLASSIFICATION__VIDEO_CLASSIFICATION_RETRY_INTERVAL', '15')),
         }
 
         # Media cache settings
@@ -361,7 +375,8 @@ class Settings(BaseSettings):
             birdweather=BirdWeatherSettings(**birdweather_data),
             llm=LLMSettings(**llm_data),
             telemetry=TelemetrySettings(**telemetry_data),
-            notifications=NotificationSettings(**notifications_data)
+            notifications=NotificationSettings(**notifications_data),
+            api_key=api_key
         )
 
 settings = Settings.load()

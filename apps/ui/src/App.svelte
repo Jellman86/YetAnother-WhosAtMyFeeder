@@ -6,10 +6,12 @@
   import Events from './lib/pages/Events.svelte';
   import Species from './lib/pages/Species.svelte';
   import Settings from './lib/pages/Settings.svelte';
-  import { fetchEvents, fetchEventsCount, type Detection } from './lib/api';
+  import Login from './lib/components/Login.svelte';
+  import { fetchEvents, fetchEventsCount, type Detection, setAuthErrorCallback } from './lib/api';
   import { theme } from './lib/stores/theme';
   import { settingsStore } from './lib/stores/settings.svelte';
   import { detectionsStore } from './lib/stores/detections.svelte';
+  import { authStore } from './lib/stores/auth.svelte';
 
 
   // Router state
@@ -28,6 +30,11 @@
 
   // Handle back button and initial load
   onMount(() => {
+      // Register auth error callback
+      setAuthErrorCallback(() => {
+          authStore.setRequiresLogin(true);
+      });
+
       const handlePopState = () => {
           currentRoute = window.location.pathname;
       };
@@ -239,48 +246,53 @@
   }
 </script>
 
-<div class="min-h-screen flex flex-col bg-surface-light dark:bg-surface-dark text-slate-900 dark:text-white font-sans transition-colors duration-300">
-  <Header {currentRoute} onNavigate={navigate}>
-      {#snippet status()}
-          <div class="flex items-center gap-4">
-              {#if settingsStore.settings?.birdnet_enabled}
-                  <div class="flex items-center gap-1.5 px-2 py-1 rounded-full bg-teal-500/10 border border-teal-500/20" title="Audio Analysis Active">
-                      <span class="relative flex h-2 w-2">
-                          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-400 opacity-75"></span>
-                          <span class="relative inline-flex rounded-full h-2 w-2 bg-teal-500"></span>
-                      </span>
-                      <span class="text-[10px] font-bold text-teal-600 dark:text-teal-400 uppercase tracking-tight">Listening</span>
-                  </div>
-              {/if}
-
-              <div class="flex items-center gap-2">
-                  {#if detectionsStore.connected}
-                      <span class="relative flex h-2.5 w-2.5">
-                          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                          <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.8)]"></span>
-                      </span>
-                      <span class="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-tight">Live</span>
-                  {:else}
-                      <span class="w-2.5 h-2.5 rounded-full bg-red-500"></span>
-                      <span class="text-[10px] font-bold text-red-600 uppercase tracking-tight">Offline</span>
+  <div class="min-h-screen flex flex-col bg-surface-light dark:bg-surface-dark text-slate-900 dark:text-white font-sans transition-colors duration-300">
+  
+  {#if authStore.requiresLogin}
+      <Login />
+  {:else}
+      <Header {currentRoute} onNavigate={navigate}>
+          {#snippet status()}
+              <div class="flex items-center gap-4">
+                  {#if settingsStore.settings?.birdnet_enabled}
+                      <div class="flex items-center gap-1.5 px-2 py-1 rounded-full bg-teal-500/10 border border-teal-500/20" title="Audio Analysis Active">
+                          <span class="relative flex h-2 w-2">
+                              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-400 opacity-75"></span>
+                              <span class="relative inline-flex rounded-full h-2 w-2 bg-teal-500"></span>
+                          </span>
+                          <span class="text-[10px] font-bold text-teal-600 dark:text-teal-400 uppercase tracking-tight">Listening</span>
+                      </div>
                   {/if}
+
+                  <div class="flex items-center gap-2">
+                      {#if detectionsStore.connected}
+                          <span class="relative flex h-2.5 w-2.5">
+                              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                              <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.8)]"></span>
+                          </span>
+                          <span class="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-tight">Live</span>
+                      {:else}
+                          <span class="w-2.5 h-2.5 rounded-full bg-red-500"></span>
+                          <span class="text-[10px] font-bold text-red-600 uppercase tracking-tight">Offline</span>
+                      {/if}
+                  </div>
               </div>
-          </div>
-      {/snippet}
-  </Header>
+          {/snippet}
+      </Header>
 
-  <!-- Main Content -->
-  <main class="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
-      {#if currentRoute === '/'} 
-          <Dashboard onnavigate={navigate} />
-      {:else if currentRoute.startsWith('/events')}
-          <Events />
-      {:else if currentRoute.startsWith('/species')}
-          <Species />
-      {:else if currentRoute.startsWith('/settings')}
-           <Settings />
-      {/if}
-  </main>
+      <!-- Main Content -->
+      <main class="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
+          {#if currentRoute === '/'} 
+              <Dashboard onnavigate={navigate} />
+          {:else if currentRoute.startsWith('/events')}
+              <Events />
+          {:else if currentRoute.startsWith('/species')}
+              <Species />
+          {:else if currentRoute.startsWith('/settings')}
+               <Settings />
+          {/if}
+      </main>
 
-  <Footer />
+      <Footer />
+  {/if}
 </div>
