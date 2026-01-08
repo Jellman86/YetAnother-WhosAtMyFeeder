@@ -152,10 +152,10 @@ class EventProcessor:
 
             # --- Weather Context ---
             temperature = None
-            condition = None
+            weather_condition = None
             if weather_data:
                 temperature = weather_data.get("temperature")
-                condition = weather_data.get("condition_text")
+                weather_condition = weather_data.get("condition_text")
             # -----------------------
 
             # -----------------------

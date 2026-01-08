@@ -28,7 +28,7 @@ async def test_process_mqtt_message_valid_bird():
         mock_taxonomy.get_names = AsyncMock(return_value={})
         
         mock_det_service = MockDetectionService.return_value
-        mock_det_service.filter_and_label.return_value = {"label": "Cardinal", "score": 0.95}
+        mock_det_service.filter_and_label.return_value = ({"label": "Cardinal", "score": 0.95}, None)
         mock_det_service.save_detection = AsyncMock()
         
         mock_audio.find_match = AsyncMock(return_value=None)

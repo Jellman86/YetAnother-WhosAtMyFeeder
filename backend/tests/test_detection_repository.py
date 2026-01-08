@@ -27,7 +27,12 @@ async def test_detection_repository():
                 weather_condition TEXT,
                 scientific_name TEXT,
                 common_name TEXT,
-                taxa_id INTEGER
+                taxa_id INTEGER,
+                video_classification_score FLOAT,
+                video_classification_label TEXT,
+                video_classification_index INTEGER,
+                video_classification_timestamp TIMESTAMP,
+                video_classification_status TEXT
             )
         """)
         await db.commit()
