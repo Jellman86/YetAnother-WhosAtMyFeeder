@@ -232,9 +232,10 @@
         detection={selectedEvent}
         {classifierLabels}
         {llmEnabled}
-        showVideoButton={false}
+        showVideoButton={true}
         onClose={() => selectedEvent = null}
         onReclassify={handleReclassify}
+        onPlayVideo={() => showVideo = true}
         onViewSpecies={(species) => { selectedSpecies = species; selectedEvent = null; }}
     />
 {/if}
