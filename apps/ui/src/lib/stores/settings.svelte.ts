@@ -5,19 +5,30 @@ class SettingsStore {
     settings = $state<Settings | null>(null);
     isLoading = $state(false);
     error = $state<string | null>(null);
+    private _loadPromise: Promise<void> | null = null;
 
     async load() {
-        this.isLoading = true;
-        this.error = null;
-        try {
-            this.settings = await fetchSettings();
-        } catch (e) {
-            const errorMessage = e instanceof Error ? e.message : 'Failed to load settings';
-            this.error = errorMessage;
-            console.error('Failed to load settings store', e);
-        } finally {
-            this.isLoading = false;
-        }
+        if (this._loadPromise) return this._loadPromise;
+
+        this._loadPromise = (async () => {
+            this.isLoading = true;
+            this.error = null;
+            try {
+                this.settings = await fetchSettings();
+            } catch (e) {
+                const errorMessage = e instanceof Error ? e.message : 'Failed to load settings';
+                this.error = errorMessage;
+                // Don't log AbortError as it's expected behavior if we were using cancellable requests
+                if (e instanceof Error && e.name !== 'AbortError') {
+                    console.error('Failed to load settings store', e);
+                }
+            } finally {
+                this.isLoading = false;
+                this._loadPromise = null;
+            }
+        })();
+
+        return this._loadPromise;
     }
 
     update(newSettings: Settings) {
