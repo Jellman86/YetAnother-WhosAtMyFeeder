@@ -14,7 +14,7 @@
     import { detectionsStore } from '../stores/detections.svelte';
     import type { Detection, DailySummary } from '../api';
     import { getThumbnailUrl, deleteDetection, hideDetection, updateDetectionSpecies, analyzeDetection, fetchDailySummary, fetchClassifierLabels, reclassifyDetection } from '../api';
-    import { settingsStore } from '../stores/settings';
+    import { settingsStore } from '../stores/settings.svelte';
 
     import { getBirdNames } from '../naming';
 
@@ -35,9 +35,9 @@
     let showCommon = $state(true);
     let preferSci = $state(false);
     $effect(() => {
-        llmEnabled = $settingsStore?.llm_enabled ?? false;
-        showCommon = $settingsStore?.display_common_names ?? true;
-        preferSci = $settingsStore?.scientific_name_primary ?? false;
+        llmEnabled = settingsStore.settings?.llm_enabled ?? false;
+        showCommon = settingsStore.settings?.display_common_names ?? true;
+        preferSci = settingsStore.settings?.scientific_name_primary ?? false;
     });
 
     // AI Analysis state
@@ -70,8 +70,8 @@
     // Derive naming logic for the modal
     let modalNaming = $derived.by(() => {
         if (!selectedEvent) return { primary: '', secondary: null };
-        const showCommon = $settingsStore?.display_common_names ?? true;
-        const preferSci = $settingsStore?.scientific_name_primary ?? false;
+        const showCommon = settingsStore.settings?.display_common_names ?? true;
+        const preferSci = settingsStore.settings?.scientific_name_primary ?? false;
         return getBirdNames(selectedEvent, showCommon, preferSci);
     });
 
@@ -85,8 +85,8 @@
     let mostSeenName = $derived.by(() => {
         const top = summary?.top_species[0];
         if (!top) return null;
-        const showCommon = $settingsStore?.display_common_names ?? true;
-        const preferSci = $settingsStore?.scientific_name_primary ?? false;
+        const showCommon = settingsStore.settings?.display_common_names ?? true;
+        const preferSci = settingsStore.settings?.scientific_name_primary ?? false;
         return getBirdNames(top, showCommon, preferSci).primary;
     });
 
@@ -234,7 +234,7 @@
                     <DailyHistogram data={summary.hourly_distribution} />
                 </div>
             {/if}
-            {#if $settingsStore?.birdnet_enabled}
+            {#if settingsStore.settings?.birdnet_enabled}
                 <div in:fade={{ duration: 800, delay: 200 }}>
                     <RecentAudio />
                 </div>

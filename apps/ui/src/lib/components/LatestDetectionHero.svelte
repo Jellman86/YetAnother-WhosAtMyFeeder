@@ -1,7 +1,7 @@
 <script lang="ts">
     import type { Detection } from '../api';
     import { getThumbnailUrl } from '../api';
-    import { settingsStore } from '../stores/settings';
+    import { settingsStore } from '../stores/settings.svelte';
     import { detectionsStore } from '../stores/detections.svelte';
     import ReclassificationOverlay from './ReclassificationOverlay.svelte';
 
@@ -20,8 +20,8 @@
 
     // Dynamic Naming Logic
     let naming = $derived.by(() => {
-        const showCommon = $settingsStore?.display_common_names ?? true;
-        const preferSci = $settingsStore?.scientific_name_primary ?? false;
+        const showCommon = settingsStore.settings?.display_common_names ?? true;
+        const preferSci = settingsStore.settings?.scientific_name_primary ?? false;
         return getBirdNames(detection, showCommon, preferSci);
     });
 

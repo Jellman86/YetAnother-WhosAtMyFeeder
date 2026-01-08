@@ -3,7 +3,7 @@
     import type { Detection } from '../api';
     import ReclassificationOverlay from './ReclassificationOverlay.svelte';
     import { detectionsStore, type ReclassificationProgress } from '../stores/detections.svelte';
-    import { settingsStore } from '../stores/settings';
+    import { settingsStore } from '../stores/settings.svelte';
     import { getBirdNames } from '../naming';
 
     interface Props {
@@ -41,8 +41,8 @@
     );
 
     // Naming logic
-    const showCommon = $derived($settingsStore?.display_common_names ?? true);
-    const preferSci = $derived($settingsStore?.scientific_name_primary ?? false);
+    const showCommon = $derived(settingsStore.settings?.display_common_names ?? true);
+    const preferSci = $derived(settingsStore.settings?.scientific_name_primary ?? false);
     const naming = $derived(getBirdNames(detection, showCommon, preferSci));
     const primaryName = $derived(naming.primary);
     const subName = $derived(naming.secondary);

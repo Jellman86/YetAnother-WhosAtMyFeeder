@@ -8,7 +8,7 @@
   import Settings from './lib/pages/Settings.svelte';
   import { fetchEvents, fetchEventsCount, type Detection } from './lib/api';
   import { theme } from './lib/stores/theme';
-  import { settingsStore } from './lib/stores/settings';
+  import { settingsStore } from './lib/stores/settings.svelte';
   import { detectionsStore } from './lib/stores/detections.svelte';
 
 
@@ -194,7 +194,7 @@
   <Header {currentRoute} onNavigate={navigate}>
       {#snippet status()}
           <div class="flex items-center gap-4">
-              {#if $settingsStore?.birdnet_enabled}
+              {#if settingsStore.settings?.birdnet_enabled}
                   <div class="flex items-center gap-1.5 px-2 py-1 rounded-full bg-teal-500/10 border border-teal-500/20" title="Audio Analysis Active">
                       <span class="relative flex h-2 w-2">
                           <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-400 opacity-75"></span>

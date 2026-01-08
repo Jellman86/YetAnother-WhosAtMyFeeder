@@ -1,7 +1,7 @@
 <script lang="ts">
     import type { DailySpeciesSummary } from '../api';
     import { getThumbnailUrl } from '../api';
-    import { settingsStore } from '../stores/settings';
+    import { settingsStore } from '../stores/settings.svelte';
 
     import { getBirdNames } from '../naming';
 
@@ -15,8 +15,8 @@
     // Ultra-reactive derivation
     let processedSpecies = $derived.by(() => {
         if (!species) return [];
-        const showCommon = $settingsStore?.display_common_names ?? true;
-        const preferSci = $settingsStore?.scientific_name_primary ?? false;
+        const showCommon = settingsStore.settings?.display_common_names ?? true;
+        const preferSci = settingsStore.settings?.scientific_name_primary ?? false;
         
         return species.map(item => {
             const naming = getBirdNames(item, showCommon, preferSci);

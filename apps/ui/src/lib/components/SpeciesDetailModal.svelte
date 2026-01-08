@@ -8,7 +8,7 @@
         getThumbnailUrl
     } from '../api';
     import { getBirdNames } from '../naming';
-    import { settingsStore } from '../stores/settings';
+    import { settingsStore } from '../stores/settings.svelte';
     import SimpleBarChart from './SimpleBarChart.svelte';
 
     interface Props {
@@ -30,8 +30,8 @@
     let showCommon = $state(true);
     let preferSci = $state(false);
     $effect(() => {
-        showCommon = $settingsStore?.display_common_names ?? true;
-        preferSci = $settingsStore?.scientific_name_primary ?? false;
+        showCommon = settingsStore.settings?.display_common_names ?? true;
+        preferSci = settingsStore.settings?.scientific_name_primary ?? false;
     });
 
     // Content

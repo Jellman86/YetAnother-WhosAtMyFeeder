@@ -2,7 +2,7 @@
     import { onMount } from 'svelte';
     import { fetchSpecies, type SpeciesCount } from '../api';
     import SpeciesDetailModal from '../components/SpeciesDetailModal.svelte';
-    import { settingsStore } from '../stores/settings';
+    import { settingsStore } from '../stores/settings.svelte';
     import { getBirdNames } from '../naming';
 
     let species: SpeciesCount[] = $state([]);
@@ -13,8 +13,8 @@
 
     // Derived processed species with naming logic
     let processedSpecies = $derived(() => {
-        const showCommon = $settingsStore?.display_common_names ?? true;
-        const preferSci = $settingsStore?.scientific_name_primary ?? false;
+        const showCommon = settingsStore.settings?.display_common_names ?? true;
+        const preferSci = settingsStore.settings?.scientific_name_primary ?? false;
 
         return species.map(item => {
             const naming = getBirdNames(item as any, showCommon, preferSci);

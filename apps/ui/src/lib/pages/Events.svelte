@@ -16,7 +16,7 @@
         type EventFilters
     } from '../api';
     import { detectionsStore } from '../stores/detections.svelte';
-    import { settingsStore } from '../stores/settings';
+    import { settingsStore } from '../stores/settings.svelte';
     import Pagination from '../components/Pagination.svelte';
     import DetectionCard from '../components/DetectionCard.svelte';
     import SpeciesDetailModal from '../components/SpeciesDetailModal.svelte';
@@ -61,14 +61,14 @@
 
     let llmEnabled = $state(false);
     $effect(() => {
-        llmEnabled = $settingsStore?.llm_enabled ?? false;
+        llmEnabled = settingsStore.settings?.llm_enabled ?? false;
     });
 
     // Derive naming logic for the modal
     let modalNaming = $derived.by(() => {
         if (!selectedEvent) return { primary: '', secondary: null };
-        const showCommon = $settingsStore?.display_common_names ?? true;
-        const preferSci = $settingsStore?.scientific_name_primary ?? false;
+        const showCommon = settingsStore.settings?.display_common_names ?? true;
+        const preferSci = settingsStore.settings?.scientific_name_primary ?? false;
         return getBirdNames(selectedEvent, showCommon, preferSci);
     });
 

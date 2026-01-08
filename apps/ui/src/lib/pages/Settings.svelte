@@ -28,7 +28,7 @@
         type TaxonomySyncStatus
     } from '../api';
     import { theme, type Theme } from '../stores/theme';
-    import { settingsStore } from '../stores/settings';
+    import { settingsStore } from '../stores/settings.svelte';
     import ModelManager from './models/ModelManager.svelte';
     import SettingsTabs from '../components/settings/SettingsTabs.svelte';
 
@@ -92,7 +92,7 @@
 
     // Dirty state check
     let isDirty = $derived.by(() => {
-        const s = $settingsStore;
+        const s = settingsStore.settings;
         if (!s) return false;
         
         const checks = [
