@@ -71,29 +71,80 @@ async def test_mqtt_publish():
         log.error("MQTT Test Publish Failed", error=str(e))
         return {"status": "error", "message": str(e)}
 
-class BirdWeatherTestRequest(BaseModel):
-    token: Optional[str] = None
+class NotificationTestRequest(BaseModel):
+    platform: str  # discord, pushover, telegram
+    # Optional overrides for testing uncommitted settings
+    webhook_url: Optional[str] = None
+    user_key: Optional[str] = None
+    api_token: Optional[str] = None
+    bot_token: Optional[str] = None
+    chat_id: Optional[str] = None
 
-@router.post("/settings/birdweather/test")
-async def test_birdweather(request: BirdWeatherTestRequest = None):
-    """Test BirdWeather connectivity and station token."""
-    from app.services.birdweather_service import birdweather_service
+@router.post("/settings/notifications/test")
+async def test_notification(request: NotificationTestRequest):
+    """Test notification platform with optional credential overrides."""
+    from app.services.notification_service import notification_service
     
-    token = request.token if request else None
+    # Create mock detection data
+    species = "Cyanistes caeruleus"
+    common_name = "Eurasian Blue Tit (Test)"
+    confidence = 0.95
+    camera = "test_camera"
+    timestamp = datetime.now()
+    snapshot_url = "https://placehold.co/600x400.jpg"
     
-    # Send a dummy test detection
-    success = await birdweather_service.report_detection(
-        scientific_name="Passer domesticus",
-        common_name="House Sparrow (Test)",
-        confidence=1.0,
-        timestamp=datetime.now(),
-        token=token
-    )
-    
-    if success:
-        return {"status": "ok", "message": "Test detection reported successfully"}
-    else:
-        return {"status": "error", "message": "Failed to report test detection. Check your token and logs."}
+    try:
+        if request.platform == "discord":
+            # Temporarily override settings if provided
+            original_url = settings.notifications.discord.webhook_url
+            if request.webhook_url:
+                settings.notifications.discord.webhook_url = request.webhook_url
+            
+            try:
+                await notification_service._send_discord(
+                    species, common_name, confidence, camera, timestamp, snapshot_url, audio_confirmed=True
+                )
+            finally:
+                if request.webhook_url:
+                    settings.notifications.discord.webhook_url = original_url
+                    
+        elif request.platform == "pushover":
+            orig_user = settings.notifications.pushover.user_key
+            orig_token = settings.notifications.pushover.api_token
+            
+            if request.user_key: settings.notifications.pushover.user_key = request.user_key
+            if request.api_token: settings.notifications.pushover.api_token = request.api_token
+            
+            try:
+                await notification_service._send_pushover(
+                    species, common_name, confidence, camera, timestamp, snapshot_url, None
+                )
+            finally:
+                if request.user_key: settings.notifications.pushover.user_key = orig_user
+                if request.api_token: settings.notifications.pushover.api_token = orig_token
+
+        elif request.platform == "telegram":
+            orig_bot = settings.notifications.telegram.bot_token
+            orig_chat = settings.notifications.telegram.chat_id
+            
+            if request.bot_token: settings.notifications.telegram.bot_token = request.bot_token
+            if request.chat_id: settings.notifications.telegram.chat_id = request.chat_id
+            
+            try:
+                await notification_service._send_telegram(
+                    species, common_name, confidence, camera, timestamp, snapshot_url, None
+                )
+            finally:
+                if request.bot_token: settings.notifications.telegram.bot_token = orig_bot
+                if request.chat_id: settings.notifications.telegram.chat_id = orig_chat
+        
+        else:
+            return {"status": "error", "message": f"Unknown platform: {request.platform}"}
+
+        return {"status": "ok", "message": f"Test notification sent to {request.platform}"}
+    except Exception as e:
+        log.error("Notification test failed", error=str(e))
+        return {"status": "error", "message": str(e)}
 
 class SettingsUpdate(BaseModel):
     frigate_url: str = Field(..., min_length=1, description="Frigate instance URL")
@@ -134,6 +185,24 @@ class SettingsUpdate(BaseModel):
     
     # Telemetry
     telemetry_enabled: Optional[bool] = Field(False, description="Enable anonymous usage statistics")
+
+    # Notifications
+    notifications_discord_enabled: Optional[bool] = False
+    notifications_discord_webhook_url: Optional[str] = None
+    notifications_discord_username: Optional[str] = "YA-WAMF"
+    
+    notifications_pushover_enabled: Optional[bool] = False
+    notifications_pushover_user_key: Optional[str] = None
+    notifications_pushover_api_token: Optional[str] = None
+    notifications_pushover_priority: Optional[int] = 0
+    
+    notifications_telegram_enabled: Optional[bool] = False
+    notifications_telegram_bot_token: Optional[str] = None
+    notifications_telegram_chat_id: Optional[str] = None
+    
+    notifications_filter_species_whitelist: Optional[List[str]] = []
+    notifications_filter_min_confidence: Optional[float] = 0.7
+    notifications_filter_audio_confirmed_only: Optional[bool] = False
 
     @field_validator('frigate_url')
     @classmethod
@@ -190,7 +259,25 @@ async def get_settings():
         # Telemetry
         "telemetry_enabled": settings.telemetry.enabled,
         "telemetry_installation_id": settings.telemetry.installation_id,
-        "telemetry_platform": f"{platform.system()} {platform.machine()}"
+        "telemetry_platform": f"{platform.system()} {platform.machine()}",
+
+        # Notifications
+        "notifications_discord_enabled": settings.notifications.discord.enabled,
+        "notifications_discord_webhook_url": "***REDACTED***" if settings.notifications.discord.webhook_url else None,
+        "notifications_discord_username": settings.notifications.discord.username,
+
+        "notifications_pushover_enabled": settings.notifications.pushover.enabled,
+        "notifications_pushover_user_key": "***REDACTED***" if settings.notifications.pushover.user_key else None,
+        "notifications_pushover_api_token": "***REDACTED***" if settings.notifications.pushover.api_token else None,
+        "notifications_pushover_priority": settings.notifications.pushover.priority,
+
+        "notifications_telegram_enabled": settings.notifications.telegram.enabled,
+        "notifications_telegram_bot_token": "***REDACTED***" if settings.notifications.telegram.bot_token else None,
+        "notifications_telegram_chat_id": "***REDACTED***" if settings.notifications.telegram.chat_id else None,
+
+        "notifications_filter_species_whitelist": settings.notifications.filters.species_whitelist,
+        "notifications_filter_min_confidence": settings.notifications.filters.min_confidence,
+        "notifications_filter_audio_confirmed_only": settings.notifications.filters.audio_confirmed_only,
     }
 
 @router.post("/settings")
@@ -239,6 +326,35 @@ async def update_settings(update: SettingsUpdate, background_tasks: BackgroundTa
     
     # Telemetry
     settings.telemetry.enabled = update.telemetry_enabled if update.telemetry_enabled is not None else True
+
+    # Notifications - Discord
+    if update.notifications_discord_enabled is not None:
+        settings.notifications.discord.enabled = update.notifications_discord_enabled
+    settings.notifications.discord.webhook_url = update.notifications_discord_webhook_url
+    if update.notifications_discord_username:
+        settings.notifications.discord.username = update.notifications_discord_username
+
+    # Notifications - Pushover
+    if update.notifications_pushover_enabled is not None:
+        settings.notifications.pushover.enabled = update.notifications_pushover_enabled
+    settings.notifications.pushover.user_key = update.notifications_pushover_user_key
+    settings.notifications.pushover.api_token = update.notifications_pushover_api_token
+    if update.notifications_pushover_priority is not None:
+        settings.notifications.pushover.priority = update.notifications_pushover_priority
+
+    # Notifications - Telegram
+    if update.notifications_telegram_enabled is not None:
+        settings.notifications.telegram.enabled = update.notifications_telegram_enabled
+    settings.notifications.telegram.bot_token = update.notifications_telegram_bot_token
+    settings.notifications.telegram.chat_id = update.notifications_telegram_chat_id
+    
+    # Notifications - Filters
+    if update.notifications_filter_species_whitelist is not None:
+        settings.notifications.filters.species_whitelist = update.notifications_filter_species_whitelist
+    if update.notifications_filter_min_confidence is not None:
+        settings.notifications.filters.min_confidence = update.notifications_filter_min_confidence
+    if update.notifications_filter_audio_confirmed_only is not None:
+        settings.notifications.filters.audio_confirmed_only = update.notifications_filter_audio_confirmed_only
 
     if settings.telemetry.enabled:
         background_tasks.add_task(telemetry_service.force_heartbeat)

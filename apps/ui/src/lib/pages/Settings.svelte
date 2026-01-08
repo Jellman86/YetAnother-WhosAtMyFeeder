@@ -19,6 +19,7 @@
         testBirdWeather,
         testBirdNET,
         testMQTTPublish,
+        testNotification,
         fetchVersion,
         type ClassifierStatus,
         type WildlifeModelStatus,
@@ -81,6 +82,27 @@
     let telemetryInstallationId = $state<string | undefined>(undefined);
     let telemetryPlatform = $state<string | undefined>(undefined);
 
+    // Notifications
+    let discordEnabled = $state(false);
+    let discordWebhook = $state('');
+    let discordUsername = $state('YA-WAMF');
+    
+    let pushoverEnabled = $state(false);
+    let pushoverUser = $state('');
+    let pushoverToken = $state('');
+    let pushoverPriority = $state(0);
+    
+    let telegramEnabled = $state(false);
+    let telegramToken = $state('');
+    let telegramChatId = $state('');
+    
+    let filterWhitelist = $state<string[]>([]);
+    let newWhitelistSpecies = $state('');
+    let filterConfidence = $state(0.7);
+    let filterAudioOnly = $state(false);
+    
+    let testingNotification = $state<Record<string, boolean>>({});
+
     // Version Info
     let versionInfo = $state<VersionInfo>({ version: "2.2.0", base_version: "2.2.0", git_hash: "unknown" });
 
@@ -132,7 +154,25 @@
             { key: 'llmModel', val: llmModel, store: s.llm_model ?? 'gemini-2.0-flash-exp' },
             { key: 'cameraAudioMapping', val: JSON.stringify(cameraAudioMapping), store: JSON.stringify(s.camera_audio_mapping || {}) },
             { key: 'minConfidence', val: minConfidence, store: s.classification_min_confidence ?? 0.4 },
-            { key: 'telemetryEnabled', val: telemetryEnabled, store: s.telemetry_enabled ?? true }
+            { key: 'telemetryEnabled', val: telemetryEnabled, store: s.telemetry_enabled ?? true },
+            
+            // Notifications
+            { key: 'discordEnabled', val: discordEnabled, store: s.notifications_discord_enabled ?? false },
+            { key: 'discordWebhook', val: discordWebhook, store: s.notifications_discord_webhook_url || '' },
+            { key: 'discordUsername', val: discordUsername, store: s.notifications_discord_username || 'YA-WAMF' },
+            
+            { key: 'pushoverEnabled', val: pushoverEnabled, store: s.notifications_pushover_enabled ?? false },
+            { key: 'pushoverUser', val: pushoverUser, store: s.notifications_pushover_user_key || '' },
+            { key: 'pushoverToken', val: pushoverToken, store: s.notifications_pushover_api_token || '' },
+            { key: 'pushoverPriority', val: pushoverPriority, store: s.notifications_pushover_priority ?? 0 },
+            
+            { key: 'telegramEnabled', val: telegramEnabled, store: s.notifications_telegram_enabled ?? false },
+            { key: 'telegramToken', val: telegramToken, store: s.notifications_telegram_bot_token || '' },
+            { key: 'telegramChatId', val: telegramChatId, store: s.notifications_telegram_chat_id || '' },
+            
+            { key: 'filterWhitelist', val: JSON.stringify(filterWhitelist), store: JSON.stringify(s.notifications_filter_species_whitelist || []) },
+            { key: 'filterConfidence', val: filterConfidence, store: s.notifications_filter_min_confidence ?? 0.7 },
+            { key: 'filterAudioOnly', val: filterAudioOnly, store: s.notifications_filter_audio_confirmed_only ?? false }
         ];
 
         const dirtyItem = checks.find(c => c.val !== c.store);
@@ -374,9 +414,28 @@
             llmApiKey = settings.llm_api_key ?? '';
             llmModel = settings.llm_model ?? 'gemini-2.0-flash-exp';
             // Telemetry
-                    telemetryEnabled = settings.telemetry_enabled ?? false;
-                    telemetryInstallationId = settings.telemetry_installation_id;
-                    telemetryPlatform = settings.telemetry_platform;        } catch (e) {
+            telemetryEnabled = settings.telemetry_enabled ?? false;
+            telemetryInstallationId = settings.telemetry_installation_id;
+            telemetryPlatform = settings.telemetry_platform;
+
+            // Notifications
+            discordEnabled = settings.notifications_discord_enabled ?? false;
+            discordWebhook = settings.notifications_discord_webhook_url || '';
+            discordUsername = settings.notifications_discord_username || 'YA-WAMF';
+            
+            pushoverEnabled = settings.notifications_pushover_enabled ?? false;
+            pushoverUser = settings.notifications_pushover_user_key || '';
+            pushoverToken = settings.notifications_pushover_api_token || '';
+            pushoverPriority = settings.notifications_pushover_priority ?? 0;
+            
+            telegramEnabled = settings.notifications_telegram_enabled ?? false;
+            telegramToken = settings.notifications_telegram_bot_token || '';
+            telegramChatId = settings.notifications_telegram_chat_id || '';
+            
+            filterWhitelist = settings.notifications_filter_species_whitelist || [];
+            filterConfidence = settings.notifications_filter_min_confidence ?? 0.7;
+            filterAudioOnly = settings.notifications_filter_audio_confirmed_only ?? false;
+        } catch (e) {
             message = { type: 'error', text: 'Failed to load settings' };
         } finally {
             if (!silent) loading = false;
@@ -436,7 +495,25 @@
                 llm_provider: llmProvider,
                 llm_api_key: llmApiKey,
                 llm_model: llmModel,
-                telemetry_enabled: telemetryEnabled
+                telemetry_enabled: telemetryEnabled,
+                
+                // Notifications
+                notifications_discord_enabled: discordEnabled,
+                notifications_discord_webhook_url: discordWebhook,
+                notifications_discord_username: discordUsername,
+                
+                notifications_pushover_enabled: pushoverEnabled,
+                notifications_pushover_user_key: pushoverUser,
+                notifications_pushover_api_token: pushoverToken,
+                notifications_pushover_priority: pushoverPriority,
+                
+                notifications_telegram_enabled: telegramEnabled,
+                notifications_telegram_bot_token: telegramToken,
+                notifications_telegram_chat_id: telegramChatId,
+                
+                notifications_filter_species_whitelist: filterWhitelist,
+                notifications_filter_min_confidence: filterConfidence,
+                notifications_filter_audio_confirmed_only: filterAudioOnly
             });
             // Update store
             await settingsStore.load();
@@ -532,6 +609,47 @@
 
     function removeBlockedLabel(label: string) {
         blockedLabels = blockedLabels.filter(l => l !== label);
+    }
+
+    async function handleTestNotification(platform: string) {
+        testingNotification[platform] = true;
+        message = null;
+        
+        const credentials: any = {};
+        if (platform === 'discord') {
+            credentials.webhook_url = discordWebhook;
+        } else if (platform === 'pushover') {
+            credentials.user_key = pushoverUser;
+            credentials.api_token = pushoverToken;
+        } else if (platform === 'telegram') {
+            credentials.bot_token = telegramToken;
+            credentials.chat_id = telegramChatId;
+        }
+
+        try {
+            const result = await testNotification(platform, credentials);
+            if (result.status === 'ok') {
+                message = { type: 'success', text: result.message };
+            } else {
+                message = { type: 'error', text: result.message };
+            }
+        } catch (e: any) {
+            message = { type: 'error', text: e.message || `Failed to test ${platform}` };
+        } finally {
+            testingNotification[platform] = false;
+        }
+    }
+
+    function addWhitelistSpecies() {
+        const species = newWhitelistSpecies.trim();
+        if (species && !filterWhitelist.includes(species)) {
+            filterWhitelist = [...filterWhitelist, species];
+            newWhitelistSpecies = '';
+        }
+    }
+
+    function removeWhitelistSpecies(species: string) {
+        filterWhitelist = filterWhitelist.filter(s => s !== species);
     }
 </script>
 
@@ -729,6 +847,153 @@
                         </div>
                     {/if}
                 </section>
+                </div>
+            {/if}
+
+            <!-- Notifications Tab -->
+            {#if activeTab === 'notifications'}
+                <div class="space-y-6">
+                    <!-- Global Filters -->
+                    <section class="bg-white dark:bg-slate-800/50 rounded-3xl border border-slate-200/80 dark:border-slate-700/50 p-8 shadow-sm backdrop-blur-md">
+                        <div class="flex items-center gap-3 mb-6">
+                            <div class="w-10 h-10 rounded-2xl bg-teal-500/10 flex items-center justify-center text-teal-600 dark:text-teal-400">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
+                            </div>
+                            <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">Notification Filters</h3>
+                        </div>
+
+                        <div class="space-y-6">
+                            <div>
+                                <div class="flex justify-between mb-4">
+                                    <label class="text-sm font-black text-slate-900 dark:text-white">Minimum Confidence</label>
+                                    <span class="px-2 py-1 bg-teal-500 text-white text-[10px] font-black rounded-lg">{(filterConfidence * 100).toFixed(0)}%</span>
+                                </div>
+                                <input type="range" min="0" max="1" step="0.05" bind:value={filterConfidence} class="w-full h-2 rounded-lg bg-slate-200 dark:bg-slate-700 appearance-none cursor-pointer accent-teal-500" />
+                            </div>
+
+                            <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 flex items-center justify-between">
+                                <div>
+                                    <span class="block text-sm font-bold text-slate-900 dark:text-white">Audio Confirmation Only</span>
+                                    <span class="block text-[10px] text-slate-500 font-medium">Only notify if audio confirms visual ID</span>
+                                </div>
+                                <button 
+                                    onclick={() => filterAudioOnly = !filterAudioOnly}
+                                    class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none {filterAudioOnly ? 'bg-teal-500' : 'bg-slate-300 dark:bg-slate-600'}"
+                                >
+                                    <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out {filterAudioOnly ? 'translate-x-5' : 'translate-x-0'}"></span>
+                                </button>
+                            </div>
+
+                            <div>
+                                <div class="flex items-center justify-between mb-4">
+                                    <label class="text-sm font-black text-slate-900 dark:text-white">Species Whitelist</label>
+                                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{filterWhitelist.length > 0 ? 'Specific Only' : 'All Species'}</span>
+                                </div>
+                                
+                                <div class="flex gap-2 mb-4">
+                                    <input bind:value={newWhitelistSpecies} onkeydown={(e) => e.key === 'Enter' && addWhitelistSpecies()} placeholder="e.g. Cardinal" class="flex-1 px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm" />
+                                    <button onclick={addWhitelistSpecies} disabled={!newWhitelistSpecies.trim()} class="px-6 py-3 bg-slate-900 dark:bg-slate-700 text-white text-xs font-black uppercase tracking-widest rounded-2xl hover:bg-slate-800 transition-all">Add</button>
+                                </div>
+
+                                <div class="flex flex-wrap gap-2">
+                                    {#each filterWhitelist as species}
+                                        <span class="group flex items-center gap-2 px-3 py-1.5 bg-teal-500/10 border border-teal-500/20 rounded-xl text-xs font-bold text-teal-700 dark:text-teal-400">
+                                            {species}
+                                            <button onclick={() => removeWhitelistSpecies(species)} class="text-teal-400 hover:text-red-500 transition-colors">✕</button>
+                                        </span>
+                                    {/each}
+                                    {#if filterWhitelist.length === 0}<p class="text-xs font-bold text-slate-400 italic">Notify for all species.</p>{/if}
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                        <!-- Discord -->
+                        <section class="bg-white dark:bg-slate-800/50 rounded-3xl border border-slate-200/80 dark:border-slate-700/50 p-8 shadow-sm backdrop-blur-md">
+                            <div class="flex items-center justify-between mb-6">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-2xl bg-[#5865F2]/10 flex items-center justify-center text-[#5865F2]">
+                                        <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.419-2.1568 2.419zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.419-2.1568 2.419z"/></svg>
+                                    </div>
+                                    <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">Discord</h3>
+                                </div>
+                                <button onclick={() => discordEnabled = !discordEnabled} class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {discordEnabled ? 'bg-[#5865F2]' : 'bg-slate-300 dark:bg-slate-600'}"><span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {discordEnabled ? 'translate-x-5' : 'translate-x-0'}"></span></button>
+                            </div>
+
+                            <div class="space-y-6">
+                                <div>
+                                    <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Webhook URL</label>
+                                    <input type="password" bind:value={discordWebhook} placeholder="https://discord.com/api/webhooks/..." class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm" />
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Bot Username</label>
+                                    <input type="text" bind:value={discordUsername} class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm" />
+                                </div>
+                                <button onclick={() => handleTestNotification('discord')} disabled={testingNotification['discord'] || !discordWebhook} class="w-full px-4 py-3 text-xs font-black uppercase tracking-widest rounded-2xl bg-[#5865F2] hover:bg-opacity-90 text-white transition-all shadow-lg shadow-[#5865F2]/20 disabled:opacity-50">
+                                    {testingNotification['discord'] ? 'Sending...' : 'Test Discord'}
+                                </button>
+                            </div>
+                        </section>
+
+                        <!-- Pushover -->
+                        <section class="bg-white dark:bg-slate-800/50 rounded-3xl border border-slate-200/80 dark:border-slate-700/50 p-8 shadow-sm backdrop-blur-md">
+                            <div class="flex items-center justify-between mb-6">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-2xl bg-blue-500/10 flex items-center justify-center text-blue-600 dark:text-blue-400">
+                                        <span class="text-xl font-black">P</span>
+                                    </div>
+                                    <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">Pushover</h3>
+                                </div>
+                                <button onclick={() => pushoverEnabled = !pushoverEnabled} class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {pushoverEnabled ? 'bg-blue-500' : 'bg-slate-300 dark:bg-slate-600'}"><span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {pushoverEnabled ? 'translate-x-5' : 'translate-x-0'}"></span></button>
+                            </div>
+
+                            <div class="space-y-6">
+                                <div>
+                                    <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">User Key</label>
+                                    <input type="password" bind:value={pushoverUser} class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm" />
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">API Token</label>
+                                    <input type="password" bind:value={pushoverToken} class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm" />
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Priority</label>
+                                    <select bind:value={pushoverPriority} class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"><option value={-2}>Lowest (-2)</option><option value={-1}>Low (-1)</option><option value={0}>Normal (0)</option><option value={1}>High (1)</option><option value={2}>Emergency (2)</option></select>
+                                </div>
+                                <button onclick={() => handleTestNotification('pushover')} disabled={testingNotification['pushover'] || !pushoverUser || !pushoverToken} class="w-full px-4 py-3 text-xs font-black uppercase tracking-widest rounded-2xl bg-blue-500 hover:bg-blue-600 text-white transition-all shadow-lg shadow-blue-500/20 disabled:opacity-50">
+                                    {testingNotification['pushover'] ? 'Sending...' : 'Test Pushover'}
+                                </button>
+                            </div>
+                        </section>
+
+                        <!-- Telegram -->
+                        <section class="bg-white dark:bg-slate-800/50 rounded-3xl border border-slate-200/80 dark:border-slate-700/50 p-8 shadow-sm backdrop-blur-md">
+                            <div class="flex items-center justify-between mb-6">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-2xl bg-[#24A1DE]/10 flex items-center justify-center text-[#24A1DE]">
+                                        <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.354 4.025-1.59 4.476-1.597z"/></svg>
+                                    </div>
+                                    <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">Telegram</h3>
+                                </div>
+                                <button onclick={() => telegramEnabled = !telegramEnabled} class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {telegramEnabled ? 'bg-[#24A1DE]' : 'bg-slate-300 dark:bg-slate-600'}"><span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {telegramEnabled ? 'translate-x-5' : 'translate-x-0'}"></span></button>
+                            </div>
+
+                            <div class="space-y-6">
+                                <div>
+                                    <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Bot Token</label>
+                                    <input type="password" bind:value={telegramToken} class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm" />
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Chat ID</label>
+                                    <input type="password" bind:value={telegramChatId} class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm" />
+                                </div>
+                                <button onclick={() => handleTestNotification('telegram')} disabled={testingNotification['telegram'] || !telegramToken || !telegramChatId} class="w-full px-4 py-3 text-xs font-black uppercase tracking-widest rounded-2xl bg-[#24A1DE] hover:bg-opacity-90 text-white transition-all shadow-lg shadow-[#24A1DE]/20 disabled:opacity-50">
+                                    {testingNotification['telegram'] ? 'Sending...' : 'Test Telegram'}
+                                </button>
+                            </div>
+                        </section>
+                    </div>
                 </div>
             {/if}
 

@@ -88,6 +88,37 @@ class TelemetrySettings(BaseModel):
     url: Optional[str] = Field(default="https://yawamf-telemetry.ya-wamf.workers.dev/heartbeat", description="Telemetry endpoint URL")
     installation_id: Optional[str] = Field(default=None, description="Unique anonymous installation ID")
 
+class DiscordSettings(BaseModel):
+    enabled: bool = Field(default=False, description="Enable Discord notifications")
+    webhook_url: Optional[str] = Field(default=None, description="Discord Webhook URL")
+    username: str = Field(default="YA-WAMF", description="Username for the bot")
+    include_snapshot: bool = Field(default=True, description="Include snapshot image")
+
+class PushoverSettings(BaseModel):
+    enabled: bool = Field(default=False, description="Enable Pushover notifications")
+    user_key: Optional[str] = Field(default=None, description="Pushover User Key")
+    api_token: Optional[str] = Field(default=None, description="Pushover API Token")
+    priority: int = Field(default=0, ge=-2, le=2, description="Notification priority (-2 to 2)")
+    include_snapshot: bool = Field(default=True, description="Include snapshot image")
+
+class TelegramSettings(BaseModel):
+    enabled: bool = Field(default=False, description="Enable Telegram notifications")
+    bot_token: Optional[str] = Field(default=None, description="Telegram Bot Token")
+    chat_id: Optional[str] = Field(default=None, description="Telegram Chat ID")
+    include_snapshot: bool = Field(default=True, description="Include snapshot image")
+
+class NotificationFilterSettings(BaseModel):
+    species_whitelist: list[str] = Field(default=[], description="Only notify for these species (empty = all)")
+    min_confidence: float = Field(default=0.7, description="Minimum confidence to trigger notification")
+    audio_confirmed_only: bool = Field(default=False, description="Only notify if audio confirmed")
+    camera_filters: dict[str, dict] = Field(default={}, description="Per-camera overrides")
+
+class NotificationSettings(BaseModel):
+    discord: DiscordSettings = DiscordSettings()
+    pushover: PushoverSettings = PushoverSettings()
+    telegram: TelegramSettings = TelegramSettings()
+    filters: NotificationFilterSettings = NotificationFilterSettings()
+
 class Settings(BaseSettings):
     frigate: FrigateSettings
     classification: ClassificationSettings = ClassificationSettings()
@@ -97,6 +128,7 @@ class Settings(BaseSettings):
     birdweather: BirdWeatherSettings = BirdWeatherSettings()
     llm: LLMSettings = LLMSettings()
     telemetry: TelemetrySettings = TelemetrySettings()
+    notifications: NotificationSettings = NotificationSettings()
     
     # General app settings
     log_level: str = "INFO"
@@ -179,6 +211,35 @@ class Settings(BaseSettings):
             'installation_id': os.environ.get('TELEMETRY__INSTALLATION_ID', None)
         }
 
+        # Notification settings
+        notifications_data = {
+            'discord': {
+                'enabled': os.environ.get('NOTIFICATIONS__DISCORD__ENABLED', 'false').lower() == 'true',
+                'webhook_url': os.environ.get('NOTIFICATIONS__DISCORD__WEBHOOK_URL', None),
+                'username': os.environ.get('NOTIFICATIONS__DISCORD__USERNAME', 'YA-WAMF'),
+                'include_snapshot': os.environ.get('NOTIFICATIONS__DISCORD__INCLUDE_SNAPSHOT', 'true').lower() == 'true',
+            },
+            'pushover': {
+                'enabled': os.environ.get('NOTIFICATIONS__PUSHOVER__ENABLED', 'false').lower() == 'true',
+                'user_key': os.environ.get('NOTIFICATIONS__PUSHOVER__USER_KEY', None),
+                'api_token': os.environ.get('NOTIFICATIONS__PUSHOVER__API_TOKEN', None),
+                'priority': int(os.environ.get('NOTIFICATIONS__PUSHOVER__PRIORITY', '0')),
+                'include_snapshot': os.environ.get('NOTIFICATIONS__PUSHOVER__INCLUDE_SNAPSHOT', 'true').lower() == 'true',
+            },
+            'telegram': {
+                'enabled': os.environ.get('NOTIFICATIONS__TELEGRAM__ENABLED', 'false').lower() == 'true',
+                'bot_token': os.environ.get('NOTIFICATIONS__TELEGRAM__BOT_TOKEN', None),
+                'chat_id': os.environ.get('NOTIFICATIONS__TELEGRAM__CHAT_ID', None),
+                'include_snapshot': os.environ.get('NOTIFICATIONS__TELEGRAM__INCLUDE_SNAPSHOT', 'true').lower() == 'true',
+            },
+            'filters': {
+                'species_whitelist': [],
+                'min_confidence': 0.7,
+                'audio_confirmed_only': False,
+                'camera_filters': {}
+            }
+        }
+
         # Load from config file if it exists, env vars take precedence
         if CONFIG_PATH.exists():
             try:
@@ -234,6 +295,35 @@ class Settings(BaseSettings):
                         env_key = f'TELEMETRY__{key.upper()}'
                         if env_key not in os.environ:
                             telemetry_data[key] = value
+                
+                if 'notifications' in file_data:
+                    # Deep merge notification settings
+                    n_file = file_data['notifications']
+                    
+                    # Discord
+                    if 'discord' in n_file:
+                        for k, v in n_file['discord'].items():
+                            env_key = f'NOTIFICATIONS__DISCORD__{k.upper()}'
+                            if env_key not in os.environ:
+                                notifications_data['discord'][k] = v
+                                
+                    # Pushover
+                    if 'pushover' in n_file:
+                        for k, v in n_file['pushover'].items():
+                            env_key = f'NOTIFICATIONS__PUSHOVER__{k.upper()}'
+                            if env_key not in os.environ:
+                                notifications_data['pushover'][k] = v
+                                
+                    # Telegram
+                    if 'telegram' in n_file:
+                        for k, v in n_file['telegram'].items():
+                            env_key = f'NOTIFICATIONS__TELEGRAM__{k.upper()}'
+                            if env_key not in os.environ:
+                                notifications_data['telegram'][k] = v
+                                
+                    # Filters (file only)
+                    if 'filters' in n_file:
+                         notifications_data['filters'] = n_file['filters']
 
                 log.info("Loaded config from file", path=str(CONFIG_PATH))
             except Exception as e:
@@ -257,6 +347,10 @@ class Settings(BaseSettings):
         log.info("BirdWeather config", enabled=birdweather_data['enabled'])
         log.info("LLM config", enabled=llm_data['enabled'], provider=llm_data['provider'])
         log.info("Telemetry config", enabled=telemetry_data['enabled'], installation_id=telemetry_data['installation_id'])
+        log.info("Notification config", 
+                 discord=notifications_data['discord']['enabled'],
+                 pushover=notifications_data['pushover']['enabled'],
+                 telegram=notifications_data['telegram']['enabled'])
 
         return cls(
             frigate=FrigateSettings(**frigate_data),
@@ -266,7 +360,8 @@ class Settings(BaseSettings):
             location=LocationSettings(**location_data),
             birdweather=BirdWeatherSettings(**birdweather_data),
             llm=LLMSettings(**llm_data),
-            telemetry=TelemetrySettings(**telemetry_data)
+            telemetry=TelemetrySettings(**telemetry_data),
+            notifications=NotificationSettings(**notifications_data)
         )
 
 settings = Settings.load()

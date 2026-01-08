@@ -75,6 +75,24 @@ export interface Settings {
     llm_model?: string;
     telemetry_enabled: boolean;
     telemetry_installation_id?: string;
+
+    // Notification settings
+    notifications_discord_enabled: boolean;
+    notifications_discord_webhook_url?: string | null;
+    notifications_discord_username: string;
+    
+    notifications_pushover_enabled: boolean;
+    notifications_pushover_user_key?: string | null;
+    notifications_pushover_api_token?: string | null;
+    notifications_pushover_priority: number;
+    
+    notifications_telegram_enabled: boolean;
+    notifications_telegram_bot_token?: string | null;
+    notifications_telegram_chat_id?: string | null;
+    
+    notifications_filter_species_whitelist: string[];
+    notifications_filter_min_confidence: number;
+    notifications_filter_audio_confirmed_only: boolean;
 }
 
 export type UpdateSettings = Partial<Settings>;
@@ -115,6 +133,27 @@ export interface SettingsUpdate {
     llm_provider?: string;
     llm_api_key?: string | null;
     llm_model?: string;
+    
+    // Telemetry
+    telemetry_enabled?: boolean;
+
+    // Notification settings
+    notifications_discord_enabled?: boolean;
+    notifications_discord_webhook_url?: string | null;
+    notifications_discord_username?: string;
+    
+    notifications_pushover_enabled?: boolean;
+    notifications_pushover_user_key?: string | null;
+    notifications_pushover_api_token?: string | null;
+    notifications_pushover_priority?: number;
+    
+    notifications_telegram_enabled?: boolean;
+    notifications_telegram_bot_token?: string | null;
+    notifications_telegram_chat_id?: string | null;
+    
+    notifications_filter_species_whitelist?: string[];
+    notifications_filter_min_confidence?: number;
+    notifications_filter_audio_confirmed_only?: boolean;
 }
 
 export interface CacheStats {
@@ -615,6 +654,15 @@ export async function fetchTaxonomyStatus(): Promise<TaxonomySyncStatus> {
 export async function startTaxonomySync(): Promise<{ status: string }> {
     const response = await fetch(`${API_BASE}/maintenance/taxonomy/sync`, { method: 'POST' });
     return handleResponse<{ status: string }>(response);
+}
+
+export async function testNotification(platform: string, credentials: any = {}): Promise<{ status: string; message: string }> {
+    const response = await fetch(`${API_BASE}/settings/notifications/test`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ platform, ...credentials })
+    });
+    return handleResponse<{ status: string; message: string }>(response);
 }
 
 export async function testBirdWeather(token?: string): Promise<{ status: string; message: string }> {

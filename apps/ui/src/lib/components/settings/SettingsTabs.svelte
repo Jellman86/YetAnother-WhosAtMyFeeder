@@ -9,6 +9,7 @@
     const tabs = [
         { id: 'connection', label: 'Connection', icon: '🔗' },
         { id: 'detection', label: 'Detection', icon: '🎯' },
+        { id: 'notifications', label: 'Notifications', icon: '🔔' },
         { id: 'integrations', label: 'Integrations', icon: '🔌' },
         { id: 'data', label: 'Data', icon: '💾' },
         { id: 'appearance', label: 'Appearance', icon: '🎨' },
