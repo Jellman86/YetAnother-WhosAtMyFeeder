@@ -155,7 +155,11 @@
                              weather_condition: payload.data.weather_condition,
                              scientific_name: payload.data.scientific_name,
                              common_name: payload.data.common_name,
-                             taxa_id: payload.data.taxa_id
+                             taxa_id: payload.data.taxa_id,
+                             video_classification_score: payload.data.video_classification_score,
+                             video_classification_label: payload.data.video_classification_label,
+                             video_classification_status: payload.data.video_classification_status,
+                             video_classification_timestamp: payload.data.video_classification_timestamp
                          };
                          detectionsStore.addDetection(newDet);
                      } else if (payload.type === 'detection_updated') {
@@ -179,7 +183,11 @@
                              weather_condition: payload.data.weather_condition,
                              scientific_name: payload.data.scientific_name,
                              common_name: payload.data.common_name,
-                             taxa_id: payload.data.taxa_id
+                             taxa_id: payload.data.taxa_id,
+                             video_classification_score: payload.data.video_classification_score,
+                             video_classification_label: payload.data.video_classification_label,
+                             video_classification_status: payload.data.video_classification_status,
+                             video_classification_timestamp: payload.data.video_classification_timestamp
                          };
                          detectionsStore.updateDetection(updatedDet);
                      } else if (payload.type === 'detection_deleted') {

@@ -127,7 +127,11 @@ async def get_events(
                 weather_condition=event.weather_condition,
                 scientific_name=event.scientific_name,
                 common_name=event.common_name,
-                taxa_id=event.taxa_id
+                taxa_id=event.taxa_id,
+                video_classification_score=event.video_classification_score,
+                video_classification_label=event.video_classification_label,
+                video_classification_timestamp=event.video_classification_timestamp,
+                video_classification_status=event.video_classification_status
             )
             response_events.append(response_event)
 

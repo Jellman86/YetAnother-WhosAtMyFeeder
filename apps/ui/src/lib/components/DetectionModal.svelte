@@ -200,6 +200,33 @@
                 </div>
             </div>
 
+            <!-- Video Classification Results -->
+            {#if detection.video_classification_status === 'completed' || (detection.video_classification_label && detection.video_classification_label !== detection.display_name)}
+                <div class="p-4 rounded-2xl bg-indigo-500/5 border border-indigo-500/10 animate-in fade-in slide-in-from-top-2">
+                    <div class="flex items-center justify-between mb-2">
+                        <p class="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-[0.2em]">
+                            Deep Video Analysis
+                        </p>
+                        {#if detection.video_classification_score}
+                            <span class="px-2 py-0.5 bg-indigo-500 text-white text-[9px] font-black rounded uppercase">
+                                {(detection.video_classification_score * 100).toFixed(0)}% Match
+                            </span>
+                        {/if}
+                    </div>
+                    <p class="text-sm font-bold text-slate-800 dark:text-slate-200">
+                        {detection.video_classification_label}
+                    </p>
+                    <p class="text-[10px] text-slate-500 mt-1 italic leading-tight">
+                        Verified via temporal ensemble logic (Soft-Voting).
+                    </p>
+                </div>
+            {:else if detection.video_classification_status === 'processing' || detection.video_classification_status === 'pending'}
+                 <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-700/50 flex items-center gap-3 animate-pulse">
+                    <div class="w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+                    <span class="text-xs font-bold text-slate-500 uppercase tracking-widest">Video Analysis in progress...</span>
+                 </div>
+            {/if}
+
             <!-- Metadata -->
             <div class="grid grid-cols-2 gap-4">
                 <div class="flex items-center gap-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-700/50">

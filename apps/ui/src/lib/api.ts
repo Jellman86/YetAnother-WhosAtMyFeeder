@@ -22,6 +22,11 @@ export interface Detection {
     scientific_name?: string;
     common_name?: string;
     taxa_id?: number;
+    // Video classification fields
+    video_classification_score?: number;
+    video_classification_label?: string;
+    video_classification_timestamp?: string;
+    video_classification_status?: 'pending' | 'processing' | 'completed' | 'failed' | null;
 }
 
 export interface VersionInfo {

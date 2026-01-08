@@ -24,6 +24,11 @@ class Detection(BaseModel):
     scientific_name: str | None = None
     common_name: str | None = None
     taxa_id: int | None = None
+    # Video classification fields
+    video_classification_score: float | None = None
+    video_classification_label: str | None = None
+    video_classification_timestamp: datetime | None = None
+    video_classification_status: str | None = None
 
 class DetectionResponse(Detection):
     has_clip: bool = False  # Clip availability from Frigate

@@ -220,6 +220,11 @@ class EventProcessor:
                     snapshot_data=snapshot_data
                 )
 
+                # --- Auto Video Classification ---
+                if settings.classification.auto_video_classification:
+                    from app.services.auto_video_classifier_service import auto_video_classifier
+                    await auto_video_classifier.trigger_classification(frigate_event, camera)
+
         except json.JSONDecodeError as e:
             log.error("Invalid JSON payload", error=str(e))
         except Exception as e:
