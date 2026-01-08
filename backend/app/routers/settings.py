@@ -295,7 +295,9 @@ async def update_settings(update: SettingsUpdate, background_tasks: BackgroundTa
     settings.frigate.mqtt_auth = update.mqtt_auth
     if update.mqtt_username is not None:
         settings.frigate.mqtt_username = update.mqtt_username
-    settings.frigate.mqtt_password = update.mqtt_password
+    # Only update password if it's not the redacted placeholder
+    if update.mqtt_password and update.mqtt_password != "***REDACTED***":
+        settings.frigate.mqtt_password = update.mqtt_password
     settings.frigate.birdnet_enabled = update.birdnet_enabled if update.birdnet_enabled is not None else True
     settings.frigate.audio_topic = update.audio_topic
     settings.frigate.camera_audio_mapping = update.camera_audio_mapping
@@ -330,12 +332,16 @@ async def update_settings(update: SettingsUpdate, background_tasks: BackgroundTa
 
     # BirdWeather settings
     settings.birdweather.enabled = update.birdweather_enabled if update.birdweather_enabled is not None else False
-    settings.birdweather.station_token = update.birdweather_station_token
+    # Only update token if it's not the redacted placeholder
+    if update.birdweather_station_token and update.birdweather_station_token != "***REDACTED***":
+        settings.birdweather.station_token = update.birdweather_station_token
 
     # LLM settings
     settings.llm.enabled = update.llm_enabled if update.llm_enabled is not None else False
     settings.llm.provider = update.llm_provider if update.llm_provider else "gemini"
-    settings.llm.api_key = update.llm_api_key
+    # Only update API key if it's not the redacted placeholder
+    if update.llm_api_key and update.llm_api_key != "***REDACTED***":
+        settings.llm.api_key = update.llm_api_key
     settings.llm.model = update.llm_model if update.llm_model else "gemini-2.0-flash-exp"
     
     # Telemetry
@@ -344,23 +350,32 @@ async def update_settings(update: SettingsUpdate, background_tasks: BackgroundTa
     # Notifications - Discord
     if update.notifications_discord_enabled is not None:
         settings.notifications.discord.enabled = update.notifications_discord_enabled
-    settings.notifications.discord.webhook_url = update.notifications_discord_webhook_url
+    # Only update webhook URL if it's not the redacted placeholder
+    if update.notifications_discord_webhook_url and update.notifications_discord_webhook_url != "***REDACTED***":
+        settings.notifications.discord.webhook_url = update.notifications_discord_webhook_url
     if update.notifications_discord_username:
         settings.notifications.discord.username = update.notifications_discord_username
 
     # Notifications - Pushover
     if update.notifications_pushover_enabled is not None:
         settings.notifications.pushover.enabled = update.notifications_pushover_enabled
-    settings.notifications.pushover.user_key = update.notifications_pushover_user_key
-    settings.notifications.pushover.api_token = update.notifications_pushover_api_token
+    # Only update keys/tokens if they're not the redacted placeholder
+    if update.notifications_pushover_user_key and update.notifications_pushover_user_key != "***REDACTED***":
+        settings.notifications.pushover.user_key = update.notifications_pushover_user_key
+    if update.notifications_pushover_api_token and update.notifications_pushover_api_token != "***REDACTED***":
+        settings.notifications.pushover.api_token = update.notifications_pushover_api_token
     if update.notifications_pushover_priority is not None:
         settings.notifications.pushover.priority = update.notifications_pushover_priority
 
     # Notifications - Telegram
     if update.notifications_telegram_enabled is not None:
         settings.notifications.telegram.enabled = update.notifications_telegram_enabled
-    settings.notifications.telegram.bot_token = update.notifications_telegram_bot_token
-    settings.notifications.telegram.chat_id = update.notifications_telegram_chat_id
+    # Only update bot token if it's not the redacted placeholder
+    if update.notifications_telegram_bot_token and update.notifications_telegram_bot_token != "***REDACTED***":
+        settings.notifications.telegram.bot_token = update.notifications_telegram_bot_token
+    # Only update chat ID if it's not the redacted placeholder
+    if update.notifications_telegram_chat_id and update.notifications_telegram_chat_id != "***REDACTED***":
+        settings.notifications.telegram.chat_id = update.notifications_telegram_chat_id
     
     # Notifications - Filters
     if update.notifications_filter_species_whitelist is not None:

@@ -59,8 +59,8 @@ export interface Settings {
     retention_days: number;
     blocked_labels: string[];
     trust_frigate_sublabel: boolean;
-    display_common_names: bool;
-    scientific_name_primary: bool;
+    display_common_names: boolean;
+    scientific_name_primary: boolean;
     auto_video_classification: boolean;
     video_classification_delay: number;
     video_classification_max_retries: number;

@@ -37,7 +37,8 @@ async def verify_api_key(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Missing API Key",
             )
-        if api_key != settings.api_key:
+        # Use constant-time comparison to prevent timing attacks
+        if not secrets.compare_digest(api_key, settings.api_key):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Invalid API Key",
