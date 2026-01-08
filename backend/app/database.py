@@ -30,7 +30,8 @@ async def init_db():
             ["alembic", "upgrade", "head"],
             cwd=backend_dir,
             capture_output=True,
-            text=True
+            text=True,
+            timeout=60  # 60 second timeout to prevent indefinite hangs
         )
         
         if result.returncode == 0:
@@ -39,6 +40,8 @@ async def init_db():
             log.error("Database migration failed", error=result.stderr)
             # We don't necessarily want to crash here if it's just a warning
             # but usually migrations are critical.
+    except subprocess.TimeoutExpired:
+        log.error("Database migration timed out after 60 seconds")
     except Exception as e:
         log.error("Failed to run database migrations", error=str(e))
 

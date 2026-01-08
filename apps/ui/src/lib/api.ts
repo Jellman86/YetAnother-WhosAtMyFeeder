@@ -645,7 +645,7 @@ export interface AudioDetection {
     sensor_id: string | null;
 }
 
-export async function fetchRecentAudio(limit: int = 10): Promise<AudioDetection[]> {
+export async function fetchRecentAudio(limit: number = 10): Promise<AudioDetection[]> {
     const response = await fetch(`${API_BASE}/audio/recent?limit=${limit}`);
     return handleResponse<AudioDetection[]>(response);
 }

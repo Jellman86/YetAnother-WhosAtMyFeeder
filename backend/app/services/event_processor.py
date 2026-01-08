@@ -1,4 +1,5 @@
 import json
+import asyncio
 import structlog
 from datetime import datetime
 from io import BytesIO
@@ -97,10 +98,34 @@ class EventProcessor:
             label = top['label']
             score = top['score']
 
-            # --- Audio Correlation ---
+            # --- Parallel Context Gathering (Audio + Weather) ---
+            # Fetch audio and weather data concurrently for better performance
             detection_dt = datetime.fromtimestamp(start_time_ts)
-            audio_match = await audio_service.find_match(detection_dt, camera_name=camera, window_seconds=30)
-            
+
+            async def fetch_audio():
+                """Fetch audio match with error handling."""
+                try:
+                    return await audio_service.find_match(detection_dt, camera_name=camera, window_seconds=30)
+                except Exception as e:
+                    log.warning("Audio match failed", error=str(e))
+                    return None
+
+            async def fetch_weather():
+                """Fetch weather with error handling."""
+                try:
+                    return await weather_service.get_current_weather()
+                except Exception as e:
+                    log.warning("Weather fetch failed", error=str(e))
+                    return None
+
+            # Execute both lookups in parallel
+            audio_match, weather_data = await asyncio.gather(
+                fetch_audio(),
+                fetch_weather(),
+                return_exceptions=False
+            )
+
+            # --- Audio Correlation ---
             audio_confirmed = False
             audio_species = None
             audio_score = None
@@ -108,12 +133,12 @@ class EventProcessor:
             if audio_match:
                 audio_species = audio_match.species
                 audio_score = audio_match.confidence
-                
+
                 # Logic 1: Confirmation
                 if audio_species.lower() == label.lower():
                     audio_confirmed = True
                     log.info("Audio confirmed visual detection", event_id=frigate_event, species=label)
-                
+
                 # Logic 2: Enhancement (Unknown -> Audio Label)
                 # If visual is generic/unknown but audio is strong, upgrade it
                 elif label in settings.classification.unknown_bird_labels or label == "Unknown Bird":
@@ -127,13 +152,9 @@ class EventProcessor:
             # --- Weather Context ---
             temperature = None
             condition = None
-            try:
-                # Short timeout logic inside service
-                weather_data = await weather_service.get_current_weather()
+            if weather_data:
                 temperature = weather_data.get("temperature")
                 condition = weather_data.get("condition_text")
-            except Exception as we:
-                log.warning("Weather fetch failed, skipping context", error=str(we))
             # -----------------------
 
             # Save detection (upsert)

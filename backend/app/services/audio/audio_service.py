@@ -1,6 +1,6 @@
 import structlog
 import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, Deque
 from dataclasses import dataclass
 from collections import deque
@@ -26,26 +26,28 @@ class AudioService:
     async def add_detection(self, data: dict):
         """Ingest a detection from MQTT."""
         try:
-            timestamp = datetime.now()
+            # Use UTC timezone-aware datetime by default
+            timestamp = datetime.now(timezone.utc)
             # Handle standard BirdNET format (camelCase) and BirdNET-Go format (PascalCase)
             species = data.get("comName", data.get("species"))
             if not species:
                 species = data.get("CommonName", data.get("ScientificName", "Unknown"))
-                
+
             confidence = data.get("score", data.get("confidence"))
             if confidence is None:
                 confidence = data.get("Confidence", 0.0)
-                
+
             # Capture sensor/id for camera matching
             sensor_id = data.get("id", data.get("sensor_id"))
             if not sensor_id and "Source" in data:
                 sensor_id = data.get("Source", {}).get("id")
-            
+
             # If timestamp provided in payload, use it
             ts_raw = data.get("timestamp") or data.get("ts")
             if ts_raw:
                 try:
-                    timestamp = datetime.fromtimestamp(float(ts_raw))
+                    # Create timezone-aware timestamp from Unix timestamp (assumed UTC)
+                    timestamp = datetime.fromtimestamp(float(ts_raw), tz=timezone.utc)
                 except Exception:
                     pass
             else:
@@ -55,6 +57,9 @@ class AudioService:
                     try:
                         # Handle potential trailing 'Z' or extra precision
                         timestamp = datetime.fromisoformat(iso_ts.replace('Z', '+00:00'))
+                        # Ensure timezone-aware (if naive, assume UTC)
+                        if timestamp.tzinfo is None:
+                            timestamp = timestamp.replace(tzinfo=timezone.utc)
                     except Exception:
                         pass
 
@@ -77,39 +82,32 @@ class AudioService:
 
     def _cleanup_buffer(self):
         """Remove old detections from buffer."""
-        now = datetime.now()
+        now = datetime.now(timezone.utc)
         removed_count = 0
-        
+
         while self._buffer:
             ts = self._buffer[0].timestamp
-            # Create a comparison copy
-            check_ts = ts
-            
-            # If the timestamp is offset-aware, convert to naive UTC then to local if needed,
-            # or just blindly strip. 
-            # Ideally: Convert both to UTC timestamps for comparison.
-            
-            # Simple approach: If ts is aware, strip it.
-            # NOTE: This assumes 'ts' was already converted to something comparable to 'now' (local)
-            # OR 'now' should be UTC if 'ts' is UTC.
-            if check_ts.tzinfo is not None:
-                check_ts = check_ts.replace(tzinfo=None)
-                
-            age = (now - check_ts).total_seconds()
-            
+
+            # Ensure timezone-aware comparison
+            if ts.tzinfo is None:
+                ts = ts.replace(tzinfo=timezone.utc)
+
+            age = (now - ts).total_seconds()
+
             if age > self._buffer_duration.total_seconds():
+                removed_species = self._buffer[0].species
                 self._buffer.popleft()
                 removed_count += 1
-                log.debug("Removed old audio detection", species=self._buffer[0].species if self._buffer else "unknown", age=age)
+                log.debug("Removed old audio detection", species=removed_species, age=age)
             else:
                 break
-        
+
         if removed_count > 0:
             log.info("Cleaned up audio buffer", removed=removed_count, remaining=len(self._buffer))
 
     async def find_match(self, target_time: datetime, camera_name: str = None, window_seconds: int = 15) -> Optional[AudioDetection]:
         """Find an audio detection matching the visual timestamp and camera.
-        
+
         Args:
             target_time: Timestamp of the visual detection
             camera_name: Name of the Frigate camera (used for mapping)
@@ -117,7 +115,7 @@ class AudioService:
         """
         async with self._lock:
             self._cleanup_buffer() # Clean before matching
-            
+
             # Determine which sensor ID we are looking for based on camera mapping
             expected_sensor_id = None
             if camera_name and settings.frigate.camera_audio_mapping:
@@ -125,22 +123,27 @@ class AudioService:
 
             best_match = None
             highest_score = 0.0
-            
+
+            # Ensure target_time is timezone-aware (assume UTC if naive)
+            if target_time.tzinfo is None:
+                target_time = target_time.replace(tzinfo=timezone.utc)
+
             for detection in self._buffer:
                 # If a mapping exists, only match if the sensor ID matches (unless wildcard used)
                 if expected_sensor_id and expected_sensor_id != "*" and detection.sensor_id != expected_sensor_id:
                     continue
 
-                # Ensure naive comparison
-                det_ts = detection.timestamp.replace(tzinfo=None) if detection.timestamp.tzinfo else detection.timestamp
-                target_ts = target_time.replace(tzinfo=None) if target_time.tzinfo else target_time
+                # Ensure detection timestamp is timezone-aware (assume UTC if naive)
+                det_ts = detection.timestamp
+                if det_ts.tzinfo is None:
+                    det_ts = det_ts.replace(tzinfo=timezone.utc)
 
-                delta = abs((det_ts - target_ts).total_seconds())
+                delta = abs((det_ts - target_time).total_seconds())
                 if delta <= window_seconds:
                     if detection.confidence > highest_score:
                         highest_score = detection.confidence
                         best_match = detection
-            
+
             return best_match
 
     async def get_recent_detections(self, limit: int = 10) -> list[dict]:

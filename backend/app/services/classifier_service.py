@@ -31,13 +31,17 @@ log = structlog.get_logger()
 
 # Global singleton instance
 _classifier_instance: Optional['ClassifierService'] = None
+_classifier_lock = threading.Lock()
 
 
 def get_classifier() -> 'ClassifierService':
-    """Get the shared classifier service instance."""
+    """Get the shared classifier service instance (thread-safe)."""
     global _classifier_instance
     if _classifier_instance is None:
-        _classifier_instance = ClassifierService()
+        with _classifier_lock:
+            # Double-check pattern to avoid race condition
+            if _classifier_instance is None:
+                _classifier_instance = ClassifierService()
     return _classifier_instance
 
 
@@ -64,37 +68,37 @@ class ModelInstance:
                 return True
 
             # Load labels first
-        if os.path.exists(self.labels_path):
+            if os.path.exists(self.labels_path):
+                try:
+                    with open(self.labels_path, 'r', encoding='utf-8', errors='replace') as f:
+                        self.labels = [line.strip() for line in f.readlines() if line.strip()]
+                    log.info(f"Loaded {len(self.labels)} labels for {self.name}")
+                except Exception as e:
+                    log.error(f"Failed to load labels for {self.name}", error=str(e))
+
+            if not os.path.exists(self.model_path):
+                self.error = f"Model file not found: {self.model_path}"
+                log.warning(f"{self.name} model not found", path=self.model_path)
+                return False
+
+            if tflite is None:
+                self.error = "TFLite runtime not installed"
+                log.error("TFLite runtime not installed")
+                return False
+
             try:
-                with open(self.labels_path, 'r', encoding='utf-8', errors='replace') as f:
-                    self.labels = [line.strip() for line in f.readlines() if line.strip()]
-                log.info(f"Loaded {len(self.labels)} labels for {self.name}")
+                self.interpreter = tflite.Interpreter(model_path=self.model_path)
+                self.interpreter.allocate_tensors()
+                self.input_details = self.interpreter.get_input_details()
+                self.output_details = self.interpreter.get_output_details()
+                self.loaded = True
+                self.error = None
+                log.info(f"{self.name} model loaded successfully")
+                return True
             except Exception as e:
-                log.error(f"Failed to load labels for {self.name}", error=str(e))
-
-        if not os.path.exists(self.model_path):
-            self.error = f"Model file not found: {self.model_path}"
-            log.warning(f"{self.name} model not found", path=self.model_path)
-            return False
-
-        if tflite is None:
-            self.error = "TFLite runtime not installed"
-            log.error("TFLite runtime not installed")
-            return False
-
-        try:
-            self.interpreter = tflite.Interpreter(model_path=self.model_path)
-            self.interpreter.allocate_tensors()
-            self.input_details = self.interpreter.get_input_details()
-            self.output_details = self.interpreter.get_output_details()
-            self.loaded = True
-            self.error = None
-            log.info(f"{self.name} model loaded successfully")
-            return True
-        except Exception as e:
-            self.error = f"Failed to load model: {str(e)}"
-            log.error(f"Failed to load {self.name} model", error=str(e))
-            return False
+                self.error = f"Failed to load model: {str(e)}"
+                log.error(f"Failed to load {self.name} model", error=str(e))
+                return False
 
     def _preprocess_image(self, image: Image.Image, target_width: int, target_height: int) -> np.ndarray:
         """
@@ -447,6 +451,7 @@ class ClassifierService:
 
     def __init__(self):
         self._models: dict[str, ModelInstance | ONNXModelInstance] = {}
+        self._models_lock = threading.Lock()
         # Dedicated executor for ML tasks to avoid blocking default executor
         self._executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="ml_worker")
         self._init_bird_model()
@@ -516,9 +521,13 @@ class ClassifierService:
 
     def reload_bird_model(self):
         """Reload the bird model (e.g., after switching models)."""
-        if "bird" in self._models:
-            del self._models["bird"]
-        self._init_bird_model()
+        with self._models_lock:
+            if "bird" in self._models:
+                # Safely remove old model reference
+                old_model = self._models.pop("bird")
+                # Allow old model to be garbage collected
+                del old_model
+            self._init_bird_model()
         log.info("Reloaded bird model")
 
     def _get_wildlife_model(self) -> ModelInstance:

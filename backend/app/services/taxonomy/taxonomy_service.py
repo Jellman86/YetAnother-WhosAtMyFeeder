@@ -10,11 +10,12 @@ log = structlog.get_logger()
 
 class TaxonomyService:
     """Service to handle bidirectional scientific <-> common name lookups using iNaturalist."""
-    
+
     API_URL = "https://api.inaturalist.org/v1/taxa"
 
     def __init__(self):
         self._client: Optional[httpx.AsyncClient] = None
+        self._client_lock = asyncio.Lock()
         self._sync_status = {
             "is_running": False,
             "total": 0,
@@ -23,9 +24,13 @@ class TaxonomyService:
             "error": None
         }
 
-    def _get_client(self) -> httpx.AsyncClient:
+    async def _get_client(self) -> httpx.AsyncClient:
+        """Get HTTP client with thread-safe lazy initialization."""
         if self._client is None:
-            self._client = httpx.AsyncClient(timeout=10.0)
+            async with self._client_lock:
+                # Double-check pattern to avoid race condition
+                if self._client is None:
+                    self._client = httpx.AsyncClient(timeout=10.0)
         return self._client
 
     def get_sync_status(self) -> dict:
@@ -123,8 +128,8 @@ class TaxonomyService:
                 "per_page": 1,
                 "locale": "en"
             }
-            
-            client = self._get_client()
+
+            client = await self._get_client()
             resp = await client.get(self.API_URL, params=params)
             resp.raise_for_status()
             data = resp.json()

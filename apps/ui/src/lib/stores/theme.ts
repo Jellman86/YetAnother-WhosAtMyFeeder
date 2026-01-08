@@ -21,6 +21,10 @@ function createThemeStore() {
 
     const { subscribe, set, update } = writable<Theme>(stored);
 
+    // Track media query listener to prevent memory leaks
+    let mediaQueryList: MediaQueryList | null = null;
+    let mediaQueryListener: ((e: MediaQueryListEvent) => void) | null = null;
+
     return {
         subscribe,
         set: (value: Theme) => {
@@ -46,14 +50,29 @@ function createThemeStore() {
             applyTheme(stored);
             // Listen for system preference changes
             if (typeof window !== 'undefined') {
-                window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+                // Remove old listener if it exists
+                if (mediaQueryList && mediaQueryListener) {
+                    mediaQueryList.removeEventListener('change', mediaQueryListener);
+                }
+
+                mediaQueryList = window.matchMedia('(prefers-color-scheme: dark)');
+                mediaQueryListener = (e: MediaQueryListEvent) => {
                     update(current => {
                         if (current === 'system') {
                             applyTheme('system');
                         }
                         return current;
                     });
-                });
+                };
+                mediaQueryList.addEventListener('change', mediaQueryListener);
+            }
+        },
+        cleanup: () => {
+            // Cleanup function to remove listener when no longer needed
+            if (mediaQueryList && mediaQueryListener) {
+                mediaQueryList.removeEventListener('change', mediaQueryListener);
+                mediaQueryList = null;
+                mediaQueryListener = null;
             }
         }
     };
