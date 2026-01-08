@@ -21,6 +21,16 @@ from app.routers import events, stream, proxy, settings as settings_router, spec
 from app.config import settings
 
 # Version management
+def get_base_version() -> str:
+    """Read base version from VERSION file."""
+    version_file = os.path.join(os.path.dirname(__file__), '..', '..', 'VERSION')
+    try:
+        with open(version_file, 'r') as f:
+            return f.read().strip()
+    except (FileNotFoundError, IOError):
+        # Fallback if VERSION file doesn't exist
+        return "2.2.0"
+
 def get_git_hash() -> str:
     """Get git commit hash from environment or by running git."""
     # First check environment variable (set during Docker build)
@@ -44,7 +54,7 @@ def get_git_hash() -> str:
 
     return "unknown"
 
-BASE_VERSION = "2.0.0"
+BASE_VERSION = get_base_version()
 GIT_HASH = get_git_hash()
 APP_VERSION = f"{BASE_VERSION}+{GIT_HASH}"
 os.environ["APP_VERSION"] = APP_VERSION # Make available to other services

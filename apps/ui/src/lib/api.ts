@@ -241,7 +241,7 @@ export async function fetchVersion(): Promise<VersionInfo> {
     } catch {
         // Ignore errors - return fallback
     }
-    return { version: "2.0.0", base_version: "2.0.0", git_hash: "unknown" };
+    return { version: "2.2.0", base_version: "2.2.0", git_hash: "unknown" };
 }
 
 export interface FetchEventsOptions {

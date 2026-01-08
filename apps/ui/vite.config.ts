@@ -1,6 +1,18 @@
 import { defineConfig } from 'vite'
 import { svelte } from '@sveltejs/vite-plugin-svelte'
 import { execSync } from 'child_process'
+import { readFileSync } from 'fs'
+import { join } from 'path'
+
+// Get base version from VERSION file
+function getBaseVersion(): string {
+    try {
+        const versionFile = join(__dirname, '..', '..', 'VERSION');
+        return readFileSync(versionFile, 'utf-8').trim();
+    } catch {
+        return '2.2.0'; // Fallback
+    }
+}
 
 // Get git hash for version tracking
 function getGitHash(): string {
@@ -16,8 +28,9 @@ function getGitHash(): string {
     }
 }
 
+const baseVersion = getBaseVersion();
 const gitHash = getGitHash();
-const appVersion = `2.0.0+${gitHash}`;
+const appVersion = `${baseVersion}+${gitHash}`;
 
 // https://vitejs.dev/config/
 export default defineConfig({

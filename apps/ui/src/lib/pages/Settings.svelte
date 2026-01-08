@@ -19,13 +19,15 @@
         testBirdWeather,
         testBirdNET,
         testMQTTPublish,
+        fetchVersion,
         type ClassifierStatus,
         type WildlifeModelStatus,
         type MaintenanceStats,
         type BackfillResult,
         type CacheStats,
         type CacheCleanupResult,
-        type TaxonomySyncStatus
+        type TaxonomySyncStatus,
+        type VersionInfo
     } from '../api';
     import { theme, type Theme } from '../stores/theme';
     import { settingsStore } from '../stores/settings.svelte';
@@ -78,6 +80,9 @@
     let telemetryEnabled = $state(false);
     let telemetryInstallationId = $state<string | undefined>(undefined);
     let telemetryPlatform = $state<string | undefined>(undefined);
+
+    // Version Info
+    let versionInfo = $state<VersionInfo>({ version: "2.2.0", base_version: "2.2.0", git_hash: "unknown" });
 
     let availableCameras = $state<string[]>([]);
     let camerasLoading = $state(false);
@@ -175,7 +180,8 @@
             loadWildlifeStatus(),
             loadMaintenanceStats(),
             loadCacheStats(),
-            loadTaxonomyStatus()
+            loadTaxonomyStatus(),
+            loadVersion()
         ]);
 
         taxonomyPollInterval = setInterval(loadTaxonomyStatus, 3000);
@@ -191,6 +197,14 @@
             taxonomyStatus = await fetchTaxonomyStatus();
         } catch (e) {
             console.error('Failed to load taxonomy status', e);
+        }
+    }
+
+    async function loadVersion() {
+        try {
+            versionInfo = await fetchVersion();
+        } catch (e) {
+            console.error('Failed to load version info', e);
         }
     }
 
@@ -707,7 +721,7 @@
                             <p class="text-xs font-black uppercase tracking-widest text-slate-400 mb-3">Transparency: What we send</p>
                             <div class="space-y-2 text-[10px] font-mono text-slate-600 dark:text-slate-400">
                                 <div class="flex justify-between"><span>Installation ID:</span><span class="text-slate-900 dark:text-white select-all">{telemetryInstallationId || '...'}</span></div>
-                                <div class="flex justify-between"><span>App Version:</span><span>{ '2.0.0+...' }</span></div>
+                                <div class="flex justify-between"><span>App Version:</span><span>{versionInfo.version}</span></div>
                                 <div class="flex justify-between"><span>Platform:</span><span>{telemetryPlatform || '...'}</span></div>
                                 <div class="flex justify-between"><span>Enabled Features:</span><span>[Model, Integrations]</span></div>
                             </div>

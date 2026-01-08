@@ -5,11 +5,13 @@
         fetchSpeciesInfo,
         type SpeciesStats,
         type SpeciesInfo,
+        type Detection,
         getThumbnailUrl
     } from '../api';
     import { getBirdNames } from '../naming';
     import { settingsStore } from '../stores/settings.svelte';
     import SimpleBarChart from './SimpleBarChart.svelte';
+    import VideoPlayer from './VideoPlayer.svelte';
 
     interface Props {
         speciesName: string;
@@ -26,6 +28,10 @@
     let info = $state<SpeciesInfo | null>(null);
     let loading = $state(true);
     let error = $state<string | null>(null);
+
+    // Video playback state
+    let showVideo = $state(false);
+    let selectedSighting = $state<Detection | null>(null);
 
     let showCommon = $state(true);
     let preferSci = $state(false);
@@ -337,7 +343,15 @@
                         <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4">Recent Sightings</h3>
                         <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
                             {#each stats.recent_sightings as sighting}
-                                <div class="bg-slate-100 dark:bg-slate-700 rounded-lg overflow-hidden">
+                                <div
+                                    class="bg-slate-100 dark:bg-slate-700 rounded-lg overflow-hidden group cursor-pointer relative"
+                                    onclick={() => {
+                                        selectedSighting = sighting as Detection;
+                                        if (sighting.has_clip) {
+                                            showVideo = true;
+                                        }
+                                    }}
+                                >
                                     <div class="aspect-square bg-slate-200 dark:bg-slate-600 relative">
                                         <img
                                             src={getThumbnailUrl(sighting.frigate_event)}
@@ -349,6 +363,16 @@
                                                 target.style.display = 'none';
                                             }}
                                         />
+                                        {#if sighting.has_clip}
+                                            <!-- Play button overlay -->
+                                            <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 bg-black/20">
+                                                <div class="w-12 h-12 rounded-full bg-white/90 dark:bg-slate-800/90 flex items-center justify-center shadow-lg transform scale-90 group-hover:scale-100 transition-transform duration-200">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-teal-600 dark:text-teal-400 ml-1" viewBox="0 0 24 24" fill="currentColor">
+                                                        <path d="M8 5v14l11-7z"/>
+                                                    </svg>
+                                                </div>
+                                            </div>
+                                        {/if}
                                     </div>
                                     <div class="p-2">
                                         <p class="text-xs text-slate-600 dark:text-slate-300">
@@ -379,6 +403,17 @@
         </div>
     </div>
 </div>
+
+<!-- Video Player Modal -->
+{#if showVideo && selectedSighting}
+    <VideoPlayer
+        frigateEvent={selectedSighting.frigate_event}
+        onClose={() => {
+            showVideo = false;
+            selectedSighting = null;
+        }}
+    />
+{/if}
 
 <style>
     .animate-fade-in {
