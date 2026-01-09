@@ -108,6 +108,7 @@
 
     let currentFactIndex = $state(0);
     let isTransitioning = $state(false);
+    const year = new Date().getFullYear();
 
     onMount(() => {
         const interval = setInterval(() => {
