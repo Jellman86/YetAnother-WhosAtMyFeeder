@@ -1,10 +1,15 @@
 # Telemetry Service Specification
 
 ## Overview
-YA-WAMF includes an optional telemetry service to collect anonymous usage statistics. This data is used to:
-- Identify popular hardware platforms to prioritize optimization.
-- Understand which AI models are most commonly used.
-- Monitor version adoption rates to ensure users are on stable builds.
+YA-WAMF includes an optional telemetry service to collect anonymous usage statistics. **Telemetry is disabled by default** and requires explicit opt-in.
+
+## Why Telemetry?
+As a solo developer working on this project, telemetry helps me understand if YA-WAMF is solving real problems for the broader bird enthusiast community, or if I'm primarily building for my own use case. Knowing that others find value in this work helps validate the time investment and guides development priorities - it's encouraging to know you're not building in isolation.
+
+Additionally, the data helps to:
+- Identify popular hardware platforms to prioritize optimization
+- Understand which AI models are most commonly used
+- Monitor version adoption rates to ensure users are on stable builds
 
 ## Data Collection Policy
 
@@ -48,8 +53,10 @@ The heartbeat payload is strictly limited to metadata about the installation and
 }
 ```
 
-## User Control (Opt-Out)
-Telemetry is optional. Users can enable or disable data collection at any time via the **Settings > Connections > Telemetry** toggle in the UI.
+## User Control (Opt-In)
+Telemetry is **disabled by default** and completely optional. Users who wish to help improve YA-WAMF can opt in at any time via the **Settings > Connections > Telemetry** toggle in the UI. You can also disable it at any time if you change your mind.
+
+On first launch, you may see a friendly banner inviting you to opt in - this can be dismissed and won't appear again.
 
 ## Source Code & Transparency
 We believe in full transparency regarding the data we collect. You can inspect exactly how the heartbeat is constructed and transmitted in the backend source code:

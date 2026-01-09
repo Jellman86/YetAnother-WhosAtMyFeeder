@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import Header from './lib/components/Header.svelte';
   import Footer from './lib/components/Footer.svelte';
+  import TelemetryBanner from './lib/components/TelemetryBanner.svelte';
   import Dashboard from './lib/pages/Dashboard.svelte';
   import Events from './lib/pages/Events.svelte';
   import Species from './lib/pages/Species.svelte';
@@ -287,6 +288,9 @@
               </div>
           {/snippet}
       </Header>
+
+      <!-- Telemetry Banner (shown on first visit if telemetry disabled) -->
+      <TelemetryBanner />
 
       <!-- Main Content -->
       <main class="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
