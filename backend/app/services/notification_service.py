@@ -1,12 +1,20 @@
 import structlog
 import asyncio
 import httpx
+import re
 from datetime import datetime
 from typing import Optional, Any
 
 from app.config import settings
 
 log = structlog.get_logger()
+
+def escape_markdown(text: str) -> str:
+    """Escape special characters for Telegram Markdown (v1)."""
+    # Telegram Markdown v1 only requires escaping these in some contexts, 
+    # but it's safer to escape characters that could trigger formatting.
+    # Note: * _ ` [ are the main ones for v1.
+    return re.sub(r'([*_`\[])', r'\\\1', text)
 
 class NotificationService:
     def __init__(self):
@@ -192,7 +200,9 @@ class NotificationService:
         if not cfg.bot_token or not cfg.chat_id:
             return
 
-        caption = f"🐦 *{common_name or species}*\n📹 {camera}\n🎯 {confidence:.0%}"
+        safe_name = escape_markdown(common_name or species)
+        safe_camera = escape_markdown(camera)
+        caption = f"🐦 *{safe_name}*\n📹 {safe_camera}\n🎯 {confidence:.0%}"
         base_url = f"https://api.telegram.org/bot{cfg.bot_token}"
 
         try:
