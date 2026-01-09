@@ -132,6 +132,7 @@ class NotificationService:
             resp.raise_for_status()
         except Exception as e:
             log.error("Discord notification failed", error=str(e))
+            raise
 
     async def _send_pushover(
         self,
@@ -174,6 +175,7 @@ class NotificationService:
             resp.raise_for_status()
         except Exception as e:
             log.error("Pushover notification failed", error=str(e))
+            raise
 
     async def _send_telegram(
         self,
@@ -219,5 +221,6 @@ class NotificationService:
             resp.raise_for_status()
         except Exception as e:
             log.error("Telegram notification failed", error=str(e))
+            raise
 
 notification_service = NotificationService()

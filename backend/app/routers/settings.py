@@ -97,7 +97,7 @@ async def test_notification(request: NotificationTestRequest):
         if request.platform == "discord":
             # Temporarily override settings if provided
             original_url = settings.notifications.discord.webhook_url
-            if request.webhook_url:
+            if request.webhook_url and request.webhook_url != "***REDACTED***":
                 settings.notifications.discord.webhook_url = request.webhook_url
             
             try:
@@ -105,38 +105,46 @@ async def test_notification(request: NotificationTestRequest):
                     species, common_name, confidence, camera, timestamp, snapshot_url, audio_confirmed=True
                 )
             finally:
-                if request.webhook_url:
+                if request.webhook_url and request.webhook_url != "***REDACTED***":
                     settings.notifications.discord.webhook_url = original_url
                     
         elif request.platform == "pushover":
             orig_user = settings.notifications.pushover.user_key
             orig_token = settings.notifications.pushover.api_token
             
-            if request.user_key: settings.notifications.pushover.user_key = request.user_key
-            if request.api_token: settings.notifications.pushover.api_token = request.api_token
+            if request.user_key and request.user_key != "***REDACTED***": 
+                settings.notifications.pushover.user_key = request.user_key
+            if request.api_token and request.api_token != "***REDACTED***": 
+                settings.notifications.pushover.api_token = request.api_token
             
             try:
                 await notification_service._send_pushover(
                     species, common_name, confidence, camera, timestamp, snapshot_url, None
                 )
             finally:
-                if request.user_key: settings.notifications.pushover.user_key = orig_user
-                if request.api_token: settings.notifications.pushover.api_token = orig_token
+                if request.user_key and request.user_key != "***REDACTED***": 
+                    settings.notifications.pushover.user_key = orig_user
+                if request.api_token and request.api_token != "***REDACTED***": 
+                    settings.notifications.pushover.api_token = orig_token
 
         elif request.platform == "telegram":
             orig_bot = settings.notifications.telegram.bot_token
             orig_chat = settings.notifications.telegram.chat_id
             
-            if request.bot_token: settings.notifications.telegram.bot_token = request.bot_token
-            if request.chat_id: settings.notifications.telegram.chat_id = request.chat_id
+            if request.bot_token and request.bot_token != "***REDACTED***": 
+                settings.notifications.telegram.bot_token = request.bot_token
+            if request.chat_id and request.chat_id != "***REDACTED***": 
+                settings.notifications.telegram.chat_id = request.chat_id
             
             try:
                 await notification_service._send_telegram(
                     species, common_name, confidence, camera, timestamp, snapshot_url, None
                 )
             finally:
-                if request.bot_token: settings.notifications.telegram.bot_token = orig_bot
-                if request.chat_id: settings.notifications.telegram.chat_id = orig_chat
+                if request.bot_token and request.bot_token != "***REDACTED***": 
+                    settings.notifications.telegram.bot_token = orig_bot
+                if request.chat_id and request.chat_id != "***REDACTED***": 
+                    settings.notifications.telegram.chat_id = orig_chat
         
         else:
             return {"status": "error", "message": f"Unknown platform: {request.platform}"}
