@@ -13,6 +13,11 @@ Everything you need to get the containers running and configured correctly.
 - **[Recommended Frigate Config](setup/frigate-config.md)** - Optimized settings for bird snapshots.
 - **[Configuration Guide](setup/configuration.md)** - Deep dive into all web UI settings.
 
+## 🔌 API & Development
+Build integrations and custom tools with YA-WAMF.
+- **[API Reference](api.md)** - Complete REST API documentation with examples
+- **[OpenAPI/Swagger](http://localhost:8000/docs)** - Interactive API documentation (when running)
+
 ### Mobile Ready
 YA-WAMF is fully responsive and works great on phones and tablets.
 

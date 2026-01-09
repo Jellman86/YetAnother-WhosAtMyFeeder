@@ -273,6 +273,16 @@ class ModelInstance:
             
         return results
 
+    def cleanup(self):
+        """Clean up model resources."""
+        with self._lock:
+            if self.interpreter is not None:
+                # TFLite interpreters don't have explicit cleanup,
+                # but we can dereference it to allow garbage collection
+                self.interpreter = None
+            self.loaded = False
+            log.info(f"{self.name} model resources cleaned up")
+
     def get_status(self) -> dict:
         """Return the current status of this model."""
         return {
@@ -430,6 +440,15 @@ class ONNXModelInstance:
             log.error("ONNX raw classification failed", error=str(e))
             return np.array([])
 
+    def cleanup(self):
+        """Clean up ONNX model resources."""
+        if self.session is not None:
+            # ONNX sessions don't have explicit cleanup,
+            # but we can dereference to allow garbage collection
+            self.session = None
+        self.loaded = False
+        log.info(f"{self.name} ONNX model resources cleaned up")
+
     def get_status(self) -> dict:
         """Return the current status of this model."""
         return {
@@ -523,9 +542,10 @@ class ClassifierService:
         """Reload the bird model (e.g., after switching models)."""
         with self._models_lock:
             if "bird" in self._models:
-                # Safely remove old model reference
+                # Cleanup old model resources before replacing
                 old_model = self._models.pop("bird")
-                # Allow old model to be garbage collected
+                if hasattr(old_model, 'cleanup'):
+                    old_model.cleanup()
                 del old_model
             self._init_bird_model()
         log.info("Reloaded bird model")
@@ -667,7 +687,10 @@ class ClassifierService:
 
     def reload_wildlife_model(self):
         if "wildlife" in self._models:
-            del self._models["wildlife"]
+            old_model = self._models.pop("wildlife")
+            if hasattr(old_model, 'cleanup'):
+                old_model.cleanup()
+            del old_model
             log.info("Cleared cached wildlife model instance")
         try:
             self._get_wildlife_model()
@@ -693,6 +716,7 @@ class ClassifierService:
             log.error("Bird model not loaded for video classification")
             return []
 
+        cap = None
         try:
             cap = cv2.VideoCapture(video_path)
             if not cap.isOpened():
@@ -701,10 +725,9 @@ class ClassifierService:
 
             total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
             fps = cap.get(cv2.CAP_PROP_FPS)
-            
+
             if total_frames <= 0:
                 log.warning("Video has no frames", path=video_path)
-                cap.release()
                 return []
 
             log.info("Analyzing video", frames=total_frames, fps=fps, max_samples=max_frames)
@@ -714,15 +737,15 @@ class ClassifierService:
             # mu = center of video, sigma = 1/4 of video length to cover ~95% of duration
             mu = total_frames / 2
             sigma = total_frames / 4
-            
+
             # Use a local RNG for deterministic sampling
             rng = np.random.RandomState(42)
-            
+
             # Generate more samples than needed then unique/sort to get high-quality distribution
             raw_indices = rng.normal(mu, sigma, max_frames * 2)
             frame_indices = np.clip(raw_indices, 0, total_frames - 1).astype(int)
             frame_indices = np.unique(np.sort(frame_indices))
-            
+
             # If we have too many after unique, take max_frames spread out
             if len(frame_indices) > max_frames:
                 # Sub-sample to exactly max_frames
@@ -763,8 +786,6 @@ class ClassifierService:
                             top_label=top_label
                         )
 
-            cap.release()
-
             if not all_scores:
                 log.warning("No frames processed from video")
                 return []
@@ -773,17 +794,17 @@ class ClassifierService:
             # This focuses on the 'best looks' the model got at the bird.
             processed_count = len(all_scores)
             scores_matrix = np.vstack(all_scores)
-            
+
             # Use top 5 frames (or all if fewer than 5)
             k = min(processed_count, 5)
-            
+
             # For each class, sort and take the average of the top K scores
             top_k_per_class = np.sort(scores_matrix, axis=0)[-k:]
             representative_scores = np.mean(top_k_per_class, axis=0)
 
             # Create standard classification list from representative scores
             top_indices = representative_scores.argsort()[-5:][::-1]
-            
+
             classifications = []
             for i in top_indices:
                 score = float(representative_scores[i])
@@ -793,16 +814,20 @@ class ClassifierService:
                     "score": score,
                     "label": label
                 })
-            
-            log.info(f"Video classification complete (Top-K). Analyzed {processed_count} frames.", 
+
+            log.info(f"Video classification complete (Top-K). Analyzed {processed_count} frames.",
                      top_result=classifications[0]['label'] if classifications else None,
                      top_score=round(classifications[0]['score'], 3))
-            
+
             return classifications
 
         except Exception as e:
             log.error("Error during video classification", error=str(e))
             return []
+        finally:
+            # Always release video capture to prevent memory leaks
+            if cap is not None:
+                cap.release()
 
     async def classify_video_async(self, video_path: str, stride: int = 5, max_frames: int = 15, progress_callback=None) -> list[dict]:
         """Async wrapper for video classification."""
