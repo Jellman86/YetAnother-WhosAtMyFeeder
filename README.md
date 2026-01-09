@@ -1,5 +1,8 @@
 # Yet Another WhosAtMyFeeder (YA-WAMF)
 
+> [!IMPORTANT]
+> **Upcoming Breaking Change (v2.5.0):** Container security is being improved. Containers will soon run as non-root (UID 1000) by default. This may require you to update your `docker-compose.yml` with a specific `user:` ID or adjust folder permissions. See the [dev branch](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/tree/dev) for the latest migration guide.
+
 A bird classification system that works with [Frigate NVR](https://frigate.video/) to identify the birds visiting your feeder.
 
 ![YA-WAMF Dashboard](dashboard-preview.png)
@@ -147,9 +150,6 @@ TZ=Europe/London
 **4. Make sure the external network exists:**
 
 The containers need to join the same Docker network as your Frigate/MQTT setup. Check your network name:
-
-> [!IMPORTANT]
-> **Upcoming Breaking Change (v2.5.0):** Container security is being improved. Containers will soon run as non-root (UID 1000) by default. This may require you to update your `docker-compose.yml` with a specific `user:` ID or adjust folder permissions. See the [dev branch](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/tree/dev) for the latest migration guide.
 
 ```bash
 docker network ls
