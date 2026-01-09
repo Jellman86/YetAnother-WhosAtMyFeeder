@@ -42,8 +42,8 @@ RUN pip install --no-cache /wheels/*
 
 # Create a non-root user and setup directories
 RUN useradd -m -u 1000 appuser && \
-    mkdir -p /app /data /app/data/models && \
-    chown -R appuser:appuser /app /data
+    mkdir -p /app /data /config /app/data/models && \
+    chown -R appuser:appuser /app /data /config
 
 COPY --chown=appuser:appuser . .
 
