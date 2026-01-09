@@ -148,6 +148,8 @@ TZ=Europe/London
 
 The containers need to join the same Docker network as your Frigate/MQTT setup. Check your network name:
 
+> **📢 Upgrading from v2.4.x or earlier?** Please see [MIGRATION.md](MIGRATION.md) for important information about container security changes (non-root users) and directory permissions.
+
 ```bash
 docker network ls
 ```

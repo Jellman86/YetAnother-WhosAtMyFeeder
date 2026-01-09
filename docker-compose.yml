@@ -15,13 +15,14 @@ name: YetAnother-WhosAtMyFeeder
 #-----------------------------------------------
 services:
   yawamf-backend:
-    # Use pre-built image OR build locally (uncomment build section for local development)
-    # image: ghcr.io/jellman86/wamf-backend:latest
-    build:
-      context: ./backend
-      args:
-        GIT_HASH: ${GIT_HASH:-unknown}
-        APP_VERSION_BASE: ${APP_VERSION_BASE:-2.3.1}
+    # Use pre-built image (recommended for production)
+    image: ghcr.io/jellman86/wamf-backend:latest
+    # OR build locally for development (uncomment below)
+    # build:
+    #   context: ./backend
+    #   args:
+    #     GIT_HASH: ${GIT_HASH:-unknown}
+    #     APP_VERSION_BASE: ${APP_VERSION_BASE:-2.3.1}
     container_name: yawamf-backend
     restart: unless-stopped
     networks:
@@ -47,13 +48,14 @@ services:
       retries: 3
 
   yawamf-frontend:
-    # Use pre-built image OR build locally (uncomment build section for local development)
-    # image: ghcr.io/jellman86/wamf-frontend:latest
-    build:
-      context: ./apps/ui
-      args:
-        GIT_HASH: ${GIT_HASH:-unknown}
-        APP_VERSION_BASE: ${APP_VERSION_BASE:-2.3.1}
+    # Use pre-built image (recommended for production)
+    image: ghcr.io/jellman86/wamf-frontend:latest
+    # OR build locally for development (uncomment below)
+    # build:
+    #   context: ./apps/ui
+    #   args:
+    #     GIT_HASH: ${GIT_HASH:-unknown}
+    #     APP_VERSION_BASE: ${APP_VERSION_BASE:-2.3.1}
     container_name: yawamf-frontend
     restart: unless-stopped
     networks:

@@ -1,5 +1,96 @@
 # Migration Guide
 
+## Upgrading from v2.4.x to v2.5.0+ (Container Security Changes)
+
+**Version 2.5.0 introduces important security improvements** - containers now run as non-root users instead of root.
+
+### What Changed
+
+- **Backend:** Now runs as UID 1000 (previously root/UID 0)
+- **Frontend:** Now runs as UID 1000 (previously root/UID 0)
+- **Impact:** Existing `config/` and `data/` directories may have permission issues
+
+### Migration Options
+
+Choose **ONE** of these options based on your setup:
+
+#### Option 1: Change Directory Ownership (Recommended for new deployments)
+
+Change your host directories to match the container user:
+
+```bash
+# Navigate to your YA-WAMF directory
+cd /path/to/ya-wamf
+
+# Change ownership to UID 1000
+sudo chown -R 1000:1000 config data
+
+# Restart containers
+docker-compose down && docker-compose pull && docker-compose up -d
+```
+
+**Pros:** Most secure, follows best practices
+**Cons:** Requires sudo access
+
+---
+
+#### Option 2: Use `user:` Override (Recommended for TrueNAS/existing setups)
+
+Keep your existing directory ownership and run containers as your user:
+
+```yaml
+# In your docker-compose.yml
+services:
+  yawamf-backend:
+    image: ghcr.io/jellman86/wamf-backend:latest
+    user: "568:568"  # Replace with your UID:GID
+    # ... rest of config
+
+  yawamf-frontend:
+    image: ghcr.io/jellman86/wamf-frontend:latest
+    # Frontend doesn't need user: override (no host volume writes)
+    # ... rest of config
+```
+
+**To find your UID/GID:**
+```bash
+# On Linux/TrueNAS
+stat -c "%u %g" config/
+# Or
+ls -lan | grep config
+```
+
+**Pros:** No directory ownership changes needed
+**Cons:** Overrides built-in security
+
+---
+
+#### Option 3: Make Directories World-Writable (Least secure)
+
+```bash
+cd /path/to/ya-wamf
+chmod -R 777 config data
+```
+
+**⚠️ Only use this for testing/troubleshooting**
+
+---
+
+### Verification
+
+After applying your chosen option, verify the containers start successfully:
+
+```bash
+docker logs yawamf-backend --tail 20
+docker logs yawamf-frontend --tail 20
+```
+
+You should see no permission errors.
+
+---
+
+## Migrating from WhosAtMyFeeder v1 to YA-WAMF v2
+
 If you are coming from the original `WhosAtMyFeeder` (v1), please note that **YA-WAMF (v2)** is a complete rewrite.
 
 ## Configuration Changes
