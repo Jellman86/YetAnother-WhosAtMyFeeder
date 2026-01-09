@@ -31,16 +31,69 @@ class MediaCacheService:
         SNAPSHOTS_DIR.mkdir(parents=True, exist_ok=True)
         CLIPS_DIR.mkdir(parents=True, exist_ok=True)
 
-    def _snapshot_path(self, event_id: str) -> Path:
-        """Get the path for a cached snapshot."""
-        # Sanitize event_id to prevent path traversal
+    def _sanitize_event_id(self, event_id: str) -> str:
+        """Sanitize event_id to prevent path traversal attacks.
+
+        Args:
+            event_id: Raw event ID from user input
+
+        Returns:
+            Sanitized event ID safe for filesystem use
+
+        Raises:
+            ValueError: If event_id is empty or invalid after sanitization
+        """
+        # Remove any path separators and parent directory references
+        # Only allow alphanumeric, dash, underscore, and dot
         safe_id = "".join(c for c in event_id if c.isalnum() or c in "-_.")
-        return SNAPSHOTS_DIR / f"{safe_id}.jpg"
+
+        # Reject empty strings and common traversal patterns
+        if not safe_id or safe_id in (".", ".."):
+            raise ValueError(f"Invalid event_id: {event_id}")
+
+        # Additional check: ensure no leading dots (hidden files)
+        if safe_id.startswith("."):
+            raise ValueError(f"Event ID cannot start with dot: {event_id}")
+
+        return safe_id
+
+    def _snapshot_path(self, event_id: str) -> Path:
+        """Get the path for a cached snapshot.
+
+        Raises:
+            ValueError: If event_id is invalid
+        """
+        safe_id = self._sanitize_event_id(event_id)
+        path = SNAPSHOTS_DIR / f"{safe_id}.jpg"
+
+        # Security: Verify path is within cache directory using resolve()
+        try:
+            resolved = path.resolve()
+            if not resolved.is_relative_to(SNAPSHOTS_DIR):
+                raise ValueError(f"Path traversal detected: {event_id}")
+        except (ValueError, OSError):
+            raise ValueError(f"Invalid snapshot path for event: {event_id}")
+
+        return path
 
     def _clip_path(self, event_id: str) -> Path:
-        """Get the path for a cached clip."""
-        safe_id = "".join(c for c in event_id if c.isalnum() or c in "-_.")
-        return CLIPS_DIR / f"{safe_id}.mp4"
+        """Get the path for a cached clip.
+
+        Raises:
+            ValueError: If event_id is invalid
+        """
+        safe_id = self._sanitize_event_id(event_id)
+        path = CLIPS_DIR / f"{safe_id}.mp4"
+
+        # Security: Verify path is within cache directory using resolve()
+        try:
+            resolved = path.resolve()
+            if not resolved.is_relative_to(CLIPS_DIR):
+                raise ValueError(f"Path traversal detected: {event_id}")
+        except (ValueError, OSError):
+            raise ValueError(f"Invalid clip path for event: {event_id}")
+
+        return path
 
     async def cache_snapshot(self, event_id: str, image_bytes: bytes) -> Optional[Path]:
         """Cache a snapshot image.
@@ -86,7 +139,11 @@ class MediaCacheService:
 
     def has_snapshot(self, event_id: str) -> bool:
         """Check if a snapshot is cached (sync version for quick checks)."""
-        return self._snapshot_path(event_id).exists()
+        try:
+            return self._snapshot_path(event_id).exists()
+        except ValueError:
+            # Invalid event_id
+            return False
 
     async def cache_clip(self, event_id: str, clip_bytes: bytes) -> Optional[Path]:
         """Cache a video clip.
@@ -184,8 +241,15 @@ class MediaCacheService:
 
     def has_clip(self, event_id: str) -> bool:
         """Check if a clip is cached and has content."""
-        path = self._clip_path(event_id)
-        return path.exists() and path.stat().st_size > 0
+        try:
+            path = self._clip_path(event_id)
+            return path.exists() and path.stat().st_size > 0
+        except ValueError:
+            # Invalid event_id
+            return False
+        except Exception:
+            # File access error
+            return False
 
     async def delete_cached_media(self, event_id: str):
         """Delete all cached media for an event.

@@ -1,16 +1,20 @@
-from fastapi import FastAPI, Depends, HTTPException, status, Security
+from fastapi import FastAPI, Depends, HTTPException, status, Security, Request
 from fastapi.security import APIKeyHeader, APIKeyQuery
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, Response
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 import structlog
 import asyncio
 import os
 import json
+import secrets
 from datetime import datetime, timedelta
 from contextlib import asynccontextmanager
 from prometheus_client import generate_latest, CONTENT_TYPE_LATEST, Counter
 
-from app.database import init_db, get_db
+from app.database import init_db, close_db, get_db
 from app.services.mqtt_service import mqtt_service
 from app.services.classifier_service import get_classifier
 from app.services.event_processor import EventProcessor
@@ -84,10 +88,15 @@ GIT_HASH = get_git_hash()
 APP_VERSION = f"{BASE_VERSION}+{GIT_HASH}"
 os.environ["APP_VERSION"] = APP_VERSION # Make available to other services
 
+# Rate limiting configuration
+# Use a more permissive rate limit: 100 requests per minute per IP
+limiter = Limiter(key_func=get_remote_address, default_limits=["100/minute"])
+
 # Metrics
 EVENTS_PROCESSED = Counter('events_processed_total', 'Total number of events processed')
 DETECTIONS_TOTAL = Counter('detections_total', 'Total number of bird detections')
 API_REQUESTS = Counter('api_requests_total', 'Total API requests')
+RATE_LIMIT_EXCEEDED = Counter('rate_limit_exceeded_total', 'Total rate limit violations')
 
 # Use shared classifier instance
 classifier_service = get_classifier()
@@ -184,11 +193,30 @@ async def lifespan(app: FastAPI):
             pass
     await telemetry_service.stop()
     await mqtt_service.stop()
+    await close_db()  # Close database connection pool
 
 app = FastAPI(title="Yet Another WhosAtMyFeeder API", version=APP_VERSION, lifespan=lifespan)
 
 # Setup structured logging
 log = structlog.get_logger()
+
+# Add rate limiter to app state
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# Custom rate limit exceeded handler with metrics
+@app.exception_handler(RateLimitExceeded)
+async def custom_rate_limit_handler(request: Request, exc: RateLimitExceeded):
+    RATE_LIMIT_EXCEEDED.inc()
+    log.warning("Rate limit exceeded",
+                ip=get_remote_address(request),
+                path=request.url.path)
+    return Response(
+        content='{"detail":"Rate limit exceeded. Please try again later."}',
+        status_code=429,
+        headers={"Retry-After": str(exc.detail)},
+        media_type="application/json"
+    )
 
 # CORS configuration - Note: wildcard origins cannot be used with credentials
 app.add_middleware(
