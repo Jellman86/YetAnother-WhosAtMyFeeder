@@ -34,8 +34,20 @@ FROM nginx:alpine
 # Install curl for health checks
 RUN apk add --no-cache curl
 
+# Create non-root user (UID 1000 to match backend, or use 568 for TrueNAS)
+RUN addgroup -g 1000 appuser && \
+    adduser -D -u 1000 -G appuser appuser
+
+# Set up permissions for nginx to run as non-root
+RUN chown -R appuser:appuser /usr/share/nginx/html /var/cache/nginx /var/run /var/log/nginx && \
+    chmod -R 755 /usr/share/nginx/html && \
+    touch /var/run/nginx.pid && \
+    chown appuser:appuser /var/run/nginx.pid
+
 COPY --from=builder /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+USER appuser
 
 EXPOSE 80
 
