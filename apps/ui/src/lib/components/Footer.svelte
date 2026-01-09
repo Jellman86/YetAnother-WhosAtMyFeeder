@@ -10,10 +10,16 @@
     });
     
     $effect(() => {
-        const info = await fetchVersion();
-        versionInfo = info;
-        // Show clean version - hide "+unknown" suffix if git hash isn't available
-        version = info.git_hash === "unknown" ? info.base_version : info.version;
+        (async () => {
+            try {
+                const info = await fetchVersion();
+                versionInfo = info;
+                // Show clean version - hide "+unknown" suffix if git hash isn't available
+                version = info.git_hash === "unknown" ? info.base_version : info.version;
+            } catch (e) {
+                console.error('Failed to fetch version info', e);
+            }
+        })();
     });
 
     // Bird facts - mix of real and funny
