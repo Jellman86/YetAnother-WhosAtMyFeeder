@@ -38,11 +38,13 @@ RUN apk add --no-cache curl
 RUN addgroup -g 1000 appuser && \
     adduser -D -u 1000 -G appuser appuser
 
-# Set up permissions for nginx to run as non-root
+# Set up permissions for nginx to run as non-root (any user)
+# Make cache directories writable by any user for compatibility with user: override in compose
 RUN chown -R appuser:appuser /usr/share/nginx/html /var/cache/nginx /var/run /var/log/nginx && \
+    chmod -R 777 /var/cache/nginx /var/run /var/log/nginx && \
     chmod -R 755 /usr/share/nginx/html && \
     touch /var/run/nginx.pid && \
-    chown appuser:appuser /var/run/nginx.pid
+    chmod 666 /var/run/nginx.pid
 
 COPY --from=builder /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
