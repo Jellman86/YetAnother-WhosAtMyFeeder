@@ -25,6 +25,7 @@ services:
     #     APP_VERSION_BASE: ${APP_VERSION_BASE:-2.3.1}
     container_name: yawamf-backend
     restart: unless-stopped
+    user: "${PUID:-1000}:${PGID:-1000}"
     networks:
       - yawamf_network
     volumes:
@@ -34,6 +35,8 @@ services:
       - "8946:8000"
     environment:
       - TZ=${TZ:-UTC}
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
       - FRIGATE__FRIGATE_URL=${FRIGATE_URL:-http://frigate:5000}
       - FRIGATE__FRIGATE_AUTH_TOKEN=${FRIGATE_AUTH_TOKEN:-}
       - FRIGATE__MQTT_SERVER=${MQTT_SERVER:-mqtt}
@@ -58,6 +61,7 @@ services:
     #     APP_VERSION_BASE: ${APP_VERSION_BASE:-2.3.1}
     container_name: yawamf-frontend
     restart: unless-stopped
+    user: "${PUID:-1000}:${PGID:-1000}"
     networks:
       - yawamf_network
     ports:

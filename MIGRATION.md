@@ -36,20 +36,12 @@ docker-compose down && docker-compose pull && docker-compose up -d
 
 #### Option 2: Use `user:` Override (Recommended for TrueNAS/existing setups)
 
-Keep your existing directory ownership and run containers as your user:
+Keep your existing directory ownership and run containers as your user. The updated `docker-compose.yml` uses `PUID` and `PGID` environment variables for this:
 
-```yaml
-# In your docker-compose.yml
-services:
-  yawamf-backend:
-    image: ghcr.io/jellman86/wamf-backend:latest
-    user: "568:568"  # Replace with your UID:GID
-    # ... rest of config
-
-  yawamf-frontend:
-    image: ghcr.io/jellman86/wamf-frontend:latest
-    # Frontend doesn't need user: override (no host volume writes)
-    # ... rest of config
+```bash
+# In your .env file
+PUID=568  # Replace with your UID
+PGID=568  # Replace with your GID
 ```
 
 **To find your UID/GID:**

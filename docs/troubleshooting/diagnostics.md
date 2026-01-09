@@ -32,6 +32,19 @@ docker exec yawamf-backend ping -c 1 mosquitto
 
 If these fail, verify that all services are on the same `DOCKER_NETWORK` in your `.env` file.
 
+## 🔒 Permission Issues
+If you see `PermissionError` in your backend logs or the container fails to start after an update:
+
+1.  **Check Ownership:** Ensure the `config` and `data` directories on your host are owned by the user running the containers (default UID 1000).
+    ```bash
+    sudo chown -R 1000:1000 config data
+    ```
+2.  **Verify .env:** Ensure `PUID` and `PGID` are set correctly in your `.env` file to match your host user.
+3.  **Docker Logs:** Check for explicit permission denied messages:
+    ```bash
+    docker logs yawamf-backend | grep "Permission denied"
+    ```
+
 ## 🖥 UI Issues
 If the dashboard is blank or buttons don't work:
 1.  **Clear Browser Cache:** Svelte 5 updates sometimes require a hard refresh (`Ctrl + F5`).
