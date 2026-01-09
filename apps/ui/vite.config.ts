@@ -6,6 +6,10 @@ import { join } from 'path'
 
 // Get base version from VERSION file
 function getBaseVersion(): string {
+    // Check environment variable first
+    if (process.env.APP_VERSION_BASE) {
+        return process.env.APP_VERSION_BASE;
+    }
     try {
         const versionFile = join(__dirname, '..', '..', 'VERSION');
         return readFileSync(versionFile, 'utf-8').trim();

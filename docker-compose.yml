@@ -21,6 +21,7 @@ services:
       context: ./backend
       args:
         GIT_HASH: ${GIT_HASH:-unknown}
+        APP_VERSION_BASE: ${APP_VERSION_BASE:-2.3.1}
     container_name: yawamf-backend
     restart: unless-stopped
     networks:
@@ -52,6 +53,7 @@ services:
       context: ./apps/ui
       args:
         GIT_HASH: ${GIT_HASH:-unknown}
+        APP_VERSION_BASE: ${APP_VERSION_BASE:-2.3.1}
     container_name: yawamf-frontend
     restart: unless-stopped
     networks:

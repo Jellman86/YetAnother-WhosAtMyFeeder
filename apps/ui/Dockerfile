@@ -3,9 +3,11 @@ FROM node:20 as builder
 
 WORKDIR /app
 
-# Git hash for version tracking (passed at build time)
+# Version info passed at build time
 ARG GIT_HASH=unknown
+ARG APP_VERSION_BASE=2.2.0
 ENV GIT_HASH=${GIT_HASH}
+ENV APP_VERSION_BASE=${APP_VERSION_BASE}
 
 # Copy package files
 COPY package.json package-lock.json ./

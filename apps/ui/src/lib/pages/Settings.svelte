@@ -107,7 +107,11 @@
     let testingNotification = $state<Record<string, boolean>>({});
 
     // Version Info
-    let versionInfo = $state<VersionInfo>({ version: "2.2.0", base_version: "2.2.0", git_hash: "unknown" });
+    let versionInfo = $state<VersionInfo>({ 
+        version: __APP_VERSION__, 
+        base_version: __APP_VERSION__.split('+')[0], 
+        git_hash: __GIT_HASH__ 
+    });
 
     let availableCameras = $state<string[]>([]);
     let camerasLoading = $state(false);

@@ -51,7 +51,11 @@ async def verify_api_key(
 
 # Version management
 def get_base_version() -> str:
-    """Read base version from VERSION file."""
+    """Read base version from VERSION file or environment."""
+    # Check environment variable first
+    if os.environ.get("APP_VERSION_BASE"):
+        return os.environ.get("APP_VERSION_BASE")
+
     version_file = os.path.join(os.path.dirname(__file__), '..', '..', 'VERSION')
     try:
         with open(version_file, 'r') as f:

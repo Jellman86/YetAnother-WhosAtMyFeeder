@@ -22,9 +22,11 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-# Git hash for version tracking (passed at build time)
+# Version info passed at build time
 ARG GIT_HASH=unknown
+ARG APP_VERSION_BASE=2.2.0
 ENV GIT_HASH=${GIT_HASH}
+ENV APP_VERSION_BASE=${APP_VERSION_BASE}
 
 # Install runtime libs for opencv/tflite
 RUN apt-get update && apt-get install -y --no-install-recommends \
