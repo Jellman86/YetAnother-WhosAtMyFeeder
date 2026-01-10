@@ -7,7 +7,7 @@ function createLayoutStore() {
         ? localStorage.getItem('layout') as Layout | null
         : null) || 'horizontal';
 
-    const { subscribe, set } = writable<Layout>(stored);
+    const { subscribe, set, update } = writable<Layout>(stored);
 
     return {
         subscribe,
@@ -18,11 +18,13 @@ function createLayoutStore() {
             set(value);
         },
         toggle: () => {
-            const newLayout: Layout = stored === 'horizontal' ? 'vertical' : 'horizontal';
-            if (typeof localStorage !== 'undefined') {
-                localStorage.setItem('layout', newLayout);
-            }
-            set(newLayout);
+            update(current => {
+                const newLayout: Layout = current === 'horizontal' ? 'vertical' : 'horizontal';
+                if (typeof localStorage !== 'undefined') {
+                    localStorage.setItem('layout', newLayout);
+                }
+                return newLayout;
+            });
         },
     };
 }
