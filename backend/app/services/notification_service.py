@@ -2,7 +2,7 @@ import structlog
 import asyncio
 import httpx
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, Any
 
 from app.config import settings
@@ -118,7 +118,11 @@ class NotificationService:
         description = f"**Camera:** {camera}\n**Confidence:** {confidence:.0%}"
         if audio_confirmed:
             description += "\n🎤 **Audio Confirmed**"
-        
+
+        # Ensure timestamp is timezone-aware for Discord
+        if timestamp.tzinfo is None:
+            timestamp = timestamp.replace(tzinfo=timezone.utc)
+
         embed = {
             "title": title,
             "description": description,
