@@ -31,6 +31,7 @@
         type VersionInfo
     } from '../api';
     import { theme, type Theme } from '../stores/theme';
+    import { layout, type Layout } from '../stores/layout';
     import { settingsStore } from '../stores/settings.svelte';
     import ModelManager from './models/ModelManager.svelte';
     import SettingsTabs from '../components/settings/SettingsTabs.svelte';
@@ -125,6 +126,7 @@
     let testingBirdNET = $state(false);
     let message = $state<{ type: 'success' | 'error'; text: string } | null>(null);
     let currentTheme: Theme = $state('system');
+    let currentLayout: Layout = $state('horizontal');
 
     // Dirty state check
     let isDirty = $derived.by(() => {
@@ -225,6 +227,7 @@
     let activeTab = $state('connection');
 
     theme.subscribe(t => currentTheme = t);
+    layout.subscribe(l => currentLayout = l);
 
     onMount(async () => {
         await Promise.all([
@@ -621,6 +624,10 @@
 
     function setTheme(t: Theme) {
         theme.set(t);
+    }
+
+    function setLayout(l: Layout) {
+        layout.set(l);
     }
 
     function addBlockedLabel() {
@@ -1453,7 +1460,7 @@
                         <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">Theme & Look</h3>
                     </div>
 
-                    <div class="grid grid-cols-3 gap-4">
+                    <div class="grid grid-cols-3 gap-4 mb-8">
                         {#each [
                             { value: 'light', label: 'Light', icon: '☀️' },
                             { value: 'dark', label: 'Dark', icon: '🌙' },
@@ -1470,6 +1477,36 @@
                                 <span class="text-xs font-black uppercase tracking-widest">{opt.label}</span>
                             </button>
                         {/each}
+                    </div>
+
+                    <div class="pt-6 border-t border-slate-100 dark:border-slate-700/50">
+                        <div class="flex items-center gap-3 mb-6">
+                            <div class="w-8 h-8 rounded-xl bg-purple-500/10 flex items-center justify-center text-purple-600 dark:text-purple-400">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" /></svg>
+                            </div>
+                            <h4 class="text-lg font-black text-slate-900 dark:text-white tracking-tight">Navigation Layout</h4>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-4">
+                            {#each [
+                                { value: 'horizontal', label: 'Horizontal', icon: '⬌', desc: 'Top navigation bar' },
+                                { value: 'vertical', label: 'Vertical', icon: '⇕', desc: 'Left sidebar (collapsible)' }
+                            ] as opt}
+                                <button
+                                    onclick={() => setLayout(opt.value as Layout)}
+                                    class="flex flex-col items-start gap-2 p-5 rounded-2xl border-2 transition-all text-left
+                                           {currentLayout === opt.value
+                                               ? 'bg-purple-500 border-purple-500 text-white shadow-xl shadow-purple-500/20'
+                                               : 'bg-white dark:bg-slate-900/50 border-slate-100 dark:border-slate-700/50 text-slate-500 hover:border-purple-500/30'}"
+                                >
+                                    <span class="text-2xl">{opt.icon}</span>
+                                    <div>
+                                        <div class="text-sm font-black uppercase tracking-widest {currentLayout === opt.value ? 'text-white' : 'text-slate-900 dark:text-white'}">{opt.label}</div>
+                                        <div class="text-xs font-medium mt-1 {currentLayout === opt.value ? 'text-white/80' : 'text-slate-400'}">{opt.desc}</div>
+                                    </div>
+                                </button>
+                            {/each}
+                        </div>
                     </div>
                 </section>
 
