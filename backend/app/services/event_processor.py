@@ -1,7 +1,7 @@
 import json
 import asyncio
 import structlog
-from datetime import datetime
+from datetime import datetime, timezone
 from io import BytesIO
 from PIL import Image
 from typing import Optional, Dict, Any, Tuple
@@ -31,7 +31,8 @@ class EventData:
         self.frigate_score: Optional[float] = after.get('top_score')
         if self.frigate_score is None and 'data' in after:
             self.frigate_score = after['data'].get('top_score')
-        self.detection_dt: datetime = datetime.fromtimestamp(self.start_time_ts)
+        # Create timezone-aware datetime (Frigate timestamps are in UTC)
+        self.detection_dt: datetime = datetime.fromtimestamp(self.start_time_ts, tz=timezone.utc)
 
 
 class EventProcessor:
