@@ -414,23 +414,27 @@ async def reclassify_event(
             
         new_score = top['score']
 
-        # Update if species changed OR if score improved significantly
+        # 1. Re-normalize taxonomy for the new classification
+        taxonomy = await taxonomy_service.get_names(new_species)
+
+        sci_name = taxonomy.get("scientific_name") or new_species
+        com_name = taxonomy.get("common_name")
+        t_id = taxonomy.get("taxa_id")
+
+        # 2. ALWAYS re-correlate audio on reclassification (even if species unchanged)
+        # This fixes stale audio data from previous incorrect classifications
+        audio_confirmed, audio_species, audio_score = await audio_service.correlate_species(
+            target_time=detection.detection_time,
+            species_name=sci_name,  # Use scientific name for matching
+            camera_name=detection.camera_name
+        )
+
+        # Update if species changed OR if score improved significantly OR if audio changed
         updated = False
-        if new_species != old_species or abs(new_score - detection.score) > 0.01:
-            # 1. Re-normalize taxonomy for the new classification
-            taxonomy = await taxonomy_service.get_names(new_species)
+        audio_changed = (audio_confirmed != detection.audio_confirmed or
+                        audio_species != detection.audio_species)
 
-            sci_name = taxonomy.get("scientific_name") or new_species
-            com_name = taxonomy.get("common_name")
-            t_id = taxonomy.get("taxa_id")
-
-            # 2. Re-correlate audio with the new species
-            audio_confirmed, audio_species, audio_score = await audio_service.correlate_species(
-                target_time=detection.detection_time,
-                species_name=sci_name,  # Use scientific name for matching
-                camera_name=detection.camera_name
-            )
-
+        if new_species != old_species or abs(new_score - detection.score) > 0.01 or audio_changed:
             # 3. Update DB with new classification AND re-correlated audio data
             await db.execute("""
                 UPDATE detections
@@ -444,16 +448,21 @@ async def reclassify_event(
                   event_id))
             await db.commit()
             updated = True
-            
-            log.info("Reclassified detection",
-                     event_id=event_id,
-                     old_species=old_species,
-                     new_species=new_species,
-                     scientific=sci_name,
-                     new_score=new_score,
-                     strategy=effective_strategy,
-                     audio_confirmed=audio_confirmed,
-                     audio_species=audio_species)
+
+        # Log reclassification result (even if not updated in DB)
+        log.info("Reclassified detection",
+                 event_id=event_id,
+                 old_species=old_species,
+                 new_species=new_species,
+                 scientific=sci_name,
+                 new_score=new_score,
+                 old_score=detection.score,
+                 strategy=effective_strategy,
+                 audio_confirmed=audio_confirmed,
+                 audio_species=audio_species,
+                 db_updated=updated)
+
+        if updated:
 
             # 4. Broadcast full updated metadata with re-correlated audio
             await broadcaster.broadcast({
