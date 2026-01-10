@@ -3,6 +3,7 @@
   import Header from './lib/components/Header.svelte';
   import Footer from './lib/components/Footer.svelte';
   import TelemetryBanner from './lib/components/TelemetryBanner.svelte';
+  import Toast from './lib/components/Toast.svelte';
   import Dashboard from './lib/pages/Dashboard.svelte';
   import Events from './lib/pages/Events.svelte';
   import Species from './lib/pages/Species.svelte';
@@ -307,4 +308,7 @@
 
       <Footer />
   {/if}
+
+  <!-- Toast Notifications -->
+  <Toast />
 </div>

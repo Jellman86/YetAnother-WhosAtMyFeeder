@@ -586,6 +586,7 @@ export interface ReclassifyResult {
     new_species: string;
     new_score: number;
     updated: boolean;
+    actual_strategy?: "snapshot" | "video";
 }
 
 export interface UpdateDetectionResult {

@@ -3,6 +3,7 @@
     import {
         fetchSpeciesStats,
         fetchSpeciesInfo,
+        reclassifyDetection,
         type SpeciesStats,
         type SpeciesInfo,
         type Detection,
@@ -10,6 +11,7 @@
     } from '../api';
     import { getBirdNames } from '../naming';
     import { settingsStore } from '../stores/settings.svelte';
+    import { toastStore } from '../stores/toast.svelte';
     import SimpleBarChart from './SimpleBarChart.svelte';
     import VideoPlayer from './VideoPlayer.svelte';
 
@@ -28,10 +30,14 @@
     let info = $state<SpeciesInfo | null>(null);
     let loading = $state(true);
     let error = $state<string | null>(null);
+    let isUnknownBird = $state(false);
 
     // Video playback state
     let showVideo = $state(false);
     let selectedSighting = $state<Detection | null>(null);
+
+    // Reclassification state
+    let reclassifying = $state(false);
 
     let showCommon = $state(true);
     let preferSci = $state(false);
@@ -66,16 +72,24 @@
     let subName = $derived(naming.secondary);
 
     onMount(async () => {
+        // Check if this is an unknown bird detection
+        isUnknownBird = speciesName === "Unknown Bird";
+
         try {
-            const [statsData, infoData] = await Promise.all([
-                fetchSpeciesStats(speciesName),
-                fetchSpeciesInfo(speciesName)
-            ]);
+            // Always fetch stats
+            const statsData = await fetchSpeciesStats(speciesName);
             stats = statsData;
-            info = infoData;
+
+            // Only fetch Wikipedia info for identified species
+            if (!isUnknownBird) {
+                const infoData = await fetchSpeciesInfo(speciesName);
+                info = infoData;
+            }
         } catch (e: any) {
             console.error('Failed to load species details', e);
-            error = e.message || 'Failed to load species details';
+            if (!isUnknownBird) {
+                error = e.message || 'Failed to load species details';
+            }
         } finally {
             loading = false;
         }
@@ -108,6 +122,34 @@
     function handleKeydown(e: KeyboardEvent) {
         if (e.key === 'Escape') {
             onclose();
+        }
+    }
+
+    async function handleReclassify(strategy: 'snapshot' | 'video') {
+        // Get the most recent sighting for reclassification
+        const recentSighting = stats?.recent_sightings?.[0];
+        if (!recentSighting || reclassifying) return;
+
+        reclassifying = true;
+        try {
+            const result = await reclassifyDetection(recentSighting.frigate_event, strategy);
+
+            // Check if backend used a different strategy (fallback occurred)
+            if (result.actual_strategy && result.actual_strategy !== strategy) {
+                toastStore.warning(`⚠️ Video not available - snapshot used instead`);
+            }
+
+            toastStore.success(`Reclassification complete: ${result.new_species} (${(result.new_score * 100).toFixed(0)}%)`);
+
+            // Close modal after successful reclassification
+            setTimeout(() => {
+                onclose();
+            }, 2000);
+        } catch (e: any) {
+            console.error('Failed to reclassify', e);
+            toastStore.error(`Failed to reclassify: ${e.message || 'Unknown error'}`);
+        } finally {
+            reclassifying = false;
         }
     }
 </script>
@@ -207,6 +249,60 @@
                                 {/if}
                                 {#if info.description}
                                     <p class="text-sm text-white/90 mt-1 drop-shadow">{info.description}</p>
+                                {/if}
+                            </div>
+                        </div>
+                    </section>
+                {/if}
+
+                <!-- Unknown Bird Message and Reclassify Options -->
+                {#if isUnknownBird}
+                    <section class="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-6 border-2 border-amber-200 dark:border-amber-800">
+                        <div class="flex items-start gap-4">
+                            <!-- Icon -->
+                            <div class="flex-shrink-0 w-12 h-12 rounded-full bg-amber-500 flex items-center justify-center">
+                                <span class="text-2xl text-white">?</span>
+                            </div>
+
+                            <!-- Content -->
+                            <div class="flex-1">
+                                <h3 class="text-xl font-bold text-amber-900 dark:text-amber-100 mb-2">
+                                    Unidentified Detection
+                                </h3>
+                                <p class="text-sm text-amber-800 dark:text-amber-200 mb-4">
+                                    This detection has low confidence and was marked as "Unknown Bird". You can reclassify it using snapshot or video analysis to identify the species.
+                                </p>
+
+                                <!-- Reclassify Buttons -->
+                                <div class="flex flex-wrap gap-3">
+                                    <button
+                                        onclick={() => handleReclassify('snapshot')}
+                                        disabled={reclassifying || !stats?.recent_sightings?.[0]}
+                                        class="px-4 py-2 bg-teal-600 hover:bg-teal-700 disabled:bg-slate-400 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-colors shadow-md flex items-center gap-2"
+                                    >
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                        </svg>
+                                        {reclassifying ? 'Reclassifying...' : 'Reclassify from Snapshot'}
+                                    </button>
+
+                                    <button
+                                        onclick={() => handleReclassify('video')}
+                                        disabled={reclassifying || !stats?.recent_sightings?.[0]?.has_clip || !stats?.recent_sightings?.[0]}
+                                        class="px-4 py-2 bg-brand-600 hover:bg-brand-700 disabled:bg-slate-400 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-colors shadow-md flex items-center gap-2"
+                                        title={!stats?.recent_sightings?.[0]?.has_clip ? 'Video clip not available' : ''}
+                                    >
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                        </svg>
+                                        {reclassifying ? 'Reclassifying...' : 'Reclassify from Video'}
+                                    </button>
+                                </div>
+
+                                {#if !stats?.recent_sightings?.[0]}
+                                    <p class="text-xs text-amber-700 dark:text-amber-300 mt-2 italic">
+                                        No recent sightings available for reclassification
+                                    </p>
                                 {/if}
                             </div>
                         </div>

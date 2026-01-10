@@ -17,6 +17,7 @@
     } from '../api';
     import { detectionsStore } from '../stores/detections.svelte';
     import { settingsStore } from '../stores/settings.svelte';
+    import { toastStore } from '../stores/toast.svelte';
     import Pagination from '../components/Pagination.svelte';
     import DetectionCard from '../components/DetectionCard.svelte';
     import SpeciesDetailModal from '../components/SpeciesDetailModal.svelte';
@@ -143,10 +144,17 @@
 
     async function handleReclassify() {
         if (!selectedEvent) return;
-        try { 
-            await reclassifyDetection(selectedEvent.frigate_event, selectedEvent.has_clip ? 'video' : 'snapshot'); 
-        } catch (e: any) { 
+        const requestedStrategy = selectedEvent.has_clip ? 'video' : 'snapshot';
+        try {
+            const result = await reclassifyDetection(selectedEvent.frigate_event, requestedStrategy);
+
+            // Check if backend used a different strategy (fallback occurred)
+            if (result.actual_strategy && result.actual_strategy !== requestedStrategy) {
+                toastStore.warning(`⚠️ Video not available - snapshot used instead`);
+            }
+        } catch (e: any) {
             console.error('Failed to start reclassification', e.message);
+            toastStore.error(`Failed to reclassify: ${e.message || 'Unknown error'}`);
         }
     }
 

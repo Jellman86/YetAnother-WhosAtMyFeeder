@@ -266,6 +266,7 @@ class ReclassifyResponse(BaseModel):
     new_species: str
     new_score: float
     updated: bool
+    actual_strategy: Literal["snapshot", "video"]
 
 
 @router.post("/events/{event_id}/reclassify", response_model=ReclassifyResponse)
@@ -469,7 +470,8 @@ async def reclassify_event(
             old_species=old_species,
             new_species=new_species,
             new_score=new_score,
-            updated=updated
+            updated=updated,
+            actual_strategy=effective_strategy
         )
 
 

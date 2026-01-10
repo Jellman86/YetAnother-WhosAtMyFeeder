@@ -152,8 +152,14 @@
                 <button
                     type="button"
                     onclick={() => selectedSpecies = topSpecies.species}
-                    class="text-left bg-white/80 dark:bg-slate-800/50 rounded-2xl border border-slate-200/80 dark:border-slate-700/50 p-5 shadow-card dark:shadow-card-dark backdrop-blur-sm transition-all duration-300 hover:shadow-card-hover dark:hover:shadow-card-dark-hover hover:border-teal-300 dark:hover:border-teal-600"
+                    class="text-left bg-white/80 dark:bg-slate-800/50 rounded-2xl border border-slate-200/80 dark:border-slate-700/50 p-5 shadow-card dark:shadow-card-dark backdrop-blur-sm transition-all duration-300 hover:shadow-card-hover dark:hover:shadow-card-dark-hover hover:border-teal-300 dark:hover:border-teal-600 relative"
+                    title={topSpecies.species === "Unknown Bird" ? "Unidentified detection - click to review and reclassify" : ""}
                 >
+                    {#if topSpecies.species === "Unknown Bird"}
+                        <div class="absolute top-2 right-2 bg-amber-500 text-white rounded-full w-7 h-7 flex items-center justify-center text-xs font-black shadow-md" title="Needs Review">
+                            ?
+                        </div>
+                    {/if}
                     <div class="flex items-center gap-3">
                         <span class="text-3xl">{getMedal(index)}</span>
                         <div class="flex-1 min-w-0">
@@ -188,7 +194,8 @@
                     <button
                         type="button"
                         onclick={() => selectedSpecies = item.species}
-                        class="w-full text-left p-4 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors"
+                        class="w-full text-left p-4 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors relative"
+                        title={item.species === "Unknown Bird" ? "Unidentified detection - click to review and reclassify" : ""}
                     >
                         <div class="flex items-center gap-4">
                             <!-- Rank -->
@@ -205,8 +212,11 @@
                             <!-- Species Info -->
                             <div class="flex-1 min-w-0">
                                 <div class="flex items-center justify-between mb-0.5">
-                                    <span class="font-medium text-slate-900 dark:text-white truncate">
+                                    <span class="font-medium text-slate-900 dark:text-white truncate flex items-center gap-2">
                                         {item.displayName}
+                                        {#if item.species === "Unknown Bird"}
+                                            <span class="inline-flex items-center justify-center bg-amber-500 text-white rounded-full w-5 h-5 text-[10px] font-black" title="Needs Review">?</span>
+                                        {/if}
                                     </span>
                                     <span class="text-sm font-semibold text-slate-600 dark:text-slate-300 ml-2">
                                         {item.count.toLocaleString()}
