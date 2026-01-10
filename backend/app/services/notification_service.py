@@ -138,8 +138,16 @@ class NotificationService:
         try:
             resp = await self.client.post(settings.notifications.discord.webhook_url, json=payload)
             resp.raise_for_status()
+        except httpx.HTTPStatusError as e:
+            # Log the response body for debugging
+            log.error("Discord notification failed",
+                     error=str(e),
+                     status_code=e.response.status_code,
+                     response_body=e.response.text,
+                     payload=payload)
+            raise
         except Exception as e:
-            log.error("Discord notification failed", error=str(e))
+            log.error("Discord notification failed", error=str(e), payload=payload)
             raise
 
     async def _send_pushover(
