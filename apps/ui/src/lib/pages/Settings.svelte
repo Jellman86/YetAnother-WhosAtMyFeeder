@@ -43,6 +43,8 @@
     let mqttPassword = $state('');
     let audioTopic = $state('birdnet/text');
     let cameraAudioMapping = $state<Record<string, string>>({});
+    let audioBufferHours = $state(24);
+    let audioCorrelationWindowSeconds = $state(300);
     let clipsEnabled = $state(true);
     let threshold = $state(0.7);
     let minConfidence = $state(0.4);
@@ -137,6 +139,8 @@
             { key: 'mqttUsername', val: mqttUsername, store: s.mqtt_username || '' },
             { key: 'mqttPassword', val: mqttPassword, store: s.mqtt_password || '' },
             { key: 'audioTopic', val: audioTopic, store: s.audio_topic || 'birdnet/text' },
+            { key: 'audioBufferHours', val: audioBufferHours, store: s.audio_buffer_hours ?? 24 },
+            { key: 'audioCorrelationWindowSeconds', val: audioCorrelationWindowSeconds, store: s.audio_correlation_window_seconds ?? 300 },
             { key: 'birdnetEnabled', val: birdnetEnabled, store: s.birdnet_enabled ?? true },
             { key: 'clipsEnabled', val: clipsEnabled, store: s.clips_enabled ?? true },
             { key: 'threshold', val: threshold, store: s.classification_threshold },
@@ -397,6 +401,8 @@
             if (typeof cameraAudioMapping !== 'object' || Array.isArray(cameraAudioMapping)) {
                 cameraAudioMapping = {};
             }
+            audioBufferHours = settings.audio_buffer_hours ?? 24;
+            audioCorrelationWindowSeconds = settings.audio_correlation_window_seconds ?? 300;
             clipsEnabled = settings.clips_enabled ?? true;
             threshold = settings.classification_threshold;
             minConfidence = settings.classification_min_confidence ?? 0.4;
@@ -486,6 +492,8 @@
                 birdnet_enabled: birdnetEnabled,
                 audio_topic: audioTopic,
                 camera_audio_mapping: cameraAudioMapping,
+                audio_buffer_hours: audioBufferHours,
+                audio_correlation_window_seconds: audioCorrelationWindowSeconds,
                 clips_enabled: clipsEnabled,
                 classification_threshold: threshold,
                 classification_min_confidence: minConfidence,
@@ -1032,6 +1040,19 @@
                             <div>
                                 <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">MQTT Topic</label>
                                 <input type="text" bind:value={audioTopic} placeholder="birdnet/text" class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-teal-500 outline-none" />
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Audio Buffer (Hours)</label>
+                                    <input type="number" bind:value={audioBufferHours} min="1" max="168" class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-teal-500 outline-none" />
+                                    <p class="mt-1 text-[10px] text-slate-400 font-bold italic">How long to keep audio detections for correlation (1-168 hours)</p>
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Match Window (Seconds)</label>
+                                    <input type="number" bind:value={audioCorrelationWindowSeconds} min="5" max="3600" class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-teal-500 outline-none" />
+                                    <p class="mt-1 text-[10px] text-slate-400 font-bold italic">Time window for matching audio with visual (±5-3600 seconds)</p>
+                                </div>
                             </div>
 
                             <button onclick={handleTestBirdNET} disabled={testingBirdNET} class="w-full px-4 py-3 text-xs font-black uppercase tracking-widest rounded-2xl bg-amber-500 hover:bg-amber-600 text-white transition-all shadow-lg shadow-amber-500/20 disabled:opacity-50">
