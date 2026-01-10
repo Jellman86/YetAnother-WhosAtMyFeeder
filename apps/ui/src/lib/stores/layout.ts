@@ -28,3 +28,33 @@ function createLayoutStore() {
 }
 
 export const layout = createLayoutStore();
+
+// Sidebar collapsed state
+function createSidebarStore() {
+    const storedCollapsed = typeof localStorage !== 'undefined'
+        ? localStorage.getItem('sidebarCollapsed') === 'true'
+        : false;
+
+    const { subscribe, set, update } = writable<boolean>(storedCollapsed);
+
+    return {
+        subscribe,
+        set: (value: boolean) => {
+            if (typeof localStorage !== 'undefined') {
+                localStorage.setItem('sidebarCollapsed', String(value));
+            }
+            set(value);
+        },
+        toggle: () => {
+            update(current => {
+                const newValue = !current;
+                if (typeof localStorage !== 'undefined') {
+                    localStorage.setItem('sidebarCollapsed', String(newValue));
+                }
+                return newValue;
+            });
+        },
+    };
+}
+
+export const sidebarCollapsed = createSidebarStore();

@@ -1,5 +1,6 @@
 <script lang="ts">
     import { theme, isDark } from '../stores/theme';
+    import { sidebarCollapsed } from '../stores/layout';
 
     let { currentRoute, onNavigate, status } = $props<{
         currentRoute: string;
@@ -8,6 +9,9 @@
     }>();
 
     let collapsed = $state(false);
+    sidebarCollapsed.subscribe(value => {
+        collapsed = value;
+    });
 
     const navItems = [
         { path: '/', label: 'Dashboard', icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6' },
@@ -54,7 +58,7 @@
 
         <button
             class="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-all duration-200 focus-ring {collapsed ? 'ml-0' : ''}"
-            onclick={() => collapsed = !collapsed}
+            onclick={() => sidebarCollapsed.toggle()}
             title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
             {#if collapsed}

@@ -12,15 +12,21 @@
   import Login from './lib/components/Login.svelte';
   import { fetchEvents, fetchEventsCount, type Detection, setAuthErrorCallback } from './lib/api';
   import { theme } from './lib/stores/theme';
-  import { layout } from './lib/stores/layout';
+  import { layout, sidebarCollapsed } from './lib/stores/layout';
   import { settingsStore } from './lib/stores/settings.svelte';
   import { detectionsStore } from './lib/stores/detections.svelte';
   import { authStore } from './lib/stores/auth.svelte';
 
   // Track current layout
   let currentLayout = $state<'horizontal' | 'vertical'>('horizontal');
+  let isSidebarCollapsed = $state(false);
+
   layout.subscribe(value => {
       currentLayout = value;
+  });
+
+  sidebarCollapsed.subscribe(value => {
+      isSidebarCollapsed = value;
   });
 
 
@@ -333,7 +339,7 @@
       <TelemetryBanner />
 
       <!-- Main Content -->
-      <main class="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full {currentLayout === 'vertical' ? 'ml-64' : ''}">
+      <main class="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full transition-all duration-300 {currentLayout === 'vertical' ? (isSidebarCollapsed ? 'ml-20' : 'ml-64') : ''}">
           {#if currentRoute === '/'} 
               <Dashboard onnavigate={navigate} />
           {:else if currentRoute.startsWith('/events')}
