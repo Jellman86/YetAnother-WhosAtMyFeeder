@@ -17,12 +17,16 @@ class AudioDetection:
     raw_data: dict
 
 class AudioService:
-    def __init__(self, buffer_minutes: int = 1440):  # 24 hours = 1440 minutes
+    def __init__(self):
         # Store recent audio detections in memory for correlation
         self._buffer: Deque[AudioDetection] = deque()
+        # Get buffer duration from settings (convert hours to minutes)
+        buffer_minutes = settings.frigate.audio_buffer_hours * 60
         self._buffer_duration = timedelta(minutes=buffer_minutes)
         self._lock = asyncio.Lock()
-        log.info("AudioService initialized", buffer_duration_hours=buffer_minutes/60)
+        log.info("AudioService initialized",
+                 buffer_duration_hours=settings.frigate.audio_buffer_hours,
+                 correlation_window_seconds=settings.frigate.audio_correlation_window_seconds)
 
     async def add_detection(self, data: dict):
         """Ingest a detection from MQTT."""
@@ -106,14 +110,16 @@ class AudioService:
         if removed_count > 0:
             log.info("Cleaned up audio buffer", removed=removed_count, remaining=len(self._buffer))
 
-    async def find_match(self, target_time: datetime, camera_name: str = None, window_seconds: int = 15) -> Optional[AudioDetection]:
+    async def find_match(self, target_time: datetime, camera_name: str = None, window_seconds: int = None) -> Optional[AudioDetection]:
         """Find an audio detection matching the visual timestamp and camera.
 
         Args:
             target_time: Timestamp of the visual detection
             camera_name: Name of the Frigate camera (used for mapping)
-            window_seconds: Match window in seconds
+            window_seconds: Match window in seconds (defaults to settings value)
         """
+        if window_seconds is None:
+            window_seconds = settings.frigate.audio_correlation_window_seconds
         async with self._lock:
             self._cleanup_buffer() # Clean before matching
 
@@ -152,7 +158,7 @@ class AudioService:
         target_time: datetime,
         species_name: str,
         camera_name: str = None,
-        window_seconds: int = 15
+        window_seconds: int = None
     ) -> tuple[bool, Optional[str], Optional[float]]:
         """Check if a specific species has audio confirmation at target time.
 
@@ -162,13 +168,15 @@ class AudioService:
             target_time: Timestamp of the visual detection
             species_name: Scientific or common name to match against
             camera_name: Name of the Frigate camera (used for mapping)
-            window_seconds: Match window in seconds
+            window_seconds: Match window in seconds (defaults to settings value)
 
         Returns:
             Tuple of (audio_confirmed, audio_species, audio_score)
             - If match found: (True, matched_species_name, confidence)
             - If no match: (False, None, None)
         """
+        if window_seconds is None:
+            window_seconds = settings.frigate.audio_correlation_window_seconds
         async with self._lock:
             self._cleanup_buffer()
 
@@ -215,12 +223,15 @@ class AudioService:
                          species=species_name,
                          audio_species=best_match.species,
                          confidence=best_match.confidence,
-                         time_delta_sec=abs((best_match.timestamp - target_time).total_seconds()))
+                         time_delta_sec=abs((best_match.timestamp - target_time).total_seconds()),
+                         window_seconds=window_seconds)
                 return (True, best_match.species, best_match.confidence)
             else:
                 log.debug("No audio correlation found",
                           species=species_name,
-                          target_time=target_time.isoformat())
+                          target_time=target_time.isoformat(),
+                          window_seconds=window_seconds,
+                          buffer_size=len(self._buffer))
                 return (False, None, None)
 
     async def get_recent_detections(self, limit: int = 10) -> list[dict]:
