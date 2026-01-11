@@ -20,7 +20,7 @@ export default {
                 },
                 // Nature-inspired background colors
                 surface: {
-                    light: '#f1f5f4', // Light sage gray for better contrast
+                    light: '#f8fafc', // Cleaner, brighter slate-50
                     dark: '#020617',
                 },
             },
@@ -67,8 +67,8 @@ export default {
             boxShadow: {
                 'glow': '0 0 20px rgba(20, 184, 166, 0.3)',
                 'glow-lg': '0 0 30px rgba(20, 184, 166, 0.4)',
-                'card': '0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.1)',
-                'card-hover': '0 10px 40px rgba(0, 0, 0, 0.12), 0 4px 12px rgba(0, 0, 0, 0.08)',
+                'card': '0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03)', // Stronger base shadow
+                'card-hover': '0 20px 25px -5px rgba(20, 184, 166, 0.1), 0 10px 10px -5px rgba(20, 184, 166, 0.04)', // Teal tinted lift
                 'card-dark': '0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2)',
                 'card-dark-hover': '0 10px 40px rgba(0, 0, 0, 0.4), 0 4px 12px rgba(0, 0, 0, 0.3)',
             },
