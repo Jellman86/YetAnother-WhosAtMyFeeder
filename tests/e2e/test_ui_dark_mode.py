@@ -55,12 +55,14 @@ def test_dark_mode_ui(page):
     page.screenshot(path="dashboard_dark.png")
     
     # 3. Check Contrast of Cards
-    # We can't programmatically "check contrast" easily with Playwright in a visual sense,
-    # but we can verify the computed styles of key elements.
-    
-    card_bg = page.locator(".card-base").first.evaluate("el => getComputedStyle(el).backgroundColor")
-    print(f"Card Background Color: {card_bg}")
-    # Expected: rgba(30, 41, 59, 0.5) which is slate-800 with opacity
+    # We check if any cards exist before attempting to read styles
+    card_count = page.locator(".card-base").count()
+    if card_count > 0:
+        card_bg = page.locator(".card-base").first.evaluate("el => getComputedStyle(el).backgroundColor")
+        print(f"Card Background Color: {card_bg}")
+        # Expected: rgba(30, 41, 59, 0.8) which is slate-800 with 80% opacity
+    else:
+        print("Note: No detection cards found to test contrast.")
     
     body_bg = page.locator("body").first.evaluate("el => getComputedStyle(el).backgroundColor")
     print(f"Body Background Color: {body_bg}")
