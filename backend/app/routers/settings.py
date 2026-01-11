@@ -402,7 +402,7 @@ async def update_settings(update: SettingsUpdate, background_tasks: BackgroundTa
     if settings.telemetry.enabled:
         background_tasks.add_task(telemetry_service.force_heartbeat)
 
-    settings.save()
+    await settings.save()
     return {"status": "updated"}
 
 @router.get("/maintenance/stats")

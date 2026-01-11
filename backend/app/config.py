@@ -144,9 +144,10 @@ class Settings(BaseSettings):
     
     model_config = SettingsConfigDict(env_nested_delimiter='__', env_file='.env', extra='ignore')
 
-    def save(self):
-        with open(CONFIG_PATH, 'w') as f:
-            f.write(self.model_dump_json(indent=2))
+    async def save(self):
+        import aiofiles
+        async with aiofiles.open(CONFIG_PATH, 'w') as f:
+            await f.write(self.model_dump_json(indent=2))
             
     @classmethod
     def load(cls):
