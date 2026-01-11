@@ -83,6 +83,44 @@
     let llmApiKey = $state('');
     let llmModel = $state('gemini-2.0-flash-exp');
 
+    // Available models per provider
+    const modelsByProvider = {
+        gemini: [
+            { value: 'gemini-2.0-flash-exp', label: 'Gemini 2.0 Flash (Experimental)' },
+            { value: 'gemini-1.5-pro', label: 'Gemini 1.5 Pro' },
+            { value: 'gemini-1.5-flash', label: 'Gemini 1.5 Flash' },
+            { value: 'gemini-1.5-flash-8b', label: 'Gemini 1.5 Flash-8B' }
+        ],
+        openai: [
+            { value: 'gpt-4o', label: 'GPT-4o' },
+            { value: 'gpt-4o-mini', label: 'GPT-4o Mini' },
+            { value: 'gpt-4-turbo', label: 'GPT-4 Turbo' },
+            { value: 'gpt-4', label: 'GPT-4' }
+        ],
+        claude: [
+            { value: 'claude-3-5-sonnet-20241022', label: 'Claude 3.5 Sonnet (Latest)' },
+            { value: 'claude-3-5-haiku-20241022', label: 'Claude 3.5 Haiku' },
+            { value: 'claude-3-opus-20240229', label: 'Claude 3 Opus' },
+            { value: 'claude-3-sonnet-20240229', label: 'Claude 3 Sonnet' },
+            { value: 'claude-3-haiku-20240307', label: 'Claude 3 Haiku' }
+        ]
+    };
+
+    // Get models for current provider
+    let availableModels = $derived(modelsByProvider[llmProvider as keyof typeof modelsByProvider] || []);
+
+    // Update model to first available when provider changes
+    $effect(() => {
+        const models = modelsByProvider[llmProvider as keyof typeof modelsByProvider];
+        if (models && models.length > 0) {
+            // Check if current model is valid for new provider
+            const isValidModel = models.some(m => m.value === llmModel);
+            if (!isValidModel) {
+                llmModel = models[0].value;
+            }
+        }
+    });
+
     // Telemetry
     let telemetryEnabled = $state(false);
     let telemetryInstallationId = $state<string | undefined>(undefined);
@@ -1124,7 +1162,7 @@
                         <div class="space-y-6">
                             <div class="grid grid-cols-2 gap-4">
                                 <div><label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Provider</label><select bind:value={llmProvider} class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"><option value="gemini">Google Gemini</option><option value="openai">OpenAI</option><option value="claude">Anthropic Claude</option></select></div>
-                                <div><label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Model</label><input type="text" bind:value={llmModel} class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm" /></div>
+                                <div><label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Model</label><select bind:value={llmModel} class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm">{#each availableModels as model}<option value={model.value}>{model.label}</option>{/each}</select></div>
                             </div>
                             <div>
                                 <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">API Key</label>
