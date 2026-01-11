@@ -43,7 +43,7 @@
         {
             icon: '🧠',
             title: 'AI Naturalist Insights',
-            description: 'Get behavioral analysis of your visitors using Gemini or OpenAI language models'
+            description: 'Get behavioral analysis of your visitors using Gemini, OpenAI, or Claude language models'
         },
         {
             icon: '🏷️',

@@ -1123,7 +1123,7 @@
 
                         <div class="space-y-6">
                             <div class="grid grid-cols-2 gap-4">
-                                <div><label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Provider</label><select bind:value={llmProvider} class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"><option value="gemini">Google Gemini</option><option value="openai">OpenAI</option></select></div>
+                                <div><label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Provider</label><select bind:value={llmProvider} class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"><option value="gemini">Google Gemini</option><option value="openai">OpenAI</option><option value="claude">Anthropic Claude</option></select></div>
                                 <div><label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Model</label><input type="text" bind:value={llmModel} class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm" /></div>
                             </div>
                             <div>

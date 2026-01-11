@@ -253,7 +253,9 @@
                     <p class="text-[10px] font-black text-teal-600 dark:text-teal-400 uppercase tracking-[0.2em] mb-2">
                         AI Naturalist Insight
                     </p>
-                    <p class="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">{aiAnalysis}</p>
+                    <div class="max-h-48 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-teal-500/20 scrollbar-track-transparent">
+                        <p class="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">{aiAnalysis}</p>
+                    </div>
                 </div>
             {:else if llmEnabled && !analyzingAI}
                 <button

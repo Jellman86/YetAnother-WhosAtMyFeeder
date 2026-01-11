@@ -87,7 +87,7 @@ class BirdWeatherSettings(BaseModel):
 
 class LLMSettings(BaseModel):
     enabled: bool = Field(default=False, description="Enable LLM integration")
-    provider: str = Field(default="gemini", description="AI provider (gemini, openai)")
+    provider: str = Field(default="gemini", description="AI provider (gemini, openai, claude)")
     api_key: Optional[str] = Field(default=None, description="API Key for the provider")
     model: str = Field(default="gemini-2.0-flash-exp", description="Model name to use")
 
