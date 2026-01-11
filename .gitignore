@@ -192,6 +192,8 @@ GEMINI.md
 agents/
 
 # Models and data
+data/
+*.db
 backend/data/*.db
 backend/data/models/**/*.onnx.data
 backend/data/models/**/*.tflite
