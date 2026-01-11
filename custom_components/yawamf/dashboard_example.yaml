@@ -1,0 +1,53 @@
+# YA-WAMF Home Assistant Dashboard Example
+# Copy this YAML into a new "Manual" card in your Lovelace dashboard
+# or use it as a starting point for a new view.
+
+type: vertical-stack
+cards:
+  # 1. Main Visual: Latest Detection Snapshot
+  - type: picture-entity
+    entity: camera.latest_bird_snapshot
+    name: Latest Visitor
+    camera_view: live
+    show_state: false
+    show_name: true
+
+  # 2. Key Stats: Species and Count
+  - type: grid
+    columns: 2
+    square: false
+    cards:
+      - type: entity
+        entity: sensor.last_bird_detected
+        name: Species
+      - type: entity
+        entity: sensor.daily_bird_count
+        name: Birds Today
+
+  # 3. Detailed Metadata (Using Markdown for a "Naturalist" look)
+  - type: markdown
+    title: Detection Details
+    content: >
+      {% set sensor = 'sensor.last_bird_detected' %}
+      {% if states(sensor) != 'unknown' %}
+        **Species:** {{ states(sensor) }}
+        
+        **Confidence:** {{ (state_attr(sensor, 'score') | float * 100) | round(1) }}%
+        
+        **Camera:** {{ state_attr(sensor, 'camera') }}
+        
+        **Time:** {{ as_timestamp(state_attr(sensor, 'timestamp')) | timestamp_custom('%H:%M:%S') }}
+        
+        **Temp:** {{ state_attr(sensor, 'temperature') }}°C
+        
+        **Weather:** {{ state_attr(sensor, 'weather') }}
+      {% else %}
+        No detections yet today.
+      {% endif %}
+
+  # 4. History Graph
+  - type: history-graph
+    entities:
+      - entity: sensor.daily_bird_count
+    hours_to_show: 24
+    refresh_interval: 0
