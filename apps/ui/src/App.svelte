@@ -319,7 +319,7 @@
                                   <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-400 opacity-75"></span>
                                   <span class="relative inline-flex rounded-full h-2 w-2 bg-teal-500"></span>
                               </span>
-                              <span class="text-[10px] font-bold text-teal-600 dark:text-teal-400 uppercase tracking-tight">Listening</span>
+                              <span class="text-[10px] font-bold text-teal-600 dark:text-teal-400 uppercase tracking-tight">Audio Active</span>
                           </div>
                       {/if}
 
@@ -329,10 +329,10 @@
                                   <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                                   <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.8)]"></span>
                               </span>
-                              <span class="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-tight">Live</span>
+                              <span class="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-tight">System Online</span>
                           {:else}
                               <span class="w-2.5 h-2.5 rounded-full bg-red-500"></span>
-                              <span class="text-[10px] font-bold text-red-600 uppercase tracking-tight">Offline</span>
+                              <span class="text-[10px] font-bold text-red-600 uppercase tracking-tight">System Offline</span>
                           {/if}
                       </div>
                   </div>
@@ -348,7 +348,7 @@
                                   <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-400 opacity-75"></span>
                                   <span class="relative inline-flex rounded-full h-2 w-2 bg-teal-500"></span>
                               </span>
-                              <span class="text-[10px] font-bold text-teal-600 dark:text-teal-400 uppercase tracking-tight">Listening</span>
+                              <span class="text-[10px] font-bold text-teal-600 dark:text-teal-400 uppercase tracking-tight">Audio Active</span>
                           </div>
                       {/if}
 
@@ -358,10 +358,10 @@
                                   <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                                   <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.8)]"></span>
                               </span>
-                              <span class="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-tight">Live</span>
+                              <span class="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-tight">System Online</span>
                           {:else}
                               <span class="w-2.5 h-2.5 rounded-full bg-red-500"></span>
-                              <span class="text-[10px] font-bold text-red-600 uppercase tracking-tight">Offline</span>
+                              <span class="text-[10px] font-bold text-red-600 uppercase tracking-tight">System Offline</span>
                           {/if}
                       </div>
                   </div>
