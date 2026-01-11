@@ -23,7 +23,7 @@ class DetectionService:
         self.broadcaster = broadcaster
 
     def filter_and_label(self, classification: dict, frigate_event: str,
-                         frigate_sub_label: str = None) -> tuple[dict | None, str | None]:
+                         frigate_sub_label: str = None, frigate_score: float = None) -> tuple[dict | None, str | None]:
         """
         Apply filtering and relabeling rules to a classification result.
         Returns (result_dict, reason_code).
@@ -62,15 +62,20 @@ class DetectionService:
 
         # Classification failed primary threshold - check if we can fall back to Frigate sublabel
         if settings.classification.trust_frigate_sublabel and frigate_sub_label:
+            # Use Frigate score if available, otherwise boost current score to threshold to ensure visibility
+            # but usually Frigate score is reliable.
+            final_score = frigate_score if (frigate_score and frigate_score > 0) else max(score, settings.classification.threshold)
+            
             # Frigate sublabel exists - use it as fallback regardless of confidence
             log.info("Using Frigate sublabel as fallback",
                      frigate_label=frigate_sub_label,
                      yawamf_label=original_label,
                      yawamf_score=score,
+                     final_score=final_score,
                      event_id=frigate_event)
             return {
                 'label': frigate_sub_label,
-                'score': score,  # Keep original score for reference
+                'score': final_score,
                 'index': top.get('index', -1),
                 'source': 'frigate_fallback'
             }, "frigate_fallback"
