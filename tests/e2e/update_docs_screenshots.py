@@ -15,10 +15,11 @@ def update_screenshots():
             print("Connected to Playwright service.")
             
             # --- Desktop Screenshots ---
-            print("Capturing Desktop Screenshots...")
+            print("Capturing Desktop Screenshots (Dark Mode)...")
             context_desktop = browser.new_context(
                 viewport={"width": 1400, "height": 900},
-                device_scale_factor=2  # High DPI for crisp screenshots
+                device_scale_factor=2,  # High DPI for crisp screenshots
+                color_scheme='dark'
             )
             page = context_desktop.new_page()
             
@@ -54,11 +55,12 @@ def update_screenshots():
             context_desktop.close()
             
             # --- Mobile Screenshots ---
-            print("Capturing Mobile Screenshots...")
+            print("Capturing Mobile Screenshots (Dark Mode)...")
             context_mobile = browser.new_context(
                 viewport={"width": 390, "height": 844},
                 device_scale_factor=3,
-                user_agent="Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.0 Mobile/15E148 Safari/604.1"
+                user_agent="Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.0 Mobile/15E148 Safari/604.1",
+                color_scheme='dark'
             )
             mobile_page = context_mobile.new_page()
             

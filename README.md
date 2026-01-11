@@ -98,6 +98,7 @@ Here's the flow from bird to identification:
 5. **Classification runs** - Otherwise, the image goes through a local model (TFLite or ONNX) trained on bird species.
 6. **Results stored & Notified** - The detection is saved, and notifications (Discord/Telegram/Pushover) are fired immediately.
 7. **Deep Analysis** - If enabled, a background task waits for the video clip to finalize, then scans it frame-by-frame to refine the ID.
+   ![Event Details with Deep Analysis](docs/images/event_details_modal.png)
 8. **Dashboard updates** - The frontend gets real-time updates via Server-Sent Events (SSE).
 
 ## Getting Started with Docker Compose
