@@ -60,11 +60,11 @@ html {
 /* Smooth card transitions */
 @layer components {
   .card-base {
-    @apply bg-white dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-700/50 shadow-card hover:shadow-card-hover dark:shadow-card-dark backdrop-blur-sm transition-all duration-300;
+    @apply bg-white dark:bg-slate-800/80 rounded-2xl border border-slate-100 dark:border-slate-700/60 shadow-card hover:shadow-card-hover dark:shadow-card-dark backdrop-blur-sm transition-all duration-300;
   }
 
   .card-base:hover {
-    @apply dark:shadow-card-dark-hover border-teal-500/30 dark:border-teal-500/30 -translate-y-0.5;
+    @apply dark:shadow-card-dark-hover border-teal-500/30 dark:border-teal-500/40 -translate-y-0.5;
   }
 
   /* Rich card with enhanced glassmorphism and gradient effects */

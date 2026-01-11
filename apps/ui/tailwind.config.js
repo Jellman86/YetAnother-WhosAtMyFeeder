@@ -69,8 +69,8 @@ export default {
                 'glow-lg': '0 0 30px rgba(20, 184, 166, 0.4)',
                 'card': '0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03)', // Stronger base shadow
                 'card-hover': '0 20px 25px -5px rgba(20, 184, 166, 0.1), 0 10px 10px -5px rgba(20, 184, 166, 0.04)', // Teal tinted lift
-                'card-dark': '0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2)',
-                'card-dark-hover': '0 10px 40px rgba(0, 0, 0, 0.4), 0 4px 12px rgba(0, 0, 0, 0.3)',
+                'card-dark': '0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -1px rgba(0, 0, 0, 0.3)', // Deeper shadow for dark mode
+                'card-dark-hover': '0 20px 25px -5px rgba(0, 0, 0, 0.6), 0 0 15px rgba(20, 184, 166, 0.15)', // Shadow + Subtle Teal Glow
             },
             backgroundImage: {
                 'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
