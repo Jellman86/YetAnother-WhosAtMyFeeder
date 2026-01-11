@@ -1406,16 +1406,28 @@
                             {/if}
                         </div>
 
-                        {#if taxonomyStatus && (taxonomyStatus.is_running || taxonomyStatus.total > 0)}
-                            <div class="mb-6 space-y-3">
-                                <div class="flex justify-between text-[10px] font-black uppercase tracking-widest">
-                                    <span class="text-slate-400">{taxonomyStatus.current_item || 'Repairing Database'}</span>
-                                    <span class="text-teal-500">{taxonomyStatus.processed} / {taxonomyStatus.total}</span>
+                        {#if taxonomyStatus}
+                            {#if taxonomyStatus.is_running}
+                                <div class="mb-6 space-y-3">
+                                    <div class="flex justify-between text-[10px] font-black uppercase tracking-widest">
+                                        <span class="text-slate-400">{taxonomyStatus.current_item || 'Repairing Database'}</span>
+                                        <span class="text-teal-500">{taxonomyStatus.processed} / {taxonomyStatus.total}</span>
+                                    </div>
+                                    <div class="w-full h-3 bg-slate-100 dark:bg-slate-900 rounded-full overflow-hidden border border-slate-200 dark:border-slate-700">
+                                        <div class="h-full bg-gradient-to-r from-teal-500 to-emerald-400 transition-all duration-1000 ease-out" style="width: {(taxonomyStatus.processed / (taxonomyStatus.total || 1)) * 100}%"></div>
+                                    </div>
                                 </div>
-                                <div class="w-full h-3 bg-slate-100 dark:bg-slate-900 rounded-full overflow-hidden border border-slate-200 dark:border-slate-700">
-                                    <div class="h-full bg-gradient-to-r from-teal-500 to-emerald-400 transition-all duration-1000 ease-out" style="width: {(taxonomyStatus.processed / (taxonomyStatus.total || 1)) * 100}%"></div>
+                            {:else if taxonomyStatus.current_item}
+                                <div class="mb-6 p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/30 border border-slate-100 dark:border-slate-700/50 flex items-center gap-3">
+                                    {#if taxonomyStatus.error}
+                                        <div class="w-2 h-2 rounded-full bg-red-500"></div>
+                                        <p class="text-xs font-bold text-red-500">{taxonomyStatus.error}</p>
+                                    {:else}
+                                        <div class="w-2 h-2 rounded-full bg-emerald-500"></div>
+                                        <p class="text-xs font-bold text-slate-600 dark:text-slate-300">{taxonomyStatus.current_item}</p>
+                                    {/if}
                                 </div>
-                            </div>
+                            {/if}
                         {/if}
 
                         <button onclick={handleStartTaxonomySync} disabled={taxonomyStatus?.is_running || syncingTaxonomy} class="w-full px-4 py-4 text-xs font-black uppercase tracking-widest rounded-2xl bg-teal-500 hover:bg-teal-600 text-white transition-all shadow-lg shadow-teal-500/20 flex items-center justify-center gap-3">

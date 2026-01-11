@@ -174,6 +174,11 @@ class TaxonomyService:
                 self._sync_status["total"] = len(unique_names)
                 log.info("Starting taxonomy background sync", unique_species=len(unique_names))
 
+                if not unique_names:
+                    self._sync_status["current_item"] = "Database Healthy: No missing taxonomy found"
+                    self._sync_status["is_running"] = False
+                    return
+
                 for name in unique_names:
                     self._sync_status["current_item"] = name
                     
