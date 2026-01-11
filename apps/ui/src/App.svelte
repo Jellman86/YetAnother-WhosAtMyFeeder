@@ -372,20 +372,22 @@
       <!-- Telemetry Banner (shown on first visit if telemetry disabled) -->
       <TelemetryBanner />
 
-      <!-- Main Content -->
-      <main class="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full transition-all duration-300 {currentLayout === 'vertical' ? (isSidebarCollapsed ? 'md:ml-20' : 'md:ml-64') : ''}">
-          {#if currentRoute === '/'}
-              <Dashboard onnavigate={navigate} />
-          {:else if currentRoute.startsWith('/events')}
-              <Events />
-          {:else if currentRoute.startsWith('/species')}
-              <Species />
-          {:else if currentRoute.startsWith('/settings')}
-               <Settings />
-          {:else if currentRoute.startsWith('/about')}
-               <About />
-          {/if}
-      </main>
+      <!-- Main Content Wrapper -->
+      <div class="flex-1 flex flex-col transition-all duration-300 {currentLayout === 'vertical' ? (isSidebarCollapsed ? 'md:pl-20' : 'md:pl-64') : ''}">
+          <main class="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+              {#if currentRoute === '/'}
+                  <Dashboard onnavigate={navigate} />
+              {:else if currentRoute.startsWith('/events')}
+                  <Events />
+              {:else if currentRoute.startsWith('/species')}
+                  <Species />
+              {:else if currentRoute.startsWith('/settings')}
+                   <Settings />
+              {:else if currentRoute.startsWith('/about')}
+                   <About />
+              {/if}
+          </main>
+      </div>
 
       <Footer />
   {/if}
