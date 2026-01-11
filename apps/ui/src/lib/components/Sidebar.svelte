@@ -2,9 +2,11 @@
     import { theme, isDark } from '../stores/theme';
     import { sidebarCollapsed } from '../stores/layout';
 
-    let { currentRoute, onNavigate, status } = $props<{
+    let { currentRoute, onNavigate, mobileSidebarOpen = false, onMobileClose, status } = $props<{
         currentRoute: string;
         onNavigate: (path: string) => void;
+        mobileSidebarOpen?: boolean;
+        onMobileClose?: () => void;
         status?: import('svelte').Snippet;
     }>();
 
@@ -22,10 +24,27 @@
 
     function handleNavClick(path: string) {
         onNavigate(path);
+        // Close mobile sidebar after navigation
+        if (onMobileClose) {
+            onMobileClose();
+        }
     }
 </script>
 
-<aside class="fixed left-0 top-0 h-full bg-white/90 dark:bg-slate-900/90 shadow-lg border-r border-slate-200/80 dark:border-slate-700/50 backdrop-blur-xl transition-all duration-300 z-50 flex flex-col {collapsed ? 'w-20' : 'w-64'}">
+<!-- Mobile backdrop overlay -->
+{#if mobileSidebarOpen}
+    <div
+        role="button"
+        tabindex="0"
+        class="fixed inset-0 bg-black/50 z-40 md:hidden transition-opacity duration-300"
+        onclick={onMobileClose}
+        onkeydown={(e) => e.key === 'Enter' || e.key === 'Escape' ? onMobileClose?.() : null}
+        aria-label="Close menu"
+    ></div>
+{/if}
+
+<aside class="fixed left-0 top-0 h-full bg-white/90 dark:bg-slate-900/90 shadow-lg border-r border-slate-200/80 dark:border-slate-700/50 backdrop-blur-xl transition-all duration-300 flex flex-col {collapsed ? 'w-20' : 'w-64'}
+    {mobileSidebarOpen ? 'translate-x-0 z-50' : '-translate-x-full md:translate-x-0 z-50'}">
     <!-- Logo and Collapse Button -->
     <div class="flex items-center justify-between p-4 border-b border-slate-200/80 dark:border-slate-700/50 h-16">
         {#if !collapsed}
