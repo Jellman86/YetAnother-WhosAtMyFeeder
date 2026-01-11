@@ -527,8 +527,8 @@ async def update_event(event_id: str, request: UpdateDetectionRequest):
                 "species": new_species
             }
 
-        # 1. Get taxonomy for the new species
-        taxonomy = await taxonomy_service.get_names(new_species)
+        # 1. Get taxonomy for the new species (Force refresh to fix potential bad cache)
+        taxonomy = await taxonomy_service.get_names(new_species, force_refresh=True)
         sci_name = taxonomy.get("scientific_name") or new_species
         com_name = taxonomy.get("common_name")
         t_id = taxonomy.get("taxa_id")

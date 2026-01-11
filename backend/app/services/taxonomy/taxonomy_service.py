@@ -36,25 +36,26 @@ class TaxonomyService:
     def get_sync_status(self) -> dict:
         return self._sync_status
 
-    async def get_names(self, query_name: str, db: Optional[aiosqlite.Connection] = None) -> Dict[str, Optional[str]]:
+    async def get_names(self, query_name: str, db: Optional[aiosqlite.Connection] = None, force_refresh: bool = False) -> Dict[str, Optional[str]]:
         """
         Get both scientific and common names for a given name.
         Checks local cache first, then pings iNaturalist.
         """
-        # 1. Check Cache
-        cached = await self._get_from_cache(query_name, db=db)
-        if cached:
-            # If we previously found nothing, return the original name as scientific
-            if cached.get("is_not_found"):
-                return {
-                    "scientific_name": query_name,
-                    "common_name": None,
-                    "taxa_id": None
-                }
-            return cached
+        # 1. Check Cache (skip if forcing refresh)
+        if not force_refresh:
+            cached = await self._get_from_cache(query_name, db=db)
+            if cached:
+                # If we previously found nothing, return the original name as scientific
+                if cached.get("is_not_found"):
+                    return {
+                        "scientific_name": query_name,
+                        "common_name": None,
+                        "taxa_id": None
+                    }
+                return cached
 
         # 2. Lookup from iNaturalist
-        log.info("Taxonomy lookup (iNaturalist)", query=query_name)
+        log.info("Taxonomy lookup (iNaturalist)", query=query_name, force_refresh=force_refresh)
         result = await self._lookup_inaturalist(query_name)
         
         if result:
