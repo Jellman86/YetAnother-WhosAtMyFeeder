@@ -5,7 +5,7 @@ export type Layout = 'horizontal' | 'vertical';
 function createLayoutStore() {
     const stored = (typeof localStorage !== 'undefined'
         ? localStorage.getItem('layout') as Layout | null
-        : null) || 'horizontal';
+        : null) || 'vertical';
 
     const { subscribe, set, update } = writable<Layout>(stored);
 
