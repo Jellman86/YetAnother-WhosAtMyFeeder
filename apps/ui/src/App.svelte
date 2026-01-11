@@ -9,6 +9,7 @@
   import Events from './lib/pages/Events.svelte';
   import Species from './lib/pages/Species.svelte';
   import Settings from './lib/pages/Settings.svelte';
+  import About from './lib/pages/About.svelte';
   import Login from './lib/components/Login.svelte';
   import { fetchEvents, fetchEventsCount, type Detection, setAuthErrorCallback } from './lib/api';
   import { theme } from './lib/stores/theme';
@@ -373,7 +374,7 @@
 
       <!-- Main Content -->
       <main class="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full transition-all duration-300 {currentLayout === 'vertical' ? (isSidebarCollapsed ? 'md:ml-20' : 'md:ml-64') : ''}">
-          {#if currentRoute === '/'} 
+          {#if currentRoute === '/'}
               <Dashboard onnavigate={navigate} />
           {:else if currentRoute.startsWith('/events')}
               <Events />
@@ -381,6 +382,8 @@
               <Species />
           {:else if currentRoute.startsWith('/settings')}
                <Settings />
+          {:else if currentRoute.startsWith('/about')}
+               <About />
           {/if}
       </main>
 
