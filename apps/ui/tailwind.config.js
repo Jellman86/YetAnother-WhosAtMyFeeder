@@ -20,7 +20,7 @@ export default {
                 },
                 // Nature-inspired background colors
                 surface: {
-                    light: '#f8fafc', // Cleaner, brighter slate-50
+                    light: '#f1f5f9', // Slate-100: slightly darker than white to make cards pop
                     dark: '#020617',
                 },
             },
@@ -67,10 +67,10 @@ export default {
             boxShadow: {
                 'glow': '0 0 20px rgba(20, 184, 166, 0.3)',
                 'glow-lg': '0 0 30px rgba(20, 184, 166, 0.4)',
-                'card': '0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03)', // Stronger base shadow
-                'card-hover': '0 20px 25px -5px rgba(20, 184, 166, 0.1), 0 10px 10px -5px rgba(20, 184, 166, 0.04)', // Teal tinted lift
-                'card-dark': '0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -1px rgba(0, 0, 0, 0.3)', // Deeper shadow for dark mode
-                'card-dark-hover': '0 20px 25px -5px rgba(0, 0, 0, 0.6), 0 0 15px rgba(20, 184, 166, 0.15)', // Shadow + Subtle Teal Glow
+                'card': '0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.04)', // Much stronger lift
+                'card-hover': '0 20px 25px -5px rgba(20, 184, 166, 0.15), 0 8px 10px -6px rgba(20, 184, 166, 0.1)', // Stronger teal lift
+                'card-dark': '0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -1px rgba(0, 0, 0, 0.3)',
+                'card-dark-hover': '0 20px 25px -5px rgba(0, 0, 0, 0.6), 0 0 15px rgba(20, 184, 166, 0.15)',
             },
             backgroundImage: {
                 'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
