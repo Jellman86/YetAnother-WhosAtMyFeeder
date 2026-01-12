@@ -13,6 +13,7 @@ services:
     image: ghcr.io/jellman86/wamf-backend:latest
     container_name: yawamf-backend
     restart: unless-stopped
+    user: "${PUID:-1000}:${PGID:-1000}"
     networks:
       - bird_network
     volumes:
@@ -20,6 +21,8 @@ services:
       - ./data:/data            # Stores database and AI models
     environment:
       - TZ=Europe/London
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
       - FRIGATE__FRIGATE_URL=http://frigate:5000
       - FRIGATE__MQTT_SERVER=mosquitto
       - FRIGATE__MQTT_PORT=1883
@@ -31,6 +34,7 @@ services:
     image: ghcr.io/jellman86/wamf-frontend:latest
     container_name: yawamf-frontend
     restart: unless-stopped
+    user: "${PUID:-1000}:${PGID:-1000}"
     networks:
       - bird_network
     ports:

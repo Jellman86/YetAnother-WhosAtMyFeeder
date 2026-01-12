@@ -30,6 +30,7 @@ nano .env
 - `DOCKER_NETWORK`: The name of the Docker network Frigate is using.
 - `FRIGATE_URL`: The full URL to your Frigate instance (e.g., `http://192.168.1.10:5000`).
 - `MQTT_SERVER`: Your broker's hostname or IP.
+- `PUID` & `PGID`: Your host user's UID and GID (run `id` to find them). This ensures the container has permission to write to your `config/` and `data/` folders.
 
 ### 3. Launch
 Start the containers in detached mode:
@@ -59,3 +60,5 @@ YA-WAMF uses two volumes for data:
 - `/data`: Stores the SQLite database and downloaded ML models.
 
 Ensure these are mapped to persistent storage in your `docker-compose.yml` to avoid data loss during updates.
+
+> 🔒 **Permissions Note:** From v2.5.0+, containers run as non-root (UID 1000). Ensure your host `config` and `data` directories are owned by this user, or use the `PUID`/`PGID` variables in your `.env` to match your host user. See [MIGRATION.md](../../MIGRATION.md) for details.

@@ -45,13 +45,13 @@
             </div>
             <div>
                 <h3 class="text-lg font-black text-slate-900 dark:text-white tracking-tight">Recent Audio</h3>
-                <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Live from BirdNET-Go</p>
+                <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Real-time Audio Feed</p>
             </div>
         </div>
         {#if !loading && audioDetections.length > 0}
             <div class="flex items-center gap-1.5 px-2 py-1 rounded-full bg-emerald-500/10 text-emerald-600 animate-pulse">
                 <div class="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
-                <span class="text-[9px] font-black uppercase tracking-wider">Listening</span>
+                <span class="text-[9px] font-black uppercase tracking-wider">Active</span>
             </div>
         {/if}
     </div>

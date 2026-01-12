@@ -1,7 +1,7 @@
 import json
 import asyncio
 import structlog
-from datetime import datetime
+from datetime import datetime, timezone
 from io import BytesIO
 from PIL import Image
 from typing import Optional, Dict, Any, Tuple
@@ -31,7 +31,8 @@ class EventData:
         self.frigate_score: Optional[float] = after.get('top_score')
         if self.frigate_score is None and 'data' in after:
             self.frigate_score = after['data'].get('top_score')
-        self.detection_dt: datetime = datetime.fromtimestamp(self.start_time_ts)
+        # Create timezone-aware datetime (Frigate timestamps are in UTC)
+        self.detection_dt: datetime = datetime.fromtimestamp(self.start_time_ts, tz=timezone.utc)
 
 
 class EventProcessor:
@@ -66,7 +67,7 @@ class EventProcessor:
 
             # Step 3: Filter and label the top result
             top, _ = self.detection_service.filter_and_label(
-                results[0], event.frigate_event, event.sub_label
+                results[0], event.frigate_event, event.sub_label, event.frigate_score
             )
             if not top:
                 return
@@ -215,13 +216,17 @@ class EventProcessor:
         # Logic 1: Confirmation - audio matches visual
         if audio_species.lower() == visual_label.lower():
             classification['audio_confirmed'] = True
-            log.info("Audio confirmed visual detection", species=visual_label)
+            # Boost score if audio is more confident
+            if audio_score > classification['score']:
+                classification['score'] = audio_score
+            log.info("Audio confirmed visual detection", species=visual_label, score=classification['score'])
 
         # Logic 2: Enhancement - visual is unknown but audio is strong
         elif visual_label in settings.classification.unknown_bird_labels or visual_label == "Unknown Bird":
             if audio_score > 0.7:  # High confidence audio
-                log.info("Upgrading visual detection with audio", old=visual_label, new=audio_species)
+                log.info("Upgrading visual detection with audio", old=visual_label, new=audio_species, score=audio_score)
                 classification['label'] = audio_species
+                classification['score'] = audio_score
                 classification['audio_confirmed'] = True
 
         return classification

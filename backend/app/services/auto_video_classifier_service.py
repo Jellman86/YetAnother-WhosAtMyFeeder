@@ -14,6 +14,8 @@ from app.repositories.detection_repository import DetectionRepository
 
 log = structlog.get_logger()
 
+MAX_CONCURRENT_TASKS = 5
+
 class AutoVideoClassifierService:
     """
     Service to automatically classify video clips from Frigate events.
@@ -36,6 +38,12 @@ class AutoVideoClassifierService:
 
         if frigate_event in self._active_tasks:
             log.debug("Video classification already in progress", event_id=frigate_event)
+            return
+
+        if len(self._active_tasks) >= MAX_CONCURRENT_TASKS:
+            log.warning("Max concurrent video classifications reached, skipping", 
+                        event_id=frigate_event, 
+                        limit=MAX_CONCURRENT_TASKS)
             return
 
         task = asyncio.create_task(self._process_event(frigate_event, camera))

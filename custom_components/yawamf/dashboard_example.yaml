@@ -1,0 +1,64 @@
+# YA-WAMF Home Assistant Dashboard Example
+# Usage:
+# 1. Go to Settings > Dashboards > Add Dashboard
+# 2. Open the new dashboard, click the pencil (Edit) icon
+# 3. Click the 3 dots > Raw Configuration Editor
+# 4. Paste the content below (overwrite everything)
+
+views:
+  - title: Bird Watcher
+    type: sidebar
+    badges: []
+    cards:
+      # Main Visual: Latest Detection Snapshot
+      - type: picture-entity
+        entity: camera.latest_bird_snapshot
+        name: Latest Visitor
+        camera_view: live
+        show_state: false
+        show_name: true
+        aspect_ratio: 16x9
+
+      # Sidebar Stack (Stats & Details)
+      - type: vertical-stack
+        cards:
+          # Key Stats Grid
+          - type: grid
+            columns: 2
+            square: false
+            cards:
+              - type: entity
+                entity: sensor.last_bird_detected
+                name: Species
+                icon: mdi:bird
+              - type: entity
+                entity: sensor.daily_bird_count
+                name: Birds Today
+                icon: mdi:counter
+
+          # Detailed Metadata
+          - type: markdown
+            title: Detection Details
+            content: >
+              {% set sensor = 'sensor.last_bird_detected' %}
+              {% if states(sensor) != 'unknown' and states(sensor) != 'unavailable' %}
+                <ha-icon icon="mdi:camera"></ha-icon> **Camera:** {{ state_attr(sensor, 'camera') }}
+                
+                <ha-icon icon="mdi:target"></ha-icon> **Confidence:** {{ (state_attr(sensor, 'score') | float * 100) | round(0) }}%
+                
+                <ha-icon icon="mdi:clock-outline"></ha-icon> **Time:** {{ as_timestamp(state_attr(sensor, 'timestamp')) | timestamp_custom('%H:%M:%S') }}
+                
+                <ha-icon icon="mdi:thermometer"></ha-icon> **Temp:** {{ state_attr(sensor, 'temperature') }}°C
+                
+                <ha-icon icon="mdi:weather-partly-cloudy"></ha-icon> **Weather:** {{ state_attr(sensor, 'weather') }}
+              {% else %}
+                _No detections yet today._
+              {% endif %}
+
+          # History Graph
+          - type: history-graph
+            title: Activity (24h)
+            entities:
+              - entity: sensor.daily_bird_count
+            hours_to_show: 24
+            refresh_interval: 0

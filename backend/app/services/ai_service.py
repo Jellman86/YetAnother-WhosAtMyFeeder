@@ -9,7 +9,7 @@ log = structlog.get_logger()
 class AIService:
     """Service to interact with LLMs for behavioral analysis."""
 
-    async def analyze_detection(self, species: str, image_data: bytes, 
+    async def analyze_detection(self, species: str, image_data: bytes,
                                 metadata: dict) -> Optional[str]:
         """Send image and metadata to LLM for analysis."""
         if not settings.llm.enabled or not settings.llm.api_key:
@@ -19,7 +19,9 @@ class AIService:
             return await self._analyze_gemini(species, image_data, metadata)
         elif settings.llm.provider == "openai":
             return await self._analyze_openai(species, image_data, metadata)
-        
+        elif settings.llm.provider == "claude":
+            return await self._analyze_claude(species, image_data, metadata)
+
         return "Unsupported AI provider."
 
     async def _analyze_gemini(self, species: str, image_data: bytes, metadata: dict) -> Optional[str]:
@@ -114,6 +116,58 @@ class AIService:
                 return "AI returned an empty response."
         except Exception as e:
             log.error("OpenAI analysis failed", error=str(e))
+            return f"Error during AI analysis: {str(e)}"
+
+    async def _analyze_claude(self, species: str, image_data: bytes, metadata: dict) -> Optional[str]:
+        """Analyze using Anthropic Claude API."""
+        url = "https://api.anthropic.com/v1/messages"
+
+        prompt = self._build_prompt(species, metadata)
+        image_base64 = base64.b64encode(image_data).decode('utf-8')
+
+        headers = {
+            "x-api-key": settings.llm.api_key,
+            "anthropic-version": "2023-06-01",
+            "Content-Type": "application/json"
+        }
+
+        payload = {
+            "model": settings.llm.model,
+            "max_tokens": 1024,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "image",
+                            "source": {
+                                "type": "base64",
+                                "media_type": "image/jpeg",
+                                "data": image_base64
+                            }
+                        },
+                        {
+                            "type": "text",
+                            "text": prompt
+                        }
+                    ]
+                }
+            ]
+        }
+
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                resp = await client.post(url, headers=headers, json=payload)
+                resp.raise_for_status()
+                data = resp.json()
+
+                content = data.get("content", [])
+                if content and len(content) > 0:
+                    return content[0].get("text")
+
+                return "AI returned an empty response."
+        except Exception as e:
+            log.error("Claude analysis failed", error=str(e))
             return f"Error during AI analysis: {str(e)}"
 
     def _build_prompt(self, species: str, metadata: dict) -> str:

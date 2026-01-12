@@ -164,6 +164,8 @@ class SettingsUpdate(BaseModel):
     birdnet_enabled: Optional[bool] = Field(True, description="Enable BirdNET-Go integration")
     audio_topic: str = Field("birdnet/text", description="MQTT topic for audio detections")
     camera_audio_mapping: dict[str, str] = Field(default_factory=dict, description="Map Frigate camera to BirdNET ID")
+    audio_buffer_hours: int = Field(24, ge=1, le=168, description="Hours to keep audio detections in buffer for correlation (1-168)")
+    audio_correlation_window_seconds: int = Field(300, ge=5, le=3600, description="Time window in seconds for audio-visual correlation (±N seconds from detection)")
     clips_enabled: bool = Field(True, description="Enable fetching of video clips from Frigate")
     classification_threshold: float = Field(..., ge=0.0, le=1.0, description="Classification confidence threshold (0-1)")
     classification_min_confidence: float = Field(0.4, ge=0.0, le=1.0, description="Minimum confidence floor (0-1)")
@@ -240,6 +242,8 @@ async def get_settings():
         "birdnet_enabled": settings.frigate.birdnet_enabled,
         "audio_topic": settings.frigate.audio_topic,
         "camera_audio_mapping": settings.frigate.camera_audio_mapping,
+        "audio_buffer_hours": settings.frigate.audio_buffer_hours,
+        "audio_correlation_window_seconds": settings.frigate.audio_correlation_window_seconds,
         "clips_enabled": settings.frigate.clips_enabled,
         "classification_threshold": settings.classification.threshold,
         "classification_min_confidence": settings.classification.min_confidence,
@@ -309,6 +313,8 @@ async def update_settings(update: SettingsUpdate, background_tasks: BackgroundTa
     settings.frigate.birdnet_enabled = update.birdnet_enabled if update.birdnet_enabled is not None else True
     settings.frigate.audio_topic = update.audio_topic
     settings.frigate.camera_audio_mapping = update.camera_audio_mapping
+    settings.frigate.audio_buffer_hours = update.audio_buffer_hours
+    settings.frigate.audio_correlation_window_seconds = update.audio_correlation_window_seconds
 
     settings.frigate.clips_enabled = update.clips_enabled
     settings.frigate.camera = update.cameras
@@ -396,7 +402,7 @@ async def update_settings(update: SettingsUpdate, background_tasks: BackgroundTa
     if settings.telemetry.enabled:
         background_tasks.add_task(telemetry_service.force_heartbeat)
 
-    settings.save()
+    await settings.save()
     return {"status": "updated"}
 
 @router.get("/maintenance/stats")

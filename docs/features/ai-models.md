@@ -27,10 +27,13 @@ You can manage models directly from the **Settings > Detection** page. The syste
 - **Memory:** Requires ~2GB RAM
 - **Best for:** Identifying rare or similar-looking species.
 
-## Preprocessing
-YA-WAMF automatically applies the correct preprocessing for each model:
-- **Normalization:** ImageNet (ConvNeXt) or CLIP (EVA-02) normalization.
-- **Letterboxing:** Images are resized with gray padding to maintain aspect ratio, preventing distortion.
+## Automatic Video Analysis (Deep Analysis)
+In addition to snapshot classification, YA-WAMF can perform **Deep Video Analysis**. This background task scans the full video clip frame-by-frame (temporal ensemble) to verify the identification.
+
+![Deep Video Analysis](../images/event_details_modal.png)
+
+This provides significantly higher confidence by seeing the bird from multiple angles and in motion.
+
 
 ## Fast Path Efficiency
 If **"Trust Frigate Sublabels"** is enabled, the system will bypass its own AI classification if Frigate has already identified the species. This saves CPU cycles and is recommended if you have already tuned Frigate's own classification models.

@@ -29,6 +29,9 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Get version
+        run: echo "APP_VERSION_BASE=$(cat VERSION)" >> $GITHUB_ENV
+
       - name: Get short SHA
         run: echo "SHORT_SHA=${GITHUB_SHA::7}" >> $GITHUB_ENV
 
@@ -47,6 +50,7 @@ jobs:
           push: true
           build-args: |
             GIT_HASH=${{ env.SHORT_SHA }}
+            APP_VERSION_BASE=${{ env.APP_VERSION_BASE }}
           tags: |
             ghcr.io/${{ env.OWNER_LC }}/wamf-backend:${{ env.IMAGE_TAG }}
             ghcr.io/${{ env.OWNER_LC }}/wamf-backend:${{ github.sha }}
@@ -71,6 +75,9 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Get version
+        run: echo "APP_VERSION_BASE=$(cat VERSION)" >> $GITHUB_ENV
+
       - name: Get short SHA
         run: echo "SHORT_SHA=${GITHUB_SHA::7}" >> $GITHUB_ENV
 
@@ -89,6 +96,7 @@ jobs:
           push: true
           build-args: |
             GIT_HASH=${{ env.SHORT_SHA }}
+            APP_VERSION_BASE=${{ env.APP_VERSION_BASE }}
           tags: |
             ghcr.io/${{ env.OWNER_LC }}/wamf-frontend:${{ env.IMAGE_TAG }}
             ghcr.io/${{ env.OWNER_LC }}/wamf-frontend:${{ github.sha }}

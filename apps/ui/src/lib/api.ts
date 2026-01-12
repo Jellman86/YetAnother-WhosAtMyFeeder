@@ -337,7 +337,11 @@ export async function fetchVersion(): Promise<VersionInfo> {
     } catch {
         // Ignore errors - return fallback
     }
-    return { version: "2.2.0", base_version: "2.2.0", git_hash: "unknown" };
+    return { 
+        version: __APP_VERSION__, 
+        base_version: __APP_VERSION__.split('+')[0], 
+        git_hash: __GIT_HASH__ 
+    };
 }
 
 export interface FetchEventsOptions {
@@ -582,6 +586,7 @@ export interface ReclassifyResult {
     new_species: string;
     new_score: number;
     updated: boolean;
+    actual_strategy?: "snapshot" | "video";
 }
 
 export interface UpdateDetectionResult {

@@ -31,6 +31,7 @@
         type VersionInfo
     } from '../api';
     import { theme, type Theme } from '../stores/theme';
+    import { layout, type Layout } from '../stores/layout';
     import { settingsStore } from '../stores/settings.svelte';
     import ModelManager from './models/ModelManager.svelte';
     import SettingsTabs from '../components/settings/SettingsTabs.svelte';
@@ -43,6 +44,8 @@
     let mqttPassword = $state('');
     let audioTopic = $state('birdnet/text');
     let cameraAudioMapping = $state<Record<string, string>>({});
+    let audioBufferHours = $state(24);
+    let audioCorrelationWindowSeconds = $state(300);
     let clipsEnabled = $state(true);
     let threshold = $state(0.7);
     let minConfidence = $state(0.4);
@@ -78,7 +81,47 @@
     let llmEnabled = $state(false);
     let llmProvider = $state('gemini');
     let llmApiKey = $state('');
-    let llmModel = $state('gemini-2.0-flash-exp');
+    let llmModel = $state('gemini-3-flash-preview');
+
+    // Available models per provider (Updated January 2026)
+    const modelsByProvider = {
+        gemini: [
+            { value: 'gemini-3-pro-preview', label: 'Gemini 3 Pro (Latest, Most Capable)' },
+            { value: 'gemini-3-flash-preview', label: 'Gemini 3 Flash (Latest, Fast & Affordable)' },
+            { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
+            { value: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite (Lightweight)' },
+            { value: 'gemini-2.0-flash-exp', label: 'Gemini 2.0 Flash Exp (Legacy, retiring March 2026)' }
+        ],
+        openai: [
+            { value: 'gpt-5.2-pro', label: 'GPT-5.2 Pro (Latest, Most Advanced)' },
+            { value: 'gpt-5.2-thinking', label: 'GPT-5.2 Thinking (Advanced Reasoning)' },
+            { value: 'gpt-5.2-instant', label: 'GPT-5.2 Instant (Fast)' },
+            { value: 'gpt-4o', label: 'GPT-4o (Previous Generation)' },
+            { value: 'gpt-4o-mini', label: 'GPT-4o Mini (Lightweight)' }
+        ],
+        claude: [
+            { value: 'claude-opus-4-5', label: 'Claude Opus 4.5 (Latest, Most Intelligent)' },
+            { value: 'claude-sonnet-4-5-20250929', label: 'Claude Sonnet 4.5 (Balanced)' },
+            { value: 'claude-haiku-4-5', label: 'Claude Haiku 4.5 (Fastest & Most Affordable)' },
+            { value: 'claude-3-5-sonnet-20241022', label: 'Claude 3.5 Sonnet (Legacy)' },
+            { value: 'claude-3-5-haiku-20241022', label: 'Claude 3.5 Haiku (Legacy)' }
+        ]
+    };
+
+    // Get models for current provider
+    let availableModels = $derived(modelsByProvider[llmProvider as keyof typeof modelsByProvider] || []);
+
+    // Update model to first available when provider changes
+    $effect(() => {
+        const models = modelsByProvider[llmProvider as keyof typeof modelsByProvider];
+        if (models && models.length > 0) {
+            // Check if current model is valid for new provider
+            const isValidModel = models.some(m => m.value === llmModel);
+            if (!isValidModel) {
+                llmModel = models[0].value;
+            }
+        }
+    });
 
     // Telemetry
     let telemetryEnabled = $state(false);
@@ -107,7 +150,11 @@
     let testingNotification = $state<Record<string, boolean>>({});
 
     // Version Info
-    let versionInfo = $state<VersionInfo>({ version: "2.2.0", base_version: "2.2.0", git_hash: "unknown" });
+    let versionInfo = $state<VersionInfo>({ 
+        version: __APP_VERSION__, 
+        base_version: __APP_VERSION__.split('+')[0], 
+        git_hash: __GIT_HASH__ 
+    });
 
     let availableCameras = $state<string[]>([]);
     let camerasLoading = $state(false);
@@ -119,6 +166,7 @@
     let testingBirdNET = $state(false);
     let message = $state<{ type: 'success' | 'error'; text: string } | null>(null);
     let currentTheme: Theme = $state('system');
+    let currentLayout: Layout = $state('horizontal');
 
     // Dirty state check
     let isDirty = $derived.by(() => {
@@ -133,6 +181,8 @@
             { key: 'mqttUsername', val: mqttUsername, store: s.mqtt_username || '' },
             { key: 'mqttPassword', val: mqttPassword, store: s.mqtt_password || '' },
             { key: 'audioTopic', val: audioTopic, store: s.audio_topic || 'birdnet/text' },
+            { key: 'audioBufferHours', val: audioBufferHours, store: s.audio_buffer_hours ?? 24 },
+            { key: 'audioCorrelationWindowSeconds', val: audioCorrelationWindowSeconds, store: s.audio_correlation_window_seconds ?? 300 },
             { key: 'birdnetEnabled', val: birdnetEnabled, store: s.birdnet_enabled ?? true },
             { key: 'clipsEnabled', val: clipsEnabled, store: s.clips_enabled ?? true },
             { key: 'threshold', val: threshold, store: s.classification_threshold },
@@ -157,7 +207,7 @@
             { key: 'llmEnabled', val: llmEnabled, store: s.llm_enabled ?? false },
             { key: 'llmProvider', val: llmProvider, store: s.llm_provider ?? 'gemini' },
             { key: 'llmApiKey', val: llmApiKey, store: s.llm_api_key || '' },
-            { key: 'llmModel', val: llmModel, store: s.llm_model ?? 'gemini-2.0-flash-exp' },
+            { key: 'llmModel', val: llmModel, store: s.llm_model ?? 'gemini-3-flash-preview' },
             { key: 'cameraAudioMapping', val: JSON.stringify(cameraAudioMapping), store: JSON.stringify(s.camera_audio_mapping || {}) },
             { key: 'minConfidence', val: minConfidence, store: s.classification_min_confidence ?? 0.4 },
             { key: 'telemetryEnabled', val: telemetryEnabled, store: s.telemetry_enabled ?? true },
@@ -217,6 +267,7 @@
     let activeTab = $state('connection');
 
     theme.subscribe(t => currentTheme = t);
+    layout.subscribe(l => currentLayout = l);
 
     onMount(async () => {
         await Promise.all([
@@ -393,6 +444,8 @@
             if (typeof cameraAudioMapping !== 'object' || Array.isArray(cameraAudioMapping)) {
                 cameraAudioMapping = {};
             }
+            audioBufferHours = settings.audio_buffer_hours ?? 24;
+            audioCorrelationWindowSeconds = settings.audio_correlation_window_seconds ?? 300;
             clipsEnabled = settings.clips_enabled ?? true;
             threshold = settings.classification_threshold;
             minConfidence = settings.classification_min_confidence ?? 0.4;
@@ -421,7 +474,7 @@
             llmEnabled = settings.llm_enabled ?? false;
             llmProvider = settings.llm_provider ?? 'gemini';
             llmApiKey = settings.llm_api_key ?? '';
-            llmModel = settings.llm_model ?? 'gemini-2.0-flash-exp';
+            llmModel = settings.llm_model ?? 'gemini-3-flash-preview';
             // Telemetry
             telemetryEnabled = settings.telemetry_enabled ?? false;
             telemetryInstallationId = settings.telemetry_installation_id;
@@ -482,6 +535,8 @@
                 birdnet_enabled: birdnetEnabled,
                 audio_topic: audioTopic,
                 camera_audio_mapping: cameraAudioMapping,
+                audio_buffer_hours: audioBufferHours,
+                audio_correlation_window_seconds: audioCorrelationWindowSeconds,
                 clips_enabled: clipsEnabled,
                 classification_threshold: threshold,
                 classification_min_confidence: minConfidence,
@@ -609,6 +664,10 @@
 
     function setTheme(t: Theme) {
         theme.set(t);
+    }
+
+    function setLayout(l: Layout) {
+        layout.set(l);
     }
 
     function addBlockedLabel() {
@@ -1030,6 +1089,19 @@
                                 <input type="text" bind:value={audioTopic} placeholder="birdnet/text" class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-teal-500 outline-none" />
                             </div>
 
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Audio Buffer (Hours)</label>
+                                    <input type="number" bind:value={audioBufferHours} min="1" max="168" class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-teal-500 outline-none" />
+                                    <p class="mt-1 text-[10px] text-slate-400 font-bold italic">How long to keep audio detections for correlation (1-168 hours)</p>
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Match Window (Seconds)</label>
+                                    <input type="number" bind:value={audioCorrelationWindowSeconds} min="5" max="3600" class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-teal-500 outline-none" />
+                                    <p class="mt-1 text-[10px] text-slate-400 font-bold italic">Time window for matching audio with visual (±5-3600 seconds)</p>
+                                </div>
+                            </div>
+
                             <button onclick={handleTestBirdNET} disabled={testingBirdNET} class="w-full px-4 py-3 text-xs font-black uppercase tracking-widest rounded-2xl bg-amber-500 hover:bg-amber-600 text-white transition-all shadow-lg shadow-amber-500/20 disabled:opacity-50">
                                 {testingBirdNET ? 'Simulating...' : 'Test Audio detection'}
                             </button>
@@ -1091,8 +1163,8 @@
 
                         <div class="space-y-6">
                             <div class="grid grid-cols-2 gap-4">
-                                <div><label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Provider</label><select bind:value={llmProvider} class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"><option value="gemini">Google Gemini</option><option value="openai">OpenAI</option></select></div>
-                                <div><label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Model</label><input type="text" bind:value={llmModel} class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm" /></div>
+                                <div><label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Provider</label><select bind:value={llmProvider} class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"><option value="gemini">Google Gemini</option><option value="openai">OpenAI</option><option value="claude">Anthropic Claude</option></select></div>
+                                <div><label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Model</label><select bind:value={llmModel} class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm">{#each availableModels as model}<option value={model.value}>{model.label}</option>{/each}</select></div>
                             </div>
                             <div>
                                 <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">API Key</label>
@@ -1334,16 +1406,28 @@
                             {/if}
                         </div>
 
-                        {#if taxonomyStatus && (taxonomyStatus.is_running || taxonomyStatus.total > 0)}
-                            <div class="mb-6 space-y-3">
-                                <div class="flex justify-between text-[10px] font-black uppercase tracking-widest">
-                                    <span class="text-slate-400">{taxonomyStatus.current_item || 'Repairing Database'}</span>
-                                    <span class="text-teal-500">{taxonomyStatus.processed} / {taxonomyStatus.total}</span>
+                        {#if taxonomyStatus}
+                            {#if taxonomyStatus.is_running}
+                                <div class="mb-6 space-y-3">
+                                    <div class="flex justify-between text-[10px] font-black uppercase tracking-widest">
+                                        <span class="text-slate-400">{taxonomyStatus.current_item || 'Repairing Database'}</span>
+                                        <span class="text-teal-500">{taxonomyStatus.processed} / {taxonomyStatus.total}</span>
+                                    </div>
+                                    <div class="w-full h-3 bg-slate-100 dark:bg-slate-900 rounded-full overflow-hidden border border-slate-200 dark:border-slate-700">
+                                        <div class="h-full bg-gradient-to-r from-teal-500 to-emerald-400 transition-all duration-1000 ease-out" style="width: {(taxonomyStatus.processed / (taxonomyStatus.total || 1)) * 100}%"></div>
+                                    </div>
                                 </div>
-                                <div class="w-full h-3 bg-slate-100 dark:bg-slate-900 rounded-full overflow-hidden border border-slate-200 dark:border-slate-700">
-                                    <div class="h-full bg-gradient-to-r from-teal-500 to-emerald-400 transition-all duration-1000 ease-out" style="width: {(taxonomyStatus.processed / (taxonomyStatus.total || 1)) * 100}%"></div>
+                            {:else if taxonomyStatus.current_item}
+                                <div class="mb-6 p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/30 border border-slate-100 dark:border-slate-700/50 flex items-center gap-3">
+                                    {#if taxonomyStatus.error}
+                                        <div class="w-2 h-2 rounded-full bg-red-500"></div>
+                                        <p class="text-xs font-bold text-red-500">{taxonomyStatus.error}</p>
+                                    {:else}
+                                        <div class="w-2 h-2 rounded-full bg-emerald-500"></div>
+                                        <p class="text-xs font-bold text-slate-600 dark:text-slate-300">{taxonomyStatus.current_item}</p>
+                                    {/if}
                                 </div>
-                            </div>
+                            {/if}
                         {/if}
 
                         <button onclick={handleStartTaxonomySync} disabled={taxonomyStatus?.is_running || syncingTaxonomy} class="w-full px-4 py-4 text-xs font-black uppercase tracking-widest rounded-2xl bg-teal-500 hover:bg-teal-600 text-white transition-all shadow-lg shadow-teal-500/20 flex items-center justify-center gap-3">
@@ -1428,7 +1512,7 @@
                         <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">Theme & Look</h3>
                     </div>
 
-                    <div class="grid grid-cols-3 gap-4">
+                    <div class="grid grid-cols-3 gap-4 mb-8">
                         {#each [
                             { value: 'light', label: 'Light', icon: '☀️' },
                             { value: 'dark', label: 'Dark', icon: '🌙' },
@@ -1445,6 +1529,36 @@
                                 <span class="text-xs font-black uppercase tracking-widest">{opt.label}</span>
                             </button>
                         {/each}
+                    </div>
+
+                    <div class="pt-6 border-t border-slate-100 dark:border-slate-700/50">
+                        <div class="flex items-center gap-3 mb-6">
+                            <div class="w-8 h-8 rounded-xl bg-purple-500/10 flex items-center justify-center text-purple-600 dark:text-purple-400">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" /></svg>
+                            </div>
+                            <h4 class="text-lg font-black text-slate-900 dark:text-white tracking-tight">Navigation Layout</h4>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-4">
+                            {#each [
+                                { value: 'horizontal', label: 'Horizontal', icon: '⬌', desc: 'Top navigation bar' },
+                                { value: 'vertical', label: 'Vertical', icon: '⇕', desc: 'Left sidebar (collapsible)' }
+                            ] as opt}
+                                <button
+                                    onclick={() => setLayout(opt.value as Layout)}
+                                    class="flex flex-col items-start gap-2 p-5 rounded-2xl border-2 transition-all text-left
+                                           {currentLayout === opt.value
+                                               ? 'bg-purple-500 border-purple-500 text-white shadow-xl shadow-purple-500/20'
+                                               : 'bg-white dark:bg-slate-900/50 border-slate-100 dark:border-slate-700/50 text-slate-500 hover:border-purple-500/30'}"
+                                >
+                                    <span class="text-2xl">{opt.icon}</span>
+                                    <div>
+                                        <div class="text-sm font-black uppercase tracking-widest {currentLayout === opt.value ? 'text-white' : 'text-slate-900 dark:text-white'}">{opt.label}</div>
+                                        <div class="text-xs font-medium mt-1 {currentLayout === opt.value ? 'text-white/80' : 'text-slate-400'}">{opt.desc}</div>
+                                    </div>
+                                </button>
+                            {/each}
+                        </div>
                     </div>
                 </section>
 

@@ -1,16 +1,25 @@
 <script lang="ts">
     import { onMount } from 'svelte';
     import { fetchVersion, type VersionInfo } from '../api';
-
-    let version = $state("2.2.0");
-    let versionInfo = $state<VersionInfo>({ version: "2.2.0", base_version: "2.2.0", git_hash: "unknown" });
-    const year = new Date().getFullYear();
-
-    onMount(async () => {
-        const info = await fetchVersion();
-        versionInfo = info;
-        // Show clean version - hide "+unknown" suffix if git hash isn't available
-        version = info.git_hash === "unknown" ? info.base_version : info.version;
+    
+    let version = $state(__APP_VERSION__.split('+')[0]);
+    let versionInfo = $state<VersionInfo>({
+        version: __APP_VERSION__,
+        base_version: __APP_VERSION__.split('+')[0],
+        git_hash: __GIT_HASH__
+    });
+    
+    $effect(() => {
+        (async () => {
+            try {
+                const info = await fetchVersion();
+                versionInfo = info;
+                // Show clean version - hide "+unknown" suffix if git hash isn't available
+                version = info.git_hash === "unknown" ? info.base_version : info.version;
+            } catch (e) {
+                console.error('Failed to fetch version info', e);
+            }
+        })();
     });
 
     // Bird facts - mix of real and funny
@@ -99,6 +108,7 @@
 
     let currentFactIndex = $state(0);
     let isTransitioning = $state(false);
+    const year = $derived(new Date().getFullYear());
 
     onMount(() => {
         const interval = setInterval(() => {

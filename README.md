@@ -1,7 +1,7 @@
 # Yet Another WhosAtMyFeeder (YA-WAMF)
 
 > [!IMPORTANT]
-> **Upcoming Breaking Change (v2.5.0):** Container security is being improved. Containers will soon run as non-root (UID 1000) by default. This may require you to update your `docker-compose.yml` with a specific `user:` ID or adjust folder permissions. See the [dev branch](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/tree/dev) for the latest migration guide.
+> **Upcoming Breaking Change (v2.5.0):** Container security is being improved. Containers now run as non-root (UID 1000) by default. This may require you to update your `docker-compose.yml` with a specific `user:` ID or adjust folder permissions. See [MIGRATION.md](MIGRATION.md) for the full migration guide.
 
 A bird classification system that works with [Frigate NVR](https://frigate.video/) to identify the birds visiting your feeder.
 
@@ -98,6 +98,7 @@ Here's the flow from bird to identification:
 5. **Classification runs** - Otherwise, the image goes through a local model (TFLite or ONNX) trained on bird species.
 6. **Results stored & Notified** - The detection is saved, and notifications (Discord/Telegram/Pushover) are fired immediately.
 7. **Deep Analysis** - If enabled, a background task waits for the video clip to finalize, then scans it frame-by-frame to refine the ID.
+   ![Event Details with Deep Analysis](docs/images/event_details_modal.png)
 8. **Dashboard updates** - The frontend gets real-time updates via Server-Sent Events (SSE).
 
 ## Getting Started with Docker Compose

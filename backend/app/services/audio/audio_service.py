@@ -17,11 +17,16 @@ class AudioDetection:
     raw_data: dict
 
 class AudioService:
-    def __init__(self, buffer_minutes: int = 5):
+    def __init__(self):
         # Store recent audio detections in memory for correlation
         self._buffer: Deque[AudioDetection] = deque()
+        # Get buffer duration from settings (convert hours to minutes)
+        buffer_minutes = settings.frigate.audio_buffer_hours * 60
         self._buffer_duration = timedelta(minutes=buffer_minutes)
         self._lock = asyncio.Lock()
+        log.info("AudioService initialized",
+                 buffer_duration_hours=settings.frigate.audio_buffer_hours,
+                 correlation_window_seconds=settings.frigate.audio_correlation_window_seconds)
 
     async def add_detection(self, data: dict):
         """Ingest a detection from MQTT."""
@@ -105,14 +110,16 @@ class AudioService:
         if removed_count > 0:
             log.info("Cleaned up audio buffer", removed=removed_count, remaining=len(self._buffer))
 
-    async def find_match(self, target_time: datetime, camera_name: str = None, window_seconds: int = 15) -> Optional[AudioDetection]:
+    async def find_match(self, target_time: datetime, camera_name: str = None, window_seconds: int = None) -> Optional[AudioDetection]:
         """Find an audio detection matching the visual timestamp and camera.
 
         Args:
             target_time: Timestamp of the visual detection
             camera_name: Name of the Frigate camera (used for mapping)
-            window_seconds: Match window in seconds
+            window_seconds: Match window in seconds (defaults to settings value)
         """
+        if window_seconds is None:
+            window_seconds = settings.frigate.audio_correlation_window_seconds
         async with self._lock:
             self._cleanup_buffer() # Clean before matching
 
@@ -145,6 +152,87 @@ class AudioService:
                         best_match = detection
 
             return best_match
+
+    async def correlate_species(
+        self,
+        target_time: datetime,
+        species_name: str,
+        camera_name: str = None,
+        window_seconds: int = None
+    ) -> tuple[bool, Optional[str], Optional[float]]:
+        """Check if a specific species has audio confirmation at target time.
+
+        This is used during reclassification to re-correlate audio with the new species.
+
+        Args:
+            target_time: Timestamp of the visual detection
+            species_name: Scientific or common name to match against
+            camera_name: Name of the Frigate camera (used for mapping)
+            window_seconds: Match window in seconds (defaults to settings value)
+
+        Returns:
+            Tuple of (audio_confirmed, audio_species, audio_score)
+            - If match found: (True, matched_species_name, confidence)
+            - If no match: (False, None, None)
+        """
+        if window_seconds is None:
+            window_seconds = settings.frigate.audio_correlation_window_seconds
+        async with self._lock:
+            self._cleanup_buffer()
+
+            # Determine which sensor ID we are looking for based on camera mapping
+            expected_sensor_id = None
+            if camera_name and settings.frigate.camera_audio_mapping:
+                expected_sensor_id = settings.frigate.camera_audio_mapping.get(camera_name)
+
+            # Ensure target_time is timezone-aware (assume UTC if naive)
+            if target_time.tzinfo is None:
+                target_time = target_time.replace(tzinfo=timezone.utc)
+
+            # Normalize species name for matching (case-insensitive)
+            species_lower = species_name.lower().strip()
+
+            best_match = None
+            highest_score = 0.0
+
+            for detection in self._buffer:
+                # If a mapping exists, only match if the sensor ID matches (unless wildcard used)
+                if expected_sensor_id and expected_sensor_id != "*" and detection.sensor_id != expected_sensor_id:
+                    continue
+
+                # Ensure detection timestamp is timezone-aware (assume UTC if naive)
+                det_ts = detection.timestamp
+                if det_ts.tzinfo is None:
+                    det_ts = det_ts.replace(tzinfo=timezone.utc)
+
+                # Check if time window matches
+                delta = abs((det_ts - target_time).total_seconds())
+                if delta > window_seconds:
+                    continue
+
+                # Check if species matches (case-insensitive)
+                audio_species_lower = detection.species.lower().strip()
+                if audio_species_lower == species_lower:
+                    # Direct match
+                    if detection.confidence > highest_score:
+                        highest_score = detection.confidence
+                        best_match = detection
+
+            if best_match:
+                log.info("Audio correlation match found",
+                         species=species_name,
+                         audio_species=best_match.species,
+                         confidence=best_match.confidence,
+                         time_delta_sec=abs((best_match.timestamp - target_time).total_seconds()),
+                         window_seconds=window_seconds)
+                return (True, best_match.species, best_match.confidence)
+            else:
+                log.debug("No audio correlation found",
+                          species=species_name,
+                          target_time=target_time.isoformat(),
+                          window_seconds=window_seconds,
+                          buffer_size=len(self._buffer))
+                return (False, None, None)
 
     async def get_recent_detections(self, limit: int = 10) -> list[dict]:
         """Get the most recent audio detections from the buffer."""

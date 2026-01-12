@@ -1,12 +1,20 @@
 import structlog
 import asyncio
 import httpx
-from datetime import datetime
+import re
+from datetime import datetime, timezone
 from typing import Optional, Any
 
 from app.config import settings
 
 log = structlog.get_logger()
+
+def escape_markdown(text: str) -> str:
+    """Escape special characters for Telegram Markdown (v1)."""
+    # Telegram Markdown v1 only requires escaping these in some contexts, 
+    # but it's safer to escape characters that could trigger formatting.
+    # Note: * _ ` [ are the main ones for v1.
+    return re.sub(r'([*_`\[])', r'\\\1', text)
 
 class NotificationService:
     def __init__(self):
@@ -110,7 +118,11 @@ class NotificationService:
         description = f"**Camera:** {camera}\n**Confidence:** {confidence:.0%}"
         if audio_confirmed:
             description += "\n🎤 **Audio Confirmed**"
-        
+
+        # Ensure timestamp is timezone-aware for Discord
+        if timestamp.tzinfo is None:
+            timestamp = timestamp.replace(tzinfo=timezone.utc)
+
         embed = {
             "title": title,
             "description": description,
@@ -130,8 +142,16 @@ class NotificationService:
         try:
             resp = await self.client.post(settings.notifications.discord.webhook_url, json=payload)
             resp.raise_for_status()
+        except httpx.HTTPStatusError as e:
+            # Log the response body for debugging
+            log.error("Discord notification failed",
+                     error=str(e),
+                     status_code=e.response.status_code,
+                     response_body=e.response.text,
+                     payload=payload)
+            raise
         except Exception as e:
-            log.error("Discord notification failed", error=str(e))
+            log.error("Discord notification failed", error=str(e), payload=payload)
             raise
 
     async def _send_pushover(
@@ -192,7 +212,9 @@ class NotificationService:
         if not cfg.bot_token or not cfg.chat_id:
             return
 
-        caption = f"🐦 *{common_name or species}*\n📹 {camera}\n🎯 {confidence:.0%}"
+        safe_name = escape_markdown(common_name or species)
+        safe_camera = escape_markdown(camera)
+        caption = f"🐦 *{safe_name}*\n📹 {safe_camera}\n🎯 {confidence:.0%}"
         base_url = f"https://api.telegram.org/bot{cfg.bot_token}"
 
         try:

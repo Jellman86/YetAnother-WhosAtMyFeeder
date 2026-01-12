@@ -132,7 +132,7 @@
     tabindex="-1"
 >
     <div
-        class="relative bg-white dark:bg-slate-800 rounded-3xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-hidden border border-white/20"
+        class="relative bg-white dark:bg-slate-800 rounded-3xl shadow-2xl max-w-lg w-full max-h-[90vh] flex flex-col border border-white/20 overflow-hidden"
         onclick={(e) => e.stopPropagation()}
         onkeydown={(e) => e.stopPropagation()}
         role="document"
@@ -183,7 +183,7 @@
             </button>
         </div>
 
-        <div class="p-6 space-y-6">
+        <div class="flex-1 overflow-y-auto p-6 space-y-6">
             <!-- Confidence Bar -->
             <div>
                 <div class="flex items-center justify-between mb-2">
@@ -253,7 +253,7 @@
                     <p class="text-[10px] font-black text-teal-600 dark:text-teal-400 uppercase tracking-[0.2em] mb-2">
                         AI Naturalist Insight
                     </p>
-                    <p class="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">{aiAnalysis}</p>
+                    <p class="text-sm text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">{aiAnalysis}</p>
                 </div>
             {:else if llmEnabled && !analyzingAI}
                 <button

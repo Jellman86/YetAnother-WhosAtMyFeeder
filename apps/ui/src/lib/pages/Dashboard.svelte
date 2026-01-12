@@ -12,6 +12,7 @@
     import ReclassificationOverlay from '../components/ReclassificationOverlay.svelte';
     import RecentAudio from '../components/RecentAudio.svelte';
     import { detectionsStore } from '../stores/detections.svelte';
+    import { toastStore } from '../stores/toast.svelte';
     import type { Detection, DailySummary } from '../api';
     import { getThumbnailUrl, deleteDetection, hideDetection, updateDetectionSpecies, analyzeDetection, fetchDailySummary, fetchClassifierLabels, reclassifyDetection } from '../api';
     import { settingsStore } from '../stores/settings.svelte';
@@ -119,10 +120,17 @@
 
     async function handleReclassify() {
         if (!selectedEvent) return;
+        const requestedStrategy = selectedEvent.has_clip ? 'video' : 'snapshot';
         try {
-            await reclassifyDetection(selectedEvent.frigate_event, selectedEvent.has_clip ? 'video' : 'snapshot');
+            const result = await reclassifyDetection(selectedEvent.frigate_event, requestedStrategy);
+
+            // Check if backend used a different strategy (fallback occurred)
+            if (result.actual_strategy && result.actual_strategy !== requestedStrategy) {
+                toastStore.warning(`⚠️ Video not available - snapshot used instead`);
+            }
         } catch (e: any) {
             console.error('Failed to start reclassification', e.message);
+            toastStore.error(`Failed to reclassify: ${e.message || 'Unknown error'}`);
         }
     }
 

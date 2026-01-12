@@ -25,9 +25,11 @@ class FrigateSettings(BaseModel):
     birdnet_enabled: bool = Field(default=True, description="Enable BirdNET-Go integration")
     audio_topic: str = "birdnet/text"
     camera_audio_mapping: dict[str, str] = Field(
-        default_factory=dict, 
+        default_factory=dict,
         description="Map Frigate camera name to BirdNET-Go sensor ID (e.g. {'front_feeder': 'front_mic'})"
     )
+    audio_buffer_hours: int = Field(default=24, ge=1, le=168, description="Hours to keep audio detections in buffer for correlation (1-168)")
+    audio_correlation_window_seconds: int = Field(default=300, ge=5, le=3600, description="Time window in seconds for audio-visual correlation (±N seconds from detection)")
 
 class ClassificationSettings(BaseModel):
     model: str = "model.tflite"
@@ -85,9 +87,9 @@ class BirdWeatherSettings(BaseModel):
 
 class LLMSettings(BaseModel):
     enabled: bool = Field(default=False, description="Enable LLM integration")
-    provider: str = Field(default="gemini", description="AI provider (gemini, openai)")
+    provider: str = Field(default="gemini", description="AI provider (gemini, openai, claude)")
     api_key: Optional[str] = Field(default=None, description="API Key for the provider")
-    model: str = Field(default="gemini-2.0-flash-exp", description="Model name to use")
+    model: str = Field(default="gemini-3-flash-preview", description="Model name to use")
 
 class TelemetrySettings(BaseModel):
     enabled: bool = Field(default=False, description="Enable anonymous usage statistics")
@@ -142,9 +144,10 @@ class Settings(BaseSettings):
     
     model_config = SettingsConfigDict(env_nested_delimiter='__', env_file='.env', extra='ignore')
 
-    def save(self):
-        with open(CONFIG_PATH, 'w') as f:
-            f.write(self.model_dump_json(indent=2))
+    async def save(self):
+        import aiofiles
+        async with aiofiles.open(CONFIG_PATH, 'w') as f:
+            await f.write(self.model_dump_json(indent=2))
             
     @classmethod
     def load(cls):

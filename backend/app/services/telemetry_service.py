@@ -13,30 +13,76 @@ class TelemetryService:
     def __init__(self):
         self._running = False
         self._task = None
-        try:
-            self._ensure_installation_id()
-        except Exception as e:
-            log.error("Failed to initialize telemetry ID", error=str(e))
+        # Note: Do NOT call _ensure_installation_id here - it's async and called in start()
 
-    def _ensure_installation_id(self):
-        """Generate a persistent anonymous ID if one doesn't exist."""
-        if not settings.telemetry.installation_id:
-            new_id = str(uuid.uuid4())
-            settings.telemetry.installation_id = new_id
+    async def _ensure_installation_id(self, max_retries: int = 3) -> bool:
+        """Generate a persistent anonymous ID if one doesn't exist.
+
+        This is async-safe and includes retry logic with timeout protection.
+
+        Args:
+            max_retries: Maximum number of save attempts (default: 3)
+
+        Returns:
+            True if ID was successfully persisted, False if using in-memory only
+        """
+        if settings.telemetry.installation_id:
+            # Already have an ID
+            return True
+
+        # Generate new UUID
+        new_id = str(uuid.uuid4())
+        settings.telemetry.installation_id = new_id
+        log.info("Generated new anonymous installation ID", id=new_id[:8] + "...")
+
+        # Try to persist it to config file with retries
+        for attempt in range(1, max_retries + 1):
             try:
-                settings.save()
-                log.info("Generated new anonymous installation ID", id=new_id)
+                # Add timeout protection - never hang more than 5 seconds
+                await asyncio.wait_for(settings.save(), timeout=5.0)
+                log.info("Installation ID persisted to config", attempt=attempt)
+                return True
+            except asyncio.TimeoutError:
+                log.warning("Config save timed out, will retry",
+                           attempt=attempt, max_retries=max_retries)
             except Exception as e:
-                log.warning("Failed to save installation ID to config", error=str(e))
+                log.warning("Failed to save installation ID to config",
+                           error=str(e), attempt=attempt, max_retries=max_retries)
+
+            # Wait before retry (exponential backoff: 1s, 2s, 4s)
+            if attempt < max_retries:
+                await asyncio.sleep(2 ** (attempt - 1))
+
+        # All retries failed - continue with in-memory ID
+        log.warning("Using in-memory installation ID (config save failed)",
+                   id=new_id[:8] + "...",
+                   note="Telemetry will work but ID may change on restart")
+        return False
 
     async def start(self):
         """Start the background telemetry reporter."""
         if self._running:
             return
-        
+
+        # Ensure we have an installation ID (async-safe, non-blocking)
+        try:
+            await asyncio.wait_for(self._ensure_installation_id(), timeout=20.0)
+        except asyncio.TimeoutError:
+            log.error("Installation ID generation timed out after 20s - using temporary ID")
+            # Generate temporary in-memory ID as fallback
+            if not settings.telemetry.installation_id:
+                settings.telemetry.installation_id = str(uuid.uuid4())
+        except Exception as e:
+            log.error("Unexpected error during installation ID generation", error=str(e))
+            # Generate temporary in-memory ID as fallback
+            if not settings.telemetry.installation_id:
+                settings.telemetry.installation_id = str(uuid.uuid4())
+
         self._running = True
         self._task = asyncio.create_task(self._report_loop())
-        log.info("Telemetry service started", enabled=settings.telemetry.enabled)
+        log.info("Telemetry service started",
+                enabled=settings.telemetry.enabled,
+                has_persistent_id=bool(settings.telemetry.installation_id))
 
     async def stop(self):
         """Stop the background reporter."""

@@ -976,25 +976,20 @@ test: Add integration tests for backfill
 
 > **📋 For detailed code review and all issues, see `agents/COMPREHENSIVE_CODE_REVIEW.md`**
 
-### Critical (P0) - Fix Immediately
+### Critical (P0)
 
-1. **Database schema mismatch** (`backend/app/db_schema.py`) - Video classification columns missing
-2. **API auth timing attack** (`backend/app/main.py:40`) - Use `secrets.compare_digest()`
-3. **Redacted secrets bug** (`backend/app/routers/settings.py:298`) - Settings update breaks passwords
-4. **TypeScript type errors** (`apps/ui/src/lib/api.ts:62-63`) - `bool` should be `boolean`
+*None* - All critical P0s from v2.4.0 have been resolved in v2.5.1.
 
 ### High Priority (P1)
 
-1. **Minimal test coverage** - Only 5% E2E tests, no unit tests
-2. **Memory leak potential** - Auto video classifier has unbounded task dict
-3. **Telegram markdown injection** - Species names not escaped
-4. **Blocking I/O** - Config save blocks event loop (`config.py:146`)
-5. **No rate limiting** - API endpoints vulnerable to DoS
-6. **EventProcessor refactor needed** - 200+ line method needs decomposition
+1. **Blocking I/O** - Config save blocks event loop (`config.py:146`)
+2. **Minimal test coverage** - Only 5% E2E tests, no unit tests
+3. **No rate limiting** - API endpoints vulnerable to DoS
+4. **EventProcessor refactor needed** - 200+ line method needs decomposition
 
 ### Medium Priority (P2)
 
-1. **No database connection pooling** - New connection per request
+1. **No database connection pooling** - New connection per request (SQLite WAL enabled though)
 2. **No retry logic** - Notification failures are permanent
 3. **Path traversal risk** - Media cache uses unsanitized event IDs
 4. **Hardcoded model URLs** - Could break if sources change

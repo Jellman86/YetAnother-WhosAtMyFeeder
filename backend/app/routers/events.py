@@ -14,6 +14,7 @@ from app.services.classifier_service import get_classifier
 from app.services.frigate_client import frigate_client
 from app.services.broadcaster import broadcaster
 from app.services.taxonomy.taxonomy_service import taxonomy_service
+from app.services.audio.audio_service import audio_service
 
 router = APIRouter()
 log = structlog.get_logger()
@@ -266,6 +267,7 @@ class ReclassifyResponse(BaseModel):
     new_species: str
     new_score: float
     updated: bool
+    actual_strategy: Literal["snapshot", "video"]
 
 
 @router.post("/events/{event_id}/reclassify", response_model=ReclassifyResponse)
@@ -412,35 +414,57 @@ async def reclassify_event(
             
         new_score = top['score']
 
-        # Update if species changed OR if score improved significantly
-        updated = False
-        if new_species != old_species or abs(new_score - detection.score) > 0.01:
-            # 1. Re-normalize taxonomy for the new classification
-            taxonomy = await taxonomy_service.get_names(new_species)
-            
-            sci_name = taxonomy.get("scientific_name") or new_species
-            com_name = taxonomy.get("common_name")
-            t_id = taxonomy.get("taxa_id")
+        # 1. Re-normalize taxonomy for the new classification
+        taxonomy = await taxonomy_service.get_names(new_species)
 
-            # 2. Update DB with new name and taxonomy metadata
+        sci_name = taxonomy.get("scientific_name") or new_species
+        com_name = taxonomy.get("common_name")
+        t_id = taxonomy.get("taxa_id")
+
+        # 2. ALWAYS re-correlate audio on reclassification (even if species unchanged)
+        # This fixes stale audio data from previous incorrect classifications
+        audio_confirmed, audio_species, audio_score = await audio_service.correlate_species(
+            target_time=detection.detection_time,
+            species_name=sci_name,  # Use scientific name for matching
+            camera_name=detection.camera_name
+        )
+
+        # Update if species changed OR if score improved significantly OR if audio changed
+        updated = False
+        audio_changed = (audio_confirmed != detection.audio_confirmed or
+                        audio_species != detection.audio_species)
+
+        if new_species != old_species or abs(new_score - detection.score) > 0.01 or audio_changed:
+            # 3. Update DB with new classification AND re-correlated audio data
             await db.execute("""
                 UPDATE detections
                 SET display_name = ?, category_name = ?, score = ?, detection_index = ?,
-                    scientific_name = ?, common_name = ?, taxa_id = ?
+                    scientific_name = ?, common_name = ?, taxa_id = ?,
+                    audio_confirmed = ?, audio_species = ?, audio_score = ?
                 WHERE frigate_event = ?
-            """, (new_species, new_species, new_score, top['index'], sci_name, com_name, t_id, event_id))
+            """, (new_species, new_species, new_score, top['index'],
+                  sci_name, com_name, t_id,
+                  1 if audio_confirmed else 0, audio_species, audio_score,
+                  event_id))
             await db.commit()
             updated = True
-            
-            log.info("Reclassified detection",
-                     event_id=event_id,
-                     old_species=old_species,
-                     new_species=new_species,
-                     scientific=sci_name,
-                     new_score=new_score,
-                     strategy=effective_strategy)
-            
-            # 3. Broadcast full updated metadata
+
+        # Log reclassification result (even if not updated in DB)
+        log.info("Reclassified detection",
+                 event_id=event_id,
+                 old_species=old_species,
+                 new_species=new_species,
+                 scientific=sci_name,
+                 new_score=new_score,
+                 old_score=detection.score,
+                 strategy=effective_strategy,
+                 audio_confirmed=audio_confirmed,
+                 audio_species=audio_species,
+                 db_updated=updated)
+
+        if updated:
+
+            # 4. Broadcast full updated metadata with re-correlated audio
             await broadcaster.broadcast({
                 "type": "detection_updated",
                 "data": {
@@ -452,9 +476,9 @@ async def reclassify_event(
                     "is_hidden": detection.is_hidden,
                     "frigate_score": detection.frigate_score,
                     "sub_label": detection.sub_label,
-                    "audio_confirmed": detection.audio_confirmed,
-                    "audio_species": detection.audio_species,
-                    "audio_score": detection.audio_score,
+                    "audio_confirmed": audio_confirmed,  # NEW: Re-correlated audio data
+                    "audio_species": audio_species,       # NEW: Re-correlated audio data
+                    "audio_score": audio_score,           # NEW: Re-correlated audio data
                     "temperature": detection.temperature,
                     "weather_condition": detection.weather_condition,
                     "scientific_name": sci_name,
@@ -469,7 +493,8 @@ async def reclassify_event(
             old_species=old_species,
             new_species=new_species,
             new_score=new_score,
-            updated=updated
+            updated=updated,
+            actual_strategy=effective_strategy
         )
 
 
@@ -502,24 +527,48 @@ async def update_event(event_id: str, request: UpdateDetectionRequest):
                 "species": new_species
             }
 
-        # Update the detection - create new object to ensure all fields are set
+        # 1. Get taxonomy for the new species (Force refresh to fix potential bad cache)
+        taxonomy = await taxonomy_service.get_names(new_species, force_refresh=True)
+        sci_name = taxonomy.get("scientific_name") or new_species
+        com_name = taxonomy.get("common_name")
+        t_id = taxonomy.get("taxa_id")
+
+        # 2. Re-correlate audio with the new species
+        audio_confirmed, audio_species, audio_score = await audio_service.correlate_species(
+            target_time=detection.detection_time,
+            species_name=sci_name,  # Use scientific name for matching
+            camera_name=detection.camera_name
+        )
+
+        # 3. Update the detection with new species, taxonomy, and re-correlated audio
         detection.display_name = new_species
         detection.category_name = new_species
+        detection.scientific_name = sci_name
+        detection.common_name = com_name
+        detection.taxa_id = t_id
 
         # Execute update directly for reliability
         await db.execute("""
             UPDATE detections
-            SET display_name = ?, category_name = ?
+            SET display_name = ?, category_name = ?,
+                scientific_name = ?, common_name = ?, taxa_id = ?,
+                audio_confirmed = ?, audio_species = ?, audio_score = ?
             WHERE frigate_event = ?
-        """, (new_species, new_species, event_id))
+        """, (new_species, new_species,
+              sci_name, com_name, t_id,
+              1 if audio_confirmed else 0, audio_species, audio_score,
+              event_id))
         await db.commit()
 
         log.info("Manually updated detection species",
                  event_id=event_id,
                  old_species=old_species,
-                 new_species=new_species)
+                 new_species=new_species,
+                 scientific=sci_name,
+                 audio_confirmed=audio_confirmed,
+                 audio_species=audio_species)
 
-        # Broadcast update
+        # Broadcast update with re-correlated audio
         await broadcaster.broadcast({
             "type": "detection_updated",
             "data": {
@@ -531,14 +580,14 @@ async def update_event(event_id: str, request: UpdateDetectionRequest):
                 "is_hidden": detection.is_hidden,
                 "frigate_score": detection.frigate_score,
                 "sub_label": detection.sub_label,
-                "audio_confirmed": detection.audio_confirmed,
-                "audio_species": detection.audio_species,
-                "audio_score": detection.audio_score,
+                "audio_confirmed": audio_confirmed,  # NEW: Re-correlated audio data
+                "audio_species": audio_species,       # NEW: Re-correlated audio data
+                "audio_score": audio_score,           # NEW: Re-correlated audio data
                 "temperature": detection.temperature,
                 "weather_condition": detection.weather_condition,
-                "scientific_name": detection.scientific_name,
-                "common_name": detection.common_name,
-                "taxa_id": detection.taxa_id
+                "scientific_name": sci_name,
+                "common_name": com_name,
+                "taxa_id": t_id
             }
         })
 

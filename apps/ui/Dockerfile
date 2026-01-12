@@ -3,9 +3,11 @@ FROM node:20 as builder
 
 WORKDIR /app
 
-# Git hash for version tracking (passed at build time)
+# Version info passed at build time
 ARG GIT_HASH=unknown
+ARG APP_VERSION_BASE=2.2.0
 ENV GIT_HASH=${GIT_HASH}
+ENV APP_VERSION_BASE=${APP_VERSION_BASE}
 
 # Copy package files
 COPY package.json package-lock.json ./
@@ -32,8 +34,22 @@ FROM nginx:alpine
 # Install curl for health checks
 RUN apk add --no-cache curl
 
+# Create non-root user (UID 1000 to match backend, or use 568 for TrueNAS)
+RUN addgroup -g 1000 appuser && \
+    adduser -D -u 1000 -G appuser appuser
+
+# Set up permissions for nginx to run as non-root (any user)
+# Make cache directories writable by any user for compatibility with user: override in compose
+RUN chown -R appuser:appuser /usr/share/nginx/html /var/cache/nginx /var/run /var/log/nginx && \
+    chmod -R 777 /var/cache/nginx /var/run /var/log/nginx && \
+    chmod -R 755 /usr/share/nginx/html && \
+    touch /var/run/nginx.pid && \
+    chmod 666 /var/run/nginx.pid
+
 COPY --from=builder /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+USER appuser
 
 EXPOSE 80
 
