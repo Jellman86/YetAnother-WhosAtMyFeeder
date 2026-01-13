@@ -11,7 +11,9 @@
     "leaderboard": "Leaderboard",
     "settings": "Settings",
     "about": "About",
-    "toggle_menu": "Toggle menu"
+    "toggle_menu": "Toggle menu",
+    "collapse_sidebar": "Collapse sidebar",
+    "expand_sidebar": "Expand sidebar"
   },
   "theme": {
     "switch_light": "Switch to light mode",
