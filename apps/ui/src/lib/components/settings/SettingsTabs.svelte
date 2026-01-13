@@ -8,6 +8,7 @@
 
     let { activeTab, ontabchange }: Props = $props();
 
+<<<<<<< Updated upstream
     const tabs = $derived([
         { id: 'connection', label: $_('settings.tabs.connection'), icon: '🔗' },
         { id: 'detection', label: $_('settings.tabs.detection'), icon: '🎯' },
@@ -17,6 +18,17 @@
         { id: 'appearance', label: $_('settings.tabs.appearance'), icon: '🎨' },
         { id: 'accessibility', label: $_('settings.tabs.accessibility'), icon: '♿' },
     ]);
+=======
+    const tabs = [
+        { id: 'connection', label: 'Connection', icon: '🔗' },
+        { id: 'detection', label: 'Detection', icon: '🎯' },
+        { id: 'notifications', label: 'Notifications', icon: '🔔' },
+        { id: 'integrations', label: 'Integrations', icon: '🔌' },
+        { id: 'data', label: 'Data', icon: '💾' },
+        { id: 'appearance', label: 'Appearance', icon: '🎨' },
+        { id: 'accessibility', label: 'Accessibility', icon: '♿' },
+    ];
+>>>>>>> Stashed changes
 </script>
 
 <div class="flex items-center gap-1 p-1.5 bg-slate-100 dark:bg-slate-800/50 rounded-xl border border-slate-200/50 dark:border-slate-700/50">
