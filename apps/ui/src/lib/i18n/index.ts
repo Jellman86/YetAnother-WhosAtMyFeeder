@@ -1,4 +1,4 @@
-import { register, init, getLocaleFromNavigator, locale, _ } from 'svelte-i18n';
+import { register, init, locale, _ } from 'svelte-i18n';
 
 // Register locales
 register('en', () => import('./locales/en.json'));
@@ -7,26 +7,10 @@ register('fr', () => import('./locales/fr.json'));
 register('de', () => import('./locales/de.json'));
 register('ja', () => import('./locales/ja.json'));
 
-// Initialize with browser locale or fallback to English
-const supportedLocales = ['en', 'es', 'fr', 'de', 'ja'];
-let detected = getLocaleFromNavigator();
-
-// Normalize locale (e.g. "en-US" -> "en")
-if (detected) {
-    // Take the first part of the locale string (e.g. "en" from "en-US")
-    const langCode = detected.split('-')[0].split('@')[0];
-    if (supportedLocales.includes(langCode)) {
-        detected = langCode;
-    } else {
-        detected = 'en';
-    }
-} else {
-    detected = 'en';
-}
-
+// Hardcode English for now to ensure startup, then we can detect
 init({
     fallbackLocale: 'en',
-    initialLocale: detected,
+    initialLocale: 'en',
 });
 
 export { locale, _ };
