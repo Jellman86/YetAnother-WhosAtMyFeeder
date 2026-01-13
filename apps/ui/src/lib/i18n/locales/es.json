@@ -11,7 +11,9 @@
     "leaderboard": "Clasificación",
     "settings": "Ajustes",
     "about": "Acerca de",
-    "toggle_menu": "Alternar menú"
+    "toggle_menu": "Alternar menú",
+    "collapse_sidebar": "Contraer barra lateral",
+    "expand_sidebar": "Expandir barra lateral"
   },
   "theme": {
     "switch_light": "Cambiar a modo claro",

@@ -11,7 +11,9 @@
     "leaderboard": "Classement",
     "settings": "Paramètres",
     "about": "À propos",
-    "toggle_menu": "Menu"
+    "toggle_menu": "Menu",
+    "collapse_sidebar": "Réduire la barre latérale",
+    "expand_sidebar": "Développer la barre latérale"
   },
   "theme": {
     "switch_light": "Passer au mode clair",

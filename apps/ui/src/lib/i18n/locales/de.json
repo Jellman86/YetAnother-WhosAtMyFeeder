@@ -11,7 +11,9 @@
     "leaderboard": "Bestenliste",
     "settings": "Einstellungen",
     "about": "Über uns",
-    "toggle_menu": "Menü umschalten"
+    "toggle_menu": "Menü umschalten",
+    "collapse_sidebar": "Seitenleiste einklappen",
+    "expand_sidebar": "Seitenleiste ausklappen"
   },
   "theme": {
     "switch_light": "Zum hellen Modus wechseln",

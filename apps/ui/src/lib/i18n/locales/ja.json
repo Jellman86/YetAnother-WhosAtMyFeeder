@@ -11,7 +11,9 @@
     "leaderboard": "リーダーボード",
     "settings": "設定",
     "about": "このアプリについて",
-    "toggle_menu": "メニューの切り替え"
+    "toggle_menu": "メニューの切り替え",
+    "collapse_sidebar": "サイドバーを折りたたむ",
+    "expand_sidebar": "サイドバーを展開"
   },
   "theme": {
     "switch_light": "ライトモードに切り替え",
