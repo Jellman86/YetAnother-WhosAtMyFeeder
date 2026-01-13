@@ -31,6 +31,9 @@ detections = Table(
     Column("video_classification_index", Integer),
     Column("video_classification_timestamp", TIMESTAMP),
     Column("video_classification_status", String),
+    # AI naturalist analysis
+    Column("ai_analysis", String),
+    Column("ai_analysis_timestamp", TIMESTAMP),
 )
 
 # Indices for detections
