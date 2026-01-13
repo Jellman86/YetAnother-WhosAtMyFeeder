@@ -56,13 +56,15 @@
               )
     );
 
-    async function handleAIAnalysis() {
+    async function handleAIAnalysis(force: boolean = false) {
         if (!detection) return;
         analyzingAI = true;
-        aiAnalysis = null;
+        if (force) {
+            aiAnalysis = null; // Clear existing analysis when forcing regeneration
+        }
 
         try {
-            const result = await analyzeDetection(detection.frigate_event);
+            const result = await analyzeDetection(detection.frigate_event, force);
             aiAnalysis = result.analysis;
         } catch (e: any) {
             aiAnalysis = `Error: ${e.message || 'Analysis failed'}`;
@@ -249,11 +251,24 @@
 
             <!-- AI Analysis -->
             {#if llmEnabled && aiAnalysis}
-                <div class="p-4 rounded-2xl bg-teal-500/5 border border-teal-500/10 animate-in fade-in slide-in-from-top-2">
-                    <p class="text-[10px] font-black text-teal-600 dark:text-teal-400 uppercase tracking-[0.2em] mb-2">
-                        AI Naturalist Insight
-                    </p>
-                    <p class="text-sm text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">{aiAnalysis}</p>
+                <div class="space-y-3">
+                    <div class="p-4 rounded-2xl bg-teal-500/5 border border-teal-500/10 animate-in fade-in slide-in-from-top-2">
+                        <p class="text-[10px] font-black text-teal-600 dark:text-teal-400 uppercase tracking-[0.2em] mb-2">
+                            AI Naturalist Insight
+                        </p>
+                        <p class="text-sm text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">{aiAnalysis}</p>
+                    </div>
+                    <button
+                        onclick={() => handleAIAnalysis(true)}
+                        disabled={analyzingAI}
+                        class="w-full py-2 px-4 bg-teal-500/10 hover:bg-teal-500/20 text-teal-600 dark:text-teal-400 font-semibold text-sm rounded-xl transition-all flex items-center justify-center gap-2 border border-teal-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                        title="Generate a new AI analysis"
+                    >
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                        {analyzingAI ? 'Regenerating...' : 'Regenerate Analysis'}
+                    </button>
                 </div>
             {:else if llmEnabled && !analyzingAI}
                 <button

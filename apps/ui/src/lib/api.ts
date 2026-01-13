@@ -808,11 +808,14 @@ export async function activateModel(modelId: string): Promise<{ status: string; 
     return handleResponse<{ status: string; message: string }>(response);
 }
 
-export async function analyzeDetection(eventId: string): Promise<{ analysis: string }> {
+export async function analyzeDetection(eventId: string, force: boolean = false): Promise<{ analysis: string }> {
     // Use event-specific key to allow multiple analyses, but cancel if same event analyzed again
+    const url = force
+        ? `${API_BASE}/events/${encodeURIComponent(eventId)}/analyze?force=true`
+        : `${API_BASE}/events/${encodeURIComponent(eventId)}/analyze`;
     return fetchWithAbort<{ analysis: string }>(
         `analyze-${eventId}`,
-        `${API_BASE}/events/${encodeURIComponent(eventId)}/analyze`,
+        url,
         { method: 'POST' }
     );
 }
