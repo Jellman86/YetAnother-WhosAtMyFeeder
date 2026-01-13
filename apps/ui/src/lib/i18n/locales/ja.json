@@ -1,0 +1,199 @@
+{
+  "app": {
+    "title": "YA-WAMF",
+    "logo_subtitle": "WhosAtMyFeeder",
+    "logo_title": "Yet Another",
+    "tagline": "Frigate NVRのためのAI鳥類分類システム"
+  },
+  "nav": {
+    "dashboard": "ダッシュボード",
+    "explorer": "エクスプローラー",
+    "leaderboard": "リーダーボード",
+    "settings": "設定",
+    "about": "このアプリについて",
+    "toggle_menu": "メニューの切り替え"
+  },
+  "theme": {
+    "switch_light": "ライトモードに切り替え",
+    "switch_dark": "ダークモードに切り替え",
+    "light": "ライト",
+    "dark": "ダーク",
+    "system": "システム",
+    "title": "テーマと外観",
+    "layout": "Navigation Layout",
+    "horizontal": "Horizontal",
+    "vertical": "Vertical",
+    "horizontal_desc": "Top navigation bar",
+    "vertical_desc": "Left sidebar (collapsible)"
+  },
+  "dashboard": {
+    "title": "ダッシュボード",
+    "live_feed": "ライブフィード",
+    "no_detections": "検出はまだありません",
+    "waiting_first_visitor": "今日の最初の来訪者を待っています...",
+    "discovery_feed": "ディスカバリーフィード",
+    "see_full_history": "すべての履歴を表示",
+    "audio_confirmations": "音声確認"
+  },
+  "common": {
+    "loading": "読み込み中...",
+    "error": "エラー",
+    "success": "成功",
+    "cancel": "キャンセル",
+    "delete": "削除",
+    "close": "閉じる",
+    "refresh": "更新",
+    "save": "保存",
+    "saving": "保存中...",
+    "test": "テスト",
+    "testing": "テスト中...",
+    "add": "追加",
+    "apply_settings": "設定を適用",
+    "unsaved_changes": "未保存の変更",
+    "today": "今日",
+    "yesterday": "昨日",
+    "search": "検索...",
+    "retry": "再試行",
+    "github": "GitHub",
+    "mit_license": "MIT License",
+    "view_snapshot": "View Snapshot",
+    "statistics": "Statistics"
+  },
+  "settings": {
+    "title": "設定",
+    "subtitle": "YA-WAMFインスタンスの構成と管理",
+    "language_selector": "言語",
+    "language_desc": "Changes UI text and notification content.",
+    "tabs": {
+      "connection": "接続",
+      "detection": "検出",
+      "notifications": "通知",
+      "integrations": "統合",
+      "data": "データ",
+      "appearance": "外観"
+    },
+    "frigate": {
+      "title": "Frigate NVR",
+      "url": "サーバーURL",
+      "test_connection": "接続テスト",
+      "sync_cameras": "カメラ同期",
+      "test_mqtt": "MQTTパイプラインのテスト",
+      "mqtt_broker": "MQTTブローカー",
+      "mqtt_port": "ポート",
+      "mqtt_auth": "認証を使用する",
+      "mqtt_user": "ユーザー名",
+      "mqtt_pass": "パスワード",
+      "fetch_clips": "ビデオクリップを取得",
+      "fetch_clips_desc": "再分類にFrigateの録画を使用する"
+    },
+    "cameras": {
+      "title": "アクティブなカメラ",
+      "none_found": "カメラが見つかりません",
+      "syncing": "スキャン中..."
+    },
+    "telemetry": {
+      "title": "テレメトリ",
+      "desc": "匿名の使用統計を共有してYA-WAMFの改善にご協力ください。",
+      "transparency": "透明性：送信されるデータ",
+      "install_id": "インストールID",
+      "version": "アプリのバージョン",
+      "platform": "プラットフォーム",
+      "features": "有効な機能",
+      "privacy_notice": "このデータはアプリの使用状況を把握するために安全に送信されます。画像や個人の検出データが共有されることはありません。"
+    }
+  },
+  "notifications": {
+    "reclassify_fallback": "⚠️ ビデオが利用不可 - 代わりにスナップショットを使用しました",
+    "reclassify_failed": "再分類に失敗しました: {message}",
+    "settings_saved": "設定を正常に保存しました！",
+    "settings_load_failed": "設定の読み込みに失敗しました"
+  },
+  "actions": {
+    "confirm_delete": "この {species} の検出を削除しますか？",
+    "play_video": "ビデオを再生",
+    "deep_reclassify": "詳細な再分類",
+    "manual_tag": "手動タグ付け",
+    "reclassify": "再分類",
+    "species_info": "種の情報",
+    "delete_detection": "検出を削除",
+    "hide_detection": "検出を非表示",
+    "read_more_wikipedia": "Read more on Wikipedia"
+  },
+  "detection": {
+    "confidence": "信頼度",
+    "verified": "確認済み",
+    "hidden": "非表示",
+    "frigate_score": "FRIGATE: {score}%",
+    "audio_match": "音声一致",
+    "birdnet_confirmed": "BirdNETで確認済み",
+    "frigate_verified": "Frigateで確認済み",
+    "video_analysis": {
+      "title": "詳細なビデオ分析",
+      "match": "{score}% 一致",
+      "verified_desc": "時間アンサンブルロジック（ソフト投票）により検証済み。",
+      "in_progress": "ビデオ分析が進行中です..."
+    },
+    "ai": {
+      "insight": "AI博物学者の洞察",
+      "ask": "AI博物学者に聞く",
+      "analyzing": "行動を分析中...",
+      "regenerating": "再生成中...",
+      "regenerate": "分析を再生成",
+      "error": "エラー: {message}"
+    },
+    "tagging": {
+      "search_placeholder": "種を検索...",
+      "no_results": "一致する種が見つかりません"
+    }
+  },
+  "events": {
+    "title": "イベント",
+    "total_count": "合計 {count} 件",
+    "filters": {
+      "all_time": "全期間",
+      "week": "今週",
+      "month": "今月",
+      "custom": "カスタム",
+      "all_species": "すべての種",
+      "all_cameras": "すべてのカメラ"
+    },
+    "sort": {
+      "newest": "新しい順",
+      "oldest": "古い順",
+      "confidence": "信頼度順"
+    },
+    "load_failed": "イベントの読み込みに失敗しました"
+  },
+  "leaderboard": {
+    "title": "種のリーダーボード",
+    "species_count": "{count} 種",
+    "detections_count": "{count} 回の検出",
+    "sort_by_count": "回数順",
+    "sort_by_name": "名前順",
+    "no_species": "種はまだ検出されていません",
+    "no_species_desc": "鳥が記録されるとここに表示されます",
+    "all_species": "すべての種",
+    "percentage_of_total": "全体の {percentage}%",
+    "unidentified_desc": "未特定の検出 - クリックして確認および再分類",
+    "needs_review": "要確認",
+    "load_failed": "種のデータの読み込みに失敗しました"
+  },
+  "about": {
+    "title": "このプロジェクトについて",
+    "how_it_works": "仕組み",
+    "features": "機能",
+    "tech_stack": "テクノロジースタック",
+    "docs_resources": "ドキュメントとリソース",
+    "credits": "クレジットと謝辞",
+    "built_with_ai": "バードウォッチングへの愛を込めて、AIの助けを借りて構築されました 🐦"
+  },
+  "species_detail": {
+    "no_wiki": "No Wikipedia information available for this species.",
+    "avg_confidence": "Avg Confidence",
+    "first_seen": "First Seen",
+    "last_seen": "Last Seen",
+    "activity_patterns": "Activity Patterns",
+    "camera_breakdown": "Camera Breakdown",
+    "recent_sightings": "Recent Sightings"
+  }
+}

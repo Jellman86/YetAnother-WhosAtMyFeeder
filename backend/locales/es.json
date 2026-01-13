@@ -1,0 +1,17 @@
+{
+  "notification": {
+    "new_detection": "Nueva ave detectada: {species}",
+    "detection_body": "{species} detectada en {camera} con {confidence}% de confianza",
+    "audio_confirmed": "🎤 Audio confirmado por BirdNET-Go"
+  },
+  "errors": {
+    "detection_not_found": "Detección no encontrada",
+    "frigate_fetch_failed": "Error al obtener la captura de Frigate",
+    "classification_no_results": "La clasificación no devolvió resultados",
+    "invalid_api_key": "Clave de API inválida",
+    "missing_api_key": "Falta la clave de API",
+    "frigate_timeout": "Tiempo de espera agotado en la conexión con Frigate",
+    "frigate_auth_failed": "Error de autenticación con Frigate",
+    "clip_disabled": "La obtención de clips está deshabilitada"
+  }
+}

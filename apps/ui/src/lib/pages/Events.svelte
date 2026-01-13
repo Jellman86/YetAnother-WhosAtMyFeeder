@@ -18,6 +18,7 @@
     import { detectionsStore } from '../stores/detections.svelte';
     import { settingsStore } from '../stores/settings.svelte';
     import { toastStore } from '../stores/toast.svelte';
+    import { _ } from 'svelte-i18n';
     import Pagination from '../components/Pagination.svelte';
     import DetectionCard from '../components/DetectionCard.svelte';
     import SpeciesDetailModal from '../components/SpeciesDetailModal.svelte';
@@ -97,7 +98,7 @@
             ]);
             events = newEvents;
             totalCount = countRes.count;
-        } catch (e) { error = 'Failed to load events'; } finally { loading = false; }
+        } catch (e) { error = $_('events.load_failed'); } finally { loading = false; }
     }
 
     onMount(async () => {
@@ -150,11 +151,11 @@
 
             // Check if backend used a different strategy (fallback occurred)
             if (result.actual_strategy && result.actual_strategy !== requestedStrategy) {
-                toastStore.warning(`⚠️ Video not available - snapshot used instead`);
+                toastStore.warning($_('notifications.reclassify_fallback'));
             }
         } catch (e: any) {
             console.error('Failed to start reclassification', e.message);
-            toastStore.error(`Failed to reclassify: ${e.message || 'Unknown error'}`);
+            toastStore.error($_('notifications.reclassify_failed', { values: { message: e.message || 'Unknown error' } }));
         }
     }
 
@@ -190,7 +191,7 @@
     }
 
     async function handleDelete() {
-        if (!selectedEvent || !confirm('Delete?')) return;
+        if (!selectedEvent || !confirm($_('actions.confirm_delete', { values: { species: selectedEvent.display_name } }))) return;
         deleting = true;
         try {
             await deleteDetection(selectedEvent.frigate_event);
@@ -205,19 +206,19 @@
 
 <div class="space-y-6">
     <div class="flex items-center justify-between">
-        <h2 class="text-2xl font-bold text-slate-900 dark:text-white">Events</h2>
-        <div class="text-sm text-slate-500">{totalCount} total</div>
+        <h2 class="text-2xl font-bold text-slate-900 dark:text-white">{$_('events.title')}</h2>
+        <div class="text-sm text-slate-500">{$_('events.total_count', { values: { count: totalCount } })}</div>
     </div>
 
     <div class="flex flex-wrap gap-3">
         <select bind:value={datePreset} onchange={loadEvents} class="px-3 py-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm">
-            <option value="all">All Time</option><option value="today">Today</option><option value="week">Week</option><option value="month">Month</option><option value="custom">Custom</option>
+            <option value="all">{$_('events.filters.all_time')}</option><option value="today">{$_('common.today')}</option><option value="week">{$_('events.filters.week')}</option><option value="month">{$_('events.filters.month')}</option><option value="custom">{$_('events.filters.custom')}</option>
         </select>
         <select bind:value={speciesFilter} onchange={loadEvents} class="px-3 py-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm">
-            <option value="">All Species</option>{#each availableSpecies as s}<option value={s}>{s}</option>{/each}
+            <option value="">{$_('events.filters.all_species')}</option>{#each availableSpecies as s}<option value={s}>{s}</option>{/each}
         </select>
         <select bind:value={cameraFilter} onchange={loadEvents} class="px-3 py-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm">
-            <option value="">All Cameras</option>{#each availableCameras as c}<option value={c}>{c}</option>{/each}
+            <option value="">{$_('events.filters.all_cameras')}</option>{#each availableCameras as c}<option value={c}>{c}</option>{/each}
         </select>
     </div>
 

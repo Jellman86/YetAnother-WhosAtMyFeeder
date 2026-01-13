@@ -1,0 +1,199 @@
+{
+  "app": {
+    "title": "YA-WAMF",
+    "logo_subtitle": "WhosAtMyFeeder",
+    "logo_title": "Yet Another",
+    "tagline": "Classification d'oiseaux par IA pour votre Frigate NVR"
+  },
+  "nav": {
+    "dashboard": "Tableau de bord",
+    "explorer": "Explorateur",
+    "leaderboard": "Classement",
+    "settings": "Paramètres",
+    "about": "À propos",
+    "toggle_menu": "Menu"
+  },
+  "theme": {
+    "switch_light": "Passer au mode clair",
+    "switch_dark": "Passer au mode sombre",
+    "light": "Clair",
+    "dark": "Sombre",
+    "system": "Système",
+    "title": "Thème et Apparence",
+    "layout": "Navigation Layout",
+    "horizontal": "Horizontal",
+    "vertical": "Vertical",
+    "horizontal_desc": "Top navigation bar",
+    "vertical_desc": "Left sidebar (collapsible)"
+  },
+  "dashboard": {
+    "title": "Tableau de bord",
+    "live_feed": "Flux en direct",
+    "no_detections": "Aucune détection pour le moment",
+    "waiting_first_visitor": "En attente du premier visiteur de la journée...",
+    "discovery_feed": "Fil de découverte",
+    "see_full_history": "Voir l'historique complet",
+    "audio_confirmations": "Confirmations audio"
+  },
+  "common": {
+    "loading": "Chargement...",
+    "error": "Erreur",
+    "success": "Succès",
+    "cancel": "Annuler",
+    "delete": "Supprimer",
+    "close": "Fermer",
+    "refresh": "Actualiser",
+    "save": "Enregistrer",
+    "saving": "Enregistrement...",
+    "test": "Tester",
+    "testing": "Test en cours...",
+    "add": "Ajouter",
+    "apply_settings": "Appliquer les paramètres",
+    "unsaved_changes": "Modifications non enregistrées",
+    "today": "Aujourd'hui",
+    "yesterday": "Hier",
+    "search": "Rechercher...",
+    "retry": "Réessayer",
+    "github": "GitHub",
+    "mit_license": "MIT License",
+    "view_snapshot": "View Snapshot",
+    "statistics": "Statistics"
+  },
+  "settings": {
+    "title": "Paramètres",
+    "subtitle": "Configurez et gérez votre instance YA-WAMF",
+    "language_selector": "Langue",
+    "language_desc": "Changes UI text and notification content.",
+    "tabs": {
+      "connection": "Connexion",
+      "detection": "Détection",
+      "notifications": "Notifications",
+      "integrations": "Intégrations",
+      "data": "Données",
+      "appearance": "Apparence"
+    },
+    "frigate": {
+      "title": "Frigate NVR",
+      "url": "URL du serveur",
+      "test_connection": "Tester la connexion",
+      "sync_cameras": "Synchroniser les caméras",
+      "test_mqtt": "Tester le pipeline MQTT",
+      "mqtt_broker": "Broker MQTT",
+      "mqtt_port": "Port",
+      "mqtt_auth": "Utiliser l'authentification",
+      "mqtt_user": "Utilisateur",
+      "mqtt_pass": "Mot de passe",
+      "fetch_clips": "Récupérer les clips vidéo",
+      "fetch_clips_desc": "Utiliser les enregistrements Frigate pour la reclasification"
+    },
+    "cameras": {
+      "title": "Caméras actives",
+      "none_found": "Aucune caméra trouvée",
+      "syncing": "Numérisation..."
+    },
+    "telemetry": {
+      "title": "Télémétrie",
+      "desc": "Aidez à améliorer YA-WAMF en partageant des statistiques d'utilisation anonymes.",
+      "transparency": "Transparence : Ce que nous envoyons",
+      "install_id": "ID d'installation",
+      "version": "Version de l'application",
+      "platform": "Plateforme",
+      "features": "Fonctionnalités activées",
+      "privacy_notice": "Ces données sont envoyées de manière sécurisée pour nous aider à comprendre comment l'application est utilisée. Aucune image ni donnée de détection personnelle n'est partagée."
+    }
+  },
+  "notifications": {
+    "reclassify_fallback": "⚠️ Vidéo non disponible - capture utilisée à la place",
+    "reclassify_failed": "Échec de la reclasification : {message}",
+    "settings_saved": "Paramètres enregistrés avec succès !",
+    "settings_load_failed": "Échec du chargement des paramètres"
+  },
+  "actions": {
+    "confirm_delete": "Supprimer cette détection de {species} ?",
+    "play_video": "Lire la vidéo",
+    "deep_reclassify": "Reclassification profonde",
+    "manual_tag": "Étiquette manuelle",
+    "reclassify": "Reclassifier",
+    "species_info": "Infos sur l'espèce",
+    "delete_detection": "Supprimer la détection",
+    "hide_detection": "Masquer la détection",
+    "read_more_wikipedia": "Read more on Wikipedia"
+  },
+  "detection": {
+    "confidence": "Confiance",
+    "verified": "Vérifié",
+    "hidden": "Masqué",
+    "frigate_score": "FRIGATE : {score}%",
+    "audio_match": "Correspondance audio",
+    "birdnet_confirmed": "BirdNET Confirmé",
+    "frigate_verified": "Frigate Vérifié",
+    "video_analysis": {
+      "title": "Analyse vidéo profonde",
+      "match": "{score}% de correspondance",
+      "verified_desc": "Vérifié via une logique d'ensemble temporelle (Soft-Voting).",
+      "in_progress": "Analyse vidéo en cours..."
+    },
+    "ai": {
+      "insight": "Aperçu de l'IA Naturaliste",
+      "ask": "Demander à l'IA Naturaliste",
+      "analyzing": "Analyse du comportement...",
+      "regenerating": "Régénération...",
+      "regenerate": "Régénérer l'analyse",
+      "error": "Erreur : {message}"
+    },
+    "tagging": {
+      "search_placeholder": "Rechercher une espèce...",
+      "no_results": "Aucune espèce correspondante trouvée"
+    }
+  },
+  "events": {
+    "title": "Événements",
+    "total_count": "{count} au total",
+    "filters": {
+      "all_time": "Tout le temps",
+      "week": "Semaine",
+      "month": "Mois",
+      "custom": "Personnalisé",
+      "all_species": "Toutes les espèces",
+      "all_cameras": "Toutes les caméras"
+    },
+    "sort": {
+      "newest": "Plus récent",
+      "oldest": "Plus ancien",
+      "confidence": "Confiance"
+    },
+    "load_failed": "Échec du chargement des événements"
+  },
+  "leaderboard": {
+    "title": "Classement des espèces",
+    "species_count": "{count} espèces",
+    "detections_count": "{count} détections",
+    "sort_by_count": "Par nombre",
+    "sort_by_name": "Par nom",
+    "no_species": "Aucune espèce détectée pour le moment",
+    "no_species_desc": "Les détections d'oiseaux apparaîtront ici une fois enregistrées",
+    "all_species": "Toutes les espèces",
+    "percentage_of_total": "{percentage}% du total",
+    "unidentified_desc": "Détection non identifiée - cliquez pour examiner et reclassifier",
+    "needs_review": "À réviser",
+    "load_failed": "Échec du chargement des données sur les espèces"
+  },
+  "about": {
+    "title": "À propos de ce projet",
+    "how_it_works": "Comment ça marche",
+    "features": "Fonctionnalités",
+    "tech_stack": "Pile technologique",
+    "docs_resources": "Documentation et ressources",
+    "credits": "Crédits et remerciements",
+    "built_with_ai": "Construit avec l'aide de l'IA pour l'amour de l'observation des oiseaux 🐦"
+  },
+  "species_detail": {
+    "no_wiki": "No Wikipedia information available for this species.",
+    "avg_confidence": "Avg Confidence",
+    "first_seen": "First Seen",
+    "last_seen": "Last Seen",
+    "activity_patterns": "Activity Patterns",
+    "camera_breakdown": "Camera Breakdown",
+    "recent_sightings": "Recent Sightings"
+  }
+}

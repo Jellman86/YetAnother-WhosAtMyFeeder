@@ -5,6 +5,8 @@
     import { detectionsStore, type ReclassificationProgress } from '../stores/detections.svelte';
     import { settingsStore } from '../stores/settings.svelte';
     import { getBirdNames } from '../naming';
+    import { _ } from 'svelte-i18n';
+    import { trapFocus } from '../utils/focus-trap';
 
     interface Props {
         detection: Detection;
@@ -29,7 +31,15 @@
     }: Props = $props();
 
     // State
+    let modalElement = $state<HTMLElement | null>(null);
     let analyzingAI = $state(false);
+
+    $effect(() => {
+        if (modalElement) {
+            return trapFocus(modalElement);
+        }
+    });
+
     let aiAnalysis = $state<string | null>(null);
     let showTagDropdown = $state(false);
     let updatingTag = $state(false);
@@ -67,7 +77,7 @@
             const result = await analyzeDetection(detection.frigate_event, force);
             aiAnalysis = result.analysis;
         } catch (e: any) {
-            aiAnalysis = `Error: ${e.message || 'Analysis failed'}`;
+            aiAnalysis = $_('detection.ai.error', { values: { message: e.message || 'Analysis failed' } });
         } finally {
             analyzingAI = false;
         }
@@ -83,7 +93,7 @@
             showTagDropdown = false;
             aiAnalysis = null; // Reset AI analysis for new species
         } catch (e: any) {
-            alert('Failed to update species: ' + e.message);
+            alert($_('notifications.reclassify_failed', { values: { message: e.message } }));
         } finally {
             updatingTag = false;
         }
@@ -98,20 +108,20 @@
                 onClose();
             }
         } catch (e: any) {
-            alert('Failed to hide detection: ' + e.message);
+            alert($_('notifications.reclassify_failed', { values: { message: e.message } }));
         }
     }
 
     async function handleDelete() {
         if (!detection) return;
-        if (!confirm(`Delete detection of ${detection.display_name}?`)) return;
+        if (!confirm($_('actions.confirm_delete', { values: { species: detection.display_name } }))) return;
 
         try {
             await deleteDetection(detection.frigate_event);
             detectionsStore.removeDetection(detection.frigate_event, detection.detection_time);
             onClose();
         } catch (e: any) {
-            alert('Failed to delete detection: ' + e.message);
+            alert($_('notifications.reclassify_failed', { values: { message: e.message } }));
         }
     }
 
@@ -134,6 +144,7 @@
     tabindex="-1"
 >
     <div
+        bind:this={modalElement}
         class="relative bg-white dark:bg-slate-800 rounded-3xl shadow-2xl max-w-lg w-full max-h-[90vh] flex flex-col border border-white/20 overflow-hidden"
         onclick={(e) => e.stopPropagation()}
         onkeydown={(e) => e.stopPropagation()}
@@ -189,7 +200,7 @@
             <!-- Confidence Bar -->
             <div>
                 <div class="flex items-center justify-between mb-2">
-                    <span class="text-xs font-bold text-slate-500 uppercase tracking-widest">Confidence</span>
+                    <span class="text-xs font-bold text-slate-500 uppercase tracking-widest">{$_('detection.confidence')}</span>
                     <span class="text-sm font-black text-slate-900 dark:text-white">
                         {((detection.score || 0) * 100).toFixed(1)}%
                     </span>
@@ -207,11 +218,11 @@
                 <div class="p-4 rounded-2xl bg-indigo-500/5 border border-indigo-500/10 animate-in fade-in slide-in-from-top-2">
                     <div class="flex items-center justify-between mb-2">
                         <p class="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-[0.2em]">
-                            Deep Video Analysis
+                            {$_('detection.video_analysis.title')}
                         </p>
                         {#if detection.video_classification_score}
                             <span class="px-2 py-0.5 bg-indigo-500 text-white text-[9px] font-black rounded uppercase">
-                                {(detection.video_classification_score * 100).toFixed(0)}% Match
+                                {$_('detection.video_analysis.match', { values: { score: (detection.video_classification_score * 100).toFixed(0) } })}
                             </span>
                         {/if}
                     </div>
@@ -219,13 +230,13 @@
                         {detection.video_classification_label}
                     </p>
                     <p class="text-[10px] text-slate-500 mt-1 italic leading-tight">
-                        Verified via temporal ensemble logic (Soft-Voting).
+                        {$_('detection.video_analysis.verified_desc')}
                     </p>
                 </div>
             {:else if detection.video_classification_status === 'processing' || detection.video_classification_status === 'pending'}
                  <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-700/50 flex items-center gap-3 animate-pulse">
                     <div class="w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
-                    <span class="text-xs font-bold text-slate-500 uppercase tracking-widest">Video Analysis in progress...</span>
+                    <span class="text-xs font-bold text-slate-500 uppercase tracking-widest">{$_('detection.video_analysis.in_progress')}</span>
                  </div>
             {/if}
 
@@ -254,7 +265,7 @@
                 <div class="space-y-3">
                     <div class="p-4 rounded-2xl bg-teal-500/5 border border-teal-500/10 animate-in fade-in slide-in-from-top-2">
                         <p class="text-[10px] font-black text-teal-600 dark:text-teal-400 uppercase tracking-[0.2em] mb-2">
-                            AI Naturalist Insight
+                            {$_('detection.ai.insight')}
                         </p>
                         <p class="text-sm text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">{aiAnalysis}</p>
                     </div>
@@ -262,28 +273,28 @@
                         onclick={() => handleAIAnalysis(true)}
                         disabled={analyzingAI}
                         class="w-full py-2 px-4 bg-teal-500/10 hover:bg-teal-500/20 text-teal-600 dark:text-teal-400 font-semibold text-sm rounded-xl transition-all flex items-center justify-center gap-2 border border-teal-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
-                        title="Generate a new AI analysis"
+                        title={$_('detection.ai.regenerate')}
                     >
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                         </svg>
-                        {analyzingAI ? 'Regenerating...' : 'Regenerate Analysis'}
+                        {analyzingAI ? $_('detection.ai.regenerating') : $_('detection.ai.regenerate')}
                     </button>
                 </div>
             {:else if llmEnabled && !analyzingAI}
                 <button
-                    onclick={handleAIAnalysis}
+                    onclick={() => handleAIAnalysis()}
                     class="w-full py-3 px-4 bg-teal-500/10 hover:bg-teal-500/20 text-teal-600 dark:text-teal-400 font-bold rounded-xl transition-all flex items-center justify-center gap-2 border border-teal-500/20"
                 >
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
                     </svg>
-                    Ask AI Naturalist
+                    {$_('detection.ai.ask')}
                 </button>
             {:else if analyzingAI}
                 <div class="w-full py-3 px-4 bg-slate-100 dark:bg-slate-800 text-slate-500 font-bold rounded-xl flex items-center justify-center gap-3 animate-pulse">
                     <div class="w-4 h-4 border-2 border-teal-500 border-t-transparent rounded-full animate-spin"></div>
-                    Analyzing behavior...
+                    {$_('detection.ai.analyzing')}
                 </div>
             {/if}
 
@@ -293,7 +304,7 @@
                     onclick={handleReclassifyClick}
                     class="flex-1 py-3 px-4 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold rounded-xl hover:bg-slate-200 transition-colors"
                 >
-                    Reclassify
+                    {$_('actions.reclassify')}
                 </button>
 
                 <div class="relative flex-1">
@@ -302,7 +313,7 @@
                         disabled={updatingTag}
                         class="w-full py-3 px-4 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold rounded-xl hover:bg-slate-200 transition-colors disabled:opacity-50"
                     >
-                        {updatingTag ? 'Updating...' : 'Manual Tag'}
+                        {updatingTag ? $_('common.saving') : $_('actions.manual_tag')}
                     </button>
 
                     {#if showTagDropdown}
@@ -311,7 +322,7 @@
                                 <input
                                     type="text"
                                     bind:value={tagSearchQuery}
-                                    placeholder="Search species..."
+                                    placeholder={$_('detection.tagging.search_placeholder')}
                                     class="w-full px-4 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none"
                                     onclick={(e) => e.stopPropagation()}
                                 />
@@ -326,7 +337,7 @@
                                     </button>
                                 {/each}
                                 {#if filteredLabels.length === 0}
-                                    <p class="px-4 py-6 text-sm text-slate-400 italic text-center">No matching species found</p>
+                                    <p class="px-4 py-6 text-sm text-slate-400 italic text-center">{$_('detection.tagging.no_results')}</p>
                                 {/if}
                             </div>
                         </div>
@@ -339,7 +350,7 @@
                 <button
                     onclick={handleDelete}
                     class="p-3 rounded-xl bg-red-50 dark:bg-red-900/20 text-red-600 hover:bg-red-100 transition-colors"
-                    title="Delete Detection"
+                    title={$_('actions.delete_detection')}
                 >
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -348,7 +359,7 @@
                 <button
                     onclick={handleHide}
                     class="p-3 rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-600 hover:bg-slate-200 transition-colors"
-                    title="Hide Detection"
+                    title={$_('actions.hide_detection')}
                 >
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
@@ -358,7 +369,7 @@
                     onclick={handleSpeciesInfo}
                     class="flex-1 bg-teal-500 hover:bg-teal-600 text-white font-black uppercase tracking-widest text-xs rounded-xl transition-all shadow-lg shadow-teal-500/20"
                 >
-                    Species Info
+                    {$_('actions.species_info')}
                 </button>
             </div>
         </div>

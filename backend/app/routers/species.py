@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request, Depends
 from datetime import datetime, timedelta
 from urllib.parse import quote
 import httpx
@@ -8,6 +8,8 @@ from app.database import get_db
 from app.repositories.detection_repository import DetectionRepository
 from app.models import SpeciesStats, SpeciesInfo, CameraStats, Detection
 from app.config import settings
+from app.services.taxonomy.taxonomy_service import taxonomy_service
+from app.services.i18n_service import i18n_service
 
 router = APIRouter()
 log = structlog.get_logger()
@@ -86,8 +88,9 @@ def _is_bird_article(data: dict) -> bool:
 
 
 @router.get("/species")
-async def get_species_list():
+async def get_species_list(request: Request):
     """Get list of all species with counts."""
+    lang = getattr(request.state, 'language', 'en')
     async with get_db() as db:
         repo = DetectionRepository(db)
         stats = await repo.get_species_counts()
@@ -101,11 +104,19 @@ async def get_species_list():
             if s["species"] in unknown_labels:
                 unknown_count += s["count"]
             else:
+                common_name = s.get("common_name")
+                taxa_id = s.get("taxa_id")
+                if lang != 'en' and taxa_id:
+                    localized = await taxonomy_service.get_localized_common_name(taxa_id, lang, db=db)
+                    if localized:
+                        common_name = localized
+
                 filtered_stats.append({
                     "species": s["species"],
                     "count": s["count"],
                     "scientific_name": s.get("scientific_name"),
-                    "common_name": s.get("common_name")
+                    "common_name": common_name,
+                    "taxa_id": taxa_id
                 })
 
         # Add aggregated "Unknown Bird" entry if any were found
@@ -122,8 +133,9 @@ async def get_species_list():
         return filtered_stats
 
 @router.get("/species/{species_name}/stats", response_model=SpeciesStats)
-async def get_species_stats(species_name: str):
+async def get_species_stats(species_name: str, request: Request):
     """Get comprehensive statistics for a species."""
+    lang = getattr(request.state, 'language', 'en')
     async with get_db() as db:
         repo = DetectionRepository(db)
 
@@ -180,7 +192,10 @@ async def get_species_stats(species_name: str):
                 recent.extend(label_recent)
 
         if total_stats["total"] == 0:
-            raise HTTPException(status_code=404, detail=f"No sightings found for species: {species_name}")
+            raise HTTPException(
+                status_code=404, 
+                detail=i18n_service.translate("errors.detection_not_found", lang=lang)
+            )
 
         # Calculate average confidence
         if confidence_count > 0:
@@ -203,8 +218,15 @@ async def get_species_stats(species_name: str):
 
         # Convert dataclass detections to Pydantic models
         # Also transform display_name for unknown bird labels
-        recent_detections = [
-            Detection(
+        recent_detections = []
+        for d in recent:
+            common_name = d.common_name
+            if lang != 'en' and d.taxa_id:
+                localized = await taxonomy_service.get_localized_common_name(d.taxa_id, lang, db=db)
+                if localized:
+                    common_name = localized
+
+            recent_detections.append(Detection(
                 id=d.id,
                 detection_time=d.detection_time,
                 detection_index=d.detection_index,
@@ -222,19 +244,28 @@ async def get_species_stats(species_name: str):
                 temperature=d.temperature,
                 weather_condition=d.weather_condition,
                 scientific_name=d.scientific_name,
-                common_name=d.common_name,
+                common_name=common_name,
                 taxa_id=d.taxa_id
-            )
-            for d in recent
-        ]
+            ))
 
         # Get taxonomy names for the main species
         taxonomy = await repo.get_taxonomy_names(species_name)
+        common_name = taxonomy["common_name"]
+        
+        # Localize main common name if needed
+        taxa_id = None
+        if recent:
+            taxa_id = recent[0].taxa_id
+        
+        if lang != 'en' and taxa_id:
+            localized = await taxonomy_service.get_localized_common_name(taxa_id, lang, db=db)
+            if localized:
+                common_name = localized
 
         return SpeciesStats(
             species_name=species_name,
             scientific_name=taxonomy["scientific_name"],
-            common_name=taxonomy["common_name"],
+            common_name=common_name,
             total_sightings=total_stats["total"],
             first_seen=total_stats["first_seen"],
             last_seen=total_stats["last_seen"],

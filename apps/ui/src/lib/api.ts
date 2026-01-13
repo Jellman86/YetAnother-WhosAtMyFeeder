@@ -64,6 +64,8 @@ export interface Settings {
     auto_video_classification: boolean;
     video_classification_delay: number;
     video_classification_max_retries: number;
+    audio_buffer_hours?: number;
+    audio_correlation_window_seconds?: number;
     // Media cache settings
     media_cache_enabled: boolean;
     media_cache_snapshots: boolean;
@@ -83,6 +85,7 @@ export interface Settings {
     llm_model?: string;
     telemetry_enabled: boolean;
     telemetry_installation_id?: string;
+    telemetry_platform?: string;
 
     // Notification settings
     notifications_discord_enabled: boolean;
@@ -105,67 +108,7 @@ export interface Settings {
 
 export type UpdateSettings = Partial<Settings>;
 
-export interface SettingsUpdate {
-    frigate_url: string;
-    mqtt_server: string;
-    mqtt_port: number;
-    mqtt_auth: boolean;
-    mqtt_username?: string;
-    mqtt_password?: string;
-    birdnet_enabled: boolean;
-    audio_topic: string;
-    camera_audio_mapping: Record<string, string>;
-    clips_enabled: boolean;
-    classification_threshold: number;
-    classification_min_confidence: number;
-    cameras: string[];
-    retention_days: number;
-    blocked_labels: string[];
-    trust_frigate_sublabel: boolean;
-    display_common_names: boolean;
-    scientific_name_primary?: boolean;
-    auto_video_classification?: boolean;
-    video_classification_delay?: number;
-    video_classification_max_retries?: number;
-    // Media cache settings
-    media_cache_enabled: boolean;
-    media_cache_snapshots: boolean;
-    media_cache_clips: boolean;
-    media_cache_retention_days: number;
-    // Location settings
-    location_latitude?: number | null;
-    location_longitude?: number | null;
-    location_automatic?: boolean;
-    // BirdWeather settings
-    birdweather_enabled?: boolean;
-    birdweather_station_token?: string | null;
-    // LLM settings
-    llm_enabled?: boolean;
-    llm_provider?: string;
-    llm_api_key?: string | null;
-    llm_model?: string;
-    
-    // Telemetry
-    telemetry_enabled?: boolean;
-
-    // Notification settings
-    notifications_discord_enabled?: boolean;
-    notifications_discord_webhook_url?: string | null;
-    notifications_discord_username?: string;
-    
-    notifications_pushover_enabled?: boolean;
-    notifications_pushover_user_key?: string | null;
-    notifications_pushover_api_token?: string | null;
-    notifications_pushover_priority?: number;
-    
-    notifications_telegram_enabled?: boolean;
-    notifications_telegram_bot_token?: string | null;
-    notifications_telegram_chat_id?: string | null;
-    
-    notifications_filter_species_whitelist?: string[];
-    notifications_filter_min_confidence?: number;
-    notifications_filter_audio_confirmed_only?: boolean;
-}
+export interface SettingsUpdate extends Partial<Settings> {}
 
 export interface CacheStats {
     snapshot_count: number;
@@ -230,6 +173,15 @@ function getHeaders(customHeaders: HeadersInit = {}): HeadersInit {
     if (apiKey) {
         headers['X-API-Key'] = apiKey;
     }
+    
+    // Add Accept-Language header if available
+    if (typeof localStorage !== 'undefined') {
+        const preferredLang = localStorage.getItem('preferred-language');
+        if (preferredLang) {
+            headers['Accept-Language'] = preferredLang;
+        }
+    }
+    
     return headers;
 }
 

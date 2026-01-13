@@ -1,0 +1,17 @@
+{
+  "notification": {
+    "new_detection": "Nouvel oiseau détecté : {species}",
+    "detection_body": "{species} détecté sur {camera} avec {confidence}% de confiance",
+    "audio_confirmed": "🎤 Audio confirmé par BirdNET-Go"
+  },
+  "errors": {
+    "detection_not_found": "Détection non trouvée",
+    "frigate_fetch_failed": "Échec de la récupération de la capture depuis Frigate",
+    "classification_no_results": "La classification n'a retourné aucun résultat",
+    "invalid_api_key": "Clé API invalide",
+    "missing_api_key": "Clé API manquante",
+    "frigate_timeout": "Délai d'attente de la connexion Frigate dépassé",
+    "frigate_auth_failed": "Échec de l'authentification Frigate",
+    "clip_disabled": "La récupération des clips est désactivée"
+  }
+}

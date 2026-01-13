@@ -24,28 +24,32 @@ from app.services.telemetry_service import telemetry_service
 from app.repositories.detection_repository import DetectionRepository
 from app.routers import events, stream, proxy, settings as settings_router, species, backfill, classifier, models, ai, stats, debug, audio
 from app.config import settings
+from app.middleware.language import LanguageMiddleware
+from app.services.i18n_service import i18n_service
 
 # Authentication
 api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 api_key_query = APIKeyQuery(name="api_key", auto_error=False)
 
 async def verify_api_key(
+    request: Request,
     header_key: str = Security(api_key_header),
     query_key: str = Security(api_key_query)
 ):
     """Validate API Key if configured (via Header or Query param)."""
     if settings.api_key:
+        lang = getattr(request.state, 'language', 'en')
         api_key = header_key or query_key
         if not api_key:
              raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Missing API Key",
+                detail=i18n_service.translate("errors.missing_api_key", lang=lang),
             )
         # Use constant-time comparison to prevent timing attacks
         if not secrets.compare_digest(api_key, settings.api_key):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Invalid API Key",
+                detail=i18n_service.translate("errors.invalid_api_key", lang=lang),
             )
     return header_key or query_key
 
@@ -221,6 +225,8 @@ async def custom_rate_limit_handler(request: Request, exc: RateLimitExceeded):
         headers={"Retry-After": str(exc.detail)},
         media_type="application/json"
     )
+
+app.add_middleware(LanguageMiddleware)
 
 # CORS configuration - Note: wildcard origins cannot be used with credentials
 app.add_middleware(

@@ -1,0 +1,17 @@
+{
+  "notification": {
+    "new_detection": "新しい鳥が検出されました：{species}",
+    "detection_body": "{camera}で{confidence}%の信頼度で{species}が検出されました",
+    "audio_confirmed": "🎤 BirdNET-Goによる音声確認済み"
+  },
+  "errors": {
+    "detection_not_found": "検出が見つかりません",
+    "frigate_fetch_failed": "Frigateからのスナップショット取得に失敗しました",
+    "classification_no_results": "分類結果がありませんでした",
+    "invalid_api_key": "APIキーが無効です",
+    "missing_api_key": "APIキーがありません",
+    "frigate_timeout": "Frigateへの接続がタイムアウトしました",
+    "frigate_auth_failed": "Frigateの認証に失敗しました",
+    "clip_disabled": "クリップの取得は無効になっています"
+  }
+}

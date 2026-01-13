@@ -147,6 +147,91 @@ class TaxonomyService:
             
         return None
 
+    async def get_localized_common_name(self, taxa_id: int, lang: str, db: Optional[aiosqlite.Connection] = None) -> Optional[str]:
+        """
+        Get the localized common name for a species.
+        Checks cache first, then pings iNaturalist.
+        """
+        if not taxa_id:
+            return None
+
+        # 1. Check Cache
+        cached = await self._get_translation_from_cache(taxa_id, lang, db=db)
+        if cached:
+            return cached
+
+        # 2. Lookup from iNaturalist
+        log.info("Localized taxonomy lookup (iNaturalist)", taxa_id=taxa_id, lang=lang)
+        result = await self._lookup_localized_inaturalist(taxa_id, lang)
+        
+        if result:
+            # 3. Save to Cache
+            await self._save_translation_to_cache(taxa_id, lang, result, db=db)
+            return result
+
+        return None
+
+    async def _get_translation_from_cache(self, taxa_id: int, lang: str, db: Optional[aiosqlite.Connection] = None) -> Optional[str]:
+        """Check the taxonomy_translations table."""
+        try:
+            if db:
+                return await self._query_translation_cache(db, taxa_id, lang)
+            else:
+                async with get_db() as db:
+                    return await self._query_translation_cache(db, taxa_id, lang)
+        except Exception as e:
+            log.warning("Taxonomy translation cache lookup failed", error=str(e))
+        return None
+
+    async def _query_translation_cache(self, db: aiosqlite.Connection, taxa_id: int, lang: str) -> Optional[str]:
+        async with db.execute(
+            "SELECT common_name FROM taxonomy_translations WHERE taxa_id = ? AND language_code = ?",
+            (taxa_id, lang)
+        ) as cursor:
+            row = await cursor.fetchone()
+            if row:
+                return row[0]
+        return None
+
+    async def _save_translation_to_cache(self, taxa_id: int, lang: str, common_name: str, db: Optional[aiosqlite.Connection] = None):
+        """Save a translation to the local cache."""
+        if db:
+            await self._insert_translation_cache(db, taxa_id, lang, common_name)
+        else:
+            async with get_db() as db:
+                await self._insert_translation_cache(db, taxa_id, lang, common_name)
+                await db.commit()
+
+    async def _insert_translation_cache(self, db: aiosqlite.Connection, taxa_id: int, lang: str, common_name: str):
+        await db.execute(
+            """INSERT OR REPLACE INTO taxonomy_translations 
+               (taxa_id, language_code, common_name) 
+               VALUES (?, ?, ?)""",
+            (taxa_id, lang, common_name)
+        )
+
+    async def _lookup_localized_inaturalist(self, taxa_id: int, lang: str) -> Optional[str]:
+        """Query the iNaturalist API for a specific taxon and locale."""
+        try:
+            url = f"{self.API_URL}/{taxa_id}"
+            params = {
+                "locale": lang
+            }
+
+            client = await self._get_client()
+            resp = await client.get(url, params=params)
+            resp.raise_for_status()
+            data = resp.json()
+            
+            if data.get("total_results", 0) > 0:
+                taxon = data["results"][0]
+                # iNaturalist returns preferred_common_name for the requested locale
+                return taxon.get("preferred_common_name")
+        except Exception as e:
+            log.warning("Localized iNaturalist lookup failed", taxa_id=taxa_id, lang=lang, error=str(e))
+            
+        return None
+
     async def run_background_sync(self):
         """Scan entire database for unsynced species and normalize them."""
         if self._sync_status["is_running"]:

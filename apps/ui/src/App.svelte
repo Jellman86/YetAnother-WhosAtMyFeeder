@@ -273,6 +273,10 @@
 </script>
 
   <div class="min-h-screen flex flex-col bg-surface-light dark:bg-surface-dark text-slate-900 dark:text-white font-sans transition-colors duration-300">
+  <!-- Skip to content for accessibility -->
+  <a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:z-[100] focus:bg-brand-500 focus:text-white focus:px-4 focus:py-2 focus:rounded-b-lg focus:left-4 focus:top-0 focus:font-bold">
+    Skip to content
+  </a>
 
   {#if authStore.requiresLogin}
       <Login />
@@ -374,7 +378,7 @@
 
       <!-- Main Content Wrapper -->
       <div class="flex-1 flex flex-col transition-all duration-300 {currentLayout === 'vertical' ? (isSidebarCollapsed ? 'md:pl-20' : 'md:pl-64') : ''}">
-          <main class="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <main id="main-content" class="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
               {#if currentRoute === '/'}
                   <Dashboard onnavigate={navigate} />
               {:else if currentRoute.startsWith('/events')}

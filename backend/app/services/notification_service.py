@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from typing import Optional, Any
 
 from app.config import settings
+from app.services.i18n_service import i18n_service
 
 log = structlog.get_logger()
 
@@ -76,48 +77,60 @@ class NotificationService:
         if not await self._should_notify(species, confidence, audio_confirmed, camera):
             return
 
+        lang = settings.notifications.notification_language
+        display_name = common_name or species
         tasks = []
 
         # Discord
         if settings.notifications.discord.enabled:
             tasks.append(self._send_discord(
-                species, common_name, confidence, camera, timestamp, snapshot_url, audio_confirmed
+                display_name, confidence, camera, timestamp, snapshot_url, audio_confirmed, lang
             ))
 
         # Pushover
         if settings.notifications.pushover.enabled:
             tasks.append(self._send_pushover(
-                species, common_name, confidence, camera, timestamp, snapshot_url, snapshot_data
+                display_name, confidence, camera, timestamp, snapshot_url, snapshot_data, lang
             ))
 
         # Telegram
         if settings.notifications.telegram.enabled:
             tasks.append(self._send_telegram(
-                species, common_name, confidence, camera, timestamp, snapshot_url, snapshot_data
+                display_name, confidence, camera, timestamp, snapshot_url, snapshot_data, lang
             ))
 
         if tasks:
-            log.info("Sending notifications", species=species, platforms=len(tasks))
+            log.info("Sending notifications", species=species, platforms=len(tasks), lang=lang)
             await asyncio.gather(*tasks, return_exceptions=True)
 
     async def _send_discord(
         self,
         species: str,
-        common_name: Optional[str],
         confidence: float,
         camera: str,
         timestamp: datetime,
         snapshot_url: str,
-        audio_confirmed: bool
+        audio_confirmed: bool,
+        lang: str
     ):
         """Send Discord webhook notification."""
         if not settings.notifications.discord.webhook_url:
             return
 
-        title = f"🐦 {common_name or species} Detected!"
-        description = f"**Camera:** {camera}\n**Confidence:** {confidence:.0%}"
+        title = i18n_service.translate("notification.new_detection", lang=lang, species=species)
+        description = i18n_service.translate(
+            "notification.detection_body", 
+            lang=lang, 
+            species=species, 
+            camera=camera, 
+            confidence=int(confidence * 100)
+        )
+        # Bold formatting for Discord
+        description = f"**{description}**"
+        
         if audio_confirmed:
-            description += "\n🎤 **Audio Confirmed**"
+            audio_text = i18n_service.translate("notification.audio_confirmed", lang=lang)
+            description += f"\n**{audio_text}**"
 
         # Ensure timestamp is timezone-aware for Discord
         if timestamp.tzinfo is None:
@@ -157,20 +170,26 @@ class NotificationService:
     async def _send_pushover(
         self,
         species: str,
-        common_name: Optional[str],
         confidence: float,
         camera: str,
         timestamp: datetime,
         snapshot_url: str,
-        snapshot_data: Optional[bytes]
+        snapshot_data: Optional[bytes],
+        lang: str
     ):
         """Send Pushover notification."""
         cfg = settings.notifications.pushover
         if not cfg.user_key or not cfg.api_token:
             return
 
-        title = f"{common_name or species} at {camera}"
-        message = f"Confidence: {confidence:.0%}\nTime: {timestamp.strftime('%H:%M:%S')}"
+        title = i18n_service.translate("notification.new_detection", lang=lang, species=species)
+        message = i18n_service.translate(
+            "notification.detection_body", 
+            lang=lang, 
+            species=species, 
+            camera=camera, 
+            confidence=int(confidence * 100)
+        )
         
         data = {
             "token": cfg.api_token,
@@ -200,21 +219,28 @@ class NotificationService:
     async def _send_telegram(
         self,
         species: str,
-        common_name: Optional[str],
         confidence: float,
         camera: str,
         timestamp: datetime,
         snapshot_url: str,
-        snapshot_data: Optional[bytes]
+        snapshot_data: Optional[bytes],
+        lang: str
     ):
         """Send Telegram notification."""
         cfg = settings.notifications.telegram
         if not cfg.bot_token or not cfg.chat_id:
             return
 
-        safe_name = escape_markdown(common_name or species)
-        safe_camera = escape_markdown(camera)
-        caption = f"🐦 *{safe_name}*\n📹 {safe_camera}\n🎯 {confidence:.0%}"
+        body = i18n_service.translate(
+            "notification.detection_body", 
+            lang=lang, 
+            species=species, 
+            camera=camera, 
+            confidence=int(confidence * 100)
+        )
+        
+        safe_body = escape_markdown(body)
+        caption = f"🐦 *{safe_body}*"
         base_url = f"https://api.telegram.org/bot{cfg.bot_token}"
 
         try:

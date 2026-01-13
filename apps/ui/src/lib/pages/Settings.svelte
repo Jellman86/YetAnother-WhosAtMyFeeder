@@ -33,6 +33,7 @@
     import { theme, type Theme } from '../stores/theme';
     import { layout, type Layout } from '../stores/layout';
     import { settingsStore } from '../stores/settings.svelte';
+    import { _, locale } from 'svelte-i18n';
     import ModelManager from './models/ModelManager.svelte';
     import SettingsTabs from '../components/settings/SettingsTabs.svelte';
 
@@ -498,7 +499,7 @@
             filterConfidence = settings.notifications_filter_min_confidence ?? 0.7;
             filterAudioOnly = settings.notifications_filter_audio_confirmed_only ?? false;
         } catch (e) {
-            message = { type: 'error', text: 'Failed to load settings' };
+            message = { type: 'error', text: $_('notifications.settings_load_failed') };
         } finally {
             if (!silent) loading = false;
         }
@@ -586,7 +587,7 @@
             await settingsStore.load();
             // Sync local state to handle server-side normalization (e.g. stripped slashes)
             await loadSettings(true);
-            message = { type: 'success', text: 'Settings saved successfully!' };
+            message = { type: 'success', text: $_('notifications.settings_saved') };
             await Promise.all([loadMaintenanceStats(), loadCacheStats()]);
         } catch (e) {
             message = { type: 'error', text: 'Failed to save settings' };
@@ -670,6 +671,11 @@
         layout.set(l);
     }
 
+    function setLanguage(lang: string) {
+        locale.set(lang);
+        localStorage.setItem('preferred-language', lang);
+    }
+
     function addBlockedLabel() {
         const label = newBlockedLabel.trim();
         if (label && !blockedLabels.includes(label)) {
@@ -728,11 +734,11 @@
     <!-- Header -->
     <div class="flex items-center justify-between">
         <div>
-            <h2 class="text-3xl font-black text-slate-900 dark:text-white tracking-tight">Settings</h2>
-            <p class="text-sm text-slate-500 dark:text-slate-400 font-medium">Configure and manage your YA-WAMF instance</p>
+            <h2 class="text-3xl font-black text-slate-900 dark:text-white tracking-tight">{$_('settings.title')}</h2>
+            <p class="text-sm text-slate-500 dark:text-slate-400 font-medium">{$_('settings.subtitle')}</p>
         </div>
         <button
-            onclick={loadSettings}
+            onclick={() => loadSettings()}
             disabled={loading}
             class="inline-flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-xl
                    text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-800
@@ -743,7 +749,7 @@
             <svg class="w-4 h-4 {loading ? 'animate-spin' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
-            Refresh
+            {$_('common.refresh')}
         </button>
     </div>
 
@@ -783,12 +789,12 @@
                             <div class="w-10 h-10 rounded-2xl bg-teal-500/10 flex items-center justify-center text-teal-600 dark:text-teal-400">
                                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
                             </div>
-                            <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">Frigate NVR</h3>
+                            <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">{$_('settings.frigate.title')}</h3>
                         </div>
 
                         <div class="space-y-6">
                             <div>
-                                <label for="frigate-url" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Server URL</label>
+                                <label for="frigate-url" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.frigate.url')}</label>
                                 <input
                                     id="frigate-url"
                                     type="url"
@@ -800,15 +806,15 @@
 
                             <div class="grid grid-cols-2 gap-3">
                                 <button onclick={testConnection} disabled={testing} class="flex-1 px-4 py-3 text-xs font-black uppercase tracking-widest rounded-2xl bg-teal-500 hover:bg-teal-600 text-white transition-all shadow-lg shadow-teal-500/20 disabled:opacity-50">
-                                    {testing ? 'Testing...' : 'Test Connection'}
+                                    {testing ? $_('common.testing') : $_('settings.frigate.test_connection')}
                                 </button>
                                 <button onclick={loadCameras} disabled={camerasLoading} class="flex-1 px-4 py-3 text-xs font-black uppercase tracking-widest rounded-2xl bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600 transition-all disabled:opacity-50">
-                                    {camerasLoading ? 'Scanning...' : 'Sync Cameras'}
+                                    {camerasLoading ? $_('settings.cameras.syncing') : $_('settings.frigate.sync_cameras')}
                                 </button>
                             </div>
 
                             <button onclick={handleTestBirdNET} disabled={testingBirdNET} class="w-full px-4 py-3 text-xs font-black uppercase tracking-widest rounded-2xl bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 transition-all border border-indigo-500/20 disabled:opacity-50">
-                                {testingBirdNET ? 'Simulating...' : 'Test MQTT Pipeline'}
+                                {testingBirdNET ? 'Simulating...' : $_('settings.frigate.test_mqtt')}
                             </button>
 
                             <div class="pt-6 border-t border-slate-100 dark:border-slate-700/50">
@@ -816,24 +822,24 @@
                                 <div class="space-y-4">
                                     <div class="grid grid-cols-3 gap-4">
                                         <div class="col-span-2">
-                                            <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">MQTT Broker</label>
+                                            <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.frigate.mqtt_broker')}</label>
                                             <input type="text" bind:value={mqttServer} placeholder="mosquitto" class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-teal-500 outline-none" />
                                         </div>
                                         <div>
-                                            <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Port</label>
+                                            <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.frigate.mqtt_port')}</label>
                                             <input type="number" bind:value={mqttPort} class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-teal-500 outline-none" />
                                         </div>
                                     </div>
 
                                     <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 flex items-center justify-between">
-                                        <span class="text-xs font-bold text-slate-900 dark:text-white">Use Authentication</span>
+                                        <span class="text-xs font-bold text-slate-900 dark:text-white">{$_('settings.frigate.mqtt_auth')}</span>
                                         <button onclick={() => mqttAuth = !mqttAuth} class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {mqttAuth ? 'bg-teal-500' : 'bg-slate-300 dark:bg-slate-600'}"><span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {mqttAuth ? 'translate-x-5' : 'translate-x-0'}"></span></button>
                                     </div>
 
                                     {#if mqttAuth}
                                         <div class="grid grid-cols-2 gap-4 animate-in fade-in zoom-in-95">
-                                            <div><label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">User</label><input type="text" bind:value={mqttUsername} class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm" /></div>
-                                            <div><label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Pass</label><input type="password" bind:value={mqttPassword} class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm" /></div>
+                                            <div><label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.frigate.mqtt_user')}</label><input type="text" bind:value={mqttUsername} class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm" /></div>
+                                            <div><label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.frigate.mqtt_pass')}</label><input type="password" bind:value={mqttPassword} class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm" /></div>
                                         </div>
                                     {/if}
                                 </div>
@@ -841,8 +847,8 @@
 
                             <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 flex items-center justify-between">
                                 <div>
-                                    <span class="block text-sm font-bold text-slate-900 dark:text-white">Fetch Video Clips</span>
-                                    <span class="block text-[10px] text-slate-500 font-medium">Use Frigate recordings for reclassification</span>
+                                    <span class="block text-sm font-bold text-slate-900 dark:text-white">{$_('settings.frigate.fetch_clips')}</span>
+                                    <span class="block text-[10px] text-slate-500 font-medium">{$_('settings.frigate.fetch_clips_desc')}</span>
                                 </div>
                                 <button 
                                     onclick={() => clipsEnabled = !clipsEnabled}
@@ -860,13 +866,13 @@
                             <div class="w-10 h-10 rounded-2xl bg-blue-500/10 flex items-center justify-center text-blue-600 dark:text-blue-400">
                                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /></svg>
                             </div>
-                            <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">Active Cameras</h3>
+                            <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">{$_('settings.cameras.title')}</h3>
                         </div>
                         
                         <div class="space-y-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
                             {#if availableCameras.length === 0}
                                 <div class="p-8 text-center bg-slate-50 dark:bg-slate-900/30 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-700">
-                                    <p class="text-xs font-bold text-slate-400 uppercase tracking-widest">No Cameras Found</p>
+                                    <p class="text-xs font-bold text-slate-400 uppercase tracking-widest">{$_('settings.cameras.none_found')}</p>
                                 </div>
                             {:else}
                                 <div class="grid grid-cols-1 gap-2">
@@ -896,8 +902,8 @@
                                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
                             </div>
                             <div>
-                                <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">Telemetry</h3>
-                                <p class="text-[10px] font-bold text-slate-500 mt-0.5">Help improve YA-WAMF by sharing anonymous usage stats.</p>
+                                <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">{$_('settings.telemetry.title')}</h3>
+                                <p class="text-[10px] font-bold text-slate-500 mt-0.5">{$_('settings.telemetry.desc')}</p>
                             </div>
                         </div>
                         <button onclick={() => telemetryEnabled = !telemetryEnabled} class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {telemetryEnabled ? 'bg-indigo-500' : 'bg-slate-300 dark:bg-slate-600'}">
@@ -907,14 +913,14 @@
                     
                     {#if telemetryEnabled}
                         <div class="mt-4 p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 animate-in fade-in slide-in-from-top-2">
-                            <p class="text-xs font-black uppercase tracking-widest text-slate-400 mb-3">Transparency: What we send</p>
+                            <p class="text-xs font-black uppercase tracking-widest text-slate-400 mb-3">{$_('settings.telemetry.transparency')}</p>
                             <div class="space-y-2 text-[10px] font-mono text-slate-600 dark:text-slate-400">
-                                <div class="flex justify-between"><span>Installation ID:</span><span class="text-slate-900 dark:text-white select-all">{telemetryInstallationId || '...'}</span></div>
-                                <div class="flex justify-between"><span>App Version:</span><span>{versionInfo.version}</span></div>
-                                <div class="flex justify-between"><span>Platform:</span><span>{telemetryPlatform || '...'}</span></div>
-                                <div class="flex justify-between"><span>Enabled Features:</span><span>[Model, Integrations]</span></div>
+                                <div class="flex justify-between"><span>{$_('settings.telemetry.install_id')}:</span><span class="text-slate-900 dark:text-white select-all">{telemetryInstallationId || '...'}</span></div>
+                                <div class="flex justify-between"><span>{$_('settings.telemetry.version')}:</span><span>{versionInfo.version}</span></div>
+                                <div class="flex justify-between"><span>{$_('settings.telemetry.platform')}:</span><span>{telemetryPlatform || '...'}</span></div>
+                                <div class="flex justify-between"><span>{$_('settings.telemetry.features')}:</span><span>[Model, Integrations]</span></div>
                             </div>
-                            <p class="text-[9px] text-slate-400 mt-3 italic">This data is sent securely to help us understand how the app is used. No images or personal detection data are ever shared.</p>
+                            <p class="text-[9px] text-slate-400 mt-3 italic">{$_('settings.telemetry.privacy_notice')}</p>
                         </div>
                     {/if}
                 </section>
@@ -963,7 +969,7 @@
                                 
                                 <div class="flex gap-2 mb-4">
                                     <input bind:value={newWhitelistSpecies} onkeydown={(e) => e.key === 'Enter' && addWhitelistSpecies()} placeholder="e.g. Cardinal" class="flex-1 px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm" />
-                                    <button onclick={addWhitelistSpecies} disabled={!newWhitelistSpecies.trim()} class="px-6 py-3 bg-slate-900 dark:bg-slate-700 text-white text-xs font-black uppercase tracking-widest rounded-2xl hover:bg-slate-800 transition-all">Add</button>
+                                    <button onclick={addWhitelistSpecies} disabled={!newWhitelistSpecies.trim()} class="px-6 py-3 bg-slate-900 dark:bg-slate-700 text-white text-xs font-black uppercase tracking-widest rounded-2xl hover:bg-slate-800 transition-all">{$_('common.add')}</button>
                                 </div>
 
                                 <div class="flex flex-wrap gap-2">
@@ -1504,65 +1510,91 @@
 
             <!-- Appearance Tab -->
             {#if activeTab === 'appearance'}
-                <section class="bg-white dark:bg-slate-800/50 rounded-3xl border border-slate-200/80 dark:border-slate-700/50 p-8 shadow-sm backdrop-blur-md">
-                    <div class="flex items-center gap-3 mb-8">
-                        <div class="w-10 h-10 rounded-2xl bg-pink-500/10 flex items-center justify-center text-pink-600 dark:text-pink-400">
-                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" /></svg>
-                        </div>
-                        <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">Theme & Look</h3>
-                    </div>
-
-                    <div class="grid grid-cols-3 gap-4 mb-8">
-                        {#each [
-                            { value: 'light', label: 'Light', icon: '☀️' },
-                            { value: 'dark', label: 'Dark', icon: '🌙' },
-                            { value: 'system', label: 'System', icon: '💻' }
-                        ] as opt}
-                            <button
-                                onclick={() => setTheme(opt.value as Theme)}
-                                class="flex flex-col items-center gap-3 p-6 rounded-2xl border-2 transition-all
-                                       {currentTheme === opt.value
-                                           ? 'bg-teal-500 border-teal-500 text-white shadow-xl shadow-teal-500/20'
-                                           : 'bg-white dark:bg-slate-900/50 border-slate-100 dark:border-slate-700/50 text-slate-500 hover:border-teal-500/30'}"
-                            >
-                                <span class="text-3xl">{opt.icon}</span>
-                                <span class="text-xs font-black uppercase tracking-widest">{opt.label}</span>
-                            </button>
-                        {/each}
-                    </div>
-
-                    <div class="pt-6 border-t border-slate-100 dark:border-slate-700/50">
-                        <div class="flex items-center gap-3 mb-6">
-                            <div class="w-8 h-8 rounded-xl bg-purple-500/10 flex items-center justify-center text-purple-600 dark:text-purple-400">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" /></svg>
+                <div class="space-y-6">
+                    <!-- Theme & Language -->
+                    <section class="bg-white dark:bg-slate-800/50 rounded-3xl border border-slate-200/80 dark:border-slate-700/50 p-8 shadow-sm backdrop-blur-md">
+                        <div class="flex items-center gap-3 mb-8">
+                            <div class="w-10 h-10 rounded-2xl bg-pink-500/10 flex items-center justify-center text-pink-600 dark:text-pink-400">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" /></svg>
                             </div>
-                            <h4 class="text-lg font-black text-slate-900 dark:text-white tracking-tight">Navigation Layout</h4>
+                            <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">{$_('theme.title')}</h3>
                         </div>
 
-                        <div class="grid grid-cols-2 gap-4">
-                            {#each [
-                                { value: 'horizontal', label: 'Horizontal', icon: '⬌', desc: 'Top navigation bar' },
-                                { value: 'vertical', label: 'Vertical', icon: '⇕', desc: 'Left sidebar (collapsible)' }
-                            ] as opt}
-                                <button
-                                    onclick={() => setLayout(opt.value as Layout)}
-                                    class="flex flex-col items-start gap-2 p-5 rounded-2xl border-2 transition-all text-left
-                                           {currentLayout === opt.value
-                                               ? 'bg-purple-500 border-purple-500 text-white shadow-xl shadow-purple-500/20'
-                                               : 'bg-white dark:bg-slate-900/50 border-slate-100 dark:border-slate-700/50 text-slate-500 hover:border-purple-500/30'}"
-                                >
-                                    <span class="text-2xl">{opt.icon}</span>
-                                    <div>
-                                        <div class="text-sm font-black uppercase tracking-widest {currentLayout === opt.value ? 'text-white' : 'text-slate-900 dark:text-white'}">{opt.label}</div>
-                                        <div class="text-xs font-medium mt-1 {currentLayout === opt.value ? 'text-white/80' : 'text-slate-400'}">{opt.desc}</div>
-                                    </div>
-                                </button>
-                            {/each}
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            <!-- Theme -->
+                            <div>
+                                <h4 class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4">{$_('theme.title')}</h4>
+                                <div class="grid grid-cols-3 gap-2">
+                                    {#each [
+                                        { value: 'light', label: $_('theme.light'), icon: '☀️' },
+                                        { value: 'dark', label: $_('theme.dark'), icon: '🌙' },
+                                        { value: 'system', label: $_('theme.system'), icon: '💻' }
+                                    ] as opt}
+                                        <button
+                                            onclick={() => setTheme(opt.value as Theme)}
+                                            class="flex flex-col items-center gap-2 p-4 rounded-2xl border-2 transition-all
+                                                {currentTheme === opt.value
+                                                    ? 'bg-teal-500 border-teal-500 text-white shadow-lg shadow-teal-500/20'
+                                                    : 'bg-white dark:bg-slate-900/50 border-slate-100 dark:border-slate-700/50 text-slate-500 hover:border-teal-500/30'}"
+                                        >
+                                            <span class="text-2xl">{opt.icon}</span>
+                                            <span class="text-[10px] font-black uppercase tracking-widest">{opt.label}</span>
+                                        </button>
+                                    {/each}
+                                </div>
+                            </div>
+
+                            <!-- Language -->
+                            <div>
+                                <h4 class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4">{$_('settings.language_selector')}</h4>
+                                <div class="grid grid-cols-1 gap-2">
+                                    <select 
+                                        value={$locale} 
+                                        onchange={(e) => setLanguage(e.currentTarget.value)}
+                                        class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-teal-500 outline-none transition-all"
+                                    >
+                                        <option value="en">English</option>
+                                        <option value="es">Español</option>
+                                        <option value="fr">Français</option>
+                                        <option value="de">Deutsch</option>
+                                        <option value="ja">日本語</option>
+                                    </select>
+                                    <p class="text-[9px] text-slate-400 font-bold italic mt-1">{$_('settings.language_desc')}</p>
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                </section>
 
+                        <div class="pt-8 mt-8 border-t border-slate-100 dark:border-slate-700/50">
+                            <div class="flex items-center gap-3 mb-6">
+                                <div class="w-8 h-8 rounded-xl bg-purple-500/10 flex items-center justify-center text-purple-600 dark:text-purple-400">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" /></svg>
+                                </div>
+                                <h4 class="text-lg font-black text-slate-900 dark:text-white tracking-tight">{$_('theme.layout')}</h4>
+                            </div>
 
+                            <div class="grid grid-cols-2 gap-4">
+                                {#each [
+                                    { value: 'horizontal', label: $_('theme.horizontal'), icon: '⬌', desc: $_('theme.horizontal_desc') },
+                                    { value: 'vertical', label: $_('theme.vertical'), icon: '⇕', desc: $_('theme.vertical_desc') }
+                                ] as opt}
+                                    <button
+                                        onclick={() => setLayout(opt.value as Layout)}
+                                        class="flex flex-col items-start gap-2 p-5 rounded-2xl border-2 transition-all text-left
+                                            {currentLayout === opt.value
+                                                ? 'bg-purple-500 border-purple-500 text-white shadow-xl shadow-purple-500/20'
+                                                : 'bg-white dark:bg-slate-900/50 border-slate-100 dark:border-slate-700/50 text-slate-500 hover:border-purple-500/30'}"
+                                    >
+                                        <span class="text-2xl">{opt.icon}</span>
+                                        <div>
+                                            <div class="text-sm font-black uppercase tracking-widest {currentLayout === opt.value ? 'text-white' : 'text-slate-900 dark:text-white'}">{opt.label}</div>
+                                            <div class="text-xs font-medium mt-1 {currentLayout === opt.value ? 'text-white/80' : 'text-slate-400'}">{opt.desc}</div>
+                                        </div>
+                                    </button>
+                                {/each}
+                            </div>
+                        </div>
+                    </section>
+                </div>
             {/if}
         </div>
 
@@ -1571,7 +1603,7 @@
             <div class="fixed bottom-8 left-1/2 -translate-x-1/2 w-full max-w-4xl px-4 z-40 animate-in slide-in-from-bottom-10 duration-500">
                 <div class="bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl p-4 rounded-3xl border border-slate-200/50 dark:border-white/5 shadow-2xl flex items-center justify-between gap-6 ring-1 ring-teal-500/20">
                     <div class="flex-1 hidden sm:block">
-                        <p class="text-xs font-black text-teal-600 dark:text-teal-400 uppercase tracking-widest ml-4">Unsaved Changes</p>
+                        <p class="text-xs font-black text-teal-600 dark:text-teal-400 uppercase tracking-widest ml-4">{$_('common.unsaved_changes')}</p>
                     </div>
                     <button
                         onclick={saveSettings}
@@ -1581,7 +1613,7 @@
                                disabled:opacity-50 disabled:cursor-not-allowed
                                transition-all shadow-xl shadow-teal-500/40"
                     >
-                        {saving ? 'Saving...' : 'Apply Settings'}
+                        {saving ? $_('common.saving') : $_('common.apply_settings')}
                     </button>
                 </div>
             </div>

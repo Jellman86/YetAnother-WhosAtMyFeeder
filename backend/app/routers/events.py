@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 from typing import List, Optional, Literal
 from datetime import datetime, date
 from io import BytesIO
@@ -65,6 +65,7 @@ async def get_event_filters():
 
 @router.get("/events", response_model=List[DetectionResponse])
 async def get_events(
+    request: Request,
     limit: int = Query(default=50, ge=1, le=500, description="Number of events to return"),
     offset: int = Query(default=0, ge=0, description="Number of events to skip"),
     start_date: Optional[date] = Query(default=None, description="Filter events from this date (inclusive)"),
@@ -75,6 +76,7 @@ async def get_events(
     include_hidden: bool = Query(default=False, description="Include hidden/ignored detections")
 ):
     """Get paginated events with optional filters."""
+    lang = getattr(request.state, 'language', 'en')
     async with get_db() as db:
         repo = DetectionRepository(db)
 
@@ -108,6 +110,13 @@ async def get_events(
             if display_name in unknown_labels:
                 display_name = "Unknown Bird"
 
+            common_name = event.common_name
+            # Fetch localized common name if not in English and we have a taxa_id
+            if lang != 'en' and event.taxa_id:
+                localized_name = await taxonomy_service.get_localized_common_name(event.taxa_id, lang, db=db)
+                if localized_name:
+                    common_name = localized_name
+
             response_event = DetectionResponse(
                 id=event.id,
                 detection_time=event.detection_time,
@@ -127,7 +136,7 @@ async def get_events(
                 temperature=event.temperature,
                 weather_condition=event.weather_condition,
                 scientific_name=event.scientific_name,
-                common_name=event.common_name,
+                common_name=common_name,
                 taxa_id=event.taxa_id,
                 video_classification_score=event.video_classification_score,
                 video_classification_label=event.video_classification_label,
@@ -182,13 +191,17 @@ async def get_events_count(
         return EventsCountResponse(count=count, filtered=filtered)
 
 @router.delete("/events/{event_id}")
-async def delete_event(event_id: str):
+async def delete_event(event_id: str, request: Request):
     """Delete a detection by its Frigate event ID."""
+    lang = getattr(request.state, 'language', 'en')
     async with get_db() as db:
         repo = DetectionRepository(db)
         detection = await repo.get_by_frigate_event(event_id)
         if not detection:
-            raise HTTPException(status_code=404, detail="Detection not found")
+            raise HTTPException(
+                status_code=404, 
+                detail=i18n_service.translate("errors.detection_not_found", lang=lang)
+            )
             
         deleted = await repo.delete_by_frigate_event(event_id)
         if deleted:
@@ -200,7 +213,10 @@ async def delete_event(event_id: str):
                 }
             })
             return {"status": "deleted", "event_id": event_id}
-        raise HTTPException(status_code=404, detail="Detection not found")
+        raise HTTPException(
+            status_code=404, 
+            detail=i18n_service.translate("errors.detection_not_found", lang=lang)
+        )
 
 
 class HideResponse(BaseModel):
@@ -211,14 +227,18 @@ class HideResponse(BaseModel):
 
 
 @router.post("/events/{event_id}/hide", response_model=HideResponse)
-async def toggle_hide_event(event_id: str):
+async def toggle_hide_event(event_id: str, request: Request):
     """Toggle the hidden/ignored status of a detection."""
+    lang = getattr(request.state, 'language', 'en')
     async with get_db() as db:
         repo = DetectionRepository(db)
         new_status = await repo.toggle_hidden(event_id)
 
         if new_status is None:
-            raise HTTPException(status_code=404, detail="Detection not found")
+            raise HTTPException(
+                status_code=404, 
+                detail=i18n_service.translate("errors.detection_not_found", lang=lang)
+            )
 
         detection = await repo.get_by_frigate_event(event_id)
         if detection:
@@ -271,20 +291,60 @@ class ReclassifyResponse(BaseModel):
 
 
 @router.post("/events/{event_id}/reclassify", response_model=ReclassifyResponse)
+
+
 async def reclassify_event(
+
+
     event_id: str,
+
+
+    request: Request,
+
+
     strategy: Literal["snapshot", "video"] = Query("snapshot", description="Classification strategy")
+
+
 ):
+
+
     """
+
+
     Re-run the classifier on an existing detection.
+
+
     Can use either a single snapshot or a video clip (Temporal Ensemble).
+
+
     """
+
+
+    lang = getattr(request.state, 'language', 'en')
+
+
     async with get_db() as db:
+
+
         repo = DetectionRepository(db)
+
+
         detection = await repo.get_by_frigate_event(event_id)
 
+
         if not detection:
-            raise HTTPException(status_code=404, detail="Detection not found")
+
+
+            raise HTTPException(
+
+
+                status_code=404, 
+
+
+                detail=i18n_service.translate("errors.detection_not_found", lang=lang)
+
+
+            )
 
         old_species = detection.display_name
         classifier = get_classifier()

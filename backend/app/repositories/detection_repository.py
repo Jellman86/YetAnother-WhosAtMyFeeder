@@ -459,7 +459,8 @@ class DetectionRepository:
                 COUNT(*) as count, 
                 MAX(COALESCE(d.scientific_name, t.scientific_name)) as scientific_name, 
                 MAX(COALESCE(d.common_name, t.common_name)) as common_name,
-                MAX(d.display_name) as display_name
+                MAX(d.display_name) as display_name,
+                MAX(COALESCE(d.taxa_id, t.taxa_id)) as taxa_id
             FROM detections d
             LEFT JOIN taxonomy_cache t ON 
                 LOWER(d.display_name) = LOWER(t.scientific_name) OR 
@@ -475,7 +476,8 @@ class DetectionRepository:
                     "species": row[4], 
                     "count": row[1],
                     "scientific_name": row[2],
-                    "common_name": row[3]
+                    "common_name": row[3],
+                    "taxa_id": row[5]
                 }
                 for row in rows
             ]
@@ -597,7 +599,8 @@ class DetectionRepository:
                 MAX(d.frigate_event) as latest_event,
                 MAX(COALESCE(d.scientific_name, t.scientific_name)) as scientific_name, 
                 MAX(COALESCE(d.common_name, t.common_name)) as common_name,
-                MAX(d.display_name) as display_name
+                MAX(d.display_name) as display_name,
+                MAX(COALESCE(d.taxa_id, t.taxa_id)) as taxa_id
             FROM detections d
             LEFT JOIN taxonomy_cache t ON 
                 LOWER(d.display_name) = LOWER(t.scientific_name) OR 
@@ -615,7 +618,8 @@ class DetectionRepository:
                     "count": row[1],
                     "latest_event": row[2],
                     "scientific_name": row[3],
-                    "common_name": row[4]
+                    "common_name": row[4],
+                    "taxa_id": row[6]
                 }
                 for row in rows
             ]

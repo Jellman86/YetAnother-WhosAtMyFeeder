@@ -14,6 +14,8 @@
     import { toastStore } from '../stores/toast.svelte';
     import SimpleBarChart from './SimpleBarChart.svelte';
     import VideoPlayer from './VideoPlayer.svelte';
+    import { _ } from 'svelte-i18n';
+    import { trapFocus } from '../utils/focus-trap';
 
     interface Props {
         speciesName: string;
@@ -26,7 +28,15 @@
     const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
+    let modalElement = $state<HTMLElement | null>(null);
     let stats = $state<SpeciesStats | null>(null);
+
+    $effect(() => {
+        if (modalElement) {
+            return trapFocus(modalElement);
+        }
+    });
+
     let info = $state<SpeciesInfo | null>(null);
     let loading = $state(true);
     let error = $state<string | null>(null);
@@ -168,6 +178,7 @@
 >
     <!-- Modal Container -->
     <div
+        bind:this={modalElement}
         class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden
                border border-slate-200 dark:border-slate-700 animate-fade-in"
         onclick={(e) => e.stopPropagation()}
@@ -267,10 +278,10 @@
                             <!-- Content -->
                             <div class="flex-1">
                                 <h3 class="text-xl font-bold text-amber-900 dark:text-amber-100 mb-2">
-                                    Unidentified Detection
+                                    {$_('leaderboard.needs_review')}
                                 </h3>
                                 <p class="text-sm text-amber-800 dark:text-amber-200 mb-4">
-                                    This detection has low confidence and was marked as "Unknown Bird". You can reclassify it using snapshot or video analysis to identify the species.
+                                    {$_('leaderboard.unidentified_desc')}
                                 </p>
 
                                 <!-- Reclassify Buttons -->
@@ -283,7 +294,7 @@
                                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                         </svg>
-                                        {reclassifying ? 'Reclassifying...' : 'Reclassify from Snapshot'}
+                                        {reclassifying ? $_('common.testing') : $_('actions.deep_reclassify')}
                                     </button>
 
                                     <button
@@ -295,7 +306,7 @@
                                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
                                         </svg>
-                                        {reclassifying ? 'Reclassifying...' : 'Reclassify from Video'}
+                                        {reclassifying ? $_('common.testing') : $_('actions.reclassify')}
                                     </button>
                                 </div>
 
@@ -335,7 +346,7 @@
                                         rel="noopener noreferrer"
                                         class="inline-flex items-center gap-1 mt-3 text-sm font-medium text-teal-600 dark:text-teal-400 hover:underline"
                                     >
-                                        Read more on Wikipedia
+                                        {$_('actions.read_more_wikipedia')}
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                                         </svg>
@@ -348,36 +359,36 @@
 
                 <!-- Statistics Overview -->
                 <section>
-                    <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4">Statistics</h3>
+                    <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4">{$_('common.statistics')}</h3>
                     <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
                         <div class="bg-gradient-to-br from-teal-500 to-emerald-600 rounded-xl p-4 text-white">
                             <p class="text-3xl font-bold">{stats.total_sightings}</p>
-                            <p class="text-sm opacity-90">Total Sightings</p>
+                            <p class="text-sm opacity-90">{$_('leaderboard.all_species')}</p>
                         </div>
                         <div class="bg-slate-100 dark:bg-slate-700 rounded-xl p-4">
                             <p class="text-2xl font-bold text-slate-900 dark:text-white">
                                 {(stats.avg_confidence * 100).toFixed(0)}%
                             </p>
-                            <p class="text-sm text-slate-500 dark:text-slate-400">Avg Confidence</p>
+                            <p class="text-sm text-slate-500 dark:text-slate-400">{$_('species_detail.avg_confidence')}</p>
                         </div>
                         <div class="bg-slate-100 dark:bg-slate-700 rounded-xl p-4">
                             <p class="text-sm font-medium text-slate-900 dark:text-white">
                                 {formatDate(stats.first_seen)}
                             </p>
-                            <p class="text-sm text-slate-500 dark:text-slate-400">First Seen</p>
+                            <p class="text-sm text-slate-500 dark:text-slate-400">{$_('species_detail.first_seen')}</p>
                         </div>
                         <div class="bg-slate-100 dark:bg-slate-700 rounded-xl p-4">
                             <p class="text-sm font-medium text-slate-900 dark:text-white">
                                 {formatDate(stats.last_seen)}
                             </p>
-                            <p class="text-sm text-slate-500 dark:text-slate-400">Last Seen</p>
+                            <p class="text-sm text-slate-500 dark:text-slate-400">{$_('species_detail.last_seen')}</p>
                         </div>
                     </div>
                 </section>
 
                 <!-- Time Distribution Charts -->
                 <section>
-                    <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4">Activity Patterns</h3>
+                    <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4">{$_('species_detail.activity_patterns')}</h3>
 
                     <!-- Hourly chart - full width for better visibility -->
                     <div class="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-4 mb-4">
@@ -411,7 +422,7 @@
                 <!-- Camera Breakdown -->
                 {#if stats.cameras.length > 0}
                     <section>
-                        <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4">Camera Breakdown</h3>
+                        <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4">{$_('species_detail.camera_breakdown')}</h3>
                         <div class="space-y-3">
                             {#each stats.cameras as camera}
                                 <div class="flex items-center gap-3">
@@ -436,7 +447,7 @@
                 <!-- Recent Sightings -->
                 {#if stats.recent_sightings.length > 0}
                     <section>
-                        <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4">Recent Sightings</h3>
+                        <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4">{$_('species_detail.recent_sightings')}</h3>
                         <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
                             {#each stats.recent_sightings as sighting}
                                 <div
@@ -494,7 +505,7 @@
                        bg-slate-100 dark:bg-slate-700 rounded-lg
                        hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
             >
-                Close
+                {$_('common.close')}
             </button>
         </div>
     </div>

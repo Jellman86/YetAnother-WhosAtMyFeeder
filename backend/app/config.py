@@ -126,6 +126,7 @@ class NotificationSettings(BaseModel):
     pushover: PushoverSettings = PushoverSettings()
     telegram: TelegramSettings = TelegramSettings()
     filters: NotificationFilterSettings = NotificationFilterSettings()
+    notification_language: str = Field(default="en", description="Language for notifications (en, es, fr, de, ja)")
 
 class Settings(BaseSettings):
     frigate: FrigateSettings
@@ -254,7 +255,8 @@ class Settings(BaseSettings):
                 'min_confidence': 0.7,
                 'audio_confirmed_only': False,
                 'camera_filters': {}
-            }
+            },
+            'notification_language': os.environ.get('NOTIFICATIONS__NOTIFICATION_LANGUAGE', 'en')
         }
 
         # Load from config file if it exists, env vars take precedence
@@ -341,6 +343,11 @@ class Settings(BaseSettings):
                     # Filters (file only)
                     if 'filters' in n_file:
                          notifications_data['filters'] = n_file['filters']
+                    
+                    if 'notification_language' in n_file:
+                        env_key = 'NOTIFICATIONS__NOTIFICATION_LANGUAGE'
+                        if env_key not in os.environ:
+                            notifications_data['notification_language'] = n_file['notification_language']
 
                 log.info("Loaded config from file", path=str(CONFIG_PATH))
             except Exception as e:
