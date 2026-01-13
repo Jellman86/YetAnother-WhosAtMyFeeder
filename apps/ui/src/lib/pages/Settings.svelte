@@ -560,19 +560,6 @@
         }
     }
 
-    function setTheme(t: Theme) {
-        theme.set(t);
-    }
-
-    function setLayout(l: Layout) {
-        layout.set(l);
-    }
-
-    function setLanguage(lang: string) {
-        locale.set(lang);
-        localStorage.setItem('preferred-language', lang);
-    }
-
     async function saveSettings() {
         saving = true;
         message = null;
