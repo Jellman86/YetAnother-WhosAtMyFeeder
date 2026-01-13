@@ -4,6 +4,7 @@ import httpx
 import re
 from datetime import datetime, timezone
 from typing import Optional, Any
+import json
 
 from app.config import settings
 from app.services.i18n_service import i18n_service
@@ -84,7 +85,7 @@ class NotificationService:
         # Discord
         if settings.notifications.discord.enabled:
             tasks.append(self._send_discord(
-                display_name, confidence, camera, timestamp, snapshot_url, audio_confirmed, lang
+                display_name, confidence, camera, timestamp, snapshot_url, audio_confirmed, lang, snapshot_data
             ))
 
         # Pushover
@@ -111,7 +112,8 @@ class NotificationService:
         timestamp: datetime,
         snapshot_url: str,
         audio_confirmed: bool,
-        lang: str
+        lang: str,
+        snapshot_data: Optional[bytes]
     ):
         """Send Discord webhook notification."""
         if not settings.notifications.discord.webhook_url:
@@ -145,7 +147,10 @@ class NotificationService:
         }
         
         if settings.notifications.discord.include_snapshot:
-            embed["image"] = {"url": snapshot_url}
+            if snapshot_data:
+                embed["image"] = {"url": "attachment://snapshot.jpg"}
+            else:
+                embed["image"] = {"url": snapshot_url}
 
         payload = {
             "username": settings.notifications.discord.username,
@@ -153,7 +158,14 @@ class NotificationService:
         }
 
         try:
-            resp = await self.client.post(settings.notifications.discord.webhook_url, json=payload)
+            if snapshot_data and settings.notifications.discord.include_snapshot:
+                 resp = await self.client.post(
+                     settings.notifications.discord.webhook_url,
+                     data={"payload_json": json.dumps(payload)},
+                     files={"file": ("snapshot.jpg", snapshot_data, "image/jpeg")}
+                 )
+            else:
+                resp = await self.client.post(settings.notifications.discord.webhook_url, json=payload)
             resp.raise_for_status()
         except httpx.HTTPStatusError as e:
             # Log the response body for debugging
