@@ -1720,8 +1720,7 @@
                 </div>
             </div>
         {/if}
-    {/if}
-</div>
+    </div>
     {/if}
 </div>
 
