@@ -1647,15 +1647,15 @@
                         <div class="w-10 h-10 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
                             <span class="text-xl">♿</span>
                         </div>
-                        <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">{$_('accessibility.title')}</h3>
+                        <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">{$_('settings.accessibility.title')}</h3>
                     </div>
 
                     <div class="space-y-6">
                         <!-- High Contrast -->
                         <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 flex items-center justify-between">
                             <div>
-                                <span class="block text-sm font-bold text-slate-900 dark:text-white">{$_('accessibility.high_contrast')}</span>
-                                <span class="block text-[10px] text-slate-500 font-medium">{$_('accessibility.high_contrast_desc')}</span>
+                                <span class="block text-sm font-bold text-slate-900 dark:text-white">{$_('settings.accessibility.high_contrast')}</span>
+                                <span class="block text-[10px] text-slate-500 font-medium">{$_('settings.accessibility.high_contrast_desc')}</span>
                             </div>
                             <button onclick={() => highContrast = !highContrast} class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {highContrast ? 'bg-indigo-500' : 'bg-slate-300 dark:bg-slate-600'}">
                                 <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {highContrast ? 'translate-x-5' : 'translate-x-0'}"></span>
@@ -1665,8 +1665,8 @@
                         <!-- Dyslexia Font -->
                         <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 flex items-center justify-between">
                             <div>
-                                <span class="block text-sm font-bold text-slate-900 dark:text-white">{$_('accessibility.dyslexia_font')}</span>
-                                <span class="block text-[10px] text-slate-500 font-medium">{$_('accessibility.dyslexia_font_desc')}</span>
+                                <span class="block text-sm font-bold text-slate-900 dark:text-white">{$_('settings.accessibility.dyslexia_font')}</span>
+                                <span class="block text-[10px] text-slate-500 font-medium">{$_('settings.accessibility.dyslexia_font_desc')}</span>
                             </div>
                             <button onclick={() => dyslexiaFont = !dyslexiaFont} class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {dyslexiaFont ? 'bg-indigo-500' : 'bg-slate-300 dark:bg-slate-600'}">
                                 <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {dyslexiaFont ? 'translate-x-5' : 'translate-x-0'}"></span>
@@ -1676,8 +1676,8 @@
                         <!-- Reduced Motion -->
                         <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 flex items-center justify-between">
                             <div>
-                                <span class="block text-sm font-bold text-slate-900 dark:text-white">{$_('accessibility.reduced_motion')}</span>
-                                <span class="block text-[10px] text-slate-500 font-medium">{$_('accessibility.reduced_motion_desc')}</span>
+                                <span class="block text-sm font-bold text-slate-900 dark:text-white">{$_('settings.accessibility.reduced_motion')}</span>
+                                <span class="block text-[10px] text-slate-500 font-medium">{$_('settings.accessibility.reduced_motion_desc')}</span>
                             </div>
                             <button onclick={() => reducedMotion = !reducedMotion} class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {reducedMotion ? 'bg-indigo-500' : 'bg-slate-300 dark:bg-slate-600'}">
                                 <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {reducedMotion ? 'translate-x-5' : 'translate-x-0'}"></span>
@@ -1687,8 +1687,8 @@
                         <!-- Zen Mode -->
                         <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 flex items-center justify-between">
                             <div>
-                                <span class="block text-sm font-bold text-slate-900 dark:text-white">{$_('accessibility.zen_mode')}</span>
-                                <span class="block text-[10px] text-slate-500 font-medium">{$_('accessibility.zen_mode_desc')}</span>
+                                <span class="block text-sm font-bold text-slate-900 dark:text-white">{$_('settings.accessibility.zen_mode')}</span>
+                                <span class="block text-[10px] text-slate-500 font-medium">{$_('settings.accessibility.zen_mode_desc')}</span>
                             </div>
                             <button onclick={() => zenMode = !zenMode} class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {zenMode ? 'bg-indigo-500' : 'bg-slate-300 dark:bg-slate-600'}">
                                 <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {zenMode ? 'translate-x-5' : 'translate-x-0'}"></span>
