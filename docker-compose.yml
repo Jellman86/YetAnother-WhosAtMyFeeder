@@ -52,13 +52,13 @@ services:
 
   yawamf-frontend:
     # Use pre-built image (recommended for production)
-    image: ghcr.io/jellman86/wamf-frontend:latest
+    # image: ghcr.io/jellman86/wamf-frontend:latest
     # OR build locally for development (uncomment below)
-    # build:
-    #   context: ./apps/ui
-    #   args:
-    #     GIT_HASH: ${GIT_HASH:-unknown}
-    #     APP_VERSION_BASE: ${APP_VERSION_BASE:-2.3.1}
+    build:
+      context: ./apps/ui
+      args:
+        GIT_HASH: ${GIT_HASH:-unknown}
+        APP_VERSION_BASE: ${APP_VERSION_BASE:-2.3.1}
     container_name: yawamf-frontend
     restart: unless-stopped
     user: "${PUID:-1000}:${PGID:-1000}"
