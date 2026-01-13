@@ -157,23 +157,23 @@
     let zenMode = $state(false);
 
     $effect(() => {
-        if (highContrast) document.body.classList.add('high-contrast');
-        else document.body.classList.remove('high-contrast');
+        if (highContrast) document.documentElement.classList.add('high-contrast');
+        else document.documentElement.classList.remove('high-contrast');
     });
 
     $effect(() => {
-        if (dyslexiaFont) document.body.classList.add('font-dyslexic');
-        else document.body.classList.remove('font-dyslexic');
+        if (dyslexiaFont) document.documentElement.classList.add('font-dyslexic');
+        else document.documentElement.classList.remove('font-dyslexic');
     });
 
     $effect(() => {
-        if (reducedMotion) document.body.classList.add('motion-reduce');
-        else document.body.classList.remove('motion-reduce');
+        if (reducedMotion) document.documentElement.classList.add('motion-reduce');
+        else document.documentElement.classList.remove('motion-reduce');
     });
 
     $effect(() => {
-        if (zenMode) document.body.classList.add('zen-mode');
-        else document.body.classList.remove('zen-mode');
+        if (zenMode) document.documentElement.classList.add('zen-mode');
+        else document.documentElement.classList.remove('zen-mode');
     });
 
     // Version Info
