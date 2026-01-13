@@ -178,7 +178,10 @@
     // Dirty state check
     let isDirty = $derived.by(() => {
         const s = settingsStore.settings;
-        if (!s) return false;
+        if (!s) {
+            console.log('isDirty: settingsStore.settings is null');
+            return false;
+        }
         
         const checks = [
             { key: 'frigateUrl', val: frigateUrl, store: s.frigate_url },
@@ -248,6 +251,8 @@
         if (dirtyItem) {
             console.log(`Dirty Setting: ${dirtyItem.key}`, { current: dirtyItem.val, saved: dirtyItem.store });
             return true;
+        } else {
+            // console.log('isDirty: No changes detected');
         }
         return false;
     });
@@ -283,6 +288,15 @@
     layout.subscribe(l => currentLayout = l);
 
     onMount(async () => {
+        // Handle deep linking to tabs
+        const hash = window.location.hash.slice(1);
+        if (hash && ['connection', 'detection', 'notifications', 'integrations', 'data', 'appearance', 'accessibility'].includes(hash)) {
+            activeTab = hash;
+        }
+
+        // Ensure settings store is loaded for dirty checking
+        await settingsStore.load();
+
         await Promise.all([
             loadSettings(),
             loadCameras(),
@@ -296,6 +310,12 @@
 
         taxonomyPollInterval = setInterval(loadTaxonomyStatus, 3000);
     });
+
+    function handleTabChange(tab: string) {
+        console.log('Tab changed to:', tab);
+        activeTab = tab;
+        window.location.hash = tab;
+    }
 
     import { onDestroy } from 'svelte';
     onDestroy(() => {
@@ -600,6 +620,7 @@
                 notifications_filter_species_whitelist: filterWhitelist,
                 notifications_filter_min_confidence: filterConfidence,
                 notifications_filter_audio_confirmed_only: filterAudioOnly,
+                notification_language: $locale || 'en',
 
                 // Accessibility
                 accessibility_high_contrast: highContrast,
@@ -801,7 +822,7 @@
         </div>
     {:else}
         <!-- Tab Navigation -->
-        <SettingsTabs {activeTab} ontabchange={(tab) => activeTab = tab} />
+        <SettingsTabs {activeTab} ontabchange={handleTabChange} />
 
         <div class="space-y-6">
             <!-- Connection Tab -->

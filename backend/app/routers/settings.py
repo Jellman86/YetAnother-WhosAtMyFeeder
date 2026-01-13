@@ -217,6 +217,13 @@ class SettingsUpdate(BaseModel):
     notifications_filter_species_whitelist: Optional[List[str]] = []
     notifications_filter_min_confidence: Optional[float] = 0.7
     notifications_filter_audio_confirmed_only: Optional[bool] = False
+    notification_language: Optional[str] = "en"
+
+    # Accessibility
+    accessibility_high_contrast: Optional[bool] = False
+    accessibility_dyslexia_font: Optional[bool] = False
+    accessibility_reduced_motion: Optional[bool] = False
+    accessibility_zen_mode: Optional[bool] = False
 
     @field_validator('frigate_url')
     @classmethod
@@ -297,6 +304,13 @@ async def get_settings():
         "notifications_filter_species_whitelist": settings.notifications.filters.species_whitelist,
         "notifications_filter_min_confidence": settings.notifications.filters.min_confidence,
         "notifications_filter_audio_confirmed_only": settings.notifications.filters.audio_confirmed_only,
+        "notification_language": settings.notifications.notification_language,
+
+        # Accessibility
+        "accessibility_high_contrast": settings.accessibility.high_contrast,
+        "accessibility_dyslexia_font": settings.accessibility.dyslexia_font,
+        "accessibility_reduced_motion": settings.accessibility.reduced_motion,
+        "accessibility_zen_mode": settings.accessibility.zen_mode,
     }
 
 @router.post("/settings")
@@ -398,6 +412,19 @@ async def update_settings(update: SettingsUpdate, background_tasks: BackgroundTa
         settings.notifications.filters.min_confidence = update.notifications_filter_min_confidence
     if update.notifications_filter_audio_confirmed_only is not None:
         settings.notifications.filters.audio_confirmed_only = update.notifications_filter_audio_confirmed_only
+
+    if update.notification_language:
+        settings.notifications.notification_language = update.notification_language
+
+    # Accessibility
+    if update.accessibility_high_contrast is not None:
+        settings.accessibility.high_contrast = update.accessibility_high_contrast
+    if update.accessibility_dyslexia_font is not None:
+        settings.accessibility.dyslexia_font = update.accessibility_dyslexia_font
+    if update.accessibility_reduced_motion is not None:
+        settings.accessibility.reduced_motion = update.accessibility_reduced_motion
+    if update.accessibility_zen_mode is not None:
+        settings.accessibility.zen_mode = update.accessibility_zen_mode
 
     if settings.telemetry.enabled:
         background_tasks.add_task(telemetry_service.force_heartbeat)
