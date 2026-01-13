@@ -1696,41 +1696,9 @@
                         </div>
                     </div>
                 </section>
-<<<<<<< Updated upstream
-=======
-
-
-
             {/if}
 
-            <!-- Accessibility Tab -->
-            {#if activeTab === 'accessibility'}
-                <section class="bg-white dark:bg-slate-800/50 rounded-3xl border border-slate-200/80 dark:border-slate-700/50 p-8 shadow-sm backdrop-blur-md">
-                    <div class="flex items-center gap-3 mb-8">
-                        <div class="w-10 h-10 rounded-2xl bg-blue-500/10 flex items-center justify-center text-blue-600 dark:text-blue-400">
-                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" /></svg>
-                        </div>
-                        <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">Accessibility Settings</h3>
-                    </div>
-
-                    <div class="space-y-6">
-                        <div class="p-6 rounded-2xl bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30">
-                            <p class="text-sm font-bold text-blue-900 dark:text-blue-100 mb-2">🚧 Coming Soon</p>
-                            <p class="text-xs font-medium text-blue-700 dark:text-blue-300 leading-relaxed">
-                                Accessibility features are currently in development. Future updates will include options for:
-                            </p>
-                            <ul class="mt-3 space-y-1 text-xs text-blue-600 dark:text-blue-400 ml-4">
-                                <li>• High contrast mode</li>
-                                <li>• Font size adjustments</li>
-                                <li>• Reduced motion preferences</li>
-                                <li>• Screen reader optimizations</li>
-                                <li>• Keyboard navigation enhancements</li>
-                            </ul>
-                        </div>
-                    </div>
-                </section>
->>>>>>> Stashed changes
-            {/if}
+        </div>
 
         <!-- Floating Action Button: Save -->
         {#if isDirty}
