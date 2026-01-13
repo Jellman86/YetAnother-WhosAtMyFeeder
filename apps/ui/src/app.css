@@ -106,7 +106,7 @@ html {
 
   /* Tab button styling */
   .tab-button {
-    @apply flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-medium;
+    @apply flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-medium;
     @apply transition-all duration-200;
   }
 
