@@ -1640,6 +1640,8 @@
                         </div>
                     </section>
                 </div>
+            {/if}
+
             <!-- Accessibility Tab -->
             {#if activeTab === 'accessibility'}
                 <section class="bg-white dark:bg-slate-800/50 rounded-3xl border border-slate-200/80 dark:border-slate-700/50 p-8 shadow-sm backdrop-blur-md">
