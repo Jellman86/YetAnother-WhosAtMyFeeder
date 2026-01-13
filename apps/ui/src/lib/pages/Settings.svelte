@@ -156,6 +156,26 @@
     let reducedMotion = $state(false);
     let zenMode = $state(false);
 
+    $effect(() => {
+        if (highContrast) document.body.classList.add('high-contrast');
+        else document.body.classList.remove('high-contrast');
+    });
+
+    $effect(() => {
+        if (dyslexiaFont) document.body.classList.add('font-dyslexic');
+        else document.body.classList.remove('font-dyslexic');
+    });
+
+    $effect(() => {
+        if (reducedMotion) document.body.classList.add('motion-reduce');
+        else document.body.classList.remove('motion-reduce');
+    });
+
+    $effect(() => {
+        if (zenMode) document.body.classList.add('zen-mode');
+        else document.body.classList.remove('zen-mode');
+    });
+
     // Version Info
     let versionInfo = $state<VersionInfo>({ 
         version: __APP_VERSION__, 
