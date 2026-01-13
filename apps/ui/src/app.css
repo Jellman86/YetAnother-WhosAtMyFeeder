@@ -230,7 +230,7 @@ html {
 }
 
 /* Zen Mode */
-.zen-mode html {
+html.zen-mode {
   background-image: none !important;
 }
 

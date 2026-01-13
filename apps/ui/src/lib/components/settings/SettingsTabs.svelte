@@ -31,7 +31,7 @@
     ]);
 </script>
 
-<div class="overflow-x-auto scrollbar-hide">
+<div class="overflow-x-auto pb-2">
     <div
         class="flex items-center gap-1 p-1.5 bg-slate-100 dark:bg-slate-800/50 rounded-xl border border-slate-200/50 dark:border-slate-700/50 min-w-min"
     >
@@ -52,11 +52,4 @@
 </div>
 
 <style>
-    .scrollbar-hide {
-        -ms-overflow-style: none;
-        scrollbar-width: none;
-    }
-    .scrollbar-hide::-webkit-scrollbar {
-        display: none;
-    }
 </style>
