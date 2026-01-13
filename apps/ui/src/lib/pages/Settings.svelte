@@ -1698,8 +1698,6 @@
                 </section>
             {/if}
 
-        </div>
-
         <!-- Floating Action Button: Save -->
         {#if isDirty}
             <div class="fixed bottom-8 left-1/2 -translate-x-1/2 w-full max-w-4xl px-4 z-40 animate-in slide-in-from-bottom-10 duration-500">
