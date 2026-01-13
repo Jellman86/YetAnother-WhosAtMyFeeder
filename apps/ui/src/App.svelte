@@ -17,6 +17,8 @@
   import { settingsStore } from './lib/stores/settings.svelte';
   import { detectionsStore } from './lib/stores/detections.svelte';
   import { authStore } from './lib/stores/auth.svelte';
+  import { announcer } from './lib/components/Announcer.svelte';
+  import Announcer from './lib/components/Announcer.svelte';
 
   // Track current layout
   let currentLayout = $state<'horizontal' | 'vertical'>('horizontal');
@@ -33,6 +35,21 @@
 
   // Router state
   let currentRoute = $state('/');
+
+  // Accessibility Logic
+  $effect(() => {
+      const s = settingsStore.settings;
+      if (s) {
+          if (s.accessibility_high_contrast) document.documentElement.classList.add('high-contrast');
+          else document.documentElement.classList.remove('high-contrast');
+
+          if (s.accessibility_dyslexia_font) document.body.classList.add('font-dyslexic');
+          else document.body.classList.remove('font-dyslexic');
+
+          if (s.accessibility_reduced_motion) document.body.classList.add('motion-reduce');
+          else document.body.classList.remove('motion-reduce');
+      }
+  });
 
   function navigate(path: string) {
       currentRoute = path;
@@ -180,6 +197,7 @@
                              video_classification_timestamp: payload.data.video_classification_timestamp
                          };
                          detectionsStore.addDetection(newDet);
+                         announcer.announce(`New bird detected: ${newDet.display_name} at ${newDet.camera_name}`);
                      } else if (payload.type === 'detection_updated') {
                          if (!payload.data || !payload.data.frigate_event) {
                              console.error("SSE Invalid detection_updated data:", payload);
@@ -398,4 +416,5 @@
 
   <!-- Toast Notifications -->
   <Toast />
+  <Announcer />
 </div>

@@ -15,6 +15,7 @@
         { id: 'integrations', label: $_('settings.tabs.integrations'), icon: '🔌' },
         { id: 'data', label: $_('settings.tabs.data'), icon: '💾' },
         { id: 'appearance', label: $_('settings.tabs.appearance'), icon: '🎨' },
+        { id: 'accessibility', label: $_('settings.tabs.accessibility'), icon: '♿' },
     ]);
 </script>
 

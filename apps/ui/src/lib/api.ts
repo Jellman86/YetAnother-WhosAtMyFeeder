@@ -104,6 +104,13 @@ export interface Settings {
     notifications_filter_species_whitelist: string[];
     notifications_filter_min_confidence: number;
     notifications_filter_audio_confirmed_only: boolean;
+    notification_language: string;
+
+    // Accessibility settings
+    accessibility_high_contrast: boolean;
+    accessibility_dyslexia_font: boolean;
+    accessibility_reduced_motion: boolean;
+    accessibility_zen_mode: boolean;
 }
 
 export type UpdateSettings = Partial<Settings>;

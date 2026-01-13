@@ -150,6 +150,12 @@
     
     let testingNotification = $state<Record<string, boolean>>({});
 
+    // Accessibility
+    let highContrast = $state(false);
+    let dyslexiaFont = $state(false);
+    let reducedMotion = $state(false);
+    let zenMode = $state(false);
+
     // Version Info
     let versionInfo = $state<VersionInfo>({ 
         version: __APP_VERSION__, 
@@ -229,7 +235,13 @@
             
             { key: 'filterWhitelist', val: JSON.stringify(filterWhitelist), store: JSON.stringify(s.notifications_filter_species_whitelist || []) },
             { key: 'filterConfidence', val: filterConfidence, store: s.notifications_filter_min_confidence ?? 0.7 },
-            { key: 'filterAudioOnly', val: filterAudioOnly, store: s.notifications_filter_audio_confirmed_only ?? false }
+            { key: 'filterAudioOnly', val: filterAudioOnly, store: s.notifications_filter_audio_confirmed_only ?? false },
+
+            // Accessibility
+            { key: 'highContrast', val: highContrast, store: s.accessibility_high_contrast ?? false },
+            { key: 'dyslexiaFont', val: dyslexiaFont, store: s.accessibility_dyslexia_font ?? false },
+            { key: 'reducedMotion', val: reducedMotion, store: s.accessibility_reduced_motion ?? false },
+            { key: 'zenMode', val: zenMode, store: s.accessibility_zen_mode ?? false }
         ];
 
         const dirtyItem = checks.find(c => c.val !== c.store);
@@ -498,6 +510,12 @@
             filterWhitelist = settings.notifications_filter_species_whitelist || [];
             filterConfidence = settings.notifications_filter_min_confidence ?? 0.7;
             filterAudioOnly = settings.notifications_filter_audio_confirmed_only ?? false;
+
+            // Accessibility
+            highContrast = settings.accessibility_high_contrast ?? false;
+            dyslexiaFont = settings.accessibility_dyslexia_font ?? false;
+            reducedMotion = settings.accessibility_reduced_motion ?? false;
+            zenMode = settings.accessibility_zen_mode ?? false;
         } catch (e) {
             message = { type: 'error', text: $_('notifications.settings_load_failed') };
         } finally {
@@ -581,7 +599,13 @@
                 
                 notifications_filter_species_whitelist: filterWhitelist,
                 notifications_filter_min_confidence: filterConfidence,
-                notifications_filter_audio_confirmed_only: filterAudioOnly
+                notifications_filter_audio_confirmed_only: filterAudioOnly,
+
+                // Accessibility
+                accessibility_high_contrast: highContrast,
+                accessibility_dyslexia_font: dyslexiaFont,
+                accessibility_reduced_motion: reducedMotion,
+                accessibility_zen_mode: zenMode
             });
             // Update store
             await settingsStore.load();
@@ -1595,8 +1619,63 @@
                         </div>
                     </section>
                 </div>
+            <!-- Accessibility Tab -->
+            {#if activeTab === 'accessibility'}
+                <section class="bg-white dark:bg-slate-800/50 rounded-3xl border border-slate-200/80 dark:border-slate-700/50 p-8 shadow-sm backdrop-blur-md">
+                    <div class="flex items-center gap-3 mb-8">
+                        <div class="w-10 h-10 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+                            <span class="text-xl">♿</span>
+                        </div>
+                        <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">{$_('accessibility.title')}</h3>
+                    </div>
+
+                    <div class="space-y-6">
+                        <!-- High Contrast -->
+                        <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 flex items-center justify-between">
+                            <div>
+                                <span class="block text-sm font-bold text-slate-900 dark:text-white">{$_('accessibility.high_contrast')}</span>
+                                <span class="block text-[10px] text-slate-500 font-medium">{$_('accessibility.high_contrast_desc')}</span>
+                            </div>
+                            <button onclick={() => highContrast = !highContrast} class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {highContrast ? 'bg-indigo-500' : 'bg-slate-300 dark:bg-slate-600'}">
+                                <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {highContrast ? 'translate-x-5' : 'translate-x-0'}"></span>
+                            </button>
+                        </div>
+
+                        <!-- Dyslexia Font -->
+                        <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 flex items-center justify-between">
+                            <div>
+                                <span class="block text-sm font-bold text-slate-900 dark:text-white">{$_('accessibility.dyslexia_font')}</span>
+                                <span class="block text-[10px] text-slate-500 font-medium">{$_('accessibility.dyslexia_font_desc')}</span>
+                            </div>
+                            <button onclick={() => dyslexiaFont = !dyslexiaFont} class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {dyslexiaFont ? 'bg-indigo-500' : 'bg-slate-300 dark:bg-slate-600'}">
+                                <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {dyslexiaFont ? 'translate-x-5' : 'translate-x-0'}"></span>
+                            </button>
+                        </div>
+
+                        <!-- Reduced Motion -->
+                        <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 flex items-center justify-between">
+                            <div>
+                                <span class="block text-sm font-bold text-slate-900 dark:text-white">{$_('accessibility.reduced_motion')}</span>
+                                <span class="block text-[10px] text-slate-500 font-medium">{$_('accessibility.reduced_motion_desc')}</span>
+                            </div>
+                            <button onclick={() => reducedMotion = !reducedMotion} class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {reducedMotion ? 'bg-indigo-500' : 'bg-slate-300 dark:bg-slate-600'}">
+                                <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {reducedMotion ? 'translate-x-5' : 'translate-x-0'}"></span>
+                            </button>
+                        </div>
+
+                        <!-- Zen Mode -->
+                        <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 flex items-center justify-between">
+                            <div>
+                                <span class="block text-sm font-bold text-slate-900 dark:text-white">{$_('accessibility.zen_mode')}</span>
+                                <span class="block text-[10px] text-slate-500 font-medium">{$_('accessibility.zen_mode_desc')}</span>
+                            </div>
+                            <button onclick={() => zenMode = !zenMode} class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {zenMode ? 'bg-indigo-500' : 'bg-slate-300 dark:bg-slate-600'}">
+                                <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {zenMode ? 'translate-x-5' : 'translate-x-0'}"></span>
+                            </button>
+                        </div>
+                    </div>
+                </section>
             {/if}
-        </div>
 
         <!-- Floating Action Button: Save -->
         {#if isDirty}
@@ -1618,6 +1697,8 @@
                 </div>
             </div>
         {/if}
+    {/if}
+</div>
     {/if}
 </div>
 

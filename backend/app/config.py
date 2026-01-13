@@ -128,6 +128,12 @@ class NotificationSettings(BaseModel):
     filters: NotificationFilterSettings = NotificationFilterSettings()
     notification_language: str = Field(default="en", description="Language for notifications (en, es, fr, de, ja)")
 
+class AccessibilitySettings(BaseModel):
+    high_contrast: bool = Field(default=False, description="Enable high contrast mode")
+    dyslexia_font: bool = Field(default=False, description="Enable dyslexia-friendly font")
+    reduced_motion: bool = Field(default=False, description="Reduce motion/animations")
+    zen_mode: bool = Field(default=False, description="Enable simplified zen mode")
+
 class Settings(BaseSettings):
     frigate: FrigateSettings
     classification: ClassificationSettings = ClassificationSettings()
@@ -138,6 +144,7 @@ class Settings(BaseSettings):
     llm: LLMSettings = LLMSettings()
     telemetry: TelemetrySettings = TelemetrySettings()
     notifications: NotificationSettings = NotificationSettings()
+    accessibility: AccessibilitySettings = AccessibilitySettings()
     
     # General app settings
     log_level: str = "INFO"
@@ -259,6 +266,14 @@ class Settings(BaseSettings):
             'notification_language': os.environ.get('NOTIFICATIONS__NOTIFICATION_LANGUAGE', 'en')
         }
 
+        # Accessibility settings
+        accessibility_data = {
+            'high_contrast': os.environ.get('ACCESSIBILITY__HIGH_CONTRAST', 'false').lower() == 'true',
+            'dyslexia_font': os.environ.get('ACCESSIBILITY__DYSLEXIA_FONT', 'false').lower() == 'true',
+            'reduced_motion': os.environ.get('ACCESSIBILITY__REDUCED_MOTION', 'false').lower() == 'true',
+            'zen_mode': os.environ.get('ACCESSIBILITY__ZEN_MODE', 'false').lower() == 'true',
+        }
+
         # Load from config file if it exists, env vars take precedence
         if CONFIG_PATH.exists():
             try:
@@ -349,6 +364,12 @@ class Settings(BaseSettings):
                         if env_key not in os.environ:
                             notifications_data['notification_language'] = n_file['notification_language']
 
+                if 'accessibility' in file_data:
+                    for k, v in file_data['accessibility'].items():
+                        env_key = f'ACCESSIBILITY__{k.upper()}'
+                        if env_key not in os.environ:
+                            accessibility_data[k] = v
+
                 log.info("Loaded config from file", path=str(CONFIG_PATH))
             except Exception as e:
                 log.warning("Failed to load config from file", path=str(CONFIG_PATH), error=str(e))
@@ -386,6 +407,7 @@ class Settings(BaseSettings):
             llm=LLMSettings(**llm_data),
             telemetry=TelemetrySettings(**telemetry_data),
             notifications=NotificationSettings(**notifications_data),
+            accessibility=AccessibilitySettings(**accessibility_data),
             api_key=api_key
         )
 

@@ -70,7 +70,19 @@
       "notifications": "通知",
       "integrations": "統合",
       "data": "データ",
-      "appearance": "外観"
+      "appearance": "外観",
+      "accessibility": "アクセシビリティ"
+    },
+    "accessibility": {
+      "title": "アクセシビリティオプション",
+      "high_contrast": "ハイコントラスト",
+      "high_contrast_desc": "黒/白/黄色のテーマでコントラストを最大化",
+      "dyslexia_font": "ディスレクシア対応フォント",
+      "dyslexia_font_desc": "可読性の高いOpenDyslexicフォントを使用",
+      "reduced_motion": "動きを減らす",
+      "reduced_motion_desc": "アニメーションと遷移を無効化",
+      "zen_mode": "禅モード",
+      "zen_mode_desc": "インターフェースを簡素化し、認知的負荷を軽減"
     },
     "frigate": {
       "title": "Frigate NVR",

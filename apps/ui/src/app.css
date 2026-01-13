@@ -149,3 +149,78 @@ html {
     pointer-events: none;
   }
 }
+
+/* Accessibility Modes */
+
+/* Dyslexia Friendly Font */
+.font-dyslexic {
+  font-family: 'OpenDyslexic', 'Comic Sans MS', 'Chalkboard SE', sans-serif !important;
+  line-height: 1.6 !important;
+}
+
+/* Reduced Motion */
+.motion-reduce * {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
+/* High Contrast Mode */
+.high-contrast {
+  --bg-color: #000000;
+  --text-color: #ffffff;
+  --border-color: #ffff00; /* Yellow for visibility */
+  --highlight-color: #00ffff; /* Cyan for focus/active */
+}
+
+.high-contrast body,
+.high-contrast .bg-surface-light,
+.high-contrast .dark\:bg-surface-dark {
+  background-color: #000000 !important;
+  color: #ffffff !important;
+}
+
+.high-contrast .bg-white,
+.high-contrast .dark\:bg-slate-800,
+.high-contrast .bg-slate-50,
+.high-contrast .dark\:bg-slate-900\/50,
+.high-contrast .dark\:bg-slate-800\/50 {
+  background-color: #000000 !important;
+  border: 2px solid #ffff00 !important;
+  color: #ffffff !important;
+}
+
+.high-contrast text-slate-500,
+.high-contrast .dark\:text-slate-400,
+.high-contrast .text-slate-600,
+.high-contrast .dark\:text-slate-300 {
+  color: #ffffff !important;
+}
+
+.high-contrast button,
+.high-contrast a,
+.high-contrast input,
+.high-contrast select {
+  border: 2px solid #00ffff !important;
+  color: #ffffff !important;
+  background-color: #000000 !important;
+}
+
+.high-contrast .text-teal-600,
+.high-contrast .dark\:text-teal-400,
+.high-contrast .text-brand-500 {
+  color: #ffff00 !important; /* Yellow text for emphasis */
+}
+
+.high-contrast .bg-teal-500,
+.high-contrast .bg-brand-500,
+.high-contrast .bg-indigo-500 {
+  background-color: #ffff00 !important;
+  color: #000000 !important;
+  border: 2px solid #ffffff !important;
+}
+
+.high-contrast svg {
+  stroke: currentColor !important;
+}

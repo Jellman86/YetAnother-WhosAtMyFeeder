@@ -70,7 +70,19 @@
       "notifications": "Notifications",
       "integrations": "Integrations",
       "data": "Data",
-      "appearance": "Appearance"
+      "appearance": "Appearance",
+      "accessibility": "Accessibility"
+    },
+    "accessibility": {
+      "title": "Accessibility Options",
+      "high_contrast": "High Contrast",
+      "high_contrast_desc": "Maximize contrast with black/white/yellow theme",
+      "dyslexia_font": "Dyslexia Friendly Font",
+      "dyslexia_font_desc": "Use OpenDyslexic font for better readability",
+      "reduced_motion": "Reduced Motion",
+      "reduced_motion_desc": "Disable animations and transitions",
+      "zen_mode": "Zen Mode",
+      "zen_mode_desc": "Simplify interface to reduce cognitive load"
     },
     "frigate": {
       "title": "Frigate NVR",
