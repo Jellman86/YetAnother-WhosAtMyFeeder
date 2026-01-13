@@ -7,10 +7,12 @@ register('fr', () => import('./locales/fr.json'));
 register('de', () => import('./locales/de.json'));
 register('ja', () => import('./locales/ja.json'));
 
+console.log("I18N: Initializing...");
 // Hardcode English for now to ensure startup, then we can detect
 init({
     fallbackLocale: 'en',
     initialLocale: 'en',
 });
+console.log("I18N: Initialized with 'en'");
 
 export { locale, _ };
