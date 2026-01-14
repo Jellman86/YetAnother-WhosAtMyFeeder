@@ -1,84 +1,265 @@
 {
-    "common": {
-        "loading": "加载中...",
-        "save": "保存",
-        "cancel": "取消",
-        "delete": "删除",
-        "edit": "编辑",
-        "add": "添加",
-        "close": "关闭",
-        "refresh": "刷新",
-        "apply_settings": "应用设置",
-        "unsaved_changes": "未保存的更改",
-        "saving": "保存中...",
-        "testing": "测试中..."
+    "app": {
+        "title": "YA-WAMF",
+        "logo_subtitle": "WhosAtMyFeeder",
+        "logo_title": "Yet Another",
+        "tagline": "为您的 Frigate NVR 提供 AI 驱动的鸟类分类"
     },
     "nav": {
         "dashboard": "仪表盘",
-        "history": "历史记录",
+        "explorer": "探索",
+        "leaderboard": "排行榜",
         "settings": "设置",
-        "system": "系统",
-        "docs": "文档"
+        "about": "关于",
+        "toggle_menu": "切换菜单",
+        "collapse_sidebar": "收起侧边栏",
+        "expand_sidebar": "展开侧边栏"
+    },
+    "theme": {
+        "switch_light": "切换到浅色模式",
+        "switch_dark": "切换到深色模式",
+        "light": "浅色",
+        "dark": "深色",
+        "system": "跟随系统",
+        "title": "主题与外观",
+        "layout": "导航布局",
+        "horizontal": "水平",
+        "vertical": "垂直",
+        "horizontal_desc": "顶部导航栏",
+        "vertical_desc": "左侧侧边栏（可折叠）"
+    },
+    "dashboard": {
+        "title": "仪表盘",
+        "live_feed": "实时画面",
+        "no_detections": "暂无检测",
+        "waiting_first_visitor": "等待今天的第一位访客...",
+        "discovery_feed": "发现动态",
+        "see_full_history": "查看完整历史",
+        "audio_confirmations": "音频确认"
+    },
+    "common": {
+        "loading": "加载中...",
+        "error": "错误",
+        "success": "成功",
+        "cancel": "取消",
+        "delete": "删除",
+        "close": "关闭",
+        "refresh": "刷新",
+        "save": "保存",
+        "saving": "保存中...",
+        "test": "测试",
+        "testing": "测试中...",
+        "add": "添加",
+        "apply_settings": "应用设置",
+        "unsaved_changes": "未保存的更改",
+        "edit": "编辑",
+        "today": "今天",
+        "yesterday": "昨天",
+        "search": "搜索...",
+        "retry": "重试",
+        "github": "GitHub",
+        "mit_license": "MIT 许可证",
+        "view_snapshot": "查看快照",
+        "statistics": "统计"
     },
     "settings": {
         "title": "设置",
-        "subtitle": "配置您的观鸟站",
+        "subtitle": "配置和管理您的 YA-WAMF 实例",
         "language_selector": "语言",
-        "language_desc": "选择您的首选语言",
+        "language_desc": "更改用户界面文本和通知内容。",
+        "tabs": {
+            "connection": "连接",
+            "detection": "检测",
+            "notifications": "通知",
+            "integrations": "集成",
+            "data": "数据",
+            "appearance": "外观",
+            "accessibility": "辅助功能"
+        },
+        "accessibility": {
+            "title": "辅助功能选项",
+            "high_contrast": "高对比度",
+            "high_contrast_desc": "使用黑/白/黄主题最大化对比度",
+            "dyslexia_font": "阅读障碍友好字体",
+            "dyslexia_font_desc": "使用 OpenDyslexic 字体以提高可读性",
+            "reduced_motion": "减少动态效果",
+            "reduced_motion_desc": "禁用动画和过渡效果",
+            "zen_mode": "禅模式",
+            "zen_mode_desc": "简化界面以减少认知负荷"
+        },
         "frigate": {
             "title": "Frigate NVR",
-            "url": "Frigate 地址",
+            "url": "服务器地址",
             "test_connection": "测试连接",
             "sync_cameras": "同步摄像头",
-            "test_mqtt": "测试 MQTT",
-            "mqtt_broker": "代理 (Broker)",
+            "test_mqtt": "测试 MQTT 管道",
+            "mqtt_broker": "MQTT 代理",
             "mqtt_port": "端口",
-            "mqtt_auth": "身份验证",
-            "mqtt_user": "用户名",
+            "mqtt_auth": "使用身份验证",
+            "mqtt_user": "用户",
             "mqtt_pass": "密码",
-            "fetch_clips": "获取片段",
-            "fetch_clips_desc": "下载检测到的视频片段"
+            "fetch_clips": "获取视频片段",
+            "fetch_clips_desc": "使用 Frigate 录像进行重新分类"
         },
         "cameras": {
             "title": "活动摄像头",
             "none_found": "未发现摄像头",
-            "syncing": "同步中..."
+            "syncing": "扫描中..."
         },
         "telemetry": {
             "title": "遥测",
-            "desc": "帮助改进 YA-WAMF",
-            "transparency": "透明度报告",
+            "desc": "通过分享匿名使用统计数据帮助改进 YA-WAMF。",
+            "transparency": "透明度：我们发送的内容",
             "install_id": "安装 ID",
-            "version": "版本",
+            "version": "应用版本",
             "platform": "平台",
-            "features": "功能",
-            "privacy_notice": "我们收集匿名使用数据以提高检测准确性。绝不会发送图像或视频。"
-        },
-        "accessibility": {
-            "title": "辅助功能",
-            "high_contrast": "高对比度",
-            "high_contrast_desc": "增加对比度以获得更好的可视性",
-            "dyslexia_font": "阅读障碍友好",
-            "dyslexia_font_desc": "使用 OpenDyslexic 字体以提高可读性",
-            "reduced_motion": "减少动态效果",
-            "reduced_motion_desc": "最小化动画和过渡效果",
-            "zen_mode": "禅模式",
-            "zen_mode_desc": "简化界面以减少干扰"
+            "features": "已启用功能",
+            "privacy_notice": "此数据安全发送，仅用于帮助我们了解应用使用情况。绝不会分享图像或个人检测数据。"
         }
     },
-    "theme": {
-        "title": "外观",
-        "light": "浅色",
-        "dark": "深色",
-        "system": "跟随系统",
-        "layout": "布局密度",
-        "horizontal": "舒适",
-        "horizontal_desc": "标准卡片布局间距",
-        "vertical": "紧凑",
-        "vertical_desc": "高数据密度的紧凑列表视图"
-    },
     "notifications": {
-        "settings_saved": "设置保存成功",
+        "reclassify_fallback": "⚠️ 视频不可用 - 改用快照",
+        "reclassify_failed": "重新分类失败：{message}",
+        "settings_saved": "设置保存成功！",
         "settings_load_failed": "加载设置失败"
+    },
+    "actions": {
+        "confirm_delete": "删除此 {species} 检测记录？",
+        "play_video": "播放视频",
+        "deep_reclassify": "深度重新分类",
+        "manual_tag": "手动标记",
+        "reclassify": "重新分类",
+        "species_info": "物种信息",
+        "delete_detection": "删除检测",
+        "hide_detection": "隐藏检测",
+        "read_more_wikipedia": "在维基百科上阅读更多"
+    },
+    "detection": {
+        "confidence": "置信度",
+        "verified": "已验证",
+        "hidden": "已隐藏",
+        "frigate_score": "FRIGATE：{score}%",
+        "audio_match": "音频匹配",
+        "birdnet_confirmed": "BirdNET 确认",
+        "frigate_verified": "Frigate 验证",
+        "video_analysis": {
+            "title": "深度视频分析",
+            "match": "{score}% 匹配",
+            "verified_desc": "通过时间集成逻辑（软投票）验证。",
+            "in_progress": "视频分析进行中..."
+        },
+        "ai": {
+            "insight": "AI 自然学家见解",
+            "ask": "询问 AI 自然学家",
+            "analyzing": "正在分析行为...",
+            "regenerating": "重新生成中...",
+            "regenerate": "重新生成分析",
+            "error": "错误：{message}"
+        },
+        "tagging": {
+            "search_placeholder": "搜索物种...",
+            "no_results": "未找到匹配的物种"
+        }
+    },
+    "events": {
+        "title": "事件",
+        "total_count": "共 {count} 条",
+        "filters": {
+            "all_time": "所有时间",
+            "week": "本周",
+            "month": "本月",
+            "custom": "自定义",
+            "all_species": "所有物种",
+            "all_cameras": "所有摄像头"
+        },
+        "sort": {
+            "newest": "最新",
+            "oldest": "最旧",
+            "confidence": "置信度"
+        },
+        "load_failed": "加载事件失败"
+    },
+    "leaderboard": {
+        "title": "物种排行榜",
+        "species_count": "{count} 个物种",
+        "detections_count": "{count} 次检测",
+        "sort_by_count": "按数量",
+        "sort_by_name": "按名称",
+        "no_species": "暂无检测到的物种",
+        "no_species_desc": "一旦有记录，鸟类检测将显示在这里",
+        "all_species": "所有物种",
+        "percentage_of_total": "占总数的 {percentage}%",
+        "unidentified_desc": "未识别的检测 - 点击查看并重新分类",
+        "needs_review": "需要审核",
+        "load_failed": "加载物种数据失败"
+    },
+    "about": {
+        "title": "关于本项目",
+        "how_it_works": "工作原理",
+        "features": "功能特性",
+        "tech_stack": "技术栈",
+        "docs_resources": "文档与资源",
+        "credits": "致谢",
+        "built_with_ai": "出于对观鸟的热爱，在 AI 协助下构建 🐦",
+        "project_desc_1": "YA-WAMF 是一个个人项目，最初是为了尝试 AI 辅助编程。当原来的 {link} 项目停止维护时，本项目作为一个学习机会和鸟类爱好者的实用工具应运而生。",
+        "project_desc_2": "整个应用程序都是在 AI 编程助手的帮助下构建的 - 这是一次对这些工具可能性的有趣探索。如果您发现任何粗糙之处，那可能就是原因！",
+        "steps": {
+            "1": { "title": "Frigate 检测", "desc": "您的摄像头捕捉到动作，Frigate 识别其为鸟类" },
+            "2": { "title": "MQTT 消息", "desc": "Frigate 将事件发布到您的 MQTT 代理" },
+            "3": { "title": "YA-WAMF 处理", "desc": "后端订阅 MQTT 并接收事件" },
+            "4": { "title": "分类", "desc": "图像通过 ML 模型运行（或使用 Frigate 的子标签）" },
+            "5": { "title": "音频关联", "desc": "如果有 BirdNET-Go 音频检测，则进行交叉引用" },
+            "6": { "title": "保存与通知", "desc": "检测结果存储到数据库，发送通知" },
+            "7": { "title": "视频分析", "desc": "可选：扫描视频片段帧以获得更精确的准确性" },
+            "8": { "title": "实时更新", "desc": "仪表盘通过服务器发送事件 (SSE) 接收实时更新" }
+        },
+        "feature_list": {
+            "ai_models": { "title": "先进 AI 模型", "desc": "选择 MobileNetV2（快速）、ConvNeXt（高精度）或 EVA-02（精英级 ~91% 准确率）" },
+            "multi_sensor": { "title": "多传感器关联", "desc": "将视觉检测与 BirdNET-Go 音频识别交叉引用，以验证目击" },
+            "video_analysis": { "title": "自动视频分析", "desc": "使用时间集成逻辑自动扫描视频片段中的 15+ 帧以获得更高准确性" },
+            "notifications": { "title": "丰富通知", "desc": "支持 Discord、Telegram 和 Pushover，具有可自定义的过滤器和特定物种警报" },
+            "ai_insights": { "title": "AI 自然学家见解", "desc": "使用 Gemini、OpenAI 或 Claude 语言模型获取访客的行为分析" },
+            "taxonomy": { "title": "分类标准化", "desc": "使用 iNaturalist 数据自动进行学名 ↔ 通用名映射" },
+            "weather": { "title": "天气丰富化", "desc": "跟踪检测时的当地天气状况和温度数据" },
+            "home_assistant": { "title": "Home Assistant 集成", "desc": "用于跟踪最后检测到的鸟类和每日访客计数的原生传感器" },
+            "birdweather": { "title": "BirdWeather 报告", "desc": "可选：将您的检测贡献给 BirdWeather 公民科学平台" },
+            "observability": { "title": "可观测性", "desc": "内置 Prometheus 指标、可选遥测和实时 MQTT 诊断" },
+            "wildlife": { "title": "野生动物分类器", "desc": "识别松鼠、狐狸和其他非鸟类访客" },
+            "fast_path": { "title": "快速通道效率", "desc": "跳过本地 AI 处理，直接使用 Frigate 的子标签以节省 CPU 资源" }
+        },
+        "tech": {
+            "backend": "后端",
+            "frontend": "前端",
+            "ml": "ML 引擎",
+            "messaging": "消息传递",
+            "deployment": "部署"
+        },
+        "links": {
+            "repo": "GitHub 仓库",
+            "repo_desc": "源代码、问题和发布",
+            "docs": "文档",
+            "docs_desc": "设置指南、API 参考和故障排除",
+            "frigate": "Frigate NVR",
+            "frigate_desc": "必需：具有对象检测功能的开源 NVR",
+            "birdnet": "BirdNET-Go",
+            "birdnet_desc": "可选：音频鸟类识别"
+        },
+        "credits_list": {
+            "preamble": "没有以下支持，本项目将无法实现：",
+            "inspiration": "最初的 {link} 项目提供的灵感",
+            "frigate": "{link} 作为优秀的开源 NVR",
+            "birdnet": "{link} 用于音频分类集成",
+            "benjordan": "YouTube 上的 {link} 激发的鸟类检测内容",
+            "ai_assistants": "帮助构建此应用程序的 AI 助手"
+        }
+    },
+    "species_detail": {
+        "no_wiki": "此物种暂无维基百科信息。",
+        "avg_confidence": "平均置信度",
+        "first_seen": "首次发现",
+        "last_seen": "最后发现",
+        "activity_patterns": "活动模式",
+        "camera_breakdown": "摄像头细分",
+        "recent_sightings": "最近目击"
     }
 }
