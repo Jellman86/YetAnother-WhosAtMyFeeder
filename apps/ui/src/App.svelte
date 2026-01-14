@@ -406,9 +406,9 @@
                    <About />
               {/if}
           </main>
+          
+          <Footer />
       </div>
-
-      <Footer />
   {/if}
 
   <!-- Toast Notifications -->
