@@ -823,9 +823,9 @@
             {/each}
         </div>
     {:else}
-        <div class="flex flex-col md:flex-row gap-8 items-start">
+        <div class="flex flex-col md:grid md:grid-cols-[260px_1fr] gap-8 items-start">
             <!-- Tab Navigation Sidebar -->
-            <div class="w-full md:w-auto md:sticky md:top-8 z-10">
+            <div class="w-full md:sticky md:top-24 z-10 md:max-h-[calc(100vh-8rem)] md:overflow-y-auto custom-scrollbar pr-2">
                 <SettingsTabs {activeTab} ontabchange={handleTabChange} />
             </div>
 
