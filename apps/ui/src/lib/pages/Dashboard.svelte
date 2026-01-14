@@ -269,7 +269,7 @@
         </div>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-            {#each detectionsStore.detections.slice(1) as detection (detection.frigate_event || detection.id)}
+            {#each detectionsStore.detections.slice(1, 10) as detection (detection.frigate_event || detection.id)}
                 <div in:fly={{ y: 20, duration: 400 }}>
                     <DetectionCard 
                         {detection} 
