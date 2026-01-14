@@ -791,6 +791,18 @@ export async function fetchRecentAudio(limit: number = 10): Promise<AudioDetecti
     return handleResponse<AudioDetection[]>(response);
 }
 
+export interface SearchResult {
+    id: string;
+    display_name: string;
+    scientific_name?: string | null;
+    common_name?: string | null;
+}
+
+export async function searchSpecies(query: string): Promise<SearchResult[]> {
+    const response = await apiFetch(`${API_BASE}/species/search?q=${encodeURIComponent(query)}`);
+    return handleResponse<SearchResult[]>(response);
+}
+
 // Stats types and functions
 export interface DailySpeciesSummary {
     species: string;

@@ -10,6 +10,7 @@ from app.models import SpeciesStats, SpeciesInfo, CameraStats, Detection
 from app.config import settings
 from app.services.taxonomy.taxonomy_service import taxonomy_service
 from app.services.i18n_service import i18n_service
+from app.services.classifier_service import get_classifier
 
 router = APIRouter()
 log = structlog.get_logger()
@@ -23,10 +24,52 @@ CACHE_TTL_FAILURE = timedelta(minutes=15)  # Short TTL for failures to allow ret
 WIKIPEDIA_USER_AGENT = "YA-WAMF/2.0 (Bird Watching App; https://github.com/Jellman86/YetAnother-WhosAtMyFeeder)"
 
 # Species names that should NOT trigger Wikipedia lookup (no valid article exists)
-SKIP_WIKIPEDIA_LOOKUP = {"Unknown Bird", "unknown bird", "background", "Background"}
+from app.services.classifier_service import get_classifier
 
+# ... imports ...
 
-def _is_bird_article(data: dict) -> bool:
+@router.get("/species/search")
+async def search_species(q: str):
+    """Search for species labels (from classifier) and return with taxonomy info."""
+    if not q:
+        return []
+    
+    q_lower = q.lower()
+    classifier = get_classifier()
+    labels = classifier.labels
+    
+    # Filter labels (limit to 50 matches)
+    matches = [l for l in labels if q_lower in l.lower()][:50]
+    
+    results = []
+    async with get_db() as db:
+        for label in matches:
+            # Lookup taxonomy (check cache only to be fast)
+            # We use taxonomy_service.get_names but strictly from cache/DB if possible to avoid 50 API calls
+            # Actually, taxonomy_service.get_names checks cache first.
+            # But we don't want to trigger iNaturalist lookups for 50 items if they aren't cached.
+            # So we will inspect the cache directly or use a helper.
+            
+            # For now, let's just query the cache table manually for speed
+            async with db.execute(
+                "SELECT scientific_name, common_name FROM taxonomy_cache WHERE scientific_name = ? OR common_name = ?", 
+                (label, label)
+            ) as cursor:
+                row = await cursor.fetchone()
+                
+            sci_name = row[0] if row else None
+            common_name = row[1] if row else label
+            
+            results.append({
+                "id": label, # The value to save
+                "display_name": label, # Fallback display
+                "scientific_name": sci_name,
+                "common_name": common_name
+            })
+            
+    return results
+
+# ... existing code ...
     """
     Strictly validate that a Wikipedia article is about a bird species.
     Uses the description field which is very reliable for bird articles.

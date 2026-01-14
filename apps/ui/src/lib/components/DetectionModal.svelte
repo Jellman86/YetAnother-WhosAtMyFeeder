@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { getThumbnailUrl, analyzeDetection, updateDetectionSpecies, hideDetection, deleteDetection } from '../api';
+    import { getThumbnailUrl, analyzeDetection, updateDetectionSpecies, hideDetection, deleteDetection, searchSpecies, type SearchResult } from '../api';
     import type { Detection } from '../api';
     import ReclassificationOverlay from './ReclassificationOverlay.svelte';
     import { detectionsStore, type ReclassificationProgress } from '../stores/detections.svelte';
@@ -44,6 +44,8 @@
     let showTagDropdown = $state(false);
     let updatingTag = $state(false);
     let tagSearchQuery = $state('');
+    let searchResults = $state<SearchResult[]>([]);
+    let isSearching = $state(false);
 
     // Reclassification progress
     let reclassifyProgress = $derived(
@@ -57,14 +59,45 @@
     const primaryName = $derived(naming.primary);
     const subName = $derived(naming.secondary);
 
-    // Filtered labels for manual tagging
-    let filteredLabels = $derived(
-        tagSearchQuery.trim() === ''
-            ? classifierLabels
-            : classifierLabels.filter(label =>
-                  label.toLowerCase().includes(tagSearchQuery.toLowerCase())
-              )
-    );
+    // Handle search input
+    let searchTimeout: any;
+    $effect(() => {
+        if (tagSearchQuery.trim().length === 0) {
+            // Default: Show top 20 classifier labels if query is empty
+            searchResults = classifierLabels.slice(0, 20).map(l => ({
+                id: l, display_name: l, common_name: l, scientific_name: null
+            }));
+            return;
+        }
+
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(async () => {
+            isSearching = true;
+            try {
+                // Use backend search for rich taxonomy results
+                searchResults = await searchSpecies(tagSearchQuery);
+            } catch (e) {
+                console.error("Search failed", e);
+                // Fallback to local filtering
+                searchResults = classifierLabels
+                    .filter(l => l.toLowerCase().includes(tagSearchQuery.toLowerCase()))
+                    .map(l => ({ id: l, display_name: l, common_name: l, scientific_name: null }));
+            } finally {
+                isSearching = false;
+            }
+        }, 300);
+    });
+
+    function getResultName(result: SearchResult) {
+        // Adapt SearchResult to match what getBirdNames expects (duck typing)
+        const item = {
+            scientific_name: result.scientific_name,
+            common_name: result.common_name,
+            display_name: result.display_name,
+            species: result.display_name // fallback
+        } as any;
+        return getBirdNames(item, showCommon, preferSci).primary;
+    }
 
     async function handleAIAnalysis(force: boolean = false) {
         if (!detection) return;
@@ -328,16 +361,18 @@
                                 />
                             </div>
                             <div class="max-h-56 overflow-y-auto p-1">
-                                {#each filteredLabels as label}
+                                {#each searchResults as result}
                                     <button
-                                        onclick={() => handleManualTag(label)}
-                                        class="w-full px-4 py-2.5 text-left text-sm font-medium rounded-lg transition-all hover:bg-teal-50 dark:hover:bg-teal-900/20 hover:text-teal-600 dark:hover:text-teal-400 {label === detection.display_name ? 'bg-teal-500/10 text-teal-600 font-bold' : 'text-slate-600 dark:text-slate-300'}"
+                                        onclick={() => handleManualTag(result.id)}
+                                        class="w-full px-4 py-2.5 text-left text-sm font-medium rounded-lg transition-all hover:bg-teal-50 dark:hover:bg-teal-900/20 hover:text-teal-600 dark:hover:text-teal-400 {result.id === detection.display_name ? 'bg-teal-500/10 text-teal-600 font-bold' : 'text-slate-600 dark:text-slate-300'}"
                                     >
-                                        {label}
+                                        {getResultName(result)}
                                     </button>
                                 {/each}
-                                {#if filteredLabels.length === 0}
-                                    <p class="px-4 py-6 text-sm text-slate-400 italic text-center">{$_('detection.tagging.no_results')}</p>
+                                {#if searchResults.length === 0}
+                                    <p class="px-4 py-6 text-sm text-slate-400 italic text-center">
+                                        {isSearching ? $_('common.loading') : $_('detection.tagging.no_results')}
+                                    </p>
                                 {/if}
                             </div>
                         </div>
