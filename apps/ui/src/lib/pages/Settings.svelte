@@ -125,7 +125,7 @@
     });
 
     // Telemetry
-    let telemetryEnabled = $state(false);
+    let telemetryEnabled = $state(true);
     let telemetryInstallationId = $state<string | undefined>(undefined);
     let telemetryPlatform = $state<string | undefined>(undefined);
 
@@ -529,7 +529,7 @@
             llmApiKey = settings.llm_api_key ?? '';
             llmModel = settings.llm_model ?? 'gemini-3-flash-preview';
             // Telemetry
-            telemetryEnabled = settings.telemetry_enabled ?? false;
+            telemetryEnabled = settings.telemetry_enabled ?? true;
             telemetryInstallationId = settings.telemetry_installation_id;
             telemetryPlatform = settings.telemetry_platform;
 
@@ -1719,6 +1719,7 @@
                     </div>
                 </section>
             {/if}
+        </div>
 
         <!-- Floating Action Button: Save -->
         {#if isDirty}
@@ -1740,7 +1741,6 @@
                 </div>
             </div>
         {/if}
-    </div>
     {/if}
 </div>
 

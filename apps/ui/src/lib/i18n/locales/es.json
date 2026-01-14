@@ -22,11 +22,11 @@
     "dark": "Oscuro",
     "system": "Sistema",
     "title": "Tema y Apariencia",
-    "layout": "Navigation Layout",
+    "layout": "Diseño de Navegación",
     "horizontal": "Horizontal",
     "vertical": "Vertical",
-    "horizontal_desc": "Top navigation bar",
-    "vertical_desc": "Left sidebar (collapsible)"
+    "horizontal_desc": "Barra de navegación superior",
+    "vertical_desc": "Barra lateral izquierda (plegable)"
   },
   "dashboard": {
     "title": "Tablero",
@@ -52,20 +52,20 @@
     "add": "Añadir",
     "apply_settings": "Aplicar Ajustes",
     "unsaved_changes": "Cambios sin Guardar",
-    "today": "Today",
-    "yesterday": "Yesterday",
-    "search": "Search...",
-    "retry": "Retry",
+    "today": "Hoy",
+    "yesterday": "Ayer",
+    "search": "Buscar...",
+    "retry": "Reintentar",
     "github": "GitHub",
-    "mit_license": "MIT License",
-    "view_snapshot": "View Snapshot",
-    "statistics": "Statistics"
+    "mit_license": "Licencia MIT",
+    "view_snapshot": "Ver Captura",
+    "statistics": "Estadísticas"
   },
   "settings": {
     "title": "Ajustes",
     "subtitle": "Configure y gestione su instancia de YA-WAMF",
     "language_selector": "Idioma",
-    "language_desc": "Changes UI text and notification content.",
+    "language_desc": "Cambia el texto de la interfaz y el contenido de las notificaciones.",
     "tabs": {
       "connection": "Conexión",
       "detection": "Detección",
@@ -124,90 +124,90 @@
   },
   "actions": {
     "confirm_delete": "¿Eliminar esta detección de {species}?",
-    "play_video": "Play Video",
-    "deep_reclassify": "Deep Reclassify",
-    "manual_tag": "Manual Tag",
-    "reclassify": "Reclassify",
-    "species_info": "Species Info",
-    "delete_detection": "Delete Detection",
-    "hide_detection": "Hide Detection",
-    "read_more_wikipedia": "Read more on Wikipedia"
+    "play_video": "Reproducir Video",
+    "deep_reclassify": "Reclasificación Profunda",
+    "manual_tag": "Etiquetado Manual",
+    "reclassify": "Reclasificar",
+    "species_info": "Información de la Especie",
+    "delete_detection": "Eliminar Detección",
+    "hide_detection": "Ocultar Detección",
+    "read_more_wikipedia": "Leer más en Wikipedia"
   },
   "detection": {
-    "confidence": "Confidence",
-    "verified": "Verified",
-    "hidden": "Hidden",
+    "confidence": "Confianza",
+    "verified": "Verificado",
+    "hidden": "Oculto",
     "frigate_score": "FRIGATE: {score}%",
-    "audio_match": "Audio Match",
-    "birdnet_confirmed": "BirdNET Confirmed",
-    "frigate_verified": "Frigate Verified",
+    "audio_match": "Coincidencia de Audio",
+    "birdnet_confirmed": "Confirmado por BirdNET",
+    "frigate_verified": "Verificado por Frigate",
     "video_analysis": {
-      "title": "Deep Video Analysis",
-      "match": "{score}% Match",
-      "verified_desc": "Verified via temporal ensemble logic (Soft-Voting).",
-      "in_progress": "Video Analysis in progress..."
+      "title": "Análisis de Video Profundo",
+      "match": "{score}% de Coincidencia",
+      "verified_desc": "Verificado mediante lógica de conjunto temporal (Soft-Voting).",
+      "in_progress": "Análisis de video en curso..."
     },
     "ai": {
-      "insight": "AI Naturalist Insight",
-      "ask": "Ask AI Naturalist",
-      "analyzing": "Analyzing behavior...",
-      "regenerating": "Regenerating...",
-      "regenerate": "Regenerate Analysis",
+      "insight": "Perspectiva del Naturalista IA",
+      "ask": "Preguntar al Naturalista IA",
+      "analyzing": "Analizando comportamiento...",
+      "regenerating": "Regenerando...",
+      "regenerate": "Regenerar Análisis",
       "error": "Error: {message}"
     },
     "tagging": {
-      "search_placeholder": "Search species...",
-      "no_results": "No matching species found"
+      "search_placeholder": "Buscar especie...",
+      "no_results": "No se encontraron especies coincidentes"
     }
   },
   "events": {
-    "title": "Events",
-    "total_count": "{count} total",
+    "title": "Eventos",
+    "total_count": "{count} en total",
     "filters": {
-      "all_time": "All Time",
-      "week": "Week",
-      "month": "Month",
-      "custom": "Custom",
-      "all_species": "All Species",
-      "all_cameras": "All Cameras"
+      "all_time": "Todo el tiempo",
+      "week": "Semana",
+      "month": "Mes",
+      "custom": "Personalizado",
+      "all_species": "Todas las especies",
+      "all_cameras": "Todas las cámaras"
     },
     "sort": {
-      "newest": "Newest",
-      "oldest": "Oldest",
-      "confidence": "Confidence"
+      "newest": "Más reciente",
+      "oldest": "Más antiguo",
+      "confidence": "Confianza"
     },
-    "load_failed": "Failed to load events"
+    "load_failed": "Error al cargar los eventos"
   },
   "leaderboard": {
-    "title": "Species Leaderboard",
-    "species_count": "{count} species",
-    "detections_count": "{count} detections",
-    "sort_by_count": "By Count",
-    "sort_by_name": "By Name",
-    "no_species": "No species detected yet",
-    "no_species_desc": "Bird detections will appear here once they're recorded",
-    "all_species": "All Species",
-    "percentage_of_total": "{percentage}% of total",
-    "unidentified_desc": "Unidentified detection - click to review and reclassify",
-    "needs_review": "Needs Review",
-    "load_failed": "Failed to load species data"
+    "title": "Clasificación de Especies",
+    "species_count": "{count} especies",
+    "detections_count": "{count} detecciones",
+    "sort_by_count": "Por cantidad",
+    "sort_by_name": "Por nombre",
+    "no_species": "No hay especies detectadas todavía",
+    "no_species_desc": "Las detecciones de aves aparecerán aquí una vez registradas",
+    "all_species": "Todas las especies",
+    "percentage_of_total": "{percentage}% del total",
+    "unidentified_desc": "Detección no identificada - haz clic para revisar y reclasificar",
+    "needs_review": "Necesita Revisión",
+    "load_failed": "Error al cargar los datos de las especies"
   },
   "about": {
-    "title": "About This Project",
-    "how_it_works": "How It Works",
-    "features": "Features",
-    "tech_stack": "Technology Stack",
-    "docs_resources": "Documentation & Resources",
-    "credits": "Credits & Thanks",
-    "built_with_ai": "Built with AI assistance for the love of bird watching 🐦"
+    "title": "Sobre este proyecto",
+    "how_it_works": "Cómo funciona",
+    "features": "Funcionalidades",
+    "tech_stack": "Pila tecnológica",
+    "docs_resources": "Documentación y Recursos",
+    "credits": "Créditos y Agradecimientos",
+    "built_with_ai": "Construido con asistencia de IA por amor a la observación de aves 🐦"
   },
   "species_detail": {
-    "no_wiki": "No Wikipedia information available for this species.",
-    "avg_confidence": "Avg Confidence",
-    "first_seen": "First Seen",
-    "last_seen": "Last Seen",
-    "activity_patterns": "Activity Patterns",
-    "camera_breakdown": "Camera Breakdown",
-    "recent_sightings": "Recent Sightings"
+    "no_wiki": "No hay información de Wikipedia disponible para esta especie.",
+    "avg_confidence": "Confianza Promedio",
+    "first_seen": "Visto por primera vez",
+    "last_seen": "Visto por última vez",
+    "activity_patterns": "Patrones de Actividad",
+    "camera_breakdown": "Desglose por Cámara",
+    "recent_sightings": "Avistamientos Recientes"
   }
 }
