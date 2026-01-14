@@ -237,14 +237,14 @@
                 </div>
             {/if}
         </div>
-        <div class="lg:col-span-5 grid grid-cols-1 gap-6">
+        <div class="lg:col-span-5 flex flex-col gap-6 h-full">
             {#if summary}
                 <div in:fade={{ duration: 800 }}>
                     <DailyHistogram data={summary.hourly_distribution} />
                 </div>
             {/if}
             {#if settingsStore.settings?.birdnet_enabled}
-                <div in:fade={{ duration: 800, delay: 200 }}>
+                <div in:fade={{ duration: 800, delay: 200 }} class="flex-1 min-h-[300px]">
                     <RecentAudio />
                 </div>
             {/if}
