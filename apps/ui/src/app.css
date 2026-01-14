@@ -153,6 +153,14 @@ html {
 
 /* Accessibility Modes */
 
+@font-face {
+  font-family: 'OpenDyslexic';
+  src: url('/fonts/OpenDyslexic-Regular.woff') format('woff');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
 /* Dyslexia Friendly Font */
 .font-dyslexic {
   font-family: 'OpenDyslexic', sans-serif !important;
