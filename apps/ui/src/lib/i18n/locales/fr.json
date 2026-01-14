@@ -58,14 +58,14 @@
     "retry": "Réessayer",
     "github": "GitHub",
     "mit_license": "MIT License",
-    "view_snapshot": "View Snapshot",
-    "statistics": "Statistics"
+    "view_snapshot": "Voir l'instantané",
+    "statistics": "Statistiques"
   },
   "settings": {
     "title": "Paramètres",
     "subtitle": "Configurez et gérez votre instance YA-WAMF",
     "language_selector": "Langue",
-    "language_desc": "Changes UI text and notification content.",
+    "language_desc": "Modifie le texte de l'interface et le contenu des notifications.",
     "tabs": {
       "connection": "Connexion",
       "detection": "Détection",
@@ -131,7 +131,7 @@
     "species_info": "Infos sur l'espèce",
     "delete_detection": "Supprimer la détection",
     "hide_detection": "Masquer la détection",
-    "read_more_wikipedia": "Read more on Wikipedia"
+    "read_more_wikipedia": "Lire la suite sur Wikipédia"
   },
   "detection": {
     "confidence": "Confiance",
@@ -253,12 +253,12 @@
     }
   },
   "species_detail": {
-    "no_wiki": "No Wikipedia information available for this species.",
-    "avg_confidence": "Avg Confidence",
-    "first_seen": "First Seen",
-    "last_seen": "Last Seen",
-    "activity_patterns": "Activity Patterns",
-    "camera_breakdown": "Camera Breakdown",
-    "recent_sightings": "Recent Sightings"
+    "no_wiki": "Aucune information Wikipédia disponible pour cette espèce.",
+    "avg_confidence": "Confiance moy.",
+    "first_seen": "Première vue",
+    "last_seen": "Dernière vue",
+    "activity_patterns": "Modèles d'activité",
+    "camera_breakdown": "Répartition par caméra",
+    "recent_sightings": "Observations récentes"
   }
 }

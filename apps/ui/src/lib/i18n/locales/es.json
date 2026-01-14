@@ -58,7 +58,7 @@
     "retry": "Reintentar",
     "github": "GitHub",
     "mit_license": "Licencia MIT",
-    "view_snapshot": "Ver Captura",
+    "view_snapshot": "Ver instantánea",
     "statistics": "Estadísticas"
   },
   "settings": {
@@ -201,13 +201,13 @@
     "credits": "Créditos y Agradecimientos",
     "built_with_ai": "Construido con asistencia de IA por amor a la observación de aves 🐦",
     "project_desc_1": "YA-WAMF es un proyecto personal iniciado para experimentar con la programación asistida por IA. Cuando el proyecto original {link} dejó de mantenerse, este nació como una oportunidad de aprendizaje y una herramienta útil para los entusiastas de las aves.",
-    "project_desc_2": "Toda la aplicación ha sido construida con la ayuda de asistentes de programación de IA; ha sido una exploración interesante de lo que es posible con estas herramientas. ¡Si encuentras algún detalle mejorable, probablemente sea por eso!",
+    "project_desc_2": "Toda la aplicación ha sido construida con la ayuda de asistentes de programación de IA; ha sido una exploración interesante de lo que es posible con estas herramientas. Si encuentras algún detalle mejorable, probablemente sea por eso!",
     "steps": {
       "1": { "title": "Frigate Detecta", "desc": "Tu cámara capta movimiento, Frigate lo identifica como un ave" },
       "2": { "title": "Mensaje MQTT", "desc": "Frigate publica un evento en tu broker MQTT" },
       "3": { "title": "YA-WAMF Procesa", "desc": "El backend se suscribe a MQTT y recibe el evento" },
       "4": { "title": "Clasificación", "desc": "La imagen pasa por el modelo de ML (o usa la subetiqueta de Frigate)" },
-      "5": { "title": "Correlación de Audio", "desc": "Referencia cruzada con detecciones de audio de BirdNET-Go si están disponibles" },
+      "5": { "title": "Correlación de Audio", "desc": "Referencia cruzada con detecciones de audio de BirdNET-Go si disponibles" },
       "6": { "title": "Guardar y Notificar", "desc": "La detección se guarda en la base de datos y se envían notificaciones" },
       "7": { "title": "Análisis de Video", "desc": "Opcional: Escanea fotogramas del clip de video para una precisión refinada" },
       "8": { "title": "Actualizaciones en Vivo", "desc": "El tablero recibe actualizaciones en tiempo real a través de Server-Sent Events" }

@@ -58,14 +58,14 @@
     "retry": "再試行",
     "github": "GitHub",
     "mit_license": "MIT License",
-    "view_snapshot": "View Snapshot",
-    "statistics": "Statistics"
+    "view_snapshot": "スナップショットを表示",
+    "statistics": "統計"
   },
   "settings": {
     "title": "設定",
     "subtitle": "YA-WAMFインスタンスの構成と管理",
     "language_selector": "言語",
-    "language_desc": "Changes UI text and notification content.",
+    "language_desc": "UIテキストと通知の内容を変更します。",
     "tabs": {
       "connection": "接続",
       "detection": "検出",
@@ -131,7 +131,7 @@
     "species_info": "種の情報",
     "delete_detection": "検出を削除",
     "hide_detection": "検出を非表示",
-    "read_more_wikipedia": "Read more on Wikipedia"
+    "read_more_wikipedia": "ウィキペディアで続きを読む"
   },
   "detection": {
     "confidence": "信頼度",
@@ -253,12 +253,12 @@
     }
   },
   "species_detail": {
-    "no_wiki": "No Wikipedia information available for this species.",
-    "avg_confidence": "Avg Confidence",
-    "first_seen": "First Seen",
-    "last_seen": "Last Seen",
-    "activity_patterns": "Activity Patterns",
-    "camera_breakdown": "Camera Breakdown",
-    "recent_sightings": "Recent Sightings"
+    "no_wiki": "この種に関するウィキペディア情報はありません。",
+    "avg_confidence": "平均信頼度",
+    "first_seen": "初観測",
+    "last_seen": "最終観測",
+    "activity_patterns": "活動パターン",
+    "camera_breakdown": "カメラ別内訳",
+    "recent_sightings": "最近の目撃情報"
   }
 }
