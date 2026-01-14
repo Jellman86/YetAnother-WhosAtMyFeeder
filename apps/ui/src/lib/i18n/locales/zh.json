@@ -1,1 +1,84 @@
-Successfully created file: /config/workspace/YA-WAMF/apps/ui/src/lib/i18n/locales/zh.json.
+{
+    "common": {
+        "loading": "Loading...",
+        "save": "Save",
+        "cancel": "Cancel",
+        "delete": "Delete",
+        "edit": "Edit",
+        "add": "Add",
+        "close": "Close",
+        "refresh": "Refresh",
+        "apply_settings": "Apply Settings",
+        "unsaved_changes": "Unsaved Changes",
+        "saving": "Saving...",
+        "testing": "Testing..."
+    },
+    "nav": {
+        "dashboard": "Dashboard",
+        "history": "History",
+        "settings": "Settings",
+        "system": "System",
+        "docs": "Documentation"
+    },
+    "settings": {
+        "title": "Settings",
+        "subtitle": "Configure your bird station",
+        "language_selector": "Language",
+        "language_desc": "Select your preferred language",
+        "frigate": {
+            "title": "Frigate NVR",
+            "url": "Frigate URL",
+            "test_connection": "Test Connection",
+            "sync_cameras": "Sync Cameras",
+            "test_mqtt": "Test MQTT",
+            "mqtt_broker": "Broker",
+            "mqtt_port": "Port",
+            "mqtt_auth": "Authentication",
+            "mqtt_user": "Username",
+            "mqtt_pass": "Password",
+            "fetch_clips": "Fetch Clips",
+            "fetch_clips_desc": "Download video clips for detections"
+        },
+        "cameras": {
+            "title": "Active Cameras",
+            "none_found": "No cameras found",
+            "syncing": "Syncing..."
+        },
+        "telemetry": {
+            "title": "Telemetry",
+            "desc": "Help improve YA-WAMF",
+            "transparency": "Transparency Report",
+            "install_id": "Installation ID",
+            "version": "Version",
+            "platform": "Platform",
+            "features": "Features",
+            "privacy_notice": "We collect anonymous usage data to improve detection accuracy. No images or video are ever sent."
+        },
+        "accessibility": {
+            "title": "Accessibility",
+            "high_contrast": "High Contrast",
+            "high_contrast_desc": "Increase contrast for better visibility",
+            "dyslexia_font": "Dyslexia Friendly",
+            "dyslexia_font_desc": "Use OpenDyslexic font for better readability",
+            "reduced_motion": "Reduced Motion",
+            "reduced_motion_desc": "Minimize animations and transitions",
+            "zen_mode": "Zen Mode",
+            "zen_mode_desc": "Simplify interface to reduce distractions"
+        }
+    },
+    "theme": {
+        "title": "Appearance",
+        "light": "Light",
+        "dark": "Dark",
+        "system": "System",
+        "layout": "Layout Density",
+        "horizontal": "Comfortable",
+        "horizontal_desc": "Standard spacing with card layouts",
+        "vertical": "Compact",
+        "vertical_desc": "Dense list views for high data density"
+    },
+    "notifications": {
+        "settings_saved": "Settings saved successfully",
+        "settings_load_failed": "Failed to load settings"
+    }
+}

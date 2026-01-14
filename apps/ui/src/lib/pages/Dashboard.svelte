@@ -46,6 +46,15 @@
     let analyzingAI = $state(false);
     let aiAnalysis = $state<string | null>(null);
 
+    // Accessibility Logic
+    let zenMode = $state(false);
+    let reducedMotion = $state(false);
+
+    $effect(() => {
+        zenMode = settingsStore.settings?.accessibility_zen_mode ?? false;
+        reducedMotion = settingsStore.settings?.accessibility_reduced_motion ?? false;
+    });
+
     // Video playback state
     let showVideo = $state(false);
 
@@ -206,8 +215,8 @@
 
 <div class="space-y-8">
     <!-- Stats Ribbon -->
-    {#if summary || detectionsStore.totalToday > 0}
-        <div in:fly={{ y: -20, duration: 500 }}>
+    {#if !zenMode && (summary || detectionsStore.totalToday > 0)}
+        <div in:fly={{ y: -20, duration: reducedMotion ? 0 : 500 }}>
             <StatsRibbon
                 todayCount={detectionsStore.totalToday}
                 uniqueSpecies={summary?.top_species.length ?? 0}
@@ -220,10 +229,10 @@
 
     <!-- Top Row: Hero & Histogram -->
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
-        <div class="lg:col-span-7 h-full">
+        <div class="{zenMode ? 'lg:col-span-12' : 'lg:col-span-7'} h-full">
             {#if heroDetection}
                 {#key heroDetection.frigate_event}
-                    <div in:fly={{ y: 20, duration: 500 }} class="h-full">
+                    <div in:fly={{ y: 20, duration: reducedMotion ? 0 : 500 }} class="h-full">
                         <LatestDetectionHero 
                             detection={heroDetection} 
                             onclick={() => selectedEvent = heroDetection}
@@ -237,23 +246,25 @@
                 </div>
             {/if}
         </div>
-        <div class="lg:col-span-5 grid grid-cols-1 gap-6">
-            {#if summary}
-                <div in:fade={{ duration: 800 }}>
-                    <DailyHistogram data={summary.hourly_distribution} />
-                </div>
-            {/if}
-            {#if settingsStore.settings?.birdnet_enabled}
-                <div in:fade={{ duration: 800, delay: 200 }}>
-                    <RecentAudio />
-                </div>
-            {/if}
-        </div>
+        {#if !zenMode}
+            <div class="lg:col-span-5 grid grid-cols-1 gap-6">
+                {#if summary}
+                    <div in:fade={{ duration: reducedMotion ? 0 : 800 }}>
+                        <DailyHistogram data={summary.hourly_distribution} />
+                    </div>
+                {/if}
+                {#if settingsStore.settings?.birdnet_enabled}
+                    <div in:fade={{ duration: reducedMotion ? 0 : 800, delay: reducedMotion ? 0 : 200 }}>
+                        <RecentAudio />
+                    </div>
+                {/if}
+            </div>
+        {/if}
     </div>
 
     <!-- Middle Row: Top Visitors -->
-    {#if summary && summary.top_species.length > 0}
-        <div in:fade={{ duration: 500, delay: 200 }}>
+    {#if !zenMode && summary && summary.top_species.length > 0}
+        <div in:fade={{ duration: reducedMotion ? 0 : 500, delay: reducedMotion ? 0 : 200 }}>
             <TopVisitors 
                 species={summary.top_species} 
                 onSpeciesClick={handleSpeciesSummaryClick}
@@ -262,25 +273,27 @@
     {/if}
 
     <!-- Bottom Row: Recent Feed -->
-    <div class="space-y-6">
-        <div class="flex items-center justify-between">
-            <h3 class="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400"> {$_('dashboard.discovery_feed')} </h3>
-            <button onclick={() => onnavigate?.('/events')} class="text-xs font-medium text-teal-600 dark:text-teal-400 hover:underline"> {$_('dashboard.see_full_history')} </button>
-        </div>
+    {#if !zenMode}
+        <div class="space-y-6">
+            <div class="flex items-center justify-between">
+                <h3 class="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400"> {$_('dashboard.discovery_feed')} </h3>
+                <button onclick={() => onnavigate?.('/events')} class="text-xs font-medium text-teal-600 dark:text-teal-400 hover:underline"> {$_('dashboard.see_full_history')} </button>
+            </div>
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-            {#each detectionsStore.detections.slice(1) as detection (detection.frigate_event || detection.id)}
-                <div in:fly={{ y: 20, duration: 400 }}>
-                    <DetectionCard 
-                        {detection} 
-                        onclick={() => selectedEvent = detection} 
-                        onPlay={() => { selectedEvent = detection; showVideo = true; }}
-                        hideProgress={selectedEvent?.frigate_event === detection.frigate_event}
-                    />
-                </div>
-            {/each}
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                {#each detectionsStore.detections.slice(1) as detection (detection.frigate_event || detection.id)}
+                    <div in:fly={{ y: 20, duration: reducedMotion ? 0 : 400 }}>
+                        <DetectionCard 
+                            {detection} 
+                            onclick={() => selectedEvent = detection} 
+                            onPlay={() => { selectedEvent = detection; showVideo = true; }}
+                            hideProgress={selectedEvent?.frigate_event === detection.frigate_event}
+                        />
+                    </div>
+                {/each}
+            </div>
         </div>
-    </div>
+    {/if}
 </div>
 
 <!-- Event Detail Modal -->
