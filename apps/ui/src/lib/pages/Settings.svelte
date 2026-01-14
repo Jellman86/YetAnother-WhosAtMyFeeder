@@ -823,16 +823,12 @@
             {/each}
         </div>
     {:else}
-        <div class="flex flex-col md:grid md:grid-cols-[260px_1fr] gap-8 items-start">
-            <!-- Tab Navigation Sidebar -->
-            <div class="w-full md:sticky md:top-24 z-10 md:max-h-[calc(100vh-8rem)] md:overflow-y-auto custom-scrollbar pr-2">
-                <SettingsTabs {activeTab} ontabchange={handleTabChange} />
-            </div>
+        <!-- Tab Navigation -->
+        <SettingsTabs {activeTab} ontabchange={handleTabChange} />
 
-            <!-- Tab Content -->
-            <div class="flex-1 min-w-0 space-y-6 w-full">
-                <!-- Connection Tab -->
-                {#if activeTab === 'connection'}
+        <div class="space-y-6">
+            <!-- Connection Tab -->
+            {#if activeTab === 'connection'}
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
                     <!-- Frigate Connection -->
                     <section class="bg-white dark:bg-slate-800/50 rounded-3xl border border-slate-200/80 dark:border-slate-700/50 p-8 shadow-sm backdrop-blur-md">
@@ -1684,7 +1680,6 @@
                     </div>
                 </section>
             {/if}
-            </div>
         </div>
 
         <!-- Floating Action Button: Save -->
