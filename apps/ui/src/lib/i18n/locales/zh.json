@@ -1,84 +1,84 @@
 {
     "common": {
-        "loading": "Loading...",
-        "save": "Save",
-        "cancel": "Cancel",
-        "delete": "Delete",
-        "edit": "Edit",
-        "add": "Add",
-        "close": "Close",
-        "refresh": "Refresh",
-        "apply_settings": "Apply Settings",
-        "unsaved_changes": "Unsaved Changes",
-        "saving": "Saving...",
-        "testing": "Testing..."
+        "loading": "加载中...",
+        "save": "保存",
+        "cancel": "取消",
+        "delete": "删除",
+        "edit": "编辑",
+        "add": "添加",
+        "close": "关闭",
+        "refresh": "刷新",
+        "apply_settings": "应用设置",
+        "unsaved_changes": "未保存的更改",
+        "saving": "保存中...",
+        "testing": "测试中..."
     },
     "nav": {
-        "dashboard": "Dashboard",
-        "history": "History",
-        "settings": "Settings",
-        "system": "System",
-        "docs": "Documentation"
+        "dashboard": "仪表盘",
+        "history": "历史记录",
+        "settings": "设置",
+        "system": "系统",
+        "docs": "文档"
     },
     "settings": {
-        "title": "Settings",
-        "subtitle": "Configure your bird station",
-        "language_selector": "Language",
-        "language_desc": "Select your preferred language",
+        "title": "设置",
+        "subtitle": "配置您的观鸟站",
+        "language_selector": "语言",
+        "language_desc": "选择您的首选语言",
         "frigate": {
             "title": "Frigate NVR",
-            "url": "Frigate URL",
-            "test_connection": "Test Connection",
-            "sync_cameras": "Sync Cameras",
-            "test_mqtt": "Test MQTT",
-            "mqtt_broker": "Broker",
-            "mqtt_port": "Port",
-            "mqtt_auth": "Authentication",
-            "mqtt_user": "Username",
-            "mqtt_pass": "Password",
-            "fetch_clips": "Fetch Clips",
-            "fetch_clips_desc": "Download video clips for detections"
+            "url": "Frigate 地址",
+            "test_connection": "测试连接",
+            "sync_cameras": "同步摄像头",
+            "test_mqtt": "测试 MQTT",
+            "mqtt_broker": "代理 (Broker)",
+            "mqtt_port": "端口",
+            "mqtt_auth": "身份验证",
+            "mqtt_user": "用户名",
+            "mqtt_pass": "密码",
+            "fetch_clips": "获取片段",
+            "fetch_clips_desc": "下载检测到的视频片段"
         },
         "cameras": {
-            "title": "Active Cameras",
-            "none_found": "No cameras found",
-            "syncing": "Syncing..."
+            "title": "活动摄像头",
+            "none_found": "未发现摄像头",
+            "syncing": "同步中..."
         },
         "telemetry": {
-            "title": "Telemetry",
-            "desc": "Help improve YA-WAMF",
-            "transparency": "Transparency Report",
-            "install_id": "Installation ID",
-            "version": "Version",
-            "platform": "Platform",
-            "features": "Features",
-            "privacy_notice": "We collect anonymous usage data to improve detection accuracy. No images or video are ever sent."
+            "title": "遥测",
+            "desc": "帮助改进 YA-WAMF",
+            "transparency": "透明度报告",
+            "install_id": "安装 ID",
+            "version": "版本",
+            "platform": "平台",
+            "features": "功能",
+            "privacy_notice": "我们收集匿名使用数据以提高检测准确性。绝不会发送图像或视频。"
         },
         "accessibility": {
-            "title": "Accessibility",
-            "high_contrast": "High Contrast",
-            "high_contrast_desc": "Increase contrast for better visibility",
-            "dyslexia_font": "Dyslexia Friendly",
-            "dyslexia_font_desc": "Use OpenDyslexic font for better readability",
-            "reduced_motion": "Reduced Motion",
-            "reduced_motion_desc": "Minimize animations and transitions",
-            "zen_mode": "Zen Mode",
-            "zen_mode_desc": "Simplify interface to reduce distractions"
+            "title": "辅助功能",
+            "high_contrast": "高对比度",
+            "high_contrast_desc": "增加对比度以获得更好的可视性",
+            "dyslexia_font": "阅读障碍友好",
+            "dyslexia_font_desc": "使用 OpenDyslexic 字体以提高可读性",
+            "reduced_motion": "减少动态效果",
+            "reduced_motion_desc": "最小化动画和过渡效果",
+            "zen_mode": "禅模式",
+            "zen_mode_desc": "简化界面以减少干扰"
         }
     },
     "theme": {
-        "title": "Appearance",
-        "light": "Light",
-        "dark": "Dark",
-        "system": "System",
-        "layout": "Layout Density",
-        "horizontal": "Comfortable",
-        "horizontal_desc": "Standard spacing with card layouts",
-        "vertical": "Compact",
-        "vertical_desc": "Dense list views for high data density"
+        "title": "外观",
+        "light": "浅色",
+        "dark": "深色",
+        "system": "跟随系统",
+        "layout": "布局密度",
+        "horizontal": "舒适",
+        "horizontal_desc": "标准卡片布局间距",
+        "vertical": "紧凑",
+        "vertical_desc": "高数据密度的紧凑列表视图"
     },
     "notifications": {
-        "settings_saved": "Settings saved successfully",
-        "settings_load_failed": "Failed to load settings"
+        "settings_saved": "设置保存成功",
+        "settings_load_failed": "加载设置失败"
     }
 }
