@@ -9,6 +9,8 @@ register('es', () => import('./locales/es.json'));
 register('fr', () => import('./locales/fr.json'));
 register('de', () => import('./locales/de.json'));
 register('ja', () => import('./locales/ja.json'));
+register('zh', () => import('./locales/zh.json'));
+register('zh', () => import('./locales/zh.json'));
 
 // Hardcode English for now to ensure startup, then we can detect
 init({

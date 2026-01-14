@@ -199,7 +199,58 @@
     "tech_stack": "Technologie-Stack",
     "docs_resources": "Dokumentation & Ressourcen",
     "credits": "Credits & Dank",
-    "built_with_ai": "Mit KI-Unterstützung aus Liebe zur Vogelbeobachtung gebaut 🐦"
+    "built_with_ai": "Mit KI-Unterstützung für die Liebe zur Vogelbeobachtung gebaut 🐦",
+    "project_desc_1": "YA-WAMF ist ein persönliches Projekt, das gestartet wurde, um mit KI-unterstützter Programmierung zu experimentieren. Als das ursprüngliche {link}-Projekt nicht mehr gepflegt wurde, entstand dieses Projekt sowohl als Lernmöglichkeit als auch als nützliches Werkzeug für Vogelliebhaber.",
+    "project_desc_2": "Die gesamte Anwendung wurde mit Hilfe von KI-Coding-Assistenten erstellt – es war eine interessante Erkundung dessen, was mit diesen Werkzeugen möglich ist. Wenn Sie Unebenheiten entdecken, ist das wahrscheinlich der Grund!",
+    "steps": {
+      "1": { "title": "Frigate Erkennt", "desc": "Ihre Kamera erkennt eine Bewegung, Frigate identifiziert sie als Vogel" },
+      "2": { "title": "MQTT-Nachricht", "desc": "Frigate veröffentlicht ein Ereignis an Ihren MQTT-Broker" },
+      "3": { "title": "YA-WAMF Verarbeitet", "desc": "Das Backend abonniert MQTT und nimmt das Ereignis auf" },
+      "4": { "title": "Klassifizierung", "desc": "Das Bild durchläuft ein ML-Modell (oder verwendet das Sublabel von Frigate)" },
+      "5": { "title": "Audio-Korrelation", "desc": "Abgleich mit BirdNET-Go Audio-Erkennungen, falls verfügbar" },
+      "6": { "title": "Speichern & Benachrichtigen", "desc": "Erkennung wird in der Datenbank gespeichert, Benachrichtigungen werden gesendet" },
+      "7": { "title": "Video-Analyse", "desc": "Optional: Scannt Videoclip-Frames für verfeinerte Genauigkeit" },
+      "8": { "title": "Live-Updates", "desc": "Das Dashboard erhält Echtzeit-Updates über Server-Sent Events" }
+    },
+    "feature_list": {
+      "ai_models": { "title": "Fortgeschrittene KI-Modelle", "desc": "Wählen Sie zwischen MobileNetV2 (schnell), ConvNeXt (hohe Genauigkeit) oder EVA-02 (Elite ~91% Genauigkeit)" },
+      "multi_sensor": { "title": "Multi-Sensor-Korrelation", "desc": "Verknüpfen Sie visuelle Erkennungen mit BirdNET-Go Audio-Identifikationen" },
+      "video_analysis": { "title": "Auto-Video-Analyse", "desc": "Automatisches Scannen von 15+ Frames aus Videoclips für höhere Genauigkeit" },
+      "notifications": { "title": "Umfangreiche Benachrichtigungen", "desc": "Discord, Telegram und Pushover Unterstützung mit anpassbaren Filtern" },
+      "ai_insights": { "title": "KI-Naturalist Einblicke", "desc": "Erhalten Sie Verhaltensanalysen Ihrer Besucher mit Gemini, OpenAI oder Claude" },
+      "taxonomy": { "title": "Taxonomie-Normalisierung", "desc": "Automatische Zuordnung wissenschaftlicher ↔ gebräuchlicher Namen via iNaturalist-Daten" },
+      "weather": { "title": "Wetter-Anreicherung", "desc": "Verfolgen Sie Erkennungen mit lokalen Wetterbedingungen und temperaturdaten" },
+      "home_assistant": { "title": "Home Assistant Integration", "desc": "Native Sensoren zur Verfolgung des letzten erkannten Vogels und täglicher Besucherzahlen" },
+      "birdweather": { "title": "BirdWeather Berichterstattung", "desc": "Optional: Tragen Sie Ihre Erkennungen zur BirdWeather Community-Plattform bei" },
+      "observability": { "title": "Beobachtbarkeit", "desc": "Integrierte Prometheus-Metriken, optionale Telemetrie und Echtzeit-MQTT-Diagnose" },
+      "wildlife": { "title": "Wildtier-Klassifizierer", "desc": "Identifizieren Sie Eichhörnchen, Füchse und andere Nicht-Vogel-Besucher" },
+      "fast_path": { "title": "Fast-Path Effizienz", "desc": "Überspringen Sie lokale KI-Verarbeitung und nutzen Sie Frigates Sublabels direkt" }
+    },
+    "tech": {
+      "backend": "Backend",
+      "frontend": "Frontend",
+      "ml": "ML-Engine",
+      "messaging": "Messaging",
+      "deployment": "Bereitstellung"
+    },
+    "links": {
+      "repo": "GitHub-Repository",
+      "repo_desc": "Quellcode, Probleme und Releases",
+      "docs": "Dokumentation",
+      "docs_desc": "Einrichtungsanleitungen, API-Referenz und Fehlerbehebung",
+      "frigate": "Frigate NVR",
+      "frigate_desc": "Erforderlich: Open-Source-NVR mit Objekterkennung",
+      "birdnet": "BirdNET-Go",
+      "birdnet_desc": "Optional: Audio-Vogelidentifikation"
+    },
+    "credits_list": {
+      "preamble": "Dieses Projekt wäre nicht möglich ohne:",
+      "inspiration": "Das ursprüngliche {link}-Projekt für die Inspiration",
+      "frigate": "{link} als exzellenter Open-Source-NVR",
+      "birdnet": "{link} für die Integration der Audio-Klassifizierung",
+      "benjordan": "{link} auf YouTube für inspirierende Inhalte zur Vogelerkennung",
+      "ai_assistants": "KI-Assistenten, die beim Aufbau dieser Anwendung geholfen haben"
+    }
   },
   "species_detail": {
     "no_wiki": "No Wikipedia information available for this species.",

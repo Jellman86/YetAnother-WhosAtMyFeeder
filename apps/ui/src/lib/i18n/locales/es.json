@@ -199,7 +199,58 @@
     "tech_stack": "Pila tecnológica",
     "docs_resources": "Documentación y Recursos",
     "credits": "Créditos y Agradecimientos",
-    "built_with_ai": "Construido con asistencia de IA por amor a la observación de aves 🐦"
+    "built_with_ai": "Construido con asistencia de IA por amor a la observación de aves 🐦",
+    "project_desc_1": "YA-WAMF es un proyecto personal iniciado para experimentar con la programación asistida por IA. Cuando el proyecto original {link} dejó de mantenerse, este nació como una oportunidad de aprendizaje y una herramienta útil para los entusiastas de las aves.",
+    "project_desc_2": "Toda la aplicación ha sido construida con la ayuda de asistentes de programación de IA; ha sido una exploración interesante de lo que es posible con estas herramientas. ¡Si encuentras algún detalle mejorable, probablemente sea por eso!",
+    "steps": {
+      "1": { "title": "Frigate Detecta", "desc": "Tu cámara capta movimiento, Frigate lo identifica como un ave" },
+      "2": { "title": "Mensaje MQTT", "desc": "Frigate publica un evento en tu broker MQTT" },
+      "3": { "title": "YA-WAMF Procesa", "desc": "El backend se suscribe a MQTT y recibe el evento" },
+      "4": { "title": "Clasificación", "desc": "La imagen pasa por el modelo de ML (o usa la subetiqueta de Frigate)" },
+      "5": { "title": "Correlación de Audio", "desc": "Referencia cruzada con detecciones de audio de BirdNET-Go si están disponibles" },
+      "6": { "title": "Guardar y Notificar", "desc": "La detección se guarda en la base de datos y se envían notificaciones" },
+      "7": { "title": "Análisis de Video", "desc": "Opcional: Escanea fotogramas del clip de video para una precisión refinada" },
+      "8": { "title": "Actualizaciones en Vivo", "desc": "El tablero recibe actualizaciones en tiempo real a través de Server-Sent Events" }
+    },
+    "feature_list": {
+      "ai_models": { "title": "Modelos de IA Avanzados", "desc": "Elige entre MobileNetV2 (rápido), ConvNeXt (alta precisión) o EVA-02 (élite ~91% de precisión)" },
+      "multi_sensor": { "title": "Correlación Multi-Sensor", "desc": "Referencia cruzada de detecciones visuales con identificaciones de audio de BirdNET-Go" },
+      "video_analysis": { "title": "Análisis de Video Automático", "desc": "Escanea automáticamente más de 15 fotogramas de clips de video para mayor precisión" },
+      "notifications": { "title": "Notificaciones Enriquecidas", "desc": "Soporte para Discord, Telegram y Pushover con filtros personalizables" },
+      "ai_insights": { "title": "Perspectivas del Naturalista IA", "desc": "Obtén análisis de comportamiento usando modelos de lenguaje Gemini, OpenAI o Claude" },
+      "taxonomy": { "title": "Normalización Taxonómica", "desc": "Mapeo automático de nombres científicos ↔ comunes usando datos de iNaturalist" },
+      "weather": { "title": "Enriquecimiento Meteorológico", "desc": "Rastrea detecciones con condiciones climáticas locales y datos de temperatura" },
+      "home_assistant": { "title": "Integración con Home Assistant", "desc": "Sensores nativos para rastrear la última ave detectada y conteos diarios" },
+      "birdweather": { "title": "Reportes BirdWeather", "desc": "Opcional: Contribuye con tus detecciones a la plataforma de ciencia comunitaria BirdWeather" },
+      "observability": { "title": "Observabilidad", "desc": "Métricas Prometheus integradas, telemetría opcional y diagnósticos MQTT en tiempo real" },
+      "wildlife": { "title": "Clasificador de Vida Silvestre", "desc": "Identifica ardillas, zorros y otros visitantes no aviares en tu comedero" },
+      "fast_path": { "title": "Eficiencia de Ruta Rápida", "desc": "Omite el procesamiento de IA local y usa las subetiquetas de Frigate directamente" }
+    },
+    "tech": {
+      "backend": "Backend",
+      "frontend": "Frontend",
+      "ml": "Motor de ML",
+      "messaging": "Mensajería",
+      "deployment": "Despliegue"
+    },
+    "links": {
+      "repo": "Repositorio GitHub",
+      "repo_desc": "Código fuente, problemas y lanzamientos",
+      "docs": "Documentación",
+      "docs_desc": "Guías de configuración, referencia de API y solución de problemas",
+      "frigate": "Frigate NVR",
+      "frigate_desc": "Requerido: NVR de código abierto con detección de objetos",
+      "birdnet": "BirdNET-Go",
+      "birdnet_desc": "Opcional: Identificación de aves por audio"
+    },
+    "credits_list": {
+      "preamble": "Este proyecto no sería posible sin:",
+      "inspiration": "El proyecto original {link} por la inspiración",
+      "frigate": "{link} por ser un excelente NVR de código abierto",
+      "birdnet": "{link} por la integración de clasificación de audio",
+      "benjordan": "{link} en YouTube por el contenido inspirador sobre detección de aves",
+      "ai_assistants": "Asistentes de IA que ayudaron a construir esta aplicación"
+    }
   },
   "species_detail": {
     "no_wiki": "No hay información de Wikipedia disponible para esta especie.",

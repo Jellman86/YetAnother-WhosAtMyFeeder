@@ -20,76 +20,78 @@
         })();
     });
 
-    const features = [
+    let features = $derived([
         {
             icon: '🤖',
-            title: 'Advanced AI Models',
-            description: 'Choose from MobileNetV2 (fast), ConvNeXt (high accuracy), or EVA-02 (elite ~91% accuracy)'
+            title: $_('about.feature_list.ai_models.title'),
+            description: $_('about.feature_list.ai_models.desc')
         },
         {
             icon: '🎵',
-            title: 'Multi-Sensor Correlation',
-            description: 'Cross-reference visual detections with BirdNET-Go audio identifications for verified sightings'
+            title: $_('about.feature_list.multi_sensor.title'),
+            description: $_('about.feature_list.multi_sensor.desc')
         },
         {
             icon: '🎬',
-            title: 'Auto Video Analysis',
-            description: 'Automatically scan 15+ frames from video clips for higher accuracy using temporal ensemble logic'
+            title: $_('about.feature_list.video_analysis.title'),
+            description: $_('about.feature_list.video_analysis.desc')
         },
         {
             icon: '🔔',
-            title: 'Rich Notifications',
-            description: 'Discord, Telegram, and Pushover support with customizable filters and species-specific alerts'
+            title: $_('about.feature_list.notifications.title'),
+            description: $_('about.feature_list.notifications.desc')
         },
         {
             icon: '🧠',
-            title: 'AI Naturalist Insights',
-            description: 'Get behavioral analysis of your visitors using Gemini, OpenAI, or Claude language models'
+            title: $_('about.feature_list.ai_insights.title'),
+            description: $_('about.feature_list.ai_insights.desc')
         },
         {
             icon: '🏷️',
-            title: 'Taxonomy Normalization',
-            description: 'Automatic scientific ↔ common name mapping using iNaturalist data'
+            title: $_('about.feature_list.taxonomy.title'),
+            description: $_('about.feature_list.taxonomy.desc')
         },
         {
             icon: '🌦️',
-            title: 'Weather Enrichment',
-            description: 'Track detections with local weather conditions and temperature data'
+            title: $_('about.feature_list.weather.title'),
+            description: $_('about.feature_list.weather.desc')
         },
         {
             icon: '🏠',
-            title: 'Home Assistant Integration',
-            description: 'Native sensors for tracking last detected bird and daily visitor counts'
+            title: $_('about.feature_list.home_assistant.title'),
+            description: $_('about.feature_list.home_assistant.desc')
         },
         {
             icon: '🌍',
-            title: 'BirdWeather Reporting',
-            description: 'Optional: Contribute your detections to the BirdWeather community science platform'
+            title: $_('about.feature_list.birdweather.title'),
+            description: $_('about.feature_list.birdweather.desc')
         },
         {
             icon: '📊',
-            title: 'Observability',
-            description: 'Built-in Prometheus metrics, optional telemetry, and real-time MQTT diagnostics'
+            title: $_('about.feature_list.observability.title'),
+            description: $_('about.feature_list.observability.desc')
         },
         {
             icon: '🦊',
-            title: 'Wildlife Classifier',
-            description: 'Identify squirrels, foxes, and other non-bird visitors to your feeder'
+            title: $_('about.feature_list.wildlife.title'),
+            description: $_('about.feature_list.wildlife.desc')
         },
         {
             icon: '⚡',
-            title: 'Fast Path Efficiency',
-            description: 'Skip local AI processing and use Frigate\'s sublabels directly to save CPU resources'
+            title: $_('about.feature_list.fast_path.title'),
+            description: $_('about.feature_list.fast_path.desc')
         }
-    ];
+    ]);
 
-    const techStack = [
-        { category: 'Backend', items: ['Python 3.12', 'FastAPI', 'SQLite', 'Alembic'] },
-        { category: 'Frontend', items: ['Svelte 5', 'TypeScript', 'Tailwind CSS', 'Vite'] },
-        { category: 'ML Engine', items: ['ONNX Runtime', 'TensorFlow Lite', 'OpenCV'] },
-        { category: 'Messaging', items: ['MQTT (aiomqtt)', 'Server-Sent Events'] },
-        { category: 'Deployment', items: ['Docker', 'Docker Compose', 'Nginx'] }
-    ];
+    let techStack = $derived([
+        { category: $_('about.tech.backend'), items: ['Python 3.12', 'FastAPI', 'SQLite', 'Alembic'] },
+        { category: $_('about.tech.frontend'), items: ['Svelte 5', 'TypeScript', 'Tailwind CSS', 'Vite'] },
+        { category: $_('about.tech.ml'), items: ['ONNX Runtime', 'TensorFlow Lite', 'OpenCV'] },
+        { category: $_('about.tech.messaging'), items: ['MQTT (aiomqtt)', 'Server-Sent Events'] },
+        { category: $_('about.tech.deployment'), items: ['Docker', 'Docker Compose', 'Nginx'] }
+    ]);
+
+    const steps = [1, 2, 3, 4, 5, 6, 7, 8];
 </script>
 
 <div class="max-w-5xl mx-auto space-y-8">
@@ -129,13 +131,12 @@
         <h2 class="text-2xl font-bold text-slate-900 dark:text-white">{$_('about.title')}</h2>
         <div class="space-y-3 text-slate-700 dark:text-slate-300">
             <p>
-                YA-WAMF is a personal project started to experiment with AI-assisted coding. When the original
-                <a href="https://github.com/mmcc-xx/WhosAtMyFeeder" target="_blank" rel="noopener noreferrer" class="text-brand-600 dark:text-brand-400 hover:underline">WhosAtMyFeeder</a>
-                project became unmaintained, this was born as both a learning opportunity and a useful tool for bird enthusiasts.
+                {@html $_('about.project_desc_1', { values: { 
+                    link: `<a href="https://github.com/mmcc-xx/WhosAtMyFeeder" target="_blank" rel="noopener noreferrer" class="text-brand-600 dark:text-brand-400 hover:underline">WhosAtMyFeeder</a>` 
+                } })}
             </p>
             <p>
-                The entire application has been built with help from AI coding assistants - it's been an interesting exploration of what's possible with these tools.
-                If you spot any rough edges, that's probably why!
+                {$_('about.project_desc_2')}
             </p>
         </div>
     </div>
@@ -146,64 +147,26 @@
         <div class="space-y-4">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div class="space-y-3">
-                    <div class="flex items-start gap-3">
-                        <div class="w-8 h-8 rounded-full bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center flex-shrink-0 text-brand-700 dark:text-brand-300 font-bold">1</div>
-                        <div>
-                            <h3 class="font-semibold text-slate-900 dark:text-white">Frigate Detects</h3>
-                            <p class="text-sm text-slate-600 dark:text-slate-400">Your camera picks up movement, Frigate identifies it as a bird</p>
+                    {#each steps.slice(0, 4) as step}
+                        <div class="flex items-start gap-3">
+                            <div class="w-8 h-8 rounded-full bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center flex-shrink-0 text-brand-700 dark:text-brand-300 font-bold">{step}</div>
+                            <div>
+                                <h3 class="font-semibold text-slate-900 dark:text-white">{$_(`about.steps.${step}.title`)}</h3>
+                                <p class="text-sm text-slate-600 dark:text-slate-400">{$_(`about.steps.${step}.desc`)}</p>
+                            </div>
                         </div>
-                    </div>
-                    <div class="flex items-start gap-3">
-                        <div class="w-8 h-8 rounded-full bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center flex-shrink-0 text-brand-700 dark:text-brand-300 font-bold">2</div>
-                        <div>
-                            <h3 class="font-semibold text-slate-900 dark:text-white">MQTT Message</h3>
-                            <p class="text-sm text-slate-600 dark:text-slate-400">Frigate publishes an event to your MQTT broker</p>
-                        </div>
-                    </div>
-                    <div class="flex items-start gap-3">
-                        <div class="w-8 h-8 rounded-full bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center flex-shrink-0 text-brand-700 dark:text-brand-300 font-bold">3</div>
-                        <div>
-                            <h3 class="font-semibold text-slate-900 dark:text-white">YA-WAMF Processes</h3>
-                            <p class="text-sm text-slate-600 dark:text-slate-400">The backend subscribes to MQTT and picks up the event</p>
-                        </div>
-                    </div>
-                    <div class="flex items-start gap-3">
-                        <div class="w-8 h-8 rounded-full bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center flex-shrink-0 text-brand-700 dark:text-brand-300 font-bold">4</div>
-                        <div>
-                            <h3 class="font-semibold text-slate-900 dark:text-white">Classification</h3>
-                            <p class="text-sm text-slate-600 dark:text-slate-400">Image runs through ML model (or uses Frigate's sublabel)</p>
-                        </div>
-                    </div>
+                    {/each}
                 </div>
                 <div class="space-y-3">
-                    <div class="flex items-start gap-3">
-                        <div class="w-8 h-8 rounded-full bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center flex-shrink-0 text-brand-700 dark:text-brand-300 font-bold">5</div>
-                        <div>
-                            <h3 class="font-semibold text-slate-900 dark:text-white">Audio Correlation</h3>
-                            <p class="text-sm text-slate-600 dark:text-slate-400">Cross-references with BirdNET-Go audio detections if available</p>
+                    {#each steps.slice(4, 8) as step}
+                        <div class="flex items-start gap-3">
+                            <div class="w-8 h-8 rounded-full bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center flex-shrink-0 text-brand-700 dark:text-brand-300 font-bold">{step}</div>
+                            <div>
+                                <h3 class="font-semibold text-slate-900 dark:text-white">{$_(`about.steps.${step}.title`)}</h3>
+                                <p class="text-sm text-slate-600 dark:text-slate-400">{$_(`about.steps.${step}.desc`)}</p>
+                            </div>
                         </div>
-                    </div>
-                    <div class="flex items-start gap-3">
-                        <div class="w-8 h-8 rounded-full bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center flex-shrink-0 text-brand-700 dark:text-brand-300 font-bold">6</div>
-                        <div>
-                            <h3 class="font-semibold text-slate-900 dark:text-white">Save & Notify</h3>
-                            <p class="text-sm text-slate-600 dark:text-slate-400">Detection stored to database, notifications sent</p>
-                        </div>
-                    </div>
-                    <div class="flex items-start gap-3">
-                        <div class="w-8 h-8 rounded-full bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center flex-shrink-0 text-brand-700 dark:text-brand-300 font-bold">7</div>
-                        <div>
-                            <h3 class="font-semibold text-slate-900 dark:text-white">Video Analysis</h3>
-                            <p class="text-sm text-slate-600 dark:text-slate-400">Optional: Scans video clip frames for refined accuracy</p>
-                        </div>
-                    </div>
-                    <div class="flex items-start gap-3">
-                        <div class="w-8 h-8 rounded-full bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center flex-shrink-0 text-brand-700 dark:text-brand-300 font-bold">8</div>
-                        <div>
-                            <h3 class="font-semibold text-slate-900 dark:text-white">Live Updates</h3>
-                            <p class="text-sm text-slate-600 dark:text-slate-400">Dashboard receives real-time updates via Server-Sent Events</p>
-                        </div>
-                    </div>
+                    {/each}
                 </div>
             </div>
         </div>
@@ -255,32 +218,32 @@
                class="flex items-center gap-3 p-3 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-brand-500 dark:hover:border-brand-500 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all group">
                 <span class="text-2xl">📚</span>
                 <div>
-                    <div class="font-semibold text-slate-900 dark:text-white group-hover:text-brand-600 dark:group-hover:text-brand-400">{$_('common.github')} Repository</div>
-                    <div class="text-xs text-slate-500 dark:text-slate-400">Source code, issues, and releases</div>
+                    <div class="font-semibold text-slate-900 dark:text-white group-hover:text-brand-600 dark:group-hover:text-brand-400">{$_('about.links.repo')}</div>
+                    <div class="text-xs text-slate-500 dark:text-slate-400">{$_('about.links.repo_desc')}</div>
                 </div>
             </a>
             <a href="https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/tree/main/docs" target="_blank" rel="noopener noreferrer"
                class="flex items-center gap-3 p-3 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-brand-500 dark:hover:border-brand-500 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all group">
                 <span class="text-2xl">📖</span>
                 <div>
-                    <div class="font-semibold text-slate-900 dark:text-white group-hover:text-brand-600 dark:group-hover:text-brand-400">Documentation</div>
-                    <div class="text-xs text-slate-500 dark:text-slate-400">Setup guides, API reference, and troubleshooting</div>
+                    <div class="font-semibold text-slate-900 dark:text-white group-hover:text-brand-600 dark:group-hover:text-brand-400">{$_('about.links.docs')}</div>
+                    <div class="text-xs text-slate-500 dark:text-slate-400">{$_('about.links.docs_desc')}</div>
                 </div>
             </a>
             <a href="https://frigate.video" target="_blank" rel="noopener noreferrer"
                class="flex items-center gap-3 p-3 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-brand-500 dark:hover:border-brand-500 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all group">
                 <span class="text-2xl">📹</span>
                 <div>
-                    <div class="font-semibold text-slate-900 dark:text-white group-hover:text-brand-600 dark:group-hover:text-brand-400">Frigate NVR</div>
-                    <div class="text-xs text-slate-500 dark:text-slate-400">Required: Open-source NVR with object detection</div>
+                    <div class="font-semibold text-slate-900 dark:text-white group-hover:text-brand-600 dark:group-hover:text-brand-400">{$_('about.links.frigate')}</div>
+                    <div class="text-xs text-slate-500 dark:text-slate-400">{$_('about.links.frigate_desc')}</div>
                 </div>
             </a>
             <a href="https://github.com/tphakala/birdnet-go" target="_blank" rel="noopener noreferrer"
                class="flex items-center gap-3 p-3 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-brand-500 dark:hover:border-brand-500 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all group">
                 <span class="text-2xl">🎵</span>
                 <div>
-                    <div class="font-semibold text-slate-900 dark:text-white group-hover:text-brand-600 dark:group-hover:text-brand-400">BirdNET-Go</div>
-                    <div class="text-xs text-slate-500 dark:text-slate-400">Optional: Audio bird identification</div>
+                    <div class="font-semibold text-slate-900 dark:text-white group-hover:text-brand-600 dark:group-hover:text-brand-400">{$_('about.links.birdnet')}</div>
+                    <div class="text-xs text-slate-500 dark:text-slate-400">{$_('about.links.birdnet_desc')}</div>
                 </div>
             </a>
         </div>
@@ -290,13 +253,29 @@
     <div class="card p-6 space-y-4">
         <h2 class="text-2xl font-bold text-slate-900 dark:text-white">{$_('about.credits')}</h2>
         <div class="space-y-2 text-sm text-slate-700 dark:text-slate-300">
-            <p>This project wouldn't be possible without:</p>
+            <p>{$_('about.credits_list.preamble')}</p>
             <ul class="list-disc list-inside space-y-1 ml-4">
-                <li>The original <a href="https://github.com/mmcc-xx/WhosAtMyFeeder" target="_blank" rel="noopener noreferrer" class="text-brand-600 dark:text-brand-400 hover:underline">WhosAtMyFeeder</a> project for the inspiration</li>
-                <li><a href="https://frigate.video" target="_blank" rel="noopener noreferrer" class="text-brand-600 dark:text-brand-400 hover:underline">Frigate</a> for being an excellent open-source NVR</li>
-                <li><a href="https://github.com/tphakala/birdnet-go" target="_blank" rel="noopener noreferrer" class="text-brand-600 dark:text-brand-400 hover:underline">BirdNET-Go</a> for audio classification integration</li>
-                <li><a href="https://youtu.be/hCQCP-5g5bo" target="_blank" rel="noopener noreferrer" class="text-brand-600 dark:text-brand-400 hover:underline">Ben Jordan</a> on YouTube for inspiring bird detection content</li>
-                <li>AI assistants that helped build this application</li>
+                <li>
+                    {@html $_('about.credits_list.inspiration', { values: { 
+                        link: `<a href="https://github.com/mmcc-xx/WhosAtMyFeeder" target="_blank" rel="noopener noreferrer" class="text-brand-600 dark:text-brand-400 hover:underline">WhosAtMyFeeder</a>` 
+                    } })}
+                </li>
+                <li>
+                    {@html $_('about.credits_list.frigate', { values: { 
+                        link: `<a href="https://frigate.video" target="_blank" rel="noopener noreferrer" class="text-brand-600 dark:text-brand-400 hover:underline">Frigate</a>` 
+                    } })}
+                </li>
+                <li>
+                    {@html $_('about.credits_list.birdnet', { values: { 
+                        link: `<a href="https://github.com/tphakala/birdnet-go" target="_blank" rel="noopener noreferrer" class="text-brand-600 dark:text-brand-400 hover:underline">BirdNET-Go</a>` 
+                    } })}
+                </li>
+                <li>
+                    {@html $_('about.credits_list.benjordan', { values: { 
+                        link: `<a href="https://youtu.be/hCQCP-5g5bo" target="_blank" rel="noopener noreferrer" class="text-brand-600 dark:text-brand-400 hover:underline">Ben Jordan</a>` 
+                    } })}
+                </li>
+                <li>{$_('about.credits_list.ai_assistants')}</li>
             </ul>
         </div>
     </div>
@@ -307,3 +286,9 @@
         <p class="mt-1">{$_('about.built_with_ai')}</p>
     </div>
 </div>
+
+<style>
+    .shadow-glow {
+        box-shadow: 0 0 20px -5px rgba(20, 184, 166, 0.5);
+    }
+</style>

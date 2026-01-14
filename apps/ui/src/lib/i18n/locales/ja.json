@@ -199,7 +199,58 @@
     "tech_stack": "テクノロジースタック",
     "docs_resources": "ドキュメントとリソース",
     "credits": "クレジットと謝辞",
-    "built_with_ai": "バードウォッチングへの愛を込めて、AIの助けを借りて構築されました 🐦"
+    "built_with_ai": "バードウォッチングへの愛を込めて、AIの助けを借りて構築されました 🐦",
+    "project_desc_1": "YA-WAMFは、AI支援によるコーディングを実験するために開始された個人プロジェクトです。元の {link} プロジェクトがメンテナンスされなくなったため、学習の機会として、また鳥愛好家のための便利なツールとして誕生しました。",
+    "project_desc_2": "アプリケーション全体がAIコーディングアシスタントの助けを借りて構築されています。これらのツールで何が可能かを探求する興味深い試みとなりました。不十分な点があれば、おそらくそれが理由です！",
+    "steps": {
+      "1": { "title": "Frigateが検知", "desc": "カメラが動きを捉え、Frigateがそれを鳥として識別します" },
+      "2": { "title": "MQTTメッセージ", "desc": "FrigateがMQTTブローカーにイベントを発行します" },
+      "3": { "title": "YA-WAMFが処理", "desc": "バックエンドがMQTTをサブスクライブし、イベントを受け取ります" },
+      "4": { "title": "分類", "desc": "画像がMLモデルを実行（またはFrigateのサブラベルを使用）します" },
+      "5": { "title": "オーディオ相関", "desc": "利用可能な場合、BirdNET-Goのオーディオ検知とクロスリファレンスします" },
+      "6": { "title": "保存と通知", "desc": "検知内容がデータベースに保存され、通知が送信されます" },
+      "7": { "title": "ビデオ分析", "desc": "オプション：ビデオクリップのフレームをスキャンして精度を高めます" },
+      "8": { "title": "ライブ更新", "desc": "ダッシュボードがServer-Sent Eventsを介してリアルタイムで更新されます" }
+    },
+    "feature_list": {
+      "ai_models": { "title": "高度なAIモデル", "desc": "MobileNetV2（高速）、ConvNeXt（高精度）、またはEVA-02（エリート ~91% 精度）から選択可能" },
+      "multi_sensor": { "title": "マルチセンサー相関", "desc": "視覚的検知をBirdNET-Goのオーディオ識別とクロスリファレンスします" },
+      "video_analysis": { "title": "自動ビデオ分析", "desc": "ビデオクリップから15枚以上のフレームを自動スキャンして精度を向上させます" },
+      "notifications": { "title": "豊富な通知機能", "desc": "Discord、Telegram、Pushoverをサポート。カスタマイズ可能なフィルタ付き" },
+      "ai_insights": { "title": "AIナチュラリストの洞察", "desc": "Gemini、OpenAI、またはClaudeを使用して、訪問者の行動分析を取得します" },
+      "taxonomy": { "title": "分類の正規化", "desc": "iNaturalistデータを使用して学名 ↔ 一般名を自動マッピングします" },
+      "weather": { "title": "気象情報の付加", "desc": "地域の気象条件や気温データとともに検知を追跡します" },
+      "home_assistant": { "title": "Home Assistant 連携", "desc": "最後に検知された鳥や毎日の訪問者数を追跡するネイティブセンサー" },
+      "birdweather": { "title": "BirdWeather レポート", "desc": "オプション：検知内容をBirdWeatherコミュニティサイエンスプラットフォームに提供" },
+      "observability": { "title": "オブザーバビリティ", "desc": "組み込みのPrometheusメトリクス、オプションのテレメトリ、リアルタイムMQTT診断" },
+      "wildlife": { "title": "野生動物分類器", "desc": "リス、キツネ、その他の鳥以外の訪問者を識別します" },
+      "fast_path": { "title": "ファストパス効率化", "desc": "ローカルAI処理をスキップし、Frigateのサブラベルを直接使用してCPUを節約します" }
+    },
+    "tech": {
+      "backend": "バックエンド",
+      "frontend": "フロントエンド",
+      "ml": "MLエンジン",
+      "messaging": "メッセージング",
+      "deployment": "デプロイメント"
+    },
+    "links": {
+      "repo": "GitHub リポジトリ",
+      "repo_desc": "ソースコード、問題、およびリリース",
+      "docs": "ドキュメント",
+      "docs_desc": "セットアップガイド、APIリファレンス、およびトラブルシューティング",
+      "frigate": "Frigate NVR",
+      "frigate_desc": "必須：オブジェクト検知機能を備えたオープンソースNVR",
+      "birdnet": "BirdNET-Go",
+      "birdnet_desc": "オプション：オーディオによる鳥の識別"
+    },
+    "credits_list": {
+      "preamble": "このプロジェクトは以下なしでは実現できませんでした：",
+      "inspiration": "インスピレーションを与えてくれたオリジナルの {link} プロジェクト",
+      "frigate": "優れたオープンソースNVRである {link}",
+      "birdnet": "オーディオ分類統合のための {link}",
+      "benjordan": "鳥検知コンテンツで刺激を与えてくれたYouTubeの {link}",
+      "ai_assistants": "このアプリケーションの構築を支援してくれたAIアシスタント"
+    }
   },
   "species_detail": {
     "no_wiki": "No Wikipedia information available for this species.",

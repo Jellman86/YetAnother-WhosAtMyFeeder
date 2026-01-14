@@ -199,7 +199,58 @@
     "tech_stack": "Technology Stack",
     "docs_resources": "Documentation & Resources",
     "credits": "Credits & Thanks",
-    "built_with_ai": "Built with AI assistance for the love of bird watching 🐦"
+    "built_with_ai": "Built with AI assistance for the love of bird watching 🐦",
+    "project_desc_1": "YA-WAMF is a personal project started to experiment with AI-assisted coding. When the original {link} project became unmaintained, this was born as both a learning opportunity and a useful tool for bird enthusiasts.",
+    "project_desc_2": "The entire application has been built with help from AI coding assistants - it's been an interesting exploration of what's possible with these tools. If you spot any rough edges, that's probably why!",
+    "steps": {
+      "1": { "title": "Frigate Detects", "desc": "Your camera picks up movement, Frigate identifies it as a bird" },
+      "2": { "title": "MQTT Message", "desc": "Frigate publishes an event to your MQTT broker" },
+      "3": { "title": "YA-WAMF Processes", "desc": "The backend subscribes to MQTT and picks up the event" },
+      "4": { "title": "Classification", "desc": "Image runs through ML model (or uses Frigate's sublabel)" },
+      "5": { "title": "Audio Correlation", "desc": "Cross-references with BirdNET-Go audio detections if available" },
+      "6": { "title": "Save & Notify", "desc": "Detection stored to database, notifications sent" },
+      "7": { "title": "Video Analysis", "desc": "Optional: Scans video clip frames for refined accuracy" },
+      "8": { "title": "Live Updates", "desc": "Dashboard receives real-time updates via Server-Sent Events" }
+    },
+    "feature_list": {
+      "ai_models": { "title": "Advanced AI Models", "desc": "Choose from MobileNetV2 (fast), ConvNeXt (high accuracy), or EVA-02 (elite ~91% accuracy)" },
+      "multi_sensor": { "title": "Multi-Sensor Correlation", "desc": "Cross-reference visual detections with BirdNET-Go audio identifications for verified sightings" },
+      "video_analysis": { "title": "Auto Video Analysis", "desc": "Automatically scan 15+ frames from video clips for higher accuracy using temporal ensemble logic" },
+      "notifications": { "title": "Rich Notifications", "desc": "Discord, Telegram, and Pushover support with customizable filters and species-specific alerts" },
+      "ai_insights": { "title": "AI Naturalist Insights", "desc": "Get behavioral analysis of your visitors using Gemini, OpenAI, or Claude language models" },
+      "taxonomy": { "title": "Taxonomy Normalization", "desc": "Automatic scientific ↔ common name mapping using iNaturalist data" },
+      "weather": { "title": "Weather Enrichment", "desc": "Track detections with local weather conditions and temperature data" },
+      "home_assistant": { "title": "Home Assistant Integration", "desc": "Native sensors for tracking last detected bird and daily visitor counts" },
+      "birdweather": { "title": "BirdWeather Reporting", "desc": "Optional: Contribute your detections to the BirdWeather community science platform" },
+      "observability": { "title": "Observability", "desc": "Built-in Prometheus metrics, optional telemetry, and real-time MQTT diagnostics" },
+      "wildlife": { "title": "Wildlife Classifier", "desc": "Identify squirrels, foxes, and other non-bird visitors to your feeder" },
+      "fast_path": { "title": "Fast Path Efficiency", "desc": "Skip local AI processing and use Frigate's sublabels directly to save CPU resources" }
+    },
+    "tech": {
+      "backend": "Backend",
+      "frontend": "Frontend",
+      "ml": "ML Engine",
+      "messaging": "Messaging",
+      "deployment": "Deployment"
+    },
+    "links": {
+      "repo": "GitHub Repository",
+      "repo_desc": "Source code, issues, and releases",
+      "docs": "Documentation",
+      "docs_desc": "Setup guides, API reference, and troubleshooting",
+      "frigate": "Frigate NVR",
+      "frigate_desc": "Required: Open-source NVR with object detection",
+      "birdnet": "BirdNET-Go",
+      "birdnet_desc": "Optional: Audio bird identification"
+    },
+    "credits_list": {
+      "preamble": "This project wouldn't be possible without:",
+      "inspiration": "The original {link} project for the inspiration",
+      "frigate": "{link} for being an excellent open-source NVR",
+      "birdnet": "{link} for audio classification integration",
+      "benjordan": "{link} on YouTube for inspiring bird detection content",
+      "ai_assistants": "AI assistants that helped build this application"
+    }
   },
   "species_detail": {
     "no_wiki": "No Wikipedia information available for this species.",

@@ -1623,6 +1623,7 @@
                                         <option value="fr">Français</option>
                                         <option value="de">Deutsch</option>
                                         <option value="ja">日本語</option>
+                                        <option value="zh">中文</option>
                                     </select>
                                     <p class="text-[9px] text-slate-400 font-bold italic mt-1">{$_('settings.language_desc')}</p>
                                 </div>
