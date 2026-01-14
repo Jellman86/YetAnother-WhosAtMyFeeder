@@ -28,11 +28,11 @@
     "horizontal_desc": "Barra de navegación superior",
     "vertical_desc": "Barra lateral izquierda (plegable)"
   },
-  "dashboard": {
-    "title": "Tablero",
-    "live_feed": "Transmisión en vivo",
-    "no_detections": "No hay detecciones todavía",
-    "waiting_first_visitor": "Esperando al primer visitante del día...",
+      "dashboard": {
+          "title": "Tablero",
+          "live_feed": "Transmisión en vivo",
+          "showing_last_3_days": "Mostrando los últimos 3 días",
+          "no_detections": "No hay detecciones todavía",    "waiting_first_visitor": "Esperando al primer visitante del día...",
     "discovery_feed": "Feed de Descubrimiento",
     "see_full_history": "Ver historial completo",
     "audio_confirmations": "Confirmaciones de Audio"

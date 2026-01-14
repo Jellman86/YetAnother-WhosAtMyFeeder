@@ -28,11 +28,11 @@
     "horizontal_desc": "Top navigation bar",
     "vertical_desc": "Left sidebar (collapsible)"
   },
-  "dashboard": {
-    "title": "ダッシュボード",
-    "live_feed": "ライブフィード",
-    "no_detections": "検出はまだありません",
-    "waiting_first_visitor": "今日の最初の来訪者を待っています...",
+      "dashboard": {
+          "title": "ダッシュボード",
+          "live_feed": "ライブフィード",
+          "showing_last_3_days": "過去3日間を表示",
+          "no_detections": "検出はまだありません",    "waiting_first_visitor": "今日の最初の来訪者を待っています...",
     "discovery_feed": "ディスカバリーフィード",
     "see_full_history": "すべての履歴を表示",
     "audio_confirmations": "音声確認"

@@ -31,6 +31,7 @@
     "dashboard": {
         "title": "仪表盘",
         "live_feed": "实时画面",
+        "showing_last_3_days": "显示最近3天",
         "no_detections": "暂无检测",
         "waiting_first_visitor": "等待今天的第一位访客...",
         "discovery_feed": "发现动态",

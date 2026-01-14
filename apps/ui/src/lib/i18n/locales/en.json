@@ -28,11 +28,11 @@
     "horizontal_desc": "Top navigation bar",
     "vertical_desc": "Left sidebar (collapsible)"
   },
-  "dashboard": {
-    "title": "Dashboard",
-    "live_feed": "Live Feed",
-    "no_detections": "No detections yet",
-    "waiting_first_visitor": "Waiting for the first visitor of the day...",
+      "dashboard": {
+          "title": "Dashboard",
+          "live_feed": "Live Feed",
+          "showing_last_3_days": "Showing last 3 days",
+          "no_detections": "No detections yet",    "waiting_first_visitor": "Waiting for the first visitor of the day...",
     "discovery_feed": "Discovery Feed",
     "see_full_history": "See full history",
     "audio_confirmations": "Audio Confirmations"

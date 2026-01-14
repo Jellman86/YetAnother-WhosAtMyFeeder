@@ -28,11 +28,11 @@
     "horizontal_desc": "Top navigation bar",
     "vertical_desc": "Left sidebar (collapsible)"
   },
-  "dashboard": {
-    "title": "Tableau de bord",
-    "live_feed": "Flux en direct",
-    "no_detections": "Aucune détection pour le moment",
-    "waiting_first_visitor": "En attente du premier visiteur de la journée...",
+      "dashboard": {
+          "title": "Tableau de bord",
+          "live_feed": "Flux en direct",
+          "showing_last_3_days": "Affichage des 3 derniers jours",
+          "no_detections": "Aucune détection pour le moment",    "waiting_first_visitor": "En attente du premier visiteur de la journée...",
     "discovery_feed": "Fil de découverte",
     "see_full_history": "Voir l'historique complet",
     "audio_confirmations": "Confirmations audio"

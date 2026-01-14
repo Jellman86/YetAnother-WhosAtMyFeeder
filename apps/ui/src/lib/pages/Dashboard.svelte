@@ -264,7 +264,10 @@
     <!-- Bottom Row: Recent Feed -->
     <div class="space-y-6">
         <div class="flex items-center justify-between">
-            <h3 class="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400"> {$_('dashboard.discovery_feed')} </h3>
+            <div class="flex items-center gap-3">
+                <h3 class="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400"> {$_('dashboard.discovery_feed')} </h3>
+                <span class="text-[10px] font-medium text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full">{$_('dashboard.showing_last_3_days')}</span>
+            </div>
             <button onclick={() => onnavigate?.('/events')} class="text-xs font-medium text-teal-600 dark:text-teal-400 hover:underline"> {$_('dashboard.see_full_history')} </button>
         </div>
 
