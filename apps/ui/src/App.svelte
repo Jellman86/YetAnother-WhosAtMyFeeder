@@ -37,23 +37,14 @@
   let currentRoute = $state('/');
 
   // Accessibility Logic
-  let zenMode = $state(false);
-
   $effect(() => {
       const s = settingsStore.settings;
       if (s) {
           if (s.accessibility_high_contrast) document.documentElement.classList.add('high-contrast');
           else document.documentElement.classList.remove('high-contrast');
 
-          if (s.accessibility_dyslexia_font) document.body.classList.add('font-dyslexic');
-          else document.body.classList.remove('font-dyslexic');
-
-          if (s.accessibility_reduced_motion) document.body.classList.add('motion-reduce');
-          else document.body.classList.remove('motion-reduce');
-
-          zenMode = s.accessibility_zen_mode ?? false;
-          if (zenMode) document.documentElement.classList.add('zen-mode');
-          else document.documentElement.classList.remove('zen-mode');
+          if (s.accessibility_dyslexia_font) document.documentElement.classList.add('font-dyslexic');
+          else document.documentElement.classList.remove('font-dyslexic');
       }
   });
 
@@ -305,106 +296,104 @@
   {#if authStore.requiresLogin}
       <Login />
   {:else}
-      {#if !zenMode}
-          {#if currentLayout === 'vertical'}
-              <!-- Mobile Header -->
-              <div class="md:hidden sticky top-0 z-40 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border-b border-slate-200/80 dark:border-slate-700/50 h-16 flex items-center px-4 justify-between">
-                  <button 
-                      class="p-2 -ml-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors" 
-                      onclick={() => mobileSidebarOpen = !mobileSidebarOpen}
-                      aria-label="Toggle menu"
-                  >
-                      <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
-                      </svg>
-                  </button>
-                  <div class="flex items-center gap-2">
-                      <span class="text-lg">🐦</span>
-                      <span class="text-sm font-bold text-gradient">YA-WAMF</span>
-                  </div>
-                  <!-- Theme toggle for mobile -->
-                  <button
-                      class="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-colors"
-                      onclick={() => theme.toggle()}
-                  >
-                      {#if $theme === 'dark'}
-                          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                              <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-                          </svg>
-                      {:else}
-                          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                              <path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-                          </svg>
-                      {/if}
-                  </button>
+      {#if currentLayout === 'vertical'}
+          <!-- Mobile Header -->
+          <div class="md:hidden sticky top-0 z-40 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border-b border-slate-200/80 dark:border-slate-700/50 h-16 flex items-center px-4 justify-between">
+              <button 
+                  class="p-2 -ml-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors" 
+                  onclick={() => mobileSidebarOpen = !mobileSidebarOpen}
+                  aria-label="Toggle menu"
+              >
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+                  </svg>
+              </button>
+              <div class="flex items-center gap-2">
+                  <span class="text-lg">🐦</span>
+                  <span class="text-sm font-bold text-gradient">YA-WAMF</span>
               </div>
+              <!-- Theme toggle for mobile -->
+              <button
+                  class="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-colors"
+                  onclick={() => theme.toggle()}
+              >
+                  {#if $theme === 'dark'}
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                      </svg>
+                  {:else}
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                      </svg>
+                  {/if}
+              </button>
+          </div>
 
-              <Sidebar {currentRoute} onNavigate={navigate} {mobileSidebarOpen} onMobileClose={() => mobileSidebarOpen = false}>
-                  {#snippet status()}
-                      <div class="flex flex-col gap-2">
-                          {#if settingsStore.settings?.birdnet_enabled}
-                              <div class="flex items-center gap-1.5 px-2 py-1 rounded-full bg-teal-500/10 border border-teal-500/20" title="Audio Analysis Active">
-                                  <span class="relative flex h-2 w-2">
-                                      <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-400 opacity-75"></span>
-                                      <span class="relative inline-flex rounded-full h-2 w-2 bg-teal-500"></span>
-                                  </span>
-                                  <span class="text-[10px] font-bold text-teal-600 dark:text-teal-400 uppercase tracking-tight">Audio Active</span>
-                              </div>
-                          {/if}
-
-                          <div class="flex items-center gap-2">
-                              {#if detectionsStore.connected}
-                                  <span class="relative flex h-2.5 w-2.5">
-                                      <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                                      <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.8)]"></span>
-                                  </span>
-                                  <span class="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-tight">System Online</span>
-                              {:else}
-                                  <span class="w-2.5 h-2.5 rounded-full bg-red-500"></span>
-                                  <span class="text-[10px] font-bold text-red-600 uppercase tracking-tight">System Offline</span>
-                              {/if}
+          <Sidebar {currentRoute} onNavigate={navigate} {mobileSidebarOpen} onMobileClose={() => mobileSidebarOpen = false}>
+              {#snippet status()}
+                  <div class="flex flex-col gap-2">
+                      {#if settingsStore.settings?.birdnet_enabled}
+                          <div class="flex items-center gap-1.5 px-2 py-1 rounded-full bg-teal-500/10 border border-teal-500/20" title="Audio Analysis Active">
+                              <span class="relative flex h-2 w-2">
+                                  <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-400 opacity-75"></span>
+                                  <span class="relative inline-flex rounded-full h-2 w-2 bg-teal-500"></span>
+                              </span>
+                              <span class="text-[10px] font-bold text-teal-600 dark:text-teal-400 uppercase tracking-tight">Audio Active</span>
                           </div>
-                      </div>
-                  {/snippet}
-              </Sidebar>
-          {:else}
-              <Header {currentRoute} onNavigate={navigate}>
-                  {#snippet status()}
-                      <div class="flex items-center gap-4">
-                          {#if settingsStore.settings?.birdnet_enabled}
-                              <div class="flex items-center gap-1.5 px-2 py-1 rounded-full bg-teal-500/10 border border-teal-500/20" title="Audio Analysis Active">
-                                  <span class="relative flex h-2 w-2">
-                                      <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-400 opacity-75"></span>
-                                      <span class="relative inline-flex rounded-full h-2 w-2 bg-teal-500"></span>
-                                  </span>
-                                  <span class="text-[10px] font-bold text-teal-600 dark:text-teal-400 uppercase tracking-tight">Audio Active</span>
-                              </div>
-                          {/if}
+                      {/if}
 
-                          <div class="flex items-center gap-2">
-                              {#if detectionsStore.connected}
-                                  <span class="relative flex h-2.5 w-2.5">
-                                      <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                                      <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.8)]"></span>
-                                  </span>
-                                  <span class="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-tight">System Online</span>
-                              {:else}
-                                  <span class="w-2.5 h-2.5 rounded-full bg-red-500"></span>
-                                  <span class="text-[10px] font-bold text-red-600 uppercase tracking-tight">System Offline</span>
-                              {/if}
-                          </div>
+                      <div class="flex items-center gap-2">
+                          {#if detectionsStore.connected}
+                              <span class="relative flex h-2.5 w-2.5">
+                                  <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                  <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.8)]"></span>
+                              </span>
+                              <span class="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-tight">System Online</span>
+                          {:else}
+                              <span class="w-2.5 h-2.5 rounded-full bg-red-500"></span>
+                              <span class="text-[10px] font-bold text-red-600 uppercase tracking-tight">System Offline</span>
+                          {/if}
                       </div>
-                  {/snippet}
-              </Header>
-          {/if}
+                  </div>
+              {/snippet}
+          </Sidebar>
+      {:else}
+          <Header {currentRoute} onNavigate={navigate}>
+              {#snippet status()}
+                  <div class="flex items-center gap-4">
+                      {#if settingsStore.settings?.birdnet_enabled}
+                          <div class="flex items-center gap-1.5 px-2 py-1 rounded-full bg-teal-500/10 border border-teal-500/20" title="Audio Analysis Active">
+                              <span class="relative flex h-2 w-2">
+                                  <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-400 opacity-75"></span>
+                                  <span class="relative inline-flex rounded-full h-2 w-2 bg-teal-500"></span>
+                              </span>
+                              <span class="text-[10px] font-bold text-teal-600 dark:text-teal-400 uppercase tracking-tight">Audio Active</span>
+                          </div>
+                      {/if}
+
+                      <div class="flex items-center gap-2">
+                          {#if detectionsStore.connected}
+                              <span class="relative flex h-2.5 w-2.5">
+                                  <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                  <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.8)]"></span>
+                              </span>
+                              <span class="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-tight">System Online</span>
+                          {:else}
+                              <span class="w-2.5 h-2.5 rounded-full bg-red-500"></span>
+                              <span class="text-[10px] font-bold text-red-600 uppercase tracking-tight">System Offline</span>
+                          {/if}
+                      </div>
+                  </div>
+              {/snippet}
+          </Header>
       {/if}
 
       <!-- Telemetry Banner (shown on first visit if telemetry disabled) -->
       <TelemetryBanner />
 
       <!-- Main Content Wrapper -->
-      <div class="flex-1 flex flex-col transition-all duration-300 {currentLayout === 'vertical' && !zenMode ? (isSidebarCollapsed ? 'md:pl-20' : 'md:pl-64') : ''}">
-          <main id="main-content" class="flex-1 w-full {zenMode ? 'h-screen p-0' : 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8'}">
+      <div class="flex-1 flex flex-col transition-all duration-300 {currentLayout === 'vertical' ? (isSidebarCollapsed ? 'md:pl-20' : 'md:pl-64') : ''}">
+          <main id="main-content" class="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
               {#if currentRoute === '/'}
                   <Dashboard onnavigate={navigate} />
               {:else if currentRoute.startsWith('/events')}
@@ -419,9 +408,7 @@
           </main>
       </div>
 
-      {#if !zenMode}
-          <Footer />
-      {/if}
+      <Footer />
   {/if}
 
   <!-- Toast Notifications -->

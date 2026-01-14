@@ -155,16 +155,8 @@ html {
 
 /* Dyslexia Friendly Font */
 .font-dyslexic {
-  font-family: 'OpenDyslexic', 'Comic Sans MS', 'Chalkboard SE', sans-serif !important;
+  font-family: 'OpenDyslexic', sans-serif !important;
   line-height: 1.6 !important;
-}
-
-/* Reduced Motion */
-.motion-reduce * {
-  animation-duration: 0.01ms !important;
-  animation-iteration-count: 1 !important;
-  transition-duration: 0.01ms !important;
-  scroll-behavior: auto !important;
 }
 
 /* High Contrast Mode */
@@ -227,34 +219,4 @@ html {
 
 .high-contrast svg {
   stroke: currentColor !important;
-}
-
-/* Zen Mode */
-html.zen-mode {
-  background-image: none !important;
-}
-
-.zen-mode .card-base,
-.zen-mode .card-rich {
-  backdrop-filter: none !important;
-  box-shadow: none !important;
-  border: 1px solid #e2e8f0 !important;
-}
-
-.zen-mode.dark .card-base,
-.zen-mode.dark .card-rich {
-  border: 1px solid #334155 !important;
-}
-
-.zen-mode .dark\:bg-slate-800\/50,
-.zen-mode .dark\:bg-slate-800\/80 {
-  background-color: #1e293b !important;
-  /* Solid Slate 800 */
-}
-
-.zen-mode .animate-pulse,
-.zen-mode .animate-spin,
-.zen-mode .transition-all {
-  animation: none !important;
-  transition: none !important;
 }
