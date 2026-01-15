@@ -6,12 +6,69 @@
   },
   "errors": {
     "detection_not_found": "Détection non trouvée",
-    "frigate_fetch_failed": "Échec de la récupération de la capture depuis Frigate",
-    "classification_no_results": "La classification n'a retourné aucun résultat",
+    "frigate_fetch_failed": "Échec de la récupération de l'instantané depuis Frigate",
+    "classification_no_results": "La classification n'a renvoyé aucun résultat",
     "invalid_api_key": "Clé API invalide",
     "missing_api_key": "Clé API manquante",
-    "frigate_timeout": "Délai d'attente de la connexion Frigate dépassé",
+    "frigate_timeout": "Délai de connexion Frigate expiré",
     "frigate_auth_failed": "Échec de l'authentification Frigate",
-    "clip_disabled": "La récupération des clips est désactivée"
+    "clip_disabled": "La récupération de clips est désactivée",
+    "invalid_frigate_event": "Format d'événement Frigate invalide",
+
+    "proxy": {
+      "frigate_timeout": "Délai de connexion Frigate expiré",
+      "frigate_auth_failed": "Échec de l'authentification Frigate - vérifiez le jeton d'authentification",
+      "frigate_error": "Frigate a renvoyé une erreur : {status_code}",
+      "connection_failed": "Échec de la connexion à Frigate sur {url}",
+      "snapshot_not_found": "Instantané non trouvé",
+      "thumbnail_not_found": "Miniature non trouvée",
+      "clip_not_found": "Clip non trouvé",
+      "clip_not_available": "Clip non disponible pour cet événement",
+      "event_not_found": "Événement non trouvé dans Frigate",
+      "empty_clip": "Frigate a renvoyé un clip vidéo vide",
+      "media_fetch_failed": "Échec de la récupération des médias depuis Frigate",
+      "invalid_event_id": "Format d'ID d'événement invalide"
+    },
+
+    "events": {
+      "snapshot_fetch_failed": "Échec de la récupération de l'instantané depuis Frigate",
+      "classification_failed": "La classification n'a renvoyé aucun résultat",
+      "delete_failed": "Échec de la suppression de la détection",
+      "update_failed": "Échec de la mise à jour de la détection",
+      "wildlife_model_unavailable": "Modèle de faune non disponible. Veuillez d'abord le télécharger.",
+      "reclassification_failed": "Échec de la reclassification"
+    },
+
+    "species": {
+      "unknown_bird": "Oiseau Inconnu",
+      "species_not_found": "Espèce non trouvée"
+    },
+
+    "ai": {
+      "provider_not_configured": "Fournisseur IA non configuré",
+      "api_key_missing": "Clé API non configurée pour {provider}",
+      "analysis_failed": "Échec de l'analyse de l'image",
+      "image_fetch_failed": "Échec de la récupération de l'image depuis Frigate",
+      "gemini_not_configured": "Clé API Gemini non configurée",
+      "openai_not_configured": "Clé API OpenAI non configurée",
+      "claude_not_configured": "Clé API Claude non configurée"
+    },
+
+    "backfill": {
+      "no_events": "Aucun événement Frigate trouvé dans la plage horaire spécifiée",
+      "processing_error": "Erreur de traitement de remplissage : {error}",
+      "invalid_time_range": "Plage horaire spécifiée invalide"
+    },
+
+    "classifier": {
+      "bird_model_not_loaded": "Modèle d'oiseaux non chargé",
+      "wildlife_model_not_loaded": "Modèle de faune non chargé",
+      "model_load_failed": "Échec du chargement du modèle de classification"
+    },
+
+    "models": {
+      "not_installed": "Modèle non installé",
+      "download_failed": "Échec du téléchargement du modèle"
+    }
   }
 }

@@ -1,10 +1,12 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 import structlog
 from app.services.ai_service import ai_service
 from app.services.frigate_client import frigate_client
 from app.repositories.detection_repository import DetectionRepository
 from app.database import get_db
+from app.services.i18n_service import i18n_service
+from app.utils.language import get_user_language
 
 router = APIRouter()
 log = structlog.get_logger()
@@ -13,19 +15,23 @@ class AIAnalysisResponse(BaseModel):
     analysis: str
 
 @router.post("/events/{event_id}/analyze", response_model=AIAnalysisResponse)
-async def analyze_event(event_id: str, force: bool = False):
+async def analyze_event(event_id: str, request: Request, force: bool = False):
     """Run AI analysis on a specific detection.
 
     Args:
         event_id: The Frigate event ID
         force: If True, regenerate analysis even if it already exists
     """
+    lang = get_user_language(request)
     async with get_db() as db:
         repo = DetectionRepository(db)
         detection = await repo.get_by_frigate_event(event_id)
 
         if not detection:
-            raise HTTPException(status_code=404, detail="Detection not found")
+            raise HTTPException(
+                status_code=404,
+                detail=i18n_service.translate("errors.detection_not_found", lang)
+            )
 
         # Check if analysis already exists and force is not set
         if detection.ai_analysis and not force:
@@ -35,7 +41,10 @@ async def analyze_event(event_id: str, force: bool = False):
         # Fetch snapshot
         image_data = await frigate_client.get_snapshot(event_id, crop=True, quality=90)
         if not image_data:
-            raise HTTPException(status_code=502, detail="Failed to fetch image from Frigate")
+            raise HTTPException(
+                status_code=502,
+                detail=i18n_service.translate("errors.ai.image_fetch_failed", lang)
+            )
 
         # Metadata for prompt
         metadata = {

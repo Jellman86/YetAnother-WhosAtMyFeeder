@@ -11,6 +11,7 @@ from app.config import settings
 from app.services.taxonomy.taxonomy_service import taxonomy_service
 from app.services.i18n_service import i18n_service
 from app.services.classifier_service import get_classifier
+from app.utils.language import get_user_language
 
 router = APIRouter()
 log = structlog.get_logger()
@@ -133,7 +134,7 @@ async def search_species(q: str):
 @router.get("/species")
 async def get_species_list(request: Request):
     """Get list of all species with counts."""
-    lang = getattr(request.state, 'language', 'en')
+    lang = get_user_language(request)
     async with get_db() as db:
         repo = DetectionRepository(db)
         stats = await repo.get_species_counts()
@@ -178,7 +179,7 @@ async def get_species_list(request: Request):
 @router.get("/species/{species_name}/stats", response_model=SpeciesStats)
 async def get_species_stats(species_name: str, request: Request):
     """Get comprehensive statistics for a species."""
-    lang = getattr(request.state, 'language', 'en')
+    lang = get_user_language(request)
     async with get_db() as db:
         repo = DetectionRepository(db)
 

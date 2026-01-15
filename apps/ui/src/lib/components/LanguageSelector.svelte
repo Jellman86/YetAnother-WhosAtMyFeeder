@@ -6,7 +6,8 @@
         es: 'Español',
         fr: 'Français',
         de: 'Deutsch',
-        ja: '日本語'
+        ja: '日本語',
+        zh: '中文'
     };
 
     let showDropdown = $state(false);

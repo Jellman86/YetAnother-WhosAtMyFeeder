@@ -12,6 +12,63 @@
     "missing_api_key": "API-Schlüssel fehlt",
     "frigate_timeout": "Frigate-Verbindung zeitlich überschritten",
     "frigate_auth_failed": "Frigate-Authentifizierung fehlgeschlagen",
-    "clip_disabled": "Clip-Abruf ist deaktiviert"
+    "clip_disabled": "Clip-Abruf ist deaktiviert",
+    "invalid_frigate_event": "Ungültiges Frigate-Ereignisformat",
+
+    "proxy": {
+      "frigate_timeout": "Frigate-Verbindung zeitlich überschritten",
+      "frigate_auth_failed": "Frigate-Authentifizierung fehlgeschlagen - prüfen Sie das Authentifizierungs-Token",
+      "frigate_error": "Frigate gab Fehler zurück: {status_code}",
+      "connection_failed": "Verbindung zu Frigate unter {url} fehlgeschlagen",
+      "snapshot_not_found": "Schnappschuss nicht gefunden",
+      "thumbnail_not_found": "Miniaturansicht nicht gefunden",
+      "clip_not_found": "Clip nicht gefunden",
+      "clip_not_available": "Clip für dieses Ereignis nicht verfügbar",
+      "event_not_found": "Ereignis nicht in Frigate gefunden",
+      "empty_clip": "Frigate gab einen leeren Video-Clip zurück",
+      "media_fetch_failed": "Medien konnten nicht von Frigate abgerufen werden",
+      "invalid_event_id": "Ungültiges Ereignis-ID-Format"
+    },
+
+    "events": {
+      "snapshot_fetch_failed": "Schnappschuss konnte nicht von Frigate abgerufen werden",
+      "classification_failed": "Klassifizierung lieferte keine Ergebnisse",
+      "delete_failed": "Löschen der Erkennung fehlgeschlagen",
+      "update_failed": "Aktualisierung der Erkennung fehlgeschlagen",
+      "wildlife_model_unavailable": "Wildtiermodell nicht verfügbar. Bitte laden Sie es zuerst herunter.",
+      "reclassification_failed": "Neuklassifizierung fehlgeschlagen"
+    },
+
+    "species": {
+      "unknown_bird": "Unbekannter Vogel",
+      "species_not_found": "Art nicht gefunden"
+    },
+
+    "ai": {
+      "provider_not_configured": "KI-Anbieter nicht konfiguriert",
+      "api_key_missing": "API-Schlüssel nicht konfiguriert für {provider}",
+      "analysis_failed": "Bildanalyse fehlgeschlagen",
+      "image_fetch_failed": "Bild konnte nicht von Frigate abgerufen werden",
+      "gemini_not_configured": "Gemini-API-Schlüssel nicht konfiguriert",
+      "openai_not_configured": "OpenAI-API-Schlüssel nicht konfiguriert",
+      "claude_not_configured": "Claude-API-Schlüssel nicht konfiguriert"
+    },
+
+    "backfill": {
+      "no_events": "Keine Frigate-Ereignisse im angegebenen Zeitraum gefunden",
+      "processing_error": "Auffüllverarbeitungsfehler: {error}",
+      "invalid_time_range": "Ungültiger Zeitraum angegeben"
+    },
+
+    "classifier": {
+      "bird_model_not_loaded": "Vogelmodell nicht geladen",
+      "wildlife_model_not_loaded": "Wildtiermodell nicht geladen",
+      "model_load_failed": "Laden des Klassifizierungsmodells fehlgeschlagen"
+    },
+
+    "models": {
+      "not_installed": "Modell nicht installiert",
+      "download_failed": "Modell-Download fehlgeschlagen"
+    }
   }
 }

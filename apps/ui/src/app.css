@@ -162,7 +162,8 @@ html {
 }
 
 /* Dyslexia Friendly Font */
-.font-dyslexic {
+.font-dyslexic,
+.font-dyslexic * {
   font-family: 'OpenDyslexic', sans-serif !important;
   line-height: 1.6 !important;
 }
@@ -227,4 +228,25 @@ html {
 
 .high-contrast svg {
   stroke: currentColor !important;
+}
+
+/* Respect user motion preferences - WCAG 2.1 Level AA */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  /* Disable specific animations */
+  .status-pulse::after {
+    animation: none !important;
+  }
+
+  .animate-ping {
+    animation: none !important;
+  }
 }

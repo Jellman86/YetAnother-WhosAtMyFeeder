@@ -15,6 +15,8 @@ from app.services.frigate_client import frigate_client
 from app.services.broadcaster import broadcaster
 from app.services.taxonomy.taxonomy_service import taxonomy_service
 from app.services.audio.audio_service import audio_service
+from app.services.i18n_service import i18n_service
+from app.utils.language import get_user_language
 
 router = APIRouter()
 log = structlog.get_logger()
@@ -76,7 +78,7 @@ async def get_events(
     include_hidden: bool = Query(default=False, description="Include hidden/ignored detections")
 ):
     """Get paginated events with optional filters."""
-    lang = getattr(request.state, 'language', 'en')
+    lang = get_user_language(request)
     async with get_db() as db:
         repo = DetectionRepository(db)
 
@@ -193,7 +195,7 @@ async def get_events_count(
 @router.delete("/events/{event_id}")
 async def delete_event(event_id: str, request: Request):
     """Delete a detection by its Frigate event ID."""
-    lang = getattr(request.state, 'language', 'en')
+    lang = get_user_language(request)
     async with get_db() as db:
         repo = DetectionRepository(db)
         detection = await repo.get_by_frigate_event(event_id)
@@ -229,7 +231,7 @@ class HideResponse(BaseModel):
 @router.post("/events/{event_id}/hide", response_model=HideResponse)
 async def toggle_hide_event(event_id: str, request: Request):
     """Toggle the hidden/ignored status of a detection."""
-    lang = getattr(request.state, 'language', 'en')
+    lang = get_user_language(request)
     async with get_db() as db:
         repo = DetectionRepository(db)
         new_status = await repo.toggle_hidden(event_id)
@@ -320,7 +322,7 @@ async def reclassify_event(
     """
 
 
-    lang = getattr(request.state, 'language', 'en')
+    lang = get_user_language(request)
 
 
     async with get_db() as db:
@@ -448,7 +450,10 @@ async def reclassify_event(
                         "results": []
                     }
                 })
-                raise HTTPException(status_code=502, detail="Failed to fetch snapshot from Frigate")
+                raise HTTPException(
+                    status_code=502,
+                    detail=i18n_service.translate("errors.events.snapshot_fetch_failed", lang)
+                )
 
             image = Image.open(BytesIO(snapshot_data))
             results = await classifier.classify_async(image)
@@ -463,7 +468,10 @@ async def reclassify_event(
             })
 
         if not results:
-            raise HTTPException(status_code=500, detail="Classification returned no results")
+            raise HTTPException(
+                status_code=500,
+                detail=i18n_service.translate("errors.events.reclassification_failed", lang)
+            )
 
         top = results[0]
         new_species = top['label']
@@ -559,20 +567,24 @@ async def reclassify_event(
 
 
 @router.patch("/events/{event_id}")
-async def update_event(event_id: str, request: UpdateDetectionRequest):
+async def update_event(event_id: str, update_request: UpdateDetectionRequest, request: Request):
     """
     Manually update a detection's species name.
     Use this to correct misidentifications.
     """
+    lang = get_user_language(request)
     async with get_db() as db:
         repo = DetectionRepository(db)
         detection = await repo.get_by_frigate_event(event_id)
 
         if not detection:
-            raise HTTPException(status_code=404, detail="Detection not found")
+            raise HTTPException(
+                status_code=404,
+                detail=i18n_service.translate("errors.detection_not_found", lang)
+            )
 
         old_species = detection.display_name
-        new_species = request.display_name.strip()
+        new_species = update_request.display_name.strip()
 
         log.debug("Manual tag request",
                   event_id=event_id,
@@ -674,23 +686,30 @@ class WildlifeClassifyResponse(BaseModel):
 
 
 @router.post("/events/{event_id}/classify-wildlife", response_model=WildlifeClassifyResponse)
-async def classify_wildlife(event_id: str):
+async def classify_wildlife(event_id: str, request: Request):
     """
     Classify a detection using the general wildlife model.
     Fetches the snapshot from Frigate and runs it through the wildlife classifier.
     Does NOT update the database - user can manually tag if desired.
     """
+    lang = get_user_language(request)
     async with get_db() as db:
         repo = DetectionRepository(db)
         detection = await repo.get_by_frigate_event(event_id)
 
         if not detection:
-            raise HTTPException(status_code=404, detail="Detection not found")
+            raise HTTPException(
+                status_code=404,
+                detail=i18n_service.translate("errors.detection_not_found", lang)
+            )
 
         # Fetch snapshot from Frigate using centralized client
         snapshot_data = await frigate_client.get_snapshot(event_id, crop=True, quality=95)
         if not snapshot_data:
-            raise HTTPException(status_code=502, detail="Failed to fetch snapshot from Frigate")
+            raise HTTPException(
+                status_code=502,
+                detail=i18n_service.translate("errors.events.snapshot_fetch_failed", lang)
+            )
 
         # Classify with wildlife model
         image = Image.open(BytesIO(snapshot_data))
@@ -703,9 +722,12 @@ async def classify_wildlife(event_id: str):
             if not wildlife_status.get("enabled"):
                 raise HTTPException(
                     status_code=503,
-                    detail="Wildlife model not available. Please download the wildlife model first."
+                    detail=i18n_service.translate("errors.events.wildlife_model_unavailable", lang)
                 )
-            raise HTTPException(status_code=500, detail="Classification returned no results")
+            raise HTTPException(
+                status_code=500,
+                detail=i18n_service.translate("errors.events.classification_failed", lang)
+            )
 
         classifications = [
             WildlifeClassification(

@@ -12,6 +12,63 @@
     "missing_api_key": "Falta la clave de API",
     "frigate_timeout": "Tiempo de espera agotado en la conexión con Frigate",
     "frigate_auth_failed": "Error de autenticación con Frigate",
-    "clip_disabled": "La obtención de clips está deshabilitada"
+    "clip_disabled": "La obtención de clips está deshabilitada",
+    "invalid_frigate_event": "Formato de evento de Frigate inválido",
+
+    "proxy": {
+      "frigate_timeout": "Tiempo de espera agotado en la conexión con Frigate",
+      "frigate_auth_failed": "Error de autenticación con Frigate - verifique el token de autenticación",
+      "frigate_error": "Frigate devolvió error: {status_code}",
+      "connection_failed": "Error al conectar con Frigate en {url}",
+      "snapshot_not_found": "Captura no encontrada",
+      "thumbnail_not_found": "Miniatura no encontrada",
+      "clip_not_found": "Clip no encontrado",
+      "clip_not_available": "Clip no disponible para este evento",
+      "event_not_found": "Evento no encontrado en Frigate",
+      "empty_clip": "Frigate devolvió un clip de video vacío",
+      "media_fetch_failed": "Error al obtener medios de Frigate",
+      "invalid_event_id": "Formato de ID de evento inválido"
+    },
+
+    "events": {
+      "snapshot_fetch_failed": "Error al obtener la captura de Frigate",
+      "classification_failed": "La clasificación no devolvió resultados",
+      "delete_failed": "Error al eliminar la detección",
+      "update_failed": "Error al actualizar la detección",
+      "wildlife_model_unavailable": "Modelo de fauna silvestre no disponible. Por favor descárguelo primero.",
+      "reclassification_failed": "Error en la reclasificación"
+    },
+
+    "species": {
+      "unknown_bird": "Ave Desconocida",
+      "species_not_found": "Especie no encontrada"
+    },
+
+    "ai": {
+      "provider_not_configured": "Proveedor de IA no configurado",
+      "api_key_missing": "Clave de API no configurada para {provider}",
+      "analysis_failed": "Error al analizar la imagen",
+      "image_fetch_failed": "Error al obtener la imagen de Frigate",
+      "gemini_not_configured": "Clave de API de Gemini no configurada",
+      "openai_not_configured": "Clave de API de OpenAI no configurada",
+      "claude_not_configured": "Clave de API de Claude no configurada"
+    },
+
+    "backfill": {
+      "no_events": "No se encontraron eventos de Frigate en el rango de tiempo especificado",
+      "processing_error": "Error de procesamiento de relleno: {error}",
+      "invalid_time_range": "Rango de tiempo especificado inválido"
+    },
+
+    "classifier": {
+      "bird_model_not_loaded": "Modelo de aves no cargado",
+      "wildlife_model_not_loaded": "Modelo de fauna silvestre no cargado",
+      "model_load_failed": "Error al cargar el modelo de clasificación"
+    },
+
+    "models": {
+      "not_installed": "Modelo no instalado",
+      "download_failed": "Error en la descarga del modelo"
+    }
   }
 }
