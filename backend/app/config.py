@@ -9,7 +9,8 @@ from pydantic import BaseModel, Field
 log = structlog.get_logger()
 
 # Use /config directory for persistent config (matches Docker volume mount)
-CONFIG_PATH = Path("/config/config.json")
+# Allow override via environment variable for testing
+CONFIG_PATH = Path(os.getenv("CONFIG_FILE", "/config/config.json"))
 
 class FrigateSettings(BaseModel):
     frigate_url: str = Field(..., description="URL of the Frigate instance")

@@ -11,7 +11,8 @@ from typing import Optional
 log = structlog.get_logger()
 
 # Cache directory structure
-CACHE_BASE_DIR = Path("/config/media_cache")
+# Allow override via environment variable for testing
+CACHE_BASE_DIR = Path(os.getenv("MEDIA_CACHE_DIR", "/config/media_cache"))
 SNAPSHOTS_DIR = CACHE_BASE_DIR / "snapshots"
 CLIPS_DIR = CACHE_BASE_DIR / "clips"
 
