@@ -61,7 +61,9 @@
         "github": "GitHub",
         "mit_license": "MIT 许可证",
         "view_snapshot": "查看快照",
-        "statistics": "统计"
+        "statistics": "统计",
+        "period": "时间段",
+        "detections": "检测"
     },
     "settings": {
         "title": "设置",
@@ -160,7 +162,12 @@
         "tagging": {
             "search_placeholder": "搜索物种...",
             "no_results": "未找到匹配的物种"
-        }
+        },
+        "card_label": "在 {camera} 检测到 {species}",
+        "image_alt": "在 {camera} 检测到 {species}",
+        "play_video": "播放 {species} 的视频",
+        "reclassify": "重新分类 {species} 检测",
+        "retag": "手动标记 {species} 检测"
     },
     "events": {
         "title": "事件",
@@ -262,5 +269,13 @@
         "activity_patterns": "活动模式",
         "camera_breakdown": "摄像头细分",
         "recent_sightings": "最近目击"
+    },
+    "pagination": {
+        "navigation": "分页",
+        "previous_page": "上一页",
+        "next_page": "下一页",
+        "page_number": "第 {number} 页",
+        "page_size_label": "显示:",
+        "page_size_aria": "每页项目数"
     }
 }

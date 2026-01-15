@@ -110,11 +110,17 @@
 </script>
 
 <div
-    role="button"
+    role="article"
     tabindex="0"
+    aria-label="{$_('detection.card_label', { values: { species: primaryName, camera: detection.camera_name } })}"
     bind:this={cardElement}
     onclick={onclick}
-    onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && onclick?.()}
+    onkeydown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onclick?.();
+        }
+    }}
     class="group relative bg-white dark:bg-slate-800 rounded-3xl
            shadow-sm hover:shadow-card-hover dark:hover:shadow-card-dark-hover
            border border-slate-200/80 dark:border-slate-700/50
@@ -139,7 +145,7 @@
             {/if}
             <img
                 src={getThumbnailUrl(detection.frigate_event)}
-                alt={primaryName}
+                alt="{$_('detection.image_alt', { values: { species: primaryName, camera: detection.camera_name } })}"
                 loading="lazy"
                 class="w-full h-full object-cover transition-transform duration-700 ease-out
                        group-hover:scale-110 group-hover:rotate-1
@@ -152,12 +158,19 @@
 
             {#if detection.has_clip && onPlay}
                 <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 scale-90 group-hover:scale-100">
-                    <button 
+                    <button
                         onclick={handlePlayClick}
+                        onkeydown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                handlePlayClick(e as any);
+                            }
+                        }}
+                        aria-label="{$_('detection.play_video', { values: { species: primaryName } })}"
                         class="w-14 h-14 rounded-full bg-white/90 dark:bg-slate-800/90 flex items-center justify-center shadow-2xl text-teal-600 dark:text-teal-400 hover:scale-110 active:scale-90 transition-transform"
-                        title={$_('actions.play_video')}
                     >
-                        <svg xmlns="http://www.w3.org/2000/svg" class="w-7 h-7 ml-1" viewBox="0 0 24 24" fill="currentColor">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-7 h-7 ml-1" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                             <path d="M8 5v14l11-7z"/>
                         </svg>
                     </button>
@@ -211,12 +224,19 @@
                 {#if onReclassify}
                     <button
                         onclick={handleReclassifyClick}
+                        onkeydown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                handleReclassifyClick(e as any);
+                            }
+                        }}
+                        aria-label="{$_('detection.reclassify', { values: { species: primaryName } })}"
                         class="w-9 h-9 rounded-xl bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200
                                hover:bg-teal-500 hover:text-white transition-all duration-200
                                flex items-center justify-center shadow-2xl border border-slate-200/50 dark:border-slate-700/50"
-                        title={$_('actions.deep_reclassify')}
                     >
-                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                         </svg>
                     </button>
@@ -224,12 +244,19 @@
                 {#if onRetag}
                     <button
                         onclick={handleRetagClick}
+                        onkeydown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                handleRetagClick(e as any);
+                            }
+                        }}
+                        aria-label="{$_('detection.retag', { values: { species: primaryName } })}"
                         class="w-9 h-9 rounded-xl bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200
                                hover:bg-amber-500 hover:text-white transition-all duration-200
                                flex items-center justify-center shadow-2xl border border-slate-200/50 dark:border-slate-700/50"
-                        title={$_('actions.manual_tag')}
                     >
-                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
                         </svg>
                     </button>

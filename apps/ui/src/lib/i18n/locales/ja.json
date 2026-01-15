@@ -59,7 +59,9 @@
     "github": "GitHub",
     "mit_license": "MIT License",
     "view_snapshot": "スナップショットを表示",
-    "statistics": "統計"
+    "statistics": "統計",
+    "period": "期間",
+    "detections": "検出"
   },
   "settings": {
     "title": "設定",
@@ -158,7 +160,12 @@
     "tagging": {
       "search_placeholder": "種を検索...",
       "no_results": "一致する種が見つかりません"
-    }
+    },
+    "card_label": "{camera} で {species} を検出",
+    "image_alt": "{camera} で {species} を検出",
+    "play_video": "{species} のビデオを再生",
+    "reclassify": "{species} の検出を再分類",
+    "retag": "{species} の検出を手動でタグ付け"
   },
   "events": {
     "title": "イベント",
@@ -260,5 +267,13 @@
     "activity_patterns": "活動パターン",
     "camera_breakdown": "カメラ別内訳",
     "recent_sightings": "最近の目撃情報"
+  },
+  "pagination": {
+    "navigation": "ページネーション",
+    "previous_page": "前のページ",
+    "next_page": "次のページ",
+    "page_number": "ページ {number}",
+    "page_size_label": "表示:",
+    "page_size_aria": "ページあたりの項目数"
   }
 }

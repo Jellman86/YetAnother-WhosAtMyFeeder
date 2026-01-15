@@ -1,13 +1,16 @@
 <script lang="ts">
+    import { _ } from 'svelte-i18n';
+
     interface Props {
         data: number[];
         labels: string[];
         title: string;
         color?: string;
         showEveryNthLabel?: number;  // For dense charts like hourly, only show every Nth label
+        onclick?: (index: number) => void;  // Optional click handler for bars
     }
 
-    let { data, labels, title, color = 'bg-teal-500', showEveryNthLabel }: Props = $props();
+    let { data, labels, title, color = 'bg-teal-500', showEveryNthLabel, onclick }: Props = $props();
 
     let maxValue = $derived(Math.max(...data, 1));
     let total = $derived(data.reduce((a, b) => a + b, 0));
@@ -36,7 +39,7 @@
     </div>
 
     <!-- Chart container with proper overflow handling -->
-    <div class="relative">
+    <div class="relative" role="img" aria-label={title}>
         <!-- Bars -->
         <div class="flex items-end gap-px h-28">
             {#each data as value, i}
@@ -46,9 +49,16 @@
                     onmouseleave={() => hoveredIndex = null}
                     onfocus={() => hoveredIndex = i}
                     onblur={() => hoveredIndex = null}
+                    onclick={() => onclick?.(i)}
+                    onkeydown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            onclick?.(i);
+                        }
+                    }}
                     role="button"
                     tabindex="0"
-                    aria-label="{labels[i]}: {value} detections"
+                    aria-label="{labels[i]}: {value} {$_('common.detections', { default: 'detections' })}"
                 >
                     <!-- Tooltip - positioned above with proper z-index -->
                     {#if hoveredIndex === i}
@@ -88,5 +98,26 @@
                 </div>
             {/each}
         </div>
+    </div>
+
+    <!-- Screen reader accessible table alternative -->
+    <div class="sr-only">
+        <table>
+            <caption>{title}</caption>
+            <thead>
+                <tr>
+                    <th>{$_('common.period', { default: 'Period' })}</th>
+                    <th>{$_('common.detections', { default: 'Detections' })}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {#each data as value, i}
+                    <tr>
+                        <td>{labels[i]}</td>
+                        <td>{value}</td>
+                    </tr>
+                {/each}
+            </tbody>
+        </table>
     </div>
 </div>

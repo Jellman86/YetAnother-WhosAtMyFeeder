@@ -59,7 +59,9 @@
     "github": "GitHub",
     "mit_license": "Licencia MIT",
     "view_snapshot": "Ver instantánea",
-    "statistics": "Estadísticas"
+    "statistics": "Estadísticas",
+    "period": "Período",
+    "detections": "detecciones"
   },
   "settings": {
     "title": "Ajustes",
@@ -158,7 +160,12 @@
     "tagging": {
       "search_placeholder": "Buscar especie...",
       "no_results": "No se encontraron especies coincidentes"
-    }
+    },
+    "card_label": "{species} detectado en {camera}",
+    "image_alt": "{species} detectado en {camera}",
+    "play_video": "Reproducir video de {species}",
+    "reclassify": "Reclasificar detección de {species}",
+    "retag": "Etiquetar manualmente detección de {species}"
   },
   "events": {
     "title": "Eventos",
@@ -260,5 +267,13 @@
     "activity_patterns": "Patrones de Actividad",
     "camera_breakdown": "Desglose por Cámara",
     "recent_sightings": "Avistamientos Recientes"
+  },
+  "pagination": {
+    "navigation": "Paginación",
+    "previous_page": "Página anterior",
+    "next_page": "Página siguiente",
+    "page_number": "Página {number}",
+    "page_size_label": "Mostrar:",
+    "page_size_aria": "Elementos por página"
   }
 }
