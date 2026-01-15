@@ -27,6 +27,10 @@ def get_user_language(request: Request) -> str:
     """
     accept_lang = request.headers.get("Accept-Language", "en")
 
+    # Handle None case (shouldn't happen with default, but be defensive)
+    if not accept_lang:
+        accept_lang = "en"
+
     # Parse: "en-US,en;q=0.9,es;q=0.8" -> "en"
     # Take first locale, split on comma, hyphen, and semicolon
     primary_lang = accept_lang.split(",")[0].split("-")[0].split(";")[0].strip()

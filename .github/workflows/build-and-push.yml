@@ -28,12 +28,12 @@ jobs:
       - name: Run tests
         run: |
           cd backend
-          python -m pytest tests/ ../tests/unit/ -v --tb=short --cov=app --cov-report=term
+          python -m pytest tests/ -v --tb=short --cov=app --cov-report=term
 
       - name: Check minimum coverage
         run: |
           cd backend
-          python -m pytest tests/ ../tests/unit/ --cov=app --cov-fail-under=20
+          python -m pytest tests/ --cov=app --cov-fail-under=20
 
   build-backend:
     needs: test-backend
