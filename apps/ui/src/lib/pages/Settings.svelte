@@ -21,6 +21,10 @@
         testMQTTPublish,
         testNotification,
         fetchVersion,
+        initiateGmailOAuth,
+        initiateOutlookOAuth,
+        disconnectEmailOAuth,
+        sendTestEmail,
         type ClassifierStatus,
         type WildlifeModelStatus,
         type MaintenanceStats,
@@ -953,8 +957,14 @@
 
                                     {#if mqttAuth}
                                         <div class="grid grid-cols-2 gap-4 animate-in fade-in zoom-in-95">
-                                            <div><label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.frigate.mqtt_user')}</label><input type="text" bind:value={mqttUsername} class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm" /></div>
-                                            <div><label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.frigate.mqtt_pass')}</label><input type="password" bind:value={mqttPassword} class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm" /></div>
+                                            <div>
+                                                <label for="mqtt-username" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.frigate.mqtt_user')}</label>
+                                                <input id="mqtt-username" type="text" bind:value={mqttUsername} class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm" />
+                                            </div>
+                                            <div>
+                                                <label for="mqtt-password" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.frigate.mqtt_pass')}</label>
+                                                <input id="mqtt-password" type="password" bind:value={mqttPassword} class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm" />
+                                            </div>
                                         </div>
                                     {/if}
                                 </div>
@@ -1026,12 +1036,25 @@
                             <div class="w-10 h-10 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
                                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
                             </div>
-                            <div>
+                            <div id="telemetry-label">
                                 <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">{$_('settings.telemetry.title')}</h3>
                                 <p class="text-[10px] font-bold text-slate-500 mt-0.5">{$_('settings.telemetry.desc')}</p>
                             </div>
                         </div>
-                        <button onclick={() => telemetryEnabled = !telemetryEnabled} class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {telemetryEnabled ? 'bg-indigo-500' : 'bg-slate-300 dark:bg-slate-600'}">
+                        <button
+                            role="switch"
+                            aria-checked={telemetryEnabled}
+                            aria-labelledby="telemetry-label"
+                            onclick={() => telemetryEnabled = !telemetryEnabled}
+                            onkeydown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault();
+                                    telemetryEnabled = !telemetryEnabled;
+                                }
+                            }}
+                            class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {telemetryEnabled ? 'bg-indigo-500' : 'bg-slate-300 dark:bg-slate-600'}"
+                        >
+                            <span class="sr-only">{$_('settings.telemetry.title')}</span>
                             <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {telemetryEnabled ? 'translate-x-5' : 'translate-x-0'}"></span>
                         </button>
                     </div>
@@ -1280,7 +1303,6 @@
                                             <button
                                                 onclick={async () => {
                                                     try {
-                                                        const { initiateGmailOAuth } = await import('$lib/api');
                                                         const response = await initiateGmailOAuth();
                                                         window.open(response.authorization_url, '_blank', 'width=600,height=700');
                                                     } catch (error) {
@@ -1294,7 +1316,6 @@
                                             <button
                                                 onclick={async () => {
                                                     try {
-                                                        const { initiateOutlookOAuth } = await import('$lib/api');
                                                         const response = await initiateOutlookOAuth();
                                                         window.open(response.authorization_url, '_blank', 'width=600,height=700');
                                                     } catch (error) {
@@ -1312,7 +1333,6 @@
                                                 <button
                                                     onclick={async () => {
                                                         try {
-                                                            const { disconnectEmailOAuth } = await import('$lib/api');
                                                             await disconnectEmailOAuth(emailOAuthProvider || 'gmail');
                                                             emailConnectedEmail = null;
                                                             emailOAuthProvider = null;
@@ -1384,7 +1404,6 @@
                                     onclick={async () => {
                                         try {
                                             testingNotification['email'] = true;
-                                            const { sendTestEmail } = await import('$lib/api');
                                             await sendTestEmail();
                                             message = { type: 'success', text: $_('settings.email.test_email_success', { email: emailToEmail }) };
                                         } catch (error: any) {

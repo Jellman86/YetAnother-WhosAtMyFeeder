@@ -2,7 +2,7 @@
     import { _ } from 'svelte-i18n';
 
     let { visible = $bindable(false) }: { visible: boolean } = $props();
-    let modalElement: HTMLDivElement | undefined;
+    let modalElement = $state<HTMLDivElement | undefined>(undefined);
 
     $effect(() => {
         if (visible && modalElement) {
@@ -67,8 +67,10 @@
             role="dialog"
             aria-modal="true"
             aria-labelledby="shortcuts-title"
+            tabindex="-1"
             class="bg-white dark:bg-slate-800 rounded-3xl border border-slate-200/80 dark:border-slate-700/50 p-8 max-w-2xl w-full shadow-2xl"
             onclick={(e) => e.stopPropagation()}
+            onkeydown={(e) => e.key === 'Escape' && (visible = false)}
         >
             <h2 id="shortcuts-title" class="text-2xl font-black text-slate-900 dark:text-white mb-6">
                 {$_('shortcuts.title', { default: 'Keyboard Shortcuts' })}
