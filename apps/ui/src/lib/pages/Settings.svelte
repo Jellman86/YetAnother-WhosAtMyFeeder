@@ -142,7 +142,21 @@
     let telegramEnabled = $state(false);
     let telegramToken = $state('');
     let telegramChatId = $state('');
-    
+
+    let emailEnabled = $state(false);
+    let emailUseOAuth = $state(false);
+    let emailOAuthProvider = $state<string | null>(null);
+    let emailConnectedEmail = $state<string | null>(null);
+    let emailSmtpHost = $state('');
+    let emailSmtpPort = $state(587);
+    let emailSmtpUsername = $state('');
+    let emailSmtpPassword = $state('');
+    let emailSmtpUseTls = $state(true);
+    let emailFromEmail = $state('');
+    let emailToEmail = $state('');
+    let emailIncludeSnapshot = $state(true);
+    let emailDashboardUrl = $state('');
+
     let filterWhitelist = $state<string[]>([]);
     let newWhitelistSpecies = $state('');
     let filterConfidence = $state(0.7);
@@ -532,7 +546,20 @@
             telegramEnabled = settings.notifications_telegram_enabled ?? false;
             telegramToken = settings.notifications_telegram_bot_token || '';
             telegramChatId = settings.notifications_telegram_chat_id || '';
-            
+
+            emailEnabled = settings.notifications_email_enabled ?? false;
+            emailUseOAuth = settings.notifications_email_use_oauth ?? false;
+            emailOAuthProvider = settings.notifications_email_oauth_provider || null;
+            emailSmtpHost = settings.notifications_email_smtp_host || '';
+            emailSmtpPort = settings.notifications_email_smtp_port ?? 587;
+            emailSmtpUsername = settings.notifications_email_smtp_username || '';
+            emailSmtpPassword = settings.notifications_email_smtp_password || '';
+            emailSmtpUseTls = settings.notifications_email_smtp_use_tls ?? true;
+            emailFromEmail = settings.notifications_email_from_email || '';
+            emailToEmail = settings.notifications_email_to_email || '';
+            emailIncludeSnapshot = settings.notifications_email_include_snapshot ?? true;
+            emailDashboardUrl = settings.notifications_email_dashboard_url || '';
+
             filterWhitelist = settings.notifications_filter_species_whitelist || [];
             filterConfidence = settings.notifications_filter_min_confidence ?? 0.7;
             filterAudioOnly = settings.notifications_filter_audio_confirmed_only ?? false;
@@ -620,7 +647,20 @@
                 notifications_telegram_enabled: telegramEnabled,
                 notifications_telegram_bot_token: telegramToken,
                 notifications_telegram_chat_id: telegramChatId,
-                
+
+                notifications_email_enabled: emailEnabled,
+                notifications_email_use_oauth: emailUseOAuth,
+                notifications_email_oauth_provider: emailOAuthProvider,
+                notifications_email_smtp_host: emailSmtpHost,
+                notifications_email_smtp_port: emailSmtpPort,
+                notifications_email_smtp_username: emailSmtpUsername,
+                notifications_email_smtp_password: emailSmtpPassword,
+                notifications_email_smtp_use_tls: emailSmtpUseTls,
+                notifications_email_from_email: emailFromEmail,
+                notifications_email_to_email: emailToEmail,
+                notifications_email_include_snapshot: emailIncludeSnapshot,
+                notifications_email_dashboard_url: emailDashboardUrl,
+
                 notifications_filter_species_whitelist: filterWhitelist,
                 notifications_filter_min_confidence: filterConfidence,
                 notifications_filter_audio_confirmed_only: filterAudioOnly,
@@ -1154,6 +1194,183 @@
                                 </div>
                                 <button onclick={() => handleTestNotification('telegram')} disabled={testingNotification['telegram'] || !telegramToken || !telegramChatId} class="w-full px-4 py-3 text-xs font-black uppercase tracking-widest rounded-2xl bg-[#24A1DE] hover:bg-opacity-90 text-white transition-all shadow-lg shadow-[#24A1DE]/20 disabled:opacity-50">
                                     {testingNotification['telegram'] ? 'Sending...' : 'Test Telegram'}
+                                </button>
+                            </div>
+                        </section>
+
+                        <!-- Email -->
+                        <section class="bg-white dark:bg-slate-800/50 rounded-3xl border border-slate-200/80 dark:border-slate-700/50 p-8 shadow-sm backdrop-blur-md">
+                            <div class="flex items-center justify-between mb-6">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+                                        <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                        </svg>
+                                    </div>
+                                    <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">{$_('settings.email.title')}</h3>
+                                </div>
+                                <button
+                                    role="switch"
+                                    aria-checked={emailEnabled}
+                                    onclick={() => emailEnabled = !emailEnabled}
+                                    onkeydown={(e) => {
+                                        if (e.key === 'Enter' || e.key === ' ') {
+                                            e.preventDefault();
+                                            emailEnabled = !emailEnabled;
+                                        }
+                                    }}
+                                    class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {emailEnabled ? 'bg-indigo-500' : 'bg-slate-300 dark:bg-slate-600'}"
+                                >
+                                    <span class="sr-only">{$_('settings.email.title')}</span>
+                                    <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {emailEnabled ? 'translate-x-5' : 'translate-x-0'}"></span>
+                                </button>
+                            </div>
+
+                            <div class="space-y-4">
+                                <!-- Auth Mode Selector -->
+                                <div>
+                                    <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.email.auth_mode')}</label>
+                                    <div class="flex gap-2">
+                                        <button
+                                            onclick={() => emailUseOAuth = true}
+                                            class="flex-1 px-4 py-2 rounded-xl text-sm font-bold transition-all {emailUseOAuth ? 'bg-indigo-500 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'}"
+                                        >
+                                            {$_('settings.email.oauth')}
+                                        </button>
+                                        <button
+                                            onclick={() => emailUseOAuth = false}
+                                            class="flex-1 px-4 py-2 rounded-xl text-sm font-bold transition-all {!emailUseOAuth ? 'bg-indigo-500 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'}"
+                                        >
+                                            {$_('settings.email.smtp')}
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {#if emailUseOAuth}
+                                    <!-- OAuth Section -->
+                                    <div class="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-2xl space-y-3">
+                                        <p class="text-xs text-slate-600 dark:text-slate-400">{$_('settings.email.oauth_desc')}</p>
+                                        <div class="flex gap-2">
+                                            <button
+                                                onclick={async () => {
+                                                    try {
+                                                        const { initiateGmailOAuth } = await import('$lib/api');
+                                                        const response = await initiateGmailOAuth();
+                                                        window.open(response.authorization_url, '_blank', 'width=600,height=700');
+                                                    } catch (error) {
+                                                        console.error('Gmail OAuth error:', error);
+                                                    }
+                                                }}
+                                                class="flex-1 px-4 py-2 rounded-xl bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 hover:border-indigo-500 dark:hover:border-indigo-500 text-sm font-bold transition-all"
+                                            >
+                                                {$_('settings.email.connect_gmail')}
+                                            </button>
+                                            <button
+                                                onclick={async () => {
+                                                    try {
+                                                        const { initiateOutlookOAuth } = await import('$lib/api');
+                                                        const response = await initiateOutlookOAuth();
+                                                        window.open(response.authorization_url, '_blank', 'width=600,height=700');
+                                                    } catch (error) {
+                                                        console.error('Outlook OAuth error:', error);
+                                                    }
+                                                }}
+                                                class="flex-1 px-4 py-2 rounded-xl bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 hover:border-indigo-500 dark:hover:border-indigo-500 text-sm font-bold transition-all"
+                                            >
+                                                {$_('settings.email.connect_outlook')}
+                                            </button>
+                                        </div>
+                                        {#if emailConnectedEmail}
+                                            <div class="flex items-center justify-between p-3 bg-green-50 dark:bg-green-900/20 rounded-xl">
+                                                <span class="text-sm text-green-700 dark:text-green-300">{$_('settings.email.connected', { email: emailConnectedEmail })}</span>
+                                                <button
+                                                    onclick={async () => {
+                                                        try {
+                                                            const { disconnectEmailOAuth } = await import('$lib/api');
+                                                            await disconnectEmailOAuth(emailOAuthProvider || 'gmail');
+                                                            emailConnectedEmail = null;
+                                                            emailOAuthProvider = null;
+                                                        } catch (error) {
+                                                            console.error('Disconnect error:', error);
+                                                        }
+                                                    }}
+                                                    class="text-xs text-red-600 dark:text-red-400 hover:underline"
+                                                >
+                                                    {$_('settings.email.disconnect')}
+                                                </button>
+                                            </div>
+                                        {/if}
+                                    </div>
+                                {:else}
+                                    <!-- SMTP Section -->
+                                    <div class="space-y-3">
+                                        <div>
+                                            <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.email.smtp_host')}</label>
+                                            <input type="text" bind:value={emailSmtpHost} placeholder={$_('settings.email.smtp_host_placeholder')} class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm" />
+                                        </div>
+                                        <div class="grid grid-cols-2 gap-3">
+                                            <div>
+                                                <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.email.smtp_port')}</label>
+                                                <input type="number" bind:value={emailSmtpPort} class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm" />
+                                            </div>
+                                            <div class="flex items-end">
+                                                <label class="flex items-center gap-2 px-4 py-3">
+                                                    <input type="checkbox" bind:checked={emailSmtpUseTls} class="rounded" />
+                                                    <span class="text-sm font-bold text-slate-700 dark:text-slate-300">{$_('settings.email.smtp_use_tls')}</span>
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.email.smtp_username')}</label>
+                                            <input type="text" bind:value={emailSmtpUsername} class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm" />
+                                        </div>
+                                        <div>
+                                            <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.email.smtp_password')}</label>
+                                            <input type="password" bind:value={emailSmtpPassword} class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm" />
+                                        </div>
+                                    </div>
+                                {/if}
+
+                                <!-- Common Email Settings -->
+                                <div class="pt-4 border-t border-slate-200 dark:border-slate-700 space-y-3">
+                                    <div>
+                                        <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.email.from_email')}</label>
+                                        <input type="email" bind:value={emailFromEmail} placeholder={$_('settings.email.from_email_placeholder')} class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm" />
+                                    </div>
+                                    <div>
+                                        <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.email.to_email')}</label>
+                                        <input type="email" bind:value={emailToEmail} placeholder={$_('settings.email.to_email_placeholder')} class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm" />
+                                    </div>
+                                    <div>
+                                        <label class="flex items-center gap-2 px-4 py-3 bg-slate-50 dark:bg-slate-900/50 rounded-2xl cursor-pointer">
+                                            <input type="checkbox" bind:checked={emailIncludeSnapshot} class="rounded" />
+                                            <span class="text-sm font-bold text-slate-700 dark:text-slate-300">{$_('settings.email.include_snapshot')}</span>
+                                        </label>
+                                    </div>
+                                    <div>
+                                        <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.email.dashboard_url')}</label>
+                                        <input type="url" bind:value={emailDashboardUrl} placeholder={$_('settings.email.dashboard_url_placeholder')} class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm" />
+                                        <p class="mt-1 text-xs text-slate-500">{$_('settings.email.dashboard_url_desc')}</p>
+                                    </div>
+                                </div>
+
+                                <button
+                                    onclick={async () => {
+                                        try {
+                                            testingNotification['email'] = true;
+                                            const { sendTestEmail } = await import('$lib/api');
+                                            await sendTestEmail();
+                                            message = { type: 'success', text: $_('settings.email.test_email_success', { email: emailToEmail }) };
+                                        } catch (error: any) {
+                                            message = { type: 'error', text: $_('settings.email.test_email_error', { error: error.message }) };
+                                        } finally {
+                                            testingNotification['email'] = false;
+                                        }
+                                    }}
+                                    disabled={testingNotification['email'] || !emailToEmail}
+                                    class="w-full px-4 py-3 text-xs font-black uppercase tracking-widest rounded-2xl bg-indigo-500 hover:bg-indigo-600 text-white transition-all shadow-lg shadow-indigo-500/20 disabled:opacity-50"
+                                >
+                                    {testingNotification['email'] ? $_('settings.email.test_email_sending') : $_('settings.email.test_email')}
                                 </button>
                             </div>
                         </section>
