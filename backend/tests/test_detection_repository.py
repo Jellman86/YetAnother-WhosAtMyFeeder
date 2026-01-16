@@ -32,7 +32,9 @@ async def test_detection_repository():
                 video_classification_label TEXT,
                 video_classification_index INTEGER,
                 video_classification_timestamp TIMESTAMP,
-                video_classification_status TEXT
+                video_classification_status TEXT,
+                ai_analysis TEXT,
+                ai_analysis_timestamp TIMESTAMP
             )
         """)
         await db.commit()

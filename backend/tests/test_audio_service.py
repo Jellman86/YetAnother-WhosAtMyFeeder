@@ -7,7 +7,12 @@ from app.config import settings
 
 @pytest.fixture
 def audio_service():
-    return AudioService(buffer_minutes=5)
+    # Mock settings to avoid reading from config file
+    with patch('app.services.audio.audio_service.settings') as mock_settings:
+        mock_settings.frigate.audio_buffer_hours = 0.083  # ~5 minutes
+        mock_settings.frigate.audio_correlation_window_seconds = 10
+        service = AudioService()
+        yield service
 
 @pytest.mark.asyncio
 async def test_add_detection_basic(audio_service):
