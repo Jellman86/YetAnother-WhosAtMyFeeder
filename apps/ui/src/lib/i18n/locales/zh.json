@@ -288,5 +288,8 @@
         "go_settings": "转到设置",
         "close_modal": "关闭模态框",
         "refresh": "刷新页面"
+    },
+    "footer": {
+        "did_you_know": "你知道吗？"
     }
 }

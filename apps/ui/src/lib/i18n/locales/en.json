@@ -286,5 +286,8 @@
     "go_settings": "Go to Settings",
     "close_modal": "Close modal",
     "refresh": "Refresh page"
+  },
+  "footer": {
+    "did_you_know": "Did you know?"
   }
 }

@@ -286,5 +286,8 @@
     "go_settings": "設定へ",
     "close_modal": "モーダルを閉じる",
     "refresh": "ページを更新"
+  },
+  "footer": {
+    "did_you_know": "ご存知ですか？"
   }
 }

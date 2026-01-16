@@ -286,5 +286,8 @@
     "go_settings": "Zu Einstellungen",
     "close_modal": "Modal schließen",
     "refresh": "Seite aktualisieren"
+  },
+  "footer": {
+    "did_you_know": "Wussten Sie?"
   }
 }
