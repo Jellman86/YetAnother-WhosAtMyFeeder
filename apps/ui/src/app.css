@@ -156,7 +156,15 @@ html {
 @font-face {
   font-family: 'OpenDyslexic';
   src: url('/fonts/OpenDyslexic-Regular.woff') format('woff');
-  font-weight: normal;
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'OpenDyslexic';
+  src: url('/fonts/OpenDyslexic-Bold.woff') format('woff');
+  font-weight: 700;
   font-style: normal;
   font-display: swap;
 }
@@ -166,6 +174,8 @@ html {
 .font-dyslexic * {
   font-family: 'OpenDyslexic', sans-serif !important;
   line-height: 1.6 !important;
+  /* Force bold text to use OpenDyslexic Bold */
+  font-weight: inherit !important;
 }
 
 /* High Contrast Mode */
