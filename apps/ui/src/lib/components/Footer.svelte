@@ -1,15 +1,15 @@
 <script lang="ts">
     import { onMount } from 'svelte';
-    import { _ } from 'svelte-i18n';
+    import { _, json } from 'svelte-i18n';
     import { fetchVersion, type VersionInfo } from '../api';
-    
+
     let version = $state(__APP_VERSION__.split('+')[0]);
     let versionInfo = $state<VersionInfo>({
         version: __APP_VERSION__,
         base_version: __APP_VERSION__.split('+')[0],
         git_hash: __GIT_HASH__
     });
-    
+
     $effect(() => {
         (async () => {
             try {
@@ -23,8 +23,8 @@
         })();
     });
 
-    // Get bird facts from i18n - if not available, fallback to empty array
-    const birdFacts = $derived($_('footer.bird_facts', { default: [] }) || []);
+    // Get bird facts from i18n using json() for array values - if not available, fallback to empty array
+    const birdFacts = $derived($json('footer.bird_facts', { default: [] }) || []);
 
     let currentFactIndex = $state(0);
     let isTransitioning = $state(false);

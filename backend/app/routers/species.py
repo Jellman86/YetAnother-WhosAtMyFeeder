@@ -25,9 +25,13 @@ CACHE_TTL_FAILURE = timedelta(minutes=15)  # Short TTL for failures to allow ret
 WIKIPEDIA_USER_AGENT = "YA-WAMF/2.0 (Bird Watching App; https://github.com/Jellman86/YetAnother-WhosAtMyFeeder)"
 
 # Species names that should NOT trigger Wikipedia lookup (no valid article exists)
-from app.services.classifier_service import get_classifier
-
-# ... imports ...
+SKIP_WIKIPEDIA_LOOKUP = {
+    "Unknown Bird",
+    "Background",
+    "Unknown",
+    "No Detection",
+    "Unidentified"
+}
 
 @router.get("/species/search")
 async def search_species(q: str):
