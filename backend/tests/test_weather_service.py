@@ -145,7 +145,8 @@ async def test_get_current_weather_api_timeout(weather_service):
         with patch('httpx.AsyncClient') as mock_client:
             mock_instance = MagicMock()
             mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
-            mock_instance.__aexit__ = AsyncMock()
+            # __aexit__ must return None/False to propagate exceptions
+            mock_instance.__aexit__ = AsyncMock(return_value=None)
             mock_instance.get = AsyncMock(side_effect=httpx.TimeoutException("Request timeout"))
             mock_client.return_value = mock_instance
 
@@ -164,7 +165,8 @@ async def test_get_current_weather_api_error(weather_service):
         with patch('httpx.AsyncClient') as mock_client:
             mock_instance = MagicMock()
             mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
-            mock_instance.__aexit__ = AsyncMock()
+            # __aexit__ must return None/False to propagate exceptions
+            mock_instance.__aexit__ = AsyncMock(return_value=None)
             mock_instance.get = AsyncMock(side_effect=Exception("API connection failed"))
             mock_client.return_value = mock_instance
 
