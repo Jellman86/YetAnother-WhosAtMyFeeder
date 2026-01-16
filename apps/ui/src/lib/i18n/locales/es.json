@@ -329,6 +329,28 @@
     "refresh": "Refrescar página"
   },
   "footer": {
-    "did_you_know": "¿Sabías que?"
+    "did_you_know": "¿Sabías que?",
+    "bird_facts": [
+      "Los colibríes pueden volar hacia atrás y son las únicas aves que pueden mantenerse suspendidas en el aire",
+      "Los cuervos pueden reconocer rostros humanos y recordar a las personas que les han hecho daño",
+      "El charrán ártico migra más de 44,000 millas anuales - la migración más larga de cualquier ave",
+      "Los búhos no pueden mover sus globos oculares, por eso pueden girar la cabeza hasta 270 grados",
+      "El halcón peregrino puede lanzarse en picada a velocidades superiores a 240 mph, convirtiéndolo en el animal más rápido de la Tierra",
+      "Los cuervos pueden imitar el habla humana y otros sonidos como motores de autos y descargas de inodoros",
+      "Los pingüinos proponen matrimonio a sus parejas con una piedra",
+      "Los arrendajos azules pueden imitar los llamados de los halcones para ahuyentar a otras aves de los comederos",
+      "Las plumas de un ave pesan más que su esqueleto",
+      "El colibrí zunzuncito es el ave más pequeña del mundo, pesa menos que un centavo",
+      "Las fragatas pueden permanecer en el aire durante meses sin aterrizar",
+      "Las urracas son uno de los pocos animales que pueden reconocerse a sí mismas en un espejo",
+      "El albatros viajero tiene la envergadura más grande de cualquier ave viva, hasta 11.8 pies",
+      "Los pájaros carpinteros no sufren dolores de cabeza porque sus cráneos tienen bolsas de aire que absorben el impacto",
+      "Los vencejos pasan la mayor parte de sus vidas en el aire e incluso pueden dormir mientras vuelan",
+      "Las aves no son reales - son drones de vigilancia del gobierno (supuestamente)",
+      "Los gansos tienen dientes en la lengua. ¡Que duermas bien esta noche!",
+      "Más vale pájaro en mano que ciento volando, pero significativamente más sucio",
+      "Los pingüinos son simplemente pollos formales vestidos para una gala",
+      "Los gallos le gritan al sol porque le tienen miedo a la oscuridad"
+    ]
   }
 }

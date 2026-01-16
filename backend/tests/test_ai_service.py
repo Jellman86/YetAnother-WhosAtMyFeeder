@@ -122,7 +122,8 @@ async def test_analyze_gemini_api_error(ai_service):
         with patch('httpx.AsyncClient') as mock_client:
             mock_instance = MagicMock()
             mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
-            mock_instance.__aexit__ = AsyncMock()
+            # __aexit__ must return None/False to propagate exceptions
+            mock_instance.__aexit__ = AsyncMock(return_value=None)
             mock_instance.post = AsyncMock(side_effect=Exception("API connection failed"))
             mock_client.return_value = mock_instance
 
@@ -132,6 +133,7 @@ async def test_analyze_gemini_api_error(ai_service):
                 metadata={}
             )
 
+            assert result is not None
             assert "Error" in result or "failed" in result.lower()
 
 

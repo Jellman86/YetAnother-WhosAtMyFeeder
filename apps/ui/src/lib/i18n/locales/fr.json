@@ -329,6 +329,28 @@
     "refresh": "Actualiser la page"
   },
   "footer": {
-    "did_you_know": "Le saviez-vous ?"
+    "did_you_know": "Le saviez-vous ?",
+    "bird_facts": [
+      "Les colibris peuvent voler en arrière et sont les seuls oiseaux capables de faire du vol stationnaire",
+      "Les corbeaux peuvent reconnaître les visages humains et se souvenir des personnes qui leur ont fait du tort",
+      "La sterne arctique parcourt plus de 70 000 kilomètres par an - la plus longue migration de tous les oiseaux",
+      "Les hiboux ne peuvent pas bouger leurs globes oculaires, c'est pourquoi ils peuvent faire pivoter leur tête jusqu'à 270 degrés",
+      "Le faucon pèlerin peut plonger à des vitesses de plus de 385 km/h, ce qui en fait l'animal le plus rapide de la Terre",
+      "Les grands corbeaux peuvent imiter la parole humaine et d'autres sons comme les moteurs de voiture et les chasses d'eau",
+      "Les manchots demandent leur partenaire en mariage avec un caillou",
+      "Les geais bleus peuvent imiter les cris des faucons pour effrayer d'autres oiseaux et les éloigner des mangeoires",
+      "Les plumes d'un oiseau pèsent plus lourd que son squelette",
+      "Le colibri d'Elena est le plus petit oiseau du monde, pesant moins qu'une pièce de monnaie",
+      "Les frégates peuvent rester en vol pendant des mois sans se poser",
+      "Les pies sont l'un des rares animaux capables de se reconnaître dans un miroir",
+      "L'albatros hurleur possède la plus grande envergure de tous les oiseaux vivants, jusqu'à 3,6 mètres",
+      "Les pics ne souffrent pas de maux de tête car leurs crânes ont des poches d'air qui absorbent les chocs",
+      "Les martinets passent la majeure partie de leur vie dans les airs et peuvent même dormir en vol",
+      "Les oiseaux n'existent pas - ce sont des drones de surveillance gouvernementaux (soi-disant)",
+      "Les oies ont des dents sur leur langue. Dormez bien ce soir !",
+      "Un oiseau dans la main vaut mieux que deux dans la brousse, mais c'est nettement plus salissant",
+      "Les manchots ne sont que des poulets habillés en tenue de gala",
+      "Les coqs crient vers le soleil parce qu'ils ont peur du noir"
+    ]
   }
 }

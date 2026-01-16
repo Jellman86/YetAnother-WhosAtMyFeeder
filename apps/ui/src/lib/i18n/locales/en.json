@@ -329,6 +329,28 @@
     "refresh": "Refresh page"
   },
   "footer": {
-    "did_you_know": "Did you know?"
+    "did_you_know": "Did you know?",
+    "bird_facts": [
+      "Hummingbirds can fly backwards and are the only birds that can hover in place",
+      "Crows can recognize human faces and remember people who have wronged them",
+      "The Arctic Tern migrates over 44,000 miles annually - the longest migration of any bird",
+      "Owls cannot move their eyeballs, which is why they can rotate their heads up to 270 degrees",
+      "The Peregrine Falcon can dive at speeds over 240 mph, making it the fastest animal on Earth",
+      "Ravens can imitate human speech and other sounds like car engines and toilets flushing",
+      "Penguins propose to their mates with a pebble",
+      "Blue jays can mimic the calls of hawks to scare other birds away from feeders",
+      "A bird's feathers weigh more than its skeleton",
+      "The Bee Hummingbird is the smallest bird in the world, weighing less than a penny",
+      "Frigatebirds can stay in the air for months at a time without landing",
+      "Magpies are one of the few animals that can recognize themselves in a mirror",
+      "The wandering albatross has the largest wingspan of any living bird, up to 11.8 feet",
+      "Woodpeckers don't get headaches because their skulls have air pockets to absorb shock",
+      "Swifts spend most of their lives in the air and can even sleep while flying",
+      "Birds aren't real - they're government surveillance drones (allegedly)",
+      "Geese have teeth on their tongues. Sleep well tonight!",
+      "A bird in the hand is worth two in the bush, but significantly messier",
+      "Penguins are just formal chickens dressed for a gala",
+      "Roosters scream at the sun because they are afraid of the dark"
+    ]
   }
 }

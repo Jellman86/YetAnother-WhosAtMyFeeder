@@ -329,6 +329,28 @@
     "refresh": "Seite aktualisieren"
   },
   "footer": {
-    "did_you_know": "Wussten Sie?"
+    "did_you_know": "Wussten Sie?",
+    "bird_facts": [
+      "Kolibris können rückwärts fliegen und sind die einzigen Vögel, die an Ort und Stelle schweben können",
+      "Krähen können menschliche Gesichter erkennen und sich an Menschen erinnern, die ihnen Unrecht getan haben",
+      "Die Küstenseeschwalbe wandert jährlich über 44.000 Meilen - die längste Wanderung aller Vögel",
+      "Eulen können ihre Augäpfel nicht bewegen, weshalb sie ihre Köpfe bis zu 270 Grad drehen können",
+      "Der Wanderfalke kann mit Geschwindigkeiten von über 240 mph tauchen und ist damit das schnellste Tier der Erde",
+      "Raben können menschliche Sprache und andere Geräusche wie Automotoren und Toilettenspülungen nachahmen",
+      "Pinguine machen ihren Partnern einen Heiratsantrag mit einem Kieselstein",
+      "Blauhäher können die Rufe von Habichten nachahmen, um andere Vögel von Futterstellen zu verscheuchen",
+      "Die Federn eines Vogels wiegen mehr als sein Skelett",
+      "Der Bienenkolibri ist der kleinste Vogel der Welt und wiegt weniger als ein Penny",
+      "Fregattvögel können monatelang in der Luft bleiben, ohne zu landen",
+      "Elstern sind eines der wenigen Tiere, die sich selbst im Spiegel erkennen können",
+      "Der Wanderalbatros hat die größte Flügelspannweite aller lebenden Vögel, bis zu 11,8 Fuß",
+      "Spechte bekommen keine Kopfschmerzen, weil ihre Schädel Luftpolster haben, die Stöße absorbieren",
+      "Mauersegler verbringen den größten Teil ihres Lebens in der Luft und können sogar im Flug schlafen",
+      "Vögel sind nicht echt - sie sind staatliche Überwachungsdrohnen (angeblich)",
+      "Gänse haben Zähne auf ihren Zungen. Schlaf gut heute Nacht!",
+      "Ein Vogel in der Hand ist zwei im Busch wert, aber deutlich unordentlicher",
+      "Pinguine sind einfach formelle Hühner, die für eine Gala gekleidet sind",
+      "Hähne schreien die Sonne an, weil sie Angst vor der Dunkelheit haben"
+    ]
   }
 }
