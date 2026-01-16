@@ -275,5 +275,16 @@
     "page_number": "Seite {number}",
     "page_size_label": "Anzeigen:",
     "page_size_aria": "Elemente pro Seite"
+  },
+  "shortcuts": {
+    "title": "Tastaturkürzel",
+    "hint": "Tastaturkürzel (?)",
+    "open_panel": "Tastaturkürzel-Panel öffnen",
+    "go_dashboard": "Zum Dashboard",
+    "go_events": "Zu Ereignissen",
+    "go_species": "Zur Bestenliste",
+    "go_settings": "Zu Einstellungen",
+    "close_modal": "Modal schließen",
+    "refresh": "Seite aktualisieren"
   }
 }

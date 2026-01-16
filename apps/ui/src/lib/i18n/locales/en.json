@@ -275,5 +275,16 @@
     "page_number": "Page {number}",
     "page_size_label": "Show:",
     "page_size_aria": "Items per page"
+  },
+  "shortcuts": {
+    "title": "Keyboard Shortcuts",
+    "hint": "Keyboard shortcuts (?)",
+    "open_panel": "Open shortcuts panel",
+    "go_dashboard": "Go to Dashboard",
+    "go_events": "Go to Events",
+    "go_species": "Go to Leaderboard",
+    "go_settings": "Go to Settings",
+    "close_modal": "Close modal",
+    "refresh": "Refresh page"
   }
 }

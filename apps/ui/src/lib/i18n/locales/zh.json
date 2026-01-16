@@ -277,5 +277,16 @@
         "page_number": "第 {number} 页",
         "page_size_label": "显示:",
         "page_size_aria": "每页项目数"
+    },
+    "shortcuts": {
+        "title": "键盘快捷键",
+        "hint": "键盘快捷键 (?)",
+        "open_panel": "打开快捷键面板",
+        "go_dashboard": "转到仪表盘",
+        "go_events": "转到事件",
+        "go_species": "转到排行榜",
+        "go_settings": "转到设置",
+        "close_modal": "关闭模态框",
+        "refresh": "刷新页面"
     }
 }

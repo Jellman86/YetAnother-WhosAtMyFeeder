@@ -879,8 +879,23 @@
                                     </div>
 
                                     <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 flex items-center justify-between">
-                                        <span class="text-xs font-bold text-slate-900 dark:text-white">{$_('settings.frigate.mqtt_auth')}</span>
-                                        <button onclick={() => mqttAuth = !mqttAuth} class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {mqttAuth ? 'bg-teal-500' : 'bg-slate-300 dark:bg-slate-600'}"><span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {mqttAuth ? 'translate-x-5' : 'translate-x-0'}"></span></button>
+                                        <span id="mqtt-auth-label" class="text-xs font-bold text-slate-900 dark:text-white">{$_('settings.frigate.mqtt_auth')}</span>
+                                        <button
+                                            role="switch"
+                                            aria-checked={mqttAuth}
+                                            aria-labelledby="mqtt-auth-label"
+                                            onclick={() => mqttAuth = !mqttAuth}
+                                            onkeydown={(e) => {
+                                                if (e.key === 'Enter' || e.key === ' ') {
+                                                    e.preventDefault();
+                                                    mqttAuth = !mqttAuth;
+                                                }
+                                            }}
+                                            class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {mqttAuth ? 'bg-teal-500' : 'bg-slate-300 dark:bg-slate-600'}"
+                                        >
+                                            <span class="sr-only">{$_('settings.frigate.mqtt_auth')}</span>
+                                            <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {mqttAuth ? 'translate-x-5' : 'translate-x-0'}"></span>
+                                        </button>
                                     </div>
 
                                     {#if mqttAuth}
@@ -893,14 +908,24 @@
                             </div>
 
                             <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 flex items-center justify-between">
-                                <div>
+                                <div id="clips-enabled-label">
                                     <span class="block text-sm font-bold text-slate-900 dark:text-white">{$_('settings.frigate.fetch_clips')}</span>
                                     <span class="block text-[10px] text-slate-500 font-medium">{$_('settings.frigate.fetch_clips_desc')}</span>
                                 </div>
-                                <button 
+                                <button
+                                    role="switch"
+                                    aria-checked={clipsEnabled}
+                                    aria-labelledby="clips-enabled-label"
                                     onclick={() => clipsEnabled = !clipsEnabled}
+                                    onkeydown={(e) => {
+                                        if (e.key === 'Enter' || e.key === ' ') {
+                                            e.preventDefault();
+                                            clipsEnabled = !clipsEnabled;
+                                        }
+                                    }}
                                     class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none {clipsEnabled ? 'bg-teal-500' : 'bg-slate-300 dark:bg-slate-600'}"
                                 >
+                                    <span class="sr-only">{$_('settings.frigate.fetch_clips')}</span>
                                     <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out {clipsEnabled ? 'translate-x-5' : 'translate-x-0'}"></span>
                                 </button>
                             </div>
@@ -1036,13 +1061,28 @@
                         <!-- Discord -->
                         <section class="bg-white dark:bg-slate-800/50 rounded-3xl border border-slate-200/80 dark:border-slate-700/50 p-8 shadow-sm backdrop-blur-md">
                             <div class="flex items-center justify-between mb-6">
-                                <div class="flex items-center gap-3">
+                                <div id="discord-enabled-label" class="flex items-center gap-3">
                                     <div class="w-10 h-10 rounded-2xl bg-[#5865F2]/10 flex items-center justify-center text-[#5865F2]">
                                         <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.419-2.1568 2.419zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.419-2.1568 2.419z"/></svg>
                                     </div>
                                     <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">Discord</h3>
                                 </div>
-                                <button onclick={() => discordEnabled = !discordEnabled} class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {discordEnabled ? 'bg-[#5865F2]' : 'bg-slate-300 dark:bg-slate-600'}"><span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {discordEnabled ? 'translate-x-5' : 'translate-x-0'}"></span></button>
+                                <button
+                                    role="switch"
+                                    aria-checked={discordEnabled}
+                                    aria-labelledby="discord-enabled-label"
+                                    onclick={() => discordEnabled = !discordEnabled}
+                                    onkeydown={(e) => {
+                                        if (e.key === 'Enter' || e.key === ' ') {
+                                            e.preventDefault();
+                                            discordEnabled = !discordEnabled;
+                                        }
+                                    }}
+                                    class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {discordEnabled ? 'bg-[#5865F2]' : 'bg-slate-300 dark:bg-slate-600'}"
+                                >
+                                    <span class="sr-only">Discord</span>
+                                    <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {discordEnabled ? 'translate-x-5' : 'translate-x-0'}"></span>
+                                </button>
                             </div>
 
                             <div class="space-y-6">

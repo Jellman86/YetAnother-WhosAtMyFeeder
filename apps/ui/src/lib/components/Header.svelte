@@ -3,10 +3,11 @@
     import { _ } from 'svelte-i18n';
     import LanguageSelector from './LanguageSelector.svelte';
 
-    let { currentRoute, onNavigate, status } = $props<{
+    let { currentRoute, onNavigate, status, onShowKeyboardShortcuts } = $props<{
         currentRoute: string;
         onNavigate: (path: string) => void;
         status?: import('svelte').Snippet;
+        onShowKeyboardShortcuts?: () => void;
     }>();
 
     let mobileMenuOpen = $state(false);
@@ -68,7 +69,22 @@
             <!-- Right side controls -->
             <div class="flex items-center gap-2">
                 <LanguageSelector />
-                
+
+                <!-- Keyboard Shortcuts button -->
+                {#if onShowKeyboardShortcuts}
+                    <button
+                        class="p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400
+                               transition-all duration-200 focus-ring"
+                        onclick={() => onShowKeyboardShortcuts?.()}
+                        title={$_('shortcuts.hint', { default: 'Keyboard shortcuts (?)' })}
+                        aria-label={$_('shortcuts.open_panel', { default: 'Open shortcuts panel' })}
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                    </button>
+                {/if}
+
                 <!-- Theme toggle -->
                 <button
                     class="p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400

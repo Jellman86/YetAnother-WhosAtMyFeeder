@@ -5,6 +5,7 @@
   import Footer from './lib/components/Footer.svelte';
   import TelemetryBanner from './lib/components/TelemetryBanner.svelte';
   import Toast from './lib/components/Toast.svelte';
+  import KeyboardShortcuts from './lib/components/KeyboardShortcuts.svelte';
   import Dashboard from './lib/pages/Dashboard.svelte';
   import Events from './lib/pages/Events.svelte';
   import Species from './lib/pages/Species.svelte';
@@ -19,6 +20,7 @@
   import { authStore } from './lib/stores/auth.svelte';
   import { announcer } from './lib/components/Announcer.svelte';
   import Announcer from './lib/components/Announcer.svelte';
+  import { initKeyboardShortcuts } from './lib/utils/keyboard-shortcuts';
 
   // Track current layout
   let currentLayout = $state<'horizontal' | 'vertical'>('horizontal');
@@ -60,6 +62,9 @@
   let isReconnecting = $state(false);
   let mobileSidebarOpen = $state(false);
 
+  // Keyboard shortcuts
+  let showKeyboardShortcuts = $state(false);
+
   // Handle back button and initial load
   onMount(() => {
       // Register auth error callback
@@ -91,9 +96,24 @@
       };
       document.addEventListener('visibilitychange', handleVisibilityChange);
 
+      // Initialize keyboard shortcuts
+      const cleanupShortcuts = initKeyboardShortcuts({
+          '?': () => showKeyboardShortcuts = true,
+          'g d': () => navigate('/'),
+          'g e': () => navigate('/events'),
+          'g l': () => navigate('/species'),
+          'g t': () => navigate('/settings'),
+          'Escape': () => {
+              // Close keyboard shortcuts modal
+              showKeyboardShortcuts = false;
+          },
+          'r': () => window.location.reload()
+      });
+
       return () => {
           window.removeEventListener('popstate', handlePopState);
           document.removeEventListener('visibilitychange', handleVisibilityChange);
+          cleanupShortcuts();
           if (evtSource) {
               evtSource.close();
               evtSource = null;
@@ -358,7 +378,7 @@
               {/snippet}
           </Sidebar>
       {:else}
-          <Header {currentRoute} onNavigate={navigate}>
+          <Header {currentRoute} onNavigate={navigate} onShowKeyboardShortcuts={() => showKeyboardShortcuts = true}>
               {#snippet status()}
                   <div class="flex items-center gap-4">
                       {#if settingsStore.settings?.birdnet_enabled}
@@ -414,4 +434,7 @@
   <!-- Toast Notifications -->
   <Toast />
   <Announcer />
+
+  <!-- Keyboard Shortcuts Modal -->
+  <KeyboardShortcuts bind:visible={showKeyboardShortcuts} />
 </div>

@@ -275,5 +275,16 @@
     "page_number": "Página {number}",
     "page_size_label": "Mostrar:",
     "page_size_aria": "Elementos por página"
+  },
+  "shortcuts": {
+    "title": "Atajos de Teclado",
+    "hint": "Atajos de teclado (?)",
+    "open_panel": "Abrir panel de atajos",
+    "go_dashboard": "Ir al Tablero",
+    "go_events": "Ir a Eventos",
+    "go_species": "Ir a Clasificación",
+    "go_settings": "Ir a Ajustes",
+    "close_modal": "Cerrar modal",
+    "refresh": "Refrescar página"
   }
 }
