@@ -1,0 +1,20 @@
+======================================
+   NEW BIRD DETECTION!
+======================================
+
+Species: {{ species }}{% if audio_confirmed %} ♪ [Audio Confirmed]{% endif %}
+
+Confidence: {{ confidence }}%
+Camera: {{ camera }}
+Time: {{ timestamp }}
+{% if scientific_name %}Scientific Name: {{ scientific_name }}{% endif %}
+
+{% if weather %}Weather: {{ weather }}{% endif %}
+
+
+{% if dashboard_url %}View in dashboard: {{ dashboard_url }}{% endif %}
+
+
+---
+Sent by YA-WAMF (Yet Another WhosAtMyFeeder)
+This email was automatically generated when a bird was detected at your feeder.

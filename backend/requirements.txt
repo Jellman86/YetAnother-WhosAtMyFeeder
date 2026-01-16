@@ -27,3 +27,11 @@ pytest-cov==4.1.0
 ruff
 prometheus-client
 slowapi==0.1.9
+# SMTP Email Support
+aiosmtplib==3.0.1
+# OAuth Support for Gmail and Outlook
+google-auth==2.27.0
+google-auth-oauthlib==1.2.0
+msal==1.26.0
+# Email templating
+jinja2==3.1.3

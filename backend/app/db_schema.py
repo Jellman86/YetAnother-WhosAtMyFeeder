@@ -61,3 +61,22 @@ taxonomy_cache = Table(
 # Indices for taxonomy_cache
 Index("idx_taxonomy_scientific", taxonomy_cache.c.scientific_name)
 Index("idx_taxonomy_common", taxonomy_cache.c.common_name)
+
+oauth_tokens = Table(
+    "oauth_tokens",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("provider", String, nullable=False),  # 'gmail', 'outlook', etc.
+    Column("email", String, nullable=False),  # User's email address
+    Column("access_token", String, nullable=False),  # OAuth access token
+    Column("refresh_token", String, nullable=True),  # OAuth refresh token
+    Column("token_type", String, nullable=True),  # Usually 'Bearer'
+    Column("expires_at", TIMESTAMP, nullable=True),  # Token expiration timestamp
+    Column("scope", String, nullable=True),  # OAuth scopes granted
+    Column("created_at", TIMESTAMP, server_default=func.now(), nullable=False),
+    Column("updated_at", TIMESTAMP, server_default=func.now(), onupdate=func.now(), nullable=False),
+)
+
+# Indices for oauth_tokens
+Index("idx_oauth_tokens_provider", oauth_tokens.c.provider)
+Index("idx_oauth_tokens_email", oauth_tokens.c.email)

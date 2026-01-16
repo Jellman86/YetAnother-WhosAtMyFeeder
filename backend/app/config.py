@@ -116,6 +116,27 @@ class TelegramSettings(BaseModel):
     chat_id: Optional[str] = Field(default=None, description="Telegram Chat ID")
     include_snapshot: bool = Field(default=True, description="Include snapshot image")
 
+class EmailSettings(BaseModel):
+    enabled: bool = Field(default=False, description="Enable Email notifications")
+    # OAuth2 Settings
+    use_oauth: bool = Field(default=False, description="Use OAuth2 authentication (Gmail/Outlook)")
+    oauth_provider: Optional[str] = Field(default=None, description="OAuth provider: 'gmail' or 'outlook'")
+    gmail_client_id: Optional[str] = Field(default=None, description="Gmail OAuth Client ID")
+    gmail_client_secret: Optional[str] = Field(default=None, description="Gmail OAuth Client Secret")
+    outlook_client_id: Optional[str] = Field(default=None, description="Outlook OAuth Client ID")
+    outlook_client_secret: Optional[str] = Field(default=None, description="Outlook OAuth Client Secret")
+    # Traditional SMTP Settings
+    smtp_host: Optional[str] = Field(default=None, description="SMTP server hostname")
+    smtp_port: int = Field(default=587, description="SMTP server port")
+    smtp_username: Optional[str] = Field(default=None, description="SMTP username")
+    smtp_password: Optional[str] = Field(default=None, description="SMTP password")
+    smtp_use_tls: bool = Field(default=True, description="Use TLS for SMTP connection")
+    # Email Settings
+    from_email: Optional[str] = Field(default=None, description="Sender email address")
+    to_email: Optional[str] = Field(default=None, description="Recipient email address")
+    include_snapshot: bool = Field(default=True, description="Include bird snapshot image")
+    dashboard_url: Optional[str] = Field(default=None, description="Dashboard URL for email links")
+
 class NotificationFilterSettings(BaseModel):
     species_whitelist: list[str] = Field(default=[], description="Only notify for these species (empty = all)")
     min_confidence: float = Field(default=0.7, description="Minimum confidence to trigger notification")
@@ -126,6 +147,7 @@ class NotificationSettings(BaseModel):
     discord: DiscordSettings = DiscordSettings()
     pushover: PushoverSettings = PushoverSettings()
     telegram: TelegramSettings = TelegramSettings()
+    email: EmailSettings = EmailSettings()
     filters: NotificationFilterSettings = NotificationFilterSettings()
     notification_language: str = Field(default="en", description="Language for notifications (en, es, fr, de, ja)")
 
