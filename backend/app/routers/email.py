@@ -1,0 +1,350 @@
+"""
+Email notification OAuth and management endpoints
+"""
+
+from fastapi import APIRouter, HTTPException, Request, Query
+from fastapi.responses import RedirectResponse, HTMLResponse
+from pydantic import BaseModel
+import structlog
+from typing import Optional
+from urllib.parse import urlencode
+
+from google_auth_oauthlib.flow import Flow
+from msal import ConfidentialClientApplication
+
+from app.config import settings
+from app.services.smtp_service import smtp_service
+
+router = APIRouter(prefix="/email", tags=["email"])
+log = structlog.get_logger()
+
+
+class OAuthCallbackRequest(BaseModel):
+    code: str
+    state: Optional[str] = None
+
+
+class TestEmailRequest(BaseModel):
+    test_subject: str = "YA-WAMF Test Email"
+    test_message: str = "This is a test email from YA-WAMF to verify your email configuration."
+
+
+@router.get("/oauth/gmail/authorize")
+async def gmail_oauth_authorize(request: Request):
+    """
+    Initiate Gmail OAuth2 authorization flow
+
+    Returns redirect URL for user to authorize application
+    """
+    try:
+        if not settings.notifications.email.gmail_client_id or not settings.notifications.email.gmail_client_secret:
+            raise HTTPException(status_code=400, detail="Gmail OAuth credentials not configured")
+
+        # Create OAuth flow
+        flow = Flow.from_client_config(
+            {
+                "web": {
+                    "client_id": settings.notifications.email.gmail_client_id,
+                    "client_secret": settings.notifications.email.gmail_client_secret,
+                    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                    "token_uri": "https://oauth2.googleapis.com/token",
+                    "redirect_uris": [f"{str(request.base_url)}api/email/oauth/gmail/callback"]
+                }
+            },
+            scopes=["https://www.googleapis.com/auth/gmail.send"]
+        )
+
+        # Set redirect URI
+        redirect_uri = f"{str(request.base_url)}api/email/oauth/gmail/callback"
+        flow.redirect_uri = redirect_uri
+
+        # Generate authorization URL
+        authorization_url, state = flow.authorization_url(
+            access_type='offline',
+            include_granted_scopes='true',
+            prompt='consent'  # Force consent to get refresh token
+        )
+
+        log.info("gmail_oauth_initiated", redirect_uri=redirect_uri)
+
+        return {"authorization_url": authorization_url, "state": state}
+
+    except Exception as e:
+        log.error("gmail_oauth_authorize_error", error=str(e))
+        raise HTTPException(status_code=500, detail=f"Failed to initiate Gmail OAuth: {str(e)}")
+
+
+@router.get("/oauth/gmail/callback")
+async def gmail_oauth_callback(request: Request, code: str = Query(...), state: str = Query(None)):
+    """
+    Handle Gmail OAuth2 callback and store tokens
+    """
+    try:
+        # Create OAuth flow
+        flow = Flow.from_client_config(
+            {
+                "web": {
+                    "client_id": settings.notifications.email.gmail_client_id,
+                    "client_secret": settings.notifications.email.gmail_client_secret,
+                    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                    "token_uri": "https://oauth2.googleapis.com/token",
+                    "redirect_uris": [f"{str(request.base_url)}api/email/oauth/gmail/callback"]
+                }
+            },
+            scopes=["https://www.googleapis.com/auth/gmail.send"],
+            state=state
+        )
+
+        flow.redirect_uri = f"{str(request.base_url)}api/email/oauth/gmail/callback"
+
+        # Exchange authorization code for tokens
+        flow.fetch_token(code=code)
+
+        credentials = flow.credentials
+
+        # Get user email from token info
+        import httpx
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                "https://www.googleapis.com/oauth2/v1/userinfo",
+                headers={"Authorization": f"Bearer {credentials.token}"}
+            )
+            user_info = response.json()
+            email = user_info.get("email")
+
+        # Store tokens in database
+        expires_in = int((credentials.expiry - credentials.token.tzinfo.localize(credentials.expiry.utcnow())).total_seconds()) if credentials.expiry else 3600
+
+        await smtp_service.store_oauth_token(
+            provider="gmail",
+            email=email,
+            access_token=credentials.token,
+            refresh_token=credentials.refresh_token,
+            expires_in=expires_in,
+            scope=" ".join(credentials.scopes) if credentials.scopes else None
+        )
+
+        log.info("gmail_oauth_completed", email=email)
+
+        # Return success HTML page
+        return HTMLResponse(content="""
+        <html>
+            <head><title>Gmail Connected</title></head>
+            <body style="font-family: sans-serif; text-align: center; padding: 50px;">
+                <h1 style="color: #10b981;">✓ Gmail Connected Successfully!</h1>
+                <p>You can close this window and return to YA-WAMF settings.</p>
+                <p style="color: #64748b; font-size: 14px;">Email: {email}</p>
+                <script>
+                    // Try to close popup window after 3 seconds
+                    setTimeout(() => window.close(), 3000);
+                </script>
+            </body>
+        </html>
+        """.format(email=email))
+
+    except Exception as e:
+        log.error("gmail_oauth_callback_error", error=str(e))
+        return HTMLResponse(content=f"""
+        <html>
+            <head><title>Gmail Connection Failed</title></head>
+            <body style="font-family: sans-serif; text-align: center; padding: 50px;">
+                <h1 style="color: #ef4444;">✗ Gmail Connection Failed</h1>
+                <p>{str(e)}</p>
+                <p><a href="javascript:window.close()">Close Window</a></p>
+            </body>
+        </html>
+        """, status_code=500)
+
+
+@router.get("/oauth/outlook/authorize")
+async def outlook_oauth_authorize(request: Request):
+    """
+    Initiate Outlook/Office 365 OAuth2 authorization flow
+    """
+    try:
+        if not settings.notifications.email.outlook_client_id or not settings.notifications.email.outlook_client_secret:
+            raise HTTPException(status_code=400, detail="Outlook OAuth credentials not configured")
+
+        # Create MSAL application
+        app = ConfidentialClientApplication(
+            client_id=settings.notifications.email.outlook_client_id,
+            client_credential=settings.notifications.email.outlook_client_secret,
+            authority="https://login.microsoftonline.com/common"
+        )
+
+        # Generate authorization URL
+        redirect_uri = f"{str(request.base_url)}api/email/oauth/outlook/callback"
+
+        auth_url = app.get_authorization_request_url(
+            scopes=["https://outlook.office365.com/SMTP.Send"],
+            redirect_uri=redirect_uri
+        )
+
+        log.info("outlook_oauth_initiated", redirect_uri=redirect_uri)
+
+        return {"authorization_url": auth_url}
+
+    except Exception as e:
+        log.error("outlook_oauth_authorize_error", error=str(e))
+        raise HTTPException(status_code=500, detail=f"Failed to initiate Outlook OAuth: {str(e)}")
+
+
+@router.get("/oauth/outlook/callback")
+async def outlook_oauth_callback(request: Request, code: str = Query(...)):
+    """
+    Handle Outlook OAuth2 callback and store tokens
+    """
+    try:
+        # Create MSAL application
+        app = ConfidentialClientApplication(
+            client_id=settings.notifications.email.outlook_client_id,
+            client_credential=settings.notifications.email.outlook_client_secret,
+            authority="https://login.microsoftonline.com/common"
+        )
+
+        redirect_uri = f"{str(request.base_url)}api/email/oauth/outlook/callback"
+
+        # Exchange authorization code for tokens
+        result = app.acquire_token_by_authorization_code(
+            code=code,
+            scopes=["https://outlook.office365.com/SMTP.Send"],
+            redirect_uri=redirect_uri
+        )
+
+        if "access_token" not in result:
+            raise HTTPException(status_code=400, detail=result.get("error_description", "Failed to obtain access token"))
+
+        # Get user email from token
+        email = result.get("account", {}).get("username")
+
+        # Store tokens in database
+        await smtp_service.store_oauth_token(
+            provider="outlook",
+            email=email,
+            access_token=result["access_token"],
+            refresh_token=result.get("refresh_token"),
+            expires_in=result.get("expires_in", 3600),
+            scope=" ".join(result.get("scope", []))
+        )
+
+        log.info("outlook_oauth_completed", email=email)
+
+        # Return success HTML page
+        return HTMLResponse(content=f"""
+        <html>
+            <head><title>Outlook Connected</title></head>
+            <body style="font-family: sans-serif; text-align: center; padding: 50px;">
+                <h1 style="color: #10b981;">✓ Outlook Connected Successfully!</h1>
+                <p>You can close this window and return to YA-WAMF settings.</p>
+                <p style="color: #64748b; font-size: 14px;">Email: {email}</p>
+                <script>
+                    setTimeout(() => window.close(), 3000);
+                </script>
+            </body>
+        </html>
+        """)
+
+    except Exception as e:
+        log.error("outlook_oauth_callback_error", error=str(e))
+        return HTMLResponse(content=f"""
+        <html>
+            <head><title>Outlook Connection Failed</title></head>
+            <body style="font-family: sans-serif; text-align: center; padding: 50px;">
+                <h1 style="color: #ef4444;">✗ Outlook Connection Failed</h1>
+                <p>{str(e)}</p>
+                <p><a href="javascript:window.close()">Close Window</a></p>
+            </body>
+        </html>
+        """, status_code=500)
+
+
+@router.delete("/oauth/{provider}/disconnect")
+async def disconnect_oauth(provider: str):
+    """
+    Disconnect OAuth email provider and delete stored tokens
+    """
+    if provider not in ["gmail", "outlook"]:
+        raise HTTPException(status_code=400, detail="Invalid provider. Must be 'gmail' or 'outlook'")
+
+    try:
+        success = await smtp_service.delete_oauth_token(provider)
+
+        if success:
+            log.info("oauth_disconnected", provider=provider)
+            return {"message": f"{provider.capitalize()} disconnected successfully"}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to disconnect")
+
+    except Exception as e:
+        log.error("oauth_disconnect_error", error=str(e), provider=provider)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/test")
+async def send_test_email(test_request: TestEmailRequest):
+    """
+    Send a test email to verify configuration
+    """
+    try:
+        email_config = settings.notifications.email
+
+        if not email_config.enabled:
+            raise HTTPException(status_code=400, detail="Email notifications not enabled")
+
+        if not email_config.to_email:
+            raise HTTPException(status_code=400, detail="Recipient email not configured")
+
+        # Prepare email content
+        html_body = f"""
+        <html>
+            <body style="font-family: sans-serif; padding: 20px;">
+                <h2>{test_request.test_subject}</h2>
+                <p>{test_request.test_message}</p>
+                <hr>
+                <p style="color: #666; font-size: 12px;">
+                    Sent from YA-WAMF Email Configuration Test
+                </p>
+            </body>
+        </html>
+        """
+
+        plain_body = f"{test_request.test_subject}\n\n{test_request.test_message}\n\n---\nSent from YA-WAMF Email Configuration Test"
+
+        # Send using OAuth or traditional SMTP
+        if email_config.use_oauth and email_config.oauth_provider:
+            success = await smtp_service.send_email_oauth(
+                provider=email_config.oauth_provider,
+                to_email=email_config.to_email,
+                subject=test_request.test_subject,
+                html_body=html_body,
+                plain_body=plain_body
+            )
+        else:
+            # Traditional SMTP
+            if not all([email_config.smtp_host, email_config.smtp_username, email_config.smtp_password, email_config.from_email]):
+                raise HTTPException(status_code=400, detail="SMTP configuration incomplete")
+
+            success = await smtp_service.send_email_password(
+                smtp_host=email_config.smtp_host,
+                smtp_port=email_config.smtp_port,
+                username=email_config.smtp_username,
+                password=email_config.smtp_password,
+                from_email=email_config.from_email,
+                to_email=email_config.to_email,
+                subject=test_request.test_subject,
+                html_body=html_body,
+                plain_body=plain_body,
+                use_tls=email_config.smtp_use_tls
+            )
+
+        if success:
+            log.info("test_email_sent", to=email_config.to_email)
+            return {"message": "Test email sent successfully!", "to": email_config.to_email}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to send test email")
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        log.error("test_email_error", error=str(e))
+        raise HTTPException(status_code=500, detail=f"Failed to send test email: {str(e)}")

@@ -22,7 +22,7 @@ from app.services.media_cache import media_cache
 from app.services.broadcaster import broadcaster
 from app.services.telemetry_service import telemetry_service
 from app.repositories.detection_repository import DetectionRepository
-from app.routers import events, stream, proxy, settings as settings_router, species, backfill, classifier, models, ai, stats, debug, audio
+from app.routers import events, stream, proxy, settings as settings_router, species, backfill, classifier, models, ai, stats, debug, audio, email
 from app.config import settings
 from app.middleware.language import LanguageMiddleware
 from app.services.i18n_service import i18n_service
@@ -249,6 +249,7 @@ app.include_router(ai.router, prefix="/api", tags=["ai"], dependencies=[Depends(
 app.include_router(stats.router, prefix="/api", tags=["stats"], dependencies=[Depends(verify_api_key)])
 app.include_router(debug.router, prefix="/api", tags=["debug"], dependencies=[Depends(verify_api_key)])
 app.include_router(audio.router, prefix="/api", tags=["audio"], dependencies=[Depends(verify_api_key)])
+app.include_router(email.router, prefix="/api", tags=["email"], dependencies=[Depends(verify_api_key)])
 
 @app.middleware("http")
 async def count_requests(request, call_next):

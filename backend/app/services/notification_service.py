@@ -100,6 +100,12 @@ class NotificationService:
                 display_name, confidence, camera, timestamp, snapshot_url, snapshot_data, lang
             ))
 
+        # Email
+        if settings.notifications.email.enabled:
+            tasks.append(self._send_email(
+                display_name, scientific_name, confidence, camera, timestamp, snapshot_url, snapshot_data, audio_confirmed, lang
+            ))
+
         if tasks:
             log.info("Sending notifications", species=species, platforms=len(tasks), lang=lang)
             await asyncio.gather(*tasks, return_exceptions=True)
@@ -281,6 +287,111 @@ class NotificationService:
             resp.raise_for_status()
         except Exception as e:
             log.error("Telegram notification failed", error=str(e))
+            raise
+
+    async def _send_email(
+        self,
+        species: str,
+        scientific_name: Optional[str],
+        confidence: float,
+        camera: str,
+        timestamp: datetime,
+        snapshot_url: str,
+        snapshot_data: Optional[bytes],
+        audio_confirmed: bool,
+        lang: str
+    ):
+        """Send email notification"""
+        try:
+            from app.services.smtp_service import smtp_service
+            from jinja2 import Template
+            import os
+
+            cfg = settings.notifications.email
+
+            if not cfg.to_email:
+                log.warning("Email notifications enabled but no recipient configured")
+                return
+
+            # Load email templates
+            template_dir = os.path.join(os.path.dirname(__file__), "..", "templates", "email")
+
+            with open(os.path.join(template_dir, "bird_detection.html"), 'r') as f:
+                html_template = Template(f.read())
+
+            with open(os.path.join(template_dir, "bird_detection.txt"), 'r') as f:
+                text_template = Template(f.read())
+
+            # Prepare template data
+            template_data = {
+                "species": species,
+                "scientific_name": scientific_name,
+                "confidence": int(confidence * 100),
+                "camera": camera,
+                "timestamp": timestamp.strftime("%Y-%m-%d %H:%M:%S"),
+                "audio_confirmed": audio_confirmed,
+                "has_image": snapshot_data is not None and cfg.include_snapshot,
+                "dashboard_url": cfg.dashboard_url,
+                "weather": None  # TODO: Add weather data if available
+            }
+
+            # Render templates
+            html_body = html_template.render(**template_data)
+            plain_body = text_template.render(**template_data)
+
+            # Translate subject
+            from app.services.i18n_service import i18n_service
+            subject = i18n_service.translate("notification.new_detection", lang)
+
+            # Fetch snapshot if needed
+            image_data = None
+            if cfg.include_snapshot and snapshot_data:
+                image_data = snapshot_data
+            elif cfg.include_snapshot and snapshot_url:
+                try:
+                    async with self.client.get(snapshot_url) as resp:
+                        if resp.status_code == 200:
+                            image_data = resp.content
+                except:
+                    log.warning("Failed to fetch snapshot for email")
+
+            # Send email
+            if cfg.use_oauth and cfg.oauth_provider:
+                success = await smtp_service.send_email_oauth(
+                    provider=cfg.oauth_provider,
+                    to_email=cfg.to_email,
+                    subject=subject,
+                    html_body=html_body,
+                    plain_body=plain_body,
+                    image_data=image_data
+                )
+            else:
+                # Traditional SMTP
+                if not all([cfg.smtp_host, cfg.smtp_username, cfg.smtp_password, cfg.from_email]):
+                    log.error("Email SMTP configuration incomplete")
+                    return
+
+                success = await smtp_service.send_email_password(
+                    smtp_host=cfg.smtp_host,
+                    smtp_port=cfg.smtp_port,
+                    username=cfg.smtp_username,
+                    password=cfg.smtp_password,
+                    from_email=cfg.from_email,
+                    to_email=cfg.to_email,
+                    subject=subject,
+                    html_body=html_body,
+                    plain_body=plain_body,
+                    use_tls=cfg.smtp_use_tls,
+                    image_data=image_data
+                )
+
+            if success:
+                log.info("Email notification sent", to=cfg.to_email, species=species)
+            else:
+                log.error("Email notification failed")
+
+        except Exception as e:
+            log.error("Email notification failed", error=str(e))
             raise
 
 notification_service = NotificationService()
