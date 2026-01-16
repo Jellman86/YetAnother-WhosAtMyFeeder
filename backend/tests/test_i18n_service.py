@@ -333,3 +333,38 @@ def test_models_errors():
         result = i18n_service.translate(key, "en")
         assert result != key, f"Missing translation for {key}"
         assert len(result) > 0
+
+
+def test_email_errors():
+    """Email errors should exist in all locales."""
+    email_keys = [
+        "errors.email.gmail_oauth_not_configured",
+        "errors.email.outlook_oauth_not_configured",
+        "errors.email.invalid_provider",
+        "errors.email.not_enabled",
+        "errors.email.recipient_not_configured",
+        "errors.email.smtp_incomplete",
+        "errors.email.send_failed"
+    ]
+    for locale in ["en", "es", "fr", "de", "ja", "zh"]:
+        for key in email_keys:
+            result = i18n_service.translate(key, locale)
+            assert result != key, f"Missing email translation for {key} in {locale}"
+            assert len(result) > 0
+
+
+def test_email_errors_with_variables():
+    """Email errors with variables should work."""
+    result = i18n_service.translate(
+        "errors.email.gmail_oauth_failed",
+        "en",
+        error="Connection timeout"
+    )
+    assert "Connection timeout" in result
+
+    result2 = i18n_service.translate(
+        "errors.email.disconnect_error",
+        "en",
+        error="Token expired"
+    )
+    assert "Token expired" in result2

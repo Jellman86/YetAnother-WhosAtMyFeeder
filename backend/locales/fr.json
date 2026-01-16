@@ -14,7 +14,6 @@
     "frigate_auth_failed": "Échec de l'authentification Frigate",
     "clip_disabled": "La récupération de clips est désactivée",
     "invalid_frigate_event": "Format d'événement Frigate invalide",
-
     "proxy": {
       "frigate_timeout": "Délai de connexion Frigate expiré",
       "frigate_auth_failed": "Échec de l'authentification Frigate - vérifiez le jeton d'authentification",
@@ -29,7 +28,6 @@
       "media_fetch_failed": "Échec de la récupération des médias depuis Frigate",
       "invalid_event_id": "Format d'ID d'événement invalide"
     },
-
     "events": {
       "snapshot_fetch_failed": "Échec de la récupération de l'instantané depuis Frigate",
       "classification_failed": "La classification n'a renvoyé aucun résultat",
@@ -38,12 +36,10 @@
       "wildlife_model_unavailable": "Modèle de faune non disponible. Veuillez d'abord le télécharger.",
       "reclassification_failed": "Échec de la reclassification"
     },
-
     "species": {
       "unknown_bird": "Oiseau Inconnu",
       "species_not_found": "Espèce non trouvée"
     },
-
     "ai": {
       "provider_not_configured": "Fournisseur IA non configuré",
       "api_key_missing": "Clé API non configurée pour {provider}",
@@ -53,22 +49,34 @@
       "openai_not_configured": "Clé API OpenAI non configurée",
       "claude_not_configured": "Clé API Claude non configurée"
     },
-
     "backfill": {
       "no_events": "Aucun événement Frigate trouvé dans la plage horaire spécifiée",
       "processing_error": "Erreur de traitement de remplissage : {error}",
       "invalid_time_range": "Plage horaire spécifiée invalide"
     },
-
     "classifier": {
       "bird_model_not_loaded": "Modèle d'oiseaux non chargé",
       "wildlife_model_not_loaded": "Modèle de faune non chargé",
       "model_load_failed": "Échec du chargement du modèle de classification"
     },
-
     "models": {
       "not_installed": "Modèle non installé",
       "download_failed": "Échec du téléchargement du modèle"
+    },
+    "email": {
+      "gmail_oauth_not_configured": "Identifiants OAuth Gmail non configurés",
+      "outlook_oauth_not_configured": "Identifiants OAuth Outlook non configurés",
+      "gmail_oauth_failed": "Échec de l'initialisation OAuth Gmail : {error}",
+      "outlook_oauth_failed": "Échec de l'initialisation OAuth Outlook : {error}",
+      "access_token_failed": "Échec de l'obtention du jeton d'accès",
+      "invalid_provider": "Fournisseur invalide. Doit être 'gmail' ou 'outlook'",
+      "disconnect_failed": "Échec de la déconnexion",
+      "disconnect_error": "Erreur de déconnexion : {error}",
+      "not_enabled": "Notifications par email non activées",
+      "recipient_not_configured": "Email du destinataire non configuré",
+      "smtp_incomplete": "Configuration SMTP incomplète",
+      "send_failed": "Échec de l'envoi de l'email de test",
+      "send_error": "Échec de l'envoi de l'email de test : {error}"
     }
   }
 }

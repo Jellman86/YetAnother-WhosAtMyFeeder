@@ -14,7 +14,6 @@
     "frigate_auth_failed": "Frigate 身份验证失败",
     "clip_disabled": "视频片段获取功能已禁用",
     "invalid_frigate_event": "Frigate 事件格式无效",
-
     "proxy": {
       "frigate_timeout": "Frigate 连接超时",
       "frigate_auth_failed": "Frigate 身份验证失败 - 请检查身份验证令牌",
@@ -29,7 +28,6 @@
       "media_fetch_failed": "从 Frigate 获取媒体失败",
       "invalid_event_id": "事件 ID 格式无效"
     },
-
     "events": {
       "snapshot_fetch_failed": "从 Frigate 获取快照失败",
       "classification_failed": "分类未返回结果",
@@ -38,12 +36,10 @@
       "wildlife_model_unavailable": "野生动物模型不可用。请先下载。",
       "reclassification_failed": "重新分类失败"
     },
-
     "species": {
       "unknown_bird": "未知鸟类",
       "species_not_found": "未找到物种"
     },
-
     "ai": {
       "provider_not_configured": "AI 提供商未配置",
       "api_key_missing": "{provider} 的 API 密钥未配置",
@@ -53,22 +49,34 @@
       "openai_not_configured": "OpenAI API 密钥未配置",
       "claude_not_configured": "Claude API 密钥未配置"
     },
-
     "backfill": {
       "no_events": "在指定时间范围内未找到 Frigate 事件",
       "processing_error": "回填处理错误：{error}",
       "invalid_time_range": "指定的时间范围无效"
     },
-
     "classifier": {
       "bird_model_not_loaded": "鸟类模型未加载",
       "wildlife_model_not_loaded": "野生动物模型未加载",
       "model_load_failed": "加载分类模型失败"
     },
-
     "models": {
       "not_installed": "模型未安装",
       "download_failed": "模型下载失败"
+    },
+    "email": {
+      "gmail_oauth_not_configured": "Gmail OAuth 凭据未配置",
+      "outlook_oauth_not_configured": "Outlook OAuth 凭据未配置",
+      "gmail_oauth_failed": "启动 Gmail OAuth 失败：{error}",
+      "outlook_oauth_failed": "启动 Outlook OAuth 失败：{error}",
+      "access_token_failed": "获取访问令牌失败",
+      "invalid_provider": "无效的提供商。必须是 'gmail' 或 'outlook'",
+      "disconnect_failed": "断开连接失败",
+      "disconnect_error": "断开连接错误：{error}",
+      "not_enabled": "邮件通知未启用",
+      "recipient_not_configured": "收件人邮箱未配置",
+      "smtp_incomplete": "SMTP 配置不完整",
+      "send_failed": "发送测试邮件失败",
+      "send_error": "发送测试邮件失败：{error}"
     }
   }
 }

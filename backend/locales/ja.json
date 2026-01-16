@@ -14,7 +14,6 @@
     "frigate_auth_failed": "Frigateの認証に失敗しました",
     "clip_disabled": "クリップの取得は無効になっています",
     "invalid_frigate_event": "Frigateイベントの形式が無効です",
-
     "proxy": {
       "frigate_timeout": "Frigateへの接続がタイムアウトしました",
       "frigate_auth_failed": "Frigateの認証に失敗しました - 認証トークンを確認してください",
@@ -29,7 +28,6 @@
       "media_fetch_failed": "Frigateからのメディア取得に失敗しました",
       "invalid_event_id": "イベントIDの形式が無効です"
     },
-
     "events": {
       "snapshot_fetch_failed": "Frigateからのスナップショット取得に失敗しました",
       "classification_failed": "分類結果がありませんでした",
@@ -38,12 +36,10 @@
       "wildlife_model_unavailable": "野生動物モデルは利用できません。最初にダウンロードしてください。",
       "reclassification_failed": "再分類に失敗しました"
     },
-
     "species": {
       "unknown_bird": "不明な鳥",
       "species_not_found": "種が見つかりません"
     },
-
     "ai": {
       "provider_not_configured": "AIプロバイダーが設定されていません",
       "api_key_missing": "{provider}のAPIキーが設定されていません",
@@ -53,22 +49,34 @@
       "openai_not_configured": "OpenAI APIキーが設定されていません",
       "claude_not_configured": "Claude APIキーが設定されていません"
     },
-
     "backfill": {
       "no_events": "指定された時間範囲にFrigateイベントが見つかりません",
       "processing_error": "バックフィル処理エラー: {error}",
       "invalid_time_range": "指定された時間範囲が無効です"
     },
-
     "classifier": {
       "bird_model_not_loaded": "鳥モデルが読み込まれていません",
       "wildlife_model_not_loaded": "野生動物モデルが読み込まれていません",
       "model_load_failed": "分類モデルの読み込みに失敗しました"
     },
-
     "models": {
       "not_installed": "モデルがインストールされていません",
       "download_failed": "モデルのダウンロードに失敗しました"
+    },
+    "email": {
+      "gmail_oauth_not_configured": "Gmail OAuth認証情報が設定されていません",
+      "outlook_oauth_not_configured": "Outlook OAuth認証情報が設定されていません",
+      "gmail_oauth_failed": "Gmail OAuthの開始に失敗しました: {error}",
+      "outlook_oauth_failed": "Outlook OAuthの開始に失敗しました: {error}",
+      "access_token_failed": "アクセストークンの取得に失敗しました",
+      "invalid_provider": "無効なプロバイダーです。'gmail'または'outlook'である必要があります",
+      "disconnect_failed": "切断に失敗しました",
+      "disconnect_error": "切断エラー: {error}",
+      "not_enabled": "メール通知が有効になっていません",
+      "recipient_not_configured": "宛先メールアドレスが設定されていません",
+      "smtp_incomplete": "SMTP設定が不完全です",
+      "send_failed": "テストメールの送信に失敗しました",
+      "send_error": "テストメールの送信に失敗しました: {error}"
     }
   }
 }

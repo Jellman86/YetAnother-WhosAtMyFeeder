@@ -69,6 +69,22 @@
     "models": {
       "not_installed": "Model not installed",
       "download_failed": "Model download failed"
+    },
+
+    "email": {
+      "gmail_oauth_not_configured": "Gmail OAuth credentials not configured",
+      "outlook_oauth_not_configured": "Outlook OAuth credentials not configured",
+      "gmail_oauth_failed": "Failed to initiate Gmail OAuth: {error}",
+      "outlook_oauth_failed": "Failed to initiate Outlook OAuth: {error}",
+      "access_token_failed": "Failed to obtain access token",
+      "invalid_provider": "Invalid provider. Must be 'gmail' or 'outlook'",
+      "disconnect_failed": "Failed to disconnect",
+      "disconnect_error": "Disconnect error: {error}",
+      "not_enabled": "Email notifications not enabled",
+      "recipient_not_configured": "Recipient email not configured",
+      "smtp_incomplete": "SMTP configuration incomplete",
+      "send_failed": "Failed to send test email",
+      "send_error": "Failed to send test email: {error}"
     }
   }
 }

@@ -69,6 +69,22 @@
     "models": {
       "not_installed": "Modelo no instalado",
       "download_failed": "Error en la descarga del modelo"
+    },
+
+    "email": {
+      "gmail_oauth_not_configured": "Credenciales OAuth de Gmail no configuradas",
+      "outlook_oauth_not_configured": "Credenciales OAuth de Outlook no configuradas",
+      "gmail_oauth_failed": "Error al iniciar OAuth de Gmail: {error}",
+      "outlook_oauth_failed": "Error al iniciar OAuth de Outlook: {error}",
+      "access_token_failed": "No se pudo obtener el token de acceso",
+      "invalid_provider": "Proveedor inválido. Debe ser 'gmail' u 'outlook'",
+      "disconnect_failed": "Error al desconectar",
+      "disconnect_error": "Error de desconexión: {error}",
+      "not_enabled": "Notificaciones por correo no habilitadas",
+      "recipient_not_configured": "Correo del destinatario no configurado",
+      "smtp_incomplete": "Configuración SMTP incompleta",
+      "send_failed": "Error al enviar correo de prueba",
+      "send_error": "Error al enviar correo de prueba: {error}"
     }
   }
 }

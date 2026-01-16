@@ -14,6 +14,8 @@ from msal import ConfidentialClientApplication
 
 from app.config import settings
 from app.services.smtp_service import smtp_service
+from app.services.i18n_service import i18n_service
+from app.utils.language import get_user_language
 
 router = APIRouter(prefix="/email", tags=["email"])
 log = structlog.get_logger()
@@ -36,9 +38,10 @@ async def gmail_oauth_authorize(request: Request):
 
     Returns redirect URL for user to authorize application
     """
+    lang = get_user_language(request)
     try:
         if not settings.notifications.email.gmail_client_id or not settings.notifications.email.gmail_client_secret:
-            raise HTTPException(status_code=400, detail="Gmail OAuth credentials not configured")
+            raise HTTPException(status_code=400, detail=i18n_service.translate("errors.email.gmail_oauth_not_configured", lang))
 
         # Create OAuth flow
         flow = Flow.from_client_config(
@@ -69,9 +72,11 @@ async def gmail_oauth_authorize(request: Request):
 
         return {"authorization_url": authorization_url, "state": state}
 
+    except HTTPException:
+        raise
     except Exception as e:
         log.error("gmail_oauth_authorize_error", error=str(e))
-        raise HTTPException(status_code=500, detail=f"Failed to initiate Gmail OAuth: {str(e)}")
+        raise HTTPException(status_code=500, detail=i18n_service.translate("errors.email.gmail_oauth_failed", lang, error=str(e)))
 
 
 @router.get("/oauth/gmail/callback")
@@ -161,9 +166,10 @@ async def outlook_oauth_authorize(request: Request):
     """
     Initiate Outlook/Office 365 OAuth2 authorization flow
     """
+    lang = get_user_language(request)
     try:
         if not settings.notifications.email.outlook_client_id or not settings.notifications.email.outlook_client_secret:
-            raise HTTPException(status_code=400, detail="Outlook OAuth credentials not configured")
+            raise HTTPException(status_code=400, detail=i18n_service.translate("errors.email.outlook_oauth_not_configured", lang))
 
         # Create MSAL application
         app = ConfidentialClientApplication(
@@ -184,9 +190,11 @@ async def outlook_oauth_authorize(request: Request):
 
         return {"authorization_url": auth_url}
 
+    except HTTPException:
+        raise
     except Exception as e:
         log.error("outlook_oauth_authorize_error", error=str(e))
-        raise HTTPException(status_code=500, detail=f"Failed to initiate Outlook OAuth: {str(e)}")
+        raise HTTPException(status_code=500, detail=i18n_service.translate("errors.email.outlook_oauth_failed", lang, error=str(e)))
 
 
 @router.get("/oauth/outlook/callback")
@@ -194,6 +202,7 @@ async def outlook_oauth_callback(request: Request, code: str = Query(...)):
     """
     Handle Outlook OAuth2 callback and store tokens
     """
+    lang = get_user_language(request)
     try:
         # Create MSAL application
         app = ConfidentialClientApplication(
@@ -212,7 +221,8 @@ async def outlook_oauth_callback(request: Request, code: str = Query(...)):
         )
 
         if "access_token" not in result:
-            raise HTTPException(status_code=400, detail=result.get("error_description", "Failed to obtain access token"))
+            error_desc = result.get("error_description", i18n_service.translate("errors.email.access_token_failed", lang))
+            raise HTTPException(status_code=400, detail=error_desc)
 
         # Get user email from token
         email = result.get("account", {}).get("username")
@@ -259,12 +269,13 @@ async def outlook_oauth_callback(request: Request, code: str = Query(...)):
 
 
 @router.delete("/oauth/{provider}/disconnect")
-async def disconnect_oauth(provider: str):
+async def disconnect_oauth(provider: str, request: Request):
     """
     Disconnect OAuth email provider and delete stored tokens
     """
+    lang = get_user_language(request)
     if provider not in ["gmail", "outlook"]:
-        raise HTTPException(status_code=400, detail="Invalid provider. Must be 'gmail' or 'outlook'")
+        raise HTTPException(status_code=400, detail=i18n_service.translate("errors.email.invalid_provider", lang))
 
     try:
         success = await smtp_service.delete_oauth_token(provider)
@@ -273,26 +284,29 @@ async def disconnect_oauth(provider: str):
             log.info("oauth_disconnected", provider=provider)
             return {"message": f"{provider.capitalize()} disconnected successfully"}
         else:
-            raise HTTPException(status_code=500, detail="Failed to disconnect")
+            raise HTTPException(status_code=500, detail=i18n_service.translate("errors.email.disconnect_failed", lang))
 
+    except HTTPException:
+        raise
     except Exception as e:
         log.error("oauth_disconnect_error", error=str(e), provider=provider)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=i18n_service.translate("errors.email.disconnect_error", lang, error=str(e)))
 
 
 @router.post("/test")
-async def send_test_email(test_request: TestEmailRequest):
+async def send_test_email(test_request: TestEmailRequest, request: Request):
     """
     Send a test email to verify configuration
     """
+    lang = get_user_language(request)
     try:
         email_config = settings.notifications.email
 
         if not email_config.enabled:
-            raise HTTPException(status_code=400, detail="Email notifications not enabled")
+            raise HTTPException(status_code=400, detail=i18n_service.translate("errors.email.not_enabled", lang))
 
         if not email_config.to_email:
-            raise HTTPException(status_code=400, detail="Recipient email not configured")
+            raise HTTPException(status_code=400, detail=i18n_service.translate("errors.email.recipient_not_configured", lang))
 
         # Prepare email content
         html_body = f"""
@@ -322,7 +336,7 @@ async def send_test_email(test_request: TestEmailRequest):
         else:
             # Traditional SMTP
             if not all([email_config.smtp_host, email_config.smtp_username, email_config.smtp_password, email_config.from_email]):
-                raise HTTPException(status_code=400, detail="SMTP configuration incomplete")
+                raise HTTPException(status_code=400, detail=i18n_service.translate("errors.email.smtp_incomplete", lang))
 
             success = await smtp_service.send_email_password(
                 smtp_host=email_config.smtp_host,
@@ -341,10 +355,10 @@ async def send_test_email(test_request: TestEmailRequest):
             log.info("test_email_sent", to=email_config.to_email)
             return {"message": "Test email sent successfully!", "to": email_config.to_email}
         else:
-            raise HTTPException(status_code=500, detail="Failed to send test email")
+            raise HTTPException(status_code=500, detail=i18n_service.translate("errors.email.send_failed", lang))
 
     except HTTPException:
         raise
     except Exception as e:
         log.error("test_email_error", error=str(e))
-        raise HTTPException(status_code=500, detail=f"Failed to send test email: {str(e)}")
+        raise HTTPException(status_code=500, detail=i18n_service.translate("errors.email.send_error", lang, error=str(e)))
