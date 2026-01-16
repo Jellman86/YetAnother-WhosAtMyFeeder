@@ -11,25 +11,28 @@ def mock_dependencies():
          patch("app.services.event_processor.audio_service") as mock_audio, \
          patch("app.services.event_processor.weather_service") as mock_weather, \
          patch("app.services.event_processor.notification_service") as mock_notif, \
-         patch("app.services.event_processor.Image.open") as mock_image_open, \
-         patch("app.services.taxonomy.taxonomy_service.taxonomy_service.get_names") as mock_get_names:
-        
+         patch("app.services.event_processor.taxonomy_service") as mock_taxonomy, \
+         patch("app.services.event_processor.Image.open") as mock_image_open:
+
         mock_frigate.get_snapshot = AsyncMock(return_value=b"fakeimage")
         mock_frigate.set_sublabel = AsyncMock()
         mock_cache.cache_snapshot = AsyncMock()
         mock_weather.get_current_weather = AsyncMock(return_value={"temperature": 20, "condition_text": "Sunny"})
-        mock_get_names.return_value = {"scientific_name": "Scientific Name", "common_name": "Common Name"}
-        
+        mock_taxonomy.get_names = AsyncMock(return_value={"scientific_name": "Scientific Name", "common_name": "Common Name"})
+
+        # CRITICAL: notification_service.notify_detection must be AsyncMock
+        mock_notif.notify_detection = AsyncMock()
+
         mock_det_service = MockDetectionService.return_value
         mock_det_service.save_detection = AsyncMock(return_value=True)
-        
+
         yield {
             "frigate": mock_frigate,
             "det_service": mock_det_service,
             "audio": mock_audio,
             "weather": mock_weather,
             "notif": mock_notif,
-            "get_names": mock_get_names
+            "taxonomy": mock_taxonomy
         }
 
 @pytest.mark.asyncio
