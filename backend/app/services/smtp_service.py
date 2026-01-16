@@ -23,8 +23,7 @@ from google.oauth2.credentials import Credentials as GoogleCredentials
 from google.auth.transport.requests import Request as GoogleRequest
 from msal import ConfidentialClientApplication
 
-from app.database import database
-from app.db_schema import oauth_tokens
+from app.database import get_db
 
 log = structlog.get_logger()
 
@@ -269,13 +268,27 @@ class SMTPService:
     async def _get_oauth_token(self, provider: str) -> Optional[Dict[str, Any]]:
         """Retrieve OAuth token from database"""
         try:
-            query = oauth_tokens.select().where(oauth_tokens.c.provider == provider)
-            result = await database.fetch_one(query)
+            async with get_db() as db:
+                cursor = await db.execute(
+                    """SELECT provider, email, access_token, refresh_token, expires_at, scope, created_at, updated_at
+                       FROM oauth_tokens WHERE provider = ?""",
+                    (provider,)
+                )
+                row = await cursor.fetchone()
 
-            if not result:
-                return None
+                if not row:
+                    return None
 
-            return dict(result)
+                return {
+                    "provider": row[0],
+                    "email": row[1],
+                    "access_token": row[2],
+                    "refresh_token": row[3],
+                    "expires_at": row[4],
+                    "scope": row[5],
+                    "created_at": row[6],
+                    "updated_at": row[7]
+                }
 
         except Exception as e:
             self.logger.error("get_oauth_token_error", error=str(e), provider=provider)
@@ -333,16 +346,13 @@ class SMTPService:
             # Update database
             new_expires_at = datetime.utcnow() + timedelta(seconds=creds.expiry.timestamp() - datetime.utcnow().timestamp()) if creds.expiry else None
 
-            update_query = (
-                oauth_tokens.update()
-                .where(oauth_tokens.c.provider == "gmail")
-                .values(
-                    access_token=creds.token,
-                    expires_at=new_expires_at,
-                    updated_at=datetime.utcnow()
+            async with get_db() as db:
+                await db.execute(
+                    """UPDATE oauth_tokens SET access_token = ?, expires_at = ?, updated_at = ?
+                       WHERE provider = ?""",
+                    (creds.token, new_expires_at, datetime.utcnow(), "gmail")
                 )
-            )
-            await database.execute(update_query)
+                await db.commit()
 
             # Return updated token data
             token_data["access_token"] = creds.token
@@ -383,17 +393,14 @@ class SMTPService:
             # Update database
             new_expires_at = datetime.utcnow() + timedelta(seconds=result.get("expires_in", 3600))
 
-            update_query = (
-                oauth_tokens.update()
-                .where(oauth_tokens.c.provider == "outlook")
-                .values(
-                    access_token=result["access_token"],
-                    refresh_token=result.get("refresh_token", token_data.get("refresh_token")),
-                    expires_at=new_expires_at,
-                    updated_at=datetime.utcnow()
+            async with get_db() as db:
+                await db.execute(
+                    """UPDATE oauth_tokens SET access_token = ?, refresh_token = ?, expires_at = ?, updated_at = ?
+                       WHERE provider = ?""",
+                    (result["access_token"], result.get("refresh_token", token_data.get("refresh_token")),
+                     new_expires_at, datetime.utcnow(), "outlook")
                 )
-            )
-            await database.execute(update_query)
+                await db.commit()
 
             # Return updated token data
             token_data["access_token"] = result["access_token"]
@@ -422,36 +429,25 @@ class SMTPService:
             # Check if token exists
             existing = await self._get_oauth_token(provider)
 
-            if existing:
-                # Update existing token
-                query = (
-                    oauth_tokens.update()
-                    .where(oauth_tokens.c.provider == provider)
-                    .values(
-                        email=email,
-                        access_token=access_token,
-                        refresh_token=refresh_token,
-                        token_type="Bearer",
-                        expires_at=expires_at,
-                        scope=scope,
-                        updated_at=datetime.utcnow()
+            async with get_db() as db:
+                if existing:
+                    # Update existing token
+                    await db.execute(
+                        """UPDATE oauth_tokens SET email = ?, access_token = ?, refresh_token = ?,
+                           token_type = 'Bearer', expires_at = ?, scope = ?, updated_at = ?
+                           WHERE provider = ?""",
+                        (email, access_token, refresh_token, expires_at, scope, datetime.utcnow(), provider)
                     )
-                )
-            else:
-                # Insert new token
-                query = oauth_tokens.insert().values(
-                    provider=provider,
-                    email=email,
-                    access_token=access_token,
-                    refresh_token=refresh_token,
-                    token_type="Bearer",
-                    expires_at=expires_at,
-                    scope=scope,
-                    created_at=datetime.utcnow(),
-                    updated_at=datetime.utcnow()
-                )
-
-            await database.execute(query)
+                else:
+                    # Insert new token
+                    await db.execute(
+                        """INSERT INTO oauth_tokens (provider, email, access_token, refresh_token, token_type,
+                           expires_at, scope, created_at, updated_at)
+                           VALUES (?, ?, ?, ?, 'Bearer', ?, ?, ?, ?)""",
+                        (provider, email, access_token, refresh_token, expires_at, scope,
+                         datetime.utcnow(), datetime.utcnow())
+                    )
+                await db.commit()
             self.logger.info("oauth_token_stored", provider=provider, email=email)
             return True
 
@@ -462,8 +458,12 @@ class SMTPService:
     async def delete_oauth_token(self, provider: str) -> bool:
         """Delete OAuth token from database"""
         try:
-            query = oauth_tokens.delete().where(oauth_tokens.c.provider == provider)
-            await database.execute(query)
+            async with get_db() as db:
+                await db.execute(
+                    "DELETE FROM oauth_tokens WHERE provider = ?",
+                    (provider,)
+                )
+                await db.commit()
             self.logger.info("oauth_token_deleted", provider=provider)
             return True
 
