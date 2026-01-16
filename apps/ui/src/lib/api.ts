@@ -100,7 +100,25 @@ export interface Settings {
     notifications_telegram_enabled: boolean;
     notifications_telegram_bot_token?: string | null;
     notifications_telegram_chat_id?: string | null;
-    
+
+    // Email notification settings
+    notifications_email_enabled: boolean;
+    notifications_email_use_oauth: boolean;
+    notifications_email_oauth_provider?: string | null;
+    notifications_email_gmail_client_id?: string | null;
+    notifications_email_gmail_client_secret?: string | null;
+    notifications_email_outlook_client_id?: string | null;
+    notifications_email_outlook_client_secret?: string | null;
+    notifications_email_smtp_host?: string | null;
+    notifications_email_smtp_port: number;
+    notifications_email_smtp_username?: string | null;
+    notifications_email_smtp_password?: string | null;
+    notifications_email_smtp_use_tls: boolean;
+    notifications_email_from_email?: string | null;
+    notifications_email_to_email?: string | null;
+    notifications_email_include_snapshot: boolean;
+    notifications_email_dashboard_url?: string | null;
+
     notifications_filter_species_whitelist: string[];
     notifications_filter_min_confidence: number;
     notifications_filter_audio_confirmed_only: boolean;
@@ -822,4 +840,66 @@ export interface DailySummary {
 export async function fetchDailySummary(): Promise<DailySummary> {
     const response = await apiFetch(`${API_BASE}/stats/daily-summary`);
     return handleResponse<DailySummary>(response);
+}
+
+// ============================================================================
+// Email / SMTP Notifications API
+// ============================================================================
+
+export interface OAuthAuthorizeResponse {
+    authorization_url: string;
+    state?: string;
+}
+
+export interface TestEmailRequest {
+    test_subject?: string;
+    test_message?: string;
+}
+
+export interface TestEmailResponse {
+    message: string;
+    to: string;
+}
+
+/**
+ * Initiate Gmail OAuth authorization flow
+ * Returns authorization URL to open in popup
+ */
+export async function initiateGmailOAuth(): Promise<OAuthAuthorizeResponse> {
+    const response = await apiFetch(`${API_BASE}/email/oauth/gmail/authorize`);
+    return handleResponse<OAuthAuthorizeResponse>(response);
+}
+
+/**
+ * Initiate Outlook OAuth authorization flow
+ * Returns authorization URL to open in popup
+ */
+export async function initiateOutlookOAuth(): Promise<OAuthAuthorizeResponse> {
+    const response = await apiFetch(`${API_BASE}/email/oauth/outlook/authorize`);
+    return handleResponse<OAuthAuthorizeResponse>(response);
+}
+
+/**
+ * Disconnect OAuth provider and delete stored tokens
+ */
+export async function disconnectEmailOAuth(provider: 'gmail' | 'outlook'): Promise<{ message: string }> {
+    const response = await apiFetch(`${API_BASE}/email/oauth/${provider}/disconnect`, {
+        method: 'DELETE'
+    });
+    return handleResponse<{ message: string }>(response);
+}
+
+/**
+ * Send a test email to verify configuration
+ */
+export async function sendTestEmail(request: TestEmailRequest = {}): Promise<TestEmailResponse> {
+    const response = await apiFetch(`${API_BASE}/email/test`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({
+            test_subject: request.test_subject || 'YA-WAMF Test Email',
+            test_message: request.test_message || 'This is a test email from YA-WAMF to verify your email configuration.'
+        })
+    });
+    return handleResponse<TestEmailResponse>(response);
 }
