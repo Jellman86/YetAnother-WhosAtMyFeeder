@@ -909,12 +909,25 @@
                                 <div class="space-y-4">
                                     <div class="grid grid-cols-3 gap-4">
                                         <div class="col-span-2">
-                                            <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.frigate.mqtt_broker')}</label>
-                                            <input type="text" bind:value={mqttServer} placeholder="mosquitto" class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-teal-500 outline-none" />
+                                            <label for="mqtt-server" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.frigate.mqtt_broker')}</label>
+                                            <input
+                                                id="mqtt-server"
+                                                type="text"
+                                                bind:value={mqttServer}
+                                                placeholder="mosquitto"
+                                                aria-label="{$_('settings.frigate.mqtt_broker')}"
+                                                class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-teal-500 outline-none"
+                                            />
                                         </div>
                                         <div>
-                                            <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.frigate.mqtt_port')}</label>
-                                            <input type="number" bind:value={mqttPort} class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-teal-500 outline-none" />
+                                            <label for="mqtt-port" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.frigate.mqtt_port')}</label>
+                                            <input
+                                                id="mqtt-port"
+                                                type="number"
+                                                bind:value={mqttPort}
+                                                aria-label="{$_('settings.frigate.mqtt_port')}"
+                                                class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-teal-500 outline-none"
+                                            />
                                         </div>
                                     </div>
 
@@ -1054,10 +1067,23 @@
                         <div class="space-y-6">
                             <div>
                                 <div class="flex justify-between mb-4">
-                                    <label class="text-sm font-black text-slate-900 dark:text-white">Minimum Confidence</label>
-                                    <span class="px-2 py-1 bg-teal-500 text-white text-[10px] font-black rounded-lg">{(filterConfidence * 100).toFixed(0)}%</span>
+                                    <label for="filter-confidence-slider" class="text-sm font-black text-slate-900 dark:text-white">Minimum Confidence</label>
+                                    <output for="filter-confidence-slider" class="px-2 py-1 bg-teal-500 text-white text-[10px] font-black rounded-lg">{(filterConfidence * 100).toFixed(0)}%</output>
                                 </div>
-                                <input type="range" min="0" max="1" step="0.05" bind:value={filterConfidence} class="w-full h-2 rounded-lg bg-slate-200 dark:bg-slate-700 appearance-none cursor-pointer accent-teal-500" />
+                                <input
+                                    id="filter-confidence-slider"
+                                    type="range"
+                                    min="0"
+                                    max="1"
+                                    step="0.05"
+                                    bind:value={filterConfidence}
+                                    aria-valuemin="0"
+                                    aria-valuemax="100"
+                                    aria-valuenow={(filterConfidence * 100).toFixed(0)}
+                                    aria-valuetext="{(filterConfidence * 100).toFixed(0)} percent"
+                                    aria-label="Minimum confidence threshold for notifications: {(filterConfidence * 100).toFixed(0)}%"
+                                    class="w-full h-2 rounded-lg bg-slate-200 dark:bg-slate-700 appearance-none cursor-pointer accent-teal-500"
+                                />
                             </div>
 
                             <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 flex items-center justify-between">
@@ -1539,24 +1565,51 @@
                             <div class="space-y-8">
                                 <div>
                                     <div class="flex justify-between mb-4">
-                                        <label class="text-sm font-black text-slate-900 dark:text-white">Confidence Threshold</label>
-                                        <span class="px-2 py-1 bg-teal-500 text-white text-[10px] font-black rounded-lg">{(threshold * 100).toFixed(0)}%</span>
+                                        <label for="confidence-threshold-slider" class="text-sm font-black text-slate-900 dark:text-white">Confidence Threshold</label>
+                                        <output for="confidence-threshold-slider" class="px-2 py-1 bg-teal-500 text-white text-[10px] font-black rounded-lg">{(threshold * 100).toFixed(0)}%</output>
                                     </div>
-                                    <input type="range" min="0" max="1" step="0.05" bind:value={threshold} class="w-full h-2 rounded-lg bg-slate-200 dark:bg-slate-700 appearance-none cursor-pointer accent-teal-500" />
+                                    <input
+                                        id="confidence-threshold-slider"
+                                        type="range"
+                                        min="0"
+                                        max="1"
+                                        step="0.05"
+                                        bind:value={threshold}
+                                        aria-valuemin="0"
+                                        aria-valuemax="100"
+                                        aria-valuenow={(threshold * 100).toFixed(0)}
+                                        aria-valuetext="{(threshold * 100).toFixed(0)} percent"
+                                        aria-label="Confidence threshold: {(threshold * 100).toFixed(0)}%"
+                                        class="w-full h-2 rounded-lg bg-slate-200 dark:bg-slate-700 appearance-none cursor-pointer accent-teal-500"
+                                    />
                                     <div class="flex justify-between mt-2"><span class="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Loose</span><span class="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Strict</span></div>
                                 </div>
 
                                 <div>
                                     <div class="flex justify-between mb-4">
-                                        <label class="text-sm font-black text-slate-900 dark:text-white">Minimum Confidence Floor</label>
-                                        <span class="px-2 py-1 bg-amber-500 text-white text-[10px] font-black rounded-lg">{(minConfidence * 100).toFixed(0)}%</span>
+                                        <label for="min-confidence-slider" class="text-sm font-black text-slate-900 dark:text-white">Minimum Confidence Floor</label>
+                                        <output for="min-confidence-slider" class="px-2 py-1 bg-amber-500 text-white text-[10px] font-black rounded-lg">{(minConfidence * 100).toFixed(0)}%</output>
                                     </div>
-                                    <input type="range" min="0" max="1" step="0.05" bind:value={minConfidence} class="w-full h-2 rounded-lg bg-slate-200 dark:bg-slate-700 appearance-none cursor-pointer accent-amber-500" />
+                                    <input
+                                        id="min-confidence-slider"
+                                        type="range"
+                                        min="0"
+                                        max="1"
+                                        step="0.05"
+                                        bind:value={minConfidence}
+                                        aria-valuemin="0"
+                                        aria-valuemax="100"
+                                        aria-valuenow={(minConfidence * 100).toFixed(0)}
+                                        aria-valuetext="{(minConfidence * 100).toFixed(0)} percent"
+                                        aria-label="Minimum confidence floor: {(minConfidence * 100).toFixed(0)}%"
+                                        aria-describedby="min-confidence-help"
+                                        class="w-full h-2 rounded-lg bg-slate-200 dark:bg-slate-700 appearance-none cursor-pointer accent-amber-500"
+                                    />
                                     <div class="flex justify-between mt-2">
                                         <span class="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Capture All</span>
                                         <span class="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Reject Unsure</span>
                                     </div>
-                                    <p class="mt-3 text-[10px] text-slate-500 font-bold leading-tight">Events below this floor are ignored completely. Events between floor and threshold are saved as "Unknown Bird".</p>
+                                    <p id="min-confidence-help" class="mt-3 text-[10px] text-slate-500 font-bold leading-tight">Events below this floor are ignored completely. Events between floor and threshold are saved as "Unknown Bird".</p>
                                 </div>
 
                                 <div class="p-4 rounded-2xl bg-teal-500/5 border border-teal-500/10 flex items-center justify-between gap-4">
