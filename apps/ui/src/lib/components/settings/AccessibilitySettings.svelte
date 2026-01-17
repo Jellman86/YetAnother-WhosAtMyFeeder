@@ -13,7 +13,10 @@
     // OpenDyslexic font only supports Latin characters
     // Only show the option for languages that use Latin script
     const latinLanguages = ['en', 'es', 'fr', 'de'];
-    const showDyslexicFont = $derived(latinLanguages.includes($locale || 'en'));
+
+    // Safely get current locale, ensuring it's always a string
+    const currentLocale = $derived(typeof $locale === 'string' ? $locale : 'en');
+    const showDyslexicFont = $derived(latinLanguages.includes(currentLocale));
 
     // Apply/remove classes when toggles change
     $effect(() => {
