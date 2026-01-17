@@ -6,7 +6,8 @@ import de from './locales/de.json';
 import ja from './locales/ja.json';
 import zh from './locales/zh.json';
 
-console.log('YA-WAMF i18n module initialized - Debug Beacon 2026-01-17T12:00:00Z');
+const buildTag = typeof __GIT_HASH__ === 'string' ? __GIT_HASH__ : 'unknown';
+console.log(`YA-WAMF i18n module initialized - Debug Beacon ${buildTag}`);
 
 const supportedLocales = ['en', 'es', 'fr', 'de', 'ja', 'zh'];
 
