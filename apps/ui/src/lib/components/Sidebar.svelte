@@ -2,6 +2,7 @@
     import { themeStore } from '../stores/theme.svelte';
     import { layoutStore } from '../stores/layout.svelte';
     import { _ } from 'svelte-i18n';
+    import LanguageSelector from './LanguageSelector.svelte';
 
     let { currentRoute, onNavigate, mobileSidebarOpen = false, onMobileClose, status } = $props<{
         currentRoute: string;
@@ -133,8 +134,13 @@
         </div>
     {/if}
 
-    <!-- Theme Toggle at Bottom -->
-    <div class="p-3 border-t border-slate-200/80 dark:border-slate-700/50">
+    <!-- Language selector and Theme Toggle at Bottom -->
+    <div class="p-3 border-t border-slate-200/80 dark:border-slate-700/50 space-y-2">
+        {#if !collapsed}
+            <div class="px-2 py-1">
+                <LanguageSelector />
+            </div>
+        {/if}
         <button
             class="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-all duration-200 focus-ring"
             onclick={() => themeStore.toggle()}
