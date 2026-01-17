@@ -22,6 +22,7 @@
   import { announcer } from './lib/components/Announcer.svelte';
   import Announcer from './lib/components/Announcer.svelte';
   import { initKeyboardShortcuts } from './lib/utils/keyboard-shortcuts';
+  import { logger } from './lib/utils/logger';
 
   // Track current layout using reactive derived
   let currentLayout = $derived(layoutStore.layout);
@@ -82,7 +83,7 @@
       // Handle page visibility changes - reconnect when tab becomes visible
       const handleVisibilityChange = () => {
           if (!document.hidden && !detectionsStore.connected && !isReconnecting) {
-              console.log("Tab became visible, attempting to reconnect SSE...");
+              logger.info("Tab became visible, attempting to reconnect SSE");
               reconnectAttempts = 0; // Reset backoff when user returns to tab
               scheduleReconnect();
           }
@@ -128,7 +129,7 @@
 
       // Exponential backoff: 1s, 2s, 4s, 8s, 16s, max 30s
       const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000);
-      console.log(`Scheduling SSE reconnect in ${delay}ms (attempt ${reconnectAttempts + 1})`);
+      logger.debug(`Scheduling SSE reconnect`, { delay, attempt: reconnectAttempts + 1 });
 
       reconnectTimeout = window.setTimeout(() => {
           reconnectTimeout = null;
@@ -149,7 +150,7 @@
           evtSource = new EventSource('/api/sse');
 
           evtSource.onopen = () => {
-              console.log("SSE Connection opened");
+              logger.sseEvent("connection_opened");
           };
 
           evtSource.onmessage = (event) => {
@@ -159,18 +160,18 @@
                  try {
                      payload = JSON.parse(event.data);
                  } catch (parseError) {
-                     console.error("SSE JSON Parse Error:", parseError, "Data:", event.data);
+                     logger.error("SSE JSON Parse Error", parseError, { data: event.data });
                      return;
                  }
 
                  // Validate payload structure
                  if (!payload || typeof payload !== 'object') {
-                     console.error("SSE Invalid payload structure:", payload);
+                     logger.error("SSE Invalid payload structure", undefined, { payload });
                      return;
                  }
 
                  if (!payload.type) {
-                     console.error("SSE Missing payload type:", payload);
+                     logger.error("SSE Missing payload type", undefined, { payload });
                      return;
                  }
 
@@ -179,10 +180,10 @@
                      if (payload.type === 'connected') {
                          detectionsStore.setConnected(true);
                          reconnectAttempts = 0; // Reset backoff on successful connection
-                         console.log("SSE Connected:", payload.message);
+                         logger.sseEvent("connected", { message: payload.message });
                      } else if (payload.type === 'detection') {
                          if (!payload.data || !payload.data.frigate_event) {
-                             console.error("SSE Invalid detection data:", payload);
+                             logger.error("SSE Invalid detection data", undefined, { payload });
                              return;
                          }
                          const newDet: Detection = {
@@ -212,7 +213,7 @@
                          }
                      } else if (payload.type === 'detection_updated') {
                          if (!payload.data || !payload.data.frigate_event) {
-                             console.error("SSE Invalid detection_updated data:", payload);
+                             logger.error("SSE Invalid detection_updated data", undefined, { payload });
                              return;
                          }
                          const updatedDet: Detection = {
@@ -240,7 +241,7 @@
                          detectionsStore.updateDetection(updatedDet);
                      } else if (payload.type === 'detection_deleted') {
                          if (!payload.data || !payload.data.frigate_event) {
-                             console.error("SSE Invalid detection_deleted data:", payload);
+                             logger.error("SSE Invalid detection_deleted data", undefined, { payload });
                              return;
                          }
                          detectionsStore.removeDetection(payload.data.frigate_event, payload.data.timestamp);
@@ -295,7 +296,7 @@
               scheduleReconnect();
           };
       } catch (error) {
-          console.error("Failed to create SSE connection:", error);
+          logger.error("Failed to create SSE connection", error);
           detectionsStore.setConnected(false);
           scheduleReconnect();
       }
