@@ -77,7 +77,7 @@ async def _get_cached_species_info(species_name: str, taxa_id: int | None, refre
         if taxa_id:
             cursor = await db.execute(
                 """SELECT title, description, extract, thumbnail_url, wikipedia_url, source, source_url,
-                          scientific_name, conservation_status, cached_at
+                          summary_source, summary_source_url, scientific_name, conservation_status, cached_at
                    FROM species_info_cache WHERE taxa_id = ?
                    ORDER BY cached_at DESC LIMIT 1""",
                 (taxa_id,)
@@ -85,7 +85,7 @@ async def _get_cached_species_info(species_name: str, taxa_id: int | None, refre
         else:
             cursor = await db.execute(
                 """SELECT title, description, extract, thumbnail_url, wikipedia_url, source, source_url,
-                          scientific_name, conservation_status, cached_at
+                          summary_source, summary_source_url, scientific_name, conservation_status, cached_at
                    FROM species_info_cache WHERE species_name = ?""",
                 (species_name,)
             )
@@ -94,7 +94,7 @@ async def _get_cached_species_info(species_name: str, taxa_id: int | None, refre
     if not row:
         return None
 
-    cached_at = _parse_cached_at(row[9])
+    cached_at = _parse_cached_at(row[11])
     info = SpeciesInfo(
         title=row[0] or species_name,
         description=row[1],
@@ -103,8 +103,10 @@ async def _get_cached_species_info(species_name: str, taxa_id: int | None, refre
         wikipedia_url=row[4],
         source=row[5],
         source_url=row[6],
-        scientific_name=row[7],
-        conservation_status=row[8],
+        summary_source=row[7],
+        summary_source_url=row[8],
+        scientific_name=row[9],
+        conservation_status=row[10],
         cached_at=cached_at
     )
 
@@ -150,6 +152,8 @@ async def _save_species_info(species_name: str, taxa_id: int | None, info: Speci
                      wikipedia_url = ?,
                      source = ?,
                      source_url = ?,
+                     summary_source = ?,
+                     summary_source_url = ?,
                      scientific_name = ?,
                      conservation_status = ?,
                      cached_at = ?
@@ -164,6 +168,8 @@ async def _save_species_info(species_name: str, taxa_id: int | None, info: Speci
                     info.wikipedia_url,
                     info.source,
                     info.source_url,
+                    info.summary_source,
+                    info.summary_source_url,
                     info.scientific_name,
                     info.conservation_status,
                     cached_at,
@@ -174,8 +180,8 @@ async def _save_species_info(species_name: str, taxa_id: int | None, info: Speci
             await db.execute(
                 """INSERT INTO species_info_cache
                    (species_name, title, taxa_id, description, extract, thumbnail_url, wikipedia_url, source, source_url,
-                    scientific_name, conservation_status, cached_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    summary_source, summary_source_url, scientific_name, conservation_status, cached_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                    ON CONFLICT(species_name) DO UPDATE SET
                      title = excluded.title,
                      taxa_id = excluded.taxa_id,
@@ -185,6 +191,8 @@ async def _save_species_info(species_name: str, taxa_id: int | None, info: Speci
                      wikipedia_url = excluded.wikipedia_url,
                      source = excluded.source,
                      source_url = excluded.source_url,
+                     summary_source = excluded.summary_source,
+                     summary_source_url = excluded.summary_source_url,
                      scientific_name = excluded.scientific_name,
                      conservation_status = excluded.conservation_status,
                      cached_at = excluded.cached_at""",
@@ -198,6 +206,8 @@ async def _save_species_info(species_name: str, taxa_id: int | None, info: Speci
                     info.wikipedia_url,
                     info.source,
                     info.source_url,
+                    info.summary_source,
+                    info.summary_source_url,
                     info.scientific_name,
                     info.conservation_status,
                     cached_at
@@ -557,8 +567,8 @@ async def get_species_info(species_name: str, refresh: bool = False):
             wiki_info = await _fetch_wikipedia_info(species_name)
         if not info.extract and wiki_info.extract:
             info.extract = wiki_info.extract
-            info.source = wiki_info.source
-            info.source_url = wiki_info.source_url
+            info.summary_source = wiki_info.source
+            info.summary_source_url = wiki_info.source_url
         if not info.thumbnail_url and wiki_info.thumbnail_url:
             info.thumbnail_url = wiki_info.thumbnail_url
         if not info.wikipedia_url and wiki_info.wikipedia_url:
@@ -707,6 +717,8 @@ async def _fetch_inaturalist_info(species_name: str) -> SpeciesInfo:
                 wikipedia_url=wikipedia_url,
                 source="iNaturalist",
                 source_url=source_url,
+                summary_source="iNaturalist" if extract else None,
+                summary_source_url=source_url if extract else None,
                 scientific_name=scientific_name,
                 conservation_status=None,
                 cached_at=datetime.now()

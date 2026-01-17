@@ -546,6 +546,8 @@ export interface SpeciesInfo {
     wikipedia_url: string | null;
     source: string | null;
     source_url: string | null;
+    summary_source: string | null;
+    summary_source_url: string | null;
     scientific_name: string | null;
     conservation_status: string | null;
     cached_at: string | null;

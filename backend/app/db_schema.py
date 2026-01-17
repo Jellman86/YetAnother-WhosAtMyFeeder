@@ -90,6 +90,8 @@ species_info_cache = Table(
     Column("taxa_id", Integer),
     Column("source", String),
     Column("source_url", String),
+    Column("summary_source", String),
+    Column("summary_source_url", String),
     Column("description", String),
     Column("extract", String),
     Column("thumbnail_url", String),
