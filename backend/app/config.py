@@ -281,6 +281,24 @@ class Settings(BaseSettings):
                 'chat_id': os.environ.get('NOTIFICATIONS__TELEGRAM__CHAT_ID', None),
                 'include_snapshot': os.environ.get('NOTIFICATIONS__TELEGRAM__INCLUDE_SNAPSHOT', 'true').lower() == 'true',
             },
+            'email': {
+                'enabled': os.environ.get('NOTIFICATIONS__EMAIL__ENABLED', 'false').lower() == 'true',
+                'use_oauth': os.environ.get('NOTIFICATIONS__EMAIL__USE_OAUTH', 'false').lower() == 'true',
+                'oauth_provider': os.environ.get('NOTIFICATIONS__EMAIL__OAUTH_PROVIDER', None),
+                'gmail_client_id': os.environ.get('NOTIFICATIONS__EMAIL__GMAIL_CLIENT_ID', None),
+                'gmail_client_secret': os.environ.get('NOTIFICATIONS__EMAIL__GMAIL_CLIENT_SECRET', None),
+                'outlook_client_id': os.environ.get('NOTIFICATIONS__EMAIL__OUTLOOK_CLIENT_ID', None),
+                'outlook_client_secret': os.environ.get('NOTIFICATIONS__EMAIL__OUTLOOK_CLIENT_SECRET', None),
+                'smtp_host': os.environ.get('NOTIFICATIONS__EMAIL__SMTP_HOST', None),
+                'smtp_port': int(os.environ.get('NOTIFICATIONS__EMAIL__SMTP_PORT', '587')),
+                'smtp_username': os.environ.get('NOTIFICATIONS__EMAIL__SMTP_USERNAME', None),
+                'smtp_password': os.environ.get('NOTIFICATIONS__EMAIL__SMTP_PASSWORD', None),
+                'smtp_use_tls': os.environ.get('NOTIFICATIONS__EMAIL__SMTP_USE_TLS', 'true').lower() == 'true',
+                'from_email': os.environ.get('NOTIFICATIONS__EMAIL__FROM_EMAIL', None),
+                'to_email': os.environ.get('NOTIFICATIONS__EMAIL__TO_EMAIL', None),
+                'include_snapshot': os.environ.get('NOTIFICATIONS__EMAIL__INCLUDE_SNAPSHOT', 'true').lower() == 'true',
+                'dashboard_url': os.environ.get('NOTIFICATIONS__EMAIL__DASHBOARD_URL', None),
+            },
             'filters': {
                 'species_whitelist': [],
                 'min_confidence': 0.7,
@@ -379,6 +397,13 @@ class Settings(BaseSettings):
                             env_key = f'NOTIFICATIONS__TELEGRAM__{k.upper()}'
                             if env_key not in os.environ:
                                 notifications_data['telegram'][k] = v
+
+                    # Email
+                    if 'email' in n_file:
+                        for k, v in n_file['email'].items():
+                            env_key = f'NOTIFICATIONS__EMAIL__{k.upper()}'
+                            if env_key not in os.environ:
+                                notifications_data['email'][k] = v
                                 
                     # Filters (file only)
                     if 'filters' in n_file:

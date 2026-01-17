@@ -295,6 +295,17 @@ class SMTPService:
             self.logger.error("get_oauth_token_error", error=str(e), provider=provider)
             return None
 
+    async def get_oauth_status(self, provider: Optional[str] = None) -> Optional[Dict[str, str]]:
+        """Return connected OAuth provider/email for UI display."""
+        providers = [provider] if provider else ["gmail", "outlook"]
+        for candidate in providers:
+            if not candidate:
+                continue
+            token = await self._get_oauth_token(candidate)
+            if token:
+                return {"provider": candidate, "email": token["email"]}
+        return None
+
     async def _is_token_expired(self, token_data: Dict[str, Any]) -> bool:
         """Check if OAuth token is expired"""
         if not token_data.get("expires_at"):

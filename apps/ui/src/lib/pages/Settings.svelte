@@ -273,6 +273,19 @@
             { key: 'telegramToken', val: telegramToken, store: s.notifications_telegram_bot_token || '' },
             { key: 'telegramChatId', val: telegramChatId, store: s.notifications_telegram_chat_id || '' },
 
+            { key: 'emailEnabled', val: emailEnabled, store: s.notifications_email_enabled ?? false },
+            { key: 'emailUseOAuth', val: emailUseOAuth, store: s.notifications_email_use_oauth ?? false },
+            { key: 'emailOAuthProvider', val: emailOAuthProvider || '', store: s.notifications_email_oauth_provider || '' },
+            { key: 'emailSmtpHost', val: emailSmtpHost, store: s.notifications_email_smtp_host || '' },
+            { key: 'emailSmtpPort', val: emailSmtpPort, store: s.notifications_email_smtp_port ?? 587 },
+            { key: 'emailSmtpUsername', val: emailSmtpUsername, store: s.notifications_email_smtp_username || '' },
+            { key: 'emailSmtpPassword', val: emailSmtpPassword, store: s.notifications_email_smtp_password || '' },
+            { key: 'emailSmtpUseTls', val: emailSmtpUseTls, store: s.notifications_email_smtp_use_tls ?? true },
+            { key: 'emailFromEmail', val: emailFromEmail, store: s.notifications_email_from_email || '' },
+            { key: 'emailToEmail', val: emailToEmail, store: s.notifications_email_to_email || '' },
+            { key: 'emailIncludeSnapshot', val: emailIncludeSnapshot, store: s.notifications_email_include_snapshot ?? true },
+            { key: 'emailDashboardUrl', val: emailDashboardUrl, store: s.notifications_email_dashboard_url || '' },
+
             { key: 'filterWhitelist', val: JSON.stringify(filterWhitelist), store: JSON.stringify(s.notifications_filter_species_whitelist || []) },
             { key: 'filterConfidence', val: filterConfidence, store: s.notifications_filter_min_confidence ?? 0.7 },
             { key: 'filterAudioOnly', val: filterAudioOnly, store: s.notifications_filter_audio_confirmed_only ?? false },
@@ -564,6 +577,7 @@
             emailEnabled = settings.notifications_email_enabled ?? false;
             emailUseOAuth = settings.notifications_email_use_oauth ?? false;
             emailOAuthProvider = settings.notifications_email_oauth_provider || null;
+            emailConnectedEmail = settings.notifications_email_connected_email || null;
             emailSmtpHost = settings.notifications_email_smtp_host || '';
             emailSmtpPort = settings.notifications_email_smtp_port ?? 587;
             emailSmtpUsername = settings.notifications_email_smtp_username || '';
