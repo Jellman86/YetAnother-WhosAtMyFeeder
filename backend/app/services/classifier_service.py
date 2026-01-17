@@ -836,11 +836,28 @@ class ClassifierService:
         # Wrap the callback to make it thread-safe
         if progress_callback:
             def sync_callback(current_frame, total_frames, frame_score, top_label):
-                # Schedule the async callback in the event loop from the executor thread
-                asyncio.run_coroutine_threadsafe(
-                    progress_callback(current_frame, total_frames, frame_score, top_label),
-                    loop
-                )
+                try:
+                    # Schedule the async callback in the event loop from the executor thread
+                    future = asyncio.run_coroutine_threadsafe(
+                        progress_callback(current_frame, total_frames, frame_score, top_label),
+                        loop
+                    )
+                    # Wait for completion and catch any exceptions
+                    # Use a short timeout to avoid blocking the video processing
+                    try:
+                        future.result(timeout=1.0)
+                    except TimeoutError:
+                        log.warning("Progress callback timed out after 1s",
+                                   frame=current_frame,
+                                   total=total_frames)
+                    except Exception as e:
+                        log.error("Progress callback failed",
+                                 error=str(e),
+                                 frame=current_frame,
+                                 total=total_frames)
+                except Exception as e:
+                    # Catch any exception in scheduling itself
+                    log.error("Failed to schedule progress callback", error=str(e))
             return await loop.run_in_executor(self._executor, self.classify_video, video_path, stride, max_frames, sync_callback)
         else:
             return await loop.run_in_executor(self._executor, self.classify_video, video_path, stride, max_frames, None)
