@@ -7,6 +7,7 @@ from fastapi import APIRouter, HTTPException, Request, Query
 from fastapi.responses import RedirectResponse, HTMLResponse
 from pydantic import BaseModel
 import structlog
+import os
 from typing import Optional
 from urllib.parse import urlencode
 
@@ -17,6 +18,8 @@ from app.config import settings
 from app.services.smtp_service import smtp_service
 from app.services.i18n_service import i18n_service
 from app.utils.language import get_user_language
+from jinja2 import Template
+import aiofiles
 
 router = APIRouter(prefix="/email", tags=["email"])
 log = structlog.get_logger()
@@ -350,21 +353,29 @@ async def send_test_email(test_request: TestEmailRequest, request: Request):
         if not email_config.to_email:
             raise HTTPException(status_code=400, detail=i18n_service.translate("errors.email.recipient_not_configured", lang))
 
-        # Prepare email content
-        html_body = f"""
-        <html>
-            <body style="font-family: sans-serif; padding: 20px;">
-                <h2>{test_request.test_subject}</h2>
-                <p>{test_request.test_message}</p>
-                <hr>
-                <p style="color: #666; font-size: 12px;">
-                    Sent from YA-WAMF Email Configuration Test
-                </p>
-            </body>
-        </html>
-        """
+        # Prepare email content using the notification-style template
+        template_dir = os.path.join(os.path.dirname(__file__), "..", "templates", "email")
+        async with aiofiles.open(os.path.join(template_dir, "test_email.html"), 'r') as f:
+            html_template = Template(await f.read())
+        async with aiofiles.open(os.path.join(template_dir, "test_email.txt"), 'r') as f:
+            text_template = Template(await f.read())
 
-        plain_body = f"{test_request.test_subject}\n\n{test_request.test_message}\n\n---\nSent from YA-WAMF Email Configuration Test"
+        template_data = {
+            "subject": test_request.test_subject,
+            "message": test_request.test_message,
+            "species": "Test Sparrow",
+            "audio_confirmed": False,
+            "has_image": False,
+            "confidence": 88,
+            "camera": "Test Camera",
+            "timestamp": "Just now",
+            "scientific_name": "Testus sparrowii",
+            "weather": "Clear skies",
+            "dashboard_url": email_config.dashboard_url,
+        }
+
+        html_body = html_template.render(**template_data)
+        plain_body = text_template.render(**template_data)
 
         # Send using OAuth or traditional SMTP
         if email_config.use_oauth and email_config.oauth_provider:
