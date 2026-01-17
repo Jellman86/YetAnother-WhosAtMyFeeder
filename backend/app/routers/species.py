@@ -63,12 +63,13 @@ async def _lookup_taxa_id(species_name: str) -> int | None:
         return int(row[0])
     return None
 
-async def _get_cached_species_info(species_name: str, taxa_id: int | None, refresh: bool) -> SpeciesInfo | None:
+async def _get_cached_species_info(species_name: str, taxa_id: int | None, language: str, refresh: bool) -> SpeciesInfo | None:
     if refresh:
         return None
 
-    if species_name in _wiki_cache:
-        info, cached_at = _wiki_cache[species_name]
+    cache_key = f"{species_name}:{language}"
+    if cache_key in _wiki_cache:
+        info, cached_at = _wiki_cache[cache_key]
         if _is_cache_valid(info, cached_at):
             log.debug("Returning cached species info (memory)", species=species_name)
             return info
@@ -78,16 +79,16 @@ async def _get_cached_species_info(species_name: str, taxa_id: int | None, refre
             cursor = await db.execute(
                 """SELECT title, description, extract, thumbnail_url, wikipedia_url, source, source_url,
                           summary_source, summary_source_url, scientific_name, conservation_status, cached_at
-                   FROM species_info_cache WHERE taxa_id = ?
+                   FROM species_info_cache WHERE taxa_id = ? AND language = ?
                    ORDER BY cached_at DESC LIMIT 1""",
-                (taxa_id,)
+                (taxa_id, language)
             )
         else:
             cursor = await db.execute(
                 """SELECT title, description, extract, thumbnail_url, wikipedia_url, source, source_url,
                           summary_source, summary_source_url, scientific_name, conservation_status, cached_at
-                   FROM species_info_cache WHERE species_name = ?""",
-                (species_name,)
+                   FROM species_info_cache WHERE species_name = ? AND language = ?""",
+                (species_name, language)
             )
         row = await cursor.fetchone()
 
@@ -111,20 +112,20 @@ async def _get_cached_species_info(species_name: str, taxa_id: int | None, refre
     )
 
     if _is_cache_valid(info, cached_at):
-        _wiki_cache[species_name] = (info, cached_at or datetime.now())
+        _wiki_cache[cache_key] = (info, cached_at or datetime.now())
         log.debug("Returning cached species info (db)", species=species_name)
         return info
 
     return None
 
-async def _save_species_info(species_name: str, taxa_id: int | None, info: SpeciesInfo) -> None:
+async def _save_species_info(species_name: str, taxa_id: int | None, language: str, info: SpeciesInfo) -> None:
     cached_at = datetime.now()
     info.cached_at = cached_at
     async with get_db() as db:
         if taxa_id:
             cursor = await db.execute(
-                "SELECT id FROM species_info_cache WHERE taxa_id = ? LIMIT 1",
-                (taxa_id,)
+                "SELECT id FROM species_info_cache WHERE taxa_id = ? AND language = ? LIMIT 1",
+                (taxa_id, language)
             )
             existing = await cursor.fetchone()
         else:
@@ -132,8 +133,8 @@ async def _save_species_info(species_name: str, taxa_id: int | None, info: Speci
 
         if existing:
             cursor = await db.execute(
-                "SELECT id FROM species_info_cache WHERE species_name = ? LIMIT 1",
-                (species_name,)
+                "SELECT id FROM species_info_cache WHERE species_name = ? AND language = ? LIMIT 1",
+                (species_name, language)
             )
             name_row = await cursor.fetchone()
             if name_row and name_row[0] != existing[0]:
@@ -144,6 +145,7 @@ async def _save_species_info(species_name: str, taxa_id: int | None, info: Speci
             await db.execute(
                 """UPDATE species_info_cache SET
                      species_name = ?,
+                     language = ?,
                      title = ?,
                      taxa_id = ?,
                      description = ?,
@@ -160,6 +162,7 @@ async def _save_species_info(species_name: str, taxa_id: int | None, info: Speci
                    WHERE id = ?""",
                 (
                     species_name,
+                    language,
                     info.title,
                     taxa_id,
                     info.description,
@@ -179,10 +182,11 @@ async def _save_species_info(species_name: str, taxa_id: int | None, info: Speci
         else:
             await db.execute(
                 """INSERT INTO species_info_cache
-                   (species_name, title, taxa_id, description, extract, thumbnail_url, wikipedia_url, source, source_url,
+                   (species_name, language, title, taxa_id, description, extract, thumbnail_url, wikipedia_url, source, source_url,
                     summary_source, summary_source_url, scientific_name, conservation_status, cached_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                   ON CONFLICT(species_name) DO UPDATE SET
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                   ON CONFLICT(species_name, language) DO UPDATE SET
+                     language = excluded.language,
                      title = excluded.title,
                      taxa_id = excluded.taxa_id,
                      description = excluded.description,
@@ -198,6 +202,7 @@ async def _save_species_info(species_name: str, taxa_id: int | None, info: Speci
                      cached_at = excluded.cached_at""",
                 (
                     species_name,
+                    language,
                     info.title,
                     taxa_id,
                     info.description,
@@ -512,8 +517,10 @@ async def get_species_stats(species_name: str, request: Request):
 @router.delete("/species/{species_name}/cache")
 async def clear_species_cache(species_name: str):
     """Clear the Wikipedia cache for a species."""
-    if species_name in _wiki_cache:
-        del _wiki_cache[species_name]
+    cache_prefix = f"{species_name}:"
+    for cache_key in list(_wiki_cache):
+        if cache_key == species_name or cache_key.startswith(cache_prefix):
+            del _wiki_cache[cache_key]
     taxa_id = await _lookup_taxa_id(species_name)
     async with get_db() as db:
         if taxa_id:
@@ -532,9 +539,10 @@ async def clear_species_cache(species_name: str):
 
 
 @router.get("/species/{species_name}/info", response_model=SpeciesInfo)
-async def get_species_info(species_name: str, refresh: bool = False):
+async def get_species_info(species_name: str, request: Request, refresh: bool = False):
     """Get species information for a species. Use refresh=true to bypass cache."""
-    log.info("Fetching species info", species=species_name, refresh=refresh)
+    lang = get_user_language(request) or "en"
+    log.info("Fetching species info", species=species_name, refresh=refresh, language=lang)
 
     # Skip Wikipedia lookup for non-identifiable species (e.g., "Unknown Bird")
     if species_name in SKIP_WIKIPEDIA_LOOKUP:
@@ -553,28 +561,28 @@ async def get_species_info(species_name: str, refresh: bool = False):
         )
 
     taxa_id = await _lookup_taxa_id(species_name)
-    cached_info = await _get_cached_species_info(species_name, taxa_id, refresh)
+    cached_info = await _get_cached_species_info(species_name, taxa_id, lang, refresh)
     if cached_info:
         return cached_info
 
     source_pref = settings.species_info_source or "auto"
 
     if source_pref == "wikipedia":
-        info = await _fetch_wikipedia_info(species_name)
+        info = await _fetch_wikipedia_info(species_name, lang)
         if info.extract:
             info.summary_source = info.source
             info.summary_source_url = info.source_url
     elif source_pref == "inat":
-        info = await _fetch_inaturalist_info(species_name)
+        info = await _fetch_inaturalist_info(species_name, lang)
     else:
         # Fetch from iNaturalist first, then fill gaps with Wikipedia
-        info = await _fetch_inaturalist_info(species_name)
+        info = await _fetch_inaturalist_info(species_name, lang)
         if not info.extract or not info.thumbnail_url:
             wiki_info = None
             if info.wikipedia_url:
-                wiki_info = await _fetch_wikipedia_info_from_url(info.wikipedia_url, species_name)
+                wiki_info = await _fetch_wikipedia_info_from_url(info.wikipedia_url, species_name, lang)
             if not wiki_info:
-                wiki_info = await _fetch_wikipedia_info(species_name)
+                wiki_info = await _fetch_wikipedia_info(species_name, lang)
             if not info.extract and wiki_info.extract:
                 info.extract = wiki_info.extract
                 info.summary_source = wiki_info.source
@@ -586,9 +594,16 @@ async def get_species_info(species_name: str, refresh: bool = False):
             if not info.scientific_name and wiki_info.scientific_name:
                 info.scientific_name = wiki_info.scientific_name
 
+        if lang != "en" and not info.extract:
+            fallback = await _fetch_wikipedia_info(species_name, "en")
+            if fallback.extract:
+                info.extract = fallback.extract
+                info.summary_source = fallback.source
+                info.summary_source_url = fallback.source_url
+
     # Cache the result
-    await _save_species_info(species_name, taxa_id, info)
-    _wiki_cache[species_name] = (info, info.cached_at or datetime.now())
+    await _save_species_info(species_name, taxa_id, lang, info)
+    _wiki_cache[f"{species_name}:{lang}"] = (info, info.cached_at or datetime.now())
 
     is_success = bool(info.thumbnail_url or info.extract)
     log.info(
@@ -602,7 +617,7 @@ async def get_species_info(species_name: str, refresh: bool = False):
 
     return info
 
-async def _fetch_wikipedia_info(species_name: str) -> SpeciesInfo:
+async def _fetch_wikipedia_info(species_name: str, lang: str) -> SpeciesInfo:
     """Fetch species information from Wikipedia API."""
 
     headers = {
@@ -617,11 +632,11 @@ async def _fetch_wikipedia_info(species_name: str) -> SpeciesInfo:
             headers=headers
         ) as client:
             # Try multiple strategies to find the Wikipedia article
-            article_title = await _find_wikipedia_article(client, species_name)
+            article_title = await _find_wikipedia_article(client, species_name, lang)
 
             if article_title:
                 log.info("Found Wikipedia article", species=species_name, article=article_title)
-                return await _get_wikipedia_summary(client, article_title, species_name)
+                return await _get_wikipedia_summary(client, article_title, species_name, lang)
             else:
                 log.warning("No Wikipedia article found after all strategies", species=species_name)
 
@@ -647,7 +662,7 @@ async def _fetch_wikipedia_info(species_name: str) -> SpeciesInfo:
     )
 
 
-async def _fetch_wikipedia_info_from_url(wikipedia_url: str, species_name: str) -> SpeciesInfo | None:
+async def _fetch_wikipedia_info_from_url(wikipedia_url: str, species_name: str, lang: str) -> SpeciesInfo | None:
     """Fetch Wikipedia summary directly from a known article URL."""
     from urllib.parse import urlparse, unquote
 
@@ -655,6 +670,13 @@ async def _fetch_wikipedia_info_from_url(wikipedia_url: str, species_name: str) 
     path = parsed.path or ""
     if "/wiki/" not in path:
         return None
+
+    host = parsed.hostname or ""
+    url_lang = lang
+    if host.endswith(".wikipedia.org"):
+        subdomain = host.split(".")[0]
+        if subdomain:
+            url_lang = subdomain
 
     title = unquote(path.split("/wiki/")[-1].replace("_", " ")).strip()
     if not title:
@@ -671,7 +693,7 @@ async def _fetch_wikipedia_info_from_url(wikipedia_url: str, species_name: str) 
             follow_redirects=True,
             headers=headers
         ) as client:
-            return await _get_wikipedia_summary(client, title, species_name)
+            return await _get_wikipedia_summary(client, title, species_name, url_lang)
     except httpx.TimeoutException:
         log.error("Wikipedia API timeout (direct)", species=species_name)
     except httpx.RequestError as e:
@@ -682,13 +704,13 @@ async def _fetch_wikipedia_info_from_url(wikipedia_url: str, species_name: str) 
     return None
 
 
-async def _fetch_inaturalist_info(species_name: str) -> SpeciesInfo:
+async def _fetch_inaturalist_info(species_name: str, lang: str) -> SpeciesInfo:
     """Fetch species information from iNaturalist API."""
     try:
         async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
             response = await client.get(
                 "https://api.inaturalist.org/v1/taxa",
-                params={"q": species_name, "per_page": 1}
+                params={"q": species_name, "per_page": 1, "locale": lang}
             )
             response.raise_for_status()
             data = response.json()
@@ -754,9 +776,9 @@ async def _fetch_inaturalist_info(species_name: str) -> SpeciesInfo:
     )
 
 
-async def _find_wikipedia_article(client: httpx.AsyncClient, species_name: str) -> str | None:
+async def _find_wikipedia_article(client: httpx.AsyncClient, species_name: str, lang: str) -> str | None:
     """Try multiple strategies to find the correct Wikipedia article title."""
-    base_url = "https://en.wikipedia.org/api/rest_v1/page/summary"
+    base_url = f"https://{lang}.wikipedia.org/api/rest_v1/page/summary"
 
     # Build list of title variations to try
     titles_to_try = []
@@ -821,7 +843,7 @@ async def _find_wikipedia_article(client: httpx.AsyncClient, species_name: str) 
 
     # Strategy 2: Use Wikipedia search API as fallback
     log.debug("Falling back to Wikipedia search API", species=species_name)
-    search_url = "https://en.wikipedia.org/w/api.php"
+    search_url = f"https://{lang}.wikipedia.org/w/api.php"
     search_queries = [
         f"{species_name} bird",
         f'"{species_name}"',  # Exact phrase search
@@ -872,11 +894,11 @@ async def _find_wikipedia_article(client: httpx.AsyncClient, species_name: str) 
     return None
 
 
-async def _get_wikipedia_summary(client: httpx.AsyncClient, article_title: str, original_name: str) -> SpeciesInfo:
+async def _get_wikipedia_summary(client: httpx.AsyncClient, article_title: str, original_name: str, lang: str) -> SpeciesInfo:
     """Fetch the summary for a Wikipedia article."""
     import re
 
-    base_url = "https://en.wikipedia.org/api/rest_v1/page/summary"
+    base_url = f"https://{lang}.wikipedia.org/api/rest_v1/page/summary"
     encoded = quote(article_title.replace(" ", "_"))
     url = f"{base_url}/{encoded}"
 

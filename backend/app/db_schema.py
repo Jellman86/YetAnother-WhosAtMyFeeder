@@ -85,7 +85,8 @@ species_info_cache = Table(
     "species_info_cache",
     metadata,
     Column("id", Integer, primary_key=True, autoincrement=True),
-    Column("species_name", String, nullable=False, unique=True),
+    Column("species_name", String, nullable=False),
+    Column("language", String, nullable=False, server_default="en"),
     Column("title", String),
     Column("taxa_id", Integer),
     Column("source", String),
@@ -103,3 +104,4 @@ species_info_cache = Table(
 
 Index("idx_species_info_name", species_info_cache.c.species_name)
 Index("idx_species_info_taxa_id", species_info_cache.c.taxa_id)
+Index("uq_species_info_name_lang", species_info_cache.c.species_name, species_info_cache.c.language, unique=True)
