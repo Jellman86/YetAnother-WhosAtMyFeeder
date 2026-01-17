@@ -102,7 +102,14 @@ async def test_notification(request: NotificationTestRequest):
             
             try:
                 await notification_service._send_discord(
-                    species, common_name, confidence, camera, timestamp, snapshot_url, audio_confirmed=True
+                    common_name,
+                    confidence,
+                    camera,
+                    timestamp,
+                    snapshot_url,
+                    True,
+                    settings.notifications.notification_language,
+                    None
                 )
             finally:
                 if request.webhook_url and request.webhook_url != "***REDACTED***":
