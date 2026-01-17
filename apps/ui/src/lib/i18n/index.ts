@@ -52,9 +52,13 @@ addMessages('de', de);
 addMessages('ja', ja);
 addMessages('zh', zh);
 
+const initialLocale = determineLocale();
+// Ensure locale store is always a string before any translations run.
+locale.set(initialLocale);
+
 init({
     fallbackLocale: 'en',
-    initialLocale: determineLocale(),
+    initialLocale,
 });
 
 export { locale, _ };
