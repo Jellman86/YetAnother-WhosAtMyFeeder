@@ -81,6 +81,37 @@
     let primaryName = $derived(naming.primary);
     let subName = $derived(naming.secondary);
 
+    let infoSourceChips = $derived.by(() => {
+        if (!info) return [];
+        const items: { label: string; url: string | null }[] = [];
+        const push = (label: string | null, url: string | null) => {
+            if (!label) return;
+            const existing = items.find((item) => item.label === label);
+            if (existing) {
+                if (!existing.url && url) existing.url = url;
+                return;
+            }
+            items.push({ label, url: url || null });
+        };
+
+        push(info.source, info.source_url);
+        push(info.summary_source, info.summary_source_url);
+
+        if (items.length === 0 && info.wikipedia_url) {
+            items.push({ label: 'Wikipedia', url: info.wikipedia_url });
+        }
+
+        return items;
+    });
+
+    let infoSourceText = $derived.by(() => {
+        if (!infoSourceChips.length) return null;
+        const labels = infoSourceChips.map((item) => item.label);
+        if (labels.length === 1) return `Data from ${labels[0]}`;
+        if (labels.length === 2) return `Data from ${labels[0]} + ${labels[1]}`;
+        return `Data from ${labels.slice(0, -1).join(', ')} + ${labels[labels.length - 1]}`;
+    });
+
     onMount(async () => {
         // Check if this is an unknown bird detection
         isUnknownBird = speciesName === "Unknown Bird";
@@ -334,15 +365,44 @@
 
                 <!-- Species Description -->
                 {#if info}
-                    <section class="bg-slate-50 dark:bg-slate-700/30 rounded-2xl p-5">
-                        <div class="flex items-start gap-3">
-                            <div class="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-600 flex items-center justify-center flex-shrink-0">
+                    <section class="relative overflow-hidden rounded-2xl border border-slate-200/70 dark:border-slate-600/40 bg-white/70 dark:bg-slate-800/60 p-5 shadow-sm">
+                        <div class="absolute inset-0 pointer-events-none bg-gradient-to-br from-teal-500/10 via-transparent to-brand-500/10"></div>
+                        <div class="relative flex items-start gap-3">
+                            <div class="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center flex-shrink-0 shadow-inner">
                                 <svg class="w-5 h-5 text-slate-500 dark:text-slate-400" fill="currentColor" viewBox="0 0 24 24">
                                     <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z"/>
                                 </svg>
                             </div>
                             <div class="flex-1 min-w-0">
-                                <h4 class="text-xs font-black uppercase tracking-[0.2em] text-slate-500 mb-2">{$_('actions.species_info')}</h4>
+                                <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+                                    <h4 class="text-xs font-black uppercase tracking-[0.2em] text-slate-500">{$_('actions.species_info')}</h4>
+                                    {#if infoSourceChips.length}
+                                        <div class="flex flex-wrap items-center gap-1.5">
+                                            {#each infoSourceChips as chip}
+                                                {#if chip.url}
+                                                    <a
+                                                        href={chip.url}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/80 dark:bg-slate-900/60 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 border border-slate-200/60 dark:border-slate-600/50 hover:text-teal-600 dark:hover:text-teal-300 transition-colors"
+                                                    >
+                                                        {chip.label}
+                                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                                        </svg>
+                                                    </a>
+                                                {:else}
+                                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full bg-white/80 dark:bg-slate-900/60 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 border border-slate-200/60 dark:border-slate-600/50">
+                                                        {chip.label}
+                                                    </span>
+                                                {/if}
+                                            {/each}
+                                        </div>
+                                    {/if}
+                                </div>
+                                {#if infoSourceText}
+                                    <p class="text-[11px] text-slate-500 dark:text-slate-400 mb-3">{infoSourceText}</p>
+                                {/if}
                                 {#if info.extract}
                                     <p class="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
                                         {info.extract}
@@ -364,6 +424,11 @@
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                                         </svg>
                                     </a>
+                                {/if}
+                                {#if info.cached_at}
+                                    <p class="mt-3 text-[10px] uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">
+                                        Updated {formatDate(info.cached_at)}
+                                    </p>
                                 {/if}
                             </div>
                         </div>
