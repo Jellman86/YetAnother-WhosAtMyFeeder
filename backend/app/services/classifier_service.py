@@ -233,7 +233,8 @@ class ModelInstance:
             })
 
         classifications.sort(key=lambda x: x['score'], reverse=True)
-        return classifications[:5]
+        max_results = settings.classification.max_classification_results
+        return classifications[:max_results]
 
     def classify_raw(self, image: Image.Image) -> np.ndarray:
         """Classify and return the raw probability vector (for ensemble).

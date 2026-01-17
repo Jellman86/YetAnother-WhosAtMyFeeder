@@ -2,10 +2,9 @@ import asyncio
 import structlog
 from typing import Set, Dict
 from collections import defaultdict
+from app.config import settings
 
 log = structlog.get_logger()
-MAX_QUEUE_SIZE = 100
-MAX_CONSECUTIVE_FULL = 10  # Remove subscriber after this many consecutive full queue errors
 
 class Broadcaster:
     def __init__(self):
@@ -14,7 +13,7 @@ class Broadcaster:
         self._full_counts: Dict[asyncio.Queue, int] = defaultdict(int)
 
     async def subscribe(self) -> asyncio.Queue:
-        queue = asyncio.Queue(maxsize=MAX_QUEUE_SIZE)
+        queue = asyncio.Queue(maxsize=settings.system.broadcaster_max_queue_size)
         async with self._queue_lock:
             self.queues.add(queue)
             self._full_counts[queue] = 0
@@ -50,15 +49,18 @@ class Broadcaster:
             except asyncio.QueueFull:
                 # Increment full count and check if we should remove
                 self._full_counts[queue] += 1
-                if self._full_counts[queue] >= MAX_CONSECUTIVE_FULL:
+                max_consecutive = settings.system.broadcaster_max_consecutive_full
+                if self._full_counts[queue] >= max_consecutive:
                     log.warning("Removing subscriber due to persistent backpressure",
                                queue_size=queue.qsize(),
-                               consecutive_failures=self._full_counts[queue])
+                               consecutive_failures=self._full_counts[queue],
+                               threshold=max_consecutive)
                     queues_to_remove.append(queue)
                 else:
                     log.warning("Dropping SSE message for slow subscriber",
                                queue_size=queue.qsize(),
-                               consecutive_failures=self._full_counts[queue])
+                               consecutive_failures=self._full_counts[queue],
+                               threshold=max_consecutive)
             except Exception as e:
                 # Queue may have been closed or is in bad state, remove it
                 log.warning("Removing subscriber due to error", error=str(e))

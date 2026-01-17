@@ -61,6 +61,10 @@ class ClassificationSettings(BaseModel):
     video_classification_delay: int = Field(default=30, description="Seconds to wait before checking for clip (allow Frigate to finalize)")
     video_classification_max_retries: int = Field(default=3, description="Max retries for clip availability")
     video_classification_retry_interval: int = Field(default=15, description="Seconds between retries")
+    video_classification_max_concurrent: int = Field(default=5, ge=1, le=20, description="Maximum concurrent video classification tasks")
+
+    # Classification output settings
+    max_classification_results: int = Field(default=5, ge=1, le=20, description="Maximum number of top results to return from classifier")
 
     # Wildlife/general animal model settings
     wildlife_model: str = Field(default="wildlife_model.tflite", description="Wildlife classification model file")
@@ -158,6 +162,11 @@ class AccessibilitySettings(BaseModel):
     zen_mode: bool = Field(default=False, description="Enable simplified zen mode")
     live_announcements: bool = Field(default=True, description="Enable screen reader live announcements")
 
+class SystemSettings(BaseModel):
+    """System-level performance and resource settings"""
+    broadcaster_max_queue_size: int = Field(default=100, ge=10, le=1000, description="Maximum SSE message queue size per subscriber")
+    broadcaster_max_consecutive_full: int = Field(default=10, ge=1, le=100, description="Remove subscriber after this many consecutive backpressure failures")
+
 class Settings(BaseSettings):
     frigate: FrigateSettings
     classification: ClassificationSettings = ClassificationSettings()
@@ -169,8 +178,9 @@ class Settings(BaseSettings):
     telemetry: TelemetrySettings = TelemetrySettings()
     notifications: NotificationSettings = NotificationSettings()
     accessibility: AccessibilitySettings = AccessibilitySettings()
+    system: SystemSettings = SystemSettings()
     species_info_source: str = Field(default="auto", description="Species info source: auto, inat, or wikipedia")
-    
+
     # General app settings
     log_level: str = "INFO"
     api_key: Optional[str] = None
