@@ -1,6 +1,6 @@
 <script lang="ts">
-    import { theme, isDark } from '../stores/theme';
-    import { sidebarCollapsed } from '../stores/layout';
+    import { themeStore } from '../stores/theme.svelte';
+    import { layoutStore } from '../stores/layout.svelte';
     import { _ } from 'svelte-i18n';
 
     let { currentRoute, onNavigate, mobileSidebarOpen = false, onMobileClose, status } = $props<{
@@ -11,10 +11,8 @@
         status?: import('svelte').Snippet;
     }>();
 
-    let collapsed = $state(false);
-    sidebarCollapsed.subscribe(value => {
-        collapsed = value;
-    });
+    // Direct reactive access to stores
+    let collapsed = $derived(layoutStore.sidebarCollapsed);
 
     const navItems = $derived([
         { path: '/', label: $_('nav.dashboard'), icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6' },
@@ -80,7 +78,7 @@
         {#if !collapsed}
             <button
                 class="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-all duration-200 focus-ring"
-                onclick={() => sidebarCollapsed.toggle()}
+                onclick={() => layoutStore.toggleSidebar()}
                 title={$_('nav.collapse_sidebar')}
             >
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -125,7 +123,7 @@
         <div class="p-3 border-t border-slate-200/80 dark:border-slate-700/50">
             <button
                 class="w-full flex items-center justify-center p-3 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-all duration-200 focus-ring"
-                onclick={() => sidebarCollapsed.toggle()}
+                onclick={() => layoutStore.toggleSidebar()}
                 title={$_('nav.expand_sidebar')}
             >
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -139,10 +137,10 @@
     <div class="p-3 border-t border-slate-200/80 dark:border-slate-700/50">
         <button
             class="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-all duration-200 focus-ring"
-            onclick={() => theme.toggle()}
-            title={collapsed ? ($isDark ? $_('theme.switch_light') : $_('theme.switch_dark')) : ''}
+            onclick={() => themeStore.toggle()}
+            title={collapsed ? (themeStore.isDark ? $_('theme.switch_light') : $_('theme.switch_dark')) : ''}
         >
-            {#if $isDark}
+            {#if themeStore.isDark}
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
                 </svg>
@@ -152,7 +150,7 @@
                 </svg>
             {/if}
             {#if !collapsed}
-                <span class="text-sm font-medium">{$isDark ? $_('theme.light') : $_('theme.dark')}</span>
+                <span class="text-sm font-medium">{themeStore.isDark ? $_('theme.light') : $_('theme.dark')}</span>
             {/if}
         </button>
     </div>

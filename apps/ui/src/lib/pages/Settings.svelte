@@ -34,8 +34,8 @@
         type TaxonomySyncStatus,
         type VersionInfo
     } from '../api';
-    import { theme, type Theme } from '../stores/theme';
-    import { layout, type Layout } from '../stores/layout';
+    import { themeStore, type Theme } from '../stores/theme.svelte';
+    import { layoutStore, type Layout } from '../stores/layout.svelte';
     import { settingsStore } from '../stores/settings.svelte';
     import { _, locale } from 'svelte-i18n';
     import SettingsTabs from '../components/settings/SettingsTabs.svelte';
@@ -865,11 +865,11 @@
     }
 
     function setTheme(t: Theme) {
-        theme.set(t);
+        themeStore.setTheme(t);
     }
 
     function setLayout(l: Layout) {
-        layout.set(l);
+        layoutStore.setLayout(l);
     }
 
     function setLanguage(lang: string) {
