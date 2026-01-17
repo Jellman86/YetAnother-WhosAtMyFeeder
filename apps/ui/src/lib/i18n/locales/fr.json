@@ -28,11 +28,12 @@
     "horizontal_desc": "Top navigation bar",
     "vertical_desc": "Left sidebar (collapsible)"
   },
-      "dashboard": {
-          "title": "Tableau de bord",
-          "live_feed": "Flux en direct",
-          "showing_last_3_days": "Affichage des 3 derniers jours",
-          "no_detections": "Aucune détection pour le moment",    "waiting_first_visitor": "En attente du premier visiteur de la journée...",
+  "dashboard": {
+    "title": "Tableau de bord",
+    "live_feed": "Flux en direct",
+    "showing_last_3_days": "Affichage des 3 derniers jours",
+    "no_detections": "Aucune détection pour le moment",
+    "waiting_first_visitor": "En attente du premier visiteur de la journée...",
     "discovery_feed": "Fil de découverte",
     "see_full_history": "Voir l'historique complet",
     "audio_confirmations": "Confirmations audio"
@@ -157,6 +158,49 @@
       "oauth_disconnect_success": "{provider} déconnecté",
       "oauth_error": "Erreur OAuth : {error}",
       "credentials_required": "Veuillez d'abord configurer les identifiants OAuth ou SMTP"
+    },
+    "notifications": {
+      "global_filters": "Global Notification Filters",
+      "min_confidence": "Minimum confidence",
+      "notify_all": "Notify all",
+      "high_confidence_only": "High confidence only",
+      "audio_only": "Audio confirmed only",
+      "audio_only_desc": "Only alert when BirdNET audio confirms the detection.",
+      "species_whitelist": "Species whitelist",
+      "species_placeholder": "Add a species (e.g., Northern Cardinal)",
+      "no_species_filter": "No species filters applied"
+    },
+    "discord": {
+      "title": "Discord Notifications",
+      "webhook_url": "Webhook URL",
+      "webhook_placeholder": "https://discord.com/api/webhooks/...",
+      "bot_username": "Bot username",
+      "test_notification": "Send test notification",
+      "test_sending": "Sending..."
+    },
+    "pushover": {
+      "title": "Pushover Notifications",
+      "user_key": "User key",
+      "user_key_placeholder": "Your Pushover user key",
+      "api_token": "API token",
+      "api_token_placeholder": "Your Pushover API token",
+      "priority": "Priority",
+      "priority_lowest": "Lowest",
+      "priority_low": "Low",
+      "priority_normal": "Normal",
+      "priority_high": "High",
+      "priority_emergency": "Emergency",
+      "test_notification": "Send test notification",
+      "test_sending": "Sending..."
+    },
+    "telegram": {
+      "title": "Telegram Notifications",
+      "bot_token": "Bot token",
+      "bot_token_placeholder": "123456:ABC-DEF...",
+      "chat_id": "Chat ID",
+      "chat_id_placeholder": "123456789",
+      "test_notification": "Send test notification",
+      "test_sending": "Sending..."
     }
   },
   "notifications": {
@@ -251,28 +295,88 @@
     "project_desc_1": "YA-WAMF est un projet personnel lancé pour expérimenter le codage assisté par l'IA. Lorsque le projet original {link} est devenu non maintenu, celui-ci est né à la fois comme une opportunité d'apprentissage et un outil utile pour les passionnés d'oiseaux.",
     "project_desc_2": "L'ensemble de l'application a été construit avec l'aide d'assistants de codage IA - cela a été une exploration intéressante de ce qui est possible avec ces outils. Si vous remarquez des imperfections, c'est probablement pour cette raison !",
     "steps": {
-      "1": { "title": "Frigate Détecte", "desc": "Votre caméra capte un mouvement, Frigate l'identifie comme un oiseau" },
-      "2": { "title": "Message MQTT", "desc": "Frigate publie un événement sur votre courtier MQTT" },
-      "3": { "title": "YA-WAMF Traite", "desc": "Le backend s'abonne à MQTT et récupère l'événement" },
-      "4": { "title": "Classification", "desc": "L'image passe par le modèle ML (ou utilise le sous-label de Frigate)" },
-      "5": { "title": "Corrélation Audio", "desc": "Référence croisée avec les détections audio de BirdNET-Go si disponibles" },
-      "6": { "title": "Enregistrer & Notifier", "desc": "Détection stockée dans la base de données, notifications envoyées" },
-      "7": { "title": "Analyse Vidéo", "desc": "Optionnel : Scanne les images des clips vidéo pour une précision affinée" },
-      "8": { "title": "Mises à jour en direct", "desc": "Le tableau de bord reçoit des mises à jour en temps réel via Server-Sent Events" }
+      "1": {
+        "title": "Frigate Détecte",
+        "desc": "Votre caméra capte un mouvement, Frigate l'identifie comme un oiseau"
+      },
+      "2": {
+        "title": "Message MQTT",
+        "desc": "Frigate publie un événement sur votre courtier MQTT"
+      },
+      "3": {
+        "title": "YA-WAMF Traite",
+        "desc": "Le backend s'abonne à MQTT et récupère l'événement"
+      },
+      "4": {
+        "title": "Classification",
+        "desc": "L'image passe par le modèle ML (ou utilise le sous-label de Frigate)"
+      },
+      "5": {
+        "title": "Corrélation Audio",
+        "desc": "Référence croisée avec les détections audio de BirdNET-Go si disponibles"
+      },
+      "6": {
+        "title": "Enregistrer & Notifier",
+        "desc": "Détection stockée dans la base de données, notifications envoyées"
+      },
+      "7": {
+        "title": "Analyse Vidéo",
+        "desc": "Optionnel : Scanne les images des clips vidéo pour une précision affinée"
+      },
+      "8": {
+        "title": "Mises à jour en direct",
+        "desc": "Le tableau de bord reçoit des mises à jour en temps réel via Server-Sent Events"
+      }
     },
     "feature_list": {
-      "ai_models": { "title": "Modèles d'IA Avancés", "desc": "Choisissez entre MobileNetV2 (rapide), ConvNeXt (haute précision) ou EVA-02 (élite ~91% de précision)" },
-      "multi_sensor": { "title": "Corrélation Multi-Capteurs", "desc": "Croisez les détections visuelles avec les identifications audio BirdNET-Go" },
-      "video_analysis": { "title": "Analyse Vidéo Auto", "desc": "Scanne automatiquement plus de 15 images des clips vidéo pour une plus grande précision" },
-      "notifications": { "title": "Notifications Riches", "desc": "Support Discord, Telegram et Pushover avec filtres personnalisables" },
-      "ai_insights": { "title": "Perspectives Naturalistes IA", "desc": "Obtenez des analyses de comportement en utilisant Gemini, OpenAI ou Claude" },
-      "taxonomy": { "title": "Normalisation de la Taxonomie", "desc": "Mapping automatique noms scientifiques ↔ communs via les données iNaturalist" },
-      "weather": { "title": "Enrichissement Météo", "desc": "Suivez les détections avec les conditions météo locales et la température" },
-      "home_assistant": { "title": "Intégration Home Assistant", "desc": "Capteurs natifs pour suivre le dernier oiseau détecté et les comptages quotidiens" },
-      "birdweather": { "title": "Rapports BirdWeather", "desc": "Optionnel : Contribuez à la plateforme scientifique communautaire BirdWeather" },
-      "observability": { "title": "Observability", "desc": "Built-in Prometheus metrics, optional telemetry, and real-time MQTT diagnostics" },
-      "wildlife": { "title": "Classificateur de Faune", "desc": "Identifiez les écureuils, renards et autres visiteurs non-oiseaux" },
-      "fast_path": { "title": "Efficacité du Chemin Rapide", "desc": "Passez le traitement IA local et utilisez directement les sous-labels de Frigate" }
+      "ai_models": {
+        "title": "Modèles d'IA Avancés",
+        "desc": "Choisissez entre MobileNetV2 (rapide), ConvNeXt (haute précision) ou EVA-02 (élite ~91% de précision)"
+      },
+      "multi_sensor": {
+        "title": "Corrélation Multi-Capteurs",
+        "desc": "Croisez les détections visuelles avec les identifications audio BirdNET-Go"
+      },
+      "video_analysis": {
+        "title": "Analyse Vidéo Auto",
+        "desc": "Scanne automatiquement plus de 15 images des clips vidéo pour une plus grande précision"
+      },
+      "notifications": {
+        "title": "Notifications Riches",
+        "desc": "Support Discord, Telegram et Pushover avec filtres personnalisables"
+      },
+      "ai_insights": {
+        "title": "Perspectives Naturalistes IA",
+        "desc": "Obtenez des analyses de comportement en utilisant Gemini, OpenAI ou Claude"
+      },
+      "taxonomy": {
+        "title": "Normalisation de la Taxonomie",
+        "desc": "Mapping automatique noms scientifiques ↔ communs via les données iNaturalist"
+      },
+      "weather": {
+        "title": "Enrichissement Météo",
+        "desc": "Suivez les détections avec les conditions météo locales et la température"
+      },
+      "home_assistant": {
+        "title": "Intégration Home Assistant",
+        "desc": "Capteurs natifs pour suivre le dernier oiseau détecté et les comptages quotidiens"
+      },
+      "birdweather": {
+        "title": "Rapports BirdWeather",
+        "desc": "Optionnel : Contribuez à la plateforme scientifique communautaire BirdWeather"
+      },
+      "observability": {
+        "title": "Observability",
+        "desc": "Built-in Prometheus metrics, optional telemetry, and real-time MQTT diagnostics"
+      },
+      "wildlife": {
+        "title": "Classificateur de Faune",
+        "desc": "Identifiez les écureuils, renards et autres visiteurs non-oiseaux"
+      },
+      "fast_path": {
+        "title": "Efficacité du Chemin Rapide",
+        "desc": "Passez le traitement IA local et utilisez directement les sous-labels de Frigate"
+      }
     },
     "tech": {
       "backend": "Backend",
