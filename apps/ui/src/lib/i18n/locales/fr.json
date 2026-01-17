@@ -87,7 +87,9 @@
       "reduced_motion": "Réduire les mouvements",
       "reduced_motion_desc": "Désactiver les animations et transitions",
       "zen_mode": "Mode Zen",
-      "zen_mode_desc": "Simplifier l'interface pour réduire la charge cognitive"
+      "zen_mode_desc": "Simplifier l'interface pour réduire la charge cognitive",
+      "live_announcements": "Annonces en direct",
+      "live_announcements_desc": "Annoncer les nouvelles détections via le lecteur d’écran."
     },
     "frigate": {
       "title": "Frigate NVR",
@@ -160,47 +162,47 @@
       "credentials_required": "Veuillez d'abord configurer les identifiants OAuth ou SMTP"
     },
     "notifications": {
-      "global_filters": "Global Notification Filters",
-      "min_confidence": "Minimum confidence",
-      "notify_all": "Notify all",
-      "high_confidence_only": "High confidence only",
-      "audio_only": "Audio confirmed only",
-      "audio_only_desc": "Only alert when BirdNET audio confirms the detection.",
-      "species_whitelist": "Species whitelist",
-      "species_placeholder": "Add a species (e.g., Northern Cardinal)",
-      "no_species_filter": "No species filters applied"
+      "global_filters": "Filtres globaux de notifications",
+      "min_confidence": "Confiance minimale",
+      "notify_all": "Tout notifier",
+      "high_confidence_only": "Haute confiance uniquement",
+      "audio_only": "Confirmées par audio uniquement",
+      "audio_only_desc": "N'alerter que lorsque BirdNET confirme l'audio.",
+      "species_whitelist": "Liste blanche d'espèces",
+      "species_placeholder": "Ajouter une espèce (ex. Cardinal rouge)",
+      "no_species_filter": "Aucun filtre d'espèces appliqué"
     },
     "discord": {
-      "title": "Discord Notifications",
-      "webhook_url": "Webhook URL",
+      "title": "Notifications Discord",
+      "webhook_url": "URL du webhook",
       "webhook_placeholder": "https://discord.com/api/webhooks/...",
-      "bot_username": "Bot username",
-      "test_notification": "Send test notification",
-      "test_sending": "Sending..."
+      "bot_username": "Nom du bot",
+      "test_notification": "Envoyer une notification de test",
+      "test_sending": "Envoi..."
     },
     "pushover": {
-      "title": "Pushover Notifications",
-      "user_key": "User key",
-      "user_key_placeholder": "Your Pushover user key",
-      "api_token": "API token",
-      "api_token_placeholder": "Your Pushover API token",
-      "priority": "Priority",
-      "priority_lowest": "Lowest",
-      "priority_low": "Low",
-      "priority_normal": "Normal",
-      "priority_high": "High",
-      "priority_emergency": "Emergency",
-      "test_notification": "Send test notification",
-      "test_sending": "Sending..."
+      "title": "Notifications Pushover",
+      "user_key": "Clé utilisateur",
+      "user_key_placeholder": "Votre clé utilisateur Pushover",
+      "api_token": "Jeton API",
+      "api_token_placeholder": "Votre jeton API Pushover",
+      "priority": "Priorité",
+      "priority_lowest": "Très basse",
+      "priority_low": "Basse",
+      "priority_normal": "Normale",
+      "priority_high": "Élevée",
+      "priority_emergency": "Urgence",
+      "test_notification": "Envoyer une notification de test",
+      "test_sending": "Envoi..."
     },
     "telegram": {
-      "title": "Telegram Notifications",
-      "bot_token": "Bot token",
+      "title": "Notifications Telegram",
+      "bot_token": "Jeton du bot",
       "bot_token_placeholder": "123456:ABC-DEF...",
-      "chat_id": "Chat ID",
+      "chat_id": "ID du chat",
       "chat_id_placeholder": "123456789",
-      "test_notification": "Send test notification",
-      "test_sending": "Sending..."
+      "test_notification": "Envoyer une notification de test",
+      "test_sending": "Envoi..."
     }
   },
   "notifications": {

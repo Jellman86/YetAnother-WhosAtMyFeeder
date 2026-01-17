@@ -179,6 +179,7 @@
     // Accessibility
     let highContrast = $state(false);
     let dyslexiaFont = $state(false);
+    let liveAnnouncements = $state(true);
 
     $effect(() => {
         if (highContrast) document.documentElement.classList.add('high-contrast');
@@ -580,6 +581,7 @@
             // Accessibility
             highContrast = settings.accessibility_high_contrast ?? false;
             dyslexiaFont = settings.accessibility_dyslexia_font ?? false;
+            liveAnnouncements = settings.accessibility_live_announcements ?? true;
         } catch (e) {
             message = { type: 'error', text: $_('notifications.settings_load_failed') };
         } finally {
@@ -681,7 +683,8 @@
 
                 // Accessibility
                 accessibility_high_contrast: highContrast,
-                accessibility_dyslexia_font: dyslexiaFont
+                accessibility_dyslexia_font: dyslexiaFont,
+                accessibility_live_announcements: liveAnnouncements
             });
             // Update store
             await settingsStore.load();
@@ -1047,6 +1050,7 @@
                 <AccessibilitySettings
                     bind:highContrast
                     bind:dyslexiaFont
+                    bind:liveAnnouncements
                 />
             {/if}
         </div>

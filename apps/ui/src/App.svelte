@@ -214,7 +214,9 @@
                              video_classification_timestamp: payload.data.video_classification_timestamp
                          };
                          detectionsStore.addDetection(newDet);
-                         announcer.announce(`New bird detected: ${newDet.display_name} at ${newDet.camera_name}`);
+                         if (settingsStore.settings?.accessibility_live_announcements ?? true) {
+                             announcer.announce(`New bird detected: ${newDet.display_name} at ${newDet.camera_name}`);
+                         }
                      } else if (payload.type === 'detection_updated') {
                          if (!payload.data || !payload.data.frigate_event) {
                              console.error("SSE Invalid detection_updated data:", payload);

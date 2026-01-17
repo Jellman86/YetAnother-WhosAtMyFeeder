@@ -88,7 +88,9 @@
       "reduced_motion": "减少动态效果",
       "reduced_motion_desc": "禁用动画和过渡效果",
       "zen_mode": "禅模式",
-      "zen_mode_desc": "简化界面以减少认知负荷"
+      "zen_mode_desc": "简化界面以减少认知负荷",
+      "live_announcements": "实时播报",
+      "live_announcements_desc": "使用屏幕阅读器播报新的检测。"
     },
     "frigate": {
       "title": "Frigate NVR",
@@ -161,47 +163,47 @@
       "credentials_required": "请先配置 OAuth 或 SMTP 凭据"
     },
     "notifications": {
-      "global_filters": "Global Notification Filters",
-      "min_confidence": "Minimum confidence",
-      "notify_all": "Notify all",
-      "high_confidence_only": "High confidence only",
-      "audio_only": "Audio confirmed only",
-      "audio_only_desc": "Only alert when BirdNET audio confirms the detection.",
-      "species_whitelist": "Species whitelist",
-      "species_placeholder": "Add a species (e.g., Northern Cardinal)",
-      "no_species_filter": "No species filters applied"
+      "global_filters": "全局通知筛选",
+      "min_confidence": "最低置信度",
+      "notify_all": "全部通知",
+      "high_confidence_only": "仅高置信度",
+      "audio_only": "仅音频确认",
+      "audio_only_desc": "仅在BirdNET音频确认时提醒。",
+      "species_whitelist": "物种白名单",
+      "species_placeholder": "添加物种（例如：北美红雀）",
+      "no_species_filter": "未设置物种筛选"
     },
     "discord": {
-      "title": "Discord Notifications",
+      "title": "Discord 通知",
       "webhook_url": "Webhook URL",
       "webhook_placeholder": "https://discord.com/api/webhooks/...",
-      "bot_username": "Bot username",
-      "test_notification": "Send test notification",
-      "test_sending": "Sending..."
+      "bot_username": "机器人名称",
+      "test_notification": "发送测试通知",
+      "test_sending": "发送中..."
     },
     "pushover": {
-      "title": "Pushover Notifications",
-      "user_key": "User key",
-      "user_key_placeholder": "Your Pushover user key",
-      "api_token": "API token",
-      "api_token_placeholder": "Your Pushover API token",
-      "priority": "Priority",
-      "priority_lowest": "Lowest",
-      "priority_low": "Low",
-      "priority_normal": "Normal",
-      "priority_high": "High",
-      "priority_emergency": "Emergency",
-      "test_notification": "Send test notification",
-      "test_sending": "Sending..."
+      "title": "Pushover 通知",
+      "user_key": "用户密钥",
+      "user_key_placeholder": "你的 Pushover 用户密钥",
+      "api_token": "API 令牌",
+      "api_token_placeholder": "你的 Pushover API 令牌",
+      "priority": "优先级",
+      "priority_lowest": "最低",
+      "priority_low": "低",
+      "priority_normal": "普通",
+      "priority_high": "高",
+      "priority_emergency": "紧急",
+      "test_notification": "发送测试通知",
+      "test_sending": "发送中..."
     },
     "telegram": {
-      "title": "Telegram Notifications",
-      "bot_token": "Bot token",
+      "title": "Telegram 通知",
+      "bot_token": "机器人令牌",
       "bot_token_placeholder": "123456:ABC-DEF...",
-      "chat_id": "Chat ID",
+      "chat_id": "聊天 ID",
       "chat_id_placeholder": "123456789",
-      "test_notification": "Send test notification",
-      "test_sending": "Sending..."
+      "test_notification": "发送测试通知",
+      "test_sending": "发送中..."
     }
   },
   "notifications": {

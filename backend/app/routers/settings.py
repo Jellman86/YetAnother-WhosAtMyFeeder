@@ -224,6 +224,7 @@ class SettingsUpdate(BaseModel):
     accessibility_dyslexia_font: Optional[bool] = False
     accessibility_reduced_motion: Optional[bool] = False
     accessibility_zen_mode: Optional[bool] = False
+    accessibility_live_announcements: Optional[bool] = True
 
     @field_validator('frigate_url')
     @classmethod
@@ -311,6 +312,7 @@ async def get_settings():
         "accessibility_dyslexia_font": settings.accessibility.dyslexia_font,
         "accessibility_reduced_motion": settings.accessibility.reduced_motion,
         "accessibility_zen_mode": settings.accessibility.zen_mode,
+        "accessibility_live_announcements": settings.accessibility.live_announcements,
     }
 
 @router.post("/settings")
@@ -425,6 +427,8 @@ async def update_settings(update: SettingsUpdate, background_tasks: BackgroundTa
         settings.accessibility.reduced_motion = update.accessibility_reduced_motion
     if update.accessibility_zen_mode is not None:
         settings.accessibility.zen_mode = update.accessibility_zen_mode
+    if update.accessibility_live_announcements is not None:
+        settings.accessibility.live_announcements = update.accessibility_live_announcements
 
     if settings.telemetry.enabled:
         background_tasks.add_task(telemetry_service.force_heartbeat)

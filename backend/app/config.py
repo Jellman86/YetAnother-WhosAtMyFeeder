@@ -156,6 +156,7 @@ class AccessibilitySettings(BaseModel):
     dyslexia_font: bool = Field(default=False, description="Enable dyslexia-friendly font")
     reduced_motion: bool = Field(default=False, description="Reduce motion/animations")
     zen_mode: bool = Field(default=False, description="Enable simplified zen mode")
+    live_announcements: bool = Field(default=True, description="Enable screen reader live announcements")
 
 class Settings(BaseSettings):
     frigate: FrigateSettings
@@ -295,6 +296,7 @@ class Settings(BaseSettings):
             'dyslexia_font': os.environ.get('ACCESSIBILITY__DYSLEXIA_FONT', 'false').lower() == 'true',
             'reduced_motion': os.environ.get('ACCESSIBILITY__REDUCED_MOTION', 'false').lower() == 'true',
             'zen_mode': os.environ.get('ACCESSIBILITY__ZEN_MODE', 'false').lower() == 'true',
+            'live_announcements': os.environ.get('ACCESSIBILITY__LIVE_ANNOUNCEMENTS', 'true').lower() == 'true',
         }
 
         # Load from config file if it exists, env vars take precedence

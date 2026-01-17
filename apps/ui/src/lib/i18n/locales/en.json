@@ -87,7 +87,9 @@
       "reduced_motion": "Reduced Motion",
       "reduced_motion_desc": "Disable animations and transitions",
       "zen_mode": "Zen Mode",
-      "zen_mode_desc": "Simplify interface to reduce cognitive load"
+      "zen_mode_desc": "Simplify interface to reduce cognitive load",
+      "live_announcements": "Live announcements",
+      "live_announcements_desc": "Announce new detections with screen reader alerts."
     },
     "frigate": {
       "title": "Frigate NVR",

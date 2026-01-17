@@ -129,6 +129,7 @@ export interface Settings {
     accessibility_dyslexia_font: boolean;
     accessibility_reduced_motion: boolean;
     accessibility_zen_mode: boolean;
+    accessibility_live_announcements: boolean;
 }
 
 export type UpdateSettings = Partial<Settings>;

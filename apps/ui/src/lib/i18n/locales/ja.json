@@ -87,7 +87,9 @@
       "reduced_motion": "動きを減らす",
       "reduced_motion_desc": "アニメーションと遷移を無効化",
       "zen_mode": "禅モード",
-      "zen_mode_desc": "インターフェースを簡素化し、認知的負荷を軽減"
+      "zen_mode_desc": "インターフェースを簡素化し、認知的負荷を軽減",
+      "live_announcements": "ライブアナウンス",
+      "live_announcements_desc": "新しい検出をスクリーンリーダーで通知します。"
     },
     "frigate": {
       "title": "Frigate NVR",
@@ -160,47 +162,47 @@
       "credentials_required": "まずOAuthまたはSMTP認証情報を設定してください"
     },
     "notifications": {
-      "global_filters": "Global Notification Filters",
-      "min_confidence": "Minimum confidence",
-      "notify_all": "Notify all",
-      "high_confidence_only": "High confidence only",
-      "audio_only": "Audio confirmed only",
-      "audio_only_desc": "Only alert when BirdNET audio confirms the detection.",
-      "species_whitelist": "Species whitelist",
-      "species_placeholder": "Add a species (e.g., Northern Cardinal)",
-      "no_species_filter": "No species filters applied"
+      "global_filters": "通知の全体フィルター",
+      "min_confidence": "最小信頼度",
+      "notify_all": "すべて通知",
+      "high_confidence_only": "高い信頼度のみ",
+      "audio_only": "音声確認のみ",
+      "audio_only_desc": "BirdNETが音声を確認した場合のみ通知します。",
+      "species_whitelist": "種のホワイトリスト",
+      "species_placeholder": "種を追加（例：ノーザンカーディナル）",
+      "no_species_filter": "種のフィルターはありません"
     },
     "discord": {
-      "title": "Discord Notifications",
+      "title": "Discord通知",
       "webhook_url": "Webhook URL",
       "webhook_placeholder": "https://discord.com/api/webhooks/...",
-      "bot_username": "Bot username",
-      "test_notification": "Send test notification",
-      "test_sending": "Sending..."
+      "bot_username": "ボット名",
+      "test_notification": "テスト通知を送信",
+      "test_sending": "送信中..."
     },
     "pushover": {
-      "title": "Pushover Notifications",
-      "user_key": "User key",
-      "user_key_placeholder": "Your Pushover user key",
-      "api_token": "API token",
-      "api_token_placeholder": "Your Pushover API token",
-      "priority": "Priority",
-      "priority_lowest": "Lowest",
-      "priority_low": "Low",
-      "priority_normal": "Normal",
-      "priority_high": "High",
-      "priority_emergency": "Emergency",
-      "test_notification": "Send test notification",
-      "test_sending": "Sending..."
+      "title": "Pushover通知",
+      "user_key": "ユーザーキー",
+      "user_key_placeholder": "Pushoverユーザーキー",
+      "api_token": "APIトークン",
+      "api_token_placeholder": "Pushover APIトークン",
+      "priority": "優先度",
+      "priority_lowest": "最低",
+      "priority_low": "低",
+      "priority_normal": "通常",
+      "priority_high": "高",
+      "priority_emergency": "緊急",
+      "test_notification": "テスト通知を送信",
+      "test_sending": "送信中..."
     },
     "telegram": {
-      "title": "Telegram Notifications",
-      "bot_token": "Bot token",
+      "title": "Telegram通知",
+      "bot_token": "ボットトークン",
       "bot_token_placeholder": "123456:ABC-DEF...",
-      "chat_id": "Chat ID",
+      "chat_id": "チャットID",
       "chat_id_placeholder": "123456789",
-      "test_notification": "Send test notification",
-      "test_sending": "Sending..."
+      "test_notification": "テスト通知を送信",
+      "test_sending": "送信中..."
     }
   },
   "notifications": {

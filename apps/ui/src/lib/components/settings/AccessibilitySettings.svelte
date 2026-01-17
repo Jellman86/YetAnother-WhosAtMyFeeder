@@ -4,10 +4,12 @@
     // Props
     let {
         highContrast = $bindable(false),
-        dyslexiaFont = $bindable(false)
+        dyslexiaFont = $bindable(false),
+        liveAnnouncements = $bindable(true)
     }: {
         highContrast: boolean;
         dyslexiaFont: boolean;
+        liveAnnouncements: boolean;
     } = $props();
 
     // OpenDyslexic font only supports Latin characters
@@ -88,5 +90,28 @@
                 </button>
             </div>
         {/if}
+
+        <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 flex items-center justify-between">
+            <div id="live-announcements-label">
+                <span class="block text-sm font-bold text-slate-900 dark:text-white">{$_('settings.accessibility.live_announcements')}</span>
+                <span class="block text-[10px] text-slate-500 font-medium">{$_('settings.accessibility.live_announcements_desc')}</span>
+            </div>
+            <button
+                role="switch"
+                aria-checked={liveAnnouncements}
+                aria-labelledby="live-announcements-label"
+                onclick={() => liveAnnouncements = !liveAnnouncements}
+                onkeydown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        liveAnnouncements = !liveAnnouncements;
+                    }
+                }}
+                class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {liveAnnouncements ? 'bg-indigo-500' : 'bg-slate-300 dark:bg-slate-600'}"
+            >
+                <span class="sr-only">{$_('settings.accessibility.live_announcements')}</span>
+                <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {liveAnnouncements ? 'translate-x-5' : 'translate-x-0'}"></span>
+            </button>
+        </div>
     </div>
 </section>
