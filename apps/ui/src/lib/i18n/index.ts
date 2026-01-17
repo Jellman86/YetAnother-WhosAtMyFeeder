@@ -14,8 +14,10 @@ register('zh', () => import('./locales/zh.json'));
 // Detect browser locale with fallback
 const savedLocale = localStorage.getItem('preferred-language');
 const browserLocale = savedLocale || getLocaleFromNavigator() || 'en';
+// Ensure browserLocale is always a string before calling .split()
+const localeStr = typeof browserLocale === 'string' ? browserLocale : 'en';
 // Normalize: 'en-US' -> 'en', 'zh-CN' -> 'zh'
-const normalizedLocale = browserLocale.split('-')[0];
+const normalizedLocale = localeStr.split('-')[0];
 // Validate: only use if we support it
 const supportedLocales = ['en', 'es', 'fr', 'de', 'ja', 'zh'];
 const initialLocale = supportedLocales.includes(normalizedLocale) ? normalizedLocale : 'en';
