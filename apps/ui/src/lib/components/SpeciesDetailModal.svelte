@@ -334,7 +334,7 @@
                                     <p class="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
                                         {info.extract}
                                     </p>
-                                {:else if !info.thumbnail_url}
+                                {:else}
                                     <p class="text-sm text-slate-500 dark:text-slate-400 italic">
                                         {$_('species_detail.no_info')}
                                     </p>

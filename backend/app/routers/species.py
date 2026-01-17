@@ -537,10 +537,20 @@ async def get_species_info(species_name: str, refresh: bool = False):
     if cached_info:
         return cached_info
 
-    # Fetch from iNaturalist first, then Wikipedia as fallback
+    # Fetch from iNaturalist first, then fill gaps with Wikipedia
     info = await _fetch_inaturalist_info(species_name)
-    if not (info.thumbnail_url or info.extract):
-        info = await _fetch_wikipedia_info(species_name)
+    if not info.extract or not info.thumbnail_url:
+        wiki_info = await _fetch_wikipedia_info(species_name)
+        if not info.extract and wiki_info.extract:
+            info.extract = wiki_info.extract
+            info.source = wiki_info.source
+            info.source_url = wiki_info.source_url
+        if not info.thumbnail_url and wiki_info.thumbnail_url:
+            info.thumbnail_url = wiki_info.thumbnail_url
+        if not info.wikipedia_url and wiki_info.wikipedia_url:
+            info.wikipedia_url = wiki_info.wikipedia_url
+        if not info.scientific_name and wiki_info.scientific_name:
+            info.scientific_name = wiki_info.scientific_name
 
     # Cache the result
     await _save_species_info(species_name, taxa_id, info)
