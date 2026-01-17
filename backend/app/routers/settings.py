@@ -250,6 +250,8 @@ class SettingsUpdate(BaseModel):
     accessibility_zen_mode: Optional[bool] = False
     accessibility_live_announcements: Optional[bool] = True
 
+    species_info_source: Optional[str] = "auto"
+
     @field_validator('frigate_url')
     @classmethod
     def validate_frigate_url(cls, v: str) -> str:
@@ -363,6 +365,7 @@ async def get_settings():
         "accessibility_reduced_motion": settings.accessibility.reduced_motion,
         "accessibility_zen_mode": settings.accessibility.zen_mode,
         "accessibility_live_announcements": settings.accessibility.live_announcements,
+        "species_info_source": settings.species_info_source,
     }
 
 @router.post("/settings")
@@ -513,6 +516,9 @@ async def update_settings(update: SettingsUpdate, background_tasks: BackgroundTa
         settings.accessibility.zen_mode = update.accessibility_zen_mode
     if update.accessibility_live_announcements is not None:
         settings.accessibility.live_announcements = update.accessibility_live_announcements
+
+    if update.species_info_source:
+        settings.species_info_source = update.species_info_source
 
     if settings.telemetry.enabled:
         background_tasks.add_task(telemetry_service.force_heartbeat)

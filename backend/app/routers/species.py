@@ -557,24 +557,34 @@ async def get_species_info(species_name: str, refresh: bool = False):
     if cached_info:
         return cached_info
 
-    # Fetch from iNaturalist first, then fill gaps with Wikipedia
-    info = await _fetch_inaturalist_info(species_name)
-    if not info.extract or not info.thumbnail_url:
-        wiki_info = None
-        if info.wikipedia_url:
-            wiki_info = await _fetch_wikipedia_info_from_url(info.wikipedia_url, species_name)
-        if not wiki_info:
-            wiki_info = await _fetch_wikipedia_info(species_name)
-        if not info.extract and wiki_info.extract:
-            info.extract = wiki_info.extract
-            info.summary_source = wiki_info.source
-            info.summary_source_url = wiki_info.source_url
-        if not info.thumbnail_url and wiki_info.thumbnail_url:
-            info.thumbnail_url = wiki_info.thumbnail_url
-        if not info.wikipedia_url and wiki_info.wikipedia_url:
-            info.wikipedia_url = wiki_info.wikipedia_url
-        if not info.scientific_name and wiki_info.scientific_name:
-            info.scientific_name = wiki_info.scientific_name
+    source_pref = settings.species_info_source or "auto"
+
+    if source_pref == "wikipedia":
+        info = await _fetch_wikipedia_info(species_name)
+        if info.extract:
+            info.summary_source = info.source
+            info.summary_source_url = info.source_url
+    elif source_pref == "inat":
+        info = await _fetch_inaturalist_info(species_name)
+    else:
+        # Fetch from iNaturalist first, then fill gaps with Wikipedia
+        info = await _fetch_inaturalist_info(species_name)
+        if not info.extract or not info.thumbnail_url:
+            wiki_info = None
+            if info.wikipedia_url:
+                wiki_info = await _fetch_wikipedia_info_from_url(info.wikipedia_url, species_name)
+            if not wiki_info:
+                wiki_info = await _fetch_wikipedia_info(species_name)
+            if not info.extract and wiki_info.extract:
+                info.extract = wiki_info.extract
+                info.summary_source = wiki_info.source
+                info.summary_source_url = wiki_info.source_url
+            if not info.thumbnail_url and wiki_info.thumbnail_url:
+                info.thumbnail_url = wiki_info.thumbnail_url
+            if not info.wikipedia_url and wiki_info.wikipedia_url:
+                info.wikipedia_url = wiki_info.wikipedia_url
+            if not info.scientific_name and wiki_info.scientific_name:
+                info.scientific_name = wiki_info.scientific_name
 
     # Cache the result
     await _save_species_info(species_name, taxa_id, info)
@@ -898,6 +908,8 @@ async def _get_wikipedia_summary(client: httpx.AsyncClient, article_title: str, 
                 wikipedia_url=wikipedia_url,
                 source="Wikipedia",
                 source_url=wikipedia_url,
+                summary_source="Wikipedia" if extract else None,
+                summary_source_url=wikipedia_url if extract else None,
                 scientific_name=None,
                 conservation_status=None,
                 cached_at=datetime.now()

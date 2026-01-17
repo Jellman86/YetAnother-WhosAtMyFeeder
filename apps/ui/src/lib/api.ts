@@ -131,6 +131,8 @@ export interface Settings {
     accessibility_reduced_motion: boolean;
     accessibility_zen_mode: boolean;
     accessibility_live_announcements: boolean;
+
+    species_info_source?: string;
 }
 
 export type UpdateSettings = Partial<Settings>;

@@ -186,6 +186,7 @@
     let highContrast = $state(false);
     let dyslexiaFont = $state(false);
     let liveAnnouncements = $state(true);
+    let speciesInfoSource = $state('auto');
 
     $effect(() => {
         if (highContrast) document.documentElement.classList.add('high-contrast');
@@ -336,7 +337,8 @@
 
             // Accessibility
             { key: 'highContrast', val: highContrast, store: s.accessibility_high_contrast ?? false },
-            { key: 'dyslexiaFont', val: dyslexiaFont, store: s.accessibility_dyslexia_font ?? false }
+            { key: 'dyslexiaFont', val: dyslexiaFont, store: s.accessibility_dyslexia_font ?? false },
+            { key: 'speciesInfoSource', val: speciesInfoSource, store: s.species_info_source ?? 'auto' }
         ];
 
         const dirtyItem = checks.find(c => c.val !== c.store);
@@ -676,6 +678,7 @@
             highContrast = settings.accessibility_high_contrast ?? false;
             dyslexiaFont = settings.accessibility_dyslexia_font ?? false;
             liveAnnouncements = settings.accessibility_live_announcements ?? true;
+            speciesInfoSource = settings.species_info_source ?? 'auto';
         } catch (e) {
             message = { type: 'error', text: $_('notifications.settings_load_failed') };
         } finally {
@@ -778,7 +781,8 @@
                 // Accessibility
                 accessibility_high_contrast: highContrast,
                 accessibility_dyslexia_font: dyslexiaFont,
-                accessibility_live_announcements: liveAnnouncements
+                accessibility_live_announcements: liveAnnouncements,
+                species_info_source: speciesInfoSource
             });
             // Update store
             await settingsStore.load();
@@ -1115,6 +1119,7 @@
                     bind:cacheSnapshots
                     bind:cacheClips
                     bind:cacheRetentionDays
+                    bind:speciesInfoSource
                     bind:backfillDateRange
                     bind:backfillStartDate
                     bind:backfillEndDate

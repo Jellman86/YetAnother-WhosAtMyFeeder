@@ -12,6 +12,7 @@
         cacheClips = $bindable(true),
         cacheStats,
         cleaningCache,
+        speciesInfoSource = $bindable('auto'),
         taxonomyStatus,
         syncingTaxonomy,
         backfillDateRange = $bindable<'day' | 'week' | 'month' | 'custom'>('week'),
@@ -32,6 +33,7 @@
         cacheClips: boolean;
         cacheStats: CacheStats | null;
         cleaningCache: boolean;
+        speciesInfoSource: string;
         taxonomyStatus: TaxonomySyncStatus | null;
         syncingTaxonomy: boolean;
         backfillDateRange: 'day' | 'week' | 'month' | 'custom';
@@ -155,6 +157,29 @@
             {/if}
         </section>
     </div>
+
+    <!-- Species Info Source -->
+    <section class="bg-white dark:bg-slate-800/50 rounded-3xl border border-slate-200/80 dark:border-slate-700/50 p-8 shadow-sm">
+        <div class="flex items-center justify-between mb-6">
+            <div>
+                <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">Species Info Source</h3>
+                <p class="text-[10px] font-black uppercase tracking-widest text-slate-500 mt-1">Choose where summaries and images come from</p>
+            </div>
+        </div>
+        <div class="space-y-3">
+            <label for="species-info-source" class="block text-[10px] font-black uppercase tracking-widest text-slate-500">Source Preference</label>
+            <select
+                id="species-info-source"
+                bind:value={speciesInfoSource}
+                aria-label="Species info source"
+                class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"
+            >
+                <option value="auto">Auto (iNaturalist with Wikipedia fallback)</option>
+                <option value="inat">iNaturalist Only</option>
+                <option value="wikipedia">Wikipedia Only</option>
+            </select>
+        </div>
+    </section>
 
     <!-- Taxonomy Sync -->
     <section class="bg-white dark:bg-slate-800/50 rounded-3xl border border-slate-200/80 dark:border-slate-700/50 p-8 shadow-sm">

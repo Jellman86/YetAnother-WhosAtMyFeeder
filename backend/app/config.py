@@ -169,6 +169,7 @@ class Settings(BaseSettings):
     telemetry: TelemetrySettings = TelemetrySettings()
     notifications: NotificationSettings = NotificationSettings()
     accessibility: AccessibilitySettings = AccessibilitySettings()
+    species_info_source: str = Field(default="auto", description="Species info source: auto, inat, or wikipedia")
     
     # General app settings
     log_level: str = "INFO"
@@ -317,6 +318,8 @@ class Settings(BaseSettings):
             'live_announcements': os.environ.get('ACCESSIBILITY__LIVE_ANNOUNCEMENTS', 'true').lower() == 'true',
         }
 
+        species_info_source = os.environ.get('SPECIES_INFO__SOURCE', 'auto')
+
         # Load from config file if it exists, env vars take precedence
         if CONFIG_PATH.exists():
             try:
@@ -420,6 +423,9 @@ class Settings(BaseSettings):
                         if env_key not in os.environ:
                             accessibility_data[k] = v
 
+                if 'species_info_source' in file_data and 'SPECIES_INFO__SOURCE' not in os.environ:
+                    species_info_source = file_data['species_info_source']
+
                 log.info("Loaded config from file", path=str(CONFIG_PATH))
             except Exception as e:
                 log.warning("Failed to load config from file", path=str(CONFIG_PATH), error=str(e))
@@ -458,6 +464,7 @@ class Settings(BaseSettings):
             telemetry=TelemetrySettings(**telemetry_data),
             notifications=NotificationSettings(**notifications_data),
             accessibility=AccessibilitySettings(**accessibility_data),
+            species_info_source=species_info_source,
             api_key=api_key
         )
 
