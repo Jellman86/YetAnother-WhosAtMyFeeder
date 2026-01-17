@@ -1,5 +1,6 @@
 <script lang="ts">
     import { locale, locales, _ } from 'svelte-i18n';
+    import { onMount, onDestroy } from 'svelte'; // Import onMount and onDestroy
 
     const languageNames: Record<string, string> = {
         en: 'English',
@@ -11,20 +12,33 @@
     };
 
     let showDropdown = $state(false);
+    let currentLocaleValue = $state('en'); // Local state for locale value
+
+    // Subscribe to the locale store manually
+    let unsubscribeLocale: () => void;
+    onMount(() => {
+        unsubscribeLocale = locale.subscribe(value => {
+            currentLocaleValue = value;
+        });
+
+        // Load saved preference on mount
+        const saved = localStorage.getItem('preferred-language');
+        if (saved && locales.includes(saved)) { // Use 'locales' directly, not $locales
+            locale.set(saved);
+        }
+    });
+
+    onDestroy(() => {
+        if (unsubscribeLocale) {
+            unsubscribeLocale();
+        }
+    });
 
     function setLanguage(lang: string) {
         locale.set(lang);
         localStorage.setItem('preferred-language', lang);
         showDropdown = false;
     }
-
-    // Load saved preference on mount
-    $effect(() => {
-        const saved = localStorage.getItem('preferred-language');
-        if (saved && $locales.includes(saved)) {
-            locale.set(saved);
-        }
-    });
 </script>
 
 <div class="relative">
@@ -36,7 +50,7 @@
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
         </svg>
-        <span class="text-xs font-bold uppercase tracking-wider">{languageNames[$locale || 'en'] || 'English'}</span>
+        <span class="text-xs font-bold uppercase tracking-wider">{languageNames[currentLocaleValue || 'en'] || 'English'}</span>
     </button>
 
     {#if showDropdown}
@@ -53,7 +67,7 @@
                         onclick={() => setLanguage(code)}
                         role="menuitem"
                         class="w-full px-4 py-2.5 text-left text-sm font-bold rounded-xl transition-all
-                               {$locale === code 
+                               {currentLocaleValue === code 
                                    ? 'bg-brand-500 text-white' 
                                    : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'}"
                     >
