@@ -198,11 +198,11 @@ export function getApiKey(): string | null {
 }
 
 function getHeaders(customHeaders: HeadersInit = {}): HeadersInit {
-    const headers: any = { ...customHeaders };
+    const headers: Record<string, string> = { ...customHeaders as Record<string, string> };
     if (apiKey) {
         headers['X-API-Key'] = apiKey;
     }
-    
+
     // Add Accept-Language header if available
     if (typeof localStorage !== 'undefined') {
         const preferredLang = localStorage.getItem('preferred-language');
@@ -210,7 +210,7 @@ function getHeaders(customHeaders: HeadersInit = {}): HeadersInit {
             headers['Accept-Language'] = preferredLang;
         }
     }
-    
+
     return headers;
 }
 
@@ -707,7 +707,7 @@ export async function startTaxonomySync(): Promise<{ status: string }> {
     return handleResponse<{ status: string }>(response);
 }
 
-export async function testNotification(platform: string, credentials: any = {}): Promise<{ status: string; message: string }> {
+export async function testNotification(platform: string, credentials: Record<string, unknown> = {}): Promise<{ status: string; message: string }> {
     const response = await apiFetch(`${API_BASE}/settings/notifications/test`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

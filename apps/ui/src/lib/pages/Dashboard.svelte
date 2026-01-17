@@ -129,9 +129,10 @@
             if (result.actual_strategy && result.actual_strategy !== requestedStrategy) {
                 toastStore.warning($_('notifications.reclassify_fallback'));
             }
-        } catch (e: any) {
-            console.error('Failed to start reclassification', e.message);
-            toastStore.error($_('notifications.reclassify_failed', { values: { message: e.message || 'Unknown error' } }));
+        } catch (error) {
+            const message = getErrorMessage(error);
+            console.error('Failed to start reclassification', message, error);
+            toastStore.error($_('notifications.reclassify_failed', { values: { message } }));
         }
     }
 
