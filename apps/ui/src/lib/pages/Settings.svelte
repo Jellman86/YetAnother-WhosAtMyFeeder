@@ -910,6 +910,7 @@
                     {testing}
                     {telemetryInstallationId}
                     {telemetryPlatform}
+                    {versionInfo}
                     {testConnection}
                     {loadCameras}
                     {handleTestBirdNET}
