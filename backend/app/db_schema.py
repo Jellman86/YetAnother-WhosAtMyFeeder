@@ -105,3 +105,16 @@ species_info_cache = Table(
 Index("idx_species_info_name", species_info_cache.c.species_name)
 Index("idx_species_info_taxa_id", species_info_cache.c.taxa_id)
 Index("uq_species_info_name_lang", species_info_cache.c.species_name, species_info_cache.c.language, unique=True)
+
+taxonomy_translations = Table(
+    "taxonomy_translations",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("taxa_id", Integer, nullable=False),
+    Column("language_code", String(5), nullable=False),
+    Column("common_name", String, nullable=False),
+)
+
+Index("idx_taxonomy_trans_taxa", taxonomy_translations.c.taxa_id)
+Index("idx_taxonomy_trans_lang", taxonomy_translations.c.language_code)
+Index("uq_taxa_lang", taxonomy_translations.c.taxa_id, taxonomy_translations.c.language_code, unique=True)
