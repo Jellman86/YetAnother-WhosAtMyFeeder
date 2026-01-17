@@ -26,6 +26,14 @@ Sends messages or photos to a Telegram chat.
 - **Chat ID:** The user or group ID to send messages to.
 - **Snapshots:** Send as a photo message (with caption) or just text.
 
+### Email
+Send rich HTML emails with optional snapshots.
+
+- **OAuth (Gmail/Outlook):** Authorize YA-WAMF to send email on your behalf.
+- **SMTP:** Configure your server hostname, port, TLS, and optional auth.
+- **From/To:** Set sender and recipient addresses.
+- **Snapshots:** Attach the detection image in the email.
+
 ## Intelligent Filtering
 
 To prevent spam, you can configure powerful filters that apply to all notifications:

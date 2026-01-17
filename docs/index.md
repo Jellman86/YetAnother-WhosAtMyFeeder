@@ -36,6 +36,7 @@ Connect YA-WAMF to the rest of your smart home and community projects.
 
 - [🧠 AI Models & Performance](features/ai-models.md) - Understanding MobileNet vs ConvNeXt vs EVA-02
 - [🗂 Taxonomy & Naming](features/taxonomy.md) - How scientific naming works
+- [🔔 Notifications](features/notifications.md) - Discord, Pushover, Telegram, Email
 - [📊 Telemetry](features/telemetry.md) - Transparency on anonymous usage metrics
 
 ## Troubleshooting
