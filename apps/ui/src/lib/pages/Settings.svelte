@@ -149,12 +149,16 @@
 
     let pushoverEnabled = $state(false);
     let pushoverUser = $state('');
+    let pushoverUserSaved = $state(false);
     let pushoverToken = $state('');
+    let pushoverTokenSaved = $state(false);
     let pushoverPriority = $state(0);
 
     let telegramEnabled = $state(false);
     let telegramToken = $state('');
+    let telegramTokenSaved = $state(false);
     let telegramChatId = $state('');
+    let telegramChatIdSaved = $state(false);
 
     let emailEnabled = $state(false);
     let emailUseOAuth = $state(false);
@@ -164,6 +168,7 @@
     let emailSmtpPort = $state(587);
     let emailSmtpUsername = $state('');
     let emailSmtpPassword = $state('');
+    let emailSmtpPasswordSaved = $state(false);
     let emailSmtpUseTls = $state(true);
     let emailFromEmail = $state('');
     let emailToEmail = $state('');
@@ -195,6 +200,36 @@
     $effect(() => {
         if (discordWebhookSaved && discordWebhook) {
             discordWebhookSaved = false;
+        }
+    });
+
+    $effect(() => {
+        if (pushoverUserSaved && pushoverUser) {
+            pushoverUserSaved = false;
+        }
+    });
+
+    $effect(() => {
+        if (pushoverTokenSaved && pushoverToken) {
+            pushoverTokenSaved = false;
+        }
+    });
+
+    $effect(() => {
+        if (telegramTokenSaved && telegramToken) {
+            telegramTokenSaved = false;
+        }
+    });
+
+    $effect(() => {
+        if (telegramChatIdSaved && telegramChatId) {
+            telegramChatIdSaved = false;
+        }
+    });
+
+    $effect(() => {
+        if (emailSmtpPasswordSaved && emailSmtpPassword) {
+            emailSmtpPasswordSaved = false;
         }
     });
 
@@ -274,13 +309,13 @@
             { key: 'discordUsername', val: discordUsername, store: s.notifications_discord_username || 'YA-WAMF' },
 
             { key: 'pushoverEnabled', val: pushoverEnabled, store: s.notifications_pushover_enabled ?? false },
-            { key: 'pushoverUser', val: pushoverUser, store: s.notifications_pushover_user_key || '' },
-            { key: 'pushoverToken', val: pushoverToken, store: s.notifications_pushover_api_token || '' },
+            { key: 'pushoverUser', val: pushoverUser, store: normalizeSecret(s.notifications_pushover_user_key) },
+            { key: 'pushoverToken', val: pushoverToken, store: normalizeSecret(s.notifications_pushover_api_token) },
             { key: 'pushoverPriority', val: pushoverPriority, store: s.notifications_pushover_priority ?? 0 },
 
             { key: 'telegramEnabled', val: telegramEnabled, store: s.notifications_telegram_enabled ?? false },
-            { key: 'telegramToken', val: telegramToken, store: s.notifications_telegram_bot_token || '' },
-            { key: 'telegramChatId', val: telegramChatId, store: s.notifications_telegram_chat_id || '' },
+            { key: 'telegramToken', val: telegramToken, store: normalizeSecret(s.notifications_telegram_bot_token) },
+            { key: 'telegramChatId', val: telegramChatId, store: normalizeSecret(s.notifications_telegram_chat_id) },
 
             { key: 'emailEnabled', val: emailEnabled, store: s.notifications_email_enabled ?? false },
             { key: 'emailUseOAuth', val: emailUseOAuth, store: s.notifications_email_use_oauth ?? false },
@@ -288,7 +323,7 @@
             { key: 'emailSmtpHost', val: emailSmtpHost, store: s.notifications_email_smtp_host || '' },
             { key: 'emailSmtpPort', val: emailSmtpPort, store: s.notifications_email_smtp_port ?? 587 },
             { key: 'emailSmtpUsername', val: emailSmtpUsername, store: s.notifications_email_smtp_username || '' },
-            { key: 'emailSmtpPassword', val: emailSmtpPassword, store: s.notifications_email_smtp_password || '' },
+            { key: 'emailSmtpPassword', val: emailSmtpPassword, store: normalizeSecret(s.notifications_email_smtp_password) },
             { key: 'emailSmtpUseTls', val: emailSmtpUseTls, store: s.notifications_email_smtp_use_tls ?? true },
             { key: 'emailFromEmail', val: emailFromEmail, store: s.notifications_email_from_email || '' },
             { key: 'emailToEmail', val: emailToEmail, store: s.notifications_email_to_email || '' },
@@ -581,13 +616,37 @@
             discordUsername = settings.notifications_discord_username || 'YA-WAMF';
 
             pushoverEnabled = settings.notifications_pushover_enabled ?? false;
-            pushoverUser = settings.notifications_pushover_user_key || '';
-            pushoverToken = settings.notifications_pushover_api_token || '';
+            if (settings.notifications_pushover_user_key === '***REDACTED***') {
+                pushoverUserSaved = true;
+                pushoverUser = '';
+            } else {
+                pushoverUserSaved = false;
+                pushoverUser = settings.notifications_pushover_user_key || '';
+            }
+            if (settings.notifications_pushover_api_token === '***REDACTED***') {
+                pushoverTokenSaved = true;
+                pushoverToken = '';
+            } else {
+                pushoverTokenSaved = false;
+                pushoverToken = settings.notifications_pushover_api_token || '';
+            }
             pushoverPriority = settings.notifications_pushover_priority ?? 0;
 
             telegramEnabled = settings.notifications_telegram_enabled ?? false;
-            telegramToken = settings.notifications_telegram_bot_token || '';
-            telegramChatId = settings.notifications_telegram_chat_id || '';
+            if (settings.notifications_telegram_bot_token === '***REDACTED***') {
+                telegramTokenSaved = true;
+                telegramToken = '';
+            } else {
+                telegramTokenSaved = false;
+                telegramToken = settings.notifications_telegram_bot_token || '';
+            }
+            if (settings.notifications_telegram_chat_id === '***REDACTED***') {
+                telegramChatIdSaved = true;
+                telegramChatId = '';
+            } else {
+                telegramChatIdSaved = false;
+                telegramChatId = settings.notifications_telegram_chat_id || '';
+            }
 
             emailEnabled = settings.notifications_email_enabled ?? false;
             emailUseOAuth = settings.notifications_email_use_oauth ?? false;
@@ -596,7 +655,13 @@
             emailSmtpHost = settings.notifications_email_smtp_host || '';
             emailSmtpPort = settings.notifications_email_smtp_port ?? 587;
             emailSmtpUsername = settings.notifications_email_smtp_username || '';
-            emailSmtpPassword = settings.notifications_email_smtp_password || '';
+            if (settings.notifications_email_smtp_password === '***REDACTED***') {
+                emailSmtpPasswordSaved = true;
+                emailSmtpPassword = '';
+            } else {
+                emailSmtpPasswordSaved = false;
+                emailSmtpPassword = settings.notifications_email_smtp_password || '';
+            }
             emailSmtpUseTls = settings.notifications_email_smtp_use_tls ?? true;
             emailFromEmail = settings.notifications_email_from_email || '';
             emailToEmail = settings.notifications_email_to_email || '';
@@ -981,11 +1046,15 @@
                     bind:discordBotName={discordUsername}
                     bind:pushoverEnabled
                     bind:pushoverUserKey={pushoverUser}
+                    bind:pushoverUserSaved
                     bind:pushoverApiToken={pushoverToken}
+                    bind:pushoverTokenSaved
                     bind:pushoverPriority
                     bind:telegramEnabled
                     bind:telegramBotToken={telegramToken}
+                    bind:telegramTokenSaved
                     bind:telegramChatId
+                    bind:telegramChatIdSaved
                     bind:emailEnabled
                     bind:emailUseOAuth
                     bind:emailConnectedEmail
@@ -995,6 +1064,7 @@
                     bind:emailSmtpUseTls
                     bind:emailSmtpUsername
                     bind:emailSmtpPassword
+                    bind:emailSmtpPasswordSaved
                     bind:emailFromEmail
                     bind:emailToEmail
                     bind:emailIncludeSnapshot

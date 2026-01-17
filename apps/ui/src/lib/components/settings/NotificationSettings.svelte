@@ -18,13 +18,17 @@
         // Pushover
         pushoverEnabled = $bindable(false),
         pushoverUserKey = $bindable(''),
+        pushoverUserSaved = $bindable(false),
         pushoverApiToken = $bindable(''),
+        pushoverTokenSaved = $bindable(false),
         pushoverPriority = $bindable(0),
 
         // Telegram
         telegramEnabled = $bindable(false),
         telegramBotToken = $bindable(''),
+        telegramTokenSaved = $bindable(false),
         telegramChatId = $bindable(''),
+        telegramChatIdSaved = $bindable(false),
 
         // Email
         emailEnabled = $bindable(false),
@@ -36,6 +40,7 @@
         emailSmtpUseTls = $bindable(true),
         emailSmtpUsername = $bindable(''),
         emailSmtpPassword = $bindable(''),
+        emailSmtpPasswordSaved = $bindable(false),
         emailFromEmail = $bindable(''),
         emailToEmail = $bindable(''),
         emailIncludeSnapshot = $bindable(true),
@@ -65,11 +70,15 @@
         discordBotName: string;
         pushoverEnabled: boolean;
         pushoverUserKey: string;
+        pushoverUserSaved: boolean;
         pushoverApiToken: string;
+        pushoverTokenSaved: boolean;
         pushoverPriority: number;
         telegramEnabled: boolean;
         telegramBotToken: string;
+        telegramTokenSaved: boolean;
         telegramChatId: string;
+        telegramChatIdSaved: boolean;
         emailEnabled: boolean;
         emailUseOAuth: boolean;
         emailConnectedEmail: string | null;
@@ -79,6 +88,7 @@
         emailSmtpUseTls: boolean;
         emailSmtpUsername: string;
         emailSmtpPassword: string;
+        emailSmtpPasswordSaved: boolean;
         emailFromEmail: string;
         emailToEmail: string;
         emailIncludeSnapshot: boolean;
@@ -294,7 +304,12 @@
 
             <div class="space-y-4">
                 <div>
-                    <label for="pushover-userkey" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.pushover.user_key')}</label>
+                    <div class="flex items-center justify-between mb-2">
+                        <label for="pushover-userkey" class="text-[10px] font-black uppercase tracking-widest text-slate-500">{$_('settings.pushover.user_key')}</label>
+                        {#if pushoverUserSaved}
+                            <span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[9px] font-black uppercase tracking-widest">{$_('common.saved')}</span>
+                        {/if}
+                    </div>
                     <input
                         id="pushover-userkey"
                         type="text"
@@ -305,7 +320,12 @@
                     />
                 </div>
                 <div>
-                    <label for="pushover-apitoken" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.pushover.api_token')}</label>
+                    <div class="flex items-center justify-between mb-2">
+                        <label for="pushover-apitoken" class="text-[10px] font-black uppercase tracking-widest text-slate-500">{$_('settings.pushover.api_token')}</label>
+                        {#if pushoverTokenSaved}
+                            <span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[9px] font-black uppercase tracking-widest">{$_('common.saved')}</span>
+                        {/if}
+                    </div>
                     <input
                         id="pushover-apitoken"
                         type="text"
@@ -332,7 +352,7 @@
                 </div>
                 <button
                     onclick={sendTestPushover}
-                    disabled={testingNotification['pushover'] || !pushoverUserKey || !pushoverApiToken}
+                    disabled={testingNotification['pushover'] || (!pushoverUserKey && !pushoverUserSaved) || (!pushoverApiToken && !pushoverTokenSaved)}
                     aria-label="Send test Pushover notification"
                     class="w-full px-4 py-3 text-xs font-black uppercase tracking-widest rounded-2xl bg-blue-500 hover:bg-blue-600 text-white transition-all shadow-lg shadow-blue-500/20 disabled:opacity-50"
                 >
@@ -371,7 +391,12 @@
 
             <div class="space-y-4">
                 <div>
-                    <label for="telegram-bottoken" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.telegram.bot_token')}</label>
+                    <div class="flex items-center justify-between mb-2">
+                        <label for="telegram-bottoken" class="text-[10px] font-black uppercase tracking-widest text-slate-500">{$_('settings.telegram.bot_token')}</label>
+                        {#if telegramTokenSaved}
+                            <span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[9px] font-black uppercase tracking-widest">{$_('common.saved')}</span>
+                        {/if}
+                    </div>
                     <input
                         id="telegram-bottoken"
                         type="password"
@@ -382,7 +407,12 @@
                     />
                 </div>
                 <div>
-                    <label for="telegram-chatid" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.telegram.chat_id')}</label>
+                    <div class="flex items-center justify-between mb-2">
+                        <label for="telegram-chatid" class="text-[10px] font-black uppercase tracking-widest text-slate-500">{$_('settings.telegram.chat_id')}</label>
+                        {#if telegramChatIdSaved}
+                            <span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[9px] font-black uppercase tracking-widest">{$_('common.saved')}</span>
+                        {/if}
+                    </div>
                     <input
                         id="telegram-chatid"
                         type="text"
@@ -394,7 +424,7 @@
                 </div>
                 <button
                     onclick={sendTestTelegram}
-                    disabled={testingNotification['telegram'] || !telegramBotToken || !telegramChatId}
+                    disabled={testingNotification['telegram'] || (!telegramBotToken && !telegramTokenSaved) || (!telegramChatId && !telegramChatIdSaved)}
                     aria-label="Send test Telegram notification"
                     class="w-full px-4 py-3 text-xs font-black uppercase tracking-widest rounded-2xl bg-sky-500 hover:bg-sky-600 text-white transition-all shadow-lg shadow-sky-500/20 disabled:opacity-50"
                 >
@@ -558,7 +588,12 @@
                             />
                         </div>
                         <div>
-                            <label for="smtp-password" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.email.smtp_password')}</label>
+                            <div class="flex items-center justify-between mb-2">
+                                <label for="smtp-password" class="text-[10px] font-black uppercase tracking-widest text-slate-500">{$_('settings.email.smtp_password')}</label>
+                                {#if emailSmtpPasswordSaved}
+                                    <span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[9px] font-black uppercase tracking-widest">{$_('common.saved')}</span>
+                                {/if}
+                            </div>
                             <input
                                 id="smtp-password"
                                 type="password"
