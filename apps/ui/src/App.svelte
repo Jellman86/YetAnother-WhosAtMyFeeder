@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import ErrorBoundary from './lib/components/ErrorBoundary.svelte';
   import Header from './lib/components/Header.svelte';
   import Sidebar from './lib/components/Sidebar.svelte';
   import Footer from './lib/components/Footer.svelte';
@@ -13,8 +14,8 @@
   import About from './lib/pages/About.svelte';
   import Login from './lib/components/Login.svelte';
   import { fetchEvents, fetchEventsCount, type Detection, setAuthErrorCallback } from './lib/api';
-  import { theme } from './lib/stores/theme';
-  import { layout, sidebarCollapsed } from './lib/stores/layout';
+  import { themeStore } from './lib/stores/theme.svelte';
+  import { layoutStore } from './lib/stores/layout.svelte';
   import { settingsStore } from './lib/stores/settings.svelte';
   import { detectionsStore } from './lib/stores/detections.svelte';
   import { authStore } from './lib/stores/auth.svelte';
@@ -22,17 +23,9 @@
   import Announcer from './lib/components/Announcer.svelte';
   import { initKeyboardShortcuts } from './lib/utils/keyboard-shortcuts';
 
-  // Track current layout
-  let currentLayout = $state<'horizontal' | 'vertical'>('horizontal');
-  let isSidebarCollapsed = $state(false);
-
-  layout.subscribe(value => {
-      currentLayout = value;
-  });
-
-  sidebarCollapsed.subscribe(value => {
-      isSidebarCollapsed = value;
-  });
+  // Track current layout using reactive derived
+  let currentLayout = $derived(layoutStore.layout);
+  let isSidebarCollapsed = $derived(layoutStore.sidebarCollapsed);
 
 
   // Router state
@@ -80,8 +73,8 @@
       const path = window.location.pathname;
       currentRoute = path === '' ? '/' : path;
 
-      // Initialize theme and settings
-      theme.init();
+      // Initialize settings and load initial data
+      // (theme is automatically initialized in the store constructor)
       settingsStore.load();
       detectionsStore.loadInitial();
       connectSSE();
@@ -309,6 +302,8 @@
   }
 </script>
 
+<ErrorBoundary>
+  {#snippet children()}
   <div class="min-h-screen flex flex-col bg-surface-light dark:bg-surface-dark text-slate-900 dark:text-white font-sans transition-colors duration-300">
   <!-- Skip to content for accessibility -->
   <a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:z-[100] focus:bg-brand-500 focus:text-white focus:px-4 focus:py-2 focus:rounded-b-lg focus:left-4 focus:top-0 focus:font-bold">
@@ -337,9 +332,9 @@
               <!-- Theme toggle for mobile -->
               <button
                   class="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-colors"
-                  onclick={() => theme.toggle()}
+                  onclick={() => themeStore.toggle()}
               >
-                  {#if $theme === 'dark'}
+                  {#if themeStore.theme === 'dark'}
                       <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                           <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
                       </svg>
@@ -440,3 +435,5 @@
   <!-- Keyboard Shortcuts Modal -->
   <KeyboardShortcuts bind:visible={showKeyboardShortcuts} />
 </div>
+  {/snippet}
+</ErrorBoundary>
