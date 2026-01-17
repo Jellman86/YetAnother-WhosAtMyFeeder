@@ -164,7 +164,7 @@ class EventProcessor:
             """Fetch audio match with error handling."""
             try:
                 return await audio_service.find_match(
-                    event.detection_dt, camera_name=event.camera, window_seconds=30
+                    event.detection_dt, camera_name=event.camera, window_seconds=settings.frigate.audio_correlation_window_seconds
                 )
             except Exception as e:
                 log.warning("Audio match failed", error=str(e))

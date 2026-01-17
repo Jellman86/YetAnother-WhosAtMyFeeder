@@ -46,7 +46,7 @@ class WeatherService:
                 "latitude": lat,
                 "longitude": lon,
                 "current": "temperature_2m,weather_code,is_day",
-                "temperature_unit": "celsius"
+                "temperature_unit": settings.location.temperature_unit
             }
             
             # Use short timeout for weather to avoid blocking event processing

@@ -80,6 +80,7 @@ class LocationSettings(BaseModel):
     latitude: Optional[float] = Field(None, description="Latitude for weather/sun data")
     longitude: Optional[float] = Field(None, description="Longitude for weather/sun data")
     automatic: bool = Field(True, description="Attempt to detect location automatically via IP")
+    temperature_unit: str = Field(default="celsius", description="Temperature unit: 'celsius' or 'fahrenheit'")
 
 class BirdWeatherSettings(BaseModel):
     enabled: bool = Field(default=False, description="Enable BirdWeather reporting")
