@@ -1,6 +1,8 @@
 import { register, init, locale, _, addMessages, getLocaleFromNavigator } from 'svelte-i18n';
 import en from './locales/en.json';
 
+console.log('YA-WAMF i18n module initialized - Debug Beacon 2026-01-17T12:00:00Z');
+
 // Synchronously load default locale
 addMessages('en', en);
 
