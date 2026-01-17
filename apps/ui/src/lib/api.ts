@@ -905,7 +905,7 @@ export async function disconnectEmailOAuth(provider: 'gmail' | 'outlook'): Promi
 export async function sendTestEmail(request: TestEmailRequest = {}): Promise<TestEmailResponse> {
     const response = await apiFetch(`${API_BASE}/email/test`, {
         method: 'POST',
-        headers: getHeaders(),
+        headers: getHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
             test_subject: request.test_subject || 'YA-WAMF Test Email',
             test_message: request.test_message || 'This is a test email from YA-WAMF to verify your email configuration.'
