@@ -2,6 +2,7 @@
 Email notification OAuth and management endpoints
 """
 
+from datetime import datetime, timedelta
 from fastapi import APIRouter, HTTPException, Request, Query
 from fastapi.responses import RedirectResponse, HTMLResponse
 from pydantic import BaseModel
@@ -19,6 +20,8 @@ from app.utils.language import get_user_language
 
 router = APIRouter(prefix="/email", tags=["email"])
 log = structlog.get_logger()
+_oauth_state_cache: dict[str, datetime] = {}
+OAUTH_STATE_TTL = timedelta(minutes=10)
 
 
 class OAuthCallbackRequest(BaseModel):
@@ -67,6 +70,7 @@ async def gmail_oauth_authorize(request: Request):
             include_granted_scopes='true',
             prompt='consent'  # Force consent to get refresh token
         )
+        _oauth_state_cache[state] = datetime.utcnow() + OAUTH_STATE_TTL
 
         log.info("gmail_oauth_initiated", redirect_uri=redirect_uri)
 
@@ -85,6 +89,15 @@ async def gmail_oauth_callback(request: Request, code: str = Query(...), state: 
     Handle Gmail OAuth2 callback and store tokens
     """
     try:
+        # Validate state to reduce CSRF risk (best-effort in-memory cache).
+        if not state or state not in _oauth_state_cache:
+            raise HTTPException(status_code=400, detail=i18n_service.translate("errors.email.invalid_state", get_user_language(request)))
+        expires_at = _oauth_state_cache.get(state)
+        if expires_at and expires_at < datetime.utcnow():
+            _oauth_state_cache.pop(state, None)
+            raise HTTPException(status_code=400, detail=i18n_service.translate("errors.email.state_expired", get_user_language(request)))
+        _oauth_state_cache.pop(state, None)
+
         # Create OAuth flow
         flow = Flow.from_client_config(
             {
@@ -114,11 +127,21 @@ async def gmail_oauth_callback(request: Request, code: str = Query(...), state: 
                 "https://www.googleapis.com/oauth2/v1/userinfo",
                 headers={"Authorization": f"Bearer {credentials.token}"}
             )
+            response.raise_for_status()
             user_info = response.json()
             email = user_info.get("email")
+            if not email:
+                raise HTTPException(status_code=400, detail=i18n_service.translate("errors.email.email_missing", get_user_language(request)))
 
         # Store tokens in database
-        expires_in = int((credentials.expiry - credentials.token.tzinfo.localize(credentials.expiry.utcnow())).total_seconds()) if credentials.expiry else 3600
+        expires_in = 3600
+        if credentials.expiry:
+            expiry = credentials.expiry
+            if expiry.tzinfo is None:
+                now = datetime.utcnow()
+            else:
+                now = datetime.now(expiry.tzinfo)
+            expires_in = max(0, int((expiry - now).total_seconds()))
 
         await smtp_service.store_oauth_token(
             provider="gmail",
@@ -185,6 +208,14 @@ async def outlook_oauth_authorize(request: Request):
             scopes=["https://outlook.office365.com/SMTP.Send"],
             redirect_uri=redirect_uri
         )
+        try:
+            from urllib.parse import urlparse, parse_qs
+            parsed = urlparse(auth_url)
+            state_value = parse_qs(parsed.query).get("state", [None])[0]
+            if state_value:
+                _oauth_state_cache[state_value] = datetime.utcnow() + OAUTH_STATE_TTL
+        except Exception:
+            log.warning("outlook_oauth_state_parse_failed")
 
         log.info("outlook_oauth_initiated", redirect_uri=redirect_uri)
 
@@ -198,12 +229,21 @@ async def outlook_oauth_authorize(request: Request):
 
 
 @router.get("/oauth/outlook/callback")
-async def outlook_oauth_callback(request: Request, code: str = Query(...)):
+async def outlook_oauth_callback(request: Request, code: str = Query(...), state: str = Query(None)):
     """
     Handle Outlook OAuth2 callback and store tokens
     """
     lang = get_user_language(request)
     try:
+        # Validate state to reduce CSRF risk (best-effort in-memory cache).
+        if not state or state not in _oauth_state_cache:
+            raise HTTPException(status_code=400, detail=i18n_service.translate("errors.email.invalid_state", lang))
+        expires_at = _oauth_state_cache.get(state)
+        if expires_at and expires_at < datetime.utcnow():
+            _oauth_state_cache.pop(state, None)
+            raise HTTPException(status_code=400, detail=i18n_service.translate("errors.email.state_expired", lang))
+        _oauth_state_cache.pop(state, None)
+
         # Create MSAL application
         app = ConfidentialClientApplication(
             client_id=settings.notifications.email.outlook_client_id,
@@ -226,6 +266,8 @@ async def outlook_oauth_callback(request: Request, code: str = Query(...)):
 
         # Get user email from token
         email = result.get("account", {}).get("username")
+        if not email:
+            raise HTTPException(status_code=400, detail=i18n_service.translate("errors.email.email_missing", lang))
 
         # Store tokens in database
         await smtp_service.store_oauth_token(
@@ -335,7 +377,7 @@ async def send_test_email(test_request: TestEmailRequest, request: Request):
             )
         else:
             # Traditional SMTP
-            if not all([email_config.smtp_host, email_config.smtp_username, email_config.smtp_password, email_config.from_email]):
+            if not email_config.smtp_host or not email_config.from_email:
                 raise HTTPException(status_code=400, detail=i18n_service.translate("errors.email.smtp_incomplete", lang))
 
             success = await smtp_service.send_email_password(

@@ -367,7 +367,7 @@ class NotificationService:
                 )
             else:
                 # Traditional SMTP
-                if not all([cfg.smtp_host, cfg.smtp_username, cfg.smtp_password, cfg.from_email]):
+                if not cfg.smtp_host or not cfg.from_email:
                     log.error("Email SMTP configuration incomplete")
                     return
 

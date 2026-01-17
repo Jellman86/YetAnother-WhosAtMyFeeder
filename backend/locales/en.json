@@ -14,7 +14,6 @@
     "frigate_auth_failed": "Frigate authentication failed",
     "clip_disabled": "Clip fetching is disabled",
     "invalid_frigate_event": "Invalid frigate_event format",
-
     "proxy": {
       "frigate_timeout": "Frigate connection timed out",
       "frigate_auth_failed": "Frigate authentication failed - check auth token",
@@ -29,7 +28,6 @@
       "media_fetch_failed": "Failed to fetch media from Frigate",
       "invalid_event_id": "Invalid event ID format"
     },
-
     "events": {
       "snapshot_fetch_failed": "Failed to fetch snapshot from Frigate",
       "classification_failed": "Classification returned no results",
@@ -38,12 +36,10 @@
       "wildlife_model_unavailable": "Wildlife model not available. Please download it first.",
       "reclassification_failed": "Reclassification failed"
     },
-
     "species": {
       "unknown_bird": "Unknown Bird",
       "species_not_found": "Species not found"
     },
-
     "ai": {
       "provider_not_configured": "AI provider not configured",
       "api_key_missing": "API key not configured for {provider}",
@@ -53,24 +49,20 @@
       "openai_not_configured": "OpenAI API key not configured",
       "claude_not_configured": "Claude API key not configured"
     },
-
     "backfill": {
       "no_events": "No Frigate events found in specified time range",
       "processing_error": "Backfill processing error: {error}",
       "invalid_time_range": "Invalid time range specified"
     },
-
     "classifier": {
       "bird_model_not_loaded": "Bird model not loaded",
       "wildlife_model_not_loaded": "Wildlife model not loaded",
       "model_load_failed": "Failed to load classification model"
     },
-
     "models": {
       "not_installed": "Model not installed",
       "download_failed": "Model download failed"
     },
-
     "email": {
       "gmail_oauth_not_configured": "Gmail OAuth credentials not configured",
       "outlook_oauth_not_configured": "Outlook OAuth credentials not configured",
@@ -84,7 +76,10 @@
       "recipient_not_configured": "Recipient email not configured",
       "smtp_incomplete": "SMTP configuration incomplete",
       "send_failed": "Failed to send test email",
-      "send_error": "Failed to send test email: {error}"
+      "send_error": "Failed to send test email: {error}",
+      "invalid_state": "Invalid OAuth state. Please try again.",
+      "state_expired": "OAuth state expired. Please try again.",
+      "email_missing": "Email address not returned by provider."
     }
   }
 }

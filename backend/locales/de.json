@@ -76,7 +76,10 @@
       "recipient_not_configured": "Empfänger-E-Mail nicht konfiguriert",
       "smtp_incomplete": "SMTP-Konfiguration unvollständig",
       "send_failed": "Senden der Test-E-Mail fehlgeschlagen",
-      "send_error": "Senden der Test-E-Mail fehlgeschlagen: {error}"
+      "send_error": "Senden der Test-E-Mail fehlgeschlagen: {error}",
+      "invalid_state": "Ungültiger OAuth-Status. Bitte erneut versuchen.",
+      "state_expired": "Der OAuth-Status ist abgelaufen. Bitte erneut versuchen.",
+      "email_missing": "Der Anbieter hat keine E-Mail-Adresse zurückgegeben."
     }
   }
 }

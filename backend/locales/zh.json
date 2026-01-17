@@ -76,7 +76,10 @@
       "recipient_not_configured": "收件人邮箱未配置",
       "smtp_incomplete": "SMTP 配置不完整",
       "send_failed": "发送测试邮件失败",
-      "send_error": "发送测试邮件失败：{error}"
+      "send_error": "发送测试邮件失败：{error}",
+      "invalid_state": "OAuth 状态无效，请重试。",
+      "state_expired": "OAuth 状态已过期，请重试。",
+      "email_missing": "提供方未返回电子邮件地址。"
     }
   }
 }

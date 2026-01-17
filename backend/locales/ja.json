@@ -76,7 +76,10 @@
       "recipient_not_configured": "宛先メールアドレスが設定されていません",
       "smtp_incomplete": "SMTP設定が不完全です",
       "send_failed": "テストメールの送信に失敗しました",
-      "send_error": "テストメールの送信に失敗しました: {error}"
+      "send_error": "テストメールの送信に失敗しました: {error}",
+      "invalid_state": "OAuth の状態が無効です。もう一度お試しください。",
+      "state_expired": "OAuth の状態が期限切れです。もう一度お試しください。",
+      "email_missing": "プロバイダーからメールアドレスが返されませんでした。"
     }
   }
 }

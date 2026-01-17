@@ -11,7 +11,7 @@ Supports:
 
 import aiosmtplib
 import structlog
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.mime.image import MIMEImage
@@ -108,8 +108,8 @@ class SMTPService:
         self,
         smtp_host: str,
         smtp_port: int,
-        username: str,
-        password: str,
+        username: Optional[str],
+        password: Optional[str],
         from_email: str,
         to_email: str,
         subject: str,
@@ -154,7 +154,8 @@ class SMTPService:
                 port=smtp_port,
                 use_tls=use_tls
             ) as smtp:
-                await smtp.login(username, password)
+                if username and password:
+                    await smtp.login(username, password)
                 await smtp.send_message(message)
 
             self.logger.info("email_sent_password", smtp_host=smtp_host, to=to_email)
@@ -328,7 +329,8 @@ class SMTPService:
             # Note: This requires OAuth client credentials from config
             from app.config import settings
 
-            if not settings.email.gmail_client_id or not settings.email.gmail_client_secret:
+            if (not settings.notifications.email.gmail_client_id or
+                not settings.notifications.email.gmail_client_secret):
                 self.logger.error("gmail_oauth_credentials_missing")
                 return None
 
@@ -336,15 +338,20 @@ class SMTPService:
                 token=token_data["access_token"],
                 refresh_token=token_data.get("refresh_token"),
                 token_uri="https://oauth2.googleapis.com/token",
-                client_id=settings.email.gmail_client_id,
-                client_secret=settings.email.gmail_client_secret
+                client_id=settings.notifications.email.gmail_client_id,
+                client_secret=settings.notifications.email.gmail_client_secret
             )
 
             # Refresh the token
             creds.refresh(GoogleRequest())
 
             # Update database
-            new_expires_at = datetime.utcnow() + timedelta(seconds=creds.expiry.timestamp() - datetime.utcnow().timestamp()) if creds.expiry else None
+            new_expires_at = None
+            if creds.expiry:
+                expiry = creds.expiry
+                if expiry.tzinfo is None:
+                    expiry = expiry.replace(tzinfo=timezone.utc)
+                new_expires_at = expiry.astimezone(timezone.utc).replace(tzinfo=None)
 
             async with get_db() as db:
                 await db.execute(
@@ -370,13 +377,14 @@ class SMTPService:
         try:
             from app.config import settings
 
-            if not settings.email.outlook_client_id or not settings.email.outlook_client_secret:
+            if (not settings.notifications.email.outlook_client_id or
+                not settings.notifications.email.outlook_client_secret):
                 self.logger.error("outlook_oauth_credentials_missing")
                 return None
 
             app = ConfidentialClientApplication(
-                client_id=settings.email.outlook_client_id,
-                client_credential=settings.email.outlook_client_secret,
+                client_id=settings.notifications.email.outlook_client_id,
+                client_credential=settings.notifications.email.outlook_client_secret,
                 authority="https://login.microsoftonline.com/common"
             )
 
