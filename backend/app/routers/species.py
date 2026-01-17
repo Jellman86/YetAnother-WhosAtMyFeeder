@@ -129,6 +129,16 @@ async def _save_species_info(species_name: str, taxa_id: int | None, info: Speci
             existing = None
 
         if existing:
+            cursor = await db.execute(
+                "SELECT id FROM species_info_cache WHERE species_name = ? LIMIT 1",
+                (species_name,)
+            )
+            name_row = await cursor.fetchone()
+            if name_row and name_row[0] != existing[0]:
+                await db.execute(
+                    "DELETE FROM species_info_cache WHERE id = ?",
+                    (name_row[0],)
+                )
             await db.execute(
                 """UPDATE species_info_cache SET
                      species_name = ?,
