@@ -13,6 +13,7 @@
     };
 
     let showDropdown = $state(false);
+    let { dropUp = false } = $props<{ dropUp?: boolean }>();
     let currentLocaleValue = $state('en'); // Local state for locale value
 
     // Subscribe to the locale store manually
@@ -60,7 +61,7 @@
 
     {#if showDropdown}
         <div 
-            class="absolute right-0 mt-2 w-48 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 z-[60] overflow-hidden animate-in fade-in zoom-in-95"
+            class="absolute right-0 w-48 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 z-[60] overflow-hidden animate-in fade-in zoom-in-95 {dropUp ? 'bottom-full mb-2' : 'mt-2'}"
             onclick={(e) => e.stopPropagation()}
             onkeydown={(e) => e.stopPropagation()}
             role="menu"

@@ -338,6 +338,7 @@
             // Accessibility
             { key: 'highContrast', val: highContrast, store: s.accessibility_high_contrast ?? false },
             { key: 'dyslexiaFont', val: dyslexiaFont, store: s.accessibility_dyslexia_font ?? false },
+            { key: 'liveAnnouncements', val: liveAnnouncements, store: s.accessibility_live_announcements ?? true },
             { key: 'speciesInfoSource', val: speciesInfoSource, store: s.species_info_source ?? 'auto' }
         ];
 

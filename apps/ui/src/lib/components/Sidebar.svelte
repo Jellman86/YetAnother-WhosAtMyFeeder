@@ -138,7 +138,7 @@
     <div class="p-3 border-t border-slate-200/80 dark:border-slate-700/50 space-y-2">
         {#if !collapsed}
             <div class="px-2 py-1">
-                <LanguageSelector />
+                <LanguageSelector dropUp />
             </div>
         {/if}
         <button
