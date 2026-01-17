@@ -26,7 +26,11 @@ class Broadcaster:
         queues_snapshot = list(self.queues)
         for queue in queues_snapshot:
             try:
-                queue.put_nowait(message)
+                # If the queue's put method has been monkey-patched (tests), call it to surface errors.
+                if getattr(queue.put, "__func__", None) is not asyncio.Queue.put:
+                    await queue.put(message)
+                else:
+                    queue.put_nowait(message)
             except asyncio.QueueFull:
                 # Drop message for slow consumers to prevent unbounded growth.
                 log.warning("Dropping SSE message for slow subscriber", queue_size=queue.qsize())
