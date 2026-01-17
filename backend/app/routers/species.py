@@ -540,7 +540,11 @@ async def get_species_info(species_name: str, refresh: bool = False):
     # Fetch from iNaturalist first, then fill gaps with Wikipedia
     info = await _fetch_inaturalist_info(species_name)
     if not info.extract or not info.thumbnail_url:
-        wiki_info = await _fetch_wikipedia_info(species_name)
+        wiki_info = None
+        if info.wikipedia_url:
+            wiki_info = await _fetch_wikipedia_info_from_url(info.wikipedia_url, species_name)
+        if not wiki_info:
+            wiki_info = await _fetch_wikipedia_info(species_name)
         if not info.extract and wiki_info.extract:
             info.extract = wiki_info.extract
             info.source = wiki_info.source
@@ -611,6 +615,41 @@ async def _fetch_wikipedia_info(species_name: str) -> SpeciesInfo:
         conservation_status=None,
         cached_at=datetime.now()
     )
+
+
+async def _fetch_wikipedia_info_from_url(wikipedia_url: str, species_name: str) -> SpeciesInfo | None:
+    """Fetch Wikipedia summary directly from a known article URL."""
+    from urllib.parse import urlparse, unquote
+
+    parsed = urlparse(wikipedia_url)
+    path = parsed.path or ""
+    if "/wiki/" not in path:
+        return None
+
+    title = unquote(path.split("/wiki/")[-1].replace("_", " ")).strip()
+    if not title:
+        return None
+
+    headers = {
+        "User-Agent": WIKIPEDIA_USER_AGENT,
+        "Accept": "application/json",
+    }
+
+    try:
+        async with httpx.AsyncClient(
+            timeout=15.0,
+            follow_redirects=True,
+            headers=headers
+        ) as client:
+            return await _get_wikipedia_summary(client, title, species_name)
+    except httpx.TimeoutException:
+        log.error("Wikipedia API timeout (direct)", species=species_name)
+    except httpx.RequestError as e:
+        log.error("Wikipedia API request error (direct)", species=species_name, error=str(e))
+    except Exception as e:
+        log.error("Unexpected error fetching Wikipedia info (direct)", species=species_name, error=str(e), error_type=type(e).__name__)
+
+    return None
 
 
 async def _fetch_inaturalist_info(species_name: str) -> SpeciesInfo:
