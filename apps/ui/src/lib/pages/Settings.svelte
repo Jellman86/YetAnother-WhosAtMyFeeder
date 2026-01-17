@@ -34,8 +34,8 @@
         type TaxonomySyncStatus,
         type VersionInfo
     } from '../api';
-    import { themeStore, type Theme } from '../stores/theme.svelte';
-    import { layoutStore, type Layout } from '../stores/layout.svelte';
+    import { themeStore, theme, type Theme } from '../stores/theme.svelte';
+    import { layoutStore, layout, type Layout } from '../stores/layout.svelte';
     import { settingsStore } from '../stores/settings.svelte';
     import { _, locale } from 'svelte-i18n';
     import SettingsTabs from '../components/settings/SettingsTabs.svelte';
