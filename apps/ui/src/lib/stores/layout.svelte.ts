@@ -16,16 +16,19 @@ class LayoutStore {
             this.sidebarCollapsedState = storedCollapsed;
         }
 
-        // Sync to localStorage on changes
-        if (typeof localStorage !== 'undefined') {
-            $effect(() => {
-                localStorage.setItem('layout', this.currentLayout);
-            });
+        // Use $effect.root() to create effect context outside components
+        $effect.root(() => {
+            // Sync to localStorage on changes
+            if (typeof localStorage !== 'undefined') {
+                $effect(() => {
+                    localStorage.setItem('layout', this.currentLayout);
+                });
 
-            $effect(() => {
-                localStorage.setItem('sidebarCollapsed', String(this.sidebarCollapsedState));
-            });
-        }
+                $effect(() => {
+                    localStorage.setItem('sidebarCollapsed', String(this.sidebarCollapsedState));
+                });
+            }
+        });
     }
 
     get layout(): Layout {

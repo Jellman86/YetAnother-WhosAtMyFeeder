@@ -28,35 +28,38 @@ class ThemeStore {
         // Apply theme immediately
         applyTheme(this.currentTheme);
 
-        // Sync to localStorage on changes
-        if (typeof localStorage !== 'undefined') {
-            $effect(() => {
-                localStorage.setItem('theme', this.currentTheme);
-                applyTheme(this.currentTheme);
-            });
-        }
+        // Use $effect.root() to create effect context outside components
+        $effect.root(() => {
+            // Sync to localStorage on changes
+            if (typeof localStorage !== 'undefined') {
+                $effect(() => {
+                    localStorage.setItem('theme', this.currentTheme);
+                    applyTheme(this.currentTheme);
+                });
+            }
 
-        // Listen for system preference changes
-        if (typeof window !== 'undefined') {
-            this.mediaQueryList = window.matchMedia('(prefers-color-scheme: dark)');
+            // Listen for system preference changes
+            if (typeof window !== 'undefined') {
+                this.mediaQueryList = window.matchMedia('(prefers-color-scheme: dark)');
 
-            const handleMediaChange = () => {
-                if (this.currentTheme === 'system') {
-                    applyTheme('system');
-                }
-            };
-
-            this.mediaQueryList.addEventListener('change', handleMediaChange);
-
-            // Cleanup on destroy (though this is a singleton, cleanup won't typically run)
-            $effect(() => {
-                return () => {
-                    if (this.mediaQueryList) {
-                        this.mediaQueryList.removeEventListener('change', handleMediaChange);
+                const handleMediaChange = () => {
+                    if (this.currentTheme === 'system') {
+                        applyTheme('system');
                     }
                 };
-            });
-        }
+
+                this.mediaQueryList.addEventListener('change', handleMediaChange);
+
+                // Cleanup
+                $effect(() => {
+                    return () => {
+                        if (this.mediaQueryList) {
+                            this.mediaQueryList.removeEventListener('change', handleMediaChange);
+                        }
+                    };
+                });
+            }
+        });
     }
 
     get theme(): Theme {
