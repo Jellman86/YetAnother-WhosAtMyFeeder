@@ -12,6 +12,7 @@
         // Discord
         discordEnabled = $bindable(false),
         discordWebhook = $bindable(''),
+        discordWebhookSaved = $bindable(false),
         discordBotName = $bindable('YA-WAMF Bird Bot'),
 
         // Pushover
@@ -60,6 +61,7 @@
         newSpecies: string;
         discordEnabled: boolean;
         discordWebhook: string;
+        discordWebhookSaved: boolean;
         discordBotName: string;
         pushoverEnabled: boolean;
         pushoverUserKey: string;
@@ -227,7 +229,12 @@
 
             <div class="space-y-4">
                 <div>
-                    <label for="discord-webhook" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.discord.webhook_url')}</label>
+                    <div class="flex items-center justify-between mb-2">
+                        <label for="discord-webhook" class="text-[10px] font-black uppercase tracking-widest text-slate-500">{$_('settings.discord.webhook_url')}</label>
+                        {#if discordWebhookSaved}
+                            <span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[9px] font-black uppercase tracking-widest">{$_('common.saved')}</span>
+                        {/if}
+                    </div>
                     <input
                         id="discord-webhook"
                         type="url"
@@ -250,7 +257,7 @@
                 </div>
                 <button
                     onclick={sendTestDiscord}
-                    disabled={testingNotification['discord'] || !discordWebhook}
+                    disabled={testingNotification['discord'] || (!discordWebhook && !discordWebhookSaved)}
                     aria-label="Send test Discord notification"
                     class="w-full px-4 py-3 text-xs font-black uppercase tracking-widest rounded-2xl bg-indigo-500 hover:bg-indigo-600 text-white transition-all shadow-lg shadow-indigo-500/20 disabled:opacity-50"
                 >

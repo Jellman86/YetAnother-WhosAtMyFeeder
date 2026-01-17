@@ -144,6 +144,7 @@
     // Notifications
     let discordEnabled = $state(false);
     let discordWebhook = $state('');
+    let discordWebhookSaved = $state(false);
     let discordUsername = $state('YA-WAMF');
 
     let pushoverEnabled = $state(false);
@@ -191,6 +192,12 @@
         else document.documentElement.classList.remove('font-dyslexic');
     });
 
+    $effect(() => {
+        if (discordWebhookSaved && discordWebhook) {
+            discordWebhookSaved = false;
+        }
+    });
+
     // Version Info
     const appVersion = typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : 'unknown';
     const appVersionBase = appVersion.includes('+') ? appVersion.split('+')[0] : appVersion;
@@ -211,6 +218,8 @@
     let message = $state<{ type: 'success' | 'error'; text: string } | null>(null);
     let currentTheme: Theme = $state('system');
     let currentLayout: Layout = $state('horizontal');
+
+    const normalizeSecret = (value?: string | null) => value === '***REDACTED***' ? '' : (value || '');
 
     // Dirty state check
     let isDirty = $derived.by(() => {
@@ -261,7 +270,7 @@
 
             // Notifications
             { key: 'discordEnabled', val: discordEnabled, store: s.notifications_discord_enabled ?? false },
-            { key: 'discordWebhook', val: discordWebhook, store: s.notifications_discord_webhook_url || '' },
+            { key: 'discordWebhook', val: discordWebhook, store: normalizeSecret(s.notifications_discord_webhook_url) },
             { key: 'discordUsername', val: discordUsername, store: s.notifications_discord_username || 'YA-WAMF' },
 
             { key: 'pushoverEnabled', val: pushoverEnabled, store: s.notifications_pushover_enabled ?? false },
@@ -562,7 +571,13 @@
 
             // Notifications
             discordEnabled = settings.notifications_discord_enabled ?? false;
-            discordWebhook = settings.notifications_discord_webhook_url || '';
+            if (settings.notifications_discord_webhook_url === '***REDACTED***') {
+                discordWebhookSaved = true;
+                discordWebhook = '';
+            } else {
+                discordWebhookSaved = false;
+                discordWebhook = settings.notifications_discord_webhook_url || '';
+            }
             discordUsername = settings.notifications_discord_username || 'YA-WAMF';
 
             pushoverEnabled = settings.notifications_pushover_enabled ?? false;
@@ -962,6 +977,7 @@
                     bind:newSpecies={newWhitelistSpecies}
                     bind:discordEnabled
                     bind:discordWebhook
+                    bind:discordWebhookSaved
                     bind:discordBotName={discordUsername}
                     bind:pushoverEnabled
                     bind:pushoverUserKey={pushoverUser}
