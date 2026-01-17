@@ -191,9 +191,11 @@
     });
 
     // Version Info
+    const appVersion = typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : 'unknown';
+    const appVersionBase = appVersion.includes('+') ? appVersion.split('+')[0] : appVersion;
     let versionInfo = $state<VersionInfo>({
-        version: __APP_VERSION__,
-        base_version: __APP_VERSION__.split('+')[0],
+        version: appVersion,
+        base_version: appVersionBase,
         git_hash: __GIT_HASH__
     });
 
