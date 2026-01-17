@@ -221,7 +221,8 @@
     "species_info": "Spezies-Info",
     "delete_detection": "Erkennung löschen",
     "hide_detection": "Erkennung ausblenden",
-    "read_more_wikipedia": "Mehr auf Wikipedia lesen"
+    "read_more_wikipedia": "Mehr auf Wikipedia lesen",
+    "read_more_source": "Mehr auf {source} lesen"
   },
   "detection": {
     "confidence": "Konfidenz",
@@ -409,6 +410,7 @@
   },
   "species_detail": {
     "no_wiki": "Keine Wikipedia-Informationen für diese Art verfügbar.",
+    "no_info": "Keine Referenzinformationen für diese Art verfügbar.",
     "avg_confidence": "Durchschn. Konfidenz",
     "first_seen": "Zuerst gesehen",
     "last_seen": "Zuletzt gesehen",

@@ -222,7 +222,8 @@
     "species_info": "物种信息",
     "delete_detection": "删除检测",
     "hide_detection": "隐藏检测",
-    "read_more_wikipedia": "在维基百科上阅读更多"
+    "read_more_wikipedia": "在维基百科上阅读更多",
+    "read_more_source": "在 {source} 上阅读更多"
   },
   "detection": {
     "confidence": "置信度",
@@ -410,6 +411,7 @@
   },
   "species_detail": {
     "no_wiki": "此物种暂无维基百科信息。",
+    "no_info": "此物种暂无参考信息。",
     "avg_confidence": "平均置信度",
     "first_seen": "首次发现",
     "last_seen": "最后发现",

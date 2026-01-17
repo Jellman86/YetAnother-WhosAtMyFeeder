@@ -221,7 +221,8 @@
     "species_info": "Species Info",
     "delete_detection": "Delete Detection",
     "hide_detection": "Hide Detection",
-    "read_more_wikipedia": "Read more on Wikipedia"
+    "read_more_wikipedia": "Read more on Wikipedia",
+    "read_more_source": "Read more on {source}"
   },
   "detection": {
     "confidence": "Confidence",
@@ -409,6 +410,7 @@
   },
   "species_detail": {
     "no_wiki": "No Wikipedia information available for this species.",
+    "no_info": "No reference information available for this species.",
     "avg_confidence": "Avg Confidence",
     "first_seen": "First Seen",
     "last_seen": "Last Seen",

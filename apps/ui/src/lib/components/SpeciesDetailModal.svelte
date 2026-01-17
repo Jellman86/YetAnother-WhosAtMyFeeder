@@ -320,7 +320,7 @@
                     </section>
                 {/if}
 
-                <!-- Wikipedia Description -->
+                <!-- Species Description -->
                 {#if info}
                     <section class="bg-slate-50 dark:bg-slate-700/30 rounded-xl p-4">
                         <div class="flex items-start gap-3">
@@ -336,17 +336,17 @@
                                     </p>
                                 {:else if !info.thumbnail_url}
                                     <p class="text-sm text-slate-500 dark:text-slate-400 italic">
-                                        No Wikipedia information available for this species.
+                                        {$_('species_detail.no_info')}
                                     </p>
                                 {/if}
-                                {#if info.wikipedia_url}
+                                {#if info.source_url}
                                     <a
-                                        href={info.wikipedia_url}
+                                        href={info.source_url}
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         class="inline-flex items-center gap-1 mt-3 text-sm font-medium text-teal-600 dark:text-teal-400 hover:underline"
                                     >
-                                        {$_('actions.read_more_wikipedia')}
+                                        {$_('actions.read_more_source', { values: { source: info.source || 'Wikipedia' } })}
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                                         </svg>

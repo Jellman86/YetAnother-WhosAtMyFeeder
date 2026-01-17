@@ -16,7 +16,7 @@ from app.utils.language import get_user_language
 router = APIRouter()
 log = structlog.get_logger()
 
-# Wikipedia info cache with TTL
+# Species info cache with TTL
 _wiki_cache: dict[str, tuple[SpeciesInfo, datetime]] = {}
 CACHE_TTL_SUCCESS = timedelta(hours=24)
 CACHE_TTL_FAILURE = timedelta(minutes=15)  # Short TTL for failures to allow retries
@@ -339,7 +339,7 @@ async def clear_species_cache(species_name: str):
 
 @router.get("/species/{species_name}/info", response_model=SpeciesInfo)
 async def get_species_info(species_name: str, refresh: bool = False):
-    """Get Wikipedia information for a species. Use refresh=true to bypass cache."""
+    """Get species information for a species. Use refresh=true to bypass cache."""
     log.info("Fetching species info", species=species_name, refresh=refresh)
 
     # Skip Wikipedia lookup for non-identifiable species (e.g., "Unknown Bird")
@@ -351,6 +351,8 @@ async def get_species_info(species_name: str, refresh: bool = False):
             extract="This detection could not be classified to a specific species. The bird may be at an unusual angle, partially visible, or not in the model's training data.",
             thumbnail_url=None,
             wikipedia_url=None,
+            source=None,
+            source_url=None,
             scientific_name=None,
             conservation_status=None,
             cached_at=datetime.now()
@@ -371,14 +373,23 @@ async def get_species_info(species_name: str, refresh: bool = False):
         else:
             log.debug("Cache expired", species=species_name, age_seconds=age.total_seconds())
 
-    # Fetch from Wikipedia
-    info = await _fetch_wikipedia_info(species_name)
+    # Fetch from iNaturalist first, then Wikipedia as fallback
+    info = await _fetch_inaturalist_info(species_name)
+    if not (info.thumbnail_url or info.extract):
+        info = await _fetch_wikipedia_info(species_name)
 
     # Cache the result
     _wiki_cache[species_name] = (info, datetime.now())
 
     is_success = bool(info.thumbnail_url or info.extract)
-    log.info("Wikipedia fetch complete", species=species_name, success=is_success, has_thumbnail=bool(info.thumbnail_url), has_extract=bool(info.extract))
+    log.info(
+        "Species info fetch complete",
+        species=species_name,
+        success=is_success,
+        source=info.source,
+        has_thumbnail=bool(info.thumbnail_url),
+        has_extract=bool(info.extract)
+    )
 
     return info
 
@@ -419,6 +430,78 @@ async def _fetch_wikipedia_info(species_name: str) -> SpeciesInfo:
         extract=None,
         thumbnail_url=None,
         wikipedia_url=None,
+        source=None,
+        source_url=None,
+        scientific_name=None,
+        conservation_status=None,
+        cached_at=datetime.now()
+    )
+
+
+async def _fetch_inaturalist_info(species_name: str) -> SpeciesInfo:
+    """Fetch species information from iNaturalist API."""
+    try:
+        async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
+            response = await client.get(
+                "https://api.inaturalist.org/v1/taxa",
+                params={"q": species_name, "per_page": 1}
+            )
+            response.raise_for_status()
+            data = response.json()
+            results = data.get("results", [])
+            if not results:
+                return SpeciesInfo(
+                    title=species_name,
+                    description=None,
+                    extract=None,
+                    thumbnail_url=None,
+                    wikipedia_url=None,
+                    source=None,
+                    source_url=None,
+                    scientific_name=None,
+                    conservation_status=None,
+                    cached_at=datetime.now()
+                )
+
+            taxon = results[0]
+            scientific_name = taxon.get("name")
+            preferred_common = taxon.get("preferred_common_name")
+            title = preferred_common or scientific_name or species_name
+            extract = taxon.get("wikipedia_summary")
+            wikipedia_url = taxon.get("wikipedia_url")
+            source_url = taxon.get("uri") or (f"https://www.inaturalist.org/taxa/{taxon.get('id')}" if taxon.get("id") else None)
+            thumbnail_url = None
+            default_photo = taxon.get("default_photo")
+            if isinstance(default_photo, dict):
+                thumbnail_url = default_photo.get("medium_url") or default_photo.get("square_url") or default_photo.get("url")
+
+            return SpeciesInfo(
+                title=title,
+                description=None,
+                extract=extract,
+                thumbnail_url=thumbnail_url,
+                wikipedia_url=wikipedia_url,
+                source="iNaturalist",
+                source_url=source_url,
+                scientific_name=scientific_name,
+                conservation_status=None,
+                cached_at=datetime.now()
+            )
+    except httpx.TimeoutException:
+        log.error("iNaturalist API timeout", species=species_name)
+    except httpx.RequestError as e:
+        log.error("iNaturalist API request error", species=species_name, error=str(e))
+    except Exception as e:
+        log.error("Unexpected error fetching iNaturalist info", species=species_name, error=str(e), error_type=type(e).__name__)
+
+    return SpeciesInfo(
+        title=species_name,
+        description=None,
+        extract=None,
+        thumbnail_url=None,
+        wikipedia_url=None,
+        source=None,
+        source_url=None,
         scientific_name=None,
         conservation_status=None,
         cached_at=datetime.now()
@@ -570,12 +653,15 @@ async def _get_wikipedia_summary(client: httpx.AsyncClient, article_title: str, 
                 else:
                     thumbnail_url = thumb_url
 
+            wikipedia_url = data.get("content_urls", {}).get("desktop", {}).get("page")
             return SpeciesInfo(
                 title=data.get("title", original_name),
                 description=description if description else None,
                 extract=extract if extract else None,
                 thumbnail_url=thumbnail_url,
-                wikipedia_url=data.get("content_urls", {}).get("desktop", {}).get("page"),
+                wikipedia_url=wikipedia_url,
+                source="Wikipedia",
+                source_url=wikipedia_url,
                 scientific_name=None,
                 conservation_status=None,
                 cached_at=datetime.now()
@@ -589,6 +675,8 @@ async def _get_wikipedia_summary(client: httpx.AsyncClient, article_title: str, 
         extract=None,
         thumbnail_url=None,
         wikipedia_url=None,
+        source=None,
+        source_url=None,
         scientific_name=None,
         conservation_status=None,
         cached_at=datetime.now()

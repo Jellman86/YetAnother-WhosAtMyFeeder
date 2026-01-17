@@ -544,6 +544,8 @@ export interface SpeciesInfo {
     extract: string | null;
     thumbnail_url: string | null;
     wikipedia_url: string | null;
+    source: string | null;
+    source_url: string | null;
     scientific_name: string | null;
     conservation_status: string | null;
     cached_at: string | null;

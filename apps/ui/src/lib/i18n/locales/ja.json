@@ -221,7 +221,8 @@
     "species_info": "種の情報",
     "delete_detection": "検出を削除",
     "hide_detection": "検出を非表示",
-    "read_more_wikipedia": "ウィキペディアで続きを読む"
+    "read_more_wikipedia": "ウィキペディアで続きを読む",
+    "read_more_source": "{source}で続きを読む"
   },
   "detection": {
     "confidence": "信頼度",
@@ -409,6 +410,7 @@
   },
   "species_detail": {
     "no_wiki": "この種に関するウィキペディア情報はありません。",
+    "no_info": "この種に関する参考情報はありません。",
     "avg_confidence": "平均信頼度",
     "first_seen": "初観測",
     "last_seen": "最終観測",

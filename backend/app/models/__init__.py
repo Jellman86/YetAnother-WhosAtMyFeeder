@@ -72,6 +72,8 @@ class SpeciesInfo(BaseModel):
     extract: str | None = None
     thumbnail_url: str | None = None
     wikipedia_url: str | None = None
+    source: str | None = None
+    source_url: str | None = None
     scientific_name: str | None = None
     conservation_status: str | None = None
     cached_at: datetime | None = None
