@@ -1,5 +1,6 @@
 <script lang="ts">
     import { locale, locales, _ } from 'svelte-i18n';
+    import { get } from 'svelte/store';
     import { onMount, onDestroy } from 'svelte'; // Import onMount and onDestroy
 
     const languageNames: Record<string, string> = {
@@ -23,8 +24,12 @@
 
         // Load saved preference on mount
         const saved = localStorage.getItem('preferred-language');
-        if (saved && locales.includes(saved)) { // Use 'locales' directly, not $locales
-            locale.set(saved);
+        const available = get(locales);
+        if (saved && typeof saved === 'string') {
+            const normalized = saved.split(/[-_]/)[0].toLowerCase();
+            if (available.includes(normalized)) {
+                locale.set(normalized);
+            }
         }
     });
 

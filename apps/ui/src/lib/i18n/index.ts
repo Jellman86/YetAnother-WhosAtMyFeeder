@@ -8,6 +8,42 @@ import zh from './locales/zh.json';
 
 console.log('YA-WAMF i18n module initialized - Debug Beacon 2026-01-17T12:00:00Z');
 
+const supportedLocales = ['en', 'es', 'fr', 'de', 'ja', 'zh'];
+
+function normalizeLocale(value: unknown): string | null {
+    if (typeof value !== 'string') {
+        return null;
+    }
+    const trimmed = value.trim();
+    if (!trimmed) {
+        return null;
+    }
+    const base = trimmed.split(/[-_]/)[0].toLowerCase();
+    return supportedLocales.includes(base) ? base : null;
+}
+
+function determineLocale(): string {
+    let candidate: string | null = null;
+    try {
+        candidate = normalizeLocale(localStorage.getItem('preferred-language'));
+    } catch {
+        // localStorage may be unavailable in some contexts.
+    }
+
+    if (!candidate && typeof navigator !== 'undefined') {
+        const navLang = Array.isArray(navigator.languages)
+            ? navigator.languages[0]
+            : navigator.language;
+        candidate = normalizeLocale(navLang);
+    }
+
+    if (!candidate) {
+        console.warn('[i18n] Could not determine a valid locale; falling back to en');
+        return 'en';
+    }
+    return candidate;
+}
+
 // Synchronously load all locales
 addMessages('en', en);
 addMessages('es', es);
@@ -18,7 +54,7 @@ addMessages('zh', zh);
 
 init({
     fallbackLocale: 'en',
-    initialLocale: 'en',
+    initialLocale: determineLocale(),
 });
 
 export { locale, _ };
