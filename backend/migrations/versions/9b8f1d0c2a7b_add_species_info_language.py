@@ -26,6 +26,10 @@ def upgrade() -> None:
     if 'species_info_cache' not in tables:
         return
 
+    # Clean up any leftover tables from previous failed migration attempts
+    if 'species_info_cache_new' in tables:
+        op.drop_table('species_info_cache_new')
+
     # Create a new table with language column + composite unique key
     op.create_table(
         'species_info_cache_new',

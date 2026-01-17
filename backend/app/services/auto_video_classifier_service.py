@@ -19,7 +19,7 @@ MAX_CONCURRENT_TASKS = 5
 class AutoVideoClassifierService:
     """
     Service to automatically classify video clips from Frigate events.
-    
+
     This service polls Frigate for clip availability, downloads it,
     runs the temporal ensemble classifier, and saves results to the DB.
     """
@@ -27,6 +27,19 @@ class AutoVideoClassifierService:
     def __init__(self):
         self._active_tasks: Dict[str, asyncio.Task] = {}
         self._classifier = get_classifier()
+
+    def _cleanup_task(self, frigate_event: str, task: asyncio.Task):
+        """Safely cleanup a completed task from the active tasks dict."""
+        try:
+            self._active_tasks.pop(frigate_event, None)
+            if task.cancelled():
+                log.debug("Video classification task was cancelled", event_id=frigate_event)
+            elif task.exception():
+                log.error("Video classification task failed with exception",
+                         event_id=frigate_event,
+                         error=str(task.exception()))
+        except Exception as e:
+            log.error("Error during task cleanup", event_id=frigate_event, error=str(e))
 
     async def trigger_classification(self, frigate_event: str, camera: str):
         """
@@ -36,19 +49,30 @@ class AutoVideoClassifierService:
         if not settings.classification.auto_video_classification:
             return
 
+        # Clean up completed tasks before checking limit
+        self._cleanup_completed_tasks()
+
         if frigate_event in self._active_tasks:
             log.debug("Video classification already in progress", event_id=frigate_event)
             return
 
         if len(self._active_tasks) >= MAX_CONCURRENT_TASKS:
-            log.warning("Max concurrent video classifications reached, skipping", 
-                        event_id=frigate_event, 
+            log.warning("Max concurrent video classifications reached, skipping",
+                        event_id=frigate_event,
                         limit=MAX_CONCURRENT_TASKS)
             return
 
         task = asyncio.create_task(self._process_event(frigate_event, camera))
         self._active_tasks[frigate_event] = task
-        task.add_done_callback(lambda t: self._active_tasks.pop(frigate_event, None))
+        task.add_done_callback(lambda t: self._cleanup_task(frigate_event, t))
+
+    def _cleanup_completed_tasks(self):
+        """Remove all completed/failed tasks from the active tasks dict."""
+        completed = [event_id for event_id, task in self._active_tasks.items() if task.done()]
+        for event_id in completed:
+            self._active_tasks.pop(event_id, None)
+        if completed:
+            log.debug("Cleaned up completed tasks", count=len(completed))
 
     async def _process_event(self, frigate_event: str, camera: str):
         """Main workflow for processing a video clip."""

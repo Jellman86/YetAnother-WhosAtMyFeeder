@@ -306,6 +306,7 @@ class NotificationService:
             from app.services.smtp_service import smtp_service
             from jinja2 import Template
             import os
+            import aiofiles
 
             cfg = settings.notifications.email
 
@@ -313,14 +314,14 @@ class NotificationService:
                 log.warning("Email notifications enabled but no recipient configured")
                 return
 
-            # Load email templates
+            # Load email templates asynchronously
             template_dir = os.path.join(os.path.dirname(__file__), "..", "templates", "email")
 
-            with open(os.path.join(template_dir, "bird_detection.html"), 'r') as f:
-                html_template = Template(f.read())
+            async with aiofiles.open(os.path.join(template_dir, "bird_detection.html"), 'r') as f:
+                html_template = Template(await f.read())
 
-            with open(os.path.join(template_dir, "bird_detection.txt"), 'r') as f:
-                text_template = Template(f.read())
+            async with aiofiles.open(os.path.join(template_dir, "bird_detection.txt"), 'r') as f:
+                text_template = Template(await f.read())
 
             # Prepare template data
             template_data = {
