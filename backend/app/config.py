@@ -205,7 +205,8 @@ class Settings(BaseSettings):
         location_data = {
             'latitude': None,
             'longitude': None,
-            'automatic': True
+            'automatic': True,
+            'temperature_unit': 'celsius'
         }
 
         # BirdWeather settings

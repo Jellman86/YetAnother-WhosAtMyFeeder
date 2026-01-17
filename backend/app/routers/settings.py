@@ -188,6 +188,7 @@ class SettingsUpdate(BaseModel):
     location_latitude: Optional[float] = Field(None, description="Latitude")
     location_longitude: Optional[float] = Field(None, description="Longitude")
     location_automatic: Optional[bool] = Field(True, description="Auto-detect location")
+    location_temperature_unit: Optional[str] = Field("celsius", description="Temperature unit: 'celsius' or 'fahrenheit'")
     # BirdWeather settings
     birdweather_enabled: Optional[bool] = Field(False, description="Enable BirdWeather reporting")
     birdweather_station_token: Optional[str] = Field(None, description="BirdWeather Station Token")
@@ -265,6 +266,7 @@ async def get_settings():
         "location_latitude": settings.location.latitude,
         "location_longitude": settings.location.longitude,
         "location_automatic": settings.location.automatic,
+        "location_temperature_unit": settings.location.temperature_unit,
         # BirdWeather settings
         "birdweather_enabled": settings.birdweather.enabled,
         # SECURITY: Never expose station tokens via API
@@ -343,6 +345,8 @@ async def update_settings(update: SettingsUpdate, background_tasks: BackgroundTa
     settings.location.latitude = update.location_latitude
     settings.location.longitude = update.location_longitude
     settings.location.automatic = update.location_automatic if update.location_automatic is not None else True
+    if update.location_temperature_unit:
+        settings.location.temperature_unit = update.location_temperature_unit
 
     # BirdWeather settings
     settings.birdweather.enabled = update.birdweather_enabled if update.birdweather_enabled is not None else False
