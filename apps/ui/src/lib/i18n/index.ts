@@ -14,36 +14,46 @@ register('ja', () => import('./locales/ja.json'));
 register('zh', () => import('./locales/zh.json'));
 
 // Function to robustly determine the initial locale
-function determineLocale(): string {
-    const savedLocale = localStorage.getItem('preferred-language');
-    if (savedLocale && typeof savedLocale === 'string') {
+function determineLocale(): string | null {
+    // 1. Check localStorage
+    const savedLocale = typeof window !== 'undefined' ? localStorage.getItem('preferred-language') : null;
+    if (typeof savedLocale === 'string' && savedLocale.length > 0) {
         return savedLocale;
     }
 
+    // 2. Check browser navigator
     const browserLocale = getLocaleFromNavigator();
-    if (browserLocale && typeof browserLocale === 'string') {
+    if (typeof browserLocale === 'string' && browserLocale.length > 0) {
         return browserLocale;
     }
-
-    // This warning helps debug future issues with locale detection.
-    console.warn(
-        `[i18n] Could not determine a valid locale from storage or browser. Falling back to 'en'. Received:`,
-        { savedLocale, browserLocale },
-    );
-    return 'en';
+    
+    return null;
 }
 
-// Detect browser locale with robust fallback
-const rawLocale = determineLocale();
-// Normalize: 'en-US' -> 'en', 'zh-CN' -> 'zh'
-const normalizedLocale = rawLocale.split('-')[0];
-// Validate: only use if we support it, otherwise fallback to 'en'
+// --- Initialization ---
+
 const supportedLocales = ['en', 'es', 'fr', 'de', 'ja', 'zh'];
-const initialLocale = supportedLocales.includes(normalizedLocale) ? normalizedLocale : 'en';
+
+let initialLocale: string;
+const rawLocale = determineLocale();
+
+if (rawLocale) {
+    // Normalize: 'en-US' -> 'en', 'zh-CN' -> 'zh'
+    const normalizedLocale = rawLocale.split('-')[0];
+    // Validate: only use if we support it, otherwise fallback to 'en'
+    initialLocale = supportedLocales.includes(normalizedLocale) ? normalizedLocale : 'en';
+} else {
+    // Fallback if everything else fails
+    initialLocale = 'en';
+    console.warn(
+        `[i18n] Could not determine a valid locale from storage or browser. Falling back to 'en'.`
+    );
+}
+
 
 init({
     fallbackLocale: 'en',
-    initialLocale,
+    initialLocale: initialLocale,
 });
 
 export { locale, _ };
