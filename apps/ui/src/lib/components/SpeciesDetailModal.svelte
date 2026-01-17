@@ -253,6 +253,18 @@
                                 }}
                             />
                             <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
+                            <div class="absolute top-4 right-4">
+                                {#if info.source_url}
+                                    <a
+                                        href={info.source_url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/90 text-slate-900 text-[10px] font-black uppercase tracking-widest shadow-md"
+                                    >
+                                        {info.source || 'Source'}
+                                    </a>
+                                {/if}
+                            </div>
                             <div class="absolute bottom-4 left-6 right-6">
                                 <h3 class="text-2xl font-bold text-white drop-shadow-lg">{primaryName}</h3>
                                 {#if subName && subName !== primaryName}
@@ -322,7 +334,7 @@
 
                 <!-- Species Description -->
                 {#if info}
-                    <section class="bg-slate-50 dark:bg-slate-700/30 rounded-xl p-4">
+                    <section class="bg-slate-50 dark:bg-slate-700/30 rounded-2xl p-5">
                         <div class="flex items-start gap-3">
                             <div class="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-600 flex items-center justify-center flex-shrink-0">
                                 <svg class="w-5 h-5 text-slate-500 dark:text-slate-400" fill="currentColor" viewBox="0 0 24 24">
@@ -330,6 +342,7 @@
                                 </svg>
                             </div>
                             <div class="flex-1 min-w-0">
+                                <h4 class="text-xs font-black uppercase tracking-[0.2em] text-slate-500 mb-2">{$_('actions.species_info')}</h4>
                                 {#if info.extract}
                                     <p class="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
                                         {info.extract}
@@ -357,31 +370,31 @@
                     </section>
                 {/if}
 
-                <!-- Statistics Overview -->
+                <!-- Quick Facts -->
                 <section>
                     <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4">{$_('common.statistics')}</h3>
                     <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                        <div class="bg-gradient-to-br from-teal-500 to-emerald-600 rounded-xl p-4 text-white">
-                            <p class="text-3xl font-bold">{stats.total_sightings}</p>
-                            <p class="text-sm opacity-90">{$_('leaderboard.all_species')}</p>
+                        <div class="rounded-2xl p-4 bg-gradient-to-br from-teal-500 to-emerald-600 text-white shadow-lg">
+                            <p class="text-3xl font-black">{stats.total_sightings}</p>
+                            <p class="text-[11px] uppercase tracking-widest opacity-90">{$_('common.detections')}</p>
                         </div>
-                        <div class="bg-slate-100 dark:bg-slate-700 rounded-xl p-4">
-                            <p class="text-2xl font-bold text-slate-900 dark:text-white">
+                        <div class="rounded-2xl p-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm">
+                            <p class="text-2xl font-black text-slate-900 dark:text-white">
                                 {(stats.avg_confidence * 100).toFixed(0)}%
                             </p>
-                            <p class="text-sm text-slate-500 dark:text-slate-400">{$_('species_detail.avg_confidence')}</p>
+                            <p class="text-[11px] uppercase tracking-widest text-slate-500">{$_('species_detail.avg_confidence')}</p>
                         </div>
-                        <div class="bg-slate-100 dark:bg-slate-700 rounded-xl p-4">
-                            <p class="text-sm font-medium text-slate-900 dark:text-white">
+                        <div class="rounded-2xl p-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm">
+                            <p class="text-sm font-semibold text-slate-900 dark:text-white">
                                 {formatDate(stats.first_seen)}
                             </p>
-                            <p class="text-sm text-slate-500 dark:text-slate-400">{$_('species_detail.first_seen')}</p>
+                            <p class="text-[11px] uppercase tracking-widest text-slate-500">{$_('species_detail.first_seen')}</p>
                         </div>
-                        <div class="bg-slate-100 dark:bg-slate-700 rounded-xl p-4">
-                            <p class="text-sm font-medium text-slate-900 dark:text-white">
+                        <div class="rounded-2xl p-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm">
+                            <p class="text-sm font-semibold text-slate-900 dark:text-white">
                                 {formatDate(stats.last_seen)}
                             </p>
-                            <p class="text-sm text-slate-500 dark:text-slate-400">{$_('species_detail.last_seen')}</p>
+                            <p class="text-[11px] uppercase tracking-widest text-slate-500">{$_('species_detail.last_seen')}</p>
                         </div>
                     </div>
                 </section>
