@@ -3,13 +3,14 @@ import structlog
 from typing import Set
 
 log = structlog.get_logger()
+MAX_QUEUE_SIZE = 100
 
 class Broadcaster:
     def __init__(self):
         self.queues: Set[asyncio.Queue] = set()
 
     async def subscribe(self) -> asyncio.Queue:
-        queue = asyncio.Queue()
+        queue = asyncio.Queue(maxsize=MAX_QUEUE_SIZE)
         self.queues.add(queue)
         return queue
 
@@ -25,7 +26,10 @@ class Broadcaster:
         queues_snapshot = list(self.queues)
         for queue in queues_snapshot:
             try:
-                await queue.put(message)
+                queue.put_nowait(message)
+            except asyncio.QueueFull:
+                # Drop message for slow consumers to prevent unbounded growth.
+                log.warning("Dropping SSE message for slow subscriber", queue_size=queue.qsize())
             except Exception:
                 # Queue may have been closed, remove it
                 self.queues.discard(queue)

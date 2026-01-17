@@ -197,6 +197,7 @@ class TaxonomyService:
         """Save a translation to the local cache."""
         if db:
             await self._insert_translation_cache(db, taxa_id, lang, common_name)
+            await db.commit()
         else:
             async with get_db() as db:
                 await self._insert_translation_cache(db, taxa_id, lang, common_name)

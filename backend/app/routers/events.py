@@ -1,3 +1,4 @@
+import asyncio
 from fastapi import APIRouter, HTTPException, Query, Request
 from typing import List, Optional, Literal
 from datetime import datetime, date
@@ -22,6 +23,9 @@ router = APIRouter()
 log = structlog.get_logger()
 
 
+CLIP_CHECK_CONCURRENCY = 10
+LOCALIZED_NAME_CONCURRENCY = 5
+
 async def batch_check_clips(event_ids: list[str]) -> dict[str, bool]:
     """
     Check clip availability for multiple events from Frigate.
@@ -30,15 +34,18 @@ async def batch_check_clips(event_ids: list[str]) -> dict[str, bool]:
     if not event_ids:
         return {}
 
-    result = {}
-    for event_id in event_ids:
-        try:
-            event_data = await frigate_client.get_event(event_id)
-            result[event_id] = event_data.get("has_clip", False) if event_data else False
-        except Exception:
-            result[event_id] = False
+    semaphore = asyncio.Semaphore(CLIP_CHECK_CONCURRENCY)
 
-    return result
+    async def check(event_id: str) -> tuple[str, bool]:
+        async with semaphore:
+            try:
+                event_data = await frigate_client.get_event(event_id)
+                return event_id, event_data.get("has_clip", False) if event_data else False
+            except Exception:
+                return event_id, False
+
+    results = await asyncio.gather(*(check(event_id) for event_id in event_ids))
+    return dict(results)
 
 # get_classifier is now imported from classifier_service
 
@@ -104,6 +111,21 @@ async def get_events(
         # Get labels that should be displayed as "Unknown Bird"
         unknown_labels = settings.classification.unknown_bird_labels
 
+        # Preload localized names for this page to avoid per-row network calls.
+        localized_names: dict[int, str] = {}
+        if lang != 'en':
+            taxa_ids = {event.taxa_id for event in events if event.taxa_id}
+            if taxa_ids:
+                semaphore = asyncio.Semaphore(LOCALIZED_NAME_CONCURRENCY)
+
+                async def lookup(taxa_id: int) -> tuple[int, str | None]:
+                    async with semaphore:
+                        name = await taxonomy_service.get_localized_common_name(taxa_id, lang, db=db)
+                        return taxa_id, name
+
+                results = await asyncio.gather(*(lookup(taxa_id) for taxa_id in taxa_ids))
+                localized_names = {taxa_id: name for taxa_id, name in results if name}
+
         # Convert to response models with clip info
         response_events = []
         for event in events:
@@ -115,7 +137,7 @@ async def get_events(
             common_name = event.common_name
             # Fetch localized common name if not in English and we have a taxa_id
             if lang != 'en' and event.taxa_id:
-                localized_name = await taxonomy_service.get_localized_common_name(event.taxa_id, lang, db=db)
+                localized_name = localized_names.get(event.taxa_id)
                 if localized_name:
                     common_name = localized_name
 
