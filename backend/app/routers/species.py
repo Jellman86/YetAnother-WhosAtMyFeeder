@@ -33,6 +33,102 @@ SKIP_WIKIPEDIA_LOOKUP = {
     "Unidentified"
 }
 
+def _parse_cached_at(value: object) -> datetime | None:
+    if isinstance(value, datetime):
+        return value
+    if isinstance(value, str):
+        try:
+            return datetime.fromisoformat(value)
+        except ValueError:
+            return None
+    return None
+
+def _is_cache_valid(info: SpeciesInfo, cached_at: datetime | None) -> bool:
+    if not cached_at:
+        return False
+    is_success = bool(info.thumbnail_url or info.extract)
+    cache_ttl = CACHE_TTL_SUCCESS if is_success else CACHE_TTL_FAILURE
+    return datetime.now() - cached_at < cache_ttl
+
+async def _get_cached_species_info(species_name: str, refresh: bool) -> SpeciesInfo | None:
+    if refresh:
+        return None
+
+    if species_name in _wiki_cache:
+        info, cached_at = _wiki_cache[species_name]
+        if _is_cache_valid(info, cached_at):
+            log.debug("Returning cached species info (memory)", species=species_name)
+            return info
+
+    async with get_db() as db:
+        cursor = await db.execute(
+            """SELECT title, description, extract, thumbnail_url, wikipedia_url, source, source_url,
+                      scientific_name, conservation_status, cached_at
+               FROM species_info_cache WHERE species_name = ?""",
+            (species_name,)
+        )
+        row = await cursor.fetchone()
+
+    if not row:
+        return None
+
+    cached_at = _parse_cached_at(row[9])
+    info = SpeciesInfo(
+        title=row[0] or species_name,
+        description=row[1],
+        extract=row[2],
+        thumbnail_url=row[3],
+        wikipedia_url=row[4],
+        source=row[5],
+        source_url=row[6],
+        scientific_name=row[7],
+        conservation_status=row[8],
+        cached_at=cached_at
+    )
+
+    if _is_cache_valid(info, cached_at):
+        _wiki_cache[species_name] = (info, cached_at or datetime.now())
+        log.debug("Returning cached species info (db)", species=species_name)
+        return info
+
+    return None
+
+async def _save_species_info(species_name: str, info: SpeciesInfo) -> None:
+    cached_at = datetime.now()
+    info.cached_at = cached_at
+    async with get_db() as db:
+        await db.execute(
+            """INSERT INTO species_info_cache
+               (species_name, title, description, extract, thumbnail_url, wikipedia_url, source, source_url,
+                scientific_name, conservation_status, cached_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+               ON CONFLICT(species_name) DO UPDATE SET
+                 title = excluded.title,
+                 description = excluded.description,
+                 extract = excluded.extract,
+                 thumbnail_url = excluded.thumbnail_url,
+                 wikipedia_url = excluded.wikipedia_url,
+                 source = excluded.source,
+                 source_url = excluded.source_url,
+                 scientific_name = excluded.scientific_name,
+                 conservation_status = excluded.conservation_status,
+                 cached_at = excluded.cached_at""",
+            (
+                species_name,
+                info.title,
+                info.description,
+                info.extract,
+                info.thumbnail_url,
+                info.wikipedia_url,
+                info.source,
+                info.source_url,
+                info.scientific_name,
+                info.conservation_status,
+                cached_at
+            )
+        )
+        await db.commit()
+
 @router.get("/species/search")
 async def search_species(q: str):
     """Search for species labels (from classifier) and return with taxonomy info."""
@@ -332,9 +428,14 @@ async def clear_species_cache(species_name: str):
     """Clear the Wikipedia cache for a species."""
     if species_name in _wiki_cache:
         del _wiki_cache[species_name]
-        log.info("Cleared species cache", species=species_name)
-        return {"status": "cleared", "species": species_name}
-    return {"status": "not_cached", "species": species_name}
+    async with get_db() as db:
+        await db.execute(
+            "DELETE FROM species_info_cache WHERE species_name = ?",
+            (species_name,)
+        )
+        await db.commit()
+    log.info("Cleared species cache", species=species_name)
+    return {"status": "cleared", "species": species_name}
 
 
 @router.get("/species/{species_name}/info", response_model=SpeciesInfo)
@@ -358,20 +459,9 @@ async def get_species_info(species_name: str, refresh: bool = False):
             cached_at=datetime.now()
         )
 
-    # Check cache first (unless refresh requested)
-    if not refresh and species_name in _wiki_cache:
-        info, cached_at = _wiki_cache[species_name]
-        age = datetime.now() - cached_at
-        is_success = bool(info.thumbnail_url or info.extract)
-
-        # Use appropriate TTL based on whether the cached result was successful
-        cache_ttl = CACHE_TTL_SUCCESS if is_success else CACHE_TTL_FAILURE
-
-        if age < cache_ttl:
-            log.debug("Returning cached species info", species=species_name, is_success=is_success, age_seconds=age.total_seconds())
-            return info
-        else:
-            log.debug("Cache expired", species=species_name, age_seconds=age.total_seconds())
+    cached_info = await _get_cached_species_info(species_name, refresh)
+    if cached_info:
+        return cached_info
 
     # Fetch from iNaturalist first, then Wikipedia as fallback
     info = await _fetch_inaturalist_info(species_name)
@@ -379,7 +469,8 @@ async def get_species_info(species_name: str, refresh: bool = False):
         info = await _fetch_wikipedia_info(species_name)
 
     # Cache the result
-    _wiki_cache[species_name] = (info, datetime.now())
+    await _save_species_info(species_name, info)
+    _wiki_cache[species_name] = (info, info.cached_at or datetime.now())
 
     is_success = bool(info.thumbnail_url or info.extract)
     log.info(

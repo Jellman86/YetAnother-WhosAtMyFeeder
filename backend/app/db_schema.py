@@ -80,3 +80,22 @@ oauth_tokens = Table(
 # Indices for oauth_tokens
 Index("idx_oauth_tokens_provider", oauth_tokens.c.provider)
 Index("idx_oauth_tokens_email", oauth_tokens.c.email)
+
+species_info_cache = Table(
+    "species_info_cache",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("species_name", String, nullable=False, unique=True),
+    Column("title", String),
+    Column("source", String),
+    Column("source_url", String),
+    Column("description", String),
+    Column("extract", String),
+    Column("thumbnail_url", String),
+    Column("wikipedia_url", String),
+    Column("scientific_name", String),
+    Column("conservation_status", String),
+    Column("cached_at", TIMESTAMP, server_default=func.now()),
+)
+
+Index("idx_species_info_name", species_info_cache.c.species_name)
