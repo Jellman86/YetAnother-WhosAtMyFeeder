@@ -104,13 +104,6 @@
         return items;
     });
 
-    let infoSourceText = $derived.by(() => {
-        if (!infoSourceChips.length) return null;
-        const labels = infoSourceChips.map((item) => item.label);
-        if (labels.length === 1) return `Data from ${labels[0]}`;
-        if (labels.length === 2) return `Data from ${labels[0]} + ${labels[1]}`;
-        return `Data from ${labels.slice(0, -1).join(', ')} + ${labels[labels.length - 1]}`;
-    });
 
     onMount(async () => {
         // Check if this is an unknown bird detection
@@ -284,13 +277,13 @@
                                 }}
                             />
                             <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
-                            <div class="absolute top-4 right-4">
+                            <div class="absolute bottom-4 right-4">
                                 {#if info.source_url}
                                     <a
                                         href={info.source_url}
                                         target="_blank"
                                         rel="noopener noreferrer"
-                                        class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/90 text-slate-900 text-[10px] font-black uppercase tracking-widest shadow-md"
+                                        class="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-white/70 text-slate-600 text-[10px] font-black uppercase tracking-widest backdrop-blur-sm border border-white/60"
                                     >
                                         {info.source || 'Source'}
                                     </a>
@@ -400,9 +393,6 @@
                                         </div>
                                     {/if}
                                 </div>
-                                {#if infoSourceText}
-                                    <p class="text-[11px] text-slate-500 dark:text-slate-400 mb-3">{infoSourceText}</p>
-                                {/if}
                                 {#if info.extract}
                                     <p class="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
                                         {info.extract}
@@ -411,19 +401,6 @@
                                     <p class="text-sm text-slate-500 dark:text-slate-400 italic">
                                         {$_('species_detail.no_info')}
                                     </p>
-                                {/if}
-                                {#if info.summary_source_url}
-                                    <a
-                                        href={info.summary_source_url}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        class="inline-flex items-center gap-1 mt-3 text-sm font-medium text-teal-600 dark:text-teal-400 hover:underline"
-                                    >
-                                        {$_('actions.read_more_source', { values: { source: info.summary_source || 'Wikipedia' } })}
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                                        </svg>
-                                    </a>
                                 {/if}
                                 {#if info.cached_at}
                                     <p class="mt-3 text-[10px] uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">
