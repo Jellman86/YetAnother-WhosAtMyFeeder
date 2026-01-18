@@ -253,6 +253,16 @@ class SettingsUpdate(BaseModel):
 
     species_info_source: Optional[str] = "auto"
 
+    @field_validator('location_temperature_unit')
+    @classmethod
+    def validate_location_temperature_unit(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        normalized = v.strip().lower()
+        if normalized not in ("celsius", "fahrenheit"):
+            raise ValueError("location_temperature_unit must be 'celsius' or 'fahrenheit'")
+        return normalized
+
     @field_validator('frigate_url')
     @classmethod
     def validate_frigate_url(cls, v: str) -> str:
@@ -414,7 +424,7 @@ async def update_settings(update: SettingsUpdate, background_tasks: BackgroundTa
     settings.location.latitude = update.location_latitude
     settings.location.longitude = update.location_longitude
     settings.location.automatic = update.location_automatic if update.location_automatic is not None else True
-    if update.location_temperature_unit:
+    if update.location_temperature_unit is not None:
         settings.location.temperature_unit = update.location_temperature_unit
 
     # BirdWeather settings

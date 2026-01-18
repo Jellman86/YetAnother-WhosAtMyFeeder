@@ -368,7 +368,8 @@ class Settings(BaseSettings):
                             
                 if 'location' in file_data:
                     for key, value in file_data['location'].items():
-                        location_data[key] = value
+                        if value is not None:
+                            location_data[key] = value
 
                 if 'birdweather' in file_data:
                     for key, value in file_data['birdweather'].items():
