@@ -185,16 +185,27 @@ class SMTPService:
             text_part = MIMEText(plain_body, 'plain')
             message.attach(text_part)
 
-        # Add HTML part
-        html_part = MIMEText(html_body, 'html')
-        message.attach(html_part)
-
-        # Add image attachment if provided
+        # Add HTML part with inline image if provided
         if image_data:
+            # Create a multipart/related container for HTML + embedded image
+            msg_related = MIMEMultipart('related')
+
+            # Add HTML part to the related container
+            html_part = MIMEText(html_body, 'html')
+            msg_related.attach(html_part)
+
+            # Add embedded image with Content-ID
             image = MIMEImage(image_data)
             image.add_header('Content-ID', '<bird_snapshot>')
             image.add_header('Content-Disposition', 'inline', filename='bird.jpg')
-            message.attach(image)
+            msg_related.attach(image)
+
+            # Attach the related container to the alternative message
+            message.attach(msg_related)
+        else:
+            # No image, just add HTML part directly
+            html_part = MIMEText(html_body, 'html')
+            message.attach(html_part)
 
         return message
 

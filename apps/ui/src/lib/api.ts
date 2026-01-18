@@ -75,6 +75,7 @@ export interface Settings {
     location_latitude?: number | null;
     location_longitude?: number | null;
     location_automatic?: boolean;
+    location_temperature_unit?: string;
     // BirdWeather settings
     birdweather_enabled: boolean;
     birdweather_station_token?: string | null;

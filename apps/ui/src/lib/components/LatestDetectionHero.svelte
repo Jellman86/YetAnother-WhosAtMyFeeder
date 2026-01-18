@@ -6,6 +6,7 @@
     import ReclassificationOverlay from './ReclassificationOverlay.svelte';
 
     import { getBirdNames } from '../naming';
+    import { formatTemperature } from '../utils/temperature';
 
     interface Props {
         detection: Detection;
@@ -129,7 +130,7 @@
                 </span>
                 {#if detection.temperature !== undefined && detection.temperature !== null}
                     <span class="flex items-center gap-1.5">
-                        🌡️ {detection.temperature?.toFixed(1)}°C
+                        🌡️ {formatTemperature(detection.temperature, settingsStore.settings?.location_temperature_unit)}
                     </span>
                 {/if}
             </div>
