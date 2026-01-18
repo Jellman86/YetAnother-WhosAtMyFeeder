@@ -19,7 +19,7 @@ A bird classification system that integrates with [Frigate NVR](https://frigate.
 
 A personal project built with AI-assisted coding, inspired by the original [WhosAtMyFeeder](https://github.com/mmcc-xx/WhosAtMyFeeder). When I noticed the original project wasn't being maintained, I saw an opportunity to learn and build something better.
 
-Built entirely with AI coding assistants as an experiment in what's possible with modern development tools. Feedback and contributions are welcome!
+Built with help from AI coding assistants as an experiment in what's possible with modern development tools. Feedback and contributions are welcome!
 
 ## What It Does
 
