@@ -342,7 +342,7 @@ class NotificationService:
 
             # Translate subject
             from app.services.i18n_service import i18n_service
-            subject = i18n_service.translate("notification.new_detection", lang)
+            subject = i18n_service.translate("notification.new_detection", lang, species=species)
 
             # Fetch snapshot if needed
             image_data = None
