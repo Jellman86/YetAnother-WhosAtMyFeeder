@@ -1,17 +1,25 @@
 # Yet Another WhosAtMyFeeder (YA-WAMF)
 
-> [!IMPORTANT]
-> **Upcoming Breaking Change (v2.5.0):** Container security is being improved. Containers now run as non-root (UID 1000) by default. This may require you to update your `docker-compose.yml` with a specific `user:` ID or adjust folder permissions. See [MIGRATION.md](MIGRATION.md) for the full migration guide.
-
-A bird classification system that works with [Frigate NVR](https://frigate.video/) to identify the birds visiting your feeder.
+A bird classification system that integrates with [Frigate NVR](https://frigate.video/) to automatically identify birds visiting your feeder using advanced AI models.
 
 ![YA-WAMF Dashboard](dashboard-preview.png)
 
+## Features at a Glance
+
+- **Advanced AI Classification** - MobileNetV2, ConvNeXt, or EVA-02 models (up to 91% accuracy)
+- **Multi-Sensor Verification** - Correlates visual detections with BirdNET-Go audio
+- **Smart Notifications** - Discord, Telegram, Pushover, Email with customizable filters
+- **Video Analysis** - Automatic frame-by-frame scanning for improved accuracy
+- **LLM Insights** - AI-powered behavioral analysis (Gemini/OpenAI/Claude)
+- **Home Assistant Integration** - Sensors, automation, and dashboard cards
+- **BirdWeather Reporting** - Contribute to community science
+- **Real-time Dashboard** - Live updates, video playback, species statistics
+
 ## About This Project
 
-This is a personal project I started to experiment with AI-assisted coding. I noticed the original [WhosAtMyFeeder](https://github.com/mmcc-xx/WhosAtMyFeeder) wasn't being maintained anymore and thought it would be a fun way to learn while building something useful.
+A personal project built with AI-assisted coding, inspired by the original [WhosAtMyFeeder](https://github.com/mmcc-xx/WhosAtMyFeeder). When I noticed the original project wasn't being maintained, I saw an opportunity to learn and build something better.
 
-The whole thing has been built with help from AI coding assistants - it's been an interesting way to see what's possible with these tools. If you spot any rough edges, that's probably why!
+Built entirely with AI coding assistants as an experiment in what's possible with modern development tools. Feedback and contributions are welcome!
 
 ## What It Does
 
@@ -102,150 +110,130 @@ Here's the flow from bird to identification:
    ![Event Details with Deep Analysis](docs/images/event_details_modal.png)
 8. **Dashboard updates** - The frontend gets real-time updates via Server-Sent Events (SSE).
 
-## Getting Started with Docker Compose
+## Quick Start
 
-### What You'll Need
+### Prerequisites
 
 - Docker and Docker Compose installed
-- Frigate already running with MQTT enabled
-- Your MQTT broker details (usually mosquitto running alongside Frigate)
+- Frigate NVR running with MQTT enabled
+- MQTT broker accessible (typically Mosquitto running alongside Frigate)
+- Basic knowledge of Docker networking
 
-### Setup Steps
+### Installation
 
-**1. Create a directory and grab the compose file:**
+**1. Download configuration files:**
 
 ```bash
 mkdir ya-wamf && cd ya-wamf
 curl -O https://raw.githubusercontent.com/Jellman86/YetAnother-WhosAtMyFeeder/main/docker-compose.yml
 curl -O https://raw.githubusercontent.com/Jellman86/YetAnother-WhosAtMyFeeder/main/.env.example
-```
-
-**2. Create your environment file:**
-
-```bash
 cp .env.example .env
 ```
 
-**3. Edit the .env file with your settings:**
+**2. Configure your environment:**
+
+Edit `.env` with your settings:
 
 ```env
-# The Docker network where Frigate and your MQTT broker live
-# (check with: docker network ls)
+# Docker network (check with: docker network ls)
 DOCKER_NETWORK=frigate
 
-# Your Frigate instance
+# Frigate instance
 FRIGATE_URL=http://frigate:5000
 
-# Your MQTT broker (usually 'mosquitto' if running in Docker)
+# MQTT broker (usually 'mosquitto' if running in Docker)
 MQTT_SERVER=mosquitto
 MQTT_PORT=1883
 
-# If your MQTT needs authentication
+# MQTT authentication (if required)
 MQTT_AUTH=true
 MQTT_USERNAME=mqtt_user
 MQTT_PASSWORD=secret_password
 
-# Your timezone
+# Timezone
 TZ=Europe/London
 ```
 
-**4. Make sure the external network exists:**
+**3. Verify Docker network:**
 
-The containers need to join the same Docker network as your Frigate/MQTT setup. Check your network name:
+Ensure the network specified in `.env` exists and matches your Frigate setup:
 
 ```bash
 docker network ls
 ```
 
-Look for whatever network your Frigate containers are using.
-
-**5. Create the data directories:**
+**4. Create directories and start:**
 
 ```bash
 mkdir -p config data/models
-```
-
-The directory structure:
-- `config/` - Configuration files (config.json)
-- `data/` - Persistent data
-  - `data/models/` - Downloaded ML models (persists across container updates)
-
-**6. Start it up:**
-
-```bash
 docker compose up -d
 ```
 
-**7. Open the dashboard:**
+**5. Access the dashboard:**
 
-Go to `http://localhost:9852` in your browser (or your server's IP address).
+Open `http://localhost:9852` (or `http://YOUR_SERVER_IP:9852`)
 
-**8. Download the bird model:**
+**6. Download the AI model:**
 
-On first run, you'll need to download the classification model. Go to Settings in the web UI and click the download button. The model is saved to `data/models/` and will persist across container updates - you only need to download it once.
+In the web UI, go to **Settings** and click the model download button. The model is saved to `data/models/` and persists across updates.
 
-### Checking It's Working
+### Verification
+
+Check logs to confirm everything is working:
 
 ```bash
-# Check container status
-docker compose ps
+docker compose ps                    # Check container status
+docker compose logs backend -f       # Follow backend logs
 
-# Check backend logs
-docker compose logs backend
-
-# You should see something like:
+# You should see:
 # MQTT config: auth=True port=1883 server=mosquitto
 # Connected to MQTT topic=frigate/events
 ```
 
 ### Troubleshooting
 
-**MQTT connection errors?**
-- Make sure `DOCKER_NETWORK` is set to the right network name
-- Check that your MQTT server hostname is correct
-- Verify MQTT credentials if authentication is enabled
+| Issue | Solution |
+|-------|----------|
+| **MQTT connection failed** | Verify `DOCKER_NETWORK` matches Frigate's network<br>Check MQTT hostname and credentials |
+| **Frontend not loading** | Run `docker compose ps` to check health<br>View logs: `docker compose logs frontend` |
+| **No detections** | Confirm Frigate is detecting birds<br>Check backend logs for events<br>Verify model was downloaded in Settings |
 
-**Frontend not loading?**
-- Check the frontend container is healthy: `docker compose ps`
-- Look at frontend logs: `docker compose logs frontend`
-
-**No detections appearing?**
-- Make sure Frigate is detecting birds and publishing to MQTT
-- Check the backend logs for incoming events
-- Verify the classification model was downloaded
+For detailed troubleshooting, see the [**Troubleshooting Guide**](docs/troubleshooting/diagnostics.md).
 
 ## Configuration
 
-Most settings can be changed through the web UI under Settings. They get saved to `config/config.json`.
+All settings are managed through the web UI under **Settings**. Configuration is persisted to `config/config.json`.
 
-| Setting | What it does | Default |
-|---------|--------------|---------|
-| Frigate URL | Where to fetch snapshots from | http://frigate:5000 |
-| MQTT Server | Your MQTT broker hostname | mqtt |
-| Classification Threshold | How confident the model needs to be (0-1) | 0.7 |
-| Min Confidence Floor | Discard detections below this score (unless Frigate verified) | 0.4 |
-| Trust Frigate Sublabels | Skip local AI if Frigate has an identification | Enabled |
-| Auto Video Analysis | Automatically classify clips for higher accuracy | Disabled |
-| BirdWeather Token | Station token for uploading detections to BirdWeather | (none) |
-| BirdNET-Go Topic | MQTT topic for audio detections | birdnet/text |
-| AI Model | Choose between MobileNet (Fast), ConvNeXt (High), or EVA-02 (Elite) | MobileNet |
+### Key Settings
+
+| Setting | Description | Default |
+|---------|-------------|---------|
+| **Frigate URL** | Frigate instance for fetching media | `http://frigate:5000` |
+| **MQTT Server** | MQTT broker hostname | `mqtt` |
+| **Classification Threshold** | Minimum confidence for detections (0-1) | `0.7` |
+| **Min Confidence Floor** | Reject detections below this score | `0.4` |
+| **Trust Frigate Sublabels** | Use Frigate's labels instead of local AI | `Enabled` |
+| **Auto Video Analysis** | Analyze full video clips for accuracy | `Disabled` |
+| **AI Model** | MobileNet (Fast), ConvNeXt (High), EVA-02 (Elite) | `MobileNet` |
+| **BirdWeather Token** | Upload detections to BirdWeather | _(none)_ |
+| **BirdNET-Go Topic** | MQTT topic for audio detections | `birdnet/text` |
 
 ## Security & Authentication
 
-By default, YA-WAMF does not require authentication. It assumes it is running on a trusted local network.
+By default, YA-WAMF runs without authentication, assuming deployment on a trusted local network.
 
-**Enabling Authentication:**
-To protect your dashboard and API with a password (API Key), set the `YA_WAMF_API_KEY` environment variable in your `.env` or `docker-compose.yml` file:
+### Enabling API Key Authentication
 
-```yaml
-environment:
-  - YA_WAMF_API_KEY=your-super-secret-password
+To password-protect the dashboard and API, add `YA_WAMF_API_KEY` to your `.env` file:
+
+```env
+YA_WAMF_API_KEY=your-super-secret-password
 ```
 
 When enabled:
-- The dashboard will present a login screen.
-- All API requests must include the header `X-API-Key: your-super-secret-password`.
-- SSE streams (real-time updates) authenticate via query parameter.
+- Dashboard requires login
+- API requests require `X-API-Key` header
+- Real-time updates authenticate via query parameter
 
 ## Tech Stack
 
@@ -276,14 +264,15 @@ YA-WAMF includes a custom component for Home Assistant to bring your bird sighti
 3. Add the integration via **Settings > Devices & Services > Add Integration**.
 4. Enter your YA-WAMF backend URL (e.g., `http://192.168.1.50:9852`).
 
-## Help the Project Improve! 🧪
+## Help Improve YA-WAMF
 
-This project is in active development, and your feedback is incredibly valuable! If you are using YA-WAMF, please help the project by:
+This project is actively developed and your feedback is valuable!
 
-1.  **Testing**: Try out all the features (video playback, classification, settings, etc.) and see how it performs in your environment.
-2.  **Reporting Issues**: If you find a bug, something doesn't look right, or you have a suggestion for an improvement, please **[open an issue on GitHub](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues)**.
-3.  **Sharing Success**: Let us know if it's working well for you!
-4.  **Enabling Telemetry**: Consider turning on anonymous telemetry in **Settings > Connections**. It helps us understand which models and hardware are most common, so we can focus our efforts where they matter most! (It's strictly anonymous – see the **[Telemetry Spec](docs/TELEMETRY_SPEC.md)** for details).
+**How to contribute:**
+- **Report bugs** - [Open an issue](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues) for bugs or feature requests
+- **Share feedback** - Let us know what works and what doesn't
+- **Enable telemetry** - Turn on anonymous usage stats in **Settings > Connections** (see [Telemetry Spec](docs/TELEMETRY_SPEC.md))
+- **Test features** - Try video analysis, notifications, and integrations in your environment
 
 ## Contributing
 
