@@ -402,11 +402,6 @@
                                         {$_('species_detail.no_info')}
                                     </p>
                                 {/if}
-                                {#if info.cached_at}
-                                    <p class="mt-3 text-[10px] uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">
-                                        Updated {formatDate(info.cached_at)}
-                                    </p>
-                                {/if}
                             </div>
                         </div>
                     </section>

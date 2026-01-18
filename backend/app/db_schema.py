@@ -1,4 +1,4 @@
-from sqlalchemy import Table, Column, Integer, String, Float, Boolean, TIMESTAMP, MetaData, Index
+from sqlalchemy import Table, Column, Integer, String, Float, Boolean, TIMESTAMP, MetaData, Index, ForeignKey, UniqueConstraint
 from sqlalchemy.sql import func
 
 metadata = MetaData()
@@ -78,8 +78,8 @@ oauth_tokens = Table(
 )
 
 # Indices for oauth_tokens
-Index("idx_oauth_tokens_provider", oauth_tokens.c.provider)
-Index("idx_oauth_tokens_email", oauth_tokens.c.email)
+Index("ix_oauth_tokens_provider", oauth_tokens.c.provider)
+Index("ix_oauth_tokens_email", oauth_tokens.c.email)
 
 species_info_cache = Table(
     "species_info_cache",
@@ -110,11 +110,11 @@ taxonomy_translations = Table(
     "taxonomy_translations",
     metadata,
     Column("id", Integer, primary_key=True, autoincrement=True),
-    Column("taxa_id", Integer, nullable=False),
+    Column("taxa_id", Integer, ForeignKey("taxonomy_cache.taxa_id"), nullable=False),
     Column("language_code", String(5), nullable=False),
     Column("common_name", String, nullable=False),
+    UniqueConstraint("taxa_id", "language_code", name="uq_taxa_lang"),
 )
 
 Index("idx_taxonomy_trans_taxa", taxonomy_translations.c.taxa_id)
 Index("idx_taxonomy_trans_lang", taxonomy_translations.c.language_code)
-Index("uq_taxa_lang", taxonomy_translations.c.taxa_id, taxonomy_translations.c.language_code, unique=True)
