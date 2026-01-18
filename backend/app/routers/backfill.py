@@ -1,11 +1,13 @@
 from datetime import datetime, timedelta
 from typing import Optional, List
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 import structlog
 
 from app.services.backfill_service import BackfillService
 from app.services.classifier_service import get_classifier
+from app.services.i18n_service import i18n_service
+from app.utils.language import get_user_language
 
 router = APIRouter()
 log = structlog.get_logger()
@@ -44,7 +46,7 @@ class BackfillResponse(BaseModel):
 
 
 @router.post("/backfill", response_model=BackfillResponse)
-async def backfill_detections(request: BackfillRequest):
+async def backfill_detections(backfill_request: BackfillRequest, request: Request):
     """
     Fetch historical bird detections from Frigate and process them.
 
@@ -58,50 +60,51 @@ async def backfill_detections(request: BackfillRequest):
     - 'month': Last 30 days
     - 'custom': Use start_date and end_date parameters
     """
+    lang = get_user_language(request)
     try:
         now = datetime.now()
 
         # Calculate date range
-        if request.date_range == "day":
+        if backfill_request.date_range == "day":
             start = now - timedelta(days=1)
             end = now
-        elif request.date_range == "week":
+        elif backfill_request.date_range == "week":
             start = now - timedelta(weeks=1)
             end = now
-        elif request.date_range == "month":
+        elif backfill_request.date_range == "month":
             start = now - timedelta(days=30)
             end = now
-        elif request.date_range == "custom":
-            if not request.start_date or not request.end_date:
+        elif backfill_request.date_range == "custom":
+            if not backfill_request.start_date or not backfill_request.end_date:
                 raise HTTPException(
                     status_code=400,
-                    detail="start_date and end_date required for custom date range"
+                    detail=i18n_service.translate("errors.backfill.invalid_time_range", lang)
                 )
             try:
-                start = datetime.strptime(request.start_date, "%Y-%m-%d")
-                end = datetime.strptime(request.end_date, "%Y-%m-%d")
+                start = datetime.strptime(backfill_request.start_date, "%Y-%m-%d")
+                end = datetime.strptime(backfill_request.end_date, "%Y-%m-%d")
                 # Set end to end of day
                 end = end.replace(hour=23, minute=59, second=59)
             except ValueError:
                 raise HTTPException(
                     status_code=400,
-                    detail="Invalid date format. Use YYYY-MM-DD"
+                    detail=i18n_service.translate("errors.backfill.invalid_time_range", lang)
                 )
         else:
             raise HTTPException(
                 status_code=400,
-                detail=f"Invalid date_range: {request.date_range}. Use 'day', 'week', 'month', or 'custom'"
+                detail=i18n_service.translate("errors.backfill.invalid_time_range", lang)
             )
 
         # Validate date range
         if start > end:
             raise HTTPException(
                 status_code=400,
-                detail="start_date must be before end_date"
+                detail=i18n_service.translate("errors.backfill.invalid_time_range", lang)
             )
 
         # Run the backfill
-        result = await backfill_service.run_backfill(start, end, request.cameras)
+        result = await backfill_service.run_backfill(start, end, backfill_request.cameras)
 
         # Build message
         if result.new_detections > 0:
@@ -129,4 +132,7 @@ async def backfill_detections(request: BackfillRequest):
         raise
     except Exception as e:
         log.error("Backfill failed", error=str(e))
-        raise HTTPException(status_code=500, detail=f"Backfill failed: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=i18n_service.translate("errors.backfill.processing_error", lang, error=str(e))
+        )

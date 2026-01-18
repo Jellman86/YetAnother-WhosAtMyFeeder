@@ -10,7 +10,7 @@
     }>();
 
     // Calculate histogram data - ensure we use the actual scores from the frames
-    let histogramBars = $derived(progress.frameResults.map((res) => ({
+    let histogramBars = $derived(progress.frameResults.map((res: any) => ({
         height: Math.max(res.score * 100, 4), // Min height of 4% for visibility
         score: res.score,
         label: res.label

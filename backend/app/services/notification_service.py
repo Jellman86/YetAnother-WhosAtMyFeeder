@@ -4,8 +4,10 @@ import httpx
 import re
 from datetime import datetime, timezone
 from typing import Optional, Any
+import json
 
 from app.config import settings
+from app.services.i18n_service import i18n_service
 
 log = structlog.get_logger()
 
@@ -76,48 +78,67 @@ class NotificationService:
         if not await self._should_notify(species, confidence, audio_confirmed, camera):
             return
 
+        lang = settings.notifications.notification_language
+        display_name = common_name or species
         tasks = []
 
         # Discord
         if settings.notifications.discord.enabled:
             tasks.append(self._send_discord(
-                species, common_name, confidence, camera, timestamp, snapshot_url, audio_confirmed
+                display_name, confidence, camera, timestamp, snapshot_url, audio_confirmed, lang, snapshot_data
             ))
 
         # Pushover
         if settings.notifications.pushover.enabled:
             tasks.append(self._send_pushover(
-                species, common_name, confidence, camera, timestamp, snapshot_url, snapshot_data
+                display_name, confidence, camera, timestamp, snapshot_url, snapshot_data, lang
             ))
 
         # Telegram
         if settings.notifications.telegram.enabled:
             tasks.append(self._send_telegram(
-                species, common_name, confidence, camera, timestamp, snapshot_url, snapshot_data
+                display_name, confidence, camera, timestamp, snapshot_url, snapshot_data, lang
+            ))
+
+        # Email
+        if settings.notifications.email.enabled:
+            tasks.append(self._send_email(
+                display_name, scientific_name, confidence, camera, timestamp, snapshot_url, snapshot_data, audio_confirmed, lang
             ))
 
         if tasks:
-            log.info("Sending notifications", species=species, platforms=len(tasks))
+            log.info("Sending notifications", species=species, platforms=len(tasks), lang=lang)
             await asyncio.gather(*tasks, return_exceptions=True)
 
     async def _send_discord(
         self,
         species: str,
-        common_name: Optional[str],
         confidence: float,
         camera: str,
         timestamp: datetime,
         snapshot_url: str,
-        audio_confirmed: bool
+        audio_confirmed: bool,
+        lang: str,
+        snapshot_data: Optional[bytes]
     ):
         """Send Discord webhook notification."""
         if not settings.notifications.discord.webhook_url:
             return
 
-        title = f"🐦 {common_name or species} Detected!"
-        description = f"**Camera:** {camera}\n**Confidence:** {confidence:.0%}"
+        title = i18n_service.translate("notification.new_detection", lang=lang, species=species)
+        description = i18n_service.translate(
+            "notification.detection_body", 
+            lang=lang, 
+            species=species, 
+            camera=camera, 
+            confidence=int(confidence * 100)
+        )
+        # Bold formatting for Discord
+        description = f"**{description}**"
+        
         if audio_confirmed:
-            description += "\n🎤 **Audio Confirmed**"
+            audio_text = i18n_service.translate("notification.audio_confirmed", lang=lang)
+            description += f"\n**{audio_text}**"
 
         # Ensure timestamp is timezone-aware for Discord
         if timestamp.tzinfo is None:
@@ -132,7 +153,10 @@ class NotificationService:
         }
         
         if settings.notifications.discord.include_snapshot:
-            embed["image"] = {"url": snapshot_url}
+            if snapshot_data:
+                embed["image"] = {"url": "attachment://snapshot.jpg"}
+            else:
+                embed["image"] = {"url": snapshot_url}
 
         payload = {
             "username": settings.notifications.discord.username,
@@ -140,7 +164,14 @@ class NotificationService:
         }
 
         try:
-            resp = await self.client.post(settings.notifications.discord.webhook_url, json=payload)
+            if snapshot_data and settings.notifications.discord.include_snapshot:
+                 resp = await self.client.post(
+                     settings.notifications.discord.webhook_url,
+                     data={"payload_json": json.dumps(payload)},
+                     files={"file": ("snapshot.jpg", snapshot_data, "image/jpeg")}
+                 )
+            else:
+                resp = await self.client.post(settings.notifications.discord.webhook_url, json=payload)
             resp.raise_for_status()
         except httpx.HTTPStatusError as e:
             # Log the response body for debugging
@@ -157,20 +188,26 @@ class NotificationService:
     async def _send_pushover(
         self,
         species: str,
-        common_name: Optional[str],
         confidence: float,
         camera: str,
         timestamp: datetime,
         snapshot_url: str,
-        snapshot_data: Optional[bytes]
+        snapshot_data: Optional[bytes],
+        lang: str
     ):
         """Send Pushover notification."""
         cfg = settings.notifications.pushover
         if not cfg.user_key or not cfg.api_token:
             return
 
-        title = f"{common_name or species} at {camera}"
-        message = f"Confidence: {confidence:.0%}\nTime: {timestamp.strftime('%H:%M:%S')}"
+        title = i18n_service.translate("notification.new_detection", lang=lang, species=species)
+        message = i18n_service.translate(
+            "notification.detection_body", 
+            lang=lang, 
+            species=species, 
+            camera=camera, 
+            confidence=int(confidence * 100)
+        )
         
         data = {
             "token": cfg.api_token,
@@ -200,21 +237,28 @@ class NotificationService:
     async def _send_telegram(
         self,
         species: str,
-        common_name: Optional[str],
         confidence: float,
         camera: str,
         timestamp: datetime,
         snapshot_url: str,
-        snapshot_data: Optional[bytes]
+        snapshot_data: Optional[bytes],
+        lang: str
     ):
         """Send Telegram notification."""
         cfg = settings.notifications.telegram
         if not cfg.bot_token or not cfg.chat_id:
             return
 
-        safe_name = escape_markdown(common_name or species)
-        safe_camera = escape_markdown(camera)
-        caption = f"🐦 *{safe_name}*\n📹 {safe_camera}\n🎯 {confidence:.0%}"
+        body = i18n_service.translate(
+            "notification.detection_body", 
+            lang=lang, 
+            species=species, 
+            camera=camera, 
+            confidence=int(confidence * 100)
+        )
+        
+        safe_body = escape_markdown(body)
+        caption = f"🐦 *{safe_body}*"
         base_url = f"https://api.telegram.org/bot{cfg.bot_token}"
 
         try:
@@ -243,6 +287,112 @@ class NotificationService:
             resp.raise_for_status()
         except Exception as e:
             log.error("Telegram notification failed", error=str(e))
+            raise
+
+    async def _send_email(
+        self,
+        species: str,
+        scientific_name: Optional[str],
+        confidence: float,
+        camera: str,
+        timestamp: datetime,
+        snapshot_url: str,
+        snapshot_data: Optional[bytes],
+        audio_confirmed: bool,
+        lang: str
+    ):
+        """Send email notification"""
+        try:
+            from app.services.smtp_service import smtp_service
+            from jinja2 import Template
+            import os
+            import aiofiles
+
+            cfg = settings.notifications.email
+
+            if not cfg.to_email:
+                log.warning("Email notifications enabled but no recipient configured")
+                return
+
+            # Load email templates asynchronously
+            template_dir = os.path.join(os.path.dirname(__file__), "..", "templates", "email")
+
+            async with aiofiles.open(os.path.join(template_dir, "bird_detection.html"), 'r') as f:
+                html_template = Template(await f.read())
+
+            async with aiofiles.open(os.path.join(template_dir, "bird_detection.txt"), 'r') as f:
+                text_template = Template(await f.read())
+
+            # Prepare template data
+            template_data = {
+                "species": species,
+                "scientific_name": scientific_name,
+                "confidence": int(confidence * 100),
+                "camera": camera,
+                "timestamp": timestamp.strftime("%Y-%m-%d %H:%M:%S"),
+                "audio_confirmed": audio_confirmed,
+                "has_image": snapshot_data is not None and cfg.include_snapshot,
+                "dashboard_url": cfg.dashboard_url,
+                "weather": None  # TODO: Add weather data if available
+            }
+
+            # Render templates
+            html_body = html_template.render(**template_data)
+            plain_body = text_template.render(**template_data)
+
+            # Translate subject
+            from app.services.i18n_service import i18n_service
+            subject = i18n_service.translate("notification.new_detection", lang)
+
+            # Fetch snapshot if needed
+            image_data = None
+            if cfg.include_snapshot and snapshot_data:
+                image_data = snapshot_data
+            elif cfg.include_snapshot and snapshot_url:
+                try:
+                    async with self.client.get(snapshot_url) as resp:
+                        if resp.status_code == 200:
+                            image_data = resp.content
+                except:
+                    log.warning("Failed to fetch snapshot for email")
+
+            # Send email
+            if cfg.use_oauth and cfg.oauth_provider:
+                success = await smtp_service.send_email_oauth(
+                    provider=cfg.oauth_provider,
+                    to_email=cfg.to_email,
+                    subject=subject,
+                    html_body=html_body,
+                    plain_body=plain_body,
+                    image_data=image_data
+                )
+            else:
+                # Traditional SMTP
+                if not cfg.smtp_host or not cfg.from_email:
+                    log.error("Email SMTP configuration incomplete")
+                    return
+
+                success = await smtp_service.send_email_password(
+                    smtp_host=cfg.smtp_host,
+                    smtp_port=cfg.smtp_port,
+                    username=cfg.smtp_username,
+                    password=cfg.smtp_password,
+                    from_email=cfg.from_email,
+                    to_email=cfg.to_email,
+                    subject=subject,
+                    html_body=html_body,
+                    plain_body=plain_body,
+                    use_tls=cfg.smtp_use_tls,
+                    image_data=image_data
+                )
+
+            if success:
+                log.info("Email notification sent", to=cfg.to_email, species=species)
+            else:
+                log.error("Email notification failed")
+
+        except Exception as e:
+            log.error("Email notification failed", error=str(e))
             raise
 
 notification_service = NotificationService()

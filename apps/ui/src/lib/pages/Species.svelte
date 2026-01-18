@@ -4,6 +4,7 @@
     import SpeciesDetailModal from '../components/SpeciesDetailModal.svelte';
     import { settingsStore } from '../stores/settings.svelte';
     import { getBirdNames } from '../naming';
+    import { _ } from 'svelte-i18n';
 
     let species: SpeciesCount[] = $state([]);
     let loading = $state(true);
@@ -51,7 +52,7 @@
         try {
             species = await fetchSpecies();
         } catch (e) {
-            error = 'Failed to load species data';
+            error = $_('leaderboard.load_failed');
         } finally {
             loading = false;
         }
@@ -83,13 +84,13 @@
 
 <div class="space-y-6">
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <h2 class="text-2xl font-bold text-slate-900 dark:text-white">Species Leaderboard</h2>
+        <h2 class="text-2xl font-bold text-slate-900 dark:text-white">{$_('leaderboard.title')}</h2>
 
         <div class="flex items-center gap-4">
             <div class="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
-                <span>{species.length} species</span>
+                <span>{$_('leaderboard.species_count', { values: { count: species.length } })}</span>
                 <span class="text-slate-300 dark:text-slate-600">|</span>
-                <span>{totalDetections.toLocaleString()} detections</span>
+                <span>{$_('leaderboard.detections_count', { values: { count: totalDetections.toLocaleString() } })}</span>
             </div>
 
             <button
@@ -97,7 +98,7 @@
                 disabled={loading}
                 class="text-sm text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 disabled:opacity-50"
             >
-                ↻ Refresh
+                ↻ {$_('common.refresh')}
             </button>
         </div>
     </div>
@@ -111,7 +112,7 @@
                        ? 'bg-teal-500 text-white'
                        : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'}"
         >
-            By Count
+            {$_('leaderboard.sort_by_count')}
         </button>
         <button
             onclick={() => sortBy = 'name'}
@@ -120,14 +121,14 @@
                        ? 'bg-teal-500 text-white'
                        : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'}"
         >
-            By Name
+            {$_('leaderboard.sort_by_name')}
         </button>
     </div>
 
     {#if error}
         <div class="p-4 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-800">
             {error}
-            <button onclick={loadSpecies} class="ml-2 underline">Retry</button>
+            <button onclick={loadSpecies} class="ml-2 underline">{$_('common.retry')}</button>
         </div>
     {/if}
 
@@ -140,9 +141,9 @@
     {:else if species.length === 0}
         <div class="text-center py-16">
             <span class="text-6xl mb-4 block">🐦</span>
-            <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-2">No species detected yet</h3>
+            <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-2">{$_('leaderboard.no_species')}</h3>
             <p class="text-slate-500 dark:text-slate-400">
-                Bird detections will appear here once they're recorded
+                {$_('leaderboard.no_species_desc')}
             </p>
         </div>
     {:else}
@@ -153,10 +154,10 @@
                     type="button"
                     onclick={() => selectedSpecies = topSpecies.species}
                     class="text-left bg-white/80 dark:bg-slate-800/50 rounded-2xl border border-slate-200/80 dark:border-slate-700/50 p-5 shadow-card dark:shadow-card-dark backdrop-blur-sm transition-all duration-300 hover:shadow-card-hover dark:hover:shadow-card-dark-hover hover:border-teal-300 dark:hover:border-teal-600 relative"
-                    title={topSpecies.species === "Unknown Bird" ? "Unidentified detection - click to review and reclassify" : ""}
+                    title={topSpecies.species === "Unknown Bird" ? $_('leaderboard.unidentified_desc') : ""}
                 >
                     {#if topSpecies.species === "Unknown Bird"}
-                        <div class="absolute top-2 right-2 bg-amber-500 text-white rounded-full w-7 h-7 flex items-center justify-center text-xs font-black shadow-md" title="Needs Review">
+                        <div class="absolute top-2 right-2 bg-amber-500 text-white rounded-full w-7 h-7 flex items-center justify-center text-xs font-black shadow-md" title={$_('leaderboard.needs_review')}>
                             ?
                         </div>
                     {/if}
@@ -175,7 +176,7 @@
                                 {topSpecies.count.toLocaleString()}
                             </p>
                                 <p class="text-sm font-bold text-teal-600 dark:text-teal-400">
-                                    {(totalDetections > 0 ? (topSpecies.count / totalDetections) * 100 : 0).toFixed(1)}% of total
+                                    {$_('leaderboard.percentage_of_total', { values: { percentage: (totalDetections > 0 ? (topSpecies.count / totalDetections) * 100 : 0).toFixed(1) } })}
                                 </p>
                         </div>
                     </div>
@@ -186,7 +187,7 @@
         <!-- Full Leaderboard -->
         <div class="bg-white/80 dark:bg-slate-800/50 rounded-2xl border border-slate-200/80 dark:border-slate-700/50 overflow-hidden shadow-card dark:shadow-card-dark backdrop-blur-sm">
             <div class="p-4 border-b border-slate-200/80 dark:border-slate-700/50">
-                <h3 class="font-semibold text-slate-900 dark:text-white">All Species</h3>
+                <h3 class="font-semibold text-slate-900 dark:text-white">{$_('leaderboard.all_species')}</h3>
             </div>
 
             <div class="divide-y divide-slate-100/80 dark:divide-slate-700/50">
@@ -195,7 +196,7 @@
                         type="button"
                         onclick={() => selectedSpecies = item.species}
                         class="w-full text-left p-4 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors relative"
-                        title={item.species === "Unknown Bird" ? "Unidentified detection - click to review and reclassify" : ""}
+                        title={item.species === "Unknown Bird" ? $_('leaderboard.unidentified_desc') : ""}
                     >
                         <div class="flex items-center gap-4">
                             <!-- Rank -->
@@ -215,7 +216,7 @@
                                     <span class="font-medium text-slate-900 dark:text-white truncate flex items-center gap-2">
                                         {item.displayName}
                                         {#if item.species === "Unknown Bird"}
-                                            <span class="inline-flex items-center justify-center bg-amber-500 text-white rounded-full w-5 h-5 text-[10px] font-black" title="Needs Review">?</span>
+                                            <span class="inline-flex items-center justify-center bg-amber-500 text-white rounded-full w-5 h-5 text-[10px] font-black" title={$_('leaderboard.needs_review')}>?</span>
                                         {/if}
                                     </span>
                                     <span class="text-sm font-semibold text-slate-600 dark:text-slate-300 ml-2">
@@ -238,7 +239,7 @@
 
                                 <div class="flex items-center gap-2 text-[10px] text-slate-500 dark:text-slate-400 mt-1">
                                     <div class="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600"></div>
-                                    <span>{(totalDetections > 0 ? (item.count / totalDetections) * 100 : 0).toFixed(1)}% of total</span>
+                                    <span>{$_('leaderboard.percentage_of_total', { values: { percentage: (totalDetections > 0 ? (item.count / totalDetections) * 100 : 0).toFixed(1) } })}</span>
                                 </div>
                             </div>
                         </div>

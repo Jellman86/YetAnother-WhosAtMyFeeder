@@ -1,4 +1,5 @@
-from fastapi import APIRouter, HTTPException, Query
+import asyncio
+from fastapi import APIRouter, HTTPException, Query, Request
 from typing import List, Optional, Literal
 from datetime import datetime, date
 from io import BytesIO
@@ -15,10 +16,15 @@ from app.services.frigate_client import frigate_client
 from app.services.broadcaster import broadcaster
 from app.services.taxonomy.taxonomy_service import taxonomy_service
 from app.services.audio.audio_service import audio_service
+from app.services.i18n_service import i18n_service
+from app.utils.language import get_user_language
 
 router = APIRouter()
 log = structlog.get_logger()
 
+
+CLIP_CHECK_CONCURRENCY = 10
+LOCALIZED_NAME_CONCURRENCY = 5
 
 async def batch_check_clips(event_ids: list[str]) -> dict[str, bool]:
     """
@@ -28,15 +34,18 @@ async def batch_check_clips(event_ids: list[str]) -> dict[str, bool]:
     if not event_ids:
         return {}
 
-    result = {}
-    for event_id in event_ids:
-        try:
-            event_data = await frigate_client.get_event(event_id)
-            result[event_id] = event_data.get("has_clip", False) if event_data else False
-        except Exception:
-            result[event_id] = False
+    semaphore = asyncio.Semaphore(CLIP_CHECK_CONCURRENCY)
 
-    return result
+    async def check(event_id: str) -> tuple[str, bool]:
+        async with semaphore:
+            try:
+                event_data = await frigate_client.get_event(event_id)
+                return event_id, event_data.get("has_clip", False) if event_data else False
+            except Exception:
+                return event_id, False
+
+    results = await asyncio.gather(*(check(event_id) for event_id in event_ids))
+    return dict(results)
 
 # get_classifier is now imported from classifier_service
 
@@ -65,6 +74,7 @@ async def get_event_filters():
 
 @router.get("/events", response_model=List[DetectionResponse])
 async def get_events(
+    request: Request,
     limit: int = Query(default=50, ge=1, le=500, description="Number of events to return"),
     offset: int = Query(default=0, ge=0, description="Number of events to skip"),
     start_date: Optional[date] = Query(default=None, description="Filter events from this date (inclusive)"),
@@ -75,6 +85,7 @@ async def get_events(
     include_hidden: bool = Query(default=False, description="Include hidden/ignored detections")
 ):
     """Get paginated events with optional filters."""
+    lang = get_user_language(request)
     async with get_db() as db:
         repo = DetectionRepository(db)
 
@@ -100,6 +111,21 @@ async def get_events(
         # Get labels that should be displayed as "Unknown Bird"
         unknown_labels = settings.classification.unknown_bird_labels
 
+        # Preload localized names for this page to avoid per-row network calls.
+        localized_names: dict[int, str] = {}
+        if lang != 'en':
+            taxa_ids = {event.taxa_id for event in events if event.taxa_id}
+            if taxa_ids:
+                semaphore = asyncio.Semaphore(LOCALIZED_NAME_CONCURRENCY)
+
+                async def lookup(taxa_id: int) -> tuple[int, str | None]:
+                    async with semaphore:
+                        name = await taxonomy_service.get_localized_common_name(taxa_id, lang, db=db)
+                        return taxa_id, name
+
+                results = await asyncio.gather(*(lookup(taxa_id) for taxa_id in taxa_ids))
+                localized_names = {taxa_id: name for taxa_id, name in results if name}
+
         # Convert to response models with clip info
         response_events = []
         for event in events:
@@ -107,6 +133,13 @@ async def get_events(
             display_name = event.display_name
             if display_name in unknown_labels:
                 display_name = "Unknown Bird"
+
+            common_name = event.common_name
+            # Fetch localized common name if not in English and we have a taxa_id
+            if lang != 'en' and event.taxa_id:
+                localized_name = localized_names.get(event.taxa_id)
+                if localized_name:
+                    common_name = localized_name
 
             response_event = DetectionResponse(
                 id=event.id,
@@ -127,7 +160,7 @@ async def get_events(
                 temperature=event.temperature,
                 weather_condition=event.weather_condition,
                 scientific_name=event.scientific_name,
-                common_name=event.common_name,
+                common_name=common_name,
                 taxa_id=event.taxa_id,
                 video_classification_score=event.video_classification_score,
                 video_classification_label=event.video_classification_label,
@@ -182,13 +215,17 @@ async def get_events_count(
         return EventsCountResponse(count=count, filtered=filtered)
 
 @router.delete("/events/{event_id}")
-async def delete_event(event_id: str):
+async def delete_event(event_id: str, request: Request):
     """Delete a detection by its Frigate event ID."""
+    lang = get_user_language(request)
     async with get_db() as db:
         repo = DetectionRepository(db)
         detection = await repo.get_by_frigate_event(event_id)
         if not detection:
-            raise HTTPException(status_code=404, detail="Detection not found")
+            raise HTTPException(
+                status_code=404, 
+                detail=i18n_service.translate("errors.detection_not_found", lang=lang)
+            )
             
         deleted = await repo.delete_by_frigate_event(event_id)
         if deleted:
@@ -200,7 +237,10 @@ async def delete_event(event_id: str):
                 }
             })
             return {"status": "deleted", "event_id": event_id}
-        raise HTTPException(status_code=404, detail="Detection not found")
+        raise HTTPException(
+            status_code=404, 
+            detail=i18n_service.translate("errors.detection_not_found", lang=lang)
+        )
 
 
 class HideResponse(BaseModel):
@@ -211,14 +251,18 @@ class HideResponse(BaseModel):
 
 
 @router.post("/events/{event_id}/hide", response_model=HideResponse)
-async def toggle_hide_event(event_id: str):
+async def toggle_hide_event(event_id: str, request: Request):
     """Toggle the hidden/ignored status of a detection."""
+    lang = get_user_language(request)
     async with get_db() as db:
         repo = DetectionRepository(db)
         new_status = await repo.toggle_hidden(event_id)
 
         if new_status is None:
-            raise HTTPException(status_code=404, detail="Detection not found")
+            raise HTTPException(
+                status_code=404, 
+                detail=i18n_service.translate("errors.detection_not_found", lang=lang)
+            )
 
         detection = await repo.get_by_frigate_event(event_id)
         if detection:
@@ -271,20 +315,60 @@ class ReclassifyResponse(BaseModel):
 
 
 @router.post("/events/{event_id}/reclassify", response_model=ReclassifyResponse)
+
+
 async def reclassify_event(
+
+
     event_id: str,
+
+
+    request: Request,
+
+
     strategy: Literal["snapshot", "video"] = Query("snapshot", description="Classification strategy")
+
+
 ):
+
+
     """
+
+
     Re-run the classifier on an existing detection.
+
+
     Can use either a single snapshot or a video clip (Temporal Ensemble).
+
+
     """
+
+
+    lang = get_user_language(request)
+
+
     async with get_db() as db:
+
+
         repo = DetectionRepository(db)
+
+
         detection = await repo.get_by_frigate_event(event_id)
 
+
         if not detection:
-            raise HTTPException(status_code=404, detail="Detection not found")
+
+
+            raise HTTPException(
+
+
+                status_code=404, 
+
+
+                detail=i18n_service.translate("errors.detection_not_found", lang=lang)
+
+
+            )
 
         old_species = detection.display_name
         classifier = get_classifier()
@@ -388,7 +472,10 @@ async def reclassify_event(
                         "results": []
                     }
                 })
-                raise HTTPException(status_code=502, detail="Failed to fetch snapshot from Frigate")
+                raise HTTPException(
+                    status_code=502,
+                    detail=i18n_service.translate("errors.events.snapshot_fetch_failed", lang)
+                )
 
             image = Image.open(BytesIO(snapshot_data))
             results = await classifier.classify_async(image)
@@ -403,7 +490,10 @@ async def reclassify_event(
             })
 
         if not results:
-            raise HTTPException(status_code=500, detail="Classification returned no results")
+            raise HTTPException(
+                status_code=500,
+                detail=i18n_service.translate("errors.events.reclassification_failed", lang)
+            )
 
         top = results[0]
         new_species = top['label']
@@ -499,20 +589,24 @@ async def reclassify_event(
 
 
 @router.patch("/events/{event_id}")
-async def update_event(event_id: str, request: UpdateDetectionRequest):
+async def update_event(event_id: str, update_request: UpdateDetectionRequest, request: Request):
     """
     Manually update a detection's species name.
     Use this to correct misidentifications.
     """
+    lang = get_user_language(request)
     async with get_db() as db:
         repo = DetectionRepository(db)
         detection = await repo.get_by_frigate_event(event_id)
 
         if not detection:
-            raise HTTPException(status_code=404, detail="Detection not found")
+            raise HTTPException(
+                status_code=404,
+                detail=i18n_service.translate("errors.detection_not_found", lang)
+            )
 
         old_species = detection.display_name
-        new_species = request.display_name.strip()
+        new_species = update_request.display_name.strip()
 
         log.debug("Manual tag request",
                   event_id=event_id,
@@ -614,23 +708,30 @@ class WildlifeClassifyResponse(BaseModel):
 
 
 @router.post("/events/{event_id}/classify-wildlife", response_model=WildlifeClassifyResponse)
-async def classify_wildlife(event_id: str):
+async def classify_wildlife(event_id: str, request: Request):
     """
     Classify a detection using the general wildlife model.
     Fetches the snapshot from Frigate and runs it through the wildlife classifier.
     Does NOT update the database - user can manually tag if desired.
     """
+    lang = get_user_language(request)
     async with get_db() as db:
         repo = DetectionRepository(db)
         detection = await repo.get_by_frigate_event(event_id)
 
         if not detection:
-            raise HTTPException(status_code=404, detail="Detection not found")
+            raise HTTPException(
+                status_code=404,
+                detail=i18n_service.translate("errors.detection_not_found", lang)
+            )
 
         # Fetch snapshot from Frigate using centralized client
         snapshot_data = await frigate_client.get_snapshot(event_id, crop=True, quality=95)
         if not snapshot_data:
-            raise HTTPException(status_code=502, detail="Failed to fetch snapshot from Frigate")
+            raise HTTPException(
+                status_code=502,
+                detail=i18n_service.translate("errors.events.snapshot_fetch_failed", lang)
+            )
 
         # Classify with wildlife model
         image = Image.open(BytesIO(snapshot_data))
@@ -643,9 +744,12 @@ async def classify_wildlife(event_id: str):
             if not wildlife_status.get("enabled"):
                 raise HTTPException(
                     status_code=503,
-                    detail="Wildlife model not available. Please download the wildlife model first."
+                    detail=i18n_service.translate("errors.events.wildlife_model_unavailable", lang)
                 )
-            raise HTTPException(status_code=500, detail="Classification returned no results")
+            raise HTTPException(
+                status_code=500,
+                detail=i18n_service.translate("errors.events.classification_failed", lang)
+            )
 
         classifications = [
             WildlifeClassification(

@@ -136,12 +136,15 @@ class ModelInstance:
         
         return input_data
 
-    def classify(self, image: Image.Image) -> list[dict]:
-        """Classify an image using this model."""
-        if not self.loaded or not self.interpreter:
-            log.warning(f"{self.name} model not loaded, cannot classify")
-            return []
+    def _run_inference(self, image: Image.Image) -> np.ndarray:
+        """Internal method to run inference and return probability vector.
 
+        Args:
+            image: PIL Image to classify
+
+        Returns:
+            Normalized probability vector as numpy array
+        """
         # Get expected input size from model
         input_details = self.input_details[0]
         input_shape = input_details['shape']
@@ -152,13 +155,10 @@ class ModelInstance:
         else:
             target_height, target_width = 300, 300  # Default fallback
 
-        log.debug(f"{self.name} classify: target={target_width}x{target_height}, dtype={input_details['dtype']}")
-
-        # Preprocess
+        # Preprocess image
         input_data = self._preprocess_image(image, target_width, target_height)
 
         # Normalize based on model input type
-        # Optional: Add custom mean/std logic from self.preprocessing if needed
         if input_details['dtype'] == np.float32:
             input_data = (input_data - 127.0) / 128.0
         elif input_details['dtype'] == np.uint8:
@@ -175,7 +175,7 @@ class ModelInstance:
             # Get output
             output_details = self.output_details[0]
             output_data = self.interpreter.get_tensor(output_details['index'])
-        
+
         results = np.squeeze(output_data).astype(np.float32)
 
         # Dequantize if needed
@@ -204,7 +204,25 @@ class ModelInstance:
             exp_results = np.exp(results - np.max(results))
             results = exp_results / np.sum(exp_results)
 
-        # Get all predictions for aggregation
+        return results
+
+    def classify(self, image: Image.Image) -> list[dict]:
+        """Classify an image using this model.
+
+        Args:
+            image: PIL Image to classify
+
+        Returns:
+            List of top 5 classifications with score and label
+        """
+        if not self.loaded or not self.interpreter:
+            log.warning(f"{self.name} model not loaded, cannot classify")
+            return []
+
+        # Run inference and get probability vector
+        results = self._run_inference(image)
+
+        # Convert to classification list
         classifications = []
         for i, score in enumerate(results):
             label = self.labels[i] if i < len(self.labels) else f"Class {i}"
@@ -213,65 +231,24 @@ class ModelInstance:
                 "score": float(score),
                 "label": label
             })
-        
+
         classifications.sort(key=lambda x: x['score'], reverse=True)
-        return classifications[:5]
+        max_results = settings.classification.max_classification_results
+        return classifications[:max_results]
 
     def classify_raw(self, image: Image.Image) -> np.ndarray:
-        """Classify and return the raw probability vector (for ensemble)."""
+        """Classify and return the raw probability vector (for ensemble).
+
+        Args:
+            image: PIL Image to classify
+
+        Returns:
+            Normalized probability vector as numpy array
+        """
         if not self.loaded or not self.interpreter:
             return np.array([])
 
-        # Reuse logic from classify, but return raw results array
-        input_details = self.input_details[0]
-        input_shape = input_details['shape']
-        if len(input_shape) == 4:
-            target_height, target_width = input_shape[1], input_shape[2]
-        else:
-            target_height, target_width = 300, 300
-
-        input_data = self._preprocess_image(image, target_width, target_height)
-        
-        if input_details['dtype'] == np.float32:
-            input_data = (input_data - 127.0) / 128.0
-        elif input_details['dtype'] == np.uint8:
-            input_data = input_data.astype(np.uint8)
-            
-        input_data = np.expand_dims(input_data, axis=0)
-        
-        with self._lock:
-            self.interpreter.set_tensor(input_details['index'], input_data)
-            self.interpreter.invoke()
-            
-            output_details = self.output_details[0]
-            output_data = self.interpreter.get_tensor(output_details['index'])
-            
-        results = np.squeeze(output_data).astype(np.float32)
-
-        if output_details['dtype'] == np.uint8:
-            quant_params = output_details.get('quantization_parameters', {})
-            scales = quant_params.get('scales', None)
-            zero_points = quant_params.get('zero_points', None)
-            if scales is not None and len(scales) > 0:
-                scale = scales[0]
-                zero_point = zero_points[0] if zero_points is not None and len(zero_points) > 0 else 0
-                results = (results - zero_point) * scale
-            else:
-                results = results / 255.0
-
-        output_min = float(results.min())
-        output_max = float(results.max())
-        is_probability = output_min >= 0 and output_max <= 1.0
-
-        if is_probability:
-            output_sum = float(results.sum())
-            if output_sum > 0:
-                results = results / output_sum
-        else:
-            exp_results = np.exp(results - np.max(results))
-            results = exp_results / np.sum(exp_results)
-            
-        return results
+        return self._run_inference(image)
 
     def cleanup(self):
         """Clean up model resources."""
@@ -836,11 +813,28 @@ class ClassifierService:
         # Wrap the callback to make it thread-safe
         if progress_callback:
             def sync_callback(current_frame, total_frames, frame_score, top_label):
-                # Schedule the async callback in the event loop from the executor thread
-                asyncio.run_coroutine_threadsafe(
-                    progress_callback(current_frame, total_frames, frame_score, top_label),
-                    loop
-                )
+                try:
+                    # Schedule the async callback in the event loop from the executor thread
+                    future = asyncio.run_coroutine_threadsafe(
+                        progress_callback(current_frame, total_frames, frame_score, top_label),
+                        loop
+                    )
+                    # Wait for completion and catch any exceptions
+                    # Use a short timeout to avoid blocking the video processing
+                    try:
+                        future.result(timeout=1.0)
+                    except TimeoutError:
+                        log.warning("Progress callback timed out after 1s",
+                                   frame=current_frame,
+                                   total=total_frames)
+                    except Exception as e:
+                        log.error("Progress callback failed",
+                                 error=str(e),
+                                 frame=current_frame,
+                                 total=total_frames)
+                except Exception as e:
+                    # Catch any exception in scheduling itself
+                    log.error("Failed to schedule progress callback", error=str(e))
             return await loop.run_in_executor(self._executor, self.classify_video, video_path, stride, max_frames, sync_callback)
         else:
             return await loop.run_in_executor(self._executor, self.classify_video, video_path, stride, max_frames, None)

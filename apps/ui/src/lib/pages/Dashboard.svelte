@@ -16,6 +16,7 @@
     import type { Detection, DailySummary } from '../api';
     import { getThumbnailUrl, deleteDetection, hideDetection, updateDetectionSpecies, analyzeDetection, fetchDailySummary, fetchClassifierLabels, reclassifyDetection } from '../api';
     import { settingsStore } from '../stores/settings.svelte';
+    import { _ } from 'svelte-i18n';
 
     import { getBirdNames } from '../naming';
 
@@ -126,11 +127,12 @@
 
             // Check if backend used a different strategy (fallback occurred)
             if (result.actual_strategy && result.actual_strategy !== requestedStrategy) {
-                toastStore.warning(`⚠️ Video not available - snapshot used instead`);
+                toastStore.warning($_('notifications.reclassify_fallback'));
             }
-        } catch (e: any) {
-            console.error('Failed to start reclassification', e.message);
-            toastStore.error(`Failed to reclassify: ${e.message || 'Unknown error'}`);
+        } catch (error) {
+            const message = getErrorMessage(error);
+            console.error('Failed to start reclassification', message, error);
+            toastStore.error($_('notifications.reclassify_failed', { values: { message } }));
         }
     }
 
@@ -153,7 +155,7 @@
 
     async function handleDelete() {
         if (!selectedEvent) return;
-        if (!confirm(`Delete this ${selectedEvent.display_name} detection?`)) return;
+        if (!confirm($_('actions.confirm_delete', { values: { species: selectedEvent.display_name } }))) return;
         deleting = true;
         try {
             await deleteDetection(selectedEvent.frigate_event);
@@ -232,18 +234,18 @@
                 {/key}
             {:else}
                 <div class="h-full min-h-[320px] bg-slate-100 dark:bg-slate-800 rounded-3xl flex items-center justify-center border-4 border-dashed border-slate-200 dark:border-slate-700">
-                    <p class="text-slate-400">Waiting for the first visitor of the day...</p>
+                    <p class="text-slate-400">{$_('dashboard.waiting_first_visitor')}</p>
                 </div>
             {/if}
         </div>
-        <div class="lg:col-span-5 grid grid-cols-1 gap-6">
+        <div class="lg:col-span-5 flex flex-col gap-6 h-full">
             {#if summary}
                 <div in:fade={{ duration: 800 }}>
                     <DailyHistogram data={summary.hourly_distribution} />
                 </div>
             {/if}
             {#if settingsStore.settings?.birdnet_enabled}
-                <div in:fade={{ duration: 800, delay: 200 }}>
+                <div in:fade={{ duration: 800, delay: 200 }} class="flex-1 min-h-[300px]">
                     <RecentAudio />
                 </div>
             {/if}
@@ -263,12 +265,15 @@
     <!-- Bottom Row: Recent Feed -->
     <div class="space-y-6">
         <div class="flex items-center justify-between">
-            <h3 class="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400"> Discovery Feed </h3>
-            <button onclick={() => onnavigate?.('/events')} class="text-xs font-medium text-teal-600 dark:text-teal-400 hover:underline"> See full history </button>
+            <div class="flex items-center gap-3">
+                <h3 class="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400"> {$_('dashboard.discovery_feed')} </h3>
+                <span class="text-[10px] font-medium text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full">{$_('dashboard.showing_last_3_days')}</span>
+            </div>
+            <button onclick={() => onnavigate?.('/events')} class="text-xs font-medium text-teal-600 dark:text-teal-400 hover:underline"> {$_('dashboard.see_full_history')} </button>
         </div>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-            {#each detectionsStore.detections.slice(1) as detection (detection.frigate_event || detection.id)}
+            {#each detectionsStore.detections.slice(1, 10) as detection (detection.frigate_event || detection.id)}
                 <div in:fly={{ y: 20, duration: 400 }}>
                     <DetectionCard 
                         {detection} 

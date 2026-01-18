@@ -20,15 +20,16 @@ When Frigate detects a bird at your feeder, YA-WAMF:
 2. Runs it through an advanced AI model (MobileNetV2, ConvNeXt, or EVA-02)
 3. Cross-references with audio detections from **BirdNET-Go** for multi-sensor confirmation
 4. **Automatically analyzes the video clip** (optional) for higher accuracy using temporal ensemble logic
-5. Sends **rich notifications** to Discord, Pushover, or Telegram
-6. Enriches detections with local weather data and behavior analysis via **LLMs (Gemini/OpenAI)**
+5. Sends **rich notifications** to Discord, Pushover, Telegram, or Email (OAuth/SMTP)
+6. Enriches detections with local weather data and behavior analysis via **LLMs (Gemini/OpenAI/Claude)**
 7. Keeps track of all your visitors in a nice dashboard with taxonomic normalization
 8. Proxies video clips from Frigate with full streaming and seeking support
 9. Reports detections to **BirdWeather** (optional) for community science contribution
 
 **Advanced Features:**
 - **Auto Video Analysis:** Automatically downloads and scans 15+ frames from the event clip to verify snapshot detections.
-- **Multi-Platform Notifications:** Native support for Discord, Pushover, and Telegram with customizable filters (species, confidence, audio-only).
+- **Multi-Platform Notifications:** Native support for Discord, Pushover, Telegram, and Email with customizable filters (species, confidence, audio-only).
+- **Accessibility & i18n:** Screen-reader friendly UI, live announcements toggle, and multilingual interface/notifications.
 - **Multi-Sensor Correlation:** Matches visual detections with audio identifications from BirdNET-Go (now with live dashboard widget!).
 - **Backfill Tool:** Missed some events? Scan your Frigate history to import and classify past detections.
 - **AI Naturalist Insight:** One-click behavioral analysis of your visitors using state-of-the-art LLMs.

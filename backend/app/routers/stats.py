@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from datetime import datetime, time, date
 from typing import List, Optional
 from pydantic import BaseModel
@@ -7,6 +7,7 @@ from app.database import get_db
 from app.repositories.detection_repository import DetectionRepository
 from app.models import DetectionResponse
 from app.config import settings
+from app.services.taxonomy.taxonomy_service import taxonomy_service
 
 router = APIRouter()
 
@@ -16,6 +17,7 @@ class DailySpeciesSummary(BaseModel):
     latest_event: str # Used for thumbnail
     scientific_name: str | None = None
     common_name: str | None = None
+    taxa_id: int | None = None
 
 class DailySummaryResponse(BaseModel):
     hourly_distribution: List[int]
@@ -24,8 +26,9 @@ class DailySummaryResponse(BaseModel):
     total_count: int
 
 @router.get("/stats/daily-summary", response_model=DailySummaryResponse)
-async def get_daily_summary():
+async def get_daily_summary(request: Request):
     """Get a summary of detections for today."""
+    lang = getattr(request.state, 'language', 'en')
     today = date.today()
     start_dt = datetime.combine(today, time.min)
     end_dt = datetime.combine(today, time.max)
@@ -52,12 +55,20 @@ async def get_daily_summary():
                 if not latest_unknown_event or s["latest_event"] > latest_unknown_event:
                     latest_unknown_event = s["latest_event"]
             else:
+                common_name = s.get("common_name")
+                taxa_id = s.get("taxa_id")
+                if lang != 'en' and taxa_id:
+                    localized = await taxonomy_service.get_localized_common_name(taxa_id, lang, db=db)
+                    if localized:
+                        common_name = localized
+
                 summary_species.append(DailySpeciesSummary(
                     species=s["species"],
                     count=s["count"],
                     latest_event=s["latest_event"],
                     scientific_name=s.get("scientific_name"),
-                    common_name=s.get("common_name")
+                    common_name=common_name,
+                    taxa_id=taxa_id
                 ))
         
         if unknown_count > 0:
@@ -77,6 +88,12 @@ async def get_daily_summary():
             display_name = d.display_name
             if display_name in unknown_labels:
                 display_name = "Unknown Bird"
+            
+            common_name = d.common_name
+            if lang != 'en' and d.taxa_id:
+                localized = await taxonomy_service.get_localized_common_name(d.taxa_id, lang, db=db)
+                if localized:
+                    common_name = localized
                 
             latest_detection = DetectionResponse(
                 id=d.id,
@@ -96,7 +113,7 @@ async def get_daily_summary():
                 temperature=d.temperature,
                 weather_condition=d.weather_condition,
                 scientific_name=d.scientific_name,
-                common_name=d.common_name,
+                common_name=common_name,
                 taxa_id=d.taxa_id
             )
             

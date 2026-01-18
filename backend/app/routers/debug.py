@@ -13,12 +13,34 @@ router = APIRouter()
 async def debug_config() -> Dict[str, Any]:
     """Dump current configuration (secrets redacted)."""
     conf = settings.model_dump()
-    # Redact potential secrets
-    if 'frigate' in conf:
-        conf['frigate']['frigate_auth_token'] = '***' if conf['frigate']['frigate_auth_token'] else None
-        conf['frigate']['mqtt_password'] = '***'
-    if 'llm' in conf:
-        conf['llm']['api_key'] = '***' if conf['llm']['api_key'] else None
+    # Redact secrets without changing structure.
+    sensitive_keys = {
+        "api_key",
+        "frigate_auth_token",
+        "mqtt_password",
+        "station_token",
+        "webhook_url",
+        "user_key",
+        "api_token",
+        "bot_token",
+        "chat_id",
+        "smtp_password",
+        "gmail_client_secret",
+        "outlook_client_secret",
+        "client_secret",
+        "oauth_client_secret",
+        "token",
+        "password",
+    }
+
+    def redact(value: Any) -> Any:
+        if isinstance(value, dict):
+            return {k: ("***" if k in sensitive_keys and v else redact(v)) for k, v in value.items()}
+        if isinstance(value, list):
+            return [redact(item) for item in value]
+        return value
+
+    conf = redact(conf)
     return conf
 
 @router.get("/debug/db/stats")

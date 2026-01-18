@@ -3,6 +3,7 @@
     import { getThumbnailUrl } from '../api';
     import { detectionsStore } from '../stores/detections.svelte';
     import { settingsStore } from '../stores/settings.svelte';
+    import { _ } from 'svelte-i18n';
     import ReclassificationOverlay from './ReclassificationOverlay.svelte';
 
     import { getBirdNames } from '../naming';
@@ -85,9 +86,9 @@
             const yesterday = new Date(today);
             yesterday.setDate(yesterday.getDate() - 1);
             if (date.toDateString() === today.toDateString()) {
-                return 'Today';
+                return $_('common.today');
             } else if (date.toDateString() === yesterday.toDateString()) {
-                return 'Yesterday';
+                return $_('common.yesterday');
             }
             return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
         } catch {
@@ -109,11 +110,17 @@
 </script>
 
 <div
-    role="button"
+    role="article"
     tabindex="0"
+    aria-label="{$_('detection.card_label', { values: { species: primaryName, camera: detection.camera_name } })}"
     bind:this={cardElement}
     onclick={onclick}
-    onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && onclick?.()}
+    onkeydown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onclick?.();
+        }
+    }}
     class="group relative bg-white dark:bg-slate-800 rounded-3xl
            shadow-sm hover:shadow-card-hover dark:hover:shadow-card-dark-hover
            border border-slate-200/80 dark:border-slate-700/50
@@ -138,7 +145,7 @@
             {/if}
             <img
                 src={getThumbnailUrl(detection.frigate_event)}
-                alt={primaryName}
+                alt="{$_('detection.image_alt', { values: { species: primaryName, camera: detection.camera_name } })}"
                 loading="lazy"
                 class="w-full h-full object-cover transition-transform duration-700 ease-out
                        group-hover:scale-110 group-hover:rotate-1
@@ -151,12 +158,19 @@
 
             {#if detection.has_clip && onPlay}
                 <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 scale-90 group-hover:scale-100">
-                    <button 
+                    <button
                         onclick={handlePlayClick}
+                        onkeydown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                handlePlayClick(e as any);
+                            }
+                        }}
+                        aria-label="{$_('detection.play_video', { values: { species: primaryName } })}"
                         class="w-14 h-14 rounded-full bg-white/90 dark:bg-slate-800/90 flex items-center justify-center shadow-2xl text-teal-600 dark:text-teal-400 hover:scale-110 active:scale-90 transition-transform"
-                        title="Play Video"
                     >
-                        <svg xmlns="http://www.w3.org/2000/svg" class="w-7 h-7 ml-1" viewBox="0 0 24 24" fill="currentColor">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-7 h-7 ml-1" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                             <path d="M8 5v14l11-7z"/>
                         </svg>
                     </button>
@@ -176,12 +190,12 @@
                         <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
                             <path fill-rule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.64.304 1.24.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
                         </svg>
-                        Verified
+                        {$_('detection.verified')}
                     </div>
                 {/if}
                 {#if detection.is_hidden}
                     <div class="px-2 py-1 rounded-full bg-amber-500 text-white text-[10px] font-bold uppercase tracking-wider shadow-lg">
-                        Hidden
+                        {$_('detection.hidden')}
                     </div>
                 {/if}
             </div>
@@ -192,7 +206,7 @@
                 </div>
                 {#if detection.frigate_score !== undefined && detection.frigate_score !== null}
                     <div class="px-2 py-1 rounded-lg bg-black/40 text-white/90 text-[9px] font-bold backdrop-blur-sm tracking-tight border border-white/5">
-                        FRIGATE: {(detection.frigate_score * 100).toFixed(0)}%
+                        {$_('detection.frigate_score', { values: { score: (detection.frigate_score * 100).toFixed(0) } })}
                     </div>
                 {/if}
             </div>
@@ -210,12 +224,19 @@
                 {#if onReclassify}
                     <button
                         onclick={handleReclassifyClick}
+                        onkeydown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                handleReclassifyClick(e as any);
+                            }
+                        }}
+                        aria-label="{$_('detection.reclassify', { values: { species: primaryName } })}"
                         class="w-9 h-9 rounded-xl bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200
                                hover:bg-teal-500 hover:text-white transition-all duration-200
                                flex items-center justify-center shadow-2xl border border-slate-200/50 dark:border-slate-700/50"
-                        title="Deep Reclassify"
                     >
-                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                         </svg>
                     </button>
@@ -223,12 +244,19 @@
                 {#if onRetag}
                     <button
                         onclick={handleRetagClick}
+                        onkeydown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                handleRetagClick(e as any);
+                            }
+                        }}
+                        aria-label="{$_('detection.retag', { values: { species: primaryName } })}"
                         class="w-9 h-9 rounded-xl bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200
                                hover:bg-amber-500 hover:text-white transition-all duration-200
                                flex items-center justify-center shadow-2xl border border-slate-200/50 dark:border-slate-700/50"
-                        title="Manual Tag"
                     >
-                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
                         </svg>
                     </button>
@@ -257,9 +285,9 @@
                     </svg>
                 </div>
                 <div class="min-w-0">
-                    <p class="text-[10px] font-black uppercase tracking-widest text-teal-600/70 dark:text-teal-400/70 mb-0.5">Audio Match</p>
+                    <p class="text-[10px] font-black uppercase tracking-widest text-teal-600/70 dark:text-teal-400/70 mb-0.5">{$_('detection.audio_match')}</p>
                     <p class="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">
-                        {detection.audio_species || 'BirdNET Confirmed'}
+                        {detection.audio_species || $_('detection.birdnet_confirmed')}
                         {#if detection.audio_score}
                             <span class="ml-1 opacity-60">({(detection.audio_score * 100).toFixed(0)}%)</span>
                         {/if}
@@ -296,7 +324,7 @@
                 {#if detection.sub_label && detection.sub_label !== detection.display_name && detection.sub_label !== subName}
                     <div class="ml-auto flex items-center gap-1">
                         <div class="w-1 h-1 rounded-full bg-teal-500"></div>
-                        <span class="text-[9px] font-black text-teal-600 uppercase tracking-tighter">Frigate Verified</span>
+                        <span class="text-[9px] font-black text-teal-600 uppercase tracking-tighter">{$_('detection.frigate_verified')}</span>
                     </div>
                 {/if}
             </div>

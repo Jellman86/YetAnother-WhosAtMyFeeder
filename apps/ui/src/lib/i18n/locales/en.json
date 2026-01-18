@@ -1,0 +1,473 @@
+{
+  "app": {
+    "title": "YA-WAMF",
+    "logo_subtitle": "WhosAtMyFeeder",
+    "logo_title": "Yet Another",
+    "tagline": "AI-powered bird classification for your Frigate NVR"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "explorer": "Explorer",
+    "leaderboard": "Leaderboard",
+    "settings": "Settings",
+    "about": "About",
+    "toggle_menu": "Toggle menu",
+    "collapse_sidebar": "Collapse sidebar",
+    "expand_sidebar": "Expand sidebar"
+  },
+  "theme": {
+    "switch_light": "Switch to light mode",
+    "switch_dark": "Switch to dark mode",
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System",
+    "title": "Theme & Look",
+    "layout": "Navigation Layout",
+    "horizontal": "Horizontal",
+    "vertical": "Vertical",
+    "horizontal_desc": "Top navigation bar",
+    "vertical_desc": "Left sidebar (collapsible)"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "live_feed": "Live Feed",
+    "showing_last_3_days": "Showing last 3 days",
+    "no_detections": "No detections yet",
+    "waiting_first_visitor": "Waiting for the first visitor of the day...",
+    "discovery_feed": "Discovery Feed",
+    "see_full_history": "See full history",
+    "audio_confirmations": "Audio Confirmations"
+  },
+  "common": {
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "close": "Close",
+    "refresh": "Refresh",
+    "save": "Save",
+    "saved": "Saved",
+    "saving": "Saving...",
+    "test": "Test",
+    "testing": "Testing...",
+    "add": "Add",
+    "apply_settings": "Apply Settings",
+    "unsaved_changes": "Unsaved Changes",
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "search": "Search...",
+    "retry": "Retry",
+    "github": "GitHub",
+    "mit_license": "MIT License",
+    "view_snapshot": "View Snapshot",
+    "statistics": "Statistics",
+    "period": "Period",
+    "detections": "detections"
+  },
+  "error": {
+    "boundary_title": "Something went wrong",
+    "boundary_subtitle": "An unexpected error occurred. Please try again or contact support if the problem persists.",
+    "show_details": "Show error details",
+    "try_again": "Try Again",
+    "copy_details": "Copy Error Details",
+    "reload_page": "Reload Page"
+  },
+  "settings": {
+    "title": "Settings",
+    "subtitle": "Configure and manage your YA-WAMF instance",
+    "language_selector": "Language",
+    "language_desc": "Changes UI text and notification content.",
+    "tabs": {
+      "connection": "Connection",
+      "detection": "Detection",
+      "notifications": "Notifications",
+      "integrations": "Integrations",
+      "data": "Data",
+      "appearance": "Appearance",
+      "accessibility": "Accessibility"
+    },
+    "accessibility": {
+      "title": "Accessibility Options",
+      "high_contrast": "High Contrast",
+      "high_contrast_desc": "Maximize contrast with black/white/yellow theme",
+      "dyslexia_font": "Dyslexia Friendly Font",
+      "dyslexia_font_desc": "Use OpenDyslexic font for better readability",
+      "reduced_motion": "Reduced Motion",
+      "reduced_motion_desc": "Disable animations and transitions",
+      "zen_mode": "Zen Mode",
+      "zen_mode_desc": "Simplify interface to reduce cognitive load",
+      "live_announcements": "Live announcements",
+      "live_announcements_desc": "Announce new detections with screen reader alerts."
+    },
+    "frigate": {
+      "title": "Frigate NVR",
+      "url": "Server URL",
+      "test_connection": "Test Connection",
+      "sync_cameras": "Sync Cameras",
+      "test_mqtt": "Test MQTT Pipeline",
+      "mqtt_broker": "MQTT Broker",
+      "mqtt_port": "Port",
+      "mqtt_auth": "Use Authentication",
+      "mqtt_user": "User",
+      "mqtt_pass": "Pass",
+      "fetch_clips": "Fetch Video Clips",
+      "fetch_clips_desc": "Use Frigate recordings for reclassification"
+    },
+    "cameras": {
+      "title": "Active Cameras",
+      "none_found": "No Cameras Found",
+      "syncing": "Scanning..."
+    },
+    "telemetry": {
+      "title": "Telemetry",
+      "desc": "Help improve YA-WAMF by sharing anonymous usage stats.",
+      "transparency": "Transparency: What we send",
+      "install_id": "Installation ID",
+      "version": "App Version",
+      "platform": "Platform",
+      "features": "Enabled Features",
+      "privacy_notice": "This data is sent securely to help us understand how the app is used. No images or personal detection data are ever shared."
+    },
+    "email": {
+      "title": "Email Notifications",
+      "desc": "Send email alerts for bird detections",
+      "enable": "Enable Email Notifications",
+      "auth_mode": "Authentication Mode",
+      "oauth": "OAuth (Recommended)",
+      "smtp": "Traditional SMTP",
+      "oauth_section": "OAuth Configuration",
+      "oauth_desc": "Secure authentication using Gmail or Outlook",
+      "connect_gmail": "Connect Gmail",
+      "connect_outlook": "Connect Outlook",
+      "connected": "Connected as {email}",
+      "disconnect": "Disconnect",
+      "not_connected": "Not connected",
+      "oauth_instructions": "Click the button to authorize YA-WAMF to send emails on your behalf. You'll be redirected to {provider} to sign in.",
+      "smtp_section": "SMTP Configuration",
+      "smtp_desc": "Traditional email server settings",
+      "smtp_host": "SMTP Server",
+      "smtp_host_placeholder": "smtp.gmail.com",
+      "smtp_port": "Port",
+      "smtp_username": "Username",
+      "smtp_password": "Password",
+      "smtp_use_tls": "Use TLS/STARTTLS",
+      "from_email": "From Email Address",
+      "from_email_placeholder": "your-email@example.com",
+      "to_email": "To Email Address",
+      "to_email_placeholder": "recipient@example.com",
+      "preferences": "Email Preferences",
+      "include_snapshot": "Include Snapshot Image",
+      "dashboard_url": "Dashboard URL",
+      "dashboard_url_placeholder": "https://your-domain.com",
+      "dashboard_url_desc": "Link to your dashboard in email notifications",
+      "test_email": "Send Test Email",
+      "test_email_sending": "Sending...",
+      "test_email_success": "Test email sent successfully to {email}!",
+      "test_email_error": "Failed to send test email: {error}",
+      "oauth_connect_success": "{provider} connected successfully!",
+      "oauth_disconnect_success": "{provider} disconnected",
+      "oauth_error": "OAuth error: {error}",
+      "credentials_required": "Please configure OAuth or SMTP credentials first"
+    },
+    "notifications": {
+      "global_filters": "Global Notification Filters",
+      "min_confidence": "Minimum confidence",
+      "notify_all": "Notify all",
+      "high_confidence_only": "High confidence only",
+      "audio_only": "Audio confirmed only",
+      "audio_only_desc": "Only alert when BirdNET audio confirms the detection.",
+      "species_whitelist": "Species whitelist",
+      "species_placeholder": "Add a species (e.g., Northern Cardinal)",
+      "no_species_filter": "No species filters applied"
+    },
+    "discord": {
+      "title": "Discord Notifications",
+      "webhook_url": "Webhook URL",
+      "webhook_placeholder": "https://discord.com/api/webhooks/...",
+      "bot_username": "Bot username",
+      "test_notification": "Send test notification",
+      "test_sending": "Sending..."
+    },
+    "pushover": {
+      "title": "Pushover Notifications",
+      "user_key": "User key",
+      "user_key_placeholder": "Your Pushover user key",
+      "api_token": "API token",
+      "api_token_placeholder": "Your Pushover API token",
+      "priority": "Priority",
+      "priority_lowest": "Lowest",
+      "priority_low": "Low",
+      "priority_normal": "Normal",
+      "priority_high": "High",
+      "priority_emergency": "Emergency",
+      "test_notification": "Send test notification",
+      "test_sending": "Sending..."
+    },
+    "telegram": {
+      "title": "Telegram Notifications",
+      "bot_token": "Bot token",
+      "bot_token_placeholder": "123456:ABC-DEF...",
+      "chat_id": "Chat ID",
+      "chat_id_placeholder": "123456789",
+      "test_notification": "Send test notification",
+      "test_sending": "Sending..."
+    }
+  },
+  "notifications": {
+    "reclassify_fallback": "⚠️ Video not available - snapshot used instead",
+    "reclassify_failed": "Failed to reclassify: {message}",
+    "settings_saved": "Settings saved successfully!",
+    "settings_load_failed": "Failed to load settings"
+  },
+  "actions": {
+    "confirm_delete": "Delete this {species} detection?",
+    "play_video": "Play Video",
+    "deep_reclassify": "Deep Reclassify",
+    "manual_tag": "Manual Tag",
+    "reclassify": "Reclassify",
+    "species_info": "Species Info",
+    "delete_detection": "Delete Detection",
+    "hide_detection": "Hide Detection",
+    "read_more_wikipedia": "Read more on Wikipedia",
+    "read_more_source": "Read more on {source}"
+  },
+  "detection": {
+    "confidence": "Confidence",
+    "verified": "Verified",
+    "hidden": "Hidden",
+    "frigate_score": "FRIGATE: {score}%",
+    "audio_match": "Audio Match",
+    "birdnet_confirmed": "BirdNET Confirmed",
+    "frigate_verified": "Frigate Verified",
+    "video_analysis": {
+      "title": "Deep Video Analysis",
+      "match": "{score}% Match",
+      "verified_desc": "Verified via temporal ensemble logic (Soft-Voting).",
+      "in_progress": "Video Analysis in progress..."
+    },
+    "ai": {
+      "insight": "AI Naturalist Insight",
+      "ask": "Ask AI Naturalist",
+      "analyzing": "Analyzing behavior...",
+      "regenerating": "Regenerating...",
+      "regenerate": "Regenerate Analysis",
+      "error": "Error: {message}"
+    },
+    "tagging": {
+      "search_placeholder": "Search species...",
+      "no_results": "No matching species found"
+    },
+    "card_label": "{species} detected at {camera}",
+    "image_alt": "{species} detected at {camera}",
+    "play_video": "Play video of {species}",
+    "reclassify": "Reclassify {species} detection",
+    "retag": "Manually tag {species} detection"
+  },
+  "events": {
+    "title": "Events",
+    "total_count": "{count} total",
+    "filters": {
+      "all_time": "All Time",
+      "week": "Week",
+      "month": "Month",
+      "custom": "Custom",
+      "all_species": "All Species",
+      "all_cameras": "All Cameras"
+    },
+    "sort": {
+      "newest": "Newest",
+      "oldest": "Oldest",
+      "confidence": "Confidence"
+    },
+    "load_failed": "Failed to load events"
+  },
+  "leaderboard": {
+    "title": "Species Leaderboard",
+    "species_count": "{count} species",
+    "detections_count": "{count} detections",
+    "sort_by_count": "By Count",
+    "sort_by_name": "By Name",
+    "no_species": "No species detected yet",
+    "no_species_desc": "Bird detections will appear here once they're recorded",
+    "all_species": "All Species",
+    "percentage_of_total": "{percentage}% of total",
+    "unidentified_desc": "Unidentified detection - click to review and reclassify",
+    "needs_review": "Needs Review",
+    "load_failed": "Failed to load species data"
+  },
+  "about": {
+    "title": "About This Project",
+    "how_it_works": "How It Works",
+    "features": "Features",
+    "tech_stack": "Technology Stack",
+    "docs_resources": "Documentation & Resources",
+    "credits": "Credits & Thanks",
+    "built_with_ai": "Built with AI assistance for the love of bird watching 🐦",
+    "project_desc_1": "YA-WAMF is a personal project started to experiment with AI-assisted coding. When the original {link} project became unmaintained, this was born as both a learning opportunity and a useful tool for bird enthusiasts.",
+    "project_desc_2": "The entire application has been built with help from AI coding assistants - it's been an interesting exploration of what's possible with these tools. If you spot any rough edges, that's probably why!",
+    "steps": {
+      "1": {
+        "title": "Frigate Detects",
+        "desc": "Your camera picks up movement, Frigate identifies it as a bird"
+      },
+      "2": {
+        "title": "MQTT Message",
+        "desc": "Frigate publishes an event to your MQTT broker"
+      },
+      "3": {
+        "title": "YA-WAMF Processes",
+        "desc": "The backend subscribes to MQTT and picks up the event"
+      },
+      "4": {
+        "title": "Classification",
+        "desc": "Image runs through ML model (or uses Frigate's sublabel)"
+      },
+      "5": {
+        "title": "Audio Correlation",
+        "desc": "Cross-references with BirdNET-Go audio detections if available"
+      },
+      "6": {
+        "title": "Save & Notify",
+        "desc": "Detection stored to database, notifications sent"
+      },
+      "7": {
+        "title": "Video Analysis",
+        "desc": "Optional: Scans video clip frames for refined accuracy"
+      },
+      "8": {
+        "title": "Live Updates",
+        "desc": "Dashboard receives real-time updates via Server-Sent Events"
+      }
+    },
+    "feature_list": {
+      "ai_models": {
+        "title": "Advanced AI Models",
+        "desc": "Choose from MobileNetV2 (fast), ConvNeXt (high accuracy), or EVA-02 (elite ~91% accuracy)"
+      },
+      "multi_sensor": {
+        "title": "Multi-Sensor Correlation",
+        "desc": "Cross-reference visual detections with BirdNET-Go audio identifications for verified sightings"
+      },
+      "video_analysis": {
+        "title": "Auto Video Analysis",
+        "desc": "Automatically scan 15+ frames from video clips for higher accuracy using temporal ensemble logic"
+      },
+      "notifications": {
+        "title": "Rich Notifications",
+        "desc": "Discord, Telegram, and Pushover support with customizable filters and species-specific alerts"
+      },
+      "ai_insights": {
+        "title": "AI Naturalist Insights",
+        "desc": "Get behavioral analysis of your visitors using Gemini, OpenAI, or Claude language models"
+      },
+      "taxonomy": {
+        "title": "Taxonomy Normalization",
+        "desc": "Automatic scientific ↔ common name mapping using iNaturalist data"
+      },
+      "weather": {
+        "title": "Weather Enrichment",
+        "desc": "Track detections with local weather conditions and temperature data"
+      },
+      "home_assistant": {
+        "title": "Home Assistant Integration",
+        "desc": "Native sensors for tracking last detected bird and daily visitor counts"
+      },
+      "birdweather": {
+        "title": "BirdWeather Reporting",
+        "desc": "Optional: Contribute your detections to the BirdWeather community science platform"
+      },
+      "observability": {
+        "title": "Observability",
+        "desc": "Built-in Prometheus metrics, optional telemetry, and real-time MQTT diagnostics"
+      },
+      "wildlife": {
+        "title": "Wildlife Classifier",
+        "desc": "Identify squirrels, foxes, and other non-bird visitors to your feeder"
+      },
+      "fast_path": {
+        "title": "Fast Path Efficiency",
+        "desc": "Skip local AI processing and use Frigate's sublabels directly to save CPU resources"
+      }
+    },
+    "tech": {
+      "backend": "Backend",
+      "frontend": "Frontend",
+      "ml": "ML Engine",
+      "messaging": "Messaging",
+      "deployment": "Deployment"
+    },
+    "links": {
+      "repo": "GitHub Repository",
+      "repo_desc": "Source code, issues, and releases",
+      "docs": "Documentation",
+      "docs_desc": "Setup guides, API reference, and troubleshooting",
+      "frigate": "Frigate NVR",
+      "frigate_desc": "Required: Open-source NVR with object detection",
+      "birdnet": "BirdNET-Go",
+      "birdnet_desc": "Optional: Audio bird identification"
+    },
+    "credits_list": {
+      "preamble": "This project wouldn't be possible without:",
+      "inspiration": "The original {link} project for the inspiration",
+      "frigate": "{link} for being an excellent open-source NVR",
+      "birdnet": "{link} for audio classification integration",
+      "benjordan": "{link} on YouTube for inspiring bird detection content",
+      "ai_assistants": "AI assistants that helped build this application"
+    }
+  },
+  "species_detail": {
+    "no_wiki": "No Wikipedia information available for this species.",
+    "no_info": "No reference information available for this species.",
+    "avg_confidence": "Avg Confidence",
+    "first_seen": "First Seen",
+    "last_seen": "Last Seen",
+    "activity_patterns": "Activity Patterns",
+    "camera_breakdown": "Camera Breakdown",
+    "recent_sightings": "Recent Sightings"
+  },
+  "pagination": {
+    "navigation": "Pagination",
+    "previous_page": "Previous page",
+    "next_page": "Next page",
+    "page_number": "Page {number}",
+    "page_size_label": "Show:",
+    "page_size_aria": "Items per page"
+  },
+  "shortcuts": {
+    "title": "Keyboard Shortcuts",
+    "hint": "Keyboard shortcuts (?)",
+    "open_panel": "Open shortcuts panel",
+    "go_dashboard": "Go to Dashboard",
+    "go_events": "Go to Events",
+    "go_species": "Go to Leaderboard",
+    "go_settings": "Go to Settings",
+    "close_modal": "Close modal",
+    "refresh": "Refresh page"
+  },
+  "footer": {
+    "did_you_know": "Did you know?",
+    "bird_facts": [
+      "Hummingbirds can fly backwards and are the only birds that can hover in place",
+      "Crows can recognize human faces and remember people who have wronged them",
+      "The Arctic Tern migrates over 44,000 miles annually - the longest migration of any bird",
+      "Owls cannot move their eyeballs, which is why they can rotate their heads up to 270 degrees",
+      "The Peregrine Falcon can dive at speeds over 240 mph, making it the fastest animal on Earth",
+      "Ravens can imitate human speech and other sounds like car engines and toilets flushing",
+      "Penguins propose to their mates with a pebble",
+      "Blue jays can mimic the calls of hawks to scare other birds away from feeders",
+      "A bird's feathers weigh more than its skeleton",
+      "The Bee Hummingbird is the smallest bird in the world, weighing less than a penny",
+      "Frigatebirds can stay in the air for months at a time without landing",
+      "Magpies are one of the few animals that can recognize themselves in a mirror",
+      "The wandering albatross has the largest wingspan of any living bird, up to 11.8 feet",
+      "Woodpeckers don't get headaches because their skulls have air pockets to absorb shock",
+      "Swifts spend most of their lives in the air and can even sleep while flying",
+      "Birds aren't real - they're government surveillance drones (allegedly)",
+      "Geese have teeth on their tongues. Sleep well tonight!",
+      "A bird in the hand is worth two in the bush, but significantly messier",
+      "Penguins are just formal chickens dressed for a gala",
+      "Roosters scream at the sun because they are afraid of the dark"
+    ]
+  }
+}

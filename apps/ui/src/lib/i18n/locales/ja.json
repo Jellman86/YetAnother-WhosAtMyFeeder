@@ -1,0 +1,465 @@
+{
+  "app": {
+    "title": "YA-WAMF",
+    "logo_subtitle": "WhosAtMyFeeder",
+    "logo_title": "Yet Another",
+    "tagline": "Frigate NVRのためのAI鳥類分類システム"
+  },
+  "nav": {
+    "dashboard": "ダッシュボード",
+    "explorer": "エクスプローラー",
+    "leaderboard": "リーダーボード",
+    "settings": "設定",
+    "about": "このアプリについて",
+    "toggle_menu": "メニューの切り替え",
+    "collapse_sidebar": "サイドバーを折りたたむ",
+    "expand_sidebar": "サイドバーを展開"
+  },
+  "theme": {
+    "switch_light": "ライトモードに切り替え",
+    "switch_dark": "ダークモードに切り替え",
+    "light": "ライト",
+    "dark": "ダーク",
+    "system": "システム",
+    "title": "テーマと外観",
+    "layout": "Navigation Layout",
+    "horizontal": "Horizontal",
+    "vertical": "Vertical",
+    "horizontal_desc": "Top navigation bar",
+    "vertical_desc": "Left sidebar (collapsible)"
+  },
+  "dashboard": {
+    "title": "ダッシュボード",
+    "live_feed": "ライブフィード",
+    "showing_last_3_days": "過去3日間を表示",
+    "no_detections": "検出はまだありません",
+    "waiting_first_visitor": "今日の最初の来訪者を待っています...",
+    "discovery_feed": "ディスカバリーフィード",
+    "see_full_history": "すべての履歴を表示",
+    "audio_confirmations": "音声確認"
+  },
+  "common": {
+    "loading": "読み込み中...",
+    "error": "エラー",
+    "success": "成功",
+    "cancel": "キャンセル",
+    "delete": "削除",
+    "close": "閉じる",
+    "refresh": "更新",
+    "save": "保存",
+    "saved": "保存済み",
+    "saving": "保存中...",
+    "test": "テスト",
+    "testing": "テスト中...",
+    "add": "追加",
+    "apply_settings": "設定を適用",
+    "unsaved_changes": "未保存の変更",
+    "today": "今日",
+    "yesterday": "昨日",
+    "search": "検索...",
+    "retry": "再試行",
+    "github": "GitHub",
+    "mit_license": "MIT License",
+    "view_snapshot": "スナップショットを表示",
+    "statistics": "統計",
+    "period": "期間",
+    "detections": "検出"
+  },
+  "settings": {
+    "title": "設定",
+    "subtitle": "YA-WAMFインスタンスの構成と管理",
+    "language_selector": "言語",
+    "language_desc": "UIテキストと通知の内容を変更します。",
+    "tabs": {
+      "connection": "接続",
+      "detection": "検出",
+      "notifications": "通知",
+      "integrations": "統合",
+      "data": "データ",
+      "appearance": "外観",
+      "accessibility": "アクセシビリティ"
+    },
+    "accessibility": {
+      "title": "アクセシビリティオプション",
+      "high_contrast": "ハイコントラスト",
+      "high_contrast_desc": "黒/白/黄色のテーマでコントラストを最大化",
+      "dyslexia_font": "ディスレクシア対応フォント",
+      "dyslexia_font_desc": "可読性の高いOpenDyslexicフォントを使用",
+      "reduced_motion": "動きを減らす",
+      "reduced_motion_desc": "アニメーションと遷移を無効化",
+      "zen_mode": "禅モード",
+      "zen_mode_desc": "インターフェースを簡素化し、認知的負荷を軽減",
+      "live_announcements": "ライブアナウンス",
+      "live_announcements_desc": "新しい検出をスクリーンリーダーで通知します。"
+    },
+    "frigate": {
+      "title": "Frigate NVR",
+      "url": "サーバーURL",
+      "test_connection": "接続テスト",
+      "sync_cameras": "カメラ同期",
+      "test_mqtt": "MQTTパイプラインのテスト",
+      "mqtt_broker": "MQTTブローカー",
+      "mqtt_port": "ポート",
+      "mqtt_auth": "認証を使用する",
+      "mqtt_user": "ユーザー名",
+      "mqtt_pass": "パスワード",
+      "fetch_clips": "ビデオクリップを取得",
+      "fetch_clips_desc": "再分類にFrigateの録画を使用する"
+    },
+    "cameras": {
+      "title": "アクティブなカメラ",
+      "none_found": "カメラが見つかりません",
+      "syncing": "スキャン中..."
+    },
+    "telemetry": {
+      "title": "テレメトリ",
+      "desc": "匿名の使用統計を共有してYA-WAMFの改善にご協力ください。",
+      "transparency": "透明性：送信されるデータ",
+      "install_id": "インストールID",
+      "version": "アプリのバージョン",
+      "platform": "プラットフォーム",
+      "features": "有効な機能",
+      "privacy_notice": "このデータはアプリの使用状況を把握するために安全に送信されます。画像や個人の検出データが共有されることはありません。"
+    },
+    "email": {
+      "title": "メール通知",
+      "desc": "鳥の検出のメールアラートを送信",
+      "enable": "メール通知を有効にする",
+      "auth_mode": "認証モード",
+      "oauth": "OAuth（推奨）",
+      "smtp": "従来のSMTP",
+      "oauth_section": "OAuth設定",
+      "oauth_desc": "GmailまたはOutlookを使用した安全な認証",
+      "connect_gmail": "Gmailに接続",
+      "connect_outlook": "Outlookに接続",
+      "connected": "{email}として接続中",
+      "disconnect": "切断",
+      "not_connected": "未接続",
+      "oauth_instructions": "ボタンをクリックして、YA-WAMFがあなたの代わりにメールを送信することを承認してください。{provider}にリダイレクトされてサインインします。",
+      "smtp_section": "SMTP設定",
+      "smtp_desc": "従来のメールサーバー設定",
+      "smtp_host": "SMTPサーバー",
+      "smtp_host_placeholder": "smtp.gmail.com",
+      "smtp_port": "ポート",
+      "smtp_username": "ユーザー名",
+      "smtp_password": "パスワード",
+      "smtp_use_tls": "TLS/STARTTLSを使用",
+      "from_email": "送信元メールアドレス",
+      "from_email_placeholder": "your-email@example.com",
+      "to_email": "宛先メールアドレス",
+      "to_email_placeholder": "recipient@example.com",
+      "preferences": "メール設定",
+      "include_snapshot": "スナップショット画像を含める",
+      "dashboard_url": "ダッシュボードURL",
+      "dashboard_url_placeholder": "https://your-domain.com",
+      "dashboard_url_desc": "メール通知内のダッシュボードへのリンク",
+      "test_email": "テストメールを送信",
+      "test_email_sending": "送信中...",
+      "test_email_success": "{email}にテストメールを正常に送信しました！",
+      "test_email_error": "テストメールの送信に失敗しました: {error}",
+      "oauth_connect_success": "{provider}に正常に接続しました！",
+      "oauth_disconnect_success": "{provider}から切断されました",
+      "oauth_error": "OAuthエラー: {error}",
+      "credentials_required": "まずOAuthまたはSMTP認証情報を設定してください"
+    },
+    "notifications": {
+      "global_filters": "通知の全体フィルター",
+      "min_confidence": "最小信頼度",
+      "notify_all": "すべて通知",
+      "high_confidence_only": "高い信頼度のみ",
+      "audio_only": "音声確認のみ",
+      "audio_only_desc": "BirdNETが音声を確認した場合のみ通知します。",
+      "species_whitelist": "種のホワイトリスト",
+      "species_placeholder": "種を追加（例：ノーザンカーディナル）",
+      "no_species_filter": "種のフィルターはありません"
+    },
+    "discord": {
+      "title": "Discord通知",
+      "webhook_url": "Webhook URL",
+      "webhook_placeholder": "https://discord.com/api/webhooks/...",
+      "bot_username": "ボット名",
+      "test_notification": "テスト通知を送信",
+      "test_sending": "送信中..."
+    },
+    "pushover": {
+      "title": "Pushover通知",
+      "user_key": "ユーザーキー",
+      "user_key_placeholder": "Pushoverユーザーキー",
+      "api_token": "APIトークン",
+      "api_token_placeholder": "Pushover APIトークン",
+      "priority": "優先度",
+      "priority_lowest": "最低",
+      "priority_low": "低",
+      "priority_normal": "通常",
+      "priority_high": "高",
+      "priority_emergency": "緊急",
+      "test_notification": "テスト通知を送信",
+      "test_sending": "送信中..."
+    },
+    "telegram": {
+      "title": "Telegram通知",
+      "bot_token": "ボットトークン",
+      "bot_token_placeholder": "123456:ABC-DEF...",
+      "chat_id": "チャットID",
+      "chat_id_placeholder": "123456789",
+      "test_notification": "テスト通知を送信",
+      "test_sending": "送信中..."
+    }
+  },
+  "notifications": {
+    "reclassify_fallback": "⚠️ ビデオが利用不可 - 代わりにスナップショットを使用しました",
+    "reclassify_failed": "再分類に失敗しました: {message}",
+    "settings_saved": "設定を正常に保存しました！",
+    "settings_load_failed": "設定の読み込みに失敗しました"
+  },
+  "actions": {
+    "confirm_delete": "この {species} の検出を削除しますか？",
+    "play_video": "ビデオを再生",
+    "deep_reclassify": "詳細な再分類",
+    "manual_tag": "手動タグ付け",
+    "reclassify": "再分類",
+    "species_info": "種の情報",
+    "delete_detection": "検出を削除",
+    "hide_detection": "検出を非表示",
+    "read_more_wikipedia": "ウィキペディアで続きを読む",
+    "read_more_source": "{source}で続きを読む"
+  },
+  "detection": {
+    "confidence": "信頼度",
+    "verified": "確認済み",
+    "hidden": "非表示",
+    "frigate_score": "FRIGATE: {score}%",
+    "audio_match": "音声一致",
+    "birdnet_confirmed": "BirdNETで確認済み",
+    "frigate_verified": "Frigateで確認済み",
+    "video_analysis": {
+      "title": "詳細なビデオ分析",
+      "match": "{score}% 一致",
+      "verified_desc": "時間アンサンブルロジック（ソフト投票）により検証済み。",
+      "in_progress": "ビデオ分析が進行中です..."
+    },
+    "ai": {
+      "insight": "AI博物学者の洞察",
+      "ask": "AI博物学者に聞く",
+      "analyzing": "行動を分析中...",
+      "regenerating": "再生成中...",
+      "regenerate": "分析を再生成",
+      "error": "エラー: {message}"
+    },
+    "tagging": {
+      "search_placeholder": "種を検索...",
+      "no_results": "一致する種が見つかりません"
+    },
+    "card_label": "{camera} で {species} を検出",
+    "image_alt": "{camera} で {species} を検出",
+    "play_video": "{species} のビデオを再生",
+    "reclassify": "{species} の検出を再分類",
+    "retag": "{species} の検出を手動でタグ付け"
+  },
+  "events": {
+    "title": "イベント",
+    "total_count": "合計 {count} 件",
+    "filters": {
+      "all_time": "全期間",
+      "week": "今週",
+      "month": "今月",
+      "custom": "カスタム",
+      "all_species": "すべての種",
+      "all_cameras": "すべてのカメラ"
+    },
+    "sort": {
+      "newest": "新しい順",
+      "oldest": "古い順",
+      "confidence": "信頼度順"
+    },
+    "load_failed": "イベントの読み込みに失敗しました"
+  },
+  "leaderboard": {
+    "title": "種のリーダーボード",
+    "species_count": "{count} 種",
+    "detections_count": "{count} 回の検出",
+    "sort_by_count": "回数順",
+    "sort_by_name": "名前順",
+    "no_species": "種はまだ検出されていません",
+    "no_species_desc": "鳥が記録されるとここに表示されます",
+    "all_species": "すべての種",
+    "percentage_of_total": "全体の {percentage}%",
+    "unidentified_desc": "未特定の検出 - クリックして確認および再分類",
+    "needs_review": "要確認",
+    "load_failed": "種のデータの読み込みに失敗しました"
+  },
+  "about": {
+    "title": "このプロジェクトについて",
+    "how_it_works": "仕組み",
+    "features": "機能",
+    "tech_stack": "テクノロジースタック",
+    "docs_resources": "ドキュメントとリソース",
+    "credits": "クレジットと謝辞",
+    "built_with_ai": "バードウォッチングへの愛を込めて、AIの助けを借りて構築されました 🐦",
+    "project_desc_1": "YA-WAMFは、AI支援によるコーディングを実験するために開始された個人プロジェクトです。元の {link} プロジェクトがメンテナンスされなくなったため、学習の機会として、また鳥愛好家のための便利なツールとして誕生しました。",
+    "project_desc_2": "アプリケーション全体がAIコーディングアシスタントの助けを借りて構築されています。これらのツールで何が可能かを探求する興味深い試みとなりました。不十分な点があれば、おそらくそれが理由です！",
+    "steps": {
+      "1": {
+        "title": "Frigateが検知",
+        "desc": "カメラが動きを捉え、Frigateがそれを鳥として識別します"
+      },
+      "2": {
+        "title": "MQTTメッセージ",
+        "desc": "FrigateがMQTTブローカーにイベントを発行します"
+      },
+      "3": {
+        "title": "YA-WAMFが処理",
+        "desc": "バックエンドがMQTTをサブスクライブし、イベントを受け取ります"
+      },
+      "4": {
+        "title": "分類",
+        "desc": "画像がMLモデルを実行（またはFrigateのサブラベルを使用）します"
+      },
+      "5": {
+        "title": "オーディオ相関",
+        "desc": "利用可能な場合、BirdNET-Goのオーディオ検知とクロスリファレンスします"
+      },
+      "6": {
+        "title": "保存と通知",
+        "desc": "検知内容がデータベースに保存され、通知が送信されます"
+      },
+      "7": {
+        "title": "ビデオ分析",
+        "desc": "オプション：ビデオクリップのフレームをスキャンして精度を高めます"
+      },
+      "8": {
+        "title": "ライブ更新",
+        "desc": "ダッシュボードがServer-Sent Eventsを介してリアルタイムで更新されます"
+      }
+    },
+    "feature_list": {
+      "ai_models": {
+        "title": "高度なAIモデル",
+        "desc": "MobileNetV2（高速）、ConvNeXt（高精度）、またはEVA-02（エリート ~91% 精度）から選択可能"
+      },
+      "multi_sensor": {
+        "title": "マルチセンサー相関",
+        "desc": "視覚的検知をBirdNET-Goのオーディオ識別とクロスリファレンスします"
+      },
+      "video_analysis": {
+        "title": "自動ビデオ分析",
+        "desc": "ビデオクリップから15枚以上のフレームを自動スキャンして精度を向上させます"
+      },
+      "notifications": {
+        "title": "豊富な通知機能",
+        "desc": "Discord、Telegram、Pushoverをサポート。カスタマイズ可能なフィルタ付き"
+      },
+      "ai_insights": {
+        "title": "AIナチュラリストの洞察",
+        "desc": "Gemini、OpenAI、またはClaudeを使用して、訪問者の行動分析を取得します"
+      },
+      "taxonomy": {
+        "title": "分類の正規化",
+        "desc": "iNaturalistデータを使用して学名 ↔ 一般名を自動マッピングします"
+      },
+      "weather": {
+        "title": "気象情報の付加",
+        "desc": "地域の気象条件や気温データとともに検知を追跡します"
+      },
+      "home_assistant": {
+        "title": "Home Assistant 連携",
+        "desc": "最後に検知された鳥や毎日の訪問者数を追跡するネイティブセンサー"
+      },
+      "birdweather": {
+        "title": "BirdWeather レポート",
+        "desc": "オプション：検知内容をBirdWeatherコミュニティサイエンスプラットフォームに提供"
+      },
+      "observability": {
+        "title": "オブザーバビリティ",
+        "desc": "組み込みのPrometheusメトリクス、オプションのテレメトリ、リアルタイムMQTT診断"
+      },
+      "wildlife": {
+        "title": "野生動物分類器",
+        "desc": "リス、キツネ、その他の鳥以外の訪問者を識別します"
+      },
+      "fast_path": {
+        "title": "ファストパス効率化",
+        "desc": "ローカルAI処理をスキップし、Frigateのサブラベルを直接使用してCPUを節約します"
+      }
+    },
+    "tech": {
+      "backend": "バックエンド",
+      "frontend": "フロントエンド",
+      "ml": "MLエンジン",
+      "messaging": "メッセージング",
+      "deployment": "デプロイメント"
+    },
+    "links": {
+      "repo": "GitHub リポジトリ",
+      "repo_desc": "ソースコード、問題、およびリリース",
+      "docs": "ドキュメント",
+      "docs_desc": "セットアップガイド、APIリファレンス、およびトラブルシューティング",
+      "frigate": "Frigate NVR",
+      "frigate_desc": "必須：オブジェクト検知機能を備えたオープンソースNVR",
+      "birdnet": "BirdNET-Go",
+      "birdnet_desc": "オプション：オーディオによる鳥の識別"
+    },
+    "credits_list": {
+      "preamble": "このプロジェクトは以下なしでは実現できませんでした：",
+      "inspiration": "インスピレーションを与えてくれたオリジナルの {link} プロジェクト",
+      "frigate": "優れたオープンソースNVRである {link}",
+      "birdnet": "オーディオ分類統合のための {link}",
+      "benjordan": "鳥検知コンテンツで刺激を与えてくれたYouTubeの {link}",
+      "ai_assistants": "このアプリケーションの構築を支援してくれたAIアシスタント"
+    }
+  },
+  "species_detail": {
+    "no_wiki": "この種に関するウィキペディア情報はありません。",
+    "no_info": "この種に関する参考情報はありません。",
+    "avg_confidence": "平均信頼度",
+    "first_seen": "初観測",
+    "last_seen": "最終観測",
+    "activity_patterns": "活動パターン",
+    "camera_breakdown": "カメラ別内訳",
+    "recent_sightings": "最近の目撃情報"
+  },
+  "pagination": {
+    "navigation": "ページネーション",
+    "previous_page": "前のページ",
+    "next_page": "次のページ",
+    "page_number": "ページ {number}",
+    "page_size_label": "表示:",
+    "page_size_aria": "ページあたりの項目数"
+  },
+  "shortcuts": {
+    "title": "キーボードショートカット",
+    "hint": "キーボードショートカット (?)",
+    "open_panel": "ショートカットパネルを開く",
+    "go_dashboard": "ダッシュボードへ",
+    "go_events": "イベントへ",
+    "go_species": "リーダーボードへ",
+    "go_settings": "設定へ",
+    "close_modal": "モーダルを閉じる",
+    "refresh": "ページを更新"
+  },
+  "footer": {
+    "did_you_know": "ご存知ですか？",
+    "bird_facts": [
+      "ハチドリは後ろ向きに飛ぶことができ、空中で静止できる唯一の鳥です",
+      "カラスは人間の顔を認識し、自分に危害を加えた人を覚えています",
+      "キョクアジサシは年間44,000マイル以上を移動します - すべての鳥の中で最も長い渡りです",
+      "フクロウは眼球を動かすことができないため、頭を最大270度回転させることができます",
+      "ハヤブサは時速240マイル以上の速度で急降下でき、地球上で最も速い動物です",
+      "ワタリガラスは人間の言葉や、車のエンジンやトイレの水を流す音などの他の音を真似ることができます",
+      "ペンギンは小石でパートナーにプロポーズします",
+      "アオカケスはタカの鳴き声を真似て、他の鳥を餌台から追い払います",
+      "鳥の羽毛は骨格よりも重い",
+      "マメハチドリは世界最小の鳥で、1ペニー硬貨よりも軽い",
+      "グンカンドリは着陸することなく数ヶ月間空中にいることができます",
+      "カササギは鏡に映った自分を認識できる数少ない動物の一つです",
+      "ワタリアホウドリは現生鳥類の中で最大の翼幅を持ち、最大11.8フィートに達します",
+      "キツツキは頭蓋骨に衝撃を吸収する空気の袋があるため、頭痛になりません",
+      "アマツバメは生涯のほとんどを空中で過ごし、飛びながら眠ることさえできます",
+      "鳥は実在しない - 政府の監視ドローンです（とされています）",
+      "ガチョウは舌に歯があります。今夜はぐっすり眠ってください！",
+      "手の中の一羽の鳥は藪の中の二羽の価値がありますが、かなり散らかります",
+      "ペンギンはガラのために着飾ったフォーマルなニワトリです",
+      "雄鶏は暗闇を恐れているので太陽に向かって叫びます"
+    ]
+  }
+}

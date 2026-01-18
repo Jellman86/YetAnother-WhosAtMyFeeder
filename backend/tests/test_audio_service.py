@@ -7,7 +7,12 @@ from app.config import settings
 
 @pytest.fixture
 def audio_service():
-    return AudioService(buffer_minutes=5)
+    # Mock settings to avoid reading from config file
+    with patch('app.services.audio.audio_service.settings') as mock_settings:
+        mock_settings.frigate.audio_buffer_hours = 0.083  # ~5 minutes
+        mock_settings.frigate.audio_correlation_window_seconds = 10
+        service = AudioService()
+        yield service
 
 @pytest.mark.asyncio
 async def test_add_detection_basic(audio_service):
@@ -102,10 +107,13 @@ async def test_find_match_with_camera_mapping(audio_service):
     now = datetime.now(timezone.utc)
     det1 = AudioDetection(timestamp=now, species="Bird A", confidence=0.8, sensor_id="mic1", raw_data={})
     det2 = AudioDetection(timestamp=now, species="Bird B", confidence=0.9, sensor_id="mic2", raw_data={})
-    
+
     audio_service._buffer.extend([det1, det2])
-    
-    with patch("app.config.settings.frigate.camera_audio_mapping", {"cam1": "mic2"}):
+
+    # Patch settings where audio_service accesses it
+    with patch("app.services.audio.audio_service.settings") as mock_settings:
+        mock_settings.frigate.camera_audio_mapping = {"cam1": "mic2"}
+        mock_settings.frigate.audio_correlation_window_seconds = 10
         match = await audio_service.find_match(now, camera_name="cam1")
         assert match is not None
         assert match.species == "Bird B"
@@ -116,8 +124,11 @@ async def test_find_match_wildcard(audio_service):
     now = datetime.now(timezone.utc)
     det = AudioDetection(timestamp=now, species="Any Bird", confidence=0.8, sensor_id="random_id", raw_data={})
     audio_service._buffer.append(det)
-    
-    with patch("app.config.settings.frigate.camera_audio_mapping", {"cam1": "*"}):
+
+    # Patch settings where audio_service accesses it
+    with patch("app.services.audio.audio_service.settings") as mock_settings:
+        mock_settings.frigate.camera_audio_mapping = {"cam1": "*"}
+        mock_settings.frigate.audio_correlation_window_seconds = 10
         match = await audio_service.find_match(now, camera_name="cam1")
         assert match is not None
         assert match.species == "Any Bird"

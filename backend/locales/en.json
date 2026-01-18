@@ -1,0 +1,85 @@
+{
+  "notification": {
+    "new_detection": "New Bird Detected: {species}",
+    "detection_body": "{species} detected on {camera} with {confidence}% confidence",
+    "audio_confirmed": "🎤 Audio Confirmed by BirdNET-Go"
+  },
+  "errors": {
+    "detection_not_found": "Detection not found",
+    "frigate_fetch_failed": "Failed to fetch snapshot from Frigate",
+    "classification_no_results": "Classification returned no results",
+    "invalid_api_key": "Invalid API Key",
+    "missing_api_key": "Missing API Key",
+    "frigate_timeout": "Frigate connection timed out",
+    "frigate_auth_failed": "Frigate authentication failed",
+    "clip_disabled": "Clip fetching is disabled",
+    "invalid_frigate_event": "Invalid frigate_event format",
+    "proxy": {
+      "frigate_timeout": "Frigate connection timed out",
+      "frigate_auth_failed": "Frigate authentication failed - check auth token",
+      "frigate_error": "Frigate returned error: {status_code}",
+      "connection_failed": "Failed to connect to Frigate at {url}",
+      "snapshot_not_found": "Snapshot not found",
+      "thumbnail_not_found": "Thumbnail not found",
+      "clip_not_found": "Clip not found",
+      "clip_not_available": "Clip not available for this event",
+      "event_not_found": "Event not found in Frigate",
+      "empty_clip": "Frigate returned an empty video clip",
+      "media_fetch_failed": "Failed to fetch media from Frigate",
+      "invalid_event_id": "Invalid event ID format"
+    },
+    "events": {
+      "snapshot_fetch_failed": "Failed to fetch snapshot from Frigate",
+      "classification_failed": "Classification returned no results",
+      "delete_failed": "Failed to delete detection",
+      "update_failed": "Failed to update detection",
+      "wildlife_model_unavailable": "Wildlife model not available. Please download it first.",
+      "reclassification_failed": "Reclassification failed"
+    },
+    "species": {
+      "unknown_bird": "Unknown Bird",
+      "species_not_found": "Species not found"
+    },
+    "ai": {
+      "provider_not_configured": "AI provider not configured",
+      "api_key_missing": "API key not configured for {provider}",
+      "analysis_failed": "Failed to analyze image",
+      "image_fetch_failed": "Failed to fetch image from Frigate",
+      "gemini_not_configured": "Gemini API key not configured",
+      "openai_not_configured": "OpenAI API key not configured",
+      "claude_not_configured": "Claude API key not configured"
+    },
+    "backfill": {
+      "no_events": "No Frigate events found in specified time range",
+      "processing_error": "Backfill processing error: {error}",
+      "invalid_time_range": "Invalid time range specified"
+    },
+    "classifier": {
+      "bird_model_not_loaded": "Bird model not loaded",
+      "wildlife_model_not_loaded": "Wildlife model not loaded",
+      "model_load_failed": "Failed to load classification model"
+    },
+    "models": {
+      "not_installed": "Model not installed",
+      "download_failed": "Model download failed"
+    },
+    "email": {
+      "gmail_oauth_not_configured": "Gmail OAuth credentials not configured",
+      "outlook_oauth_not_configured": "Outlook OAuth credentials not configured",
+      "gmail_oauth_failed": "Failed to initiate Gmail OAuth: {error}",
+      "outlook_oauth_failed": "Failed to initiate Outlook OAuth: {error}",
+      "access_token_failed": "Failed to obtain access token",
+      "invalid_provider": "Invalid provider. Must be 'gmail' or 'outlook'",
+      "disconnect_failed": "Failed to disconnect",
+      "disconnect_error": "Disconnect error: {error}",
+      "not_enabled": "Email notifications not enabled",
+      "recipient_not_configured": "Recipient email not configured",
+      "smtp_incomplete": "SMTP configuration incomplete",
+      "send_failed": "Failed to send test email",
+      "send_error": "Failed to send test email: {error}",
+      "invalid_state": "Invalid OAuth state. Please try again.",
+      "state_expired": "OAuth state expired. Please try again.",
+      "email_missing": "Email address not returned by provider."
+    }
+  }
+}

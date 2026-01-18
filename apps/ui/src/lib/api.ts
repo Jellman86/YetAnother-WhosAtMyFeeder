@@ -64,6 +64,8 @@ export interface Settings {
     auto_video_classification: boolean;
     video_classification_delay: number;
     video_classification_max_retries: number;
+    audio_buffer_hours?: number;
+    audio_correlation_window_seconds?: number;
     // Media cache settings
     media_cache_enabled: boolean;
     media_cache_snapshots: boolean;
@@ -83,6 +85,7 @@ export interface Settings {
     llm_model?: string;
     telemetry_enabled: boolean;
     telemetry_installation_id?: string;
+    telemetry_platform?: string;
 
     // Notification settings
     notifications_discord_enabled: boolean;
@@ -97,75 +100,44 @@ export interface Settings {
     notifications_telegram_enabled: boolean;
     notifications_telegram_bot_token?: string | null;
     notifications_telegram_chat_id?: string | null;
-    
+
+    // Email notification settings
+    notifications_email_enabled: boolean;
+    notifications_email_use_oauth: boolean;
+    notifications_email_oauth_provider?: string | null;
+    notifications_email_connected_email?: string | null;
+    notifications_email_gmail_client_id?: string | null;
+    notifications_email_gmail_client_secret?: string | null;
+    notifications_email_outlook_client_id?: string | null;
+    notifications_email_outlook_client_secret?: string | null;
+    notifications_email_smtp_host?: string | null;
+    notifications_email_smtp_port: number;
+    notifications_email_smtp_username?: string | null;
+    notifications_email_smtp_password?: string | null;
+    notifications_email_smtp_use_tls: boolean;
+    notifications_email_from_email?: string | null;
+    notifications_email_to_email?: string | null;
+    notifications_email_include_snapshot: boolean;
+    notifications_email_dashboard_url?: string | null;
+
     notifications_filter_species_whitelist: string[];
     notifications_filter_min_confidence: number;
     notifications_filter_audio_confirmed_only: boolean;
+    notification_language: string;
+
+    // Accessibility settings
+    accessibility_high_contrast: boolean;
+    accessibility_dyslexia_font: boolean;
+    accessibility_reduced_motion: boolean;
+    accessibility_zen_mode: boolean;
+    accessibility_live_announcements: boolean;
+
+    species_info_source?: string;
 }
 
 export type UpdateSettings = Partial<Settings>;
 
-export interface SettingsUpdate {
-    frigate_url: string;
-    mqtt_server: string;
-    mqtt_port: number;
-    mqtt_auth: boolean;
-    mqtt_username?: string;
-    mqtt_password?: string;
-    birdnet_enabled: boolean;
-    audio_topic: string;
-    camera_audio_mapping: Record<string, string>;
-    clips_enabled: boolean;
-    classification_threshold: number;
-    classification_min_confidence: number;
-    cameras: string[];
-    retention_days: number;
-    blocked_labels: string[];
-    trust_frigate_sublabel: boolean;
-    display_common_names: boolean;
-    scientific_name_primary?: boolean;
-    auto_video_classification?: boolean;
-    video_classification_delay?: number;
-    video_classification_max_retries?: number;
-    // Media cache settings
-    media_cache_enabled: boolean;
-    media_cache_snapshots: boolean;
-    media_cache_clips: boolean;
-    media_cache_retention_days: number;
-    // Location settings
-    location_latitude?: number | null;
-    location_longitude?: number | null;
-    location_automatic?: boolean;
-    // BirdWeather settings
-    birdweather_enabled?: boolean;
-    birdweather_station_token?: string | null;
-    // LLM settings
-    llm_enabled?: boolean;
-    llm_provider?: string;
-    llm_api_key?: string | null;
-    llm_model?: string;
-    
-    // Telemetry
-    telemetry_enabled?: boolean;
-
-    // Notification settings
-    notifications_discord_enabled?: boolean;
-    notifications_discord_webhook_url?: string | null;
-    notifications_discord_username?: string;
-    
-    notifications_pushover_enabled?: boolean;
-    notifications_pushover_user_key?: string | null;
-    notifications_pushover_api_token?: string | null;
-    notifications_pushover_priority?: number;
-    
-    notifications_telegram_enabled?: boolean;
-    notifications_telegram_bot_token?: string | null;
-    notifications_telegram_chat_id?: string | null;
-    
-    notifications_filter_species_whitelist?: string[];
-    notifications_filter_min_confidence?: number;
-    notifications_filter_audio_confirmed_only?: boolean;
-}
+export interface SettingsUpdate extends Partial<Settings> {}
 
 export interface CacheStats {
     snapshot_count: number;
@@ -226,10 +198,19 @@ export function getApiKey(): string | null {
 }
 
 function getHeaders(customHeaders: HeadersInit = {}): HeadersInit {
-    const headers: any = { ...customHeaders };
+    const headers: Record<string, string> = { ...customHeaders as Record<string, string> };
     if (apiKey) {
         headers['X-API-Key'] = apiKey;
     }
+
+    // Add Accept-Language header if available
+    if (typeof localStorage !== 'undefined') {
+        const preferredLang = localStorage.getItem('preferred-language');
+        if (preferredLang) {
+            headers['Accept-Language'] = preferredLang;
+        }
+    }
+
     return headers;
 }
 
@@ -337,9 +318,11 @@ export async function fetchVersion(): Promise<VersionInfo> {
     } catch {
         // Ignore errors - return fallback
     }
+    const appVersion = typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : 'unknown';
+    const appVersionBase = appVersion.includes('+') ? appVersion.split('+')[0] : appVersion;
     return { 
-        version: __APP_VERSION__, 
-        base_version: __APP_VERSION__.split('+')[0], 
+        version: appVersion, 
+        base_version: appVersionBase, 
         git_hash: __GIT_HASH__ 
     };
 }
@@ -563,6 +546,10 @@ export interface SpeciesInfo {
     extract: string | null;
     thumbnail_url: string | null;
     wikipedia_url: string | null;
+    source: string | null;
+    source_url: string | null;
+    summary_source: string | null;
+    summary_source_url: string | null;
     scientific_name: string | null;
     conservation_status: string | null;
     cached_at: string | null;
@@ -720,7 +707,7 @@ export async function startTaxonomySync(): Promise<{ status: string }> {
     return handleResponse<{ status: string }>(response);
 }
 
-export async function testNotification(platform: string, credentials: any = {}): Promise<{ status: string; message: string }> {
+export async function testNotification(platform: string, credentials: Record<string, unknown> = {}): Promise<{ status: string; message: string }> {
     const response = await apiFetch(`${API_BASE}/settings/notifications/test`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -808,11 +795,14 @@ export async function activateModel(modelId: string): Promise<{ status: string; 
     return handleResponse<{ status: string; message: string }>(response);
 }
 
-export async function analyzeDetection(eventId: string): Promise<{ analysis: string }> {
+export async function analyzeDetection(eventId: string, force: boolean = false): Promise<{ analysis: string }> {
     // Use event-specific key to allow multiple analyses, but cancel if same event analyzed again
+    const url = force
+        ? `${API_BASE}/events/${encodeURIComponent(eventId)}/analyze?force=true`
+        : `${API_BASE}/events/${encodeURIComponent(eventId)}/analyze`;
     return fetchWithAbort<{ analysis: string }>(
         `analyze-${eventId}`,
-        `${API_BASE}/events/${encodeURIComponent(eventId)}/analyze`,
+        url,
         { method: 'POST' }
     );
 }
@@ -827,6 +817,18 @@ export interface AudioDetection {
 export async function fetchRecentAudio(limit: number = 10): Promise<AudioDetection[]> {
     const response = await apiFetch(`${API_BASE}/audio/recent?limit=${limit}`);
     return handleResponse<AudioDetection[]>(response);
+}
+
+export interface SearchResult {
+    id: string;
+    display_name: string;
+    scientific_name?: string | null;
+    common_name?: string | null;
+}
+
+export async function searchSpecies(query: string): Promise<SearchResult[]> {
+    const response = await apiFetch(`${API_BASE}/species/search?q=${encodeURIComponent(query)}`);
+    return handleResponse<SearchResult[]>(response);
 }
 
 // Stats types and functions
@@ -848,4 +850,66 @@ export interface DailySummary {
 export async function fetchDailySummary(): Promise<DailySummary> {
     const response = await apiFetch(`${API_BASE}/stats/daily-summary`);
     return handleResponse<DailySummary>(response);
+}
+
+// ============================================================================
+// Email / SMTP Notifications API
+// ============================================================================
+
+export interface OAuthAuthorizeResponse {
+    authorization_url: string;
+    state?: string;
+}
+
+export interface TestEmailRequest {
+    test_subject?: string;
+    test_message?: string;
+}
+
+export interface TestEmailResponse {
+    message: string;
+    to: string;
+}
+
+/**
+ * Initiate Gmail OAuth authorization flow
+ * Returns authorization URL to open in popup
+ */
+export async function initiateGmailOAuth(): Promise<OAuthAuthorizeResponse> {
+    const response = await apiFetch(`${API_BASE}/email/oauth/gmail/authorize`);
+    return handleResponse<OAuthAuthorizeResponse>(response);
+}
+
+/**
+ * Initiate Outlook OAuth authorization flow
+ * Returns authorization URL to open in popup
+ */
+export async function initiateOutlookOAuth(): Promise<OAuthAuthorizeResponse> {
+    const response = await apiFetch(`${API_BASE}/email/oauth/outlook/authorize`);
+    return handleResponse<OAuthAuthorizeResponse>(response);
+}
+
+/**
+ * Disconnect OAuth provider and delete stored tokens
+ */
+export async function disconnectEmailOAuth(provider: 'gmail' | 'outlook'): Promise<{ message: string }> {
+    const response = await apiFetch(`${API_BASE}/email/oauth/${provider}/disconnect`, {
+        method: 'DELETE'
+    });
+    return handleResponse<{ message: string }>(response);
+}
+
+/**
+ * Send a test email to verify configuration
+ */
+export async function sendTestEmail(request: TestEmailRequest = {}): Promise<TestEmailResponse> {
+    const response = await apiFetch(`${API_BASE}/email/test`, {
+        method: 'POST',
+        headers: getHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({
+            test_subject: request.test_subject || 'YA-WAMF Test Email',
+            test_message: request.test_message || 'This is a test email from YA-WAMF to verify your email configuration.'
+        })
+    });
+    return handleResponse<TestEmailResponse>(response);
 }

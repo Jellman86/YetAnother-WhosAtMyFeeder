@@ -34,6 +34,9 @@ class Detection:
     video_classification_index: Optional[int] = None
     video_classification_timestamp: Optional[datetime] = None
     video_classification_status: Optional[str] = None
+    # AI naturalist analysis fields
+    ai_analysis: Optional[str] = None
+    ai_analysis_timestamp: Optional[datetime] = None
 
 
 def _parse_datetime(value) -> datetime:
@@ -84,7 +87,12 @@ def _row_to_detection(row) -> Detection:
         d.video_classification_index = row[21]
         d.video_classification_timestamp = _parse_datetime(row[22]) if row[22] else None
         d.video_classification_status = row[23]
-        
+
+    # Optional AI analysis fields
+    if len(row) > 24:
+        d.ai_analysis = row[24]
+        d.ai_analysis_timestamp = _parse_datetime(row[25]) if row[25] else None
+
     return d
 
 
@@ -94,7 +102,7 @@ class DetectionRepository:
 
     async def get_by_frigate_event(self, frigate_event: str) -> Optional[Detection]:
         async with self.db.execute(
-            "SELECT id, detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label, audio_confirmed, audio_species, audio_score, temperature, weather_condition, scientific_name, common_name, taxa_id, video_classification_score, video_classification_label, video_classification_index, video_classification_timestamp, video_classification_status FROM detections WHERE frigate_event = ?",
+            "SELECT id, detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label, audio_confirmed, audio_species, audio_score, temperature, weather_condition, scientific_name, common_name, taxa_id, video_classification_score, video_classification_label, video_classification_index, video_classification_timestamp, video_classification_status, ai_analysis, ai_analysis_timestamp FROM detections WHERE frigate_event = ?",
             (frigate_event,)
         ) as cursor:
             row = await cursor.fetchone()
@@ -123,6 +131,17 @@ class DetectionRepository:
             SET video_classification_status = ?
             WHERE frigate_event = ?
         """, (status, frigate_event))
+        await self.db.commit()
+
+    async def update_ai_analysis(self, frigate_event: str, analysis: str):
+        """Update AI naturalist analysis for an event."""
+        now = datetime.now()
+        await self.db.execute("""
+            UPDATE detections
+            SET ai_analysis = ?,
+                ai_analysis_timestamp = ?
+            WHERE frigate_event = ?
+        """, (analysis, now, frigate_event))
         await self.db.commit()
 
     async def toggle_hidden(self, frigate_event: str) -> Optional[bool]:
@@ -291,7 +310,7 @@ class DetectionRepository:
         sort: str = "newest",
         include_hidden: bool = False
     ) -> list[Detection]:
-        query = "SELECT id, detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label, audio_confirmed, audio_species, audio_score, temperature, weather_condition, scientific_name, common_name, taxa_id, video_classification_score, video_classification_label, video_classification_index, video_classification_timestamp, video_classification_status FROM detections"
+        query = "SELECT id, detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label, audio_confirmed, audio_species, audio_score, temperature, weather_condition, scientific_name, common_name, taxa_id, video_classification_score, video_classification_label, video_classification_index, video_classification_timestamp, video_classification_status, ai_analysis, ai_analysis_timestamp FROM detections"
         params: list = []
         conditions = []
 
@@ -440,7 +459,8 @@ class DetectionRepository:
                 COUNT(*) as count, 
                 MAX(COALESCE(d.scientific_name, t.scientific_name)) as scientific_name, 
                 MAX(COALESCE(d.common_name, t.common_name)) as common_name,
-                MAX(d.display_name) as display_name
+                MAX(d.display_name) as display_name,
+                MAX(COALESCE(d.taxa_id, t.taxa_id)) as taxa_id
             FROM detections d
             LEFT JOIN taxonomy_cache t ON 
                 LOWER(d.display_name) = LOWER(t.scientific_name) OR 
@@ -456,7 +476,8 @@ class DetectionRepository:
                     "species": row[4], 
                     "count": row[1],
                     "scientific_name": row[2],
-                    "common_name": row[3]
+                    "common_name": row[3],
+                    "taxa_id": row[5]
                 }
                 for row in rows
             ]
@@ -578,7 +599,8 @@ class DetectionRepository:
                 MAX(d.frigate_event) as latest_event,
                 MAX(COALESCE(d.scientific_name, t.scientific_name)) as scientific_name, 
                 MAX(COALESCE(d.common_name, t.common_name)) as common_name,
-                MAX(d.display_name) as display_name
+                MAX(d.display_name) as display_name,
+                MAX(COALESCE(d.taxa_id, t.taxa_id)) as taxa_id
             FROM detections d
             LEFT JOIN taxonomy_cache t ON 
                 LOWER(d.display_name) = LOWER(t.scientific_name) OR 
@@ -596,7 +618,8 @@ class DetectionRepository:
                     "count": row[1],
                     "latest_event": row[2],
                     "scientific_name": row[3],
-                    "common_name": row[4]
+                    "common_name": row[4],
+                    "taxa_id": row[6]
                 }
                 for row in rows
             ]
@@ -607,8 +630,9 @@ class DetectionRepository:
             query = """SELECT id, detection_time, detection_index, score, display_name,
                           category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label,
                           audio_confirmed, audio_species, audio_score, temperature, weather_condition,
-                          scientific_name, common_name, taxa_id, video_classification_score, video_classification_label, 
-                          video_classification_index, video_classification_timestamp, video_classification_status
+                          scientific_name, common_name, taxa_id, video_classification_score, video_classification_label,
+                          video_classification_index, video_classification_timestamp, video_classification_status,
+                          ai_analysis, ai_analysis_timestamp
                    FROM detections WHERE display_name = ?
                    ORDER BY detection_time DESC LIMIT ?"""
             params = (species_name, limit)
@@ -616,8 +640,9 @@ class DetectionRepository:
             query = """SELECT id, detection_time, detection_index, score, display_name,
                           category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label,
                           audio_confirmed, audio_species, audio_score, temperature, weather_condition,
-                          scientific_name, common_name, taxa_id, video_classification_score, video_classification_label, 
-                          video_classification_index, video_classification_timestamp, video_classification_status
+                          scientific_name, common_name, taxa_id, video_classification_score, video_classification_label,
+                          video_classification_index, video_classification_timestamp, video_classification_status,
+                          ai_analysis, ai_analysis_timestamp
                    FROM detections WHERE display_name = ? AND (is_hidden = 0 OR is_hidden IS NULL)
                    ORDER BY detection_time DESC LIMIT ?"""
             params = (species_name, limit)

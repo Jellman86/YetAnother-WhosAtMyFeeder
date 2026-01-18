@@ -14,6 +14,8 @@
     import { toastStore } from '../stores/toast.svelte';
     import SimpleBarChart from './SimpleBarChart.svelte';
     import VideoPlayer from './VideoPlayer.svelte';
+    import { _ } from 'svelte-i18n';
+    import { trapFocus } from '../utils/focus-trap';
 
     interface Props {
         speciesName: string;
@@ -26,7 +28,15 @@
     const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
+    let modalElement = $state<HTMLElement | null>(null);
     let stats = $state<SpeciesStats | null>(null);
+
+    $effect(() => {
+        if (modalElement) {
+            return trapFocus(modalElement);
+        }
+    });
+
     let info = $state<SpeciesInfo | null>(null);
     let loading = $state(true);
     let error = $state<string | null>(null);
@@ -70,6 +80,30 @@
 
     let primaryName = $derived(naming.primary);
     let subName = $derived(naming.secondary);
+
+    let infoSourceChips = $derived.by(() => {
+        if (!info) return [];
+        const items: { label: string; url: string | null }[] = [];
+        const push = (label: string | null, url: string | null) => {
+            if (!label) return;
+            const existing = items.find((item) => item.label === label);
+            if (existing) {
+                if (!existing.url && url) existing.url = url;
+                return;
+            }
+            items.push({ label, url: url || null });
+        };
+
+        push(info.source, info.source_url);
+        push(info.summary_source, info.summary_source_url);
+
+        if (items.length === 0 && info.wikipedia_url) {
+            items.push({ label: 'Wikipedia', url: info.wikipedia_url });
+        }
+
+        return items;
+    });
+
 
     onMount(async () => {
         // Check if this is an unknown bird detection
@@ -168,6 +202,7 @@
 >
     <!-- Modal Container -->
     <div
+        bind:this={modalElement}
         class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden
                border border-slate-200 dark:border-slate-700 animate-fade-in"
         onclick={(e) => e.stopPropagation()}
@@ -242,6 +277,18 @@
                                 }}
                             />
                             <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
+                            <div class="absolute bottom-4 right-4">
+                                {#if info.source_url}
+                                    <a
+                                        href={info.source_url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        class="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-white/70 text-slate-600 text-[10px] font-black uppercase tracking-widest backdrop-blur-sm border border-white/60"
+                                    >
+                                        {info.source || 'Source'}
+                                    </a>
+                                {/if}
+                            </div>
                             <div class="absolute bottom-4 left-6 right-6">
                                 <h3 class="text-2xl font-bold text-white drop-shadow-lg">{primaryName}</h3>
                                 {#if subName && subName !== primaryName}
@@ -267,10 +314,10 @@
                             <!-- Content -->
                             <div class="flex-1">
                                 <h3 class="text-xl font-bold text-amber-900 dark:text-amber-100 mb-2">
-                                    Unidentified Detection
+                                    {$_('leaderboard.needs_review')}
                                 </h3>
                                 <p class="text-sm text-amber-800 dark:text-amber-200 mb-4">
-                                    This detection has low confidence and was marked as "Unknown Bird". You can reclassify it using snapshot or video analysis to identify the species.
+                                    {$_('leaderboard.unidentified_desc')}
                                 </p>
 
                                 <!-- Reclassify Buttons -->
@@ -283,7 +330,7 @@
                                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                         </svg>
-                                        {reclassifying ? 'Reclassifying...' : 'Reclassify from Snapshot'}
+                                        {reclassifying ? $_('common.testing') : $_('actions.deep_reclassify')}
                                     </button>
 
                                     <button
@@ -295,7 +342,7 @@
                                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
                                         </svg>
-                                        {reclassifying ? 'Reclassifying...' : 'Reclassify from Video'}
+                                        {reclassifying ? $_('common.testing') : $_('actions.reclassify')}
                                     </button>
                                 </div>
 
@@ -309,75 +356,89 @@
                     </section>
                 {/if}
 
-                <!-- Wikipedia Description -->
+                <!-- Species Description -->
                 {#if info}
-                    <section class="bg-slate-50 dark:bg-slate-700/30 rounded-xl p-4">
-                        <div class="flex items-start gap-3">
-                            <div class="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-600 flex items-center justify-center flex-shrink-0">
+                    <section class="relative overflow-hidden rounded-2xl border border-slate-200/70 dark:border-slate-600/40 bg-white/70 dark:bg-slate-800/60 p-5 shadow-sm">
+                        <div class="absolute inset-0 pointer-events-none bg-gradient-to-br from-teal-500/10 via-transparent to-brand-500/10"></div>
+                        <div class="relative flex items-start gap-3">
+                            <div class="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center flex-shrink-0 shadow-inner">
                                 <svg class="w-5 h-5 text-slate-500 dark:text-slate-400" fill="currentColor" viewBox="0 0 24 24">
                                     <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z"/>
                                 </svg>
                             </div>
                             <div class="flex-1 min-w-0">
+                                <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+                                    <h4 class="text-xs font-black uppercase tracking-[0.2em] text-slate-500">{$_('actions.species_info')}</h4>
+                                    {#if infoSourceChips.length}
+                                        <div class="flex flex-wrap items-center gap-1.5">
+                                            {#each infoSourceChips as chip}
+                                                {#if chip.url}
+                                                    <a
+                                                        href={chip.url}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/80 dark:bg-slate-900/60 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 border border-slate-200/60 dark:border-slate-600/50 hover:text-teal-600 dark:hover:text-teal-300 transition-colors"
+                                                    >
+                                                        {chip.label}
+                                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                                        </svg>
+                                                    </a>
+                                                {:else}
+                                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full bg-white/80 dark:bg-slate-900/60 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 border border-slate-200/60 dark:border-slate-600/50">
+                                                        {chip.label}
+                                                    </span>
+                                                {/if}
+                                            {/each}
+                                        </div>
+                                    {/if}
+                                </div>
                                 {#if info.extract}
                                     <p class="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
                                         {info.extract}
                                     </p>
-                                {:else if !info.thumbnail_url}
+                                {:else}
                                     <p class="text-sm text-slate-500 dark:text-slate-400 italic">
-                                        No Wikipedia information available for this species.
+                                        {$_('species_detail.no_info')}
                                     </p>
-                                {/if}
-                                {#if info.wikipedia_url}
-                                    <a
-                                        href={info.wikipedia_url}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        class="inline-flex items-center gap-1 mt-3 text-sm font-medium text-teal-600 dark:text-teal-400 hover:underline"
-                                    >
-                                        Read more on Wikipedia
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                                        </svg>
-                                    </a>
                                 {/if}
                             </div>
                         </div>
                     </section>
                 {/if}
 
-                <!-- Statistics Overview -->
+                <!-- Quick Facts -->
                 <section>
-                    <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4">Statistics</h3>
+                    <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4">{$_('common.statistics')}</h3>
                     <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                        <div class="bg-gradient-to-br from-teal-500 to-emerald-600 rounded-xl p-4 text-white">
-                            <p class="text-3xl font-bold">{stats.total_sightings}</p>
-                            <p class="text-sm opacity-90">Total Sightings</p>
+                        <div class="rounded-2xl p-4 bg-gradient-to-br from-teal-500 to-emerald-600 text-white shadow-lg">
+                            <p class="text-3xl font-black">{stats.total_sightings}</p>
+                            <p class="text-[11px] uppercase tracking-widest opacity-90">{$_('common.detections')}</p>
                         </div>
-                        <div class="bg-slate-100 dark:bg-slate-700 rounded-xl p-4">
-                            <p class="text-2xl font-bold text-slate-900 dark:text-white">
+                        <div class="rounded-2xl p-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm">
+                            <p class="text-2xl font-black text-slate-900 dark:text-white">
                                 {(stats.avg_confidence * 100).toFixed(0)}%
                             </p>
-                            <p class="text-sm text-slate-500 dark:text-slate-400">Avg Confidence</p>
+                            <p class="text-[11px] uppercase tracking-widest text-slate-500">{$_('species_detail.avg_confidence')}</p>
                         </div>
-                        <div class="bg-slate-100 dark:bg-slate-700 rounded-xl p-4">
-                            <p class="text-sm font-medium text-slate-900 dark:text-white">
+                        <div class="rounded-2xl p-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm">
+                            <p class="text-sm font-semibold text-slate-900 dark:text-white">
                                 {formatDate(stats.first_seen)}
                             </p>
-                            <p class="text-sm text-slate-500 dark:text-slate-400">First Seen</p>
+                            <p class="text-[11px] uppercase tracking-widest text-slate-500">{$_('species_detail.first_seen')}</p>
                         </div>
-                        <div class="bg-slate-100 dark:bg-slate-700 rounded-xl p-4">
-                            <p class="text-sm font-medium text-slate-900 dark:text-white">
+                        <div class="rounded-2xl p-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm">
+                            <p class="text-sm font-semibold text-slate-900 dark:text-white">
                                 {formatDate(stats.last_seen)}
                             </p>
-                            <p class="text-sm text-slate-500 dark:text-slate-400">Last Seen</p>
+                            <p class="text-[11px] uppercase tracking-widest text-slate-500">{$_('species_detail.last_seen')}</p>
                         </div>
                     </div>
                 </section>
 
                 <!-- Time Distribution Charts -->
                 <section>
-                    <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4">Activity Patterns</h3>
+                    <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4">{$_('species_detail.activity_patterns')}</h3>
 
                     <!-- Hourly chart - full width for better visibility -->
                     <div class="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-4 mb-4">
@@ -411,7 +472,7 @@
                 <!-- Camera Breakdown -->
                 {#if stats.cameras.length > 0}
                     <section>
-                        <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4">Camera Breakdown</h3>
+                        <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4">{$_('species_detail.camera_breakdown')}</h3>
                         <div class="space-y-3">
                             {#each stats.cameras as camera}
                                 <div class="flex items-center gap-3">
@@ -436,7 +497,7 @@
                 <!-- Recent Sightings -->
                 {#if stats.recent_sightings.length > 0}
                     <section>
-                        <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4">Recent Sightings</h3>
+                        <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4">{$_('species_detail.recent_sightings')}</h3>
                         <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
                             {#each stats.recent_sightings as sighting}
                                 <div
@@ -494,7 +555,7 @@
                        bg-slate-100 dark:bg-slate-700 rounded-lg
                        hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
             >
-                Close
+                {$_('common.close')}
             </button>
         </div>
     </div>

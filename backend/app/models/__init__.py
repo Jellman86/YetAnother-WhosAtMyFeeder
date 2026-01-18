@@ -29,6 +29,9 @@ class Detection(BaseModel):
     video_classification_label: str | None = None
     video_classification_timestamp: datetime | None = None
     video_classification_status: str | None = None
+    # AI naturalist analysis fields
+    ai_analysis: str | None = None
+    ai_analysis_timestamp: datetime | None = None
 
 class DetectionResponse(Detection):
     has_clip: bool = False  # Clip availability from Frigate
@@ -69,6 +72,10 @@ class SpeciesInfo(BaseModel):
     extract: str | None = None
     thumbnail_url: str | None = None
     wikipedia_url: str | None = None
+    source: str | None = None
+    source_url: str | None = None
+    summary_source: str | None = None
+    summary_source_url: str | None = None
     scientific_name: str | None = None
     conservation_status: str | None = None
     cached_at: datetime | None = None

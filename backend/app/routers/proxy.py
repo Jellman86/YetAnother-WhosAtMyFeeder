@@ -5,6 +5,8 @@ from starlette.background import BackgroundTask
 import httpx
 from app.config import settings
 from app.services.frigate_client import frigate_client
+from app.services.i18n_service import i18n_service
+from app.utils.language import get_user_language
 
 router = APIRouter()
 
@@ -25,11 +27,12 @@ def validate_event_id(event_id: str) -> bool:
     return bool(EVENT_ID_PATTERN.match(event_id)) and len(event_id) <= 64
 
 @router.get("/frigate/test")
-async def test_frigate_connection():
+async def test_frigate_connection(request: Request):
     """Test connection to Frigate and return status with details."""
     url = f"{settings.frigate.frigate_url}/api/version"
     client = get_http_client()
     headers = frigate_client._get_headers()
+    lang = get_user_language(request)
     try:
         resp = await client.get(url, headers=headers, timeout=10.0)
         resp.raise_for_status()
@@ -40,38 +43,68 @@ async def test_frigate_connection():
             "version": version
         }
     except httpx.TimeoutException:
-        raise HTTPException(status_code=504, detail="Frigate connection timed out")
+        raise HTTPException(
+            status_code=504,
+            detail=i18n_service.translate("errors.proxy.frigate_timeout", lang)
+        )
     except httpx.HTTPStatusError as e:
         if e.response.status_code == 401:
-            raise HTTPException(status_code=401, detail="Frigate authentication failed - check auth token")
-        raise HTTPException(status_code=e.response.status_code, detail=f"Frigate returned error: {e.response.status_code}")
+            raise HTTPException(
+                status_code=401,
+                detail=i18n_service.translate("errors.proxy.frigate_auth_failed", lang)
+            )
+        raise HTTPException(
+            status_code=e.response.status_code,
+            detail=i18n_service.translate("errors.proxy.frigate_error", lang, status_code=e.response.status_code)
+        )
     except httpx.RequestError:
-        raise HTTPException(status_code=502, detail=f"Failed to connect to Frigate at {settings.frigate.frigate_url}")
+        raise HTTPException(
+            status_code=502,
+            detail=i18n_service.translate("errors.proxy.connection_failed", lang, url=settings.frigate.frigate_url)
+        )
 
 @router.get("/frigate/config")
-async def proxy_config():
+async def proxy_config(request: Request):
     url = f"{settings.frigate.frigate_url}/api/config"
     client = get_http_client()
     headers = frigate_client._get_headers()
+    lang = get_user_language(request)
     try:
         resp = await client.get(url, headers=headers)
         resp.raise_for_status()
         return Response(content=resp.content, media_type=resp.headers.get("content-type", "application/json"))
     except httpx.TimeoutException:
-        raise HTTPException(status_code=504, detail="Frigate request timed out")
+        raise HTTPException(
+            status_code=504,
+            detail=i18n_service.translate("errors.proxy.frigate_timeout", lang)
+        )
     except httpx.HTTPStatusError as e:
         if e.response.status_code == 401:
-            raise HTTPException(status_code=401, detail="Frigate authentication failed")
-        raise HTTPException(status_code=e.response.status_code, detail="Frigate error")
+            raise HTTPException(
+                status_code=401,
+                detail=i18n_service.translate("errors.proxy.frigate_auth_failed", lang)
+            )
+        raise HTTPException(
+            status_code=e.response.status_code,
+            detail=i18n_service.translate("errors.proxy.frigate_error", lang, status_code=e.response.status_code)
+        )
     except httpx.RequestError:
-        raise HTTPException(status_code=502, detail="Failed to connect to Frigate")
+        raise HTTPException(
+            status_code=502,
+            detail=i18n_service.translate("errors.proxy.connection_failed", lang, url=settings.frigate.frigate_url)
+        )
 
 @router.get("/frigate/{event_id}/snapshot.jpg")
-async def proxy_snapshot(event_id: str = Path(..., min_length=1, max_length=64)):
+async def proxy_snapshot(request: Request, event_id: str = Path(..., min_length=1, max_length=64)):
     from app.services.media_cache import media_cache
 
+    lang = get_user_language(request)
+
     if not validate_event_id(event_id):
-        raise HTTPException(status_code=400, detail="Invalid event ID format")
+        raise HTTPException(
+            status_code=400,
+            detail=i18n_service.translate("errors.proxy.invalid_event_id", lang)
+        )
 
     # Check cache first
     if settings.media_cache.enabled and settings.media_cache.cache_snapshots:
@@ -86,7 +119,10 @@ async def proxy_snapshot(event_id: str = Path(..., min_length=1, max_length=64))
     try:
         resp = await client.get(url, headers=headers)
         if resp.status_code == 404:
-            raise HTTPException(status_code=404, detail="Snapshot not found")
+            raise HTTPException(
+                status_code=404,
+                detail=i18n_service.translate("errors.proxy.snapshot_not_found", lang)
+            )
         resp.raise_for_status()
 
         # Cache the response
@@ -95,20 +131,37 @@ async def proxy_snapshot(event_id: str = Path(..., min_length=1, max_length=64))
 
         return Response(content=resp.content, media_type=resp.headers.get("content-type", "image/jpeg"))
     except httpx.TimeoutException:
-        raise HTTPException(status_code=504, detail="Frigate request timed out")
+        raise HTTPException(
+            status_code=504,
+            detail=i18n_service.translate("errors.proxy.frigate_timeout", lang)
+        )
     except httpx.HTTPStatusError as e:
-        raise HTTPException(status_code=e.response.status_code, detail="Frigate error")
+        raise HTTPException(
+            status_code=e.response.status_code,
+            detail=i18n_service.translate("errors.proxy.frigate_error", lang, status_code=e.response.status_code)
+        )
     except httpx.RequestError:
-        raise HTTPException(status_code=502, detail="Failed to connect to Frigate")
+        raise HTTPException(
+            status_code=502,
+            detail=i18n_service.translate("errors.proxy.connection_failed", lang, url=settings.frigate.frigate_url)
+        )
 
 @router.head("/frigate/{event_id}/clip.mp4")
-async def check_clip_exists(event_id: str = Path(..., min_length=1, max_length=64)):
+async def check_clip_exists(request: Request, event_id: str = Path(..., min_length=1, max_length=64)):
     """Check if a clip exists for an event by checking the event details."""
+    lang = get_user_language(request)
+
     if not settings.frigate.clips_enabled:
-        raise HTTPException(status_code=403, detail="Clip fetching is disabled")
-    
+        raise HTTPException(
+            status_code=403,
+            detail=i18n_service.translate("errors.clip_disabled", lang)
+        )
+
     if not validate_event_id(event_id):
-        raise HTTPException(status_code=400, detail="Invalid event ID format")
+        raise HTTPException(
+            status_code=400,
+            detail=i18n_service.translate("errors.proxy.invalid_event_id", lang)
+        )
     # Frigate doesn't support HEAD for clips, so check event exists instead
     url = f"{settings.frigate.frigate_url}/api/events/{event_id}"
     client = get_http_client()
@@ -116,20 +169,35 @@ async def check_clip_exists(event_id: str = Path(..., min_length=1, max_length=6
     try:
         resp = await client.get(url, headers=headers, timeout=10.0)
         if resp.status_code == 404:
-            raise HTTPException(status_code=404, detail="Event not found")
+            raise HTTPException(
+                status_code=404,
+                detail=i18n_service.translate("errors.proxy.event_not_found", lang)
+            )
         resp.raise_for_status()
         # Check if event has a clip
         event_data = resp.json()
         has_clip = event_data.get("has_clip", False)
         if not has_clip:
-            raise HTTPException(status_code=404, detail="Clip not available for this event")
+            raise HTTPException(
+                status_code=404,
+                detail=i18n_service.translate("errors.proxy.clip_not_available", lang)
+            )
         return Response(status_code=200)
     except httpx.TimeoutException:
-        raise HTTPException(status_code=504, detail="Frigate request timed out")
+        raise HTTPException(
+            status_code=504,
+            detail=i18n_service.translate("errors.proxy.frigate_timeout", lang)
+        )
     except httpx.HTTPStatusError as e:
-        raise HTTPException(status_code=e.response.status_code, detail="Frigate error")
+        raise HTTPException(
+            status_code=e.response.status_code,
+            detail=i18n_service.translate("errors.proxy.frigate_error", lang, status_code=e.response.status_code)
+        )
     except httpx.RequestError:
-        raise HTTPException(status_code=502, detail="Failed to connect to Frigate")
+        raise HTTPException(
+            status_code=502,
+            detail=i18n_service.translate("errors.proxy.connection_failed", lang, url=settings.frigate.frigate_url)
+        )
 
 
 @router.get("/frigate/{event_id}/clip.mp4")
@@ -141,11 +209,19 @@ async def proxy_clip(
     from fastapi.responses import FileResponse
     from app.services.media_cache import media_cache
 
+    lang = get_user_language(request)
+
     if not settings.frigate.clips_enabled:
-        raise HTTPException(status_code=403, detail="Clip fetching is disabled")
+        raise HTTPException(
+            status_code=403,
+            detail=i18n_service.translate("errors.clip_disabled", lang)
+        )
 
     if not validate_event_id(event_id):
-        raise HTTPException(status_code=400, detail="Invalid event ID format")
+        raise HTTPException(
+            status_code=400,
+            detail=i18n_service.translate("errors.proxy.invalid_event_id", lang)
+        )
 
     # Check cache first
     if settings.media_cache.enabled and settings.media_cache.cache_clips:
@@ -162,9 +238,15 @@ async def proxy_clip(
     try:
         event_data = await frigate_client.get_event(event_id)
         if not event_data:
-            raise HTTPException(status_code=404, detail="Event not found in Frigate")
+            raise HTTPException(
+                status_code=404,
+                detail=i18n_service.translate("errors.proxy.event_not_found", lang)
+            )
         if not event_data.get("has_clip", False):
-            raise HTTPException(status_code=404, detail="Clip not available for this event")
+            raise HTTPException(
+                status_code=404,
+                detail=i18n_service.translate("errors.proxy.clip_not_available", lang)
+            )
     except Exception as e:
         if isinstance(e, HTTPException):
             raise e
@@ -192,7 +274,10 @@ async def proxy_clip(
     if r.status_code == 404:
         await r.aclose()
         await client.aclose()
-        raise HTTPException(status_code=404, detail="Clip not found")
+        raise HTTPException(
+            status_code=404,
+            detail=i18n_service.translate("errors.proxy.clip_not_found", lang)
+        )
 
     # If caching is enabled, download and cache the clip first (blocking operation)
     if should_cache:
@@ -210,8 +295,11 @@ async def proxy_clip(
             
             # If caching returned None, it means the file was empty (0 bytes) or failed.
             # Do NOT fallback to streaming the broken content.
-            raise HTTPException(status_code=502, detail="Frigate returned an empty video clip")
-            
+            raise HTTPException(
+                status_code=502,
+                detail=i18n_service.translate("errors.proxy.empty_clip", lang)
+            )
+
         except HTTPException:
             raise
         except Exception:
@@ -220,7 +308,10 @@ async def proxy_clip(
             await client.aclose()
             # If it was a generic exception (not our empty file check), we might try direct streaming
             # but usually it's safer to fail.
-            raise HTTPException(status_code=502, detail="Failed to cache/stream clip from Frigate")
+            raise HTTPException(
+                status_code=502,
+                detail=i18n_service.translate("errors.proxy.media_fetch_failed", lang)
+            )
 
     # Stream directly from Frigate
     response_headers = {
@@ -234,7 +325,10 @@ async def proxy_clip(
     if content_len and int(content_len) == 0:
         await r.aclose()
         await client.aclose()
-        raise HTTPException(status_code=502, detail="Frigate returned an empty video clip")
+        raise HTTPException(
+            status_code=502,
+            detail=i18n_service.translate("errors.proxy.empty_clip", lang)
+        )
 
     if "content-length" in r.headers:
         response_headers["Content-Length"] = r.headers["content-length"]
@@ -257,11 +351,16 @@ async def proxy_clip(
     )
 
 @router.get("/frigate/{event_id}/thumbnail.jpg")
-async def proxy_thumb(event_id: str = Path(..., min_length=1, max_length=64)):
+async def proxy_thumb(request: Request, event_id: str = Path(..., min_length=1, max_length=64)):
     from app.services.media_cache import media_cache
 
+    lang = get_user_language(request)
+
     if not validate_event_id(event_id):
-        raise HTTPException(status_code=400, detail="Invalid event ID format")
+        raise HTTPException(
+            status_code=400,
+            detail=i18n_service.translate("errors.proxy.invalid_event_id", lang)
+        )
 
     # Thumbnails share cache with snapshots (they're the same image in Frigate)
     # Check cache first
@@ -276,7 +375,10 @@ async def proxy_thumb(event_id: str = Path(..., min_length=1, max_length=64)):
     try:
         resp = await client.get(url, headers=headers)
         if resp.status_code == 404:
-            raise HTTPException(status_code=404, detail="Thumbnail not found")
+            raise HTTPException(
+                status_code=404,
+                detail=i18n_service.translate("errors.proxy.thumbnail_not_found", lang)
+            )
         resp.raise_for_status()
 
         # Cache the response (as snapshot since they're interchangeable)
@@ -285,8 +387,17 @@ async def proxy_thumb(event_id: str = Path(..., min_length=1, max_length=64)):
 
         return Response(content=resp.content, media_type=resp.headers.get("content-type", "image/jpeg"))
     except httpx.TimeoutException:
-        raise HTTPException(status_code=504, detail="Frigate request timed out")
+        raise HTTPException(
+            status_code=504,
+            detail=i18n_service.translate("errors.proxy.frigate_timeout", lang)
+        )
     except httpx.HTTPStatusError as e:
-        raise HTTPException(status_code=e.response.status_code, detail="Frigate error")
+        raise HTTPException(
+            status_code=e.response.status_code,
+            detail=i18n_service.translate("errors.proxy.frigate_error", lang, status_code=e.response.status_code)
+        )
     except httpx.RequestError:
-        raise HTTPException(status_code=502, detail="Failed to connect to Frigate")
+        raise HTTPException(
+            status_code=502,
+            detail=i18n_service.translate("errors.proxy.connection_failed", lang, url=settings.frigate.frigate_url)
+        )

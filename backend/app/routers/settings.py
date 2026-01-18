@@ -102,7 +102,14 @@ async def test_notification(request: NotificationTestRequest):
             
             try:
                 await notification_service._send_discord(
-                    species, common_name, confidence, camera, timestamp, snapshot_url, audio_confirmed=True
+                    common_name,
+                    confidence,
+                    camera,
+                    timestamp,
+                    snapshot_url,
+                    True,
+                    settings.notifications.notification_language,
+                    None
                 )
             finally:
                 if request.webhook_url and request.webhook_url != "***REDACTED***":
@@ -213,10 +220,37 @@ class SettingsUpdate(BaseModel):
     notifications_telegram_enabled: Optional[bool] = False
     notifications_telegram_bot_token: Optional[str] = None
     notifications_telegram_chat_id: Optional[str] = None
+
+    notifications_email_enabled: Optional[bool] = False
+    notifications_email_use_oauth: Optional[bool] = False
+    notifications_email_oauth_provider: Optional[str] = None
+    notifications_email_gmail_client_id: Optional[str] = None
+    notifications_email_gmail_client_secret: Optional[str] = None
+    notifications_email_outlook_client_id: Optional[str] = None
+    notifications_email_outlook_client_secret: Optional[str] = None
+    notifications_email_smtp_host: Optional[str] = None
+    notifications_email_smtp_port: Optional[int] = 587
+    notifications_email_smtp_username: Optional[str] = None
+    notifications_email_smtp_password: Optional[str] = None
+    notifications_email_smtp_use_tls: Optional[bool] = True
+    notifications_email_from_email: Optional[str] = None
+    notifications_email_to_email: Optional[str] = None
+    notifications_email_include_snapshot: Optional[bool] = True
+    notifications_email_dashboard_url: Optional[str] = None
     
     notifications_filter_species_whitelist: Optional[List[str]] = []
     notifications_filter_min_confidence: Optional[float] = 0.7
     notifications_filter_audio_confirmed_only: Optional[bool] = False
+    notification_language: Optional[str] = "en"
+
+    # Accessibility
+    accessibility_high_contrast: Optional[bool] = False
+    accessibility_dyslexia_font: Optional[bool] = False
+    accessibility_reduced_motion: Optional[bool] = False
+    accessibility_zen_mode: Optional[bool] = False
+    accessibility_live_announcements: Optional[bool] = True
+
+    species_info_source: Optional[str] = "auto"
 
     @field_validator('frigate_url')
     @classmethod
@@ -231,6 +265,14 @@ async def get_settings():
     Get application settings with secrets redacted.
     Secrets are never returned via API for security reasons.
     """
+    from app.services.smtp_service import smtp_service
+
+    oauth_status = await smtp_service.get_oauth_status(settings.notifications.email.oauth_provider)
+    if not oauth_status:
+        oauth_status = await smtp_service.get_oauth_status()
+    connected_email = oauth_status["email"] if oauth_status else None
+    connected_provider = oauth_status["provider"] if oauth_status else settings.notifications.email.oauth_provider
+
     return {
         "frigate_url": settings.frigate.frigate_url,
         "mqtt_server": settings.frigate.mqtt_server,
@@ -294,9 +336,36 @@ async def get_settings():
         "notifications_telegram_bot_token": "***REDACTED***" if settings.notifications.telegram.bot_token else None,
         "notifications_telegram_chat_id": "***REDACTED***" if settings.notifications.telegram.chat_id else None,
 
+        "notifications_email_enabled": settings.notifications.email.enabled,
+        "notifications_email_use_oauth": settings.notifications.email.use_oauth,
+        "notifications_email_oauth_provider": connected_provider,
+        "notifications_email_connected_email": connected_email,
+        "notifications_email_gmail_client_id": settings.notifications.email.gmail_client_id,
+        "notifications_email_gmail_client_secret": "***REDACTED***" if settings.notifications.email.gmail_client_secret else None,
+        "notifications_email_outlook_client_id": settings.notifications.email.outlook_client_id,
+        "notifications_email_outlook_client_secret": "***REDACTED***" if settings.notifications.email.outlook_client_secret else None,
+        "notifications_email_smtp_host": settings.notifications.email.smtp_host,
+        "notifications_email_smtp_port": settings.notifications.email.smtp_port,
+        "notifications_email_smtp_username": settings.notifications.email.smtp_username,
+        "notifications_email_smtp_password": "***REDACTED***" if settings.notifications.email.smtp_password else None,
+        "notifications_email_smtp_use_tls": settings.notifications.email.smtp_use_tls,
+        "notifications_email_from_email": settings.notifications.email.from_email,
+        "notifications_email_to_email": settings.notifications.email.to_email,
+        "notifications_email_include_snapshot": settings.notifications.email.include_snapshot,
+        "notifications_email_dashboard_url": settings.notifications.email.dashboard_url,
+
         "notifications_filter_species_whitelist": settings.notifications.filters.species_whitelist,
         "notifications_filter_min_confidence": settings.notifications.filters.min_confidence,
         "notifications_filter_audio_confirmed_only": settings.notifications.filters.audio_confirmed_only,
+        "notification_language": settings.notifications.notification_language,
+
+        # Accessibility
+        "accessibility_high_contrast": settings.accessibility.high_contrast,
+        "accessibility_dyslexia_font": settings.accessibility.dyslexia_font,
+        "accessibility_reduced_motion": settings.accessibility.reduced_motion,
+        "accessibility_zen_mode": settings.accessibility.zen_mode,
+        "accessibility_live_announcements": settings.accessibility.live_announcements,
+        "species_info_source": settings.species_info_source,
     }
 
 @router.post("/settings")
@@ -390,6 +459,40 @@ async def update_settings(update: SettingsUpdate, background_tasks: BackgroundTa
     # Only update chat ID if it's not the redacted placeholder
     if update.notifications_telegram_chat_id and update.notifications_telegram_chat_id != "***REDACTED***":
         settings.notifications.telegram.chat_id = update.notifications_telegram_chat_id
+
+    # Notifications - Email
+    if update.notifications_email_enabled is not None:
+        settings.notifications.email.enabled = update.notifications_email_enabled
+    if update.notifications_email_use_oauth is not None:
+        settings.notifications.email.use_oauth = update.notifications_email_use_oauth
+    if update.notifications_email_oauth_provider is not None:
+        settings.notifications.email.oauth_provider = update.notifications_email_oauth_provider
+    if update.notifications_email_gmail_client_id is not None:
+        settings.notifications.email.gmail_client_id = update.notifications_email_gmail_client_id
+    if update.notifications_email_gmail_client_secret and update.notifications_email_gmail_client_secret != "***REDACTED***":
+        settings.notifications.email.gmail_client_secret = update.notifications_email_gmail_client_secret
+    if update.notifications_email_outlook_client_id is not None:
+        settings.notifications.email.outlook_client_id = update.notifications_email_outlook_client_id
+    if update.notifications_email_outlook_client_secret and update.notifications_email_outlook_client_secret != "***REDACTED***":
+        settings.notifications.email.outlook_client_secret = update.notifications_email_outlook_client_secret
+    if update.notifications_email_smtp_host is not None:
+        settings.notifications.email.smtp_host = update.notifications_email_smtp_host
+    if update.notifications_email_smtp_port is not None:
+        settings.notifications.email.smtp_port = update.notifications_email_smtp_port
+    if update.notifications_email_smtp_username is not None:
+        settings.notifications.email.smtp_username = update.notifications_email_smtp_username
+    if update.notifications_email_smtp_password and update.notifications_email_smtp_password != "***REDACTED***":
+        settings.notifications.email.smtp_password = update.notifications_email_smtp_password
+    if update.notifications_email_smtp_use_tls is not None:
+        settings.notifications.email.smtp_use_tls = update.notifications_email_smtp_use_tls
+    if update.notifications_email_from_email is not None:
+        settings.notifications.email.from_email = update.notifications_email_from_email
+    if update.notifications_email_to_email is not None:
+        settings.notifications.email.to_email = update.notifications_email_to_email
+    if update.notifications_email_include_snapshot is not None:
+        settings.notifications.email.include_snapshot = update.notifications_email_include_snapshot
+    if update.notifications_email_dashboard_url is not None:
+        settings.notifications.email.dashboard_url = update.notifications_email_dashboard_url
     
     # Notifications - Filters
     if update.notifications_filter_species_whitelist is not None:
@@ -398,6 +501,24 @@ async def update_settings(update: SettingsUpdate, background_tasks: BackgroundTa
         settings.notifications.filters.min_confidence = update.notifications_filter_min_confidence
     if update.notifications_filter_audio_confirmed_only is not None:
         settings.notifications.filters.audio_confirmed_only = update.notifications_filter_audio_confirmed_only
+
+    if update.notification_language:
+        settings.notifications.notification_language = update.notification_language
+
+    # Accessibility
+    if update.accessibility_high_contrast is not None:
+        settings.accessibility.high_contrast = update.accessibility_high_contrast
+    if update.accessibility_dyslexia_font is not None:
+        settings.accessibility.dyslexia_font = update.accessibility_dyslexia_font
+    if update.accessibility_reduced_motion is not None:
+        settings.accessibility.reduced_motion = update.accessibility_reduced_motion
+    if update.accessibility_zen_mode is not None:
+        settings.accessibility.zen_mode = update.accessibility_zen_mode
+    if update.accessibility_live_announcements is not None:
+        settings.accessibility.live_announcements = update.accessibility_live_announcements
+
+    if update.species_info_source:
+        settings.species_info_source = update.species_info_source
 
     if settings.telemetry.enabled:
         background_tasks.add_task(telemetry_service.force_heartbeat)

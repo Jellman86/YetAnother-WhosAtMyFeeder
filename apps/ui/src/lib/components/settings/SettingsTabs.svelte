@@ -1,4 +1,6 @@
 <script lang="ts">
+    import { _ } from "svelte-i18n";
+
     interface Props {
         activeTab: string;
         ontabchange: (tab: string) => void;
@@ -6,24 +8,58 @@
 
     let { activeTab, ontabchange }: Props = $props();
 
-    const tabs = [
-        { id: 'connection', label: 'Connection', icon: '🔗' },
-        { id: 'detection', label: 'Detection', icon: '🎯' },
-        { id: 'notifications', label: 'Notifications', icon: '🔔' },
-        { id: 'integrations', label: 'Integrations', icon: '🔌' },
-        { id: 'data', label: 'Data', icon: '💾' },
-        { id: 'appearance', label: 'Appearance', icon: '🎨' },
-    ];
+    const tabs = $derived([
+        { id: "connection", label: $_("settings.tabs.connection"), icon: "🔗" },
+        { id: "detection", label: $_("settings.tabs.detection"), icon: "🎯" },
+        {
+            id: "notifications",
+            label: $_("settings.tabs.notifications"),
+            icon: "🔔",
+        },
+        {
+            id: "integrations",
+            label: $_("settings.tabs.integrations"),
+            icon: "🔌",
+        },
+        { id: "data", label: $_("settings.tabs.data"), icon: "💾" },
+        { id: "appearance", label: $_("settings.tabs.appearance"), icon: "🎨" },
+        {
+            id: "accessibility",
+            label: $_("settings.tabs.accessibility"),
+            icon: "♿",
+        },
+    ]);
 </script>
 
-<div class="flex items-center gap-1 p-1.5 bg-slate-100 dark:bg-slate-800/50 rounded-xl border border-slate-200/50 dark:border-slate-700/50">
+<nav
+    class="flex flex-wrap justify-center md:justify-start gap-2 p-1
+           bg-slate-100/50 dark:bg-slate-800/50
+           rounded-2xl
+           border border-slate-200/50 dark:border-slate-700/50
+           w-full"
+>
     {#each tabs as tab}
         <button
             onclick={() => ontabchange(tab.id)}
-            class="tab-button {activeTab === tab.id ? 'tab-button-active' : 'tab-button-inactive'}"
+            class="group flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold transition-all duration-200
+                   {activeTab === tab.id
+                ? 'bg-white dark:bg-slate-800 text-teal-600 dark:text-teal-400 shadow-sm ring-1 ring-slate-200/50 dark:ring-slate-700/50'
+                : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-800/50'}"
+            title={tab.label}
         >
-            <span class="text-base">{tab.icon}</span>
-            <span class="hidden sm:inline">{tab.label}</span>
+            <span
+                class="text-lg opacity-80 group-hover:scale-110 transition-transform duration-200"
+                >{tab.icon}</span
+            >
+            <span class="hidden md:inline">{tab.label}</span>
+            {#if activeTab === tab.id}
+                <div
+                    class="ml-auto w-1.5 h-1.5 rounded-full bg-teal-500 animate-pulse md:block hidden"
+                ></div>
+            {/if}
         </button>
     {/each}
-</div>
+</nav>
+
+<style>
+</style>

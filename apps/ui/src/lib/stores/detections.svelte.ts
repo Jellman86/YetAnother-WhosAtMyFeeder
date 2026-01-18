@@ -27,8 +27,16 @@ class DetectionsStore {
     async loadInitial() {
         this.isLoading = true;
         try {
+            // Filter to last 3 days
+            const d = new Date();
+            d.setDate(d.getDate() - 3);
+            const startDate = d.toISOString().split('T')[0];
+
             const [recent, countResult] = await Promise.all([
-                fetchEvents({ limit: this.MAX_ITEMS }),
+                fetchEvents({ 
+                    limit: this.MAX_ITEMS,
+                    startDate 
+                }),
                 fetchEventsCount({ 
                     startDate: new Date().toISOString().split('T')[0],
                     endDate: new Date().toISOString().split('T')[0]

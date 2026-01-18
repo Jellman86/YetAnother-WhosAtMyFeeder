@@ -1,0 +1,465 @@
+{
+  "app": {
+    "title": "YA-WAMF",
+    "logo_subtitle": "WhosAtMyFeeder",
+    "logo_title": "Yet Another",
+    "tagline": "Classification d'oiseaux par IA pour votre Frigate NVR"
+  },
+  "nav": {
+    "dashboard": "Tableau de bord",
+    "explorer": "Explorateur",
+    "leaderboard": "Classement",
+    "settings": "Paramètres",
+    "about": "À propos",
+    "toggle_menu": "Menu",
+    "collapse_sidebar": "Réduire la barre latérale",
+    "expand_sidebar": "Développer la barre latérale"
+  },
+  "theme": {
+    "switch_light": "Passer au mode clair",
+    "switch_dark": "Passer au mode sombre",
+    "light": "Clair",
+    "dark": "Sombre",
+    "system": "Système",
+    "title": "Thème et Apparence",
+    "layout": "Navigation Layout",
+    "horizontal": "Horizontal",
+    "vertical": "Vertical",
+    "horizontal_desc": "Top navigation bar",
+    "vertical_desc": "Left sidebar (collapsible)"
+  },
+  "dashboard": {
+    "title": "Tableau de bord",
+    "live_feed": "Flux en direct",
+    "showing_last_3_days": "Affichage des 3 derniers jours",
+    "no_detections": "Aucune détection pour le moment",
+    "waiting_first_visitor": "En attente du premier visiteur de la journée...",
+    "discovery_feed": "Fil de découverte",
+    "see_full_history": "Voir l'historique complet",
+    "audio_confirmations": "Confirmations audio"
+  },
+  "common": {
+    "loading": "Chargement...",
+    "error": "Erreur",
+    "success": "Succès",
+    "cancel": "Annuler",
+    "delete": "Supprimer",
+    "close": "Fermer",
+    "refresh": "Actualiser",
+    "save": "Enregistrer",
+    "saved": "Enregistré",
+    "saving": "Enregistrement...",
+    "test": "Tester",
+    "testing": "Test en cours...",
+    "add": "Ajouter",
+    "apply_settings": "Appliquer les paramètres",
+    "unsaved_changes": "Modifications non enregistrées",
+    "today": "Aujourd'hui",
+    "yesterday": "Hier",
+    "search": "Rechercher...",
+    "retry": "Réessayer",
+    "github": "GitHub",
+    "mit_license": "MIT License",
+    "view_snapshot": "Voir l'instantané",
+    "statistics": "Statistiques",
+    "period": "Période",
+    "detections": "détections"
+  },
+  "settings": {
+    "title": "Paramètres",
+    "subtitle": "Configurez et gérez votre instance YA-WAMF",
+    "language_selector": "Langue",
+    "language_desc": "Modifie le texte de l'interface et le contenu des notifications.",
+    "tabs": {
+      "connection": "Connexion",
+      "detection": "Détection",
+      "notifications": "Notifications",
+      "integrations": "Intégrations",
+      "data": "Données",
+      "appearance": "Apparence",
+      "accessibility": "Accessibilité"
+    },
+    "accessibility": {
+      "title": "Options d'accessibilité",
+      "high_contrast": "Contraste élevé",
+      "high_contrast_desc": "Maximiser le contraste avec un thème noir/blanc/jaune",
+      "dyslexia_font": "Police pour dyslexiques",
+      "dyslexia_font_desc": "Utiliser la police OpenDyslexic pour une meilleure lisibilité",
+      "reduced_motion": "Réduire les mouvements",
+      "reduced_motion_desc": "Désactiver les animations et transitions",
+      "zen_mode": "Mode Zen",
+      "zen_mode_desc": "Simplifier l'interface pour réduire la charge cognitive",
+      "live_announcements": "Annonces en direct",
+      "live_announcements_desc": "Annoncer les nouvelles détections via le lecteur d’écran."
+    },
+    "frigate": {
+      "title": "Frigate NVR",
+      "url": "URL du serveur",
+      "test_connection": "Tester la connexion",
+      "sync_cameras": "Synchroniser les caméras",
+      "test_mqtt": "Tester le pipeline MQTT",
+      "mqtt_broker": "Broker MQTT",
+      "mqtt_port": "Port",
+      "mqtt_auth": "Utiliser l'authentification",
+      "mqtt_user": "Utilisateur",
+      "mqtt_pass": "Mot de passe",
+      "fetch_clips": "Récupérer les clips vidéo",
+      "fetch_clips_desc": "Utiliser les enregistrements Frigate pour la reclasification"
+    },
+    "cameras": {
+      "title": "Caméras actives",
+      "none_found": "Aucune caméra trouvée",
+      "syncing": "Numérisation..."
+    },
+    "telemetry": {
+      "title": "Télémétrie",
+      "desc": "Aidez à améliorer YA-WAMF en partageant des statistiques d'utilisation anonymes.",
+      "transparency": "Transparence : Ce que nous envoyons",
+      "install_id": "ID d'installation",
+      "version": "Version de l'application",
+      "platform": "Plateforme",
+      "features": "Fonctionnalités activées",
+      "privacy_notice": "Ces données sont envoyées de manière sécurisée pour nous aider à comprendre comment l'application est utilisée. Aucune image ni donnée de détection personnelle n'est partagée."
+    },
+    "email": {
+      "title": "Notifications par Email",
+      "desc": "Envoyer des alertes par email pour les détections d'oiseaux",
+      "enable": "Activer les Notifications par Email",
+      "auth_mode": "Mode d'Authentification",
+      "oauth": "OAuth (Recommandé)",
+      "smtp": "SMTP Traditionnel",
+      "oauth_section": "Configuration OAuth",
+      "oauth_desc": "Authentification sécurisée via Gmail ou Outlook",
+      "connect_gmail": "Connecter Gmail",
+      "connect_outlook": "Connecter Outlook",
+      "connected": "Connecté en tant que {email}",
+      "disconnect": "Déconnecter",
+      "not_connected": "Non connecté",
+      "oauth_instructions": "Cliquez sur le bouton pour autoriser YA-WAMF à envoyer des emails en votre nom. Vous serez redirigé vers {provider} pour vous connecter.",
+      "smtp_section": "Configuration SMTP",
+      "smtp_desc": "Paramètres traditionnels du serveur de messagerie",
+      "smtp_host": "Serveur SMTP",
+      "smtp_host_placeholder": "smtp.gmail.com",
+      "smtp_port": "Port",
+      "smtp_username": "Nom d'utilisateur",
+      "smtp_password": "Mot de passe",
+      "smtp_use_tls": "Utiliser TLS/STARTTLS",
+      "from_email": "Adresse Email d'Expéditeur",
+      "from_email_placeholder": "votre-email@exemple.com",
+      "to_email": "Adresse Email du Destinataire",
+      "to_email_placeholder": "destinataire@exemple.com",
+      "preferences": "Préférences Email",
+      "include_snapshot": "Inclure l'Image de Capture",
+      "dashboard_url": "URL du Tableau de Bord",
+      "dashboard_url_placeholder": "https://votre-domaine.com",
+      "dashboard_url_desc": "Lien vers votre tableau de bord dans les notifications par email",
+      "test_email": "Envoyer un Email de Test",
+      "test_email_sending": "Envoi...",
+      "test_email_success": "Email de test envoyé avec succès à {email} !",
+      "test_email_error": "Échec de l'envoi de l'email de test : {error}",
+      "oauth_connect_success": "{provider} connecté avec succès !",
+      "oauth_disconnect_success": "{provider} déconnecté",
+      "oauth_error": "Erreur OAuth : {error}",
+      "credentials_required": "Veuillez d'abord configurer les identifiants OAuth ou SMTP"
+    },
+    "notifications": {
+      "global_filters": "Filtres globaux de notifications",
+      "min_confidence": "Confiance minimale",
+      "notify_all": "Tout notifier",
+      "high_confidence_only": "Haute confiance uniquement",
+      "audio_only": "Confirmées par audio uniquement",
+      "audio_only_desc": "N'alerter que lorsque BirdNET confirme l'audio.",
+      "species_whitelist": "Liste blanche d'espèces",
+      "species_placeholder": "Ajouter une espèce (ex. Cardinal rouge)",
+      "no_species_filter": "Aucun filtre d'espèces appliqué"
+    },
+    "discord": {
+      "title": "Notifications Discord",
+      "webhook_url": "URL du webhook",
+      "webhook_placeholder": "https://discord.com/api/webhooks/...",
+      "bot_username": "Nom du bot",
+      "test_notification": "Envoyer une notification de test",
+      "test_sending": "Envoi..."
+    },
+    "pushover": {
+      "title": "Notifications Pushover",
+      "user_key": "Clé utilisateur",
+      "user_key_placeholder": "Votre clé utilisateur Pushover",
+      "api_token": "Jeton API",
+      "api_token_placeholder": "Votre jeton API Pushover",
+      "priority": "Priorité",
+      "priority_lowest": "Très basse",
+      "priority_low": "Basse",
+      "priority_normal": "Normale",
+      "priority_high": "Élevée",
+      "priority_emergency": "Urgence",
+      "test_notification": "Envoyer une notification de test",
+      "test_sending": "Envoi..."
+    },
+    "telegram": {
+      "title": "Notifications Telegram",
+      "bot_token": "Jeton du bot",
+      "bot_token_placeholder": "123456:ABC-DEF...",
+      "chat_id": "ID du chat",
+      "chat_id_placeholder": "123456789",
+      "test_notification": "Envoyer une notification de test",
+      "test_sending": "Envoi..."
+    }
+  },
+  "notifications": {
+    "reclassify_fallback": "⚠️ Vidéo non disponible - capture utilisée à la place",
+    "reclassify_failed": "Échec de la reclasification : {message}",
+    "settings_saved": "Paramètres enregistrés avec succès !",
+    "settings_load_failed": "Échec du chargement des paramètres"
+  },
+  "actions": {
+    "confirm_delete": "Supprimer cette détection de {species} ?",
+    "play_video": "Lire la vidéo",
+    "deep_reclassify": "Reclassification profonde",
+    "manual_tag": "Étiquette manuelle",
+    "reclassify": "Reclassifier",
+    "species_info": "Infos sur l'espèce",
+    "delete_detection": "Supprimer la détection",
+    "hide_detection": "Masquer la détection",
+    "read_more_wikipedia": "Lire la suite sur Wikipédia",
+    "read_more_source": "Lire la suite sur {source}"
+  },
+  "detection": {
+    "confidence": "Confiance",
+    "verified": "Vérifié",
+    "hidden": "Masqué",
+    "frigate_score": "FRIGATE : {score}%",
+    "audio_match": "Correspondance audio",
+    "birdnet_confirmed": "BirdNET Confirmé",
+    "frigate_verified": "Frigate Vérifié",
+    "video_analysis": {
+      "title": "Analyse vidéo profonde",
+      "match": "{score}% de correspondance",
+      "verified_desc": "Vérifié via une logique d'ensemble temporelle (Soft-Voting).",
+      "in_progress": "Analyse vidéo en cours..."
+    },
+    "ai": {
+      "insight": "Aperçu de l'IA Naturaliste",
+      "ask": "Demander à l'IA Naturaliste",
+      "analyzing": "Analyse du comportement...",
+      "regenerating": "Régénération...",
+      "regenerate": "Régénérer l'analyse",
+      "error": "Erreur : {message}"
+    },
+    "tagging": {
+      "search_placeholder": "Rechercher une espèce...",
+      "no_results": "Aucune espèce correspondante trouvée"
+    },
+    "card_label": "{species} détecté à {camera}",
+    "image_alt": "{species} détecté à {camera}",
+    "play_video": "Lire la vidéo de {species}",
+    "reclassify": "Reclassifier la détection de {species}",
+    "retag": "Étiqueter manuellement la détection de {species}"
+  },
+  "events": {
+    "title": "Événements",
+    "total_count": "{count} au total",
+    "filters": {
+      "all_time": "Tout le temps",
+      "week": "Semaine",
+      "month": "Mois",
+      "custom": "Personnalisé",
+      "all_species": "Toutes les espèces",
+      "all_cameras": "Toutes les caméras"
+    },
+    "sort": {
+      "newest": "Plus récent",
+      "oldest": "Plus ancien",
+      "confidence": "Confiance"
+    },
+    "load_failed": "Échec du chargement des événements"
+  },
+  "leaderboard": {
+    "title": "Classement des espèces",
+    "species_count": "{count} espèces",
+    "detections_count": "{count} détections",
+    "sort_by_count": "Par nombre",
+    "sort_by_name": "Par nom",
+    "no_species": "Aucune espèce détectée pour le moment",
+    "no_species_desc": "Les détections d'oiseaux apparaîtront ici une fois enregistrées",
+    "all_species": "Toutes les espèces",
+    "percentage_of_total": "{percentage}% du total",
+    "unidentified_desc": "Détection non identifiée - cliquez pour examiner et reclassifier",
+    "needs_review": "À réviser",
+    "load_failed": "Échec du chargement des données sur les espèces"
+  },
+  "about": {
+    "title": "À propos de ce projet",
+    "how_it_works": "Comment ça marche",
+    "features": "Fonctionnalités",
+    "tech_stack": "Pile technologique",
+    "docs_resources": "Documentation & Ressources",
+    "credits": "Crédits & Remerciements",
+    "built_with_ai": "Construit avec l'aide de l'IA pour l'amour de l'observation des oiseaux 🐦",
+    "project_desc_1": "YA-WAMF est un projet personnel lancé pour expérimenter le codage assisté par l'IA. Lorsque le projet original {link} est devenu non maintenu, celui-ci est né à la fois comme une opportunité d'apprentissage et un outil utile pour les passionnés d'oiseaux.",
+    "project_desc_2": "L'ensemble de l'application a été construit avec l'aide d'assistants de codage IA - cela a été une exploration intéressante de ce qui est possible avec ces outils. Si vous remarquez des imperfections, c'est probablement pour cette raison !",
+    "steps": {
+      "1": {
+        "title": "Frigate Détecte",
+        "desc": "Votre caméra capte un mouvement, Frigate l'identifie comme un oiseau"
+      },
+      "2": {
+        "title": "Message MQTT",
+        "desc": "Frigate publie un événement sur votre courtier MQTT"
+      },
+      "3": {
+        "title": "YA-WAMF Traite",
+        "desc": "Le backend s'abonne à MQTT et récupère l'événement"
+      },
+      "4": {
+        "title": "Classification",
+        "desc": "L'image passe par le modèle ML (ou utilise le sous-label de Frigate)"
+      },
+      "5": {
+        "title": "Corrélation Audio",
+        "desc": "Référence croisée avec les détections audio de BirdNET-Go si disponibles"
+      },
+      "6": {
+        "title": "Enregistrer & Notifier",
+        "desc": "Détection stockée dans la base de données, notifications envoyées"
+      },
+      "7": {
+        "title": "Analyse Vidéo",
+        "desc": "Optionnel : Scanne les images des clips vidéo pour une précision affinée"
+      },
+      "8": {
+        "title": "Mises à jour en direct",
+        "desc": "Le tableau de bord reçoit des mises à jour en temps réel via Server-Sent Events"
+      }
+    },
+    "feature_list": {
+      "ai_models": {
+        "title": "Modèles d'IA Avancés",
+        "desc": "Choisissez entre MobileNetV2 (rapide), ConvNeXt (haute précision) ou EVA-02 (élite ~91% de précision)"
+      },
+      "multi_sensor": {
+        "title": "Corrélation Multi-Capteurs",
+        "desc": "Croisez les détections visuelles avec les identifications audio BirdNET-Go"
+      },
+      "video_analysis": {
+        "title": "Analyse Vidéo Auto",
+        "desc": "Scanne automatiquement plus de 15 images des clips vidéo pour une plus grande précision"
+      },
+      "notifications": {
+        "title": "Notifications Riches",
+        "desc": "Support Discord, Telegram et Pushover avec filtres personnalisables"
+      },
+      "ai_insights": {
+        "title": "Perspectives Naturalistes IA",
+        "desc": "Obtenez des analyses de comportement en utilisant Gemini, OpenAI ou Claude"
+      },
+      "taxonomy": {
+        "title": "Normalisation de la Taxonomie",
+        "desc": "Mapping automatique noms scientifiques ↔ communs via les données iNaturalist"
+      },
+      "weather": {
+        "title": "Enrichissement Météo",
+        "desc": "Suivez les détections avec les conditions météo locales et la température"
+      },
+      "home_assistant": {
+        "title": "Intégration Home Assistant",
+        "desc": "Capteurs natifs pour suivre le dernier oiseau détecté et les comptages quotidiens"
+      },
+      "birdweather": {
+        "title": "Rapports BirdWeather",
+        "desc": "Optionnel : Contribuez à la plateforme scientifique communautaire BirdWeather"
+      },
+      "observability": {
+        "title": "Observability",
+        "desc": "Built-in Prometheus metrics, optional telemetry, and real-time MQTT diagnostics"
+      },
+      "wildlife": {
+        "title": "Classificateur de Faune",
+        "desc": "Identifiez les écureuils, renards et autres visiteurs non-oiseaux"
+      },
+      "fast_path": {
+        "title": "Efficacité du Chemin Rapide",
+        "desc": "Passez le traitement IA local et utilisez directement les sous-labels de Frigate"
+      }
+    },
+    "tech": {
+      "backend": "Backend",
+      "frontend": "Frontend",
+      "ml": "Moteur ML",
+      "messaging": "Messagerie",
+      "deployment": "Déploiement"
+    },
+    "links": {
+      "repo": "Dépôt GitHub",
+      "repo_desc": "Code source, problèmes et versions",
+      "docs": "Documentation",
+      "docs_desc": "Guides d'installation, référence API et dépannage",
+      "frigate": "Frigate NVR",
+      "frigate_desc": "Requis : NVR open-source avec détection d'objets",
+      "birdnet": "BirdNET-Go",
+      "birdnet_desc": "Optionnel : Identification audio des oiseaux"
+    },
+    "credits_list": {
+      "preamble": "Ce projet ne serait pas possible sans :",
+      "inspiration": "Le projet original {link} pour l'inspiration",
+      "frigate": "{link} pour être un excellent NVR open-source",
+      "birdnet": "{link} pour l'intégration de la classification audio",
+      "benjordan": "{link} sur YouTube pour son contenu inspirant sur la détection des oiseaux",
+      "ai_assistants": "Les assistants IA qui ont aidé à construire cette application"
+    }
+  },
+  "species_detail": {
+    "no_wiki": "Aucune information Wikipédia disponible pour cette espèce.",
+    "no_info": "Aucune information de référence disponible pour cette espèce.",
+    "avg_confidence": "Confiance moy.",
+    "first_seen": "Première vue",
+    "last_seen": "Dernière vue",
+    "activity_patterns": "Modèles d'activité",
+    "camera_breakdown": "Répartition par caméra",
+    "recent_sightings": "Observations récentes"
+  },
+  "pagination": {
+    "navigation": "Pagination",
+    "previous_page": "Page précédente",
+    "next_page": "Page suivante",
+    "page_number": "Page {number}",
+    "page_size_label": "Afficher:",
+    "page_size_aria": "Éléments par page"
+  },
+  "shortcuts": {
+    "title": "Raccourcis Clavier",
+    "hint": "Raccourcis clavier (?)",
+    "open_panel": "Ouvrir le panneau des raccourcis",
+    "go_dashboard": "Aller au Tableau de bord",
+    "go_events": "Aller aux Événements",
+    "go_species": "Aller au Classement",
+    "go_settings": "Aller aux Paramètres",
+    "close_modal": "Fermer la fenêtre",
+    "refresh": "Actualiser la page"
+  },
+  "footer": {
+    "did_you_know": "Le saviez-vous ?",
+    "bird_facts": [
+      "Les colibris peuvent voler en arrière et sont les seuls oiseaux capables de faire du vol stationnaire",
+      "Les corbeaux peuvent reconnaître les visages humains et se souvenir des personnes qui leur ont fait du tort",
+      "La sterne arctique parcourt plus de 70 000 kilomètres par an - la plus longue migration de tous les oiseaux",
+      "Les hiboux ne peuvent pas bouger leurs globes oculaires, c'est pourquoi ils peuvent faire pivoter leur tête jusqu'à 270 degrés",
+      "Le faucon pèlerin peut plonger à des vitesses de plus de 385 km/h, ce qui en fait l'animal le plus rapide de la Terre",
+      "Les grands corbeaux peuvent imiter la parole humaine et d'autres sons comme les moteurs de voiture et les chasses d'eau",
+      "Les manchots demandent leur partenaire en mariage avec un caillou",
+      "Les geais bleus peuvent imiter les cris des faucons pour effrayer d'autres oiseaux et les éloigner des mangeoires",
+      "Les plumes d'un oiseau pèsent plus lourd que son squelette",
+      "Le colibri d'Elena est le plus petit oiseau du monde, pesant moins qu'une pièce de monnaie",
+      "Les frégates peuvent rester en vol pendant des mois sans se poser",
+      "Les pies sont l'un des rares animaux capables de se reconnaître dans un miroir",
+      "L'albatros hurleur possède la plus grande envergure de tous les oiseaux vivants, jusqu'à 3,6 mètres",
+      "Les pics ne souffrent pas de maux de tête car leurs crânes ont des poches d'air qui absorbent les chocs",
+      "Les martinets passent la majeure partie de leur vie dans les airs et peuvent même dormir en vol",
+      "Les oiseaux n'existent pas - ce sont des drones de surveillance gouvernementaux (soi-disant)",
+      "Les oies ont des dents sur leur langue. Dormez bien ce soir !",
+      "Un oiseau dans la main vaut mieux que deux dans la brousse, mais c'est nettement plus salissant",
+      "Les manchots ne sont que des poulets habillés en tenue de gala",
+      "Les coqs crient vers le soleil parce qu'ils ont peur du noir"
+    ]
+  }
+}

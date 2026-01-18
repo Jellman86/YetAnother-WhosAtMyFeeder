@@ -1,0 +1,465 @@
+{
+  "app": {
+    "title": "YA-WAMF",
+    "logo_subtitle": "WhosAtMyFeeder",
+    "logo_title": "Yet Another",
+    "tagline": "KI-gestützte Vogelklassifizierung für Ihren Frigate NVR"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "explorer": "Explorer",
+    "leaderboard": "Bestenliste",
+    "settings": "Einstellungen",
+    "about": "Über uns",
+    "toggle_menu": "Menü umschalten",
+    "collapse_sidebar": "Seitenleiste einklappen",
+    "expand_sidebar": "Seitenleiste ausklappen"
+  },
+  "theme": {
+    "switch_light": "Zum hellen Modus wechseln",
+    "switch_dark": "Zum dunklen Modus wechseln",
+    "light": "Hell",
+    "dark": "Dunkel",
+    "system": "System",
+    "title": "Design & Aussehen",
+    "layout": "Navigation Layout",
+    "horizontal": "Horizontal",
+    "vertical": "Vertical",
+    "horizontal_desc": "Top navigation bar",
+    "vertical_desc": "Left sidebar (collapsible)"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "live_feed": "Live-Feed",
+    "showing_last_3_days": "Zeige letzte 3 Tage",
+    "no_detections": "Noch keine Erkennungen",
+    "waiting_first_visitor": "Warten auf den ersten Besucher des Tages...",
+    "discovery_feed": "Entdeckungs-Feed",
+    "see_full_history": "Vollständigen Verlauf anzeigen",
+    "audio_confirmations": "Audio-Bestätigungen"
+  },
+  "common": {
+    "loading": "Laden...",
+    "error": "Fehler",
+    "success": "Erfolg",
+    "cancel": "Abbrechen",
+    "delete": "Löschen",
+    "close": "Schließen",
+    "refresh": "Aktualisieren",
+    "save": "Speichern",
+    "saved": "Gespeichert",
+    "saving": "Speichern...",
+    "test": "Testen",
+    "testing": "Testen...",
+    "add": "Hinzufügen",
+    "apply_settings": "Einstellungen übernehmen",
+    "unsaved_changes": "Ungespeicherte Änderungen",
+    "today": "Heute",
+    "yesterday": "Gestern",
+    "search": "Suchen...",
+    "retry": "Wiederholen",
+    "github": "GitHub",
+    "mit_license": "MIT License",
+    "view_snapshot": "Schnappschuss ansehen",
+    "statistics": "Statistiken",
+    "period": "Zeitraum",
+    "detections": "Erkennungen"
+  },
+  "settings": {
+    "title": "Einstellungen",
+    "subtitle": "Konfigurieren und verwalten Sie Ihre YA-WAMF-Instanz",
+    "language_selector": "Sprache",
+    "language_desc": "Ändert UI-Text und Benachrichtigungsinhalt.",
+    "tabs": {
+      "connection": "Verbindung",
+      "detection": "Erkennung",
+      "notifications": "Benachrichtigungen",
+      "integrations": "Integrationen",
+      "data": "Daten",
+      "appearance": "Aussehen",
+      "accessibility": "Barrierefreiheit"
+    },
+    "accessibility": {
+      "title": "Barrierefreiheit-Optionen",
+      "high_contrast": "Hoher Kontrast",
+      "high_contrast_desc": "Kontrast maximieren (Schwarz/Weiß/Gelb)",
+      "dyslexia_font": "Schrift für Legastheniker",
+      "dyslexia_font_desc": "OpenDyslexic-Schriftart für bessere Lesbarkeit verwenden",
+      "reduced_motion": "Bewegung reduzieren",
+      "reduced_motion_desc": "Animationen und Übergänge deaktivieren",
+      "zen_mode": "Zen-Modus",
+      "zen_mode_desc": "Oberfläche vereinfachen, um kognitive Belastung zu reduzieren",
+      "live_announcements": "Live-Ansagen",
+      "live_announcements_desc": "Neue Erkennungen per Screenreader ansagen."
+    },
+    "frigate": {
+      "title": "Frigate NVR",
+      "url": "Server-URL",
+      "test_connection": "Verbindung testen",
+      "sync_cameras": "Kameras synchronisieren",
+      "test_mqtt": "MQTT-Pipeline testen",
+      "mqtt_broker": "MQTT-Broker",
+      "mqtt_port": "Port",
+      "mqtt_auth": "Authentifizierung verwenden",
+      "mqtt_user": "Benutzer",
+      "mqtt_pass": "Passwort",
+      "fetch_clips": "Videoclips abrufen",
+      "fetch_clips_desc": "Frigate-Aufnahmen zur Reklassifizierung verwenden"
+    },
+    "cameras": {
+      "title": "Aktive Kameras",
+      "none_found": "Keine Kameras gefunden",
+      "syncing": "Scannen..."
+    },
+    "telemetry": {
+      "title": "Telemetrie",
+      "desc": "Helfen Sie mit, YA-WAMF zu verbessern, indem Sie anonyme Nutzungsstatistiken teilen.",
+      "transparency": "Transparenz: Was wir senden",
+      "install_id": "Installations-ID",
+      "version": "App-Version",
+      "platform": "Plattform",
+      "features": "Aktivierte Funktionen",
+      "privacy_notice": "Diese Daten werden sicher gesendet, um uns zu helfen, die Nutzung der App zu verstehen. Es werden niemals Bilder oder persönliche Erkennungsdaten geteilt."
+    },
+    "email": {
+      "title": "E-Mail-Benachrichtigungen",
+      "desc": "E-Mail-Benachrichtigungen für Vogelerkennungen senden",
+      "enable": "E-Mail-Benachrichtigungen aktivieren",
+      "auth_mode": "Authentifizierungsmodus",
+      "oauth": "OAuth (Empfohlen)",
+      "smtp": "Traditionelles SMTP",
+      "oauth_section": "OAuth-Konfiguration",
+      "oauth_desc": "Sichere Authentifizierung mit Gmail oder Outlook",
+      "connect_gmail": "Gmail verbinden",
+      "connect_outlook": "Outlook verbinden",
+      "connected": "Verbunden als {email}",
+      "disconnect": "Trennen",
+      "not_connected": "Nicht verbunden",
+      "oauth_instructions": "Klicken Sie auf die Schaltfläche, um YA-WAMF zu autorisieren, E-Mails in Ihrem Namen zu senden. Sie werden zu {provider} weitergeleitet, um sich anzumelden.",
+      "smtp_section": "SMTP-Konfiguration",
+      "smtp_desc": "Traditionelle E-Mail-Server-Einstellungen",
+      "smtp_host": "SMTP-Server",
+      "smtp_host_placeholder": "smtp.gmail.com",
+      "smtp_port": "Port",
+      "smtp_username": "Benutzername",
+      "smtp_password": "Passwort",
+      "smtp_use_tls": "TLS/STARTTLS verwenden",
+      "from_email": "Absender-E-Mail-Adresse",
+      "from_email_placeholder": "ihre-email@beispiel.de",
+      "to_email": "Empfänger-E-Mail-Adresse",
+      "to_email_placeholder": "empfaenger@beispiel.de",
+      "preferences": "E-Mail-Einstellungen",
+      "include_snapshot": "Schnappschuss einbeziehen",
+      "dashboard_url": "Dashboard-URL",
+      "dashboard_url_placeholder": "https://ihre-domain.de",
+      "dashboard_url_desc": "Link zu Ihrem Dashboard in E-Mail-Benachrichtigungen",
+      "test_email": "Test-E-Mail senden",
+      "test_email_sending": "Wird gesendet...",
+      "test_email_success": "Test-E-Mail erfolgreich an {email} gesendet!",
+      "test_email_error": "Fehler beim Senden der Test-E-Mail: {error}",
+      "oauth_connect_success": "{provider} erfolgreich verbunden!",
+      "oauth_disconnect_success": "{provider} getrennt",
+      "oauth_error": "OAuth-Fehler: {error}",
+      "credentials_required": "Bitte konfigurieren Sie zuerst OAuth- oder SMTP-Anmeldedaten"
+    },
+    "notifications": {
+      "global_filters": "Globale Benachrichtigungsfilter",
+      "min_confidence": "Mindestkonfidenz",
+      "notify_all": "Alle benachrichtigen",
+      "high_confidence_only": "Nur hohe Konfidenz",
+      "audio_only": "Nur audio-bestätigt",
+      "audio_only_desc": "Nur benachrichtigen, wenn BirdNET den Ton bestätigt.",
+      "species_whitelist": "Arten-Whitelist",
+      "species_placeholder": "Art hinzufügen (z. B. Nordkardinal)",
+      "no_species_filter": "Keine Artenfilter angewendet"
+    },
+    "discord": {
+      "title": "Discord-Benachrichtigungen",
+      "webhook_url": "Webhook-URL",
+      "webhook_placeholder": "https://discord.com/api/webhooks/...",
+      "bot_username": "Bot-Name",
+      "test_notification": "Testbenachrichtigung senden",
+      "test_sending": "Senden..."
+    },
+    "pushover": {
+      "title": "Pushover-Benachrichtigungen",
+      "user_key": "Benutzerschlüssel",
+      "user_key_placeholder": "Ihr Pushover-Benutzerschlüssel",
+      "api_token": "API-Token",
+      "api_token_placeholder": "Ihr Pushover-API-Token",
+      "priority": "Priorität",
+      "priority_lowest": "Niedrigste",
+      "priority_low": "Niedrig",
+      "priority_normal": "Normal",
+      "priority_high": "Hoch",
+      "priority_emergency": "Notfall",
+      "test_notification": "Testbenachrichtigung senden",
+      "test_sending": "Senden..."
+    },
+    "telegram": {
+      "title": "Telegram-Benachrichtigungen",
+      "bot_token": "Bot-Token",
+      "bot_token_placeholder": "123456:ABC-DEF...",
+      "chat_id": "Chat-ID",
+      "chat_id_placeholder": "123456789",
+      "test_notification": "Testbenachrichtigung senden",
+      "test_sending": "Senden..."
+    }
+  },
+  "notifications": {
+    "reclassify_fallback": "⚠️ Video nicht verfügbar - stattdessen Schnappschuss verwendet",
+    "reclassify_failed": "Reklassifizierung fehlgeschlagen: {message}",
+    "settings_saved": "Einstellungen erfolgreich gespeichert!",
+    "settings_load_failed": "Einstellungen konnten nicht geladen werden"
+  },
+  "actions": {
+    "confirm_delete": "Diese {species} Erkennung löschen?",
+    "play_video": "Video abspielen",
+    "deep_reclassify": "Tiefen-Reklassifizierung",
+    "manual_tag": "Manuelles Tag",
+    "reclassify": "Reklassifizieren",
+    "species_info": "Spezies-Info",
+    "delete_detection": "Erkennung löschen",
+    "hide_detection": "Erkennung ausblenden",
+    "read_more_wikipedia": "Mehr auf Wikipedia lesen",
+    "read_more_source": "Mehr auf {source} lesen"
+  },
+  "detection": {
+    "confidence": "Konfidenz",
+    "verified": "Verifiziert",
+    "hidden": "Ausgeblendet",
+    "frigate_score": "FRIGATE: {score}%",
+    "audio_match": "Audio-Match",
+    "birdnet_confirmed": "BirdNET Bestätigt",
+    "frigate_verified": "Frigate Verifiziert",
+    "video_analysis": {
+      "title": "Tiefe Video-Analyse",
+      "match": "{score}% Übereinstimmung",
+      "verified_desc": "Verifiziert über temporale Ensemble-Logik (Soft-Voting).",
+      "in_progress": "Video-Analyse läuft..."
+    },
+    "ai": {
+      "insight": "KI-Naturalist Einblick",
+      "ask": "KI-Naturalist fragen",
+      "analyzing": "Verhalten wird analysiert...",
+      "regenerating": "Wird regeneriert...",
+      "regenerate": "Analyse regenerieren",
+      "error": "Fehler: {message}"
+    },
+    "tagging": {
+      "search_placeholder": "Spezies suchen...",
+      "no_results": "Keine passende Spezies gefunden"
+    },
+    "card_label": "{species} erkannt bei {camera}",
+    "image_alt": "{species} erkannt bei {camera}",
+    "play_video": "Video von {species} abspielen",
+    "reclassify": "{species} Erkennung reklassifizieren",
+    "retag": "{species} Erkennung manuell markieren"
+  },
+  "events": {
+    "title": "Ereignisse",
+    "total_count": "{count} insgesamt",
+    "filters": {
+      "all_time": "Gesamte Zeit",
+      "week": "Woche",
+      "month": "Monat",
+      "custom": "Benutzerdefiniert",
+      "all_species": "Alle Spezies",
+      "all_cameras": "Alle Kameras"
+    },
+    "sort": {
+      "newest": "Neueste",
+      "oldest": "Älteste",
+      "confidence": "Konfidenz"
+    },
+    "load_failed": "Ereignisse konnten nicht geladen werden"
+  },
+  "leaderboard": {
+    "title": "Spezies-Bestenliste",
+    "species_count": "{count} Spezies",
+    "detections_count": "{count} Erkennungen",
+    "sort_by_count": "Nach Anzahl",
+    "sort_by_name": "Nach Name",
+    "no_species": "Noch keine Spezies erkannt",
+    "no_species_desc": "Vogelerkennungen werden hier angezeigt, sobald sie aufgezeichnet wurden",
+    "all_species": "Alle Spezies",
+    "percentage_of_total": "{percentage}% der Gesamtzahl",
+    "unidentified_desc": "Nicht identifizierte Erkennung - klicken zum Überprüfen und Reklassifizieren",
+    "needs_review": "Überprüfung nötig",
+    "load_failed": "Speziesdaten konnten nicht geladen werden"
+  },
+  "about": {
+    "title": "Über dieses Projekt",
+    "how_it_works": "Wie es funktioniert",
+    "features": "Funktionen",
+    "tech_stack": "Technologie-Stack",
+    "docs_resources": "Dokumentation & Ressourcen",
+    "credits": "Credits & Dank",
+    "built_with_ai": "Mit KI-Unterstützung für die Liebe zur Vogelbeobachtung gebaut 🐦",
+    "project_desc_1": "YA-WAMF ist ein persönliches Projekt, das gestartet wurde, um mit KI-unterstützter Programmierung zu experimentieren. Als das ursprüngliche {link}-Projekt nicht mehr gepflegt wurde, entstand dieses Projekt sowohl als Lernmöglichkeit als auch als nützliches Werkzeug für Vogelliebhaber.",
+    "project_desc_2": "Die gesamte Anwendung wurde mit Hilfe von KI-Coding-Assistenten erstellt – es war eine interessante Erkundung dessen, was mit diesen Werkzeugen möglich ist. Wenn Sie Unebenheiten entdecken, ist das wahrscheinlich der Grund!",
+    "steps": {
+      "1": {
+        "title": "Frigate Erkennt",
+        "desc": "Ihre Kamera erkennt eine Bewegung, Frigate identifiziert sie als Vogel"
+      },
+      "2": {
+        "title": "MQTT-Nachricht",
+        "desc": "Frigate veröffentlicht ein Ereignis an Ihren MQTT-Broker"
+      },
+      "3": {
+        "title": "YA-WAMF Verarbeitet",
+        "desc": "Das Backend abonniert MQTT und nimmt das Ereignis auf"
+      },
+      "4": {
+        "title": "Klassifizierung",
+        "desc": "Das Bild durchläuft ein ML-Modell (oder verwendet das Sublabel von Frigate)"
+      },
+      "5": {
+        "title": "Audio-Korrelation",
+        "desc": "Abgleich mit BirdNET-Go Audio-Erkennungen, falls verfügbar"
+      },
+      "6": {
+        "title": "Speichern & Benachrichtigen",
+        "desc": "Erkennung wird in der Datenbank gespeichert, Benachrichtigungen werden gesendet"
+      },
+      "7": {
+        "title": "Video-Analyse",
+        "desc": "Optional: Scannt Videoclip-Frames für verfeinerte Genauigkeit"
+      },
+      "8": {
+        "title": "Live-Updates",
+        "desc": "Das Dashboard erhält Echtzeit-Updates über Server-Sent Events"
+      }
+    },
+    "feature_list": {
+      "ai_models": {
+        "title": "Fortgeschrittene KI-Modelle",
+        "desc": "Wählen Sie zwischen MobileNetV2 (schnell), ConvNeXt (hohe Genauigkeit) oder EVA-02 (Elite ~91% Genauigkeit)"
+      },
+      "multi_sensor": {
+        "title": "Multi-Sensor-Korrelation",
+        "desc": "Verknüpfen Sie visuelle Erkennungen mit BirdNET-Go Audio-Identifikationen"
+      },
+      "video_analysis": {
+        "title": "Auto-Video-Analyse",
+        "desc": "Automatisches Scannen von 15+ Frames aus Videoclips für höhere Genauigkeit"
+      },
+      "notifications": {
+        "title": "Umfangreiche Benachrichtigungen",
+        "desc": "Discord, Telegram und Pushover Unterstützung mit anpassbaren Filtern"
+      },
+      "ai_insights": {
+        "title": "KI-Naturalist Einblicke",
+        "desc": "Erhalten Sie Verhaltensanalysen Ihrer Besucher mit Gemini, OpenAI oder Claude"
+      },
+      "taxonomy": {
+        "title": "Taxonomie-Normalisierung",
+        "desc": "Automatische Zuordnung wissenschaftlicher ↔ gebräuchlicher Namen via iNaturalist-Daten"
+      },
+      "weather": {
+        "title": "Wetter-Anreicherung",
+        "desc": "Verfolgen Sie Erkennungen mit lokalen Wetterbedingungen und temperaturdaten"
+      },
+      "home_assistant": {
+        "title": "Home Assistant Integration",
+        "desc": "Native Sensoren zur Verfolgung des letzten erkannten Vogels und täglicher Besucherzahlen"
+      },
+      "birdweather": {
+        "title": "BirdWeather Berichterstattung",
+        "desc": "Optional: Tragen Sie Ihre Erkennungen zur BirdWeather Community-Plattform bei"
+      },
+      "observability": {
+        "title": "Beobachtbarkeit",
+        "desc": "Integrierte Prometheus-Metriken, optionale Telemetrie und Echtzeit-MQTT-Diagnose"
+      },
+      "wildlife": {
+        "title": "Wildtier-Klassifizierer",
+        "desc": "Identifizieren Sie Eichhörnchen, Füchse und andere Nicht-Vogel-Besucher"
+      },
+      "fast_path": {
+        "title": "Fast-Path Effizienz",
+        "desc": "Überspringen Sie lokale KI-Verarbeitung und nutzen Sie Frigates Sublabels direkt"
+      }
+    },
+    "tech": {
+      "backend": "Backend",
+      "frontend": "Frontend",
+      "ml": "ML-Engine",
+      "messaging": "Messaging",
+      "deployment": "Bereitstellung"
+    },
+    "links": {
+      "repo": "GitHub-Repository",
+      "repo_desc": "Quellcode, Probleme und Releases",
+      "docs": "Dokumentation",
+      "docs_desc": "Einrichtungsanleitungen, API-Referenz und Fehlerbehebung",
+      "frigate": "Frigate NVR",
+      "frigate_desc": "Erforderlich: Open-Source-NVR mit Objekterkennung",
+      "birdnet": "BirdNET-Go",
+      "birdnet_desc": "Optional: Audio-Vogelidentifikation"
+    },
+    "credits_list": {
+      "preamble": "Dieses Projekt wäre nicht möglich ohne:",
+      "inspiration": "Das ursprüngliche {link}-Projekt für die Inspiration",
+      "frigate": "{link} als exzellenter Open-Source-NVR",
+      "birdnet": "{link} für die Integration der Audio-Klassifizierung",
+      "benjordan": "{link} auf YouTube für inspirierende Inhalte zur Vogelerkennung",
+      "ai_assistants": "KI-Assistenten, die beim Aufbau dieser Anwendung geholfen haben"
+    }
+  },
+  "species_detail": {
+    "no_wiki": "Keine Wikipedia-Informationen für diese Art verfügbar.",
+    "no_info": "Keine Referenzinformationen für diese Art verfügbar.",
+    "avg_confidence": "Durchschn. Konfidenz",
+    "first_seen": "Zuerst gesehen",
+    "last_seen": "Zuletzt gesehen",
+    "activity_patterns": "Aktivitätsmuster",
+    "camera_breakdown": "Kamera-Aufschlüsselung",
+    "recent_sightings": "Kürzliche Sichtungen"
+  },
+  "pagination": {
+    "navigation": "Paginierung",
+    "previous_page": "Vorherige Seite",
+    "next_page": "Nächste Seite",
+    "page_number": "Seite {number}",
+    "page_size_label": "Anzeigen:",
+    "page_size_aria": "Elemente pro Seite"
+  },
+  "shortcuts": {
+    "title": "Tastaturkürzel",
+    "hint": "Tastaturkürzel (?)",
+    "open_panel": "Tastaturkürzel-Panel öffnen",
+    "go_dashboard": "Zum Dashboard",
+    "go_events": "Zu Ereignissen",
+    "go_species": "Zur Bestenliste",
+    "go_settings": "Zu Einstellungen",
+    "close_modal": "Modal schließen",
+    "refresh": "Seite aktualisieren"
+  },
+  "footer": {
+    "did_you_know": "Wussten Sie?",
+    "bird_facts": [
+      "Kolibris können rückwärts fliegen und sind die einzigen Vögel, die an Ort und Stelle schweben können",
+      "Krähen können menschliche Gesichter erkennen und sich an Menschen erinnern, die ihnen Unrecht getan haben",
+      "Die Küstenseeschwalbe wandert jährlich über 44.000 Meilen - die längste Wanderung aller Vögel",
+      "Eulen können ihre Augäpfel nicht bewegen, weshalb sie ihre Köpfe bis zu 270 Grad drehen können",
+      "Der Wanderfalke kann mit Geschwindigkeiten von über 240 mph tauchen und ist damit das schnellste Tier der Erde",
+      "Raben können menschliche Sprache und andere Geräusche wie Automotoren und Toilettenspülungen nachahmen",
+      "Pinguine machen ihren Partnern einen Heiratsantrag mit einem Kieselstein",
+      "Blauhäher können die Rufe von Habichten nachahmen, um andere Vögel von Futterstellen zu verscheuchen",
+      "Die Federn eines Vogels wiegen mehr als sein Skelett",
+      "Der Bienenkolibri ist der kleinste Vogel der Welt und wiegt weniger als ein Penny",
+      "Fregattvögel können monatelang in der Luft bleiben, ohne zu landen",
+      "Elstern sind eines der wenigen Tiere, die sich selbst im Spiegel erkennen können",
+      "Der Wanderalbatros hat die größte Flügelspannweite aller lebenden Vögel, bis zu 11,8 Fuß",
+      "Spechte bekommen keine Kopfschmerzen, weil ihre Schädel Luftpolster haben, die Stöße absorbieren",
+      "Mauersegler verbringen den größten Teil ihres Lebens in der Luft und können sogar im Flug schlafen",
+      "Vögel sind nicht echt - sie sind staatliche Überwachungsdrohnen (angeblich)",
+      "Gänse haben Zähne auf ihren Zungen. Schlaf gut heute Nacht!",
+      "Ein Vogel in der Hand ist zwei im Busch wert, aber deutlich unordentlicher",
+      "Pinguine sind einfach formelle Hühner, die für eine Gala gekleidet sind",
+      "Hähne schreien die Sonne an, weil sie Angst vor der Dunkelheit haben"
+    ]
+  }
+}

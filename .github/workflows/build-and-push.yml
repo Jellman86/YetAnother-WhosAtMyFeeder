@@ -9,7 +9,34 @@ env:
   REGISTRY: ghcr.io
 
 jobs:
+  test-backend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          cd backend
+          pip install -r requirements.txt
+
+      - name: Run tests
+        run: |
+          cd backend
+          python -m pytest tests/ -v --tb=short --cov=app --cov-report=term
+
+      - name: Check minimum coverage
+        run: |
+          cd backend
+          python -m pytest tests/ --cov=app --cov-fail-under=20
+
   build-backend:
+    needs: test-backend
     runs-on: ubuntu-latest
     permissions:
       contents: read

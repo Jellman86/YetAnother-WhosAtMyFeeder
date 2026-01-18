@@ -7,7 +7,9 @@
         "resolveJsonModule": true,
         "allowJs": true,
         "checkJs": true,
-        "isolatedModules": true
+        "isolatedModules": true,
+        "moduleResolution": "bundler",
+        "skipLibCheck": true
     },
     "include": [
         "src/**/*.d.ts",

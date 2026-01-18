@@ -1,0 +1,85 @@
+{
+  "notification": {
+    "new_detection": "Nueva ave detectada: {species}",
+    "detection_body": "{species} detectada en {camera} con {confidence}% de confianza",
+    "audio_confirmed": "🎤 Audio confirmado por BirdNET-Go"
+  },
+  "errors": {
+    "detection_not_found": "Detección no encontrada",
+    "frigate_fetch_failed": "Error al obtener la captura de Frigate",
+    "classification_no_results": "La clasificación no devolvió resultados",
+    "invalid_api_key": "Clave de API inválida",
+    "missing_api_key": "Falta la clave de API",
+    "frigate_timeout": "Tiempo de espera agotado en la conexión con Frigate",
+    "frigate_auth_failed": "Error de autenticación con Frigate",
+    "clip_disabled": "La obtención de clips está deshabilitada",
+    "invalid_frigate_event": "Formato de evento de Frigate inválido",
+    "proxy": {
+      "frigate_timeout": "Tiempo de espera agotado en la conexión con Frigate",
+      "frigate_auth_failed": "Error de autenticación con Frigate - verifique el token de autenticación",
+      "frigate_error": "Frigate devolvió error: {status_code}",
+      "connection_failed": "Error al conectar con Frigate en {url}",
+      "snapshot_not_found": "Captura no encontrada",
+      "thumbnail_not_found": "Miniatura no encontrada",
+      "clip_not_found": "Clip no encontrado",
+      "clip_not_available": "Clip no disponible para este evento",
+      "event_not_found": "Evento no encontrado en Frigate",
+      "empty_clip": "Frigate devolvió un clip de video vacío",
+      "media_fetch_failed": "Error al obtener medios de Frigate",
+      "invalid_event_id": "Formato de ID de evento inválido"
+    },
+    "events": {
+      "snapshot_fetch_failed": "Error al obtener la captura de Frigate",
+      "classification_failed": "La clasificación no devolvió resultados",
+      "delete_failed": "Error al eliminar la detección",
+      "update_failed": "Error al actualizar la detección",
+      "wildlife_model_unavailable": "Modelo de fauna silvestre no disponible. Por favor descárguelo primero.",
+      "reclassification_failed": "Error en la reclasificación"
+    },
+    "species": {
+      "unknown_bird": "Ave Desconocida",
+      "species_not_found": "Especie no encontrada"
+    },
+    "ai": {
+      "provider_not_configured": "Proveedor de IA no configurado",
+      "api_key_missing": "Clave de API no configurada para {provider}",
+      "analysis_failed": "Error al analizar la imagen",
+      "image_fetch_failed": "Error al obtener la imagen de Frigate",
+      "gemini_not_configured": "Clave de API de Gemini no configurada",
+      "openai_not_configured": "Clave de API de OpenAI no configurada",
+      "claude_not_configured": "Clave de API de Claude no configurada"
+    },
+    "backfill": {
+      "no_events": "No se encontraron eventos de Frigate en el rango de tiempo especificado",
+      "processing_error": "Error de procesamiento de relleno: {error}",
+      "invalid_time_range": "Rango de tiempo especificado inválido"
+    },
+    "classifier": {
+      "bird_model_not_loaded": "Modelo de aves no cargado",
+      "wildlife_model_not_loaded": "Modelo de fauna silvestre no cargado",
+      "model_load_failed": "Error al cargar el modelo de clasificación"
+    },
+    "models": {
+      "not_installed": "Modelo no instalado",
+      "download_failed": "Error en la descarga del modelo"
+    },
+    "email": {
+      "gmail_oauth_not_configured": "Credenciales OAuth de Gmail no configuradas",
+      "outlook_oauth_not_configured": "Credenciales OAuth de Outlook no configuradas",
+      "gmail_oauth_failed": "Error al iniciar OAuth de Gmail: {error}",
+      "outlook_oauth_failed": "Error al iniciar OAuth de Outlook: {error}",
+      "access_token_failed": "No se pudo obtener el token de acceso",
+      "invalid_provider": "Proveedor inválido. Debe ser 'gmail' u 'outlook'",
+      "disconnect_failed": "Error al desconectar",
+      "disconnect_error": "Error de desconexión: {error}",
+      "not_enabled": "Notificaciones por correo no habilitadas",
+      "recipient_not_configured": "Correo del destinatario no configurado",
+      "smtp_incomplete": "Configuración SMTP incompleta",
+      "send_failed": "Error al enviar correo de prueba",
+      "send_error": "Error al enviar correo de prueba: {error}",
+      "invalid_state": "Estado OAuth inválido. Inténtalo de nuevo.",
+      "state_expired": "El estado OAuth ha caducado. Inténtalo de nuevo.",
+      "email_missing": "El proveedor no devolvió el correo electrónico."
+    }
+  }
+}

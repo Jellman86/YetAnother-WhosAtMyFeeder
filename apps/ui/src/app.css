@@ -71,13 +71,13 @@ html {
   .card-rich {
     @apply relative bg-white/80 dark:bg-slate-800/70 rounded-2xl backdrop-blur-xl;
     @apply border border-white/50 dark:border-slate-700/40;
-    @apply shadow-[0_8px_32px_-8px_rgba(0,0,0,0.1)] dark:shadow-[0_8px_32px_-8px_rgba(0,0,0,0.4)];
+    @apply shadow-[0_8px_32px_-8px_rgba(0, 0, 0, 0.1)] dark:shadow-[0_8px_32px_-8px_rgba(0, 0, 0, 0.4)];
     @apply transition-all duration-300 ease-out;
   }
 
   .card-rich:hover {
-    @apply shadow-[0_16px_48px_-12px_rgba(20,184,166,0.15),0_8px_24px_-8px_rgba(0,0,0,0.1)];
-    @apply dark:shadow-[0_16px_48px_-12px_rgba(20,184,166,0.2),0_8px_24px_-8px_rgba(0,0,0,0.4)];
+    @apply shadow-[0_16px_48px_-12px_rgba(20, 184, 166, 0.15), 0_8px_24px_-8px_rgba(0, 0, 0, 0.1)];
+    @apply dark:shadow-[0_16px_48px_-12px_rgba(20, 184, 166, 0.2), 0_8px_24px_-8px_rgba(0, 0, 0, 0.4)];
     @apply border-teal-300/50 dark:border-teal-600/40;
     transform: translateY(-2px);
   }
@@ -106,7 +106,7 @@ html {
 
   /* Tab button styling */
   .tab-button {
-    @apply flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-medium;
+    @apply flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-medium;
     @apply transition-all duration-200;
   }
 
@@ -120,6 +120,7 @@ html {
 }
 
 @layer utilities {
+
   /* Pulsing status indicator */
   .status-pulse {
     @apply relative;
@@ -148,4 +149,140 @@ html {
     mask-composite: exclude;
     pointer-events: none;
   }
+}
+
+/* Accessibility Modes */
+
+@font-face {
+  font-family: 'OpenDyslexic';
+  src: url('/fonts/OpenDyslexic-Regular.woff2') format('woff2'),
+       url('/fonts/OpenDyslexic-Regular.woff') format('woff');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'OpenDyslexic';
+  src: url('/fonts/OpenDyslexic-Bold.woff2') format('woff2'),
+       url('/fonts/OpenDyslexic-Bold.woff') format('woff');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Dyslexia Friendly Font */
+.font-dyslexic,
+.font-dyslexic * {
+  font-family: 'OpenDyslexic', sans-serif !important;
+  line-height: 1.6 !important;
+  /* Force bold text to use OpenDyslexic Bold */
+  font-weight: inherit !important;
+}
+
+/* High Contrast Mode */
+.high-contrast {
+  --bg-color: #000000;
+  --text-color: #ffffff;
+  --border-color: #ffff00;
+  /* Yellow for visibility */
+  --highlight-color: #00ffff;
+  /* Cyan for focus/active */
+}
+
+.high-contrast body,
+.high-contrast .bg-surface-light,
+.high-contrast .dark\:bg-surface-dark {
+  background-color: #000000 !important;
+  color: #ffffff !important;
+}
+
+.high-contrast .bg-white,
+.high-contrast .dark\:bg-slate-800,
+.high-contrast .bg-slate-50,
+.high-contrast .dark\:bg-slate-900\/50,
+.high-contrast .dark\:bg-slate-800\/50 {
+  background-color: #000000 !important;
+  border: 2px solid #ffff00 !important;
+  color: #ffffff !important;
+}
+
+.high-contrast text-slate-500,
+.high-contrast .dark\:text-slate-400,
+.high-contrast .text-slate-600,
+.high-contrast .dark\:text-slate-300 {
+  color: #ffffff !important;
+}
+
+.high-contrast button,
+.high-contrast a,
+.high-contrast input,
+.high-contrast select {
+  border: 2px solid #00ffff !important;
+  color: #ffffff !important;
+  background-color: #000000 !important;
+}
+
+.high-contrast .text-teal-600,
+.high-contrast .dark\:text-teal-400,
+.high-contrast .text-brand-500 {
+  color: #ffff00 !important;
+  /* Yellow text for emphasis */
+}
+
+.high-contrast .bg-teal-500,
+.high-contrast .bg-brand-500,
+.high-contrast .bg-indigo-500 {
+  background-color: #ffff00 !important;
+  color: #000000 !important;
+  border: 2px solid #ffffff !important;
+}
+
+.high-contrast svg {
+  stroke: currentColor !important;
+}
+
+/* Respect user motion preferences - WCAG 2.1 Level AA */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  /* Disable specific animations */
+  .status-pulse::after {
+    animation: none !important;
+  }
+
+  .animate-ping {
+    animation: none !important;
+  }
+}
+
+/* Screen reader only - hides visually but keeps for assistive tech */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+.sr-only:focus {
+  position: static;
+  width: auto;
+  height: auto;
+  padding: inherit;
+  margin: inherit;
+  overflow: visible;
+  clip: auto;
+  white-space: normal;
 }

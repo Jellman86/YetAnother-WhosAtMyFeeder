@@ -9,7 +9,8 @@ from pydantic import BaseModel, Field
 log = structlog.get_logger()
 
 # Use /config directory for persistent config (matches Docker volume mount)
-CONFIG_PATH = Path("/config/config.json")
+# Allow override via environment variable for testing
+CONFIG_PATH = Path(os.getenv("CONFIG_FILE", "/config/config.json"))
 
 class FrigateSettings(BaseModel):
     frigate_url: str = Field(..., description="URL of the Frigate instance")
@@ -60,6 +61,10 @@ class ClassificationSettings(BaseModel):
     video_classification_delay: int = Field(default=30, description="Seconds to wait before checking for clip (allow Frigate to finalize)")
     video_classification_max_retries: int = Field(default=3, description="Max retries for clip availability")
     video_classification_retry_interval: int = Field(default=15, description="Seconds between retries")
+    video_classification_max_concurrent: int = Field(default=5, ge=1, le=20, description="Maximum concurrent video classification tasks")
+
+    # Classification output settings
+    max_classification_results: int = Field(default=5, ge=1, le=20, description="Maximum number of top results to return from classifier")
 
     # Wildlife/general animal model settings
     wildlife_model: str = Field(default="wildlife_model.tflite", description="Wildlife classification model file")
@@ -115,6 +120,27 @@ class TelegramSettings(BaseModel):
     chat_id: Optional[str] = Field(default=None, description="Telegram Chat ID")
     include_snapshot: bool = Field(default=True, description="Include snapshot image")
 
+class EmailSettings(BaseModel):
+    enabled: bool = Field(default=False, description="Enable Email notifications")
+    # OAuth2 Settings
+    use_oauth: bool = Field(default=False, description="Use OAuth2 authentication (Gmail/Outlook)")
+    oauth_provider: Optional[str] = Field(default=None, description="OAuth provider: 'gmail' or 'outlook'")
+    gmail_client_id: Optional[str] = Field(default=None, description="Gmail OAuth Client ID")
+    gmail_client_secret: Optional[str] = Field(default=None, description="Gmail OAuth Client Secret")
+    outlook_client_id: Optional[str] = Field(default=None, description="Outlook OAuth Client ID")
+    outlook_client_secret: Optional[str] = Field(default=None, description="Outlook OAuth Client Secret")
+    # Traditional SMTP Settings
+    smtp_host: Optional[str] = Field(default=None, description="SMTP server hostname")
+    smtp_port: int = Field(default=587, description="SMTP server port")
+    smtp_username: Optional[str] = Field(default=None, description="SMTP username")
+    smtp_password: Optional[str] = Field(default=None, description="SMTP password")
+    smtp_use_tls: bool = Field(default=True, description="Use TLS for SMTP connection")
+    # Email Settings
+    from_email: Optional[str] = Field(default=None, description="Sender email address")
+    to_email: Optional[str] = Field(default=None, description="Recipient email address")
+    include_snapshot: bool = Field(default=True, description="Include bird snapshot image")
+    dashboard_url: Optional[str] = Field(default=None, description="Dashboard URL for email links")
+
 class NotificationFilterSettings(BaseModel):
     species_whitelist: list[str] = Field(default=[], description="Only notify for these species (empty = all)")
     min_confidence: float = Field(default=0.7, description="Minimum confidence to trigger notification")
@@ -125,7 +151,21 @@ class NotificationSettings(BaseModel):
     discord: DiscordSettings = DiscordSettings()
     pushover: PushoverSettings = PushoverSettings()
     telegram: TelegramSettings = TelegramSettings()
+    email: EmailSettings = EmailSettings()
     filters: NotificationFilterSettings = NotificationFilterSettings()
+    notification_language: str = Field(default="en", description="Language for notifications (en, es, fr, de, ja)")
+
+class AccessibilitySettings(BaseModel):
+    high_contrast: bool = Field(default=False, description="Enable high contrast mode")
+    dyslexia_font: bool = Field(default=False, description="Enable dyslexia-friendly font")
+    reduced_motion: bool = Field(default=False, description="Reduce motion/animations")
+    zen_mode: bool = Field(default=False, description="Enable simplified zen mode")
+    live_announcements: bool = Field(default=True, description="Enable screen reader live announcements")
+
+class SystemSettings(BaseModel):
+    """System-level performance and resource settings"""
+    broadcaster_max_queue_size: int = Field(default=100, ge=10, le=1000, description="Maximum SSE message queue size per subscriber")
+    broadcaster_max_consecutive_full: int = Field(default=10, ge=1, le=100, description="Remove subscriber after this many consecutive backpressure failures")
 
 class Settings(BaseSettings):
     frigate: FrigateSettings
@@ -137,7 +177,10 @@ class Settings(BaseSettings):
     llm: LLMSettings = LLMSettings()
     telemetry: TelemetrySettings = TelemetrySettings()
     notifications: NotificationSettings = NotificationSettings()
-    
+    accessibility: AccessibilitySettings = AccessibilitySettings()
+    system: SystemSettings = SystemSettings()
+    species_info_source: str = Field(default="auto", description="Species info source: auto, inat, or wikipedia")
+
     # General app settings
     log_level: str = "INFO"
     api_key: Optional[str] = None
@@ -249,13 +292,43 @@ class Settings(BaseSettings):
                 'chat_id': os.environ.get('NOTIFICATIONS__TELEGRAM__CHAT_ID', None),
                 'include_snapshot': os.environ.get('NOTIFICATIONS__TELEGRAM__INCLUDE_SNAPSHOT', 'true').lower() == 'true',
             },
+            'email': {
+                'enabled': os.environ.get('NOTIFICATIONS__EMAIL__ENABLED', 'false').lower() == 'true',
+                'use_oauth': os.environ.get('NOTIFICATIONS__EMAIL__USE_OAUTH', 'false').lower() == 'true',
+                'oauth_provider': os.environ.get('NOTIFICATIONS__EMAIL__OAUTH_PROVIDER', None),
+                'gmail_client_id': os.environ.get('NOTIFICATIONS__EMAIL__GMAIL_CLIENT_ID', None),
+                'gmail_client_secret': os.environ.get('NOTIFICATIONS__EMAIL__GMAIL_CLIENT_SECRET', None),
+                'outlook_client_id': os.environ.get('NOTIFICATIONS__EMAIL__OUTLOOK_CLIENT_ID', None),
+                'outlook_client_secret': os.environ.get('NOTIFICATIONS__EMAIL__OUTLOOK_CLIENT_SECRET', None),
+                'smtp_host': os.environ.get('NOTIFICATIONS__EMAIL__SMTP_HOST', None),
+                'smtp_port': int(os.environ.get('NOTIFICATIONS__EMAIL__SMTP_PORT', '587')),
+                'smtp_username': os.environ.get('NOTIFICATIONS__EMAIL__SMTP_USERNAME', None),
+                'smtp_password': os.environ.get('NOTIFICATIONS__EMAIL__SMTP_PASSWORD', None),
+                'smtp_use_tls': os.environ.get('NOTIFICATIONS__EMAIL__SMTP_USE_TLS', 'true').lower() == 'true',
+                'from_email': os.environ.get('NOTIFICATIONS__EMAIL__FROM_EMAIL', None),
+                'to_email': os.environ.get('NOTIFICATIONS__EMAIL__TO_EMAIL', None),
+                'include_snapshot': os.environ.get('NOTIFICATIONS__EMAIL__INCLUDE_SNAPSHOT', 'true').lower() == 'true',
+                'dashboard_url': os.environ.get('NOTIFICATIONS__EMAIL__DASHBOARD_URL', None),
+            },
             'filters': {
                 'species_whitelist': [],
                 'min_confidence': 0.7,
                 'audio_confirmed_only': False,
                 'camera_filters': {}
-            }
+            },
+            'notification_language': os.environ.get('NOTIFICATIONS__NOTIFICATION_LANGUAGE', 'en')
         }
+
+        # Accessibility settings
+        accessibility_data = {
+            'high_contrast': os.environ.get('ACCESSIBILITY__HIGH_CONTRAST', 'false').lower() == 'true',
+            'dyslexia_font': os.environ.get('ACCESSIBILITY__DYSLEXIA_FONT', 'false').lower() == 'true',
+            'reduced_motion': os.environ.get('ACCESSIBILITY__REDUCED_MOTION', 'false').lower() == 'true',
+            'zen_mode': os.environ.get('ACCESSIBILITY__ZEN_MODE', 'false').lower() == 'true',
+            'live_announcements': os.environ.get('ACCESSIBILITY__LIVE_ANNOUNCEMENTS', 'true').lower() == 'true',
+        }
+
+        species_info_source = os.environ.get('SPECIES_INFO__SOURCE', 'auto')
 
         # Load from config file if it exists, env vars take precedence
         if CONFIG_PATH.exists():
@@ -337,10 +410,31 @@ class Settings(BaseSettings):
                             env_key = f'NOTIFICATIONS__TELEGRAM__{k.upper()}'
                             if env_key not in os.environ:
                                 notifications_data['telegram'][k] = v
+
+                    # Email
+                    if 'email' in n_file:
+                        for k, v in n_file['email'].items():
+                            env_key = f'NOTIFICATIONS__EMAIL__{k.upper()}'
+                            if env_key not in os.environ:
+                                notifications_data['email'][k] = v
                                 
                     # Filters (file only)
                     if 'filters' in n_file:
                          notifications_data['filters'] = n_file['filters']
+                    
+                    if 'notification_language' in n_file:
+                        env_key = 'NOTIFICATIONS__NOTIFICATION_LANGUAGE'
+                        if env_key not in os.environ:
+                            notifications_data['notification_language'] = n_file['notification_language']
+
+                if 'accessibility' in file_data:
+                    for k, v in file_data['accessibility'].items():
+                        env_key = f'ACCESSIBILITY__{k.upper()}'
+                        if env_key not in os.environ:
+                            accessibility_data[k] = v
+
+                if 'species_info_source' in file_data and 'SPECIES_INFO__SOURCE' not in os.environ:
+                    species_info_source = file_data['species_info_source']
 
                 log.info("Loaded config from file", path=str(CONFIG_PATH))
             except Exception as e:
@@ -379,6 +473,8 @@ class Settings(BaseSettings):
             llm=LLMSettings(**llm_data),
             telemetry=TelemetrySettings(**telemetry_data),
             notifications=NotificationSettings(**notifications_data),
+            accessibility=AccessibilitySettings(**accessibility_data),
+            species_info_source=species_info_source,
             api_key=api_key
         )
 

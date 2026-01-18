@@ -1,10 +1,12 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import ErrorBoundary from './lib/components/ErrorBoundary.svelte';
   import Header from './lib/components/Header.svelte';
   import Sidebar from './lib/components/Sidebar.svelte';
   import Footer from './lib/components/Footer.svelte';
   import TelemetryBanner from './lib/components/TelemetryBanner.svelte';
   import Toast from './lib/components/Toast.svelte';
+  import KeyboardShortcuts from './lib/components/KeyboardShortcuts.svelte';
   import Dashboard from './lib/pages/Dashboard.svelte';
   import Events from './lib/pages/Events.svelte';
   import Species from './lib/pages/Species.svelte';
@@ -12,27 +14,35 @@
   import About from './lib/pages/About.svelte';
   import Login from './lib/components/Login.svelte';
   import { fetchEvents, fetchEventsCount, type Detection, setAuthErrorCallback } from './lib/api';
-  import { theme } from './lib/stores/theme';
-  import { layout, sidebarCollapsed } from './lib/stores/layout';
+  import { themeStore } from './lib/stores/theme.svelte';
+  import { layoutStore } from './lib/stores/layout.svelte';
   import { settingsStore } from './lib/stores/settings.svelte';
   import { detectionsStore } from './lib/stores/detections.svelte';
   import { authStore } from './lib/stores/auth.svelte';
+  import { announcer } from './lib/components/Announcer.svelte';
+  import Announcer from './lib/components/Announcer.svelte';
+  import { initKeyboardShortcuts } from './lib/utils/keyboard-shortcuts';
+  import { logger } from './lib/utils/logger';
 
-  // Track current layout
-  let currentLayout = $state<'horizontal' | 'vertical'>('horizontal');
-  let isSidebarCollapsed = $state(false);
-
-  layout.subscribe(value => {
-      currentLayout = value;
-  });
-
-  sidebarCollapsed.subscribe(value => {
-      isSidebarCollapsed = value;
-  });
+  // Track current layout using reactive derived
+  let currentLayout = $derived(layoutStore.layout);
+  let isSidebarCollapsed = $derived(layoutStore.sidebarCollapsed);
 
 
   // Router state
   let currentRoute = $state('/');
+
+  // Accessibility Logic
+  $effect(() => {
+      const s = settingsStore.settings;
+      if (s) {
+          if (s.accessibility_high_contrast) document.documentElement.classList.add('high-contrast');
+          else document.documentElement.classList.remove('high-contrast');
+
+          if (s.accessibility_dyslexia_font) document.documentElement.classList.add('font-dyslexic');
+          else document.documentElement.classList.remove('font-dyslexic');
+      }
+  });
 
   function navigate(path: string) {
       currentRoute = path;
@@ -45,6 +55,9 @@
   let reconnectTimeout: number | null = $state(null);
   let isReconnecting = $state(false);
   let mobileSidebarOpen = $state(false);
+
+  // Keyboard shortcuts
+  let showKeyboardShortcuts = $state(false);
 
   // Handle back button and initial load
   onMount(() => {
@@ -61,8 +74,8 @@
       const path = window.location.pathname;
       currentRoute = path === '' ? '/' : path;
 
-      // Initialize theme and settings
-      theme.init();
+      // Initialize settings and load initial data
+      // (theme is automatically initialized in the store constructor)
       settingsStore.load();
       detectionsStore.loadInitial();
       connectSSE();
@@ -70,16 +83,31 @@
       // Handle page visibility changes - reconnect when tab becomes visible
       const handleVisibilityChange = () => {
           if (!document.hidden && !detectionsStore.connected && !isReconnecting) {
-              console.log("Tab became visible, attempting to reconnect SSE...");
+              logger.info("Tab became visible, attempting to reconnect SSE");
               reconnectAttempts = 0; // Reset backoff when user returns to tab
               scheduleReconnect();
           }
       };
       document.addEventListener('visibilitychange', handleVisibilityChange);
 
+      // Initialize keyboard shortcuts
+      const cleanupShortcuts = initKeyboardShortcuts({
+          '?': () => showKeyboardShortcuts = true,
+          'g d': () => navigate('/'),
+          'g e': () => navigate('/events'),
+          'g l': () => navigate('/species'),
+          'g t': () => navigate('/settings'),
+          'Escape': () => {
+              // Close keyboard shortcuts modal
+              showKeyboardShortcuts = false;
+          },
+          'r': () => window.location.reload()
+      });
+
       return () => {
           window.removeEventListener('popstate', handlePopState);
           document.removeEventListener('visibilitychange', handleVisibilityChange);
+          cleanupShortcuts();
           if (evtSource) {
               evtSource.close();
               evtSource = null;
@@ -101,7 +129,7 @@
 
       // Exponential backoff: 1s, 2s, 4s, 8s, 16s, max 30s
       const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000);
-      console.log(`Scheduling SSE reconnect in ${delay}ms (attempt ${reconnectAttempts + 1})`);
+      logger.debug(`Scheduling SSE reconnect`, { delay, attempt: reconnectAttempts + 1 });
 
       reconnectTimeout = window.setTimeout(() => {
           reconnectTimeout = null;
@@ -122,7 +150,7 @@
           evtSource = new EventSource('/api/sse');
 
           evtSource.onopen = () => {
-              console.log("SSE Connection opened");
+              logger.sseEvent("connection_opened");
           };
 
           evtSource.onmessage = (event) => {
@@ -132,18 +160,18 @@
                  try {
                      payload = JSON.parse(event.data);
                  } catch (parseError) {
-                     console.error("SSE JSON Parse Error:", parseError, "Data:", event.data);
+                     logger.error("SSE JSON Parse Error", parseError, { data: event.data });
                      return;
                  }
 
                  // Validate payload structure
                  if (!payload || typeof payload !== 'object') {
-                     console.error("SSE Invalid payload structure:", payload);
+                     logger.error("SSE Invalid payload structure", undefined, { payload });
                      return;
                  }
 
                  if (!payload.type) {
-                     console.error("SSE Missing payload type:", payload);
+                     logger.error("SSE Missing payload type", undefined, { payload });
                      return;
                  }
 
@@ -152,10 +180,10 @@
                      if (payload.type === 'connected') {
                          detectionsStore.setConnected(true);
                          reconnectAttempts = 0; // Reset backoff on successful connection
-                         console.log("SSE Connected:", payload.message);
+                         logger.sseEvent("connected", { message: payload.message });
                      } else if (payload.type === 'detection') {
                          if (!payload.data || !payload.data.frigate_event) {
-                             console.error("SSE Invalid detection data:", payload);
+                             logger.error("SSE Invalid detection data", undefined, { payload });
                              return;
                          }
                          const newDet: Detection = {
@@ -180,9 +208,12 @@
                              video_classification_timestamp: payload.data.video_classification_timestamp
                          };
                          detectionsStore.addDetection(newDet);
+                         if (settingsStore.settings?.accessibility_live_announcements ?? true) {
+                             announcer.announce(`New bird detected: ${newDet.display_name} at ${newDet.camera_name}`);
+                         }
                      } else if (payload.type === 'detection_updated') {
                          if (!payload.data || !payload.data.frigate_event) {
-                             console.error("SSE Invalid detection_updated data:", payload);
+                             logger.error("SSE Invalid detection_updated data", undefined, { payload });
                              return;
                          }
                          const updatedDet: Detection = {
@@ -210,7 +241,7 @@
                          detectionsStore.updateDetection(updatedDet);
                      } else if (payload.type === 'detection_deleted') {
                          if (!payload.data || !payload.data.frigate_event) {
-                             console.error("SSE Invalid detection_deleted data:", payload);
+                             logger.error("SSE Invalid detection_deleted data", undefined, { payload });
                              return;
                          }
                          detectionsStore.removeDetection(payload.data.frigate_event, payload.data.timestamp);
@@ -265,14 +296,20 @@
               scheduleReconnect();
           };
       } catch (error) {
-          console.error("Failed to create SSE connection:", error);
+          logger.error("Failed to create SSE connection", error);
           detectionsStore.setConnected(false);
           scheduleReconnect();
       }
   }
 </script>
 
+<ErrorBoundary>
+  {#snippet children()}
   <div class="min-h-screen flex flex-col bg-surface-light dark:bg-surface-dark text-slate-900 dark:text-white font-sans transition-colors duration-300">
+  <!-- Skip to content for accessibility -->
+  <a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:z-[100] focus:bg-brand-500 focus:text-white focus:px-4 focus:py-2 focus:rounded-b-lg focus:left-4 focus:top-0 focus:font-bold">
+    Skip to content
+  </a>
 
   {#if authStore.requiresLogin}
       <Login />
@@ -296,9 +333,9 @@
               <!-- Theme toggle for mobile -->
               <button
                   class="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-colors"
-                  onclick={() => theme.toggle()}
+                  onclick={() => themeStore.toggle()}
               >
-                  {#if $theme === 'dark'}
+                  {#if themeStore.theme === 'dark'}
                       <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                           <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
                       </svg>
@@ -339,7 +376,7 @@
               {/snippet}
           </Sidebar>
       {:else}
-          <Header {currentRoute} onNavigate={navigate}>
+          <Header {currentRoute} onNavigate={navigate} onShowKeyboardShortcuts={() => showKeyboardShortcuts = true}>
               {#snippet status()}
                   <div class="flex items-center gap-4">
                       {#if settingsStore.settings?.birdnet_enabled}
@@ -374,7 +411,7 @@
 
       <!-- Main Content Wrapper -->
       <div class="flex-1 flex flex-col transition-all duration-300 {currentLayout === 'vertical' ? (isSidebarCollapsed ? 'md:pl-20' : 'md:pl-64') : ''}">
-          <main class="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <main id="main-content" class="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
               {#if currentRoute === '/'}
                   <Dashboard onnavigate={navigate} />
               {:else if currentRoute.startsWith('/events')}
@@ -387,11 +424,17 @@
                    <About />
               {/if}
           </main>
+          
+          <Footer />
       </div>
-
-      <Footer />
   {/if}
 
   <!-- Toast Notifications -->
   <Toast />
+  <Announcer />
+
+  <!-- Keyboard Shortcuts Modal -->
+  <KeyboardShortcuts bind:visible={showKeyboardShortcuts} />
 </div>
+  {/snippet}
+</ErrorBoundary>
