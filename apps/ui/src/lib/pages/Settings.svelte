@@ -82,6 +82,7 @@
     let locationLat = $state<number | null>(null);
     let locationLon = $state<number | null>(null);
     let locationAuto = $state(true);
+    let locationTemperatureUnit = $state<'celsius' | 'fahrenheit'>('celsius');
 
     // BirdNET-Go Settings
     let birdnetEnabled = $state(true);
@@ -294,6 +295,7 @@
             { key: 'locationLat', val: locationLat, store: s.location_latitude ?? null },
             { key: 'locationLon', val: locationLon, store: s.location_longitude ?? null },
             { key: 'locationAuto', val: locationAuto, store: s.location_automatic ?? true },
+            { key: 'locationTemperatureUnit', val: locationTemperatureUnit, store: s.location_temperature_unit ?? 'celsius' },
             { key: 'birdweatherEnabled', val: birdweatherEnabled, store: s.birdweather_enabled ?? false },
             { key: 'birdweatherStationToken', val: birdweatherStationToken, store: s.birdweather_station_token || '' },
             { key: 'llmEnabled', val: llmEnabled, store: s.llm_enabled ?? false },
@@ -594,6 +596,7 @@
             locationLat = settings.location_latitude ?? null;
             locationLon = settings.location_longitude ?? null;
             locationAuto = settings.location_automatic ?? true;
+            locationTemperatureUnit = settings.location_temperature_unit ?? 'celsius';
             // BirdWeather settings
             birdweatherEnabled = settings.birdweather_enabled ?? false;
             birdweatherStationToken = settings.birdweather_station_token ?? '';
@@ -739,6 +742,7 @@
                 location_latitude: locationLat,
                 location_longitude: locationLon,
                 location_automatic: locationAuto,
+                location_temperature_unit: locationTemperatureUnit,
                 birdweather_enabled: birdweatherEnabled,
                 birdweather_station_token: birdweatherStationToken,
                 llm_enabled: llmEnabled,
@@ -1104,6 +1108,7 @@
                     bind:locationLat
                     bind:locationLon
                     bind:locationAuto
+                    bind:locationTemperatureUnit
                     {availableCameras}
                     {availableModels}
                     {testingBirdWeather}

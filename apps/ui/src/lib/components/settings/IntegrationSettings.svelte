@@ -21,6 +21,7 @@
         locationAuto = $bindable(true),
         locationLat = $bindable<number | null>(null),
         locationLon = $bindable<number | null>(null),
+        locationTemperatureUnit = $bindable<'celsius' | 'fahrenheit'>('celsius'),
         handleTestBirdNET,
         handleTestBirdWeather
     }: {
@@ -42,6 +43,7 @@
         locationAuto: boolean;
         locationLat: number | null;
         locationLon: number | null;
+        locationTemperatureUnit: 'celsius' | 'fahrenheit';
         handleTestBirdNET: () => Promise<void>;
         handleTestBirdWeather: () => Promise<void>;
     } = $props();
@@ -333,6 +335,20 @@
             {:else}
                 <div class="p-4 rounded-2xl bg-teal-500/5 border border-teal-500/10 text-teal-600 dark:text-teal-400 text-xs font-black uppercase tracking-widest text-center">Auto-detect via IP enabled</div>
             {/if}
+
+            <div>
+                <label for="temperature-unit" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Temperature Unit</label>
+                <select
+                    id="temperature-unit"
+                    bind:value={locationTemperatureUnit}
+                    aria-label="Temperature unit"
+                    class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-teal-500 outline-none"
+                >
+                    <option value="celsius">Celsius (°C)</option>
+                    <option value="fahrenheit">Fahrenheit (°F)</option>
+                </select>
+                <p class="mt-1 text-[10px] text-slate-400 font-bold italic">Display temperature in weather data</p>
+            </div>
         </div>
     </section>
 </div>
