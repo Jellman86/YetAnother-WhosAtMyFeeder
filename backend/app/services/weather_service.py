@@ -35,18 +35,22 @@ class WeatherService:
         return None, None
 
     async def get_current_weather(self) -> dict:
-        """Fetch current weather for the configured location."""
+        """Fetch current weather for the configured location.
+
+        Note: Always fetches temperature in Celsius for consistent database storage.
+        Frontend converts to user's preferred unit for display.
+        """
         try:
             lat, lon = await self.get_location()
-            
+
             if lat is None or lon is None:
                 return {}
-                
+
             params = {
                 "latitude": lat,
                 "longitude": lon,
                 "current": "temperature_2m,weather_code,is_day",
-                "temperature_unit": settings.location.temperature_unit
+                "temperature_unit": "celsius"  # Always store in Celsius
             }
             
             # Use short timeout for weather to avoid blocking event processing
