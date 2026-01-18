@@ -212,6 +212,19 @@
       "chat_id_placeholder": "123456789",
       "test_notification": "Send test notification",
       "test_sending": "Sending..."
+    },
+    "location": {
+      "title": "Location",
+      "auto": "Auto",
+      "manual": "Manual",
+      "latitude": "Latitude",
+      "longitude": "Longitude",
+      "temperature_unit": "Temperature Unit",
+      "celsius": "Celsius (°C)",
+      "fahrenheit": "Fahrenheit (°F)",
+      "temperature_unit_desc": "Display temperature in weather data",
+      "auto_detect_enabled": "Auto-detect via IP enabled",
+      "desc": "Used for localized weather context during detections."
     }
   },
   "notifications": {

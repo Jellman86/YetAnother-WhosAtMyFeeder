@@ -280,11 +280,11 @@
                 <div class="w-10 h-10 rounded-2xl bg-orange-500/10 flex items-center justify-center text-orange-600 dark:text-orange-400">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
                 </div>
-                <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">Location</h3>
+                <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">{$_('settings.location.title')}</h3>
             </div>
 
             <div class="flex items-center gap-3">
-                <span class="text-[10px] font-black uppercase tracking-widest {locationAuto ? 'text-teal-500' : 'text-slate-400'}">Auto</span>
+                <span class="text-[10px] font-black uppercase tracking-widest {locationAuto ? 'text-teal-500' : 'text-slate-400'}">{$_('settings.location.auto')}</span>
                 <button
                     role="switch"
                     aria-checked={locationAuto}
@@ -301,53 +301,53 @@
                     <span class="sr-only">Location auto-detect</span>
                     <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {locationAuto ? 'translate-x-5' : 'translate-x-0'}"></span>
                 </button>
-                <span class="text-[10px] font-black uppercase tracking-widest {!locationAuto ? 'text-orange-500' : 'text-slate-400'}">Manual</span>
+                <span class="text-[10px] font-black uppercase tracking-widest {!locationAuto ? 'text-orange-500' : 'text-slate-400'}">{$_('settings.location.manual')}</span>
             </div>
         </div>
 
         <div class="space-y-6">
-            <p class="text-xs font-bold text-slate-500 leading-relaxed uppercase tracking-wider">Used for localized weather context during detections.</p>
+            <p class="text-xs font-bold text-slate-500 leading-relaxed uppercase tracking-wider">{$_('settings.location.desc')}</p>
             {#if !locationAuto}
                 <div class="grid grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2">
                     <div>
-                        <label for="location-lat" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Latitude</label>
+                        <label for="location-lat" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.location.latitude')}</label>
                         <input
                             id="location-lat"
                             type="number"
                             step="any"
                             bind:value={locationLat}
-                            aria-label="Latitude"
+                            aria-label="{$_('settings.location.latitude')}"
                             class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"
                         />
                     </div>
                     <div>
-                        <label for="location-lon" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Longitude</label>
+                        <label for="location-lon" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.location.longitude')}</label>
                         <input
                             id="location-lon"
                             type="number"
                             step="any"
                             bind:value={locationLon}
-                            aria-label="Longitude"
+                            aria-label="{$_('settings.location.longitude')}"
                             class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"
                         />
                     </div>
                 </div>
             {:else}
-                <div class="p-4 rounded-2xl bg-teal-500/5 border border-teal-500/10 text-teal-600 dark:text-teal-400 text-xs font-black uppercase tracking-widest text-center">Auto-detect via IP enabled</div>
+                <div class="p-4 rounded-2xl bg-teal-500/5 border border-teal-500/10 text-teal-600 dark:text-teal-400 text-xs font-black uppercase tracking-widest text-center">{$_('settings.location.auto_detect_enabled')}</div>
             {/if}
 
             <div>
-                <label for="temperature-unit" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Temperature Unit</label>
+                <label for="temperature-unit" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.location.temperature_unit')}</label>
                 <select
                     id="temperature-unit"
                     bind:value={locationTemperatureUnit}
-                    aria-label="Temperature unit"
+                    aria-label="{$_('settings.location.temperature_unit')}"
                     class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-teal-500 outline-none"
                 >
-                    <option value="celsius">Celsius (°C)</option>
-                    <option value="fahrenheit">Fahrenheit (°F)</option>
+                    <option value="celsius">{$_('settings.location.celsius')}</option>
+                    <option value="fahrenheit">{$_('settings.location.fahrenheit')}</option>
                 </select>
-                <p class="mt-1 text-[10px] text-slate-400 font-bold italic">Display temperature in weather data</p>
+                <p class="mt-1 text-[10px] text-slate-400 font-bold italic">{$_('settings.location.temperature_unit_desc')}</p>
             </div>
         </div>
     </section>

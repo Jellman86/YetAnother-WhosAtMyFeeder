@@ -204,6 +204,19 @@
       "chat_id_placeholder": "123456789",
       "test_notification": "テスト通知を送信",
       "test_sending": "送信中..."
+    },
+    "location": {
+      "title": "位置情報",
+      "auto": "自動",
+      "manual": "手動",
+      "latitude": "緯度",
+      "longitude": "経度",
+      "temperature_unit": "温度単位",
+      "celsius": "摂氏（°C）",
+      "fahrenheit": "華氏（°F）",
+      "temperature_unit_desc": "気象データに温度を表示",
+      "auto_detect_enabled": "IPによる自動検出が有効です",
+      "desc": "検出時のローカライズされた気象コンテキストに使用されます。"
     }
   },
   "notifications": {

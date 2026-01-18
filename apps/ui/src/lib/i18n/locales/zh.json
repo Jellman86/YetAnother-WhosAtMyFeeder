@@ -205,6 +205,19 @@
       "chat_id_placeholder": "123456789",
       "test_notification": "发送测试通知",
       "test_sending": "发送中..."
+    },
+    "location": {
+      "title": "位置",
+      "auto": "自动",
+      "manual": "手动",
+      "latitude": "纬度",
+      "longitude": "经度",
+      "temperature_unit": "温度单位",
+      "celsius": "摄氏度（°C）",
+      "fahrenheit": "华氏度（°F）",
+      "temperature_unit_desc": "在天气数据中显示温度",
+      "auto_detect_enabled": "已启用通过 IP 自动检测",
+      "desc": "用于检测期间的本地化天气上下文。"
     }
   },
   "notifications": {
