@@ -11,6 +11,8 @@ from app.repositories.detection_repository import DetectionRepository
 
 from app.services.taxonomy.taxonomy_service import taxonomy_service
 from app.services.telemetry_service import telemetry_service
+from app.services.notification_service import notification_service
+from app.services.auto_video_classifier_service import auto_video_classifier
 
 from fastapi import BackgroundTasks
 
@@ -83,8 +85,6 @@ class NotificationTestRequest(BaseModel):
 @router.post("/settings/notifications/test")
 async def test_notification(request: NotificationTestRequest):
     """Test notification platform with optional credential overrides."""
-from app.services.notification_service import notification_service
-from app.services.auto_video_classifier_service import auto_video_classifier
     
     # Create mock detection data
     species = "Cyanistes caeruleus"
