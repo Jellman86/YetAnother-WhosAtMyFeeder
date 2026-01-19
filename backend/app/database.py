@@ -8,6 +8,52 @@ from typing import Optional
 
 log = structlog.get_logger()
 DB_PATH = os.environ.get("DB_PATH", "/data/speciesid.db")
+REQUIRED_COLUMNS = {
+    "detections": {
+        "video_classification_error",
+        "ai_analysis",
+        "ai_analysis_timestamp",
+        "manual_tagged",
+    }
+}
+
+
+async def _verify_schema(backend_dir: str) -> None:
+    from alembic.config import Config
+    from alembic.script import ScriptDirectory
+
+    config = Config(os.path.join(backend_dir, "alembic.ini"))
+    script = ScriptDirectory.from_config(config)
+    expected_heads = set(script.get_heads())
+
+    async with aiosqlite.connect(DB_PATH) as db:
+        try:
+            async with db.execute("SELECT version_num FROM alembic_version") as cursor:
+                rows = await cursor.fetchall()
+        except Exception as e:
+            log.error("Missing alembic_version table", error=str(e))
+            raise RuntimeError("Missing alembic_version table") from e
+
+        db_versions = {row[0] for row in rows if row and row[0]}
+        if db_versions != expected_heads:
+            log.error(
+                "Database schema is not at Alembic head",
+                db_versions=sorted(db_versions),
+                expected_heads=sorted(expected_heads),
+            )
+            raise RuntimeError("Database schema is not at Alembic head")
+
+        for table, required in REQUIRED_COLUMNS.items():
+            async with db.execute(f"PRAGMA table_info({table})") as cursor:
+                columns = {row[1] for row in await cursor.fetchall()}
+            missing = sorted(required - columns)
+            if missing:
+                log.error(
+                    "Database schema missing required columns",
+                    table=table,
+                    missing=missing,
+                )
+                raise RuntimeError(f"Database schema missing columns: {missing}")
 
 
 class DatabasePool:
@@ -119,9 +165,9 @@ async def init_db():
 
     # Run Alembic migrations
     log.info("Running database migrations...")
+    backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     try:
         import subprocess
-        backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         env = os.environ.copy()
         env["DB_PATH"] = DB_PATH
 
@@ -145,8 +191,14 @@ async def init_db():
             raise RuntimeError("Database migration failed")
     except subprocess.TimeoutExpired:
         log.error("Database migration timed out after 60 seconds")
+        raise
     except Exception as e:
         log.error("Failed to run database migrations", error=str(e))
+        raise
+
+    log.info("Verifying database schema...")
+    await _verify_schema(backend_dir)
+    log.info("Database schema verification completed")
 
     # Initialize connection pool
     _db_pool = DatabasePool(DB_PATH, pool_size=5)
