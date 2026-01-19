@@ -26,7 +26,7 @@ target_metadata = metadata
 
 def get_url():
     # In YA-WAMF, we use SQLite
-    db_path = os.environ.get("DB_PATH", "data/speciesid.db")
+    db_path = os.environ.get("DB_PATH", "/data/speciesid.db")
     return f"sqlite:///{db_path}"
 
 def run_migrations_offline() -> None:

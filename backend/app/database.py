@@ -1,4 +1,5 @@
 import os
+import sys
 import asyncio
 import aiosqlite
 import structlog
@@ -120,13 +121,14 @@ async def init_db():
     log.info("Running database migrations...")
     try:
         import subprocess
-        # Get the path to alembic relative to the venv
         backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        env = os.environ.copy()
+        env["DB_PATH"] = DB_PATH
 
-        # Determine script path (in backend directory)
         result = subprocess.run(
-            ["alembic", "upgrade", "head"],
+            [sys.executable, "-m", "alembic", "upgrade", "head"],
             cwd=backend_dir,
+            env=env,
             capture_output=True,
             text=True,
             timeout=60  # 60 second timeout to prevent indefinite hangs
@@ -135,9 +137,12 @@ async def init_db():
         if result.returncode == 0:
             log.info("Database migrations completed successfully")
         else:
-            log.error("Database migration failed", error=result.stderr)
-            # We don't necessarily want to crash here if it's just a warning
-            # but usually migrations are critical.
+            log.error(
+                "Database migration failed",
+                error=result.stderr,
+                output=result.stdout
+            )
+            raise RuntimeError("Database migration failed")
     except subprocess.TimeoutExpired:
         log.error("Database migration timed out after 60 seconds")
     except Exception as e:
