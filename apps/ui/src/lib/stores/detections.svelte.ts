@@ -10,6 +10,9 @@ export interface ReclassificationProgress {
     eventId: string;
     currentFrame: number;
     totalFrames: number;
+    frameIndex?: number | null;
+    clipTotal?: number | null;
+    modelName?: string | null;
     frameResults: FrameResult[];
     status: 'running' | 'completed';
     results?: any; // Final results from backend
@@ -112,7 +115,10 @@ class DetectionsStore {
         totalFrames: number,
         frameScore: number,
         topLabel: string,
-        frameThumb?: string | null
+        frameThumb?: string | null,
+        frameIndex?: number | null,
+        clipTotal?: number | null,
+        modelName?: string | null
     ) {
         const newMap = new Map(this.progressMap);
         const existing = newMap.get(eventId);
@@ -122,6 +128,9 @@ class DetectionsStore {
                 ...existing,
                 currentFrame,
                 totalFrames,
+                frameIndex: frameIndex ?? existing.frameIndex ?? null,
+                clipTotal: clipTotal ?? existing.clipTotal ?? null,
+                modelName: modelName ?? existing.modelName ?? null,
                 frameResults: [...existing.frameResults, { score: frameScore, label: topLabel, thumb: frameThumb }],
                 status: 'running'
             });

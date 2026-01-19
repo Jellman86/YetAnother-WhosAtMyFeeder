@@ -13,6 +13,9 @@
     let currentFrameThumb = $derived(latestFrame?.thumb || null);
     let isComplete = $derived(progress.status === 'completed' || progress.currentFrame >= progress.totalFrames);
     let progressPercent = $derived(Math.round((progress.currentFrame / progress.totalFrames) * 100));
+    let displayFrameIndex = $derived(progress.frameIndex || progress.currentFrame);
+    let displayClipTotal = $derived(progress.clipTotal || progress.totalFrames);
+    let modelLabel = $derived(progress.modelName || null);
 
     function handleDismiss() {
         detectionsStore.dismissReclassification(progress.eventId);
@@ -96,7 +99,7 @@
                 <div class="mt-3 flex justify-between items-center px-1">
                     <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Frame Grid</span>
                     <span class="text-[10px] font-black text-teal-300 uppercase tracking-widest">
-                        Frame {progress.currentFrame}/{progress.totalFrames}
+                        Frame {displayFrameIndex}/{displayClipTotal}
                     </span>
                 </div>
             {/if}
@@ -108,13 +111,18 @@
                 <div class="flex flex-col items-center" transition:fade>
                     {#if !small}
                         <span class="px-2 py-0.5 rounded-md bg-teal-500/20 border border-teal-500/30 text-[9px] font-black text-teal-300 uppercase tracking-widest mb-1.5">
-                            Frame {progress.currentFrame} Results
+                            Frame {displayFrameIndex}/{displayClipTotal}
                         </span>
                     {/if}
                     <span class="{small ? 'text-[10px]' : 'text-base'} font-black text-white truncate max-w-[200px] drop-shadow-md">
                         {latestFrame.label}
                     </span>
                 </div>
+            {/if}
+            {#if modelLabel && !small}
+                <span class="text-[9px] font-black text-slate-300 uppercase tracking-widest mt-1">
+                    Model: {modelLabel}
+                </span>
             {/if}
             {#if isComplete && !small}
                 <div in:scale={{ delay: 300 }} class="mt-4 w-full">

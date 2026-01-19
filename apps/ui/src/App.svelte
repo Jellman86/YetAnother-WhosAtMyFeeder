@@ -264,7 +264,10 @@
                              payload.data.total_frames,
                              payload.data.frame_score,
                              payload.data.top_label,
-                             payload.data.frame_thumb
+                             payload.data.frame_thumb,
+                             payload.data.frame_index,
+                             payload.data.clip_total,
+                             payload.data.model_name
                          );
                      } else if (payload.type === 'reclassification_completed') {
                          if (!payload.data || !payload.data.event_id) {

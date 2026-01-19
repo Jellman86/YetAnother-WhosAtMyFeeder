@@ -732,6 +732,8 @@ class ClassifierService:
 
             all_scores = []
 
+            model_name = os.path.basename(bird_model.model_path) if hasattr(bird_model, "model_path") else "bird"
+
             for idx in frame_indices:
                 # Seek to frame
                 cap.set(cv2.CAP_PROP_POS_FRAMES, idx)
@@ -772,7 +774,10 @@ class ClassifierService:
                             total_frames=len(frame_indices),
                             frame_score=top_score,
                             top_label=top_label,
-                            frame_thumb=frame_thumb
+                            frame_thumb=frame_thumb,
+                            frame_index=int(idx) + 1,
+                            clip_total=int(total_frames),
+                            model_name=model_name
                         )
 
             if not all_scores:
@@ -824,11 +829,29 @@ class ClassifierService:
 
         # Wrap the callback to make it thread-safe
         if progress_callback:
-            def sync_callback(current_frame, total_frames, frame_score, top_label, frame_thumb=None):
+            def sync_callback(
+                current_frame,
+                total_frames,
+                frame_score,
+                top_label,
+                frame_thumb=None,
+                frame_index=None,
+                clip_total=None,
+                model_name=None
+            ):
                 try:
                     # Schedule the async callback in the event loop from the executor thread
                     future = asyncio.run_coroutine_threadsafe(
-                        progress_callback(current_frame, total_frames, frame_score, top_label, frame_thumb),
+                        progress_callback(
+                            current_frame,
+                            total_frames,
+                            frame_score,
+                            top_label,
+                            frame_thumb,
+                            frame_index,
+                            clip_total,
+                            model_name
+                        ),
                         loop
                     )
                     # Wait for completion and catch any exceptions
