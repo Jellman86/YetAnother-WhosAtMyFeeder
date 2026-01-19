@@ -129,6 +129,16 @@
         }
     });
 
+    $effect(() => {
+        if (!selectedEvent) return;
+        const updated = detectionsStore.detections.find(
+            (d) => d.frigate_event === selectedEvent?.frigate_event
+        );
+        if (updated && updated !== selectedEvent) {
+            selectedEvent = updated;
+        }
+    });
+
     async function handleAIAnalysis() {
         if (!selectedEvent) return;
         analyzingAI = true;
@@ -165,9 +175,10 @@
         try {
             await updateDetectionSpecies(selectedEvent.frigate_event, newSpecies);
             selectedEvent.display_name = newSpecies;
+            selectedEvent.manual_tagged = true;
             // Update local list
             events = events.map(e => e.frigate_event === selectedEvent?.frigate_event ? { ...e, display_name: newSpecies } : e);
-            detectionsStore.updateDetection({ ...selectedEvent, display_name: newSpecies });
+            detectionsStore.updateDetection({ ...selectedEvent, display_name: newSpecies, manual_tagged: true });
             showTagDropdown = false;
         } catch (e) {
             console.error('Failed to update species', e);

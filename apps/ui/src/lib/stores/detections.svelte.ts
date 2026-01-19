@@ -3,6 +3,7 @@ import { type Detection, fetchEvents, fetchEventsCount } from '../api';
 export interface FrameResult {
     score: number;
     label: string;
+    thumb?: string | null;
 }
 
 export interface ReclassificationProgress {
@@ -105,7 +106,14 @@ class DetectionsStore {
         this.progressMap = newMap;
     }
 
-    updateReclassificationProgress(eventId: string, currentFrame: number, totalFrames: number, frameScore: number, topLabel: string) {
+    updateReclassificationProgress(
+        eventId: string,
+        currentFrame: number,
+        totalFrames: number,
+        frameScore: number,
+        topLabel: string,
+        frameThumb?: string | null
+    ) {
         const newMap = new Map(this.progressMap);
         const existing = newMap.get(eventId);
         
@@ -114,7 +122,7 @@ class DetectionsStore {
                 ...existing,
                 currentFrame,
                 totalFrames,
-                frameResults: [...existing.frameResults, { score: frameScore, label: topLabel }],
+                frameResults: [...existing.frameResults, { score: frameScore, label: topLabel, thumb: frameThumb }],
                 status: 'running'
             });
             this.progressMap = newMap;

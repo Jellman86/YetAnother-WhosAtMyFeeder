@@ -423,7 +423,7 @@ async def reclassify_event(
                     })
 
                     # Define progress callback to broadcast real-time progress via SSE
-                    async def progress_callback(current_frame, total_frames, frame_score, top_label):
+                    async def progress_callback(current_frame, total_frames, frame_score, top_label, frame_thumb=None):
                         await broadcaster.broadcast({
                             "type": "reclassification_progress",
                             "data": {
@@ -431,7 +431,8 @@ async def reclassify_event(
                                 "current_frame": current_frame,
                                 "total_frames": total_frames,
                                 "frame_score": frame_score,
-                                "top_label": top_label
+                                "top_label": top_label,
+                                "frame_thumb": frame_thumb
                             }
                         })
 

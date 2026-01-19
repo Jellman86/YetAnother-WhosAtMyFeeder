@@ -119,6 +119,16 @@
         }
     });
 
+    $effect(() => {
+        if (!selectedEvent) return;
+        const updated = detectionsStore.detections.find(
+            (d) => d.frigate_event === selectedEvent?.frigate_event
+        );
+        if (updated && updated !== selectedEvent) {
+            selectedEvent = updated;
+        }
+    });
+
     async function handleReclassify() {
         if (!selectedEvent) return;
         const requestedStrategy = selectedEvent.has_clip ? 'video' : 'snapshot';
@@ -142,8 +152,9 @@
         try {
             await updateDetectionSpecies(selectedEvent.frigate_event, newSpecies);
             selectedEvent.display_name = newSpecies;
+            selectedEvent.manual_tagged = true;
             // Optimistically update store
-            detectionsStore.updateDetection({ ...selectedEvent, display_name: newSpecies });
+            detectionsStore.updateDetection({ ...selectedEvent, display_name: newSpecies, manual_tagged: true });
             showTagDropdown = false;
             await loadSummary(true);
         } catch (e) {

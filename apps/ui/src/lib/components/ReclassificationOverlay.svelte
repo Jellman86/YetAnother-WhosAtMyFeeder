@@ -95,10 +95,11 @@
                     {@const frame = progress.frameResults[i]}
                     {@const isCurrent = i + 1 === progress.currentFrame && !isComplete}
                     <div
-                        class="flex-1 h-full rounded-md border border-white/10 transition-all duration-300
+                        class="flex-1 h-full rounded-md border border-white/10 transition-all duration-300 overflow-hidden
                                {frame ? (frame.score > 0.8 ? 'bg-emerald-400/80' : frame.score > 0.5 ? 'bg-teal-400/70' : 'bg-amber-400/70') : 'bg-white/10'}
                                {isCurrent ? 'ring-2 ring-teal-300/80 animate-pulse' : ''}"
                         title={frame ? `${frame.label} • ${(frame.score * 100).toFixed(0)}%` : 'Pending'}
+                        style={frame?.thumb ? `background-image: url(data:image/jpeg;base64,${frame.thumb}); background-size: cover; background-position: center;` : ''}
                     ></div>
                 {/each}
             </div>

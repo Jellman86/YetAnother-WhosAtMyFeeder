@@ -755,12 +755,24 @@ class ClassifierService:
                         top_idx = int(np.argmax(scores))
                         top_score = float(scores[top_idx])
                         top_label = bird_model.labels[top_idx] if top_idx < len(bird_model.labels) else f"Class {top_idx}"
+                        frame_thumb = None
+                        try:
+                            from io import BytesIO
+                            import base64
+                            thumb = image.copy()
+                            thumb.thumbnail((96, 72))
+                            buf = BytesIO()
+                            thumb.save(buf, format="JPEG", quality=60)
+                            frame_thumb = base64.b64encode(buf.getvalue()).decode("ascii")
+                        except Exception as e:
+                            log.debug("Failed to encode frame thumbnail", error=str(e))
 
                         progress_callback(
                             current_frame=len(all_scores),
                             total_frames=len(frame_indices),
                             frame_score=top_score,
-                            top_label=top_label
+                            top_label=top_label,
+                            frame_thumb=frame_thumb
                         )
 
             if not all_scores:
@@ -812,11 +824,11 @@ class ClassifierService:
 
         # Wrap the callback to make it thread-safe
         if progress_callback:
-            def sync_callback(current_frame, total_frames, frame_score, top_label):
+            def sync_callback(current_frame, total_frames, frame_score, top_label, frame_thumb=None):
                 try:
                     # Schedule the async callback in the event loop from the executor thread
                     future = asyncio.run_coroutine_threadsafe(
-                        progress_callback(current_frame, total_frames, frame_score, top_label),
+                        progress_callback(current_frame, total_frames, frame_score, top_label, frame_thumb),
                         loop
                     )
                     # Wait for completion and catch any exceptions
