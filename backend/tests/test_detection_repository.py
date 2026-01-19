@@ -20,6 +20,7 @@ async def test_detection_repository():
                 is_hidden BOOLEAN DEFAULT 0,
                 frigate_score FLOAT,
                 sub_label TEXT,
+                manual_tagged BOOLEAN DEFAULT 0,
                 audio_confirmed BOOLEAN DEFAULT 0,
                 audio_species TEXT,
                 audio_score FLOAT,

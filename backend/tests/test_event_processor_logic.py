@@ -24,7 +24,7 @@ def mock_dependencies():
         mock_notif.notify_detection = AsyncMock()
 
         mock_det_service = MockDetectionService.return_value
-        mock_det_service.save_detection = AsyncMock(return_value=True)
+        mock_det_service.save_detection = AsyncMock(return_value=(True, True))
 
         yield {
             "frigate": mock_frigate,
