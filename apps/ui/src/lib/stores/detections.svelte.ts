@@ -125,26 +125,19 @@ class DetectionsStore {
         const existing = newMap.get(eventId);
         
         if (existing) {
+            const targetTotal = Math.max(existing.totalFrames, totalFrames);
             const frameResults = [...existing.frameResults];
-            const existingIndex = frameIndex
-                ? frameResults.findIndex((result) => result.frameIndex === frameIndex)
-                : -1;
-
-            if (existingIndex >= 0) {
-                frameResults[existingIndex] = {
-                    score: frameScore,
-                    label: topLabel,
-                    thumb: frameThumb,
-                    frameIndex
-                };
-            } else {
-                frameResults.push({
-                    score: frameScore,
-                    label: topLabel,
-                    thumb: frameThumb,
-                    frameIndex
-                });
+            if (frameResults.length < targetTotal) {
+                frameResults.length = targetTotal;
             }
+
+            const slot = Math.max(1, currentFrame) - 1;
+            frameResults[slot] = {
+                score: frameScore,
+                label: topLabel,
+                thumb: frameThumb,
+                frameIndex
+            };
             newMap.set(eventId, {
                 ...existing,
                 currentFrame: Math.max(existing.currentFrame, currentFrame),
