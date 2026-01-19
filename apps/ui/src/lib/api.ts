@@ -28,6 +28,7 @@ export interface Detection {
     video_classification_label?: string;
     video_classification_timestamp?: string;
     video_classification_status?: 'pending' | 'processing' | 'completed' | 'failed' | null;
+    video_classification_error?: string | null;
 }
 
 export interface VersionInfo {

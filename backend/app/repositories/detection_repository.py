@@ -35,6 +35,7 @@ class Detection:
     video_classification_index: Optional[int] = None
     video_classification_timestamp: Optional[datetime] = None
     video_classification_status: Optional[str] = None
+    video_classification_error: Optional[str] = None
     # AI naturalist analysis fields
     ai_analysis: Optional[str] = None
     ai_analysis_timestamp: Optional[datetime] = None
@@ -88,14 +89,15 @@ def _row_to_detection(row) -> Detection:
         d.video_classification_index = row[21]
         d.video_classification_timestamp = _parse_datetime(row[22]) if row[22] else None
         d.video_classification_status = row[23]
+        d.video_classification_error = row[24] if len(row) > 24 else None
 
     # Optional AI analysis fields
-    if len(row) > 24:
-        d.ai_analysis = row[24]
-        d.ai_analysis_timestamp = _parse_datetime(row[25]) if row[25] else None
+    if len(row) > 25:
+        d.ai_analysis = row[25]
+        d.ai_analysis_timestamp = _parse_datetime(row[26]) if row[26] else None
 
-    if len(row) > 26:
-        d.manual_tagged = bool(row[26])
+    if len(row) > 27:
+        d.manual_tagged = bool(row[27])
 
     return d
 
@@ -106,7 +108,7 @@ class DetectionRepository:
 
     async def get_by_frigate_event(self, frigate_event: str) -> Optional[Detection]:
         async with self.db.execute(
-            "SELECT id, detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label, audio_confirmed, audio_species, audio_score, temperature, weather_condition, scientific_name, common_name, taxa_id, video_classification_score, video_classification_label, video_classification_index, video_classification_timestamp, video_classification_status, ai_analysis, ai_analysis_timestamp, manual_tagged FROM detections WHERE frigate_event = ?",
+            "SELECT id, detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label, audio_confirmed, audio_species, audio_score, temperature, weather_condition, scientific_name, common_name, taxa_id, video_classification_score, video_classification_label, video_classification_index, video_classification_timestamp, video_classification_status, video_classification_error, ai_analysis, ai_analysis_timestamp, manual_tagged FROM detections WHERE frigate_event = ?",
             (frigate_event,)
         ) as cursor:
             row = await cursor.fetchone()
@@ -123,18 +125,20 @@ class DetectionRepository:
                 video_classification_score = ?,
                 video_classification_index = ?,
                 video_classification_timestamp = ?,
-                video_classification_status = ?
+                video_classification_status = ?,
+                video_classification_error = NULL
             WHERE frigate_event = ?
         """, (label, score, index, now, status, frigate_event))
         await self.db.commit()
 
-    async def update_video_status(self, frigate_event: str, status: str):
+    async def update_video_status(self, frigate_event: str, status: str, error: Optional[str] = None):
         """Update just the video classification status."""
         await self.db.execute("""
             UPDATE detections
-            SET video_classification_status = ?
+            SET video_classification_status = ?,
+                video_classification_error = ?
             WHERE frigate_event = ?
-        """, (status, frigate_event))
+        """, (status, error, frigate_event))
         await self.db.commit()
 
     async def update_ai_analysis(self, frigate_event: str, analysis: str):
@@ -319,7 +323,7 @@ class DetectionRepository:
         sort: str = "newest",
         include_hidden: bool = False
     ) -> list[Detection]:
-        query = "SELECT id, detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label, audio_confirmed, audio_species, audio_score, temperature, weather_condition, scientific_name, common_name, taxa_id, video_classification_score, video_classification_label, video_classification_index, video_classification_timestamp, video_classification_status, ai_analysis, ai_analysis_timestamp, manual_tagged FROM detections"
+        query = "SELECT id, detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label, audio_confirmed, audio_species, audio_score, temperature, weather_condition, scientific_name, common_name, taxa_id, video_classification_score, video_classification_label, video_classification_index, video_classification_timestamp, video_classification_status, video_classification_error, ai_analysis, ai_analysis_timestamp, manual_tagged FROM detections"
         params: list = []
         conditions = []
 
@@ -641,7 +645,7 @@ class DetectionRepository:
                           audio_confirmed, audio_species, audio_score, temperature, weather_condition,
                           scientific_name, common_name, taxa_id, video_classification_score, video_classification_label,
                           video_classification_index, video_classification_timestamp, video_classification_status,
-                          ai_analysis, ai_analysis_timestamp
+                          video_classification_error, ai_analysis, ai_analysis_timestamp
                    FROM detections WHERE display_name = ?
                    ORDER BY detection_time DESC LIMIT ?"""
             params = (species_name, limit)
@@ -651,7 +655,7 @@ class DetectionRepository:
                           audio_confirmed, audio_species, audio_score, temperature, weather_condition,
                           scientific_name, common_name, taxa_id, video_classification_score, video_classification_label,
                           video_classification_index, video_classification_timestamp, video_classification_status,
-                          ai_analysis, ai_analysis_timestamp
+                          video_classification_error, ai_analysis, ai_analysis_timestamp
                    FROM detections WHERE display_name = ? AND (is_hidden = 0 OR is_hidden IS NULL)
                    ORDER BY detection_time DESC LIMIT ?"""
             params = (species_name, limit)

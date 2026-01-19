@@ -128,23 +128,31 @@ class FrigateClient:
             log.error("Error fetching snapshot", event_id=event_id, error=str(e))
         return None
 
-    async def get_clip(self, event_id: str) -> Optional[bytes]:
-        """Fetch video clip for an event.
-
-        Args:
-            event_id: Frigate event ID
-
-        Returns:
-            Video bytes or None if failed
-        """
+    async def get_clip_with_error(self, event_id: str, timeout: float = 20.0) -> tuple[Optional[bytes], Optional[str]]:
+        """Fetch video clip for an event with explicit error reason."""
         try:
-            resp = await self.get(f"api/events/{event_id}/clip.mp4")
+            resp = await self.get(f"api/events/{event_id}/clip.mp4", timeout=timeout)
             if resp.status_code == 200:
-                return resp.content
+                return resp.content, None
+            if resp.status_code == 404:
+                log.warning("Clip not found", event_id=event_id)
+                return None, "clip_not_found"
             log.warning("Failed to fetch clip", event_id=event_id, status=resp.status_code)
-        except Exception as e:
+            return None, f"clip_http_{resp.status_code}"
+        except httpx.TimeoutException:
+            log.warning("Clip fetch timed out", event_id=event_id)
+            return None, "clip_timeout"
+        except httpx.RequestError as e:
             log.error("Error fetching clip", event_id=event_id, error=str(e))
-        return None
+            return None, "clip_request_error"
+        except Exception as e:
+            log.error("Unexpected error fetching clip", event_id=event_id, error=str(e))
+            return None, "clip_unknown_error"
+
+    async def get_clip(self, event_id: str) -> Optional[bytes]:
+        """Fetch video clip for an event."""
+        clip, _ = await self.get_clip_with_error(event_id)
+        return clip
 
     async def get_thumbnail(self, event_id: str) -> Optional[bytes]:
         """Fetch thumbnail image for an event."""

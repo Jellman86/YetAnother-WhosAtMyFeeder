@@ -32,6 +32,7 @@ detections = Table(
     Column("video_classification_index", Integer),
     Column("video_classification_timestamp", TIMESTAMP),
     Column("video_classification_status", String),
+    Column("video_classification_error", String),
     # AI naturalist analysis
     Column("ai_analysis", String),
     Column("ai_analysis_timestamp", TIMESTAMP),

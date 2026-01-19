@@ -79,7 +79,7 @@ class AutoVideoClassifierService:
         
         try:
             # 1. Update status in DB to 'pending'
-            await self._update_status(frigate_event, 'pending')
+            await self._update_status(frigate_event, 'pending', error=None, broadcast=False)
 
             # Broadcast start
             await broadcaster.broadcast({
@@ -91,10 +91,10 @@ class AutoVideoClassifierService:
             })
 
             # 2. Wait for clip availability
-            clip_bytes = await self._wait_for_clip(frigate_event)
+            clip_bytes, clip_error = await self._wait_for_clip(frigate_event)
             if not clip_bytes:
                 log.warning("Clip not available after retries", event_id=frigate_event)
-                await self._update_status(frigate_event, 'failed')
+                await self._update_status(frigate_event, 'failed', error=clip_error or "clip_unavailable", broadcast=True)
                 await broadcaster.broadcast({
                     "type": "reclassification_completed",
                     "data": { "event_id": frigate_event, "results": [] }
@@ -108,7 +108,7 @@ class AutoVideoClassifierService:
 
             try:
                 # 4. Run classification
-                await self._update_status(frigate_event, 'processing')
+                await self._update_status(frigate_event, 'processing', error=None, broadcast=False)
                 
                 async def progress_callback(current, total, score, label, frame_thumb=None, frame_index=None, clip_total=None, model_name=None):
                     # Broadcast progress via SSE
@@ -153,7 +153,7 @@ class AutoVideoClassifierService:
                              score=top['score'])
                 else:
                     log.warning("Video classification returned no results", event_id=frigate_event)
-                    await self._update_status(frigate_event, 'failed')
+                    await self._update_status(frigate_event, 'failed', error="video_no_results", broadcast=True)
                     await broadcaster.broadcast({
                         "type": "reclassification_completed",
                         "data": { "event_id": frigate_event, "results": [] }
@@ -166,17 +166,17 @@ class AutoVideoClassifierService:
 
         except asyncio.CancelledError:
             log.info("Video classification task cancelled", event_id=frigate_event)
-            await self._update_status(frigate_event, 'failed')
+            await self._update_status(frigate_event, 'failed', error="video_cancelled", broadcast=True)
             raise
         except Exception as e:
             log.error("Video classification failed", event_id=frigate_event, error=str(e))
-            await self._update_status(frigate_event, 'failed')
+            await self._update_status(frigate_event, 'failed', error="video_exception", broadcast=True)
             await broadcaster.broadcast({
                 "type": "reclassification_completed",
                 "data": { "event_id": frigate_event, "results": [] }
             })
 
-    async def _wait_for_clip(self, frigate_event: str) -> Optional[bytes]:
+    async def _wait_for_clip(self, frigate_event: str) -> tuple[Optional[bytes], Optional[str]]:
         """Poll Frigate for clip availability with retries."""
         # Initial delay to allow Frigate to finalize the clip
         await asyncio.sleep(settings.classification.video_classification_delay)
@@ -184,14 +184,18 @@ class AutoVideoClassifierService:
         max_retries = settings.classification.video_classification_max_retries
         retry_interval = settings.classification.video_classification_retry_interval
 
+        last_error: Optional[str] = None
         for attempt in range(max_retries + 1):
             log.debug("Polling for clip", event_id=frigate_event, attempt=attempt)
-            clip_bytes = await frigate_client.get_clip(frigate_event)
+            clip_bytes, error = await frigate_client.get_clip_with_error(frigate_event, timeout=10.0)
             
             if clip_bytes and len(clip_bytes) > 0:
                 # Basic sanity check: MP4 header
                 if clip_bytes.startswith(b'\x00\x00\x00\x18ftyp') or b'ftyp' in clip_bytes[:32]:
-                    return clip_bytes
+                    return clip_bytes, None
+                last_error = "clip_invalid"
+            else:
+                last_error = error or "clip_unavailable"
             
             if attempt < max_retries:
                 # Exponential backoff: 1x, 2x, 4x...
@@ -199,13 +203,43 @@ class AutoVideoClassifierService:
                 log.debug(f"Clip not ready, waiting {wait_time}s", event_id=frigate_event)
                 await asyncio.sleep(wait_time)
 
-        return None
+        return None, last_error
 
-    async def _update_status(self, frigate_event: str, status: str):
+    async def _update_status(self, frigate_event: str, status: str, error: Optional[str] = None, broadcast: bool = False):
         """Update video classification status in DB."""
         async with get_db() as db:
             repo = DetectionRepository(db)
-            await repo.update_video_status(frigate_event, status)
+            await repo.update_video_status(frigate_event, status, error=error)
+            if broadcast:
+                det = await repo.get_by_frigate_event(frigate_event)
+                if det:
+                    await broadcaster.broadcast({
+                        "type": "detection_updated",
+                        "data": {
+                            "frigate_event": frigate_event,
+                            "display_name": det.display_name,
+                            "score": det.score,
+                            "timestamp": det.detection_time.isoformat(),
+                            "camera": det.camera_name,
+                            "is_hidden": det.is_hidden,
+                            "frigate_score": det.frigate_score,
+                            "sub_label": det.sub_label,
+                            "manual_tagged": det.manual_tagged,
+                            "audio_confirmed": det.audio_confirmed,
+                            "audio_species": det.audio_species,
+                            "audio_score": det.audio_score,
+                            "temperature": det.temperature,
+                            "weather_condition": det.weather_condition,
+                            "scientific_name": det.scientific_name,
+                            "common_name": det.common_name,
+                            "taxa_id": det.taxa_id,
+                            "video_classification_score": det.video_classification_score,
+                            "video_classification_label": det.video_classification_label,
+                            "video_classification_status": det.video_classification_status,
+                            "video_classification_error": det.video_classification_error,
+                            "video_classification_timestamp": det.video_classification_timestamp.isoformat() if det.video_classification_timestamp else None
+                        }
+                    })
 
     async def _save_results(self, frigate_event: str, result: dict):
         """Save final results to DB and broadcast detection update."""
@@ -245,6 +279,7 @@ class AutoVideoClassifierService:
                         "video_classification_score": det.video_classification_score,
                         "video_classification_label": det.video_classification_label,
                         "video_classification_status": det.video_classification_status,
+                        "video_classification_error": det.video_classification_error,
                         "video_classification_timestamp": det.video_classification_timestamp.isoformat() if det.video_classification_timestamp else None
                     }
                 })
