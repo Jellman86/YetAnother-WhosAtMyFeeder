@@ -90,6 +90,16 @@ class AutoVideoClassifierService:
                 }
             })
 
+            event_data, event_error = await frigate_client.get_event_with_error(frigate_event, timeout=8.0)
+            if event_error:
+                log.warning("Frigate event precheck failed", event_id=frigate_event, error=event_error)
+                await self._update_status(frigate_event, 'failed', error=event_error, broadcast=True)
+                await broadcaster.broadcast({
+                    "type": "reclassification_completed",
+                    "data": { "event_id": frigate_event, "results": [] }
+                })
+                return
+
             # 2. Wait for clip availability
             clip_bytes, clip_error = await self._wait_for_clip(frigate_event)
             if not clip_bytes:
@@ -192,8 +202,11 @@ class AutoVideoClassifierService:
             if clip_bytes and len(clip_bytes) > 0:
                 # Basic sanity check: MP4 header
                 if clip_bytes.startswith(b'\x00\x00\x00\x18ftyp') or b'ftyp' in clip_bytes[:32]:
-                    return clip_bytes, None
-                last_error = "clip_invalid"
+                    if await self._clip_decodes(clip_bytes):
+                        return clip_bytes, None
+                    last_error = "clip_decode_failed"
+                else:
+                    last_error = "clip_invalid"
             else:
                 last_error = error or "clip_unavailable"
             
@@ -204,6 +217,30 @@ class AutoVideoClassifierService:
                 await asyncio.sleep(wait_time)
 
         return None, last_error
+
+    async def _clip_decodes(self, clip_bytes: bytes) -> bool:
+        """Ensure clip bytes decode into at least one frame."""
+        import cv2
+
+        tmp_path = None
+        try:
+            with tempfile.NamedTemporaryFile(suffix='.mp4', delete=False) as tmp:
+                tmp.write(clip_bytes)
+                tmp_path = tmp.name
+
+            cap = cv2.VideoCapture(tmp_path)
+            if not cap.isOpened():
+                cap.release()
+                return False
+            ok, _frame = cap.read()
+            cap.release()
+            return ok
+        finally:
+            if tmp_path and os.path.exists(tmp_path):
+                try:
+                    os.remove(tmp_path)
+                except Exception:
+                    pass
 
     async def _update_status(self, frigate_event: str, status: str, error: Optional[str] = None, broadcast: bool = False):
         """Update video classification status in DB."""

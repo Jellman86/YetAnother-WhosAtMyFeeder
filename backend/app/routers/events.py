@@ -408,13 +408,13 @@ async def reclassify_event(
         
         # Determine effective strategy
         # If video requested but no clip, fallback to snapshot
-        event_data = await frigate_client.get_event(event_id)
+        event_data, event_error = await frigate_client.get_event_with_error(event_id, timeout=8.0)
         has_clip = event_data.get("has_clip", False) if event_data else False
         
         effective_strategy = strategy
         if strategy == "video" and not has_clip:
             log.warning("Video strategy requested but no clip available, falling back to snapshot", event_id=event_id)
-            await broadcast_video_status("failed", "clip_unavailable")
+            await broadcast_video_status("failed", event_error or "clip_unavailable")
             effective_strategy = "snapshot"
 
         results = []
@@ -425,12 +425,14 @@ async def reclassify_event(
             from app.services.media_cache import media_cache
             clip_data = None
             clip_error = None
+            clip_source = "frigate"
             cached_path = media_cache.get_clip_path(event_id)
 
             if cached_path:
                 log.info("Using cached clip for reclassification", event_id=event_id)
                 with open(cached_path, 'rb') as f:
                     clip_data = f.read()
+                clip_source = "cache"
             else:
                 clip_data, clip_error = await frigate_client.get_clip_with_error(event_id, timeout=10.0)
 
@@ -447,51 +449,83 @@ async def reclassify_event(
                     # Save to temp file for OpenCV
                     import tempfile
                     import os
+                    import cv2
+
+                    def _clip_decodes(path: str) -> bool:
+                        cap = cv2.VideoCapture(path)
+                        if not cap.isOpened():
+                            cap.release()
+                            return False
+                        ok, _frame = cap.read()
+                        cap.release()
+                        return ok
 
                     with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tmp:
                         tmp.write(clip_data)
                         tmp_path = tmp.name
 
-                    try:
-                        # Broadcast start of video reclassification
-                        await broadcaster.broadcast({
-                            "type": "reclassification_started",
-                            "data": {
-                                "event_id": event_id,
-                                "strategy": "video"
-                            }
-                        })
+                    valid_clip = _clip_decodes(tmp_path)
+                    if not valid_clip:
+                        if os.path.exists(tmp_path):
+                            os.remove(tmp_path)
+                        log.warning("Clip decode failed, falling back to snapshot", event_id=event_id, source=clip_source)
+                        await broadcast_video_status("failed", "clip_decode_failed")
+                        if clip_source == "cache":
+                            await media_cache.delete_cached_media(event_id)
+                            clip_data, clip_error = await frigate_client.get_clip_with_error(event_id, timeout=10.0)
+                            if clip_data and (clip_data.startswith(b'\x00\x00\x00\x18ftyp') or b'ftyp' in clip_data[:32]):
+                                with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tmp:
+                                    tmp.write(clip_data)
+                                    tmp_path = tmp.name
+                                valid_clip = _clip_decodes(tmp_path)
+                                if not valid_clip and os.path.exists(tmp_path):
+                                    os.remove(tmp_path)
+                            else:
+                                valid_clip = False
+                        if not valid_clip:
+                            effective_strategy = "snapshot"
 
-                        # Define progress callback to broadcast real-time progress via SSE
-                        async def progress_callback(current_frame, total_frames, frame_score, top_label, frame_thumb=None, frame_index=None, clip_total=None, model_name=None):
+                    if effective_strategy != "snapshot" and valid_clip:
+                        try:
+                            # Broadcast start of video reclassification
                             await broadcaster.broadcast({
-                                "type": "reclassification_progress",
+                                "type": "reclassification_started",
                                 "data": {
                                     "event_id": event_id,
-                                    "current_frame": current_frame,
-                                    "total_frames": total_frames,
-                                    "frame_score": frame_score,
-                                    "top_label": top_label,
-                                    "frame_thumb": frame_thumb,
-                                    "frame_index": frame_index,
-                                    "clip_total": clip_total,
-                                    "model_name": model_name
+                                    "strategy": "video"
                                 }
                             })
 
-                        results = await classifier.classify_video_async(tmp_path, progress_callback=progress_callback)
+                            # Define progress callback to broadcast real-time progress via SSE
+                            async def progress_callback(current_frame, total_frames, frame_score, top_label, frame_thumb=None, frame_index=None, clip_total=None, model_name=None):
+                                await broadcaster.broadcast({
+                                    "type": "reclassification_progress",
+                                    "data": {
+                                        "event_id": event_id,
+                                        "current_frame": current_frame,
+                                        "total_frames": total_frames,
+                                        "frame_score": frame_score,
+                                        "top_label": top_label,
+                                        "frame_thumb": frame_thumb,
+                                        "frame_index": frame_index,
+                                        "clip_total": clip_total,
+                                        "model_name": model_name
+                                    }
+                                })
 
-                        # Broadcast completion
-                        await broadcaster.broadcast({
-                            "type": "reclassification_completed",
-                            "data": {
-                                "event_id": event_id,
-                                "results": results # Pass results to the UI for final display
-                            }
-                        })
-                    finally:
-                        if os.path.exists(tmp_path):
-                            os.remove(tmp_path)
+                            results = await classifier.classify_video_async(tmp_path, progress_callback=progress_callback)
+
+                            # Broadcast completion
+                            await broadcaster.broadcast({
+                                "type": "reclassification_completed",
+                                "data": {
+                                    "event_id": event_id,
+                                    "results": results # Pass results to the UI for final display
+                                }
+                            })
+                        finally:
+                            if os.path.exists(tmp_path):
+                                os.remove(tmp_path)
 
                     if not results:
                         log.warning("Video classification yielded no results, falling back to snapshot", event_id=event_id)

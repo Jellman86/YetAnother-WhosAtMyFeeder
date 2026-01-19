@@ -174,6 +174,27 @@ class FrigateClient:
             log.error("Error fetching event", event_id=event_id, error=str(e))
         return None
 
+    async def get_event_with_error(self, event_id: str, timeout: float = 10.0) -> tuple[Optional[dict], Optional[str]]:
+        """Fetch event details with explicit error reason."""
+        try:
+            resp = await self.get(f"api/events/{event_id}", timeout=timeout)
+            if resp.status_code == 200:
+                return resp.json(), None
+            if resp.status_code == 404:
+                log.warning("Event not found", event_id=event_id)
+                return None, "event_not_found"
+            log.warning("Failed to fetch event", event_id=event_id, status=resp.status_code)
+            return None, f"event_http_{resp.status_code}"
+        except httpx.TimeoutException:
+            log.warning("Event fetch timed out", event_id=event_id)
+            return None, "event_timeout"
+        except httpx.RequestError as e:
+            log.error("Error fetching event", event_id=event_id, error=str(e))
+            return None, "event_request_error"
+        except Exception as e:
+            log.error("Unexpected error fetching event", event_id=event_id, error=str(e))
+            return None, "event_unknown_error"
+
     async def set_sublabel(self, event_id: str, sublabel: str) -> bool:
         """Set sublabel on a Frigate event.
 
