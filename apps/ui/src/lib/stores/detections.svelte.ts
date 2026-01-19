@@ -4,6 +4,7 @@ export interface FrameResult {
     score: number;
     label: string;
     thumb?: string | null;
+    frameIndex?: number | null;
 }
 
 export interface ReclassificationProgress {
@@ -124,9 +125,26 @@ class DetectionsStore {
         const existing = newMap.get(eventId);
         
         if (existing) {
-            const slot = Math.max(1, frameIndex ?? currentFrame) - 1;
             const frameResults = [...existing.frameResults];
-            frameResults[slot] = { score: frameScore, label: topLabel, thumb: frameThumb };
+            const existingIndex = frameIndex
+                ? frameResults.findIndex((result) => result.frameIndex === frameIndex)
+                : -1;
+
+            if (existingIndex >= 0) {
+                frameResults[existingIndex] = {
+                    score: frameScore,
+                    label: topLabel,
+                    thumb: frameThumb,
+                    frameIndex
+                };
+            } else {
+                frameResults.push({
+                    score: frameScore,
+                    label: topLabel,
+                    thumb: frameThumb,
+                    frameIndex
+                });
+            }
             newMap.set(eventId, {
                 ...existing,
                 currentFrame: Math.max(existing.currentFrame, currentFrame),
