@@ -63,11 +63,22 @@
     // Handle search input
     let searchTimeout: any;
     $effect(() => {
-        if (tagSearchQuery.trim().length === 0) {
-            // Default: Show top 20 classifier labels if query is empty
-            searchResults = classifierLabels.slice(0, 20).map(l => ({
-                id: l, display_name: l, common_name: l, scientific_name: null
-            }));
+        const query = tagSearchQuery.trim();
+        if (query.length === 0) {
+            clearTimeout(searchTimeout);
+            isSearching = true;
+            (async () => {
+                try {
+                    searchResults = await searchSpecies('', 20);
+                } catch (e) {
+                    console.error("Search failed", e);
+                    searchResults = classifierLabels.slice(0, 20).map(l => ({
+                        id: l, display_name: l, common_name: null, scientific_name: null
+                    }));
+                } finally {
+                    isSearching = false;
+                }
+            })();
             return;
         }
 
@@ -76,28 +87,29 @@
             isSearching = true;
             try {
                 // Use backend search for rich taxonomy results
-                searchResults = await searchSpecies(tagSearchQuery);
+                searchResults = await searchSpecies(query);
             } catch (e) {
                 console.error("Search failed", e);
                 // Fallback to local filtering
                 searchResults = classifierLabels
-                    .filter(l => l.toLowerCase().includes(tagSearchQuery.toLowerCase()))
-                    .map(l => ({ id: l, display_name: l, common_name: l, scientific_name: null }));
+                    .filter(l => l.toLowerCase().includes(query.toLowerCase()))
+                    .map(l => ({ id: l, display_name: l, common_name: null, scientific_name: null }));
             } finally {
                 isSearching = false;
             }
         }, 300);
     });
 
-    function getResultName(result: SearchResult) {
-        // Adapt SearchResult to match what getBirdNames expects (duck typing)
-        const item = {
-            scientific_name: result.scientific_name,
-            common_name: result.common_name,
-            display_name: result.display_name,
-            species: result.display_name // fallback
-        } as any;
-        return getBirdNames(item, showCommon, preferSci).primary;
+    function getResultNames(result: SearchResult) {
+        const common = result.common_name?.trim() || null;
+        const scientific = result.scientific_name?.trim() || null;
+        const fallback = result.display_name || result.id;
+
+        if (common && scientific && common !== scientific) {
+            return { primary: common, secondary: scientific };
+        }
+
+        return { primary: common || scientific || fallback, secondary: null };
     }
 
     async function handleAIAnalysis(force: boolean = false) {
@@ -365,11 +377,15 @@
                             </div>
                             <div class="max-h-56 overflow-y-auto p-1">
                                 {#each searchResults as result}
+                                    {@const names = getResultNames(result)}
                                     <button
                                         onclick={() => handleManualTag(result.id)}
                                         class="w-full px-4 py-2.5 text-left text-sm font-medium rounded-lg transition-all hover:bg-teal-50 dark:hover:bg-teal-900/20 hover:text-teal-600 dark:hover:text-teal-400 {result.id === detection.display_name ? 'bg-teal-500/10 text-teal-600 font-bold' : 'text-slate-600 dark:text-slate-300'}"
                                     >
-                                        {getResultName(result)}
+                                        <span class="block text-sm leading-tight">{names.primary}</span>
+                                        {#if names.secondary}
+                                            <span class="block text-[11px] text-slate-400 dark:text-slate-400 italic">{names.secondary}</span>
+                                        {/if}
                                     </button>
                                 {/each}
                                 {#if searchResults.length === 0}

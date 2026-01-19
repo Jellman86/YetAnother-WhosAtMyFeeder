@@ -221,44 +221,61 @@ async def _save_species_info(species_name: str, taxa_id: int | None, language: s
         await db.commit()
 
 @router.get("/species/search")
-async def search_species(q: str):
+async def search_species(q: str = "", limit: int = 50):
     """Search for species labels (from classifier) and return with taxonomy info."""
-    if not q:
-        return []
-    
-    q_lower = q.lower()
+    q = (q or "").strip()
+    limit = max(1, min(limit, 100))
+
+    q_lower = q.lower() if q else ""
     classifier = get_classifier()
     labels = classifier.labels
-    
-    # Filter labels (limit to 50 matches)
-    matches = [l for l in labels if q_lower in l.lower()][:50]
-    
-    results = []
+
     async with get_db() as db:
-        for label in matches:
-            # Lookup taxonomy (check cache only to be fast)
-            # We use taxonomy_service.get_names but strictly from cache/DB if possible to avoid 50 API calls
-            # Actually, taxonomy_service.get_names checks cache first.
-            # But we don't want to trigger iNaturalist lookups for 50 items if they aren't cached.
-            # So we will inspect the cache directly or use a helper.
-            
-            # For now, let's just query the cache table manually for speed
+        if q:
+            matches = [l for l in labels if q_lower in l.lower()]
+
+            # Include labels whose cached common/scientific names match the query.
             async with db.execute(
-                "SELECT scientific_name, common_name FROM taxonomy_cache WHERE scientific_name = ? OR common_name = ?", 
+                """SELECT scientific_name, common_name
+                   FROM taxonomy_cache
+                   WHERE LOWER(scientific_name) LIKE ?
+                      OR LOWER(common_name) LIKE ?""",
+                (f"%{q_lower}%", f"%{q_lower}%")
+            ) as cursor:
+                cached_rows = await cursor.fetchall()
+
+            label_set = set(labels)
+            for sci_name, common_name in cached_rows:
+                if sci_name and sci_name in label_set:
+                    matches.append(sci_name)
+                if common_name and common_name in label_set:
+                    matches.append(common_name)
+
+            seen = set()
+            matches = [m for m in matches if not (m in seen or seen.add(m))]
+        else:
+            matches = labels
+
+        matches = matches[:limit]
+
+        results = []
+        for label in matches:
+            async with db.execute(
+                "SELECT scientific_name, common_name FROM taxonomy_cache WHERE scientific_name = ? OR common_name = ?",
                 (label, label)
             ) as cursor:
                 row = await cursor.fetchone()
-                
+
             sci_name = row[0] if row else None
-            common_name = row[1] if row else label
-            
+            common_name = row[1] if row else None
+
             results.append({
-                "id": label, # The value to save
-                "display_name": label, # Fallback display
+                "id": label,  # The value to save
+                "display_name": label,  # Fallback display
                 "scientific_name": sci_name,
                 "common_name": common_name
             })
-            
+
     return results
 
 # ... existing code ...
