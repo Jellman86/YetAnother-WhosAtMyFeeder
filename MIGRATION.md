@@ -96,6 +96,19 @@ If you are coming from the original `WhosAtMyFeeder` (v1), please note that **YA
 *   **Recommendation:** It is highly recommended to start with a fresh database (`speciesid.db`) to ensure the new "Leaderboard" and "Explorer" features work correctly with standardized species names.
 *   **Legacy Data:** If you absolutely must keep your old data, you will need to manually export your v1 SQLite data and map it to the new `detections` table structure defined in `backend/app/repositories/detection_repository.py`.
 
+## Alembic Heads Check (Dev/CI)
+
+We enforce a single Alembic head to avoid split-brain schemas. If multiple heads appear:
+
+```bash
+cd backend
+alembic heads
+alembic merge -m "merge heads" <head1> <head2>
+alembic upgrade head
+```
+
+In CI, builds will fail if more than one head exists.
+
 ## Docker Changes
 
 *   **Service Name:** The main service is now split into `backend` and `frontend`.
