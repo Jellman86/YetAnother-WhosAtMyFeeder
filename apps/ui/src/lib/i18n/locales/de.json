@@ -171,7 +171,17 @@
       "audio_only_desc": "Nur benachrichtigen, wenn BirdNET den Ton bestätigt.",
       "species_whitelist": "Arten-Whitelist",
       "species_placeholder": "Art hinzufügen (z. B. Nordkardinal)",
-      "no_species_filter": "Keine Artenfilter angewendet"
+      "no_species_filter": "Keine Artenfilter angewendet",
+      "delivery_policy": "Zustellrichtlinie",
+      "notify_on_insert": "Bei neuen Erkennungen benachrichtigen",
+      "notify_on_insert_desc": "Benachrichtigungen nur bei neuen Erkennungen senden.",
+      "notify_on_update": "Bei Updates benachrichtigen",
+      "notify_on_update_desc": "Benachrichtigungen senden, wenn Erkennungen aktualisiert werden (höherer Score oder Audio bestätigt).",
+      "delay_until_video": "Bis zur Videoanalyse warten",
+      "delay_until_video_desc": "Bei aktivierter Videoanalyse mit der Benachrichtigung warten.",
+      "video_fallback_timeout": "Video-Fallback-Timeout",
+      "video_fallback_timeout_desc": "So lange auf Video warten, bevor eine Snapshot-Benachrichtigung gesendet wird.",
+      "video_fallback_seconds": "Sekunden"
     },
     "discord": {
       "title": "Discord-Benachrichtigungen",

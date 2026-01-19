@@ -106,10 +106,10 @@ class DetectionService:
     async def save_detection(self, frigate_event: str, camera: str, start_time: float, 
                            classification: dict, frigate_score: float = None, sub_label: str = None,
                            audio_confirmed: bool = False, audio_species: str = None, audio_score: float = None,
-                           temperature: float = None, weather_condition: str = None) -> bool:
+                           temperature: float = None, weather_condition: str = None) -> tuple[bool, bool]:
         """
         Save or update a detection in the database and broadcast the event.
-        Returns True if a change was made (insert or update).
+        Returns (changed, was_inserted).
         """
         # 1. Normalize names (Bidirectional Scientific <-> Common)
         label = classification['label']
@@ -154,7 +154,8 @@ class DetectionService:
             )
 
             # Atomic upsert: insert or update only if score is higher
-            changed, _ = await repo.upsert_if_higher_score(detection)
+            was_inserted, was_updated = await repo.upsert_if_higher_score(detection)
+            changed = was_inserted or was_updated
 
             if changed:
                 log.info("Saved detection", 
@@ -180,6 +181,7 @@ class DetectionService:
                         "camera": camera,
                         "frigate_score": frigate_score,
                         "sub_label": sub_label,
+                        "manual_tagged": detection.manual_tagged,
                         "audio_confirmed": audio_confirmed,
                         "audio_species": audio_species,
                         "audio_score": audio_score,
@@ -199,4 +201,4 @@ class DetectionService:
                         timestamp=timestamp
                     ))
             
-            return changed
+            return changed, was_inserted

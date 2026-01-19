@@ -243,6 +243,10 @@ class SettingsUpdate(BaseModel):
     notifications_filter_min_confidence: Optional[float] = 0.7
     notifications_filter_audio_confirmed_only: Optional[bool] = False
     notification_language: Optional[str] = "en"
+    notifications_notify_on_insert: Optional[bool] = True
+    notifications_notify_on_update: Optional[bool] = False
+    notifications_delay_until_video: Optional[bool] = False
+    notifications_video_fallback_timeout: Optional[int] = 45
 
     # Accessibility
     accessibility_high_contrast: Optional[bool] = False
@@ -370,6 +374,10 @@ async def get_settings():
         "notifications_filter_min_confidence": settings.notifications.filters.min_confidence,
         "notifications_filter_audio_confirmed_only": settings.notifications.filters.audio_confirmed_only,
         "notification_language": settings.notifications.notification_language,
+        "notifications_notify_on_insert": settings.notifications.notify_on_insert,
+        "notifications_notify_on_update": settings.notifications.notify_on_update,
+        "notifications_delay_until_video": settings.notifications.delay_until_video,
+        "notifications_video_fallback_timeout": settings.notifications.video_fallback_timeout,
 
         # Accessibility
         "accessibility_high_contrast": settings.accessibility.high_contrast,
@@ -518,6 +526,15 @@ async def update_settings(update: SettingsUpdate, background_tasks: BackgroundTa
 
     if update.notification_language:
         settings.notifications.notification_language = update.notification_language
+
+    if update.notifications_notify_on_insert is not None:
+        settings.notifications.notify_on_insert = update.notifications_notify_on_insert
+    if update.notifications_notify_on_update is not None:
+        settings.notifications.notify_on_update = update.notifications_notify_on_update
+    if update.notifications_delay_until_video is not None:
+        settings.notifications.delay_until_video = update.notifications_delay_until_video
+    if update.notifications_video_fallback_timeout is not None:
+        settings.notifications.video_fallback_timeout = update.notifications_video_fallback_timeout
 
     # Accessibility
     if update.accessibility_high_contrast is not None:

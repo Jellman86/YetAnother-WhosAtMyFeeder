@@ -171,7 +171,17 @@
       "audio_only_desc": "N'alerter que lorsque BirdNET confirme l'audio.",
       "species_whitelist": "Liste blanche d'espèces",
       "species_placeholder": "Ajouter une espèce (ex. Cardinal rouge)",
-      "no_species_filter": "Aucun filtre d'espèces appliqué"
+      "no_species_filter": "Aucun filtre d'espèces appliqué",
+      "delivery_policy": "Politique d'envoi",
+      "notify_on_insert": "Notifier les nouvelles detections",
+      "notify_on_insert_desc": "Envoyer des notifications uniquement lors de la creation d'une detection.",
+      "notify_on_update": "Notifier les mises a jour",
+      "notify_on_update_desc": "Envoyer des notifications lors des mises a jour (score plus eleve ou audio confirme).",
+      "delay_until_video": "Attendre l'analyse video",
+      "delay_until_video_desc": "Attendre l'analyse video automatique avant de notifier.",
+      "video_fallback_timeout": "Delai d'attente video",
+      "video_fallback_timeout_desc": "Attendre ce delai avant d'envoyer une notification de capture.",
+      "video_fallback_seconds": "secondes"
     },
     "discord": {
       "title": "Notifications Discord",

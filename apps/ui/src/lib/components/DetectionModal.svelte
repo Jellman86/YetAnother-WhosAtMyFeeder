@@ -232,20 +232,22 @@
 
         <div class="flex-1 overflow-y-auto p-6 space-y-6">
             <!-- Confidence Bar -->
-            <div>
-                <div class="flex items-center justify-between mb-2">
-                    <span class="text-xs font-bold text-slate-500 uppercase tracking-widest">{$_('detection.confidence')}</span>
-                    <span class="text-sm font-black text-slate-900 dark:text-white">
-                        {((detection.score || 0) * 100).toFixed(1)}%
-                    </span>
+            {#if !detection.manual_tagged}
+                <div>
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-xs font-bold text-slate-500 uppercase tracking-widest">{$_('detection.confidence')}</span>
+                        <span class="text-sm font-black text-slate-900 dark:text-white">
+                            {((detection.score || 0) * 100).toFixed(1)}%
+                        </span>
+                    </div>
+                    <div class="h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                        <div
+                            class="h-full rounded-full transition-all duration-700 {(detection.score || 0) >= 0.8 ? 'bg-emerald-500' : 'bg-teal-500'}"
+                            style="width: {(detection.score || 0) * 100}%"
+                        ></div>
+                    </div>
                 </div>
-                <div class="h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
-                    <div
-                        class="h-full rounded-full transition-all duration-700 {(detection.score || 0) >= 0.8 ? 'bg-emerald-500' : 'bg-teal-500'}"
-                        style="width: {(detection.score || 0) * 100}%"
-                    ></div>
-                </div>
-            </div>
+            {/if}
 
             <!-- Video Classification Results -->
             {#if detection.video_classification_status === 'completed' || (detection.video_classification_label && detection.video_classification_label !== detection.display_name)}

@@ -179,7 +179,17 @@
       "audio_only_desc": "Only alert when BirdNET audio confirms the detection.",
       "species_whitelist": "Species whitelist",
       "species_placeholder": "Add a species (e.g., Northern Cardinal)",
-      "no_species_filter": "No species filters applied"
+      "no_species_filter": "No species filters applied",
+      "delivery_policy": "Delivery policy",
+      "notify_on_insert": "Notify on new detections",
+      "notify_on_insert_desc": "Send notifications only when a new detection is created.",
+      "notify_on_update": "Notify on updates",
+      "notify_on_update_desc": "Send notifications when detections are updated (higher score or audio confirmed).",
+      "delay_until_video": "Delay until video analysis",
+      "delay_until_video_desc": "Wait for auto video analysis before notifying when enabled.",
+      "video_fallback_timeout": "Video fallback timeout",
+      "video_fallback_timeout_desc": "Wait this long for video before sending a snapshot notification.",
+      "video_fallback_seconds": "seconds"
     },
     "discord": {
       "title": "Discord Notifications",

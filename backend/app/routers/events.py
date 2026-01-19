@@ -154,6 +154,7 @@ async def get_events(
                 is_hidden=event.is_hidden,
                 frigate_score=event.frigate_score,
                 sub_label=event.sub_label,
+                manual_tagged=event.manual_tagged,
                 audio_confirmed=event.audio_confirmed,
                 audio_species=event.audio_species,
                 audio_score=event.audio_score,
@@ -277,6 +278,7 @@ async def toggle_hide_event(event_id: str, request: Request):
                     "is_hidden": detection.is_hidden,
                     "frigate_score": detection.frigate_score,
                     "sub_label": detection.sub_label,
+                    "manual_tagged": detection.manual_tagged,
                     "audio_confirmed": detection.audio_confirmed,
                     "audio_species": detection.audio_species,
                     "audio_score": detection.audio_score,
@@ -530,7 +532,8 @@ async def reclassify_event(
                 UPDATE detections
                 SET display_name = ?, category_name = ?, score = ?, detection_index = ?,
                     scientific_name = ?, common_name = ?, taxa_id = ?,
-                    audio_confirmed = ?, audio_species = ?, audio_score = ?
+                    audio_confirmed = ?, audio_species = ?, audio_score = ?,
+                    manual_tagged = 1
                 WHERE frigate_event = ?
             """, (new_species, new_species, new_score, top['index'],
                   sci_name, com_name, t_id,
@@ -566,6 +569,7 @@ async def reclassify_event(
                     "is_hidden": detection.is_hidden,
                     "frigate_score": detection.frigate_score,
                     "sub_label": detection.sub_label,
+                    "manual_tagged": True,
                     "audio_confirmed": audio_confirmed,  # NEW: Re-correlated audio data
                     "audio_species": audio_species,       # NEW: Re-correlated audio data
                     "audio_score": audio_score,           # NEW: Re-correlated audio data
@@ -646,7 +650,8 @@ async def update_event(event_id: str, update_request: UpdateDetectionRequest, re
             UPDATE detections
             SET display_name = ?, category_name = ?,
                 scientific_name = ?, common_name = ?, taxa_id = ?,
-                audio_confirmed = ?, audio_species = ?, audio_score = ?
+                audio_confirmed = ?, audio_species = ?, audio_score = ?,
+                manual_tagged = 1
             WHERE frigate_event = ?
         """, (new_species, new_species,
               sci_name, com_name, t_id,
@@ -674,6 +679,7 @@ async def update_event(event_id: str, update_request: UpdateDetectionRequest, re
                 "is_hidden": detection.is_hidden,
                 "frigate_score": detection.frigate_score,
                 "sub_label": detection.sub_label,
+                "manual_tagged": True,
                 "audio_confirmed": audio_confirmed,  # NEW: Re-correlated audio data
                 "audio_species": audio_species,       # NEW: Re-correlated audio data
                 "audio_score": audio_score,           # NEW: Re-correlated audio data

@@ -113,7 +113,7 @@ class BackfillService:
             start_time = event.get('start_time', datetime.now().timestamp())
 
             # Use upsert logic to ensure metadata is updated even if event exists
-            changed = await self.detection_service.save_detection(
+            changed, _ = await self.detection_service.save_detection(
                 frigate_event=frigate_event,
                 camera=camera_name,
                 start_time=start_time,

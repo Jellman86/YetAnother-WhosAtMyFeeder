@@ -171,7 +171,17 @@
       "audio_only_desc": "BirdNETが音声を確認した場合のみ通知します。",
       "species_whitelist": "種のホワイトリスト",
       "species_placeholder": "種を追加（例：ノーザンカーディナル）",
-      "no_species_filter": "種のフィルターはありません"
+      "no_species_filter": "種のフィルターはありません",
+      "delivery_policy": "配信ポリシー",
+      "notify_on_insert": "新規検出で通知",
+      "notify_on_insert_desc": "新しい検出が作成されたときのみ通知します。",
+      "notify_on_update": "更新時に通知",
+      "notify_on_update_desc": "検出が更新されたときに通知します（高いスコア、または音声確認）。",
+      "delay_until_video": "動画解析まで待つ",
+      "delay_until_video_desc": "自動動画解析が有効な場合、完了まで通知を待ちます。",
+      "video_fallback_timeout": "動画フォールバック時間",
+      "video_fallback_timeout_desc": "この時間を過ぎるとスナップショット通知を送信します。",
+      "video_fallback_seconds": "秒"
     },
     "discord": {
       "title": "Discord通知",

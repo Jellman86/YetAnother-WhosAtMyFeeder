@@ -11,6 +11,7 @@ export interface Detection {
     is_hidden?: boolean; // Hidden/ignored status
     frigate_score?: number; // Frigate detection confidence
     sub_label?: string;     // Frigate sub-label
+    manual_tagged?: boolean;
     // Audio fields
     audio_confirmed?: boolean;
     audio_species?: string;
@@ -125,6 +126,10 @@ export interface Settings {
     notifications_filter_min_confidence: number;
     notifications_filter_audio_confirmed_only: boolean;
     notification_language: string;
+    notifications_notify_on_insert: boolean;
+    notifications_notify_on_update: boolean;
+    notifications_delay_until_video: boolean;
+    notifications_video_fallback_timeout: number;
 
     // Accessibility settings
     accessibility_high_contrast: boolean;

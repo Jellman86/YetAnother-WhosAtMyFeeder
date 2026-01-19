@@ -155,6 +155,10 @@ class NotificationSettings(BaseModel):
     email: EmailSettings = EmailSettings()
     filters: NotificationFilterSettings = NotificationFilterSettings()
     notification_language: str = Field(default="en", description="Language for notifications (en, es, fr, de, ja)")
+    notify_on_insert: bool = Field(default=True, description="Notify on new detection insert")
+    notify_on_update: bool = Field(default=False, description="Notify on detection updates")
+    delay_until_video: bool = Field(default=False, description="Delay notifications until video analysis completes (if enabled)")
+    video_fallback_timeout: int = Field(default=45, description="Seconds to wait for video before falling back to snapshot notification")
 
 class AccessibilitySettings(BaseModel):
     high_contrast: bool = Field(default=False, description="Enable high contrast mode")
@@ -318,7 +322,11 @@ class Settings(BaseSettings):
                 'audio_confirmed_only': False,
                 'camera_filters': {}
             },
-            'notification_language': os.environ.get('NOTIFICATIONS__NOTIFICATION_LANGUAGE', 'en')
+            'notification_language': os.environ.get('NOTIFICATIONS__NOTIFICATION_LANGUAGE', 'en'),
+            'notify_on_insert': os.environ.get('NOTIFICATIONS__NOTIFY_ON_INSERT', 'true').lower() == 'true',
+            'notify_on_update': os.environ.get('NOTIFICATIONS__NOTIFY_ON_UPDATE', 'false').lower() == 'true',
+            'delay_until_video': os.environ.get('NOTIFICATIONS__DELAY_UNTIL_VIDEO', 'false').lower() == 'true',
+            'video_fallback_timeout': int(os.environ.get('NOTIFICATIONS__VIDEO_FALLBACK_TIMEOUT', '45'))
         }
 
         # Accessibility settings
@@ -429,6 +437,23 @@ class Settings(BaseSettings):
                         env_key = 'NOTIFICATIONS__NOTIFICATION_LANGUAGE'
                         if env_key not in os.environ:
                             notifications_data['notification_language'] = n_file['notification_language']
+
+                    if 'notify_on_insert' in n_file:
+                        env_key = 'NOTIFICATIONS__NOTIFY_ON_INSERT'
+                        if env_key not in os.environ:
+                            notifications_data['notify_on_insert'] = n_file['notify_on_insert']
+                    if 'notify_on_update' in n_file:
+                        env_key = 'NOTIFICATIONS__NOTIFY_ON_UPDATE'
+                        if env_key not in os.environ:
+                            notifications_data['notify_on_update'] = n_file['notify_on_update']
+                    if 'delay_until_video' in n_file:
+                        env_key = 'NOTIFICATIONS__DELAY_UNTIL_VIDEO'
+                        if env_key not in os.environ:
+                            notifications_data['delay_until_video'] = n_file['delay_until_video']
+                    if 'video_fallback_timeout' in n_file:
+                        env_key = 'NOTIFICATIONS__VIDEO_FALLBACK_TIMEOUT'
+                        if env_key not in os.environ:
+                            notifications_data['video_fallback_timeout'] = n_file['video_fallback_timeout']
 
                 if 'accessibility' in file_data:
                     for k, v in file_data['accessibility'].items():

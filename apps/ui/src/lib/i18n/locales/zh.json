@@ -172,7 +172,17 @@
       "audio_only_desc": "仅在BirdNET音频确认时提醒。",
       "species_whitelist": "物种白名单",
       "species_placeholder": "添加物种（例如：北美红雀）",
-      "no_species_filter": "未设置物种筛选"
+      "no_species_filter": "未设置物种筛选",
+      "delivery_policy": "通知策略",
+      "notify_on_insert": "新检测时通知",
+      "notify_on_insert_desc": "仅在创建新检测时发送通知。",
+      "notify_on_update": "更新时通知",
+      "notify_on_update_desc": "检测更新时发送通知（更高分数或音频确认）。",
+      "delay_until_video": "等待视频分析",
+      "delay_until_video_desc": "启用自动视频分析时，等待完成再通知。",
+      "video_fallback_timeout": "视频超时回退",
+      "video_fallback_timeout_desc": "等待此时长后发送快照通知。",
+      "video_fallback_seconds": "秒"
     },
     "discord": {
       "title": "Discord 通知",

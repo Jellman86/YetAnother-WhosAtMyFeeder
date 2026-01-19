@@ -107,6 +107,7 @@ async def get_daily_summary(request: Request):
                 is_hidden=d.is_hidden,
                 frigate_score=d.frigate_score,
                 sub_label=d.sub_label,
+                manual_tagged=d.manual_tagged,
                 audio_confirmed=d.audio_confirmed,
                 audio_species=d.audio_species,
                 audio_score=d.audio_score,

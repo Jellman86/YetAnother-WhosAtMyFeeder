@@ -17,6 +17,7 @@ class Detection:
     is_hidden: bool = False
     frigate_score: Optional[float] = None
     sub_label: Optional[str] = None
+    manual_tagged: bool = False
     # Audio correlation fields
     audio_confirmed: bool = False
     audio_species: Optional[str] = None
@@ -93,6 +94,9 @@ def _row_to_detection(row) -> Detection:
         d.ai_analysis = row[24]
         d.ai_analysis_timestamp = _parse_datetime(row[25]) if row[25] else None
 
+    if len(row) > 26:
+        d.manual_tagged = bool(row[26])
+
     return d
 
 
@@ -102,7 +106,7 @@ class DetectionRepository:
 
     async def get_by_frigate_event(self, frigate_event: str) -> Optional[Detection]:
         async with self.db.execute(
-            "SELECT id, detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label, audio_confirmed, audio_species, audio_score, temperature, weather_condition, scientific_name, common_name, taxa_id, video_classification_score, video_classification_label, video_classification_index, video_classification_timestamp, video_classification_status, ai_analysis, ai_analysis_timestamp FROM detections WHERE frigate_event = ?",
+            "SELECT id, detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label, audio_confirmed, audio_species, audio_score, temperature, weather_condition, scientific_name, common_name, taxa_id, video_classification_score, video_classification_label, video_classification_index, video_classification_timestamp, video_classification_status, ai_analysis, ai_analysis_timestamp, manual_tagged FROM detections WHERE frigate_event = ?",
             (frigate_event,)
         ) as cursor:
             row = await cursor.fetchone()
@@ -180,17 +184,17 @@ class DetectionRepository:
 
     async def create(self, detection: Detection):
         await self.db.execute("""
-            INSERT INTO detections (detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label, audio_confirmed, audio_species, audio_score, temperature, weather_condition, scientific_name, common_name, taxa_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (detection.detection_time, detection.detection_index, detection.score, detection.display_name, detection.category_name, detection.frigate_event, detection.camera_name, 1 if detection.is_hidden else 0, detection.frigate_score, detection.sub_label, 1 if detection.audio_confirmed else 0, detection.audio_species, detection.audio_score, detection.temperature, detection.weather_condition, detection.scientific_name, detection.common_name, detection.taxa_id))
+            INSERT INTO detections (detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label, audio_confirmed, audio_species, audio_score, temperature, weather_condition, scientific_name, common_name, taxa_id, manual_tagged)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (detection.detection_time, detection.detection_index, detection.score, detection.display_name, detection.category_name, detection.frigate_event, detection.camera_name, 1 if detection.is_hidden else 0, detection.frigate_score, detection.sub_label, 1 if detection.audio_confirmed else 0, detection.audio_species, detection.audio_score, detection.temperature, detection.weather_condition, detection.scientific_name, detection.common_name, detection.taxa_id, 1 if detection.manual_tagged else 0))
         await self.db.commit()
 
     async def update(self, detection: Detection):
         await self.db.execute("""
             UPDATE detections
-            SET detection_time = ?, detection_index = ?, score = ?, display_name = ?, category_name = ?, frigate_score = ?, sub_label = ?, audio_confirmed = ?, audio_species = ?, audio_score = ?, temperature = ?, weather_condition = ?, scientific_name = ?, common_name = ?, taxa_id = ?
+            SET detection_time = ?, detection_index = ?, score = ?, display_name = ?, category_name = ?, frigate_score = ?, sub_label = ?, audio_confirmed = ?, audio_species = ?, audio_score = ?, temperature = ?, weather_condition = ?, scientific_name = ?, common_name = ?, taxa_id = ?, manual_tagged = ?
             WHERE frigate_event = ?
-        """, (detection.detection_time, detection.detection_index, detection.score, detection.display_name, detection.category_name, detection.frigate_score, detection.sub_label, detection.audio_confirmed, detection.audio_species, detection.audio_score, detection.temperature, detection.weather_condition, detection.scientific_name, detection.common_name, detection.taxa_id, detection.frigate_event))
+        """, (detection.detection_time, detection.detection_index, detection.score, detection.display_name, detection.category_name, detection.frigate_score, detection.sub_label, detection.audio_confirmed, detection.audio_species, detection.audio_score, detection.temperature, detection.weather_condition, detection.scientific_name, detection.common_name, detection.taxa_id, 1 if detection.manual_tagged else 0, detection.frigate_event))
         await self.db.commit()
 
     async def upsert_if_higher_score(self, detection: Detection) -> tuple[bool, bool]:
@@ -204,11 +208,15 @@ class DetectionRepository:
         Returns:
             Tuple of (was_inserted, was_updated)
         """
-        # First, try to insert. If conflict on frigate_event, update only if score is higher.
+        # First, check if the event already exists to distinguish insert vs update.
+        existing = await self.get_by_frigate_event(detection.frigate_event)
+        was_existing = existing is not None
+
+        # Then, try to insert. If conflict on frigate_event, update only if score is higher.
         # SQLite's ON CONFLICT DO UPDATE with WHERE clause handles this atomically.
         await self.db.execute("""
-            INSERT INTO detections (detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label, audio_confirmed, audio_species, audio_score, temperature, weather_condition, scientific_name, common_name, taxa_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO detections (detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label, audio_confirmed, audio_species, audio_score, temperature, weather_condition, scientific_name, common_name, taxa_id, manual_tagged)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(frigate_event) DO UPDATE SET
                 detection_time = excluded.detection_time,
                 detection_index = excluded.detection_index,
@@ -224,7 +232,8 @@ class DetectionRepository:
                 weather_condition = excluded.weather_condition,
                 scientific_name = excluded.scientific_name,
                 common_name = excluded.common_name,
-                taxa_id = excluded.taxa_id
+                taxa_id = excluded.taxa_id,
+                manual_tagged = detections.manual_tagged
             WHERE excluded.score > detections.score OR (excluded.audio_confirmed = 1 AND detections.audio_confirmed = 0)
         """, (
             detection.detection_time,
@@ -244,19 +253,18 @@ class DetectionRepository:
             detection.weather_condition,
             getattr(detection, 'scientific_name', None),
             getattr(detection, 'common_name', None),
-            getattr(detection, 'taxa_id', None)
+            getattr(detection, 'taxa_id', None),
+            1 if detection.manual_tagged else 0
         ))
 
         changes = self.db.total_changes
         await self.db.commit()
 
-        # Determine what happened:
-        # - If changes > 0 and row was new: inserted
-        # - If changes > 0 and row existed: updated (score was higher)
-        # - If changes == 0: row existed but score wasn't higher
-        # We can't perfectly distinguish insert vs update without extra query,
-        # but for logging purposes we return (changes > 0, False) for simplicity
-        return (changes > 0, False)
+        if changes == 0:
+            return (False, False)
+        if was_existing:
+            return (False, True)
+        return (True, False)
 
     async def insert_if_not_exists(self, detection: Detection) -> bool:
         """Atomically insert a detection only if it doesn't already exist.
@@ -272,8 +280,8 @@ class DetectionRepository:
         """
         await self.db.execute("""
             INSERT OR IGNORE INTO detections
-            (detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label, audio_confirmed, audio_species, audio_score, temperature, weather_condition, scientific_name, common_name, taxa_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label, audio_confirmed, audio_species, audio_score, temperature, weather_condition, scientific_name, common_name, taxa_id, manual_tagged)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             detection.detection_time,
             detection.detection_index,
@@ -292,7 +300,8 @@ class DetectionRepository:
             detection.weather_condition,
             detection.scientific_name,
             detection.common_name,
-            detection.taxa_id
+            detection.taxa_id,
+            1 if detection.manual_tagged else 0
         ))
 
         changes = self.db.total_changes
@@ -310,7 +319,7 @@ class DetectionRepository:
         sort: str = "newest",
         include_hidden: bool = False
     ) -> list[Detection]:
-        query = "SELECT id, detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label, audio_confirmed, audio_species, audio_score, temperature, weather_condition, scientific_name, common_name, taxa_id, video_classification_score, video_classification_label, video_classification_index, video_classification_timestamp, video_classification_status, ai_analysis, ai_analysis_timestamp FROM detections"
+        query = "SELECT id, detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label, audio_confirmed, audio_species, audio_score, temperature, weather_condition, scientific_name, common_name, taxa_id, video_classification_score, video_classification_label, video_classification_index, video_classification_timestamp, video_classification_status, ai_analysis, ai_analysis_timestamp, manual_tagged FROM detections"
         params: list = []
         conditions = []
 

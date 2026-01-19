@@ -17,6 +17,7 @@ detections = Table(
     Column("is_hidden", Boolean, server_default="0"),
     Column("frigate_score", Float),
     Column("sub_label", String),
+    Column("manual_tagged", Boolean, server_default="0"),
     Column("audio_confirmed", Boolean, server_default="0"),
     Column("audio_species", String),
     Column("audio_score", Float),

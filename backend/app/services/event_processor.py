@@ -14,6 +14,8 @@ from app.services.detection_service import DetectionService
 from app.services.audio.audio_service import audio_service
 from app.services.weather_service import weather_service
 from app.services.notification_service import notification_service
+from app.database import get_db
+from app.repositories.detection_repository import DetectionRepository
 
 log = structlog.get_logger()
 
@@ -259,7 +261,7 @@ class EventProcessor:
             weather_condition = context['weather_data'].get("condition_text")
 
         # Save detection (upsert)
-        changed = await self.detection_service.save_detection(
+        changed, was_inserted = await self.detection_service.save_detection(
             frigate_event=event.frigate_event,
             camera=event.camera,
             start_time=event.start_time_ts,
@@ -277,9 +279,31 @@ class EventProcessor:
         if score > settings.classification.threshold or classification['audio_confirmed']:
             await frigate_client.set_sublabel(event.frigate_event, label)
 
-        # Send notifications if this is a new/changed detection
+        # Send notifications based on policy
         if changed:
-            await self._send_notification(event, classification, snapshot_data)
+            was_updated = not was_inserted
+            should_notify = (
+                (was_inserted and settings.notifications.notify_on_insert) or
+                (was_updated and settings.notifications.notify_on_update)
+            )
+
+            if should_notify:
+                if settings.notifications.delay_until_video and settings.classification.auto_video_classification:
+                    asyncio.create_task(self._notify_after_video(
+                        event,
+                        classification,
+                        audio_confirmed=classification['audio_confirmed'],
+                        audio_species=classification['audio_species']
+                    ))
+                else:
+                    await self._send_notification(
+                        event,
+                        label=classification['label'],
+                        score=classification['score'],
+                        audio_confirmed=classification['audio_confirmed'],
+                        audio_species=classification['audio_species'],
+                        snapshot_data=snapshot_data
+                    )
 
             # Trigger auto video classification
             if settings.classification.auto_video_classification:
@@ -289,7 +313,10 @@ class EventProcessor:
     async def _send_notification(
         self,
         event: EventData,
-        classification: Dict[str, Any],
+        label: str,
+        score: float,
+        audio_confirmed: bool,
+        audio_species: Optional[str],
         snapshot_data: Optional[bytes]
     ):
         """Send detection notification via configured channels.
@@ -299,9 +326,6 @@ class EventProcessor:
             classification: Classification result with audio correlation
             snapshot_data: Snapshot image bytes (may be None)
         """
-        label = classification['label']
-        score = classification['score']
-
         snapshot_url = f"{settings.frigate.frigate_url}/api/events/{event.frigate_event}/snapshot.jpg"
 
         # Fetch snapshot if needed for notifications
@@ -327,7 +351,56 @@ class EventProcessor:
             camera=event.camera,
             timestamp=event.detection_dt,
             snapshot_url=snapshot_url,
-            audio_confirmed=classification['audio_confirmed'],
-            audio_species=classification['audio_species'],
+            audio_confirmed=audio_confirmed,
+            audio_species=audio_species,
             snapshot_data=snapshot_data
+        )
+
+    async def _notify_after_video(
+        self,
+        event: EventData,
+        classification: Dict[str, Any],
+        audio_confirmed: bool,
+        audio_species: Optional[str]
+    ):
+        """Delay notification until video analysis completes (with fallback)."""
+        timeout = settings.notifications.video_fallback_timeout
+        if timeout <= 0:
+            await self._send_notification(
+                event,
+                label=classification['label'],
+                score=classification['score'],
+                audio_confirmed=audio_confirmed,
+                audio_species=audio_species,
+                snapshot_data=None
+            )
+            return
+
+        deadline = asyncio.get_running_loop().time() + timeout
+        label = classification['label']
+        score = classification['score']
+
+        while True:
+            async with get_db() as db:
+                repo = DetectionRepository(db)
+                det = await repo.get_by_frigate_event(event.frigate_event)
+
+            if det and det.video_classification_status == 'completed':
+                if det.video_classification_label and det.video_classification_score is not None:
+                    label = det.video_classification_label
+                    score = det.video_classification_score
+                break
+            if det and det.video_classification_status == 'failed':
+                break
+            if asyncio.get_running_loop().time() >= deadline:
+                break
+            await asyncio.sleep(2)
+
+        await self._send_notification(
+            event,
+            label=label,
+            score=score,
+            audio_confirmed=audio_confirmed,
+            audio_species=audio_species,
+            snapshot_data=None
         )

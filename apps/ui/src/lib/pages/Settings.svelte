@@ -180,6 +180,10 @@
     let newWhitelistSpecies = $state('');
     let filterConfidence = $state(0.7);
     let filterAudioOnly = $state(false);
+    let notifyOnInsert = $state(true);
+    let notifyOnUpdate = $state(false);
+    let notifyDelayUntilVideo = $state(false);
+    let notifyVideoFallbackTimeout = $state(45);
 
     let testingNotification = $state<Record<string, boolean>>({});
 
@@ -336,6 +340,10 @@
             { key: 'filterWhitelist', val: JSON.stringify(filterWhitelist), store: JSON.stringify(s.notifications_filter_species_whitelist || []) },
             { key: 'filterConfidence', val: filterConfidence, store: s.notifications_filter_min_confidence ?? 0.7 },
             { key: 'filterAudioOnly', val: filterAudioOnly, store: s.notifications_filter_audio_confirmed_only ?? false },
+            { key: 'notifyOnInsert', val: notifyOnInsert, store: s.notifications_notify_on_insert ?? true },
+            { key: 'notifyOnUpdate', val: notifyOnUpdate, store: s.notifications_notify_on_update ?? false },
+            { key: 'notifyDelayUntilVideo', val: notifyDelayUntilVideo, store: s.notifications_delay_until_video ?? false },
+            { key: 'notifyVideoFallbackTimeout', val: notifyVideoFallbackTimeout, store: s.notifications_video_fallback_timeout ?? 45 },
 
             // Accessibility
             { key: 'highContrast', val: highContrast, store: s.accessibility_high_contrast ?? false },
@@ -677,6 +685,10 @@
             filterWhitelist = settings.notifications_filter_species_whitelist || [];
             filterConfidence = settings.notifications_filter_min_confidence ?? 0.7;
             filterAudioOnly = settings.notifications_filter_audio_confirmed_only ?? false;
+            notifyOnInsert = settings.notifications_notify_on_insert ?? true;
+            notifyOnUpdate = settings.notifications_notify_on_update ?? false;
+            notifyDelayUntilVideo = settings.notifications_delay_until_video ?? false;
+            notifyVideoFallbackTimeout = settings.notifications_video_fallback_timeout ?? 45;
 
             // Accessibility
             highContrast = settings.accessibility_high_contrast ?? false;
@@ -781,6 +793,10 @@
                 notifications_filter_species_whitelist: filterWhitelist,
                 notifications_filter_min_confidence: filterConfidence,
                 notifications_filter_audio_confirmed_only: filterAudioOnly,
+                notifications_notify_on_insert: notifyOnInsert,
+                notifications_notify_on_update: notifyOnUpdate,
+                notifications_delay_until_video: notifyDelayUntilVideo,
+                notifications_video_fallback_timeout: notifyVideoFallbackTimeout,
                 notification_language: $locale || 'en',
 
                 // Accessibility
@@ -1049,6 +1065,10 @@
                     bind:notifyAudioOnly={filterAudioOnly}
                     bind:notifySpeciesWhitelist={filterWhitelist}
                     bind:newSpecies={newWhitelistSpecies}
+                    bind:notifyOnInsert
+                    bind:notifyOnUpdate
+                    bind:notifyDelayUntilVideo
+                    bind:notifyVideoFallbackTimeout
                     bind:discordEnabled
                     bind:discordWebhook
                     bind:discordWebhookSaved

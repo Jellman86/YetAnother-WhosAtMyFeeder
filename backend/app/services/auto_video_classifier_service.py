@@ -229,6 +229,7 @@ class AutoVideoClassifierService:
                         "is_hidden": det.is_hidden,
                         "frigate_score": det.frigate_score,
                         "sub_label": det.sub_label,
+                        "manual_tagged": det.manual_tagged,
                         "audio_confirmed": det.audio_confirmed,
                         "audio_species": det.audio_species,
                         "audio_score": det.audio_score,

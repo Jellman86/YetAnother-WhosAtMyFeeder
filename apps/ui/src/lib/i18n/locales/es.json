@@ -171,7 +171,17 @@
       "audio_only_desc": "Solo alertar cuando BirdNET confirma el audio.",
       "species_whitelist": "Lista blanca de especies",
       "species_placeholder": "Añade una especie (p. ej., Cardenal norteño)",
-      "no_species_filter": "No hay filtros de especies"
+      "no_species_filter": "No hay filtros de especies",
+      "delivery_policy": "Politica de entrega",
+      "notify_on_insert": "Notificar en nuevas detecciones",
+      "notify_on_insert_desc": "Enviar notificaciones solo cuando se crea una nueva deteccion.",
+      "notify_on_update": "Notificar en actualizaciones",
+      "notify_on_update_desc": "Enviar notificaciones cuando se actualizan detecciones (mayor puntuacion o audio confirmado).",
+      "delay_until_video": "Esperar al analisis de video",
+      "delay_until_video_desc": "Esperar al analisis de video automatico antes de notificar.",
+      "video_fallback_timeout": "Tiempo de espera de video",
+      "video_fallback_timeout_desc": "Esperar este tiempo por el video antes de enviar una notificacion de instantanea.",
+      "video_fallback_seconds": "segundos"
     },
     "discord": {
       "title": "Notificaciones de Discord",

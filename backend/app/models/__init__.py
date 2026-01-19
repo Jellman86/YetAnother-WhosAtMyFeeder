@@ -13,6 +13,7 @@ class Detection(BaseModel):
     is_hidden: bool = False
     frigate_score: float | None = None
     sub_label: str | None = None
+    manual_tagged: bool = False
     # Audio correlation fields
     audio_confirmed: bool = False
     audio_species: str | None = None

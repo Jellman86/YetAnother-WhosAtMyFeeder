@@ -137,10 +137,12 @@
         </div>
 
         <div class="flex items-center gap-3 self-start sm:self-auto shrink-0">
-            <div class="flex flex-col items-center justify-center w-16 h-16 rounded-full bg-slate-900/60 border border-white/20 text-white shadow-lg">
-                <span class="text-lg font-black">{((detection.score || 0) * 100).toFixed(0)}</span>
-                <span class="text-[8px] font-bold uppercase opacity-60">Conf</span>
-            </div>
+            {#if !detection.manual_tagged}
+                <div class="flex flex-col items-center justify-center w-16 h-16 rounded-full bg-slate-900/60 border border-white/20 text-white shadow-lg">
+                    <span class="text-lg font-black">{((detection.score || 0) * 100).toFixed(0)}</span>
+                    <span class="text-[8px] font-bold uppercase opacity-60">Conf</span>
+                </div>
+            {/if}
             <div class="px-4 py-2 bg-teal-500 hover:bg-teal-600 text-white text-xs font-bold uppercase tracking-widest rounded-full transition-colors shadow-lg">
                 View Details
             </div>
