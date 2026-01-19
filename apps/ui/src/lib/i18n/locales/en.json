@@ -269,6 +269,14 @@
       "verified_desc": "Verified via temporal ensemble logic (Soft-Voting).",
       "in_progress": "Video Analysis in progress..."
     },
+    "reclassification": {
+      "analysis": "Analysis",
+      "ai_analysis": "AI Analysis",
+      "frame_grid": "Frame Grid",
+      "frame_progress": "Frame {current}/{total}",
+      "model": "Model: {name}",
+      "done": "Done"
+    },
     "ai": {
       "insight": "AI Naturalist Insight",
       "ask": "Ask AI Naturalist",

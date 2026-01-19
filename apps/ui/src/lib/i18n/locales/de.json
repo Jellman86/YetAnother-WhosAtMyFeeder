@@ -261,6 +261,14 @@
       "verified_desc": "Verifiziert über temporale Ensemble-Logik (Soft-Voting).",
       "in_progress": "Video-Analyse läuft..."
     },
+    "reclassification": {
+      "analysis": "Analyse",
+      "ai_analysis": "KI-Analyse",
+      "frame_grid": "Bildraster",
+      "frame_progress": "Bild {current}/{total}",
+      "model": "Modell: {name}",
+      "done": "Fertig"
+    },
     "ai": {
       "insight": "KI-Naturalist Einblick",
       "ask": "KI-Naturalist fragen",

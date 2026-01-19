@@ -262,6 +262,14 @@
       "verified_desc": "通过时间集成逻辑（软投票）验证。",
       "in_progress": "视频分析进行中..."
     },
+    "reclassification": {
+      "analysis": "分析",
+      "ai_analysis": "AI 分析",
+      "frame_grid": "帧网格",
+      "frame_progress": "帧 {current}/{total}",
+      "model": "模型：{name}",
+      "done": "完成"
+    },
     "ai": {
       "insight": "AI 自然学家见解",
       "ask": "询问 AI 自然学家",

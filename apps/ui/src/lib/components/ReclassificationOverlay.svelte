@@ -1,5 +1,6 @@
 <script lang="ts">
     import { fade, scale } from 'svelte/transition';
+    import { _ } from 'svelte-i18n';
     import type { ReclassificationProgress } from '../stores/detections.svelte';
 
     import { detectionsStore } from '../stores/detections.svelte';
@@ -66,7 +67,7 @@
                 </svg>
                 <div class="absolute inset-0 flex flex-col items-center justify-center">
                     <span class="text-2xl font-black text-white">{progressPercent}%</span>
-                    <span class="text-[10px] font-bold text-teal-300 uppercase tracking-widest leading-none">Analysis</span>
+                    <span class="text-[10px] font-bold text-teal-300 uppercase tracking-widest leading-none">{$_('detection.reclassification.analysis')}</span>
                 </div>
             </div>
         {:else}
@@ -74,7 +75,7 @@
             <div class="flex items-center justify-between w-full mb-1">
                 <div class="flex items-center gap-1.5">
                     <div class="w-1.5 h-1.5 rounded-full bg-teal-400 {isComplete ? '' : 'animate-ping'}"></div>
-                    <span class="text-[10px] font-black text-white uppercase tracking-wider">AI Analysis</span>
+                    <span class="text-[10px] font-black text-white uppercase tracking-wider">{$_('detection.reclassification.ai_analysis')}</span>
                 </div>
                 <span class="text-xs font-black text-teal-300">{progressPercent}%</span>
             </div>
@@ -113,9 +114,9 @@
             </div>
             {#if !small}
                 <div class="mt-3 flex justify-between items-center px-1">
-                    <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Frame Grid</span>
+                    <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">{$_('detection.reclassification.frame_grid')}</span>
                     <span class="text-[10px] font-black text-teal-300 uppercase tracking-widest">
-                        Frame {displayFrameIndex}/{displayClipTotal}
+                        {$_('detection.reclassification.frame_progress', { values: { current: displayFrameIndex, total: displayClipTotal } })}
                     </span>
                 </div>
             {/if}
@@ -127,7 +128,7 @@
                 <div class="flex flex-col items-center" transition:fade>
                     {#if !small}
                         <span class="px-2 py-0.5 rounded-md bg-teal-500/20 border border-teal-500/30 text-[9px] font-black text-teal-300 uppercase tracking-widest mb-1.5">
-                            Frame {displayFrameIndex}/{displayClipTotal}
+                            {$_('detection.reclassification.frame_progress', { values: { current: displayFrameIndex, total: displayClipTotal } })}
                         </span>
                     {/if}
                     <span class="{small ? 'text-[10px]' : 'text-base'} font-black text-white truncate max-w-[200px] drop-shadow-md">
@@ -137,7 +138,7 @@
             {/if}
             {#if modelLabel && !small}
                 <span class="text-[9px] font-black text-slate-300 uppercase tracking-widest mt-1">
-                    Model: {modelLabel}
+                    {$_('detection.reclassification.model', { values: { name: modelLabel } })}
                 </span>
             {/if}
             {#if isComplete && !small}
@@ -146,7 +147,7 @@
                         onclick={handleDismiss}
                         class="w-full py-2.5 bg-teal-500 hover:bg-teal-600 text-white font-black uppercase tracking-widest text-xs rounded-xl transition-all shadow-lg shadow-teal-500/40 border border-white/10"
                     >
-                        Done
+                        {$_('detection.reclassification.done')}
                     </button>
                 </div>
             {/if}

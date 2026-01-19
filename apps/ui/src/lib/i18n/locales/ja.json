@@ -261,6 +261,14 @@
       "verified_desc": "時間アンサンブルロジック（ソフト投票）により検証済み。",
       "in_progress": "ビデオ分析が進行中です..."
     },
+    "reclassification": {
+      "analysis": "解析",
+      "ai_analysis": "AI解析",
+      "frame_grid": "フレーム一覧",
+      "frame_progress": "フレーム {current}/{total}",
+      "model": "モデル: {name}",
+      "done": "完了"
+    },
     "ai": {
       "insight": "AI博物学者の洞察",
       "ask": "AI博物学者に聞く",

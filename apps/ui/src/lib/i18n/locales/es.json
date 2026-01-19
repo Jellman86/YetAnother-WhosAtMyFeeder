@@ -261,6 +261,14 @@
       "verified_desc": "Verificado mediante lógica de conjunto temporal (Soft-Voting).",
       "in_progress": "Análisis de video en curso..."
     },
+    "reclassification": {
+      "analysis": "Análisis",
+      "ai_analysis": "Análisis de IA",
+      "frame_grid": "Cuadrícula de fotogramas",
+      "frame_progress": "Fotograma {current}/{total}",
+      "model": "Modelo: {name}",
+      "done": "Listo"
+    },
     "ai": {
       "insight": "Perspectiva del Naturalista IA",
       "ask": "Preguntar al Naturalista IA",

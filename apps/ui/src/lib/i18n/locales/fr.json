@@ -261,6 +261,14 @@
       "verified_desc": "Vérifié via une logique d'ensemble temporelle (Soft-Voting).",
       "in_progress": "Analyse vidéo en cours..."
     },
+    "reclassification": {
+      "analysis": "Analyse",
+      "ai_analysis": "Analyse IA",
+      "frame_grid": "Grille des images",
+      "frame_progress": "Image {current}/{total}",
+      "model": "Modèle : {name}",
+      "done": "Terminé"
+    },
     "ai": {
       "insight": "Aperçu de l'IA Naturaliste",
       "ask": "Demander à l'IA Naturaliste",
