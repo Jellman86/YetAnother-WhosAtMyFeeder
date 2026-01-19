@@ -221,7 +221,7 @@ async def _save_species_info(species_name: str, taxa_id: int | None, language: s
         await db.commit()
 
 @router.get("/species/search")
-async def search_species(q: str = "", limit: int = 50):
+async def search_species(request: Request, q: str = "", limit: int = 50):
     """Search for species labels (from classifier) and return with taxonomy info."""
     q = (q or "").strip()
     limit = max(1, min(limit, 100))
@@ -229,6 +229,7 @@ async def search_species(q: str = "", limit: int = 50):
     q_lower = q.lower() if q else ""
     classifier = get_classifier()
     labels = classifier.labels
+    lang = get_user_language(request)
 
     async with get_db() as db:
         if q:
@@ -251,6 +252,24 @@ async def search_species(q: str = "", limit: int = 50):
                 if common_name and common_name in label_set:
                     matches.append(common_name)
 
+            # Include labels whose localized common names match the query.
+            if lang != "en":
+                async with db.execute(
+                    """SELECT tc.scientific_name, tc.common_name
+                       FROM taxonomy_translations tt
+                       JOIN taxonomy_cache tc ON tc.taxa_id = tt.taxa_id
+                       WHERE tt.language_code = ?
+                         AND LOWER(tt.common_name) LIKE ?""",
+                    (lang, f"%{q_lower}%")
+                ) as cursor:
+                    localized_rows = await cursor.fetchall()
+
+                for sci_name, common_name in localized_rows:
+                    if sci_name and sci_name in label_set:
+                        matches.append(sci_name)
+                    if common_name and common_name in label_set:
+                        matches.append(common_name)
+
             seen = set()
             matches = [m for m in matches if not (m in seen or seen.add(m))]
         else:
@@ -261,13 +280,23 @@ async def search_species(q: str = "", limit: int = 50):
         results = []
         for label in matches:
             async with db.execute(
-                "SELECT scientific_name, common_name FROM taxonomy_cache WHERE scientific_name = ? OR common_name = ?",
+                "SELECT scientific_name, common_name, taxa_id FROM taxonomy_cache WHERE scientific_name = ? OR common_name = ?",
                 (label, label)
             ) as cursor:
                 row = await cursor.fetchone()
 
             sci_name = row[0] if row else None
             common_name = row[1] if row else None
+            taxa_id = row[2] if row else None
+
+            if lang != "en" and taxa_id:
+                async with db.execute(
+                    "SELECT common_name FROM taxonomy_translations WHERE taxa_id = ? AND language_code = ?",
+                    (taxa_id, lang)
+                ) as cursor:
+                    translated = await cursor.fetchone()
+                if translated and translated[0]:
+                    common_name = translated[0]
 
             results.append({
                 "id": label,  # The value to save
