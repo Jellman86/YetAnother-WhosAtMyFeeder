@@ -259,7 +259,18 @@
       "title": "Análisis de Video Profundo",
       "match": "{score}% de Coincidencia",
       "verified_desc": "Verificado mediante lógica de conjunto temporal (Soft-Voting).",
-      "in_progress": "Análisis de video en curso..."
+      "in_progress": "Análisis de video en curso...",
+      "failed_title": "Falló el análisis de video",
+      "errors": {
+        "clip_unavailable": "No hay clip disponible. Se usa análisis de instantánea.",
+        "clip_invalid": "Formato de clip inválido. Se usa análisis de instantánea.",
+        "clip_decode_failed": "No se pudo decodificar el clip. Se usa análisis de instantánea.",
+        "timeout": "Frigate agotó el tiempo preparando el clip.",
+        "frigate_unavailable": "Frigate no está disponible. Se usa análisis de instantánea.",
+        "no_results": "El análisis de video no devolvió resultados.",
+        "event_missing": "Evento no encontrado en Frigate.",
+        "unknown": "Falló el análisis de video. Se usa análisis de instantánea."
+      }
     },
     "reclassification": {
       "analysis": "Análisis",

@@ -124,14 +124,17 @@ class DetectionsStore {
         const existing = newMap.get(eventId);
         
         if (existing) {
+            const slot = Math.max(1, frameIndex ?? currentFrame) - 1;
+            const frameResults = [...existing.frameResults];
+            frameResults[slot] = { score: frameScore, label: topLabel, thumb: frameThumb };
             newMap.set(eventId, {
                 ...existing,
-                currentFrame,
-                totalFrames,
+                currentFrame: Math.max(existing.currentFrame, currentFrame),
+                totalFrames: Math.max(existing.totalFrames, totalFrames),
                 frameIndex: frameIndex ?? existing.frameIndex ?? null,
                 clipTotal: clipTotal ?? existing.clipTotal ?? null,
                 modelName: modelName ?? existing.modelName ?? null,
-                frameResults: [...existing.frameResults, { score: frameScore, label: topLabel, thumb: frameThumb }],
+                frameResults,
                 status: 'running'
             });
             this.progressMap = newMap;

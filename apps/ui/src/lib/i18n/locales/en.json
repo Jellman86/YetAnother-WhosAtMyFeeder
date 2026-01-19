@@ -267,7 +267,18 @@
       "title": "Deep Video Analysis",
       "match": "{score}% Match",
       "verified_desc": "Verified via temporal ensemble logic (Soft-Voting).",
-      "in_progress": "Video Analysis in progress..."
+      "in_progress": "Video Analysis in progress...",
+      "failed_title": "Video Analysis Failed",
+      "errors": {
+        "clip_unavailable": "Clip not available. Using snapshot analysis instead.",
+        "clip_invalid": "Clip format invalid. Using snapshot analysis instead.",
+        "clip_decode_failed": "Clip could not be decoded. Using snapshot analysis instead.",
+        "timeout": "Frigate timed out while preparing the clip.",
+        "frigate_unavailable": "Frigate is unavailable. Using snapshot analysis instead.",
+        "no_results": "Video analysis returned no results.",
+        "event_missing": "Event not found in Frigate.",
+        "unknown": "Video analysis failed. Using snapshot analysis instead."
+      }
     },
     "reclassification": {
       "analysis": "Analysis",

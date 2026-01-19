@@ -260,7 +260,18 @@
       "title": "深度视频分析",
       "match": "{score}% 匹配",
       "verified_desc": "通过时间集成逻辑（软投票）验证。",
-      "in_progress": "视频分析进行中..."
+      "in_progress": "视频分析进行中...",
+      "failed_title": "视频分析失败",
+      "errors": {
+        "clip_unavailable": "剪辑不可用。将改用快照分析。",
+        "clip_invalid": "剪辑格式无效。将改用快照分析。",
+        "clip_decode_failed": "无法解码剪辑。将改用快照分析。",
+        "timeout": "Frigate 准备剪辑超时。",
+        "frigate_unavailable": "Frigate 不可用。将改用快照分析。",
+        "no_results": "视频分析没有返回结果。",
+        "event_missing": "Frigate 中未找到事件。",
+        "unknown": "视频分析失败。将改用快照分析。"
+      }
     },
     "reclassification": {
       "analysis": "分析",

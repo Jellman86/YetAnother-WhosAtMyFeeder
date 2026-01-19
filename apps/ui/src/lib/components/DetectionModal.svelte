@@ -112,6 +112,40 @@
         return { primary: common || scientific || fallback, secondary: null };
     }
 
+    function getVideoFailureMessage(error: string | null | undefined) {
+        if (!error) {
+            return $_('detection.video_analysis.errors.unknown');
+        }
+        if (error.startsWith('clip_http_')) {
+            return $_('detection.video_analysis.errors.clip_unavailable');
+        }
+        if (error.startsWith('event_http_')) {
+            return $_('detection.video_analysis.errors.frigate_unavailable');
+        }
+
+        switch (error) {
+            case 'clip_unavailable':
+            case 'clip_not_found':
+                return $_('detection.video_analysis.errors.clip_unavailable');
+            case 'clip_timeout':
+            case 'event_timeout':
+                return $_('detection.video_analysis.errors.timeout');
+            case 'clip_request_error':
+            case 'event_request_error':
+                return $_('detection.video_analysis.errors.frigate_unavailable');
+            case 'clip_invalid':
+                return $_('detection.video_analysis.errors.clip_invalid');
+            case 'clip_decode_failed':
+                return $_('detection.video_analysis.errors.clip_decode_failed');
+            case 'video_no_results':
+                return $_('detection.video_analysis.errors.no_results');
+            case 'event_not_found':
+                return $_('detection.video_analysis.errors.event_missing');
+            default:
+                return $_('detection.video_analysis.errors.unknown');
+        }
+    }
+
     async function handleAIAnalysis(force: boolean = false) {
         if (!detection) return;
         analyzingAI = true;
@@ -286,6 +320,15 @@
                     <div class="w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
                     <span class="text-xs font-bold text-slate-500 uppercase tracking-widest">{$_('detection.video_analysis.in_progress')}</span>
                  </div>
+            {:else if detection.video_classification_status === 'failed'}
+                <div class="p-4 rounded-2xl bg-rose-500/5 border border-rose-500/10 animate-in fade-in slide-in-from-top-2">
+                    <p class="text-[10px] font-black text-rose-600 dark:text-rose-400 uppercase tracking-[0.2em] mb-1">
+                        {$_('detection.video_analysis.failed_title')}
+                    </p>
+                    <p class="text-xs text-slate-600 dark:text-slate-300">
+                        {getVideoFailureMessage(detection.video_classification_error)}
+                    </p>
+                </div>
             {/if}
 
             <!-- Metadata -->

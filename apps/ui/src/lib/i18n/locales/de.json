@@ -259,7 +259,18 @@
       "title": "Tiefe Video-Analyse",
       "match": "{score}% Übereinstimmung",
       "verified_desc": "Verifiziert über temporale Ensemble-Logik (Soft-Voting).",
-      "in_progress": "Video-Analyse läuft..."
+      "in_progress": "Video-Analyse läuft...",
+      "failed_title": "Videoanalyse fehlgeschlagen",
+      "errors": {
+        "clip_unavailable": "Clip nicht verfügbar. Snapshot-Analyse wird genutzt.",
+        "clip_invalid": "Clip-Format ungültig. Snapshot-Analyse wird genutzt.",
+        "clip_decode_failed": "Clip konnte nicht dekodiert werden. Snapshot-Analyse wird genutzt.",
+        "timeout": "Frigate-Timeout beim Erstellen des Clips.",
+        "frigate_unavailable": "Frigate nicht erreichbar. Snapshot-Analyse wird genutzt.",
+        "no_results": "Videoanalyse lieferte keine Ergebnisse.",
+        "event_missing": "Ereignis in Frigate nicht gefunden.",
+        "unknown": "Videoanalyse fehlgeschlagen. Snapshot-Analyse wird genutzt."
+      }
     },
     "reclassification": {
       "analysis": "Analyse",

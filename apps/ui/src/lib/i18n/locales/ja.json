@@ -259,7 +259,18 @@
       "title": "詳細なビデオ分析",
       "match": "{score}% 一致",
       "verified_desc": "時間アンサンブルロジック（ソフト投票）により検証済み。",
-      "in_progress": "ビデオ分析が進行中です..."
+      "in_progress": "ビデオ分析が進行中です...",
+      "failed_title": "ビデオ分析に失敗しました",
+      "errors": {
+        "clip_unavailable": "クリップが利用できません。スナップショット解析を使用します。",
+        "clip_invalid": "クリップ形式が無効です。スナップショット解析を使用します。",
+        "clip_decode_failed": "クリップをデコードできませんでした。スナップショット解析を使用します。",
+        "timeout": "クリップ準備中に Frigate がタイムアウトしました。",
+        "frigate_unavailable": "Frigate に接続できません。スナップショット解析を使用します。",
+        "no_results": "ビデオ分析で結果が得られませんでした。",
+        "event_missing": "Frigate にイベントが見つかりません。",
+        "unknown": "ビデオ分析に失敗しました。スナップショット解析を使用します。"
+      }
     },
     "reclassification": {
       "analysis": "解析",
