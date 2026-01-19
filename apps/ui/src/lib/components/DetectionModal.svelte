@@ -242,7 +242,7 @@
             </button>
         </div>
 
-        <div class="flex-1 overflow-y-auto p-6 space-y-6">
+        <div class="flex-1 overflow-y-auto p-6 space-y-6 {showTagDropdown ? 'blur-sm pointer-events-none select-none' : ''}">
             <!-- Confidence Bar -->
             {#if !detection.manual_tagged}
                 <div>
@@ -363,39 +363,6 @@
                     >
                         {updatingTag ? $_('common.saving') : $_('actions.manual_tag')}
                     </button>
-
-                    {#if showTagDropdown}
-                        <div class="absolute top-full left-0 right-0 mt-3 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 max-h-80 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2">
-                            <div class="p-3 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50">
-                                <input
-                                    type="text"
-                                    bind:value={tagSearchQuery}
-                                    placeholder={$_('detection.tagging.search_placeholder')}
-                                    class="w-full px-4 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none"
-                                    onclick={(e) => e.stopPropagation()}
-                                />
-                            </div>
-                            <div class="max-h-56 overflow-y-auto p-1">
-                                {#each searchResults as result}
-                                    {@const names = getResultNames(result)}
-                                    <button
-                                        onclick={() => handleManualTag(result.id)}
-                                        class="w-full px-4 py-2.5 text-left text-sm font-medium rounded-lg transition-all hover:bg-teal-50 dark:hover:bg-teal-900/20 hover:text-teal-600 dark:hover:text-teal-400 {result.id === detection.display_name ? 'bg-teal-500/10 text-teal-600 font-bold' : 'text-slate-600 dark:text-slate-300'}"
-                                    >
-                                        <span class="block text-sm leading-tight">{names.primary}</span>
-                                        {#if names.secondary}
-                                            <span class="block text-[11px] text-slate-400 dark:text-slate-400 italic">{names.secondary}</span>
-                                        {/if}
-                                    </button>
-                                {/each}
-                                {#if searchResults.length === 0}
-                                    <p class="px-4 py-6 text-sm text-slate-400 italic text-center">
-                                        {isSearching ? $_('common.loading') : $_('detection.tagging.no_results')}
-                                    </p>
-                                {/if}
-                            </div>
-                        </div>
-                    {/if}
                 </div>
             </div>
 
@@ -427,5 +394,50 @@
                 </button>
             </div>
         </div>
+
+        {#if showTagDropdown}
+            <div class="absolute inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+                <div class="w-full max-w-md mx-6 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden animate-in fade-in zoom-in-95">
+                    <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
+                        <h4 class="text-sm font-black text-slate-800 dark:text-slate-100 uppercase tracking-widest">
+                            {$_('actions.manual_tag')}
+                        </h4>
+                        <button
+                            onclick={() => showTagDropdown = false}
+                            class="text-xs font-bold text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+                        >
+                            {$_('common.cancel')}
+                        </button>
+                    </div>
+                    <div class="p-4 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50">
+                        <input
+                            type="text"
+                            bind:value={tagSearchQuery}
+                            placeholder={$_('detection.tagging.search_placeholder')}
+                            class="w-full px-4 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none"
+                        />
+                    </div>
+                    <div class="max-h-72 overflow-y-auto p-1">
+                        {#each searchResults as result}
+                            {@const names = getResultNames(result)}
+                            <button
+                                onclick={() => handleManualTag(result.id)}
+                                class="w-full px-4 py-2.5 text-left text-sm font-medium rounded-lg transition-all hover:bg-teal-50 dark:hover:bg-teal-900/20 hover:text-teal-600 dark:hover:text-teal-400 {result.id === detection.display_name ? 'bg-teal-500/10 text-teal-600 font-bold' : 'text-slate-600 dark:text-slate-300'}"
+                            >
+                                <span class="block text-sm leading-tight">{names.primary}</span>
+                                {#if names.secondary}
+                                    <span class="block text-[11px] text-slate-400 dark:text-slate-400 italic">{names.secondary}</span>
+                                {/if}
+                            </button>
+                        {/each}
+                        {#if searchResults.length === 0}
+                            <p class="px-4 py-6 text-sm text-slate-400 italic text-center">
+                                {isSearching ? $_('common.loading') : $_('detection.tagging.no_results')}
+                            </p>
+                        {/if}
+                    </div>
+                </div>
+            </div>
+        {/if}
     </div>
 </div>
