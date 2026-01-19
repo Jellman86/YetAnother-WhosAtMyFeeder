@@ -2,6 +2,8 @@ import asyncio
 import os
 import tempfile
 import structlog
+import time
+from collections import deque
 from datetime import datetime
 from typing import Optional, Dict
 
@@ -25,6 +27,60 @@ class AutoVideoClassifierService:
     def __init__(self):
         self._active_tasks: Dict[str, asyncio.Task] = {}
         self._classifier = get_classifier()
+        self._failure_events: deque[tuple[float, str]] = deque()
+        self._failure_event_ids: set[str] = set()
+        self._circuit_open_until: float | None = None
+
+    def _prune_failures(self):
+        window = settings.classification.video_classification_failure_window_minutes * 60
+        now = time.time()
+        while self._failure_events and now - self._failure_events[0][0] > window:
+            _, event_id = self._failure_events.popleft()
+            self._failure_event_ids.discard(event_id)
+
+    def _record_failure(self, event_id: str):
+        self._prune_failures()
+        if event_id in self._failure_event_ids:
+            return
+        now = time.time()
+        self._failure_events.append((now, event_id))
+        self._failure_event_ids.add(event_id)
+
+        threshold = settings.classification.video_classification_failure_threshold
+        if len(self._failure_events) >= threshold:
+            cooldown = settings.classification.video_classification_failure_cooldown_minutes * 60
+            self._circuit_open_until = now + cooldown
+            log.warning("Video classification circuit opened",
+                        failures=len(self._failure_events),
+                        cooldown_minutes=settings.classification.video_classification_failure_cooldown_minutes)
+
+    def _record_success(self, event_id: str):
+        self._prune_failures()
+        if event_id in self._failure_event_ids:
+            self._failure_event_ids.discard(event_id)
+            self._failure_events = deque([(ts, eid) for ts, eid in self._failure_events if eid != event_id])
+
+    def _is_circuit_open(self) -> bool:
+        if not self._circuit_open_until:
+            return False
+        now = time.time()
+        if now >= self._circuit_open_until:
+            self._circuit_open_until = None
+            self._failure_events.clear()
+            self._failure_event_ids.clear()
+            return False
+        return True
+
+    def get_circuit_status(self) -> dict:
+        open_status = self._is_circuit_open()
+        until = None
+        if open_status and self._circuit_open_until:
+            until = datetime.fromtimestamp(self._circuit_open_until).isoformat()
+        return {
+            "open": open_status,
+            "open_until": until,
+            "failure_count": len(self._failure_events)
+        }
 
     def _cleanup_task(self, frigate_event: str, task: asyncio.Task):
         """Safely cleanup a completed task from the active tasks dict."""
@@ -49,6 +105,11 @@ class AutoVideoClassifierService:
 
         # Clean up completed tasks before checking limit
         self._cleanup_completed_tasks()
+
+        if self._is_circuit_open():
+            log.warning("Circuit breaker open, skipping auto video classification", event_id=frigate_event)
+            await self._update_status(frigate_event, 'failed', error="circuit_open", broadcast=True)
+            return
 
         if frigate_event in self._active_tasks:
             log.debug("Video classification already in progress", event_id=frigate_event)
@@ -94,6 +155,7 @@ class AutoVideoClassifierService:
             if event_error:
                 log.warning("Frigate event precheck failed", event_id=frigate_event, error=event_error)
                 await self._update_status(frigate_event, 'failed', error=event_error, broadcast=True)
+                self._record_failure(frigate_event)
                 await broadcaster.broadcast({
                     "type": "reclassification_completed",
                     "data": { "event_id": frigate_event, "results": [] }
@@ -105,6 +167,7 @@ class AutoVideoClassifierService:
             if not clip_bytes:
                 log.warning("Clip not available after retries", event_id=frigate_event)
                 await self._update_status(frigate_event, 'failed', error=clip_error or "clip_unavailable", broadcast=True)
+                self._record_failure(frigate_event)
                 await broadcaster.broadcast({
                     "type": "reclassification_completed",
                     "data": { "event_id": frigate_event, "results": [] }
@@ -147,6 +210,7 @@ class AutoVideoClassifierService:
                     top = results[0]
                     # 5. Save results to DB
                     await self._save_results(frigate_event, top)
+                    self._record_success(frigate_event)
                     
                     # Broadcast completion
                     await broadcaster.broadcast({
@@ -164,6 +228,7 @@ class AutoVideoClassifierService:
                 else:
                     log.warning("Video classification returned no results", event_id=frigate_event)
                     await self._update_status(frigate_event, 'failed', error="video_no_results", broadcast=True)
+                    self._record_failure(frigate_event)
                     await broadcaster.broadcast({
                         "type": "reclassification_completed",
                         "data": { "event_id": frigate_event, "results": [] }
@@ -177,10 +242,12 @@ class AutoVideoClassifierService:
         except asyncio.CancelledError:
             log.info("Video classification task cancelled", event_id=frigate_event)
             await self._update_status(frigate_event, 'failed', error="video_cancelled", broadcast=True)
+            self._record_failure(frigate_event)
             raise
         except Exception as e:
             log.error("Video classification failed", event_id=frigate_event, error=str(e))
             await self._update_status(frigate_event, 'failed', error="video_exception", broadcast=True)
+            self._record_failure(frigate_event)
             await broadcaster.broadcast({
                 "type": "reclassification_completed",
                 "data": { "event_id": frigate_event, "results": [] }
@@ -320,6 +387,8 @@ class AutoVideoClassifierService:
                         "video_classification_timestamp": det.video_classification_timestamp.isoformat() if det.video_classification_timestamp else None
                     }
                 })
+        if status == "completed":
+            self._record_success(frigate_event)
 
 # Global singleton
 auto_video_classifier = AutoVideoClassifierService()

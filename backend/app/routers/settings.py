@@ -83,7 +83,8 @@ class NotificationTestRequest(BaseModel):
 @router.post("/settings/notifications/test")
 async def test_notification(request: NotificationTestRequest):
     """Test notification platform with optional credential overrides."""
-    from app.services.notification_service import notification_service
+from app.services.notification_service import notification_service
+from app.services.auto_video_classifier_service import auto_video_classifier
     
     # Create mock detection data
     species = "Cyanistes caeruleus"
@@ -288,6 +289,7 @@ async def get_settings():
     connected_email = oauth_status["email"] if oauth_status else None
     connected_provider = oauth_status["provider"] if oauth_status else settings.notifications.email.oauth_provider
 
+    circuit_status = auto_video_classifier.get_circuit_status()
     return {
         "frigate_url": settings.frigate.frigate_url,
         "mqtt_server": settings.frigate.mqtt_server,
@@ -313,6 +315,9 @@ async def get_settings():
         "auto_video_classification": settings.classification.auto_video_classification,
         "video_classification_delay": settings.classification.video_classification_delay,
         "video_classification_max_retries": settings.classification.video_classification_max_retries,
+        "video_classification_circuit_open": circuit_status.get("open", False),
+        "video_classification_circuit_until": circuit_status.get("open_until"),
+        "video_classification_circuit_failures": circuit_status.get("failure_count", 0),
         # Media cache settings
         "media_cache_enabled": settings.media_cache.enabled,
         "media_cache_snapshots": settings.media_cache.cache_snapshots,

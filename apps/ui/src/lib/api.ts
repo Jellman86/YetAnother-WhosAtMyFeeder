@@ -66,6 +66,9 @@ export interface Settings {
     auto_video_classification: boolean;
     video_classification_delay: number;
     video_classification_max_retries: number;
+    video_classification_circuit_open?: boolean;
+    video_classification_circuit_until?: string | null;
+    video_classification_circuit_failures?: number;
     audio_buffer_hours?: number;
     audio_correlation_window_seconds?: number;
     // Media cache settings

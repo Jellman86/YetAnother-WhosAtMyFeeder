@@ -70,6 +70,11 @@
     "subtitle": "Konfigurieren und verwalten Sie Ihre YA-WAMF-Instanz",
     "language_selector": "Sprache",
     "language_desc": "Ändert UI-Text und Benachrichtigungsinhalt.",
+    "video_circuit": {
+      "title": "Videoanalyse pausiert",
+      "message": "Die automatische Videoanalyse wurde nach {failures} Fehlern pausiert.",
+      "until": "Neuer Versuch nach: {time}"
+    },
     "tabs": {
       "connection": "Verbindung",
       "detection": "Erkennung",

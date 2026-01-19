@@ -70,6 +70,11 @@
     "subtitle": "YA-WAMFインスタンスの構成と管理",
     "language_selector": "言語",
     "language_desc": "UIテキストと通知の内容を変更します。",
+    "video_circuit": {
+      "title": "ビデオ分析を一時停止",
+      "message": "自動ビデオ分析は {failures} 件の失敗後に一時停止されました。",
+      "until": "再試行予定: {time}"
+    },
     "tabs": {
       "connection": "接続",
       "detection": "検出",

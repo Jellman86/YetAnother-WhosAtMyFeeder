@@ -62,6 +62,9 @@ class ClassificationSettings(BaseModel):
     video_classification_max_retries: int = Field(default=3, description="Max retries for clip availability")
     video_classification_retry_interval: int = Field(default=15, description="Seconds between retries")
     video_classification_max_concurrent: int = Field(default=5, ge=1, le=20, description="Maximum concurrent video classification tasks")
+    video_classification_failure_threshold: int = Field(default=5, ge=1, description="Failures in window to open circuit breaker")
+    video_classification_failure_window_minutes: int = Field(default=10, ge=1, description="Failure window size in minutes")
+    video_classification_failure_cooldown_minutes: int = Field(default=15, ge=1, description="Cooldown minutes when circuit breaker is open")
 
     # Classification output settings
     max_classification_results: int = Field(default=5, ge=1, le=20, description="Maximum number of top results to return from classifier")
@@ -238,6 +241,9 @@ class Settings(BaseSettings):
             'video_classification_delay': int(os.environ.get('CLASSIFICATION__VIDEO_CLASSIFICATION_DELAY', '30')),
             'video_classification_max_retries': int(os.environ.get('CLASSIFICATION__VIDEO_CLASSIFICATION_MAX_RETRIES', '3')),
             'video_classification_retry_interval': int(os.environ.get('CLASSIFICATION__VIDEO_CLASSIFICATION_RETRY_INTERVAL', '15')),
+            'video_classification_failure_threshold': int(os.environ.get('CLASSIFICATION__VIDEO_FAILURE_THRESHOLD', '5')),
+            'video_classification_failure_window_minutes': int(os.environ.get('CLASSIFICATION__VIDEO_FAILURE_WINDOW_MINUTES', '10')),
+            'video_classification_failure_cooldown_minutes': int(os.environ.get('CLASSIFICATION__VIDEO_FAILURE_COOLDOWN_MINUTES', '15')),
         }
 
         # Media cache settings

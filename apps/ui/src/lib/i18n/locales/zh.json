@@ -71,6 +71,11 @@
     "subtitle": "配置和管理您的 YA-WAMF 实例",
     "language_selector": "语言",
     "language_desc": "更改用户界面文本和通知内容。",
+    "video_circuit": {
+      "title": "视频分析已暂停",
+      "message": "自动视频分析在 {failures} 次失败后暂停。",
+      "until": "将在以下时间后重试：{time}"
+    },
     "tabs": {
       "connection": "连接",
       "detection": "检测",

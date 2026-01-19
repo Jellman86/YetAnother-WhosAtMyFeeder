@@ -78,6 +78,11 @@
     "subtitle": "Configure and manage your YA-WAMF instance",
     "language_selector": "Language",
     "language_desc": "Changes UI text and notification content.",
+    "video_circuit": {
+      "title": "Video Analysis Paused",
+      "message": "Auto video analysis paused after {failures} failures.",
+      "until": "Retrying after: {time}"
+    },
     "tabs": {
       "connection": "Connection",
       "detection": "Detection",

@@ -12,6 +12,9 @@
         autoVideoClassification = $bindable(false),
         videoClassificationDelay = $bindable(30),
         videoClassificationMaxRetries = $bindable(3),
+        videoCircuitOpen = false,
+        videoCircuitUntil = null,
+        videoCircuitFailures = 0,
         blockedLabels = $bindable<string[]>([]),
         newBlockedLabel = $bindable(''),
         addBlockedLabel,
@@ -25,11 +28,16 @@
         autoVideoClassification: boolean;
         videoClassificationDelay: number;
         videoClassificationMaxRetries: number;
+        videoCircuitOpen: boolean;
+        videoCircuitUntil: string | null;
+        videoCircuitFailures: number;
         blockedLabels: string[];
         newBlockedLabel: string;
         addBlockedLabel: () => void;
         removeBlockedLabel: (label: string) => void;
     } = $props();
+
+    const circuitUntil = $derived(videoCircuitUntil ? new Date(videoCircuitUntil).toLocaleString() : null);
 </script>
 
 <div class="space-y-6">
@@ -147,6 +155,21 @@
                     </div>
 
                     {#if autoVideoClassification}
+                        {#if videoCircuitOpen}
+                            <div role="alert" class="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-slate-700 dark:text-slate-200">
+                                <p class="text-[10px] font-black uppercase tracking-[0.2em] text-amber-600 dark:text-amber-400 mb-2">
+                                    {$_('settings.video_circuit.title')}
+                                </p>
+                                <p class="text-xs font-bold leading-relaxed">
+                                    {$_('settings.video_circuit.message', { values: { failures: videoCircuitFailures } })}
+                                </p>
+                                {#if circuitUntil}
+                                    <p class="text-[10px] text-slate-500 mt-2">
+                                        {$_('settings.video_circuit.until', { values: { time: circuitUntil } })}
+                                    </p>
+                                {/if}
+                            </div>
+                        {/if}
                         <div class="grid grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2">
                             <div>
                                 <label for="video-delay" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Initial Delay (s)</label>

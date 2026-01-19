@@ -68,6 +68,9 @@
     let autoVideoClassification = $state(false);
     let videoClassificationDelay = $state(30);
     let videoClassificationMaxRetries = $state(3);
+    let videoCircuitOpen = $state(false);
+    let videoCircuitUntil = $state<string | null>(null);
+    let videoCircuitFailures = $state(0);
     let selectedCameras = $state<string[]>([]);
     let retentionDays = $state(0);
     let blockedLabels = $state<string[]>([]);
@@ -592,6 +595,9 @@
             autoVideoClassification = settings.auto_video_classification ?? false;
             videoClassificationDelay = settings.video_classification_delay ?? 30;
             videoClassificationMaxRetries = settings.video_classification_max_retries ?? 3;
+            videoCircuitOpen = settings.video_classification_circuit_open ?? false;
+            videoCircuitUntil = settings.video_classification_circuit_until ?? null;
+            videoCircuitFailures = settings.video_classification_circuit_failures ?? 0;
             selectedCameras = settings.cameras || [];
             retentionDays = settings.retention_days || 0;
             blockedLabels = settings.blocked_labels || [];
@@ -1053,6 +1059,9 @@
                     bind:videoClassificationMaxRetries
                     bind:blockedLabels
                     bind:newBlockedLabel
+                    {videoCircuitOpen}
+                    {videoCircuitUntil}
+                    {videoCircuitFailures}
                     {addBlockedLabel}
                     {removeBlockedLabel}
                 />

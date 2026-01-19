@@ -70,6 +70,11 @@
     "subtitle": "Configurez et gérez votre instance YA-WAMF",
     "language_selector": "Langue",
     "language_desc": "Modifie le texte de l'interface et le contenu des notifications.",
+    "video_circuit": {
+      "title": "Analyse vidéo en pause",
+      "message": "L'analyse vidéo automatique est en pause après {failures} échecs.",
+      "until": "Nouvelle tentative après : {time}"
+    },
     "tabs": {
       "connection": "Connexion",
       "detection": "Détection",
