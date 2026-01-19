@@ -732,7 +732,15 @@ class ClassifierService:
 
             all_scores = []
 
-            model_name = os.path.basename(bird_model.model_path) if hasattr(bird_model, "model_path") else "bird"
+            from app.services.model_manager import model_manager, REMOTE_REGISTRY
+
+            active_model_id = model_manager.active_model_id
+            model_meta = next((m for m in REMOTE_REGISTRY if m["id"] == active_model_id), None)
+            model_name = model_meta["name"] if model_meta else None
+            if not model_name and hasattr(bird_model, "model_path"):
+                model_name = os.path.basename(bird_model.model_path)
+            if not model_name:
+                model_name = "bird"
 
             for idx in frame_indices:
                 # Seek to frame
