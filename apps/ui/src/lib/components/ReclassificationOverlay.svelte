@@ -9,13 +9,6 @@
         small?: boolean;
     }>();
 
-    // Calculate histogram data - ensure we use the actual scores from the frames
-    let histogramBars = $derived(progress.frameResults.map((res: any) => ({
-        height: Math.max(res.score * 100, 4), // Min height of 4% for visibility
-        score: res.score,
-        label: res.label
-    })));
-
     let latestFrame = $derived(progress.frameResults[progress.frameResults.length - 1]);
     let isComplete = $derived(progress.status === 'completed' || progress.currentFrame >= progress.totalFrames);
     let progressPercent = $derived(Math.round((progress.currentFrame / progress.totalFrames) * 100));
@@ -95,28 +88,23 @@
             </div>
         {/if}
 
-        <!-- Confidence Histogram -->
+        <!-- Frame Strip -->
         <div class="w-full bg-black/40 rounded-xl {small ? 'p-1.5' : 'p-3'} border border-white/10 backdrop-blur-md shadow-2xl">
-            <div class="flex items-end justify-between gap-0.5 {small ? 'h-10' : 'h-20'} w-full px-0.5">
+            <div class="flex items-center gap-1 {small ? 'h-8' : 'h-12'} w-full">
                 {#each Array(progress.totalFrames) as _, i}
-                    {@const bar = histogramBars[i]}
-                    <div class="flex-1 group relative h-full flex flex-col justify-end">
-                        {#if bar}
-                            <div 
-                                class="w-full rounded-t-sm transition-all duration-500 ease-out
-                                       {bar.score > 0.8 ? 'bg-emerald-400' : 
-                                        bar.score > 0.5 ? 'bg-teal-400' : 'bg-amber-400'}"
-                                style="height: {bar.height}%"
-                            ></div>
-                        {:else}
-                            <div class="w-full h-1 bg-white/10 rounded-full"></div>
-                        {/if}
-                    </div>
+                    {@const frame = progress.frameResults[i]}
+                    {@const isCurrent = i + 1 === progress.currentFrame && !isComplete}
+                    <div
+                        class="flex-1 h-full rounded-md border border-white/10 transition-all duration-300
+                               {frame ? (frame.score > 0.8 ? 'bg-emerald-400/80' : frame.score > 0.5 ? 'bg-teal-400/70' : 'bg-amber-400/70') : 'bg-white/10'}
+                               {isCurrent ? 'ring-2 ring-teal-300/80 animate-pulse' : ''}"
+                        title={frame ? `${frame.label} • ${(frame.score * 100).toFixed(0)}%` : 'Pending'}
+                    ></div>
                 {/each}
             </div>
             {#if !small}
                 <div class="mt-2.5 flex justify-between items-center px-1">
-                    <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Confidence Scan</span>
+                    <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Frame Scan</span>
                     <div class="flex gap-1">
                         {#if isComplete}
                             <div class="w-1.5 h-1.5 rounded-full bg-emerald-400"></div>
