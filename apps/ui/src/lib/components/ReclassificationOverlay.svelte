@@ -95,7 +95,16 @@
                             style={frame?.thumb ? `background-image: url(data:image/jpeg;base64,${frame.thumb}); background-size: cover; background-position: center;` : ''}
                         ></div>
                         {#if !small}
-                            <span class="text-[10px] font-black text-slate-300 uppercase tracking-widest text-center">
+                            <span
+                                class="text-[10px] font-black uppercase tracking-widest text-center
+                                       {frame
+                                           ? frame.score > 0.8
+                                               ? 'text-emerald-300'
+                                               : frame.score > 0.5
+                                                   ? 'text-amber-300'
+                                                   : 'text-rose-300'
+                                           : 'text-slate-400'}"
+                            >
                                 {frame ? `${(frame.score * 100).toFixed(0)}%` : '--'}
                             </span>
                         {/if}
