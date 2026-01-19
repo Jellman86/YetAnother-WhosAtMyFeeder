@@ -365,7 +365,7 @@
                     </button>
 
                     {#if showTagDropdown}
-                        <div class="absolute bottom-full left-0 right-0 mb-3 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 max-h-80 overflow-hidden z-50 animate-in fade-in slide-in-from-bottom-2">
+                        <div class="absolute top-full left-0 right-0 mt-3 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 max-h-80 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2">
                             <div class="p-3 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50">
                                 <input
                                     type="text"
