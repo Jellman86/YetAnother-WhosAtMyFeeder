@@ -25,6 +25,12 @@ async def _verify_schema(backend_dir: str) -> None:
     config = Config(os.path.join(backend_dir, "alembic.ini"))
     script = ScriptDirectory.from_config(config)
     expected_heads = set(script.get_heads())
+    if len(expected_heads) > 1:
+        log.error(
+            "Multiple Alembic heads detected; merge required",
+            expected_heads=sorted(expected_heads),
+        )
+        raise RuntimeError("Multiple Alembic heads detected; merge required")
 
     async with aiosqlite.connect(DB_PATH) as db:
         try:

@@ -35,6 +35,23 @@ jobs:
           cd backend
           python -m pytest tests/ --cov=app --cov-fail-under=20
 
+      - name: Ensure single Alembic head
+        run: |
+          cd backend
+          python - <<'PY'
+          import sys
+          from alembic.config import Config
+          from alembic.script import ScriptDirectory
+
+          config = Config("alembic.ini")
+          script = ScriptDirectory.from_config(config)
+          heads = script.get_heads()
+          if len(heads) != 1:
+              print(f"Expected 1 Alembic head, found {len(heads)}: {heads}")
+              sys.exit(1)
+          print(f"Alembic head OK: {heads[0]}")
+          PY
+
   build-backend:
     needs: test-backend
     runs-on: ubuntu-latest
