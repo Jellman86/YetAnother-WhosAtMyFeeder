@@ -4,10 +4,11 @@ import os
 
 @pytest.fixture(scope="module")
 def browser():
-    print("\nConnecting to Playwright service at ws://playwright-service:3000/...")
+    ws_url = os.environ.get("PLAYWRIGHT_WS", "ws://playwright-service:3000/")
+    print(f"\nConnecting to Playwright service at {ws_url}...")
     with sync_playwright() as p:
         try:
-            browser = p.chromium.connect("ws://playwright-service:3000/")
+            browser = p.chromium.connect(ws_url)
             print("Connected to Playwright service.")
             yield browser
             browser.close()
