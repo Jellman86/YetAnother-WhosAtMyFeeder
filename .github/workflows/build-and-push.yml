@@ -2,7 +2,8 @@ name: Build and Push Docker Images
 
 on:
   push:
-    branches: [main, dev]
+    branches: [dev]
+    tags: ["v*"]
   workflow_dispatch:  # Allow manual trigger
 
 env:
@@ -101,10 +102,12 @@ jobs:
 
       - name: Determine image tag
         run: |
-          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
-            echo "IMAGE_TAG=latest" >> $GITHUB_ENV
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            echo "IMAGE_TAG=${GITHUB_REF_NAME}" >> $GITHUB_ENV
+            echo "PUBLISH_LATEST=true" >> $GITHUB_ENV
           else
             echo "IMAGE_TAG=dev" >> $GITHUB_ENV
+            echo "PUBLISH_LATEST=false" >> $GITHUB_ENV
           fi
 
       - name: Build and push backend
@@ -118,6 +121,12 @@ jobs:
           tags: |
             ghcr.io/${{ env.OWNER_LC }}/wamf-backend:${{ env.IMAGE_TAG }}
             ghcr.io/${{ env.OWNER_LC }}/wamf-backend:${{ github.sha }}
+      - name: Tag backend latest
+        if: env.PUBLISH_LATEST == 'true'
+        run: |
+          docker buildx imagetools create \
+            -t ghcr.io/${{ env.OWNER_LC }}/wamf-backend:latest \
+            ghcr.io/${{ env.OWNER_LC }}/wamf-backend:${{ env.IMAGE_TAG }}
 
   build-frontend:
     runs-on: ubuntu-latest
@@ -147,10 +156,12 @@ jobs:
 
       - name: Determine image tag
         run: |
-          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
-            echo "IMAGE_TAG=latest" >> $GITHUB_ENV
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            echo "IMAGE_TAG=${GITHUB_REF_NAME}" >> $GITHUB_ENV
+            echo "PUBLISH_LATEST=true" >> $GITHUB_ENV
           else
             echo "IMAGE_TAG=dev" >> $GITHUB_ENV
+            echo "PUBLISH_LATEST=false" >> $GITHUB_ENV
           fi
 
       - name: Build and push frontend
@@ -164,3 +175,9 @@ jobs:
           tags: |
             ghcr.io/${{ env.OWNER_LC }}/wamf-frontend:${{ env.IMAGE_TAG }}
             ghcr.io/${{ env.OWNER_LC }}/wamf-frontend:${{ github.sha }}
+      - name: Tag frontend latest
+        if: env.PUBLISH_LATEST == 'true'
+        run: |
+          docker buildx imagetools create \
+            -t ghcr.io/${{ env.OWNER_LC }}/wamf-frontend:latest \
+            ghcr.io/${{ env.OWNER_LC }}/wamf-frontend:${{ env.IMAGE_TAG }}
