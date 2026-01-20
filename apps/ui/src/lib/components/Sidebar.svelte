@@ -53,7 +53,7 @@
                 class="flex items-center gap-3 focus-ring rounded-lg p-1 -m-1"
                 onclick={() => handleNavClick('/')}
             >
-                <div class="w-9 h-9 rounded-xl bg-transparent border border-slate-200/70 dark:border-slate-700/60 shadow-glow flex items-center justify-center overflow-hidden flex-shrink-0 p-1">
+                <div class="w-9 h-9 rounded-xl bg-transparent border border-slate-200/70 dark:border-slate-700/60 shadow-sm flex items-center justify-center overflow-hidden flex-shrink-0 p-1">
                     <img src="/pwa-192x192.png" alt={$_('app.title')} class="w-full h-full object-contain bg-transparent" />
                 </div>
                 <div class="flex flex-col overflow-hidden">
@@ -70,7 +70,7 @@
                 class="w-full flex items-center justify-center focus-ring rounded-lg p-1"
                 onclick={() => handleNavClick('/')}
             >
-                <div class="w-9 h-9 rounded-xl bg-transparent border border-slate-200/70 dark:border-slate-700/60 shadow-glow flex items-center justify-center overflow-hidden p-1">
+                <div class="w-9 h-9 rounded-xl bg-transparent border border-slate-200/70 dark:border-slate-700/60 shadow-sm flex items-center justify-center overflow-hidden p-1">
                     <img src="/pwa-192x192.png" alt={$_('app.title')} class="w-full h-full object-contain bg-transparent" />
                 </div>
             </button>

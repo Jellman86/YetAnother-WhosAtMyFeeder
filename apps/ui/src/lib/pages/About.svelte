@@ -100,7 +100,7 @@
     <!-- Header -->
     <div class="text-center space-y-4">
         <div class="flex items-center justify-center gap-3">
-            <div class="w-16 h-16 rounded-2xl bg-transparent border border-slate-200/70 dark:border-slate-700/60 shadow-glow flex items-center justify-center overflow-hidden p-2">
+            <div class="w-16 h-16 rounded-2xl bg-transparent border border-slate-200/70 dark:border-slate-700/60 shadow-sm flex items-center justify-center overflow-hidden p-2">
                 <img src="/pwa-192x192.png" alt={$_('app.title')} class="w-full h-full object-contain bg-transparent" />
             </div>
         </div>
