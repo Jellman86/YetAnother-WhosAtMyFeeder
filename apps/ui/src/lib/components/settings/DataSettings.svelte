@@ -58,7 +58,7 @@
                 { label: 'Retention', val: retentionDays === 0 ? '∞' : `${retentionDays} Days`, color: 'text-indigo-500' },
                 { label: 'Pending GC', val: maintenanceStats.detections_to_cleanup.toLocaleString(), color: maintenanceStats.detections_to_cleanup > 0 ? 'text-amber-500' : 'text-slate-400' }
             ] as stat}
-                <div class="bg-white dark:bg-slate-800/50 p-6 rounded-3xl border border-slate-200/80 dark:border-slate-700/50 shadow-sm text-center">
+                <div class="card-base rounded-3xl p-6 text-center">
                     <p class="text-2xl font-black {stat.color} tracking-tight">{stat.val}</p>
                     <p class="text-[10px] font-black uppercase tracking-widest text-slate-500 mt-1">{stat.label}</p>
                 </div>
@@ -68,7 +68,7 @@
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
         <!-- Retention & Cleanup -->
-        <section class="bg-white dark:bg-slate-800/50 rounded-3xl border border-slate-200/80 dark:border-slate-700/50 p-8 shadow-sm">
+        <section class="card-base rounded-3xl p-8">
             <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight mb-6">Retention Policy</h3>
             <div class="space-y-6">
                 <div>
@@ -102,7 +102,7 @@
         </section>
 
         <!-- Media Cache -->
-        <section class="bg-white dark:bg-slate-800/50 rounded-3xl border border-slate-200/80 dark:border-slate-700/50 p-8 shadow-sm">
+        <section class="card-base rounded-3xl p-8">
             <div class="flex items-center justify-between mb-6">
                 <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">Media Cache</h3>
                 <button
@@ -159,7 +159,7 @@
     </div>
 
     <!-- Species Info Source -->
-    <section class="bg-white dark:bg-slate-800/50 rounded-3xl border border-slate-200/80 dark:border-slate-700/50 p-8 shadow-sm">
+    <section class="card-base rounded-3xl p-8">
         <div class="flex items-center justify-between mb-6">
             <div>
                 <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">Species Info Source</h3>
@@ -182,7 +182,7 @@
     </section>
 
     <!-- Taxonomy Sync -->
-    <section class="bg-white dark:bg-slate-800/50 rounded-3xl border border-slate-200/80 dark:border-slate-700/50 p-8 shadow-sm">
+    <section class="card-base rounded-3xl p-8">
         <div class="flex items-center justify-between mb-6">
             <div>
                 <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">Taxonomy Repair</h3>
@@ -237,7 +237,7 @@
     </section>
 
     <!-- Missed Detections (Backfill) -->
-    <section class="bg-white dark:bg-slate-800/50 rounded-3xl border border-slate-200/80 dark:border-slate-700/50 p-8 shadow-sm">
+    <section class="card-base rounded-3xl p-8">
         <div class="flex items-center gap-3 mb-6">
             <div class="w-10 h-10 rounded-2xl bg-teal-500/10 flex items-center justify-center text-teal-600 dark:text-teal-400">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>

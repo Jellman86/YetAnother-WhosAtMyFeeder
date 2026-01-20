@@ -319,6 +319,8 @@
       "oldest": "古い順",
       "confidence": "信頼度順"
     },
+    "empty_title": "イベントはまだありません",
+    "empty_desc": "バックフィルを実行するか、新しい検出を待ってください。",
     "load_failed": "イベントの読み込みに失敗しました"
   },
   "leaderboard": {

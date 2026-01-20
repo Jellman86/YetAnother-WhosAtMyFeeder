@@ -42,7 +42,7 @@
 
 <div class="space-y-6">
     <!-- Classification Model -->
-    <section class="bg-white dark:bg-slate-800/50 rounded-3xl border border-slate-200/80 dark:border-slate-700/50 p-8 shadow-sm backdrop-blur-md">
+    <section class="card-base rounded-3xl p-8 backdrop-blur-md">
         <div class="flex items-center gap-3 mb-8">
             <div class="w-10 h-10 rounded-2xl bg-teal-500/10 flex items-center justify-center text-teal-600 dark:text-teal-400">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>
@@ -54,7 +54,7 @@
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
         <!-- Tuning -->
-        <section class="bg-white dark:bg-slate-800/50 rounded-3xl border border-slate-200/80 dark:border-slate-700/50 p-8 shadow-sm">
+        <section class="card-base rounded-3xl p-8">
             <h4 class="text-xs font-black uppercase tracking-[0.2em] text-slate-400 mb-6">Fine Tuning</h4>
 
             <div class="space-y-8">
@@ -201,7 +201,7 @@
         </section>
 
         <!-- Naming -->
-        <section class="bg-white dark:bg-slate-800/50 rounded-3xl border border-slate-200/80 dark:border-slate-700/50 p-8 shadow-sm">
+        <section class="card-base rounded-3xl p-8">
             <h4 class="text-xs font-black uppercase tracking-[0.2em] text-slate-400 mb-6">Bird Naming Style</h4>
 
             <div class="flex flex-col gap-3">
@@ -229,7 +229,7 @@
     </div>
 
     <!-- Blocked Labels -->
-    <section class="bg-white dark:bg-slate-800/50 rounded-3xl border border-slate-200/80 dark:border-slate-700/50 p-8 shadow-sm">
+    <section class="card-base rounded-3xl p-8">
         <div class="flex items-center justify-between mb-6">
             <h4 class="text-xs font-black uppercase tracking-[0.2em] text-slate-400">Blocked Labels</h4>
             <span class="px-2 py-0.5 bg-red-500/10 text-red-500 text-[9px] font-black rounded uppercase">Ignored by Discovery</span>

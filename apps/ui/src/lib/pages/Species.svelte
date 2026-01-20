@@ -153,7 +153,7 @@
                 <button
                     type="button"
                     onclick={() => selectedSpecies = topSpecies.species}
-                    class="text-left bg-white/80 dark:bg-slate-800/50 rounded-2xl border border-slate-200/80 dark:border-slate-700/50 p-5 shadow-card dark:shadow-card-dark backdrop-blur-sm transition-all duration-300 hover:shadow-card-hover dark:hover:shadow-card-dark-hover hover:border-teal-300 dark:hover:border-teal-600 relative"
+                    class="card-base text-left rounded-2xl p-5 backdrop-blur-sm transition-all duration-300 hover:shadow-card-hover dark:hover:shadow-card-dark-hover relative"
                     title={topSpecies.species === "Unknown Bird" ? $_('leaderboard.unidentified_desc') : ""}
                 >
                     {#if topSpecies.species === "Unknown Bird"}
@@ -185,7 +185,7 @@
         </div>
 
         <!-- Full Leaderboard -->
-        <div class="bg-white/80 dark:bg-slate-800/50 rounded-2xl border border-slate-200/80 dark:border-slate-700/50 overflow-hidden shadow-card dark:shadow-card-dark backdrop-blur-sm">
+        <div class="card-base rounded-2xl overflow-hidden backdrop-blur-sm">
             <div class="p-4 border-b border-slate-200/80 dark:border-slate-700/50">
                 <h3 class="font-semibold text-slate-900 dark:text-white">{$_('leaderboard.all_species')}</h3>
             </div>

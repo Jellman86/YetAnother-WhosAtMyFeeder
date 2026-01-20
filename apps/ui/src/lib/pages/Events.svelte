@@ -221,30 +221,38 @@
         <div class="text-sm text-slate-500">{$_('events.total_count', { values: { count: totalCount } })}</div>
     </div>
 
-    <div class="flex flex-wrap gap-3">
-        <select bind:value={datePreset} onchange={loadEvents} class="px-3 py-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm">
+    <div class="card-base rounded-2xl p-4 flex flex-wrap gap-3">
+        <select bind:value={datePreset} onchange={loadEvents} class="px-3 py-2 rounded-lg bg-white/90 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 text-sm">
             <option value="all">{$_('events.filters.all_time')}</option><option value="today">{$_('common.today')}</option><option value="week">{$_('events.filters.week')}</option><option value="month">{$_('events.filters.month')}</option><option value="custom">{$_('events.filters.custom')}</option>
         </select>
-        <select bind:value={speciesFilter} onchange={loadEvents} class="px-3 py-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm">
+        <select bind:value={speciesFilter} onchange={loadEvents} class="px-3 py-2 rounded-lg bg-white/90 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 text-sm">
             <option value="">{$_('events.filters.all_species')}</option>{#each availableSpecies as s}<option value={s}>{s}</option>{/each}
         </select>
-        <select bind:value={cameraFilter} onchange={loadEvents} class="px-3 py-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm">
+        <select bind:value={cameraFilter} onchange={loadEvents} class="px-3 py-2 rounded-lg bg-white/90 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 text-sm">
             <option value="">{$_('events.filters.all_cameras')}</option>{#each availableCameras as c}<option value={c}>{c}</option>{/each}
         </select>
     </div>
 
     <Pagination {currentPage} {totalPages} totalItems={totalCount} itemsPerPage={pageSize} onPageChange={(p) => {currentPage=p; loadEvents()}} onPageSizeChange={(s) => {pageSize=s; currentPage=1; loadEvents()}} />
 
-    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-        {#each events as event (event.frigate_event)}
-            <DetectionCard 
-                detection={event} 
-                onclick={() => selectedEvent = event} 
-                onPlay={() => { selectedEvent = event; showVideo = true; }}
-                hideProgress={selectedEvent?.frigate_event === event.frigate_event}
-            />
-        {/each}
-    </div>
+    {#if !loading && events.length === 0}
+        <div class="card-base rounded-3xl p-10 text-center">
+            <div class="text-5xl mb-3">🪶</div>
+            <h3 class="text-lg font-semibold text-slate-900 dark:text-white">{$_('events.empty_title')}</h3>
+            <p class="text-sm text-slate-500 dark:text-slate-400 mt-2">{$_('events.empty_desc')}</p>
+        </div>
+    {:else}
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {#each events as event (event.frigate_event)}
+                <DetectionCard 
+                    detection={event} 
+                    onclick={() => selectedEvent = event} 
+                    onPlay={() => { selectedEvent = event; showVideo = true; }}
+                    hideProgress={selectedEvent?.frigate_event === event.frigate_event}
+                />
+            {/each}
+        </div>
+    {/if}
 </div>
 
 {#if selectedEvent}

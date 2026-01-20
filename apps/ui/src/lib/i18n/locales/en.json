@@ -327,6 +327,8 @@
       "oldest": "Oldest",
       "confidence": "Confidence"
     },
+    "empty_title": "No events yet",
+    "empty_desc": "Backfill or wait for new detections to see them here.",
     "load_failed": "Failed to load events"
   },
   "leaderboard": {

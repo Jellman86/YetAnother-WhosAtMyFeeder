@@ -122,9 +122,10 @@
             onclick?.();
         }
     }}
-    class="group relative bg-white dark:bg-slate-800 rounded-3xl
-           shadow-sm hover:shadow-card-hover dark:hover:shadow-card-dark-hover
-           border border-slate-200/80 dark:border-slate-700/50
+    class="group relative bg-white/95 dark:bg-slate-800/85 rounded-3xl
+           shadow-card dark:shadow-card-dark hover:shadow-card-hover dark:hover:shadow-card-dark-hover
+           border border-slate-200/80 dark:border-slate-700/60
+           ring-1 ring-slate-200/40 dark:ring-slate-700/40 ring-inset
            hover:border-teal-500/30 dark:hover:border-teal-500/20
            overflow-hidden transition-all duration-500 ease-out
            hover:-translate-y-1.5 flex flex-col h-full

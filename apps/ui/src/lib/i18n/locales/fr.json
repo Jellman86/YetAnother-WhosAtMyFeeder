@@ -319,6 +319,8 @@
       "oldest": "Plus ancien",
       "confidence": "Confiance"
     },
+    "empty_title": "Aucun événement pour le moment",
+    "empty_desc": "Lancez un backfill ou attendez de nouvelles détections.",
     "load_failed": "Échec du chargement des événements"
   },
   "leaderboard": {
