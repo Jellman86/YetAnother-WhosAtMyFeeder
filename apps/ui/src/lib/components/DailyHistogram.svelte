@@ -12,7 +12,7 @@
     const labels = [0, 6, 12, 18, 23].map(h => `${h}:00`);
 </script>
 
-<div class="bg-white dark:bg-slate-800/50 rounded-2xl p-5 border border-slate-200/80 dark:border-slate-700/50 shadow-sm backdrop-blur-sm">
+<div class="card-base rounded-3xl p-5 backdrop-blur-sm">
     <div class="flex items-center justify-between mb-6">
         <h3 class="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-2">
             <span class="w-2 h-2 rounded-full bg-teal-500 animate-pulse"></span>

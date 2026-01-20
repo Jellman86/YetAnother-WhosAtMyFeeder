@@ -51,7 +51,7 @@
 
 <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
     <!-- BirdNET-Go -->
-    <section class="bg-white dark:bg-slate-800/50 rounded-3xl border border-slate-200/80 dark:border-slate-700/50 p-8 shadow-sm backdrop-blur-md">
+    <section class="card-base rounded-3xl p-8 backdrop-blur-md">
         <div class="flex items-center justify-between mb-6">
             <div class="flex items-center gap-3">
                 <div class="w-10 h-10 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-600 dark:text-amber-400">
@@ -154,7 +154,7 @@
     </section>
 
     <!-- BirdWeather -->
-    <section class="bg-white dark:bg-slate-800/50 rounded-3xl border border-slate-200/80 dark:border-slate-700/50 p-8 shadow-sm backdrop-blur-md">
+    <section class="card-base rounded-3xl p-8 backdrop-blur-md">
         <div class="flex items-center justify-between mb-6">
             <div class="flex items-center gap-3">
                 <div class="w-10 h-10 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
@@ -205,7 +205,7 @@
     </section>
 
     <!-- AI Intelligence -->
-    <section class="bg-white dark:bg-slate-800/50 rounded-3xl border border-slate-200/80 dark:border-slate-700/50 p-8 shadow-sm backdrop-blur-md">
+    <section class="card-base rounded-3xl p-8 backdrop-blur-md">
         <div class="flex items-center justify-between mb-6">
             <div class="flex items-center gap-3">
                 <div class="w-10 h-10 rounded-2xl bg-brand-500/10 flex items-center justify-center text-brand-500">
@@ -274,7 +274,7 @@
     </section>
 
     <!-- Location & Weather -->
-    <section class="bg-white dark:bg-slate-800/50 rounded-3xl border border-slate-200/80 dark:border-slate-700/50 p-8 shadow-sm backdrop-blur-md">
+    <section class="card-base rounded-3xl p-8 backdrop-blur-md">
         <div class="flex items-center justify-between mb-6">
             <div class="flex items-center gap-3">
                 <div class="w-10 h-10 rounded-2xl bg-orange-500/10 flex items-center justify-center text-orange-600 dark:text-orange-400">

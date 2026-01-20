@@ -60,11 +60,11 @@ html {
 /* Smooth card transitions */
 @layer components {
   .card-base {
-    @apply bg-white dark:bg-slate-800/80 rounded-2xl border border-slate-200 dark:border-slate-700/60 shadow-card hover:shadow-card-hover dark:shadow-card-dark backdrop-blur-sm transition-all duration-300;
+    @apply bg-white/95 dark:bg-slate-800/85 rounded-2xl border border-slate-200/80 dark:border-slate-700/60 shadow-card dark:shadow-card-dark backdrop-blur-sm transition-all duration-300 ring-1 ring-slate-200/40 dark:ring-slate-700/40 ring-inset;
   }
 
   .card-base:hover {
-    @apply dark:shadow-card-dark-hover border-teal-500/40 dark:border-teal-500/40 -translate-y-1;
+    @apply dark:shadow-card-dark-hover border-teal-500/40 dark:border-teal-500/40 ring-teal-400/30 dark:ring-teal-500/30 -translate-y-1;
   }
 
   /* Rich card with enhanced glassmorphism and gradient effects */
@@ -91,9 +91,9 @@ html {
   /* Stats ribbon container */
   .stats-ribbon {
     @apply relative overflow-hidden rounded-2xl p-6;
-    @apply bg-gradient-to-r from-slate-50 via-white to-slate-50;
+    @apply bg-gradient-to-r from-white via-slate-50 to-white;
     @apply dark:from-slate-800/60 dark:via-slate-800/80 dark:to-slate-800/60;
-    @apply border border-slate-200/50 dark:border-slate-700/50;
+    @apply border border-slate-200/70 dark:border-slate-700/50 shadow-card dark:shadow-card-dark;
   }
 
   /* Animated gradient line */

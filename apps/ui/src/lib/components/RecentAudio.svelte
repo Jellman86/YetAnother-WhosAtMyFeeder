@@ -35,7 +35,7 @@
     }
 </script>
 
-<section class="bg-white dark:bg-slate-800/50 rounded-3xl border border-slate-200/80 dark:border-slate-700/50 p-6 shadow-sm backdrop-blur-md h-full flex flex-col">
+<section class="card-base rounded-3xl p-6 backdrop-blur-md h-full flex flex-col">
     <div class="flex items-center justify-between mb-6">
         <div class="flex items-center gap-3">
             <div class="w-10 h-10 rounded-2xl bg-teal-500/10 flex items-center justify-center text-teal-600 dark:text-teal-400">
