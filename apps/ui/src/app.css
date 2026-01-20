@@ -63,7 +63,7 @@ html {
     @apply bg-white/95 dark:bg-slate-800/85 rounded-2xl border border-slate-200/80 dark:border-slate-700/60 shadow-card dark:shadow-card-dark backdrop-blur-sm transition-all duration-300 ring-1 ring-slate-200/40 dark:ring-slate-700/40 ring-inset;
   }
 
-  .card-base:hover {
+  .card-interactive:hover {
     @apply dark:shadow-card-dark-hover border-teal-500/40 dark:border-teal-500/40 ring-teal-400/30 dark:ring-teal-500/30 -translate-y-1;
   }
 

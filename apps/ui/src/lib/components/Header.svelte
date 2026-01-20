@@ -57,7 +57,7 @@
                     <button
                         class="px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 focus-ring
                                {currentRoute === item.path
-                                   ? 'bg-brand-50 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300'
+                                   ? 'bg-brand-100/70 dark:bg-brand-900/40 text-brand-800 dark:text-brand-200 ring-1 ring-brand-200/70 dark:ring-brand-700/40 shadow-sm'
                                    : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white'}"
                         onclick={() => handleNavClick(item.path)}
                     >
@@ -133,7 +133,7 @@
                     <button
                         class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left font-medium transition-all duration-200
                                {currentRoute === item.path
-                                   ? 'bg-brand-50 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300'
+                                   ? 'bg-brand-100/70 dark:bg-brand-900/40 text-brand-800 dark:text-brand-200 ring-1 ring-brand-200/70 dark:ring-brand-700/40 shadow-sm'
                                    : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}"
                         onclick={() => handleNavClick(item.path)}
                     >

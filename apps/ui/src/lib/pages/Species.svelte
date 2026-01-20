@@ -133,7 +133,7 @@
             {/each}
         </div>
     {:else if species.length === 0}
-        <div class="text-center py-16">
+        <div class="card-base rounded-3xl p-12 text-center">
             <span class="text-6xl mb-4 block">🐦</span>
             <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-2">{$_('leaderboard.no_species')}</h3>
             <p class="text-slate-500 dark:text-slate-400">
@@ -147,7 +147,7 @@
                 <button
                     type="button"
                     onclick={() => selectedSpecies = topSpecies.species}
-                    class="card-base text-left rounded-2xl p-5 backdrop-blur-sm transition-all duration-300 hover:shadow-card-hover dark:hover:shadow-card-dark-hover relative"
+                    class="card-base card-interactive text-left rounded-2xl p-5 backdrop-blur-sm transition-all duration-300 hover:shadow-card-hover dark:hover:shadow-card-dark-hover relative"
                     title={topSpecies.species === "Unknown Bird" ? $_('leaderboard.unidentified_desc') : ""}
                 >
                     {#if topSpecies.species === "Unknown Bird"}

@@ -38,7 +38,7 @@
         {#each processedSpecies as item}
             <button 
                 onclick={() => onSpeciesClick?.(item.species)}
-                class="card-base rounded-xl p-3 text-left transition-all group flex flex-col h-full"
+                class="card-base card-interactive rounded-xl p-3 text-left transition-all group flex flex-col h-full"
             >
                 <div class="relative aspect-square rounded-lg overflow-hidden mb-3 bg-slate-100 dark:bg-slate-700">
                     <img 

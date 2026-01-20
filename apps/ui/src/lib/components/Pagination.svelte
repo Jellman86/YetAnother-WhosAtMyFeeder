@@ -68,7 +68,7 @@
 </script>
 
 {#if totalPages > 0}
-    <div class="flex flex-col sm:flex-row items-center justify-between gap-4 py-4">
+    <div class="card-base rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
         <!-- Items info and page size selector -->
         <div class="flex items-center gap-4 text-sm text-slate-600 dark:text-slate-400">
             <span>
