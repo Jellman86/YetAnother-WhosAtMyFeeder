@@ -278,6 +278,11 @@
                     } })}
                 </li>
                 <li>{$_('about.credits_list.ai_assistants')}</li>
+                <li>
+                    <a href="https://www.flaticon.com/free-icons/bird" title="bird icons" target="_blank" rel="noopener noreferrer" class="text-brand-600 dark:text-brand-400 hover:underline">
+                        Bird icons created by Freepik - Flaticon
+                    </a>
+                </li>
             </ul>
         </div>
     </div>

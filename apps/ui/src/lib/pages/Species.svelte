@@ -184,12 +184,12 @@
                 <h3 class="font-semibold text-slate-900 dark:text-white">{$_('leaderboard.all_species')}</h3>
             </div>
 
-            <div class="divide-y divide-slate-100/80 dark:divide-slate-700/50">
+            <div class="py-2">
                 {#each sortedSpecies() as item, index (item.species)}
                     <button
                         type="button"
                         onclick={() => selectedSpecies = item.species}
-                        class="w-full text-left p-4 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors relative"
+                        class="w-full text-left p-4 rounded-xl mx-3 my-2 bg-white/60 dark:bg-slate-900/30 border border-transparent hover:border-slate-200/70 dark:hover:border-slate-700/70 hover:bg-white/90 dark:hover:bg-slate-800/40 transition-all relative"
                         title={item.species === "Unknown Bird" ? $_('leaderboard.unidentified_desc') : ""}
                     >
                         <div class="flex items-center gap-4">
