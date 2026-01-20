@@ -53,9 +53,6 @@ def upgrade() -> None:
         sa.UniqueConstraint('species_name', 'language', name='uq_species_info_name_lang')
     )
 
-    op.create_index('idx_species_info_name', 'species_info_cache_new', ['species_name'])
-    op.create_index('idx_species_info_taxa_id', 'species_info_cache_new', ['taxa_id'])
-
     # Copy existing data as English
     op.execute(
         """
@@ -70,6 +67,8 @@ def upgrade() -> None:
 
     op.drop_table('species_info_cache')
     op.rename_table('species_info_cache_new', 'species_info_cache')
+    op.create_index('idx_species_info_name', 'species_info_cache', ['species_name'])
+    op.create_index('idx_species_info_taxa_id', 'species_info_cache', ['taxa_id'])
 
 
 def downgrade() -> None:
@@ -100,9 +99,6 @@ def downgrade() -> None:
         sa.PrimaryKeyConstraint('id'),
         sa.UniqueConstraint('species_name')
     )
-    op.create_index('idx_species_info_name', 'species_info_cache_old', ['species_name'])
-    op.create_index('idx_species_info_taxa_id', 'species_info_cache_old', ['taxa_id'])
-
     op.execute(
         """
         INSERT INTO species_info_cache_old
@@ -116,3 +112,5 @@ def downgrade() -> None:
 
     op.drop_table('species_info_cache')
     op.rename_table('species_info_cache_old', 'species_info_cache')
+    op.create_index('idx_species_info_name', 'species_info_cache', ['species_name'])
+    op.create_index('idx_species_info_taxa_id', 'species_info_cache', ['taxa_id'])
