@@ -13,6 +13,7 @@ from app.services.taxonomy.taxonomy_service import taxonomy_service
 from app.services.telemetry_service import telemetry_service
 from app.services.notification_service import notification_service
 from app.services.auto_video_classifier_service import auto_video_classifier
+from app.services.birdweather_service import birdweather_service
 
 from fastapi import BackgroundTasks
 
@@ -161,6 +162,32 @@ async def test_notification(request: NotificationTestRequest):
     except Exception as e:
         log.error("Notification test failed", error=str(e))
         return {"status": "error", "message": str(e)}
+
+
+class BirdWeatherTestRequest(BaseModel):
+    token: Optional[str] = None
+
+
+@router.post("/settings/birdweather/test")
+async def test_birdweather(request: BirdWeatherTestRequest):
+    """Test BirdWeather integration with an optional token override."""
+    token = request.token if request.token and request.token != "***REDACTED***" else None
+    if not token and not settings.birdweather.station_token:
+        return {"status": "error", "message": "Missing BirdWeather station token"}
+    if token is None and not settings.birdweather.enabled:
+        return {"status": "error", "message": "BirdWeather is disabled"}
+
+    success = await birdweather_service.report_detection(
+        scientific_name="Cyanistes caeruleus",
+        common_name="Eurasian Blue Tit (Test)",
+        confidence=0.95,
+        timestamp=datetime.now(),
+        token=token
+    )
+
+    if success:
+        return {"status": "ok", "message": "BirdWeather test succeeded"}
+    return {"status": "error", "message": "BirdWeather test failed. Check token and station permissions."}
 
 class SettingsUpdate(BaseModel):
     frigate_url: str = Field(..., min_length=1, description="Frigate instance URL")
