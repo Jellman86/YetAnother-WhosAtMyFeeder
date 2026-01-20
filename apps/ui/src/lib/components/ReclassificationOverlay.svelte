@@ -25,7 +25,7 @@
 </script>
 
 <div 
-    class="absolute inset-0 z-20 flex flex-col items-center justify-center {small ? 'p-3' : 'p-6'} bg-white/65 dark:bg-slate-900/60 border border-slate-200/70 dark:border-slate-700/50 backdrop-blur-xl rounded-xl overflow-hidden"
+    class="absolute inset-0 z-20 flex flex-col items-center justify-center {small ? 'p-3' : 'p-6'} bg-white/50 dark:bg-slate-900/60 border border-slate-200/70 dark:border-slate-700/50 backdrop-blur-xl rounded-xl overflow-hidden"
     transition:fade={{ duration: 200 }}
 >
     <!-- Current frame backdrop -->
@@ -35,7 +35,7 @@
             style="background-image: url(data:image/jpeg;base64,{currentFrameThumb})"
         ></div>
     {/if}
-    <div class="absolute inset-0 bg-gradient-to-br from-white/70 via-slate-50/80 to-slate-100/80 dark:from-slate-900/60 dark:via-slate-900/70 dark:to-slate-900/80"></div>
+    <div class="absolute inset-0 bg-gradient-to-br from-white/50 via-slate-50/70 to-slate-100/70 dark:from-slate-900/60 dark:via-slate-900/70 dark:to-slate-900/80"></div>
 
     <div class="relative w-full {small ? '' : 'max-w-3xl'} flex flex-col items-center {small ? 'gap-2' : 'gap-6'}">
         
@@ -82,7 +82,7 @@
         {/if}
 
         <!-- Frame Grid -->
-        <div class="w-full bg-white/60 dark:bg-black/40 rounded-2xl {small ? 'p-1.5' : 'p-4'} border border-slate-200/70 dark:border-white/10 backdrop-blur-md shadow-2xl">
+        <div class="w-full bg-white/45 dark:bg-black/40 rounded-2xl {small ? 'p-1.5' : 'p-4'} border border-slate-200/70 dark:border-white/10 backdrop-blur-md shadow-2xl">
             <div class="{small ? 'grid grid-cols-5 gap-1' : 'grid grid-cols-5 gap-2'}">
                 {#each Array(progress.totalFrames) as _, i}
                     {@const frame = progress.frameResults[i]}
