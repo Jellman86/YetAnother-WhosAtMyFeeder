@@ -34,8 +34,8 @@
                 class="flex items-center gap-3 focus-ring rounded-lg p-1 -m-1"
                 onclick={() => handleNavClick('/')}
             >
-                <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-brand-500 to-teal-400 flex items-center justify-center shadow-glow">
-                    <span class="text-white text-lg">🐦</span>
+                <div class="w-9 h-9 rounded-xl bg-white/90 dark:bg-slate-900/80 border border-slate-200/70 dark:border-slate-700/60 shadow-glow flex items-center justify-center overflow-hidden">
+                    <img src="/pwa-192x192.png" alt={$_('app.title')} class="w-full h-full object-cover" />
                 </div>
                 <div class="flex flex-col">
                     <h1 class="text-lg font-bold text-gradient leading-tight hidden sm:block">
