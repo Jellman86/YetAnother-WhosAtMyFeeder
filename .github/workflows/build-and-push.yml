@@ -25,6 +25,26 @@ jobs:
           cd backend
           pip install -r requirements.txt
 
+      - name: Migration smoke test (fresh DB)
+        run: |
+          cd backend
+          export DB_PATH=/tmp/ci-speciesid.db
+          rm -f "$DB_PATH"
+          python -m alembic upgrade head
+
+      - name: Migration idempotency check
+        run: |
+          cd backend
+          export DB_PATH=/tmp/ci-speciesid.db
+          python -m alembic upgrade head
+
+      - name: Migration downgrade/upgrade check
+        run: |
+          cd backend
+          export DB_PATH=/tmp/ci-speciesid.db
+          python -m alembic downgrade -1
+          python -m alembic upgrade head
+
       - name: Run tests
         run: |
           cd backend
