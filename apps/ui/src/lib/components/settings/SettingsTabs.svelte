@@ -32,11 +32,7 @@
 </script>
 
 <nav
-    class="flex flex-wrap justify-center md:justify-start gap-2 p-1
-           bg-slate-100/50 dark:bg-slate-800/50
-           rounded-2xl
-           border border-slate-200/50 dark:border-slate-700/50
-           w-full"
+    class="card-base flex flex-wrap justify-center md:justify-start gap-2 p-1 rounded-2xl w-full"
 >
     {#each tabs as tab}
         <button

@@ -107,19 +107,13 @@
     <div class="flex gap-2">
         <button
             onclick={() => sortBy = 'count'}
-            class="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors
-                   {sortBy === 'count'
-                       ? 'bg-teal-500 text-white'
-                       : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'}"
+            class="tab-button {sortBy === 'count' ? 'tab-button-active' : 'tab-button-inactive'}"
         >
             {$_('leaderboard.sort_by_count')}
         </button>
         <button
             onclick={() => sortBy = 'name'}
-            class="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors
-                   {sortBy === 'name'
-                       ? 'bg-teal-500 text-white'
-                       : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'}"
+            class="tab-button {sortBy === 'name' ? 'tab-button-active' : 'tab-button-inactive'}"
         >
             {$_('leaderboard.sort_by_name')}
         </button>

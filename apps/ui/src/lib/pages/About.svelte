@@ -129,7 +129,7 @@
     </div>
 
     <!-- About the Project -->
-    <div class="card p-6 space-y-4">
+    <div class="card-base p-6 space-y-4">
         <h2 class="text-2xl font-bold text-slate-900 dark:text-white">{$_('about.title')}</h2>
         <div class="space-y-3 text-slate-700 dark:text-slate-300">
             <p>
@@ -144,7 +144,7 @@
     </div>
 
     <!-- How It Works -->
-    <div class="card p-6 space-y-4">
+    <div class="card-base p-6 space-y-4">
         <h2 class="text-2xl font-bold text-slate-900 dark:text-white">{$_('about.how_it_works')}</h2>
         <div class="space-y-4">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -179,7 +179,7 @@
         <h2 class="text-2xl font-bold text-slate-900 dark:text-white">{$_('about.features')}</h2>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {#each features as feature}
-                <div class="card p-4 hover:shadow-lg transition-shadow duration-200">
+                <div class="card-base p-4 hover:shadow-card-hover transition-shadow duration-200">
                     <div class="flex items-start gap-3">
                         <span class="text-3xl flex-shrink-0">{feature.icon}</span>
                         <div class="space-y-1">
@@ -193,7 +193,7 @@
     </div>
 
     <!-- Tech Stack -->
-    <div class="card p-6 space-y-4">
+    <div class="card-base p-6 space-y-4">
         <h2 class="text-2xl font-bold text-slate-900 dark:text-white">{$_('about.tech_stack')}</h2>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {#each techStack as stack}
@@ -213,7 +213,7 @@
     </div>
 
     <!-- Documentation & Links -->
-    <div class="card p-6 space-y-4">
+    <div class="card-base p-6 space-y-4">
         <h2 class="text-2xl font-bold text-slate-900 dark:text-white">{$_('about.docs_resources')}</h2>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
             <a href="https://github.com/Jellman86/YetAnother-WhosAtMyFeeder" target="_blank" rel="noopener noreferrer"
@@ -252,7 +252,7 @@
     </div>
 
     <!-- Credits -->
-    <div class="card p-6 space-y-4">
+    <div class="card-base p-6 space-y-4">
         <h2 class="text-2xl font-bold text-slate-900 dark:text-white">{$_('about.credits')}</h2>
         <div class="space-y-2 text-sm text-slate-700 dark:text-slate-300">
             <p>{$_('about.credits_list.preamble')}</p>

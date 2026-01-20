@@ -244,7 +244,7 @@
                     </div>
                 {/key}
             {:else}
-                <div class="h-full min-h-[320px] bg-slate-100 dark:bg-slate-800 rounded-3xl flex items-center justify-center border-4 border-dashed border-slate-200 dark:border-slate-700">
+                <div class="h-full min-h-[320px] card-base rounded-3xl flex items-center justify-center border-2 border-dashed border-slate-200/80 dark:border-slate-700/60">
                     <p class="text-slate-400">{$_('dashboard.waiting_first_visitor')}</p>
                 </div>
             {/if}

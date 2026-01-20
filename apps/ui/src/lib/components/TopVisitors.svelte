@@ -38,7 +38,7 @@
         {#each processedSpecies as item}
             <button 
                 onclick={() => onSpeciesClick?.(item.species)}
-                class="bg-white dark:bg-slate-800/50 rounded-xl p-3 border border-slate-200/80 dark:border-slate-700/50 text-left hover:border-teal-500 dark:hover:border-teal-400 transition-all group shadow-sm flex flex-col h-full"
+                class="card-base rounded-xl p-3 text-left transition-all group flex flex-col h-full"
             >
                 <div class="relative aspect-square rounded-lg overflow-hidden mb-3 bg-slate-100 dark:bg-slate-700">
                     <img 
@@ -67,7 +67,7 @@
         {/each}
 
         {#if species.length === 0}
-            <div class="col-span-full py-8 text-center bg-slate-50 dark:bg-slate-800/30 rounded-xl border border-dashed border-slate-300 dark:border-slate-700">
+            <div class="col-span-full card-base py-8 text-center border-dashed">
                 <p class="text-xs text-slate-400">No visitors recorded yet today.</p>
             </div>
         {/if}
