@@ -44,7 +44,7 @@ Check the health status of the backend service and ML models.
 {
   "status": "ok",
   "service": "ya-wamf-backend",
-  "version": "2.4.0+abc1234",
+  "version": "2.6.3+abc1234",
   "ml": {
     "status": "ok",
     "runtimes": {
@@ -67,8 +67,8 @@ Get application version information.
 **Response**:
 ```json
 {
-  "version": "2.4.0+abc1234",
-  "base_version": "2.4.0",
+  "version": "2.6.3+abc1234",
+  "base_version": "2.6.3",
   "git_hash": "abc1234"
 }
 ```
