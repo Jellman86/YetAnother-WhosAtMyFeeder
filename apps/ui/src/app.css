@@ -64,7 +64,7 @@ html {
   }
 
   .card-interactive:hover {
-    @apply dark:shadow-card-dark-hover border-teal-500/40 dark:border-teal-500/40 ring-teal-400/30 dark:ring-teal-500/30 -translate-y-1;
+    @apply shadow-card-hover dark:shadow-card-dark-hover border-teal-500/40 dark:border-teal-500/40 ring-teal-400/30 dark:ring-teal-500/30 -translate-y-1;
   }
 
   /* Rich card with enhanced glassmorphism and gradient effects */

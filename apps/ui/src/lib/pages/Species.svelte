@@ -147,7 +147,7 @@
                 <button
                     type="button"
                     onclick={() => selectedSpecies = topSpecies.species}
-                    class="card-base card-interactive text-left rounded-2xl p-5 backdrop-blur-sm transition-all duration-300 hover:shadow-card-hover dark:hover:shadow-card-dark-hover relative"
+                    class="card-base card-interactive text-left rounded-2xl p-5 backdrop-blur-sm transition-all duration-300 relative"
                     title={topSpecies.species === "Unknown Bird" ? $_('leaderboard.unidentified_desc') : ""}
                 >
                     {#if topSpecies.species === "Unknown Bird"}
