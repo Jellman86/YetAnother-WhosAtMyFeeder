@@ -100,8 +100,8 @@
     <!-- Header -->
     <div class="text-center space-y-4">
         <div class="flex items-center justify-center gap-3">
-            <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-brand-500 to-teal-400 flex items-center justify-center shadow-glow">
-                <span class="text-3xl">🐦</span>
+            <div class="w-16 h-16 rounded-2xl bg-white/90 dark:bg-slate-900/80 border border-slate-200/70 dark:border-slate-700/60 shadow-glow flex items-center justify-center overflow-hidden">
+                <img src="/pwa-192x192.png" alt={$_('app.title')} class="w-full h-full object-cover" />
             </div>
         </div>
         <h1 class="text-4xl font-bold text-gradient">{$_('app.logo_title')} {$_('app.logo_subtitle')}</h1>
