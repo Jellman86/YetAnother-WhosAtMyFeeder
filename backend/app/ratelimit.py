@@ -47,5 +47,16 @@ def _is_owner_request(request: Request) -> bool:
     return False
 
 
+def _rate_limit_key(request: Request) -> str:
+    role = "owner" if _is_owner_request(request) else "guest"
+    return f"{role}:{get_remote_address(request)}"
+
+
+def _limit_for_key(key: str) -> str:
+    if key.startswith("owner:"):
+        return "1000/minute"
+    return _guest_limit_value()
+
+
 def guest_rate_limit() -> Callable:
-    return limiter.limit(_guest_limit_value, exempt_when=_is_owner_request)
+    return limiter.limit(_limit_for_key, key_func=_rate_limit_key)

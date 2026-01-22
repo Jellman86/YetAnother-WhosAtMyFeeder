@@ -131,7 +131,7 @@ async def get_auth_status(request: Request):
                 auth_level = AuthLevel.OWNER
                 username = "legacy_api_key"
 
-    needs_setup = settings.auth.password_hash is None
+    needs_setup = settings.auth.enabled and settings.auth.password_hash is None
 
     return AuthStatusResponse(
         auth_required=settings.auth.enabled,

@@ -4,7 +4,7 @@ Provides JWT-based authentication with bcrypt password hashing.
 Supports both owner (full access) and guest (public read-only) auth levels.
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 from fastapi import HTTPException, Request, status, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -87,12 +87,12 @@ def create_access_token(username: str, auth_level: str = AuthLevel.OWNER) -> str
     """
     from app.config import settings
 
-    expiry = datetime.utcnow() + timedelta(hours=settings.auth.session_expiry_hours)
+    expiry = datetime.now(timezone.utc) + timedelta(hours=settings.auth.session_expiry_hours)
     payload = {
         "username": username,
         "auth_level": auth_level,
         "exp": expiry,
-        "iat": datetime.utcnow()
+        "iat": datetime.now(timezone.utc)
     }
 
     return jwt.encode(payload, settings.auth.session_secret, algorithm="HS256")
