@@ -81,8 +81,32 @@
       "notifications": "Benachrichtigungen",
       "integrations": "Integrationen",
       "data": "Daten",
+      "security": "Sicherheit",
       "appearance": "Aussehen",
       "accessibility": "Barrierefreiheit"
+    },
+    "auth": {
+      "title": "Authentifizierung",
+      "desc": "Login für vollen Zugriff erforderlich.",
+      "enable": "Authentifizierung aktivieren",
+      "enable_desc": "Einstellungen und Admin-Aktionen schützen",
+      "username": "Admin-Benutzername",
+      "password": "Neues Passwort",
+      "password_new": "Neues Passwort festlegen",
+      "password_placeholder": "Leer lassen, um aktuelles Passwort zu behalten",
+      "password_confirm": "Passwort bestätigen",
+      "password_confirm_placeholder": "Passwort erneut eingeben",
+      "session_expiry": "Sitzungsdauer (Stunden)"
+    },
+    "public_access": {
+      "title": "Öffentlicher Zugriff",
+      "desc": "Schreibgeschützter Zugriff ohne Login.",
+      "enable": "Öffentlichen Zugriff aktivieren",
+      "enable_desc": "Gäste können Erkennungen ohne Login sehen",
+      "show_camera_names": "Kameranamen anzeigen",
+      "show_camera_names_desc": "Kameranamen für Gäste ausblenden",
+      "history_days": "Historie (Tage)",
+      "rate_limit": "Rate-Limit (pro Minute)"
     },
     "accessibility": {
       "title": "Barrierefreiheit-Optionen",

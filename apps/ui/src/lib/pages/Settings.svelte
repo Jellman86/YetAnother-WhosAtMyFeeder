@@ -48,6 +48,7 @@
     import DataSettings from '../components/settings/DataSettings.svelte';
     import IntegrationSettings from '../components/settings/IntegrationSettings.svelte';
     import NotificationSettings from '../components/settings/NotificationSettings.svelte';
+    import AuthenticationSettings from '../components/settings/AuthenticationSettings.svelte';
 
     let frigateUrl = $state('');
     let mqttServer = $state('');
@@ -144,6 +145,18 @@
     let telemetryEnabled = $state(true);
     let telemetryInstallationId = $state<string | undefined>(undefined);
     let telemetryPlatform = $state<string | undefined>(undefined);
+
+    // Authentication + Public Access
+    let authEnabled = $state(false);
+    let authUsername = $state('admin');
+    let authHasPassword = $state(false);
+    let authPassword = $state('');
+    let authPasswordConfirm = $state('');
+    let authSessionExpiryHours = $state(168);
+    let publicAccessEnabled = $state(false);
+    let publicAccessShowCameraNames = $state(true);
+    let publicAccessHistoricalDays = $state(7);
+    let publicAccessRateLimitPerMinute = $state(30);
 
     // Notifications
     let discordEnabled = $state(false);
@@ -312,6 +325,13 @@
             { key: 'cameraAudioMapping', val: JSON.stringify(cameraAudioMapping), store: JSON.stringify(s.camera_audio_mapping || {}) },
             { key: 'minConfidence', val: minConfidence, store: s.classification_min_confidence ?? 0.4 },
             { key: 'telemetryEnabled', val: telemetryEnabled, store: s.telemetry_enabled ?? true },
+            { key: 'authEnabled', val: authEnabled, store: s.auth_enabled ?? false },
+            { key: 'authUsername', val: authUsername, store: s.auth_username || 'admin' },
+            { key: 'authSessionExpiryHours', val: authSessionExpiryHours, store: s.auth_session_expiry_hours ?? 168 },
+            { key: 'publicAccessEnabled', val: publicAccessEnabled, store: s.public_access_enabled ?? false },
+            { key: 'publicAccessShowCameraNames', val: publicAccessShowCameraNames, store: s.public_access_show_camera_names ?? true },
+            { key: 'publicAccessHistoricalDays', val: publicAccessHistoricalDays, store: s.public_access_historical_days ?? 7 },
+            { key: 'publicAccessRateLimitPerMinute', val: publicAccessRateLimitPerMinute, store: s.public_access_rate_limit_per_minute ?? 30 },
 
             // Notifications
             { key: 'discordEnabled', val: discordEnabled, store: s.notifications_discord_enabled ?? false },
@@ -354,6 +374,10 @@
             { key: 'liveAnnouncements', val: liveAnnouncements, store: s.accessibility_live_announcements ?? true },
             { key: 'speciesInfoSource', val: speciesInfoSource, store: s.species_info_source ?? 'auto' }
         ];
+
+        if (authPassword.length > 0 || authPasswordConfirm.length > 0) {
+            return true;
+        }
 
         const dirtyItem = checks.find(c => c.val !== c.store);
         if (dirtyItem) {
@@ -398,7 +422,7 @@
     onMount(async () => {
         // Handle deep linking to tabs
         const hash = window.location.hash.slice(1);
-        if (hash && ['connection', 'detection', 'notifications', 'integrations', 'data', 'appearance', 'accessibility'].includes(hash)) {
+        if (hash && ['connection', 'detection', 'notifications', 'integrations', 'security', 'data', 'appearance', 'accessibility'].includes(hash)) {
             activeTab = hash;
         }
 
@@ -623,6 +647,17 @@
             telemetryEnabled = settings.telemetry_enabled ?? true;
             telemetryInstallationId = settings.telemetry_installation_id;
             telemetryPlatform = settings.telemetry_platform;
+            // Authentication + Public access
+            authEnabled = settings.auth_enabled ?? false;
+            authUsername = settings.auth_username || 'admin';
+            authHasPassword = settings.auth_has_password ?? false;
+            authPassword = '';
+            authPasswordConfirm = '';
+            authSessionExpiryHours = settings.auth_session_expiry_hours ?? 168;
+            publicAccessEnabled = settings.public_access_enabled ?? false;
+            publicAccessShowCameraNames = settings.public_access_show_camera_names ?? true;
+            publicAccessHistoricalDays = settings.public_access_historical_days ?? 7;
+            publicAccessRateLimitPerMinute = settings.public_access_rate_limit_per_minute ?? 30;
 
             // Notifications
             discordEnabled = settings.notifications_discord_enabled ?? false;
@@ -728,6 +763,18 @@
     async function saveSettings() {
         saving = true;
         message = null;
+        if (authPassword || authPasswordConfirm) {
+            if (authPassword !== authPasswordConfirm) {
+                message = { type: 'error', text: 'Passwords do not match' };
+                saving = false;
+                return;
+            }
+            if (authPassword.length < 8) {
+                message = { type: 'error', text: 'Password must be at least 8 characters' };
+                saving = false;
+                return;
+            }
+        }
         try {
             await updateSettings({
                 frigate_url: frigateUrl,
@@ -768,6 +815,14 @@
                 llm_api_key: llmApiKey,
                 llm_model: llmModel,
                 telemetry_enabled: telemetryEnabled,
+                auth_enabled: authEnabled,
+                auth_username: authUsername,
+                auth_password: authPassword || undefined,
+                auth_session_expiry_hours: authSessionExpiryHours,
+                public_access_enabled: publicAccessEnabled,
+                public_access_show_camera_names: publicAccessShowCameraNames,
+                public_access_historical_days: publicAccessHistoricalDays,
+                public_access_rate_limit_per_minute: publicAccessRateLimitPerMinute,
 
                 // Notifications
                 notifications_discord_enabled: discordEnabled,
@@ -1143,6 +1198,22 @@
                     {testingBirdWeather}
                     {handleTestBirdNET}
                     {handleTestBirdWeather}
+                />
+            {/if}
+
+            <!-- Security Tab -->
+            {#if activeTab === 'security'}
+                <AuthenticationSettings
+                    bind:authEnabled
+                    bind:authUsername
+                    bind:authHasPassword
+                    bind:authPassword
+                    bind:authPasswordConfirm
+                    bind:authSessionExpiryHours
+                    bind:publicAccessEnabled
+                    bind:publicAccessShowCameraNames
+                    bind:publicAccessHistoricalDays
+                    bind:publicAccessRateLimitPerMinute
                 />
             {/if}
 

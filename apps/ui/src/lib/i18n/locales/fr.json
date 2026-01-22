@@ -81,8 +81,32 @@
       "notifications": "Notifications",
       "integrations": "Intégrations",
       "data": "Données",
+      "security": "Sécurité",
       "appearance": "Apparence",
       "accessibility": "Accessibilité"
+    },
+    "auth": {
+      "title": "Authentification",
+      "desc": "Connexion requise pour l'accès complet.",
+      "enable": "Activer l'authentification",
+      "enable_desc": "Protéger les paramètres et actions admin",
+      "username": "Nom d'utilisateur admin",
+      "password": "Nouveau mot de passe",
+      "password_new": "Définir un nouveau mot de passe",
+      "password_placeholder": "Laisser vide pour conserver le mot de passe",
+      "password_confirm": "Confirmer le mot de passe",
+      "password_confirm_placeholder": "Saisir à nouveau le mot de passe",
+      "session_expiry": "Durée de session (heures)"
+    },
+    "public_access": {
+      "title": "Accès public",
+      "desc": "Accès en lecture seule sans connexion.",
+      "enable": "Activer l'accès public",
+      "enable_desc": "Les invités peuvent voir les détections",
+      "show_camera_names": "Afficher les noms des caméras",
+      "show_camera_names_desc": "Masquer les caméras pour le public",
+      "history_days": "Historique (jours)",
+      "rate_limit": "Limite (par minute)"
     },
     "accessibility": {
       "title": "Options d'accessibilité",

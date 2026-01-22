@@ -82,8 +82,32 @@
       "notifications": "通知",
       "integrations": "集成",
       "data": "数据",
+      "security": "安全",
       "appearance": "外观",
       "accessibility": "辅助功能"
+    },
+    "auth": {
+      "title": "身份验证",
+      "desc": "完全访问需要登录。",
+      "enable": "启用身份验证",
+      "enable_desc": "保护设置和管理员操作",
+      "username": "管理员用户名",
+      "password": "新密码",
+      "password_new": "设置新密码",
+      "password_placeholder": "留空以保留当前密码",
+      "password_confirm": "确认密码",
+      "password_confirm_placeholder": "再次输入密码",
+      "session_expiry": "会话有效期（小时）"
+    },
+    "public_access": {
+      "title": "公开访问",
+      "desc": "无需登录的只读访问。",
+      "enable": "启用公开访问",
+      "enable_desc": "访客可查看检测结果",
+      "show_camera_names": "显示摄像头名称",
+      "show_camera_names_desc": "对公开访问隐藏摄像头名称",
+      "history_days": "历史范围（天）",
+      "rate_limit": "速率限制（每分钟）"
     },
     "accessibility": {
       "title": "辅助功能选项",

@@ -81,8 +81,32 @@
       "notifications": "通知",
       "integrations": "統合",
       "data": "データ",
+      "security": "セキュリティ",
       "appearance": "外観",
       "accessibility": "アクセシビリティ"
+    },
+    "auth": {
+      "title": "認証",
+      "desc": "フルアクセスにはログインが必要です。",
+      "enable": "認証を有効化",
+      "enable_desc": "設定と管理操作を保護します",
+      "username": "管理者ユーザー名",
+      "password": "新しいパスワード",
+      "password_new": "新しいパスワードを設定",
+      "password_placeholder": "変更しない場合は空欄",
+      "password_confirm": "パスワード確認",
+      "password_confirm_placeholder": "もう一度入力",
+      "session_expiry": "セッション期限（時間）"
+    },
+    "public_access": {
+      "title": "公開アクセス",
+      "desc": "ログイン不要の読み取り専用アクセス。",
+      "enable": "公開アクセスを有効化",
+      "enable_desc": "ゲストが検出を閲覧できます",
+      "show_camera_names": "カメラ名を表示",
+      "show_camera_names_desc": "公開閲覧でカメラ名を隠す",
+      "history_days": "履歴（日）",
+      "rate_limit": "レート制限（分あたり）"
     },
     "accessibility": {
       "title": "アクセシビリティオプション",

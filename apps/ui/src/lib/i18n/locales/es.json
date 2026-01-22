@@ -81,8 +81,32 @@
       "notifications": "Notificaciones",
       "integrations": "Integraciones",
       "data": "Datos",
+      "security": "Seguridad",
       "appearance": "Apariencia",
       "accessibility": "Accesibilidad"
+    },
+    "auth": {
+      "title": "Autenticación",
+      "desc": "Inicio de sesión requerido para acceso completo.",
+      "enable": "Habilitar autenticación",
+      "enable_desc": "Protege ajustes y acciones de administrador",
+      "username": "Usuario administrador",
+      "password": "Nueva contraseña",
+      "password_new": "Establecer nueva contraseña",
+      "password_placeholder": "Dejar en blanco para mantener la contraseña",
+      "password_confirm": "Confirmar contraseña",
+      "password_confirm_placeholder": "Repetir la contraseña",
+      "session_expiry": "Duración de sesión (horas)"
+    },
+    "public_access": {
+      "title": "Acceso público",
+      "desc": "Acceso de solo lectura sin inicio de sesión.",
+      "enable": "Habilitar acceso público",
+      "enable_desc": "Los invitados pueden ver detecciones",
+      "show_camera_names": "Mostrar nombres de cámara",
+      "show_camera_names_desc": "Ocultar cámaras para visitantes",
+      "history_days": "Historial (días)",
+      "rate_limit": "Límite (por minuto)"
     },
     "accessibility": {
       "title": "Opciones de accesibilidad",

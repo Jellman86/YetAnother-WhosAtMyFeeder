@@ -157,6 +157,19 @@ export interface Settings {
     accessibility_zen_mode: boolean;
     accessibility_live_announcements: boolean;
 
+    // Authentication
+    auth_enabled: boolean;
+    auth_username: string;
+    auth_has_password: boolean;
+    auth_session_expiry_hours: number;
+    auth_password?: string;
+
+    // Public access
+    public_access_enabled: boolean;
+    public_access_show_camera_names: boolean;
+    public_access_historical_days: number;
+    public_access_rate_limit_per_minute: number;
+
     species_info_source?: string;
 }
 

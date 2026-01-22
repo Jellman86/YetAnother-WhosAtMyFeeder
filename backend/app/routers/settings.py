@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field, field_validator
 import structlog
 
 from app.config import settings
-from app.auth import require_owner, AuthContext
+from app.auth import require_owner, AuthContext, hash_password
 from app.database import get_db
 from app.repositories.detection_repository import DetectionRepository
 
@@ -296,6 +296,18 @@ class SettingsUpdate(BaseModel):
     accessibility_zen_mode: Optional[bool] = False
     accessibility_live_announcements: Optional[bool] = True
 
+    # Authentication
+    auth_enabled: Optional[bool] = None
+    auth_username: Optional[str] = None
+    auth_password: Optional[str] = None
+    auth_session_expiry_hours: Optional[int] = Field(None, ge=1, le=720)
+
+    # Public access
+    public_access_enabled: Optional[bool] = None
+    public_access_show_camera_names: Optional[bool] = None
+    public_access_historical_days: Optional[int] = Field(None, ge=0, le=365)
+    public_access_rate_limit_per_minute: Optional[int] = Field(None, ge=1, le=100)
+
     species_info_source: Optional[str] = "auto"
 
     @field_validator('location_temperature_unit')
@@ -430,6 +442,16 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "accessibility_reduced_motion": settings.accessibility.reduced_motion,
         "accessibility_zen_mode": settings.accessibility.zen_mode,
         "accessibility_live_announcements": settings.accessibility.live_announcements,
+        # Authentication
+        "auth_enabled": settings.auth.enabled,
+        "auth_username": settings.auth.username,
+        "auth_has_password": settings.auth.password_hash is not None,
+        "auth_session_expiry_hours": settings.auth.session_expiry_hours,
+        # Public access
+        "public_access_enabled": settings.public_access.enabled,
+        "public_access_show_camera_names": settings.public_access.show_camera_names,
+        "public_access_historical_days": settings.public_access.show_historical_days,
+        "public_access_rate_limit_per_minute": settings.public_access.rate_limit_per_minute,
         "species_info_source": settings.species_info_source,
     }
 
@@ -501,6 +523,26 @@ async def update_settings(
     
     # Telemetry
     settings.telemetry.enabled = update.telemetry_enabled if update.telemetry_enabled is not None else True
+
+    # Authentication
+    if update.auth_enabled is not None:
+        settings.auth.enabled = update.auth_enabled
+    if update.auth_username is not None and update.auth_username.strip():
+        settings.auth.username = update.auth_username.strip()
+    if update.auth_password:
+        settings.auth.password_hash = hash_password(update.auth_password)
+    if update.auth_session_expiry_hours is not None:
+        settings.auth.session_expiry_hours = update.auth_session_expiry_hours
+
+    # Public access
+    if update.public_access_enabled is not None:
+        settings.public_access.enabled = update.public_access_enabled
+    if update.public_access_show_camera_names is not None:
+        settings.public_access.show_camera_names = update.public_access_show_camera_names
+    if update.public_access_historical_days is not None:
+        settings.public_access.show_historical_days = update.public_access_historical_days
+    if update.public_access_rate_limit_per_minute is not None:
+        settings.public_access.rate_limit_per_minute = update.public_access_rate_limit_per_minute
 
     # Notifications - Discord
     if update.notifications_discord_enabled is not None:
