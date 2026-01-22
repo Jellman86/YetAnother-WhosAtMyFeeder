@@ -7,7 +7,7 @@ from pathlib import Path
 from app.services.classifier_service import get_classifier
 from app.config import settings
 from app.auth import require_owner, AuthContext
-from app.main import get_auth_context_with_legacy
+from app.auth_legacy import get_auth_context_with_legacy
 
 router = APIRouter(prefix="/classifier", tags=["classifier"])
 log = structlog.get_logger()

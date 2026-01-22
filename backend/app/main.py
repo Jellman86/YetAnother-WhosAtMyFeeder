@@ -1,5 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException, status, Security, Request
-from fastapi.security import APIKeyHeader, APIKeyQuery
+from fastapi import FastAPI, Depends, HTTPException, status, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, Response
 from slowapi import _rate_limit_exceeded_handler
@@ -9,7 +8,6 @@ import structlog
 import asyncio
 import os
 import json
-import secrets
 from datetime import datetime, timedelta
 from contextlib import asynccontextmanager
 from prometheus_client import generate_latest, CONTENT_TYPE_LATEST, Counter
@@ -28,68 +26,7 @@ from app.middleware.language import LanguageMiddleware
 from app.services.i18n_service import i18n_service
 from app.ratelimit import limiter
 from app.auth import get_auth_context, AuthContext, AuthLevel
-
-# Legacy API key authentication (DEPRECATED - will be removed in v2.9.0)
-api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
-api_key_query = APIKeyQuery(name="api_key", auto_error=False)
-
-async def verify_api_key_legacy(
-    header_key: str = Security(api_key_header),
-    query_key: str = Security(api_key_query)
-) -> bool:
-    """
-    DEPRECATED: Legacy API key authentication.
-
-    This function is maintained for backward compatibility.
-    New installations should use the JWT auth system.
-
-    Will be removed in v2.9.0 (approximately 3 months).
-
-    Returns:
-        True if legacy API key is valid, False otherwise
-    """
-    legacy_api_key = settings.api_key
-
-    if not legacy_api_key:
-        return False  # No legacy key configured
-
-    api_key = header_key or query_key
-    if not api_key:
-        return False
-
-    if secrets.compare_digest(api_key, legacy_api_key):
-        log.warning(
-            "Using deprecated API key authentication",
-            notice="Migrate to password-based auth in Settings. "
-                   "API key support will be removed in v2.9.0"
-        )
-        return True
-
-    return False
-
-async def get_auth_context_with_legacy(
-    request: Request,
-    credentials = Depends(get_auth_context.__wrapped__)  # Get the actual dependency
-) -> AuthContext:
-    """
-    Get auth context with legacy API key fallback.
-
-    Priority:
-    1. New JWT token authentication
-    2. Legacy API key (deprecated)
-    3. Public access (if enabled)
-    4. Deny
-    """
-    # Try new auth first
-    try:
-        return await get_auth_context(request, credentials)
-    except HTTPException as e:
-        # New auth failed - try legacy
-        if await verify_api_key_legacy():
-            return AuthContext(auth_level=AuthLevel.OWNER, username="legacy_api_key")
-
-        # Both failed - re-raise original exception
-        raise e
+from app.auth_legacy import get_auth_context_with_legacy
 
 # Version management
 def get_base_version() -> str:

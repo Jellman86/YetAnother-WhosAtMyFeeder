@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 from app.services.broadcaster import broadcaster
 from app.auth import AuthContext
-from app.main import get_auth_context_with_legacy
+from app.auth_legacy import get_auth_context_with_legacy
 import json
 import asyncio
 

@@ -8,7 +8,7 @@ from app.database import get_db
 from app.services.i18n_service import i18n_service
 from app.utils.language import get_user_language
 from app.auth import AuthContext
-from app.main import get_auth_context_with_legacy
+from app.auth_legacy import get_auth_context_with_legacy
 
 router = APIRouter()
 log = structlog.get_logger()

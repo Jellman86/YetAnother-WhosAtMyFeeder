@@ -8,7 +8,7 @@ from app.services.frigate_client import frigate_client
 from app.services.i18n_service import i18n_service
 from app.utils.language import get_user_language
 from app.auth import AuthContext, require_owner
-from app.main import get_auth_context_with_legacy
+from app.auth_legacy import get_auth_context_with_legacy
 from app.ratelimit import guest_rate_limit
 
 router = APIRouter()

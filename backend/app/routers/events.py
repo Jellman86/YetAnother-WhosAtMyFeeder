@@ -19,7 +19,7 @@ from app.services.audio.audio_service import audio_service
 from app.services.i18n_service import i18n_service
 from app.utils.language import get_user_language
 from app.auth import require_owner, AuthContext
-from app.main import get_auth_context_with_legacy
+from app.auth_legacy import get_auth_context_with_legacy
 from app.ratelimit import guest_rate_limit
 
 router = APIRouter()
