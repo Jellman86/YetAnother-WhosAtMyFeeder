@@ -26,32 +26,69 @@ from app.routers import events, stream, proxy, settings as settings_router, spec
 from app.config import settings
 from app.middleware.language import LanguageMiddleware
 from app.services.i18n_service import i18n_service
+from app.auth import get_auth_context, AuthContext, AuthLevel
 
-# Authentication
+# Legacy API key authentication (DEPRECATED - will be removed in v2.9.0)
 api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 api_key_query = APIKeyQuery(name="api_key", auto_error=False)
 
-async def verify_api_key(
-    request: Request,
+async def verify_api_key_legacy(
     header_key: str = Security(api_key_header),
     query_key: str = Security(api_key_query)
-):
-    """Validate API Key if configured (via Header or Query param)."""
-    if settings.api_key:
-        lang = getattr(request.state, 'language', 'en')
-        api_key = header_key or query_key
-        if not api_key:
-             raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail=i18n_service.translate("errors.missing_api_key", lang=lang),
-            )
-        # Use constant-time comparison to prevent timing attacks
-        if not secrets.compare_digest(api_key, settings.api_key):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=i18n_service.translate("errors.invalid_api_key", lang=lang),
-            )
-    return header_key or query_key
+) -> bool:
+    """
+    DEPRECATED: Legacy API key authentication.
+
+    This function is maintained for backward compatibility.
+    New installations should use the JWT auth system.
+
+    Will be removed in v2.9.0 (approximately 3 months).
+
+    Returns:
+        True if legacy API key is valid, False otherwise
+    """
+    legacy_api_key = settings.api_key
+
+    if not legacy_api_key:
+        return False  # No legacy key configured
+
+    api_key = header_key or query_key
+    if not api_key:
+        return False
+
+    if secrets.compare_digest(api_key, legacy_api_key):
+        log.warning(
+            "Using deprecated API key authentication",
+            notice="Migrate to password-based auth in Settings. "
+                   "API key support will be removed in v2.9.0"
+        )
+        return True
+
+    return False
+
+async def get_auth_context_with_legacy(
+    request: Request,
+    credentials = Depends(get_auth_context.__wrapped__)  # Get the actual dependency
+) -> AuthContext:
+    """
+    Get auth context with legacy API key fallback.
+
+    Priority:
+    1. New JWT token authentication
+    2. Legacy API key (deprecated)
+    3. Public access (if enabled)
+    4. Deny
+    """
+    # Try new auth first
+    try:
+        return await get_auth_context(request, credentials)
+    except HTTPException as e:
+        # New auth failed - try legacy
+        if await verify_api_key_legacy():
+            return AuthContext(auth_level=AuthLevel.OWNER, username="legacy_api_key")
+
+        # Both failed - re-raise original exception
+        raise e
 
 # Version management
 def get_base_version() -> str:
@@ -240,20 +277,22 @@ app.add_middleware(
 # Auth router - no auth required (provides login endpoint)
 app.include_router(auth_router.router, prefix="/api", tags=["auth"])
 
-# Other routers - keep existing auth for backward compatibility (will update in Phase 2)
-app.include_router(events.router, prefix="/api", dependencies=[Depends(verify_api_key)])
-app.include_router(stream.router, prefix="/api", dependencies=[Depends(verify_api_key)])
-app.include_router(proxy.router, prefix="/api", dependencies=[Depends(verify_api_key)])
-app.include_router(settings_router.router, prefix="/api", dependencies=[Depends(verify_api_key)])
-app.include_router(species.router, prefix="/api", dependencies=[Depends(verify_api_key)])
-app.include_router(backfill.router, prefix="/api", tags=["backfill"], dependencies=[Depends(verify_api_key)])
-app.include_router(classifier.router, prefix="/api", dependencies=[Depends(verify_api_key)])
-app.include_router(models.router, prefix="/api", tags=["models"], dependencies=[Depends(verify_api_key)])
-app.include_router(ai.router, prefix="/api", tags=["ai"], dependencies=[Depends(verify_api_key)])
-app.include_router(stats.router, prefix="/api", tags=["stats"], dependencies=[Depends(verify_api_key)])
-app.include_router(debug.router, prefix="/api", tags=["debug"], dependencies=[Depends(verify_api_key)])
-app.include_router(audio.router, prefix="/api", tags=["audio"], dependencies=[Depends(verify_api_key)])
-app.include_router(email.router, prefix="/api", tags=["email"], dependencies=[Depends(verify_api_key)])
+# Public/mixed access routers - use new auth system with legacy fallback
+app.include_router(events.router, prefix="/api", dependencies=[Depends(get_auth_context_with_legacy)])
+app.include_router(stream.router, prefix="/api", dependencies=[Depends(get_auth_context_with_legacy)])
+app.include_router(proxy.router, prefix="/api", dependencies=[Depends(get_auth_context_with_legacy)])
+app.include_router(species.router, prefix="/api", dependencies=[Depends(get_auth_context_with_legacy)])
+app.include_router(classifier.router, prefix="/api", dependencies=[Depends(get_auth_context_with_legacy)])
+app.include_router(ai.router, prefix="/api", tags=["ai"], dependencies=[Depends(get_auth_context_with_legacy)])
+app.include_router(stats.router, prefix="/api", tags=["stats"], dependencies=[Depends(get_auth_context_with_legacy)])
+app.include_router(audio.router, prefix="/api", tags=["audio"], dependencies=[Depends(get_auth_context_with_legacy)])
+
+# Owner-only routers - require authentication
+app.include_router(settings_router.router, prefix="/api", dependencies=[Depends(get_auth_context_with_legacy)])
+app.include_router(backfill.router, prefix="/api", tags=["backfill"], dependencies=[Depends(get_auth_context_with_legacy)])
+app.include_router(models.router, prefix="/api", tags=["models"], dependencies=[Depends(get_auth_context_with_legacy)])
+app.include_router(debug.router, prefix="/api", tags=["debug"], dependencies=[Depends(get_auth_context_with_legacy)])
+app.include_router(email.router, prefix="/api", tags=["email"], dependencies=[Depends(get_auth_context_with_legacy)])
 
 @app.middleware("http")
 async def count_requests(request, call_next):
@@ -276,26 +315,66 @@ async def health_check():
         
     return health
 
-@app.get("/api/sse", dependencies=[Depends(verify_api_key)])
-async def sse_endpoint():
-    """Server-Sent Events endpoint for real-time updates."""
+@app.get("/api/sse")
+async def sse_endpoint(
+    request: Request,
+    token: str = None  # Optional token via query param for EventSource
+):
+    """Server-Sent Events endpoint for real-time updates.
+
+    Supports authentication via:
+    - Bearer token in Authorization header
+    - Token in query parameter (?token=...)
+    - Public access if enabled
+    """
+    from app.auth import verify_token
+    from fastapi.security import HTTPAuthorizationCredentials
+
+    # Get auth context with token support
+    auth: AuthContext = None
+
+    # Try query parameter token first (for EventSource compatibility)
+    if token:
+        try:
+            token_data = verify_token(token)
+            auth = AuthContext(auth_level=token_data.auth_level, username=token_data.username)
+        except HTTPException:
+            # Invalid token - fall through to other methods
+            pass
+
+    # If no valid token from query param, try normal auth
+    if not auth:
+        try:
+            auth = await get_auth_context_with_legacy(request, None)
+        except HTTPException as e:
+            # If auth required and none provided, reject connection
+            raise e
+
     async def event_generator():
         queue = await broadcaster.subscribe()
         try:
-            # Send initial connection message
-            yield f"data: {json.dumps({'type': 'connected', 'message': 'SSE Connected'})}\n\n"
-            
+            # Send initial connection message with auth level
+            yield f"data: {json.dumps({'type': 'connected', 'message': 'SSE Connected', 'auth_level': auth.auth_level})}\n\n"
+
             while True:
                 try:
                     # Wait for a message or a timeout for heartbeat
                     message = await asyncio.wait_for(queue.get(), timeout=20.0)
+
+                    # Filter sensitive events for guests
+                    if not auth.is_owner:
+                        event_type = message.get('type', '')
+                        # Block owner-only events from public users
+                        if event_type in ['settings_updated', 'backfill_progress', 'backfill_complete']:
+                            continue
+
                     yield f"data: {json.dumps(message)}\n\n"
                 except asyncio.TimeoutError:
                     # Send a heartbeat comment (ignored by clients but keeps connection alive)
                     yield ": heartbeat\n\n"
         except asyncio.CancelledError:
             await broadcaster.unsubscribe(queue)
-            
+
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 @app.get("/api/version")

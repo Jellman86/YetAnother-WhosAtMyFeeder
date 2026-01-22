@@ -18,6 +18,8 @@ from app.services.taxonomy.taxonomy_service import taxonomy_service
 from app.services.audio.audio_service import audio_service
 from app.services.i18n_service import i18n_service
 from app.utils.language import get_user_language
+from app.auth import get_auth_context, require_owner, AuthContext
+from fastapi import Depends
 
 router = APIRouter()
 log = structlog.get_logger()
@@ -84,8 +86,31 @@ async def get_events(
     sort: Literal["newest", "oldest", "confidence"] = Query(default="newest", description="Sort order"),
     include_hidden: bool = Query(default=False, description="Include hidden/ignored detections")
 ):
-    """Get paginated events with optional filters."""
+    """Get paginated events with optional filters.
+
+    Public users see limited historical data based on settings.
+    """
     lang = get_user_language(request)
+
+    # Apply public access restrictions
+    if not auth.is_owner and settings.public_access.enabled:
+        # Restrict historical data for guests
+        max_days = settings.public_access.show_historical_days
+        if max_days > 0:
+            cutoff_date = date.today() - timedelta(days=max_days)
+            if start_date is None or start_date < cutoff_date:
+                start_date = cutoff_date
+        else:
+            # Only show today's data
+            start_date = date.today()
+            end_date = date.today()
+
+        # Limit result count for guests
+        limit = min(limit, 50)
+
+        # Never show hidden detections to guests
+        include_hidden = False
+
     async with get_db() as db:
         repo = DetectionRepository(db)
 
