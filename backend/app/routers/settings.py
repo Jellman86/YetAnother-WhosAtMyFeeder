@@ -1,11 +1,12 @@
 import platform
 from typing import List, Optional
 from datetime import datetime, timedelta
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field, field_validator
 import structlog
 
 from app.config import settings
+from app.auth import require_owner, AuthContext
 from app.database import get_db
 from app.repositories.detection_repository import DetectionRepository
 
@@ -21,23 +22,29 @@ router = APIRouter()
 log = structlog.get_logger()
 
 @router.get("/maintenance/taxonomy/status")
-async def get_taxonomy_status():
-    """Get status of the taxonomy synchronization process."""
+async def get_taxonomy_status(auth: AuthContext = Depends(require_owner)):
+    """Get status of the taxonomy synchronization process. Owner only."""
     return taxonomy_service.get_sync_status()
 
 @router.post("/maintenance/taxonomy/sync")
-async def start_taxonomy_sync(background_tasks: BackgroundTasks):
-    """Start the background process to normalize all detection names."""
+async def start_taxonomy_sync(
+    background_tasks: BackgroundTasks,
+    auth: AuthContext = Depends(require_owner)
+):
+    """Start the background process to normalize all detection names. Owner only."""
     status = taxonomy_service.get_sync_status()
     if status["is_running"]:
         return {"status": "already_running"}
-    
+
     background_tasks.add_task(taxonomy_service.run_background_sync)
     return {"status": "started"}
 
 @router.post("/settings/birdnet/test")
-async def test_birdnet(background_tasks: BackgroundTasks):
-    """Test BirdNET-Go integration by injecting a mock detection."""
+async def test_birdnet(
+    background_tasks: BackgroundTasks,
+    auth: AuthContext = Depends(require_owner)
+):
+    """Test BirdNET-Go integration by injecting a mock detection. Owner only."""
     from app.services.audio.audio_service import audio_service
     
     mock_data = {
@@ -54,8 +61,8 @@ async def test_birdnet(background_tasks: BackgroundTasks):
     return {"status": "ok", "message": "Mock audio detection injected. Check Discovery feed for updates."}
 
 @router.post("/settings/mqtt/test-publish")
-async def test_mqtt_publish():
-    """Publish a test message to the MQTT broker to verify connectivity."""
+async def test_mqtt_publish(auth: AuthContext = Depends(require_owner)):
+    """Publish a test message to the MQTT broker to verify connectivity. Owner only."""
     from app.services.broadcaster import broadcaster
     # Broadcaster uses the shared mqtt_service internally for non-SSE tasks if needed,
     # but here we should use the mqtt_service directly.
@@ -84,8 +91,11 @@ class NotificationTestRequest(BaseModel):
     chat_id: Optional[str] = None
 
 @router.post("/settings/notifications/test")
-async def test_notification(request: NotificationTestRequest):
-    """Test notification platform with optional credential overrides."""
+async def test_notification(
+    request: NotificationTestRequest,
+    auth: AuthContext = Depends(require_owner)
+):
+    """Test notification platform with optional credential overrides. Owner only."""
     
     # Create mock detection data
     species = "Cyanistes caeruleus"
@@ -169,8 +179,11 @@ class BirdWeatherTestRequest(BaseModel):
 
 
 @router.post("/settings/birdweather/test")
-async def test_birdweather(request: BirdWeatherTestRequest):
-    """Test BirdWeather integration with an optional token override."""
+async def test_birdweather(
+    request: BirdWeatherTestRequest,
+    auth: AuthContext = Depends(require_owner)
+):
+    """Test BirdWeather integration with an optional token override. Owner only."""
     token = request.token if request.token and request.token != "***REDACTED***" else None
     if not token and not settings.birdweather.station_token:
         return {"status": "error", "message": "Missing BirdWeather station token"}
@@ -303,9 +316,9 @@ class SettingsUpdate(BaseModel):
         return v.rstrip('/')
 
 @router.get("/settings")
-async def get_settings():
+async def get_settings(auth: AuthContext = Depends(require_owner)):
     """
-    Get application settings with secrets redacted.
+    Get application settings with secrets redacted. Owner only.
     Secrets are never returned via API for security reasons.
     """
     from app.services.smtp_service import smtp_service
@@ -421,7 +434,12 @@ async def get_settings():
     }
 
 @router.post("/settings")
-async def update_settings(update: SettingsUpdate, background_tasks: BackgroundTasks):
+async def update_settings(
+    update: SettingsUpdate,
+    background_tasks: BackgroundTasks,
+    auth: AuthContext = Depends(require_owner)
+):
+    """Update application settings. Owner only."""
     settings.frigate.frigate_url = update.frigate_url
     settings.frigate.mqtt_server = update.mqtt_server
     settings.frigate.mqtt_port = update.mqtt_port
@@ -590,8 +608,8 @@ async def update_settings(update: SettingsUpdate, background_tasks: BackgroundTa
     return {"status": "updated"}
 
 @router.get("/maintenance/stats")
-async def get_maintenance_stats():
-    """Get database maintenance statistics."""
+async def get_maintenance_stats(auth: AuthContext = Depends(require_owner)):
+    """Get database maintenance statistics. Owner only."""
     async with get_db() as db:
         repo = DetectionRepository(db)
         total_count = await repo.get_count()
@@ -611,8 +629,8 @@ async def get_maintenance_stats():
         }
 
 @router.post("/maintenance/cleanup")
-async def run_cleanup():
-    """Manually trigger cleanup of old detections."""
+async def run_cleanup(auth: AuthContext = Depends(require_owner)):
+    """Manually trigger cleanup of old detections. Owner only."""
     if settings.maintenance.retention_days <= 0:
         return {
             "status": "skipped",
@@ -640,8 +658,8 @@ async def run_cleanup():
 # =============================================================================
 
 @router.get("/cache/stats")
-async def get_cache_stats():
-    """Get media cache statistics."""
+async def get_cache_stats(auth: AuthContext = Depends(require_owner)):
+    """Get media cache statistics. Owner only."""
     from app.services.media_cache import media_cache
 
     stats = media_cache.get_cache_stats()
@@ -662,8 +680,8 @@ async def get_cache_stats():
 
 
 @router.post("/cache/cleanup")
-async def run_cache_cleanup():
-    """Manually trigger cleanup of old cached media."""
+async def run_cache_cleanup(auth: AuthContext = Depends(require_owner)):
+    """Manually trigger cleanup of old cached media. Owner only."""
     from app.services.media_cache import media_cache
 
     # Determine retention period

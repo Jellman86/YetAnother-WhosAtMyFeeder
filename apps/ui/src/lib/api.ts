@@ -37,6 +37,21 @@ export interface VersionInfo {
     git_hash: string;
 }
 
+export interface AuthStatus {
+    auth_required: boolean;
+    public_access_enabled: boolean;
+    is_authenticated: boolean;
+    username?: string | null;
+    needs_initial_setup: boolean;
+}
+
+export interface LoginResponse {
+    access_token: string;
+    token_type: string;
+    username: string;
+    expires_in_hours: number;
+}
+
 export interface SpeciesCount {
     species: string;
     count: number;
@@ -195,6 +210,12 @@ const API_BASE = '/api';
 // API Key Management
 let apiKey: string | null = typeof localStorage !== 'undefined' ? localStorage.getItem('api_key') : null;
 
+// Auth Token Management (JWT)
+let authToken: string | null = typeof localStorage !== 'undefined' ? localStorage.getItem('auth_token') : null;
+let authTokenExpiresAt: number = typeof localStorage !== 'undefined'
+    ? Number(localStorage.getItem('auth_token_expires_at') || 0)
+    : 0;
+
 export function setApiKey(key: string | null) {
     apiKey = key;
     if (typeof localStorage !== 'undefined') {
@@ -207,8 +228,47 @@ export function getApiKey(): string | null {
     return apiKey;
 }
 
+function isAuthTokenExpired(): boolean {
+    if (!authToken || !authTokenExpiresAt) {
+        return false;
+    }
+    return Date.now() >= authTokenExpiresAt;
+}
+
+export function setAuthToken(token: string | null, expiresInHours?: number) {
+    authToken = token;
+    if (typeof localStorage !== 'undefined') {
+        if (token) {
+            localStorage.setItem('auth_token', token);
+            if (expiresInHours) {
+                authTokenExpiresAt = Date.now() + expiresInHours * 60 * 60 * 1000;
+                localStorage.setItem('auth_token_expires_at', String(authTokenExpiresAt));
+            } else {
+                authTokenExpiresAt = 0;
+                localStorage.removeItem('auth_token_expires_at');
+            }
+        } else {
+            localStorage.removeItem('auth_token');
+            localStorage.removeItem('auth_token_expires_at');
+            authTokenExpiresAt = 0;
+        }
+    }
+}
+
+export function getAuthToken(): string | null {
+    if (isAuthTokenExpired()) {
+        setAuthToken(null);
+        return null;
+    }
+    return authToken;
+}
+
 function getHeaders(customHeaders: HeadersInit = {}): HeadersInit {
     const headers: Record<string, string> = { ...customHeaders as Record<string, string> };
+    const token = getAuthToken();
+    if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+    }
     if (apiKey) {
         headers['X-API-Key'] = apiKey;
     }
@@ -242,6 +302,65 @@ async function apiFetch(url: string, options: RequestInit = {}): Promise<Respons
     }
     
     return response;
+}
+
+export async function fetchAuthStatus(): Promise<AuthStatus> {
+    const response = await fetch(`${API_BASE}/auth/status`, {
+        headers: getHeaders()
+    });
+
+    if (!response.ok) {
+        throw new Error('Failed to fetch auth status');
+    }
+
+    return response.json();
+}
+
+export async function login(username: string, password: string): Promise<LoginResponse> {
+    const response = await apiFetch(`${API_BASE}/auth/login`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ username, password })
+    });
+
+    if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.detail || 'Login failed');
+    }
+
+    const data: LoginResponse = await response.json();
+    setAuthToken(data.access_token, data.expires_in_hours);
+    return data;
+}
+
+export async function logout(): Promise<void> {
+    await apiFetch(`${API_BASE}/auth/logout`, { method: 'POST' });
+    setAuthToken(null);
+}
+
+export async function setInitialPassword(options: {
+    username: string;
+    password: string | null;
+    enableAuth: boolean;
+}): Promise<void> {
+    const response = await apiFetch(`${API_BASE}/auth/initial-setup`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            username: options.username,
+            password: options.password,
+            enable_auth: options.enableAuth
+        })
+    });
+
+    if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.detail || 'Initial setup failed');
+    }
 }
 
 // Global abort controller map for cancellable requests

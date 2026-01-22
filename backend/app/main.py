@@ -2,7 +2,7 @@ from fastapi import FastAPI, Depends, HTTPException, status, Security, Request
 from fastapi.security import APIKeyHeader, APIKeyQuery
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, Response
-from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi import _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 import structlog
@@ -22,10 +22,11 @@ from app.services.media_cache import media_cache
 from app.services.broadcaster import broadcaster
 from app.services.telemetry_service import telemetry_service
 from app.repositories.detection_repository import DetectionRepository
-from app.routers import events, stream, proxy, settings as settings_router, species, backfill, classifier, models, ai, stats, debug, audio, email, auth as auth_router
+from app.routers import events, proxy, settings as settings_router, species, backfill, classifier, models, ai, stats, debug, audio, email, auth as auth_router
 from app.config import settings
 from app.middleware.language import LanguageMiddleware
 from app.services.i18n_service import i18n_service
+from app.ratelimit import limiter
 from app.auth import get_auth_context, AuthContext, AuthLevel
 
 # Legacy API key authentication (DEPRECATED - will be removed in v2.9.0)
@@ -132,10 +133,6 @@ BASE_VERSION = get_base_version()
 GIT_HASH = get_git_hash()
 APP_VERSION = f"{BASE_VERSION}+{GIT_HASH}"
 os.environ["APP_VERSION"] = APP_VERSION # Make available to other services
-
-# Rate limiting configuration
-# Use a more permissive rate limit: 100 requests per minute per IP
-limiter = Limiter(key_func=get_remote_address, default_limits=["100/minute"])
 
 # Metrics
 EVENTS_PROCESSED = Counter('events_processed_total', 'Total number of events processed')
@@ -279,7 +276,6 @@ app.include_router(auth_router.router, prefix="/api", tags=["auth"])
 
 # Public/mixed access routers - use new auth system with legacy fallback
 app.include_router(events.router, prefix="/api", dependencies=[Depends(get_auth_context_with_legacy)])
-app.include_router(stream.router, prefix="/api", dependencies=[Depends(get_auth_context_with_legacy)])
 app.include_router(proxy.router, prefix="/api", dependencies=[Depends(get_auth_context_with_legacy)])
 app.include_router(species.router, prefix="/api", dependencies=[Depends(get_auth_context_with_legacy)])
 app.include_router(classifier.router, prefix="/api", dependencies=[Depends(get_auth_context_with_legacy)])
@@ -350,6 +346,27 @@ async def sse_endpoint(
             # If auth required and none provided, reject connection
             raise e
 
+    hide_camera_names = (
+        not auth.is_owner
+        and settings.public_access.enabled
+        and not settings.public_access.show_camera_names
+    )
+
+    def sanitize_message_for_guest(message: dict) -> dict:
+        if not hide_camera_names:
+            return message
+
+        sanitized = dict(message)
+        data = sanitized.get("data")
+        if isinstance(data, dict):
+            data = dict(data)
+            if "camera" in data:
+                data["camera"] = "Hidden"
+            if "camera_name" in data:
+                data["camera_name"] = "Hidden"
+            sanitized["data"] = data
+        return sanitized
+
     async def event_generator():
         queue = await broadcaster.subscribe()
         try:
@@ -367,6 +384,9 @@ async def sse_endpoint(
                         # Block owner-only events from public users
                         if event_type in ['settings_updated', 'backfill_progress', 'backfill_complete']:
                             continue
+
+                    if not auth.is_owner:
+                        message = sanitize_message_for_guest(message)
 
                     yield f"data: {json.dumps(message)}\n\n"
                 except asyncio.TimeoutError:
@@ -391,4 +411,3 @@ async def get_version():
 async def metrics():
     """Prometheus metrics endpoint."""
     return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
-

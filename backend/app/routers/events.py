@@ -1,7 +1,7 @@
 import asyncio
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, HTTPException, Query, Request, Depends
 from typing import List, Optional, Literal
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from io import BytesIO
 from pydantic import BaseModel, Field
 import structlog
@@ -18,8 +18,9 @@ from app.services.taxonomy.taxonomy_service import taxonomy_service
 from app.services.audio.audio_service import audio_service
 from app.services.i18n_service import i18n_service
 from app.utils.language import get_user_language
-from app.auth import get_auth_context, require_owner, AuthContext
-from fastapi import Depends
+from app.auth import require_owner, AuthContext
+from app.main import get_auth_context_with_legacy
+from app.ratelimit import guest_rate_limit
 
 router = APIRouter()
 log = structlog.get_logger()
@@ -65,16 +66,23 @@ class EventsCountResponse(BaseModel):
 
 
 @router.get("/events/filters", response_model=EventFilters)
-async def get_event_filters():
+@guest_rate_limit()
+async def get_event_filters(auth: AuthContext = Depends(get_auth_context_with_legacy)):
     """Get available filter options (species and cameras) from the database."""
+    hide_camera_names = (
+        not auth.is_owner
+        and settings.public_access.enabled
+        and not settings.public_access.show_camera_names
+    )
     async with get_db() as db:
         repo = DetectionRepository(db)
         species = await repo.get_unique_species()
-        cameras = await repo.get_unique_cameras()
+        cameras = [] if hide_camera_names else await repo.get_unique_cameras()
         return EventFilters(species=species, cameras=cameras)
 
 
 @router.get("/events", response_model=List[DetectionResponse])
+@guest_rate_limit()
 async def get_events(
     request: Request,
     limit: int = Query(default=50, ge=1, le=500, description="Number of events to return"),
@@ -84,13 +92,19 @@ async def get_events(
     species: Optional[str] = Query(default=None, description="Filter by species name"),
     camera: Optional[str] = Query(default=None, description="Filter by camera name"),
     sort: Literal["newest", "oldest", "confidence"] = Query(default="newest", description="Sort order"),
-    include_hidden: bool = Query(default=False, description="Include hidden/ignored detections")
+    include_hidden: bool = Query(default=False, description="Include hidden/ignored detections"),
+    auth: AuthContext = Depends(get_auth_context_with_legacy)
 ):
     """Get paginated events with optional filters.
 
     Public users see limited historical data based on settings.
     """
     lang = get_user_language(request)
+    hide_camera_names = (
+        not auth.is_owner
+        and settings.public_access.enabled
+        and not settings.public_access.show_camera_names
+    )
 
     # Apply public access restrictions
     if not auth.is_owner and settings.public_access.enabled:
@@ -110,6 +124,10 @@ async def get_events(
 
         # Never show hidden detections to guests
         include_hidden = False
+
+        # Prevent camera-based filtering if camera names are hidden
+        if hide_camera_names:
+            camera = None
 
     async with get_db() as db:
         repo = DetectionRepository(db)
@@ -174,7 +192,7 @@ async def get_events(
                 display_name=display_name,
                 category_name=event.category_name,
                 frigate_event=event.frigate_event,
-                camera_name=event.camera_name,
+                camera_name="Hidden" if hide_camera_names else event.camera_name,
                 has_clip=clip_availability.get(event.frigate_event, False),
                 is_hidden=event.is_hidden,
                 frigate_score=event.frigate_score,
@@ -205,8 +223,8 @@ class HiddenCountResponse(BaseModel):
 
 
 @router.get("/events/hidden-count", response_model=HiddenCountResponse)
-async def get_hidden_count():
-    """Get count of hidden detections."""
+async def get_hidden_count(auth: AuthContext = Depends(require_owner)):
+    """Get count of hidden detections. Owner only."""
     async with get_db() as db:
         repo = DetectionRepository(db)
         count = await repo.get_hidden_count()
@@ -214,14 +232,35 @@ async def get_hidden_count():
 
 
 @router.get("/events/count", response_model=EventsCountResponse)
+@guest_rate_limit()
 async def get_events_count(
     start_date: Optional[date] = Query(default=None, description="Filter events from this date (inclusive)"),
     end_date: Optional[date] = Query(default=None, description="Filter events until this date (inclusive)"),
     species: Optional[str] = Query(default=None, description="Filter by species name"),
     camera: Optional[str] = Query(default=None, description="Filter by camera name"),
-    include_hidden: bool = Query(default=False, description="Include hidden/ignored detections")
+    include_hidden: bool = Query(default=False, description="Include hidden/ignored detections"),
+    auth: AuthContext = Depends(get_auth_context_with_legacy)
 ):
-    """Get total count of events (optionally filtered)."""
+    """Get total count of events (optionally filtered). Public users see limited historical data."""
+    hide_camera_names = (
+        not auth.is_owner
+        and settings.public_access.enabled
+        and not settings.public_access.show_camera_names
+    )
+    # Apply public access restrictions
+    if not auth.is_owner and settings.public_access.enabled:
+        max_days = settings.public_access.show_historical_days
+        if max_days > 0:
+            cutoff_date = date.today() - timedelta(days=max_days)
+            if start_date is None or start_date < cutoff_date:
+                start_date = cutoff_date
+        else:
+            start_date = date.today()
+            end_date = date.today()
+        include_hidden = False
+        if hide_camera_names:
+            camera = None
+
     async with get_db() as db:
         repo = DetectionRepository(db)
 
@@ -242,8 +281,12 @@ async def get_events_count(
         return EventsCountResponse(count=count, filtered=filtered)
 
 @router.delete("/events/{event_id}")
-async def delete_event(event_id: str, request: Request):
-    """Delete a detection by its Frigate event ID."""
+async def delete_event(
+    event_id: str,
+    request: Request,
+    auth: AuthContext = Depends(require_owner)
+):
+    """Delete a detection by its Frigate event ID. Owner only."""
     lang = get_user_language(request)
     async with get_db() as db:
         repo = DetectionRepository(db)
@@ -278,8 +321,12 @@ class HideResponse(BaseModel):
 
 
 @router.post("/events/{event_id}/hide", response_model=HideResponse)
-async def toggle_hide_event(event_id: str, request: Request):
-    """Toggle the hidden/ignored status of a detection."""
+async def toggle_hide_event(
+    event_id: str,
+    request: Request,
+    auth: AuthContext = Depends(require_owner)
+):
+    """Toggle the hidden/ignored status of a detection. Owner only."""
     lang = get_user_language(request)
     async with get_db() as db:
         repo = DetectionRepository(db)
@@ -354,7 +401,10 @@ async def reclassify_event(
     request: Request,
 
 
-    strategy: Literal["snapshot", "video"] = Query("snapshot", description="Classification strategy")
+    strategy: Literal["snapshot", "video"] = Query("snapshot", description="Classification strategy"),
+
+
+    auth: AuthContext = Depends(require_owner)
 
 
 ):
@@ -699,9 +749,14 @@ async def reclassify_event(
 
 
 @router.patch("/events/{event_id}")
-async def update_event(event_id: str, update_request: UpdateDetectionRequest, request: Request):
+async def update_event(
+    event_id: str,
+    update_request: UpdateDetectionRequest,
+    request: Request,
+    auth: AuthContext = Depends(require_owner)
+):
     """
-    Manually update a detection's species name.
+    Manually update a detection's species name. Owner only.
     Use this to correct misidentifications.
     """
     lang = get_user_language(request)
@@ -820,9 +875,13 @@ class WildlifeClassifyResponse(BaseModel):
 
 
 @router.post("/events/{event_id}/classify-wildlife", response_model=WildlifeClassifyResponse)
-async def classify_wildlife(event_id: str, request: Request):
+async def classify_wildlife(
+    event_id: str,
+    request: Request,
+    auth: AuthContext = Depends(require_owner)
+):
     """
-    Classify a detection using the general wildlife model.
+    Classify a detection using the general wildlife model. Owner only.
     Fetches the snapshot from Frigate and runs it through the wildlife classifier.
     Does NOT update the database - user can manually tag if desired.
     """

@@ -1,22 +1,22 @@
 <script lang="ts">
     import { authStore } from '../stores/auth.svelte';
     
-    let apiKey = $state('');
+    let username = $state('');
+    let password = $state('');
     let error = $state('');
     let isLoading = $state(false);
 
     async function handleSubmit(e: Event) {
         e.preventDefault();
-        if (!apiKey.trim()) return;
+        if (!username.trim() || !password) return;
 
         isLoading = true;
         error = '';
         
         try {
-            // Attempt login via store
-            authStore.login(apiKey.trim());
+            await authStore.login(username.trim(), password);
         } catch (err) {
-            error = 'Invalid API Key';
+            error = err instanceof Error ? err.message : 'Login failed';
             isLoading = false;
         }
     }
@@ -25,23 +25,35 @@
 <div class="min-h-screen flex items-center justify-center bg-surface-50 dark:bg-surface-900 px-4">
     <div class="max-w-md w-full space-y-8 bg-white dark:bg-surface-800 p-8 rounded-xl shadow-lg border border-surface-200 dark:border-surface-700">
         <div class="text-center">
-            <h2 class="mt-6 text-3xl font-bold text-gray-900 dark:text-white">Authentication Required</h2>
+            <h2 class="mt-6 text-3xl font-bold text-gray-900 dark:text-white">Sign in</h2>
             <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                Please enter your API Key to access YA-WAMF.
+                Enter your admin credentials to access YA-WAMF.
             </p>
         </div>
         
         <form class="mt-8 space-y-6" onsubmit={handleSubmit}>
             <div>
-                <label for="api-key" class="sr-only">API Key</label>
+                <label for="username" class="sr-only">Username</label>
                 <input
-                    id="api-key"
-                    name="api-key"
+                    id="username"
+                    name="username"
+                    type="text"
+                    required
+                    bind:value={username}
+                    class="appearance-none rounded-lg relative block w-full px-3 py-3 border border-gray-300 dark:border-surface-600 placeholder-gray-500 text-gray-900 dark:text-white dark:bg-surface-700 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm"
+                    placeholder="Username"
+                />
+            </div>
+            <div>
+                <label for="password" class="sr-only">Password</label>
+                <input
+                    id="password"
+                    name="password"
                     type="password"
                     required
-                    bind:value={apiKey}
+                    bind:value={password}
                     class="appearance-none rounded-lg relative block w-full px-3 py-3 border border-gray-300 dark:border-surface-600 placeholder-gray-500 text-gray-900 dark:text-white dark:bg-surface-700 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm"
-                    placeholder="Enter API Key"
+                    placeholder="Password"
                 />
             </div>
 

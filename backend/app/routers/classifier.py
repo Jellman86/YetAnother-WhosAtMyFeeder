@@ -1,11 +1,13 @@
 """Classifier endpoints for model status, debugging, and downloads."""
 
-from fastapi import APIRouter, UploadFile, File
+from fastapi import APIRouter, UploadFile, File, Depends
 import structlog
 from pathlib import Path
 
 from app.services.classifier_service import get_classifier
 from app.config import settings
+from app.auth import require_owner, AuthContext
+from app.main import get_auth_context_with_legacy
 
 router = APIRouter(prefix="/classifier", tags=["classifier"])
 log = structlog.get_logger()
@@ -15,32 +17,32 @@ classifier_service = get_classifier()
 
 
 @router.get("/status")
-async def classifier_status():
+async def classifier_status(auth: AuthContext = Depends(get_auth_context_with_legacy)):
     """Return the status of the bird classifier model."""
     return classifier_service.get_status()
 
 
 @router.get("/labels")
-async def classifier_labels():
+async def classifier_labels(auth: AuthContext = Depends(get_auth_context_with_legacy)):
     """Return the list of species labels from the classifier model."""
     return {"labels": classifier_service.labels}
 
 
 @router.get("/wildlife/status")
-async def wildlife_classifier_status():
+async def wildlife_classifier_status(auth: AuthContext = Depends(get_auth_context_with_legacy)):
     """Return the status of the wildlife classifier model."""
     return classifier_service.get_wildlife_status()
 
 
 @router.get("/wildlife/labels")
-async def wildlife_classifier_labels():
+async def wildlife_classifier_labels(auth: AuthContext = Depends(get_auth_context_with_legacy)):
     """Return the list of labels from the wildlife classifier model."""
     return {"labels": classifier_service.get_wildlife_labels()}
 
 
 @router.get("/debug")
-async def bird_classifier_debug():
-    """Debug endpoint to inspect bird model details."""
+async def bird_classifier_debug(auth: AuthContext = Depends(require_owner)):
+    """Debug endpoint to inspect bird model details. Owner only."""
     import numpy as np
     from PIL import Image
 
@@ -123,8 +125,11 @@ async def bird_classifier_debug():
 
 
 @router.post("/test")
-async def test_bird_classifier(image: UploadFile = File(...)):
-    """Test bird classifier with an uploaded image."""
+async def test_bird_classifier(
+    image: UploadFile = File(...),
+    auth: AuthContext = Depends(require_owner)
+):
+    """Test bird classifier with an uploaded image. Owner only."""
     from PIL import Image
     import io
 
@@ -146,8 +151,8 @@ async def test_bird_classifier(image: UploadFile = File(...)):
 
 
 @router.get("/wildlife/debug")
-async def wildlife_classifier_debug():
-    """Debug endpoint to inspect wildlife model details and test classification."""
+async def wildlife_classifier_debug(auth: AuthContext = Depends(require_owner)):
+    """Debug endpoint to inspect wildlife model details and test classification. Owner only."""
     import numpy as np
     from PIL import Image
 
@@ -204,8 +209,11 @@ async def wildlife_classifier_debug():
 
 
 @router.post("/wildlife/test")
-async def test_wildlife_classifier(image: UploadFile = File(...)):
-    """Test wildlife classifier with an uploaded image."""
+async def test_wildlife_classifier(
+    image: UploadFile = File(...),
+    auth: AuthContext = Depends(require_owner)
+):
+    """Test wildlife classifier with an uploaded image. Owner only."""
     from PIL import Image
     import io
 
@@ -227,8 +235,8 @@ async def test_wildlife_classifier(image: UploadFile = File(...)):
 
 
 @router.post("/wildlife/download")
-async def download_wildlife_model():
-    """Download EfficientNet-Lite4 for wildlife/animal classification.
+async def download_wildlife_model(auth: AuthContext = Depends(require_owner)):
+    """Download EfficientNet-Lite4 for wildlife/animal classification. Owner only.
 
     Uses EfficientNet-Lite4 trained on ImageNet-1000 classes.
     - Input: 300x300 RGB float32, normalized to [-1, 1]
@@ -343,8 +351,8 @@ async def download_wildlife_model():
 
 
 @router.post("/download")
-async def download_default_model():
-    """Download the default bird classifier model."""
+async def download_default_model(auth: AuthContext = Depends(require_owner)):
+    """Download the default bird classifier model. Owner only."""
     import httpx
 
     # TFLite bird classifier model URLs - using Google Coral EdgeTPU repo

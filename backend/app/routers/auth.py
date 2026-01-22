@@ -1,17 +1,17 @@
 """Authentication endpoints for YA-WAMF."""
 
-from fastapi import APIRouter, HTTPException, status, Depends
+from fastapi import APIRouter, HTTPException, status, Depends, Request
 from pydantic import BaseModel, Field
 from typing import Optional
 import structlog
+import secrets
 
 from app.auth import (
     verify_password,
     create_access_token,
     hash_password,
     AuthLevel,
-    get_auth_context,
-    AuthContext
+    verify_token
 )
 from app.config import settings
 
@@ -100,18 +100,44 @@ async def login(request: LoginRequest):
 
 
 @router.get("/auth/status", response_model=AuthStatusResponse)
-async def get_auth_status(auth: AuthContext = Depends(get_auth_context)):
+async def get_auth_status(request: Request):
     """Get current authentication status and public access settings.
 
     Used by frontend to determine if login is required.
     """
-    needs_setup = settings.auth.enabled and settings.auth.password_hash is None
+    auth_level: Optional[str] = None
+    username: Optional[str] = None
+
+    token = None
+    auth_header = request.headers.get("Authorization", "")
+    if auth_header.startswith("Bearer "):
+        token = auth_header[7:]
+
+    if token:
+        try:
+            token_data = verify_token(token)
+            auth_level = token_data.auth_level
+            username = token_data.username
+        except HTTPException:
+            pass
+
+    if not auth_level:
+        legacy_key = settings.api_key
+        if legacy_key:
+            header_key = request.headers.get("X-API-Key")
+            query_key = request.query_params.get("api_key")
+            api_key = header_key or query_key
+            if api_key and secrets.compare_digest(api_key, legacy_key):
+                auth_level = AuthLevel.OWNER
+                username = "legacy_api_key"
+
+    needs_setup = settings.auth.password_hash is None
 
     return AuthStatusResponse(
         auth_required=settings.auth.enabled,
         public_access_enabled=settings.public_access.enabled,
-        is_authenticated=auth.is_authenticated,
-        username=auth.username if auth.is_authenticated else None,
+        is_authenticated=auth_level == AuthLevel.OWNER,
+        username=username if auth_level == AuthLevel.OWNER else None,
         needs_initial_setup=needs_setup
     )
 

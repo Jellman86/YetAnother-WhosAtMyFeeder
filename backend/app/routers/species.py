@@ -12,6 +12,9 @@ from app.services.taxonomy.taxonomy_service import taxonomy_service
 from app.services.i18n_service import i18n_service
 from app.services.classifier_service import get_classifier
 from app.utils.language import get_user_language
+from app.auth import require_owner, AuthContext
+from app.main import get_auth_context_with_legacy
+from app.ratelimit import guest_rate_limit
 
 router = APIRouter()
 log = structlog.get_logger()
@@ -221,7 +224,13 @@ async def _save_species_info(species_name: str, taxa_id: int | None, language: s
         await db.commit()
 
 @router.get("/species/search")
-async def search_species(request: Request, q: str = "", limit: int = 50):
+@guest_rate_limit()
+async def search_species(
+    request: Request,
+    q: str = "",
+    limit: int = 50,
+    auth: AuthContext = Depends(get_auth_context_with_legacy)
+):
     """Search for species labels (from classifier) and return with taxonomy info."""
     q = (q or "").strip()
     limit = max(1, min(limit, 100))
@@ -414,9 +423,19 @@ async def get_species_list(request: Request):
         return filtered_stats
 
 @router.get("/species/{species_name}/stats", response_model=SpeciesStats)
-async def get_species_stats(species_name: str, request: Request):
+@guest_rate_limit()
+async def get_species_stats(
+    species_name: str,
+    request: Request,
+    auth: AuthContext = Depends(get_auth_context_with_legacy)
+):
     """Get comprehensive statistics for a species."""
     lang = get_user_language(request)
+    hide_camera_names = (
+        not auth.is_owner
+        and settings.public_access.enabled
+        and not settings.public_access.show_camera_names
+    )
     async with get_db() as db:
         repo = DetectionRepository(db)
 
@@ -488,10 +507,17 @@ async def get_species_stats(species_name: str, request: Request):
             cam = cs["camera_name"]
             camera_counts[cam] = camera_counts.get(cam, 0) + cs["count"]
         total_cam_count = sum(camera_counts.values())
-        camera_breakdown = [
-            {"camera_name": cam, "count": count, "percentage": (count / total_cam_count * 100) if total_cam_count > 0 else 0.0}
-            for cam, count in sorted(camera_counts.items(), key=lambda x: x[1], reverse=True)
-        ]
+        if hide_camera_names:
+            camera_breakdown = (
+                [{"camera_name": "Hidden", "count": total_cam_count, "percentage": 100.0}]
+                if total_cam_count > 0
+                else []
+            )
+        else:
+            camera_breakdown = [
+                {"camera_name": cam, "count": count, "percentage": (count / total_cam_count * 100) if total_cam_count > 0 else 0.0}
+                for cam, count in sorted(camera_counts.items(), key=lambda x: x[1], reverse=True)
+            ]
 
         # Sort recent by time and limit to 5
         recent.sort(key=lambda x: x.detection_time, reverse=True)
@@ -515,7 +541,7 @@ async def get_species_stats(species_name: str, request: Request):
                 display_name="Unknown Bird" if d.display_name in unknown_labels else d.display_name,
                 category_name=d.category_name,
                 frigate_event=d.frigate_event,
-                camera_name=d.camera_name,
+                camera_name="Hidden" if hide_camera_names else d.camera_name,
                 is_hidden=d.is_hidden,
                 frigate_score=d.frigate_score,
                 sub_label=d.sub_label,
@@ -561,7 +587,10 @@ async def get_species_stats(species_name: str, request: Request):
         )
 
 @router.delete("/species/{species_name}/cache")
-async def clear_species_cache(species_name: str):
+async def clear_species_cache(
+    species_name: str,
+    auth: AuthContext = Depends(require_owner)
+):
     """Clear the Wikipedia cache for a species."""
     cache_prefix = f"{species_name}:"
     for cache_key in list(_wiki_cache):
@@ -585,7 +614,13 @@ async def clear_species_cache(species_name: str):
 
 
 @router.get("/species/{species_name}/info", response_model=SpeciesInfo)
-async def get_species_info(species_name: str, request: Request, refresh: bool = False):
+@guest_rate_limit()
+async def get_species_info(
+    species_name: str,
+    request: Request,
+    refresh: bool = False,
+    auth: AuthContext = Depends(get_auth_context_with_legacy)
+):
     """Get species information for a species. Use refresh=true to bypass cache."""
     lang = get_user_language(request) or "en"
     log.info("Fetching species info", species=species_name, refresh=refresh, language=lang)

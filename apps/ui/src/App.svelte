@@ -13,6 +13,7 @@
   import Settings from './lib/pages/Settings.svelte';
   import About from './lib/pages/About.svelte';
   import Login from './lib/components/Login.svelte';
+  import FirstRunWizard from './lib/pages/FirstRunWizard.svelte';
   import { fetchEvents, fetchEventsCount, type Detection, setAuthErrorCallback } from './lib/api';
   import { themeStore } from './lib/stores/theme.svelte';
   import { layoutStore } from './lib/stores/layout.svelte';
@@ -59,11 +60,15 @@
   // Keyboard shortcuts
   let showKeyboardShortcuts = $state(false);
 
+  let appInitialized = $state(false);
+  let canAccess = $derived(!authStore.authRequired || authStore.publicAccessEnabled || authStore.isAuthenticated);
+  let requiresLogin = $derived(authStore.authRequired && !authStore.publicAccessEnabled && !authStore.isAuthenticated && !authStore.needsInitialSetup);
+
   // Handle back button and initial load
-  onMount(() => {
+  onMount(async () => {
       // Register auth error callback
       setAuthErrorCallback(() => {
-          authStore.setRequiresLogin(true);
+          authStore.handleAuthError();
       });
 
       const handlePopState = () => {
@@ -74,11 +79,7 @@
       const path = window.location.pathname;
       currentRoute = path === '' ? '/' : path;
 
-      // Initialize settings and load initial data
-      // (theme is automatically initialized in the store constructor)
-      settingsStore.load();
-      detectionsStore.loadInitial();
-      connectSSE();
+      await authStore.loadStatus();
 
       // Handle page visibility changes - reconnect when tab becomes visible
       const handleVisibilityChange = () => {
@@ -119,9 +120,37 @@
       };
   });
 
+  $effect(() => {
+      if (!authStore.statusLoaded) {
+          return;
+      }
+      if (authStore.needsInitialSetup) {
+          return;
+      }
+
+      if (canAccess && !appInitialized) {
+          settingsStore.load();
+          detectionsStore.loadInitial();
+          connectSSE();
+          appInitialized = true;
+      }
+
+      if (!canAccess && appInitialized) {
+          if (evtSource) {
+              evtSource.close();
+              evtSource = null;
+          }
+          detectionsStore.setConnected(false);
+          appInitialized = false;
+      }
+  });
+
   function scheduleReconnect() {
       // Prevent multiple reconnection attempts
       if (isReconnecting || reconnectTimeout) {
+          return;
+      }
+      if (!canAccess) {
           return;
       }
 
@@ -147,7 +176,9 @@
       }
 
       try {
-          evtSource = new EventSource('/api/sse');
+          const token = authStore.token;
+          const sseUrl = token ? `/api/sse?token=${encodeURIComponent(token)}` : '/api/sse';
+          evtSource = new EventSource(sseUrl);
 
           evtSource.onopen = () => {
               logger.sseEvent("connection_opened");
@@ -317,7 +348,13 @@
     Skip to content
   </a>
 
-  {#if authStore.requiresLogin}
+  {#if !authStore.statusLoaded}
+      <div class="min-h-screen flex items-center justify-center bg-surface-50 dark:bg-surface-900 px-4">
+          <div class="text-sm font-semibold text-slate-600 dark:text-slate-300">Loading authentication status...</div>
+      </div>
+  {:else if authStore.needsInitialSetup}
+      <FirstRunWizard />
+  {:else if requiresLogin}
       <Login />
   {:else}
       {#if currentLayout === 'vertical'}

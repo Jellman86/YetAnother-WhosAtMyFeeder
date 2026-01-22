@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Request, Depends
 from datetime import datetime, time, date
 from typing import List, Optional
 from pydantic import BaseModel
@@ -8,6 +8,9 @@ from app.repositories.detection_repository import DetectionRepository
 from app.models import DetectionResponse
 from app.config import settings
 from app.services.taxonomy.taxonomy_service import taxonomy_service
+from app.auth import AuthContext
+from app.main import get_auth_context_with_legacy
+from app.ratelimit import guest_rate_limit
 
 router = APIRouter()
 
@@ -26,9 +29,18 @@ class DailySummaryResponse(BaseModel):
     total_count: int
 
 @router.get("/stats/daily-summary", response_model=DailySummaryResponse)
-async def get_daily_summary(request: Request):
+@guest_rate_limit()
+async def get_daily_summary(
+    request: Request,
+    auth: AuthContext = Depends(get_auth_context_with_legacy)
+):
     """Get a summary of detections for today."""
     lang = getattr(request.state, 'language', 'en')
+    hide_camera_names = (
+        not auth.is_owner
+        and settings.public_access.enabled
+        and not settings.public_access.show_camera_names
+    )
     today = date.today()
     start_dt = datetime.combine(today, time.min)
     end_dt = datetime.combine(today, time.max)
@@ -81,7 +93,7 @@ async def get_daily_summary(request: Request):
             summary_species.sort(key=lambda x: x.count, reverse=True)
             
         # 3. Latest detection
-        latest_raw = await repo.get_all(limit=1)
+        latest_raw = await repo.get_all(limit=1, start_date=start_dt, end_date=end_dt)
         latest_detection = None
         if latest_raw:
             d = latest_raw[0]
@@ -103,7 +115,7 @@ async def get_daily_summary(request: Request):
                 display_name=display_name,
                 category_name=d.category_name,
                 frigate_event=d.frigate_event,
-                camera_name=d.camera_name,
+                camera_name="Hidden" if hide_camera_names else d.camera_name,
                 is_hidden=d.is_hidden,
                 frigate_score=d.frigate_score,
                 sub_label=d.sub_label,

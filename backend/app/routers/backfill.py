@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 from typing import Optional, List
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, Depends
 from pydantic import BaseModel, Field
 import structlog
 
@@ -8,6 +8,7 @@ from app.services.backfill_service import BackfillService
 from app.services.classifier_service import get_classifier
 from app.services.i18n_service import i18n_service
 from app.utils.language import get_user_language
+from app.auth import require_owner, AuthContext
 
 router = APIRouter()
 log = structlog.get_logger()
@@ -46,9 +47,13 @@ class BackfillResponse(BaseModel):
 
 
 @router.post("/backfill", response_model=BackfillResponse)
-async def backfill_detections(backfill_request: BackfillRequest, request: Request):
+async def backfill_detections(
+    backfill_request: BackfillRequest,
+    request: Request,
+    auth: AuthContext = Depends(require_owner)
+):
     """
-    Fetch historical bird detections from Frigate and process them.
+    Fetch historical bird detections from Frigate and process them. Owner only.
 
     This endpoint queries Frigate's event API for past bird detections,
     classifies them using the ML model, and saves new detections to the database.

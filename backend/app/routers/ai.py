@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, Depends
 from pydantic import BaseModel
 import structlog
 from app.services.ai_service import ai_service
@@ -7,6 +7,8 @@ from app.repositories.detection_repository import DetectionRepository
 from app.database import get_db
 from app.services.i18n_service import i18n_service
 from app.utils.language import get_user_language
+from app.auth import AuthContext
+from app.main import get_auth_context_with_legacy
 
 router = APIRouter()
 log = structlog.get_logger()
@@ -15,7 +17,12 @@ class AIAnalysisResponse(BaseModel):
     analysis: str
 
 @router.post("/events/{event_id}/analyze", response_model=AIAnalysisResponse)
-async def analyze_event(event_id: str, request: Request, force: bool = False):
+async def analyze_event(
+    event_id: str,
+    request: Request,
+    force: bool = False,
+    auth: AuthContext = Depends(get_auth_context_with_legacy)
+):
     """Run AI analysis on a specific detection.
 
     Args:
@@ -37,6 +44,12 @@ async def analyze_event(event_id: str, request: Request, force: bool = False):
         if detection.ai_analysis and not force:
             log.info("returning_cached_analysis", event_id=event_id)
             return AIAnalysisResponse(analysis=detection.ai_analysis)
+
+        if not auth.is_owner:
+            raise HTTPException(
+                status_code=403,
+                detail="Owner access required to generate AI analysis."
+            )
 
         # Fetch snapshot
         image_data = await frigate_client.get_snapshot(event_id, crop=True, quality=90)
