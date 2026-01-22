@@ -1,9 +1,9 @@
 from fastapi import Depends, HTTPException, Request, Security
-from fastapi.security import APIKeyHeader, APIKeyQuery
+from fastapi.security import APIKeyHeader, APIKeyQuery, HTTPAuthorizationCredentials
 import secrets
 import structlog
 
-from app.auth import AuthContext, AuthLevel, get_auth_context
+from app.auth import AuthContext, AuthLevel, get_auth_context, security
 from app.config import settings
 
 log = structlog.get_logger()
@@ -47,7 +47,7 @@ async def verify_api_key_legacy(
 
 async def get_auth_context_with_legacy(
     request: Request,
-    credentials=Depends(get_auth_context.__wrapped__),
+    credentials: HTTPAuthorizationCredentials | None = Depends(security),
     header_key: str = Security(api_key_header),
     query_key: str = Security(api_key_query)
 ) -> AuthContext:
