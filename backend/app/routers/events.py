@@ -67,7 +67,10 @@ class EventsCountResponse(BaseModel):
 
 @router.get("/events/filters", response_model=EventFilters)
 @guest_rate_limit()
-async def get_event_filters(auth: AuthContext = Depends(get_auth_context_with_legacy)):
+async def get_event_filters(
+    request: Request,
+    auth: AuthContext = Depends(get_auth_context_with_legacy)
+):
     """Get available filter options (species and cameras) from the database."""
     hide_camera_names = (
         not auth.is_owner
@@ -234,6 +237,7 @@ async def get_hidden_count(auth: AuthContext = Depends(require_owner)):
 @router.get("/events/count", response_model=EventsCountResponse)
 @guest_rate_limit()
 async def get_events_count(
+    request: Request,
     start_date: Optional[date] = Query(default=None, description="Filter events from this date (inclusive)"),
     end_date: Optional[date] = Query(default=None, description="Filter events until this date (inclusive)"),
     species: Optional[str] = Query(default=None, description="Filter by species name"),

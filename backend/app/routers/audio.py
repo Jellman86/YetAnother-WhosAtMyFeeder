@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 import structlog
 from app.services.audio.audio_service import audio_service
 from app.config import settings
@@ -12,6 +12,7 @@ log = structlog.get_logger()
 @router.get("/recent")
 @guest_rate_limit()
 async def get_recent_audio(
+    request: Request,
     limit: int = 10,
     auth: AuthContext = Depends(get_auth_context_with_legacy)
 ):
