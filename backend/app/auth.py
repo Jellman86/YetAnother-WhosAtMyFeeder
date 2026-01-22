@@ -114,7 +114,10 @@ def verify_token(token: str) -> TokenData:
 
     try:
         payload = jwt.decode(token, settings.auth.session_secret, algorithms=["HS256"])
-        return TokenData(**payload)
+        token_data = TokenData(**payload)
+        if token_data.exp.tzinfo is not None:
+            token_data.exp = token_data.exp.replace(tzinfo=None)
+        return token_data
     except jwt.ExpiredSignatureError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
