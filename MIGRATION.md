@@ -1,115 +1,109 @@
-# Migration Guide
+# Authentication Migration Guide
 
-## Upgrading from v2.4.x to v2.5.0+ (Container Security Changes)
-
-**Version 2.5.0 introduces important security improvements** - containers now run as non-root users instead of root.
-
-### What Changed
-
-- **Backend:** Now runs as UID 1000 (previously root/UID 0)
-- **Frontend:** Now runs as UID 1000 (previously root/UID 0)
-- **Impact:** Existing `config/` and `data/` directories may have permission issues
-
-### Migration Options
-
-Choose **ONE** of these options based on your setup:
-
-#### Option 1: Change Directory Ownership (Recommended for new deployments)
-
-Change your host directories to match the container user:
-
-```bash
-# Navigate to your YA-WAMF directory
-cd /path/to/ya-wamf
-
-# Change ownership to UID 1000
-sudo chown -R 1000:1000 config data
-
-# Restart containers
-docker-compose down && docker-compose pull && docker-compose up -d
-```
-
-**Pros:** Most secure, follows best practices
-**Cons:** Requires sudo access
+This guide helps you migrate to YA-WAMF v2.6+ with the new JWT-based authentication system.
 
 ---
 
-#### Option 2: Use `user:` Override (Recommended for TrueNAS/existing setups)
+## Overview
 
-Keep your existing directory ownership and run containers as your user. The updated `docker-compose.yml` uses `PUID` and `PGID` environment variables for this:
+**v2.6+** introduces optional JWT-based authentication replacing the legacy API key system.
 
-```bash
-# In your .env file
-PUID=568  # Replace with your UID
-PGID=568  # Replace with your GID
-```
+### What's New
 
-**To find your UID/GID:**
-```bash
-# On Linux/TrueNAS
-stat -c "%u %g" config/
-# Or
-ls -lan | grep config
-```
+✅ JWT-based authentication
+✅ Web-based login
+✅ Public access mode (optional guest read-only)
+✅ Security hardening (rate limiting, audit logs)
+✅ Initial setup wizard
 
-**Pros:** No directory ownership changes needed
-**Cons:** Overrides built-in security
+### Backward Compatibility
+
+- Authentication is **disabled by default**
+- Legacy API key still supported (deprecated)
+- Existing installations continue working
 
 ---
 
-#### Option 3: Make Directories World-Writable (Least secure)
+## Migration Scenarios
 
-```bash
-cd /path/to/ya-wamf
-chmod -R 777 config data
-```
+### Fresh Install
 
-**⚠️ Only use this for testing/troubleshooting**
+**On first access:**
+1. Navigate to YA-WAMF
+2. First-Run Setup wizard appears
+3. Set password OR skip (can enable later)
+
+### Upgrade from v2.5.x (No Auth)
+
+1. Pull latest: `docker compose pull && docker compose up -d`
+2. Access YA-WAMF (no login required)
+3. Enable auth in Settings → Security (optional)
+
+### Upgrade from v2.5.x (With API Key)
+
+1. Pull latest: `docker compose pull && docker compose up -d`
+2. Legacy API key continues working (deprecated)
+3. Enable new auth in Settings → Security
+4. Update integrations to use JWT tokens
+5. Remove `YA_WAMF_API_KEY` environment variable
 
 ---
 
-### Verification
+## Configuration
 
-After applying your chosen option, verify the containers start successfully:
+### New Fields (config.json)
 
-```bash
-docker logs yawamf-backend --tail 20
-docker logs yawamf-frontend --tail 20
+```json
+{
+  "auth": {
+    "enabled": false,
+    "username": "admin",
+    "password_hash": null,
+    "session_expiry_hours": 168
+  },
+  "public_access": {
+    "enabled": false,
+    "show_camera_names": true,
+    "show_historical_days": 7,
+    "rate_limit_per_minute": 30
+  }
+}
 ```
-
-You should see no permission errors.
 
 ---
 
-## Migrating from WhosAtMyFeeder v1 to YA-WAMF v2
+## Common Issues
 
-If you are coming from the original `WhosAtMyFeeder` (v1), please note that **YA-WAMF (v2)** is a complete rewrite.
+### Locked Out After Enabling Auth
 
-## Configuration Changes
+1. Stop backend: `docker compose stop yawamf-backend`
+2. Edit `config/config.json`: Set `"enabled": false`
+3. Restart: `docker compose start yawamf-backend`
 
-*   **Format:** `config.yml` is deprecated. We now use a combination of Environment Variables (`.env`) for infrastructure and a web-based `config.json` for runtime settings.
-*   **Frigate:** Instead of complex mapping, we simply ask for the Frigate URL. Camera names are automatically detected from the MQTT events.
+### Forgotten Password
 
-## Database Migration
+1. Stop backend
+2. Set `"password_hash": null` in config.json
+3. Restart and use setup wizard
 
-*   **Incompatible Schema:** The v1 database schema is not directly compatible with v2.
-*   **Recommendation:** It is highly recommended to start with a fresh database (`speciesid.db`) to ensure the new "Leaderboard" and "Explorer" features work correctly with standardized species names.
-*   **Legacy Data:** If you absolutely must keep your old data, you will need to manually export your v1 SQLite data and map it to the new `detections` table structure defined in `backend/app/repositories/detection_repository.py`.
+### HTTPS Warning
 
-## Alembic Heads Check (Dev/CI)
+⚠️ Use HTTPS in production! See [SECURITY.md](./SECURITY.md) for setup.
 
-We enforce a single Alembic head to avoid split-brain schemas. If multiple heads appear:
+---
 
-```bash
-cd backend
-alembic heads
-alembic merge -m "merge heads" <head1> <head2>
-alembic upgrade head
-```
+## Testing Checklist
 
-In CI, builds will fail if more than one head exists.
+- [ ] Can login with correct credentials
+- [ ] Login rejects wrong password
+- [ ] Session persists across refresh
+- [ ] Public access works (if enabled)
+- [ ] Cannot access Settings as guest
+- [ ] HTTPS warning shows (if HTTP)
 
-## Docker Changes
+---
 
-*   **Service Name:** The main service is now split into `backend` and `frontend`.
-*   **Ports:** The web interface is now served on port `3000` (or `80` inside the container) instead of the previous Flask default.
+For detailed instructions, see full documentation at:
+https://github.com/Jellman86/YetAnother-WhosAtMyFeeder
+
+**Last Updated:** 2026-01-22
