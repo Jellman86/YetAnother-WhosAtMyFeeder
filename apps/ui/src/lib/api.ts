@@ -43,6 +43,7 @@ export interface AuthStatus {
     is_authenticated: boolean;
     username?: string | null;
     needs_initial_setup: boolean;
+    https_warning?: boolean;
 }
 
 export interface LoginResponse {

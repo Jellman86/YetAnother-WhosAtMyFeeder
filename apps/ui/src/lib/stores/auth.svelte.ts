@@ -15,6 +15,12 @@ class AuthStore {
     username = $state<string | null>(null);
     statusLoaded = $state(false);
     token = $state(getAuthToken());
+    httpsWarning = $state(false);
+
+    // Derived permission states
+    canModify = $derived(this.isAuthenticated);
+    isGuest = $derived(!this.isAuthenticated && this.publicAccessEnabled);
+    showSettings = $derived(this.isAuthenticated);
 
     constructor() {
         // Status is loaded via loadStatus()
@@ -28,6 +34,7 @@ class AuthStore {
             this.needsInitialSetup = status.needs_initial_setup;
             this.isAuthenticated = status.is_authenticated;
             this.username = status.username ?? null;
+            this.httpsWarning = status.https_warning ?? false;
         } catch (err) {
             console.error('Failed to load auth status', err);
         } finally {

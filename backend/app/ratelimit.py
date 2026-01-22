@@ -10,7 +10,34 @@ from slowapi.util import get_remote_address
 from app.auth import AuthLevel, verify_token
 from app.config import settings
 
-limiter = Limiter(key_func=get_remote_address, default_limits=["100/minute"])
+
+def get_real_client_ip(request: Request) -> str:
+    """
+    Get real client IP address, handling proxies and load balancers.
+
+    Checks headers in order of priority:
+    1. X-Forwarded-For (standard proxy header, takes first IP)
+    2. X-Real-IP (alternative proxy header)
+    3. Remote address (direct connection)
+
+    Returns the IP address as a string.
+    """
+    # Check X-Forwarded-For header (can have multiple IPs)
+    forwarded_for = request.headers.get("X-Forwarded-For")
+    if forwarded_for:
+        # Take the first IP (original client)
+        return forwarded_for.split(",")[0].strip()
+
+    # Check X-Real-IP header
+    real_ip = request.headers.get("X-Real-IP")
+    if real_ip:
+        return real_ip.strip()
+
+    # Fall back to remote address
+    return get_remote_address(request)
+
+
+limiter = Limiter(key_func=get_real_client_ip, default_limits=["100/minute"])
 
 
 def _guest_limit_value(*_args: Any, **_kwargs: Any) -> str:
@@ -49,7 +76,7 @@ def _is_owner_request(request: Request) -> bool:
 
 def _rate_limit_key(request: Request) -> str:
     role = "owner" if _is_owner_request(request) else "guest"
-    return f"{role}:{get_remote_address(request)}"
+    return f"{role}:{get_real_client_ip(request)}"
 
 
 def _limit_for_key(key: str) -> str:
@@ -60,3 +87,19 @@ def _limit_for_key(key: str) -> str:
 
 def guest_rate_limit() -> Callable:
     return limiter.limit(_limit_for_key, key_func=_rate_limit_key)
+
+
+def login_rate_limit() -> Callable:
+    """
+    Strict rate limiting for login endpoint to prevent brute force attacks.
+
+    Limits:
+    - 5 attempts per minute per IP
+    - 20 attempts per hour per IP
+
+    This applies regardless of authentication status since login
+    attempts come from unauthenticated users.
+
+    Uses get_real_client_ip to work correctly behind proxies/load balancers.
+    """
+    return limiter.limit("5/minute;20/hour", key_func=get_real_client_ip)

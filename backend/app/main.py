@@ -228,6 +228,76 @@ app.include_router(debug.router, prefix="/api", tags=["debug"], dependencies=[De
 app.include_router(email.router, prefix="/api", tags=["email"], dependencies=[Depends(get_auth_context_with_legacy)])
 
 @app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    """Add security headers to all responses."""
+    response = await call_next(request)
+
+    # Only add HSTS if using HTTPS
+    if request.url.scheme == "https":
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+
+    # General security headers
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+
+    # Content Security Policy - allow self and inline styles (needed for some UI)
+    # Adjust as needed for your specific requirements
+    csp_policy = (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline'; "
+        "style-src 'self' 'unsafe-inline'; "
+        "img-src 'self' data: https:; "
+        "font-src 'self' data:; "
+        "connect-src 'self'; "
+        "frame-ancestors 'none';"
+    )
+    response.headers["Content-Security-Policy"] = csp_policy
+
+    # Referrer Policy - don't leak URLs to external sites
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+
+    # Permissions Policy - disable unnecessary browser features
+    response.headers["Permissions-Policy"] = (
+        "geolocation=(), "
+        "microphone=(), "
+        "camera=(), "
+        "payment=(), "
+        "usb=(), "
+        "magnetometer=(), "
+        "gyroscope=(), "
+        "accelerometer=()"
+    )
+
+    return response
+
+@app.middleware("http")
+async def check_https_warning(request: Request, call_next):
+    """Log warning if authentication is enabled over HTTP."""
+    # Only check on non-health endpoints to avoid log spam
+    if request.url.path not in ["/health", "/metrics"]:
+        if settings.auth.enabled and request.url.scheme != "https":
+            # Log warning once per minute to avoid spam
+            if not hasattr(app.state, "_last_https_warning"):
+                app.state._last_https_warning = datetime.now()
+                log.warning(
+                    "Authentication enabled over HTTP - credentials may be exposed",
+                    path=request.url.path,
+                    recommendation="Use HTTPS in production for secure authentication"
+                )
+            else:
+                # Log at most once per minute
+                if (datetime.now() - app.state._last_https_warning).total_seconds() > 60:
+                    app.state._last_https_warning = datetime.now()
+                    log.warning(
+                        "Authentication enabled over HTTP - credentials may be exposed",
+                        recommendation="Use HTTPS in production for secure authentication"
+                    )
+
+    response = await call_next(request)
+    return response
+
+@app.middleware("http")
 async def count_requests(request, call_next):
     API_REQUESTS.inc()
     response = await call_next(request)

@@ -1,4 +1,5 @@
 import platform
+import re
 from typing import List, Optional
 from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends
@@ -298,9 +299,35 @@ class SettingsUpdate(BaseModel):
 
     # Authentication
     auth_enabled: Optional[bool] = None
-    auth_username: Optional[str] = None
-    auth_password: Optional[str] = None
+    auth_username: Optional[str] = Field(None, min_length=1, max_length=50)
+    auth_password: Optional[str] = Field(None, min_length=8, max_length=128)
     auth_session_expiry_hours: Optional[int] = Field(None, ge=1, le=720)
+
+    @field_validator("auth_username")
+    @classmethod
+    def validate_auth_username(cls, v: Optional[str]) -> Optional[str]:
+        """Validate username contains only safe characters."""
+        if v is None:
+            return v
+        if not re.match(r'^[a-zA-Z0-9_.-]+$', v):
+            raise ValueError("Username must contain only letters, numbers, underscore, hyphen, and period")
+        return v.strip()
+
+    @field_validator("auth_password")
+    @classmethod
+    def validate_auth_password(cls, v: Optional[str]) -> Optional[str]:
+        """Validate password strength."""
+        if v is None or not v:  # Allow empty string to mean "don't change"
+            return v
+
+        if len(v) < 8:
+            raise ValueError("Password must be at least 8 characters long")
+
+        # Check for basic complexity (at least one letter and one number)
+        if not re.search(r'[A-Za-z]', v) or not re.search(r'\d', v):
+            raise ValueError("Password must contain at least one letter and one number")
+
+        return v
 
     # Public access
     public_access_enabled: Optional[bool] = None
@@ -525,12 +552,41 @@ async def update_settings(
     settings.telemetry.enabled = update.telemetry_enabled if update.telemetry_enabled is not None else True
 
     # Authentication
+    auth_changed = False
+    password_changed = False
+
     if update.auth_enabled is not None:
+        if settings.auth.enabled != update.auth_enabled:
+            auth_changed = True
+            log.info(
+                "AUTH_AUDIT: Authentication toggled",
+                event_type="auth_toggled",
+                enabled=update.auth_enabled,
+                username=auth.username
+            )
         settings.auth.enabled = update.auth_enabled
+
     if update.auth_username is not None and update.auth_username.strip():
+        if settings.auth.username != update.auth_username.strip():
+            log.info(
+                "AUTH_AUDIT: Username changed",
+                event_type="username_changed",
+                old_username=settings.auth.username,
+                new_username=update.auth_username.strip(),
+                changed_by=auth.username
+            )
         settings.auth.username = update.auth_username.strip()
+
     if update.auth_password:
         settings.auth.password_hash = hash_password(update.auth_password)
+        password_changed = True
+        log.info(
+            "AUTH_AUDIT: Password changed",
+            event_type="password_changed",
+            username=settings.auth.username,
+            changed_by=auth.username
+        )
+
     if update.auth_session_expiry_hours is not None:
         settings.auth.session_expiry_hours = update.auth_session_expiry_hours
 

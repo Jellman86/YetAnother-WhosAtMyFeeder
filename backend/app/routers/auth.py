@@ -1,10 +1,11 @@
 """Authentication endpoints for YA-WAMF."""
 
 from fastapi import APIRouter, HTTPException, status, Depends, Request
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from typing import Optional
 import structlog
 import secrets
+import re
 
 from app.auth import (
     verify_password,
@@ -14,6 +15,7 @@ from app.auth import (
     verify_token
 )
 from app.config import settings
+from app.ratelimit import login_rate_limit
 
 router = APIRouter()
 log = structlog.get_logger()
@@ -21,8 +23,17 @@ log = structlog.get_logger()
 
 class LoginRequest(BaseModel):
     """Login credentials."""
-    username: str = Field(..., min_length=1, max_length=100)
-    password: str = Field(..., min_length=1)
+    username: str = Field(..., min_length=1, max_length=50)
+    password: str = Field(..., min_length=1, max_length=128)
+
+    @field_validator("username")
+    @classmethod
+    def validate_username(cls, v: str) -> str:
+        """Validate username contains only safe characters."""
+        # Allow alphanumeric, underscore, hyphen, period
+        if not re.match(r'^[a-zA-Z0-9_.-]+$', v):
+            raise ValueError("Username must contain only letters, numbers, underscore, hyphen, and period")
+        return v.strip()
 
 
 class LoginResponse(BaseModel):
@@ -40,18 +51,46 @@ class AuthStatusResponse(BaseModel):
     is_authenticated: bool
     username: Optional[str] = None
     needs_initial_setup: bool = False
+    https_warning: bool = False  # True if auth enabled over HTTP
 
 
 class InitialPasswordRequest(BaseModel):
     """Initial password setup request."""
-    username: str = Field(..., min_length=1, max_length=100)
-    password: Optional[str] = Field(None, min_length=8)
+    username: str = Field(..., min_length=1, max_length=50)
+    password: Optional[str] = Field(None, min_length=8, max_length=128)
     enable_auth: bool = True
+
+    @field_validator("username")
+    @classmethod
+    def validate_username(cls, v: str) -> str:
+        """Validate username contains only safe characters."""
+        if not re.match(r'^[a-zA-Z0-9_.-]+$', v):
+            raise ValueError("Username must contain only letters, numbers, underscore, hyphen, and period")
+        return v.strip()
+
+    @field_validator("password")
+    @classmethod
+    def validate_password(cls, v: Optional[str]) -> Optional[str]:
+        """Validate password strength."""
+        if v is None:
+            return v
+
+        if len(v) < 8:
+            raise ValueError("Password must be at least 8 characters long")
+
+        # Check for basic complexity (at least one letter and one number)
+        if not re.search(r'[A-Za-z]', v) or not re.search(r'\d', v):
+            raise ValueError("Password must contain at least one letter and one number")
+
+        return v
 
 
 @router.post("/auth/login", response_model=LoginResponse)
+@login_rate_limit()
 async def login(request: LoginRequest):
     """Authenticate user and return JWT token.
+
+    Rate limited to 5 attempts per minute, 20 per hour per IP.
 
     Returns:
         JWT access token for authenticated requests
@@ -73,7 +112,12 @@ async def login(request: LoginRequest):
 
     # Verify username
     if request.username != settings.auth.username:
-        log.warning("Login attempt with invalid username", username=request.username)
+        log.warning(
+            "AUTH_AUDIT: Login failed - invalid username",
+            username=request.username,
+            event_type="login_failure",
+            reason="invalid_username"
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid credentials"
@@ -81,7 +125,12 @@ async def login(request: LoginRequest):
 
     # Verify password
     if not verify_password(request.password, settings.auth.password_hash):
-        log.warning("Login attempt with invalid password", username=request.username)
+        log.warning(
+            "AUTH_AUDIT: Login failed - invalid password",
+            username=request.username,
+            event_type="login_failure",
+            reason="invalid_password"
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid credentials"
@@ -90,7 +139,11 @@ async def login(request: LoginRequest):
     # Create token
     token = create_access_token(request.username, AuthLevel.OWNER)
 
-    log.info("Successful login", username=request.username)
+    log.info(
+        "AUTH_AUDIT: Login successful",
+        username=request.username,
+        event_type="login_success"
+    )
 
     return LoginResponse(
         access_token=token,
@@ -133,12 +186,16 @@ async def get_auth_status(request: Request):
 
     needs_setup = settings.auth.enabled and settings.auth.password_hash is None
 
+    # Check if using HTTP with auth enabled (security warning)
+    https_warning = settings.auth.enabled and request.url.scheme != "https"
+
     return AuthStatusResponse(
         auth_required=settings.auth.enabled,
         public_access_enabled=settings.public_access.enabled,
         is_authenticated=auth_level == AuthLevel.OWNER,
         username=username if auth_level == AuthLevel.OWNER else None,
-        needs_initial_setup=needs_setup
+        needs_initial_setup=needs_setup,
+        https_warning=https_warning
     )
 
 
@@ -176,9 +233,12 @@ async def set_initial_password(request: InitialPasswordRequest):
     # Save to config.json
     await settings.save()
 
-    log.info("Initial setup completed",
-             auth_enabled=settings.auth.enabled,
-             username=request.username if request.enable_auth else None)
+    log.info(
+        "AUTH_AUDIT: Initial setup completed",
+        auth_enabled=settings.auth.enabled,
+        username=request.username if request.enable_auth else None,
+        event_type="initial_setup"
+    )
 
     return {"message": "Setup completed successfully"}
 
