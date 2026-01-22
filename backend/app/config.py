@@ -1,5 +1,6 @@
 import json
 import os
+import secrets as secrets_lib
 import structlog
 from typing import Optional
 from pathlib import Path
@@ -175,6 +176,57 @@ class SystemSettings(BaseModel):
     broadcaster_max_queue_size: int = Field(default=100, ge=10, le=1000, description="Maximum SSE message queue size per subscriber")
     broadcaster_max_consecutive_full: int = Field(default=10, ge=1, le=100, description="Remove subscriber after this many consecutive backpressure failures")
 
+
+class AuthSettings(BaseModel):
+    """Authentication configuration."""
+    enabled: bool = Field(
+        default=False,
+        description="Require authentication for full access (disabled by default for backward compatibility)"
+    )
+    username: str = Field(
+        default="admin",
+        description="Admin username"
+    )
+    password_hash: Optional[str] = Field(
+        default=None,
+        description="Bcrypt hashed password (set via Settings UI or auth/initial-setup endpoint)"
+    )
+    session_secret: str = Field(
+        default_factory=lambda: secrets_lib.token_urlsafe(32),
+        description="Secret key for JWT tokens (auto-generated)"
+    )
+    session_expiry_hours: int = Field(
+        default=168,  # 7 days
+        ge=1,
+        le=720,  # 30 days max
+        description="Session token validity in hours"
+    )
+
+
+class PublicAccessSettings(BaseModel):
+    """Public/guest access configuration."""
+    enabled: bool = Field(
+        default=False,
+        description="Allow unauthenticated public access to view detections"
+    )
+    show_camera_names: bool = Field(
+        default=True,
+        description="Show camera names to public visitors"
+    )
+    show_historical_days: int = Field(
+        default=7,
+        ge=0,
+        le=365,
+        description="Days of historical data visible to public (0 = live only)"
+    )
+    rate_limit_per_minute: int = Field(
+        default=30,
+        ge=1,
+        le=100,
+        description="API calls per minute for public users"
+    )
+
+
 class Settings(BaseSettings):
     frigate: FrigateSettings
     classification: ClassificationSettings = ClassificationSettings()
@@ -187,6 +239,8 @@ class Settings(BaseSettings):
     notifications: NotificationSettings = NotificationSettings()
     accessibility: AccessibilitySettings = AccessibilitySettings()
     system: SystemSettings = SystemSettings()
+    auth: AuthSettings = AuthSettings()
+    public_access: PublicAccessSettings = PublicAccessSettings()
     species_info_source: str = Field(default="auto", description="Species info source: auto, inat, or wikipedia")
 
     # General app settings
@@ -344,6 +398,29 @@ class Settings(BaseSettings):
             'live_announcements': os.environ.get('ACCESSIBILITY__LIVE_ANNOUNCEMENTS', 'true').lower() == 'true',
         }
 
+        # Authentication settings
+        auth_data = {
+            'enabled': os.environ.get('AUTH__ENABLED', 'false').lower() == 'true',
+            'username': os.environ.get('AUTH__USERNAME', 'admin'),
+            'password_hash': os.environ.get('AUTH__PASSWORD_HASH', None),
+            'session_secret': os.environ.get('AUTH__SESSION_SECRET', secrets_lib.token_urlsafe(32)),
+            'session_expiry_hours': int(os.environ.get('AUTH__SESSION_EXPIRY_HOURS', '168')),
+        }
+
+        # Public access settings
+        public_access_data = {
+            'enabled': os.environ.get('PUBLIC_ACCESS__ENABLED', 'false').lower() == 'true',
+            'show_camera_names': os.environ.get('PUBLIC_ACCESS__SHOW_CAMERA_NAMES', 'true').lower() == 'true',
+            'show_historical_days': int(os.environ.get('PUBLIC_ACCESS__SHOW_HISTORICAL_DAYS', '7')),
+            'rate_limit_per_minute': int(os.environ.get('PUBLIC_ACCESS__RATE_LIMIT_PER_MINUTE', '30')),
+        }
+
+        # System settings (existing but need to initialize)
+        system_data = {
+            'broadcaster_max_queue_size': int(os.environ.get('SYSTEM__BROADCASTER_MAX_QUEUE_SIZE', '100')),
+            'broadcaster_max_consecutive_full': int(os.environ.get('SYSTEM__BROADCASTER_MAX_CONSECUTIVE_FULL', '10')),
+        }
+
         species_info_source = os.environ.get('SPECIES_INFO__SOURCE', 'auto')
 
         # Load from config file if it exists, env vars take precedence
@@ -467,6 +544,24 @@ class Settings(BaseSettings):
                         if env_key not in os.environ:
                             accessibility_data[k] = v
 
+                if 'auth' in file_data:
+                    for k, v in file_data['auth'].items():
+                        env_key = f'AUTH__{k.upper()}'
+                        if env_key not in os.environ:
+                            auth_data[k] = v
+
+                if 'public_access' in file_data:
+                    for k, v in file_data['public_access'].items():
+                        env_key = f'PUBLIC_ACCESS__{k.upper()}'
+                        if env_key not in os.environ:
+                            public_access_data[k] = v
+
+                if 'system' in file_data:
+                    for k, v in file_data['system'].items():
+                        env_key = f'SYSTEM__{k.upper()}'
+                        if env_key not in os.environ:
+                            system_data[k] = v
+
                 if 'species_info_source' in file_data and 'SPECIES_INFO__SOURCE' not in os.environ:
                     species_info_source = file_data['species_info_source']
 
@@ -492,10 +587,17 @@ class Settings(BaseSettings):
         log.info("BirdWeather config", enabled=birdweather_data['enabled'])
         log.info("LLM config", enabled=llm_data['enabled'], provider=llm_data['provider'])
         log.info("Telemetry config", enabled=telemetry_data['enabled'], installation_id=telemetry_data['installation_id'])
-        log.info("Notification config", 
+        log.info("Notification config",
                  discord=notifications_data['discord']['enabled'],
                  pushover=notifications_data['pushover']['enabled'],
                  telegram=notifications_data['telegram']['enabled'])
+        log.info("Auth config",
+                 enabled=auth_data['enabled'],
+                 username=auth_data['username'],
+                 has_password=auth_data['password_hash'] is not None)
+        log.info("Public access config",
+                 enabled=public_access_data['enabled'],
+                 historical_days=public_access_data['show_historical_days'])
 
         return cls(
             frigate=FrigateSettings(**frigate_data),
@@ -508,6 +610,9 @@ class Settings(BaseSettings):
             telemetry=TelemetrySettings(**telemetry_data),
             notifications=NotificationSettings(**notifications_data),
             accessibility=AccessibilitySettings(**accessibility_data),
+            system=SystemSettings(**system_data),
+            auth=AuthSettings(**auth_data),
+            public_access=PublicAccessSettings(**public_access_data),
             species_info_source=species_info_source,
             api_key=api_key
         )

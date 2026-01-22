@@ -22,7 +22,7 @@ from app.services.media_cache import media_cache
 from app.services.broadcaster import broadcaster
 from app.services.telemetry_service import telemetry_service
 from app.repositories.detection_repository import DetectionRepository
-from app.routers import events, stream, proxy, settings as settings_router, species, backfill, classifier, models, ai, stats, debug, audio, email
+from app.routers import events, stream, proxy, settings as settings_router, species, backfill, classifier, models, ai, stats, debug, audio, email, auth as auth_router
 from app.config import settings
 from app.middleware.language import LanguageMiddleware
 from app.services.i18n_service import i18n_service
@@ -237,6 +237,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Auth router - no auth required (provides login endpoint)
+app.include_router(auth_router.router, prefix="/api", tags=["auth"])
+
+# Other routers - keep existing auth for backward compatibility (will update in Phase 2)
 app.include_router(events.router, prefix="/api", dependencies=[Depends(verify_api_key)])
 app.include_router(stream.router, prefix="/api", dependencies=[Depends(verify_api_key)])
 app.include_router(proxy.router, prefix="/api", dependencies=[Depends(verify_api_key)])
