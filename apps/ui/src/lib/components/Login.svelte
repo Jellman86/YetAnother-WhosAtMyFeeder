@@ -49,17 +49,17 @@
                     <img src="/pwa-192x192.png" alt="Logo" class="w-16 h-16 object-contain drop-shadow-md -rotate-3" />
                 </div>
                 <h2 class="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-                    Welcome Back
+                    {$_('auth.welcome_back')}
                 </h2>
                 <p class="mt-2 text-sm font-medium text-slate-500 dark:text-slate-400">
-                    Sign in to manage your feeder
+                    {$_('auth.signin_desc')}
                 </p>
             </div>
             
             <form class="space-y-5" onsubmit={handleSubmit}>
                 <div class="space-y-4">
                     <div>
-                        <label for="username" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1.5 ml-1">Username</label>
+                        <label for="username" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1.5 ml-1">{$_('auth.username')}</label>
                         <input
                             id="username"
                             name="username"
@@ -67,11 +67,11 @@
                             required
                             bind:value={username}
                             class="block w-full px-4 py-3.5 rounded-2xl border-0 bg-slate-100 dark:bg-slate-800/50 text-slate-900 dark:text-white font-bold text-sm shadow-inner ring-1 ring-slate-200 dark:ring-slate-700 focus:ring-2 focus:ring-teal-500 outline-none transition-all placeholder:text-slate-400 dark:placeholder:text-slate-600"
-                            placeholder="admin"
+                            placeholder={$_('auth.username_placeholder')}
                         />
                     </div>
                     <div>
-                        <label for="password" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1.5 ml-1">Password</label>
+                        <label for="password" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1.5 ml-1">{$_('auth.password')}</label>
                         <input
                             id="password"
                             name="password"
@@ -97,9 +97,9 @@
                 >
                     {#if isLoading}
                         <div class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2"></div>
-                        Signing in...
+                        {$_('auth.verifying')}
                     {:else}
-                        Sign In
+                        {$_('auth.signin_button')}
                     {/if}
                 </button>
 
@@ -109,14 +109,14 @@
                         onclick={() => authStore.cancelLogin()}
                         class="w-full flex items-center justify-center py-3.5 px-4 rounded-2xl text-sm font-bold text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all"
                     >
-                        Continue as Guest
+                        {$_('auth.continue_guest')}
                     </button>
                 {/if}
             </form>
         </div>
         
         <p class="text-center text-[10px] font-bold text-slate-400 dark:text-slate-600 uppercase tracking-widest">
-            YA-WAMF Secure Access
+            {$_('auth.secure_access')}
         </p>
     </div>
 </div>

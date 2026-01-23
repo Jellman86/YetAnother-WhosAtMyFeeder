@@ -259,6 +259,19 @@
       "desc": "用于检测期间的本地化天气上下文。"
     }
   },
+  "auth": {
+    "login": "登录",
+    "logout": "注销",
+    "welcome_back": "欢迎回来",
+    "signin_desc": "登录以管理您的喂食器",
+    "username": "用户名",
+    "password": "密码",
+    "username_placeholder": "管理员",
+    "signin_button": "登录",
+    "verifying": "正在登录...",
+    "continue_guest": "作为访客继续",
+    "secure_access": "YA-WAMF 安全访问"
+  },
   "notifications": {
     "reclassify_fallback": "⚠️ 视频不可用 - 改用快照",
     "reclassify_failed": "重新分类失败：{message}",

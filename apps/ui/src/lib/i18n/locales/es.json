@@ -258,6 +258,19 @@
       "desc": "Se utiliza para el contexto meteorológico localizado durante las detecciones."
     }
   },
+  "auth": {
+    "login": "Iniciar sesión",
+    "logout": "Cerrar sesión",
+    "welcome_back": "Bienvenido de nuevo",
+    "signin_desc": "Inicia sesión para gestionar tu comedero",
+    "username": "Nombre de usuario",
+    "password": "Contraseña",
+    "username_placeholder": "admin",
+    "signin_button": "Iniciar Sesión",
+    "verifying": "Iniciando sesión...",
+    "continue_guest": "Continuar como invitado",
+    "secure_access": "Acceso Seguro YA-WAMF"
+  },
   "notifications": {
     "reclassify_fallback": "⚠️ Video no disponible - se usó captura en su lugar",
     "reclassify_failed": "Error al reclasificar: {message}",

@@ -266,6 +266,19 @@
       "desc": "Used for localized weather context during detections."
     }
   },
+  "auth": {
+    "login": "Log In",
+    "logout": "Log Out",
+    "welcome_back": "Welcome Back",
+    "signin_desc": "Sign in to manage your feeder",
+    "username": "Username",
+    "password": "Password",
+    "username_placeholder": "admin",
+    "signin_button": "Sign In",
+    "verifying": "Signing in...",
+    "continue_guest": "Continue as Guest",
+    "secure_access": "YA-WAMF Secure Access"
+  },
   "notifications": {
     "reclassify_fallback": "⚠️ Video not available - snapshot used instead",
     "reclassify_failed": "Failed to reclassify: {message}",

@@ -258,6 +258,19 @@
       "desc": "検出時のローカライズされた気象コンテキストに使用されます。"
     }
   },
+  "auth": {
+    "login": "ログイン",
+    "logout": "ログアウト",
+    "welcome_back": "お帰りなさい",
+    "signin_desc": "フィーダーを管理するためにログインしてください",
+    "username": "ユーザー名",
+    "password": "パスワード",
+    "username_placeholder": "管理者",
+    "signin_button": "ログイン",
+    "verifying": "認証中...",
+    "continue_guest": "ゲストとして続行",
+    "secure_access": "YA-WAMF 安全なアクセス"
+  },
   "notifications": {
     "reclassify_fallback": "⚠️ ビデオが利用不可 - 代わりにスナップショットを使用しました",
     "reclassify_failed": "再分類に失敗しました: {message}",

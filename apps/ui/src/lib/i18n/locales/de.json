@@ -258,6 +258,19 @@
       "desc": "Wird für lokalisierte Wetterkontexte während Erkennungen verwendet."
     }
   },
+  "auth": {
+    "login": "Anmelden",
+    "logout": "Abmelden",
+    "welcome_back": "Willkommen zurück",
+    "signin_desc": "Melden Sie sich an, um Ihr Futterhaus zu verwalten",
+    "username": "Benutzername",
+    "password": "Passwort",
+    "username_placeholder": "admin",
+    "signin_button": "Anmelden",
+    "verifying": "Anmeldung läuft...",
+    "continue_guest": "Als Gast fortfahren",
+    "secure_access": "YA-WAMF Sicherer Zugriff"
+  },
   "notifications": {
     "reclassify_fallback": "⚠️ Video nicht verfügbar - stattdessen Schnappschuss verwendet",
     "reclassify_failed": "Reklassifizierung fehlgeschlagen: {message}",

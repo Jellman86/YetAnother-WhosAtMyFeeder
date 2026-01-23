@@ -258,6 +258,19 @@
       "desc": "Utilisé pour le contexte météorologique localisé lors des détections."
     }
   },
+  "auth": {
+    "login": "Connexion",
+    "logout": "Déconnexion",
+    "welcome_back": "Bon retour",
+    "signin_desc": "Connectez-vous pour gérer votre mangeoire",
+    "username": "Nom d'utilisateur",
+    "password": "Mot de passe",
+    "username_placeholder": "admin",
+    "signin_button": "Se connecter",
+    "verifying": "Connexion en cours...",
+    "continue_guest": "Continuer en tant qu'invité",
+    "secure_access": "Accès sécurisé YA-WAMF"
+  },
   "notifications": {
     "reclassify_fallback": "⚠️ Vidéo non disponible - capture utilisée à la place",
     "reclassify_failed": "Échec de la reclasification : {message}",
