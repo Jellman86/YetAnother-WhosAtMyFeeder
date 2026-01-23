@@ -24,6 +24,7 @@ class EventData:
     """Data class to hold parsed event information."""
 
     def __init__(self, data: Dict[str, Any]):
+        self.type: str = data.get('type')
         after = data.get('after', {})
         self.frigate_event: str = after['id']
         self.camera: str = after.get('camera')
@@ -31,6 +32,8 @@ class EventData:
         self.start_time_ts: float = after['start_time']
         self.sub_label: Optional[str] = after.get('sub_label')
         self.frigate_score: Optional[float] = after.get('top_score')
+        self.is_false_positive: bool = after.get('false_positive', False)
+        
         if self.frigate_score is None and 'data' in after:
             self.frigate_score = after['data'].get('top_score')
         # Create timezone-aware datetime (Frigate timestamps are in UTC)
@@ -58,6 +61,12 @@ class EventProcessor:
             # Step 1: Parse and validate event
             event = self._parse_and_validate_event(data)
             if not event:
+                return
+
+            # Handle False Positives (Clean up if needed)
+            if event.is_false_positive:
+                log.info("Frigate marked event as false positive - cleaning up", event_id=event.frigate_event)
+                await self._handle_false_positive(event.frigate_event)
                 return
 
             # Step 2: Classify snapshot (or use Frigate sublabel if trusted)
@@ -88,8 +97,31 @@ class EventProcessor:
         except json.JSONDecodeError as e:
             log.error("Invalid JSON payload", error=str(e))
         except Exception as e:
-            event_id = locals().get('event', EventData({'after': {'id': 'unknown'}})).frigate_event
+            event_id = locals().get('event', EventData({'after': {'id': 'unknown'}, 'type': 'unknown'})).frigate_event
             log.error("Error processing event", event_id=event_id, error=str(e), exc_info=True)
+
+    async def _handle_false_positive(self, frigate_event_id: str):
+        """Delete detection if Frigate marks it as false positive."""
+        try:
+            async with get_db() as db:
+                repo = DetectionRepository(db)
+                # Check if it exists
+                exists = await repo.get_by_frigate_event(frigate_event_id)
+                if exists:
+                    log.info("Deleting false positive detection", event_id=frigate_event_id)
+                    await repo.delete(frigate_event_id)
+                    
+                    # Notify frontend of deletion (if SSE connected)
+                    from app.services.broadcaster import broadcaster
+                    await broadcaster.broadcast({
+                        "type": "detection_deleted",
+                        "data": {
+                            "frigate_event": frigate_event_id,
+                            "timestamp": datetime.now(timezone.utc).isoformat()
+                        }
+                    })
+        except Exception as e:
+            log.error("Failed to cleanup false positive", event_id=frigate_event_id, error=str(e))
 
     def _parse_and_validate_event(self, data: Dict[str, Any]) -> Optional[EventData]:
         """Parse MQTT message and validate it should be processed.
@@ -101,20 +133,24 @@ class EventProcessor:
         if not after:
             return None
 
-        label = after.get('label')
-        log.info("Processing MQTT event", event_id=after.get('id'), label=label, type=data.get('type'))
+        event = EventData(data)
+        
+        # Log processing start
+        if event.type == 'new' or event.is_false_positive:
+             log.info("Processing MQTT event", event_id=event.frigate_event, label=event.label, type=event.type, false_positive=event.is_false_positive)
 
         # Only process bird events
-        if label != 'bird':
+        if event.label != 'bird':
             return None
 
         # Filter by camera if configured
-        camera = after.get('camera')
-        if settings.frigate.camera and camera not in settings.frigate.camera:
-            log.info("Filtering event by camera", camera=camera, allowed=settings.frigate.camera)
+        if settings.frigate.camera and event.camera not in settings.frigate.camera:
+            # Only log this once per event (on new) to avoid spam
+            if event.type == 'new':
+                log.info("Filtering event by camera", camera=event.camera, allowed=settings.frigate.camera)
             return None
 
-        return EventData(data)
+        return event
 
     async def _classify_snapshot(self, event: EventData) -> Optional[Tuple[list, Optional[bytes]]]:
         """Classify snapshot or use Frigate sublabel if trusted.
