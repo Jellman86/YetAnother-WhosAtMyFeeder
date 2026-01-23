@@ -62,7 +62,10 @@
 
   let appInitialized = $state(false);
   let canAccess = $derived(!authStore.authRequired || authStore.publicAccessEnabled || authStore.isAuthenticated);
-  let requiresLogin = $derived(authStore.authRequired && !authStore.publicAccessEnabled && !authStore.isAuthenticated && !authStore.needsInitialSetup);
+  let requiresLogin = $derived(
+      (authStore.authRequired && !authStore.publicAccessEnabled && !authStore.isAuthenticated && !authStore.needsInitialSetup) ||
+      (authStore.forceLogin && !authStore.isAuthenticated)
+  );
 
   // Handle back button and initial load
   onMount(async () => {

@@ -16,6 +16,7 @@ class AuthStore {
     statusLoaded = $state(false);
     token = $state(getAuthToken());
     httpsWarning = $state(false);
+    forceLogin = $state(false);
 
     // Derived permission states
     canModify = $derived(this.isAuthenticated || !this.authRequired);
@@ -24,6 +25,14 @@ class AuthStore {
 
     constructor() {
         // Status is loaded via loadStatus()
+    }
+
+    requestLogin() {
+        this.forceLogin = true;
+    }
+
+    cancelLogin() {
+        this.forceLogin = false;
     }
 
     async loadStatus() {

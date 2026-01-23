@@ -138,6 +138,37 @@
         </div>
     {/if}
 
+    <!-- Auth Actions (Login/Logout) -->
+    <div class="p-3 border-t border-slate-200/80 dark:border-slate-700/50 space-y-2">
+        {#if authStore.isAuthenticated}
+            <button
+                class="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-red-50 dark:hover:bg-red-900/20 text-slate-600 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-400 transition-all duration-200 focus-ring group"
+                onclick={() => authStore.logout()}
+                title={collapsed ? $_('auth.logout') : ''}
+            >
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 flex-shrink-0 group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+                {#if !collapsed}
+                    <span class="text-sm font-medium">{$_('auth.logout')}</span>
+                {/if}
+            </button>
+        {:else if authStore.isGuest}
+            <button
+                class="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-emerald-50 dark:hover:bg-emerald-900/20 text-slate-600 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-all duration-200 focus-ring group"
+                onclick={() => authStore.requestLogin()} 
+                title={collapsed ? $_('auth.login') : ''}
+            >
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 flex-shrink-0 group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+                </svg>
+                {#if !collapsed}
+                    <span class="text-sm font-medium">{$_('auth.login')}</span>
+                {/if}
+            </button>
+        {/if}
+    </div>
+
     <!-- Language selector and Theme Toggle at Bottom -->
     <div class="p-3 border-t border-slate-200/80 dark:border-slate-700/50 space-y-2">
         {#if !collapsed}
