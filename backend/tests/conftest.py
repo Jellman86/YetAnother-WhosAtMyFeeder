@@ -27,11 +27,19 @@ def pytest_configure(config):
 
     # Set test database to use temp directory
     os.environ["DB_PATH"] = os.path.join(temp_dir, "test_speciesid.db")
-    
-    # Disable rate limiting for tests
-    os.environ["TESTING"] = "true"
 
     # Cleanup is handled by tempfile when process exits
+
+
+@pytest.fixture(autouse=True)
+def disable_rate_limiting():
+    """Disable rate limiting for all tests by default."""
+    from app.ratelimit import limiter
+    old_enabled = limiter.enabled
+    limiter.enabled = False
+    yield
+    limiter.enabled = old_enabled
+
 
 
 # All previously skipped tests have been fixed:

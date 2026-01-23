@@ -25,6 +25,16 @@ def reset_auth_config():
     settings.auth.username = original_username
 
 
+@pytest.fixture
+def enable_rate_limiting():
+    """Enable rate limiting for specific tests."""
+    from app.ratelimit import limiter
+    limiter.enabled = True
+    yield
+    limiter.enabled = False
+
+
+@pytest.mark.usefixtures("enable_rate_limiting")
 class TestLoginRateLimiting:
     """Tests for login endpoint rate limiting."""
 
@@ -204,57 +214,58 @@ class TestSecurityHeaders:
 class TestAuditLogging:
     """Tests that audit logging occurs for auth events."""
 
-    def test_login_success_logged(self, caplog):
+    def test_login_success_logged(self, capsys):
         """Test that successful logins are logged."""
         settings.auth.enabled = True
         settings.auth.username = "admin"
         settings.auth.password_hash = hash_password("test123A")
 
-        with caplog.at_level("INFO"):
-            response = client.post("/api/auth/login", json={
-                "username": "admin",
-                "password": "test123A"
-            })
-            assert response.status_code == 200
+        response = client.post("/api/auth/login", json={
+            "username": "admin",
+            "password": "test123A"
+        })
+        assert response.status_code == 200
 
-        # Check for audit log
-        assert any("AUTH_AUDIT" in record.message for record in caplog.records)
-        assert any("login_success" in str(record) for record in caplog.records)
+        # Check for audit log in stdout/stderr
+        captured = capsys.readouterr()
+        assert "AUTH_AUDIT" in captured.out or "AUTH_AUDIT" in captured.err
+        assert "login_success" in captured.out or "login_success" in captured.err
 
-    def test_login_failure_logged(self, caplog):
+    def test_login_failure_logged(self, capsys):
         """Test that failed logins are logged."""
         settings.auth.enabled = True
         settings.auth.username = "admin"
         settings.auth.password_hash = hash_password("test123A")
 
-        with caplog.at_level("WARNING"):
-            response = client.post("/api/auth/login", json={
-                "username": "admin",
-                "password": "wrongpass"
-            })
-            assert response.status_code == 401
+        response = client.post("/api/auth/login", json={
+            "username": "admin",
+            "password": "wrongpass"
+        })
+        assert response.status_code == 401
 
         # Check for audit log
-        assert any("AUTH_AUDIT" in record.message for record in caplog.records)
-        assert any("login_failure" in str(record) for record in caplog.records)
+        captured = capsys.readouterr()
+        assert "AUTH_AUDIT" in captured.out or "AUTH_AUDIT" in captured.err
+        assert "login_failure" in captured.out or "login_failure" in captured.err
 
-    def test_initial_setup_logged(self, caplog):
+    def test_initial_setup_logged(self, capsys):
         """Test that initial setup is logged."""
         settings.auth.password_hash = None
 
-        with caplog.at_level("INFO"):
-            response = client.post("/api/auth/initial-setup", json={
-                "username": "admin",
-                "password": "test123A",
-                "enable_auth": True
-            })
-            assert response.status_code == 200
+        response = client.post("/api/auth/initial-setup", json={
+            "username": "admin",
+            "password": "test123A",
+            "enable_auth": True
+        })
+        assert response.status_code == 200
 
         # Check for audit log
-        assert any("AUTH_AUDIT" in record.message for record in caplog.records)
-        assert any("initial_setup" in str(record) for record in caplog.records)
+        captured = capsys.readouterr()
+        assert "AUTH_AUDIT" in captured.out or "AUTH_AUDIT" in captured.err
+        assert "initial_setup" in captured.out or "initial_setup" in captured.err
 
 
+@pytest.mark.usefixtures("enable_rate_limiting")
 class TestProxySupport:
     """Tests for proxy header support in rate limiting."""
 
