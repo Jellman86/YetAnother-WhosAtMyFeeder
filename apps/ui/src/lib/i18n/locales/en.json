@@ -264,6 +264,14 @@
       "temperature_unit_desc": "Display temperature in weather data",
       "auto_detect_enabled": "Auto-detect via IP enabled",
       "desc": "Used for localized weather context during detections."
+    },
+    "danger": {
+      "title": "Danger Zone",
+      "subtitle": "Destructive actions",
+      "reset_desc": "Resetting the database will permanently delete ALL detections and clear the media cache. This action cannot be undone.",
+      "reset_button": "Reset Database & Cache",
+      "resetting": "Resetting...",
+      "confirm": "DANGER: This will delete ALL detections and clear the media cache. This action cannot be undone. Are you sure?"
     }
   },
   "auth": {
@@ -278,6 +286,12 @@
     "verifying": "Signing in...",
     "continue_guest": "Continue as Guest",
     "secure_access": "YA-WAMF Secure Access"
+  },
+  "status": {
+    "audio_active": "Audio Analysis Active",
+    "notifications_enabled": "Notifications Enabled",
+    "system_online": "System Online",
+    "system_offline": "System Offline"
   },
   "notifications": {
     "reclassify_fallback": "⚠️ Video not available - snapshot used instead",

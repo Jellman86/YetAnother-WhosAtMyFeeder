@@ -256,6 +256,14 @@
       "temperature_unit_desc": "Temperatur in Wetterdaten anzeigen",
       "auto_detect_enabled": "Automatische Erkennung über IP aktiviert",
       "desc": "Wird für lokalisierte Wetterkontexte während Erkennungen verwendet."
+    },
+    "danger": {
+      "title": "Gefahrenzone",
+      "subtitle": "Destruktive Aktionen",
+      "reset_desc": "Das Zurücksetzen der Datenbank löscht dauerhaft ALLE Erkennungen und leert den Medien-Cache. Diese Aktion kann nicht rückgängig gemacht werden.",
+      "reset_button": "Datenbank & Cache zurücksetzen",
+      "resetting": "Wird zurückgesetzt...",
+      "confirm": "GEFAHR: Dies löscht ALLE Erkennungen und leert den Medien-Cache. Diese Aktion kann nicht rückgängig gemacht werden. Sind Sie sicher?"
     }
   },
   "auth": {
@@ -270,6 +278,12 @@
     "verifying": "Anmeldung läuft...",
     "continue_guest": "Als Gast fortfahren",
     "secure_access": "YA-WAMF Sicherer Zugriff"
+  },
+  "status": {
+    "audio_active": "Audio-Analyse aktiv",
+    "notifications_enabled": "Benachrichtigungen aktiviert",
+    "system_online": "System Online",
+    "system_offline": "System Offline"
   },
   "notifications": {
     "reclassify_fallback": "⚠️ Video nicht verfügbar - stattdessen Schnappschuss verwendet",

@@ -39,6 +39,7 @@
     import { layoutStore, layout, type Layout } from '../stores/layout.svelte';
     import { settingsStore } from '../stores/settings.svelte';
     import { _, locale } from 'svelte-i18n';
+    import { get } from 'svelte/store';
     import SettingsTabs from '../components/settings/SettingsTabs.svelte';
 
     // Import all 7 settings components
@@ -511,7 +512,7 @@
     }
 
     async function handleResetDatabase() {
-        if (!confirm("DANGER: This will delete ALL detections and clear the media cache. This action cannot be undone. Are you sure?")) {
+        if (!confirm(get(_)('settings.danger.confirm'))) {
             return;
         }
         resettingDatabase = true;

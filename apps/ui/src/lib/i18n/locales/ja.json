@@ -256,6 +256,14 @@
       "temperature_unit_desc": "気象データに温度を表示",
       "auto_detect_enabled": "IPによる自動検出が有効です",
       "desc": "検出時のローカライズされた気象コンテキストに使用されます。"
+    },
+    "danger": {
+      "title": "危険ゾーン",
+      "subtitle": "破壊的な操作",
+      "reset_desc": "データベースをリセットすると、すべての検出が完全に削除され、メディアキャッシュがクリアされます。この操作は元に戻せません。",
+      "reset_button": "DBとキャッシュをリセット",
+      "resetting": "リセット中...",
+      "confirm": "危険：これによりすべての検出が削除され、メディアキャッシュがクリアされます。この操作は元に戻せません。よろしいですか？"
     }
   },
   "auth": {
@@ -270,6 +278,12 @@
     "verifying": "認証中...",
     "continue_guest": "ゲストとして続行",
     "secure_access": "YA-WAMF 安全なアクセス"
+  },
+  "status": {
+    "audio_active": "音声分析中",
+    "notifications_enabled": "通知有効",
+    "system_online": "システムオンライン",
+    "system_offline": "システムオフライン"
   },
   "notifications": {
     "reclassify_fallback": "⚠️ ビデオが利用不可 - 代わりにスナップショットを使用しました",

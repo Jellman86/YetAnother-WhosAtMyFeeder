@@ -256,6 +256,14 @@
       "temperature_unit_desc": "Afficher la température dans les données météorologiques",
       "auto_detect_enabled": "Détection automatique via IP activée",
       "desc": "Utilisé pour le contexte météorologique localisé lors des détections."
+    },
+    "danger": {
+      "title": "Zone de Danger",
+      "subtitle": "Actions destructrices",
+      "reset_desc": "La réinitialisation de la base de données supprimera définitivement TOUTES les détections et effacera le cache média. Cette action est irréversible.",
+      "reset_button": "Réinitialiser BDD & Cache",
+      "resetting": "Réinitialisation...",
+      "confirm": "DANGER : Cela supprimera TOUTES les détections et effacera le cache média. Cette action est irréversible. Êtes-vous sûr ?"
     }
   },
   "auth": {
@@ -270,6 +278,12 @@
     "verifying": "Connexion en cours...",
     "continue_guest": "Continuer en tant qu'invité",
     "secure_access": "Accès sécurisé YA-WAMF"
+  },
+  "status": {
+    "audio_active": "Analyse audio active",
+    "notifications_enabled": "Notifications activées",
+    "system_online": "Système en ligne",
+    "system_offline": "Système hors ligne"
   },
   "notifications": {
     "reclassify_fallback": "⚠️ Vidéo non disponible - capture utilisée à la place",

@@ -257,6 +257,14 @@
       "temperature_unit_desc": "在天气数据中显示温度",
       "auto_detect_enabled": "已启用通过 IP 自动检测",
       "desc": "用于检测期间的本地化天气上下文。"
+    },
+    "danger": {
+      "title": "危险区域",
+      "subtitle": "破坏性操作",
+      "reset_desc": "重置数据库将永久删除所有检测并清除媒体缓存。此操作无法撤销。",
+      "reset_button": "重置数据库和缓存",
+      "resetting": "正在重置...",
+      "confirm": "危险：这将删除所有检测并清除媒体缓存。此操作无法撤销。您确定吗？"
     }
   },
   "auth": {
@@ -271,6 +279,12 @@
     "verifying": "正在登录...",
     "continue_guest": "作为访客继续",
     "secure_access": "YA-WAMF 安全访问"
+  },
+  "status": {
+    "audio_active": "音频分析活跃",
+    "notifications_enabled": "通知已启用",
+    "system_online": "系统在线",
+    "system_offline": "系统离线"
   },
   "notifications": {
     "reclassify_fallback": "⚠️ 视频不可用 - 改用快照",
