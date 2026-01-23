@@ -176,6 +176,10 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Yet Another WhosAtMyFeeder API", version=APP_VERSION, lifespan=lifespan)
 
+# Trust proxy headers (X-Forwarded-Proto, X-Forwarded-For) for correct scheme/IP detection
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
+app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
+
 # Setup structured logging
 log = structlog.get_logger()
 
