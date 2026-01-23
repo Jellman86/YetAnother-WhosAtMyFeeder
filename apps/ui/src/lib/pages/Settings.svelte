@@ -16,6 +16,7 @@
         runCacheCleanup,
         fetchTaxonomyStatus,
         startTaxonomySync,
+        resetDatabase,
         testBirdWeather,
         testBirdNET,
         testMQTTPublish,
@@ -412,6 +413,7 @@
     let backfillEndDate = $state('');
     let backfilling = $state(false);
     let backfillResult = $state<BackfillResult | null>(null);
+    let resettingDatabase = $state(false);
 
     // Tab navigation
     let activeTab = $state('connection');
@@ -505,6 +507,23 @@
             message = { type: 'error', text: e.message || 'Cleanup failed' };
         } finally {
             cleaningUp = false;
+        }
+    }
+
+    async function handleResetDatabase() {
+        if (!confirm("DANGER: This will delete ALL detections and clear the media cache. This action cannot be undone. Are you sure?")) {
+            return;
+        }
+        resettingDatabase = true;
+        message = null;
+        try {
+            const result = await resetDatabase();
+            message = { type: 'success', text: result.message };
+            await Promise.all([loadMaintenanceStats(), loadCacheStats()]);
+        } catch (e: any) {
+            message = { type: 'error', text: e.message || 'Database reset failed' };
+        } finally {
+            resettingDatabase = false;
         }
     }
 
@@ -1237,10 +1256,12 @@
                     {backfillResult}
                     {taxonomyStatus}
                     {syncingTaxonomy}
+                    {resettingDatabase}
                     {handleCleanup}
                     {handleCacheCleanup}
                     {handleStartTaxonomySync}
                     {handleBackfill}
+                    {handleResetDatabase}
                 />
             {/if}
 

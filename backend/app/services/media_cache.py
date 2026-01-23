@@ -398,6 +398,33 @@ class MediaCacheService:
         log.info("Orphaned media cleanup complete", **stats)
         return stats
 
+    async def clear_all(self) -> dict:
+        """Delete ALL cached media files."""
+        stats = {"snapshots_deleted": 0, "clips_deleted": 0, "bytes_freed": 0}
+        
+        # Clean all snapshots
+        for path in SNAPSHOTS_DIR.glob("*.jpg"):
+            try:
+                size = path.stat().st_size
+                path.unlink()
+                stats["snapshots_deleted"] += 1
+                stats["bytes_freed"] += size
+            except Exception as e:
+                log.warning("Failed to delete snapshot", path=str(path), error=str(e))
+
+        # Clean all clips
+        for path in CLIPS_DIR.glob("*.mp4"):
+            try:
+                size = path.stat().st_size
+                path.unlink()
+                stats["clips_deleted"] += 1
+                stats["bytes_freed"] += size
+            except Exception as e:
+                log.warning("Failed to delete clip", path=str(path), error=str(e))
+        
+        log.info("Cleared all media cache", **stats)
+        return stats
+
     def get_cache_stats(self) -> dict:
         """Get cache statistics.
 

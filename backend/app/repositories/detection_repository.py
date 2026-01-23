@@ -454,6 +454,13 @@ class DetectionRepository:
 
         return total_deleted
 
+    async def delete_all(self) -> int:
+        """Delete ALL detections. Use with caution."""
+        async with self.db.execute("DELETE FROM detections") as cursor:
+            count = cursor.rowcount
+            await self.db.commit()
+            return count
+
     async def get_oldest_detection_date(self) -> datetime | None:
         """Get the date of the oldest detection."""
         async with self.db.execute(

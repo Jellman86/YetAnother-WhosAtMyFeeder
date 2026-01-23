@@ -67,6 +67,13 @@
       (authStore.forceLogin && !authStore.isAuthenticated)
   );
 
+  let notificationsActive = $derived(
+      settingsStore.settings?.notifications.discord.enabled ||
+      settingsStore.settings?.notifications.pushover.enabled ||
+      settingsStore.settings?.notifications.telegram.enabled ||
+      settingsStore.settings?.notifications.email.enabled
+  );
+
   // Handle back button and initial load
   onMount(async () => {
       // Register auth error callback
@@ -407,27 +414,28 @@
 
           <Sidebar {currentRoute} onNavigate={navigate} {mobileSidebarOpen} onMobileClose={() => mobileSidebarOpen = false}>
               {#snippet status()}
-                  <div class="flex flex-col gap-2">
+                  <div class="flex items-center gap-4 px-2">
                       {#if settingsStore.settings?.birdnet_enabled}
-                          <div class="flex items-center gap-1.5 px-2 py-1 rounded-full bg-teal-500/10 border border-teal-500/20" title="Audio Analysis Active">
-                              <span class="relative flex h-2 w-2">
-                                  <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-400 opacity-75"></span>
-                                  <span class="relative inline-flex rounded-full h-2 w-2 bg-teal-500"></span>
-                              </span>
-                              <span class="text-[10px] font-bold text-teal-600 dark:text-teal-400 uppercase tracking-tight">Audio Active</span>
+                          <div class="relative flex items-center justify-center group cursor-help" title="Audio Analysis Active">
+                              <span class="animate-ping absolute inline-flex h-2.5 w-2.5 rounded-full bg-teal-400 opacity-75"></span>
+                              <span class="relative inline-flex rounded-full h-2 w-2 bg-teal-500"></span>
                           </div>
                       {/if}
 
-                      <div class="flex items-center gap-2">
+                      {#if notificationsActive}
+                          <div class="relative flex items-center justify-center text-indigo-500 dark:text-indigo-400 cursor-help" title="Notifications Enabled">
+                              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
+                          </div>
+                      {/if}
+
+                      <div class="flex items-center gap-2 cursor-help" title={detectionsStore.connected ? "System Online" : "System Offline"}>
                           {#if detectionsStore.connected}
                               <span class="relative flex h-2.5 w-2.5">
                                   <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                                   <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.8)]"></span>
                               </span>
-                              <span class="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-tight">System Online</span>
                           {:else}
                               <span class="w-2.5 h-2.5 rounded-full bg-red-500"></span>
-                              <span class="text-[10px] font-bold text-red-600 uppercase tracking-tight">System Offline</span>
                           {/if}
                       </div>
                   </div>
@@ -438,25 +446,26 @@
               {#snippet status()}
                   <div class="flex items-center gap-4">
                       {#if settingsStore.settings?.birdnet_enabled}
-                          <div class="flex items-center gap-1.5 px-2 py-1 rounded-full bg-teal-500/10 border border-teal-500/20" title="Audio Analysis Active">
-                              <span class="relative flex h-2 w-2">
-                                  <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-400 opacity-75"></span>
-                                  <span class="relative inline-flex rounded-full h-2 w-2 bg-teal-500"></span>
-                              </span>
-                              <span class="text-[10px] font-bold text-teal-600 dark:text-teal-400 uppercase tracking-tight">Audio Active</span>
+                          <div class="relative flex items-center justify-center group cursor-help" title="Audio Analysis Active">
+                              <span class="animate-ping absolute inline-flex h-2.5 w-2.5 rounded-full bg-teal-400 opacity-75"></span>
+                              <span class="relative inline-flex rounded-full h-2 w-2 bg-teal-500"></span>
                           </div>
                       {/if}
 
-                      <div class="flex items-center gap-2">
+                      {#if notificationsActive}
+                          <div class="relative flex items-center justify-center text-indigo-500 dark:text-indigo-400 cursor-help" title="Notifications Enabled">
+                              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
+                          </div>
+                      {/if}
+
+                      <div class="flex items-center gap-2 cursor-help" title={detectionsStore.connected ? "System Online" : "System Offline"}>
                           {#if detectionsStore.connected}
                               <span class="relative flex h-2.5 w-2.5">
                                   <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                                   <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.8)]"></span>
                               </span>
-                              <span class="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-tight">System Online</span>
                           {:else}
                               <span class="w-2.5 h-2.5 rounded-full bg-red-500"></span>
-                              <span class="text-[10px] font-bold text-red-600 uppercase tracking-tight">System Offline</span>
                           {/if}
                       </div>
                   </div>

@@ -776,6 +776,18 @@ export async function runBackfill(request: BackfillRequest): Promise<BackfillRes
     return handleResponse<BackfillResult>(response);
 }
 
+export interface ResetDatabaseResult {
+    status: string;
+    message: string;
+    deleted_count: number;
+    cache_stats: any; // Using any for brevity or match backend dict
+}
+
+export async function resetDatabase(): Promise<ResetDatabaseResult> {
+    const response = await apiFetch(`${API_BASE}/backfill/reset`, { method: 'DELETE' });
+    return handleResponse<ResetDatabaseResult>(response);
+}
+
 // Wildlife classification types and functions
 export interface WildlifeClassification {
     label: string;

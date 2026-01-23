@@ -20,10 +20,12 @@
         backfillEndDate = $bindable(''),
         backfilling,
         backfillResult,
+        resettingDatabase,
         handleCleanup,
         handleCacheCleanup,
         handleStartTaxonomySync,
-        handleBackfill
+        handleBackfill,
+        handleResetDatabase
     }: {
         maintenanceStats: MaintenanceStats | null;
         retentionDays: number;
@@ -41,10 +43,12 @@
         backfillEndDate: string;
         backfilling: boolean;
         backfillResult: BackfillResult | null;
+        resettingDatabase: boolean;
         handleCleanup: () => Promise<void>;
         handleCacheCleanup: () => Promise<void>;
         handleStartTaxonomySync: () => Promise<void>;
         handleBackfill: () => Promise<void>;
+        handleResetDatabase: () => Promise<void>;
     } = $props();
 </script>
 
@@ -336,6 +340,40 @@
                     </svg>
                 {/if}
                 {backfilling ? 'Analyzing Frigate...' : 'Scan History'}
+            </button>
+        </div>
+    </section>
+
+    <!-- Danger Zone -->
+    <section class="card-base rounded-3xl p-8 border-2 border-red-500/20 bg-red-500/5">
+        <div class="flex items-center gap-3 mb-6">
+            <div class="w-10 h-10 rounded-2xl bg-red-500/10 flex items-center justify-center text-red-600 dark:text-red-400">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+            </div>
+            <div>
+                <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">Danger Zone</h3>
+                <p class="text-[10px] font-black uppercase tracking-widest text-red-500 mt-1">Destructive actions</p>
+            </div>
+        </div>
+
+        <div class="space-y-4">
+            <p class="text-sm text-slate-600 dark:text-slate-400 font-medium">
+                Resetting the database will permanently delete <strong class="text-red-500">ALL</strong> detections and clear the media cache. 
+                This action cannot be undone.
+            </p>
+            <button
+                onclick={handleResetDatabase}
+                disabled={resettingDatabase}
+                aria-label="Reset database"
+                class="w-full px-4 py-4 text-xs font-black uppercase tracking-widest rounded-2xl bg-red-500 hover:bg-red-600 text-white transition-all shadow-lg shadow-red-500/20 flex items-center justify-center gap-3 disabled:opacity-50"
+            >
+                {#if resettingDatabase}
+                    <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                {/if}
+                {resettingDatabase ? 'Resetting...' : 'Reset Database & Cache'}
             </button>
         </div>
     </section>
