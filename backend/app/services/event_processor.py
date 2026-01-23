@@ -103,6 +103,9 @@ class EventProcessor:
     async def _handle_false_positive(self, frigate_event_id: str):
         """Delete detection if Frigate marks it as false positive."""
         try:
+            # Clean up cached media immediately
+            await media_cache.delete_cached_media(frigate_event_id)
+
             async with get_db() as db:
                 repo = DetectionRepository(db)
                 # Check if it exists
