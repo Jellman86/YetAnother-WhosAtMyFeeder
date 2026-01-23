@@ -104,6 +104,6 @@ def login_rate_limit() -> Callable:
     Uses get_real_client_ip to work correctly behind proxies/load balancers.
     """
     if os.environ.get("TESTING", "").lower() == "true":
-        return limiter.limit("10000/minute", key_func=lambda _: "test")
+        return limiter.limit("10000/minute", key_func=lambda *args, **kwargs: "test")
         
     return limiter.limit("5/minute;20/hour", key_func=get_real_client_ip)
