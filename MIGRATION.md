@@ -60,19 +60,23 @@ If you were using `YA_WAMF_API_KEY` in your `.env` file:
 If you encounter issues after upgrading, you can easily roll back or reset authentication.
 
 **Option A: Disable Auth via Config File**
-If you get locked out, you can manually disable authentication:
+If you get locked out or forget your password, you can manually reset it:
 
 1. Access your server via SSH/terminal.
 2. Edit `config/config.json`.
-3. Find the `"auth"` section and set `"enabled": false`.
+3. Find the `"auth"` section.
+4. Remove the `"password_hash"` line (or set it to `null`).
    ```json
    "auth": {
-     "enabled": false,
+     "enabled": true,
      "username": "admin",
+     "password_hash": null,  <-- Set to null
      ...
    }
    ```
-4. Restart the backend container (`docker restart yawamf-backend`).
+5. Restart the backend container. You will be prompted to set a new password.
+
+For more details, see the [Authentication Guide](docs/features/authentication.md).
 
 **Option B: Downgrade Docker Image**
 You can revert to the previous version by changing the image tag in `docker-compose.yml` to `v2.5.1`. The new configuration fields added to `config.json` will be ignored by the old version and are safe to keep.

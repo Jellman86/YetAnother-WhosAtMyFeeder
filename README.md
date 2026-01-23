@@ -227,6 +227,8 @@ YA-WAMF v2.6.0 introduces a robust built-in authentication system.
 - **Guest Mode:** Optionally enable a "Public View" to share your bird detections with friends (read-only) while keeping settings and admin tools secure.
 - **Security:** Includes login rate limiting, session management, and security headers.
 
+👉 **[Read the Full Authentication & Access Control Guide](docs/features/authentication.md)**
+
 ### 🔑 Legacy API Key (Deprecated)
 If you are upgrading from an older version using `YA_WAMF_API_KEY`, your setup will continue to work. However, this method is **deprecated** and will be removed in v2.9.0. We recommend migrating to the new password-based system via **Settings > Security**.
 
