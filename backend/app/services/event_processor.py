@@ -26,10 +26,10 @@ class EventData:
     def __init__(self, data: Dict[str, Any]):
         self.type: str = data.get('type')
         after = data.get('after', {})
-        self.frigate_event: str = after['id']
+        self.frigate_event: str = after.get('id', 'unknown')
         self.camera: str = after.get('camera')
         self.label: str = after.get('label')
-        self.start_time_ts: float = after['start_time']
+        self.start_time_ts: float = after.get('start_time', 0.0)
         self.sub_label: Optional[str] = after.get('sub_label')
         self.frigate_score: Optional[float] = after.get('top_score')
         self.is_false_positive: bool = after.get('false_positive', False)

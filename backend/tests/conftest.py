@@ -27,6 +27,9 @@ def pytest_configure(config):
 
     # Set test database to use temp directory
     os.environ["DB_PATH"] = os.path.join(temp_dir, "test_speciesid.db")
+    
+    # Disable rate limiting for tests
+    os.environ["TESTING"] = "true"
 
     # Cleanup is handled by tempfile when process exits
 
