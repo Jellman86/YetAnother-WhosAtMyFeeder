@@ -758,14 +758,18 @@ async def analyze_unknowns(auth: AuthContext = Depends(require_owner)):
     async with get_db() as db:
         repo = DetectionRepository(db)
         unknowns = await repo.get_unknown_detections()
+        
+        log.info("Batch analysis triggered", total_unknowns=len(unknowns))
+        
         for d in unknowns:
+            # The service itself will check for clip availability during processing
             await auto_video_classifier.queue_classification(d.frigate_event, d.camera_name)
             count += 1
             
     return {
         "status": "queued", 
         "count": count, 
-        "message": f"Queued {count} unknown detections for video analysis."
+        "message": f"Queued {count} unknown detections for video analysis. Processing will respect concurrency limits."
     }
 
 
