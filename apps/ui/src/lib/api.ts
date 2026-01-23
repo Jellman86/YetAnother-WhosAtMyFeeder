@@ -549,6 +549,11 @@ export async function analyzeUnknowns(): Promise<{ status: string; count: number
     return handleResponse<{ status: string; count: number; message: string }>(response);
 }
 
+export async function fetchAnalysisStatus(): Promise<{ pending: number; active: number; circuit_open: boolean }> {
+    const response = await apiFetch(`${API_BASE}/maintenance/analysis/status`);
+    return handleResponse<{ pending: number; active: number; circuit_open: boolean }>(response);
+}
+
 export async function deleteDetection(frigateEventId: string): Promise<{ status: string }> {
     const response = await apiFetch(`${API_BASE}/events/${encodeURIComponent(frigateEventId)}`, {
         method: 'DELETE'

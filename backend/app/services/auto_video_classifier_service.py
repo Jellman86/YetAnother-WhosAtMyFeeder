@@ -149,6 +149,14 @@ class AutoVideoClassifierService:
             "failure_count": len(self._failure_events)
         }
 
+    def get_status(self) -> dict:
+        """Get current queue status."""
+        return {
+            "pending": self._pending_queue.qsize(),
+            "active": len(self._active_tasks),
+            "circuit_open": self._is_circuit_open()
+        }
+
     async def queue_classification(self, frigate_event: str, camera: str):
         """
         Queue a video classification task.

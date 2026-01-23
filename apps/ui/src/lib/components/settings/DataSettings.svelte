@@ -22,6 +22,8 @@
         backfillResult,
         resettingDatabase,
         analyzingUnknowns,
+        analysisStatus,
+        analysisTotal,
         handleCleanup,
         handleCacheCleanup,
         handleStartTaxonomySync,
@@ -47,6 +49,8 @@
         backfillResult: BackfillResult | null;
         resettingDatabase: boolean;
         analyzingUnknowns: boolean;
+        analysisStatus: { pending: number; active: number; circuit_open: boolean } | null;
+        analysisTotal: number;
         handleCleanup: () => Promise<void>;
         handleCacheCleanup: () => Promise<void>;
         handleStartTaxonomySync: () => Promise<void>;
@@ -378,6 +382,32 @@
                 {/if}
                 {analyzingUnknowns ? 'Queueing...' : 'Analyze All Unknowns'}
             </button>
+
+            {#if analysisStatus && (analysisStatus.pending > 0 || analysisStatus.active > 0)}
+                {@const remaining = analysisStatus.pending + analysisStatus.active}
+                {@const processed = analysisTotal > 0 ? Math.max(0, analysisTotal - remaining) : 0}
+                {@const progress = analysisTotal > 0 ? (processed / analysisTotal) * 100 : 0}
+                
+                <div class="mt-4 p-4 rounded-2xl bg-indigo-50/50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-700/30 space-y-3 animate-in fade-in slide-in-from-top-2">
+                    <div class="flex justify-between text-xs font-bold uppercase tracking-widest">
+                        <span class="text-indigo-600 dark:text-indigo-400">Processing...</span>
+                        <span class="text-slate-500">{processed} / {analysisTotal}</span>
+                    </div>
+                    <div class="w-full h-2 bg-white dark:bg-slate-800 rounded-full overflow-hidden border border-indigo-100 dark:border-indigo-700/50">
+                        <div class="h-full bg-gradient-to-r from-indigo-500 to-purple-500 transition-all duration-500 ease-out" style="width: {progress}%"></div>
+                    </div>
+                    <div class="flex justify-between text-[10px] font-bold text-slate-400">
+                        <span>Pending: {analysisStatus.pending}</span>
+                        <span>Active: {analysisStatus.active}</span>
+                    </div>
+                    {#if analysisStatus.circuit_open}
+                        <div class="text-[10px] font-bold text-amber-500 flex items-center gap-1 bg-amber-500/10 p-2 rounded-lg border border-amber-500/20">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                            Circuit Breaker Open (Paused due to failures)
+                        </div>
+                    {/if}
+                </div>
+            {/if}
         </div>
     </section>
 

@@ -769,6 +769,12 @@ async def analyze_unknowns(auth: AuthContext = Depends(require_owner)):
     }
 
 
+@router.get("/maintenance/analysis/status")
+async def get_analysis_status(auth: AuthContext = Depends(require_owner)):
+    """Get status of auto video classification queue. Owner only."""
+    return auto_video_classifier.get_status()
+
+
 # =============================================================================
 # Media Cache Endpoints
 # =============================================================================

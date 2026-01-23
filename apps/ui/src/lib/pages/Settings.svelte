@@ -18,6 +18,7 @@
         startTaxonomySync,
         resetDatabase,
         analyzeUnknowns,
+        fetchAnalysisStatus,
         testBirdWeather,
         testBirdNET,
         testMQTTPublish,
@@ -417,6 +418,9 @@
     let backfillResult = $state<BackfillResult | null>(null);
     let resettingDatabase = $state(false);
     let analyzingUnknowns = $state(false);
+    let analysisTotal = $state(0);
+    let analysisStatus = $state<{ pending: number; active: number; circuit_open: boolean } | null>(null);
+    let analysisPollInterval: any;
 
     // Tab navigation
     let activeTab = $state('connection');
@@ -442,10 +446,20 @@
             loadMaintenanceStats(),
             loadCacheStats(),
             loadTaxonomyStatus(),
-            loadVersion()
+            loadVersion(),
+            loadAnalysisStatus() // Check if there's an ongoing job
         ]);
 
         taxonomyPollInterval = setInterval(loadTaxonomyStatus, 3000);
+        
+        // If there are pending/active items on load, start polling
+        if (analysisStatus && (analysisStatus.pending > 0 || analysisStatus.active > 0)) {
+             startAnalysisPolling();
+             // We don't know total if we just reloaded, so maybe set total to pending+active
+             if (analysisTotal === 0) {
+                 analysisTotal = analysisStatus.pending + analysisStatus.active;
+             }
+        }
     });
 
     function handleTabChange(tab: string) {
@@ -456,6 +470,7 @@
 
     onDestroy(() => {
         if (taxonomyPollInterval) clearInterval(taxonomyPollInterval);
+        if (analysisPollInterval) clearInterval(analysisPollInterval);
     });
 
     async function loadTaxonomyStatus() {
@@ -597,10 +612,35 @@
         try {
             const result = await analyzeUnknowns();
             message = { type: 'success', text: result.message };
+            if (result.count > 0) {
+                analysisTotal = result.count;
+                startAnalysisPolling();
+            }
         } catch (e: any) {
             message = { type: 'error', text: e.message || 'Analysis failed' };
         } finally {
             analyzingUnknowns = false;
+        }
+    }
+
+    function startAnalysisPolling() {
+        if (analysisPollInterval) clearInterval(analysisPollInterval);
+        loadAnalysisStatus();
+        analysisPollInterval = setInterval(loadAnalysisStatus, 2000);
+    }
+
+    async function loadAnalysisStatus() {
+        try {
+            const status = await fetchAnalysisStatus();
+            analysisStatus = status;
+            if (status.pending === 0 && status.active === 0) {
+                if (analysisPollInterval) {
+                    clearInterval(analysisPollInterval);
+                    analysisPollInterval = null;
+                }
+            }
+        } catch (e) {
+            console.error('Failed to load analysis status', e);
         }
     }
 
@@ -1286,6 +1326,8 @@
                     {syncingTaxonomy}
                     {resettingDatabase}
                     {analyzingUnknowns}
+                    {analysisStatus}
+                    {analysisTotal}
                     {handleCleanup}
                     {handleCacheCleanup}
                     {handleStartTaxonomySync}
