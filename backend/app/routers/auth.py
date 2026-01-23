@@ -87,7 +87,7 @@ class InitialPasswordRequest(BaseModel):
 
 @router.post("/auth/login", response_model=LoginResponse)
 @login_rate_limit()
-async def login(request: LoginRequest):
+async def login(request: Request, login_data: LoginRequest):
     """Authenticate user and return JWT token.
 
     Rate limited to 5 attempts per minute, 20 per hour per IP.
@@ -111,10 +111,10 @@ async def login(request: LoginRequest):
         )
 
     # Verify username
-    if request.username != settings.auth.username:
+    if login_data.username != settings.auth.username:
         log.warning(
             "AUTH_AUDIT: Login failed - invalid username",
-            username=request.username,
+            username=login_data.username,
             event_type="login_failure",
             reason="invalid_username"
         )
@@ -124,10 +124,10 @@ async def login(request: LoginRequest):
         )
 
     # Verify password
-    if not verify_password(request.password, settings.auth.password_hash):
+    if not verify_password(login_data.password, settings.auth.password_hash):
         log.warning(
             "AUTH_AUDIT: Login failed - invalid password",
-            username=request.username,
+            username=login_data.username,
             event_type="login_failure",
             reason="invalid_password"
         )
@@ -137,17 +137,17 @@ async def login(request: LoginRequest):
         )
 
     # Create token
-    token = create_access_token(request.username, AuthLevel.OWNER)
+    token = create_access_token(login_data.username, AuthLevel.OWNER)
 
     log.info(
         "AUTH_AUDIT: Login successful",
-        username=request.username,
+        username=login_data.username,
         event_type="login_success"
     )
 
     return LoginResponse(
         access_token=token,
-        username=request.username,
+        username=login_data.username,
         expires_in_hours=settings.auth.session_expiry_hours
     )
 

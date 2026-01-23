@@ -220,20 +220,17 @@ All settings are managed through the web UI under **Settings**. Configuration is
 
 ## Security & Authentication
 
-By default, YA-WAMF runs without authentication, assuming deployment on a trusted local network.
+YA-WAMF v2.6.0 introduces a robust built-in authentication system.
 
-### Enabling API Key Authentication
+### 🔐 Built-in Authentication
+- **Setup Wizard:** On first run, you'll be prompted to set an admin username and password.
+- **Guest Mode:** Optionally enable a "Public View" to share your bird detections with friends (read-only) while keeping settings and admin tools secure.
+- **Security:** Includes login rate limiting, session management, and security headers.
 
-To password-protect the dashboard and API, add `YA_WAMF_API_KEY` to your `.env` file:
+### 🔑 Legacy API Key (Deprecated)
+If you are upgrading from an older version using `YA_WAMF_API_KEY`, your setup will continue to work. However, this method is **deprecated** and will be removed in v2.9.0. We recommend migrating to the new password-based system via **Settings > Security**.
 
-```env
-YA_WAMF_API_KEY=your-super-secret-password
-```
-
-When enabled:
-- Dashboard requires login
-- API requests require `X-API-Key` header
-- Real-time updates authenticate via query parameter
+For detailed upgrade instructions, see the [Migration Guide](MIGRATION.md).
 
 ## Tech Stack
 

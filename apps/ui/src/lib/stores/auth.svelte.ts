@@ -18,9 +18,9 @@ class AuthStore {
     httpsWarning = $state(false);
 
     // Derived permission states
-    canModify = $derived(this.isAuthenticated);
-    isGuest = $derived(!this.isAuthenticated && this.publicAccessEnabled);
-    showSettings = $derived(this.isAuthenticated);
+    canModify = $derived(this.isAuthenticated || !this.authRequired);
+    isGuest = $derived(this.authRequired && !this.isAuthenticated && this.publicAccessEnabled);
+    showSettings = $derived(this.isAuthenticated || !this.authRequired);
 
     constructor() {
         // Status is loaded via loadStatus()

@@ -1,109 +1,78 @@
-# Authentication Migration Guide
+# Migration Guide
 
-This guide helps you migrate to YA-WAMF v2.6+ with the new JWT-based authentication system.
+## Upgrading to v2.6.0 (Authentication & Public Access)
 
----
+Version 2.6.0 introduces a major security upgrade with a new authentication system and public access controls. This guide covers how to migrate from previous versions.
 
-## Overview
+### ⚡ Quick Summary
 
-**v2.6+** introduces optional JWT-based authentication replacing the legacy API key system.
-
-### What's New
-
-✅ JWT-based authentication
-✅ Web-based login
-✅ Public access mode (optional guest read-only)
-✅ Security hardening (rate limiting, audit logs)
-✅ Initial setup wizard
-
-### Backward Compatibility
-
-- Authentication is **disabled by default**
-- Legacy API key still supported (deprecated)
-- Existing installations continue working
+- **Zero Breaking Changes:** Your existing installation will continue to work.
+- **New Feature:** You can now set a password for the admin interface.
+- **New Feature:** You can enable a "Public View" to share your bird detections without giving admin access.
+- **Deprecated:** The `YA_WAMF_API_KEY` environment variable is deprecated and will be removed in v2.9.0.
 
 ---
 
-## Migration Scenarios
+### 🟢 Scenario 1: Fresh Installation
 
-### Fresh Install
+If you are installing YA-WAMF for the first time:
 
-**On first access:**
-1. Navigate to YA-WAMF
-2. First-Run Setup wizard appears
-3. Set password OR skip (can enable later)
-
-### Upgrade from v2.5.x (No Auth)
-
-1. Pull latest: `docker compose pull && docker compose up -d`
-2. Access YA-WAMF (no login required)
-3. Enable auth in Settings → Security (optional)
-
-### Upgrade from v2.5.x (With API Key)
-
-1. Pull latest: `docker compose pull && docker compose up -d`
-2. Legacy API key continues working (deprecated)
-3. Enable new auth in Settings → Security
-4. Update integrations to use JWT tokens
-5. Remove `YA_WAMF_API_KEY` environment variable
+1. Start the container.
+2. Open the dashboard (`http://localhost:9852`).
+3. You will see a **Setup Wizard**.
+4. Create an admin username and password.
+5. (Optional) You can choose to skip authentication if you are on a trusted local network, but it is recommended to secure your instance.
 
 ---
 
-## Configuration
+### 🟡 Scenario 2: Upgrading from v2.5.x (No API Key)
 
-### New Fields (config.json)
+If you previously ran YA-WAMF without any authentication:
 
-```json
-{
-  "auth": {
-    "enabled": false,
-    "username": "admin",
-    "password_hash": null,
-    "session_expiry_hours": 168
-  },
-  "public_access": {
-    "enabled": false,
-    "show_camera_names": true,
-    "show_historical_days": 7,
-    "rate_limit_per_minute": 30
-  }
-}
-```
+1. Update your Docker image tag to `v2.6.0` (or `latest`).
+2. Recreate the container (`docker-compose up -d`).
+3. The system will automatically migrate your `config.json` to include the new authentication settings (disabled by default).
+4. You will see a banner in the UI prompting you to secure your installation.
+5. Go to **Settings > Security** to enable authentication and set a password.
 
 ---
 
-## Common Issues
+### 🟠 Scenario 3: Upgrading with Legacy API Key
 
-### Locked Out After Enabling Auth
+If you were using `YA_WAMF_API_KEY` in your `.env` file:
 
-1. Stop backend: `docker compose stop yawamf-backend`
-2. Edit `config/config.json`: Set `"enabled": false`
-3. Restart: `docker compose start yawamf-backend`
-
-### Forgotten Password
-
-1. Stop backend
-2. Set `"password_hash": null` in config.json
-3. Restart and use setup wizard
-
-### HTTPS Warning
-
-⚠️ Use HTTPS in production! See [SECURITY.md](./SECURITY.md) for setup.
+1. Update your Docker image.
+2. The system will detect your existing API key and continue to honor it.
+3. You will see a warning in the Settings page: **"Legacy API Key Detected"**.
+4. **To Migrate:**
+   - Go to **Settings > Security**.
+   - Enable "Authentication".
+   - Set a username and password.
+   - Save settings.
+5. **Cleanup:**
+   - Once verified, remove `YA_WAMF_API_KEY` from your `.env` or `docker-compose.yml` file.
+   - Restart the container.
 
 ---
 
-## Testing Checklist
+### 🛡️ Rollback Guide
 
-- [ ] Can login with correct credentials
-- [ ] Login rejects wrong password
-- [ ] Session persists across refresh
-- [ ] Public access works (if enabled)
-- [ ] Cannot access Settings as guest
-- [ ] HTTPS warning shows (if HTTP)
+If you encounter issues after upgrading, you can easily roll back or reset authentication.
 
----
+**Option A: Disable Auth via Config File**
+If you get locked out, you can manually disable authentication:
 
-For detailed instructions, see full documentation at:
-https://github.com/Jellman86/YetAnother-WhosAtMyFeeder
+1. Access your server via SSH/terminal.
+2. Edit `config/config.json`.
+3. Find the `"auth"` section and set `"enabled": false`.
+   ```json
+   "auth": {
+     "enabled": false,
+     "username": "admin",
+     ...
+   }
+   ```
+4. Restart the backend container (`docker restart yawamf-backend`).
 
-**Last Updated:** 2026-01-22
+**Option B: Downgrade Docker Image**
+You can revert to the previous version by changing the image tag in `docker-compose.yml` to `v2.5.1`. The new configuration fields added to `config.json` will be ignored by the old version and are safe to keep.
