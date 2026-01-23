@@ -65,6 +65,8 @@ class AuthStore {
         setAuthToken(null);
         this.token = null;
         this.isAuthenticated = false;
+        // Refresh status to see if auth requirements changed (e.g. auth enabled)
+        this.loadStatus();
     }
 }
 
