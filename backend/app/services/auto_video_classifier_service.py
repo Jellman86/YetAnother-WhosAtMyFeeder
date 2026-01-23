@@ -82,8 +82,8 @@ class AutoVideoClassifierService:
                     self._pending_queue.task_done()
                     continue
 
-                # Start task
-                task = asyncio.create_task(self._process_event(frigate_event, camera))
+                # Start task - skip initial delay for queued (historical) tasks
+                task = asyncio.create_task(self._process_event(frigate_event, camera, skip_delay=True))
                 self._active_tasks[frigate_event] = task
                 task.add_done_callback(lambda t: self._cleanup_task(frigate_event, t))
                 self._pending_queue.task_done()
@@ -217,9 +217,9 @@ class AutoVideoClassifierService:
         if completed:
             log.debug("Cleaned up completed tasks", count=len(completed))
 
-    async def _process_event(self, frigate_event: str, camera: str):
+    async def _process_event(self, frigate_event: str, camera: str, skip_delay: bool = False):
         """Main workflow for processing a video clip."""
-        log.info("Starting auto video classification", event_id=frigate_event, camera=camera)
+        log.info("Starting auto video classification", event_id=frigate_event, camera=camera, skip_delay=skip_delay)
         
         try:
             # 1. Update status in DB to 'pending'
@@ -246,7 +246,7 @@ class AutoVideoClassifierService:
                 return
 
             # 2. Wait for clip availability
-            clip_bytes, clip_error = await self._wait_for_clip(frigate_event)
+            clip_bytes, clip_error = await self._wait_for_clip(frigate_event, skip_delay=skip_delay)
             if not clip_bytes:
                 log.warning("Clip not available after retries", event_id=frigate_event)
                 await self._update_status(frigate_event, 'failed', error=clip_error or "clip_unavailable", broadcast=True)
@@ -336,10 +336,11 @@ class AutoVideoClassifierService:
                 "data": { "event_id": frigate_event, "results": [] }
             })
 
-    async def _wait_for_clip(self, frigate_event: str) -> tuple[Optional[bytes], Optional[str]]:
+    async def _wait_for_clip(self, frigate_event: str, skip_delay: bool = False) -> tuple[Optional[bytes], Optional[str]]:
         """Poll Frigate for clip availability with retries."""
         # Initial delay to allow Frigate to finalize the clip
-        await asyncio.sleep(settings.classification.video_classification_delay)
+        if not skip_delay:
+            await asyncio.sleep(settings.classification.video_classification_delay)
 
         max_retries = settings.classification.video_classification_max_retries
         retry_interval = settings.classification.video_classification_retry_interval
