@@ -361,6 +361,7 @@
                 {$_('settings.danger.reset_desc')}
             </p>
             <button
+                type="button"
                 onclick={handleResetDatabase}
                 disabled={resettingDatabase}
                 aria-label={$_('settings.danger.reset_button')}

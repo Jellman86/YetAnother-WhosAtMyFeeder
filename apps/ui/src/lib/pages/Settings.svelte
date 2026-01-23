@@ -512,9 +512,21 @@
     }
 
     async function handleResetDatabase() {
-        if (!confirm(get(_)('settings.danger.confirm'))) {
+        console.log('Reset database requested');
+        let confirmMsg = 'DANGER: This will delete ALL detections and clear the media cache. This action cannot be undone. Are you sure?';
+        try {
+            const $t = get(_);
+            confirmMsg = $t('settings.danger.confirm');
+        } catch (e) {
+            console.warn('Translation lookup failed, using fallback', e);
+        }
+
+        if (!confirm(confirmMsg)) {
+            console.log('Reset cancelled by user');
             return;
         }
+        
+        console.log('Reset confirmed, proceeding...');
         resettingDatabase = true;
         message = null;
         try {

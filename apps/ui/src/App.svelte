@@ -68,12 +68,14 @@
       (authStore.forceLogin && !authStore.isAuthenticated)
   );
 
-  let notificationsActive = $derived(
-      settingsStore.settings?.notifications?.discord?.enabled ||
+  let notificationsActive = $derived.by(() => {
+      const active = settingsStore.settings?.notifications?.discord?.enabled ||
       settingsStore.settings?.notifications?.pushover?.enabled ||
       settingsStore.settings?.notifications?.telegram?.enabled ||
-      settingsStore.settings?.notifications?.email?.enabled
-  );
+      settingsStore.settings?.notifications?.email?.enabled;
+      // console.log('Notifications Active:', active);
+      return active;
+  });
 
   // Handle back button and initial load
   onMount(async () => {
