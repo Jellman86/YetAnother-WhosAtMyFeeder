@@ -461,6 +461,20 @@ class DetectionRepository:
             await self.db.commit()
             return count
 
+    async def get_unknown_detections(self) -> list[Detection]:
+        """Get all detections labeled as 'Unknown Bird'."""
+        query = """
+            SELECT id, detection_time, detection_index, score, display_name, category_name, 
+                   frigate_event, camera_name, is_hidden, frigate_score, sub_label, 
+                   audio_confirmed, audio_species, audio_score, temperature, weather_condition, 
+                   scientific_name, common_name, taxa_id 
+            FROM detections 
+            WHERE display_name = 'Unknown Bird'
+        """
+        async with self.db.execute(query) as cursor:
+            rows = await cursor.fetchall()
+            return [_row_to_detection(row) for row in rows]
+
     async def get_oldest_detection_date(self) -> datetime | None:
         """Get the date of the oldest detection."""
         async with self.db.execute(

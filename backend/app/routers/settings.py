@@ -751,6 +751,24 @@ async def run_cleanup(auth: AuthContext = Depends(require_owner)):
     }
 
 
+@router.post("/maintenance/analyze-unknowns")
+async def analyze_unknowns(auth: AuthContext = Depends(require_owner)):
+    """Queue video analysis for all 'Unknown Bird' detections. Owner only."""
+    count = 0
+    async with get_db() as db:
+        repo = DetectionRepository(db)
+        unknowns = await repo.get_unknown_detections()
+        for d in unknowns:
+            await auto_video_classifier.queue_classification(d.frigate_event, d.camera_name)
+            count += 1
+            
+    return {
+        "status": "queued", 
+        "count": count, 
+        "message": f"Queued {count} unknown detections for video analysis."
+    }
+
+
 # =============================================================================
 # Media Cache Endpoints
 # =============================================================================

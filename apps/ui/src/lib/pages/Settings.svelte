@@ -17,6 +17,7 @@
         fetchTaxonomyStatus,
         startTaxonomySync,
         resetDatabase,
+        analyzeUnknowns,
         testBirdWeather,
         testBirdNET,
         testMQTTPublish,
@@ -415,6 +416,7 @@
     let backfilling = $state(false);
     let backfillResult = $state<BackfillResult | null>(null);
     let resettingDatabase = $state(false);
+    let analyzingUnknowns = $state(false);
 
     // Tab navigation
     let activeTab = $state('connection');
@@ -586,6 +588,19 @@
             message = { type: 'error', text: e.message || 'Backfill failed' };
         } finally {
             backfilling = false;
+        }
+    }
+
+    async function handleAnalyzeUnknowns() {
+        analyzingUnknowns = true;
+        message = null;
+        try {
+            const result = await analyzeUnknowns();
+            message = { type: 'success', text: result.message };
+        } catch (e: any) {
+            message = { type: 'error', text: e.message || 'Analysis failed' };
+        } finally {
+            analyzingUnknowns = false;
         }
     }
 
@@ -1270,10 +1285,12 @@
                     {taxonomyStatus}
                     {syncingTaxonomy}
                     {resettingDatabase}
+                    {analyzingUnknowns}
                     {handleCleanup}
                     {handleCacheCleanup}
                     {handleStartTaxonomySync}
                     {handleBackfill}
+                    {handleAnalyzeUnknowns}
                     {handleResetDatabase}
                 />
             {/if}

@@ -30,6 +30,73 @@ class AutoVideoClassifierService:
         self._failure_events: deque[tuple[float, str]] = deque()
         self._failure_event_ids: set[str] = set()
         self._circuit_open_until: float | None = None
+        self._pending_queue: asyncio.Queue[tuple[str, str]] = asyncio.Queue()
+        self._processor_task: Optional[asyncio.Task] = None
+        self._running = False
+
+    async def start(self):
+        """Start the queue processor."""
+        if self._running:
+            return
+        self._running = True
+        self._processor_task = asyncio.create_task(self._process_queue_loop())
+        log.info("AutoVideoClassifierService started")
+
+    async def stop(self):
+        """Stop the queue processor."""
+        self._running = False
+        if self._processor_task:
+            self._processor_task.cancel()
+            try:
+                await self._processor_task
+            except asyncio.CancelledError:
+                pass
+        # Cancel all active tasks
+        for task in self._active_tasks.values():
+            task.cancel()
+        self._active_tasks.clear()
+        log.info("AutoVideoClassifierService stopped")
+
+    async def _process_queue_loop(self):
+        """Background loop to process queued classification tasks."""
+        while self._running:
+            try:
+                # Check constraints
+                if self._is_circuit_open():
+                    await asyncio.sleep(5)
+                    continue
+
+                max_concurrent = settings.classification.video_classification_max_concurrent
+                if len(self._active_tasks) >= max_concurrent:
+                    await asyncio.sleep(1)
+                    continue
+
+                # Get next task
+                try:
+                    # Wait for a task or timeout to recheck constraints
+                    frigate_event, camera = await asyncio.wait_for(self._pending_queue.get(), timeout=1.0)
+                except asyncio.TimeoutError:
+                    continue
+
+                if frigate_event in self._active_tasks:
+                    self._pending_queue.task_done()
+                    continue
+
+                # Start task
+                task = asyncio.create_task(self._process_event(frigate_event, camera))
+                self._active_tasks[frigate_event] = task
+                task.add_done_callback(lambda t: self._cleanup_task(frigate_event, t))
+                self._pending_queue.task_done()
+                
+                log.debug("Started queued video classification", 
+                          event_id=frigate_event, 
+                          queue_size=self._pending_queue.qsize())
+
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                log.error("Error in video classification queue loop", error=str(e))
+                await asyncio.sleep(5)
 
     def _prune_failures(self):
         window = settings.classification.video_classification_failure_window_minutes * 60
@@ -81,6 +148,14 @@ class AutoVideoClassifierService:
             "open_until": until,
             "failure_count": len(self._failure_events)
         }
+
+    async def queue_classification(self, frigate_event: str, camera: str):
+        """
+        Queue a video classification task.
+        Use this for bulk operations or retries.
+        """
+        await self._pending_queue.put((frigate_event, camera))
+        log.debug("Queued video classification", event_id=frigate_event, queue_size=self._pending_queue.qsize())
 
     def _cleanup_task(self, frigate_event: str, task: asyncio.Task):
         """Safely cleanup a completed task from the active tasks dict."""

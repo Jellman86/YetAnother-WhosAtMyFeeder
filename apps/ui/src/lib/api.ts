@@ -544,6 +544,11 @@ export async function runCleanup(): Promise<CleanupResult> {
     return handleResponse<CleanupResult>(response);
 }
 
+export async function analyzeUnknowns(): Promise<{ status: string; count: number; message: string }> {
+    const response = await apiFetch(`${API_BASE}/maintenance/analyze-unknowns`, { method: 'POST' });
+    return handleResponse<{ status: string; count: number; message: string }>(response);
+}
+
 export async function deleteDetection(frigateEventId: string): Promise<{ status: string }> {
     const response = await apiFetch(`${API_BASE}/events/${encodeURIComponent(frigateEventId)}`, {
         method: 'DELETE'

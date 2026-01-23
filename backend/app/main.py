@@ -19,6 +19,7 @@ from app.services.event_processor import EventProcessor
 from app.services.media_cache import media_cache
 from app.services.broadcaster import broadcaster
 from app.services.telemetry_service import telemetry_service
+from app.services.auto_video_classifier_service import auto_video_classifier
 from app.repositories.detection_repository import DetectionRepository
 from app.routers import events, proxy, settings as settings_router, species, backfill, classifier, models, ai, stats, debug, audio, email, auth as auth_router
 from app.config import settings
@@ -156,6 +157,7 @@ async def lifespan(app: FastAPI):
     await init_db()
     asyncio.create_task(mqtt_service.start(event_processor))
     await telemetry_service.start()
+    await auto_video_classifier.start()
     cleanup_task = asyncio.create_task(cleanup_scheduler())
     log.info("Background cleanup scheduler started",
              interval_hours=CLEANUP_INTERVAL_HOURS,
@@ -170,6 +172,7 @@ async def lifespan(app: FastAPI):
             await cleanup_task
         except asyncio.CancelledError:
             pass
+    await auto_video_classifier.stop()
     await telemetry_service.stop()
     await mqtt_service.stop()
     await close_db()  # Close database connection pool
