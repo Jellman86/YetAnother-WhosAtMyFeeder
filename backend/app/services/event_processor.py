@@ -176,10 +176,6 @@ class EventProcessor:
             if not snapshot_data:
                 return None
 
-            # Cache snapshot immediately
-            if settings.media_cache.enabled and settings.media_cache.cache_snapshots:
-                await media_cache.cache_snapshot(event.frigate_event, snapshot_data)
-
             image = Image.open(BytesIO(snapshot_data))
             results = await self.classifier.classify_async(image)
 
@@ -317,6 +313,10 @@ class EventProcessor:
 
         # Send notifications based on policy
         if changed:
+            # Cache snapshot if we updated the DB (ensures image matches score)
+            if snapshot_data and settings.media_cache.enabled and settings.media_cache.cache_snapshots:
+                await media_cache.cache_snapshot(event.frigate_event, snapshot_data)
+
             was_updated = not was_inserted
             should_notify = (
                 (was_inserted and settings.notifications.notify_on_insert) or
