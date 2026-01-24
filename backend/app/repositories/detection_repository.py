@@ -1,6 +1,6 @@
 from typing import Optional
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta, date
 import aiosqlite
 import asyncio
 
@@ -533,6 +533,203 @@ class DetectionRepository:
                 }
                 for row in rows
             ]
+
+    async def get_species_leaderboard_base(self) -> list[dict]:
+        """Get leaderboard base stats per species with taxonomy and time bounds."""
+        query = """
+            SELECT 
+                COALESCE(t.scientific_name, LOWER(d.display_name)) as unified_id,
+                COUNT(*) as total_count, 
+                MAX(COALESCE(d.scientific_name, t.scientific_name)) as scientific_name, 
+                MAX(COALESCE(d.common_name, t.common_name)) as common_name,
+                MAX(d.display_name) as display_name,
+                MAX(COALESCE(d.taxa_id, t.taxa_id)) as taxa_id,
+                MIN(d.detection_time) as first_seen,
+                MAX(d.detection_time) as last_seen,
+                AVG(d.score) as avg_confidence,
+                MAX(d.score) as max_confidence,
+                MIN(d.score) as min_confidence,
+                COUNT(DISTINCT d.camera_name) as camera_count
+            FROM detections d
+            LEFT JOIN taxonomy_cache t ON 
+                LOWER(d.display_name) = LOWER(t.scientific_name) OR 
+                LOWER(d.display_name) = LOWER(t.common_name)
+            WHERE (d.is_hidden = 0 OR d.is_hidden IS NULL)
+            GROUP BY unified_id
+            ORDER BY total_count DESC
+        """
+        async with self.db.execute(query) as cursor:
+            rows = await cursor.fetchall()
+            return [
+                {
+                    "species": row[4],
+                    "count": row[1],
+                    "scientific_name": row[2],
+                    "common_name": row[3],
+                    "taxa_id": row[5],
+                    "first_seen": _parse_datetime(row[6]) if row[6] else None,
+                    "last_seen": _parse_datetime(row[7]) if row[7] else None,
+                    "avg_confidence": row[8] or 0.0,
+                    "max_confidence": row[9] or 0.0,
+                    "min_confidence": row[10] or 0.0,
+                    "camera_count": row[11] or 0,
+                }
+                for row in rows
+            ]
+
+    async def get_latest_rollup_date(self) -> date | None:
+        async with self.db.execute(
+            "SELECT MAX(rollup_date) FROM species_daily_rollup"
+        ) as cursor:
+            row = await cursor.fetchone()
+            if row and row[0]:
+                return datetime.strptime(row[0], "%Y-%m-%d").date()
+            return None
+
+    async def ensure_recent_rollups(self, lookback_days: int = 90) -> None:
+        """Ensure daily rollups exist for the recent lookback window."""
+        today = datetime.utcnow().date()
+        latest = await self.get_latest_rollup_date()
+        if latest is None:
+            start_date = today - timedelta(days=lookback_days)
+        else:
+            start_date = latest + timedelta(days=1)
+        if start_date > today:
+            return
+        await self.upsert_daily_rollups(start_date, today)
+
+    async def upsert_daily_rollups(self, start_date: date, end_date: date) -> None:
+        """Rebuild rollups between start_date and end_date (inclusive)."""
+        start_dt = datetime.combine(start_date, datetime.min.time())
+        end_dt = datetime.combine(end_date + timedelta(days=1), datetime.min.time())
+        query = """
+            SELECT 
+                date(detection_time) as rollup_date,
+                display_name,
+                COUNT(*) as detection_count,
+                COUNT(DISTINCT camera_name) as camera_count,
+                AVG(score) as avg_confidence,
+                MAX(score) as max_confidence,
+                MIN(score) as min_confidence,
+                MIN(detection_time) as first_seen,
+                MAX(detection_time) as last_seen
+            FROM detections
+            WHERE detection_time >= ? AND detection_time < ?
+              AND (is_hidden = 0 OR is_hidden IS NULL)
+            GROUP BY rollup_date, display_name
+        """
+        async with self.db.execute(query, (start_dt, end_dt)) as cursor:
+            rows = await cursor.fetchall()
+        if not rows:
+            return
+        await self.db.executemany(
+            """INSERT INTO species_daily_rollup
+                   (rollup_date, display_name, detection_count, camera_count,
+                    avg_confidence, max_confidence, min_confidence, first_seen, last_seen)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+               ON CONFLICT(rollup_date, display_name) DO UPDATE SET
+                    detection_count=excluded.detection_count,
+                    camera_count=excluded.camera_count,
+                    avg_confidence=excluded.avg_confidence,
+                    max_confidence=excluded.max_confidence,
+                    min_confidence=excluded.min_confidence,
+                    first_seen=excluded.first_seen,
+                    last_seen=excluded.last_seen
+            """,
+            rows
+        )
+        await self.db.commit()
+
+    async def get_rollup_metrics(self, lookback_days: int = 30) -> dict[str, dict]:
+        """Aggregate rollup metrics for leaderboard windows."""
+        query = """
+            SELECT 
+                display_name,
+                SUM(CASE WHEN rollup_date >= date('now','-7 day') THEN detection_count ELSE 0 END) as count_7d,
+                SUM(CASE WHEN rollup_date >= date('now','-30 day') THEN detection_count ELSE 0 END) as count_30d,
+                SUM(CASE WHEN rollup_date >= date('now','-14 day') 
+                          AND rollup_date < date('now','-7 day') THEN detection_count ELSE 0 END) as count_prev_7d,
+                SUM(CASE WHEN rollup_date >= date('now','-14 day') AND detection_count > 0 THEN 1 ELSE 0 END) as days_seen_14d,
+                SUM(CASE WHEN rollup_date >= date('now','-30 day') AND detection_count > 0 THEN 1 ELSE 0 END) as days_seen_30d,
+                MAX(last_seen) as last_seen_recent
+            FROM species_daily_rollup
+            WHERE rollup_date >= date('now', ?)
+            GROUP BY display_name
+        """
+        window = f"-{lookback_days} day"
+        async with self.db.execute(query, (window,)) as cursor:
+            rows = await cursor.fetchall()
+        metrics: dict[str, dict] = {}
+        for row in rows:
+            metrics[row[0]] = {
+                "count_7d": row[1] or 0,
+                "count_30d": row[2] or 0,
+                "count_prev_7d": row[3] or 0,
+                "days_seen_14d": row[4] or 0,
+                "days_seen_30d": row[5] or 0,
+                "last_seen_recent": _parse_datetime(row[6]) if row[6] else None
+            }
+        return metrics
+
+    async def get_rollup_metrics_for_species(self, species: list[str], lookback_days: int = 30) -> dict:
+        """Aggregate rollup metrics for a set of species as a single group."""
+        if not species:
+            return {}
+        placeholders = ",".join(["?"] * len(species))
+        query = f"""
+            SELECT 
+                SUM(CASE WHEN rollup_date >= date('now','-7 day') THEN detection_count ELSE 0 END) as count_7d,
+                SUM(CASE WHEN rollup_date >= date('now','-30 day') THEN detection_count ELSE 0 END) as count_30d,
+                SUM(CASE WHEN rollup_date >= date('now','-14 day') 
+                          AND rollup_date < date('now','-7 day') THEN detection_count ELSE 0 END) as count_prev_7d,
+                COUNT(DISTINCT CASE WHEN rollup_date >= date('now','-14 day') AND detection_count > 0 THEN rollup_date END) as days_seen_14d,
+                COUNT(DISTINCT CASE WHEN rollup_date >= date('now','-30 day') AND detection_count > 0 THEN rollup_date END) as days_seen_30d,
+                MAX(last_seen) as last_seen_recent
+            FROM species_daily_rollup
+            WHERE rollup_date >= date('now', ?)
+              AND display_name IN ({placeholders})
+        """
+        window = f"-{lookback_days} day"
+        params = [window] + species
+        async with self.db.execute(query, params) as cursor:
+            row = await cursor.fetchone()
+        if not row:
+            return {}
+        return {
+            "count_7d": row[0] or 0,
+            "count_30d": row[1] or 0,
+            "count_prev_7d": row[2] or 0,
+            "days_seen_14d": row[3] or 0,
+            "days_seen_30d": row[4] or 0,
+            "last_seen_recent": _parse_datetime(row[5]) if row[5] else None,
+        }
+
+    async def get_species_aggregate_for_labels(self, labels: list[str]) -> dict | None:
+        """Aggregate stats across multiple display_name labels."""
+        if not labels:
+            return None
+        placeholders = ",".join(["?"] * len(labels))
+        query = f"""
+            SELECT COUNT(*), MIN(detection_time), MAX(detection_time),
+                   AVG(score), MAX(score), MIN(score),
+                   COUNT(DISTINCT camera_name)
+            FROM detections
+            WHERE display_name IN ({placeholders})
+              AND (is_hidden = 0 OR is_hidden IS NULL)
+        """
+        async with self.db.execute(query, labels) as cursor:
+            row = await cursor.fetchone()
+        if not row or row[0] == 0:
+            return None
+        return {
+            "count": row[0],
+            "first_seen": _parse_datetime(row[1]) if row[1] else None,
+            "last_seen": _parse_datetime(row[2]) if row[2] else None,
+            "avg_confidence": row[3] or 0.0,
+            "max_confidence": row[4] or 0.0,
+            "min_confidence": row[5] or 0.0,
+            "camera_count": row[6] or 0,
+        }
 
     async def get_species_basic_stats(self, species_name: str) -> dict:
         """Get basic stats for a species: count, min/max dates, confidence stats."""

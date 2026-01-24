@@ -383,39 +383,77 @@ async def get_species_list(request: Request):
     lang = get_user_language(request)
     async with get_db() as db:
         repo = DetectionRepository(db)
-        stats = await repo.get_species_counts()
+        await repo.ensure_recent_rollups(90)
+        stats = await repo.get_species_leaderboard_base()
+        rollup_metrics = await repo.get_rollup_metrics()
 
         # Transform unknown bird labels for display and aggregate counts
         unknown_labels = settings.classification.unknown_bird_labels
-        unknown_count = 0
         filtered_stats = []
 
         for s in stats:
             if s["species"] in unknown_labels:
-                unknown_count += s["count"]
-            else:
-                common_name = s.get("common_name")
-                taxa_id = s.get("taxa_id")
-                if lang != 'en' and taxa_id:
-                    localized = await taxonomy_service.get_localized_common_name(taxa_id, lang, db=db)
-                    if localized:
-                        common_name = localized
+                continue
+            metrics = rollup_metrics.get(s["species"], {})
+            trend_delta = metrics.get("count_7d", 0) - metrics.get("count_prev_7d", 0)
+            trend_pct = 0.0
+            prev = metrics.get("count_prev_7d", 0)
+            if prev > 0:
+                trend_pct = (trend_delta / prev) * 100.0
 
-                filtered_stats.append({
-                    "species": s["species"],
-                    "count": s["count"],
-                    "scientific_name": s.get("scientific_name"),
-                    "common_name": common_name,
-                    "taxa_id": taxa_id
-                })
+            common_name = s.get("common_name")
+            taxa_id = s.get("taxa_id")
+            if lang != 'en' and taxa_id:
+                localized = await taxonomy_service.get_localized_common_name(taxa_id, lang, db=db)
+                if localized:
+                    common_name = localized
+
+            filtered_stats.append({
+                "species": s["species"],
+                "count": s["count"],
+                "scientific_name": s.get("scientific_name"),
+                "common_name": common_name,
+                "taxa_id": taxa_id,
+                "first_seen": s.get("first_seen"),
+                "last_seen": s.get("last_seen"),
+                "avg_confidence": s.get("avg_confidence"),
+                "max_confidence": s.get("max_confidence"),
+                "min_confidence": s.get("min_confidence"),
+                "camera_count": s.get("camera_count"),
+                "count_7d": metrics.get("count_7d", 0),
+                "count_30d": metrics.get("count_30d", 0),
+                "days_seen_14d": metrics.get("days_seen_14d", 0),
+                "days_seen_30d": metrics.get("days_seen_30d", 0),
+                "trend_delta": trend_delta,
+                "trend_percent": trend_pct,
+            })
 
         # Add aggregated "Unknown Bird" entry if any were found
-        if unknown_count > 0:
+        unknown_stats = await repo.get_species_aggregate_for_labels(unknown_labels)
+        if unknown_stats:
+            unknown_rollup = await repo.get_rollup_metrics_for_species(unknown_labels)
+            trend_delta = unknown_rollup.get("count_7d", 0) - unknown_rollup.get("count_prev_7d", 0)
+            trend_pct = 0.0
+            prev = unknown_rollup.get("count_prev_7d", 0)
+            if prev > 0:
+                trend_pct = (trend_delta / prev) * 100.0
             filtered_stats.append({
                 "species": "Unknown Bird", 
-                "count": unknown_count,
+                "count": unknown_stats["count"],
                 "scientific_name": None,
-                "common_name": None
+                "common_name": None,
+                "first_seen": unknown_stats.get("first_seen"),
+                "last_seen": unknown_stats.get("last_seen"),
+                "avg_confidence": unknown_stats.get("avg_confidence"),
+                "max_confidence": unknown_stats.get("max_confidence"),
+                "min_confidence": unknown_stats.get("min_confidence"),
+                "camera_count": unknown_stats.get("camera_count"),
+                "count_7d": unknown_rollup.get("count_7d", 0),
+                "count_30d": unknown_rollup.get("count_30d", 0),
+                "days_seen_14d": unknown_rollup.get("days_seen_14d", 0),
+                "days_seen_30d": unknown_rollup.get("days_seen_30d", 0),
+                "trend_delta": trend_delta,
+                "trend_percent": trend_pct,
             })
             # Re-sort by count descending
             filtered_stats.sort(key=lambda x: x["count"], reverse=True)

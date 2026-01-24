@@ -41,6 +41,18 @@
     // Stats
     let totalDetections = $derived(species.reduce((sum, s) => sum + s.count, 0));
     let maxCount = $derived(Math.max(...species.map(s => s.count), 1));
+    let totalLast30 = $derived(species.reduce((sum, s) => sum + (s.count_30d || 0), 0));
+    let totalLast7 = $derived(species.reduce((sum, s) => sum + (s.count_7d || 0), 0));
+
+    let topByCount = $derived(sortedSpecies()[0]);
+    let topBy7d = $derived([...processedSpecies()].sort((a, b) => (b.count_7d || 0) - (a.count_7d || 0))[0]);
+    let topByTrend = $derived([...processedSpecies()].sort((a, b) => (b.trend_delta || 0) - (a.trend_delta || 0))[0]);
+    let topByStreak = $derived([...processedSpecies()].sort((a, b) => (b.days_seen_14d || 0) - (a.days_seen_14d || 0))[0]);
+    let mostRecent = $derived([...processedSpecies()].sort((a, b) => {
+        const aTime = a.last_seen ? new Date(a.last_seen).getTime() : 0;
+        const bTime = b.last_seen ? new Date(b.last_seen).getTime() : 0;
+        return bTime - aTime;
+    })[0]);
 
     onMount(async () => {
         await loadSpecies();
@@ -79,6 +91,23 @@
         if (index === 1) return '🥈';
         if (index === 2) return '🥉';
         return '';
+    }
+
+    function formatDate(value?: string | null): string {
+        if (!value) return '—';
+        try {
+            return new Date(value).toLocaleString();
+        } catch {
+            return '—';
+        }
+    }
+
+    function formatTrend(delta?: number, percent?: number): string {
+        if (!delta) return '0';
+        if (percent === undefined || percent === null) {
+            return `${delta > 0 ? '+' : ''}${delta}`;
+        }
+        return `${delta > 0 ? '+' : ''}${delta} (${percent.toFixed(1)}%)`;
     }
 </script>
 
@@ -141,13 +170,107 @@
             </p>
         </div>
     {:else}
-        <!-- Stats Cards -->
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div class="grid grid-cols-1 xl:grid-cols-3 gap-4">
+            <div class="xl:col-span-2 card-base rounded-3xl p-6 md:p-8 relative overflow-hidden">
+                <div class="absolute inset-0 bg-gradient-to-br from-emerald-50 via-transparent to-teal-50 dark:from-emerald-950/30 dark:to-teal-900/20 pointer-events-none"></div>
+                <div class="relative space-y-6">
+                    <div class="flex items-start justify-between gap-4">
+                        <div>
+                            <p class="text-[11px] uppercase tracking-[0.24em] font-black text-emerald-600 dark:text-emerald-300">
+                                {$_('leaderboard.featured')}
+                            </p>
+                            <h3 class="text-2xl md:text-3xl font-black text-slate-900 dark:text-white mt-2">
+                                {topByCount?.displayName || '—'}
+                            </h3>
+                            {#if topByCount?.subName}
+                                <p class="text-xs italic text-slate-500 dark:text-slate-400">
+                                    {topByCount.subName}
+                                </p>
+                            {/if}
+                        </div>
+                        <button
+                            type="button"
+                            onclick={() => topByCount && (selectedSpecies = topByCount.species)}
+                            class="px-4 py-2 rounded-2xl bg-emerald-500/90 text-white text-xs font-black uppercase tracking-widest shadow-md hover:bg-emerald-500"
+                        >
+                            {$_('leaderboard.view_details')}
+                        </button>
+                    </div>
+
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <div class="rounded-2xl bg-white/80 dark:bg-slate-900/40 border border-slate-200/60 dark:border-slate-700/60 p-3">
+                            <p class="text-[10px] uppercase tracking-widest text-slate-400">{$_('leaderboard.total_sightings')}</p>
+                            <p class="text-2xl font-black text-slate-900 dark:text-white">
+                                {topByCount?.count?.toLocaleString() || '—'}
+                            </p>
+                        </div>
+                        <div class="rounded-2xl bg-white/80 dark:bg-slate-900/40 border border-slate-200/60 dark:border-slate-700/60 p-3">
+                            <p class="text-[10px] uppercase tracking-widest text-slate-400">{$_('leaderboard.last_30_days')}</p>
+                            <p class="text-xl font-black text-slate-900 dark:text-white">
+                                {(topByCount?.count_30d || 0).toLocaleString()}
+                            </p>
+                        </div>
+                        <div class="rounded-2xl bg-white/80 dark:bg-slate-900/40 border border-slate-200/60 dark:border-slate-700/60 p-3">
+                            <p class="text-[10px] uppercase tracking-widest text-slate-400">{$_('leaderboard.last_7_days')}</p>
+                            <p class="text-xl font-black text-slate-900 dark:text-white">
+                                {(topByCount?.count_7d || 0).toLocaleString()}
+                            </p>
+                        </div>
+                        <div class="rounded-2xl bg-white/80 dark:bg-slate-900/40 border border-slate-200/60 dark:border-slate-700/60 p-3">
+                            <p class="text-[10px] uppercase tracking-widest text-slate-400">{$_('leaderboard.last_seen')}</p>
+                            <p class="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                                {formatDate(topByCount?.last_seen)}
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-wrap gap-3 text-[11px] font-semibold text-slate-600 dark:text-slate-300">
+                        <span class="px-3 py-1 rounded-full bg-emerald-100/80 dark:bg-emerald-900/30">
+                            {$_('leaderboard.trend')}: {formatTrend(topByCount?.trend_delta, topByCount?.trend_percent)}
+                        </span>
+                        <span class="px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-800/60">
+                            {$_('leaderboard.streak_14d')}: {topByCount?.days_seen_14d || 0} {$_('leaderboard.days')}
+                        </span>
+                        <span class="px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-800/60">
+                            {$_('leaderboard.cameras')}:{' '}{topByCount?.camera_count || 0}
+                        </span>
+                        <span class="px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-800/60">
+                            {$_('leaderboard.avg_confidence')}: {(topByCount?.avg_confidence || 0).toFixed(2)}
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="space-y-3">
+                <div class="card-base rounded-2xl p-4">
+                    <p class="text-[10px] uppercase tracking-widest text-slate-400">{$_('leaderboard.most_active')}</p>
+                    <p class="text-lg font-black text-slate-900 dark:text-white">{topBy7d?.displayName || '—'}</p>
+                    <p class="text-xs text-slate-500">{$_('leaderboard.last_7_days')}: {(topBy7d?.count_7d || 0).toLocaleString()}</p>
+                </div>
+                <div class="card-base rounded-2xl p-4">
+                    <p class="text-[10px] uppercase tracking-widest text-slate-400">{$_('leaderboard.longest_streak')}</p>
+                    <p class="text-lg font-black text-slate-900 dark:text-white">{topByStreak?.displayName || '—'}</p>
+                    <p class="text-xs text-slate-500">{$_('leaderboard.streak_14d')}: {topByStreak?.days_seen_14d || 0} {$_('leaderboard.days')}</p>
+                </div>
+                <div class="card-base rounded-2xl p-4">
+                    <p class="text-[10px] uppercase tracking-widest text-slate-400">{$_('leaderboard.rising')}</p>
+                    <p class="text-lg font-black text-slate-900 dark:text-white">{topByTrend?.displayName || '—'}</p>
+                    <p class="text-xs text-slate-500">{$_('leaderboard.trend')}: {formatTrend(topByTrend?.trend_delta, topByTrend?.trend_percent)}</p>
+                </div>
+                <div class="card-base rounded-2xl p-4">
+                    <p class="text-[10px] uppercase tracking-widest text-slate-400">{$_('leaderboard.most_recent')}</p>
+                    <p class="text-lg font-black text-slate-900 dark:text-white">{mostRecent?.displayName || '—'}</p>
+                    <p class="text-xs text-slate-500">{formatDate(mostRecent?.last_seen)}</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
             {#each sortedSpecies().slice(0, 3) as topSpecies, index}
                 <button
                     type="button"
                     onclick={() => selectedSpecies = topSpecies.species}
-                    class="card-base card-interactive text-left rounded-2xl p-5 backdrop-blur-sm transition-all duration-300 relative"
+                    class="card-base card-interactive text-left rounded-2xl p-5 transition-all duration-300 relative"
                     title={topSpecies.species === "Unknown Bird" ? $_('leaderboard.unidentified_desc') : ""}
                 >
                     {#if topSpecies.species === "Unknown Bird"}
@@ -166,79 +289,97 @@
                                     {topSpecies.subName}
                                 </p>
                             {/if}
-                            <p class="text-2xl font-bold text-teal-600 dark:text-teal-400">
-                                {topSpecies.count.toLocaleString()}
-                            </p>
-                                <p class="text-sm font-bold text-teal-600 dark:text-teal-400">
-                                    {$_('leaderboard.percentage_of_total', { values: { percentage: (totalDetections > 0 ? (topSpecies.count / totalDetections) * 100 : 0).toFixed(1) } })}
-                                </p>
+                            <div class="flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400 mt-2">
+                                <span class="font-black text-emerald-600 dark:text-emerald-400">{topSpecies.count.toLocaleString()}</span>
+                                <span>•</span>
+                                <span>{$_('leaderboard.last_7_days')}: {(topSpecies.count_7d || 0).toLocaleString()}</span>
+                                <span>•</span>
+                                <span>{$_('leaderboard.trend')}: {formatTrend(topSpecies.trend_delta, topSpecies.trend_percent)}</span>
+                            </div>
                         </div>
                     </div>
                 </button>
             {/each}
         </div>
 
-        <!-- Full Leaderboard -->
         <div class="card-base rounded-2xl overflow-hidden backdrop-blur-sm">
-            <div class="p-4 border-b border-slate-200/80 dark:border-slate-700/50">
+            <div class="p-4 border-b border-slate-200/80 dark:border-slate-700/50 flex items-center justify-between">
                 <h3 class="font-semibold text-slate-900 dark:text-white">{$_('leaderboard.all_species')}</h3>
+                <div class="text-xs text-slate-500 dark:text-slate-400">
+                    {$_('leaderboard.last_30_days')}: {totalLast30.toLocaleString()} · {$_('leaderboard.last_7_days')}: {totalLast7.toLocaleString()}
+                </div>
             </div>
 
-            <div class="py-2">
-                {#each sortedSpecies() as item, index (item.species)}
-                    <button
-                        type="button"
-                        onclick={() => selectedSpecies = item.species}
-                        class="w-full text-left p-4 rounded-xl mx-3 my-2 bg-white/60 dark:bg-slate-900/30 border border-transparent hover:border-slate-200/70 dark:hover:border-slate-700/70 hover:bg-white/90 dark:hover:bg-slate-800/40 transition-all relative"
-                        title={item.species === "Unknown Bird" ? $_('leaderboard.unidentified_desc') : ""}
-                    >
-                        <div class="flex items-center gap-4">
-                            <!-- Rank -->
-                            <div class="w-8 text-center">
-                                {#if getMedal(index)}
-                                    <span class="text-xl">{getMedal(index)}</span>
-                                {:else}
-                                    <span class="text-sm font-medium text-slate-400 dark:text-slate-500">
-                                        #{index + 1}
-                                    </span>
-                                {/if}
-                            </div>
-
-                            <!-- Species Info -->
-                            <div class="flex-1 min-w-0">
-                                <div class="flex items-center justify-between mb-0.5">
-                                    <span class="font-medium text-slate-900 dark:text-white truncate flex items-center gap-2">
-                                        {item.displayName}
+            <div class="overflow-x-auto" data-testid="leaderboard-table-wrap">
+                <table class="min-w-[900px] w-full text-left text-sm" data-testid="leaderboard-table">
+                    <thead class="text-[10px] uppercase tracking-widest text-slate-400 bg-slate-50 dark:bg-slate-900/40">
+                        <tr>
+                            <th class="px-4 py-3">{$_('leaderboard.rank')}</th>
+                            <th class="px-4 py-3">{$_('leaderboard.species')}</th>
+                            <th class="px-4 py-3 text-right">{$_('leaderboard.total_sightings')}</th>
+                            <th class="px-4 py-3 text-right">{$_('leaderboard.last_30_days')}</th>
+                            <th class="px-4 py-3 text-right">{$_('leaderboard.last_7_days')}</th>
+                            <th class="px-4 py-3 text-right">{$_('leaderboard.trend')}</th>
+                            <th class="px-4 py-3 text-right">{$_('leaderboard.streak_14d')}</th>
+                            <th class="px-4 py-3">{$_('leaderboard.last_seen')}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {#each sortedSpecies() as item, index (item.species)}
+                            <tr
+                                class="border-b border-slate-100/70 dark:border-slate-800/60 hover:bg-slate-50/70 dark:hover:bg-slate-900/30 transition cursor-pointer"
+                                role="button"
+                                tabindex="0"
+                                aria-label={$_('leaderboard.view_species', { values: { species: item.displayName } })}
+                                onclick={() => selectedSpecies = item.species}
+                                onkeydown={(e) => {
+                                    if (e.key === 'Enter' || e.key === ' ') {
+                                        e.preventDefault();
+                                        selectedSpecies = item.species;
+                                    }
+                                }}
+                                title={item.species === "Unknown Bird" ? $_('leaderboard.unidentified_desc') : ""}
+                            >
+                                <td class="px-4 py-3 font-semibold text-slate-500 dark:text-slate-400">
+                                    {getMedal(index) || `#${index + 1}`}
+                                </td>
+                                <td class="px-4 py-3">
+                                    <div class="flex items-center gap-2">
+                                        <span class="font-semibold text-slate-900 dark:text-white">
+                                            {item.displayName}
+                                        </span>
                                         {#if item.species === "Unknown Bird"}
                                             <span class="inline-flex items-center justify-center bg-amber-500 text-white rounded-full w-5 h-5 text-[10px] font-black" title={$_('leaderboard.needs_review')}>?</span>
                                         {/if}
-                                    </span>
-                                    <span class="text-sm font-semibold text-slate-600 dark:text-slate-300 ml-2">
-                                        {item.count.toLocaleString()}
-                                    </span>
-                                </div>
-                                {#if item.subName}
-                                    <p class="text-[10px] italic text-slate-500 dark:text-slate-400 truncate mb-1.5">
-                                        {item.subName}
-                                    </p>
-                                {/if}
-
-                                <!-- Progress Bar -->
-                                <div class="h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
-                                    <div
-                                        class="h-full rounded-full transition-all duration-500 {getBarColor(index)}"
-                                        style="width: {(item.count / maxCount) * 100}%"
-                                    ></div>
-                                </div>
-
-                                <div class="flex items-center gap-2 text-[10px] text-slate-500 dark:text-slate-400 mt-1">
-                                    <div class="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600"></div>
-                                    <span>{$_('leaderboard.percentage_of_total', { values: { percentage: (totalDetections > 0 ? (item.count / totalDetections) * 100 : 0).toFixed(1) } })}</span>
-                                </div>
-                            </div>
-                        </div>
-                    </button>
-                {/each}
+                                    </div>
+                                    {#if item.subName}
+                                        <div class="text-[10px] italic text-slate-500 dark:text-slate-400">
+                                            {item.subName}
+                                        </div>
+                                    {/if}
+                                </td>
+                                <td class="px-4 py-3 text-right font-bold text-slate-700 dark:text-slate-300">
+                                    {item.count.toLocaleString()}
+                                </td>
+                                <td class="px-4 py-3 text-right text-slate-600 dark:text-slate-300">
+                                    {(item.count_30d || 0).toLocaleString()}
+                                </td>
+                                <td class="px-4 py-3 text-right text-slate-600 dark:text-slate-300">
+                                    {(item.count_7d || 0).toLocaleString()}
+                                </td>
+                                <td class="px-4 py-3 text-right text-slate-600 dark:text-slate-300">
+                                    {formatTrend(item.trend_delta, item.trend_percent)}
+                                </td>
+                                <td class="px-4 py-3 text-right text-slate-600 dark:text-slate-300">
+                                    {item.days_seen_14d || 0}
+                                </td>
+                                <td class="px-4 py-3 text-slate-500 dark:text-slate-400 whitespace-nowrap">
+                                    {formatDate(item.last_seen)}
+                                </td>
+                            </tr>
+                        {/each}
+                    </tbody>
+                </table>
             </div>
         </div>
     {/if}

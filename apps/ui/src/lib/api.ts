@@ -58,6 +58,18 @@ export interface SpeciesCount {
     count: number;
     scientific_name?: string | null;
     common_name?: string | null;
+    first_seen?: string | null;
+    last_seen?: string | null;
+    avg_confidence?: number;
+    max_confidence?: number;
+    min_confidence?: number;
+    camera_count?: number;
+    count_7d?: number;
+    count_30d?: number;
+    days_seen_14d?: number;
+    days_seen_30d?: number;
+    trend_delta?: number;
+    trend_percent?: number;
 }
 
 export interface Settings {

@@ -71,3 +71,82 @@ async def test_detection_repository():
         
         fetched_updated = await repo.get_by_frigate_event("evt_1")
         assert fetched_updated.score == 0.95
+
+
+@pytest.mark.asyncio
+async def test_species_rollup_metrics():
+    async with aiosqlite.connect(":memory:") as db:
+        await db.execute("""
+            CREATE TABLE detections (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                detection_time TIMESTAMP NOT NULL,
+                detection_index INTEGER NOT NULL,
+                score FLOAT NOT NULL,
+                display_name TEXT NOT NULL,
+                category_name TEXT NOT NULL,
+                frigate_event TEXT UNIQUE NOT NULL,
+                camera_name TEXT NOT NULL,
+                is_hidden BOOLEAN DEFAULT 0,
+                frigate_score FLOAT,
+                sub_label TEXT,
+                manual_tagged BOOLEAN DEFAULT 0,
+                audio_confirmed BOOLEAN DEFAULT 0,
+                audio_species TEXT,
+                audio_score FLOAT,
+                temperature FLOAT,
+                weather_condition TEXT,
+                scientific_name TEXT,
+                common_name TEXT,
+                taxa_id INTEGER,
+                video_classification_score FLOAT,
+                video_classification_label TEXT,
+                video_classification_index INTEGER,
+                video_classification_timestamp TIMESTAMP,
+                video_classification_status TEXT,
+                video_classification_error TEXT,
+                ai_analysis TEXT,
+                ai_analysis_timestamp TIMESTAMP,
+                notified_at TIMESTAMP
+            )
+        """)
+        await db.execute("""
+            CREATE TABLE species_daily_rollup (
+                rollup_date DATE NOT NULL,
+                display_name TEXT NOT NULL,
+                detection_count INTEGER NOT NULL,
+                camera_count INTEGER NOT NULL,
+                avg_confidence FLOAT,
+                max_confidence FLOAT,
+                min_confidence FLOAT,
+                first_seen TIMESTAMP,
+                last_seen TIMESTAMP,
+                PRIMARY KEY (rollup_date, display_name)
+            )
+        """)
+        await db.commit()
+
+        repo = DetectionRepository(db)
+        now = datetime.utcnow()
+        await repo.create(Detection(
+            detection_time=now,
+            detection_index=1,
+            score=0.9,
+            display_name="Robin",
+            category_name="Bird",
+            frigate_event="evt_r1",
+            camera_name="cam_1"
+        ))
+        await repo.create(Detection(
+            detection_time=now,
+            detection_index=2,
+            score=0.8,
+            display_name="Sparrow",
+            category_name="Bird",
+            frigate_event="evt_s1",
+            camera_name="cam_2"
+        ))
+        await repo.ensure_recent_rollups(30)
+        metrics = await repo.get_rollup_metrics()
+
+        assert metrics["Robin"]["count_7d"] >= 1
+        assert metrics["Sparrow"]["count_7d"] >= 1
