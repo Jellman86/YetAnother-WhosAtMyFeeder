@@ -1,7 +1,7 @@
 <script lang="ts">
     import { onMount } from 'svelte';
     import { fetchDetectionsTimeline, fetchSpecies, fetchSpeciesInfo, type DetectionsTimeline, type SpeciesCount, type SpeciesInfo } from '../api';
-    import { ApexCharts } from 'svelte-apexcharts';
+    import { chart } from 'svelte-apexcharts';
     import SpeciesDetailModal from '../components/SpeciesDetailModal.svelte';
     import { settingsStore } from '../stores/settings.svelte';
     import { getBirdNames } from '../naming';
@@ -168,12 +168,6 @@
 
     let timelineCounts = $derived(timeline?.daily?.map((d) => d.count) || []);
     let timelineMax = $derived(timelineCounts.length ? Math.max(...timelineCounts) : 0);
-    let chartSeries = $derived(() => [
-        {
-            name: 'Detections',
-            data: timeline?.daily?.map((d) => d.count) || []
-        }
-    ]);
     let chartOptions = $derived(() => ({
         chart: {
             type: 'area',
@@ -182,6 +176,12 @@
             zoom: { enabled: false },
             animations: { enabled: true, easing: 'easeinout', speed: 500 }
         },
+        series: [
+            {
+                name: 'Detections',
+                data: timeline?.daily?.map((d) => d.count) || []
+            }
+        ],
         dataLabels: { enabled: false },
         stroke: { curve: 'smooth', width: 2, colors: ['#10b981'] },
         fill: {
@@ -495,12 +495,7 @@
                 <div class="mt-6 w-full flex-1 min-h-[140px] max-h-[220px]">
                     {#if timeline?.daily?.length}
                         {#key timeline.total_count}
-                            <ApexCharts
-                                type="area"
-                                options={chartOptions}
-                                series={chartSeries}
-                                class="w-full h-full"
-                            />
+                            <div use:chart={chartOptions} class="w-full h-full"></div>
                         {/key}
                     {:else}
                         <div class="h-full w-full rounded-2xl bg-slate-100 dark:bg-slate-800/60 animate-pulse"></div>
