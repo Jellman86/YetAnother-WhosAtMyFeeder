@@ -57,7 +57,15 @@
                     Yet Another WhosAtMyFeeder
                 </span>
                 <span class="hidden sm:inline text-slate-400 dark:text-slate-500">|</span>
-                <span title={versionInfo.git_hash !== "unknown" ? `Git: ${versionInfo.git_hash}` : ""}>v{version}</span>
+                <a
+                    href="https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/blob/dev/CHANGELOG.md"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
+                    title={versionInfo.git_hash !== "unknown" ? `Git: ${versionInfo.git_hash}` : "View changelog"}
+                >
+                    v{version}
+                </a>
             </div>
 
             <div class="flex items-center gap-4">
