@@ -100,6 +100,15 @@
         if (topByStreak?.species) {
             void loadSpeciesInfo(topByStreak.species);
         }
+        if (topBy7d?.species) {
+            void loadSpeciesInfo(topBy7d.species);
+        }
+        if (topByTrend?.species) {
+            void loadSpeciesInfo(topByTrend.species);
+        }
+        if (mostRecent?.species) {
+            void loadSpeciesInfo(mostRecent.species);
+        }
     });
 
     function getBarColor(index: number): string {
@@ -160,6 +169,12 @@
 
     let heroInfo = $derived(topByCount ? speciesInfoCache[topByCount.species] : null);
     let streakInfo = $derived(topByStreak ? speciesInfoCache[topByStreak.species] : null);
+    let activeInfo = $derived(topBy7d ? speciesInfoCache[topBy7d.species] : null);
+    let risingInfo = $derived(topByTrend ? speciesInfoCache[topByTrend.species] : null);
+    let recentInfo = $derived(mostRecent ? speciesInfoCache[mostRecent.species] : null);
+
+    let timelineCounts = $derived(timeline?.daily?.map((d) => d.count) || []);
+    let timelineMax = $derived(timelineCounts.length ? Math.max(...timelineCounts) : 0);
 </script>
 
 <div class="space-y-6">
@@ -225,7 +240,7 @@
             <div class="xl:col-span-2 card-base rounded-3xl p-6 md:p-8 relative overflow-hidden">
                 {#if heroInfo?.thumbnail_url}
                     <div
-                        class="absolute inset-0 bg-center bg-cover blur-2xl scale-110 opacity-35 dark:opacity-25"
+                        class="absolute inset-0 bg-center bg-cover blur-xl scale-105 opacity-35 dark:opacity-25"
                         style={`background-image: url('${heroInfo.thumbnail_url}');`}
                     ></div>
                 {/if}
@@ -301,8 +316,21 @@
             <div class="space-y-3">
                 <div class="card-base rounded-2xl p-4">
                     <p class="text-[10px] uppercase tracking-widest text-slate-400">{$_('leaderboard.most_active')}</p>
-                    <p class="text-lg font-black text-slate-900 dark:text-white">{topBy7d?.displayName || '—'}</p>
-                    <p class="text-xs text-slate-500">{$_('leaderboard.last_7_days')}: {(topBy7d?.count_7d || 0).toLocaleString()}</p>
+                    <div class="flex items-center gap-3 mt-2">
+                        {#if activeInfo?.thumbnail_url}
+                            <img
+                                src={activeInfo.thumbnail_url}
+                                alt={topBy7d?.displayName || 'Species'}
+                                class="w-10 h-10 rounded-2xl object-cover shadow-md border border-white/70"
+                            />
+                        {:else}
+                            <div class="w-10 h-10 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-lg">🐦</div>
+                        {/if}
+                        <div>
+                            <p class="text-lg font-black text-slate-900 dark:text-white">{topBy7d?.displayName || '—'}</p>
+                            <p class="text-xs text-slate-500">{$_('leaderboard.last_7_days')}: {(topBy7d?.count_7d || 0).toLocaleString()}</p>
+                        </div>
+                    </div>
                 </div>
                 <div class="card-base rounded-2xl p-4">
                     <p class="text-[10px] uppercase tracking-widest text-slate-400">{$_('leaderboard.longest_streak')}</p>
@@ -324,13 +352,39 @@
                 </div>
                 <div class="card-base rounded-2xl p-4">
                     <p class="text-[10px] uppercase tracking-widest text-slate-400">{$_('leaderboard.rising')}</p>
-                    <p class="text-lg font-black text-slate-900 dark:text-white">{topByTrend?.displayName || '—'}</p>
-                    <p class="text-xs text-slate-500">{$_('leaderboard.trend')}: {formatTrend(topByTrend?.trend_delta, topByTrend?.trend_percent)}</p>
+                    <div class="flex items-center gap-3 mt-2">
+                        {#if risingInfo?.thumbnail_url}
+                            <img
+                                src={risingInfo.thumbnail_url}
+                                alt={topByTrend?.displayName || 'Species'}
+                                class="w-10 h-10 rounded-2xl object-cover shadow-md border border-white/70"
+                            />
+                        {:else}
+                            <div class="w-10 h-10 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-lg">🐦</div>
+                        {/if}
+                        <div>
+                            <p class="text-lg font-black text-slate-900 dark:text-white">{topByTrend?.displayName || '—'}</p>
+                            <p class="text-xs text-slate-500">{$_('leaderboard.trend')}: {formatTrend(topByTrend?.trend_delta, topByTrend?.trend_percent)}</p>
+                        </div>
+                    </div>
                 </div>
                 <div class="card-base rounded-2xl p-4">
                     <p class="text-[10px] uppercase tracking-widest text-slate-400">{$_('leaderboard.most_recent')}</p>
-                    <p class="text-lg font-black text-slate-900 dark:text-white">{mostRecent?.displayName || '—'}</p>
-                    <p class="text-xs text-slate-500">{formatDate(mostRecent?.last_seen)}</p>
+                    <div class="flex items-center gap-3 mt-2">
+                        {#if recentInfo?.thumbnail_url}
+                            <img
+                                src={recentInfo.thumbnail_url}
+                                alt={mostRecent?.displayName || 'Species'}
+                                class="w-10 h-10 rounded-2xl object-cover shadow-md border border-white/70"
+                            />
+                        {:else}
+                            <div class="w-10 h-10 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-lg">🐦</div>
+                        {/if}
+                        <div>
+                            <p class="text-lg font-black text-slate-900 dark:text-white">{mostRecent?.displayName || '—'}</p>
+                            <p class="text-xs text-slate-500">{formatDate(mostRecent?.last_seen)}</p>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -376,11 +430,22 @@
                                     stroke-width="2.5"
                                     stroke-linecap="round"
                                 />
+                                <line x1="0" y1="100" x2="300" y2="100" stroke="#94a3b8" stroke-width="1" opacity="0.3" />
+                                <line x1="0" y1="0" x2="0" y2="100" stroke="#94a3b8" stroke-width="1" opacity="0.3" />
                             </svg>
                         {/key}
                     {:else}
                         <div class="h-full w-full rounded-2xl bg-slate-100 dark:bg-slate-800/60 animate-pulse"></div>
                     {/if}
+                </div>
+
+                <div class="mt-2 flex items-center justify-between text-[10px] uppercase tracking-widest text-slate-400">
+                    <span>{timeline?.daily?.[0]?.date || '—'}</span>
+                    <span>{timeline?.daily?.[timeline.daily.length - 1]?.date || '—'}</span>
+                </div>
+                <div class="mt-1 flex items-center justify-between text-[10px] font-semibold text-slate-500">
+                    <span>0</span>
+                    <span>{timelineMax.toLocaleString()}</span>
                 </div>
             </div>
         </div>
