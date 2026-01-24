@@ -1,6 +1,7 @@
 <script lang="ts">
     import { onMount } from 'svelte';
     import { fetchDetectionsTimeline, fetchSpecies, fetchSpeciesInfo, type DetectionsTimeline, type SpeciesCount, type SpeciesInfo } from '../api';
+    import Chart from 'svelte-apexcharts';
     import SpeciesDetailModal from '../components/SpeciesDetailModal.svelte';
     import { settingsStore } from '../stores/settings.svelte';
     import { getBirdNames } from '../naming';
@@ -159,22 +160,6 @@
         return `${delta > 0 ? '+' : ''}${delta} (${percent.toFixed(1)}%)`;
     }
 
-    function buildSparklinePath(points: number[], width = 300, height = 100): string {
-        if (!points.length) return '';
-        const max = Math.max(...points, 1);
-        const min = Math.min(...points, 0);
-        const range = Math.max(max - min, 1);
-        const step = width / Math.max(points.length - 1, 1);
-        return points
-            .map((value, idx) => {
-                const x = idx * step;
-                const normalized = (value - min) / range;
-                const y = height - normalized * height;
-                return `${idx === 0 ? 'M' : 'L'}${x.toFixed(2)},${y.toFixed(2)}`;
-            })
-            .join(' ');
-    }
-
     let heroInfo = $derived(topByCount ? speciesInfoCache[topByCount.species] : null);
     let streakInfo = $derived(topByStreak ? speciesInfoCache[topByStreak.species] : null);
     let activeInfo = $derived(topBy7d ? speciesInfoCache[topBy7d.species] : null);
@@ -183,9 +168,52 @@
 
     let timelineCounts = $derived(timeline?.daily?.map((d) => d.count) || []);
     let timelineMax = $derived(timelineCounts.length ? Math.max(...timelineCounts) : 0);
-    let timelineMidDate = $derived(
-        timeline?.daily?.length ? timeline.daily[Math.floor(timeline.daily.length / 2)].date : null
-    );
+    let chartSeries = $derived(() => [
+        {
+            name: 'Detections',
+            data: timeline?.daily?.map((d) => d.count) || []
+        }
+    ]);
+    let chartOptions = $derived(() => ({
+        chart: {
+            type: 'area',
+            height: '100%',
+            toolbar: { show: false },
+            zoom: { enabled: false },
+            animations: { enabled: true, easing: 'easeinout', speed: 500 }
+        },
+        dataLabels: { enabled: false },
+        stroke: { curve: 'smooth', width: 2, colors: ['#10b981'] },
+        fill: {
+            type: 'gradient',
+            gradient: {
+                shadeIntensity: 1,
+                opacityFrom: 0.35,
+                opacityTo: 0,
+                stops: [0, 90, 100]
+            }
+        },
+        markers: { size: 0, hover: { size: 4 } },
+        grid: {
+            borderColor: 'rgba(148,163,184,0.2)',
+            strokeDashArray: 3,
+            padding: { left: 12, right: 12, top: 8, bottom: 4 }
+        },
+        xaxis: {
+            categories: timeline?.daily?.map((d) => d.date) || [],
+            tickAmount: Math.min(6, (timeline?.daily?.length || 0)),
+            labels: { rotate: 0, style: { fontSize: '10px', colors: '#94a3b8' } }
+        },
+        yaxis: {
+            min: 0,
+            labels: { style: { fontSize: '10px', colors: '#94a3b8' } }
+        },
+        tooltip: {
+            theme: 'light',
+            x: { show: true },
+            y: { formatter: (value: number) => `${value} detections` }
+        }
+    }));
 
     function getWindowCount(item: SpeciesCount | undefined): number {
         if (!item) return 0;
@@ -464,47 +492,22 @@
                     </div>
                 </div>
 
-                <div class="mt-6 w-full flex-1 min-h-[120px] max-h-[200px]">
+                <div class="mt-6 w-full flex-1 min-h-[140px] max-h-[220px]">
                     {#if timeline?.daily?.length}
                         {#key timeline.total_count}
-                            <svg viewBox="0 0 300 120" class="w-full h-full">
-                                <defs>
-                                    <linearGradient id="detectionsGradient" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="0%" stop-color="#10b981" stop-opacity="0.45" />
-                                        <stop offset="100%" stop-color="#10b981" stop-opacity="0" />
-                                    </linearGradient>
-                                </defs>
-                                <text x="10" y="50" font-size="7" fill="#94a3b8" text-anchor="middle" transform="rotate(-90 10 50)">Detections</text>
-                                <text x="150" y="116" font-size="7" fill="#94a3b8" text-anchor="middle">Days</text>
-                                <path
-                                    d={`${buildSparklinePath(timeline.daily.map((d) => d.count), 300, 100)} L300,100 L0,100 Z`}
-                                    fill="url(#detectionsGradient)"
-                                    stroke="none"
-                                />
-                                <path
-                                    d={buildSparklinePath(timeline.daily.map((d) => d.count), 300, 100)}
-                                    fill="none"
-                                    stroke="#10b981"
-                                    stroke-width="2.5"
-                                    stroke-linecap="round"
-                                />
-                                <line x1="0" y1="100" x2="300" y2="100" stroke="#94a3b8" stroke-width="1" opacity="0.3" />
-                                <line x1="0" y1="0" x2="0" y2="100" stroke="#94a3b8" stroke-width="1" opacity="0.3" />
-                                <text x="4" y="106" font-size="7" fill="#94a3b8">0</text>
-                                <text x="4" y="16" font-size="7" fill="#94a3b8">{timelineMax.toLocaleString()}</text>
-                            </svg>
+                            <Chart
+                                type="area"
+                                options={chartOptions}
+                                series={chartSeries}
+                                class="w-full h-full"
+                            />
                         {/key}
                     {:else}
                         <div class="h-full w-full rounded-2xl bg-slate-100 dark:bg-slate-800/60 animate-pulse"></div>
                     {/if}
                 </div>
 
-                <div class="mt-3 flex items-center justify-between text-[10px] uppercase tracking-widest text-slate-400">
-                    <span>{timeline?.daily?.[0]?.date || '—'}</span>
-                    <span>{timelineMidDate || ''}</span>
-                    <span>{timeline?.daily?.[timeline.daily.length - 1]?.date || '—'}</span>
-                </div>
-                <div class="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
+                <div class="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
                     <span>{timeline?.days || timelineDays}-day total: {timeline?.total_count?.toLocaleString() || '0'}</span>
                     <span>•</span>
                     <span>Peak day: {timelineMax.toLocaleString()}</span>

@@ -29,18 +29,11 @@ def test_leaderboard_inspect():
         graph_heading = page.get_by_text("Detections over time")
         graph_heading.wait_for(state="visible", timeout=15000)
         graph_card = graph_heading.locator("xpath=ancestor::div[contains(@class, 'card-base')]").first
-        svg = graph_card.locator("svg").first
-        svg.wait_for(state="visible", timeout=15000)
-
-        axis_labels = svg.locator("text").evaluate_all(
-            "(nodes) => nodes.map((n) => n.textContent)"
-        )
-        print(f"Axis labels: {axis_labels}")
-        assert any(label and "Detections" in label for label in axis_labels)
-        assert any(label and "Days" in label for label in axis_labels)
+        canvas = graph_card.locator(".apexcharts-canvas").first
+        canvas.wait_for(state="visible", timeout=15000)
 
         # Capture line path for comparison
-        line_path = svg.locator("path[stroke='#10b981']").get_attribute("d")
+        line_path = graph_card.locator(".apexcharts-series path").first.get_attribute("d")
         assert line_path
 
         # Summary stats under the chart
@@ -66,11 +59,11 @@ def test_leaderboard_inspect():
             page.wait_for_timeout(300)
             names = top_rows_snapshot()
             print(f"Top rows after {label}: {names}")
-            path = svg.locator("path[stroke='#10b981']").get_attribute("d")
+            path = graph_card.locator(".apexcharts-series path").first.get_attribute("d")
             print(f"Graph path after {label}: {path[:80]}...")
 
         # Graph should not change with sort buttons (sort only affects table)
-        line_path_after = svg.locator("path[stroke='#10b981']").get_attribute("d")
+        line_path_after = graph_card.locator(".apexcharts-series path").first.get_attribute("d")
         print(f"Graph path changed: {line_path != line_path_after}")
 
         # Screenshot for manual review
