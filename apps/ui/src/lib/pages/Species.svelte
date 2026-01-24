@@ -4,6 +4,7 @@
     import { chart } from 'svelte-apexcharts';
     import SpeciesDetailModal from '../components/SpeciesDetailModal.svelte';
     import { settingsStore } from '../stores/settings.svelte';
+    import { themeStore } from '../stores/theme.svelte';
     import { getBirdNames } from '../naming';
     import { _ } from 'svelte-i18n';
 
@@ -168,6 +169,7 @@
 
     let timelineCounts = $derived(timeline?.daily?.map((d) => d.count) || []);
     let timelineMax = $derived(timelineCounts.length ? Math.max(...timelineCounts) : 0);
+    let isDark = $derived(() => themeStore.isDark);
     let chartOptions = $derived(() => ({
         chart: {
             type: 'area',
@@ -209,7 +211,7 @@
             labels: { style: { fontSize: '10px', colors: '#94a3b8' } }
         },
         tooltip: {
-            theme: 'light',
+            theme: isDark() ? 'dark' : 'light',
             x: { show: true },
             y: { formatter: (value: number) => `${value} detections` }
         }
@@ -298,7 +300,7 @@
             <div class="xl:col-span-2 card-base rounded-3xl p-6 md:p-8 relative overflow-hidden">
                 {#if heroInfo?.thumbnail_url}
                     <div
-                        class="absolute inset-0 bg-center bg-cover blur-lg scale-100 opacity-30 dark:opacity-22"
+                        class="absolute inset-0 bg-center bg-cover blur-md scale-100 opacity-25 dark:opacity-20"
                         style={`background-image: url('${heroInfo.thumbnail_url}');`}
                     ></div>
                 {/if}
