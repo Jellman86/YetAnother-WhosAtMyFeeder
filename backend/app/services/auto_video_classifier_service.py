@@ -471,8 +471,7 @@ class AutoVideoClassifierService:
                         "video_classification_timestamp": det.video_classification_timestamp.isoformat() if det.video_classification_timestamp else None
                     }
                 })
-        if status == "completed":
-            self._record_success(frigate_event)
+        # _record_success is already called on completion in _process_event.
 
 # Global singleton
 auto_video_classifier = AutoVideoClassifierService()

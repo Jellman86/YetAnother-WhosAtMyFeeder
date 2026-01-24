@@ -8,10 +8,14 @@
         authPassword = $bindable(''),
         authPasswordConfirm = $bindable(''),
         authSessionExpiryHours = $bindable(168),
+        trustedProxyHosts = $bindable<string[]>([]),
+        newTrustedProxyHost = $bindable(''),
         publicAccessEnabled = $bindable(false),
         publicAccessShowCameraNames = $bindable(true),
         publicAccessHistoricalDays = $bindable(7),
-        publicAccessRateLimitPerMinute = $bindable(30)
+        publicAccessRateLimitPerMinute = $bindable(30),
+        addTrustedProxyHost,
+        removeTrustedProxyHost
     }: {
         authEnabled: boolean;
         authUsername: string;
@@ -19,10 +23,14 @@
         authPassword: string;
         authPasswordConfirm: string;
         authSessionExpiryHours: number;
+        trustedProxyHosts: string[];
+        newTrustedProxyHost: string;
         publicAccessEnabled: boolean;
         publicAccessShowCameraNames: boolean;
         publicAccessHistoricalDays: number;
         publicAccessRateLimitPerMinute: number;
+        addTrustedProxyHost: () => void;
+        removeTrustedProxyHost: (host: string) => void;
     } = $props();
 </script>
 
@@ -105,6 +113,51 @@
                     bind:value={authSessionExpiryHours}
                     class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-emerald-500 outline-none"
                 />
+            </div>
+
+            <div class="rounded-2xl border border-amber-200/70 bg-amber-50/80 px-4 py-3 text-[11px] font-bold text-amber-900 dark:border-amber-500/40 dark:bg-amber-900/20 dark:text-amber-200">
+                {$_('settings.auth.proxy_trust_note', { default: 'Proxy headers are trusted from all hosts by default. If you run behind a reverse proxy, set trusted proxy hosts to prevent spoofed client IPs.' })}
+            </div>
+
+            <div class="pt-2">
+                <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.auth.trusted_proxies')}</label>
+                <p class="text-[11px] text-slate-500 dark:text-slate-400 mb-3">
+                    {$_('settings.auth.trusted_proxies_desc', { default: 'Add your reverse proxy container names or IPs (e.g., nginx-rp, cloudflare-tunnel, 172.19.0.10). Docker DNS names work when services share a network.' })}
+                </p>
+                <div class="flex gap-2 mb-4">
+                    <input
+                        bind:value={newTrustedProxyHost}
+                        onkeydown={(e) => e.key === 'Enter' && addTrustedProxyHost()}
+                        placeholder={$_('settings.auth.trusted_proxies_placeholder', { default: 'Add proxy host or IP' })}
+                        aria-label={$_('settings.auth.trusted_proxies')}
+                        class="flex-1 px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"
+                    />
+                    <button
+                        onclick={addTrustedProxyHost}
+                        disabled={!newTrustedProxyHost.trim()}
+                        aria-label={$_('settings.auth.trusted_proxies_add', { default: 'Add trusted proxy host' })}
+                        class="px-6 py-3 bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-black uppercase tracking-widest rounded-2xl transition-all disabled:opacity-50"
+                    >
+                        {$_('common.add')}
+                    </button>
+                </div>
+                <div class="flex flex-wrap gap-2">
+                    {#each trustedProxyHosts as host}
+                        <span class="group flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-slate-800 border border-emerald-200 dark:border-emerald-700/50 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300">
+                            {host}
+                            <button
+                                onclick={() => removeTrustedProxyHost(host)}
+                                aria-label={$_('settings.auth.trusted_proxies_remove', { default: 'Remove trusted proxy host' })}
+                                class="text-slate-400 hover:text-red-500 transition-colors"
+                            >
+                                ✕
+                            </button>
+                        </span>
+                    {/each}
+                    {#if trustedProxyHosts.length === 0}
+                        <p class="text-xs font-bold text-slate-400 italic">{$_('settings.auth.trusted_proxies_empty', { default: 'No trusted proxies configured (all proxies trusted).' })}</p>
+                    {/if}
+                </div>
             </div>
         </div>
     </section>

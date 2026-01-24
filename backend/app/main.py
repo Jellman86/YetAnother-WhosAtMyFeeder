@@ -20,6 +20,7 @@ from app.services.media_cache import media_cache
 from app.services.broadcaster import broadcaster
 from app.services.telemetry_service import telemetry_service
 from app.services.auto_video_classifier_service import auto_video_classifier
+from app.services.frigate_client import frigate_client
 from app.repositories.detection_repository import DetectionRepository
 from app.routers import events, proxy, settings as settings_router, species, backfill, classifier, models, ai, stats, debug, audio, email, auth as auth_router
 from app.config import settings
@@ -175,13 +176,14 @@ async def lifespan(app: FastAPI):
     await auto_video_classifier.stop()
     await telemetry_service.stop()
     await mqtt_service.stop()
+    await frigate_client.close()
     await close_db()  # Close database connection pool
 
 app = FastAPI(title="Yet Another WhosAtMyFeeder API", version=APP_VERSION, lifespan=lifespan)
 
 # Trust proxy headers (X-Forwarded-Proto, X-Forwarded-For) for correct scheme/IP detection
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
-app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
+app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=settings.system.trusted_proxy_hosts)
 
 # Setup structured logging
 log = structlog.get_logger()
@@ -300,6 +302,21 @@ async def check_https_warning(request: Request, call_next):
                         "Authentication enabled over HTTP - credentials may be exposed",
                         recommendation="Use HTTPS in production for secure authentication"
                     )
+            # Warn if proxy trust is wide open
+            if settings.system.trusted_proxy_hosts == ["*"]:
+                if not hasattr(app.state, "_last_proxy_warning"):
+                    app.state._last_proxy_warning = datetime.now()
+                    log.warning(
+                        "Proxy headers trust all hosts",
+                        recommendation="Configure SYSTEM__TRUSTED_PROXY_HOSTS to restrict trusted proxies"
+                    )
+                else:
+                    if (datetime.now() - app.state._last_proxy_warning).total_seconds() > 60:
+                        app.state._last_proxy_warning = datetime.now()
+                        log.warning(
+                            "Proxy headers trust all hosts",
+                            recommendation="Configure SYSTEM__TRUSTED_PROXY_HOSTS to restrict trusted proxies"
+                        )
 
     response = await call_next(request)
     return response
@@ -406,7 +423,7 @@ async def sse_endpoint(
                 except asyncio.TimeoutError:
                     # Send a heartbeat comment (ignored by clients but keeps connection alive)
                     yield ": heartbeat\n\n"
-        except asyncio.CancelledError:
+        finally:
             await broadcaster.unsubscribe(queue)
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")

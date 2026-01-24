@@ -21,10 +21,11 @@ def mock_dependencies():
         mock_taxonomy.get_names = AsyncMock(return_value={"scientific_name": "Scientific Name", "common_name": "Common Name"})
 
         # CRITICAL: notification_service.notify_detection must be AsyncMock
-        mock_notif.notify_detection = AsyncMock()
+        mock_notif.notify_detection = AsyncMock(return_value=False)
 
         mock_det_service = MockDetectionService.return_value
         mock_det_service.save_detection = AsyncMock(return_value=(True, True))
+        mock_det_service.get_detection_by_frigate_event = AsyncMock(return_value=MagicMock(notified_at=None))
 
         yield {
             "frigate": mock_frigate,
@@ -99,3 +100,25 @@ async def test_weather_context(mock_dependencies):
     args, kwargs = mock_dependencies["det_service"].save_detection.call_args
     assert kwargs["temperature"] == 20
     assert kwargs["weather_condition"] == "Sunny"
+
+@pytest.mark.asyncio
+async def test_audio_mismatch_ignored(mock_dependencies):
+    classifier = MagicMock()
+    classifier.classify_async = AsyncMock(return_value=[{"label": "Blue Tit", "score": 0.9, "index": 1}])
+    mock_dependencies["det_service"].filter_and_label.return_value = ({"label": "Blue Tit", "score": 0.9}, {})
+
+    # Audio match is a different species with high confidence
+    audio_match = MagicMock()
+    audio_match.species = "European Robin"
+    audio_match.confidence = 0.95
+    mock_dependencies["audio"].find_match = AsyncMock(return_value=audio_match)
+
+    processor = EventProcessor(classifier)
+    payload = b'{"after": {"id": "event4", "label": "bird", "camera": "cam1", "start_time": 1700000000}}'
+
+    await processor.process_mqtt_message(payload)
+
+    args, kwargs = mock_dependencies["det_service"].save_detection.call_args
+    assert kwargs["audio_confirmed"] is False
+    assert kwargs["audio_species"] is None
+    assert kwargs["audio_score"] is None

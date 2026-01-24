@@ -157,6 +157,8 @@
     let authPassword = $state('');
     let authPasswordConfirm = $state('');
     let authSessionExpiryHours = $state(168);
+    let trustedProxyHosts = $state<string[]>([]);
+    let newTrustedProxyHost = $state('');
     let publicAccessEnabled = $state(false);
     let publicAccessShowCameraNames = $state(true);
     let publicAccessHistoricalDays = $state(7);
@@ -217,6 +219,19 @@
         if (highContrast) document.documentElement.classList.add('high-contrast');
         else document.documentElement.classList.remove('high-contrast');
     });
+
+    function addTrustedProxyHost() {
+        const host = newTrustedProxyHost.trim();
+        if (!host) return;
+        if (!trustedProxyHosts.includes(host)) {
+            trustedProxyHosts = [...trustedProxyHosts, host];
+        }
+        newTrustedProxyHost = '';
+    }
+
+    function removeTrustedProxyHost(host: string) {
+        trustedProxyHosts = trustedProxyHosts.filter((item) => item !== host);
+    }
 
     $effect(() => {
         if (dyslexiaFont) document.documentElement.classList.add('font-dyslexic');
@@ -332,6 +347,7 @@
             { key: 'authEnabled', val: authEnabled, store: s.auth_enabled ?? false },
             { key: 'authUsername', val: authUsername, store: s.auth_username || 'admin' },
             { key: 'authSessionExpiryHours', val: authSessionExpiryHours, store: s.auth_session_expiry_hours ?? 168 },
+            { key: 'trustedProxyHosts', val: JSON.stringify(trustedProxyHosts), store: JSON.stringify(s.trusted_proxy_hosts || []) },
             { key: 'publicAccessEnabled', val: publicAccessEnabled, store: s.public_access_enabled ?? false },
             { key: 'publicAccessShowCameraNames', val: publicAccessShowCameraNames, store: s.public_access_show_camera_names ?? true },
             { key: 'publicAccessHistoricalDays', val: publicAccessHistoricalDays, store: s.public_access_historical_days ?? 7 },
@@ -741,6 +757,10 @@
             authPassword = '';
             authPasswordConfirm = '';
             authSessionExpiryHours = settings.auth_session_expiry_hours ?? 168;
+            const proxyHosts = settings.trusted_proxy_hosts || [];
+            trustedProxyHosts = (proxyHosts.length === 0 || (proxyHosts.length === 1 && proxyHosts[0] === '*'))
+                ? ['nginx-rp', 'cloudflare-tunnel']
+                : proxyHosts;
             publicAccessEnabled = settings.public_access_enabled ?? false;
             publicAccessShowCameraNames = settings.public_access_show_camera_names ?? true;
             publicAccessHistoricalDays = settings.public_access_historical_days ?? 7;
@@ -906,6 +926,7 @@
                 auth_username: authUsername,
                 auth_password: authPassword || undefined,
                 auth_session_expiry_hours: authSessionExpiryHours,
+                trusted_proxy_hosts: trustedProxyHosts,
                 public_access_enabled: publicAccessEnabled,
                 public_access_show_camera_names: publicAccessShowCameraNames,
                 public_access_historical_days: publicAccessHistoricalDays,
@@ -1297,10 +1318,14 @@
                     bind:authPassword
                     bind:authPasswordConfirm
                     bind:authSessionExpiryHours
+                    bind:trustedProxyHosts
+                    bind:newTrustedProxyHost
                     bind:publicAccessEnabled
                     bind:publicAccessShowCameraNames
                     bind:publicAccessHistoricalDays
                     bind:publicAccessRateLimitPerMinute
+                    addTrustedProxyHost={addTrustedProxyHost}
+                    removeTrustedProxyHost={removeTrustedProxyHost}
                 />
             {/if}
 

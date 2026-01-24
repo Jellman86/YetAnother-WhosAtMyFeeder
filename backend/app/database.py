@@ -14,6 +14,7 @@ REQUIRED_COLUMNS = {
         "ai_analysis",
         "ai_analysis_timestamp",
         "manual_tagged",
+        "notified_at",
     }
 }
 

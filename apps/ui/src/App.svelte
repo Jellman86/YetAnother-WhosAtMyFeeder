@@ -69,10 +69,16 @@
   );
 
   let notificationsActive = $derived.by(() => {
-      const active = settingsStore.settings?.notifications?.discord?.enabled ||
-      settingsStore.settings?.notifications?.pushover?.enabled ||
-      settingsStore.settings?.notifications?.telegram?.enabled ||
-      settingsStore.settings?.notifications?.email?.enabled;
+      const s = settingsStore.settings;
+      if (!s) return false;
+      const active = s.notifications_discord_enabled ||
+      s.notifications_pushover_enabled ||
+      s.notifications_telegram_enabled ||
+      s.notifications_email_enabled ||
+      s.notifications?.discord?.enabled ||
+      s.notifications?.pushover?.enabled ||
+      s.notifications?.telegram?.enabled ||
+      s.notifications?.email?.enabled;
       // console.log('Notifications Active:', active);
       return active;
   });

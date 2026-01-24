@@ -26,6 +26,7 @@ detections = Table(
     Column("scientific_name", String),
     Column("common_name", String),
     Column("taxa_id", Integer),
+    Column("notified_at", TIMESTAMP),
     # Video classification columns
     Column("video_classification_score", Float),
     Column("video_classification_label", String),
@@ -48,6 +49,7 @@ Index("idx_detections_common", detections.c.common_name)
 Index("idx_detections_taxa_id", detections.c.taxa_id)
 Index("idx_detections_frigate_event", detections.c.frigate_event)
 Index("idx_detections_video_status", detections.c.video_classification_status)
+Index("idx_detections_notified_at", detections.c.notified_at)
 
 taxonomy_cache = Table(
     "taxonomy_cache",

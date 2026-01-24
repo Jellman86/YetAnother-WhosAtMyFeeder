@@ -29,6 +29,7 @@ class Detection:
     scientific_name: Optional[str] = None
     common_name: Optional[str] = None
     taxa_id: Optional[int] = None
+    notified_at: Optional[datetime] = None
     # Video classification fields
     video_classification_score: Optional[float] = None
     video_classification_label: Optional[str] = None
@@ -99,6 +100,9 @@ def _row_to_detection(row) -> Detection:
     if len(row) > 27:
         d.manual_tagged = bool(row[27])
 
+    if len(row) > 28:
+        d.notified_at = _parse_datetime(row[28]) if row[28] else None
+
     return d
 
 
@@ -108,7 +112,7 @@ class DetectionRepository:
 
     async def get_by_frigate_event(self, frigate_event: str) -> Optional[Detection]:
         async with self.db.execute(
-            "SELECT id, detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label, audio_confirmed, audio_species, audio_score, temperature, weather_condition, scientific_name, common_name, taxa_id, video_classification_score, video_classification_label, video_classification_index, video_classification_timestamp, video_classification_status, video_classification_error, ai_analysis, ai_analysis_timestamp, manual_tagged FROM detections WHERE frigate_event = ?",
+            "SELECT id, detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label, audio_confirmed, audio_species, audio_score, temperature, weather_condition, scientific_name, common_name, taxa_id, video_classification_score, video_classification_label, video_classification_index, video_classification_timestamp, video_classification_status, video_classification_error, ai_analysis, ai_analysis_timestamp, manual_tagged, notified_at FROM detections WHERE frigate_event = ?",
             (frigate_event,)
         ) as cursor:
             row = await cursor.fetchone()
@@ -139,6 +143,16 @@ class DetectionRepository:
                 video_classification_error = ?
             WHERE frigate_event = ?
         """, (status, error, frigate_event))
+        await self.db.commit()
+
+    async def mark_notified(self, frigate_event: str, timestamp: Optional[datetime] = None):
+        """Mark a detection as notified."""
+        if timestamp is None:
+            timestamp = datetime.now()
+        await self.db.execute(
+            "UPDATE detections SET notified_at = ? WHERE frigate_event = ?",
+            (timestamp, frigate_event)
+        )
         await self.db.commit()
 
     async def update_ai_analysis(self, frigate_event: str, analysis: str):
@@ -323,7 +337,7 @@ class DetectionRepository:
         sort: str = "newest",
         include_hidden: bool = False
     ) -> list[Detection]:
-        query = "SELECT id, detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label, audio_confirmed, audio_species, audio_score, temperature, weather_condition, scientific_name, common_name, taxa_id, video_classification_score, video_classification_label, video_classification_index, video_classification_timestamp, video_classification_status, video_classification_error, ai_analysis, ai_analysis_timestamp, manual_tagged FROM detections"
+        query = "SELECT id, detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label, audio_confirmed, audio_species, audio_score, temperature, weather_condition, scientific_name, common_name, taxa_id, video_classification_score, video_classification_label, video_classification_index, video_classification_timestamp, video_classification_status, video_classification_error, ai_analysis, ai_analysis_timestamp, manual_tagged, notified_at FROM detections"
         params: list = []
         conditions = []
 
@@ -467,7 +481,11 @@ class DetectionRepository:
             SELECT id, detection_time, detection_index, score, display_name, category_name, 
                    frigate_event, camera_name, is_hidden, frigate_score, sub_label, 
                    audio_confirmed, audio_species, audio_score, temperature, weather_condition, 
-                   scientific_name, common_name, taxa_id 
+                   scientific_name, common_name, taxa_id, video_classification_score, 
+                   video_classification_label, video_classification_index, 
+                   video_classification_timestamp, video_classification_status, 
+                   video_classification_error, ai_analysis, ai_analysis_timestamp, 
+                   manual_tagged, notified_at
             FROM detections 
             WHERE display_name = 'Unknown Bird'
         """

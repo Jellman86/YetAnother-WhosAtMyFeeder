@@ -202,3 +202,9 @@ class DetectionService:
                     ))
             
             return changed, was_inserted
+
+    async def get_detection_by_frigate_event(self, frigate_event: str) -> Detection | None:
+        """Fetch a detection by Frigate event ID."""
+        async with get_db() as db:
+            repo = DetectionRepository(db)
+            return await repo.get_by_frigate_event(frigate_event)

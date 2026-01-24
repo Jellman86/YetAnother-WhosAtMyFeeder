@@ -175,6 +175,7 @@ class SystemSettings(BaseModel):
     """System-level performance and resource settings"""
     broadcaster_max_queue_size: int = Field(default=100, ge=10, le=1000, description="Maximum SSE message queue size per subscriber")
     broadcaster_max_consecutive_full: int = Field(default=10, ge=1, le=100, description="Remove subscriber after this many consecutive backpressure failures")
+    trusted_proxy_hosts: list[str] = Field(default_factory=lambda: ["*"], description="Trusted proxy hosts for X-Forwarded-* headers")
 
 
 class AuthSettings(BaseModel):
@@ -281,7 +282,7 @@ class Settings(BaseSettings):
             'cleanup_enabled': os.environ.get('MAINTENANCE__CLEANUP_ENABLED', 'true').lower() == 'true',
         }
 
-        # Classification settings (loaded from file only, no env vars)
+        # Classification settings (loaded from file and selected env vars)
         classification_data = {
             'model': 'model.tflite',
             'threshold': 0.7,
@@ -295,9 +296,11 @@ class Settings(BaseSettings):
             'video_classification_delay': int(os.environ.get('CLASSIFICATION__VIDEO_CLASSIFICATION_DELAY', '30')),
             'video_classification_max_retries': int(os.environ.get('CLASSIFICATION__VIDEO_CLASSIFICATION_MAX_RETRIES', '3')),
             'video_classification_retry_interval': int(os.environ.get('CLASSIFICATION__VIDEO_CLASSIFICATION_RETRY_INTERVAL', '15')),
+            'video_classification_max_concurrent': int(os.environ.get('CLASSIFICATION__VIDEO_CLASSIFICATION_MAX_CONCURRENT', '5')),
             'video_classification_failure_threshold': int(os.environ.get('CLASSIFICATION__VIDEO_FAILURE_THRESHOLD', '5')),
             'video_classification_failure_window_minutes': int(os.environ.get('CLASSIFICATION__VIDEO_FAILURE_WINDOW_MINUTES', '10')),
             'video_classification_failure_cooldown_minutes': int(os.environ.get('CLASSIFICATION__VIDEO_FAILURE_COOLDOWN_MINUTES', '15')),
+            'max_classification_results': int(os.environ.get('CLASSIFICATION__MAX_CLASSIFICATION_RESULTS', '5')),
         }
 
         # Media cache settings
@@ -325,10 +328,10 @@ class Settings(BaseSettings):
         # LLM settings
         llm_data = {
             'enabled': os.environ.get('LLM__ENABLED', 'false').lower() == 'true',
-                    'provider': os.environ.get('LLM__PROVIDER', 'gemini'),
-                    'api_key': os.environ.get('LLM__API_KEY', None),
-                    'model': os.environ.get('LLM__MODEL', 'gemini-2.0-flash-exp'),
-                }
+            'provider': os.environ.get('LLM__PROVIDER', 'gemini'),
+            'api_key': os.environ.get('LLM__API_KEY', None),
+            'model': os.environ.get('LLM__MODEL', 'gemini-3-flash-preview'),
+        }
         
         # Telemetry settings
         telemetry_data = {
@@ -416,9 +419,12 @@ class Settings(BaseSettings):
         }
 
         # System settings (existing but need to initialize)
+        trusted_hosts_raw = os.environ.get('SYSTEM__TRUSTED_PROXY_HOSTS', '')
+        trusted_hosts = [host.strip() for host in trusted_hosts_raw.split(',') if host.strip()] if trusted_hosts_raw else ["*"]
         system_data = {
             'broadcaster_max_queue_size': int(os.environ.get('SYSTEM__BROADCASTER_MAX_QUEUE_SIZE', '100')),
             'broadcaster_max_consecutive_full': int(os.environ.get('SYSTEM__BROADCASTER_MAX_CONSECUTIVE_FULL', '10')),
+            'trusted_proxy_hosts': trusted_hosts,
         }
 
         species_info_source = os.environ.get('SPECIES_INFO__SOURCE', 'auto')

@@ -97,7 +97,14 @@
       "password_placeholder": "留空以保留当前密码",
       "password_confirm": "确认密码",
       "password_confirm_placeholder": "再次输入密码",
-      "session_expiry": "会话有效期（小时）"
+      "session_expiry": "会话有效期（小时）",
+      "proxy_trust_note": "默认信任所有主机的代理头。如果使用反向代理，请设置受信任的代理主机以防止客户端 IP 被伪造。",
+      "trusted_proxies": "受信任的代理主机",
+      "trusted_proxies_desc": "添加反向代理容器名称或 IP（例如 nginx-rp、cloudflare-tunnel、172.19.0.10）。服务在同一网络时可使用 Docker DNS 名称。",
+      "trusted_proxies_placeholder": "添加代理主机或 IP",
+      "trusted_proxies_add": "添加受信任的代理主机",
+      "trusted_proxies_remove": "移除受信任的代理主机",
+      "trusted_proxies_empty": "未配置受信任的代理（将信任所有代理）。"
     },
     "public_access": {
       "title": "公开访问",

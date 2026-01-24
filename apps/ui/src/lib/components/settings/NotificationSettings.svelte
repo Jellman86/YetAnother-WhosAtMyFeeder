@@ -112,6 +112,8 @@
         initiateOutlookOAuth: () => Promise<{ authorization_url: string }>;
         disconnectEmailOAuth: (provider: string) => Promise<void>;
     } = $props();
+
+    const notificationsEnabled = $derived(notifyOnInsert || notifyOnUpdate);
 </script>
 
 <div class="space-y-6">
@@ -128,6 +130,11 @@
             <!-- Delivery Policy -->
             <div class="p-4 rounded-2xl bg-white/60 dark:bg-slate-800/40 border border-amber-200/30 dark:border-amber-700/20">
                 <h4 class="text-xs font-black uppercase tracking-[0.2em] text-slate-500 mb-4">{$_('settings.notifications.delivery_policy')}</h4>
+                {#if !notificationsEnabled}
+                    <div class="mb-4 rounded-2xl border border-amber-300/60 bg-amber-100/70 px-4 py-3 text-[11px] font-bold text-amber-900 dark:border-amber-500/40 dark:bg-amber-900/20 dark:text-amber-200">
+                        {$_('settings.notifications.enable_notify_hint', { default: 'Notifications are currently off. Enable "Notify on new detections" or "Notify on updates" to send any alerts.' })}
+                    </div>
+                {/if}
                 <div class="space-y-4">
                     <div class="flex items-center justify-between gap-4">
                         <div id="notify-insert-label">
@@ -175,7 +182,7 @@
                         </button>
                     </div>
 
-                    <div class="flex items-center justify-between gap-4">
+                    <div class="flex items-center justify-between gap-4 {notificationsEnabled ? '' : 'opacity-50'}">
                         <div id="notify-delay-label">
                             <span class="block text-sm font-black text-slate-900 dark:text-white">{$_('settings.notifications.delay_until_video')}</span>
                             <span class="block text-[10px] text-slate-500 font-bold leading-tight mt-1">{$_('settings.notifications.delay_until_video_desc')}</span>
@@ -183,15 +190,20 @@
                         <button
                             role="switch"
                             aria-checked={notifyDelayUntilVideo}
+                            aria-disabled={!notificationsEnabled}
                             aria-labelledby="notify-delay-label"
-                            onclick={() => notifyDelayUntilVideo = !notifyDelayUntilVideo}
+                            onclick={() => {
+                                if (!notificationsEnabled) return;
+                                notifyDelayUntilVideo = !notifyDelayUntilVideo;
+                            }}
                             onkeydown={(e) => {
                                 if (e.key === 'Enter' || e.key === ' ') {
                                     e.preventDefault();
+                                    if (!notificationsEnabled) return;
                                     notifyDelayUntilVideo = !notifyDelayUntilVideo;
                                 }
                             }}
-                            class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {notifyDelayUntilVideo ? 'bg-amber-500' : 'bg-slate-300 dark:bg-slate-600'}"
+                            class="relative inline-flex h-6 w-11 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {notificationsEnabled ? 'cursor-pointer' : 'cursor-not-allowed'} {notifyDelayUntilVideo && notificationsEnabled ? 'bg-amber-500' : 'bg-slate-300 dark:bg-slate-600'}"
                         >
                             <span class="sr-only">{$_('settings.notifications.delay_until_video')}</span>
                             <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {notifyDelayUntilVideo ? 'translate-x-5' : 'translate-x-0'}"></span>
@@ -209,7 +221,7 @@
                                 min="0"
                                 step="5"
                                 bind:value={notifyVideoFallbackTimeout}
-                                disabled={!notifyDelayUntilVideo}
+                                disabled={!notifyDelayUntilVideo || !notificationsEnabled}
                                 class="w-24 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-xs disabled:opacity-50"
                                 aria-label={$_('settings.notifications.video_fallback_timeout')}
                             />

@@ -96,7 +96,14 @@
       "password_placeholder": "Laisser vide pour conserver le mot de passe",
       "password_confirm": "Confirmer le mot de passe",
       "password_confirm_placeholder": "Saisir à nouveau le mot de passe",
-      "session_expiry": "Durée de session (heures)"
+      "session_expiry": "Durée de session (heures)",
+      "proxy_trust_note": "Les en-têtes proxy sont approuvés pour tous les hôtes par défaut. Si vous utilisez un proxy inverse, définissez les hôtes de proxy approuvés pour éviter l’usurpation d’IP client.",
+      "trusted_proxies": "Hôtes de proxy approuvés",
+      "trusted_proxies_desc": "Ajoutez les noms de conteneurs ou IPs de votre proxy inverse (ex. nginx-rp, cloudflare-tunnel, 172.19.0.10). Les noms DNS Docker fonctionnent si les services partagent un réseau.",
+      "trusted_proxies_placeholder": "Ajouter un hôte proxy ou une IP",
+      "trusted_proxies_add": "Ajouter un hôte proxy approuvé",
+      "trusted_proxies_remove": "Retirer l’hôte proxy approuvé",
+      "trusted_proxies_empty": "Aucun proxy approuvé configuré (tous les proxies sont approuvés)."
     },
     "public_access": {
       "title": "Accès public",

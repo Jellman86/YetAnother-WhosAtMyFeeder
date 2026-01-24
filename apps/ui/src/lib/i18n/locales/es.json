@@ -96,7 +96,14 @@
       "password_placeholder": "Dejar en blanco para mantener la contraseña",
       "password_confirm": "Confirmar contraseña",
       "password_confirm_placeholder": "Repetir la contraseña",
-      "session_expiry": "Duración de sesión (horas)"
+      "session_expiry": "Duración de sesión (horas)",
+      "proxy_trust_note": "Los encabezados de proxy se confían de todos los hosts de forma predeterminada. Si usas un proxy inverso, configura los hosts de proxy confiables para evitar IPs falsificadas.",
+      "trusted_proxies": "Hosts de proxy confiables",
+      "trusted_proxies_desc": "Añade los nombres de contenedor o IPs de tu proxy inverso (p. ej., nginx-rp, cloudflare-tunnel, 172.19.0.10). Los nombres DNS de Docker funcionan cuando los servicios comparten red.",
+      "trusted_proxies_placeholder": "Añadir host de proxy o IP",
+      "trusted_proxies_add": "Agregar host de proxy confiable",
+      "trusted_proxies_remove": "Quitar host de proxy confiable",
+      "trusted_proxies_empty": "No hay proxies confiables configurados (todos los proxies son confiables)."
     },
     "public_access": {
       "title": "Acceso público",

@@ -96,7 +96,14 @@
       "password_placeholder": "変更しない場合は空欄",
       "password_confirm": "パスワード確認",
       "password_confirm_placeholder": "もう一度入力",
-      "session_expiry": "セッション期限（時間）"
+      "session_expiry": "セッション期限（時間）",
+      "proxy_trust_note": "プロキシヘッダーは既定で全ホストを信頼します。リバースプロキシを使う場合は、信頼するプロキシホストを設定してクライアントIPの偽装を防いでください。",
+      "trusted_proxies": "信頼するプロキシホスト",
+      "trusted_proxies_desc": "リバースプロキシのコンテナ名またはIPを追加してください（例: nginx-rp, cloudflare-tunnel, 172.19.0.10）。同一ネットワークならDockerのDNS名が使えます。",
+      "trusted_proxies_placeholder": "プロキシホストまたはIPを追加",
+      "trusted_proxies_add": "信頼するプロキシホストを追加",
+      "trusted_proxies_remove": "信頼するプロキシホストを削除",
+      "trusted_proxies_empty": "信頼するプロキシが未設定です（すべてのプロキシを信頼）。"
     },
     "public_access": {
       "title": "公開アクセス",

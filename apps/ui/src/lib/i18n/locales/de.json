@@ -96,7 +96,14 @@
       "password_placeholder": "Leer lassen, um aktuelles Passwort zu behalten",
       "password_confirm": "Passwort bestätigen",
       "password_confirm_placeholder": "Passwort erneut eingeben",
-      "session_expiry": "Sitzungsdauer (Stunden)"
+      "session_expiry": "Sitzungsdauer (Stunden)",
+      "proxy_trust_note": "Proxy-Header werden standardmäßig allen Hosts vertraut. Wenn du einen Reverse Proxy nutzt, lege vertrauenswürdige Proxy-Hosts fest, um gefälschte Client-IPs zu verhindern.",
+      "trusted_proxies": "Vertrauenswürdige Proxy-Hosts",
+      "trusted_proxies_desc": "Füge die Containernamen oder IPs deines Reverse Proxys hinzu (z. B. nginx-rp, cloudflare-tunnel, 172.19.0.10). Docker-DNS-Namen funktionieren, wenn die Dienste dasselbe Netzwerk teilen.",
+      "trusted_proxies_placeholder": "Proxy-Host oder IP hinzufügen",
+      "trusted_proxies_add": "Vertrauenswürdigen Proxy-Host hinzufügen",
+      "trusted_proxies_remove": "Vertrauenswürdigen Proxy-Host entfernen",
+      "trusted_proxies_empty": "Keine vertrauenswürdigen Proxys konfiguriert (alle Proxys sind vertrauenswürdig)."
     },
     "public_access": {
       "title": "Öffentlicher Zugriff",

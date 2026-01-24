@@ -71,12 +71,12 @@ class NotificationService:
         audio_confirmed: bool = False,
         audio_species: Optional[str] = None,
         snapshot_data: Optional[bytes] = None
-    ):
+    ) -> bool:
         """Send notifications to all enabled platforms."""
         
         # Check filters
         if not await self._should_notify(species, confidence, audio_confirmed, camera):
-            return
+            return False
 
         lang = settings.notifications.notification_language
         display_name = common_name or species
@@ -108,7 +108,11 @@ class NotificationService:
 
         if tasks:
             log.info("Sending notifications", species=species, platforms=len(tasks), lang=lang)
-            await asyncio.gather(*tasks, return_exceptions=True)
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            # Consider it sent if at least one platform succeeded
+            return any(not isinstance(result, Exception) for result in results)
+
+        return False
 
     async def _send_discord(
         self,

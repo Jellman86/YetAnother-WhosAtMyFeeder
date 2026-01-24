@@ -36,7 +36,8 @@ async def test_detection_repository():
                 video_classification_status TEXT,
                 video_classification_error TEXT,
                 ai_analysis TEXT,
-                ai_analysis_timestamp TIMESTAMP
+                ai_analysis_timestamp TIMESTAMP,
+                notified_at TIMESTAMP
             )
         """)
         await db.commit()

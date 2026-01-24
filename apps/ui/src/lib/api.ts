@@ -164,6 +164,7 @@ export interface Settings {
     auth_has_password: boolean;
     auth_session_expiry_hours: number;
     auth_password?: string;
+    trusted_proxy_hosts?: string[];
 
     // Public access
     public_access_enabled: boolean;
