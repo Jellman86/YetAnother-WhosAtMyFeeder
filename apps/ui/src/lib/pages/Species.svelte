@@ -474,8 +474,8 @@
                                         <stop offset="100%" stop-color="#10b981" stop-opacity="0" />
                                     </linearGradient>
                                 </defs>
-                                <text x="6" y="12" font-size="8" fill="#94a3b8">Detections</text>
-                                <text x="260" y="116" font-size="8" fill="#94a3b8">Days</text>
+                                <text x="10" y="50" font-size="7" fill="#94a3b8" text-anchor="middle" transform="rotate(-90 10 50)">Detections</text>
+                                <text x="150" y="116" font-size="7" fill="#94a3b8" text-anchor="middle">Days</text>
                                 <path
                                     d={`${buildSparklinePath(timeline.daily.map((d) => d.count), 300, 100)} L300,100 L0,100 Z`}
                                     fill="url(#detectionsGradient)"
