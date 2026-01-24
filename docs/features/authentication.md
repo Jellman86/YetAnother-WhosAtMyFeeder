@@ -69,6 +69,43 @@ If you run YA-WAMF behind a reverse proxy (e.g., Nginx or Cloudflare Tunnel), yo
 - The default is permissive (trusts all proxies) for compatibility with existing installs.
 - For Docker setups, container DNS names (e.g., `nginx-rp`, `cloudflare-tunnel`) work when services share a network.
 
+## Recommended Proxy Topology (Split Routing)
+
+To avoid HTTPS warnings and simplify proxy trust, use a **single reverse proxy** (Nginx Proxy Manager, Caddy, Traefik, Cloudflare Tunnel, etc.) and **route API calls directly to the backend**:
+
+- `/` → `yawamf-frontend:80`
+- `/api/*` → `yawamf-backend:8000`
+
+This removes the extra proxy hop (frontend → backend) so YA-WAMF can trust only the actual reverse proxy.
+
+### Nginx Proxy Manager example
+
+Create a single proxy host (e.g. `yawamf.yourdomain`) and add **custom locations**:
+
+```
+/              -> yawamf-frontend:80
+/api/          -> yawamf-backend:8000
+/api/sse       -> yawamf-backend:8000
+/api/frigate/* -> yawamf-backend:8000
+```
+
+Advanced config (recommended for SSE and correct HTTPS detection):
+
+```
+proxy_set_header X-Real-IP $remote_addr;
+proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+proxy_set_header X-Forwarded-Host $host;
+proxy_set_header X-Forwarded-Proto $scheme;
+
+# SSE
+proxy_buffering off;
+proxy_cache off;
+proxy_read_timeout 86400s;
+proxy_send_timeout 86400s;
+```
+
+If you keep a multi-hop proxy (NPM → frontend → backend), you must also trust the frontend proxy in YA-WAMF.
+
 ## Technical Details
 
 - **Token Storage:** Authentication uses JWT (JSON Web Tokens) stored in your browser's Local Storage.

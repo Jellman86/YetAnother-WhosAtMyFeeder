@@ -69,6 +69,15 @@ Configure authentication and public access controls.
 - **Trusted Proxy Hosts:** If you run behind a reverse proxy, list its container names or IPs so client IPs are trusted correctly.
 - **Public Access:** Enable a guest view and set rate limits plus whether camera names are visible.
 
+### Recommended Reverse Proxy Routing
+
+For the cleanest HTTPS detection, route API traffic directly to the backend:
+
+- `/` → `yawamf-frontend:80`
+- `/api/*` → `yawamf-backend:8000`
+
+This avoids a multi-hop proxy chain and prevents HTTPS warnings caused by intermediate proxies.
+
 ## Data Management
 - **Retention Policy:** Choose how long to keep sightings in your history.
 - **Media Cache:** Toggle local caching of snapshots and video clips to reduce load on Frigate and speed up the UI.
