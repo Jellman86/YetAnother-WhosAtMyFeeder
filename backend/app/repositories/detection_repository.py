@@ -645,6 +645,7 @@ class DetectionRepository:
         query = """
             SELECT 
                 display_name,
+                SUM(CASE WHEN rollup_date >= date('now','-1 day') THEN detection_count ELSE 0 END) as count_1d,
                 SUM(CASE WHEN rollup_date >= date('now','-7 day') THEN detection_count ELSE 0 END) as count_7d,
                 SUM(CASE WHEN rollup_date >= date('now','-30 day') THEN detection_count ELSE 0 END) as count_30d,
                 SUM(CASE WHEN rollup_date >= date('now','-14 day') 
@@ -662,12 +663,13 @@ class DetectionRepository:
         metrics: dict[str, dict] = {}
         for row in rows:
             metrics[row[0]] = {
-                "count_7d": row[1] or 0,
-                "count_30d": row[2] or 0,
-                "count_prev_7d": row[3] or 0,
-                "days_seen_14d": row[4] or 0,
-                "days_seen_30d": row[5] or 0,
-                "last_seen_recent": _parse_datetime(row[6]) if row[6] else None
+                "count_1d": row[1] or 0,
+                "count_7d": row[2] or 0,
+                "count_30d": row[3] or 0,
+                "count_prev_7d": row[4] or 0,
+                "days_seen_14d": row[5] or 0,
+                "days_seen_30d": row[6] or 0,
+                "last_seen_recent": _parse_datetime(row[7]) if row[7] else None
             }
         return metrics
 
@@ -702,6 +704,7 @@ class DetectionRepository:
         placeholders = ",".join(["?"] * len(species))
         query = f"""
             SELECT 
+                SUM(CASE WHEN rollup_date >= date('now','-1 day') THEN detection_count ELSE 0 END) as count_1d,
                 SUM(CASE WHEN rollup_date >= date('now','-7 day') THEN detection_count ELSE 0 END) as count_7d,
                 SUM(CASE WHEN rollup_date >= date('now','-30 day') THEN detection_count ELSE 0 END) as count_30d,
                 SUM(CASE WHEN rollup_date >= date('now','-14 day') 
@@ -720,12 +723,13 @@ class DetectionRepository:
         if not row:
             return {}
         return {
-            "count_7d": row[0] or 0,
-            "count_30d": row[1] or 0,
-            "count_prev_7d": row[2] or 0,
-            "days_seen_14d": row[3] or 0,
-            "days_seen_30d": row[4] or 0,
-            "last_seen_recent": _parse_datetime(row[5]) if row[5] else None,
+            "count_1d": row[0] or 0,
+            "count_7d": row[1] or 0,
+            "count_30d": row[2] or 0,
+            "count_prev_7d": row[3] or 0,
+            "days_seen_14d": row[4] or 0,
+            "days_seen_30d": row[5] or 0,
+            "last_seen_recent": _parse_datetime(row[6]) if row[6] else None,
         }
 
     async def get_species_aggregate_for_labels(self, labels: list[str]) -> dict | None:

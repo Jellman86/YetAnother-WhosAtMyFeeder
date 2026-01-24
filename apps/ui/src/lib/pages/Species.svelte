@@ -9,7 +9,7 @@
     let species: SpeciesCount[] = $state([]);
     let loading = $state(true);
     let error = $state<string | null>(null);
-    let sortBy = $state<'count' | 'name'>('count');
+    let sortBy = $state<'day' | 'week' | 'month'>('week');
     let selectedSpecies = $state<string | null>(null);
     let timeline = $state<DetectionsTimeline | null>(null);
     let speciesInfoCache = $state<Record<string, SpeciesInfo>>({});
@@ -32,10 +32,12 @@
     // Derived sorted species
     let sortedSpecies = $derived(() => {
         const sorted = [...processedSpecies()];
-        if (sortBy === 'count') {
-            sorted.sort((a, b) => b.count - a.count);
+        if (sortBy === 'day') {
+            sorted.sort((a, b) => (b.count_1d || 0) - (a.count_1d || 0));
+        } else if (sortBy === 'week') {
+            sorted.sort((a, b) => (b.count_7d || 0) - (a.count_7d || 0));
         } else {
-            sorted.sort((a, b) => a.displayName.localeCompare(b.displayName));
+            sorted.sort((a, b) => (b.count_30d || 0) - (a.count_30d || 0));
         }
         return sorted;
     });
@@ -201,16 +203,22 @@
     <!-- Sort Toggle -->
     <div class="flex gap-2">
         <button
-            onclick={() => sortBy = 'count'}
-            class="tab-button {sortBy === 'count' ? 'tab-button-active' : 'tab-button-inactive'}"
+            onclick={() => sortBy = 'day'}
+            class="tab-button {sortBy === 'day' ? 'tab-button-active' : 'tab-button-inactive'}"
         >
-            {$_('leaderboard.sort_by_count')}
+            {$_('leaderboard.sort_by_day')}
         </button>
         <button
-            onclick={() => sortBy = 'name'}
-            class="tab-button {sortBy === 'name' ? 'tab-button-active' : 'tab-button-inactive'}"
+            onclick={() => sortBy = 'week'}
+            class="tab-button {sortBy === 'week' ? 'tab-button-active' : 'tab-button-inactive'}"
         >
-            {$_('leaderboard.sort_by_name')}
+            {$_('leaderboard.sort_by_week')}
+        </button>
+        <button
+            onclick={() => sortBy = 'month'}
+            class="tab-button {sortBy === 'month' ? 'tab-button-active' : 'tab-button-inactive'}"
+        >
+            {$_('leaderboard.sort_by_month')}
         </button>
     </div>
 

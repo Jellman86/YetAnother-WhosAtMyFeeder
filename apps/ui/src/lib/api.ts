@@ -64,6 +64,7 @@ export interface SpeciesCount {
     max_confidence?: number;
     min_confidence?: number;
     camera_count?: number;
+    count_1d?: number;
     count_7d?: number;
     count_30d?: number;
     days_seen_14d?: number;
