@@ -11,6 +11,7 @@ from app.config import settings
 from app.services.frigate_client import frigate_client
 from app.services.classifier_service import get_classifier
 from app.services.broadcaster import broadcaster
+from app.services.media_cache import media_cache
 from app.database import get_db
 from app.repositories.detection_repository import DetectionRepository
 
@@ -239,6 +240,7 @@ class AutoVideoClassifierService:
                 log.warning("Frigate event precheck failed", event_id=frigate_event, error=event_error)
                 await self._update_status(frigate_event, 'failed', error=event_error, broadcast=True)
                 self._record_failure(frigate_event)
+                await self._auto_delete_if_missing(frigate_event, event_error)
                 await broadcaster.broadcast({
                     "type": "reclassification_completed",
                     "data": { "event_id": frigate_event, "results": [] }
@@ -251,6 +253,7 @@ class AutoVideoClassifierService:
                 log.warning("Clip not available after retries", event_id=frigate_event)
                 await self._update_status(frigate_event, 'failed', error=clip_error or "clip_unavailable", broadcast=True)
                 self._record_failure(frigate_event)
+                await self._auto_delete_if_missing(frigate_event, clip_error or "clip_unavailable")
                 await broadcaster.broadcast({
                     "type": "reclassification_completed",
                     "data": { "event_id": frigate_event, "results": [] }
@@ -331,6 +334,7 @@ class AutoVideoClassifierService:
             log.error("Video classification failed", event_id=frigate_event, error=str(e))
             await self._update_status(frigate_event, 'failed', error="video_exception", broadcast=True)
             self._record_failure(frigate_event)
+            await self._auto_delete_if_missing(frigate_event, "video_exception")
             await broadcaster.broadcast({
                 "type": "reclassification_completed",
                 "data": { "event_id": frigate_event, "results": [] }
@@ -392,6 +396,40 @@ class AutoVideoClassifierService:
                     os.remove(tmp_path)
                 except Exception:
                     pass
+
+    async def _auto_delete_if_missing(self, frigate_event: str, error: str):
+        """Auto-delete detection when clip/event is missing (if enabled)."""
+        if not settings.maintenance.auto_delete_missing_clips:
+            return
+
+        missing_errors = {
+            "event_not_found",
+            "clip_unavailable",
+            "clip_invalid",
+            "clip_decode_failed",
+            "video_exception",
+        }
+        if error not in missing_errors:
+            return
+
+        try:
+            await media_cache.delete_cached_media(frigate_event)
+            async with get_db() as db:
+                repo = DetectionRepository(db)
+                deleted = await repo.delete_by_frigate_event(frigate_event)
+            if deleted:
+                await broadcaster.broadcast({
+                    "type": "detection_deleted",
+                    "data": {
+                        "frigate_event": frigate_event,
+                        "timestamp": datetime.utcnow().isoformat()
+                    }
+                })
+                log.info("Auto-deleted detection due to missing clip/event",
+                         event_id=frigate_event, error=error)
+        except Exception as e:
+            log.error("Failed to auto-delete missing clip detection",
+                      event_id=frigate_event, error=str(e))
 
     async def _update_status(self, frigate_event: str, status: str, error: Optional[str] = None, broadcast: bool = False):
         """Update video classification status in DB."""

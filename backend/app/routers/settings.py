@@ -220,6 +220,7 @@ class SettingsUpdate(BaseModel):
     classification_min_confidence: float = Field(0.4, ge=0.0, le=1.0, description="Minimum confidence floor (0-1)")
     cameras: List[str] = Field(default_factory=list, description="List of cameras to monitor")
     retention_days: int = Field(0, ge=0, description="Days to keep detections (0 = unlimited)")
+    auto_delete_missing_clips: bool = Field(False, description="Auto-delete detections when event/clip is missing")
     blocked_labels: List[str] = Field(default_factory=list, description="Labels to filter out from detections")
     trust_frigate_sublabel: bool = Field(True, description="Trust Frigate sublabels when available")
     display_common_names: bool = Field(True, description="Display common names instead of scientific")
@@ -388,6 +389,7 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "classification_min_confidence": settings.classification.min_confidence,
         "cameras": settings.frigate.camera,
         "retention_days": settings.maintenance.retention_days,
+        "auto_delete_missing_clips": settings.maintenance.auto_delete_missing_clips,
         "blocked_labels": settings.classification.blocked_labels,
         "trust_frigate_sublabel": settings.classification.trust_frigate_sublabel,
         "display_common_names": settings.classification.display_common_names,
@@ -511,6 +513,7 @@ async def update_settings(
     settings.classification.threshold = update.classification_threshold
     settings.classification.min_confidence = update.classification_min_confidence
     settings.maintenance.retention_days = update.retention_days
+    settings.maintenance.auto_delete_missing_clips = update.auto_delete_missing_clips
     settings.classification.blocked_labels = update.blocked_labels
     settings.classification.trust_frigate_sublabel = update.trust_frigate_sublabel
     settings.classification.display_common_names = update.display_common_names

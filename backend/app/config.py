@@ -85,6 +85,10 @@ class ClassificationSettings(BaseModel):
 class MaintenanceSettings(BaseModel):
     retention_days: int = Field(default=0, ge=0, description="Days to keep detections (0 = unlimited)")
     cleanup_enabled: bool = Field(default=True, description="Enable automatic cleanup")
+    auto_delete_missing_clips: bool = Field(
+        default=False,
+        description="Auto-delete detections when the Frigate event/clip is missing"
+    )
 
 
 class MediaCacheSettings(BaseModel):
@@ -288,6 +292,7 @@ class Settings(BaseSettings):
         maintenance_data = {
             'retention_days': int(os.environ.get('MAINTENANCE__RETENTION_DAYS', '0')),
             'cleanup_enabled': os.environ.get('MAINTENANCE__CLEANUP_ENABLED', 'true').lower() == 'true',
+            'auto_delete_missing_clips': os.environ.get('MAINTENANCE__AUTO_DELETE_MISSING_CLIPS', 'false').lower() == 'true',
         }
 
         # Classification settings (loaded from file and selected env vars)
