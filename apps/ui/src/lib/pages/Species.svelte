@@ -170,8 +170,17 @@
         return `${trimmed.slice(0, 217)}...`;
     }
 
+    function getHeroSource(info: SpeciesInfo | null): { label: string; url: string } | null {
+        if (!info) return null;
+        if (info.wikipedia_url) return { label: 'Wikipedia', url: info.wikipedia_url };
+        if (info.summary_source_url) return { label: 'iNaturalist', url: info.summary_source_url };
+        if (info.source_url) return { label: 'iNaturalist', url: info.source_url };
+        return null;
+    }
+
     let heroInfo = $derived(topByCount ? speciesInfoCache[topByCount.species] : null);
     let heroBlurb = $derived(getHeroBlurb(heroInfo()));
+    let heroSource = $derived(getHeroSource(heroInfo()));
     let streakInfo = $derived(topByStreak ? speciesInfoCache[topByStreak.species] : null);
     let activeInfo = $derived(topBy7d ? speciesInfoCache[topBy7d.species] : null);
     let risingInfo = $derived(topByTrend ? speciesInfoCache[topByTrend.species] : null);
@@ -334,6 +343,19 @@
                                 <p class="text-sm text-slate-600 dark:text-slate-300 mt-3 max-w-xl">
                                     {heroBlurb()}
                                 </p>
+                                {#if heroSource()}
+                                    <a
+                                        href={heroSource()!.url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        class="inline-flex items-center gap-2 text-xs font-semibold text-emerald-700 dark:text-emerald-300 hover:text-emerald-600 dark:hover:text-emerald-200 mt-2"
+                                    >
+                                        Read more on {heroSource()!.label}
+                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 3h7v7m0-7L10 14m-1 7h11a2 2 0 002-2V9" />
+                                        </svg>
+                                    </a>
+                                {/if}
                             {/if}
                         </div>
                         <button
