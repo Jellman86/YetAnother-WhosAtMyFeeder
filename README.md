@@ -21,6 +21,12 @@ A personal project built with AI-assisted coding, inspired by the original [Whos
 
 Built with help from AI coding assistants as an experiment in what's possible with modern development tools. Feedback and contributions are welcome!
 
+## Live Instance
+
+A public instance of YA-WAMF is available here:
+
+- **https://yetanotherwhosatmyfeeder.pownet.uk**
+
 ## What It Does
 
 When Frigate detects a bird at your feeder, YA-WAMF:

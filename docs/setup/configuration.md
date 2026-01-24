@@ -45,7 +45,7 @@ Configure third-party services.
 
 - **BirdNET-Go:** Configure the MQTT topic and map Frigate cameras to audio sensor IDs.
 - **BirdWeather:** Enter your Station Token to contribute detections to the BirdWeather community.
-- **AI Insights:** Connect Google Gemini (default: `gemini-2.0-flash-exp`), OpenAI, or Claude to get behavioral analysis of your visitors.
+- **AI Insights:** Connect Google Gemini (default: `gemini-3-flash-preview`), OpenAI, or Claude to get behavioral analysis of your visitors.
 
 ## Notification Settings
 Configure how and where alerts are sent.
@@ -61,6 +61,13 @@ Customize the UI experience for comfort and assistive technologies.
 - **High Contrast / Dyslexia Font / Reduced Motion:** Adjust UI readability.
 - **Live Announcements:** Toggle screen reader announcements for new detections.
 - **UI Language:** Set the interface language (also used for notifications).
+
+## Security & Access
+Configure authentication and public access controls.
+
+- **Authentication:** Enable login, set username/password, and configure session expiry.
+- **Trusted Proxy Hosts:** If you run behind a reverse proxy, list its container names or IPs so client IPs are trusted correctly.
+- **Public Access:** Enable a guest view and set rate limits plus whether camera names are visible.
 
 ## Data Management
 - **Retention Policy:** Choose how long to keep sightings in your history.
