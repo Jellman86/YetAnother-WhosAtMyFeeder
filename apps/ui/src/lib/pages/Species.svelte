@@ -240,7 +240,7 @@
             <div class="xl:col-span-2 card-base rounded-3xl p-6 md:p-8 relative overflow-hidden">
                 {#if heroInfo?.thumbnail_url}
                     <div
-                        class="absolute inset-0 bg-center bg-cover blur-xl scale-105 opacity-35 dark:opacity-25"
+                        class="absolute inset-0 bg-center bg-cover blur-lg scale-100 opacity-30 dark:opacity-22"
                         style={`background-image: url('${heroInfo.thumbnail_url}');`}
                     ></div>
                 {/if}
@@ -314,7 +314,13 @@
             </div>
 
             <div class="space-y-3">
-                <div class="card-base rounded-2xl p-4">
+                <div class="card-base rounded-2xl p-4 relative overflow-hidden">
+                    {#if activeInfo?.thumbnail_url}
+                        <div
+                            class="absolute inset-0 bg-center bg-cover blur-lg scale-105 opacity-25 dark:opacity-20"
+                            style={`background-image: url('${activeInfo.thumbnail_url}');`}
+                        ></div>
+                    {/if}
                     <p class="text-[10px] uppercase tracking-widest text-slate-400">{$_('leaderboard.most_active')}</p>
                     <div class="flex items-center gap-3 mt-2">
                         {#if activeInfo?.thumbnail_url}
@@ -326,13 +332,19 @@
                         {:else}
                             <div class="w-10 h-10 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-lg">🐦</div>
                         {/if}
-                        <div>
+                        <div class="relative">
                             <p class="text-lg font-black text-slate-900 dark:text-white">{topBy7d?.displayName || '—'}</p>
                             <p class="text-xs text-slate-500">{$_('leaderboard.last_7_days')}: {(topBy7d?.count_7d || 0).toLocaleString()}</p>
                         </div>
                     </div>
                 </div>
-                <div class="card-base rounded-2xl p-4">
+                <div class="card-base rounded-2xl p-4 relative overflow-hidden">
+                    {#if streakInfo?.thumbnail_url}
+                        <div
+                            class="absolute inset-0 bg-center bg-cover blur-lg scale-105 opacity-25 dark:opacity-20"
+                            style={`background-image: url('${streakInfo.thumbnail_url}');`}
+                        ></div>
+                    {/if}
                     <p class="text-[10px] uppercase tracking-widest text-slate-400">{$_('leaderboard.longest_streak')}</p>
                     <div class="flex items-center gap-3 mt-2">
                         {#if streakInfo?.thumbnail_url}
@@ -344,13 +356,19 @@
                         {:else}
                             <div class="w-10 h-10 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-lg">🐦</div>
                         {/if}
-                        <div>
+                        <div class="relative">
                             <p class="text-lg font-black text-slate-900 dark:text-white">{topByStreak?.displayName || '—'}</p>
                             <p class="text-xs text-slate-500">{$_('leaderboard.streak_14d')}: {topByStreak?.days_seen_14d || 0} {$_('leaderboard.days')}</p>
                         </div>
                     </div>
                 </div>
-                <div class="card-base rounded-2xl p-4">
+                <div class="card-base rounded-2xl p-4 relative overflow-hidden">
+                    {#if risingInfo?.thumbnail_url}
+                        <div
+                            class="absolute inset-0 bg-center bg-cover blur-lg scale-105 opacity-25 dark:opacity-20"
+                            style={`background-image: url('${risingInfo.thumbnail_url}');`}
+                        ></div>
+                    {/if}
                     <p class="text-[10px] uppercase tracking-widest text-slate-400">{$_('leaderboard.rising')}</p>
                     <div class="flex items-center gap-3 mt-2">
                         {#if risingInfo?.thumbnail_url}
@@ -362,13 +380,19 @@
                         {:else}
                             <div class="w-10 h-10 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-lg">🐦</div>
                         {/if}
-                        <div>
+                        <div class="relative">
                             <p class="text-lg font-black text-slate-900 dark:text-white">{topByTrend?.displayName || '—'}</p>
                             <p class="text-xs text-slate-500">{$_('leaderboard.trend')}: {formatTrend(topByTrend?.trend_delta, topByTrend?.trend_percent)}</p>
                         </div>
                     </div>
                 </div>
-                <div class="card-base rounded-2xl p-4">
+                <div class="card-base rounded-2xl p-4 relative overflow-hidden">
+                    {#if recentInfo?.thumbnail_url}
+                        <div
+                            class="absolute inset-0 bg-center bg-cover blur-lg scale-105 opacity-25 dark:opacity-20"
+                            style={`background-image: url('${recentInfo.thumbnail_url}');`}
+                        ></div>
+                    {/if}
                     <p class="text-[10px] uppercase tracking-widest text-slate-400">{$_('leaderboard.most_recent')}</p>
                     <div class="flex items-center gap-3 mt-2">
                         {#if recentInfo?.thumbnail_url}
@@ -380,7 +404,7 @@
                         {:else}
                             <div class="w-10 h-10 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-lg">🐦</div>
                         {/if}
-                        <div>
+                        <div class="relative">
                             <p class="text-lg font-black text-slate-900 dark:text-white">{mostRecent?.displayName || '—'}</p>
                             <p class="text-xs text-slate-500">{formatDate(mostRecent?.last_seen)}</p>
                         </div>
@@ -408,23 +432,25 @@
                     </div>
                 </div>
 
-                <div class="mt-6 h-28 w-full">
+                <div class="mt-6 h-36 w-full">
                     {#if timeline?.daily?.length}
                         {#key timeline.total_count}
-                            <svg viewBox="0 0 300 100" class="w-full h-full">
+                            <svg viewBox="0 0 300 120" class="w-full h-full">
                                 <defs>
                                     <linearGradient id="detectionsGradient" x1="0" y1="0" x2="0" y2="1">
                                         <stop offset="0%" stop-color="#10b981" stop-opacity="0.45" />
                                         <stop offset="100%" stop-color="#10b981" stop-opacity="0" />
                                     </linearGradient>
                                 </defs>
+                                <text x="6" y="12" font-size="8" fill="#94a3b8">Detections</text>
+                                <text x="260" y="116" font-size="8" fill="#94a3b8">Days</text>
                                 <path
-                                    d={`${buildSparklinePath(timeline.daily.map((d) => d.count))} L300,100 L0,100 Z`}
+                                    d={`${buildSparklinePath(timeline.daily.map((d) => d.count), 300, 100)} L300,100 L0,100 Z`}
                                     fill="url(#detectionsGradient)"
                                     stroke="none"
                                 />
                                 <path
-                                    d={buildSparklinePath(timeline.daily.map((d) => d.count))}
+                                    d={buildSparklinePath(timeline.daily.map((d) => d.count), 300, 100)}
                                     fill="none"
                                     stroke="#10b981"
                                     stroke-width="2.5"
@@ -432,6 +458,8 @@
                                 />
                                 <line x1="0" y1="100" x2="300" y2="100" stroke="#94a3b8" stroke-width="1" opacity="0.3" />
                                 <line x1="0" y1="0" x2="0" y2="100" stroke="#94a3b8" stroke-width="1" opacity="0.3" />
+                                <text x="4" y="106" font-size="7" fill="#94a3b8">0</text>
+                                <text x="4" y="16" font-size="7" fill="#94a3b8">{timelineMax.toLocaleString()}</text>
                             </svg>
                         {/key}
                     {:else}
@@ -439,13 +467,16 @@
                     {/if}
                 </div>
 
-                <div class="mt-2 flex items-center justify-between text-[10px] uppercase tracking-widest text-slate-400">
+                <div class="mt-3 flex items-center justify-between text-[10px] uppercase tracking-widest text-slate-400">
                     <span>{timeline?.daily?.[0]?.date || '—'}</span>
                     <span>{timeline?.daily?.[timeline.daily.length - 1]?.date || '—'}</span>
                 </div>
-                <div class="mt-1 flex items-center justify-between text-[10px] font-semibold text-slate-500">
-                    <span>0</span>
-                    <span>{timelineMax.toLocaleString()}</span>
+                <div class="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
+                    <span>30-day total: {timeline?.total_count?.toLocaleString() || '0'}</span>
+                    <span>•</span>
+                    <span>Peak day: {timelineMax.toLocaleString()}</span>
+                    <span>•</span>
+                    <span>Avg/day: {timeline?.daily?.length ? Math.round((timeline?.total_count || 0) / timeline.daily.length).toLocaleString() : '0'}</span>
                 </div>
             </div>
         </div>
