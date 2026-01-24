@@ -173,7 +173,8 @@
     let chartOptions = $derived(() => ({
         chart: {
             type: 'area',
-            height: '100%',
+            height: 260,
+            width: '100%',
             toolbar: { show: false },
             zoom: { enabled: false },
             animations: { enabled: true, easing: 'easeinout', speed: 500 }
@@ -497,7 +498,7 @@
                 <div class="mt-6 w-full flex-1 min-h-[140px] max-h-[220px]">
                     {#if timeline?.daily?.length}
                         {#key timeline.total_count}
-                            <div use:chart={chartOptions()} class="w-full h-full"></div>
+                            <div use:chart={chartOptions()} class="w-full h-[260px]"></div>
                         {/key}
                     {:else}
                         <div class="h-full w-full rounded-2xl bg-slate-100 dark:bg-slate-800/60 animate-pulse"></div>
