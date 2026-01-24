@@ -3,6 +3,7 @@
 from fastapi import APIRouter, HTTPException, status, Depends, Request
 from pydantic import BaseModel, Field, field_validator
 from typing import Optional
+from datetime import datetime
 import structlog
 import secrets
 import re
@@ -188,6 +189,21 @@ async def get_auth_status(request: Request):
 
     # Check if using HTTP with auth enabled (security warning)
     https_warning = settings.auth.enabled and request.url.scheme != "https"
+    if https_warning:
+        now = datetime.now()
+        last_logged = getattr(request.app.state, "_last_https_warning_detail", None)
+        if not last_logged or (now - last_logged).total_seconds() > 60:
+            request.app.state._last_https_warning_detail = now
+            log.warning(
+                "Auth over HTTP detected",
+                scheme=request.url.scheme,
+                x_forwarded_proto=request.headers.get("x-forwarded-proto"),
+                x_forwarded_for=request.headers.get("x-forwarded-for"),
+                x_forwarded_host=request.headers.get("x-forwarded-host"),
+                host=request.headers.get("host"),
+                client=request.client.host if request.client else None,
+                trusted_proxy_hosts=settings.system.trusted_proxy_hosts
+            )
 
     return AuthStatusResponse(
         auth_required=settings.auth.enabled,
