@@ -17,6 +17,7 @@ class AuthStore {
     token = $state(getAuthToken());
     httpsWarning = $state(false);
     forceLogin = $state(false);
+    birdnetEnabled = $state(false);
 
     // Derived permission states
     canModify = $derived(this.isAuthenticated || !this.authRequired);
@@ -44,6 +45,7 @@ class AuthStore {
             this.isAuthenticated = status.is_authenticated;
             this.username = status.username ?? null;
             this.httpsWarning = status.https_warning ?? false;
+            this.birdnetEnabled = status.birdnet_enabled ?? false;
         } catch (err) {
             console.error('Failed to load auth status', err);
         } finally {

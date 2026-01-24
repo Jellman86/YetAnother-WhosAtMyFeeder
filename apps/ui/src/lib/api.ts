@@ -41,6 +41,7 @@ export interface AuthStatus {
     auth_required: boolean;
     public_access_enabled: boolean;
     is_authenticated: boolean;
+    birdnet_enabled?: boolean;
     username?: string | null;
     needs_initial_setup: boolean;
     https_warning?: boolean;

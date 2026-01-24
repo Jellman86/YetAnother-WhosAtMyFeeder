@@ -16,6 +16,7 @@
     import type { Detection, DailySummary } from '../api';
     import { getThumbnailUrl, deleteDetection, hideDetection, updateDetectionSpecies, analyzeDetection, fetchDailySummary, fetchClassifierLabels, reclassifyDetection } from '../api';
     import { settingsStore } from '../stores/settings.svelte';
+    import { authStore } from '../stores/auth.svelte';
     import { _ } from 'svelte-i18n';
 
     import { getBirdNames } from '../naming';
@@ -41,6 +42,10 @@
         showCommon = settingsStore.settings?.display_common_names ?? true;
         preferSci = settingsStore.settings?.scientific_name_primary ?? false;
     });
+
+    const birdnetEnabled = $derived(
+        settingsStore.settings?.birdnet_enabled ?? authStore.birdnetEnabled ?? false
+    );
 
     // AI Analysis state
     let analyzingAI = $state(false);
@@ -255,7 +260,7 @@
                     <DailyHistogram data={summary.hourly_distribution} />
                 </div>
             {/if}
-            {#if settingsStore.settings?.birdnet_enabled}
+            {#if birdnetEnabled}
                 <div in:fade={{ duration: 800, delay: 200 }} class="flex-1 min-h-[300px]">
                     <RecentAudio />
                 </div>
