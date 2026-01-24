@@ -44,6 +44,15 @@ Open your browser to `http://<your-ip>:9852`. You should see the dashboard! Once
 
 ![Events List](../images/frontend_events.png)
 
+### 5. (Optional) Enable Guest Mode
+If you want to share a read‑only public view:
+
+1. Go to **Settings > Authentication** and set a password.
+2. Enable **Public Access**.
+3. Configure rate limits and whether camera names are visible.
+
+See [Authentication & Access](../features/authentication.md) for the full guest mode checklist and proxy guidance.
+
 ## 🌍 The Importance of Timezone (`TZ`)
 Setting your correct local timezone is **critical** for YA-WAMF to function correctly. Ensure `TZ` is set in your `.env` (e.g., `TZ=Europe/London`).
 
