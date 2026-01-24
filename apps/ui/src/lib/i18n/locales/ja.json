@@ -395,6 +395,7 @@
     "total_sightings": "総検出数",
     "last_30_days": "過去30日",
     "last_7_days": "過去7日",
+    "detections_over_time": "検出の推移",
     "last_seen": "最終検出",
     "trend": "トレンド",
     "streak_14d": "14日連続",

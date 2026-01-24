@@ -6,6 +6,7 @@ from typing import Optional
 from datetime import datetime
 import structlog
 import secrets
+import os
 import re
 
 from app.auth import (
@@ -186,6 +187,24 @@ async def get_auth_status(request: Request):
                 username = "legacy_api_key"
 
     needs_setup = settings.auth.enabled and settings.auth.password_hash is None
+
+    # Optional proxy header debug logging (rate-limited)
+    if os.getenv("DEBUG_PROXY_HEADERS", "").lower() == "true":
+        now = datetime.now()
+        last_logged = getattr(request.app.state, "_last_proxy_debug_detail", None)
+        if not last_logged or (now - last_logged).total_seconds() > 60:
+            request.app.state._last_proxy_debug_detail = now
+            log.info(
+                "Proxy header debug",
+                scheme=request.url.scheme,
+                x_forwarded_proto=request.headers.get("x-forwarded-proto"),
+                x_forwarded_for=request.headers.get("x-forwarded-for"),
+                x_forwarded_host=request.headers.get("x-forwarded-host"),
+                cf_visitor=request.headers.get("cf-visitor"),
+                host=request.headers.get("host"),
+                client=request.client.host if request.client else None,
+                trusted_proxy_hosts=settings.system.trusted_proxy_hosts
+            )
 
     # Check if using HTTP with auth enabled (security warning)
     https_warning = settings.auth.enabled and request.url.scheme != "https"

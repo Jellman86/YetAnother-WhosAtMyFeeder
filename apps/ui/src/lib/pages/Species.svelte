@@ -1,6 +1,6 @@
 <script lang="ts">
     import { onMount } from 'svelte';
-    import { fetchSpecies, type SpeciesCount } from '../api';
+    import { fetchDetectionsTimeline, fetchSpecies, fetchSpeciesInfo, type DetectionsTimeline, type SpeciesCount, type SpeciesInfo } from '../api';
     import SpeciesDetailModal from '../components/SpeciesDetailModal.svelte';
     import { settingsStore } from '../stores/settings.svelte';
     import { getBirdNames } from '../naming';
@@ -11,6 +11,8 @@
     let error = $state<string | null>(null);
     let sortBy = $state<'count' | 'name'>('count');
     let selectedSpecies = $state<string | null>(null);
+    let timeline = $state<DetectionsTimeline | null>(null);
+    let speciesInfoCache = $state<Record<string, SpeciesInfo>>({});
 
     // Derived processed species with naming logic
     let processedSpecies = $derived(() => {
@@ -56,6 +58,7 @@
 
     onMount(async () => {
         await loadSpecies();
+        await loadTimeline();
     });
 
     async function loadSpecies() {
@@ -69,6 +72,35 @@
             loading = false;
         }
     }
+
+    async function loadTimeline() {
+        try {
+            timeline = await fetchDetectionsTimeline(30);
+        } catch {
+            timeline = null;
+        }
+    }
+
+    async function loadSpeciesInfo(speciesName: string) {
+        if (!speciesName || speciesName === "Unknown Bird" || speciesInfoCache[speciesName]) {
+            return;
+        }
+        try {
+            const info = await fetchSpeciesInfo(speciesName);
+            speciesInfoCache = { ...speciesInfoCache, [speciesName]: info };
+        } catch {
+            // ignore fetch errors
+        }
+    }
+
+    $effect(() => {
+        if (topByCount?.species) {
+            void loadSpeciesInfo(topByCount.species);
+        }
+        if (topByStreak?.species) {
+            void loadSpeciesInfo(topByStreak.species);
+        }
+    });
 
     function getBarColor(index: number): string {
         const colors = [
@@ -109,6 +141,25 @@
         }
         return `${delta > 0 ? '+' : ''}${delta} (${percent.toFixed(1)}%)`;
     }
+
+    function buildSparklinePath(points: number[], width = 300, height = 100): string {
+        if (!points.length) return '';
+        const max = Math.max(...points, 1);
+        const min = Math.min(...points, 0);
+        const range = Math.max(max - min, 1);
+        const step = width / Math.max(points.length - 1, 1);
+        return points
+            .map((value, idx) => {
+                const x = idx * step;
+                const normalized = (value - min) / range;
+                const y = height - normalized * height;
+                return `${idx === 0 ? 'M' : 'L'}${x.toFixed(2)},${y.toFixed(2)}`;
+            })
+            .join(' ');
+    }
+
+    let heroInfo = $derived(topByCount ? speciesInfoCache[topByCount.species] : null);
+    let streakInfo = $derived(topByStreak ? speciesInfoCache[topByStreak.species] : null);
 </script>
 
 <div class="space-y-6">
@@ -172,6 +223,12 @@
     {:else}
         <div class="grid grid-cols-1 xl:grid-cols-3 gap-4">
             <div class="xl:col-span-2 card-base rounded-3xl p-6 md:p-8 relative overflow-hidden">
+                {#if heroInfo?.thumbnail_url}
+                    <div
+                        class="absolute inset-0 bg-center bg-cover blur-2xl scale-110 opacity-35 dark:opacity-25"
+                        style={`background-image: url('${heroInfo.thumbnail_url}');`}
+                    ></div>
+                {/if}
                 <div class="absolute inset-0 bg-gradient-to-br from-emerald-50 via-transparent to-teal-50 dark:from-emerald-950/30 dark:to-teal-900/20 pointer-events-none"></div>
                 <div class="relative space-y-6">
                     <div class="flex items-start justify-between gap-4">
@@ -249,8 +306,21 @@
                 </div>
                 <div class="card-base rounded-2xl p-4">
                     <p class="text-[10px] uppercase tracking-widest text-slate-400">{$_('leaderboard.longest_streak')}</p>
-                    <p class="text-lg font-black text-slate-900 dark:text-white">{topByStreak?.displayName || '—'}</p>
-                    <p class="text-xs text-slate-500">{$_('leaderboard.streak_14d')}: {topByStreak?.days_seen_14d || 0} {$_('leaderboard.days')}</p>
+                    <div class="flex items-center gap-3 mt-2">
+                        {#if streakInfo?.thumbnail_url}
+                            <img
+                                src={streakInfo.thumbnail_url}
+                                alt={topByStreak?.displayName || 'Species'}
+                                class="w-10 h-10 rounded-2xl object-cover shadow-md border border-white/70"
+                            />
+                        {:else}
+                            <div class="w-10 h-10 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-lg">🐦</div>
+                        {/if}
+                        <div>
+                            <p class="text-lg font-black text-slate-900 dark:text-white">{topByStreak?.displayName || '—'}</p>
+                            <p class="text-xs text-slate-500">{$_('leaderboard.streak_14d')}: {topByStreak?.days_seen_14d || 0} {$_('leaderboard.days')}</p>
+                        </div>
+                    </div>
                 </div>
                 <div class="card-base rounded-2xl p-4">
                     <p class="text-[10px] uppercase tracking-widest text-slate-400">{$_('leaderboard.rising')}</p>
@@ -261,6 +331,56 @@
                     <p class="text-[10px] uppercase tracking-widest text-slate-400">{$_('leaderboard.most_recent')}</p>
                     <p class="text-lg font-black text-slate-900 dark:text-white">{mostRecent?.displayName || '—'}</p>
                     <p class="text-xs text-slate-500">{formatDate(mostRecent?.last_seen)}</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="card-base rounded-3xl p-6 md:p-8 relative overflow-hidden">
+            {#if heroInfo?.thumbnail_url}
+                <div
+                    class="absolute inset-0 bg-center bg-cover blur-3xl scale-110 opacity-20 dark:opacity-15"
+                    style={`background-image: url('${heroInfo.thumbnail_url}');`}
+                ></div>
+            {/if}
+            <div class="absolute inset-0 bg-gradient-to-br from-slate-50 via-transparent to-emerald-50 dark:from-slate-900/50 dark:to-emerald-900/20 pointer-events-none"></div>
+            <div class="relative">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                        <p class="text-[10px] uppercase tracking-[0.3em] font-black text-slate-500 dark:text-slate-300">{$_('leaderboard.last_30_days')}</p>
+                        <h3 class="text-xl md:text-2xl font-black text-slate-900 dark:text-white">{$_('leaderboard.detections_over_time')}</h3>
+                    </div>
+                    <div class="text-sm font-semibold text-slate-500 dark:text-slate-400">
+                        {$_('leaderboard.detections_count', { values: { count: timeline?.total_count?.toLocaleString() || '0' } })}
+                    </div>
+                </div>
+
+                <div class="mt-6 h-28 w-full">
+                    {#if timeline?.daily?.length}
+                        {#key timeline.total_count}
+                            <svg viewBox="0 0 300 100" class="w-full h-full">
+                                <defs>
+                                    <linearGradient id="detectionsGradient" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="0%" stop-color="#10b981" stop-opacity="0.45" />
+                                        <stop offset="100%" stop-color="#10b981" stop-opacity="0" />
+                                    </linearGradient>
+                                </defs>
+                                <path
+                                    d={`${buildSparklinePath(timeline.daily.map((d) => d.count))} L300,100 L0,100 Z`}
+                                    fill="url(#detectionsGradient)"
+                                    stroke="none"
+                                />
+                                <path
+                                    d={buildSparklinePath(timeline.daily.map((d) => d.count))}
+                                    fill="none"
+                                    stroke="#10b981"
+                                    stroke-width="2.5"
+                                    stroke-linecap="round"
+                                />
+                            </svg>
+                        {/key}
+                    {:else}
+                        <div class="h-full w-full rounded-2xl bg-slate-100 dark:bg-slate-800/60 animate-pulse"></div>
+                    {/if}
                 </div>
             </div>
         </div>

@@ -28,6 +28,15 @@ class DailySummaryResponse(BaseModel):
     latest_detection: Optional[DetectionResponse]
     total_count: int
 
+class DailyCount(BaseModel):
+    date: str
+    count: int
+
+class DetectionsTimelineResponse(BaseModel):
+    days: int
+    total_count: int
+    daily: List[DailyCount]
+
 @router.get("/stats/daily-summary", response_model=DailySummaryResponse)
 @guest_rate_limit()
 async def get_daily_summary(
@@ -137,4 +146,23 @@ async def get_daily_summary(
             top_species=summary_species,
             latest_detection=latest_detection,
             total_count=total_today
+        )
+
+@router.get("/stats/detections/daily", response_model=DetectionsTimelineResponse)
+@guest_rate_limit()
+async def get_detection_timeline(days: int = 30):
+    """Get total detections per day for the last N days (inclusive)."""
+    if days < 1 or days > 365:
+        days = 30
+
+    async with get_db() as db:
+        repo = DetectionRepository(db)
+        await repo.ensure_recent_rollups(max(days, 90))
+        daily = await repo.get_total_daily_counts(days=days)
+        total = sum(item["count"] for item in daily)
+
+        return DetectionsTimelineResponse(
+            days=days,
+            total_count=total,
+            daily=[DailyCount(**item) for item in daily]
         )

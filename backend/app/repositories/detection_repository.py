@@ -671,6 +671,30 @@ class DetectionRepository:
             }
         return metrics
 
+    async def get_total_daily_counts(self, days: int = 30) -> list[dict]:
+        """Get total detection counts per day for the last N days (inclusive)."""
+        if days <= 0:
+            return []
+        query = """
+            SELECT rollup_date, SUM(detection_count) as total_count
+            FROM species_daily_rollup
+            WHERE rollup_date >= date('now', ?)
+            GROUP BY rollup_date
+            ORDER BY rollup_date ASC
+        """
+        window = f"-{days - 1} day"
+        async with self.db.execute(query, (window,)) as cursor:
+            rows = await cursor.fetchall()
+
+        counts_by_date = {row[0]: row[1] or 0 for row in rows}
+        start_date = datetime.utcnow().date() - timedelta(days=days - 1)
+        results: list[dict] = []
+        for i in range(days):
+            day = start_date + timedelta(days=i)
+            key = day.strftime("%Y-%m-%d")
+            results.append({"date": key, "count": counts_by_date.get(key, 0)})
+        return results
+
     async def get_rollup_metrics_for_species(self, species: list[str], lookback_days: int = 30) -> dict:
         """Aggregate rollup metrics for a set of species as a single group."""
         if not species:

@@ -721,6 +721,17 @@ export interface SpeciesInfo {
     cached_at: string | null;
 }
 
+export interface DailyDetectionCount {
+    date: string;
+    count: number;
+}
+
+export interface DetectionsTimeline {
+    days: number;
+    total_count: number;
+    daily: DailyDetectionCount[];
+}
+
 export async function fetchSpeciesStats(speciesName: string): Promise<SpeciesStats> {
     const response = await apiFetch(`${API_BASE}/species/${encodeURIComponent(speciesName)}/stats`);
     return handleResponse<SpeciesStats>(response);
@@ -729,6 +740,11 @@ export async function fetchSpeciesStats(speciesName: string): Promise<SpeciesSta
 export async function fetchSpeciesInfo(speciesName: string): Promise<SpeciesInfo> {
     const response = await apiFetch(`${API_BASE}/species/${encodeURIComponent(speciesName)}/info`);
     return handleResponse<SpeciesInfo>(response);
+}
+
+export async function fetchDetectionsTimeline(days = 30): Promise<DetectionsTimeline> {
+    const response = await apiFetch(`${API_BASE}/stats/detections/daily?days=${days}`);
+    return handleResponse<DetectionsTimeline>(response);
 }
 
 // Reclassify and manual tagging types and functions
