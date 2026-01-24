@@ -14,6 +14,7 @@ A bird classification system that integrates with [Frigate NVR](https://frigate.
 - **Home Assistant Integration** - Sensors, automation, and dashboard cards
 - **BirdWeather Reporting** - Contribute to community science
 - **Real-time Dashboard** - Live updates, video playback, species statistics
+- **Public View (Guest Mode)** - Share a read-only dashboard with rate limits and optional camera name hiding
 
 ## About This Project
 
@@ -53,6 +54,7 @@ When Frigate detects a bird at your feeder, YA-WAMF:
 - **Wildlife Classifier:** identify squirrels, foxes, and other non-bird visitors.
 - **Home Assistant Integration:** Full support for tracking the last detected bird and daily counts in HA.
 - **Observability:** Built-in Prometheus metrics, Telemetry (opt-in), and real-time MQTT diagnostics.
+- **Public View (Guest Mode):** Optional read-only sharing with rate limits and privacy controls.
 
 ## Documentation
 
@@ -182,6 +184,10 @@ Open `http://localhost:9852` (or `http://YOUR_SERVER_IP:9852`)
 **6. Download the AI model:**
 
 In the web UI, go to **Settings** and click the model download button. The model is saved to `data/models/` and persists across updates.
+
+### Public View (Guest Mode) at a Glance
+
+Guest mode is read-only and rate-limited. Guests can view detections and any existing AI Naturalist analysis, but cannot change settings, delete items, or run new AI analysis. You can hide camera names and limit the public history window in **Settings > Public Access**.
 
 ### Verification
 
