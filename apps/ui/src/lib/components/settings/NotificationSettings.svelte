@@ -578,8 +578,8 @@
             <div class="space-y-4">
                 <!-- Auth Mode Selector -->
                 <div>
-                    <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.email.auth_mode')}</label>
-                    <div class="flex gap-2">
+                    <div id="email-auth-mode-label" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.email.auth_mode')}</div>
+                    <div class="flex gap-2" role="group" aria-labelledby="email-auth-mode-label">
                         <button
                             onclick={() => emailUseOAuth = true}
                             aria-label="Use OAuth authentication"
