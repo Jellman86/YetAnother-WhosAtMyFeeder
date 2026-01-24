@@ -1,5 +1,23 @@
 # Migration Guide
 
+## Upcoming (Unreleased)
+
+### ⚡ Quick Summary
+
+- **Potential Breaking Change:** AI Naturalist responses are now standardized Markdown with fixed headings (`Appearance`, `Behavior`, `Naturalist Note`, `Seasonal Context`).
+- **New Capability:** AI analysis can prefer clip frames via `use_clip` and `frame_count` query params.
+
+### Who is affected?
+
+- **Only** users who parse or post‑process AI Naturalist text programmatically.
+
+### What you may need to do
+
+- If you parse the AI response, update your parser to handle the standardized Markdown headings.
+- No data migrations are required.
+
+---
+
 ## Upgrading to v2.6.0 (Authentication & Public Access)
 
 Version 2.6.0 introduces a major security upgrade with a new authentication system and public access controls. This guide covers how to migrate from previous versions.

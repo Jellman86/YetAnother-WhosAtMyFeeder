@@ -583,6 +583,30 @@ Ask questions about your bird detections using AI.
 
 **Note**: Requires LLM configuration (Gemini/OpenAI)
 
+### AI Naturalist Analysis
+
+**`POST /api/events/{event_id}/analyze`**
+
+Generate (or fetch) the AI Naturalist analysis for a specific detection event.
+
+**Query Params**:
+
+- `force` (boolean, default `false`) - Regenerate analysis even if one already exists.
+- `use_clip` (boolean, default `true`) - Prefer video clip frames when available; falls back to snapshot.
+- `frame_count` (integer, default `5`, range `1-10`) - Number of frames to extract from the clip.
+
+**Response**:
+```json
+{
+  "analysis": "## Appearance\n- ...\n\n## Behavior\n- ...\n\n## Naturalist Note\n- ...\n\n## Seasonal Context\n- ..."
+}
+```
+
+**Notes**:
+- Requires LLM configuration (Gemini/OpenAI/Claude).
+- Owner access is required to generate analysis; guests can view stored analysis in event payloads.
+- The response is standardized Markdown with fixed headings: `Appearance`, `Behavior`, `Naturalist Note`, `Seasonal Context`.
+
 ---
 
 ## Debug Endpoints

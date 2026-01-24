@@ -65,9 +65,11 @@ You can allow unauthenticated users to view your detections while keeping settin
 
 If you run YA-WAMF behind a reverse proxy (e.g., Nginx or Cloudflare Tunnel), you should **explicitly set Trusted Proxy Hosts** in **Settings > Authentication**.
 
-- This tells YA-WAMF which proxy IPs or container names are allowed to set `X-Forwarded-*` headers.
+- This tells YA-WAMF which proxy IPs, CIDR ranges, or hostnames/container names are allowed to set `X-Forwarded-*` headers.
 - The default is permissive (trusts all proxies) for compatibility with existing installs.
 - For Docker setups, container DNS names (e.g., `nginx-rp`, `cloudflare-tunnel`) work when services share a network.
+- Hostnames are resolved to IPs at startup. If your proxy IPs change, prefer a stable container name.
+- For Cloudflare DNS proxy (no tunnel), use Cloudflare IP ranges and keep them updated.
 
 ## Recommended Proxy Topology (Split Routing)
 
@@ -105,6 +107,54 @@ proxy_send_timeout 86400s;
 ```
 
 If you keep a multi-hop proxy (NPM → frontend → backend), you must also trust the frontend proxy in YA-WAMF.
+
+### Nginx (standalone) example
+
+```
+server {
+    listen 443 ssl;
+    server_name yawamf.example.com;
+
+    location /api/ {
+        proxy_pass http://yawamf-backend:8000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_read_timeout 86400s;
+        proxy_send_timeout 86400s;
+    }
+
+    location / {
+        proxy_pass http://yawamf-frontend:80;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+### Cloudflare Tunnel example
+
+`cloudflared` ingress with split routing:
+
+```
+ingress:
+  - hostname: yawamf.example.com
+    path: /api/*
+    service: http://yawamf-backend:8000
+  - hostname: yawamf.example.com
+    service: http://yawamf-frontend:80
+  - service: http_status:404
+```
+
+Trusted Proxy Hosts:
+- If using the tunnel container, add its service name (e.g., `cloudflared` or `cloudflare-tunnel`).
+- If using Cloudflare DNS proxy without a tunnel, add Cloudflare IP ranges instead.
 
 ## Technical Details
 

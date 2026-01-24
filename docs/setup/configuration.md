@@ -66,7 +66,7 @@ Customize the UI experience for comfort and assistive technologies.
 Configure authentication and public access controls.
 
 - **Authentication:** Enable login, set username/password, and configure session expiry.
-- **Trusted Proxy Hosts:** If you run behind a reverse proxy, list its container names or IPs so client IPs are trusted correctly.
+- **Trusted Proxy Hosts:** If you run behind a reverse proxy, list its IPs, CIDR ranges, or container/DNS names so client IPs are trusted correctly.
 - **Public Access:** Enable a guest view and set rate limits plus whether camera names are visible.
 
 ### Recommended Reverse Proxy Routing
