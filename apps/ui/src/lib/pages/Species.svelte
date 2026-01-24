@@ -179,8 +179,8 @@
     }
 
     let heroInfo = $derived(topByCount ? speciesInfoCache[topByCount.species] : null);
-    let heroBlurb = $derived(getHeroBlurb(heroInfo()));
-    let heroSource = $derived(getHeroSource(heroInfo()));
+    let heroBlurb = $derived(() => getHeroBlurb(heroInfo()));
+    let heroSource = $derived(() => getHeroSource(heroInfo()));
     let streakInfo = $derived(topByStreak ? speciesInfoCache[topByStreak.species] : null);
     let activeInfo = $derived(topBy7d ? speciesInfoCache[topBy7d.species] : null);
     let risingInfo = $derived(topByTrend ? speciesInfoCache[topByTrend.species] : null);
