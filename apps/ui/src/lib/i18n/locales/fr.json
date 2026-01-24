@@ -511,6 +511,10 @@
       "fast_path": {
         "title": "Efficacité du Chemin Rapide",
         "desc": "Passez le traitement IA local et utilisez directement les sous-labels de Frigate"
+      },
+      "guest_mode": {
+        "title": "Vue publique (mode invité)",
+        "desc": "Partagez un tableau de bord en lecture seule avec des limites de débit et la possibilité de masquer les noms de caméras"
       }
     },
     "tech": {

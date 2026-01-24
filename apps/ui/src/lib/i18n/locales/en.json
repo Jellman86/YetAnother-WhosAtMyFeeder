@@ -519,6 +519,10 @@
       "fast_path": {
         "title": "Fast Path Efficiency",
         "desc": "Skip local AI processing and use Frigate's sublabels directly to save CPU resources"
+      },
+      "guest_mode": {
+        "title": "Public View (Guest Mode)",
+        "desc": "Share a read-only dashboard with rate limits and optional camera name hiding"
       }
     },
     "tech": {

@@ -82,6 +82,11 @@
             icon: '⚡',
             title: $_('about.feature_list.fast_path.title'),
             description: $_('about.feature_list.fast_path.desc')
+        },
+        {
+            icon: '🔓',
+            title: $_('about.feature_list.guest_mode.title'),
+            description: $_('about.feature_list.guest_mode.desc')
         }
     ]);
 

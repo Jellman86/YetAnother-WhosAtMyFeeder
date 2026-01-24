@@ -511,6 +511,10 @@
       "fast_path": {
         "title": "Fast-Path Effizienz",
         "desc": "Überspringen Sie lokale KI-Verarbeitung und nutzen Sie Frigates Sublabels direkt"
+      },
+      "guest_mode": {
+        "title": "Öffentliche Ansicht (Gastmodus)",
+        "desc": "Teilen Sie ein schreibgeschütztes Dashboard mit Ratenlimits und optional ausgeblendeten Kameranamen"
       }
     },
     "tech": {
