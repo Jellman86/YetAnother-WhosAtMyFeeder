@@ -101,6 +101,9 @@
       "trusted_proxies": "Hosts de proxy confiables",
       "trusted_proxies_desc": "Añade los nombres de contenedor o IPs de tu proxy inverso (p. ej., nginx-rp, cloudflare-tunnel, 172.19.0.10). Los nombres DNS de Docker funcionan cuando los servicios comparten red.",
       "trusted_proxies_placeholder": "Añadir host de proxy o IP",
+      "trusted_proxies_suggested_label": "Sugerido",
+      "trusted_proxies_suggested_note": "Estas son solo sugerencias. Guardar mantendrá el valor predeterminado (confiar en todos) a menos que las aceptes o edites.",
+      "trusted_proxies_use_suggestions": "Usar sugerencias",
       "trusted_proxies_add": "Agregar host de proxy confiable",
       "trusted_proxies_remove": "Quitar host de proxy confiable",
       "trusted_proxies_empty": "No hay proxies confiables configurados (todos los proxies son confiables)."

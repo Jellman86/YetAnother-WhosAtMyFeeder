@@ -102,6 +102,9 @@
       "trusted_proxies": "受信任的代理主机",
       "trusted_proxies_desc": "添加反向代理容器名称或 IP（例如 nginx-rp、cloudflare-tunnel、172.19.0.10）。服务在同一网络时可使用 Docker DNS 名称。",
       "trusted_proxies_placeholder": "添加代理主机或 IP",
+      "trusted_proxies_suggested_label": "建议",
+      "trusted_proxies_suggested_note": "这些只是建议。除非你接受或编辑，否则保存仍会保持默认（信任所有）。",
+      "trusted_proxies_use_suggestions": "使用建议",
       "trusted_proxies_add": "添加受信任的代理主机",
       "trusted_proxies_remove": "移除受信任的代理主机",
       "trusted_proxies_empty": "未配置受信任的代理（将信任所有代理）。"

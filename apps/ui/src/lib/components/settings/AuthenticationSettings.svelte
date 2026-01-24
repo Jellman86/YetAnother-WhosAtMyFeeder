@@ -9,13 +9,15 @@
         authPasswordConfirm = $bindable(''),
         authSessionExpiryHours = $bindable(168),
         trustedProxyHosts = $bindable<string[]>([]),
+        trustedProxyHostsSuggested = $bindable(false),
         newTrustedProxyHost = $bindable(''),
         publicAccessEnabled = $bindable(false),
         publicAccessShowCameraNames = $bindable(true),
         publicAccessHistoricalDays = $bindable(7),
         publicAccessRateLimitPerMinute = $bindable(30),
         addTrustedProxyHost,
-        removeTrustedProxyHost
+        removeTrustedProxyHost,
+        acceptTrustedProxySuggestions
     }: {
         authEnabled: boolean;
         authUsername: string;
@@ -24,6 +26,7 @@
         authPasswordConfirm: string;
         authSessionExpiryHours: number;
         trustedProxyHosts: string[];
+        trustedProxyHostsSuggested: boolean;
         newTrustedProxyHost: string;
         publicAccessEnabled: boolean;
         publicAccessShowCameraNames: boolean;
@@ -31,6 +34,7 @@
         publicAccessRateLimitPerMinute: number;
         addTrustedProxyHost: () => void;
         removeTrustedProxyHost: (host: string) => void;
+        acceptTrustedProxySuggestions: () => void;
     } = $props();
 </script>
 
@@ -144,21 +148,38 @@
                 </div>
                 <div class="flex flex-wrap gap-2">
                     {#each trustedProxyHosts as host}
-                        <span class="group flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-slate-800 border border-emerald-200 dark:border-emerald-700/50 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300">
+                        <span class="group flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold {trustedProxyHostsSuggested ? 'border border-dashed border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900/40 text-slate-500 dark:text-slate-400' : 'bg-white dark:bg-slate-800 border border-emerald-200 dark:border-emerald-700/50 text-slate-700 dark:text-slate-300'}">
                             {host}
-                            <button
-                                onclick={() => removeTrustedProxyHost(host)}
-                                aria-label={$_('settings.auth.trusted_proxies_remove', { default: 'Remove trusted proxy host' })}
-                                class="text-slate-400 hover:text-red-500 transition-colors"
-                            >
-                                ✕
-                            </button>
+                            {#if trustedProxyHostsSuggested}
+                                <span class="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                                    {$_('settings.auth.trusted_proxies_suggested_label', { default: 'Suggested' })}
+                                </span>
+                            {:else}
+                                <button
+                                    onclick={() => removeTrustedProxyHost(host)}
+                                    aria-label={$_('settings.auth.trusted_proxies_remove', { default: 'Remove trusted proxy host' })}
+                                    class="text-slate-400 hover:text-red-500 transition-colors"
+                                >
+                                    ✕
+                                </button>
+                            {/if}
                         </span>
                     {/each}
                     {#if trustedProxyHosts.length === 0}
                         <p class="text-xs font-bold text-slate-400 italic">{$_('settings.auth.trusted_proxies_empty', { default: 'No trusted proxies configured (all proxies trusted).' })}</p>
                     {/if}
                 </div>
+                {#if trustedProxyHostsSuggested}
+                    <div class="mt-3 flex flex-col gap-2 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 px-3 py-2 text-[11px] text-slate-500 dark:text-slate-400">
+                        <span>{$_('settings.auth.trusted_proxies_suggested_note', { default: 'These are suggestions only. Save will keep the default (trust all) unless you accept or edit them.' })}</span>
+                        <button
+                            onclick={acceptTrustedProxySuggestions}
+                            class="self-start px-3 py-1.5 rounded-xl bg-emerald-500 text-white text-[10px] font-black uppercase tracking-widest"
+                        >
+                            {$_('settings.auth.trusted_proxies_use_suggestions', { default: 'Use suggestions' })}
+                        </button>
+                    </div>
+                {/if}
             </div>
         </div>
     </section>

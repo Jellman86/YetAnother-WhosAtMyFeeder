@@ -109,6 +109,9 @@
       "trusted_proxies": "Trusted proxy hosts",
       "trusted_proxies_desc": "Add your reverse proxy container names or IPs (e.g., nginx-rp, cloudflare-tunnel, 172.19.0.10). Docker DNS names work when services share a network.",
       "trusted_proxies_placeholder": "Add proxy host or IP",
+      "trusted_proxies_suggested_label": "Suggested",
+      "trusted_proxies_suggested_note": "These are suggestions only. Save will keep the default (trust all) unless you accept or edit them.",
+      "trusted_proxies_use_suggestions": "Use suggestions",
       "trusted_proxies_add": "Add trusted proxy host",
       "trusted_proxies_remove": "Remove trusted proxy host",
       "trusted_proxies_empty": "No trusted proxies configured (all proxies trusted)."

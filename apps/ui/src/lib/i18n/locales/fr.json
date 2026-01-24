@@ -101,6 +101,9 @@
       "trusted_proxies": "Hôtes de proxy approuvés",
       "trusted_proxies_desc": "Ajoutez les noms de conteneurs ou IPs de votre proxy inverse (ex. nginx-rp, cloudflare-tunnel, 172.19.0.10). Les noms DNS Docker fonctionnent si les services partagent un réseau.",
       "trusted_proxies_placeholder": "Ajouter un hôte proxy ou une IP",
+      "trusted_proxies_suggested_label": "Suggéré",
+      "trusted_proxies_suggested_note": "Ce sont des suggestions uniquement. Enregistrer conservera la valeur par défaut (tout approuver) sauf si vous les acceptez ou modifiez.",
+      "trusted_proxies_use_suggestions": "Utiliser les suggestions",
       "trusted_proxies_add": "Ajouter un hôte proxy approuvé",
       "trusted_proxies_remove": "Retirer l’hôte proxy approuvé",
       "trusted_proxies_empty": "Aucun proxy approuvé configuré (tous les proxies sont approuvés)."

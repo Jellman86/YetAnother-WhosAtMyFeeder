@@ -101,6 +101,9 @@
       "trusted_proxies": "Vertrauenswürdige Proxy-Hosts",
       "trusted_proxies_desc": "Füge die Containernamen oder IPs deines Reverse Proxys hinzu (z. B. nginx-rp, cloudflare-tunnel, 172.19.0.10). Docker-DNS-Namen funktionieren, wenn die Dienste dasselbe Netzwerk teilen.",
       "trusted_proxies_placeholder": "Proxy-Host oder IP hinzufügen",
+      "trusted_proxies_suggested_label": "Vorschlag",
+      "trusted_proxies_suggested_note": "Dies sind nur Vorschläge. Speichern behält den Standard (allen vertrauen), solange du sie nicht akzeptierst oder änderst.",
+      "trusted_proxies_use_suggestions": "Vorschläge verwenden",
       "trusted_proxies_add": "Vertrauenswürdigen Proxy-Host hinzufügen",
       "trusted_proxies_remove": "Vertrauenswürdigen Proxy-Host entfernen",
       "trusted_proxies_empty": "Keine vertrauenswürdigen Proxys konfiguriert (alle Proxys sind vertrauenswürdig)."

@@ -158,6 +158,7 @@
     let authPasswordConfirm = $state('');
     let authSessionExpiryHours = $state(168);
     let trustedProxyHosts = $state<string[]>([]);
+    let trustedProxyHostsSuggested = $state(false);
     let newTrustedProxyHost = $state('');
     let publicAccessEnabled = $state(false);
     let publicAccessShowCameraNames = $state(true);
@@ -223,6 +224,9 @@
     function addTrustedProxyHost() {
         const host = newTrustedProxyHost.trim();
         if (!host) return;
+        if (trustedProxyHostsSuggested) {
+            trustedProxyHostsSuggested = false;
+        }
         if (!trustedProxyHosts.includes(host)) {
             trustedProxyHosts = [...trustedProxyHosts, host];
         }
@@ -230,8 +234,19 @@
     }
 
     function removeTrustedProxyHost(host: string) {
+        if (trustedProxyHostsSuggested) {
+            trustedProxyHostsSuggested = false;
+        }
         trustedProxyHosts = trustedProxyHosts.filter((item) => item !== host);
     }
+
+    function acceptTrustedProxySuggestions() {
+        trustedProxyHostsSuggested = false;
+    }
+
+    const effectiveTrustedProxyHosts = $derived.by(() => {
+        return trustedProxyHostsSuggested ? ['*'] : trustedProxyHosts;
+    });
 
     $effect(() => {
         if (dyslexiaFont) document.documentElement.classList.add('font-dyslexic');
@@ -347,7 +362,7 @@
             { key: 'authEnabled', val: authEnabled, store: s.auth_enabled ?? false },
             { key: 'authUsername', val: authUsername, store: s.auth_username || 'admin' },
             { key: 'authSessionExpiryHours', val: authSessionExpiryHours, store: s.auth_session_expiry_hours ?? 168 },
-            { key: 'trustedProxyHosts', val: JSON.stringify(trustedProxyHosts), store: JSON.stringify(s.trusted_proxy_hosts || []) },
+            { key: 'trustedProxyHosts', val: JSON.stringify(effectiveTrustedProxyHosts), store: JSON.stringify(s.trusted_proxy_hosts || []) },
             { key: 'publicAccessEnabled', val: publicAccessEnabled, store: s.public_access_enabled ?? false },
             { key: 'publicAccessShowCameraNames', val: publicAccessShowCameraNames, store: s.public_access_show_camera_names ?? true },
             { key: 'publicAccessHistoricalDays', val: publicAccessHistoricalDays, store: s.public_access_historical_days ?? 7 },
@@ -758,9 +773,9 @@
             authPasswordConfirm = '';
             authSessionExpiryHours = settings.auth_session_expiry_hours ?? 168;
             const proxyHosts = settings.trusted_proxy_hosts || [];
-            trustedProxyHosts = (proxyHosts.length === 0 || (proxyHosts.length === 1 && proxyHosts[0] === '*'))
-                ? ['nginx-rp', 'cloudflare-tunnel']
-                : proxyHosts;
+            const proxyHostsDefault = proxyHosts.length === 0 || (proxyHosts.length === 1 && proxyHosts[0] === '*');
+            trustedProxyHostsSuggested = proxyHostsDefault;
+            trustedProxyHosts = proxyHostsDefault ? ['nginx-rp', 'cloudflare-tunnel'] : proxyHosts;
             publicAccessEnabled = settings.public_access_enabled ?? false;
             publicAccessShowCameraNames = settings.public_access_show_camera_names ?? true;
             publicAccessHistoricalDays = settings.public_access_historical_days ?? 7;
@@ -926,7 +941,7 @@
                 auth_username: authUsername,
                 auth_password: authPassword || undefined,
                 auth_session_expiry_hours: authSessionExpiryHours,
-                trusted_proxy_hosts: trustedProxyHosts,
+                trusted_proxy_hosts: effectiveTrustedProxyHosts,
                 public_access_enabled: publicAccessEnabled,
                 public_access_show_camera_names: publicAccessShowCameraNames,
                 public_access_historical_days: publicAccessHistoricalDays,
@@ -1319,6 +1334,7 @@
                     bind:authPasswordConfirm
                     bind:authSessionExpiryHours
                     bind:trustedProxyHosts
+                    bind:trustedProxyHostsSuggested
                     bind:newTrustedProxyHost
                     bind:publicAccessEnabled
                     bind:publicAccessShowCameraNames
@@ -1326,6 +1342,7 @@
                     bind:publicAccessRateLimitPerMinute
                     addTrustedProxyHost={addTrustedProxyHost}
                     removeTrustedProxyHost={removeTrustedProxyHost}
+                    acceptTrustedProxySuggestions={acceptTrustedProxySuggestions}
                 />
             {/if}
 
