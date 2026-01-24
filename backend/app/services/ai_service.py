@@ -211,6 +211,7 @@ class AIService:
         ## Appearance
         ## Behavior
         ## Naturalist Note
+        ## Seasonal Context
 
         Keep the response concise (under 200 words). No extra sections.
         """
