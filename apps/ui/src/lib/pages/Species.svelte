@@ -10,6 +10,7 @@
     let loading = $state(true);
     let error = $state<string | null>(null);
     let sortBy = $state<'day' | 'week' | 'month'>('week');
+    let timelineDays = $state(30);
     let selectedSpecies = $state<string | null>(null);
     let timeline = $state<DetectionsTimeline | null>(null);
     let speciesInfoCache = $state<Record<string, SpeciesInfo>>({});
@@ -60,7 +61,7 @@
 
     onMount(async () => {
         await loadSpecies();
-        await loadTimeline();
+        await loadTimeline(timelineDays);
     });
 
     async function loadSpecies() {
@@ -75,9 +76,9 @@
         }
     }
 
-    async function loadTimeline() {
+    async function loadTimeline(days: number) {
         try {
-            timeline = await fetchDetectionsTimeline(30);
+            timeline = await fetchDetectionsTimeline(days);
         } catch {
             timeline = null;
         }
@@ -111,6 +112,11 @@
         if (mostRecent?.species) {
             void loadSpeciesInfo(mostRecent.species);
         }
+    });
+
+    $effect(() => {
+        timelineDays = sortBy === 'day' ? 1 : sortBy === 'week' ? 7 : 30;
+        void loadTimeline(timelineDays);
     });
 
     function getBarColor(index: number): string {
@@ -177,6 +183,9 @@
 
     let timelineCounts = $derived(timeline?.daily?.map((d) => d.count) || []);
     let timelineMax = $derived(timelineCounts.length ? Math.max(...timelineCounts) : 0);
+    let timelineMidDate = $derived(
+        timeline?.daily?.length ? timeline.daily[Math.floor(timeline.daily.length / 2)].date : null
+    );
 </script>
 
 <div class="space-y-6">
@@ -432,7 +441,9 @@
             <div class="relative">
                 <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div>
-                        <p class="text-[10px] uppercase tracking-[0.3em] font-black text-slate-500 dark:text-slate-300">{$_('leaderboard.last_30_days')}</p>
+                        <p class="text-[10px] uppercase tracking-[0.3em] font-black text-slate-500 dark:text-slate-300">
+                            {$_('leaderboard.last_n_days', { values: { days: timeline?.days || timelineDays } })}
+                        </p>
                         <h3 class="text-xl md:text-2xl font-black text-slate-900 dark:text-white">{$_('leaderboard.detections_over_time')}</h3>
                     </div>
                     <div class="text-sm font-semibold text-slate-500 dark:text-slate-400">
@@ -477,10 +488,11 @@
 
                 <div class="mt-3 flex items-center justify-between text-[10px] uppercase tracking-widest text-slate-400">
                     <span>{timeline?.daily?.[0]?.date || '—'}</span>
+                    <span>{timelineMidDate || ''}</span>
                     <span>{timeline?.daily?.[timeline.daily.length - 1]?.date || '—'}</span>
                 </div>
                 <div class="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
-                    <span>30-day total: {timeline?.total_count?.toLocaleString() || '0'}</span>
+                    <span>{timeline?.days || timelineDays}-day total: {timeline?.total_count?.toLocaleString() || '0'}</span>
                     <span>•</span>
                     <span>Peak day: {timelineMax.toLocaleString()}</span>
                     <span>•</span>

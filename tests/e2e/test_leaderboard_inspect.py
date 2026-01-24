@@ -32,16 +32,21 @@ def test_leaderboard_inspect():
         svg = graph_card.locator("svg").first
         svg.wait_for(state="visible", timeout=15000)
 
-        axis_labels = svg.locator("text").all_inner_texts()
-        assert "Detections" in axis_labels
-        assert "Days" in axis_labels
+        axis_labels = svg.locator("text").evaluate_all(
+            "(nodes) => nodes.map((n) => n.textContent)"
+        )
+        print(f"Axis labels: {axis_labels}")
+        assert any(label and "Detections" in label for label in axis_labels)
+        assert any(label and "Days" in label for label in axis_labels)
 
         # Capture line path for comparison
-        line_path = svg.locator("path[stroke]").get_attribute("d")
+        line_path = svg.locator("path[stroke='#10b981']").get_attribute("d")
         assert line_path
 
         # Summary stats under the chart
-        summary_text = graph_card.locator("text=/30-day total:/").inner_text()
+        summary_block = graph_card.locator("div.text-slate-500").last
+        summary_text = summary_block.inner_text()
+        print(f"Summary text: {summary_text}")
         assert "Peak day:" in summary_text
         assert "Avg/day:" in summary_text
 
@@ -57,13 +62,15 @@ def test_leaderboard_inspect():
         initial_names = top_rows_snapshot()
 
         for label in ["Day", "Week", "Month"]:
-            page.get_by_role("button", name=label).click()
+            page.locator("button.tab-button", has_text=label).first.click()
             page.wait_for_timeout(300)
             names = top_rows_snapshot()
             print(f"Top rows after {label}: {names}")
+            path = svg.locator("path[stroke='#10b981']").get_attribute("d")
+            print(f"Graph path after {label}: {path[:80]}...")
 
         # Graph should not change with sort buttons (sort only affects table)
-        line_path_after = svg.locator("path[stroke]").get_attribute("d")
+        line_path_after = svg.locator("path[stroke='#10b981']").get_attribute("d")
         print(f"Graph path changed: {line_path != line_path_after}")
 
         # Screenshot for manual review

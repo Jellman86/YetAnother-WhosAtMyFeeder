@@ -397,6 +397,7 @@
     "total_sightings": "总记录数",
     "last_30_days": "最近30天",
     "last_7_days": "最近7天",
+    "last_n_days": "最近{days}天",
     "detections_over_time": "检测随时间变化",
     "last_seen": "最近出现",
     "trend": "趋势",

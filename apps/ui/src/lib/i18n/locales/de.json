@@ -396,6 +396,7 @@
     "total_sightings": "Gesamtbeobachtungen",
     "last_30_days": "Letzte 30 Tage",
     "last_7_days": "Letzte 7 Tage",
+    "last_n_days": "Letzte {days} Tage",
     "detections_over_time": "Erkennungen im Zeitverlauf",
     "last_seen": "Zuletzt gesehen",
     "trend": "Trend",
