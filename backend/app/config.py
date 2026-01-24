@@ -13,6 +13,14 @@ log = structlog.get_logger()
 # Allow override via environment variable for testing
 CONFIG_PATH = Path(os.getenv("CONFIG_FILE", "/config/config.json"))
 
+# Default trusted proxy hosts for common reverse-proxy setups.
+# These are only used when no env override or config value exists.
+DEFAULT_TRUSTED_PROXY_HOSTS = [
+    "yawamf-frontend",
+    "nginx-rp",
+    "cloudflare-tunnel",
+]
+
 class FrigateSettings(BaseModel):
     frigate_url: str = Field(..., description="URL of the Frigate instance")
     frigate_auth_token: Optional[str] = Field(None, description="Optional Bearer token for Frigate proxy auth")
@@ -420,7 +428,11 @@ class Settings(BaseSettings):
 
         # System settings (existing but need to initialize)
         trusted_hosts_raw = os.environ.get('SYSTEM__TRUSTED_PROXY_HOSTS', '')
-        trusted_hosts = [host.strip() for host in trusted_hosts_raw.split(',') if host.strip()] if trusted_hosts_raw else ["*"]
+        trusted_hosts = (
+            [host.strip() for host in trusted_hosts_raw.split(',') if host.strip()]
+            if trusted_hosts_raw
+            else DEFAULT_TRUSTED_PROXY_HOSTS.copy()
+        )
         system_data = {
             'broadcaster_max_queue_size': int(os.environ.get('SYSTEM__BROADCASTER_MAX_QUEUE_SIZE', '100')),
             'broadcaster_max_consecutive_full': int(os.environ.get('SYSTEM__BROADCASTER_MAX_CONSECUTIVE_FULL', '10')),
