@@ -200,19 +200,19 @@ class AIService:
             weather_str = f"The weather is currently {temp}°C and {condition or 'clear'}."
 
         return f"""
-        You are an expert ornithologist and naturalist. 
+        You are an expert ornithologist and naturalist.
         {frame_note if frame_note else "I am showing you a snapshot of a bird detected at my feeder."}
-        
+
         Species identified by system: {species}
         Time of detection: {time or 'Unknown'}
         {weather_str}
-        
-        Please analyze this image and provide:
-        1. A brief description of the bird's appearance in this specific snapshot.
-        2. Any interesting behaviors you observe (e.g. feeding, alert, interacting with others).
-        3. A 'Naturalist Note': a fun or educational fact about this species or its behavior in this context.
-        
-        Keep your response concise (under 200 words) and informative.
+
+        Respond in simple Markdown with these exact section headings and short bullet points:
+        ## Appearance
+        ## Behavior
+        ## Naturalist Note
+
+        Keep the response concise (under 200 words). No extra sections.
         """
 
     def extract_frames_from_clip(self, clip_bytes: bytes, frame_count: int = 5) -> list[bytes]:
