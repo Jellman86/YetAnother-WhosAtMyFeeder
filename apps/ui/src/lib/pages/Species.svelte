@@ -1,7 +1,7 @@
 <script lang="ts">
     import { onMount } from 'svelte';
     import { fetchDetectionsTimeline, fetchSpecies, fetchSpeciesInfo, type DetectionsTimeline, type SpeciesCount, type SpeciesInfo } from '../api';
-    import Chart from 'svelte-apexcharts';
+    import { ApexCharts } from 'svelte-apexcharts';
     import SpeciesDetailModal from '../components/SpeciesDetailModal.svelte';
     import { settingsStore } from '../stores/settings.svelte';
     import { getBirdNames } from '../naming';
@@ -495,7 +495,7 @@
                 <div class="mt-6 w-full flex-1 min-h-[140px] max-h-[220px]">
                     {#if timeline?.daily?.length}
                         {#key timeline.total_count}
-                            <Chart
+                            <ApexCharts
                                 type="area"
                                 options={chartOptions}
                                 series={chartSeries}
