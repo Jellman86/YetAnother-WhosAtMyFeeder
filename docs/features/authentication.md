@@ -61,6 +61,30 @@ You can allow unauthenticated users to view your detections while keeping settin
     - Guests cannot trigger new AI Naturalist analysis (but can view existing analysis).
 - Guests are rate-limited to prevent abuse.
 
+### Guest Mode: What’s Exposed
+
+When Public Access is enabled, guests can see:
+
+- **Dashboard + Events** (limited by the configured history window).
+- **Detection details** including timestamps, species labels, and confidence.
+- **AI Naturalist analysis** if it already exists (guests cannot generate new analysis).
+- **Camera names** *only if* "Show camera names to public users" is enabled.
+
+### Guest Mode: Recommended Safety Checklist
+
+1. **Limit the history window** (e.g., 7–30 days) to reduce exposure.
+2. **Hide camera names** unless you explicitly want them public.
+3. **Enable authentication** even if you allow public access.
+4. **Set Trusted Proxy Hosts** to avoid spoofed `X-Forwarded-*` headers.
+5. **Keep the instance behind a single reverse proxy** with HTTPS.
+6. **Review AI text output** if you share the site publicly.
+
+### Guest Mode: Troubleshooting
+
+- **Guests see nothing:** Make sure "Enable Public Access" is on and your history window isn’t set to 0.
+- **Guests see settings:** Authentication may be disabled. Enable it and set a password.
+- **HTTPS warning appears:** Configure split routing and trusted proxy hosts (see below).
+
 ## Reverse Proxy & Trusted Hosts
 
 If you run YA-WAMF behind a reverse proxy (e.g., Nginx or Cloudflare Tunnel), you should **explicitly set Trusted Proxy Hosts** in **Settings > Authentication**.
