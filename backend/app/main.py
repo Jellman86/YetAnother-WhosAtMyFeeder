@@ -23,7 +23,7 @@ from app.services.auto_video_classifier_service import auto_video_classifier
 from app.services.frigate_client import frigate_client
 from app.repositories.detection_repository import DetectionRepository
 from app.routers import events, proxy, settings as settings_router, species, backfill, classifier, models, ai, stats, debug, audio, email, auth as auth_router
-from app.config import settings
+from app.config import settings, _expand_trusted_hosts
 from app.middleware.language import LanguageMiddleware
 from app.services.i18n_service import i18n_service
 from app.ratelimit import limiter
@@ -183,7 +183,13 @@ app = FastAPI(title="Yet Another WhosAtMyFeeder API", version=APP_VERSION, lifes
 
 # Trust proxy headers (X-Forwarded-Proto, X-Forwarded-For) for correct scheme/IP detection
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
-app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=settings.system.trusted_proxy_hosts)
+trusted_proxy_hosts = settings.system.trusted_proxy_hosts
+if "*" in trusted_proxy_hosts:
+    trusted_proxy_hosts = ["*"]
+else:
+    # Expand DNS names to IPs so ProxyHeadersMiddleware can match client IPs.
+    trusted_proxy_hosts = _expand_trusted_hosts(trusted_proxy_hosts)
+app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=trusted_proxy_hosts)
 
 # Setup structured logging
 log = structlog.get_logger()
