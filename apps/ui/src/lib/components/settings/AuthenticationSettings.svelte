@@ -120,12 +120,13 @@
             </div>
 
             <div class="pt-2">
-                <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.auth.trusted_proxies')}</label>
+                <label for="trusted-proxy-hosts" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.auth.trusted_proxies')}</label>
                 <p class="text-[11px] text-slate-500 dark:text-slate-400 mb-3">
                     {$_('settings.auth.trusted_proxies_desc', { default: 'Add your reverse proxy container names or IPs (e.g., nginx-rp, cloudflare-tunnel, 172.19.0.10). Docker DNS names work when services share a network.' })}
                 </p>
                 <div class="flex gap-2 mb-4">
                     <input
+                        id="trusted-proxy-hosts"
                         bind:value={newTrustedProxyHost}
                         onkeydown={(e) => e.key === 'Enter' && addTrustedProxyHost()}
                         placeholder={$_('settings.auth.trusted_proxies_placeholder', { default: 'Add proxy host or IP' })}
