@@ -150,7 +150,7 @@ async def get_daily_summary(
 
 @router.get("/stats/detections/daily", response_model=DetectionsTimelineResponse)
 @guest_rate_limit()
-async def get_detection_timeline(days: int = 30):
+async def get_detection_timeline(request: Request, days: int = 30):
     """Get total detections per day for the last N days (inclusive)."""
     if days < 1 or days > 365:
         days = 30
