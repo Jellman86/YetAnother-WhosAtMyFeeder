@@ -430,7 +430,7 @@
             </div>
         </div>
 
-        <div class="card-base rounded-3xl p-6 md:p-8 relative overflow-hidden">
+        <div class="card-base rounded-3xl p-6 md:p-8 relative overflow-hidden flex flex-col">
             {#if heroInfo?.thumbnail_url}
                 <div
                     class="absolute inset-0 bg-center bg-cover blur-3xl scale-110 opacity-20 dark:opacity-15"
@@ -438,7 +438,7 @@
                 ></div>
             {/if}
             <div class="absolute inset-0 bg-gradient-to-br from-slate-50 via-transparent to-emerald-50 dark:from-slate-900/50 dark:to-emerald-900/20 pointer-events-none"></div>
-            <div class="relative">
+            <div class="relative flex flex-col flex-1">
                 <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div>
                         <p class="text-[10px] uppercase tracking-[0.3em] font-black text-slate-500 dark:text-slate-300">
@@ -451,7 +451,7 @@
                     </div>
                 </div>
 
-                <div class="mt-6 h-36 w-full">
+                <div class="mt-6 w-full flex-1 min-h-[160px]">
                     {#if timeline?.daily?.length}
                         {#key timeline.total_count}
                             <svg viewBox="0 0 300 120" class="w-full h-full">
