@@ -45,11 +45,60 @@
     });
 
     let aiAnalysis = $state<string | null>(null);
+    let lastEventId = $state<string | null>(null);
     let showTagDropdown = $state(false);
     let updatingTag = $state(false);
     let tagSearchQuery = $state('');
     let searchResults = $state<SearchResult[]>([]);
     let isSearching = $state(false);
+
+    type AiBlock =
+        | { type: 'heading'; text: string }
+        | { type: 'paragraph'; text: string }
+        | { type: 'list'; items: string[] };
+
+    function parseAiAnalysis(text: string): AiBlock[] {
+        const lines = text
+            .split(/\r?\n/)
+            .map(line => line.trim())
+            .filter(Boolean);
+
+        const blocks: AiBlock[] = [];
+        let listItems: string[] | null = null;
+
+        for (const line of lines) {
+            const headingMatch = line.match(/^#{1,6}\s+(.*)$/);
+            if (headingMatch) {
+                if (listItems?.length) {
+                    blocks.push({ type: 'list', items: listItems });
+                    listItems = null;
+                }
+                blocks.push({ type: 'heading', text: headingMatch[1] });
+                continue;
+            }
+
+            const listMatch = line.match(/^[-*•]\s+(.*)$/);
+            if (listMatch) {
+                if (!listItems) listItems = [];
+                listItems.push(listMatch[1]);
+                continue;
+            }
+
+            if (listItems?.length) {
+                blocks.push({ type: 'list', items: listItems });
+                listItems = null;
+            }
+            blocks.push({ type: 'paragraph', text: line });
+        }
+
+        if (listItems?.length) {
+            blocks.push({ type: 'list', items: listItems });
+        }
+
+        return blocks;
+    }
+
+    let aiBlocks = $derived(() => (aiAnalysis ? parseAiAnalysis(aiAnalysis) : []));
 
     // Reclassification progress
     let reclassifyProgress = $derived(
@@ -62,6 +111,14 @@
     const naming = $derived(getBirdNames(detection, showCommon, preferSci));
     const primaryName = $derived(naming.primary);
     const subName = $derived(naming.secondary);
+
+    $effect(() => {
+        if (!detection?.frigate_event) return;
+        if (detection.frigate_event !== lastEventId) {
+            lastEventId = detection.frigate_event;
+            aiAnalysis = detection.ai_analysis || null;
+        }
+    });
 
     // Handle search input
     let searchTimeout: any;
@@ -366,7 +423,21 @@
                         <p class="text-[10px] font-black text-teal-600 dark:text-teal-400 uppercase tracking-[0.2em] mb-2">
                             {$_('detection.ai.insight')}
                         </p>
-                        <p class="text-sm text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">{aiAnalysis}</p>
+                        <div class="space-y-2">
+                            {#each aiBlocks() as block}
+                                {#if block.type === 'heading'}
+                                    <p class="text-[11px] font-black uppercase tracking-[0.2em] text-teal-700 dark:text-teal-300">{block.text}</p>
+                                {:else if block.type === 'list'}
+                                    <ul class="space-y-1 list-disc list-inside text-sm text-slate-700 dark:text-slate-300">
+                                        {#each block.items as item}
+                                            <li>{item}</li>
+                                        {/each}
+                                    </ul>
+                                {:else}
+                                    <p class="text-sm text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">{block.text}</p>
+                                {/if}
+                            {/each}
+                        </div>
                     </div>
                     {#if authStore.canModify}
                         <button
