@@ -4,6 +4,8 @@ import secrets as secrets_lib
 import structlog
 from typing import Optional
 from pathlib import Path
+import socket
+import ipaddress
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import BaseModel, Field
 
@@ -20,6 +22,44 @@ DEFAULT_TRUSTED_PROXY_HOSTS = [
     "nginx-rp",
     "cloudflare-tunnel",
 ]
+
+def _expand_trusted_hosts(hosts: list[str]) -> list[str]:
+    """Expand hostnames to IPs for ProxyHeadersMiddleware matching."""
+    expanded: list[str] = []
+    for host in hosts:
+        if not host:
+            continue
+        host = host.strip()
+        if not host:
+            continue
+        # Keep CIDR and valid IPs as-is
+        try:
+            if "/" in host:
+                ipaddress.ip_network(host, strict=False)
+                expanded.append(host)
+                continue
+            ipaddress.ip_address(host)
+            expanded.append(host)
+            continue
+        except ValueError:
+            pass
+
+        # Resolve hostname to IPs
+        try:
+            _, _, ips = socket.gethostbyname_ex(host)
+            expanded.extend(ips)
+        except Exception:
+            # Keep original hostname (may be used elsewhere)
+            expanded.append(host)
+
+    # De-duplicate while preserving order
+    seen: set[str] = set()
+    result: list[str] = []
+    for host in expanded:
+        if host not in seen:
+            seen.add(host)
+            result.append(host)
+    return result
 
 class FrigateSettings(BaseModel):
     frigate_url: str = Field(..., description="URL of the Frigate instance")
@@ -438,6 +478,7 @@ class Settings(BaseSettings):
             if trusted_hosts_raw
             else DEFAULT_TRUSTED_PROXY_HOSTS.copy()
         )
+        trusted_hosts = _expand_trusted_hosts(trusted_hosts)
         system_data = {
             'broadcaster_max_queue_size': int(os.environ.get('SYSTEM__BROADCASTER_MAX_QUEUE_SIZE', '100')),
             'broadcaster_max_consecutive_full': int(os.environ.get('SYSTEM__BROADCASTER_MAX_CONSECUTIVE_FULL', '10')),
