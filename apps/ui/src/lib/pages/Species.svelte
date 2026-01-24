@@ -186,6 +186,19 @@
     let timelineMidDate = $derived(
         timeline?.daily?.length ? timeline.daily[Math.floor(timeline.daily.length / 2)].date : null
     );
+
+    function getWindowCount(item: SpeciesCount | undefined): number {
+        if (!item) return 0;
+        if (sortBy === 'day') return item.count_1d || 0;
+        if (sortBy === 'week') return item.count_7d || 0;
+        return item.count_30d || 0;
+    }
+
+    function getWindowLabel(): string {
+        if (sortBy === 'day') return $_('leaderboard.sort_by_day');
+        if (sortBy === 'week') return $_('leaderboard.sort_by_week');
+        return $_('leaderboard.sort_by_month');
+    }
 </script>
 
 <div class="space-y-6">
@@ -451,7 +464,7 @@
                     </div>
                 </div>
 
-                <div class="mt-6 w-full flex-1 min-h-[160px]">
+                <div class="mt-6 w-full flex-1 min-h-[120px] max-h-[200px]">
                     {#if timeline?.daily?.length}
                         {#key timeline.total_count}
                             <svg viewBox="0 0 300 120" class="w-full h-full">
@@ -528,7 +541,7 @@
                             <div class="flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400 mt-2">
                                 <span class="font-black text-emerald-600 dark:text-emerald-400">{topSpecies.count.toLocaleString()}</span>
                                 <span>•</span>
-                                <span>{$_('leaderboard.last_7_days')}: {(topSpecies.count_7d || 0).toLocaleString()}</span>
+                                <span>{getWindowLabel()}: {getWindowCount(topSpecies).toLocaleString()}</span>
                                 <span>•</span>
                                 <span>{$_('leaderboard.trend')}: {formatTrend(topSpecies.trend_delta, topSpecies.trend_percent)}</span>
                             </div>
