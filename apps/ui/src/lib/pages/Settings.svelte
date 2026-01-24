@@ -40,6 +40,7 @@
     import { themeStore, theme, type Theme } from '../stores/theme.svelte';
     import { layoutStore, layout, type Layout } from '../stores/layout.svelte';
     import { settingsStore } from '../stores/settings.svelte';
+    import { toastStore } from '../stores/toast.svelte';
     import { _, locale } from 'svelte-i18n';
     import { get } from 'svelte/store';
     import SettingsTabs from '../components/settings/SettingsTabs.svelte';
@@ -577,12 +578,15 @@
         console.log('Reset confirmed, proceeding...');
         resettingDatabase = true;
         message = null;
+        toastStore.show($_('settings.danger.resetting'), 'info');
         try {
             const result = await resetDatabase();
             message = { type: 'success', text: result.message };
+            toastStore.success(result.message || $_('settings.danger.reset_button'));
             await Promise.all([loadMaintenanceStats(), loadCacheStats()]);
         } catch (e: any) {
             message = { type: 'error', text: e.message || 'Database reset failed' };
+            toastStore.error(e.message || 'Database reset failed');
         } finally {
             resettingDatabase = false;
         }
