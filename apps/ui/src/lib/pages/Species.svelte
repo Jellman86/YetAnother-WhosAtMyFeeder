@@ -161,7 +161,17 @@
         return `${delta > 0 ? '+' : ''}${delta} (${percent.toFixed(1)}%)`;
     }
 
+    function getHeroBlurb(info: SpeciesInfo | null): string | null {
+        if (!info) return null;
+        const text = info.description || info.extract || null;
+        if (!text) return null;
+        const trimmed = text.trim();
+        if (trimmed.length <= 220) return trimmed;
+        return `${trimmed.slice(0, 217)}...`;
+    }
+
     let heroInfo = $derived(topByCount ? speciesInfoCache[topByCount.species] : null);
+    let heroBlurb = $derived(getHeroBlurb(heroInfo()));
     let streakInfo = $derived(topByStreak ? speciesInfoCache[topByStreak.species] : null);
     let activeInfo = $derived(topBy7d ? speciesInfoCache[topBy7d.species] : null);
     let risingInfo = $derived(topByTrend ? speciesInfoCache[topByTrend.species] : null);
@@ -318,6 +328,11 @@
                             {#if topByCount?.subName}
                                 <p class="text-xs italic text-slate-500 dark:text-slate-400">
                                     {topByCount.subName}
+                                </p>
+                            {/if}
+                            {#if heroBlurb()}
+                                <p class="text-sm text-slate-600 dark:text-slate-300 mt-3 max-w-xl">
+                                    {heroBlurb()}
                                 </p>
                             {/if}
                         </div>
