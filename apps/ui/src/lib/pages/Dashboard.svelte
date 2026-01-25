@@ -28,6 +28,7 @@
     let { onnavigate }: Props = $props();
 
     let summary = $state<DailySummary | null>(null);
+    let summaryLoading = $state(true);
     let selectedEvent = $state<Detection | null>(null);
     let selectedSpecies = $state<string | null>(null);
     let deleting = $state(false);
@@ -107,6 +108,8 @@
             classifierLabels = labelsRes.labels;
         } catch (e) {
             console.error('Failed to load summary', e);
+        } finally {
+            summaryLoading = false;
         }
     }
 
@@ -233,7 +236,7 @@
                 {audioConfirmations}
             />
         </div>
-    {:else}
+    {:else if summaryLoading}
         <div class="h-20 rounded-3xl bg-slate-100/80 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60 animate-pulse"></div>
     {/if}
 
@@ -261,7 +264,7 @@
                 <div in:fade={{ duration: 800 }}>
                     <DailyHistogram data={summary.hourly_distribution} />
                 </div>
-            {:else}
+            {:else if summaryLoading}
                 <div class="min-h-[220px] rounded-3xl bg-slate-100/80 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60 animate-pulse"></div>
             {/if}
             {#if birdnetEnabled}
@@ -280,7 +283,7 @@
                 onSpeciesClick={handleSpeciesSummaryClick}
             />
         </div>
-    {:else}
+    {:else if summaryLoading}
         <div class="min-h-[200px] rounded-3xl bg-slate-100/80 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60 animate-pulse"></div>
     {/if}
 

@@ -148,7 +148,9 @@
       }
 
       if (canAccess && !appInitialized) {
-          settingsStore.load();
+          if (authStore.isAuthenticated || !authStore.authRequired) {
+              settingsStore.load();
+          }
           detectionsStore.loadInitial();
           connectSSE();
           appInitialized = true;
