@@ -417,7 +417,7 @@
             </div>
 
             <!-- AI Analysis -->
-            {#if llmEnabled && aiAnalysis}
+            {#if aiAnalysis}
                 <div class="space-y-3">
                     <div class="p-4 rounded-2xl bg-teal-500/5 border border-teal-500/10 animate-in fade-in slide-in-from-top-2">
                         <p class="text-[10px] font-black text-teal-600 dark:text-teal-400 uppercase tracking-[0.2em] mb-2">
@@ -439,7 +439,7 @@
                             {/each}
                         </div>
                     </div>
-                    {#if authStore.canModify}
+                    {#if authStore.canModify && llmEnabled}
                         <button
                             onclick={() => handleAIAnalysis(true)}
                             disabled={analyzingAI}
