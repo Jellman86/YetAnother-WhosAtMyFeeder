@@ -29,6 +29,9 @@ export interface Detection {
     video_classification_timestamp?: string;
     video_classification_status?: 'pending' | 'processing' | 'completed' | 'failed' | null;
     video_classification_error?: string | null;
+    // AI analysis fields
+    ai_analysis?: string | null;
+    ai_analysis_timestamp?: string | null;
 }
 
 export interface VersionInfo {

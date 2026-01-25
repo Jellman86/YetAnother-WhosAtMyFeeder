@@ -213,7 +213,9 @@ async def get_events(
                 video_classification_label=event.video_classification_label,
                 video_classification_timestamp=event.video_classification_timestamp,
                 video_classification_status=event.video_classification_status,
-                video_classification_error=event.video_classification_error
+                video_classification_error=event.video_classification_error,
+                ai_analysis=event.ai_analysis,
+                ai_analysis_timestamp=event.ai_analysis_timestamp
             )
             response_events.append(response_event)
 
