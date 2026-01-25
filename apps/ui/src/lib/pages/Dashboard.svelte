@@ -233,6 +233,8 @@
                 {audioConfirmations}
             />
         </div>
+    {:else}
+        <div class="h-20 rounded-3xl bg-slate-100/80 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60 animate-pulse"></div>
     {/if}
 
     <!-- Top Row: Hero & Histogram -->
@@ -259,6 +261,8 @@
                 <div in:fade={{ duration: 800 }}>
                     <DailyHistogram data={summary.hourly_distribution} />
                 </div>
+            {:else}
+                <div class="min-h-[220px] rounded-3xl bg-slate-100/80 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60 animate-pulse"></div>
             {/if}
             {#if birdnetEnabled}
                 <div in:fade={{ duration: 800, delay: 200 }} class="flex-1 min-h-[300px]">
@@ -276,6 +280,8 @@
                 onSpeciesClick={handleSpeciesSummaryClick}
             />
         </div>
+    {:else}
+        <div class="min-h-[200px] rounded-3xl bg-slate-100/80 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60 animate-pulse"></div>
     {/if}
 
     <!-- Bottom Row: Recent Feed -->
@@ -289,16 +295,22 @@
         </div>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-            {#each detectionsStore.detections.slice(1, 10) as detection (detection.frigate_event || detection.id)}
-                <div in:fly={{ y: 20, duration: 400 }}>
-                    <DetectionCard 
-                        {detection} 
-                        onclick={() => selectedEvent = detection} 
-                        onPlay={() => { selectedEvent = detection; showVideo = true; }}
-                        hideProgress={selectedEvent?.frigate_event === detection.frigate_event}
-                    />
-                </div>
-            {/each}
+            {#if detectionsStore.detections.length > 0}
+                {#each detectionsStore.detections.slice(1, 10) as detection (detection.frigate_event || detection.id)}
+                    <div in:fly={{ y: 20, duration: 400 }}>
+                        <DetectionCard 
+                            {detection} 
+                            onclick={() => selectedEvent = detection} 
+                            onPlay={() => { selectedEvent = detection; showVideo = true; }}
+                            hideProgress={selectedEvent?.frigate_event === detection.frigate_event}
+                        />
+                    </div>
+                {/each}
+            {:else}
+                {#each Array(4) as _, index (index)}
+                    <div class="min-h-[220px] rounded-3xl bg-slate-100/80 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60 animate-pulse"></div>
+                {/each}
+            {/if}
         </div>
     </div>
 </div>

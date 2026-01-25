@@ -43,6 +43,9 @@ export default defineConfig({
         __APP_VERSION__: JSON.stringify(appVersion),
         __GIT_HASH__: JSON.stringify(gitHash),
     },
+    build: {
+        sourcemap: true,
+    },
     server: {
         host: true,
         port: 3000,

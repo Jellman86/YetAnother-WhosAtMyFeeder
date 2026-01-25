@@ -17,10 +17,17 @@ class SettingsStore {
                 this.settings = await fetchSettings();
             } catch (e) {
                 const errorMessage = e instanceof Error ? e.message : 'Failed to load settings';
-                this.error = errorMessage;
-                // Don't log AbortError as it's expected behavior if we were using cancellable requests
-                if (e instanceof Error && e.name !== 'AbortError') {
-                    console.error('Failed to load settings store', e);
+                const isAuthExpected =
+                    typeof errorMessage === 'string' &&
+                    (errorMessage.includes('Owner privileges required') ||
+                        errorMessage.includes('HTTP 403') ||
+                        errorMessage.includes('403'));
+                if (!isAuthExpected) {
+                    this.error = errorMessage;
+                    // Don't log AbortError as it's expected behavior if we were using cancellable requests
+                    if (e instanceof Error && e.name !== 'AbortError') {
+                        console.error('Failed to load settings store', e);
+                    }
                 }
             } finally {
                 this.isLoading = false;

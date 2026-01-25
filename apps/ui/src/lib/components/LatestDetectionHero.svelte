@@ -88,7 +88,7 @@
     <div class="absolute bottom-0 left-0 right-0 p-6 sm:p-8 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div class="flex-1 min-w-0">
             <div class="flex items-center gap-2 mb-2">
-                <span class="px-2 py-0.5 bg-teal-500 text-white text-[10px] font-bold uppercase tracking-widest rounded-md">
+                <span class="px-2 py-0.5 bg-teal-600 text-white text-[10px] font-bold uppercase tracking-widest rounded-md">
                     {getRelativeTime(detection.detection_time)}
                 </span>
                 {#if detection.audio_confirmed}
@@ -143,7 +143,7 @@
                     <span class="text-[8px] font-bold uppercase opacity-60">Conf</span>
                 </div>
             {/if}
-            <div class="px-4 py-2 bg-teal-500 hover:bg-teal-600 text-white text-xs font-bold uppercase tracking-widest rounded-full transition-colors shadow-lg">
+            <div class="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold uppercase tracking-widest rounded-full transition-colors shadow-lg">
                 View Details
             </div>
         </div>

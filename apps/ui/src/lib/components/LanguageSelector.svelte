@@ -52,7 +52,7 @@
     <button
         onclick={() => showDropdown = !showDropdown}
         class="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition-all duration-200 focus-ring"
-        aria-label={$_('settings.language_selector')}
+        aria-label={languageNames[currentLocaleValue || 'en'] || 'English'}
         aria-haspopup="menu"
         aria-expanded={showDropdown}
         aria-controls={menuId}
