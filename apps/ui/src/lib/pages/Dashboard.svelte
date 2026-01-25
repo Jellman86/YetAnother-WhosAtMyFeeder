@@ -16,6 +16,7 @@
     import type { Detection, DailySummary } from '../api';
     import { getThumbnailUrl, deleteDetection, hideDetection, updateDetectionSpecies, analyzeDetection, fetchDailySummary, fetchClassifierLabels, reclassifyDetection } from '../api';
     import { settingsStore } from '../stores/settings.svelte';
+    import { authStore } from '../stores/auth.svelte';
     import { _ } from 'svelte-i18n';
 
     import { getBirdNames } from '../naming';
@@ -27,6 +28,7 @@
     let { onnavigate }: Props = $props();
 
     let summary = $state<DailySummary | null>(null);
+    let summaryLoading = $state(true);
     let selectedEvent = $state<Detection | null>(null);
     let selectedSpecies = $state<string | null>(null);
     let deleting = $state(false);
@@ -37,10 +39,14 @@
     let showCommon = $state(true);
     let preferSci = $state(false);
     $effect(() => {
-        llmEnabled = settingsStore.settings?.llm_enabled ?? false;
+        llmEnabled = settingsStore.settings?.llm_enabled ?? authStore.llmEnabled ?? false;
         showCommon = settingsStore.settings?.display_common_names ?? true;
         preferSci = settingsStore.settings?.scientific_name_primary ?? false;
     });
+
+    const birdnetEnabled = $derived(
+        settingsStore.settings?.birdnet_enabled ?? authStore.birdnetEnabled ?? false
+    );
 
     // AI Analysis state
     let analyzingAI = $state(false);
@@ -102,6 +108,8 @@
             classifierLabels = labelsRes.labels;
         } catch (e) {
             console.error('Failed to load summary', e);
+        } finally {
+            summaryLoading = false;
         }
     }
 
@@ -228,6 +236,8 @@
                 {audioConfirmations}
             />
         </div>
+    {:else if summaryLoading}
+        <div class="h-20 rounded-3xl bg-slate-100/80 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60 animate-pulse"></div>
     {/if}
 
     <!-- Top Row: Hero & Histogram -->
@@ -254,8 +264,10 @@
                 <div in:fade={{ duration: 800 }}>
                     <DailyHistogram data={summary.hourly_distribution} />
                 </div>
+            {:else if summaryLoading}
+                <div class="min-h-[220px] rounded-3xl bg-slate-100/80 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60 animate-pulse"></div>
             {/if}
-            {#if settingsStore.settings?.birdnet_enabled}
+            {#if birdnetEnabled}
                 <div in:fade={{ duration: 800, delay: 200 }} class="flex-1 min-h-[300px]">
                     <RecentAudio />
                 </div>
@@ -271,6 +283,8 @@
                 onSpeciesClick={handleSpeciesSummaryClick}
             />
         </div>
+    {:else if summaryLoading}
+        <div class="min-h-[200px] rounded-3xl bg-slate-100/80 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60 animate-pulse"></div>
     {/if}
 
     <!-- Bottom Row: Recent Feed -->
@@ -284,16 +298,22 @@
         </div>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-            {#each detectionsStore.detections.slice(1, 10) as detection (detection.frigate_event || detection.id)}
-                <div in:fly={{ y: 20, duration: 400 }}>
-                    <DetectionCard 
-                        {detection} 
-                        onclick={() => selectedEvent = detection} 
-                        onPlay={() => { selectedEvent = detection; showVideo = true; }}
-                        hideProgress={selectedEvent?.frigate_event === detection.frigate_event}
-                    />
-                </div>
-            {/each}
+            {#if detectionsStore.detections.length > 0}
+                {#each detectionsStore.detections.slice(1, 10) as detection (detection.frigate_event || detection.id)}
+                    <div in:fly={{ y: 20, duration: 400 }}>
+                        <DetectionCard 
+                            {detection} 
+                            onclick={() => selectedEvent = detection} 
+                            onPlay={() => { selectedEvent = detection; showVideo = true; }}
+                            hideProgress={selectedEvent?.frigate_event === detection.frigate_event}
+                        />
+                    </div>
+                {/each}
+            {:else}
+                {#each Array(4) as _, index (index)}
+                    <div class="min-h-[220px] rounded-3xl bg-slate-100/80 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60 animate-pulse"></div>
+                {/each}
+            {/if}
         </div>
     </div>
 </div>

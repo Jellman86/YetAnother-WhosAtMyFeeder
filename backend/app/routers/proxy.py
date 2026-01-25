@@ -1,5 +1,5 @@
 import re
-from fastapi import APIRouter, HTTPException, Response, Path, Request
+from fastapi import APIRouter, HTTPException, Response, Path, Request, Depends
 from fastapi.responses import StreamingResponse
 from starlette.background import BackgroundTask
 import httpx
@@ -7,6 +7,9 @@ from app.config import settings
 from app.services.frigate_client import frigate_client
 from app.services.i18n_service import i18n_service
 from app.utils.language import get_user_language
+from app.auth import AuthContext, require_owner
+from app.auth_legacy import get_auth_context_with_legacy
+from app.ratelimit import guest_rate_limit
 
 router = APIRouter()
 
@@ -27,7 +30,10 @@ def validate_event_id(event_id: str) -> bool:
     return bool(EVENT_ID_PATTERN.match(event_id)) and len(event_id) <= 64
 
 @router.get("/frigate/test")
-async def test_frigate_connection(request: Request):
+async def test_frigate_connection(
+    request: Request,
+    auth: AuthContext = Depends(require_owner)
+):
     """Test connection to Frigate and return status with details."""
     url = f"{settings.frigate.frigate_url}/api/version"
     client = get_http_client()
@@ -64,7 +70,10 @@ async def test_frigate_connection(request: Request):
         )
 
 @router.get("/frigate/config")
-async def proxy_config(request: Request):
+async def proxy_config(
+    request: Request,
+    auth: AuthContext = Depends(require_owner)
+):
     url = f"{settings.frigate.frigate_url}/api/config"
     client = get_http_client()
     headers = frigate_client._get_headers()
@@ -95,7 +104,12 @@ async def proxy_config(request: Request):
         )
 
 @router.get("/frigate/{event_id}/snapshot.jpg")
-async def proxy_snapshot(request: Request, event_id: str = Path(..., min_length=1, max_length=64)):
+@guest_rate_limit()
+async def proxy_snapshot(
+    request: Request,
+    event_id: str = Path(..., min_length=1, max_length=64),
+    auth: AuthContext = Depends(get_auth_context_with_legacy)
+):
     from app.services.media_cache import media_cache
 
     lang = get_user_language(request)
@@ -147,7 +161,12 @@ async def proxy_snapshot(request: Request, event_id: str = Path(..., min_length=
         )
 
 @router.head("/frigate/{event_id}/clip.mp4")
-async def check_clip_exists(request: Request, event_id: str = Path(..., min_length=1, max_length=64)):
+@guest_rate_limit()
+async def check_clip_exists(
+    request: Request,
+    event_id: str = Path(..., min_length=1, max_length=64),
+    auth: AuthContext = Depends(get_auth_context_with_legacy)
+):
     """Check if a clip exists for an event by checking the event details."""
     lang = get_user_language(request)
 
@@ -201,9 +220,11 @@ async def check_clip_exists(request: Request, event_id: str = Path(..., min_leng
 
 
 @router.get("/frigate/{event_id}/clip.mp4")
+@guest_rate_limit()
 async def proxy_clip(
     request: Request,
-    event_id: str = Path(..., min_length=1, max_length=64)
+    event_id: str = Path(..., min_length=1, max_length=64),
+    auth: AuthContext = Depends(get_auth_context_with_legacy)
 ):
     """Proxy video clip from Frigate with Range support and streaming."""
     from fastapi.responses import FileResponse
@@ -351,7 +372,12 @@ async def proxy_clip(
     )
 
 @router.get("/frigate/{event_id}/thumbnail.jpg")
-async def proxy_thumb(request: Request, event_id: str = Path(..., min_length=1, max_length=64)):
+@guest_rate_limit()
+async def proxy_thumb(
+    request: Request,
+    event_id: str = Path(..., min_length=1, max_length=64),
+    auth: AuthContext = Depends(get_auth_context_with_legacy)
+):
     from app.services.media_cache import media_cache
 
     lang = get_user_language(request)

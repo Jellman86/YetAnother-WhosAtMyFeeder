@@ -20,10 +20,16 @@
         backfillEndDate = $bindable(''),
         backfilling,
         backfillResult,
+        resettingDatabase,
+        analyzingUnknowns,
+        analysisStatus,
+        analysisTotal,
         handleCleanup,
         handleCacheCleanup,
         handleStartTaxonomySync,
-        handleBackfill
+        handleBackfill,
+        handleAnalyzeUnknowns,
+        handleResetDatabase
     }: {
         maintenanceStats: MaintenanceStats | null;
         retentionDays: number;
@@ -41,10 +47,16 @@
         backfillEndDate: string;
         backfilling: boolean;
         backfillResult: BackfillResult | null;
+        resettingDatabase: boolean;
+        analyzingUnknowns: boolean;
+        analysisStatus: { pending: number; active: number; circuit_open: boolean } | null;
+        analysisTotal: number;
         handleCleanup: () => Promise<void>;
         handleCacheCleanup: () => Promise<void>;
         handleStartTaxonomySync: () => Promise<void>;
         handleBackfill: () => Promise<void>;
+        handleAnalyzeUnknowns: () => Promise<void>;
+        handleResetDatabase: () => Promise<void>;
     } = $props();
 </script>
 
@@ -336,6 +348,99 @@
                     </svg>
                 {/if}
                 {backfilling ? 'Analyzing Frigate...' : 'Scan History'}
+            </button>
+        </div>
+    </section>
+
+    <!-- Batch Analysis -->
+    <section class="card-base rounded-3xl p-8">
+        <div class="flex items-center gap-3 mb-6">
+            <div class="w-10 h-10 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" /></svg>
+            </div>
+            <div>
+                <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">Batch Analysis</h3>
+                <p class="text-[10px] font-black uppercase tracking-widest text-slate-500 mt-1">Refine existing detections</p>
+            </div>
+        </div>
+
+        <div class="space-y-4">
+            <p class="text-sm text-slate-600 dark:text-slate-400 font-medium">
+                Run video analysis on all detections labeled as "Unknown Bird". This will queue background tasks to download clips and re-classify them.
+            </p>
+            <button
+                onclick={handleAnalyzeUnknowns}
+                disabled={analyzingUnknowns}
+                aria-label="Analyze unknown birds"
+                class="w-full px-4 py-4 text-xs font-black uppercase tracking-widest rounded-2xl bg-indigo-500 hover:bg-indigo-600 text-white transition-all shadow-lg shadow-indigo-500/20 flex items-center justify-center gap-3 disabled:opacity-50"
+            >
+                {#if analyzingUnknowns}
+                    <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                {/if}
+                {analyzingUnknowns ? 'Queueing...' : 'Analyze All Unknowns'}
+            </button>
+
+            {#if analysisStatus && (analysisStatus.pending > 0 || analysisStatus.active > 0)}
+                {@const remaining = analysisStatus.pending + analysisStatus.active}
+                {@const processed = analysisTotal > 0 ? Math.max(0, analysisTotal - remaining) : 0}
+                {@const progress = analysisTotal > 0 ? (processed / analysisTotal) * 100 : 0}
+                
+                <div class="mt-4 p-4 rounded-2xl bg-indigo-50/50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-700/30 space-y-3 animate-in fade-in slide-in-from-top-2">
+                    <div class="flex justify-between text-xs font-bold uppercase tracking-widest">
+                        <span class="text-indigo-600 dark:text-indigo-400">Processing...</span>
+                        <span class="text-slate-500">{processed} / {analysisTotal}</span>
+                    </div>
+                    <div class="w-full h-2 bg-white dark:bg-slate-800 rounded-full overflow-hidden border border-indigo-100 dark:border-indigo-700/50">
+                        <div class="h-full bg-gradient-to-r from-indigo-500 to-purple-500 transition-all duration-500 ease-out" style="width: {progress}%"></div>
+                    </div>
+                    <div class="flex justify-between text-[10px] font-bold text-slate-400">
+                        <span>Pending: {analysisStatus.pending}</span>
+                        <span>Active: {analysisStatus.active}</span>
+                    </div>
+                    {#if analysisStatus.circuit_open}
+                        <div class="text-[10px] font-bold text-amber-500 flex items-center gap-1 bg-amber-500/10 p-2 rounded-lg border border-amber-500/20">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                            Circuit Breaker Open (Paused due to failures)
+                        </div>
+                    {/if}
+                </div>
+            {/if}
+        </div>
+    </section>
+
+    <!-- Danger Zone -->
+    <section class="card-base rounded-3xl p-8 border-2 border-red-500/20 bg-red-500/5">
+        <div class="flex items-center gap-3 mb-6">
+            <div class="w-10 h-10 rounded-2xl bg-red-500/10 flex items-center justify-center text-red-600 dark:text-red-400">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+            </div>
+            <div>
+                <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">{$_('settings.danger.title')}</h3>
+                <p class="text-[10px] font-black uppercase tracking-widest text-red-500 mt-1">{$_('settings.danger.subtitle')}</p>
+            </div>
+        </div>
+
+        <div class="space-y-4">
+            <p class="text-sm text-slate-600 dark:text-slate-400 font-medium">
+                {$_('settings.danger.reset_desc')}
+            </p>
+            <button
+                type="button"
+                onclick={handleResetDatabase}
+                disabled={resettingDatabase}
+                aria-label={$_('settings.danger.reset_button')}
+                class="w-full px-4 py-4 text-xs font-black uppercase tracking-widest rounded-2xl bg-red-500 hover:bg-red-600 text-white transition-all shadow-lg shadow-red-500/20 flex items-center justify-center gap-3 disabled:opacity-50"
+            >
+                {#if resettingDatabase}
+                    <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                {/if}
+                {resettingDatabase ? $_('settings.danger.resetting') : $_('settings.danger.reset_button')}
             </button>
         </div>
     </section>

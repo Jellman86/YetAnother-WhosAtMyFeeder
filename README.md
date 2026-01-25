@@ -14,12 +14,19 @@ A bird classification system that integrates with [Frigate NVR](https://frigate.
 - **Home Assistant Integration** - Sensors, automation, and dashboard cards
 - **BirdWeather Reporting** - Contribute to community science
 - **Real-time Dashboard** - Live updates, video playback, species statistics
+- **Public View (Guest Mode)** - Share a read-only dashboard with rate limits and optional camera name hiding
 
 ## About This Project
 
 A personal project built with AI-assisted coding, inspired by the original [WhosAtMyFeeder](https://github.com/mmcc-xx/WhosAtMyFeeder). When I noticed the original project wasn't being maintained, I saw an opportunity to learn and build something better.
 
 Built with help from AI coding assistants as an experiment in what's possible with modern development tools. Feedback and contributions are welcome!
+
+## Live Instance
+
+A public instance of YA-WAMF is available here:
+
+- **https://yetanotherwhosatmyfeeder.pownet.uk**
 
 ## What It Does
 
@@ -47,6 +54,7 @@ When Frigate detects a bird at your feeder, YA-WAMF:
 - **Wildlife Classifier:** identify squirrels, foxes, and other non-bird visitors.
 - **Home Assistant Integration:** Full support for tracking the last detected bird and daily counts in HA.
 - **Observability:** Built-in Prometheus metrics, Telemetry (opt-in), and real-time MQTT diagnostics.
+- **Public View (Guest Mode):** Optional read-only sharing with rate limits and privacy controls.
 
 ## Documentation
 
@@ -177,6 +185,10 @@ Open `http://localhost:9852` (or `http://YOUR_SERVER_IP:9852`)
 
 In the web UI, go to **Settings** and click the model download button. The model is saved to `data/models/` and persists across updates.
 
+### Public View (Guest Mode) at a Glance
+
+Guest mode is read-only and rate-limited. Guests can view detections and any existing AI Naturalist analysis, but cannot change settings, delete items, or run new AI analysis. You can hide camera names and limit the public history window in **Settings > Public Access**.
+
 ### Verification
 
 Check logs to confirm everything is working:
@@ -220,20 +232,19 @@ All settings are managed through the web UI under **Settings**. Configuration is
 
 ## Security & Authentication
 
-By default, YA-WAMF runs without authentication, assuming deployment on a trusted local network.
+YA-WAMF v2.6.0 introduces a robust built-in authentication system.
 
-### Enabling API Key Authentication
+### 🔐 Built-in Authentication
+- **Setup Wizard:** On first run, you'll be prompted to set an admin username and password.
+- **Guest Mode:** Optionally enable a "Public View" to share your bird detections with friends (read-only) while keeping settings and admin tools secure.
+- **Security:** Includes login rate limiting, session management, and security headers.
 
-To password-protect the dashboard and API, add `YA_WAMF_API_KEY` to your `.env` file:
+👉 **[Read the Full Authentication & Access Control Guide](docs/features/authentication.md)**
 
-```env
-YA_WAMF_API_KEY=your-super-secret-password
-```
+### 🔑 Legacy API Key (Deprecated)
+If you are upgrading from an older version using `YA_WAMF_API_KEY`, your setup will continue to work. However, this method is **deprecated** and will be removed in v2.9.0. We recommend migrating to the new password-based system via **Settings > Security**.
 
-When enabled:
-- Dashboard requires login
-- API requests require `X-API-Key` header
-- Real-time updates authenticate via query parameter
+For detailed upgrade instructions, see the [Migration Guide](MIGRATION.md).
 
 ## Tech Stack
 

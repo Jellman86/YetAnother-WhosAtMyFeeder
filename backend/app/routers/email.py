@@ -3,7 +3,7 @@ Email notification OAuth and management endpoints
 """
 
 from datetime import datetime, timedelta
-from fastapi import APIRouter, HTTPException, Request, Query
+from fastapi import APIRouter, HTTPException, Request, Query, Depends
 from fastapi.responses import RedirectResponse, HTMLResponse
 from pydantic import BaseModel
 import structlog
@@ -18,6 +18,7 @@ from app.config import settings
 from app.services.smtp_service import smtp_service
 from app.services.i18n_service import i18n_service
 from app.utils.language import get_user_language
+from app.auth import require_owner, AuthContext
 from jinja2 import Template
 import aiofiles
 
@@ -38,9 +39,12 @@ class TestEmailRequest(BaseModel):
 
 
 @router.get("/oauth/gmail/authorize")
-async def gmail_oauth_authorize(request: Request):
+async def gmail_oauth_authorize(
+    request: Request,
+    auth: AuthContext = Depends(require_owner)
+):
     """
-    Initiate Gmail OAuth2 authorization flow
+    Initiate Gmail OAuth2 authorization flow. Owner only.
 
     Returns redirect URL for user to authorize application
     """
@@ -188,9 +192,12 @@ async def gmail_oauth_callback(request: Request, code: str = Query(...), state: 
 
 
 @router.get("/oauth/outlook/authorize")
-async def outlook_oauth_authorize(request: Request):
+async def outlook_oauth_authorize(
+    request: Request,
+    auth: AuthContext = Depends(require_owner)
+):
     """
-    Initiate Outlook/Office 365 OAuth2 authorization flow
+    Initiate Outlook/Office 365 OAuth2 authorization flow. Owner only.
     """
     lang = get_user_language(request)
     try:
@@ -314,9 +321,13 @@ async def outlook_oauth_callback(request: Request, code: str = Query(...), state
 
 
 @router.delete("/oauth/{provider}/disconnect")
-async def disconnect_oauth(provider: str, request: Request):
+async def disconnect_oauth(
+    provider: str,
+    request: Request,
+    auth: AuthContext = Depends(require_owner)
+):
     """
-    Disconnect OAuth email provider and delete stored tokens
+    Disconnect OAuth email provider and delete stored tokens. Owner only.
     """
     lang = get_user_language(request)
     if provider not in ["gmail", "outlook"]:
@@ -339,9 +350,13 @@ async def disconnect_oauth(provider: str, request: Request):
 
 
 @router.post("/test")
-async def send_test_email(test_request: TestEmailRequest, request: Request):
+async def send_test_email(
+    test_request: TestEmailRequest,
+    request: Request,
+    auth: AuthContext = Depends(require_owner)
+):
     """
-    Send a test email to verify configuration
+    Send a test email to verify configuration. Owner only.
     """
     lang = get_user_language(request)
     try:

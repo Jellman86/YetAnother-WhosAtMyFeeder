@@ -4,6 +4,7 @@
     import ReclassificationOverlay from './ReclassificationOverlay.svelte';
     import { detectionsStore, type ReclassificationProgress } from '../stores/detections.svelte';
     import { settingsStore } from '../stores/settings.svelte';
+    import { authStore } from '../stores/auth.svelte';
     import { getBirdNames } from '../naming';
     import { _ } from 'svelte-i18n';
     import { trapFocus } from '../utils/focus-trap';
@@ -15,9 +16,10 @@
         llmEnabled: boolean;
         showVideoButton?: boolean;
         onClose: () => void;
-        onReclassify: (detection: Detection) => void;
+        onReclassify?: (detection: Detection) => void;
         onPlayVideo?: () => void;
         onViewSpecies: (speciesName: string) => void;
+        readOnly?: boolean;
     }
 
     let {
@@ -28,7 +30,8 @@
         onClose,
         onReclassify,
         onPlayVideo,
-        onViewSpecies
+        onViewSpecies,
+        readOnly = false
     }: Props = $props();
 
     // State
@@ -42,11 +45,60 @@
     });
 
     let aiAnalysis = $state<string | null>(null);
+    let lastEventId = $state<string | null>(null);
     let showTagDropdown = $state(false);
     let updatingTag = $state(false);
     let tagSearchQuery = $state('');
     let searchResults = $state<SearchResult[]>([]);
     let isSearching = $state(false);
+
+    type AiBlock =
+        | { type: 'heading'; text: string }
+        | { type: 'paragraph'; text: string }
+        | { type: 'list'; items: string[] };
+
+    function parseAiAnalysis(text: string): AiBlock[] {
+        const lines = text
+            .split(/\r?\n/)
+            .map(line => line.trim())
+            .filter(Boolean);
+
+        const blocks: AiBlock[] = [];
+        let listItems: string[] | null = null;
+
+        for (const line of lines) {
+            const headingMatch = line.match(/^#{1,6}\s+(.*)$/);
+            if (headingMatch) {
+                if (listItems?.length) {
+                    blocks.push({ type: 'list', items: listItems });
+                    listItems = null;
+                }
+                blocks.push({ type: 'heading', text: headingMatch[1] });
+                continue;
+            }
+
+            const listMatch = line.match(/^[-*•]\s+(.*)$/);
+            if (listMatch) {
+                if (!listItems) listItems = [];
+                listItems.push(listMatch[1]);
+                continue;
+            }
+
+            if (listItems?.length) {
+                blocks.push({ type: 'list', items: listItems });
+                listItems = null;
+            }
+            blocks.push({ type: 'paragraph', text: line });
+        }
+
+        if (listItems?.length) {
+            blocks.push({ type: 'list', items: listItems });
+        }
+
+        return blocks;
+    }
+
+    let aiBlocks = $derived(() => (aiAnalysis ? parseAiAnalysis(aiAnalysis) : []));
 
     // Reclassification progress
     let reclassifyProgress = $derived(
@@ -59,6 +111,14 @@
     const naming = $derived(getBirdNames(detection, showCommon, preferSci));
     const primaryName = $derived(naming.primary);
     const subName = $derived(naming.secondary);
+
+    $effect(() => {
+        if (!detection?.frigate_event) return;
+        if (detection.frigate_event !== lastEventId) {
+            lastEventId = detection.frigate_event;
+            aiAnalysis = detection.ai_analysis || null;
+        }
+    });
 
     // Handle search input
     let searchTimeout: any;
@@ -147,6 +207,7 @@
     }
 
     async function handleAIAnalysis(force: boolean = false) {
+        if (readOnly) return;
         if (!detection) return;
         analyzingAI = true;
         if (force) {
@@ -164,6 +225,7 @@
     }
 
     async function handleManualTag(newSpecies: string) {
+        if (readOnly) return;
         if (!detection) return;
         updatingTag = true;
         try {
@@ -180,6 +242,7 @@
     }
 
     async function handleHide() {
+        if (readOnly) return;
         if (!detection) return;
         try {
             const result = await hideDetection(detection.frigate_event);
@@ -193,6 +256,7 @@
     }
 
     async function handleDelete() {
+        if (readOnly) return;
         if (!detection) return;
         if (!confirm($_('actions.confirm_delete', { values: { species: detection.display_name } }))) return;
 
@@ -206,6 +270,7 @@
     }
 
     function handleReclassifyClick() {
+        if (readOnly || !onReclassify) return;
         onReclassify(detection);
     }
 
@@ -352,27 +417,43 @@
             </div>
 
             <!-- AI Analysis -->
-            {#if llmEnabled && aiAnalysis}
+            {#if aiAnalysis}
                 <div class="space-y-3">
                     <div class="p-4 rounded-2xl bg-teal-500/5 border border-teal-500/10 animate-in fade-in slide-in-from-top-2">
                         <p class="text-[10px] font-black text-teal-600 dark:text-teal-400 uppercase tracking-[0.2em] mb-2">
                             {$_('detection.ai.insight')}
                         </p>
-                        <p class="text-sm text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">{aiAnalysis}</p>
+                        <div class="space-y-2">
+                            {#each aiBlocks() as block}
+                                {#if block.type === 'heading'}
+                                    <p class="text-[11px] font-black uppercase tracking-[0.2em] text-teal-700 dark:text-teal-300">{block.text}</p>
+                                {:else if block.type === 'list'}
+                                    <ul class="space-y-1 list-disc list-inside text-sm text-slate-700 dark:text-slate-300">
+                                        {#each block.items as item}
+                                            <li>{item}</li>
+                                        {/each}
+                                    </ul>
+                                {:else}
+                                    <p class="text-sm text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">{block.text}</p>
+                                {/if}
+                            {/each}
+                        </div>
                     </div>
-                    <button
-                        onclick={() => handleAIAnalysis(true)}
-                        disabled={analyzingAI}
-                        class="w-full py-2 px-4 bg-teal-500/10 hover:bg-teal-500/20 text-teal-600 dark:text-teal-400 font-semibold text-sm rounded-xl transition-all flex items-center justify-center gap-2 border border-teal-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
-                        title={$_('detection.ai.regenerate')}
-                    >
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                        </svg>
-                        {analyzingAI ? $_('detection.ai.regenerating') : $_('detection.ai.regenerate')}
-                    </button>
+                    {#if authStore.canModify && llmEnabled}
+                        <button
+                            onclick={() => handleAIAnalysis(true)}
+                            disabled={analyzingAI}
+                            class="w-full py-2 px-4 bg-teal-500/10 hover:bg-teal-500/20 text-teal-600 dark:text-teal-400 font-semibold text-sm rounded-xl transition-all flex items-center justify-center gap-2 border border-teal-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                            title={$_('detection.ai.regenerate')}
+                        >
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                            {analyzingAI ? $_('detection.ai.regenerating') : $_('detection.ai.regenerate')}
+                        </button>
+                    {/if}
                 </div>
-            {:else if llmEnabled && !analyzingAI}
+            {:else if llmEnabled && !analyzingAI && authStore.canModify}
                 <button
                     onclick={() => handleAIAnalysis()}
                     class="w-full py-3 px-4 bg-teal-500/10 hover:bg-teal-500/20 text-teal-600 dark:text-teal-400 font-bold rounded-xl transition-all flex items-center justify-center gap-2 border border-teal-500/20"
@@ -390,45 +471,49 @@
             {/if}
 
             <!-- Actions -->
-            <div class="flex gap-2">
-                <button
-                    onclick={handleReclassifyClick}
-                    class="flex-1 py-3 px-4 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold rounded-xl hover:bg-slate-200 transition-colors"
-                >
-                    {$_('actions.reclassify')}
-                </button>
-
-                <div class="relative flex-1">
+            {#if authStore.canModify}
+                <div class="flex gap-2">
                     <button
-                        onclick={() => showTagDropdown = !showTagDropdown}
-                        disabled={updatingTag}
-                        class="w-full py-3 px-4 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold rounded-xl hover:bg-slate-200 transition-colors disabled:opacity-50"
+                        onclick={handleReclassifyClick}
+                        class="flex-1 py-3 px-4 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold rounded-xl hover:bg-slate-200 transition-colors"
                     >
-                        {updatingTag ? $_('common.saving') : $_('actions.manual_tag')}
+                        {$_('actions.reclassify')}
                     </button>
+
+                    <div class="relative flex-1">
+                        <button
+                            onclick={() => showTagDropdown = !showTagDropdown}
+                            disabled={updatingTag}
+                            class="w-full py-3 px-4 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold rounded-xl hover:bg-slate-200 transition-colors disabled:opacity-50"
+                        >
+                            {updatingTag ? $_('common.saving') : $_('actions.manual_tag')}
+                        </button>
+                    </div>
                 </div>
-            </div>
+            {/if}
 
             <!-- Bottom Actions -->
             <div class="flex gap-2 pt-2">
-                <button
-                    onclick={handleDelete}
-                    class="p-3 rounded-xl bg-red-50 dark:bg-red-900/20 text-red-600 hover:bg-red-100 transition-colors"
-                    title={$_('actions.delete_detection')}
-                >
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                </button>
-                <button
-                    onclick={handleHide}
-                    class="p-3 rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-600 hover:bg-slate-200 transition-colors"
-                    title={$_('actions.hide_detection')}
-                >
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-                    </svg>
-                </button>
+                {#if authStore.canModify}
+                    <button
+                        onclick={handleDelete}
+                        class="p-3 rounded-xl bg-red-50 dark:bg-red-900/20 text-red-600 hover:bg-red-100 transition-colors"
+                        title={$_('actions.delete_detection')}
+                    >
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                    </button>
+                    <button
+                        onclick={handleHide}
+                        class="p-3 rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-600 hover:bg-slate-200 transition-colors"
+                        title={$_('actions.hide_detection')}
+                    >
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                        </svg>
+                    </button>
+                {/if}
                 <button
                     onclick={handleSpeciesInfo}
                     class="flex-1 bg-teal-500 hover:bg-teal-600 text-white font-black uppercase tracking-widest text-xs rounded-xl transition-all shadow-lg shadow-teal-500/20"

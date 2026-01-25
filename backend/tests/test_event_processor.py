@@ -31,10 +31,11 @@ async def test_process_mqtt_message_valid_bird():
         mock_det_service = MockDetectionService.return_value
         mock_det_service.filter_and_label.return_value = ({"label": "Cardinal", "score": 0.95}, None)
         mock_det_service.save_detection = AsyncMock(return_value=(True, True))
+        mock_det_service.get_detection_by_frigate_event = AsyncMock(return_value=MagicMock(notified_at=None))
 
         mock_audio.find_match = AsyncMock(return_value=None)
         mock_weather.get_current_weather = AsyncMock(return_value={})
-        mock_notif.notify_detection = AsyncMock()
+        mock_notif.notify_detection = AsyncMock(return_value=False)
 
         payload = b'{"after": {"id": "123", "label": "bird", "camera": "cam1", "start_time": 1700000000}}'
 

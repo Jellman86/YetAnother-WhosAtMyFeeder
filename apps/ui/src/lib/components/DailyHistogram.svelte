@@ -18,7 +18,7 @@
             <span class="w-2 h-2 rounded-full bg-teal-500 animate-pulse"></span>
             {title}
         </h3>
-        <span class="text-[10px] text-slate-400">Last 24 Hours</span>
+        <span class="text-[10px] text-slate-600">Last 24 Hours</span>
     </div>
 
     <div class="relative h-32 flex items-end gap-1 px-1">
@@ -41,7 +41,7 @@
     <!-- X-Axis Labels -->
     <div class="flex justify-between mt-2 px-1">
         {#each [0, 6, 12, 18, 23] as hour}
-            <span class="text-[9px] text-slate-400 font-medium">{hour}:00</span>
+            <span class="text-[10px] text-slate-600 font-medium">{hour}:00</span>
         {/each}
     </div>
 </div>

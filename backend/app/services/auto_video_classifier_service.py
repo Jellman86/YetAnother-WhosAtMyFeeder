@@ -11,6 +11,7 @@ from app.config import settings
 from app.services.frigate_client import frigate_client
 from app.services.classifier_service import get_classifier
 from app.services.broadcaster import broadcaster
+from app.services.media_cache import media_cache
 from app.database import get_db
 from app.repositories.detection_repository import DetectionRepository
 
@@ -30,6 +31,73 @@ class AutoVideoClassifierService:
         self._failure_events: deque[tuple[float, str]] = deque()
         self._failure_event_ids: set[str] = set()
         self._circuit_open_until: float | None = None
+        self._pending_queue: asyncio.Queue[tuple[str, str]] = asyncio.Queue()
+        self._processor_task: Optional[asyncio.Task] = None
+        self._running = False
+
+    async def start(self):
+        """Start the queue processor."""
+        if self._running:
+            return
+        self._running = True
+        self._processor_task = asyncio.create_task(self._process_queue_loop())
+        log.info("AutoVideoClassifierService started")
+
+    async def stop(self):
+        """Stop the queue processor."""
+        self._running = False
+        if self._processor_task:
+            self._processor_task.cancel()
+            try:
+                await self._processor_task
+            except asyncio.CancelledError:
+                pass
+        # Cancel all active tasks
+        for task in self._active_tasks.values():
+            task.cancel()
+        self._active_tasks.clear()
+        log.info("AutoVideoClassifierService stopped")
+
+    async def _process_queue_loop(self):
+        """Background loop to process queued classification tasks."""
+        while self._running:
+            try:
+                # Check constraints
+                if self._is_circuit_open():
+                    await asyncio.sleep(5)
+                    continue
+
+                max_concurrent = settings.classification.video_classification_max_concurrent
+                if len(self._active_tasks) >= max_concurrent:
+                    await asyncio.sleep(1)
+                    continue
+
+                # Get next task
+                try:
+                    # Wait for a task or timeout to recheck constraints
+                    frigate_event, camera = await asyncio.wait_for(self._pending_queue.get(), timeout=1.0)
+                except asyncio.TimeoutError:
+                    continue
+
+                if frigate_event in self._active_tasks:
+                    self._pending_queue.task_done()
+                    continue
+
+                # Start task - skip initial delay for queued (historical) tasks
+                task = asyncio.create_task(self._process_event(frigate_event, camera, skip_delay=True))
+                self._active_tasks[frigate_event] = task
+                task.add_done_callback(lambda t: self._cleanup_task(frigate_event, t))
+                self._pending_queue.task_done()
+                
+                log.debug("Started queued video classification", 
+                          event_id=frigate_event, 
+                          queue_size=self._pending_queue.qsize())
+
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                log.error("Error in video classification queue loop", error=str(e))
+                await asyncio.sleep(5)
 
     def _prune_failures(self):
         window = settings.classification.video_classification_failure_window_minutes * 60
@@ -81,6 +149,22 @@ class AutoVideoClassifierService:
             "open_until": until,
             "failure_count": len(self._failure_events)
         }
+
+    def get_status(self) -> dict:
+        """Get current queue status."""
+        return {
+            "pending": self._pending_queue.qsize(),
+            "active": len(self._active_tasks),
+            "circuit_open": self._is_circuit_open()
+        }
+
+    async def queue_classification(self, frigate_event: str, camera: str):
+        """
+        Queue a video classification task.
+        Use this for bulk operations or retries.
+        """
+        await self._pending_queue.put((frigate_event, camera))
+        log.debug("Queued video classification", event_id=frigate_event, queue_size=self._pending_queue.qsize())
 
     def _cleanup_task(self, frigate_event: str, task: asyncio.Task):
         """Safely cleanup a completed task from the active tasks dict."""
@@ -134,9 +218,9 @@ class AutoVideoClassifierService:
         if completed:
             log.debug("Cleaned up completed tasks", count=len(completed))
 
-    async def _process_event(self, frigate_event: str, camera: str):
+    async def _process_event(self, frigate_event: str, camera: str, skip_delay: bool = False):
         """Main workflow for processing a video clip."""
-        log.info("Starting auto video classification", event_id=frigate_event, camera=camera)
+        log.info("Starting auto video classification", event_id=frigate_event, camera=camera, skip_delay=skip_delay)
         
         try:
             # 1. Update status in DB to 'pending'
@@ -156,6 +240,7 @@ class AutoVideoClassifierService:
                 log.warning("Frigate event precheck failed", event_id=frigate_event, error=event_error)
                 await self._update_status(frigate_event, 'failed', error=event_error, broadcast=True)
                 self._record_failure(frigate_event)
+                await self._auto_delete_if_missing(frigate_event, event_error)
                 await broadcaster.broadcast({
                     "type": "reclassification_completed",
                     "data": { "event_id": frigate_event, "results": [] }
@@ -163,11 +248,12 @@ class AutoVideoClassifierService:
                 return
 
             # 2. Wait for clip availability
-            clip_bytes, clip_error = await self._wait_for_clip(frigate_event)
+            clip_bytes, clip_error = await self._wait_for_clip(frigate_event, skip_delay=skip_delay)
             if not clip_bytes:
                 log.warning("Clip not available after retries", event_id=frigate_event)
                 await self._update_status(frigate_event, 'failed', error=clip_error or "clip_unavailable", broadcast=True)
                 self._record_failure(frigate_event)
+                await self._auto_delete_if_missing(frigate_event, clip_error or "clip_unavailable")
                 await broadcaster.broadcast({
                     "type": "reclassification_completed",
                     "data": { "event_id": frigate_event, "results": [] }
@@ -248,15 +334,17 @@ class AutoVideoClassifierService:
             log.error("Video classification failed", event_id=frigate_event, error=str(e))
             await self._update_status(frigate_event, 'failed', error="video_exception", broadcast=True)
             self._record_failure(frigate_event)
+            await self._auto_delete_if_missing(frigate_event, "video_exception")
             await broadcaster.broadcast({
                 "type": "reclassification_completed",
                 "data": { "event_id": frigate_event, "results": [] }
             })
 
-    async def _wait_for_clip(self, frigate_event: str) -> tuple[Optional[bytes], Optional[str]]:
+    async def _wait_for_clip(self, frigate_event: str, skip_delay: bool = False) -> tuple[Optional[bytes], Optional[str]]:
         """Poll Frigate for clip availability with retries."""
         # Initial delay to allow Frigate to finalize the clip
-        await asyncio.sleep(settings.classification.video_classification_delay)
+        if not skip_delay:
+            await asyncio.sleep(settings.classification.video_classification_delay)
 
         max_retries = settings.classification.video_classification_max_retries
         retry_interval = settings.classification.video_classification_retry_interval
@@ -308,6 +396,40 @@ class AutoVideoClassifierService:
                     os.remove(tmp_path)
                 except Exception:
                     pass
+
+    async def _auto_delete_if_missing(self, frigate_event: str, error: str):
+        """Auto-delete detection when clip/event is missing (if enabled)."""
+        if not settings.maintenance.auto_delete_missing_clips:
+            return
+
+        missing_errors = {
+            "event_not_found",
+            "clip_unavailable",
+            "clip_invalid",
+            "clip_decode_failed",
+            "video_exception",
+        }
+        if error not in missing_errors:
+            return
+
+        try:
+            await media_cache.delete_cached_media(frigate_event)
+            async with get_db() as db:
+                repo = DetectionRepository(db)
+                deleted = await repo.delete_by_frigate_event(frigate_event)
+            if deleted:
+                await broadcaster.broadcast({
+                    "type": "detection_deleted",
+                    "data": {
+                        "frigate_event": frigate_event,
+                        "timestamp": datetime.utcnow().isoformat()
+                    }
+                })
+                log.info("Auto-deleted detection due to missing clip/event",
+                         event_id=frigate_event, error=error)
+        except Exception as e:
+            log.error("Failed to auto-delete missing clip detection",
+                      event_id=frigate_event, error=str(e))
 
     async def _update_status(self, frigate_event: str, status: str, error: Optional[str] = None, broadcast: bool = False):
         """Update video classification status in DB."""
@@ -387,8 +509,7 @@ class AutoVideoClassifierService:
                         "video_classification_timestamp": det.video_classification_timestamp.isoformat() if det.video_classification_timestamp else None
                     }
                 })
-        if status == "completed":
-            self._record_success(frigate_event)
+        # _record_success is already called on completion in _process_event.
 
 # Global singleton
 auto_video_classifier = AutoVideoClassifierService()

@@ -31,6 +31,17 @@ def pytest_configure(config):
     # Cleanup is handled by tempfile when process exits
 
 
+@pytest.fixture(autouse=True)
+def disable_rate_limiting():
+    """Disable rate limiting for all tests by default."""
+    from app.ratelimit import limiter
+    old_enabled = limiter.enabled
+    limiter.enabled = False
+    yield
+    limiter.enabled = old_enabled
+
+
+
 # All previously skipped tests have been fixed:
 # - AudioService fixture updated to use settings instead of buffer_minutes parameter
 # - detection_repository test schema updated with ai_analysis and ai_analysis_timestamp columns

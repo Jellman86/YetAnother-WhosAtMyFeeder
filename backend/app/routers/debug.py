@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from typing import Dict, Any
 import shutil
 import os
@@ -6,12 +6,13 @@ import httpx
 
 from app.config import settings
 from app.database import get_db
+from app.auth import require_owner, AuthContext
 
 router = APIRouter()
 
 @router.get("/debug/config")
-async def debug_config() -> Dict[str, Any]:
-    """Dump current configuration (secrets redacted)."""
+async def debug_config(auth: AuthContext = Depends(require_owner)) -> Dict[str, Any]:
+    """Dump current configuration (secrets redacted). Owner only."""
     conf = settings.model_dump()
     # Redact secrets without changing structure.
     sensitive_keys = {
@@ -44,8 +45,8 @@ async def debug_config() -> Dict[str, Any]:
     return conf
 
 @router.get("/debug/db/stats")
-async def debug_db_stats():
-    """Get row counts for key tables."""
+async def debug_db_stats(auth: AuthContext = Depends(require_owner)):
+    """Get row counts for key tables. Owner only."""
     stats = {}
     async with get_db() as db:
         for table in ["detections", "taxonomy_cache"]:
@@ -58,8 +59,8 @@ async def debug_db_stats():
     return stats
 
 @router.get("/debug/connectivity")
-async def debug_connectivity():
-    """Test connectivity to external services."""
+async def debug_connectivity(auth: AuthContext = Depends(require_owner)):
+    """Test connectivity to external services. Owner only."""
     results = {}
     
     # Test Frigate
@@ -95,8 +96,8 @@ async def debug_connectivity():
     return results
 
 @router.get("/debug/fs/models")
-async def debug_fs_models():
-    """List files in the model directory."""
+async def debug_fs_models(auth: AuthContext = Depends(require_owner)):
+    """List files in the model directory. Owner only."""
     model_dir = "/data/models"
     if not os.path.exists(model_dir):
         return {"error": "Model directory does not exist"}
@@ -110,8 +111,8 @@ async def debug_fs_models():
     return {"files": files}
 
 @router.get("/debug/system")
-async def debug_system():
-    """Get system info."""
+async def debug_system(auth: AuthContext = Depends(require_owner)):
+    """Get system info. Owner only."""
     import platform
     import sys
     return {

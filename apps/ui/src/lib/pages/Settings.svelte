@@ -16,6 +16,9 @@
         runCacheCleanup,
         fetchTaxonomyStatus,
         startTaxonomySync,
+        resetDatabase,
+        analyzeUnknowns,
+        fetchAnalysisStatus,
         testBirdWeather,
         testBirdNET,
         testMQTTPublish,
@@ -37,7 +40,10 @@
     import { themeStore, theme, type Theme } from '../stores/theme.svelte';
     import { layoutStore, layout, type Layout } from '../stores/layout.svelte';
     import { settingsStore } from '../stores/settings.svelte';
+    import { authStore } from '../stores/auth.svelte';
+    import { toastStore } from '../stores/toast.svelte';
     import { _, locale } from 'svelte-i18n';
+    import { get } from 'svelte/store';
     import SettingsTabs from '../components/settings/SettingsTabs.svelte';
 
     // Import all 7 settings components
@@ -48,6 +54,7 @@
     import DataSettings from '../components/settings/DataSettings.svelte';
     import IntegrationSettings from '../components/settings/IntegrationSettings.svelte';
     import NotificationSettings from '../components/settings/NotificationSettings.svelte';
+    import AuthenticationSettings from '../components/settings/AuthenticationSettings.svelte';
 
     let frigateUrl = $state('');
     let mqttServer = $state('');
@@ -145,6 +152,21 @@
     let telemetryInstallationId = $state<string | undefined>(undefined);
     let telemetryPlatform = $state<string | undefined>(undefined);
 
+    // Authentication + Public Access
+    let authEnabled = $state(false);
+    let authUsername = $state('admin');
+    let authHasPassword = $state(false);
+    let authPassword = $state('');
+    let authPasswordConfirm = $state('');
+    let authSessionExpiryHours = $state(168);
+    let trustedProxyHosts = $state<string[]>([]);
+    let trustedProxyHostsSuggested = $state(false);
+    let newTrustedProxyHost = $state('');
+    let publicAccessEnabled = $state(false);
+    let publicAccessShowCameraNames = $state(true);
+    let publicAccessHistoricalDays = $state(7);
+    let publicAccessRateLimitPerMinute = $state(30);
+
     // Notifications
     let discordEnabled = $state(false);
     let discordWebhook = $state('');
@@ -199,6 +221,33 @@
     $effect(() => {
         if (highContrast) document.documentElement.classList.add('high-contrast');
         else document.documentElement.classList.remove('high-contrast');
+    });
+
+    function addTrustedProxyHost() {
+        const host = newTrustedProxyHost.trim();
+        if (!host) return;
+        if (trustedProxyHostsSuggested) {
+            trustedProxyHostsSuggested = false;
+        }
+        if (!trustedProxyHosts.includes(host)) {
+            trustedProxyHosts = [...trustedProxyHosts, host];
+        }
+        newTrustedProxyHost = '';
+    }
+
+    function removeTrustedProxyHost(host: string) {
+        if (trustedProxyHostsSuggested) {
+            trustedProxyHostsSuggested = false;
+        }
+        trustedProxyHosts = trustedProxyHosts.filter((item) => item !== host);
+    }
+
+    function acceptTrustedProxySuggestions() {
+        trustedProxyHostsSuggested = false;
+    }
+
+    const effectiveTrustedProxyHosts = $derived.by(() => {
+        return trustedProxyHostsSuggested ? ['*'] : trustedProxyHosts;
     });
 
     $effect(() => {
@@ -312,6 +361,14 @@
             { key: 'cameraAudioMapping', val: JSON.stringify(cameraAudioMapping), store: JSON.stringify(s.camera_audio_mapping || {}) },
             { key: 'minConfidence', val: minConfidence, store: s.classification_min_confidence ?? 0.4 },
             { key: 'telemetryEnabled', val: telemetryEnabled, store: s.telemetry_enabled ?? true },
+            { key: 'authEnabled', val: authEnabled, store: s.auth_enabled ?? false },
+            { key: 'authUsername', val: authUsername, store: s.auth_username || 'admin' },
+            { key: 'authSessionExpiryHours', val: authSessionExpiryHours, store: s.auth_session_expiry_hours ?? 168 },
+            { key: 'trustedProxyHosts', val: JSON.stringify(effectiveTrustedProxyHosts), store: JSON.stringify(s.trusted_proxy_hosts || []) },
+            { key: 'publicAccessEnabled', val: publicAccessEnabled, store: s.public_access_enabled ?? false },
+            { key: 'publicAccessShowCameraNames', val: publicAccessShowCameraNames, store: s.public_access_show_camera_names ?? true },
+            { key: 'publicAccessHistoricalDays', val: publicAccessHistoricalDays, store: s.public_access_historical_days ?? 7 },
+            { key: 'publicAccessRateLimitPerMinute', val: publicAccessRateLimitPerMinute, store: s.public_access_rate_limit_per_minute ?? 30 },
 
             // Notifications
             { key: 'discordEnabled', val: discordEnabled, store: s.notifications_discord_enabled ?? false },
@@ -355,6 +412,10 @@
             { key: 'speciesInfoSource', val: speciesInfoSource, store: s.species_info_source ?? 'auto' }
         ];
 
+        if (authPassword.length > 0 || authPasswordConfirm.length > 0) {
+            return true;
+        }
+
         const dirtyItem = checks.find(c => c.val !== c.store);
         if (dirtyItem) {
             console.log(`Dirty Setting: ${dirtyItem.key}`, { current: dirtyItem.val, saved: dirtyItem.store });
@@ -388,6 +449,11 @@
     let backfillEndDate = $state('');
     let backfilling = $state(false);
     let backfillResult = $state<BackfillResult | null>(null);
+    let resettingDatabase = $state(false);
+    let analyzingUnknowns = $state(false);
+    let analysisTotal = $state(0);
+    let analysisStatus = $state<{ pending: number; active: number; circuit_open: boolean } | null>(null);
+    let analysisPollInterval: any;
 
     // Tab navigation
     let activeTab = $state('connection');
@@ -398,7 +464,7 @@
     onMount(async () => {
         // Handle deep linking to tabs
         const hash = window.location.hash.slice(1);
-        if (hash && ['connection', 'detection', 'notifications', 'integrations', 'data', 'appearance', 'accessibility'].includes(hash)) {
+        if (hash && ['connection', 'detection', 'notifications', 'integrations', 'security', 'data', 'appearance', 'accessibility'].includes(hash)) {
             activeTab = hash;
         }
 
@@ -413,10 +479,20 @@
             loadMaintenanceStats(),
             loadCacheStats(),
             loadTaxonomyStatus(),
-            loadVersion()
+            loadVersion(),
+            loadAnalysisStatus() // Check if there's an ongoing job
         ]);
 
         taxonomyPollInterval = setInterval(loadTaxonomyStatus, 3000);
+        
+        // If there are pending/active items on load, start polling
+        if (analysisStatus && (analysisStatus.pending > 0 || analysisStatus.active > 0)) {
+             startAnalysisPolling();
+             // We don't know total if we just reloaded, so maybe set total to pending+active
+             if (analysisTotal === 0) {
+                 analysisTotal = analysisStatus.pending + analysisStatus.active;
+             }
+        }
     });
 
     function handleTabChange(tab: string) {
@@ -427,6 +503,7 @@
 
     onDestroy(() => {
         if (taxonomyPollInterval) clearInterval(taxonomyPollInterval);
+        if (analysisPollInterval) clearInterval(analysisPollInterval);
     });
 
     async function loadTaxonomyStatus() {
@@ -484,6 +561,38 @@
         }
     }
 
+    async function handleResetDatabase() {
+        console.log('Reset database requested');
+        let confirmMsg = 'DANGER: This will delete ALL detections and clear the media cache. This action cannot be undone. Are you sure?';
+        try {
+            const t = get(_);
+            confirmMsg = t('settings.danger.confirm');
+        } catch (e) {
+            console.warn('Translation lookup failed, using fallback', e);
+        }
+
+        if (!confirm(confirmMsg)) {
+            console.log('Reset cancelled by user');
+            return;
+        }
+        
+        console.log('Reset confirmed, proceeding...');
+        resettingDatabase = true;
+        message = null;
+        toastStore.show($_('settings.danger.resetting'), 'info');
+        try {
+            const result = await resetDatabase();
+            message = { type: 'success', text: result.message };
+            toastStore.success(result.message || $_('settings.danger.reset_button'));
+            await Promise.all([loadMaintenanceStats(), loadCacheStats()]);
+        } catch (e: any) {
+            message = { type: 'error', text: e.message || 'Database reset failed' };
+            toastStore.error(e.message || 'Database reset failed');
+        } finally {
+            resettingDatabase = false;
+        }
+    }
+
     async function loadCacheStats() {
         try {
             cacheStats = await fetchCacheStats();
@@ -530,6 +639,44 @@
             message = { type: 'error', text: e.message || 'Backfill failed' };
         } finally {
             backfilling = false;
+        }
+    }
+
+    async function handleAnalyzeUnknowns() {
+        analyzingUnknowns = true;
+        message = null;
+        try {
+            const result = await analyzeUnknowns();
+            message = { type: 'success', text: result.message };
+            if (result.count > 0) {
+                analysisTotal = result.count;
+                startAnalysisPolling();
+            }
+        } catch (e: any) {
+            message = { type: 'error', text: e.message || 'Analysis failed' };
+        } finally {
+            analyzingUnknowns = false;
+        }
+    }
+
+    function startAnalysisPolling() {
+        if (analysisPollInterval) clearInterval(analysisPollInterval);
+        loadAnalysisStatus();
+        analysisPollInterval = setInterval(loadAnalysisStatus, 2000);
+    }
+
+    async function loadAnalysisStatus() {
+        try {
+            const status = await fetchAnalysisStatus();
+            analysisStatus = status;
+            if (status.pending === 0 && status.active === 0) {
+                if (analysisPollInterval) {
+                    clearInterval(analysisPollInterval);
+                    analysisPollInterval = null;
+                }
+            }
+        } catch (e) {
+            console.error('Failed to load analysis status', e);
         }
     }
 
@@ -623,6 +770,21 @@
             telemetryEnabled = settings.telemetry_enabled ?? true;
             telemetryInstallationId = settings.telemetry_installation_id;
             telemetryPlatform = settings.telemetry_platform;
+            // Authentication + Public access
+            authEnabled = settings.auth_enabled ?? false;
+            authUsername = settings.auth_username || 'admin';
+            authHasPassword = settings.auth_has_password ?? false;
+            authPassword = '';
+            authPasswordConfirm = '';
+            authSessionExpiryHours = settings.auth_session_expiry_hours ?? 168;
+            const proxyHosts = settings.trusted_proxy_hosts || [];
+            const proxyHostsDefault = proxyHosts.length === 0 || (proxyHosts.length === 1 && proxyHosts[0] === '*');
+            trustedProxyHostsSuggested = proxyHostsDefault;
+            trustedProxyHosts = proxyHostsDefault ? ['nginx-rp', 'cloudflare-tunnel'] : proxyHosts;
+            publicAccessEnabled = settings.public_access_enabled ?? false;
+            publicAccessShowCameraNames = settings.public_access_show_camera_names ?? true;
+            publicAccessHistoricalDays = settings.public_access_historical_days ?? 7;
+            publicAccessRateLimitPerMinute = settings.public_access_rate_limit_per_minute ?? 30;
 
             // Notifications
             discordEnabled = settings.notifications_discord_enabled ?? false;
@@ -728,6 +890,18 @@
     async function saveSettings() {
         saving = true;
         message = null;
+        if (authPassword || authPasswordConfirm) {
+            if (authPassword !== authPasswordConfirm) {
+                message = { type: 'error', text: 'Passwords do not match' };
+                saving = false;
+                return;
+            }
+            if (authPassword.length < 8) {
+                message = { type: 'error', text: 'Password must be at least 8 characters' };
+                saving = false;
+                return;
+            }
+        }
         try {
             await updateSettings({
                 frigate_url: frigateUrl,
@@ -768,6 +942,15 @@
                 llm_api_key: llmApiKey,
                 llm_model: llmModel,
                 telemetry_enabled: telemetryEnabled,
+                auth_enabled: authEnabled,
+                auth_username: authUsername,
+                auth_password: authPassword || undefined,
+                auth_session_expiry_hours: authSessionExpiryHours,
+                trusted_proxy_hosts: effectiveTrustedProxyHosts,
+                public_access_enabled: publicAccessEnabled,
+                public_access_show_camera_names: publicAccessShowCameraNames,
+                public_access_historical_days: publicAccessHistoricalDays,
+                public_access_rate_limit_per_minute: publicAccessRateLimitPerMinute,
 
                 // Notifications
                 notifications_discord_enabled: discordEnabled,
@@ -1146,6 +1329,38 @@
                 />
             {/if}
 
+            <!-- Security Tab -->
+            {#if activeTab === 'security'}
+                {#if authStore.httpsWarning}
+                    <div class="mb-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-800">
+                        <div class="flex items-center gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                            <span><strong>Security Warning:</strong> Authentication is enabled over HTTP. Your credentials may be exposed. Use HTTPS in production.</span>
+                        </div>
+                    </div>
+                {/if}
+                <AuthenticationSettings
+                    bind:authEnabled
+                    bind:authUsername
+                    bind:authHasPassword
+                    bind:authPassword
+                    bind:authPasswordConfirm
+                    bind:authSessionExpiryHours
+                    bind:trustedProxyHosts
+                    bind:trustedProxyHostsSuggested
+                    bind:newTrustedProxyHost
+                    bind:publicAccessEnabled
+                    bind:publicAccessShowCameraNames
+                    bind:publicAccessHistoricalDays
+                    bind:publicAccessRateLimitPerMinute
+                    addTrustedProxyHost={addTrustedProxyHost}
+                    removeTrustedProxyHost={removeTrustedProxyHost}
+                    acceptTrustedProxySuggestions={acceptTrustedProxySuggestions}
+                />
+            {/if}
+
             <!-- Data Tab -->
             {#if activeTab === 'data'}
                 <DataSettings
@@ -1166,10 +1381,16 @@
                     {backfillResult}
                     {taxonomyStatus}
                     {syncingTaxonomy}
+                    {resettingDatabase}
+                    {analyzingUnknowns}
+                    {analysisStatus}
+                    {analysisTotal}
                     {handleCleanup}
                     {handleCacheCleanup}
                     {handleStartTaxonomySync}
                     {handleBackfill}
+                    {handleAnalyzeUnknowns}
+                    {handleResetDatabase}
                 />
             {/if}
 

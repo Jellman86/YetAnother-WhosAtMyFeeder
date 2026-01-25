@@ -81,8 +81,42 @@
       "notifications": "Notifications",
       "integrations": "Intégrations",
       "data": "Données",
+      "security": "Sécurité",
       "appearance": "Apparence",
       "accessibility": "Accessibilité"
+    },
+    "auth": {
+      "title": "Authentification",
+      "desc": "Connexion requise pour l'accès complet.",
+      "enable": "Activer l'authentification",
+      "enable_desc": "Protéger les paramètres et actions admin",
+      "username": "Nom d'utilisateur admin",
+      "password": "Nouveau mot de passe",
+      "password_new": "Définir un nouveau mot de passe",
+      "password_placeholder": "Laisser vide pour conserver le mot de passe",
+      "password_confirm": "Confirmer le mot de passe",
+      "password_confirm_placeholder": "Saisir à nouveau le mot de passe",
+      "session_expiry": "Durée de session (heures)",
+      "proxy_trust_note": "Les en-têtes proxy sont approuvés pour tous les hôtes par défaut. Si vous utilisez un proxy inverse, définissez les hôtes de proxy approuvés pour éviter l’usurpation d’IP client.",
+      "trusted_proxies": "Hôtes de proxy approuvés",
+      "trusted_proxies_desc": "Ajoutez les noms de conteneurs ou IPs de votre proxy inverse (ex. nginx-rp, cloudflare-tunnel, 172.19.0.10). Les noms DNS Docker fonctionnent si les services partagent un réseau.",
+      "trusted_proxies_placeholder": "Ajouter un hôte proxy ou une IP",
+      "trusted_proxies_suggested_label": "Suggéré",
+      "trusted_proxies_suggested_note": "Ce sont des suggestions uniquement. Enregistrer conservera la valeur par défaut (tout approuver) sauf si vous les acceptez ou modifiez.",
+      "trusted_proxies_use_suggestions": "Utiliser les suggestions",
+      "trusted_proxies_add": "Ajouter un hôte proxy approuvé",
+      "trusted_proxies_remove": "Retirer l’hôte proxy approuvé",
+      "trusted_proxies_empty": "Aucun proxy approuvé configuré (tous les proxies sont approuvés)."
+    },
+    "public_access": {
+      "title": "Accès public",
+      "desc": "Accès en lecture seule sans connexion.",
+      "enable": "Activer l'accès public",
+      "enable_desc": "Les invités peuvent voir les détections",
+      "show_camera_names": "Afficher les noms des caméras",
+      "show_camera_names_desc": "Masquer les caméras pour le public",
+      "history_days": "Historique (jours)",
+      "rate_limit": "Limite (par minute)"
     },
     "accessibility": {
       "title": "Options d'accessibilité",
@@ -232,7 +266,34 @@
       "temperature_unit_desc": "Afficher la température dans les données météorologiques",
       "auto_detect_enabled": "Détection automatique via IP activée",
       "desc": "Utilisé pour le contexte météorologique localisé lors des détections."
+    },
+    "danger": {
+      "title": "Zone de Danger",
+      "subtitle": "Actions destructrices",
+      "reset_desc": "La réinitialisation de la base de données supprimera définitivement TOUTES les détections et effacera le cache média. Cette action est irréversible.",
+      "reset_button": "Réinitialiser BDD & Cache",
+      "resetting": "Réinitialisation...",
+      "confirm": "DANGER : Cela supprimera TOUTES les détections et effacera le cache média. Cette action est irréversible. Êtes-vous sûr ?"
     }
+  },
+  "auth": {
+    "login": "Connexion",
+    "logout": "Déconnexion",
+    "welcome_back": "Bon retour",
+    "signin_desc": "Connectez-vous pour gérer votre mangeoire",
+    "username": "Nom d'utilisateur",
+    "password": "Mot de passe",
+    "username_placeholder": "admin",
+    "signin_button": "Se connecter",
+    "verifying": "Connexion en cours...",
+    "continue_guest": "Continuer en tant qu'invité",
+    "secure_access": "Accès sécurisé YA-WAMF"
+  },
+  "status": {
+    "audio_active": "Analyse audio active",
+    "notifications_enabled": "Notifications activées",
+    "system_online": "Système en ligne",
+    "system_offline": "Système hors ligne"
   },
   "notifications": {
     "reclassify_fallback": "⚠️ Vidéo non disponible - capture utilisée à la place",
@@ -327,8 +388,29 @@
     "title": "Classement des espèces",
     "species_count": "{count} espèces",
     "detections_count": "{count} détections",
-    "sort_by_count": "Par nombre",
-    "sort_by_name": "Par nom",
+    "sort_by_day": "Jour",
+    "sort_by_week": "Semaine",
+    "sort_by_month": "Mois",
+    "featured": "À la une",
+    "view_details": "Voir les détails",
+    "total_sightings": "Observations totales",
+    "last_30_days": "30 derniers jours",
+    "last_7_days": "7 derniers jours",
+    "last_n_days": "Derniers {days} jours",
+    "detections_over_time": "Détections au fil du temps",
+    "last_seen": "Dernière observation",
+    "trend": "Tendance",
+    "streak_14d": "Série sur 14 jours",
+    "days": "jours",
+    "cameras": "Caméras",
+    "avg_confidence": "Confiance moyenne",
+    "most_active": "Le plus actif",
+    "longest_streak": "Série la plus longue",
+    "rising": "En hausse",
+    "most_recent": "Le plus récent",
+    "rank": "Rang",
+    "species": "Espèce",
+    "view_species": "Voir {species}",
     "no_species": "Aucune espèce détectée pour le moment",
     "no_species_desc": "Les détections d'oiseaux apparaîtront ici une fois enregistrées",
     "all_species": "Toutes les espèces",
@@ -429,6 +511,10 @@
       "fast_path": {
         "title": "Efficacité du Chemin Rapide",
         "desc": "Passez le traitement IA local et utilisez directement les sous-labels de Frigate"
+      },
+      "guest_mode": {
+        "title": "Vue publique (mode invité)",
+        "desc": "Partagez un tableau de bord en lecture seule avec des limites de débit et la possibilité de masquer les noms de caméras"
       }
     },
     "tech": {
@@ -510,5 +596,13 @@
       "Les manchots ne sont que des poulets habillés en tenue de gala",
       "Les coqs crient vers le soleil parce qu'ils ont peur du noir"
     ]
+  },
+  "error": {
+    "boundary_title": "Something went wrong",
+    "boundary_subtitle": "An unexpected error occurred. Please try again or contact support if the problem persists.",
+    "show_details": "Show error details",
+    "try_again": "Try Again",
+    "copy_details": "Copy Error Details",
+    "reload_page": "Reload Page"
   }
 }

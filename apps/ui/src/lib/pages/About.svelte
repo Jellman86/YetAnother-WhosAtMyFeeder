@@ -82,6 +82,11 @@
             icon: '⚡',
             title: $_('about.feature_list.fast_path.title'),
             description: $_('about.feature_list.fast_path.desc')
+        },
+        {
+            icon: '🔓',
+            title: $_('about.feature_list.guest_mode.title'),
+            description: $_('about.feature_list.guest_mode.desc')
         }
     ]);
 
@@ -109,9 +114,15 @@
             {$_('app.tagline')}
         </p>
         <div class="flex items-center justify-center gap-4 text-sm text-slate-500 dark:text-slate-400">
-            <span class="px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-800 font-mono">
+            <a
+                href="https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/blob/dev/CHANGELOG.md"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-800 font-mono hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
+                title="View changelog"
+            >
                 v{versionInfo.base_version}
-            </span>
+            </a>
             <a
                 href="https://github.com/Jellman86/YetAnother-WhosAtMyFeeder"
                 target="_blank"

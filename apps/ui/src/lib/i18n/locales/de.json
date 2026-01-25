@@ -81,8 +81,42 @@
       "notifications": "Benachrichtigungen",
       "integrations": "Integrationen",
       "data": "Daten",
+      "security": "Sicherheit",
       "appearance": "Aussehen",
       "accessibility": "Barrierefreiheit"
+    },
+    "auth": {
+      "title": "Authentifizierung",
+      "desc": "Login für vollen Zugriff erforderlich.",
+      "enable": "Authentifizierung aktivieren",
+      "enable_desc": "Einstellungen und Admin-Aktionen schützen",
+      "username": "Admin-Benutzername",
+      "password": "Neues Passwort",
+      "password_new": "Neues Passwort festlegen",
+      "password_placeholder": "Leer lassen, um aktuelles Passwort zu behalten",
+      "password_confirm": "Passwort bestätigen",
+      "password_confirm_placeholder": "Passwort erneut eingeben",
+      "session_expiry": "Sitzungsdauer (Stunden)",
+      "proxy_trust_note": "Proxy-Header werden standardmäßig allen Hosts vertraut. Wenn du einen Reverse Proxy nutzt, lege vertrauenswürdige Proxy-Hosts fest, um gefälschte Client-IPs zu verhindern.",
+      "trusted_proxies": "Vertrauenswürdige Proxy-Hosts",
+      "trusted_proxies_desc": "Füge die Containernamen oder IPs deines Reverse Proxys hinzu (z. B. nginx-rp, cloudflare-tunnel, 172.19.0.10). Docker-DNS-Namen funktionieren, wenn die Dienste dasselbe Netzwerk teilen.",
+      "trusted_proxies_placeholder": "Proxy-Host oder IP hinzufügen",
+      "trusted_proxies_suggested_label": "Vorschlag",
+      "trusted_proxies_suggested_note": "Dies sind nur Vorschläge. Speichern behält den Standard (allen vertrauen), solange du sie nicht akzeptierst oder änderst.",
+      "trusted_proxies_use_suggestions": "Vorschläge verwenden",
+      "trusted_proxies_add": "Vertrauenswürdigen Proxy-Host hinzufügen",
+      "trusted_proxies_remove": "Vertrauenswürdigen Proxy-Host entfernen",
+      "trusted_proxies_empty": "Keine vertrauenswürdigen Proxys konfiguriert (alle Proxys sind vertrauenswürdig)."
+    },
+    "public_access": {
+      "title": "Öffentlicher Zugriff",
+      "desc": "Schreibgeschützter Zugriff ohne Login.",
+      "enable": "Öffentlichen Zugriff aktivieren",
+      "enable_desc": "Gäste können Erkennungen ohne Login sehen",
+      "show_camera_names": "Kameranamen anzeigen",
+      "show_camera_names_desc": "Kameranamen für Gäste ausblenden",
+      "history_days": "Historie (Tage)",
+      "rate_limit": "Rate-Limit (pro Minute)"
     },
     "accessibility": {
       "title": "Barrierefreiheit-Optionen",
@@ -232,7 +266,34 @@
       "temperature_unit_desc": "Temperatur in Wetterdaten anzeigen",
       "auto_detect_enabled": "Automatische Erkennung über IP aktiviert",
       "desc": "Wird für lokalisierte Wetterkontexte während Erkennungen verwendet."
+    },
+    "danger": {
+      "title": "Gefahrenzone",
+      "subtitle": "Destruktive Aktionen",
+      "reset_desc": "Das Zurücksetzen der Datenbank löscht dauerhaft ALLE Erkennungen und leert den Medien-Cache. Diese Aktion kann nicht rückgängig gemacht werden.",
+      "reset_button": "Datenbank & Cache zurücksetzen",
+      "resetting": "Wird zurückgesetzt...",
+      "confirm": "GEFAHR: Dies löscht ALLE Erkennungen und leert den Medien-Cache. Diese Aktion kann nicht rückgängig gemacht werden. Sind Sie sicher?"
     }
+  },
+  "auth": {
+    "login": "Anmelden",
+    "logout": "Abmelden",
+    "welcome_back": "Willkommen zurück",
+    "signin_desc": "Melden Sie sich an, um Ihr Futterhaus zu verwalten",
+    "username": "Benutzername",
+    "password": "Passwort",
+    "username_placeholder": "admin",
+    "signin_button": "Anmelden",
+    "verifying": "Anmeldung läuft...",
+    "continue_guest": "Als Gast fortfahren",
+    "secure_access": "YA-WAMF Sicherer Zugriff"
+  },
+  "status": {
+    "audio_active": "Audio-Analyse aktiv",
+    "notifications_enabled": "Benachrichtigungen aktiviert",
+    "system_online": "System Online",
+    "system_offline": "System Offline"
   },
   "notifications": {
     "reclassify_fallback": "⚠️ Video nicht verfügbar - stattdessen Schnappschuss verwendet",
@@ -327,8 +388,29 @@
     "title": "Spezies-Bestenliste",
     "species_count": "{count} Spezies",
     "detections_count": "{count} Erkennungen",
-    "sort_by_count": "Nach Anzahl",
-    "sort_by_name": "Nach Name",
+    "sort_by_day": "Tag",
+    "sort_by_week": "Woche",
+    "sort_by_month": "Monat",
+    "featured": "Hervorgehoben",
+    "view_details": "Details anzeigen",
+    "total_sightings": "Gesamtbeobachtungen",
+    "last_30_days": "Letzte 30 Tage",
+    "last_7_days": "Letzte 7 Tage",
+    "last_n_days": "Letzte {days} Tage",
+    "detections_over_time": "Erkennungen im Zeitverlauf",
+    "last_seen": "Zuletzt gesehen",
+    "trend": "Trend",
+    "streak_14d": "14‑Tage‑Serie",
+    "days": "Tage",
+    "cameras": "Kameras",
+    "avg_confidence": "Durchschn. Konfidenz",
+    "most_active": "Am aktivsten",
+    "longest_streak": "Längste Serie",
+    "rising": "Im Aufwind",
+    "most_recent": "Am neuesten",
+    "rank": "Rang",
+    "species": "Spezies",
+    "view_species": "{species} ansehen",
     "no_species": "Noch keine Spezies erkannt",
     "no_species_desc": "Vogelerkennungen werden hier angezeigt, sobald sie aufgezeichnet wurden",
     "all_species": "Alle Spezies",
@@ -429,6 +511,10 @@
       "fast_path": {
         "title": "Fast-Path Effizienz",
         "desc": "Überspringen Sie lokale KI-Verarbeitung und nutzen Sie Frigates Sublabels direkt"
+      },
+      "guest_mode": {
+        "title": "Öffentliche Ansicht (Gastmodus)",
+        "desc": "Teilen Sie ein schreibgeschütztes Dashboard mit Ratenlimits und optional ausgeblendeten Kameranamen"
       }
     },
     "tech": {
@@ -510,5 +596,13 @@
       "Pinguine sind einfach formelle Hühner, die für eine Gala gekleidet sind",
       "Hähne schreien die Sonne an, weil sie Angst vor der Dunkelheit haben"
     ]
+  },
+  "error": {
+    "boundary_title": "Something went wrong",
+    "boundary_subtitle": "An unexpected error occurred. Please try again or contact support if the problem persists.",
+    "show_details": "Show error details",
+    "try_again": "Try Again",
+    "copy_details": "Copy Error Details",
+    "reload_page": "Reload Page"
   }
 }

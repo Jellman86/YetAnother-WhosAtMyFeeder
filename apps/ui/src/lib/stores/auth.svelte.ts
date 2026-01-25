@@ -1,34 +1,85 @@
-import { setApiKey, getApiKey } from '../api';
+import {
+    fetchAuthStatus,
+    getAuthToken,
+    login as apiLogin,
+    logout as apiLogout,
+    setAuthToken,
+    setInitialPassword
+} from '../api';
 
 class AuthStore {
-    requiresLogin = $state(false);
-    apiKey = $state(getApiKey());
+    authRequired = $state(false);
+    publicAccessEnabled = $state(false);
+    needsInitialSetup = $state(false);
+    isAuthenticated = $state(false);
+    username = $state<string | null>(null);
+    statusLoaded = $state(false);
+    token = $state(getAuthToken());
+    httpsWarning = $state(false);
+    forceLogin = $state(false);
+    birdnetEnabled = $state(false);
+    llmEnabled = $state(false);
+
+    // Derived permission states
+    canModify = $derived(this.isAuthenticated || !this.authRequired);
+    isGuest = $derived(this.authRequired && !this.isAuthenticated && this.publicAccessEnabled);
+    showSettings = $derived(this.isAuthenticated || !this.authRequired);
 
     constructor() {
-        // If we have a key, assume we are logged in until proven otherwise (401)
-        // Actually, if we have no key, we might need login IF the server requires it.
-        // But the server only requires it if configured.
-        // So we should try to make a request (e.g. /version or /health) and see if we get 401.
-        // But /health is public. /api/settings requires auth.
+        // Status is loaded via loadStatus()
     }
 
-    setRequiresLogin(value: boolean) {
-        this.requiresLogin = value;
+    requestLogin() {
+        this.forceLogin = true;
     }
 
-    login(key: string) {
-        setApiKey(key);
-        this.apiKey = key;
-        this.requiresLogin = false;
-        // Reload page or re-init app?
-        // Ideally just retry failed requests, but simple reload is easier for now
-        window.location.reload(); 
+    cancelLogin() {
+        this.forceLogin = false;
     }
 
-    logout() {
-        setApiKey(null);
-        this.apiKey = null;
-        this.requiresLogin = true;
+    async loadStatus() {
+        try {
+            const status = await fetchAuthStatus();
+            this.authRequired = status.auth_required;
+            this.publicAccessEnabled = status.public_access_enabled;
+            this.needsInitialSetup = status.needs_initial_setup;
+            this.isAuthenticated = status.is_authenticated;
+            this.username = status.username ?? null;
+            this.httpsWarning = status.https_warning ?? false;
+            this.birdnetEnabled = status.birdnet_enabled ?? false;
+            this.llmEnabled = status.llm_enabled ?? false;
+        } catch (err) {
+            console.error('Failed to load auth status', err);
+        } finally {
+            this.token = getAuthToken();
+            this.statusLoaded = true;
+        }
+    }
+
+    async login(username: string, password: string) {
+        await apiLogin(username, password);
+        this.token = getAuthToken();
+        await this.loadStatus();
+    }
+
+    async logout() {
+        await apiLogout();
+        this.token = null;
+        await this.loadStatus();
+    }
+
+    async completeInitialSetup(options: { username: string; password: string | null; enableAuth: boolean }) {
+        await setInitialPassword(options);
+        this.token = getAuthToken();
+        await this.loadStatus();
+    }
+
+    handleAuthError() {
+        setAuthToken(null);
+        this.token = null;
+        this.isAuthenticated = false;
+        // Refresh status to see if auth requirements changed (e.g. auth enabled)
+        this.loadStatus();
     }
 }
 

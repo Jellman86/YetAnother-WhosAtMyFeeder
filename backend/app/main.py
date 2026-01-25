@@ -1,15 +1,13 @@
-from fastapi import FastAPI, Depends, HTTPException, status, Security, Request
-from fastapi.security import APIKeyHeader, APIKeyQuery
+from fastapi import FastAPI, Depends, HTTPException, status, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, Response
-from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi import _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 import structlog
 import asyncio
 import os
 import json
-import secrets
 from datetime import datetime, timedelta
 from contextlib import asynccontextmanager
 from prometheus_client import generate_latest, CONTENT_TYPE_LATEST, Counter
@@ -21,37 +19,16 @@ from app.services.event_processor import EventProcessor
 from app.services.media_cache import media_cache
 from app.services.broadcaster import broadcaster
 from app.services.telemetry_service import telemetry_service
+from app.services.auto_video_classifier_service import auto_video_classifier
+from app.services.frigate_client import frigate_client
 from app.repositories.detection_repository import DetectionRepository
-from app.routers import events, stream, proxy, settings as settings_router, species, backfill, classifier, models, ai, stats, debug, audio, email
-from app.config import settings
+from app.routers import events, proxy, settings as settings_router, species, backfill, classifier, models, ai, stats, debug, audio, email, auth as auth_router
+from app.config import settings, _expand_trusted_hosts
 from app.middleware.language import LanguageMiddleware
 from app.services.i18n_service import i18n_service
-
-# Authentication
-api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
-api_key_query = APIKeyQuery(name="api_key", auto_error=False)
-
-async def verify_api_key(
-    request: Request,
-    header_key: str = Security(api_key_header),
-    query_key: str = Security(api_key_query)
-):
-    """Validate API Key if configured (via Header or Query param)."""
-    if settings.api_key:
-        lang = getattr(request.state, 'language', 'en')
-        api_key = header_key or query_key
-        if not api_key:
-             raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail=i18n_service.translate("errors.missing_api_key", lang=lang),
-            )
-        # Use constant-time comparison to prevent timing attacks
-        if not secrets.compare_digest(api_key, settings.api_key):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=i18n_service.translate("errors.invalid_api_key", lang=lang),
-            )
-    return header_key or query_key
+from app.ratelimit import limiter
+from app.auth import get_auth_context, AuthContext, AuthLevel
+from app.auth_legacy import get_auth_context_with_legacy
 
 # Version management
 def get_base_version() -> str:
@@ -95,10 +72,6 @@ BASE_VERSION = get_base_version()
 GIT_HASH = get_git_hash()
 APP_VERSION = f"{BASE_VERSION}+{GIT_HASH}"
 os.environ["APP_VERSION"] = APP_VERSION # Make available to other services
-
-# Rate limiting configuration
-# Use a more permissive rate limit: 100 requests per minute per IP
-limiter = Limiter(key_func=get_remote_address, default_limits=["100/minute"])
 
 # Metrics
 EVENTS_PROCESSED = Counter('events_processed_total', 'Total number of events processed')
@@ -185,6 +158,7 @@ async def lifespan(app: FastAPI):
     await init_db()
     asyncio.create_task(mqtt_service.start(event_processor))
     await telemetry_service.start()
+    await auto_video_classifier.start()
     cleanup_task = asyncio.create_task(cleanup_scheduler())
     log.info("Background cleanup scheduler started",
              interval_hours=CLEANUP_INTERVAL_HOURS,
@@ -199,11 +173,23 @@ async def lifespan(app: FastAPI):
             await cleanup_task
         except asyncio.CancelledError:
             pass
+    await auto_video_classifier.stop()
     await telemetry_service.stop()
     await mqtt_service.stop()
+    await frigate_client.close()
     await close_db()  # Close database connection pool
 
 app = FastAPI(title="Yet Another WhosAtMyFeeder API", version=APP_VERSION, lifespan=lifespan)
+
+# Trust proxy headers (X-Forwarded-Proto, X-Forwarded-For) for correct scheme/IP detection
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
+trusted_proxy_hosts = settings.system.trusted_proxy_hosts
+if "*" in trusted_proxy_hosts:
+    trusted_proxy_hosts = ["*"]
+else:
+    # Expand DNS names to IPs so ProxyHeadersMiddleware can match client IPs.
+    trusted_proxy_hosts = _expand_trusted_hosts(trusted_proxy_hosts)
+app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=trusted_proxy_hosts)
 
 # Setup structured logging
 log = structlog.get_logger()
@@ -237,19 +223,109 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(events.router, prefix="/api", dependencies=[Depends(verify_api_key)])
-app.include_router(stream.router, prefix="/api", dependencies=[Depends(verify_api_key)])
-app.include_router(proxy.router, prefix="/api", dependencies=[Depends(verify_api_key)])
-app.include_router(settings_router.router, prefix="/api", dependencies=[Depends(verify_api_key)])
-app.include_router(species.router, prefix="/api", dependencies=[Depends(verify_api_key)])
-app.include_router(backfill.router, prefix="/api", tags=["backfill"], dependencies=[Depends(verify_api_key)])
-app.include_router(classifier.router, prefix="/api", dependencies=[Depends(verify_api_key)])
-app.include_router(models.router, prefix="/api", tags=["models"], dependencies=[Depends(verify_api_key)])
-app.include_router(ai.router, prefix="/api", tags=["ai"], dependencies=[Depends(verify_api_key)])
-app.include_router(stats.router, prefix="/api", tags=["stats"], dependencies=[Depends(verify_api_key)])
-app.include_router(debug.router, prefix="/api", tags=["debug"], dependencies=[Depends(verify_api_key)])
-app.include_router(audio.router, prefix="/api", tags=["audio"], dependencies=[Depends(verify_api_key)])
-app.include_router(email.router, prefix="/api", tags=["email"], dependencies=[Depends(verify_api_key)])
+# Auth router - no auth required (provides login endpoint)
+app.include_router(auth_router.router, prefix="/api", tags=["auth"])
+
+# Public/mixed access routers - use new auth system with legacy fallback
+app.include_router(events.router, prefix="/api", dependencies=[Depends(get_auth_context_with_legacy)])
+app.include_router(proxy.router, prefix="/api", dependencies=[Depends(get_auth_context_with_legacy)])
+app.include_router(species.router, prefix="/api", dependencies=[Depends(get_auth_context_with_legacy)])
+app.include_router(classifier.router, prefix="/api", dependencies=[Depends(get_auth_context_with_legacy)])
+app.include_router(ai.router, prefix="/api", tags=["ai"], dependencies=[Depends(get_auth_context_with_legacy)])
+app.include_router(stats.router, prefix="/api", tags=["stats"], dependencies=[Depends(get_auth_context_with_legacy)])
+app.include_router(audio.router, prefix="/api", tags=["audio"], dependencies=[Depends(get_auth_context_with_legacy)])
+
+# Owner-only routers - require authentication
+app.include_router(settings_router.router, prefix="/api", dependencies=[Depends(get_auth_context_with_legacy)])
+app.include_router(backfill.router, prefix="/api", tags=["backfill"], dependencies=[Depends(get_auth_context_with_legacy)])
+app.include_router(models.router, prefix="/api", tags=["models"], dependencies=[Depends(get_auth_context_with_legacy)])
+app.include_router(debug.router, prefix="/api", tags=["debug"], dependencies=[Depends(get_auth_context_with_legacy)])
+app.include_router(email.router, prefix="/api", tags=["email"], dependencies=[Depends(get_auth_context_with_legacy)])
+
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    """Add security headers to all responses."""
+    response = await call_next(request)
+
+    # Only add HSTS if using HTTPS
+    if request.url.scheme == "https":
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+
+    # General security headers
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+
+    # Content Security Policy - allow self and inline styles (needed for some UI)
+    # Adjust as needed for your specific requirements
+    csp_policy = (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline'; "
+        "style-src 'self' 'unsafe-inline'; "
+        "img-src 'self' data: https:; "
+        "font-src 'self' data:; "
+        "connect-src 'self'; "
+        "frame-ancestors 'none';"
+    )
+    response.headers["Content-Security-Policy"] = csp_policy
+
+    # Referrer Policy - don't leak URLs to external sites
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+
+    # Permissions Policy - disable unnecessary browser features
+    response.headers["Permissions-Policy"] = (
+        "geolocation=(), "
+        "microphone=(), "
+        "camera=(), "
+        "payment=(), "
+        "usb=(), "
+        "magnetometer=(), "
+        "gyroscope=(), "
+        "accelerometer=()"
+    )
+
+    return response
+
+@app.middleware("http")
+async def check_https_warning(request: Request, call_next):
+    """Log warning if authentication is enabled over HTTP."""
+    # Only check on non-health endpoints to avoid log spam
+    if request.url.path not in ["/health", "/metrics"]:
+        if settings.auth.enabled and request.url.scheme != "https":
+            # Log warning once per minute to avoid spam
+            if not hasattr(app.state, "_last_https_warning"):
+                app.state._last_https_warning = datetime.now()
+                log.warning(
+                    "Authentication enabled over HTTP - credentials may be exposed",
+                    path=request.url.path,
+                    recommendation="Use HTTPS in production for secure authentication"
+                )
+            else:
+                # Log at most once per minute
+                if (datetime.now() - app.state._last_https_warning).total_seconds() > 60:
+                    app.state._last_https_warning = datetime.now()
+                    log.warning(
+                        "Authentication enabled over HTTP - credentials may be exposed",
+                        recommendation="Use HTTPS in production for secure authentication"
+                    )
+            # Warn if proxy trust is wide open
+            if settings.system.trusted_proxy_hosts == ["*"]:
+                if not hasattr(app.state, "_last_proxy_warning"):
+                    app.state._last_proxy_warning = datetime.now()
+                    log.warning(
+                        "Proxy headers trust all hosts",
+                        recommendation="Configure SYSTEM__TRUSTED_PROXY_HOSTS to restrict trusted proxies"
+                    )
+                else:
+                    if (datetime.now() - app.state._last_proxy_warning).total_seconds() > 60:
+                        app.state._last_proxy_warning = datetime.now()
+                        log.warning(
+                            "Proxy headers trust all hosts",
+                            recommendation="Configure SYSTEM__TRUSTED_PROXY_HOSTS to restrict trusted proxies"
+                        )
+
+    response = await call_next(request)
+    return response
 
 @app.middleware("http")
 async def count_requests(request, call_next):
@@ -272,26 +348,90 @@ async def health_check():
         
     return health
 
-@app.get("/api/sse", dependencies=[Depends(verify_api_key)])
-async def sse_endpoint():
-    """Server-Sent Events endpoint for real-time updates."""
+@app.get("/api/sse")
+async def sse_endpoint(
+    request: Request,
+    token: str = None  # Optional token via query param for EventSource
+):
+    """Server-Sent Events endpoint for real-time updates.
+
+    Supports authentication via:
+    - Bearer token in Authorization header
+    - Token in query parameter (?token=...)
+    - Public access if enabled
+    """
+    from app.auth import verify_token
+    from fastapi.security import HTTPAuthorizationCredentials
+
+    # Get auth context with token support
+    auth: AuthContext = None
+
+    # Try query parameter token first (for EventSource compatibility)
+    if token:
+        try:
+            token_data = verify_token(token)
+            auth = AuthContext(auth_level=token_data.auth_level, username=token_data.username)
+        except HTTPException:
+            # Invalid token - fall through to other methods
+            pass
+
+    # If no valid token from query param, try normal auth
+    if not auth:
+        try:
+            auth = await get_auth_context_with_legacy(request, None)
+        except HTTPException as e:
+            # If auth required and none provided, reject connection
+            raise e
+
+    hide_camera_names = (
+        not auth.is_owner
+        and settings.public_access.enabled
+        and not settings.public_access.show_camera_names
+    )
+
+    def sanitize_message_for_guest(message: dict) -> dict:
+        if not hide_camera_names:
+            return message
+
+        sanitized = dict(message)
+        data = sanitized.get("data")
+        if isinstance(data, dict):
+            data = dict(data)
+            if "camera" in data:
+                data["camera"] = "Hidden"
+            if "camera_name" in data:
+                data["camera_name"] = "Hidden"
+            sanitized["data"] = data
+        return sanitized
+
     async def event_generator():
         queue = await broadcaster.subscribe()
         try:
-            # Send initial connection message
-            yield f"data: {json.dumps({'type': 'connected', 'message': 'SSE Connected'})}\n\n"
-            
+            # Send initial connection message with auth level
+            yield f"data: {json.dumps({'type': 'connected', 'message': 'SSE Connected', 'auth_level': auth.auth_level})}\n\n"
+
             while True:
                 try:
                     # Wait for a message or a timeout for heartbeat
                     message = await asyncio.wait_for(queue.get(), timeout=20.0)
+
+                    # Filter sensitive events for guests
+                    if not auth.is_owner:
+                        event_type = message.get('type', '')
+                        # Block owner-only events from public users
+                        if event_type in ['settings_updated', 'backfill_progress', 'backfill_complete']:
+                            continue
+
+                    if not auth.is_owner:
+                        message = sanitize_message_for_guest(message)
+
                     yield f"data: {json.dumps(message)}\n\n"
                 except asyncio.TimeoutError:
                     # Send a heartbeat comment (ignored by clients but keeps connection alive)
                     yield ": heartbeat\n\n"
-        except asyncio.CancelledError:
+        finally:
             await broadcaster.unsubscribe(queue)
-            
+
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 @app.get("/api/version")
@@ -308,4 +448,3 @@ async def get_version():
 async def metrics():
     """Prometheus metrics endpoint."""
     return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
-

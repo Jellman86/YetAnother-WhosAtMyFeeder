@@ -1,0 +1,15 @@
+User-agent: *
+Allow: /
+Disallow: /settings
+Disallow: /auth
+Disallow: /api
+Disallow: /maintenance
+Disallow: /classifier
+Disallow: /cache
+Disallow: /email
+Disallow: /frigate
+Disallow: /backfill
+Disallow: /health
+Disallow: /admin
+
+Sitemap: https://yetanotherwhosatmyfeeder.pownet.uk/sitemap.xml

@@ -129,8 +129,8 @@
             </button>
 
             <div class="pt-4 border-t border-slate-100 dark:border-slate-700/50">
-                <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-4">Sensor Mapping (Optional)</label>
-                <div class="space-y-3">
+                <div id="sensor-mapping-label" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-4">Sensor Mapping (Optional)</div>
+                <div class="space-y-3" role="group" aria-labelledby="sensor-mapping-label">
                     {#each availableCameras as camera}
                         <div class="flex items-center gap-3">
                             <span class="text-[10px] font-black text-slate-400 w-24 truncate uppercase">{camera}</span>

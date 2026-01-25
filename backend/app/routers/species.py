@@ -12,6 +12,9 @@ from app.services.taxonomy.taxonomy_service import taxonomy_service
 from app.services.i18n_service import i18n_service
 from app.services.classifier_service import get_classifier
 from app.utils.language import get_user_language
+from app.auth import require_owner, AuthContext
+from app.auth_legacy import get_auth_context_with_legacy
+from app.ratelimit import guest_rate_limit
 
 router = APIRouter()
 log = structlog.get_logger()
@@ -221,7 +224,13 @@ async def _save_species_info(species_name: str, taxa_id: int | None, language: s
         await db.commit()
 
 @router.get("/species/search")
-async def search_species(request: Request, q: str = "", limit: int = 50):
+@guest_rate_limit()
+async def search_species(
+    request: Request,
+    q: str = "",
+    limit: int = 50,
+    auth: AuthContext = Depends(get_auth_context_with_legacy)
+):
     """Search for species labels (from classifier) and return with taxonomy info."""
     q = (q or "").strip()
     limit = max(1, min(limit, 100))
@@ -374,39 +383,79 @@ async def get_species_list(request: Request):
     lang = get_user_language(request)
     async with get_db() as db:
         repo = DetectionRepository(db)
-        stats = await repo.get_species_counts()
+        await repo.ensure_recent_rollups(90)
+        stats = await repo.get_species_leaderboard_base()
+        rollup_metrics = await repo.get_rollup_metrics()
 
         # Transform unknown bird labels for display and aggregate counts
         unknown_labels = settings.classification.unknown_bird_labels
-        unknown_count = 0
         filtered_stats = []
 
         for s in stats:
             if s["species"] in unknown_labels:
-                unknown_count += s["count"]
-            else:
-                common_name = s.get("common_name")
-                taxa_id = s.get("taxa_id")
-                if lang != 'en' and taxa_id:
-                    localized = await taxonomy_service.get_localized_common_name(taxa_id, lang, db=db)
-                    if localized:
-                        common_name = localized
+                continue
+            metrics = rollup_metrics.get(s["species"], {})
+            trend_delta = metrics.get("count_7d", 0) - metrics.get("count_prev_7d", 0)
+            trend_pct = 0.0
+            prev = metrics.get("count_prev_7d", 0)
+            if prev > 0:
+                trend_pct = (trend_delta / prev) * 100.0
 
-                filtered_stats.append({
-                    "species": s["species"],
-                    "count": s["count"],
-                    "scientific_name": s.get("scientific_name"),
-                    "common_name": common_name,
-                    "taxa_id": taxa_id
-                })
+            common_name = s.get("common_name")
+            taxa_id = s.get("taxa_id")
+            if lang != 'en' and taxa_id:
+                localized = await taxonomy_service.get_localized_common_name(taxa_id, lang, db=db)
+                if localized:
+                    common_name = localized
+
+            filtered_stats.append({
+                "species": s["species"],
+                "count": s["count"],
+                "scientific_name": s.get("scientific_name"),
+                "common_name": common_name,
+                "taxa_id": taxa_id,
+                "first_seen": s.get("first_seen"),
+                "last_seen": s.get("last_seen"),
+                "avg_confidence": s.get("avg_confidence"),
+                "max_confidence": s.get("max_confidence"),
+                "min_confidence": s.get("min_confidence"),
+                "camera_count": s.get("camera_count"),
+                "count_1d": metrics.get("count_1d", 0),
+                "count_7d": metrics.get("count_7d", 0),
+                "count_30d": metrics.get("count_30d", 0),
+                "days_seen_14d": metrics.get("days_seen_14d", 0),
+                "days_seen_30d": metrics.get("days_seen_30d", 0),
+                "trend_delta": trend_delta,
+                "trend_percent": trend_pct,
+            })
 
         # Add aggregated "Unknown Bird" entry if any were found
-        if unknown_count > 0:
+        unknown_stats = await repo.get_species_aggregate_for_labels(unknown_labels)
+        if unknown_stats:
+            unknown_rollup = await repo.get_rollup_metrics_for_species(unknown_labels)
+            trend_delta = unknown_rollup.get("count_7d", 0) - unknown_rollup.get("count_prev_7d", 0)
+            trend_pct = 0.0
+            prev = unknown_rollup.get("count_prev_7d", 0)
+            if prev > 0:
+                trend_pct = (trend_delta / prev) * 100.0
             filtered_stats.append({
                 "species": "Unknown Bird", 
-                "count": unknown_count,
+                "count": unknown_stats["count"],
                 "scientific_name": None,
-                "common_name": None
+                "common_name": None,
+                "first_seen": unknown_stats.get("first_seen"),
+                "last_seen": unknown_stats.get("last_seen"),
+                "avg_confidence": unknown_stats.get("avg_confidence"),
+                "max_confidence": unknown_stats.get("max_confidence"),
+                "min_confidence": unknown_stats.get("min_confidence"),
+                "camera_count": unknown_stats.get("camera_count"),
+                "count_1d": unknown_rollup.get("count_1d", 0),
+                "count_7d": unknown_rollup.get("count_7d", 0),
+                "count_30d": unknown_rollup.get("count_30d", 0),
+                "days_seen_14d": unknown_rollup.get("days_seen_14d", 0),
+                "days_seen_30d": unknown_rollup.get("days_seen_30d", 0),
+                "trend_delta": trend_delta,
+                "trend_percent": trend_pct,
             })
             # Re-sort by count descending
             filtered_stats.sort(key=lambda x: x["count"], reverse=True)
@@ -414,9 +463,19 @@ async def get_species_list(request: Request):
         return filtered_stats
 
 @router.get("/species/{species_name}/stats", response_model=SpeciesStats)
-async def get_species_stats(species_name: str, request: Request):
+@guest_rate_limit()
+async def get_species_stats(
+    species_name: str,
+    request: Request,
+    auth: AuthContext = Depends(get_auth_context_with_legacy)
+):
     """Get comprehensive statistics for a species."""
     lang = get_user_language(request)
+    hide_camera_names = (
+        not auth.is_owner
+        and settings.public_access.enabled
+        and not settings.public_access.show_camera_names
+    )
     async with get_db() as db:
         repo = DetectionRepository(db)
 
@@ -488,10 +547,17 @@ async def get_species_stats(species_name: str, request: Request):
             cam = cs["camera_name"]
             camera_counts[cam] = camera_counts.get(cam, 0) + cs["count"]
         total_cam_count = sum(camera_counts.values())
-        camera_breakdown = [
-            {"camera_name": cam, "count": count, "percentage": (count / total_cam_count * 100) if total_cam_count > 0 else 0.0}
-            for cam, count in sorted(camera_counts.items(), key=lambda x: x[1], reverse=True)
-        ]
+        if hide_camera_names:
+            camera_breakdown = (
+                [{"camera_name": "Hidden", "count": total_cam_count, "percentage": 100.0}]
+                if total_cam_count > 0
+                else []
+            )
+        else:
+            camera_breakdown = [
+                {"camera_name": cam, "count": count, "percentage": (count / total_cam_count * 100) if total_cam_count > 0 else 0.0}
+                for cam, count in sorted(camera_counts.items(), key=lambda x: x[1], reverse=True)
+            ]
 
         # Sort recent by time and limit to 5
         recent.sort(key=lambda x: x.detection_time, reverse=True)
@@ -515,7 +581,7 @@ async def get_species_stats(species_name: str, request: Request):
                 display_name="Unknown Bird" if d.display_name in unknown_labels else d.display_name,
                 category_name=d.category_name,
                 frigate_event=d.frigate_event,
-                camera_name=d.camera_name,
+                camera_name="Hidden" if hide_camera_names else d.camera_name,
                 is_hidden=d.is_hidden,
                 frigate_score=d.frigate_score,
                 sub_label=d.sub_label,
@@ -561,7 +627,10 @@ async def get_species_stats(species_name: str, request: Request):
         )
 
 @router.delete("/species/{species_name}/cache")
-async def clear_species_cache(species_name: str):
+async def clear_species_cache(
+    species_name: str,
+    auth: AuthContext = Depends(require_owner)
+):
     """Clear the Wikipedia cache for a species."""
     cache_prefix = f"{species_name}:"
     for cache_key in list(_wiki_cache):
@@ -585,7 +654,13 @@ async def clear_species_cache(species_name: str):
 
 
 @router.get("/species/{species_name}/info", response_model=SpeciesInfo)
-async def get_species_info(species_name: str, request: Request, refresh: bool = False):
+@guest_rate_limit()
+async def get_species_info(
+    species_name: str,
+    request: Request,
+    refresh: bool = False,
+    auth: AuthContext = Depends(get_auth_context_with_legacy)
+):
     """Get species information for a species. Use refresh=true to bypass cache."""
     lang = get_user_language(request) or "en"
     log.info("Fetching species info", species=species_name, refresh=refresh, language=lang)

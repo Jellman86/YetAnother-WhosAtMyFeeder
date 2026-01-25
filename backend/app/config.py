@@ -1,8 +1,11 @@
 import json
 import os
+import secrets as secrets_lib
 import structlog
 from typing import Optional
 from pathlib import Path
+import socket
+import ipaddress
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import BaseModel, Field
 
@@ -11,6 +14,52 @@ log = structlog.get_logger()
 # Use /config directory for persistent config (matches Docker volume mount)
 # Allow override via environment variable for testing
 CONFIG_PATH = Path(os.getenv("CONFIG_FILE", "/config/config.json"))
+
+# Default trusted proxy hosts for common reverse-proxy setups.
+# These are only used when no env override or config value exists.
+DEFAULT_TRUSTED_PROXY_HOSTS = [
+    "yawamf-frontend",
+    "nginx-rp",
+    "cloudflare-tunnel",
+]
+
+def _expand_trusted_hosts(hosts: list[str]) -> list[str]:
+    """Expand hostnames to IPs for ProxyHeadersMiddleware matching."""
+    expanded: list[str] = []
+    for host in hosts:
+        if not host:
+            continue
+        host = host.strip()
+        if not host:
+            continue
+        # Keep CIDR and valid IPs as-is
+        try:
+            if "/" in host:
+                ipaddress.ip_network(host, strict=False)
+                expanded.append(host)
+                continue
+            ipaddress.ip_address(host)
+            expanded.append(host)
+            continue
+        except ValueError:
+            pass
+
+        # Resolve hostname to IPs
+        try:
+            _, _, ips = socket.gethostbyname_ex(host)
+            expanded.extend(ips)
+        except Exception:
+            # Keep original hostname (may be used elsewhere)
+            expanded.append(host)
+
+    # De-duplicate while preserving order
+    seen: set[str] = set()
+    result: list[str] = []
+    for host in expanded:
+        if host not in seen:
+            seen.add(host)
+            result.append(host)
+    return result
 
 class FrigateSettings(BaseModel):
     frigate_url: str = Field(..., description="URL of the Frigate instance")
@@ -76,6 +125,10 @@ class ClassificationSettings(BaseModel):
 class MaintenanceSettings(BaseModel):
     retention_days: int = Field(default=0, ge=0, description="Days to keep detections (0 = unlimited)")
     cleanup_enabled: bool = Field(default=True, description="Enable automatic cleanup")
+    auto_delete_missing_clips: bool = Field(
+        default=False,
+        description="Auto-delete detections when the Frigate event/clip is missing"
+    )
 
 
 class MediaCacheSettings(BaseModel):
@@ -174,6 +227,58 @@ class SystemSettings(BaseModel):
     """System-level performance and resource settings"""
     broadcaster_max_queue_size: int = Field(default=100, ge=10, le=1000, description="Maximum SSE message queue size per subscriber")
     broadcaster_max_consecutive_full: int = Field(default=10, ge=1, le=100, description="Remove subscriber after this many consecutive backpressure failures")
+    trusted_proxy_hosts: list[str] = Field(default_factory=lambda: ["*"], description="Trusted proxy hosts for X-Forwarded-* headers")
+
+
+class AuthSettings(BaseModel):
+    """Authentication configuration."""
+    enabled: bool = Field(
+        default=False,
+        description="Require authentication for full access (disabled by default for backward compatibility)"
+    )
+    username: str = Field(
+        default="admin",
+        description="Admin username"
+    )
+    password_hash: Optional[str] = Field(
+        default=None,
+        description="Bcrypt hashed password (set via Settings UI or auth/initial-setup endpoint)"
+    )
+    session_secret: str = Field(
+        default_factory=lambda: secrets_lib.token_urlsafe(32),
+        description="Secret key for JWT tokens (auto-generated)"
+    )
+    session_expiry_hours: int = Field(
+        default=168,  # 7 days
+        ge=1,
+        le=720,  # 30 days max
+        description="Session token validity in hours"
+    )
+
+
+class PublicAccessSettings(BaseModel):
+    """Public/guest access configuration."""
+    enabled: bool = Field(
+        default=False,
+        description="Allow unauthenticated public access to view detections"
+    )
+    show_camera_names: bool = Field(
+        default=True,
+        description="Show camera names to public visitors"
+    )
+    show_historical_days: int = Field(
+        default=7,
+        ge=0,
+        le=365,
+        description="Days of historical data visible to public (0 = live only)"
+    )
+    rate_limit_per_minute: int = Field(
+        default=30,
+        ge=1,
+        le=100,
+        description="API calls per minute for public users"
+    )
+
 
 class Settings(BaseSettings):
     frigate: FrigateSettings
@@ -187,6 +292,8 @@ class Settings(BaseSettings):
     notifications: NotificationSettings = NotificationSettings()
     accessibility: AccessibilitySettings = AccessibilitySettings()
     system: SystemSettings = SystemSettings()
+    auth: AuthSettings = AuthSettings()
+    public_access: PublicAccessSettings = PublicAccessSettings()
     species_info_source: str = Field(default="auto", description="Species info source: auto, inat, or wikipedia")
 
     # General app settings
@@ -225,9 +332,10 @@ class Settings(BaseSettings):
         maintenance_data = {
             'retention_days': int(os.environ.get('MAINTENANCE__RETENTION_DAYS', '0')),
             'cleanup_enabled': os.environ.get('MAINTENANCE__CLEANUP_ENABLED', 'true').lower() == 'true',
+            'auto_delete_missing_clips': os.environ.get('MAINTENANCE__AUTO_DELETE_MISSING_CLIPS', 'false').lower() == 'true',
         }
 
-        # Classification settings (loaded from file only, no env vars)
+        # Classification settings (loaded from file and selected env vars)
         classification_data = {
             'model': 'model.tflite',
             'threshold': 0.7,
@@ -241,9 +349,11 @@ class Settings(BaseSettings):
             'video_classification_delay': int(os.environ.get('CLASSIFICATION__VIDEO_CLASSIFICATION_DELAY', '30')),
             'video_classification_max_retries': int(os.environ.get('CLASSIFICATION__VIDEO_CLASSIFICATION_MAX_RETRIES', '3')),
             'video_classification_retry_interval': int(os.environ.get('CLASSIFICATION__VIDEO_CLASSIFICATION_RETRY_INTERVAL', '15')),
+            'video_classification_max_concurrent': int(os.environ.get('CLASSIFICATION__VIDEO_CLASSIFICATION_MAX_CONCURRENT', '5')),
             'video_classification_failure_threshold': int(os.environ.get('CLASSIFICATION__VIDEO_FAILURE_THRESHOLD', '5')),
             'video_classification_failure_window_minutes': int(os.environ.get('CLASSIFICATION__VIDEO_FAILURE_WINDOW_MINUTES', '10')),
             'video_classification_failure_cooldown_minutes': int(os.environ.get('CLASSIFICATION__VIDEO_FAILURE_COOLDOWN_MINUTES', '15')),
+            'max_classification_results': int(os.environ.get('CLASSIFICATION__MAX_CLASSIFICATION_RESULTS', '5')),
         }
 
         # Media cache settings
@@ -271,10 +381,10 @@ class Settings(BaseSettings):
         # LLM settings
         llm_data = {
             'enabled': os.environ.get('LLM__ENABLED', 'false').lower() == 'true',
-                    'provider': os.environ.get('LLM__PROVIDER', 'gemini'),
-                    'api_key': os.environ.get('LLM__API_KEY', None),
-                    'model': os.environ.get('LLM__MODEL', 'gemini-2.0-flash-exp'),
-                }
+            'provider': os.environ.get('LLM__PROVIDER', 'gemini'),
+            'api_key': os.environ.get('LLM__API_KEY', None),
+            'model': os.environ.get('LLM__MODEL', 'gemini-3-flash-preview'),
+        }
         
         # Telemetry settings
         telemetry_data = {
@@ -342,6 +452,37 @@ class Settings(BaseSettings):
             'reduced_motion': os.environ.get('ACCESSIBILITY__REDUCED_MOTION', 'false').lower() == 'true',
             'zen_mode': os.environ.get('ACCESSIBILITY__ZEN_MODE', 'false').lower() == 'true',
             'live_announcements': os.environ.get('ACCESSIBILITY__LIVE_ANNOUNCEMENTS', 'true').lower() == 'true',
+        }
+
+        # Authentication settings
+        auth_data = {
+            'enabled': os.environ.get('AUTH__ENABLED', 'false').lower() == 'true',
+            'username': os.environ.get('AUTH__USERNAME', 'admin'),
+            'password_hash': os.environ.get('AUTH__PASSWORD_HASH', None),
+            'session_secret': os.environ.get('AUTH__SESSION_SECRET', secrets_lib.token_urlsafe(32)),
+            'session_expiry_hours': int(os.environ.get('AUTH__SESSION_EXPIRY_HOURS', '168')),
+        }
+
+        # Public access settings
+        public_access_data = {
+            'enabled': os.environ.get('PUBLIC_ACCESS__ENABLED', 'false').lower() == 'true',
+            'show_camera_names': os.environ.get('PUBLIC_ACCESS__SHOW_CAMERA_NAMES', 'true').lower() == 'true',
+            'show_historical_days': int(os.environ.get('PUBLIC_ACCESS__SHOW_HISTORICAL_DAYS', '7')),
+            'rate_limit_per_minute': int(os.environ.get('PUBLIC_ACCESS__RATE_LIMIT_PER_MINUTE', '30')),
+        }
+
+        # System settings (existing but need to initialize)
+        trusted_hosts_raw = os.environ.get('SYSTEM__TRUSTED_PROXY_HOSTS', '')
+        trusted_hosts = (
+            [host.strip() for host in trusted_hosts_raw.split(',') if host.strip()]
+            if trusted_hosts_raw
+            else DEFAULT_TRUSTED_PROXY_HOSTS.copy()
+        )
+        trusted_hosts = _expand_trusted_hosts(trusted_hosts)
+        system_data = {
+            'broadcaster_max_queue_size': int(os.environ.get('SYSTEM__BROADCASTER_MAX_QUEUE_SIZE', '100')),
+            'broadcaster_max_consecutive_full': int(os.environ.get('SYSTEM__BROADCASTER_MAX_CONSECUTIVE_FULL', '10')),
+            'trusted_proxy_hosts': trusted_hosts,
         }
 
         species_info_source = os.environ.get('SPECIES_INFO__SOURCE', 'auto')
@@ -467,6 +608,24 @@ class Settings(BaseSettings):
                         if env_key not in os.environ:
                             accessibility_data[k] = v
 
+                if 'auth' in file_data:
+                    for k, v in file_data['auth'].items():
+                        env_key = f'AUTH__{k.upper()}'
+                        if env_key not in os.environ:
+                            auth_data[k] = v
+
+                if 'public_access' in file_data:
+                    for k, v in file_data['public_access'].items():
+                        env_key = f'PUBLIC_ACCESS__{k.upper()}'
+                        if env_key not in os.environ:
+                            public_access_data[k] = v
+
+                if 'system' in file_data:
+                    for k, v in file_data['system'].items():
+                        env_key = f'SYSTEM__{k.upper()}'
+                        if env_key not in os.environ:
+                            system_data[k] = v
+
                 if 'species_info_source' in file_data and 'SPECIES_INFO__SOURCE' not in os.environ:
                     species_info_source = file_data['species_info_source']
 
@@ -492,10 +651,17 @@ class Settings(BaseSettings):
         log.info("BirdWeather config", enabled=birdweather_data['enabled'])
         log.info("LLM config", enabled=llm_data['enabled'], provider=llm_data['provider'])
         log.info("Telemetry config", enabled=telemetry_data['enabled'], installation_id=telemetry_data['installation_id'])
-        log.info("Notification config", 
+        log.info("Notification config",
                  discord=notifications_data['discord']['enabled'],
                  pushover=notifications_data['pushover']['enabled'],
                  telegram=notifications_data['telegram']['enabled'])
+        log.info("Auth config",
+                 enabled=auth_data['enabled'],
+                 username=auth_data['username'],
+                 has_password=auth_data['password_hash'] is not None)
+        log.info("Public access config",
+                 enabled=public_access_data['enabled'],
+                 historical_days=public_access_data['show_historical_days'])
 
         return cls(
             frigate=FrigateSettings(**frigate_data),
@@ -508,6 +674,9 @@ class Settings(BaseSettings):
             telemetry=TelemetrySettings(**telemetry_data),
             notifications=NotificationSettings(**notifications_data),
             accessibility=AccessibilitySettings(**accessibility_data),
+            system=SystemSettings(**system_data),
+            auth=AuthSettings(**auth_data),
+            public_access=PublicAccessSettings(**public_access_data),
             species_info_source=species_info_source,
             api_key=api_key
         )

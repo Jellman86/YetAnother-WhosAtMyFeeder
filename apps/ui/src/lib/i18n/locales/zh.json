@@ -54,7 +54,6 @@
     "add": "添加",
     "apply_settings": "应用设置",
     "unsaved_changes": "未保存的更改",
-    "edit": "编辑",
     "today": "今天",
     "yesterday": "昨天",
     "search": "搜索...",
@@ -82,8 +81,42 @@
       "notifications": "通知",
       "integrations": "集成",
       "data": "数据",
+      "security": "安全",
       "appearance": "外观",
       "accessibility": "辅助功能"
+    },
+    "auth": {
+      "title": "身份验证",
+      "desc": "完全访问需要登录。",
+      "enable": "启用身份验证",
+      "enable_desc": "保护设置和管理员操作",
+      "username": "管理员用户名",
+      "password": "新密码",
+      "password_new": "设置新密码",
+      "password_placeholder": "留空以保留当前密码",
+      "password_confirm": "确认密码",
+      "password_confirm_placeholder": "再次输入密码",
+      "session_expiry": "会话有效期（小时）",
+      "proxy_trust_note": "默认信任所有主机的代理头。如果使用反向代理，请设置受信任的代理主机以防止客户端 IP 被伪造。",
+      "trusted_proxies": "受信任的代理主机",
+      "trusted_proxies_desc": "添加反向代理容器名称或 IP（例如 nginx-rp、cloudflare-tunnel、172.19.0.10）。服务在同一网络时可使用 Docker DNS 名称。",
+      "trusted_proxies_placeholder": "添加代理主机或 IP",
+      "trusted_proxies_suggested_label": "建议",
+      "trusted_proxies_suggested_note": "这些只是建议。除非你接受或编辑，否则保存仍会保持默认（信任所有）。",
+      "trusted_proxies_use_suggestions": "使用建议",
+      "trusted_proxies_add": "添加受信任的代理主机",
+      "trusted_proxies_remove": "移除受信任的代理主机",
+      "trusted_proxies_empty": "未配置受信任的代理（将信任所有代理）。"
+    },
+    "public_access": {
+      "title": "公开访问",
+      "desc": "无需登录的只读访问。",
+      "enable": "启用公开访问",
+      "enable_desc": "访客可查看检测结果",
+      "show_camera_names": "显示摄像头名称",
+      "show_camera_names_desc": "对公开访问隐藏摄像头名称",
+      "history_days": "历史范围（天）",
+      "rate_limit": "速率限制（每分钟）"
     },
     "accessibility": {
       "title": "辅助功能选项",
@@ -233,7 +266,34 @@
       "temperature_unit_desc": "在天气数据中显示温度",
       "auto_detect_enabled": "已启用通过 IP 自动检测",
       "desc": "用于检测期间的本地化天气上下文。"
+    },
+    "danger": {
+      "title": "危险区域",
+      "subtitle": "破坏性操作",
+      "reset_desc": "重置数据库将永久删除所有检测并清除媒体缓存。此操作无法撤销。",
+      "reset_button": "重置数据库和缓存",
+      "resetting": "正在重置...",
+      "confirm": "危险：这将删除所有检测并清除媒体缓存。此操作无法撤销。您确定吗？"
     }
+  },
+  "auth": {
+    "login": "登录",
+    "logout": "注销",
+    "welcome_back": "欢迎回来",
+    "signin_desc": "登录以管理您的喂食器",
+    "username": "用户名",
+    "password": "密码",
+    "username_placeholder": "管理员",
+    "signin_button": "登录",
+    "verifying": "正在登录...",
+    "continue_guest": "作为访客继续",
+    "secure_access": "YA-WAMF 安全访问"
+  },
+  "status": {
+    "audio_active": "音频分析活跃",
+    "notifications_enabled": "通知已启用",
+    "system_online": "系统在线",
+    "system_offline": "系统离线"
   },
   "notifications": {
     "reclassify_fallback": "⚠️ 视频不可用 - 改用快照",
@@ -328,8 +388,29 @@
     "title": "物种排行榜",
     "species_count": "{count} 个物种",
     "detections_count": "{count} 次检测",
-    "sort_by_count": "按数量",
-    "sort_by_name": "按名称",
+    "sort_by_day": "日",
+    "sort_by_week": "周",
+    "sort_by_month": "月",
+    "featured": "精选",
+    "view_details": "查看详情",
+    "total_sightings": "总记录数",
+    "last_30_days": "最近30天",
+    "last_7_days": "最近7天",
+    "last_n_days": "最近{days}天",
+    "detections_over_time": "检测随时间变化",
+    "last_seen": "最近出现",
+    "trend": "趋势",
+    "streak_14d": "14天连击",
+    "days": "天",
+    "cameras": "摄像头",
+    "avg_confidence": "平均置信度",
+    "most_active": "最活跃",
+    "longest_streak": "最长连击",
+    "rising": "上升中",
+    "most_recent": "最新",
+    "rank": "排名",
+    "species": "物种",
+    "view_species": "查看 {species}",
     "no_species": "暂无检测到的物种",
     "no_species_desc": "一旦有记录，鸟类检测将显示在这里",
     "all_species": "所有物种",
@@ -430,6 +511,10 @@
       "fast_path": {
         "title": "快速通道效率",
         "desc": "跳过本地 AI 处理，直接使用 Frigate 的子标签以节省 CPU 资源"
+      },
+      "guest_mode": {
+        "title": "公共视图（访客模式）",
+        "desc": "分享只读仪表板，带速率限制，并可选隐藏摄像头名称"
       }
     },
     "tech": {
@@ -511,5 +596,13 @@
       "企鹅只是穿着正装参加晚会的鸡",
       "公鸡对着太阳尖叫是因为它们害怕黑暗"
     ]
+  },
+  "error": {
+    "boundary_title": "Something went wrong",
+    "boundary_subtitle": "An unexpected error occurred. Please try again or contact support if the problem persists.",
+    "show_details": "Show error details",
+    "try_again": "Try Again",
+    "copy_details": "Copy Error Details",
+    "reload_page": "Reload Page"
   }
 }

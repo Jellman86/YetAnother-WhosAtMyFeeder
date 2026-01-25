@@ -1,115 +1,100 @@
 # Migration Guide
 
-## Upgrading from v2.4.x to v2.5.0+ (Container Security Changes)
+## Upcoming (Unreleased)
 
-**Version 2.5.0 introduces important security improvements** - containers now run as non-root users instead of root.
+### ⚡ Quick Summary
 
-### What Changed
+- **Potential Breaking Change:** AI Naturalist responses are now standardized Markdown with fixed headings (`Appearance`, `Behavior`, `Naturalist Note`, `Seasonal Context`).
+- **New Capability:** AI analysis can prefer clip frames via `use_clip` and `frame_count` query params.
 
-- **Backend:** Now runs as UID 1000 (previously root/UID 0)
-- **Frontend:** Now runs as UID 1000 (previously root/UID 0)
-- **Impact:** Existing `config/` and `data/` directories may have permission issues
+### Who is affected?
 
-### Migration Options
+- **Only** users who parse or post‑process AI Naturalist text programmatically.
 
-Choose **ONE** of these options based on your setup:
+### What you may need to do
 
-#### Option 1: Change Directory Ownership (Recommended for new deployments)
-
-Change your host directories to match the container user:
-
-```bash
-# Navigate to your YA-WAMF directory
-cd /path/to/ya-wamf
-
-# Change ownership to UID 1000
-sudo chown -R 1000:1000 config data
-
-# Restart containers
-docker-compose down && docker-compose pull && docker-compose up -d
-```
-
-**Pros:** Most secure, follows best practices
-**Cons:** Requires sudo access
+- If you parse the AI response, update your parser to handle the standardized Markdown headings.
+- No data migrations are required.
 
 ---
 
-#### Option 2: Use `user:` Override (Recommended for TrueNAS/existing setups)
+## Upgrading to v2.6.0 (Authentication & Public Access)
 
-Keep your existing directory ownership and run containers as your user. The updated `docker-compose.yml` uses `PUID` and `PGID` environment variables for this:
+Version 2.6.0 introduces a major security upgrade with a new authentication system and public access controls. This guide covers how to migrate from previous versions.
 
-```bash
-# In your .env file
-PUID=568  # Replace with your UID
-PGID=568  # Replace with your GID
-```
+### ⚡ Quick Summary
 
-**To find your UID/GID:**
-```bash
-# On Linux/TrueNAS
-stat -c "%u %g" config/
-# Or
-ls -lan | grep config
-```
-
-**Pros:** No directory ownership changes needed
-**Cons:** Overrides built-in security
+- **Zero Breaking Changes:** Your existing installation will continue to work.
+- **New Feature:** You can now set a password for the admin interface.
+- **New Feature:** You can enable a "Public View" to share your bird detections without giving admin access.
+- **Deprecated:** The `YA_WAMF_API_KEY` environment variable is deprecated and will be removed in v2.9.0.
 
 ---
 
-#### Option 3: Make Directories World-Writable (Least secure)
+### 🟢 Scenario 1: Fresh Installation
 
-```bash
-cd /path/to/ya-wamf
-chmod -R 777 config data
-```
+If you are installing YA-WAMF for the first time:
 
-**⚠️ Only use this for testing/troubleshooting**
-
----
-
-### Verification
-
-After applying your chosen option, verify the containers start successfully:
-
-```bash
-docker logs yawamf-backend --tail 20
-docker logs yawamf-frontend --tail 20
-```
-
-You should see no permission errors.
+1. Start the container.
+2. Open the dashboard (`http://localhost:9852`).
+3. You will see a **Setup Wizard**.
+4. Create an admin username and password.
+5. (Optional) You can choose to skip authentication if you are on a trusted local network, but it is recommended to secure your instance.
 
 ---
 
-## Migrating from WhosAtMyFeeder v1 to YA-WAMF v2
+### 🟡 Scenario 2: Upgrading from v2.5.x (No API Key)
 
-If you are coming from the original `WhosAtMyFeeder` (v1), please note that **YA-WAMF (v2)** is a complete rewrite.
+If you previously ran YA-WAMF without any authentication:
 
-## Configuration Changes
+1. Update your Docker image tag to `v2.6.0` (or `latest`).
+2. Recreate the container (`docker-compose up -d`).
+3. The system will automatically migrate your `config.json` to include the new authentication settings (disabled by default).
+4. You will see a banner in the UI prompting you to secure your installation.
+5. Go to **Settings > Security** to enable authentication and set a password.
 
-*   **Format:** `config.yml` is deprecated. We now use a combination of Environment Variables (`.env`) for infrastructure and a web-based `config.json` for runtime settings.
-*   **Frigate:** Instead of complex mapping, we simply ask for the Frigate URL. Camera names are automatically detected from the MQTT events.
+---
 
-## Database Migration
+### 🟠 Scenario 3: Upgrading with Legacy API Key
 
-*   **Incompatible Schema:** The v1 database schema is not directly compatible with v2.
-*   **Recommendation:** It is highly recommended to start with a fresh database (`speciesid.db`) to ensure the new "Leaderboard" and "Explorer" features work correctly with standardized species names.
-*   **Legacy Data:** If you absolutely must keep your old data, you will need to manually export your v1 SQLite data and map it to the new `detections` table structure defined in `backend/app/repositories/detection_repository.py`.
+If you were using `YA_WAMF_API_KEY` in your `.env` file:
 
-## Alembic Heads Check (Dev/CI)
+1. Update your Docker image.
+2. The system will detect your existing API key and continue to honor it.
+3. You will see a warning in the Settings page: **"Legacy API Key Detected"**.
+4. **To Migrate:**
+   - Go to **Settings > Security**.
+   - Enable "Authentication".
+   - Set a username and password.
+   - Save settings.
+5. **Cleanup:**
+   - Once verified, remove `YA_WAMF_API_KEY` from your `.env` or `docker-compose.yml` file.
+   - Restart the container.
 
-We enforce a single Alembic head to avoid split-brain schemas. If multiple heads appear:
+---
 
-```bash
-cd backend
-alembic heads
-alembic merge -m "merge heads" <head1> <head2>
-alembic upgrade head
-```
+### 🛡️ Rollback Guide
 
-In CI, builds will fail if more than one head exists.
+If you encounter issues after upgrading, you can easily roll back or reset authentication.
 
-## Docker Changes
+**Option A: Disable Auth via Config File**
+If you get locked out or forget your password, you can manually reset it:
 
-*   **Service Name:** The main service is now split into `backend` and `frontend`.
-*   **Ports:** The web interface is now served on port `3000` (or `80` inside the container) instead of the previous Flask default.
+1. Access your server via SSH/terminal.
+2. Edit `config/config.json`.
+3. Find the `"auth"` section.
+4. Remove the `"password_hash"` line (or set it to `null`).
+   ```json
+   "auth": {
+     "enabled": true,
+     "username": "admin",
+     "password_hash": null,  <-- Set to null
+     ...
+   }
+   ```
+5. Restart the backend container. You will be prompted to set a new password.
+
+For more details, see the [Authentication Guide](docs/features/authentication.md).
+
+**Option B: Downgrade Docker Image**
+You can revert to the previous version by changing the image tag in `docker-compose.yml` to `v2.5.1`. The new configuration fields added to `config.json` will be ignored by the old version and are safe to keep.

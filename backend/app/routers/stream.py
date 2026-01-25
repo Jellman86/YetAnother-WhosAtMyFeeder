@@ -1,6 +1,8 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 from app.services.broadcaster import broadcaster
+from app.auth import AuthContext
+from app.auth_legacy import get_auth_context_with_legacy
 import json
 import asyncio
 
@@ -9,7 +11,7 @@ router = APIRouter()
 HEARTBEAT_INTERVAL = 30  # seconds
 
 @router.get("/sse")
-async def sse_stream():
+async def sse_stream(auth: AuthContext = Depends(get_auth_context_with_legacy)):
     async def event_generator():
         queue = await broadcaster.subscribe()
         try:

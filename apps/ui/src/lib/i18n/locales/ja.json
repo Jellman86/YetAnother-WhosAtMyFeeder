@@ -81,8 +81,42 @@
       "notifications": "通知",
       "integrations": "統合",
       "data": "データ",
+      "security": "セキュリティ",
       "appearance": "外観",
       "accessibility": "アクセシビリティ"
+    },
+    "auth": {
+      "title": "認証",
+      "desc": "フルアクセスにはログインが必要です。",
+      "enable": "認証を有効化",
+      "enable_desc": "設定と管理操作を保護します",
+      "username": "管理者ユーザー名",
+      "password": "新しいパスワード",
+      "password_new": "新しいパスワードを設定",
+      "password_placeholder": "変更しない場合は空欄",
+      "password_confirm": "パスワード確認",
+      "password_confirm_placeholder": "もう一度入力",
+      "session_expiry": "セッション期限（時間）",
+      "proxy_trust_note": "プロキシヘッダーは既定で全ホストを信頼します。リバースプロキシを使う場合は、信頼するプロキシホストを設定してクライアントIPの偽装を防いでください。",
+      "trusted_proxies": "信頼するプロキシホスト",
+      "trusted_proxies_desc": "リバースプロキシのコンテナ名またはIPを追加してください（例: nginx-rp, cloudflare-tunnel, 172.19.0.10）。同一ネットワークならDockerのDNS名が使えます。",
+      "trusted_proxies_placeholder": "プロキシホストまたはIPを追加",
+      "trusted_proxies_suggested_label": "提案",
+      "trusted_proxies_suggested_note": "これは提案のみです。承認または編集しない限り、保存しても既定値（すべて信頼）のままです。",
+      "trusted_proxies_use_suggestions": "提案を使用",
+      "trusted_proxies_add": "信頼するプロキシホストを追加",
+      "trusted_proxies_remove": "信頼するプロキシホストを削除",
+      "trusted_proxies_empty": "信頼するプロキシが未設定です（すべてのプロキシを信頼）。"
+    },
+    "public_access": {
+      "title": "公開アクセス",
+      "desc": "ログイン不要の読み取り専用アクセス。",
+      "enable": "公開アクセスを有効化",
+      "enable_desc": "ゲストが検出を閲覧できます",
+      "show_camera_names": "カメラ名を表示",
+      "show_camera_names_desc": "公開閲覧でカメラ名を隠す",
+      "history_days": "履歴（日）",
+      "rate_limit": "レート制限（分あたり）"
     },
     "accessibility": {
       "title": "アクセシビリティオプション",
@@ -232,7 +266,34 @@
       "temperature_unit_desc": "気象データに温度を表示",
       "auto_detect_enabled": "IPによる自動検出が有効です",
       "desc": "検出時のローカライズされた気象コンテキストに使用されます。"
+    },
+    "danger": {
+      "title": "危険ゾーン",
+      "subtitle": "破壊的な操作",
+      "reset_desc": "データベースをリセットすると、すべての検出が完全に削除され、メディアキャッシュがクリアされます。この操作は元に戻せません。",
+      "reset_button": "DBとキャッシュをリセット",
+      "resetting": "リセット中...",
+      "confirm": "危険：これによりすべての検出が削除され、メディアキャッシュがクリアされます。この操作は元に戻せません。よろしいですか？"
     }
+  },
+  "auth": {
+    "login": "ログイン",
+    "logout": "ログアウト",
+    "welcome_back": "お帰りなさい",
+    "signin_desc": "フィーダーを管理するためにログインしてください",
+    "username": "ユーザー名",
+    "password": "パスワード",
+    "username_placeholder": "管理者",
+    "signin_button": "ログイン",
+    "verifying": "認証中...",
+    "continue_guest": "ゲストとして続行",
+    "secure_access": "YA-WAMF 安全なアクセス"
+  },
+  "status": {
+    "audio_active": "音声分析中",
+    "notifications_enabled": "通知有効",
+    "system_online": "システムオンライン",
+    "system_offline": "システムオフライン"
   },
   "notifications": {
     "reclassify_fallback": "⚠️ ビデオが利用不可 - 代わりにスナップショットを使用しました",
@@ -327,8 +388,29 @@
     "title": "種のリーダーボード",
     "species_count": "{count} 種",
     "detections_count": "{count} 回の検出",
-    "sort_by_count": "回数順",
-    "sort_by_name": "名前順",
+    "sort_by_day": "日",
+    "sort_by_week": "週",
+    "sort_by_month": "月",
+    "featured": "注目",
+    "view_details": "詳細を見る",
+    "total_sightings": "総検出数",
+    "last_30_days": "過去30日",
+    "last_7_days": "過去7日",
+    "last_n_days": "過去{days}日",
+    "detections_over_time": "検出の推移",
+    "last_seen": "最終検出",
+    "trend": "トレンド",
+    "streak_14d": "14日連続",
+    "days": "日",
+    "cameras": "カメラ",
+    "avg_confidence": "平均信頼度",
+    "most_active": "最も活発",
+    "longest_streak": "最長連続",
+    "rising": "上昇中",
+    "most_recent": "最新",
+    "rank": "順位",
+    "species": "種",
+    "view_species": "{species} を表示",
     "no_species": "種はまだ検出されていません",
     "no_species_desc": "鳥が記録されるとここに表示されます",
     "all_species": "すべての種",
@@ -429,6 +511,10 @@
       "fast_path": {
         "title": "ファストパス効率化",
         "desc": "ローカルAI処理をスキップし、Frigateのサブラベルを直接使用してCPUを節約します"
+      },
+      "guest_mode": {
+        "title": "公開ビュー（ゲストモード）",
+        "desc": "読み取り専用のダッシュボードを共有。レート制限とカメラ名の非表示に対応"
       }
     },
     "tech": {
@@ -510,5 +596,13 @@
       "ペンギンはガラのために着飾ったフォーマルなニワトリです",
       "雄鶏は暗闇を恐れているので太陽に向かって叫びます"
     ]
+  },
+  "error": {
+    "boundary_title": "Something went wrong",
+    "boundary_subtitle": "An unexpected error occurred. Please try again or contact support if the problem persists.",
+    "show_details": "Show error details",
+    "try_again": "Try Again",
+    "copy_details": "Copy Error Details",
+    "reload_page": "Reload Page"
   }
 }

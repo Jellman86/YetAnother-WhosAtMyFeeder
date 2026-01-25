@@ -3,6 +3,7 @@
 Welcome to the documentation for **Yet Another WhosAtMyFeeder (YA-WAMF)**. This guide covers everything from basic setup to advanced AI tuning.
 
 > 🦜 **New to YA-WAMF?** Start with the [Getting Started](setup/getting-started.md) guide to have your feeder online in minutes.
+> 🔓 **Sharing your dashboard?** See [Authentication & Access](features/authentication.md) for guest mode, rate limits, and privacy controls.
 
 ---
 
@@ -34,6 +35,7 @@ Connect YA-WAMF to the rest of your smart home and community projects.
 
 ## Feature Deep Dives
 
+- [🔐 Authentication & Access](features/authentication.md) - Admin passwords, guest mode, and security
 - [🧠 AI Models & Performance](features/ai-models.md) - Understanding MobileNet vs ConvNeXt vs EVA-02
 - [🗂 Taxonomy & Naming](features/taxonomy.md) - How scientific naming works
 - [🔔 Notifications](features/notifications.md) - Discord, Pushover, Telegram, Email

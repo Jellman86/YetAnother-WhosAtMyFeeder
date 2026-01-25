@@ -1,11 +1,13 @@
 import platform
+import re
 from typing import List, Optional
 from datetime import datetime, timedelta
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field, field_validator
 import structlog
 
 from app.config import settings
+from app.auth import require_owner, AuthContext, hash_password
 from app.database import get_db
 from app.repositories.detection_repository import DetectionRepository
 
@@ -21,23 +23,29 @@ router = APIRouter()
 log = structlog.get_logger()
 
 @router.get("/maintenance/taxonomy/status")
-async def get_taxonomy_status():
-    """Get status of the taxonomy synchronization process."""
+async def get_taxonomy_status(auth: AuthContext = Depends(require_owner)):
+    """Get status of the taxonomy synchronization process. Owner only."""
     return taxonomy_service.get_sync_status()
 
 @router.post("/maintenance/taxonomy/sync")
-async def start_taxonomy_sync(background_tasks: BackgroundTasks):
-    """Start the background process to normalize all detection names."""
+async def start_taxonomy_sync(
+    background_tasks: BackgroundTasks,
+    auth: AuthContext = Depends(require_owner)
+):
+    """Start the background process to normalize all detection names. Owner only."""
     status = taxonomy_service.get_sync_status()
     if status["is_running"]:
         return {"status": "already_running"}
-    
+
     background_tasks.add_task(taxonomy_service.run_background_sync)
     return {"status": "started"}
 
 @router.post("/settings/birdnet/test")
-async def test_birdnet(background_tasks: BackgroundTasks):
-    """Test BirdNET-Go integration by injecting a mock detection."""
+async def test_birdnet(
+    background_tasks: BackgroundTasks,
+    auth: AuthContext = Depends(require_owner)
+):
+    """Test BirdNET-Go integration by injecting a mock detection. Owner only."""
     from app.services.audio.audio_service import audio_service
     
     mock_data = {
@@ -54,8 +62,8 @@ async def test_birdnet(background_tasks: BackgroundTasks):
     return {"status": "ok", "message": "Mock audio detection injected. Check Discovery feed for updates."}
 
 @router.post("/settings/mqtt/test-publish")
-async def test_mqtt_publish():
-    """Publish a test message to the MQTT broker to verify connectivity."""
+async def test_mqtt_publish(auth: AuthContext = Depends(require_owner)):
+    """Publish a test message to the MQTT broker to verify connectivity. Owner only."""
     from app.services.broadcaster import broadcaster
     # Broadcaster uses the shared mqtt_service internally for non-SSE tasks if needed,
     # but here we should use the mqtt_service directly.
@@ -84,8 +92,11 @@ class NotificationTestRequest(BaseModel):
     chat_id: Optional[str] = None
 
 @router.post("/settings/notifications/test")
-async def test_notification(request: NotificationTestRequest):
-    """Test notification platform with optional credential overrides."""
+async def test_notification(
+    request: NotificationTestRequest,
+    auth: AuthContext = Depends(require_owner)
+):
+    """Test notification platform with optional credential overrides. Owner only."""
     
     # Create mock detection data
     species = "Cyanistes caeruleus"
@@ -169,8 +180,11 @@ class BirdWeatherTestRequest(BaseModel):
 
 
 @router.post("/settings/birdweather/test")
-async def test_birdweather(request: BirdWeatherTestRequest):
-    """Test BirdWeather integration with an optional token override."""
+async def test_birdweather(
+    request: BirdWeatherTestRequest,
+    auth: AuthContext = Depends(require_owner)
+):
+    """Test BirdWeather integration with an optional token override. Owner only."""
     token = request.token if request.token and request.token != "***REDACTED***" else None
     if not token and not settings.birdweather.station_token:
         return {"status": "error", "message": "Missing BirdWeather station token"}
@@ -206,6 +220,7 @@ class SettingsUpdate(BaseModel):
     classification_min_confidence: float = Field(0.4, ge=0.0, le=1.0, description="Minimum confidence floor (0-1)")
     cameras: List[str] = Field(default_factory=list, description="List of cameras to monitor")
     retention_days: int = Field(0, ge=0, description="Days to keep detections (0 = unlimited)")
+    auto_delete_missing_clips: bool = Field(False, description="Auto-delete detections when event/clip is missing")
     blocked_labels: List[str] = Field(default_factory=list, description="Labels to filter out from detections")
     trust_frigate_sublabel: bool = Field(True, description="Trust Frigate sublabels when available")
     display_common_names: bool = Field(True, description="Display common names instead of scientific")
@@ -283,6 +298,45 @@ class SettingsUpdate(BaseModel):
     accessibility_zen_mode: Optional[bool] = False
     accessibility_live_announcements: Optional[bool] = True
 
+    # Authentication
+    auth_enabled: Optional[bool] = None
+    auth_username: Optional[str] = Field(None, min_length=1, max_length=50)
+    auth_password: Optional[str] = Field(None, min_length=8, max_length=128)
+    auth_session_expiry_hours: Optional[int] = Field(None, ge=1, le=720)
+    trusted_proxy_hosts: Optional[List[str]] = None
+
+    @field_validator("auth_username")
+    @classmethod
+    def validate_auth_username(cls, v: Optional[str]) -> Optional[str]:
+        """Validate username contains only safe characters."""
+        if v is None:
+            return v
+        if not re.match(r'^[a-zA-Z0-9_.-]+$', v):
+            raise ValueError("Username must contain only letters, numbers, underscore, hyphen, and period")
+        return v.strip()
+
+    @field_validator("auth_password")
+    @classmethod
+    def validate_auth_password(cls, v: Optional[str]) -> Optional[str]:
+        """Validate password strength."""
+        if v is None or not v:  # Allow empty string to mean "don't change"
+            return v
+
+        if len(v) < 8:
+            raise ValueError("Password must be at least 8 characters long")
+
+        # Check for basic complexity (at least one letter and one number)
+        if not re.search(r'[A-Za-z]', v) or not re.search(r'\d', v):
+            raise ValueError("Password must contain at least one letter and one number")
+
+        return v
+
+    # Public access
+    public_access_enabled: Optional[bool] = None
+    public_access_show_camera_names: Optional[bool] = None
+    public_access_historical_days: Optional[int] = Field(None, ge=0, le=365)
+    public_access_rate_limit_per_minute: Optional[int] = Field(None, ge=1, le=100)
+
     species_info_source: Optional[str] = "auto"
 
     @field_validator('location_temperature_unit')
@@ -303,9 +357,9 @@ class SettingsUpdate(BaseModel):
         return v.rstrip('/')
 
 @router.get("/settings")
-async def get_settings():
+async def get_settings(auth: AuthContext = Depends(require_owner)):
     """
-    Get application settings with secrets redacted.
+    Get application settings with secrets redacted. Owner only.
     Secrets are never returned via API for security reasons.
     """
     from app.services.smtp_service import smtp_service
@@ -335,6 +389,7 @@ async def get_settings():
         "classification_min_confidence": settings.classification.min_confidence,
         "cameras": settings.frigate.camera,
         "retention_days": settings.maintenance.retention_days,
+        "auto_delete_missing_clips": settings.maintenance.auto_delete_missing_clips,
         "blocked_labels": settings.classification.blocked_labels,
         "trust_frigate_sublabel": settings.classification.trust_frigate_sublabel,
         "display_common_names": settings.classification.display_common_names,
@@ -417,11 +472,27 @@ async def get_settings():
         "accessibility_reduced_motion": settings.accessibility.reduced_motion,
         "accessibility_zen_mode": settings.accessibility.zen_mode,
         "accessibility_live_announcements": settings.accessibility.live_announcements,
+        # Authentication
+        "auth_enabled": settings.auth.enabled,
+        "auth_username": settings.auth.username,
+        "auth_has_password": settings.auth.password_hash is not None,
+        "auth_session_expiry_hours": settings.auth.session_expiry_hours,
+        "trusted_proxy_hosts": settings.system.trusted_proxy_hosts,
+        # Public access
+        "public_access_enabled": settings.public_access.enabled,
+        "public_access_show_camera_names": settings.public_access.show_camera_names,
+        "public_access_historical_days": settings.public_access.show_historical_days,
+        "public_access_rate_limit_per_minute": settings.public_access.rate_limit_per_minute,
         "species_info_source": settings.species_info_source,
     }
 
 @router.post("/settings")
-async def update_settings(update: SettingsUpdate, background_tasks: BackgroundTasks):
+async def update_settings(
+    update: SettingsUpdate,
+    background_tasks: BackgroundTasks,
+    auth: AuthContext = Depends(require_owner)
+):
+    """Update application settings. Owner only."""
     settings.frigate.frigate_url = update.frigate_url
     settings.frigate.mqtt_server = update.mqtt_server
     settings.frigate.mqtt_port = update.mqtt_port
@@ -442,6 +513,7 @@ async def update_settings(update: SettingsUpdate, background_tasks: BackgroundTa
     settings.classification.threshold = update.classification_threshold
     settings.classification.min_confidence = update.classification_min_confidence
     settings.maintenance.retention_days = update.retention_days
+    settings.maintenance.auto_delete_missing_clips = update.auto_delete_missing_clips
     settings.classification.blocked_labels = update.blocked_labels
     settings.classification.trust_frigate_sublabel = update.trust_frigate_sublabel
     settings.classification.display_common_names = update.display_common_names
@@ -483,6 +555,57 @@ async def update_settings(update: SettingsUpdate, background_tasks: BackgroundTa
     
     # Telemetry
     settings.telemetry.enabled = update.telemetry_enabled if update.telemetry_enabled is not None else True
+
+    # Authentication
+    auth_changed = False
+    password_changed = False
+
+    if update.auth_enabled is not None:
+        if settings.auth.enabled != update.auth_enabled:
+            auth_changed = True
+            log.info(
+                "AUTH_AUDIT: Authentication toggled",
+                event_type="auth_toggled",
+                enabled=update.auth_enabled,
+                username=auth.username
+            )
+        settings.auth.enabled = update.auth_enabled
+
+    if update.auth_username is not None and update.auth_username.strip():
+        if settings.auth.username != update.auth_username.strip():
+            log.info(
+                "AUTH_AUDIT: Username changed",
+                event_type="username_changed",
+                old_username=settings.auth.username,
+                new_username=update.auth_username.strip(),
+                changed_by=auth.username
+            )
+        settings.auth.username = update.auth_username.strip()
+
+    if update.auth_password:
+        settings.auth.password_hash = hash_password(update.auth_password)
+        password_changed = True
+        log.info(
+            "AUTH_AUDIT: Password changed",
+            event_type="password_changed",
+            username=settings.auth.username,
+            changed_by=auth.username
+        )
+
+    if update.auth_session_expiry_hours is not None:
+        settings.auth.session_expiry_hours = update.auth_session_expiry_hours
+    if update.trusted_proxy_hosts is not None:
+        settings.system.trusted_proxy_hosts = update.trusted_proxy_hosts
+
+    # Public access
+    if update.public_access_enabled is not None:
+        settings.public_access.enabled = update.public_access_enabled
+    if update.public_access_show_camera_names is not None:
+        settings.public_access.show_camera_names = update.public_access_show_camera_names
+    if update.public_access_historical_days is not None:
+        settings.public_access.show_historical_days = update.public_access_historical_days
+    if update.public_access_rate_limit_per_minute is not None:
+        settings.public_access.rate_limit_per_minute = update.public_access_rate_limit_per_minute
 
     # Notifications - Discord
     if update.notifications_discord_enabled is not None:
@@ -590,8 +713,8 @@ async def update_settings(update: SettingsUpdate, background_tasks: BackgroundTa
     return {"status": "updated"}
 
 @router.get("/maintenance/stats")
-async def get_maintenance_stats():
-    """Get database maintenance statistics."""
+async def get_maintenance_stats(auth: AuthContext = Depends(require_owner)):
+    """Get database maintenance statistics. Owner only."""
     async with get_db() as db:
         repo = DetectionRepository(db)
         total_count = await repo.get_count()
@@ -611,8 +734,8 @@ async def get_maintenance_stats():
         }
 
 @router.post("/maintenance/cleanup")
-async def run_cleanup():
-    """Manually trigger cleanup of old detections."""
+async def run_cleanup(auth: AuthContext = Depends(require_owner)):
+    """Manually trigger cleanup of old detections. Owner only."""
     if settings.maintenance.retention_days <= 0:
         return {
             "status": "skipped",
@@ -635,13 +758,41 @@ async def run_cleanup():
     }
 
 
+@router.post("/maintenance/analyze-unknowns")
+async def analyze_unknowns(auth: AuthContext = Depends(require_owner)):
+    """Queue video analysis for all 'Unknown Bird' detections. Owner only."""
+    count = 0
+    async with get_db() as db:
+        repo = DetectionRepository(db)
+        unknowns = await repo.get_unknown_detections()
+        
+        log.info("Batch analysis triggered", total_unknowns=len(unknowns))
+        
+        for d in unknowns:
+            # The service itself will check for clip availability during processing
+            await auto_video_classifier.queue_classification(d.frigate_event, d.camera_name)
+            count += 1
+            
+    return {
+        "status": "queued", 
+        "count": count, 
+        "message": f"Queued {count} unknown detections for video analysis. Processing will respect concurrency limits."
+    }
+
+
+@router.get("/maintenance/analysis/status")
+async def get_analysis_status(auth: AuthContext = Depends(require_owner)):
+    """Get status of auto video classification queue. Owner only."""
+    return auto_video_classifier.get_status()
+
+
 # =============================================================================
 # Media Cache Endpoints
 # =============================================================================
 
 @router.get("/cache/stats")
-async def get_cache_stats():
-    """Get media cache statistics."""
+async def get_cache_stats(auth: AuthContext = Depends(require_owner)):
+    """Get media cache statistics. Owner only."""
     from app.services.media_cache import media_cache
 
     stats = media_cache.get_cache_stats()
@@ -662,8 +813,8 @@ async def get_cache_stats():
 
 
 @router.post("/cache/cleanup")
-async def run_cache_cleanup():
-    """Manually trigger cleanup of old cached media."""
+async def run_cache_cleanup(auth: AuthContext = Depends(require_owner)):
+    """Manually trigger cleanup of old cached media. Owner only."""
     from app.services.media_cache import media_cache
 
     # Determine retention period

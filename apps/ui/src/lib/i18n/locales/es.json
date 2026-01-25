@@ -81,8 +81,42 @@
       "notifications": "Notificaciones",
       "integrations": "Integraciones",
       "data": "Datos",
+      "security": "Seguridad",
       "appearance": "Apariencia",
       "accessibility": "Accesibilidad"
+    },
+    "auth": {
+      "title": "Autenticación",
+      "desc": "Inicio de sesión requerido para acceso completo.",
+      "enable": "Habilitar autenticación",
+      "enable_desc": "Protege ajustes y acciones de administrador",
+      "username": "Usuario administrador",
+      "password": "Nueva contraseña",
+      "password_new": "Establecer nueva contraseña",
+      "password_placeholder": "Dejar en blanco para mantener la contraseña",
+      "password_confirm": "Confirmar contraseña",
+      "password_confirm_placeholder": "Repetir la contraseña",
+      "session_expiry": "Duración de sesión (horas)",
+      "proxy_trust_note": "Los encabezados de proxy se confían de todos los hosts de forma predeterminada. Si usas un proxy inverso, configura los hosts de proxy confiables para evitar IPs falsificadas.",
+      "trusted_proxies": "Hosts de proxy confiables",
+      "trusted_proxies_desc": "Añade los nombres de contenedor o IPs de tu proxy inverso (p. ej., nginx-rp, cloudflare-tunnel, 172.19.0.10). Los nombres DNS de Docker funcionan cuando los servicios comparten red.",
+      "trusted_proxies_placeholder": "Añadir host de proxy o IP",
+      "trusted_proxies_suggested_label": "Sugerido",
+      "trusted_proxies_suggested_note": "Estas son solo sugerencias. Guardar mantendrá el valor predeterminado (confiar en todos) a menos que las aceptes o edites.",
+      "trusted_proxies_use_suggestions": "Usar sugerencias",
+      "trusted_proxies_add": "Agregar host de proxy confiable",
+      "trusted_proxies_remove": "Quitar host de proxy confiable",
+      "trusted_proxies_empty": "No hay proxies confiables configurados (todos los proxies son confiables)."
+    },
+    "public_access": {
+      "title": "Acceso público",
+      "desc": "Acceso de solo lectura sin inicio de sesión.",
+      "enable": "Habilitar acceso público",
+      "enable_desc": "Los invitados pueden ver detecciones",
+      "show_camera_names": "Mostrar nombres de cámara",
+      "show_camera_names_desc": "Ocultar cámaras para visitantes",
+      "history_days": "Historial (días)",
+      "rate_limit": "Límite (por minuto)"
     },
     "accessibility": {
       "title": "Opciones de accesibilidad",
@@ -232,7 +266,34 @@
       "temperature_unit_desc": "Mostrar temperatura en datos meteorológicos",
       "auto_detect_enabled": "Detección automática vía IP habilitada",
       "desc": "Se utiliza para el contexto meteorológico localizado durante las detecciones."
+    },
+    "danger": {
+      "title": "Zona de Peligro",
+      "subtitle": "Acciones destructivas",
+      "reset_desc": "Restablecer la base de datos eliminará permanentemente TODAS las detecciones y borrará el caché de medios. Esta acción no se puede deshacer.",
+      "reset_button": "Restablecer base de datos y caché",
+      "resetting": "Restableciendo...",
+      "confirm": "PELIGRO: Esto eliminará TODAS las detecciones y borrará el caché de medios. Esta acción no se puede deshacer. ¿Estás seguro?"
     }
+  },
+  "auth": {
+    "login": "Iniciar sesión",
+    "logout": "Cerrar sesión",
+    "welcome_back": "Bienvenido de nuevo",
+    "signin_desc": "Inicia sesión para gestionar tu comedero",
+    "username": "Nombre de usuario",
+    "password": "Contraseña",
+    "username_placeholder": "admin",
+    "signin_button": "Iniciar Sesión",
+    "verifying": "Iniciando sesión...",
+    "continue_guest": "Continuar como invitado",
+    "secure_access": "Acceso Seguro YA-WAMF"
+  },
+  "status": {
+    "audio_active": "Análisis de audio activo",
+    "notifications_enabled": "Notificaciones habilitadas",
+    "system_online": "Sistema en línea",
+    "system_offline": "Sistema desconectado"
   },
   "notifications": {
     "reclassify_fallback": "⚠️ Video no disponible - se usó captura en su lugar",
@@ -327,8 +388,29 @@
     "title": "Clasificación de Especies",
     "species_count": "{count} especies",
     "detections_count": "{count} detecciones",
-    "sort_by_count": "Por cantidad",
-    "sort_by_name": "Por nombre",
+    "sort_by_day": "Día",
+    "sort_by_week": "Semana",
+    "sort_by_month": "Mes",
+    "featured": "Destacado",
+    "view_details": "Ver detalles",
+    "total_sightings": "Avistamientos totales",
+    "last_30_days": "Últimos 30 días",
+    "last_7_days": "Últimos 7 días",
+    "last_n_days": "Últimos {days} días",
+    "detections_over_time": "Detecciones a lo largo del tiempo",
+    "last_seen": "Visto por última vez",
+    "trend": "Tendencia",
+    "streak_14d": "Racha de 14 días",
+    "days": "días",
+    "cameras": "Cámaras",
+    "avg_confidence": "Confianza media",
+    "most_active": "Más activo",
+    "longest_streak": "Racha más larga",
+    "rising": "En alza",
+    "most_recent": "Más reciente",
+    "rank": "Rango",
+    "species": "Especie",
+    "view_species": "Ver {species}",
     "no_species": "No hay especies detectadas todavía",
     "no_species_desc": "Las detecciones de aves aparecerán aquí una vez registradas",
     "all_species": "Todas las especies",
@@ -429,6 +511,10 @@
       "fast_path": {
         "title": "Eficiencia de Ruta Rápida",
         "desc": "Omite el procesamiento de IA local y usa las subetiquetas de Frigate directamente"
+      },
+      "guest_mode": {
+        "title": "Vista pública (modo invitado)",
+        "desc": "Comparte un panel de solo lectura con límites de tasa y ocultación opcional de nombres de cámara"
       }
     },
     "tech": {
@@ -510,5 +596,13 @@
       "Los pingüinos son simplemente pollos formales vestidos para una gala",
       "Los gallos le gritan al sol porque le tienen miedo a la oscuridad"
     ]
+  },
+  "error": {
+    "boundary_title": "Something went wrong",
+    "boundary_subtitle": "An unexpected error occurred. Please try again or contact support if the problem persists.",
+    "show_details": "Show error details",
+    "try_again": "Try Again",
+    "copy_details": "Copy Error Details",
+    "reload_page": "Reload Page"
   }
 }

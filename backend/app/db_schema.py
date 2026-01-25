@@ -1,4 +1,4 @@
-from sqlalchemy import Table, Column, Integer, String, Float, Boolean, TIMESTAMP, MetaData, Index, ForeignKey, UniqueConstraint
+from sqlalchemy import Table, Column, Integer, String, Float, Boolean, TIMESTAMP, MetaData, Index, ForeignKey, UniqueConstraint, Date, PrimaryKeyConstraint
 from sqlalchemy.sql import func
 
 metadata = MetaData()
@@ -26,6 +26,7 @@ detections = Table(
     Column("scientific_name", String),
     Column("common_name", String),
     Column("taxa_id", Integer),
+    Column("notified_at", TIMESTAMP),
     # Video classification columns
     Column("video_classification_score", Float),
     Column("video_classification_label", String),
@@ -48,6 +49,7 @@ Index("idx_detections_common", detections.c.common_name)
 Index("idx_detections_taxa_id", detections.c.taxa_id)
 Index("idx_detections_frigate_event", detections.c.frigate_event)
 Index("idx_detections_video_status", detections.c.video_classification_status)
+Index("idx_detections_notified_at", detections.c.notified_at)
 
 taxonomy_cache = Table(
     "taxonomy_cache",
@@ -120,3 +122,21 @@ taxonomy_translations = Table(
 
 Index("idx_taxonomy_trans_taxa", taxonomy_translations.c.taxa_id)
 Index("idx_taxonomy_trans_lang", taxonomy_translations.c.language_code)
+
+species_daily_rollup = Table(
+    "species_daily_rollup",
+    metadata,
+    Column("rollup_date", Date, nullable=False),
+    Column("display_name", String, nullable=False),
+    Column("detection_count", Integer, nullable=False),
+    Column("camera_count", Integer, nullable=False),
+    Column("avg_confidence", Float),
+    Column("max_confidence", Float),
+    Column("min_confidence", Float),
+    Column("first_seen", TIMESTAMP),
+    Column("last_seen", TIMESTAMP),
+    PrimaryKeyConstraint("rollup_date", "display_name", name="pk_species_daily_rollup"),
+)
+
+Index("idx_species_rollup_date", species_daily_rollup.c.rollup_date)
+Index("idx_species_rollup_display", species_daily_rollup.c.display_name)

@@ -1,13 +1,17 @@
 from datetime import datetime, timedelta
 from typing import Optional, List
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, Depends
 from pydantic import BaseModel, Field
 import structlog
 
 from app.services.backfill_service import BackfillService
 from app.services.classifier_service import get_classifier
 from app.services.i18n_service import i18n_service
+from app.services.media_cache import media_cache
+from app.repositories.detection_repository import DetectionRepository
+from app.database import get_db
 from app.utils.language import get_user_language
+from app.auth import require_owner, AuthContext
 
 router = APIRouter()
 log = structlog.get_logger()
@@ -45,10 +49,46 @@ class BackfillResponse(BaseModel):
     message: str
 
 
-@router.post("/backfill", response_model=BackfillResponse)
-async def backfill_detections(backfill_request: BackfillRequest, request: Request):
+@router.delete("/backfill/reset")
+async def reset_database(
+    request: Request,
+    auth: AuthContext = Depends(require_owner)
+):
     """
-    Fetch historical bird detections from Frigate and process them.
+    Reset the database: Delete ALL detections and clear media cache. Owner only.
+    """
+    try:
+        # Clear detections
+        async with get_db() as db:
+            repo = DetectionRepository(db)
+            deleted_count = await repo.delete_all()
+            
+        # Clear media cache
+        cache_stats = await media_cache.clear_all()
+        
+        log.warning("Database reset triggered by user", 
+                    deleted_detections=deleted_count, 
+                    cache_stats=cache_stats)
+        
+        return {
+            "status": "success",
+            "message": f"Deleted {deleted_count} detections and cleared cache ({cache_stats['snapshots_deleted']} snapshots, {cache_stats['clips_deleted']} clips).",
+            "deleted_count": deleted_count,
+            "cache_stats": cache_stats
+        }
+    except Exception as e:
+        log.error("Database reset failed", error=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/backfill", response_model=BackfillResponse)
+async def backfill_detections(
+    backfill_request: BackfillRequest,
+    request: Request,
+    auth: AuthContext = Depends(require_owner)
+):
+    """
+    Fetch historical bird detections from Frigate and process them. Owner only.
 
     This endpoint queries Frigate's event API for past bird detections,
     classifies them using the ML model, and saves new detections to the database.

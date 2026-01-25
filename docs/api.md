@@ -2,7 +2,7 @@
 
 ## Overview
 
-YA-WAMF provides a RESTful API for managing bird detections, classifications, and system settings. All API endpoints are prefixed with `/api` and require API key authentication if configured.
+YA-WAMF provides a RESTful API for managing bird detections, classifications, and system settings. All API endpoints are prefixed with `/api` and are protected by either **JWT login** or a **legacy API key** (if configured).
 
 **Base URL**: `http://your-server:8000`
 
@@ -12,9 +12,32 @@ YA-WAMF provides a RESTful API for managing bird detections, classifications, an
 
 ## Authentication
 
-### API Key
+YA-WAMF supports two authentication methods:
 
-If `API_KEY` is configured in your environment, all API requests must include authentication via:
+1. **JWT (recommended):** Login with username/password and send a Bearer token.
+2. **Legacy API key (deprecated):** Use `X-API-Key` (or `api_key` query parameter) if `API_KEY` is configured.
+
+### JWT (Recommended)
+
+1. **Login** to obtain a JWT:
+
+```
+POST /api/auth/login
+{
+  "username": "admin",
+  "password": "your-password"
+}
+```
+
+2. **Use the access token** on requests:
+
+```bash
+curl -H "Authorization: Bearer YOUR_JWT" http://localhost:8000/api/events
+```
+
+### API Key (Legacy)
+
+If `API_KEY` is configured in your environment, requests can authenticate via:
 
 - **Header**: `X-API-Key: your-api-key`
 - **Query Parameter**: `?api_key=your-api-key`
@@ -24,7 +47,7 @@ If `API_KEY` is configured in your environment, all API requests must include au
 ### Example
 
 ```bash
-curl -H "X-API-Key: your-api-key" http://localhost:8000/api/detections
+curl -H "Authorization: Bearer YOUR_JWT" http://localhost:8000/api/events
 ```
 
 ---
@@ -77,9 +100,9 @@ Get application version information.
 
 ## Events & Detections
 
-### List Detections
+### List Events (Detections)
 
-**`GET /api/detections`**
+**`GET /api/events`**
 
 Retrieve a list of bird detections with optional filtering.
 
@@ -90,52 +113,47 @@ Retrieve a list of bird detections with optional filtering.
 - `species` (optional): Filter by species (display_name or scientific_name)
 - `min_score` (optional): Minimum confidence score (0.0-1.0)
 - `include_hidden` (optional): Include hidden detections (default: false)
-- `limit` (optional): Maximum results (default: 100)
+- `limit` (optional): Maximum results (default: 50)
 - `offset` (optional): Pagination offset (default: 0)
 
 **Response**:
 ```json
-{
-  "detections": [
-    {
-      "id": 1,
-      "frigate_event": "1234567890.123456-abc123",
-      "detection_time": "2026-01-09T08:00:00Z",
-      "display_name": "Turdus merula",
-      "scientific_name": "Turdus merula",
-      "common_name": "Eurasian Blackbird",
-      "score": 0.95,
-      "camera_name": "BirdCam",
-      "is_hidden": false,
-      "frigate_score": 0.85,
-      "temperature": 15.5,
-      "weather_condition": "sunny",
-      "taxa_id": 12345,
-      "video_classification_score": 0.92,
-      "video_classification_label": "Turdus merula",
-      "video_classification_status": "completed"
-    }
-  ],
-  "total": 1,
-  "limit": 100,
-  "offset": 0
-}
+[
+  {
+    "id": 1,
+    "frigate_event": "1234567890.123456-abc123",
+    "detection_time": "2026-01-09T08:00:00Z",
+    "display_name": "Turdus merula",
+    "scientific_name": "Turdus merula",
+    "common_name": "Eurasian Blackbird",
+    "score": 0.95,
+    "camera_name": "BirdCam",
+    "is_hidden": false,
+    "frigate_score": 0.85,
+    "temperature": 15.5,
+    "weather_condition": "sunny",
+    "taxa_id": 12345,
+    "video_classification_score": 0.92,
+    "video_classification_label": "Turdus merula",
+    "video_classification_status": "completed"
+  }
+]
 ```
 
 ### Get Single Detection
 
-**`GET /api/detections/{detection_id}`**
+**`GET /api/events/{event_id}`**
 
 Retrieve a specific detection by ID.
 
 **Path Parameters**:
-- `detection_id`: Detection ID (integer)
+- `event_id`: Frigate event ID (string)
 
 **Response**: Single detection object (same structure as list item above)
 
 ### Update Detection
 
-**`PATCH /api/detections/{detection_id}`**
+**`PATCH /api/events/{event_id}`**
 
 Update a detection (e.g., hide/unhide, update classification).
 
@@ -151,7 +169,7 @@ Update a detection (e.g., hide/unhide, update classification).
 
 ### Delete Detection
 
-**`DELETE /api/detections/{detection_id}`**
+**`DELETE /api/events/{event_id}`**
 
 Delete a specific detection.
 
@@ -565,6 +583,30 @@ Ask questions about your bird detections using AI.
 
 **Note**: Requires LLM configuration (Gemini/OpenAI)
 
+### AI Naturalist Analysis
+
+**`POST /api/events/{event_id}/analyze`**
+
+Generate (or fetch) the AI Naturalist analysis for a specific detection event.
+
+**Query Params**:
+
+- `force` (boolean, default `false`) - Regenerate analysis even if one already exists.
+- `use_clip` (boolean, default `true`) - Prefer video clip frames when available; falls back to snapshot.
+- `frame_count` (integer, default `5`, range `1-10`) - Number of frames to extract from the clip.
+
+**Response**:
+```json
+{
+  "analysis": "## Appearance\n- ...\n\n## Behavior\n- ...\n\n## Naturalist Note\n- ...\n\n## Seasonal Context\n- ..."
+}
+```
+
+**Notes**:
+- Requires LLM configuration (Gemini/OpenAI/Claude).
+- Owner access is required to generate analysis; guests can view stored analysis in event payloads.
+- The response is standardized Markdown with fixed headings: `Appearance`, `Behavior`, `Naturalist Note`, `Seasonal Context`.
+
 ---
 
 ## Debug Endpoints
@@ -646,14 +688,14 @@ All endpoints return standard HTTP status codes and error responses:
 ### 401 Unauthorized
 ```json
 {
-  "detail": "Missing API Key"
+  "detail": "Missing credentials"
 }
 ```
 
 ### 403 Forbidden
 ```json
 {
-  "detail": "Invalid API Key"
+  "detail": "Not authorized"
 }
 ```
 
@@ -675,7 +717,7 @@ All endpoints return standard HTTP status codes and error responses:
 
 ## Rate Limiting
 
-**Status**: Not currently implemented (planned for v2.5.0)
+Rate limiting is applied to login attempts and guest/public access endpoints. Configure public rate limits in **Settings > Security** when exposing your instance.
 
 ---
 
@@ -699,34 +741,33 @@ All endpoints return standard HTTP status codes and error responses:
 import requests
 
 API_URL = "http://localhost:8000"
-API_KEY = "your-api-key"
+TOKEN = "your-jwt"
 
-headers = {"X-API-Key": API_KEY}
+headers = {"Authorization": f"Bearer {TOKEN}"}
 
-# Get recent detections
-response = requests.get(f"{API_URL}/api/detections", headers=headers)
-detections = response.json()
+# Get recent events
+events = requests.get(f"{API_URL}/api/events", headers=headers).json()
 
-print(f"Found {detections['total']} detections")
+print(f"Found {len(events)} events")
 ```
 
 ### JavaScript Example
 
 ```javascript
 const API_URL = "http://localhost:8000";
-const API_KEY = "your-api-key";
+const TOKEN = "your-jwt";
 
 async function getDetections() {
-  const response = await fetch(`${API_URL}/api/detections`, {
+  const response = await fetch(`${API_URL}/api/events`, {
     headers: {
-      "X-API-Key": API_KEY
+      "Authorization": `Bearer ${TOKEN}`
     }
   });
   return await response.json();
 }
 
 getDetections().then(data => {
-  console.log(`Found ${data.total} detections`);
+  console.log(`Found ${data.length} events`);
 });
 ```
 

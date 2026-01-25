@@ -24,13 +24,16 @@ class EventData:
     """Data class to hold parsed event information."""
 
     def __init__(self, data: Dict[str, Any]):
+        self.type: str = data.get('type')
         after = data.get('after', {})
-        self.frigate_event: str = after['id']
+        self.frigate_event: str = after.get('id', 'unknown')
         self.camera: str = after.get('camera')
         self.label: str = after.get('label')
-        self.start_time_ts: float = after['start_time']
+        self.start_time_ts: float = after.get('start_time', 0.0)
         self.sub_label: Optional[str] = after.get('sub_label')
         self.frigate_score: Optional[float] = after.get('top_score')
+        self.is_false_positive: bool = after.get('false_positive', False)
+        
         if self.frigate_score is None and 'data' in after:
             self.frigate_score = after['data'].get('top_score')
         # Create timezone-aware datetime (Frigate timestamps are in UTC)
@@ -58,6 +61,12 @@ class EventProcessor:
             # Step 1: Parse and validate event
             event = self._parse_and_validate_event(data)
             if not event:
+                return
+
+            # Handle False Positives (Clean up if needed)
+            if event.is_false_positive:
+                log.info("Frigate marked event as false positive - cleaning up", event_id=event.frigate_event)
+                await self._handle_false_positive(event.frigate_event)
                 return
 
             # Step 2: Classify snapshot (or use Frigate sublabel if trusted)
@@ -88,8 +97,34 @@ class EventProcessor:
         except json.JSONDecodeError as e:
             log.error("Invalid JSON payload", error=str(e))
         except Exception as e:
-            event_id = locals().get('event', EventData({'after': {'id': 'unknown'}})).frigate_event
+            event_id = locals().get('event', EventData({'after': {'id': 'unknown'}, 'type': 'unknown'})).frigate_event
             log.error("Error processing event", event_id=event_id, error=str(e), exc_info=True)
+
+    async def _handle_false_positive(self, frigate_event_id: str):
+        """Delete detection if Frigate marks it as false positive."""
+        try:
+            # Clean up cached media immediately
+            await media_cache.delete_cached_media(frigate_event_id)
+
+            async with get_db() as db:
+                repo = DetectionRepository(db)
+                # Check if it exists
+                exists = await repo.get_by_frigate_event(frigate_event_id)
+                if exists:
+                    log.info("Deleting false positive detection", event_id=frigate_event_id)
+                    await repo.delete(frigate_event_id)
+                    
+                    # Notify frontend of deletion (if SSE connected)
+                    from app.services.broadcaster import broadcaster
+                    await broadcaster.broadcast({
+                        "type": "detection_deleted",
+                        "data": {
+                            "frigate_event": frigate_event_id,
+                            "timestamp": datetime.now(timezone.utc).isoformat()
+                        }
+                    })
+        except Exception as e:
+            log.error("Failed to cleanup false positive", event_id=frigate_event_id, error=str(e))
 
     def _parse_and_validate_event(self, data: Dict[str, Any]) -> Optional[EventData]:
         """Parse MQTT message and validate it should be processed.
@@ -101,20 +136,24 @@ class EventProcessor:
         if not after:
             return None
 
-        label = after.get('label')
-        log.info("Processing MQTT event", event_id=after.get('id'), label=label, type=data.get('type'))
+        event = EventData(data)
+        
+        # Log processing start
+        if event.type == 'new' or event.is_false_positive:
+             log.info("Processing MQTT event", event_id=event.frigate_event, label=event.label, type=event.type, false_positive=event.is_false_positive)
 
         # Only process bird events
-        if label != 'bird':
+        if event.label != 'bird':
             return None
 
         # Filter by camera if configured
-        camera = after.get('camera')
-        if settings.frigate.camera and camera not in settings.frigate.camera:
-            log.info("Filtering event by camera", camera=camera, allowed=settings.frigate.camera)
+        if settings.frigate.camera and event.camera not in settings.frigate.camera:
+            # Only log this once per event (on new) to avoid spam
+            if event.type == 'new':
+                log.info("Filtering event by camera", camera=event.camera, allowed=settings.frigate.camera)
             return None
 
-        return EventData(data)
+        return event
 
     async def _classify_snapshot(self, event: EventData) -> Optional[Tuple[list, Optional[bytes]]]:
         """Classify snapshot or use Frigate sublabel if trusted.
@@ -139,10 +178,6 @@ class EventProcessor:
             snapshot_data = await frigate_client.get_snapshot(event.frigate_event, crop=True, quality=95)
             if not snapshot_data:
                 return None
-
-            # Cache snapshot immediately
-            if settings.media_cache.enabled and settings.media_cache.cache_snapshots:
-                await media_cache.cache_snapshot(event.frigate_event, snapshot_data)
 
             image = Image.open(BytesIO(snapshot_data))
             results = await self.classifier.classify_async(image)
@@ -202,7 +237,7 @@ class EventProcessor:
         Returns:
             Updated classification dict
         """
-        # Initialize audio fields
+        # Initialize audio fields (only set when confirmed or used for upgrade)
         classification['audio_confirmed'] = False
         classification['audio_species'] = None
         classification['audio_score'] = None
@@ -214,12 +249,11 @@ class EventProcessor:
         audio_score = audio_match.confidence
         visual_label = classification['label']
 
-        classification['audio_species'] = audio_species
-        classification['audio_score'] = audio_score
-
         # Logic 1: Confirmation - audio matches visual
         if audio_species.lower() == visual_label.lower():
             classification['audio_confirmed'] = True
+            classification['audio_species'] = audio_species
+            classification['audio_score'] = audio_score
             # Boost score if audio is more confident
             if audio_score > classification['score']:
                 classification['score'] = audio_score
@@ -232,6 +266,11 @@ class EventProcessor:
                 classification['label'] = audio_species
                 classification['score'] = audio_score
                 classification['audio_confirmed'] = True
+                classification['audio_species'] = audio_species
+                classification['audio_score'] = audio_score
+        else:
+            # Mismatch: do not attach audio species/score for unrelated detections
+            log.debug("Audio mismatch ignored", visual=visual_label, audio=audio_species, audio_score=audio_score)
 
         return classification
 
@@ -281,34 +320,49 @@ class EventProcessor:
 
         # Send notifications based on policy
         if changed:
-            was_updated = not was_inserted
-            should_notify = (
-                (was_inserted and settings.notifications.notify_on_insert) or
-                (was_updated and settings.notifications.notify_on_update)
-            )
-
-            if should_notify:
-                if settings.notifications.delay_until_video and settings.classification.auto_video_classification:
-                    asyncio.create_task(self._notify_after_video(
-                        event,
-                        classification,
-                        audio_confirmed=classification['audio_confirmed'],
-                        audio_species=classification['audio_species']
-                    ))
-                else:
-                    await self._send_notification(
-                        event,
-                        label=classification['label'],
-                        score=classification['score'],
-                        audio_confirmed=classification['audio_confirmed'],
-                        audio_species=classification['audio_species'],
-                        snapshot_data=snapshot_data
-                    )
+            # Cache snapshot if we updated the DB (ensures image matches score)
+            if snapshot_data and settings.media_cache.enabled and settings.media_cache.cache_snapshots:
+                await media_cache.cache_snapshot(event.frigate_event, snapshot_data)
 
             # Trigger auto video classification
             if settings.classification.auto_video_classification:
                 from app.services.auto_video_classifier_service import auto_video_classifier
                 await auto_video_classifier.trigger_classification(event.frigate_event, event.camera)
+
+        # Decide whether to notify (one-time per detection)
+        event_type = (event.type or "new").lower()
+        detection = await self.detection_service.get_detection_by_frigate_event(event.frigate_event)
+        already_notified = bool(detection and detection.notified_at)
+
+        should_notify = False
+        if event_type == "new":
+            should_notify = settings.notifications.notify_on_insert and not already_notified
+        else:
+            # Only notify on updates if explicitly enabled and not yet notified
+            was_updated = changed and not was_inserted
+            should_notify = settings.notifications.notify_on_update and was_updated and not already_notified
+
+        if should_notify:
+            if settings.notifications.delay_until_video and settings.classification.auto_video_classification:
+                asyncio.create_task(self._notify_after_video(
+                    event,
+                    classification,
+                    audio_confirmed=classification['audio_confirmed'],
+                    audio_species=classification['audio_species']
+                ))
+            else:
+                sent = await self._send_notification(
+                    event,
+                    label=classification['label'],
+                    score=classification['score'],
+                    audio_confirmed=classification['audio_confirmed'],
+                    audio_species=classification['audio_species'],
+                    snapshot_data=snapshot_data
+                )
+                if sent:
+                    async with get_db() as db:
+                        repo = DetectionRepository(db)
+                        await repo.mark_notified(event.frigate_event)
 
     async def _send_notification(
         self,
@@ -318,7 +372,7 @@ class EventProcessor:
         audio_confirmed: bool,
         audio_species: Optional[str],
         snapshot_data: Optional[bytes]
-    ):
+    ) -> bool:
         """Send detection notification via configured channels.
 
         Args:
@@ -342,7 +396,7 @@ class EventProcessor:
         taxonomy = await taxonomy_service.get_names(label)
 
         # Fire notification
-        await notification_service.notify_detection(
+        return await notification_service.notify_detection(
             frigate_event=event.frigate_event,
             species=label,
             scientific_name=taxonomy.get("scientific_name"),
@@ -366,7 +420,7 @@ class EventProcessor:
         """Delay notification until video analysis completes (with fallback)."""
         timeout = settings.notifications.video_fallback_timeout
         if timeout <= 0:
-            await self._send_notification(
+            sent = await self._send_notification(
                 event,
                 label=classification['label'],
                 score=classification['score'],
@@ -374,6 +428,10 @@ class EventProcessor:
                 audio_species=audio_species,
                 snapshot_data=None
             )
+            if sent:
+                async with get_db() as db:
+                    repo = DetectionRepository(db)
+                    await repo.mark_notified(event.frigate_event)
             return
 
         deadline = asyncio.get_running_loop().time() + timeout
@@ -396,7 +454,7 @@ class EventProcessor:
                 break
             await asyncio.sleep(2)
 
-        await self._send_notification(
+        sent = await self._send_notification(
             event,
             label=label,
             score=score,
@@ -404,3 +462,7 @@ class EventProcessor:
             audio_species=audio_species,
             snapshot_data=None
         )
+        if sent:
+            async with get_db() as db:
+                repo = DetectionRepository(db)
+                await repo.mark_notified(event.frigate_event)

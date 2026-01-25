@@ -29,6 +29,9 @@ export interface Detection {
     video_classification_timestamp?: string;
     video_classification_status?: 'pending' | 'processing' | 'completed' | 'failed' | null;
     video_classification_error?: string | null;
+    // AI analysis fields
+    ai_analysis?: string | null;
+    ai_analysis_timestamp?: string | null;
 }
 
 export interface VersionInfo {
@@ -37,11 +40,42 @@ export interface VersionInfo {
     git_hash: string;
 }
 
+export interface AuthStatus {
+    auth_required: boolean;
+    public_access_enabled: boolean;
+    is_authenticated: boolean;
+    birdnet_enabled?: boolean;
+    llm_enabled?: boolean;
+    username?: string | null;
+    needs_initial_setup: boolean;
+    https_warning?: boolean;
+}
+
+export interface LoginResponse {
+    access_token: string;
+    token_type: string;
+    username: string;
+    expires_in_hours: number;
+}
+
 export interface SpeciesCount {
     species: string;
     count: number;
     scientific_name?: string | null;
     common_name?: string | null;
+    first_seen?: string | null;
+    last_seen?: string | null;
+    avg_confidence?: number;
+    max_confidence?: number;
+    min_confidence?: number;
+    camera_count?: number;
+    count_1d?: number;
+    count_7d?: number;
+    count_30d?: number;
+    days_seen_14d?: number;
+    days_seen_30d?: number;
+    trend_delta?: number;
+    trend_percent?: number;
 }
 
 export interface Settings {
@@ -142,6 +176,20 @@ export interface Settings {
     accessibility_zen_mode: boolean;
     accessibility_live_announcements: boolean;
 
+    // Authentication
+    auth_enabled: boolean;
+    auth_username: string;
+    auth_has_password: boolean;
+    auth_session_expiry_hours: number;
+    auth_password?: string;
+    trusted_proxy_hosts?: string[];
+
+    // Public access
+    public_access_enabled: boolean;
+    public_access_show_camera_names: boolean;
+    public_access_historical_days: number;
+    public_access_rate_limit_per_minute: number;
+
     species_info_source?: string;
 }
 
@@ -195,6 +243,12 @@ const API_BASE = '/api';
 // API Key Management
 let apiKey: string | null = typeof localStorage !== 'undefined' ? localStorage.getItem('api_key') : null;
 
+// Auth Token Management (JWT)
+let authToken: string | null = typeof localStorage !== 'undefined' ? localStorage.getItem('auth_token') : null;
+let authTokenExpiresAt: number = typeof localStorage !== 'undefined'
+    ? Number(localStorage.getItem('auth_token_expires_at') || 0)
+    : 0;
+
 export function setApiKey(key: string | null) {
     apiKey = key;
     if (typeof localStorage !== 'undefined') {
@@ -207,8 +261,47 @@ export function getApiKey(): string | null {
     return apiKey;
 }
 
+function isAuthTokenExpired(): boolean {
+    if (!authToken || !authTokenExpiresAt) {
+        return false;
+    }
+    return Date.now() >= authTokenExpiresAt;
+}
+
+export function setAuthToken(token: string | null, expiresInHours?: number) {
+    authToken = token;
+    if (typeof localStorage !== 'undefined') {
+        if (token) {
+            localStorage.setItem('auth_token', token);
+            if (expiresInHours) {
+                authTokenExpiresAt = Date.now() + expiresInHours * 60 * 60 * 1000;
+                localStorage.setItem('auth_token_expires_at', String(authTokenExpiresAt));
+            } else {
+                authTokenExpiresAt = 0;
+                localStorage.removeItem('auth_token_expires_at');
+            }
+        } else {
+            localStorage.removeItem('auth_token');
+            localStorage.removeItem('auth_token_expires_at');
+            authTokenExpiresAt = 0;
+        }
+    }
+}
+
+export function getAuthToken(): string | null {
+    if (isAuthTokenExpired()) {
+        setAuthToken(null);
+        return null;
+    }
+    return authToken;
+}
+
 function getHeaders(customHeaders: HeadersInit = {}): HeadersInit {
     const headers: Record<string, string> = { ...customHeaders as Record<string, string> };
+    const token = getAuthToken();
+    if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+    }
     if (apiKey) {
         headers['X-API-Key'] = apiKey;
     }
@@ -242,6 +335,65 @@ async function apiFetch(url: string, options: RequestInit = {}): Promise<Respons
     }
     
     return response;
+}
+
+export async function fetchAuthStatus(): Promise<AuthStatus> {
+    const response = await fetch(`${API_BASE}/auth/status`, {
+        headers: getHeaders()
+    });
+
+    if (!response.ok) {
+        throw new Error('Failed to fetch auth status');
+    }
+
+    return response.json();
+}
+
+export async function login(username: string, password: string): Promise<LoginResponse> {
+    const response = await apiFetch(`${API_BASE}/auth/login`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ username, password })
+    });
+
+    if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.detail || 'Login failed');
+    }
+
+    const data: LoginResponse = await response.json();
+    setAuthToken(data.access_token, data.expires_in_hours);
+    return data;
+}
+
+export async function logout(): Promise<void> {
+    await apiFetch(`${API_BASE}/auth/logout`, { method: 'POST' });
+    setAuthToken(null);
+}
+
+export async function setInitialPassword(options: {
+    username: string;
+    password: string | null;
+    enableAuth: boolean;
+}): Promise<void> {
+    const response = await apiFetch(`${API_BASE}/auth/initial-setup`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            username: options.username,
+            password: options.password,
+            enable_auth: options.enableAuth
+        })
+    });
+
+    if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.detail || 'Initial setup failed');
+    }
 }
 
 // Global abort controller map for cancellable requests
@@ -411,6 +563,16 @@ export async function runCleanup(): Promise<CleanupResult> {
     return handleResponse<CleanupResult>(response);
 }
 
+export async function analyzeUnknowns(): Promise<{ status: string; count: number; message: string }> {
+    const response = await apiFetch(`${API_BASE}/maintenance/analyze-unknowns`, { method: 'POST' });
+    return handleResponse<{ status: string; count: number; message: string }>(response);
+}
+
+export async function fetchAnalysisStatus(): Promise<{ pending: number; active: number; circuit_open: boolean }> {
+    const response = await apiFetch(`${API_BASE}/maintenance/analysis/status`);
+    return handleResponse<{ pending: number; active: number; circuit_open: boolean }>(response);
+}
+
 export async function deleteDetection(frigateEventId: string): Promise<{ status: string }> {
     const response = await apiFetch(`${API_BASE}/events/${encodeURIComponent(frigateEventId)}`, {
         method: 'DELETE'
@@ -565,6 +727,17 @@ export interface SpeciesInfo {
     cached_at: string | null;
 }
 
+export interface DailyDetectionCount {
+    date: string;
+    count: number;
+}
+
+export interface DetectionsTimeline {
+    days: number;
+    total_count: number;
+    daily: DailyDetectionCount[];
+}
+
 export async function fetchSpeciesStats(speciesName: string): Promise<SpeciesStats> {
     const response = await apiFetch(`${API_BASE}/species/${encodeURIComponent(speciesName)}/stats`);
     return handleResponse<SpeciesStats>(response);
@@ -573,6 +746,11 @@ export async function fetchSpeciesStats(speciesName: string): Promise<SpeciesSta
 export async function fetchSpeciesInfo(speciesName: string): Promise<SpeciesInfo> {
     const response = await apiFetch(`${API_BASE}/species/${encodeURIComponent(speciesName)}/info`);
     return handleResponse<SpeciesInfo>(response);
+}
+
+export async function fetchDetectionsTimeline(days = 30): Promise<DetectionsTimeline> {
+    const response = await apiFetch(`${API_BASE}/stats/detections/daily?days=${days}`);
+    return handleResponse<DetectionsTimeline>(response);
 }
 
 // Reclassify and manual tagging types and functions
@@ -641,6 +819,18 @@ export async function runBackfill(request: BackfillRequest): Promise<BackfillRes
         body: JSON.stringify(request),
     });
     return handleResponse<BackfillResult>(response);
+}
+
+export interface ResetDatabaseResult {
+    status: string;
+    message: string;
+    deleted_count: number;
+    cache_stats: any; // Using any for brevity or match backend dict
+}
+
+export async function resetDatabase(): Promise<ResetDatabaseResult> {
+    const response = await apiFetch(`${API_BASE}/backfill/reset`, { method: 'DELETE' });
+    return handleResponse<ResetDatabaseResult>(response);
 }
 
 // Wildlife classification types and functions
