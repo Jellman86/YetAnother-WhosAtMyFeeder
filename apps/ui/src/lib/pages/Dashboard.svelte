@@ -39,7 +39,7 @@
     let showCommon = $state(true);
     let preferSci = $state(false);
     $effect(() => {
-        llmEnabled = settingsStore.settings?.llm_enabled ?? false;
+        llmEnabled = settingsStore.settings?.llm_enabled ?? authStore.llmEnabled ?? false;
         showCommon = settingsStore.settings?.display_common_names ?? true;
         preferSci = settingsStore.settings?.scientific_name_primary ?? false;
     });

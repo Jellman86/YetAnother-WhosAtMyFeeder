@@ -52,6 +52,7 @@ class AuthStatusResponse(BaseModel):
     public_access_enabled: bool
     is_authenticated: bool
     birdnet_enabled: bool = False
+    llm_enabled: bool = False
     username: Optional[str] = None
     needs_initial_setup: bool = False
     https_warning: bool = False  # True if auth enabled over HTTP
@@ -230,6 +231,7 @@ async def get_auth_status(request: Request):
         public_access_enabled=settings.public_access.enabled,
         is_authenticated=auth_level == AuthLevel.OWNER,
         birdnet_enabled=settings.frigate.birdnet_enabled,
+        llm_enabled=settings.llm.enabled,
         username=username if auth_level == AuthLevel.OWNER else None,
         needs_initial_setup=needs_setup,
         https_warning=https_warning

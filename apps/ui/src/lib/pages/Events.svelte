@@ -63,7 +63,7 @@
 
     let llmEnabled = $state(false);
     $effect(() => {
-        llmEnabled = settingsStore.settings?.llm_enabled ?? false;
+        llmEnabled = settingsStore.settings?.llm_enabled ?? authStore.llmEnabled ?? false;
     });
 
     // Derive naming logic for the modal
