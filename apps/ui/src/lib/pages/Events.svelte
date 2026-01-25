@@ -17,6 +17,7 @@
     } from '../api';
     import { detectionsStore } from '../stores/detections.svelte';
     import { settingsStore } from '../stores/settings.svelte';
+    import { authStore } from '../stores/auth.svelte';
     import { toastStore } from '../stores/toast.svelte';
     import { _ } from 'svelte-i18n';
     import Pagination from '../components/Pagination.svelte';
