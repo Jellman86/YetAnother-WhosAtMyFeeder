@@ -596,5 +596,13 @@
       "Les manchots ne sont que des poulets habillés en tenue de gala",
       "Les coqs crient vers le soleil parce qu'ils ont peur du noir"
     ]
+  },
+  "error": {
+    "boundary_title": "Something went wrong",
+    "boundary_subtitle": "An unexpected error occurred. Please try again or contact support if the problem persists.",
+    "show_details": "Show error details",
+    "try_again": "Try Again",
+    "copy_details": "Copy Error Details",
+    "reload_page": "Reload Page"
   }
 }

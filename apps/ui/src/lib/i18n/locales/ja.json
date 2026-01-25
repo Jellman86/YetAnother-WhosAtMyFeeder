@@ -596,5 +596,13 @@
       "ペンギンはガラのために着飾ったフォーマルなニワトリです",
       "雄鶏は暗闇を恐れているので太陽に向かって叫びます"
     ]
+  },
+  "error": {
+    "boundary_title": "Something went wrong",
+    "boundary_subtitle": "An unexpected error occurred. Please try again or contact support if the problem persists.",
+    "show_details": "Show error details",
+    "try_again": "Try Again",
+    "copy_details": "Copy Error Details",
+    "reload_page": "Reload Page"
   }
 }

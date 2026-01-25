@@ -54,7 +54,6 @@
     "add": "添加",
     "apply_settings": "应用设置",
     "unsaved_changes": "未保存的更改",
-    "edit": "编辑",
     "today": "今天",
     "yesterday": "昨天",
     "search": "搜索...",
@@ -597,5 +596,13 @@
       "企鹅只是穿着正装参加晚会的鸡",
       "公鸡对着太阳尖叫是因为它们害怕黑暗"
     ]
+  },
+  "error": {
+    "boundary_title": "Something went wrong",
+    "boundary_subtitle": "An unexpected error occurred. Please try again or contact support if the problem persists.",
+    "show_details": "Show error details",
+    "try_again": "Try Again",
+    "copy_details": "Copy Error Details",
+    "reload_page": "Reload Page"
   }
 }
