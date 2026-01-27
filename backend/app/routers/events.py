@@ -613,6 +613,14 @@ async def reclassify_event(
                         await broadcast_video_status("failed", "video_no_results")
                         effective_strategy = "snapshot"
                     else:
+                        top_result = results[0]
+                        await repo.update_video_classification(
+                            frigate_event=event_id,
+                            label=top_result["label"],
+                            score=top_result["score"],
+                            index=top_result["index"],
+                            status="completed"
+                        )
                         await broadcast_video_status("completed", None)
 
         # Snapshot strategy (Default or Fallback)
