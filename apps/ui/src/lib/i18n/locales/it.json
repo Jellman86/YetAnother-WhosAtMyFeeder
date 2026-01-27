@@ -303,7 +303,7 @@
     "system_online": "Sistema Online",
     "system_offline": "Sistema Offline"
   },
-  "notifications_msg": {
+  "notifications": {
     "reclassify_fallback": "⚠️ Video non disponibile - usato snapshot",
     "reclassify_failed": "Riclassificazione fallita: {message}",
     "settings_saved": "Impostazioni salvate con successo!",

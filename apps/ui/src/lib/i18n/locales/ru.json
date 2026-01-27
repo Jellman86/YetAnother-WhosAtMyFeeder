@@ -303,7 +303,7 @@
     "system_online": "Система онлайн",
     "system_offline": "Система оффлайн"
   },
-  "notifications_msg": {
+  "notifications": {
     "reclassify_fallback": "⚠️ Видео недоступно - используется снимок",
     "reclassify_failed": "Не удалось реклассифицировать: {message}",
     "settings_saved": "Настройки успешно сохранены!",
