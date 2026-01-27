@@ -9,11 +9,14 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Fixed:** Enforced guest access checks for Frigate media proxies to prevent access to hidden or out-of-range events.
 - **Fixed:** Added guest rate limiting to classifier status/label endpoints.
 - **Fixed:** Added security headers to frontend Nginx responses.
+- **Fixed:** Updated CSP to allow Cloudflare Insights script and beacon endpoints.
 - **Changed:** Disabled frontend production sourcemaps by default.
 - **Fixed:** Added FastAPI request args to rate-limited classifier endpoints to satisfy SlowAPI.
 - **Fixed:** Allowed media proxy access checks to fall back gracefully when the detections table is unavailable (test DB).
 - **Changed:** Updated language utility tests to recognize Portuguese as supported.
 - **Added:** Portuguese, Russian, and Italian UI translations.
+- **Added:** Playwright-based console capture and Lighthouse runner scripts for external audits.
+- **Added:** Leaderboard image inspection script for troubleshooting missing thumbnails.
 
 ## [2.6.6] - 2026-01-25
 
