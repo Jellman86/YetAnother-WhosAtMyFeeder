@@ -71,6 +71,9 @@
                     <option value="de">Deutsch</option>
                     <option value="ja">日本語</option>
                     <option value="zh">中文</option>
+                    <option value="ru">Русский</option>
+                    <option value="pt">Português</option>
+                    <option value="it">Italiano</option>
                 </select>
                 <p class="text-[9px] text-slate-400 font-bold italic mt-1">{$_('settings.language_desc')}</p>
             </div>

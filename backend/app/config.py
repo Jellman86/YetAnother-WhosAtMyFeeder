@@ -210,7 +210,7 @@ class NotificationSettings(BaseModel):
     telegram: TelegramSettings = TelegramSettings()
     email: EmailSettings = EmailSettings()
     filters: NotificationFilterSettings = NotificationFilterSettings()
-    notification_language: str = Field(default="en", description="Language for notifications (en, es, fr, de, ja)")
+    notification_language: str = Field(default="en", description="Language for notifications (en, es, fr, de, ja, ru, pt, it)")
     notify_on_insert: bool = Field(default=True, description="Notify on new detection insert")
     notify_on_update: bool = Field(default=False, description="Notify on detection updates")
     delay_until_video: bool = Field(default=False, description="Delay notifications until video analysis completes (if enabled)")
