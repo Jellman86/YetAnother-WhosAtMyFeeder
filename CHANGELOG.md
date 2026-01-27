@@ -21,6 +21,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Fixed:** Mark stale video analysis tasks as failed and added a timeout to prevent indefinite "in progress" states.
 - **Changed:** Render AI naturalist analysis as paragraphs instead of bullet lists.
 - **Fixed:** Persist deep video analysis label/score on manual reclassification so the UI shows the species.
+- **Fixed:** Added missing language options to the header language selector.
 
 ## [2.6.6] - 2026-01-25
 
