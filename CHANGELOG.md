@@ -10,6 +10,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Fixed:** Added guest rate limiting to classifier status/label endpoints.
 - **Fixed:** Added security headers to frontend Nginx responses.
 - **Changed:** Disabled frontend production sourcemaps by default.
+- **Fixed:** Added FastAPI request args to rate-limited classifier endpoints to satisfy SlowAPI.
 
 ## [2.6.6] - 2026-01-25
 
