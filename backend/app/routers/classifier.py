@@ -1,6 +1,6 @@
 """Classifier endpoints for model status, debugging, and downloads."""
 
-from fastapi import APIRouter, UploadFile, File, Depends
+from fastapi import APIRouter, UploadFile, File, Depends, Request
 import structlog
 from pathlib import Path
 
@@ -19,28 +19,40 @@ classifier_service = get_classifier()
 
 @router.get("/status")
 @guest_rate_limit()
-async def classifier_status(auth: AuthContext = Depends(get_auth_context_with_legacy)):
+async def classifier_status(
+    request: Request,
+    auth: AuthContext = Depends(get_auth_context_with_legacy)
+):
     """Return the status of the bird classifier model."""
     return classifier_service.get_status()
 
 
 @router.get("/labels")
 @guest_rate_limit()
-async def classifier_labels(auth: AuthContext = Depends(get_auth_context_with_legacy)):
+async def classifier_labels(
+    request: Request,
+    auth: AuthContext = Depends(get_auth_context_with_legacy)
+):
     """Return the list of species labels from the classifier model."""
     return {"labels": classifier_service.labels}
 
 
 @router.get("/wildlife/status")
 @guest_rate_limit()
-async def wildlife_classifier_status(auth: AuthContext = Depends(get_auth_context_with_legacy)):
+async def wildlife_classifier_status(
+    request: Request,
+    auth: AuthContext = Depends(get_auth_context_with_legacy)
+):
     """Return the status of the wildlife classifier model."""
     return classifier_service.get_wildlife_status()
 
 
 @router.get("/wildlife/labels")
 @guest_rate_limit()
-async def wildlife_classifier_labels(auth: AuthContext = Depends(get_auth_context_with_legacy)):
+async def wildlife_classifier_labels(
+    request: Request,
+    auth: AuthContext = Depends(get_auth_context_with_legacy)
+):
     """Return the list of labels from the wildlife classifier model."""
     return {"labels": classifier_service.get_wildlife_labels()}
 
