@@ -10,6 +10,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Fixed:** Added guest rate limiting to classifier status/label endpoints.
 - **Fixed:** Added security headers to frontend Nginx responses.
 - **Fixed:** Updated CSP to allow Cloudflare Insights script and beacon endpoints.
+- **Fixed:** Allowed external image hosts in frontend CSP to prevent leaderboard thumbnail blocking.
 - **Changed:** Disabled frontend production sourcemaps by default.
 - **Fixed:** Added FastAPI request args to rate-limited classifier endpoints to satisfy SlowAPI.
 - **Fixed:** Allowed media proxy access checks to fall back gracefully when the detections table is unavailable (test DB).
