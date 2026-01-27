@@ -11,6 +11,9 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Fixed:** Added security headers to frontend Nginx responses.
 - **Changed:** Disabled frontend production sourcemaps by default.
 - **Fixed:** Added FastAPI request args to rate-limited classifier endpoints to satisfy SlowAPI.
+- **Fixed:** Allowed media proxy access checks to fall back gracefully when the detections table is unavailable (test DB).
+- **Changed:** Updated language utility tests to recognize Portuguese as supported.
+- **Added:** Portuguese, Russian, and Italian UI translations.
 
 ## [2.6.6] - 2026-01-25
 
