@@ -37,14 +37,14 @@ const gitHash = getGitHash();
 const appVersion = `${baseVersion}+${gitHash}`;
 
 // https://vitejs.dev/config/
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
     plugins: [svelte()],
     define: {
         __APP_VERSION__: JSON.stringify(appVersion),
         __GIT_HASH__: JSON.stringify(gitHash),
     },
     build: {
-        sourcemap: true,
+        sourcemap: mode !== 'production',
     },
     server: {
         host: true,
@@ -56,4 +56,4 @@ export default defineConfig({
             }
         }
     }
-})
+}));

@@ -1,4 +1,5 @@
 import re
+from datetime import date, timedelta
 from fastapi import APIRouter, HTTPException, Response, Path, Request, Depends
 from fastapi.responses import StreamingResponse
 from starlette.background import BackgroundTask
@@ -10,6 +11,8 @@ from app.utils.language import get_user_language
 from app.auth import AuthContext, require_owner
 from app.auth_legacy import get_auth_context_with_legacy
 from app.ratelimit import guest_rate_limit
+from app.database import get_db
+from app.repositories.detection_repository import DetectionRepository
 
 router = APIRouter()
 
@@ -28,6 +31,38 @@ EVENT_ID_PATTERN = re.compile(r'^[a-zA-Z0-9\-_.]+$')
 
 def validate_event_id(event_id: str) -> bool:
     return bool(EVENT_ID_PATTERN.match(event_id)) and len(event_id) <= 64
+
+async def require_event_access(event_id: str, auth: AuthContext, lang: str) -> None:
+    """Ensure guests can only access visible, recent events."""
+    if auth.is_owner:
+        return
+
+    async with get_db() as db:
+        repo = DetectionRepository(db)
+        detection = await repo.get_by_frigate_event(event_id)
+
+    if not detection or detection.is_hidden or not detection.detection_time:
+        raise HTTPException(
+            status_code=404,
+            detail=i18n_service.translate("errors.proxy.event_not_found", lang)
+        )
+
+    if settings.public_access.enabled:
+        max_days = settings.public_access.show_historical_days
+        detection_date = detection.detection_time.date()
+        if max_days > 0:
+            cutoff = date.today() - timedelta(days=max_days)
+            if detection_date < cutoff:
+                raise HTTPException(
+                    status_code=404,
+                    detail=i18n_service.translate("errors.proxy.event_not_found", lang)
+                )
+        else:
+            if detection_date != date.today():
+                raise HTTPException(
+                    status_code=404,
+                    detail=i18n_service.translate("errors.proxy.event_not_found", lang)
+                )
 
 @router.get("/frigate/test")
 async def test_frigate_connection(
@@ -120,6 +155,8 @@ async def proxy_snapshot(
             detail=i18n_service.translate("errors.proxy.invalid_event_id", lang)
         )
 
+    await require_event_access(event_id, auth, lang)
+
     # Check cache first
     if settings.media_cache.enabled and settings.media_cache.cache_snapshots:
         cached = await media_cache.get_snapshot(event_id)
@@ -181,6 +218,9 @@ async def check_clip_exists(
             status_code=400,
             detail=i18n_service.translate("errors.proxy.invalid_event_id", lang)
         )
+
+    await require_event_access(event_id, auth, lang)
+
     # Frigate doesn't support HEAD for clips, so check event exists instead
     url = f"{settings.frigate.frigate_url}/api/events/{event_id}"
     client = get_http_client()
@@ -243,6 +283,8 @@ async def proxy_clip(
             status_code=400,
             detail=i18n_service.translate("errors.proxy.invalid_event_id", lang)
         )
+
+    await require_event_access(event_id, auth, lang)
 
     # Check cache first
     if settings.media_cache.enabled and settings.media_cache.cache_clips:
@@ -387,6 +429,8 @@ async def proxy_thumb(
             status_code=400,
             detail=i18n_service.translate("errors.proxy.invalid_event_id", lang)
         )
+
+    await require_event_access(event_id, auth, lang)
 
     # Thumbnails share cache with snapshots (they're the same image in Frigate)
     # Check cache first

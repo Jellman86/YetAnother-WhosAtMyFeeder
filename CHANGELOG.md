@@ -6,6 +6,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- **Fixed:** Enforced guest access checks for Frigate media proxies to prevent access to hidden or out-of-range events.
+- **Fixed:** Added guest rate limiting to classifier status/label endpoints.
+- **Fixed:** Added security headers to frontend Nginx responses.
+- **Changed:** Disabled frontend production sourcemaps by default.
+
 ## [2.6.6] - 2026-01-25
 
 - **Added:** Standardized AI Naturalist responses to structured Markdown headings (`Appearance`, `Behavior`, `Naturalist Note`, `Seasonal Context`).
