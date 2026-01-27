@@ -54,8 +54,7 @@
 
     type AiBlock =
         | { type: 'heading'; text: string }
-        | { type: 'paragraph'; text: string }
-        | { type: 'list'; items: string[] };
+        | { type: 'paragraph'; text: string };
 
     function parseAiAnalysis(text: string): AiBlock[] {
         const lines = text
@@ -64,35 +63,25 @@
             .filter(Boolean);
 
         const blocks: AiBlock[] = [];
-        let listItems: string[] | null = null;
 
         for (const line of lines) {
             const headingMatch = line.match(/^#{1,6}\s+(.*)$/);
             if (headingMatch) {
-                if (listItems?.length) {
-                    blocks.push({ type: 'list', items: listItems });
-                    listItems = null;
-                }
                 blocks.push({ type: 'heading', text: headingMatch[1] });
                 continue;
             }
 
             const listMatch = line.match(/^[-*•]\s+(.*)$/);
             if (listMatch) {
-                if (!listItems) listItems = [];
-                listItems.push(listMatch[1]);
+                const last = blocks[blocks.length - 1];
+                if (last?.type === 'paragraph') {
+                    last.text = `${last.text} ${listMatch[1]}`.trim();
+                } else {
+                    blocks.push({ type: 'paragraph', text: listMatch[1] });
+                }
                 continue;
             }
-
-            if (listItems?.length) {
-                blocks.push({ type: 'list', items: listItems });
-                listItems = null;
-            }
             blocks.push({ type: 'paragraph', text: line });
-        }
-
-        if (listItems?.length) {
-            blocks.push({ type: 'list', items: listItems });
         }
 
         return blocks;
@@ -427,12 +416,6 @@
                             {#each aiBlocks() as block}
                                 {#if block.type === 'heading'}
                                     <p class="text-[11px] font-black uppercase tracking-[0.2em] text-teal-700 dark:text-teal-300">{block.text}</p>
-                                {:else if block.type === 'list'}
-                                    <ul class="space-y-1 list-disc list-inside text-sm text-slate-700 dark:text-slate-300">
-                                        {#each block.items as item}
-                                            <li>{item}</li>
-                                        {/each}
-                                    </ul>
                                 {:else}
                                     <p class="text-sm text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">{block.text}</p>
                                 {/if}
