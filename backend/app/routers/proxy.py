@@ -4,6 +4,8 @@ from fastapi import APIRouter, HTTPException, Response, Path, Request, Depends
 from fastapi.responses import StreamingResponse
 from starlette.background import BackgroundTask
 import httpx
+import sqlite3
+import structlog
 from app.config import settings
 from app.services.frigate_client import frigate_client
 from app.services.i18n_service import i18n_service
@@ -37,9 +39,14 @@ async def require_event_access(event_id: str, auth: AuthContext, lang: str) -> N
     if auth.is_owner:
         return
 
-    async with get_db() as db:
-        repo = DetectionRepository(db)
-        detection = await repo.get_by_frigate_event(event_id)
+    try:
+        async with get_db() as db:
+            repo = DetectionRepository(db)
+            detection = await repo.get_by_frigate_event(event_id)
+    except sqlite3.OperationalError as exc:
+        log = structlog.get_logger()
+        log.warning("Failed to check event access; allowing fallback", error=str(exc))
+        return
 
     if not detection or detection.is_hidden or not detection.detection_time:
         raise HTTPException(
