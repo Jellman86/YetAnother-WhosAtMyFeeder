@@ -137,13 +137,32 @@ class DetectionRepository:
 
     async def update_video_status(self, frigate_event: str, status: str, error: Optional[str] = None):
         """Update just the video classification status."""
+        now = datetime.now()
         await self.db.execute("""
             UPDATE detections
             SET video_classification_status = ?,
-                video_classification_error = ?
+                video_classification_error = ?,
+                video_classification_timestamp = ?
             WHERE frigate_event = ?
-        """, (status, error, frigate_event))
+        """, (status, error, now, frigate_event))
         await self.db.commit()
+
+    async def reset_stale_video_statuses(self, max_age_minutes: int) -> int:
+        """Mark pending/processing video classifications as failed if they are too old."""
+        now = datetime.now()
+        await self.db.execute("""
+            UPDATE detections
+            SET video_classification_status = 'failed',
+                video_classification_error = 'stale_timeout',
+                video_classification_timestamp = ?
+            WHERE video_classification_status IN ('pending', 'processing')
+              AND (video_classification_timestamp IS NULL
+                   OR video_classification_timestamp < datetime('now', ?))
+        """, (now, f'-{max_age_minutes} minutes'))
+        await self.db.commit()
+        cur = await self.db.execute("SELECT changes()")
+        row = await cur.fetchone()
+        return int(row[0]) if row else 0
 
     async def mark_notified(self, frigate_event: str, timestamp: Optional[datetime] = None):
         """Mark a detection as notified."""

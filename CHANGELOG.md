@@ -18,6 +18,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Added:** Portuguese, Russian, and Italian UI translations.
 - **Added:** Playwright-based console capture and Lighthouse runner scripts for external audits.
 - **Added:** Leaderboard image inspection script for troubleshooting missing thumbnails.
+- **Fixed:** Mark stale video analysis tasks as failed and added a timeout to prevent indefinite "in progress" states.
 
 ## [2.6.6] - 2026-01-25
 

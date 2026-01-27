@@ -114,6 +114,8 @@ class ClassificationSettings(BaseModel):
     video_classification_failure_threshold: int = Field(default=5, ge=1, description="Failures in window to open circuit breaker")
     video_classification_failure_window_minutes: int = Field(default=10, ge=1, description="Failure window size in minutes")
     video_classification_failure_cooldown_minutes: int = Field(default=15, ge=1, description="Cooldown minutes when circuit breaker is open")
+    video_classification_timeout_seconds: int = Field(default=180, ge=30, description="Timeout for a single video classification run")
+    video_classification_stale_minutes: int = Field(default=15, ge=1, description="Mark pending/processing as failed after this many minutes")
 
     # Classification output settings
     max_classification_results: int = Field(default=5, ge=1, le=20, description="Maximum number of top results to return from classifier")

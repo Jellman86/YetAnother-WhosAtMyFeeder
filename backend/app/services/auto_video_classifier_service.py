@@ -33,6 +33,7 @@ class AutoVideoClassifierService:
         self._circuit_open_until: float | None = None
         self._pending_queue: asyncio.Queue[tuple[str, str]] = asyncio.Queue()
         self._processor_task: Optional[asyncio.Task] = None
+        self._stale_task: Optional[asyncio.Task] = None
         self._running = False
 
     async def start(self):
@@ -41,6 +42,7 @@ class AutoVideoClassifierService:
             return
         self._running = True
         self._processor_task = asyncio.create_task(self._process_queue_loop())
+        self._stale_task = asyncio.create_task(self._stale_watchdog_loop())
         log.info("AutoVideoClassifierService started")
 
     async def stop(self):
@@ -50,6 +52,12 @@ class AutoVideoClassifierService:
             self._processor_task.cancel()
             try:
                 await self._processor_task
+            except asyncio.CancelledError:
+                pass
+        if self._stale_task:
+            self._stale_task.cancel()
+            try:
+                await self._stale_task
             except asyncio.CancelledError:
                 pass
         # Cancel all active tasks
@@ -98,6 +106,22 @@ class AutoVideoClassifierService:
             except Exception as e:
                 log.error("Error in video classification queue loop", error=str(e))
                 await asyncio.sleep(5)
+
+    async def _stale_watchdog_loop(self):
+        """Periodically mark stale pending/processing detections as failed."""
+        while self._running:
+            try:
+                max_age = settings.classification.video_classification_stale_minutes
+                async with get_db() as db:
+                    repo = DetectionRepository(db)
+                    count = await repo.reset_stale_video_statuses(max_age)
+                if count:
+                    log.warning("Reset stale video classifications", count=count, max_age_minutes=max_age)
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                log.error("Error in stale watchdog loop", error=str(e))
+            await asyncio.sleep(60)
 
     def _prune_failures(self):
         window = settings.classification.video_classification_failure_window_minutes * 60
@@ -286,11 +310,25 @@ class AutoVideoClassifierService:
                         }
                     })
 
-                results = await self._classifier.classify_video_async(
-                    tmp_path,
-                    max_frames=15,
-                    progress_callback=progress_callback
-                )
+                timeout = settings.classification.video_classification_timeout_seconds
+                try:
+                    results = await asyncio.wait_for(
+                        self._classifier.classify_video_async(
+                            tmp_path,
+                            max_frames=15,
+                            progress_callback=progress_callback
+                        ),
+                        timeout=timeout
+                    )
+                except asyncio.TimeoutError:
+                    log.warning("Video classification timed out", event_id=frigate_event, timeout_seconds=timeout)
+                    await self._update_status(frigate_event, 'failed', error="video_timeout", broadcast=True)
+                    self._record_failure(frigate_event)
+                    await broadcaster.broadcast({
+                        "type": "reclassification_completed",
+                        "data": { "event_id": frigate_event, "results": [] }
+                    })
+                    return
 
                 if results:
                     top = results[0]
