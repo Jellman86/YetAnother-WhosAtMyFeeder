@@ -342,6 +342,14 @@ class EventProcessor:
             was_updated = changed and not was_inserted
             should_notify = settings.notifications.notify_on_update and was_updated and not already_notified
 
+        email_only_on_end = (
+            settings.notifications.email.enabled
+            and settings.notifications.email.only_on_end
+            and event_type == "end"
+            and detection is not None
+            and not already_notified
+        )
+
         if should_notify:
             if settings.notifications.delay_until_video and settings.classification.auto_video_classification:
                 asyncio.create_task(self._notify_after_video(
@@ -363,6 +371,20 @@ class EventProcessor:
                     async with get_db() as db:
                         repo = DetectionRepository(db)
                         await repo.mark_notified(event.frigate_event)
+        elif email_only_on_end:
+            sent = await self._send_notification(
+                event,
+                label=classification['label'],
+                score=classification['score'],
+                audio_confirmed=classification['audio_confirmed'],
+                audio_species=classification['audio_species'],
+                snapshot_data=snapshot_data,
+                channels=["email"]
+            )
+            if sent:
+                async with get_db() as db:
+                    repo = DetectionRepository(db)
+                    await repo.mark_notified(event.frigate_event)
 
     async def _send_notification(
         self,
@@ -371,7 +393,8 @@ class EventProcessor:
         score: float,
         audio_confirmed: bool,
         audio_species: Optional[str],
-        snapshot_data: Optional[bytes]
+        snapshot_data: Optional[bytes],
+        channels: Optional[list[str]] = None
     ) -> bool:
         """Send detection notification via configured channels.
 
@@ -385,7 +408,9 @@ class EventProcessor:
         # Fetch snapshot if needed for notifications
         needs_snapshot = (
             (settings.notifications.pushover.enabled and settings.notifications.pushover.include_snapshot) or
-            (settings.notifications.telegram.enabled and settings.notifications.telegram.include_snapshot)
+            (settings.notifications.telegram.enabled and settings.notifications.telegram.include_snapshot) or
+            (settings.notifications.discord.enabled and settings.notifications.discord.include_snapshot) or
+            (settings.notifications.email.enabled and settings.notifications.email.include_snapshot)
         )
 
         if snapshot_data is None and needs_snapshot:
@@ -405,6 +430,8 @@ class EventProcessor:
             camera=event.camera,
             timestamp=event.detection_dt,
             snapshot_url=snapshot_url,
+            event_type=event.type,
+            channels=channels,
             audio_confirmed=audio_confirmed,
             audio_species=audio_species,
             snapshot_data=snapshot_data

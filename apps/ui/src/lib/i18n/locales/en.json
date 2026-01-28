@@ -36,7 +36,29 @@
     "waiting_first_visitor": "Waiting for the first visitor of the day...",
     "discovery_feed": "Discovery Feed",
     "see_full_history": "See full history",
-    "audio_confirmations": "Audio Confirmations"
+    "audio_confirmations": "Audio Confirmations",
+    "hero": {
+      "just_discovered": "Just Discovered",
+      "hours_ago": "{count} hours ago",
+      "one_hour_ago": "1 hour ago",
+      "days_ago": "{count} days ago",
+      "one_day_ago": "1 day ago",
+      "audio_confirmed": "Audio Confirmed",
+      "heard": "Heard: {species}",
+      "view_details": "View Details",
+      "conf": "Conf"
+    },
+    "stats": {
+      "today": "Today",
+      "species": "Species",
+      "top_visitor": "Top Visitor",
+      "audio": "Audio"
+    },
+    "histogram": {
+      "title": "Activity Pulse",
+      "last_24h": "Last 24 Hours",
+      "tooltip": "{count} birds at {time}"
+    }
   },
   "common": {
     "loading": "Loading...",
@@ -197,6 +219,8 @@
       "to_email_placeholder": "recipient@example.com",
       "preferences": "Email Preferences",
       "include_snapshot": "Include Snapshot Image",
+      "only_on_end": "Only send on event end",
+      "only_on_end_desc": "Send email notifications only when Frigate publishes the end event (treated as an update).",
       "dashboard_url": "Dashboard URL",
       "dashboard_url_placeholder": "https://your-domain.com",
       "dashboard_url_desc": "Link to your dashboard in email notifications",
@@ -228,7 +252,10 @@
       "delay_until_video_desc": "Wait for auto video analysis before notifying when enabled.",
       "video_fallback_timeout": "Video fallback timeout",
       "video_fallback_timeout_desc": "Wait this long for video before sending a snapshot notification.",
-      "video_fallback_seconds": "seconds"
+      "video_fallback_seconds": "seconds",
+      "cooldown": "Notification Cooldown",
+      "cooldown_desc": "Minimum time between notifications in minutes (0 to disable).",
+      "cooldown_unit": "minutes"
     },
     "discord": {
       "title": "Discord Notifications",

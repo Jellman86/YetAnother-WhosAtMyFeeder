@@ -1,10 +1,12 @@
 <script lang="ts">
+    import { _ } from 'svelte-i18n';
+
     interface Props {
         data: number[];
         title?: string;
     }
 
-    let { data, title = "Activity Pulse" }: Props = $props();
+    let { data, title }: Props = $props();
 
     let maxVal = $derived(Math.max(...data, 1));
     
@@ -16,9 +18,9 @@
     <div class="flex items-center justify-between mb-6">
         <h3 class="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-2">
             <span class="w-2 h-2 rounded-full bg-teal-500 animate-pulse"></span>
-            {title}
+            {title ?? $_('dashboard.histogram.title')}
         </h3>
-        <span class="text-[10px] text-slate-600">Last 24 Hours</span>
+        <span class="text-[10px] text-slate-600">{$_('dashboard.histogram.last_24h')}</span>
     </div>
 
     <div class="relative h-32 flex items-end gap-1 px-1">
@@ -32,7 +34,7 @@
                 
                 <!-- Tooltip -->
                 <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-900 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
-                    {val} birds at {i}:00
+                    {$_('dashboard.histogram.tooltip', { values: { count: val, time: `${i}:00` } })}
                 </div>
             </div>
         {/each}

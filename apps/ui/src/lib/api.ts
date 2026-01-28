@@ -143,6 +143,7 @@ export interface Settings {
 
     // Email notification settings
     notifications_email_enabled: boolean;
+    notifications_email_only_on_end: boolean;
     notifications_email_use_oauth: boolean;
     notifications_email_oauth_provider?: string | null;
     notifications_email_connected_email?: string | null;

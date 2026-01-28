@@ -189,6 +189,8 @@
       "to_email_placeholder": "recipient@example.com",
       "preferences": "电子邮件偏好设置",
       "include_snapshot": "包含快照图像",
+      "only_on_end": "仅在事件结束时发送",
+      "only_on_end_desc": "仅在 Frigate 发布结束事件时发送邮件（视为更新）。",
       "dashboard_url": "仪表板 URL",
       "dashboard_url_placeholder": "https://your-domain.com",
       "dashboard_url_desc": "电子邮件通知中的仪表板链接",

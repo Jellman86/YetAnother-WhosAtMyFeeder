@@ -190,6 +190,7 @@
     let emailUseOAuth = $state(false);
     let emailOAuthProvider = $state<string | null>(null);
     let emailConnectedEmail = $state<string | null>(null);
+    let emailOnlyOnEnd = $state(false);
     let emailSmtpHost = $state('');
     let emailSmtpPort = $state(587);
     let emailSmtpUsername = $state('');
@@ -209,6 +210,7 @@
     let notifyOnUpdate = $state(false);
     let notifyDelayUntilVideo = $state(false);
     let notifyVideoFallbackTimeout = $state(45);
+    let notifyCooldownMinutes = $state(0);
 
     let testingNotification = $state<Record<string, boolean>>({});
 
@@ -834,6 +836,7 @@
             emailUseOAuth = settings.notifications_email_use_oauth ?? false;
             emailOAuthProvider = settings.notifications_email_oauth_provider || null;
             emailConnectedEmail = settings.notifications_email_connected_email || null;
+            emailOnlyOnEnd = settings.notifications_email_only_on_end ?? false;
             emailSmtpHost = settings.notifications_email_smtp_host || '';
             emailSmtpPort = settings.notifications_email_smtp_port ?? 587;
             emailSmtpUsername = settings.notifications_email_smtp_username || '';
@@ -854,9 +857,10 @@
             filterConfidence = settings.notifications_filter_min_confidence ?? 0.7;
             filterAudioOnly = settings.notifications_filter_audio_confirmed_only ?? false;
             notifyOnInsert = settings.notifications_notify_on_insert ?? true;
-            notifyOnUpdate = settings.notifications_notify_on_update ?? false;
-            notifyDelayUntilVideo = settings.notifications_delay_until_video ?? false;
-            notifyVideoFallbackTimeout = settings.notifications_video_fallback_timeout ?? 45;
+            if (settings.notifications_notify_on_update !== undefined) notifyOnUpdate = settings.notifications_notify_on_update;
+            if (settings.notifications_delay_until_video !== undefined) notifyDelayUntilVideo = settings.notifications_delay_until_video;
+            if (settings.notifications_video_fallback_timeout !== undefined) notifyVideoFallbackTimeout = settings.notifications_video_fallback_timeout;
+            if (settings.notifications_notification_cooldown_minutes !== undefined) notifyCooldownMinutes = settings.notifications_notification_cooldown_minutes;
 
             // Accessibility
             highContrast = settings.accessibility_high_contrast ?? false;
@@ -967,6 +971,7 @@
                 notifications_telegram_chat_id: telegramChatId,
 
                 notifications_email_enabled: emailEnabled,
+                notifications_email_only_on_end: emailOnlyOnEnd,
                 notifications_email_use_oauth: emailUseOAuth,
                 notifications_email_oauth_provider: emailOAuthProvider,
                 notifications_email_smtp_host: emailSmtpHost,
@@ -986,7 +991,7 @@
                 notifications_notify_on_update: notifyOnUpdate,
                 notifications_delay_until_video: notifyDelayUntilVideo,
                 notifications_video_fallback_timeout: notifyVideoFallbackTimeout,
-                notification_language: $locale || 'en',
+                notifications_notification_cooldown_minutes: notifyCooldownMinutes,
 
                 // Accessibility
                 accessibility_high_contrast: highContrast,
@@ -1261,6 +1266,7 @@
                     bind:notifyOnUpdate
                     bind:notifyDelayUntilVideo
                     bind:notifyVideoFallbackTimeout
+                    bind:notifyCooldownMinutes
                     bind:discordEnabled
                     bind:discordWebhook
                     bind:discordWebhookSaved
@@ -1280,6 +1286,7 @@
                     bind:emailUseOAuth
                     bind:emailConnectedEmail
                     bind:emailOAuthProvider
+                    bind:emailOnlyOnEnd
                     bind:emailSmtpHost
                     bind:emailSmtpPort
                     bind:emailSmtpUseTls

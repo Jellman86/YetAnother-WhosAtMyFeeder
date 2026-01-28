@@ -197,6 +197,8 @@
       "to_email_placeholder": "destinatario@esempio.com",
       "preferences": "Preferenze Email",
       "include_snapshot": "Includi Immagine Snapshot",
+      "only_on_end": "Invia solo alla fine dell'evento",
+      "only_on_end_desc": "Invia email solo quando Frigate pubblica l'evento di fine (trattato come aggiornamento).",
       "dashboard_url": "URL Dashboard",
       "dashboard_url_placeholder": "https://tuo-dominio.com",
       "dashboard_url_desc": "Link alla tua dashboard nelle notifiche email",

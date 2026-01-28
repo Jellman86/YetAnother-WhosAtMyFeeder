@@ -189,6 +189,8 @@
       "to_email_placeholder": "empfaenger@beispiel.de",
       "preferences": "E-Mail-Einstellungen",
       "include_snapshot": "Schnappschuss einbeziehen",
+      "only_on_end": "Nur beim Ereignisende senden",
+      "only_on_end_desc": "E-Mail-Benachrichtigungen nur senden, wenn Frigate das Endereignis veröffentlicht (als Update behandelt).",
       "dashboard_url": "Dashboard-URL",
       "dashboard_url_placeholder": "https://ihre-domain.de",
       "dashboard_url_desc": "Link zu Ihrem Dashboard in E-Mail-Benachrichtigungen",

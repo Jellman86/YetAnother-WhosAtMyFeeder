@@ -197,6 +197,8 @@
       "to_email_placeholder": "poluchatel@example.com",
       "preferences": "Настройки Email",
       "include_snapshot": "Включить снимок",
+      "only_on_end": "Отправлять только в конце события",
+      "only_on_end_desc": "Отправлять email только когда Frigate публикует событие завершения (считается обновлением).",
       "dashboard_url": "URL Дашборда",
       "dashboard_url_placeholder": "https://vash-domen.com",
       "dashboard_url_desc": "Ссылка на ваш дашборд в email уведомлениях",

@@ -21,6 +21,7 @@ def escape_markdown(text: str) -> str:
 class NotificationService:
     def __init__(self):
         self.client = httpx.AsyncClient(timeout=10.0)
+        self.last_notification_time = datetime.min.replace(tzinfo=timezone.utc)
 
     async def _should_notify(
         self,
@@ -56,6 +57,15 @@ class NotificationService:
                 return False
             # Add more per-camera logic here if needed
 
+        # 5. Global Cooldown
+        cooldown = settings.notifications.notification_cooldown_minutes
+        if cooldown > 0:
+            now = datetime.now(timezone.utc)
+            elapsed_minutes = (now - self.last_notification_time).total_seconds() / 60
+            if elapsed_minutes < cooldown:
+                log.info("Notification skipped: cooldown active", elapsed=f"{elapsed_minutes:.1f}m", cooldown=f"{cooldown}m")
+                return False
+
         return True
 
     async def notify_detection(
@@ -68,6 +78,8 @@ class NotificationService:
         camera: str,
         timestamp: datetime,
         snapshot_url: str,
+        event_type: Optional[str] = None,
+        channels: Optional[list[str]] = None,
         audio_confirmed: bool = False,
         audio_species: Optional[str] = None,
         snapshot_data: Optional[bytes] = None
@@ -81,27 +93,31 @@ class NotificationService:
         lang = settings.notifications.notification_language
         display_name = common_name or species
         tasks = []
+        channel_filter = set(channels) if channels else None
+        allow_channel = (lambda name: channel_filter is None or name in channel_filter)
 
         # Discord
-        if settings.notifications.discord.enabled:
+        if settings.notifications.discord.enabled and allow_channel("discord"):
             tasks.append(self._send_discord(
                 display_name, confidence, camera, timestamp, snapshot_url, audio_confirmed, lang, snapshot_data
             ))
 
         # Pushover
-        if settings.notifications.pushover.enabled:
+        if settings.notifications.pushover.enabled and allow_channel("pushover"):
             tasks.append(self._send_pushover(
                 display_name, confidence, camera, timestamp, snapshot_url, snapshot_data, lang
             ))
 
         # Telegram
-        if settings.notifications.telegram.enabled:
+        if settings.notifications.telegram.enabled and allow_channel("telegram"):
             tasks.append(self._send_telegram(
                 display_name, confidence, camera, timestamp, snapshot_url, snapshot_data, lang
             ))
 
         # Email
-        if settings.notifications.email.enabled:
+        email_event_type = (event_type or "").lower()
+        email_allowed = not settings.notifications.email.only_on_end or email_event_type == "end"
+        if settings.notifications.email.enabled and email_allowed and allow_channel("email"):
             tasks.append(self._send_email(
                 display_name, scientific_name, confidence, camera, timestamp, snapshot_url, snapshot_data, audio_confirmed, lang
             ))
@@ -110,7 +126,10 @@ class NotificationService:
             log.info("Sending notifications", species=species, platforms=len(tasks), lang=lang)
             results = await asyncio.gather(*tasks, return_exceptions=True)
             # Consider it sent if at least one platform succeeded
-            return any(not isinstance(result, Exception) for result in results)
+            success = any(not isinstance(result, Exception) for result in results)
+            if success:
+                self.last_notification_time = datetime.now(timezone.utc)
+            return success
 
         return False
 

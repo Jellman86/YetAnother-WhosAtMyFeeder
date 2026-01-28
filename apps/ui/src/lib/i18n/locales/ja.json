@@ -189,6 +189,8 @@
       "to_email_placeholder": "recipient@example.com",
       "preferences": "メール設定",
       "include_snapshot": "スナップショット画像を含める",
+      "only_on_end": "イベント終了時のみ送信",
+      "only_on_end_desc": "Frigate が終了イベントを公開したときのみメール送信（更新として扱われます）。",
       "dashboard_url": "ダッシュボードURL",
       "dashboard_url_placeholder": "https://your-domain.com",
       "dashboard_url_desc": "メール通知内のダッシュボードへのリンク",

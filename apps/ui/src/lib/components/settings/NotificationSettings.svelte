@@ -12,6 +12,7 @@
         notifyOnUpdate = $bindable(false),
         notifyDelayUntilVideo = $bindable(false),
         notifyVideoFallbackTimeout = $bindable(45),
+        notifyCooldownMinutes = $bindable(0),
 
         // Discord
         discordEnabled = $bindable(false),
@@ -39,6 +40,7 @@
         emailUseOAuth = $bindable(true),
         emailConnectedEmail = $bindable<string | null>(null),
         emailOAuthProvider = $bindable<string | null>(null),
+        emailOnlyOnEnd = $bindable(false),
         emailSmtpHost = $bindable(''),
         emailSmtpPort = $bindable(587),
         emailSmtpUseTls = $bindable(true),
@@ -72,6 +74,7 @@
         notifyOnUpdate: boolean;
         notifyDelayUntilVideo: boolean;
         notifyVideoFallbackTimeout: number;
+        notifyCooldownMinutes: number;
         discordEnabled: boolean;
         discordWebhook: string;
         discordWebhookSaved: boolean;
@@ -91,6 +94,7 @@
         emailUseOAuth: boolean;
         emailConnectedEmail: string | null;
         emailOAuthProvider: string | null;
+        emailOnlyOnEnd: boolean;
         emailSmtpHost: string;
         emailSmtpPort: number;
         emailSmtpUseTls: boolean;
@@ -226,6 +230,24 @@
                                 aria-label={$_('settings.notifications.video_fallback_timeout')}
                             />
                             <span class="text-[10px] font-bold text-slate-500">{$_('settings.notifications.video_fallback_seconds')}</span>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center justify-between gap-4">
+                        <div>
+                            <span class="block text-sm font-black text-slate-900 dark:text-white">{$_('settings.notifications.cooldown')}</span>
+                            <span class="block text-[10px] text-slate-500 font-bold leading-tight mt-1">{$_('settings.notifications.cooldown_desc')}</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <input
+                                type="number"
+                                min="0"
+                                step="1"
+                                bind:value={notifyCooldownMinutes}
+                                class="w-24 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-xs"
+                                aria-label={$_('settings.notifications.cooldown')}
+                            />
+                            <span class="text-[10px] font-bold text-slate-500">{$_('settings.notifications.cooldown_unit')}</span>
                         </div>
                     </div>
                 </div>
@@ -753,6 +775,18 @@
                             />
                             <span class="text-sm font-bold text-slate-700 dark:text-slate-300">{$_('settings.email.include_snapshot')}</span>
                         </label>
+                    </div>
+                    <div>
+                        <label for="email-only-on-end" class="flex items-center gap-2 px-4 py-3 bg-slate-50 dark:bg-slate-900/50 rounded-2xl cursor-pointer">
+                            <input
+                                id="email-only-on-end"
+                                type="checkbox"
+                                bind:checked={emailOnlyOnEnd}
+                                class="rounded"
+                            />
+                            <span class="text-sm font-bold text-slate-700 dark:text-slate-300">{$_('settings.email.only_on_end')}</span>
+                        </label>
+                        <p class="mt-1 text-xs text-slate-500">{$_('settings.email.only_on_end_desc')}</p>
                     </div>
                     <div>
                         <label for="email-dashboard-url" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.email.dashboard_url')}</label>

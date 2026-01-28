@@ -266,6 +266,7 @@ class SettingsUpdate(BaseModel):
     notifications_telegram_chat_id: Optional[str] = None
 
     notifications_email_enabled: Optional[bool] = False
+    notifications_email_only_on_end: Optional[bool] = False
     notifications_email_use_oauth: Optional[bool] = False
     notifications_email_oauth_provider: Optional[str] = None
     notifications_email_gmail_client_id: Optional[str] = None
@@ -290,6 +291,7 @@ class SettingsUpdate(BaseModel):
     notifications_notify_on_update: Optional[bool] = False
     notifications_delay_until_video: Optional[bool] = False
     notifications_video_fallback_timeout: Optional[int] = 45
+    notifications_notification_cooldown_minutes: Optional[int] = 0
 
     # Accessibility
     accessibility_high_contrast: Optional[bool] = False
@@ -440,6 +442,7 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "notifications_telegram_chat_id": "***REDACTED***" if settings.notifications.telegram.chat_id else None,
 
         "notifications_email_enabled": settings.notifications.email.enabled,
+        "notifications_email_only_on_end": settings.notifications.email.only_on_end,
         "notifications_email_use_oauth": settings.notifications.email.use_oauth,
         "notifications_email_oauth_provider": connected_provider,
         "notifications_email_connected_email": connected_email,
@@ -465,6 +468,7 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "notifications_notify_on_update": settings.notifications.notify_on_update,
         "notifications_delay_until_video": settings.notifications.delay_until_video,
         "notifications_video_fallback_timeout": settings.notifications.video_fallback_timeout,
+        "notifications_notification_cooldown_minutes": settings.notifications.notification_cooldown_minutes,
 
         # Accessibility
         "accessibility_high_contrast": settings.accessibility.high_contrast,
@@ -640,6 +644,8 @@ async def update_settings(
     # Notifications - Email
     if update.notifications_email_enabled is not None:
         settings.notifications.email.enabled = update.notifications_email_enabled
+    if update.notifications_email_only_on_end is not None:
+        settings.notifications.email.only_on_end = update.notifications_email_only_on_end
     if update.notifications_email_use_oauth is not None:
         settings.notifications.email.use_oauth = update.notifications_email_use_oauth
     if update.notifications_email_oauth_provider is not None:
@@ -690,6 +696,8 @@ async def update_settings(
         settings.notifications.delay_until_video = update.notifications_delay_until_video
     if update.notifications_video_fallback_timeout is not None:
         settings.notifications.video_fallback_timeout = update.notifications_video_fallback_timeout
+    if update.notifications_notification_cooldown_minutes is not None:
+        settings.notifications.notification_cooldown_minutes = update.notifications_notification_cooldown_minutes
 
     # Accessibility
     if update.accessibility_high_contrast is not None:

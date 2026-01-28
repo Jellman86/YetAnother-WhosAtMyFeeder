@@ -181,6 +181,7 @@ class TelegramSettings(BaseModel):
 
 class EmailSettings(BaseModel):
     enabled: bool = Field(default=False, description="Enable Email notifications")
+    only_on_end: bool = Field(default=False, description="Only send email notifications on Frigate MQTT end events")
     # OAuth2 Settings
     use_oauth: bool = Field(default=False, description="Use OAuth2 authentication (Gmail/Outlook)")
     oauth_provider: Optional[str] = Field(default=None, description="OAuth provider: 'gmail' or 'outlook'")
@@ -217,6 +218,7 @@ class NotificationSettings(BaseModel):
     notify_on_update: bool = Field(default=False, description="Notify on detection updates")
     delay_until_video: bool = Field(default=False, description="Delay notifications until video analysis completes (if enabled)")
     video_fallback_timeout: int = Field(default=45, description="Seconds to wait for video before falling back to snapshot notification")
+    notification_cooldown_minutes: int = Field(default=0, description="Global cooldown between notifications in minutes (0 = disabled)")
 
 class AccessibilitySettings(BaseModel):
     high_contrast: bool = Field(default=False, description="Enable high contrast mode")
@@ -418,6 +420,7 @@ class Settings(BaseSettings):
             },
             'email': {
                 'enabled': os.environ.get('NOTIFICATIONS__EMAIL__ENABLED', 'false').lower() == 'true',
+                'only_on_end': os.environ.get('NOTIFICATIONS__EMAIL__ONLY_ON_END', 'false').lower() == 'true',
                 'use_oauth': os.environ.get('NOTIFICATIONS__EMAIL__USE_OAUTH', 'false').lower() == 'true',
                 'oauth_provider': os.environ.get('NOTIFICATIONS__EMAIL__OAUTH_PROVIDER', None),
                 'gmail_client_id': os.environ.get('NOTIFICATIONS__EMAIL__GMAIL_CLIENT_ID', None),
@@ -603,6 +606,10 @@ class Settings(BaseSettings):
                         env_key = 'NOTIFICATIONS__VIDEO_FALLBACK_TIMEOUT'
                         if env_key not in os.environ:
                             notifications_data['video_fallback_timeout'] = n_file['video_fallback_timeout']
+                    if 'notification_cooldown_minutes' in n_file:
+                        env_key = 'NOTIFICATIONS__NOTIFICATION_COOLDOWN_MINUTES'
+                        if env_key not in os.environ:
+                            notifications_data['notification_cooldown_minutes'] = n_file['notification_cooldown_minutes']
 
                 if 'accessibility' in file_data:
                     for k, v in file_data['accessibility'].items():
