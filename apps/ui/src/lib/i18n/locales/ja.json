@@ -36,7 +36,37 @@
     "waiting_first_visitor": "今日の最初の来訪者を待っています...",
     "discovery_feed": "ディスカバリーフィード",
     "see_full_history": "すべての履歴を表示",
-    "audio_confirmations": "音声確認"
+    "audio_confirmations": "音声確認",
+    "hero": {
+      "just_discovered": "たった今検出",
+      "hours_ago": "{count}時間前",
+      "one_hour_ago": "1時間前",
+      "days_ago": "{count}日前",
+      "one_day_ago": "1日前",
+      "audio_confirmed": "音声確認",
+      "heard": "聞こえた: {species}",
+      "view_details": "詳細を見る",
+      "conf": "信頼度"
+    },
+    "stats": {
+      "today": "今日",
+      "species": "種類",
+      "top_visitor": "最多来訪",
+      "audio": "音声"
+    },
+    "histogram": {
+      "title": "活動パルス",
+      "last_24h": "過去24時間",
+      "tooltip": "{count}羽（{time}）"
+    },
+    "audio_feed": {
+      "title": "最近の音声",
+      "subtitle": "リアルタイム音声フィード",
+      "active": "アクティブ",
+      "empty_title": "バッファ内に音声検出はありません",
+      "empty_subtitle": "バッファは5分ごとにクリア",
+      "unknown_sensor": "不明なセンサー"
+    }
   },
   "common": {
     "loading": "読み込み中...",
@@ -84,6 +114,27 @@
       "security": "セキュリティ",
       "appearance": "外観",
       "accessibility": "アクセシビリティ"
+    },
+    "integrations": {
+      "birdnet": {
+        "title": "BirdNET-Go",
+        "toggle_label": "BirdNET-Go 連携の切り替え",
+        "mqtt_topic": "MQTTトピック",
+        "mqtt_topic_label": "BirdNET の MQTT トピック",
+        "audio_buffer_hours": "音声バッファ（時間）",
+        "audio_buffer_label": "音声バッファ時間",
+        "audio_buffer_help": "相関のために音声検出を保持する時間（1〜168時間）",
+        "match_window_seconds": "マッチウィンドウ（秒）",
+        "match_window_label": "音声相関ウィンドウ（秒）",
+        "match_window_help": "音声と映像の一致時間（±5〜3600秒）",
+        "test_button": "音声検出をテスト",
+        "test_loading": "シミュレーション中...",
+        "sensor_mapping_title": "センサーマッピング（任意）",
+        "sensor_id_placeholder": "センサーID",
+        "sensor_id_label": "{camera} の音声センサーID",
+        "sensor_mapping_empty": "カメラが検出されません。Frigate接続を確認してください。",
+        "sensor_mapping_help": "Frigateのカメラを追加して音声センサーに割り当てます。* を使用してランダム/動的センサーIDを指定できます。"
+      }
     },
     "auth": {
       "title": "認証",

@@ -36,7 +36,37 @@
     "waiting_first_visitor": "Ждем первого посетителя за день...",
     "discovery_feed": "Лента открытий",
     "see_full_history": "Посмотреть всю историю",
-    "audio_confirmations": "Аудио подтверждения"
+    "audio_confirmations": "Аудио подтверждения",
+    "hero": {
+      "just_discovered": "Только что обнаружено",
+      "hours_ago": "{count} ч. назад",
+      "one_hour_ago": "1 ч. назад",
+      "days_ago": "{count} дн. назад",
+      "one_day_ago": "1 дн. назад",
+      "audio_confirmed": "Аудио подтверждено",
+      "heard": "Слышно: {species}",
+      "view_details": "Подробнее",
+      "conf": "Увер."
+    },
+    "stats": {
+      "today": "Сегодня",
+      "species": "Виды",
+      "top_visitor": "Топ-гость",
+      "audio": "Аудио"
+    },
+    "histogram": {
+      "title": "Пульс активности",
+      "last_24h": "Последние 24 часа",
+      "tooltip": "{count} птиц в {time}"
+    },
+    "audio_feed": {
+      "title": "Недавнее аудио",
+      "subtitle": "Аудиопоток в реальном времени",
+      "active": "Активно",
+      "empty_title": "Нет аудио-обнаружений в буфере",
+      "empty_subtitle": "Буфер очищается каждые 5 мин",
+      "unknown_sensor": "Неизвестный датчик"
+    }
   },
   "common": {
     "loading": "Загрузка...",
@@ -92,6 +122,27 @@
       "security": "Безопасность",
       "appearance": "Внешний вид",
       "accessibility": "Доступность"
+    },
+    "integrations": {
+      "birdnet": {
+        "title": "BirdNET-Go",
+        "toggle_label": "Переключить интеграцию BirdNET-Go",
+        "mqtt_topic": "Тема MQTT",
+        "mqtt_topic_label": "Тема MQTT для BirdNET",
+        "audio_buffer_hours": "Буфер аудио (часы)",
+        "audio_buffer_label": "Часы буфера аудио",
+        "audio_buffer_help": "Как долго хранить аудио-обнаружения для корреляции (1-168 часов)",
+        "match_window_seconds": "Окно совпадения (секунды)",
+        "match_window_label": "Окно корреляции аудио в секундах",
+        "match_window_help": "Временное окно для сопоставления аудио с видео (±5-3600 секунд)",
+        "test_button": "Тестировать аудио-обнаружение",
+        "test_loading": "Идет симуляция...",
+        "sensor_mapping_title": "Сопоставление датчиков (необязательно)",
+        "sensor_id_placeholder": "ID датчика",
+        "sensor_id_label": "ID аудио-датчика для {camera}",
+        "sensor_mapping_empty": "Камеры не обнаружены. Проверьте подключение к Frigate.",
+        "sensor_mapping_help": "Добавьте камеры Frigate, чтобы сопоставить их с аудио-датчиками. Используйте * для случайных/динамических ID датчиков."
+      }
     },
     "auth": {
       "title": "Аутентификация",

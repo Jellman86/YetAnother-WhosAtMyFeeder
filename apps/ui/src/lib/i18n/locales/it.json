@@ -36,7 +36,37 @@
     "waiting_first_visitor": "In attesa del primo visitatore del giorno...",
     "discovery_feed": "Feed Scoperte",
     "see_full_history": "Vedi cronologia completa",
-    "audio_confirmations": "Conferme Audio"
+    "audio_confirmations": "Conferme Audio",
+    "hero": {
+      "just_discovered": "Appena rilevato",
+      "hours_ago": "{count} ore fa",
+      "one_hour_ago": "1 ora fa",
+      "days_ago": "{count} giorni fa",
+      "one_day_ago": "1 giorno fa",
+      "audio_confirmed": "Audio confermato",
+      "heard": "Udito: {species}",
+      "view_details": "Vedi dettagli",
+      "conf": "Conf."
+    },
+    "stats": {
+      "today": "Oggi",
+      "species": "Specie",
+      "top_visitor": "Visitatore principale",
+      "audio": "Audio"
+    },
+    "histogram": {
+      "title": "Impulso attività",
+      "last_24h": "Ultime 24 ore",
+      "tooltip": "{count} uccelli alle {time}"
+    },
+    "audio_feed": {
+      "title": "Audio recente",
+      "subtitle": "Feed audio in tempo reale",
+      "active": "Attivo",
+      "empty_title": "Nessuna rilevazione audio nel buffer",
+      "empty_subtitle": "Il buffer si svuota ogni 5 min",
+      "unknown_sensor": "Sensore sconosciuto"
+    }
   },
   "common": {
     "loading": "Caricamento...",
@@ -92,6 +122,27 @@
       "security": "Sicurezza",
       "appearance": "Aspetto",
       "accessibility": "Accessibilità"
+    },
+    "integrations": {
+      "birdnet": {
+        "title": "BirdNET-Go",
+        "toggle_label": "Attiva/Disattiva integrazione BirdNET-Go",
+        "mqtt_topic": "Tema MQTT",
+        "mqtt_topic_label": "Tema MQTT di BirdNET",
+        "audio_buffer_hours": "Buffer audio (ore)",
+        "audio_buffer_label": "Ore buffer audio",
+        "audio_buffer_help": "Quanto tempo conservare le rilevazioni audio per la correlazione (1-168 ore)",
+        "match_window_seconds": "Finestra di corrispondenza (secondi)",
+        "match_window_label": "Finestra di correlazione audio in secondi",
+        "match_window_help": "Finestra temporale per abbinare audio e video (±5-3600 secondi)",
+        "test_button": "Test rilevazione audio",
+        "test_loading": "Simulazione...",
+        "sensor_mapping_title": "Mappatura sensori (opzionale)",
+        "sensor_id_placeholder": "ID sensore",
+        "sensor_id_label": "ID sensore audio per {camera}",
+        "sensor_mapping_empty": "Nessuna fotocamera rilevata. Controlla la connessione a Frigate.",
+        "sensor_mapping_help": "Aggiungi le tue telecamere Frigate per mapparle ai sensori audio. Usa * per ID sensore casuali/dinamici."
+      }
     },
     "auth": {
       "title": "Autenticazione",

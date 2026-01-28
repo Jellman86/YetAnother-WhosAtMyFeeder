@@ -57,12 +57,12 @@
                 <div class="w-10 h-10 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-600 dark:text-amber-400">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
                 </div>
-                <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">BirdNET-Go</h3>
+                <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">{$_('settings.integrations.birdnet.title')}</h3>
             </div>
             <button
                 role="switch"
                 aria-checked={birdnetEnabled}
-                aria-label="Toggle BirdNET-Go integration"
+                aria-label={$_('settings.integrations.birdnet.toggle_label')}
                 onclick={() => birdnetEnabled = !birdnetEnabled}
                 onkeydown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
@@ -79,57 +79,57 @@
 
         <div class="space-y-6">
             <div>
-                <label for="audio-topic" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">MQTT Topic</label>
+                <label for="audio-topic" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.integrations.birdnet.mqtt_topic')}</label>
                 <input
                     id="audio-topic"
                     type="text"
                     bind:value={audioTopic}
                     placeholder="birdnet/text"
-                    aria-label="BirdNET MQTT topic"
+                    aria-label={$_('settings.integrations.birdnet.mqtt_topic_label')}
                     class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-teal-500 outline-none"
                 />
             </div>
 
             <div class="grid grid-cols-2 gap-4">
                 <div>
-                    <label for="audio-buffer" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Audio Buffer (Hours)</label>
+                    <label for="audio-buffer" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.integrations.birdnet.audio_buffer_hours')}</label>
                     <input
                         id="audio-buffer"
                         type="number"
                         bind:value={audioBufferHours}
                         min="1"
                         max="168"
-                        aria-label="Audio buffer hours"
+                        aria-label={$_('settings.integrations.birdnet.audio_buffer_label')}
                         class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-teal-500 outline-none"
                     />
-                    <p class="mt-1 text-[10px] text-slate-400 font-bold italic">How long to keep audio detections for correlation (1-168 hours)</p>
+                    <p class="mt-1 text-[10px] text-slate-400 font-bold italic">{$_('settings.integrations.birdnet.audio_buffer_help')}</p>
                 </div>
                 <div>
-                    <label for="correlation-window" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Match Window (Seconds)</label>
+                    <label for="correlation-window" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.integrations.birdnet.match_window_seconds')}</label>
                     <input
                         id="correlation-window"
                         type="number"
                         bind:value={audioCorrelationWindowSeconds}
                         min="5"
                         max="3600"
-                        aria-label="Audio correlation window in seconds"
+                        aria-label={$_('settings.integrations.birdnet.match_window_label')}
                         class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-teal-500 outline-none"
                     />
-                    <p class="mt-1 text-[10px] text-slate-400 font-bold italic">Time window for matching audio with visual (±5-3600 seconds)</p>
+                    <p class="mt-1 text-[10px] text-slate-400 font-bold italic">{$_('settings.integrations.birdnet.match_window_help')}</p>
                 </div>
             </div>
 
             <button
                 onclick={handleTestBirdNET}
                 disabled={testingBirdNET}
-                aria-label="Test audio detection"
+                aria-label={$_('settings.integrations.birdnet.test_button')}
                 class="w-full px-4 py-3 text-xs font-black uppercase tracking-widest rounded-2xl bg-amber-500 hover:bg-amber-600 text-white transition-all shadow-lg shadow-amber-500/20 disabled:opacity-50"
             >
-                {testingBirdNET ? 'Simulating...' : 'Test Audio detection'}
+                {testingBirdNET ? $_('settings.integrations.birdnet.test_loading') : $_('settings.integrations.birdnet.test_button')}
             </button>
 
             <div class="pt-4 border-t border-slate-100 dark:border-slate-700/50">
-                <div id="sensor-mapping-label" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-4">Sensor Mapping (Optional)</div>
+                <div id="sensor-mapping-label" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-4">{$_('settings.integrations.birdnet.sensor_mapping_title')}</div>
                 <div class="space-y-3" role="group" aria-labelledby="sensor-mapping-label">
                     {#each availableCameras as camera}
                         <div class="flex items-center gap-3">
@@ -137,16 +137,16 @@
                             <input
                                 type="text"
                                 bind:value={cameraAudioMapping[camera]}
-                                placeholder="Sensor ID"
-                                aria-label="Audio sensor ID for {camera}"
+                                placeholder={$_('settings.integrations.birdnet.sensor_id_placeholder')}
+                                aria-label={$_('settings.integrations.birdnet.sensor_id_label', { values: { camera } })}
                                 class="flex-1 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-xs font-bold"
                             />
                         </div>
                     {/each}
                     {#if availableCameras.length === 0}
-                        <p class="text-[10px] text-slate-400 font-bold italic">No cameras detected. Check Frigate connection.</p>
+                        <p class="text-[10px] text-slate-400 font-bold italic">{$_('settings.integrations.birdnet.sensor_mapping_empty')}</p>
                     {:else}
-                        <p class="text-[10px] text-slate-400 font-bold italic">Add your Frigate cameras to map them to audio sensors. Use <code class="text-teal-500 font-black">*</code> for random/dynamic Sensor IDs.</p>
+                        <p class="text-[10px] text-slate-400 font-bold italic">{$_('settings.integrations.birdnet.sensor_mapping_help')}</p>
                     {/if}
                 </div>
             </div>

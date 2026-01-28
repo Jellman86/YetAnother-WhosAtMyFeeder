@@ -58,6 +58,14 @@
       "title": "Activity Pulse",
       "last_24h": "Last 24 Hours",
       "tooltip": "{count} birds at {time}"
+    },
+    "audio_feed": {
+      "title": "Recent Audio",
+      "subtitle": "Real-time Audio Feed",
+      "active": "Active",
+      "empty_title": "No audio detections in buffer",
+      "empty_subtitle": "Buffer clears every 5 mins",
+      "unknown_sensor": "Unknown Sensor"
     }
   },
   "common": {
@@ -114,6 +122,27 @@
       "security": "Security",
       "appearance": "Appearance",
       "accessibility": "Accessibility"
+    },
+    "integrations": {
+      "birdnet": {
+        "title": "BirdNET-Go",
+        "toggle_label": "Toggle BirdNET-Go integration",
+        "mqtt_topic": "MQTT Topic",
+        "mqtt_topic_label": "BirdNET MQTT topic",
+        "audio_buffer_hours": "Audio Buffer (Hours)",
+        "audio_buffer_label": "Audio buffer hours",
+        "audio_buffer_help": "How long to keep audio detections for correlation (1-168 hours)",
+        "match_window_seconds": "Match Window (Seconds)",
+        "match_window_label": "Audio correlation window in seconds",
+        "match_window_help": "Time window for matching audio with visual (±5-3600 seconds)",
+        "test_button": "Test Audio detection",
+        "test_loading": "Simulating...",
+        "sensor_mapping_title": "Sensor Mapping (Optional)",
+        "sensor_id_placeholder": "Sensor ID",
+        "sensor_id_label": "Audio sensor ID for {camera}",
+        "sensor_mapping_empty": "No cameras detected. Check Frigate connection.",
+        "sensor_mapping_help": "Add your Frigate cameras to map them to audio sensors. Use * for random/dynamic Sensor IDs."
+      }
     },
     "auth": {
       "title": "Authentication",

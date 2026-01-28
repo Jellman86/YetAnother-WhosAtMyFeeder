@@ -1,5 +1,6 @@
 <script lang="ts">
     import { onMount, onDestroy } from 'svelte';
+    import { _ } from 'svelte-i18n';
     import { fetchRecentAudio, type AudioDetection } from '../api';
 
     let audioDetections = $state<AudioDetection[]>([]);
@@ -44,14 +45,14 @@
                 </svg>
             </div>
             <div>
-                <h3 class="text-lg font-black text-slate-900 dark:text-white tracking-tight">Recent Audio</h3>
-                <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Real-time Audio Feed</p>
+                <h3 class="text-lg font-black text-slate-900 dark:text-white tracking-tight">{$_('dashboard.audio_feed.title')}</h3>
+                <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{$_('dashboard.audio_feed.subtitle')}</p>
             </div>
         </div>
         {#if !loading && audioDetections.length > 0}
             <div class="flex items-center gap-1.5 px-2 py-1 rounded-full bg-emerald-500/10 text-emerald-600 animate-pulse">
                 <div class="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
-                <span class="text-[9px] font-black uppercase tracking-wider">Active</span>
+                <span class="text-[9px] font-black uppercase tracking-wider">{$_('dashboard.audio_feed.active')}</span>
             </div>
         {/if}
     </div>
@@ -68,15 +69,15 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
                     </svg>
                 </div>
-                <p class="text-xs font-bold text-slate-400 italic">No audio detections in buffer</p>
-                <p class="text-[9px] text-slate-500 mt-1 uppercase tracking-widest">Buffer clears every 5 mins</p>
+                <p class="text-xs font-bold text-slate-400 italic">{$_('dashboard.audio_feed.empty_title')}</p>
+                <p class="text-[9px] text-slate-500 mt-1 uppercase tracking-widest">{$_('dashboard.audio_feed.empty_subtitle')}</p>
             </div>
         {:else}
             {#each audioDetections as detection}
                 <div class="group p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-700/50 hover:border-teal-500/30 transition-all">
                     <div class="flex items-center justify-between gap-3 mb-1">
                         <span class="text-[10px] font-black text-teal-600/70 dark:text-teal-400/70 uppercase tracking-tighter">{formatTime(detection.timestamp)}</span>
-                        <span class="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">{detection.sensor_id || 'Unknown Sensor'}</span>
+                        <span class="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">{detection.sensor_id || $_('dashboard.audio_feed.unknown_sensor')}</span>
                     </div>
                     <div class="flex items-center justify-between gap-4">
                         <p class="text-sm font-black text-slate-800 dark:text-slate-100 truncate">{detection.species}</p>
