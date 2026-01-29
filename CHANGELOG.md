@@ -6,6 +6,13 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- **Fixed:** Resolved multiple TypeScript and Svelte compilation errors across settings components.
+- **Fixed:** Corrected i18n interpolation usage and aria-label type mismatches in UI components.
+- **Fixed:** Improved `onMount` async handling in `App.svelte` to prevent type mismatches.
+- **Fixed:** Updated `Settings` interface to include missing notification and cooldown properties.
+- **Added:** New `Reverse Proxy Configuration Guide` with detailed Cloudflare Tunnel and Nginx Proxy Manager examples.
+- **Added:** Standardized trusted proxy configuration to automatically support RFC1918 private subnets (Docker/K8s) by default.
+- **Added:** Module declaration for `svelte-apexcharts` to fix missing type definitions.
 - **Fixed:** Enforced guest access checks for Frigate media proxies to prevent access to hidden or out-of-range events.
 - **Fixed:** Added guest rate limiting to classifier status/label endpoints.
 - **Fixed:** Added security headers to frontend Nginx responses.
