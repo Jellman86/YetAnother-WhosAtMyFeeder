@@ -51,7 +51,6 @@ When Frigate detects a bird at your feeder, YA-WAMF:
 - **Elite Accuracy:** Support for state-of-the-art **EVA-02 Large** models (~91% accuracy).
 - **Taxonomy Normalization:** Automatic Scientific ↔ Common name mapping using iNaturalist data.
 - **Fast Path Efficiency:** Skip local AI and use Frigate's sublabels directly to save CPU.
-- **Wildlife Classifier:** identify squirrels, foxes, and other non-bird visitors.
 - **Home Assistant Integration:** Full support for tracking the last detected bird and daily counts in HA.
 - **Observability:** Built-in Prometheus metrics, Telemetry (opt-in), and real-time MQTT diagnostics.
 - **Public View (Guest Mode):** Optional read-only sharing with rate limits and privacy controls.

@@ -25,7 +25,7 @@ go2rtc:
 objects:
   track:
     - bird
-    - cat # Optional: if you want to use the wildlife classifier
+    - (other objects...)
     - dog
 
 # --- Camera Settings ---

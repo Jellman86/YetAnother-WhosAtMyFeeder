@@ -39,7 +39,7 @@ YA-WAMF is a full-stack application that integrates with [Frigate NVR](https://f
 │                        YA-WAMF Backend                               │
 │  ┌─────────────┐  ┌──────────────┐  ┌─────────────────────────┐     │
 │  │ MQTTService │──│EventProcessor│──│  ClassifierService      │     │
-│  │ (listener)  │  │ (orchestrator)│  │  (Bird + Wildlife ML)  │     │
+│  │ (listener)  │  │ (orchestrator)│  │  (Bird Species ML)      │     │
 │  └─────────────┘  └──────┬───────┘  └─────────────────────────┘     │
 │                          │                                           │
 │                          ▼                                           │
@@ -160,11 +160,10 @@ YA-WAMF/
 │
 ├── data/                        # Persistent data (volume mount)
 │   ├── speciesid.db             # SQLite database
-│   └── models/                  # Downloaded ML models
-│       ├── model.tflite         # Bird classifier (Google AIY)
-│       ├── labels.txt           # Bird species labels
-│       ├── wildlife_model.tflite # Wildlife classifier (EfficientNet-Lite4, optional)
-│       └── wildlife_labels.txt  # ImageNet animal labels (optional)
+    └── models/                  # Downloaded ML models
+        ├── model.tflite         # Bird classifier (Google AIY)
+        └── labels.txt           # Bird species labels
+
 │
 ├── docker-compose.yml           # Deployment configuration
 ├── .env.example                 # Environment template
@@ -825,15 +824,6 @@ unknown_bird_labels: list[str] = Field(
    - `labels.txt` - One label per line
 
 2. Restart the backend
-
-### Wildlife Classifier Notes
-
-The wildlife classifier uses MobileNet V2 (quantized) trained on ImageNet-1001:
-- **Input size:** 224x224 (same as bird model)
-- **Model type:** Quantized uint8 (no normalization needed)
-- **Classes:** 1001 ImageNet categories (background + 1000 classes including animals)
-- **Model size:** ~14MB
-- **Inference:** Fast on CPU
 
 ### Backing Up Data
 

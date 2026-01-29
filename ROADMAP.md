@@ -10,8 +10,8 @@ YA-WAMF already has extensive functionality built-in:
 
 **Core Classification:**
 - ✅ Multiple ML model support (TFLite/ONNX: MobileNetV2, ConvNeXt, EVA-02)
-- ✅ Auto video classification with temporal ensemble (15+ frames)
-- ✅ Wildlife classification (non-bird animals)
+- ✅ Svelte 5 migration
+- ✅ Built-in Authentication system
 - ✅ Fast path mode (trust Frigate sublabels)
 - ✅ Manual reclassification with confidence override
 

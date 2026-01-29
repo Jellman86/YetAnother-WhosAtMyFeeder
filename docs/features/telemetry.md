@@ -7,7 +7,7 @@ Telemetry is **disabled by default**. No data is sent unless you explicitly turn
 
 ## Philosophy
 I believe open-source software should be transparent. I only collect high-level aggregate data to help answer questions like:
-- "How many people are using the new EVA-02 model vs the older MobileNet?"
+- "Which identification models are most popular (EVA-02, ConvNeXt, or MobileNet)?"
 - "Is the BirdNET integration widely used?"
 - "What platforms (ARM/x86) should I prioritize for optimization?"
 
