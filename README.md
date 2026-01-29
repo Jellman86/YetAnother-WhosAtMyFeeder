@@ -9,7 +9,7 @@ A bird classification system that integrates with [Frigate NVR](https://frigate.
 - **Advanced AI Classification** - MobileNetV2, ConvNeXt, or EVA-02 models (up to 91% accuracy)
 - **Multi-Sensor Verification** - Correlates visual detections with BirdNET-Go audio
 - **Smart Notifications** - Discord, Telegram, Pushover, Email with customizable filters
-- **Video Analysis** - Automatic frame-by-frame scanning for improved accuracy
+- **Video Analysis** - Automatic scanning of 15+ frames (temporal ensemble) for improved accuracy
 - **LLM Insights** - AI-powered behavioral analysis (Gemini/OpenAI/Claude)
 - **Home Assistant Integration** - Sensors, automation, and dashboard cards
 - **BirdWeather Reporting** - Contribute to community science
@@ -34,7 +34,7 @@ When Frigate detects a bird at your feeder, YA-WAMF:
 1. Grabs the snapshot image
 2. Runs it through an advanced AI model (MobileNetV2, ConvNeXt, or EVA-02)
 3. Cross-references with audio detections from **BirdNET-Go** for multi-sensor confirmation
-4. **Automatically analyzes the video clip** (optional) for higher accuracy using temporal ensemble logic
+4. **Automatically analyzes the video clip** (optional) using a temporal ensemble of 15+ frames for higher accuracy
 5. Sends **rich notifications** to Discord, Pushover, Telegram, or Email (OAuth/SMTP)
 6. Enriches detections with local weather data and behavior analysis via **LLMs (Gemini/OpenAI/Claude)**
 7. Keeps track of all your visitors in a nice dashboard with taxonomic normalization
