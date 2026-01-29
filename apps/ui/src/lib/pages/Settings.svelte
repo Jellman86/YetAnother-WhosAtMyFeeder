@@ -759,7 +759,7 @@
             locationLat = settings.location_latitude ?? null;
             locationLon = settings.location_longitude ?? null;
             locationAuto = settings.location_automatic ?? true;
-            locationTemperatureUnit = settings.location_temperature_unit ?? 'celsius';
+            locationTemperatureUnit = (settings.location_temperature_unit as 'celsius' | 'fahrenheit') ?? 'celsius';
             // BirdWeather settings
             birdweatherEnabled = settings.birdweather_enabled ?? false;
             birdweatherStationToken = settings.birdweather_station_token ?? '';
@@ -1231,6 +1231,7 @@
                     {loadCameras}
                     {handleTestBirdNET}
                     {toggleCamera}
+                    bind:testingBirdNET
                 />
             {/if}
 
@@ -1333,6 +1334,7 @@
                     {testingBirdWeather}
                     {handleTestBirdNET}
                     {handleTestBirdWeather}
+                    bind:testingBirdNET
                 />
             {/if}
 

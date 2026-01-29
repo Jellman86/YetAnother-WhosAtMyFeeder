@@ -1,5 +1,6 @@
 <script lang="ts">
     import { _ } from 'svelte-i18n';
+    import type { TestEmailRequest, TestEmailResponse, OAuthAuthorizeResponse } from '../../api';
 
     // Props
     let {
@@ -111,10 +112,10 @@
         sendTestDiscord: () => Promise<void>;
         sendTestPushover: () => Promise<void>;
         sendTestTelegram: () => Promise<void>;
-        sendTestEmail: () => Promise<void>;
-        initiateGmailOAuth: () => Promise<{ authorization_url: string }>;
-        initiateOutlookOAuth: () => Promise<{ authorization_url: string }>;
-        disconnectEmailOAuth: (provider: string) => Promise<void>;
+        sendTestEmail: (request?: TestEmailRequest) => Promise<TestEmailResponse>;
+        initiateGmailOAuth: () => Promise<OAuthAuthorizeResponse>;
+        initiateOutlookOAuth: () => Promise<OAuthAuthorizeResponse>;
+        disconnectEmailOAuth: (provider: 'gmail' | 'outlook') => Promise<{ message: string }>;
     } = $props();
 
     const notificationsEnabled = $derived(notifyOnInsert || notifyOnUpdate);
@@ -268,7 +269,7 @@
                     bind:value={notifyMinConfidence}
                     aria-valuemin="0"
                     aria-valuemax="100"
-                    aria-valuenow={(notifyMinConfidence * 100).toFixed(0)}
+                    aria-valuenow={Math.round(notifyMinConfidence * 100)}
                     aria-valuetext="{(notifyMinConfidence * 100).toFixed(0)} percent"
                     aria-label="Notification minimum confidence: {(notifyMinConfidence * 100).toFixed(0)}%"
                     class="w-full h-2 rounded-lg bg-slate-200 dark:bg-slate-700 appearance-none cursor-pointer accent-amber-500"
@@ -657,11 +658,11 @@
                         </div>
                         {#if emailConnectedEmail}
                             <div class="flex items-center justify-between p-3 bg-green-50 dark:bg-green-900/20 rounded-xl">
-                                <span class="text-sm text-green-700 dark:text-green-300">{$_('settings.email.connected', { email: emailConnectedEmail })}</span>
+                                <span class="text-sm text-green-700 dark:text-green-300">{$_('settings.email.connected', { values: { email: emailConnectedEmail } })}</span>
                                 <button
                                     onclick={async () => {
                                         try {
-                                            await disconnectEmailOAuth(emailOAuthProvider || 'gmail');
+                                            await disconnectEmailOAuth((emailOAuthProvider as 'gmail' | 'outlook') || 'gmail');
                                             emailConnectedEmail = null;
                                             emailOAuthProvider = null;
                                         } catch (error) {

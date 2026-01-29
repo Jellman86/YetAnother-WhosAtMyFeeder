@@ -16,7 +16,7 @@
         availableCameras = $bindable<string[]>([]),
         camerasLoading,
         testing,
-        testingBirdNET,
+        testingBirdNET = $bindable(false),
         telemetryInstallationId,
         telemetryPlatform,
         versionInfo,
@@ -216,7 +216,7 @@
                 <div class="grid grid-cols-1 gap-2">
                     {#each availableCameras as camera}
                         <button
-                            aria-label="{selectedCameras.includes(camera) ? $_('settings.cameras.deselect', { default: 'Deselect {camera}', camera }) : $_('settings.cameras.select', { default: 'Select {camera}', camera })}"
+                            aria-label="{selectedCameras.includes(camera) ? $_('settings.cameras.deselect', { default: 'Deselect {camera}', values: { camera } }) : $_('settings.cameras.select', { default: 'Select {camera}', values: { camera } })}"
                             class="flex items-center justify-between p-4 rounded-2xl border-2 transition-all group
                                    {selectedCameras.includes(camera)
                                        ? 'border-teal-500 bg-teal-500/5 text-teal-700 dark:text-teal-400'

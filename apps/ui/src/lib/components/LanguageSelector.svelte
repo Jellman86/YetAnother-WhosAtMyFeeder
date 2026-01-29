@@ -24,7 +24,7 @@
     let unsubscribeLocale: () => void;
     onMount(() => {
         unsubscribeLocale = locale.subscribe(value => {
-            currentLocaleValue = value;
+            currentLocaleValue = typeof value === 'string' && value ? value : 'en';
         });
 
         // Load saved preference on mount

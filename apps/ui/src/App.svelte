@@ -84,60 +84,70 @@
   });
 
   // Handle back button and initial load
-  onMount(async () => {
-      // Register auth error callback
-      setAuthErrorCallback(() => {
-          authStore.handleAuthError();
-      });
+  onMount(() => {
+      (async () => {
+          // Register auth error callback
+          setAuthErrorCallback(() => {
+              authStore.handleAuthError();
+          });
 
-      const handlePopState = () => {
-          currentRoute = window.location.pathname;
-      };
-      window.addEventListener('popstate', handlePopState);
+          const handlePopState = () => {
+              currentRoute = window.location.pathname;
+          };
+          window.addEventListener('popstate', handlePopState);
 
-      const path = window.location.pathname;
-      currentRoute = path === '' ? '/' : path;
+          const path = window.location.pathname;
+          currentRoute = path === '' ? '/' : path;
 
-      await authStore.loadStatus();
+          await authStore.loadStatus();
 
-      // Handle page visibility changes - reconnect when tab becomes visible
-      const handleVisibilityChange = () => {
-          if (!document.hidden && !detectionsStore.connected && !isReconnecting) {
-              logger.info("Tab became visible, attempting to reconnect SSE");
-              reconnectAttempts = 0; // Reset backoff when user returns to tab
-              scheduleReconnect();
-          }
-      };
-      document.addEventListener('visibilitychange', handleVisibilityChange);
+          // Handle page visibility changes - reconnect when tab becomes visible
+          const handleVisibilityChange = () => {
+              if (!document.hidden && !detectionsStore.connected && !isReconnecting) {
+                  logger.info("Tab became visible, attempting to reconnect SSE");
+                  reconnectAttempts = 0; // Reset backoff when user returns to tab
+                  scheduleReconnect();
+              }
+          };
+          document.addEventListener('visibilitychange', handleVisibilityChange);
 
-      // Initialize keyboard shortcuts
-      const cleanupShortcuts = initKeyboardShortcuts({
-          '?': () => showKeyboardShortcuts = true,
-          'g d': () => navigate('/'),
-          'g e': () => navigate('/events'),
-          'g l': () => navigate('/species'),
-          'g t': () => navigate('/settings'),
-          'Escape': () => {
-              // Close keyboard shortcuts modal
-              showKeyboardShortcuts = false;
-          },
-          'r': () => window.location.reload()
-      });
+          // Initialize keyboard shortcuts
+          const cleanupShortcuts = initKeyboardShortcuts({
+              '?': () => showKeyboardShortcuts = true,
+              'g d': () => navigate('/'),
+              'g e': () => navigate('/events'),
+              'g l': () => navigate('/species'),
+              'g t': () => navigate('/settings'),
+              'Escape': () => {
+                  // Close keyboard shortcuts modal
+                  showKeyboardShortcuts = false;
+              },
+              'r': () => window.location.reload()
+          });
 
+          // Store cleanup function to return
+          cleanupFn = () => {
+              window.removeEventListener('popstate', handlePopState);
+              document.removeEventListener('visibilitychange', handleVisibilityChange);
+              cleanupShortcuts();
+              if (evtSource) {
+                  evtSource.close();
+                  evtSource = null;
+              }
+              if (reconnectTimeout) {
+                  clearTimeout(reconnectTimeout);
+                  reconnectTimeout = null;
+              }
+          };
+      })();
+
+      // Return cleanup function (will be assigned inside the async IIFE, but we need a stable ref)
       return () => {
-          window.removeEventListener('popstate', handlePopState);
-          document.removeEventListener('visibilitychange', handleVisibilityChange);
-          cleanupShortcuts();
-          if (evtSource) {
-              evtSource.close();
-              evtSource = null;
-          }
-          if (reconnectTimeout) {
-              clearTimeout(reconnectTimeout);
-              reconnectTimeout = null;
-          }
+          if (cleanupFn) cleanupFn();
       };
   });
+
+  let cleanupFn: (() => void) | null = null;
 
   $effect(() => {
       if (!authStore.statusLoaded) {

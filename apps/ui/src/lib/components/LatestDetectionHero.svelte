@@ -132,7 +132,7 @@
                 </span>
                 {#if detection.temperature !== undefined && detection.temperature !== null}
                     <span class="flex items-center gap-1.5">
-                        🌡️ {formatTemperature(detection.temperature, settingsStore.settings?.location_temperature_unit)}
+                        🌡️ {formatTemperature(detection.temperature, settingsStore.settings?.location_temperature_unit as any)}
                     </span>
                 {/if}
             </div>

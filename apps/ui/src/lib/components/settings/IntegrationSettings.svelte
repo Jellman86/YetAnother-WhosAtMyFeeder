@@ -9,7 +9,7 @@
         audioCorrelationWindowSeconds = $bindable(300),
         cameraAudioMapping = $bindable<Record<string, string>>({}),
         availableCameras,
-        testingBirdNET,
+        testingBirdNET = $bindable(false),
         birdweatherEnabled = $bindable(false),
         birdweatherStationToken = $bindable(''),
         testingBirdWeather,

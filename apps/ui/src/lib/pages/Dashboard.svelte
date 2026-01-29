@@ -18,6 +18,7 @@
     import { settingsStore } from '../stores/settings.svelte';
     import { authStore } from '../stores/auth.svelte';
     import { _ } from 'svelte-i18n';
+    import { getErrorMessage } from '../utils/error-handling';
 
     import { getBirdNames } from '../naming';
 

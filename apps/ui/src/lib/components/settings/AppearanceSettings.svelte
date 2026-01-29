@@ -1,7 +1,7 @@
 <script lang="ts">
     import { _ } from 'svelte-i18n';
-    import type { Theme } from '../../stores/theme';
-    import type { Layout } from '../../stores/layout';
+    import type { Theme } from '../../stores/theme.svelte';
+    import type { Layout } from '../../stores/layout.svelte';
 
     // Props
     let {
@@ -41,7 +41,7 @@
                 ] as opt}
                     <button
                         onclick={() => setTheme(opt.value as Theme)}
-                        aria-label="{$_('theme.select', { default: 'Select {theme} theme', theme: opt.label })}"
+                        aria-label="{$_('theme.select', { values: { theme: opt.label } })}"
                         class="flex flex-col items-center gap-2 p-4 rounded-2xl border-2 transition-all
                             {currentTheme === opt.value
                                 ? 'bg-teal-500 border-teal-500 text-white shadow-lg shadow-teal-500/20'
@@ -95,7 +95,7 @@
             ] as opt}
                 <button
                     onclick={() => setLayout(opt.value as Layout)}
-                    aria-label="{$_('theme.select_layout', { default: 'Select {layout} layout', layout: opt.label })}"
+                    aria-label="{$_('theme.select_layout', { values: { layout: opt.label } })}"
                     class="flex flex-col items-start gap-2 p-5 rounded-2xl border-2 transition-all text-left
                         {currentLayout === opt.value
                             ? 'bg-purple-500 border-purple-500 text-white shadow-xl shadow-purple-500/20'

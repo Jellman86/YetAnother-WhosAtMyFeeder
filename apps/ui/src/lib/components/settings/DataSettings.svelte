@@ -6,6 +6,7 @@
     let {
         maintenanceStats,
         retentionDays = $bindable(0),
+        cacheRetentionDays = $bindable(0),
         cleaningUp,
         cacheEnabled = $bindable(true),
         cacheSnapshots = $bindable(true),
@@ -33,6 +34,7 @@
     }: {
         maintenanceStats: MaintenanceStats | null;
         retentionDays: number;
+        cacheRetentionDays: number;
         cleaningUp: boolean;
         cacheEnabled: boolean;
         cacheSnapshots: boolean;

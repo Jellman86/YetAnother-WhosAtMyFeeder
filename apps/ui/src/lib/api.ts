@@ -114,7 +114,7 @@ export interface Settings {
     location_latitude?: number | null;
     location_longitude?: number | null;
     location_automatic?: boolean;
-    location_temperature_unit?: string;
+    location_temperature_unit?: 'celsius' | 'fahrenheit' | string;
     // BirdWeather settings
     birdweather_enabled: boolean;
     birdweather_station_token?: string | null;
@@ -169,6 +169,15 @@ export interface Settings {
     notifications_notify_on_update: boolean;
     notifications_delay_until_video: boolean;
     notifications_video_fallback_timeout: number;
+    notifications_notification_cooldown_minutes: number;
+
+    // Optional nested notifications object for backward compatibility/UI grouping
+    notifications?: {
+        discord?: { enabled: boolean };
+        pushover?: { enabled: boolean };
+        telegram?: { enabled: boolean };
+        email?: { enabled: boolean };
+    };
 
     // Accessibility settings
     accessibility_high_contrast: boolean;

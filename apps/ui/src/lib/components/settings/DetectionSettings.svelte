@@ -70,43 +70,42 @@
                         max="1"
                         step="0.05"
                         bind:value={threshold}
-                        aria-valuemin="0"
-                        aria-valuemax="100"
-                        aria-valuenow={(threshold * 100).toFixed(0)}
-                        aria-valuetext="{(threshold * 100).toFixed(0)} percent"
-                        aria-label="Confidence threshold: {(threshold * 100).toFixed(0)}%"
-                        class="w-full h-2 rounded-lg bg-slate-200 dark:bg-slate-700 appearance-none cursor-pointer accent-teal-500"
-                    />
-                    <div class="flex justify-between mt-2"><span class="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Loose</span><span class="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Strict</span></div>
-                </div>
-
-                <div>
-                    <div class="flex justify-between mb-4">
-                        <label for="min-confidence-slider" class="text-sm font-black text-slate-900 dark:text-white">Minimum Confidence Floor</label>
-                        <output for="min-confidence-slider" class="px-2 py-1 bg-amber-500 text-white text-[10px] font-black rounded-lg">{(minConfidence * 100).toFixed(0)}%</output>
-                    </div>
-                    <input
-                        id="min-confidence-slider"
-                        type="range"
-                        min="0"
-                        max="1"
-                        step="0.05"
-                        bind:value={minConfidence}
-                        aria-valuemin="0"
-                        aria-valuemax="100"
-                        aria-valuenow={(minConfidence * 100).toFixed(0)}
-                        aria-valuetext="{(minConfidence * 100).toFixed(0)} percent"
-                        aria-label="Minimum confidence floor: {(minConfidence * 100).toFixed(0)}%"
-                        aria-describedby="min-confidence-help"
-                        class="w-full h-2 rounded-lg bg-slate-200 dark:bg-slate-700 appearance-none cursor-pointer accent-amber-500"
-                    />
-                    <div class="flex justify-between mt-2">
-                        <span class="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Capture All</span>
-                        <span class="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Reject Unsure</span>
-                    </div>
-                    <p id="min-confidence-help" class="mt-3 text-[10px] text-slate-500 font-bold leading-tight">Events below this floor are ignored completely. Events between floor and threshold are saved as "Unknown Bird".</p>
-                </div>
-
+                                            aria-valuemin="0"
+                                            aria-valuemax="100"
+                                            aria-valuenow={Math.round(threshold * 100)}
+                                            aria-valuetext="{(threshold * 100).toFixed(0)} percent"
+                                            aria-label="Confidence threshold: {(threshold * 100).toFixed(0)}%"
+                                            class="w-full h-2 rounded-lg bg-slate-200 dark:bg-slate-700 appearance-none cursor-pointer accent-teal-500"
+                                        />
+                                        <div class="flex justify-between mt-2"><span class="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Loose</span><span class="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Strict</span></div>
+                                    </div>
+                        
+                                        <div>
+                                            <div class="flex justify-between mb-4">
+                                                <label for="min-confidence-slider" class="text-sm font-black text-slate-900 dark:text-white">Minimum Confidence Floor</label>
+                                                <output for="min-confidence-slider" class="px-2 py-1 bg-amber-500 text-white text-[10px] font-black rounded-lg">{(minConfidence * 100).toFixed(0)}%</output>
+                                            </div>
+                                            <input
+                                                id="min-confidence-slider"
+                                                type="range"
+                                                min="0"
+                                                max="1"
+                                                step="0.05"
+                                                bind:value={minConfidence}
+                                                aria-valuemin="0"
+                                                aria-valuemax="100"
+                                                aria-valuenow={Math.round(minConfidence * 100)}
+                                                aria-valuetext="{(minConfidence * 100).toFixed(0)} percent"
+                                                aria-label="Minimum confidence floor: {(minConfidence * 100).toFixed(0)}%"
+                                                aria-describedby="min-confidence-help"
+                                                class="w-full h-2 rounded-lg bg-slate-200 dark:bg-slate-700 appearance-none cursor-pointer accent-amber-500"
+                                            />
+                                            <div class="flex justify-between mt-2">
+                                                <span class="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Capture All</span>
+                                                <span class="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Reject Unsure</span>
+                                            </div>
+                                            <p id="min-confidence-help" class="mt-3 text-[10px] text-slate-500 font-bold leading-tight">Events below this floor are ignored completely. Events between floor and threshold are saved as "Unknown Bird".</p>
+                                        </div>
                 <div class="p-4 rounded-2xl bg-teal-500/5 border border-teal-500/10 flex items-center justify-between gap-4">
                     <div id="trust-frigate-label" class="flex-1">
                         <span class="block text-sm font-black text-slate-900 dark:text-white">Trust Frigate Sublabels</span>

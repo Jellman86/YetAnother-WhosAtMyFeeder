@@ -27,7 +27,7 @@
     });
 
     // Get bird facts from i18n using json() for array values - fallback to empty array if missing
-    const birdFacts = $derived($json('footer.bird_facts') || []);
+    const birdFacts = $derived(($json('footer.bird_facts') || []) as string[]);
 
     let currentFactIndex = $state(0);
     let isTransitioning = $state(false);
