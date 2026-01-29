@@ -45,16 +45,21 @@ In Nginx Proxy Manager, standard UI settings are not enough for SSE. You must us
 *   **HSTS:** Enabled
 
 ### Advanced Tab (Custom Configuration)
-Paste this entire block into the "Custom Nginx Configuration" box. This handles SSE, Video Clips, and correct Header forwarding for the whole site.
+Paste this entire block into the "Custom Nginx Configuration" box. This handles SSE, Video Clips, and correct Header forwarding while using a resolver to prevent stale DNS cache issues.
 
 ```nginx
+# Docker DNS Resolver (Required for dynamic container resolution)
+resolver 127.0.0.11 valid=30s;
+set $backend_upstream yawamf-backend;
+set $frontend_upstream yawamf-frontend;
+
 # Global Timeout Increase
 proxy_read_timeout 86400s;
 proxy_send_timeout 86400s;
 
 # 1. Server-Sent Events (SSE) - Live Status Stream
 location /api/sse {
-    proxy_pass http://yawamf-backend:8000;
+    proxy_pass http://$backend_upstream:8000;
 
     # Connection Settings
     proxy_http_version 1.1;
@@ -79,7 +84,7 @@ location /api/sse {
 
 # 2. Video Clips (Optimized for large files)
 location ~ ^/api/frigate/.+/clip\.mp4$ {
-    proxy_pass http://yawamf-backend:8000;
+    proxy_pass http://$backend_upstream:8000;
 
     # Enable Buffering for Performance
     proxy_buffering on;
@@ -99,9 +104,9 @@ location ~ ^/api/frigate/.+/clip\.mp4$ {
     proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
 }
 
-# 3. Root / Main App (Fixes "Auth over HTTP" warnings)
+# 3. Root / Main App
 location / {
-    proxy_pass http://yawamf-frontend:80; # or your frontend service
+    proxy_pass http://$frontend_upstream:80;
     
     # Ensure backend sees "https" even if proxy terminates SSL
     proxy_set_header Host $host;

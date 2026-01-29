@@ -68,9 +68,39 @@ def get_git_hash() -> str:
 
     return "unknown"
 
+def get_app_branch() -> str:
+    """Get app branch from environment or by running git."""
+    # First check environment variable (set during Docker build)
+    branch = os.environ.get('APP_BRANCH', '').strip()
+    if branch:
+        return branch
+
+    # Try to get from git command (for development)
+    try:
+        import subprocess
+        result = subprocess.run(
+            ['git', 'rev-parse', '--abbrev-ref', 'HEAD'],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        if result.returncode == 0:
+            return result.stdout.strip()
+    except (subprocess.SubprocessError, FileNotFoundError):
+        pass
+
+    return "unknown"
+
 BASE_VERSION = get_base_version()
 GIT_HASH = get_git_hash()
-APP_VERSION = f"{BASE_VERSION}+{GIT_HASH}"
+APP_BRANCH = get_app_branch()
+
+# Format: version-branch+hash (omit branch if main or unknown)
+if APP_BRANCH and APP_BRANCH not in ["main", "unknown"]:
+    APP_VERSION = f"{BASE_VERSION}-{APP_BRANCH}+{GIT_HASH}"
+else:
+    APP_VERSION = f"{BASE_VERSION}+{GIT_HASH}"
+
 os.environ["APP_VERSION"] = APP_VERSION # Make available to other services
 
 # Metrics
@@ -440,7 +470,8 @@ async def get_version():
     return {
         "version": APP_VERSION,
         "base_version": BASE_VERSION,
-        "git_hash": GIT_HASH
+        "git_hash": GIT_HASH,
+        "branch": APP_BRANCH
     }
 
 

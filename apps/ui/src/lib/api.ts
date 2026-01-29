@@ -38,6 +38,7 @@ export interface VersionInfo {
     version: string;
     base_version: string;
     git_hash: string;
+    branch: string;
 }
 
 export interface AuthStatus {
@@ -492,10 +493,12 @@ export async function fetchVersion(): Promise<VersionInfo> {
     }
     const appVersion = typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : 'unknown';
     const appVersionBase = appVersion.includes('+') ? appVersion.split('+')[0] : appVersion;
+    const appBranch = typeof __APP_BRANCH__ === 'string' ? __APP_BRANCH__ : 'unknown';
     return { 
         version: appVersion, 
         base_version: appVersionBase, 
-        git_hash: __GIT_HASH__ 
+        git_hash: typeof __GIT_HASH__ === 'string' ? __GIT_HASH__ : 'unknown',
+        branch: appBranch
     };
 }
 

@@ -32,9 +32,29 @@ function getGitHash(): string {
     }
 }
 
+// Get app branch for version tracking
+function getAppBranch(): string {
+    // Check environment variable first (set during Docker build)
+    if (process.env.APP_BRANCH) {
+        return process.env.APP_BRANCH;
+    }
+    // Try to get from git command
+    try {
+        return execSync('git rev-parse --abbrev-ref HEAD').toString().trim();
+    } catch {
+        return 'unknown';
+    }
+}
+
 const baseVersion = getBaseVersion();
 const gitHash = getGitHash();
-const appVersion = `${baseVersion}+${gitHash}`;
+const appBranch = getAppBranch();
+
+// Format: version-branch+hash (omit branch if main or unknown)
+let appVersion = `${baseVersion}+${gitHash}`;
+if (appBranch && appBranch !== 'main' && appBranch !== 'unknown') {
+    appVersion = `${baseVersion}-${appBranch}+${gitHash}`;
+}
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
@@ -42,6 +62,7 @@ export default defineConfig(({ mode }) => ({
     define: {
         __APP_VERSION__: JSON.stringify(appVersion),
         __GIT_HASH__: JSON.stringify(gitHash),
+        __APP_BRANCH__: JSON.stringify(appBranch),
     },
     build: {
         sourcemap: mode !== 'production',

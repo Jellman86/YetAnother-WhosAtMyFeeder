@@ -25,8 +25,10 @@ WORKDIR /app
 # Version info passed at build time
 ARG GIT_HASH=unknown
 ARG APP_VERSION_BASE=2.2.0
+ARG APP_BRANCH=unknown
 ENV GIT_HASH=${GIT_HASH}
 ENV APP_VERSION_BASE=${APP_VERSION_BASE}
+ENV APP_BRANCH=${APP_BRANCH}
 
 # Install runtime libs for opencv/tflite
 RUN apt-get update && apt-get install -y --no-install-recommends \
