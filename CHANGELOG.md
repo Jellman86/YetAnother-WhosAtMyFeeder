@@ -4,8 +4,11 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog, and this project adheres to Semantic Versioning.
 
-## [Unreleased]
+## [2.7.0] - 2026-01-29
 
+- **Added:** Application versioning now includes the current branch name (e.g., `2.7.0-dev+abc1234`).
+- **Added:** Nginx Reverse Proxy guide updated with dynamic DNS resolution (resolver) to prevent 502 errors when container IPs change.
+- **Fixed:** Resolved "System Offline" errors caused by stale DNS cache in Nginx.
 - **Fixed:** Resolved multiple TypeScript and Svelte compilation errors across settings components.
 - **Fixed:** Corrected i18n interpolation usage and aria-label type mismatches in UI components.
 - **Fixed:** Improved `onMount` async handling in `App.svelte` to prevent type mismatches.
