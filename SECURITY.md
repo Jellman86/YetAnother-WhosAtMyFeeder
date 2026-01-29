@@ -16,7 +16,7 @@ If you discover a security vulnerability in YA-WAMF, please report it privately 
 - Email: [security@ya-wamf.org](mailto:security@ya-wamf.org) (Replace with actual email or remove if not applicable)
 - OR: Open a GitHub draft security advisory (if enabled on the repo).
 
-We will acknowledge your report within 48 hours.
+I will acknowledge your report within 48 hours.
 
 ## Security Features (v2.6.0+)
 

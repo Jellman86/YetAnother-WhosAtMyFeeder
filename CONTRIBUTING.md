@@ -55,7 +55,7 @@ The following is a set of guidelines for contributing to Yet Another WhosAtMyFee
 
 ## 📐 Coding Standards
 
-*   **Python:** We use [Ruff](https://github.com/astral-sh/ruff) for linting and formatting. Please run `ruff check .` and `ruff format .` before committing.
+*   **Python:** I use [Ruff](https://github.com/astral-sh/ruff) for linting and formatting. Please run `ruff check .` and `ruff format .` before committing.
 *   **TypeScript/Svelte:** Use standard Prettier formatting.
 *   **Commits:** Please write clear, concise commit messages.
 

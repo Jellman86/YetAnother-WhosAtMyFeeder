@@ -59,7 +59,7 @@ Telemetry is **disabled by default** and completely optional. Users who wish to 
 On first launch, you may see a friendly banner inviting you to opt in - this can be dismissed and won't appear again.
 
 ## Source Code & Transparency
-We believe in full transparency regarding the data we collect. You can inspect exactly how the heartbeat is constructed and transmitted in the backend source code:
+I believe in full transparency regarding the data I collect. You can inspect exactly how the heartbeat is constructed and transmitted in the backend source code:
 
 - **[Telemetry Service (Backend)](../backend/app/services/telemetry_service.py)**: This module handles the generation of the anonymous Installation ID, gathers the metadata defined above, and transmits the payload via HTTPS.
 

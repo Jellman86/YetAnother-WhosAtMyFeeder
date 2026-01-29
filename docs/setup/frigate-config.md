@@ -84,4 +84,4 @@ Using the `go2rtc` section in Frigate provides several major benefits:
 While Frigate's detection model often runs at a low resolution (e.g., 320x320), YA-WAMF's high-accuracy models (EVA-02) perform much better if the source snapshot is clear. Ensure your `detect` role is assigned to a stream with decent resolution (720p or higher) for the best identification results.
 
 ### 🎥 Record Mode
-YA-WAMF's **Deep Video Analysis** requires access to the recording files. You must have `record: enabled: True` and we recommend `mode: all` for at least a few days to ensure the system can go back and re-analyze any event you click on.
+YA-WAMF's **Deep Video Analysis** requires access to the recording files. You must have `record: enabled: True` and I recommend `mode: all` for at least a few days to ensure the system can go back and re-analyze any event you click on.

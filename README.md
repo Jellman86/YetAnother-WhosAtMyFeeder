@@ -112,7 +112,7 @@ Here's the flow from bird to identification:
 1. **Frigate spots a bird** - Your camera picks up movement, Frigate's object detection identifies it as a bird
 2. **MQTT message sent** - Frigate publishes an event to `frigate/events` on your MQTT broker
 3. **YA-WAMF receives the event** - The backend is subscribed to that MQTT topic and picks up the message
-4. **Efficiency Check** - If "Trust Frigate Sublabels" is enabled and Frigate already has a label, we use it instantly.
+4. **Efficiency Check** - If "Trust Frigate Sublabels" is enabled and Frigate already has a label, I use it instantly.
 5. **Classification runs** - Otherwise, the image goes through a local model (TFLite or ONNX) trained on bird species.
 6. **Results stored & Notified** - The detection is saved, and notifications (Discord/Telegram/Pushover) are fired immediately.
 7. **Deep Analysis** - If enabled, a background task waits for the video clip to finalize, then scans it frame-by-frame to refine the ID.
@@ -243,7 +243,7 @@ YA-WAMF v2.6.0 introduces a robust built-in authentication system.
 👉 **[Read the Full Authentication & Access Control Guide](docs/features/authentication.md)**
 
 ### 🔑 Legacy API Key (Deprecated)
-If you are upgrading from an older version using `YA_WAMF_API_KEY`, your setup will continue to work. However, this method is **deprecated** and will be removed in v2.9.0. We recommend migrating to the new password-based system via **Settings > Security**.
+If you are upgrading from an older version using `YA_WAMF_API_KEY`, your setup will continue to work. However, this method is **deprecated** and will be removed in v2.9.0. I recommend migrating to the new password-based system via **Settings > Security**.
 
 For detailed upgrade instructions, see the [Migration Guide](MIGRATION.md).
 
@@ -282,7 +282,7 @@ This project is actively developed and your feedback is valuable!
 
 **How to contribute:**
 - **Report bugs** - [Open an issue](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues) for bugs or feature requests
-- **Share feedback** - Let us know what works and what doesn't
+- **Share feedback** - Let me know what works and what doesn't
 - **Enable telemetry** - Turn on anonymous usage stats in **Settings > Connections** (see [Telemetry Spec](docs/TELEMETRY_SPEC.md))
 - **Test features** - Try video analysis, notifications, and integrations in your environment
 

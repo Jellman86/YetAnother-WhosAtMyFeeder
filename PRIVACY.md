@@ -1,6 +1,6 @@
 # Privacy Policy
 
-YA-WAMF is a self-hosted application. We believe your data belongs to you.
+YA-WAMF is a self-hosted application. I believe your data belongs to you.
 
 ## Data Collection
 

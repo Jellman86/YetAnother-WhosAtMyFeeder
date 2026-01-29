@@ -145,7 +145,7 @@ Bird watching is a global hobby! Users in non-English speaking countries deserve
 Add persistent storage for AI-generated behavioral analyses to reduce API costs and improve response times.
 
 **Why This Matters:**
-Currently, every time you view a detection and request AI analysis, it makes a fresh API call to Gemini/OpenAI/Claude. This is expensive ($$$ API costs) and slow. By caching analyses, we can:
+Currently, every time you view a detection and request AI analysis, it makes a fresh API call to Gemini/OpenAI/Claude. This is expensive ($$$ API costs) and slow. By caching analyses, I can:
 - Reduce API costs by 90%+ (only generate once per detection)
 - Instant display of previously generated analyses
 - Allow offline viewing of past analyses
