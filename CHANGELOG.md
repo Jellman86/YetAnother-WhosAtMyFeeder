@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog, and this project adheres to Semantic Versioning.
 
-## [2.7.0] - 2026-01-29
+## [2.6.7] - 2026-01-29
 
 - **Added:** Application versioning now includes the current branch name (e.g., `2.7.0-dev+abc1234`).
 - **Added:** Nginx Reverse Proxy guide updated with dynamic DNS resolution (resolver) to prevent 502 errors when container IPs change.
