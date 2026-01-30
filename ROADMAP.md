@@ -23,11 +23,14 @@ YA-WAMF already has extensive functionality built-in:
 - ✅ Home Assistant custom integration
 - ✅ LLM behavioral analysis (Gemini, OpenAI, Claude)
 - ✅ iNaturalist taxonomy normalization
+- ✅ Multiple Language Support (i18n) - Translations for 9+ languages
+- ✅ Built-in Authentication system (Admin/Owner & Guest roles)
 
 **User Interface:**
 - ✅ Real-time dashboard with SSE updates
 - ✅ Dark mode support
 - ✅ Detection filtering (species, camera, date, confidence, audio)
+- ✅ Advanced Search & Filtering UI
 - ✅ Video playback with seeking (HTTP Range support)
 - ✅ Statistics dashboard (top visitors, daily histogram, recent audio)
 - ✅ Species detail modals with Wikipedia info
@@ -82,64 +85,7 @@ See [DEVELOPER.md](DEVELOPER.md) for architectural details.
 
 These are the highest-impact features planned for the next major release.
 
-### 1. Multiple Language Support (i18n) 🌍
-**Priority:** P1 | **Effort:** L (2-3 weeks)
-
-Make YA-WAMF accessible to users worldwide by adding full internationalization support.
-
-**Why This Matters:**
-Bird watching is a global hobby! Users in non-English speaking countries deserve a native language experience. This includes translating the UI, notifications, and even species names.
-
-**What Will Be Implemented:**
-
-**Backend (6 days):**
-- Install and configure i18n framework (Flask-Babel or similar)
-- Extract all hardcoded English strings to translation files
-- Add `/api/settings/language` endpoint for language selection
-- Implement language detection from `Accept-Language` headers
-- Add language parameter to notification services (Discord, Telegram, Pushover)
-- Support multi-lingual species names via iNaturalist API (scientific name + localized common names)
-
-**Frontend (7 days):**
-- Integrate Svelte i18n library (`svelte-i18n` or `typesafe-i18n`)
-- Extract all UI strings (buttons, labels, messages, errors) to translation keys
-- Create translation files for each language (JSON format)
-- Add language selector dropdown to Settings → General
-- Implement live language switching (no page reload required)
-- Handle date/time formatting per locale
-- Support RTL (Right-to-Left) layouts for Arabic/Hebrew
-
-**Initial Languages:**
-- 🇬🇧 English (default, already complete)
-- 🇪🇸 Spanish
-- 🇩🇪 German
-- 🇫🇷 French
-- 🇳🇱 Dutch
-- 🇵🇹 Portuguese
-- 🇮🇹 Italian (bonus)
-
-**Deliverables:**
-- Translation files: `locales/en.json`, `locales/es.json`, etc.
-- Language selector in Settings UI
-- Localized notifications
-- Localized species common names (fallback to scientific name if unavailable)
-- Documentation for community to contribute translations
-
-**Estimated Breakdown:**
-| Task | Effort |
-|------|--------|
-| Backend i18n framework setup | 2 days |
-| Extract & translate backend strings | 2 days |
-| Frontend i18n library integration | 2 days |
-| Extract & translate frontend strings | 3 days |
-| Language selector UI | 1 day |
-| Species name localization | 1 day |
-| Testing all languages | 2 days |
-| **Total** | **13 days (~2.5 weeks)** |
-
----
-
-### 2. AI Integration Persistence 🧠
+### 1. AI Integration Persistence 🧠
 **Priority:** P1 | **Effort:** M (5-7 days)
 
 Add persistent storage for AI-generated behavioral analyses to reduce API costs and improve response times.
@@ -244,24 +190,12 @@ Enhance the detection search interface with an intuitive filter panel.
 
 **Current State:**
 - ✅ Backend supports filtering by species, camera, date, confidence, audio confirmation
-- ❌ Frontend only has basic text search
-
-**What to Add:**
-- Visual filter panel with:
-  - Date range picker (from/to)
-  - Camera multi-select dropdown
-  - Confidence range slider (0-100%)
-  - Audio-confirmed checkbox
-  - "Hidden detections" toggle
-- Saved filter presets (save favorite filters)
-- "Clear All Filters" button
-- Export filtered results to CSV/JSON
+- ✅ Visual filter panel implemented (date presets, species, camera, sort)
 
 **Breakdown:**
-- Frontend filter panel UI: 2 days
-- Saved presets (localStorage): 1 day
-- Export functionality: 1 day
-- Testing: 0.5 days
+- ✅ Frontend filter panel UI
+- ❌ Saved filter presets (save favorite filters)
+- ❌ Export filtered results to CSV/JSON
 
 ### 2.2 Enhanced Analytics Dashboard 📊
 **Priority:** P2 | **Effort:** M (5-7 days)
@@ -316,27 +250,14 @@ Enhance the detection search interface with an intuitive filter panel.
 ### 3.1 Multi-User Support & Roles 👥
 **Priority:** P2 | **Effort:** XL (3-4 weeks)
 
-Add user accounts, authentication, and role-based access control.
+✅ **Implemented in v2.6.0**
 
-**Implementation:**
-- User authentication system (JWT tokens)
-- User registration/login/logout
-- Password reset flow
-- User roles:
-  - **Admin:** Full access, settings management
-  - **User:** View detections, limited settings
-  - **Viewer:** Read-only access
-- Per-user notification preferences
-- Audit log for settings changes
-- SSO support (OAuth2: Google, GitHub)
-
-**Breakdown:**
-- Auth backend (JWT, DB schema): 5 days
-- User management UI: 4 days
-- Role-based permissions: 3 days
-- SSO integration: 3 days
-- Migration path from single-key auth: 2 days
-- Testing & security audit: 3 days
+- ✅ User authentication system (JWT tokens)
+- ✅ User registration/login/logout
+- ✅ User roles: Admin (Owner) and Viewer (Guest)
+- ✅ Rate limiting and session management
+- ❌ Password reset flow (currently manual reset via config.json)
+- ❌ SSO support (OAuth2: Google, GitHub)
 
 ### 3.2 Enhanced Notification Rules 🔔
 **Priority:** P2 | **Effort:** S (2-3 days)
@@ -563,30 +484,13 @@ Optimize system performance for large installations.
 ### 5.3 Testing Infrastructure 🧪
 **Priority:** P1 | **Effort:** L (1.5-2 weeks)
 
-Establish comprehensive testing coverage.
+✅ **Implemented**
 
-**Tasks:**
-- Unit tests:
-  - Service layer (target 80% coverage)
-  - Repository layer
-  - Utility functions
-- Integration tests:
-  - API endpoints
-  - MQTT event flow
-  - Database migrations
-- E2E tests:
-  - Frontend critical paths (Playwright)
-  - User workflows
-- CI/CD pipeline:
-  - GitHub Actions for automated testing
-  - Code coverage reporting
-  - Linting enforcement
-
-**Breakdown:**
-- Unit tests: 5 days
-- Integration tests: 3 days
-- E2E tests: 2 days
-- CI/CD setup: 2 days
+- ✅ Unit tests for Service layer, repositories, and utilities
+- ✅ Integration tests for API endpoints and MQTT flow
+- ✅ CI/CD pipeline (GitHub Actions) with automated testing
+- ✅ Code coverage reporting
+- ❌ E2E tests (Playwright coverage is currently minimal)
 
 ---
 
