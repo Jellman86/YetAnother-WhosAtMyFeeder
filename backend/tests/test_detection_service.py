@@ -85,10 +85,9 @@ async def test_apply_video_result_re_evaluates_audio(mock_deps):
     await service.apply_video_result("event1", "Blue Jay", 0.8, 10)
     
     # Verify the update query set audio_confirmed to 1
-    update_call = [call for call in mock_deps["db"].execute.call_args_list if "UPDATE detections" in call[0][0]]
-    args = update_call[0][0]
-    params = update_call[0][1]
+    update_call = [call for call in mock_deps["db"].execute.call_args_list if "UPDATE detections" in call.args[0]]
+    args = update_call[0].args
+    params = args[1]
     
     # Find the index of audio_confirmed in the query
-    # SET display_name = ?, category_name = ?, score = ?, detection_index = ?, scientific_name = ?, common_name = ?, taxa_id = ?, audio_confirmed = ?
     assert params[7] == 1 # audio_confirmed should be True (1)
