@@ -74,11 +74,6 @@
             description: $_('about.feature_list.observability.desc')
         },
         {
-            icon: '🦊',
-            title: $_('about.feature_list.wildlife.title'),
-            description: $_('about.feature_list.wildlife.desc')
-        },
-        {
             icon: '⚡',
             title: $_('about.feature_list.fast_path.title'),
             description: $_('about.feature_list.fast_path.desc')
