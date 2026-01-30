@@ -41,6 +41,7 @@ YA-WAMF already has extensive functionality built-in:
 - ✅ Media caching (snapshots & clips)
 - ✅ Telemetry service (opt-in, anonymous)
 - ✅ Backfill service (reprocess historical events)
+- ✅ AI Integration Persistence (Caching) - Avoid redundant LLM API calls
 - ✅ Health checks & Prometheus metrics
 - ✅ Optional API key authentication
 - ✅ Weather data enrichment
@@ -85,65 +86,22 @@ See [DEVELOPER.md](DEVELOPER.md) for architectural details.
 
 These are the highest-impact features planned for the next major release.
 
-### 1. AI Integration Persistence 🧠
-**Priority:** P1 | **Effort:** M (5-7 days)
+### 1. iNaturalist Photo Submission 🌿
+**Priority:** P2 | **Effort:** M (5-7 days)
 
-Add persistent storage for AI-generated behavioral analyses to reduce API costs and improve response times.
+Enable users to contribute high-quality bird observations directly to the iNaturalist community.
 
-**Why This Matters:**
-Currently, every time you view a detection and request AI analysis, it makes a fresh API call to Gemini/OpenAI/Claude. This is expensive ($$$ API costs) and slow. By caching analyses, I can:
-- Reduce API costs by 90%+ (only generate once per detection)
-- Instant display of previously generated analyses
-- Allow offline viewing of past analyses
-- Track which AI model/version generated each analysis
+**Features:**
+- **OAuth2 Integration:** Allow users to link their personal iNaturalist accounts.
+- **Human-in-the-loop Verification:** Simple "Submit to iNaturalist" button on high-confidence detections to ensure data quality and avoid bot spam.
+- **Automatic Metadata Mapping:** Submit observations with accurate timestamps, GPS coordinates (from camera settings), and taxon IDs.
+- **Photo Upload:** Automatically upload the best snapshot or video frame alongside the observation.
 
-**What Will Be Implemented:**
-
-**Database Schema (1 day):**
-```sql
-CREATE TABLE ai_analyses (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  detection_id INTEGER NOT NULL REFERENCES detections(id) ON DELETE CASCADE,
-  provider VARCHAR(50) NOT NULL,  -- 'gemini', 'openai', 'claude'
-  model VARCHAR(100) NOT NULL,    -- 'gemini-2.0-flash-exp', 'gpt-4o', etc.
-  analysis_text TEXT NOT NULL,
-  metadata JSON,                  -- token usage, temperature, etc.
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE(detection_id, provider, model)
-);
-CREATE INDEX idx_ai_analyses_detection ON ai_analyses(detection_id);
-```
-
-**Backend (3 days):**
-- Update `ai_service.py` to check cache before API call
-- Store all successful analyses in `ai_analyses` table
-- Add TTL/expiration logic (configurable, default: never expire)
-- Add settings option: `llm.cache_enabled` (default: true)
-- Add settings option: `llm.cache_retention_days` (default: 0 = unlimited)
-
-**API Endpoints (1 day):**
-- `GET /api/detections/{id}/ai-analysis` - Get cached or generate new
-  - Query param: `force_regenerate=true` to bypass cache
-- `DELETE /api/detections/{id}/ai-analysis` - Clear cached analysis
-- `GET /api/ai/cache/stats` - Cache statistics (hit rate, total analyses, cost saved)
-
-**Frontend (2 days):**
-- Update `SpeciesDetailModal.svelte` to show cache status:
-  - "✓ Cached analysis from 2 hours ago"
-  - "🔄 Regenerate" button to force fresh analysis
-  - Show which model generated the analysis
-- Add cache stats to Settings → AI Integration
-- Add "Clear All AI Caches" button in Settings
-
-**Estimated Breakdown:**
-| Task | Effort |
-|------|--------|
-| Database schema & Alembic migration | 1 day |
-| Backend cache implementation | 2 days |
-| API endpoints | 1 day |
-| Frontend UI updates | 1.5 days |
-| Testing & documentation | 1 day |
-| **Total** | **6.5 days (~1.5 weeks)** |
+**Breakdown:**
+- iNaturalist OAuth2 flow: 2 days
+- API client for observation creation and photo upload: 2 days
+- UI for submission and verification: 1.5 days
+- Testing: 1 day
 
 ---
 
@@ -351,23 +309,6 @@ Add support for self-hosted LLMs via Ollama for privacy-conscious users.
 - History page: 1 day
 - Testing: 0.5 days
 
-### 4.2 iNaturalist Photo Submission 🌿
-**Priority:** P2 | **Effort:** M (5-7 days)
-
-Enable users to contribute high-quality bird observations directly to the iNaturalist community.
-
-**Features:**
-- **OAuth2 Integration:** Allow users to link their personal iNaturalist accounts.
-- **Human-in-the-loop Verification:** Simple "Submit to iNaturalist" button on high-confidence detections to ensure data quality and avoid bot spam.
-- **Automatic Metadata Mapping:** Submit observations with accurate timestamps, GPS coordinates (from camera settings), and taxon IDs.
-- **Photo Upload:** Automatically upload the best snapshot or video frame alongside the observation.
-
-**Breakdown:**
-- iNaturalist OAuth2 flow: 2 days
-- API client for observation creation and photo upload: 2 days
-- UI for submission and verification: 1.5 days
-- Testing: 1 day
-
 ### 4.3 eBird Integration 🐦
 **Priority:** P2 | **Effort:** M (6-7 days)
 
@@ -388,25 +329,6 @@ Integrate with eBird for species validation and community science.
 - Submission flow with consent: 1.5 days
 - UI integration: 1.5 days
 - Testing: 1 day
-
-### 4.3 PostgreSQL Support 🐘
-**Priority:** P2 | **Effort:** M (5-6 days)
-
-Add PostgreSQL as an alternative to SQLite for high-volume installations.
-
-**Implementation:**
-- Abstract database layer (keep SQLite support)
-- PostgreSQL-specific optimizations (indexes, materialized views)
-- Migration tool from SQLite to PostgreSQL
-- Connection pooling
-- Docker Compose update with PostgreSQL service
-- Performance benchmarking guide
-
-**Breakdown:**
-- Database abstraction: 2 days
-- PostgreSQL adapter: 2 days
-- Migration tooling: 1.5 days
-- Testing & documentation: 1 day
 
 ### 4.4 Backup & Export Tools 💾
 **Priority:** P1 | **Effort:** M (4-5 days)
