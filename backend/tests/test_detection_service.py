@@ -34,7 +34,16 @@ async def test_apply_video_result_overrides_lower_score(mock_deps):
     existing = MagicMock(spec=Detection)
     existing.score = 0.5
     existing.display_name = "Old Name"
+    existing.detection_time = datetime.now()
+    existing.camera_name = "cam1"
+    existing.is_hidden = False
     existing.audio_species = None
+    existing.audio_score = None
+    existing.audio_confirmed = False
+    existing.video_classification_label = "New Species"
+    existing.video_classification_score = 0.9
+    existing.video_classification_status = "completed"
+    
     mock_deps["repo"].get_by_frigate_event = AsyncMock(return_value=existing)
     
     await service.apply_video_result("event1", "New Species", 0.9, 5)
@@ -58,8 +67,16 @@ async def test_apply_video_result_re_evaluates_audio(mock_deps):
     existing = MagicMock(spec=Detection)
     existing.score = 0.5
     existing.display_name = "Unknown Bird"
+    existing.detection_time = datetime.now()
+    existing.camera_name = "cam1"
+    existing.is_hidden = False
     existing.audio_species = "Blue Jay"
+    existing.audio_score = 0.9
     existing.audio_confirmed = False
+    existing.video_classification_label = "Blue Jay"
+    existing.video_classification_score = 0.8
+    existing.video_classification_status = "completed"
+    
     mock_deps["repo"].get_by_frigate_event = AsyncMock(return_value=existing)
     
     await service.apply_video_result("event1", "Blue Jay", 0.8, 10)
