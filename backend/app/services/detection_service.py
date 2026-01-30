@@ -208,3 +208,119 @@ class DetectionService:
         async with get_db() as db:
             repo = DetectionRepository(db)
             return await repo.get_by_frigate_event(frigate_event)
+
+    async def apply_video_result(self, frigate_event: str, video_label: str, video_score: float, video_index: int):
+        """
+        Process and save results from background video analysis.
+        If video confidence is higher than the current score, it overrides the primary ID.
+        """
+        async with get_db() as db:
+            repo = DetectionRepository(db)
+            existing = await repo.get_by_frigate_event(frigate_event)
+            if not existing:
+                log.warning("Cannot apply video result: event not found", event_id=frigate_event)
+                return
+
+            # 1. Update video-specific columns first
+            await repo.update_video_classification(
+                frigate_event=frigate_event,
+                label=video_label,
+                score=video_score,
+                index=video_index,
+                status='completed'
+            )
+
+            # 2. Determine if video result should override primary identification
+            # Criteria: 
+            # - Video score is higher than current score OR 
+            # - Current ID is "Unknown Bird" and video found something OR
+            # - Current ID was previously 'upgraded' by audio (manual check if needed, but score usually handles it)
+            
+            should_override = (
+                video_score > existing.score or 
+                existing.display_name == "Unknown Bird" or
+                (existing.display_name in settings.classification.unknown_bird_labels)
+            )
+
+            if should_override:
+                log.info("Video analysis overriding primary identification", 
+                         event_id=frigate_event, 
+                         old_species=existing.display_name, 
+                         old_score=existing.score,
+                         new_species=video_label, 
+                         new_score=video_score)
+
+                # Get taxonomy for new label
+                taxonomy = await taxonomy_service.get_names(video_label)
+                scientific_name = taxonomy.get("scientific_name") or video_label
+                common_name = taxonomy.get("common_name")
+
+                display_name = video_label
+                if settings.classification.display_common_names and common_name:
+                    display_name = common_name
+                elif not settings.classification.display_common_names and scientific_name:
+                    display_name = scientific_name
+
+                # Re-evaluate audio confirmation against new species
+                audio_confirmed = False
+                if existing.audio_species:
+                    # Check if the stored audio match actually matches the NEW video label
+                    if existing.audio_species.lower() == video_label.lower():
+                        audio_confirmed = True
+                        log.info("Audio confirmed new video identification", event_id=frigate_event, species=video_label)
+                    else:
+                        log.debug("Previous audio match does not confirm new video ID", 
+                                  event_id=frigate_event, 
+                                  audio=existing.audio_species, 
+                                  video=video_label)
+
+                # Update primary fields
+                await db.execute("""
+                    UPDATE detections
+                    SET display_name = ?,
+                        category_name = ?,
+                        score = ?,
+                        detection_index = ?,
+                        scientific_name = ?,
+                        common_name = ?,
+                        taxa_id = ?,
+                        audio_confirmed = ?
+                    WHERE frigate_event = ?
+                """, (
+                    display_name,
+                    video_label,
+                    video_score,
+                    video_index,
+                    scientific_name,
+                    common_name,
+                    taxonomy.get("taxa_id"),
+                    1 if audio_confirmed else 0,
+                    frigate_event
+                ))
+                await db.commit()
+
+                # Broadcast the update
+                updated = await repo.get_by_frigate_event(frigate_event)
+                if updated:
+                    await self.broadcaster.broadcast({
+                        "type": "detection_updated",
+                        "data": {
+                            "frigate_event": frigate_event,
+                            "display_name": updated.display_name,
+                            "score": updated.score,
+                            "timestamp": updated.detection_time.isoformat(),
+                            "camera": updated.camera_name,
+                            "is_hidden": updated.is_hidden,
+                            "audio_confirmed": updated.audio_confirmed,
+                            "audio_species": updated.audio_species,
+                            "audio_score": updated.audio_score,
+                            "video_classification_label": updated.video_classification_label,
+                            "video_classification_score": updated.video_classification_score,
+                            "video_classification_status": updated.video_classification_status
+                        }
+                    })
+            else:
+                log.debug("Video analysis completed but did not override primary ID", 
+                          event_id=frigate_event, 
+                          current_score=existing.score, 
+                          video_score=video_score)

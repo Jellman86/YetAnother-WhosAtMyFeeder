@@ -258,19 +258,12 @@ class EventProcessor:
             if audio_score > classification['score']:
                 classification['score'] = audio_score
             log.info("Audio confirmed visual detection", species=visual_label, score=classification['score'])
-
-        # Logic 2: Enhancement - visual is unknown but audio is strong
-        elif visual_label in settings.classification.unknown_bird_labels or visual_label == "Unknown Bird":
-            if audio_score > 0.7:  # High confidence audio
-                log.info("Upgrading visual detection with audio", old=visual_label, new=audio_species, score=audio_score)
-                classification['label'] = audio_species
-                classification['score'] = audio_score
-                classification['audio_confirmed'] = True
-                classification['audio_species'] = audio_species
-                classification['audio_score'] = audio_score
         else:
-            # Mismatch: do not attach audio species/score for unrelated detections
-            log.debug("Audio mismatch ignored", visual=visual_label, audio=audio_species, audio_score=audio_score)
+            # Mismatch: Attach audio species/score for 'also heard' display, but don't confirm or upgrade
+            classification['audio_confirmed'] = False
+            classification['audio_species'] = audio_species
+            classification['audio_score'] = audio_score
+            log.debug("Audio recorded as heard (not confirmed)", visual=visual_label, audio=audio_species)
 
         return classification
 

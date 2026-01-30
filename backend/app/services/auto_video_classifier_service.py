@@ -506,47 +506,16 @@ class AutoVideoClassifierService:
                     })
 
     async def _save_results(self, frigate_event: str, result: dict):
-        """Save final results to DB and broadcast detection update."""
-        async with get_db() as db:
-            repo = DetectionRepository(db)
-            await repo.update_video_classification(
-                frigate_event=frigate_event,
-                label=result['label'],
-                score=result['score'],
-                index=result['index'],
-                status='completed'
-            )
-            
-            # Fetch the full updated detection to broadcast
-            det = await repo.get_by_frigate_event(frigate_event)
-            if det:
-                await broadcaster.broadcast({
-                    "type": "detection_updated",
-                    "data": {
-                        "frigate_event": frigate_event,
-                        "display_name": det.display_name,
-                        "score": det.score,
-                        "timestamp": det.detection_time.isoformat(),
-                        "camera": det.camera_name,
-                        "is_hidden": det.is_hidden,
-                        "frigate_score": det.frigate_score,
-                        "sub_label": det.sub_label,
-                        "manual_tagged": det.manual_tagged,
-                        "audio_confirmed": det.audio_confirmed,
-                        "audio_species": det.audio_species,
-                        "audio_score": det.audio_score,
-                        "temperature": det.temperature,
-                        "weather_condition": det.weather_condition,
-                        "scientific_name": det.scientific_name,
-                        "common_name": det.common_name,
-                        "taxa_id": det.taxa_id,
-                        "video_classification_score": det.video_classification_score,
-                        "video_classification_label": det.video_classification_label,
-                        "video_classification_status": det.video_classification_status,
-                        "video_classification_error": det.video_classification_error,
-                        "video_classification_timestamp": det.video_classification_timestamp.isoformat() if det.video_classification_timestamp else None
-                    }
-                })
+        """Save final results via DetectionService to handle intelligent overrides."""
+        from app.services.detection_service import DetectionService
+        svc = DetectionService(self._classifier)
+        
+        await svc.apply_video_result(
+            frigate_event=frigate_event,
+            video_label=result['label'],
+            video_score=result['score'],
+            video_index=result['index']
+        )
         # _record_success is already called on completion in _process_event.
 
 # Global singleton
