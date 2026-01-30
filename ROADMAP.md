@@ -430,7 +430,24 @@ Add support for self-hosted LLMs via Ollama for privacy-conscious users.
 - History page: 1 day
 - Testing: 0.5 days
 
-### 4.2 eBird Integration 🐦
+### 4.2 iNaturalist Photo Submission 🌿
+**Priority:** P2 | **Effort:** M (5-7 days)
+
+Enable users to contribute high-quality bird observations directly to the iNaturalist community.
+
+**Features:**
+- **OAuth2 Integration:** Allow users to link their personal iNaturalist accounts.
+- **Human-in-the-loop Verification:** Simple "Submit to iNaturalist" button on high-confidence detections to ensure data quality and avoid bot spam.
+- **Automatic Metadata Mapping:** Submit observations with accurate timestamps, GPS coordinates (from camera settings), and taxon IDs.
+- **Photo Upload:** Automatically upload the best snapshot or video frame alongside the observation.
+
+**Breakdown:**
+- iNaturalist OAuth2 flow: 2 days
+- API client for observation creation and photo upload: 2 days
+- UI for submission and verification: 1.5 days
+- Testing: 1 day
+
+### 4.3 eBird Integration 🐦
 **Priority:** P2 | **Effort:** M (6-7 days)
 
 Integrate with eBird for species validation and community science.
@@ -732,5 +749,5 @@ Have a feature idea not on this list? Open an issue on [GitHub](https://github.c
 
 ---
 
-**Last Updated:** 2026-01-11
-**Version:** 2.5.0
+**Last Updated:** 2026-01-29
+**Version:** 2.6.7
