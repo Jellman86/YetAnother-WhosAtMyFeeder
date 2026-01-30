@@ -15,6 +15,7 @@ def mock_deps():
         mock_get_db.return_value.__aenter__.return_value = mock_db
         
         mock_repo = MockRepo.return_value
+        mock_repo.update_video_classification = AsyncMock()
         mock_taxonomy.get_names = AsyncMock(return_value={"scientific_name": "New Sci", "common_name": "New Common", "taxa_id": 123})
         
         yield {
