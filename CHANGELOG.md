@@ -6,9 +6,14 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [2.6.7] - 2026-01-29
 
-- **Added:** Application versioning now includes the current branch name (e.g., `2.7.0-dev+abc1234`).
-- **Added:** Nginx Reverse Proxy guide updated with dynamic DNS resolution (resolver) to prevent 502 errors when container IPs change.
-- **Fixed:** Resolved "System Offline" errors caused by stale DNS cache in Nginx.
+- **Fixed:** Refined Audio/Video correlation logic: Audio detections can no longer "upgrade" the species name of a visual detection. Audio is now strictly for verification and metadata ("also heard").
+- **Fixed:** High-confidence Video Analysis results now intelligently override the primary species identification and score if they provide a better match than the initial snapshot.
+- **Fixed:** Automated re-evaluation of audio confirmation badges when video analysis corrects or updates a species identification.
+- **Added:** Application versioning now includes the current git branch name (e.g., `2.6.7-dev+abc1234`) across the UI, Backend, and Telemetry.
+- **Added:** Nginx Reverse Proxy guide updated with dynamic DNS resolution (resolver) to prevent "System Offline" (502) errors when container IPs change.
+- **Changed:** Removed all references to the defunct generic wildlife classifier from documentation, the About page, and architectural diagrams.
+- **Changed:** Standardized project documentation tone to use first-person singular ("I/me/my") throughout all Markdown files.
+- **Fixed:** Resolved "System Offline" errors caused by stale DNS cache in Nginx Proxy Manager.
 - **Fixed:** Resolved multiple TypeScript and Svelte compilation errors across settings components.
 - **Fixed:** Corrected i18n interpolation usage and aria-label type mismatches in UI components.
 - **Fixed:** Improved `onMount` async handling in `App.svelte` to prevent type mismatches.
