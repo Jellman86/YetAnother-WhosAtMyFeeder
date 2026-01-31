@@ -557,13 +557,16 @@
                     <button
                         type="button"
                         onclick={toggleAudioContext}
-                        class="text-[10px] font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-2"
+                        class="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-slate-100/70 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60 text-[11px] font-bold uppercase tracking-widest text-slate-600 dark:text-slate-300"
                         aria-label={$_('detection.audio_context')}
                     >
-                        <svg class="w-3 h-3 transition-transform {audioContextOpen ? 'rotate-180' : ''}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                        </svg>
-                        <span>{$_('detection.audio_context')}</span>
+                        <span class="flex items-center gap-2">
+                            <svg class="w-3 h-3 transition-transform {audioContextOpen ? '-rotate-90' : 'rotate-0'}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                            </svg>
+                            {$_('detection.audio_context')}
+                        </span>
+                        <span class="text-[9px] font-black text-slate-400">{audioContextOpen ? $_('common.hide') : $_('common.show')}</span>
                     </button>
                     {#if audioContextOpen}
                         <div class="rounded-2xl border border-slate-200/60 dark:border-slate-700/60 bg-white/70 dark:bg-slate-900/40 p-3 space-y-2">
@@ -623,13 +626,16 @@
                     <button
                         type="button"
                         onclick={(event) => { event.stopPropagation(); weatherDetailsOpen = !weatherDetailsOpen; }}
-                        class="text-[10px] font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-2"
+                        class="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-slate-100/70 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60 text-[11px] font-bold uppercase tracking-widest text-slate-600 dark:text-slate-300"
                         aria-label={$_('detection.weather_details')}
                     >
-                        <svg class="w-3 h-3 transition-transform {weatherDetailsOpen ? 'rotate-180' : ''}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                        </svg>
-                        <span>{$_('detection.weather_details')}</span>
+                        <span class="flex items-center gap-2">
+                            <svg class="w-3 h-3 transition-transform {weatherDetailsOpen ? '-rotate-90' : 'rotate-0'}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                            </svg>
+                            {$_('detection.weather_details')}
+                        </span>
+                        <span class="text-[9px] font-black text-slate-400">{weatherDetailsOpen ? $_('common.hide') : $_('common.show')}</span>
                     </button>
                     {#if weatherDetailsOpen}
                         <div class="grid grid-cols-2 gap-2">
