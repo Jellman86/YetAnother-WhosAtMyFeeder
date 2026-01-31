@@ -189,79 +189,70 @@
     let timelineCounts = $derived(timeline?.daily?.map((d) => d.count) || []);
     let timelineMax = $derived(timelineCounts.length ? Math.max(...timelineCounts) : 0);
     let isDark = $derived(() => themeStore.isDark);
-    function resolveWeatherIcon(entry: any) {
-        const rain = entry?.rain ?? 0;
-        const snow = entry?.snow ?? 0;
-        const wind = entry?.wind ?? 0;
-        const cloud = entry?.cloud ?? 0;
-
-        if (snow > 0.1) return { text: '❄', color: 'rgba(99,102,241,0.5)' };
-        if (rain > 0.2) return { text: '☔', color: 'rgba(59,130,246,0.5)' };
-        if (wind >= 25) return { text: '🌬', color: 'rgba(16,185,129,0.5)' };
-        if (cloud >= 70) return { text: '☁', color: 'rgba(148,163,184,0.5)' };
-        return null;
-    }
-
     let weatherAnnotations = $derived(() => {
         const daily = timeline?.daily || [];
         const weather = timeline?.weather || [];
-        if (!daily.length || !weather.length) return { points: [] };
+        if (!daily.length || !weather.length) return { xaxis: [] };
 
         const weatherMap = new Map(weather.map((w) => [w.date, w]));
-        const points = [];
+        const xaxis = [];
 
         for (const day of daily) {
             const summary = weatherMap.get(day.date);
             if (!summary) continue;
-
-            const amIcon = resolveWeatherIcon({
+            const am = resolveWeatherBand({
                 rain: summary.am_rain,
                 snow: summary.am_snow,
                 wind: summary.am_wind,
                 cloud: summary.am_cloud
             });
-            const pmIcon = resolveWeatherIcon({
+            const pm = resolveWeatherBand({
                 rain: summary.pm_rain,
                 snow: summary.pm_snow,
                 wind: summary.pm_wind,
                 cloud: summary.pm_cloud
             });
 
-            if (amIcon) {
-                points.push({
-                    x: day.date,
-                    y: 0,
-                    marker: { size: 0 },
-                    label: {
-                        text: amIcon.text,
-                        offsetY: -8,
-                        style: {
-                            fontSize: '12px',
-                            color: amIcon.color
-                        }
-                    }
+            const dayStart = Date.parse(`${day.date}T00:00:00Z`);
+            const dayMid = Date.parse(`${day.date}T12:00:00Z`);
+            const dayEnd = Date.parse(`${day.date}T24:00:00Z`);
+
+            if (am) {
+                xaxis.push({
+                    x: dayStart,
+                    x2: dayMid,
+                    borderColor: 'transparent',
+                    fillColor: am.color,
+                    opacity: 0.08
                 });
             }
 
-            if (pmIcon) {
-                points.push({
-                    x: day.date,
-                    y: 0,
-                    marker: { size: 0 },
-                    label: {
-                        text: pmIcon.text,
-                        offsetY: 12,
-                        style: {
-                            fontSize: '12px',
-                            color: pmIcon.color
-                        }
-                    }
+            if (pm) {
+                xaxis.push({
+                    x: dayMid,
+                    x2: dayEnd,
+                    borderColor: 'transparent',
+                    fillColor: pm.color,
+                    opacity: 0.08
                 });
             }
         }
 
-        return { points };
+        return { xaxis };
     });
+
+    function resolveWeatherBand(entry: any) {
+        const rain = entry?.rain ?? 0;
+        const snow = entry?.snow ?? 0;
+        const wind = entry?.wind ?? 0;
+        const cloud = entry?.cloud ?? 0;
+
+        if (snow > 0.1) return { label: $_('detection.weather_snow'), color: '#6366f1' };
+        if (rain > 0.2) return { label: $_('detection.weather_rain'), color: '#3b82f6' };
+        if (wind >= 25) return { label: $_('detection.weather_wind'), color: '#10b981' };
+        if (cloud >= 70) return { label: $_('detection.weather_cloud'), color: '#94a3b8' };
+        return null;
+    }
 
     let chartOptions = $derived(() => ({
         chart: {
@@ -275,7 +266,10 @@
         series: [
             {
                 name: 'Detections',
-                data: timeline?.daily?.map((d) => d.count) || []
+                data: timeline?.daily?.map((d) => ({
+                    x: Date.parse(`${d.date}T00:00:00Z`),
+                    y: d.count
+                })) || []
             }
         ],
         dataLabels: { enabled: false },
@@ -296,7 +290,7 @@
             padding: { left: 12, right: 12, top: 8, bottom: 4 }
         },
         xaxis: {
-            categories: timeline?.daily?.map((d) => d.date) || [],
+            type: 'datetime',
             tickAmount: Math.min(6, (timeline?.daily?.length || 0)),
             labels: { rotate: 0, style: { fontSize: '10px', colors: '#94a3b8' } }
         },
@@ -306,7 +300,7 @@
         },
         tooltip: {
             theme: isDark() ? 'dark' : 'light',
-            x: { show: true },
+            x: { format: 'MMM dd' },
             y: { formatter: (value: number) => `${value} detections` }
         },
         annotations: weatherAnnotations()
@@ -623,6 +617,25 @@
                     <span>Peak day: {timelineMax.toLocaleString()}</span>
                     <span>•</span>
                     <span>Avg/day: {timeline?.daily?.length ? Math.round((timeline?.total_count || 0) / timeline.daily.length).toLocaleString() : '0'}</span>
+                </div>
+                <div class="mt-2 flex flex-wrap items-center gap-3 text-[10px] text-slate-400">
+                    <div class="flex items-center gap-1">
+                        <span class="inline-block w-2 h-2 rounded-full bg-blue-500/40"></span>
+                        {$_('detection.weather_rain')}
+                    </div>
+                    <div class="flex items-center gap-1">
+                        <span class="inline-block w-2 h-2 rounded-full bg-indigo-500/40"></span>
+                        {$_('detection.weather_snow')}
+                    </div>
+                    <div class="flex items-center gap-1">
+                        <span class="inline-block w-2 h-2 rounded-full bg-emerald-500/40"></span>
+                        {$_('detection.weather_wind')}
+                    </div>
+                    <div class="flex items-center gap-1">
+                        <span class="inline-block w-2 h-2 rounded-full bg-slate-500/40"></span>
+                        {$_('detection.weather_cloud')}
+                    </div>
+                    <span class="text-slate-400/70">AM/PM bands</span>
                 </div>
             </div>
         </div>

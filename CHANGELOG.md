@@ -13,7 +13,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Added:** Audio detections are now persisted in the database so audio context survives in-memory buffer expiry.
 - **Added:** Detection details now include expandable weather summaries (wind, cloud cover, precipitation).
 - **Added:** Weather backfill action in Settings → Data to populate missing weather fields for historical detections.
-- **Added:** Detections over time chart now shows subtle AM/PM weather icons per day for context.
+- **Added:** Detections over time chart now shows subtle AM/PM weather bands per day with a small legend.
 - **Fixed:** Unknown Bird species modal now shows reclassification actions and a link to review detections in Explorer instead of a blank panel.
 - **Changed:** Notifications now require a confirmed snapshot (confidence threshold or audio-confirmed) or confirmed video result before sending.
 - **Fixed:** Email notifications now include Date/Message-ID headers and toned-down HTML sizing to reduce spam flags.
