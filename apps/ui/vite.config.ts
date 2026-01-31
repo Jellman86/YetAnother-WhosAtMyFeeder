@@ -66,6 +66,14 @@ export default defineConfig(({ mode }) => ({
     },
     build: {
         sourcemap: mode !== 'production',
+        chunkSizeWarningLimit: 800,
+        rollupOptions: {
+            output: {
+                manualChunks: {
+                    apexcharts: ['apexcharts']
+                }
+            }
+        }
     },
     server: {
         host: true,

@@ -528,6 +528,7 @@
     "percentage_of_total": "{percentage}% der Gesamtzahl",
     "unidentified_desc": "Nicht identifizierte Erkennung - klicken zum Überprüfen und Reklassifizieren",
     "needs_review": "Überprüfung nötig",
+    "temperature": "Temperatur",
     "load_failed": "Speziesdaten konnten nicht geladen werden"
   },
   "about": {

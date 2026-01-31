@@ -536,6 +536,7 @@
     "percentage_of_total": "{percentage}% do total",
     "unidentified_desc": "Detecção não identificada - clique para revisar e reclassificar",
     "needs_review": "Precisa de Revisão",
+    "temperature": "Temperatura",
     "load_failed": "Falha ao carregar dados das espécies"
   },
   "about": {

@@ -528,6 +528,7 @@
     "percentage_of_total": "占总数的 {percentage}%",
     "unidentified_desc": "未识别的检测 - 点击查看并重新分类",
     "needs_review": "需要审核",
+    "temperature": "温度",
     "load_failed": "加载物种数据失败"
   },
   "about": {

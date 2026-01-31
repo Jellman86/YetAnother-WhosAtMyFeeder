@@ -539,6 +539,7 @@
     "percentage_of_total": "{percentage}% of total",
     "unidentified_desc": "Unidentified detection - click to review and reclassify",
     "needs_review": "Needs Review",
+    "temperature": "Temperature",
     "load_failed": "Failed to load species data"
   },
   "about": {

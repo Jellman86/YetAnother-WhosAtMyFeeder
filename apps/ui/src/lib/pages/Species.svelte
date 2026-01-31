@@ -1,11 +1,12 @@
 <script lang="ts">
     import { onMount } from 'svelte';
     import { fetchDetectionsTimeline, fetchSpecies, fetchSpeciesInfo, type DetectionsTimeline, type SpeciesCount, type SpeciesInfo } from '../api';
-    import { chart } from 'svelte-apexcharts';
+    import { chart } from '../actions/apexchart';
     import SpeciesDetailModal from '../components/SpeciesDetailModal.svelte';
     import { settingsStore } from '../stores/settings.svelte';
     import { themeStore } from '../stores/theme.svelte';
     import { getBirdNames } from '../naming';
+    import { formatTemperature } from '../utils/temperature';
     import { _ } from 'svelte-i18n';
 
     let species: SpeciesCount[] = $state([]);
@@ -189,6 +190,15 @@
     let timelineCounts = $derived(timeline?.daily?.map((d) => d.count) || []);
     let timelineMax = $derived(timelineCounts.length ? Math.max(...timelineCounts) : 0);
     let isDark = $derived(() => themeStore.isDark);
+    let temperatureUnit = $derived(settingsStore.settings?.location_temperature_unit ?? 'celsius');
+
+    function convertTemperature(value: number | null | undefined) {
+        if (value === null || value === undefined || Number.isNaN(value)) return null;
+        if (temperatureUnit === 'fahrenheit') {
+            return (value * 9) / 5 + 32;
+        }
+        return value;
+    }
     let weatherAnnotations = $derived(() => {
         const daily = timeline?.daily || [];
         const weather = timeline?.weather || [];
@@ -202,15 +212,11 @@
             if (!summary) continue;
             const am = resolveWeatherBand({
                 rain: summary.am_rain,
-                snow: summary.am_snow,
-                wind: summary.am_wind,
-                cloud: summary.am_cloud
+                snow: summary.am_snow
             });
             const pm = resolveWeatherBand({
                 rain: summary.pm_rain,
-                snow: summary.pm_snow,
-                wind: summary.pm_wind,
-                cloud: summary.pm_cloud
+                snow: summary.pm_snow
             });
 
             const dayStart = Date.parse(`${day.date}T00:00:00Z`);
@@ -244,19 +250,15 @@
     function resolveWeatherBand(entry: any) {
         const rain = entry?.rain ?? 0;
         const snow = entry?.snow ?? 0;
-        const wind = entry?.wind ?? 0;
-        const cloud = entry?.cloud ?? 0;
 
         if (snow > 0.1) return { label: $_('detection.weather_snow'), color: '#6366f1' };
         if (rain > 0.2) return { label: $_('detection.weather_rain'), color: '#3b82f6' };
-        if (wind >= 25) return { label: $_('detection.weather_wind'), color: '#10b981' };
-        if (cloud >= 70) return { label: $_('detection.weather_cloud'), color: '#94a3b8' };
         return null;
     }
 
     let chartOptions = $derived(() => ({
         chart: {
-            type: 'area',
+            type: 'line',
             height: 260,
             width: '100%',
             toolbar: { show: false },
@@ -266,16 +268,33 @@
         series: [
             {
                 name: 'Detections',
+                type: 'area',
                 data: timeline?.daily?.map((d) => ({
                     x: Date.parse(`${d.date}T00:00:00Z`),
                     y: d.count
                 })) || []
+            },
+            {
+                name: $_('leaderboard.temperature'),
+                type: 'line',
+                data: (timeline?.daily || []).map((d) => {
+                    const summary = (timeline?.weather || []).find((w) => w.date === d.date);
+                    const tempAvg = summary?.temp_avg ?? null;
+                    const fallback = (summary?.am_temp != null && summary?.pm_temp != null)
+                        ? (summary.am_temp + summary.pm_temp) / 2
+                        : (summary?.am_temp ?? summary?.pm_temp ?? null);
+                    const temp = convertTemperature(tempAvg ?? fallback);
+                    return {
+                        x: Date.parse(`${d.date}T00:00:00Z`),
+                        y: temp
+                    };
+                })
             }
         ],
         dataLabels: { enabled: false },
-        stroke: { curve: 'smooth', width: 2, colors: ['#10b981'] },
+        stroke: { curve: 'smooth', width: [2, 2], colors: ['#10b981', '#f97316'] },
         fill: {
-            type: 'gradient',
+            type: ['gradient', 'solid'],
             gradient: {
                 shadeIntensity: 1,
                 opacityFrom: 0.35,
@@ -283,7 +302,7 @@
                 stops: [0, 90, 100]
             }
         },
-        markers: { size: 0, hover: { size: 4 } },
+        markers: { size: [0, 3], hover: { size: 4 } },
         grid: {
             borderColor: 'rgba(148,163,184,0.2)',
             strokeDashArray: 3,
@@ -294,14 +313,26 @@
             tickAmount: Math.min(6, (timeline?.daily?.length || 0)),
             labels: { rotate: 0, style: { fontSize: '10px', colors: '#94a3b8' } }
         },
-        yaxis: {
-            min: 0,
-            labels: { style: { fontSize: '10px', colors: '#94a3b8' } }
-        },
+        yaxis: [
+            {
+                min: 0,
+                labels: { style: { fontSize: '10px', colors: '#94a3b8' } }
+            },
+            {
+                opposite: true,
+                labels: {
+                    style: { fontSize: '10px', colors: '#f59e0b' },
+                    formatter: (value: number) => formatTemperature(value, temperatureUnit as any)
+                }
+            }
+        ],
         tooltip: {
             theme: isDark() ? 'dark' : 'light',
             x: { format: 'MMM dd' },
-            y: { formatter: (value: number) => `${value} detections` }
+            y: [
+                { formatter: (value: number) => `${value} detections` },
+                { formatter: (value: number) => formatTemperature(value, temperatureUnit as any) }
+            ]
         },
         annotations: weatherAnnotations()
     }));
@@ -628,12 +659,8 @@
                         {$_('detection.weather_snow')}
                     </div>
                     <div class="flex items-center gap-1">
-                        <span class="inline-block w-2 h-2 rounded-full bg-emerald-500/40"></span>
-                        {$_('detection.weather_wind')}
-                    </div>
-                    <div class="flex items-center gap-1">
-                        <span class="inline-block w-2 h-2 rounded-full bg-slate-500/40"></span>
-                        {$_('detection.weather_cloud')}
+                        <span class="inline-block w-2 h-2 rounded-full bg-orange-500/60"></span>
+                        {$_('leaderboard.temperature')}
                     </div>
                     <span class="text-slate-400/70">AM/PM bands</span>
                 </div>

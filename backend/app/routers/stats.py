@@ -43,16 +43,19 @@ class DailyWeatherSummary(BaseModel):
     snow_total: Optional[float] = None
     wind_max: Optional[float] = None
     cloud_avg: Optional[float] = None
+    temp_avg: Optional[float] = None
     am_condition: Optional[str] = None
     am_rain: Optional[float] = None
     am_snow: Optional[float] = None
     am_wind: Optional[float] = None
     am_cloud: Optional[float] = None
+    am_temp: Optional[float] = None
     pm_condition: Optional[str] = None
     pm_rain: Optional[float] = None
     pm_snow: Optional[float] = None
     pm_wind: Optional[float] = None
     pm_cloud: Optional[float] = None
+    pm_temp: Optional[float] = None
 
 class DetectionsTimelineResponse(BaseModel):
     days: int
@@ -213,6 +216,8 @@ async def get_detection_timeline(request: Request, days: int = 30):
                         "wind_max": None,
                         "cloud_sum": 0.0,
                         "cloud_count": 0,
+                        "temp_sum": 0.0,
+                        "temp_count": 0,
                         "conditions": []
                     })
 
@@ -221,6 +226,7 @@ async def get_detection_timeline(request: Request, days: int = 30):
                     snow = weather.get("snowfall")
                     wind = weather.get("wind_speed")
                     cloud = weather.get("cloud_cover")
+                    temp = weather.get("temperature")
                     condition = weather.get("condition_text")
 
                     if precip is not None:
@@ -234,6 +240,9 @@ async def get_detection_timeline(request: Request, days: int = 30):
                     if cloud is not None:
                         entry["cloud_sum"] += float(cloud)
                         entry["cloud_count"] += 1
+                    if temp is not None:
+                        entry["temp_sum"] += float(temp)
+                        entry["temp_count"] += 1
                     if condition:
                         entry["conditions"].append(condition)
 
@@ -247,6 +256,9 @@ async def get_detection_timeline(request: Request, days: int = 30):
                     cloud_avg = None
                     if entry["cloud_count"]:
                         cloud_avg = entry["cloud_sum"] / entry["cloud_count"]
+                    temp_avg = None
+                    if entry["temp_count"]:
+                        temp_avg = entry["temp_sum"] / entry["temp_count"]
 
                     am_key = f"{date_key}T10:00"
                     pm_key = f"{date_key}T17:00"
@@ -261,16 +273,19 @@ async def get_detection_timeline(request: Request, days: int = 30):
                         snow_total=entry["snow_total"],
                         wind_max=entry["wind_max"],
                         cloud_avg=cloud_avg,
+                        temp_avg=temp_avg,
                         am_condition=am_weather.get("condition_text"),
                         am_rain=am_weather.get("rain"),
                         am_snow=am_weather.get("snowfall"),
                         am_wind=am_weather.get("wind_speed"),
                         am_cloud=am_weather.get("cloud_cover"),
+                        am_temp=am_weather.get("temperature"),
                         pm_condition=pm_weather.get("condition_text"),
                         pm_rain=pm_weather.get("rain"),
                         pm_snow=pm_weather.get("snowfall"),
                         pm_wind=pm_weather.get("wind_speed"),
-                        pm_cloud=pm_weather.get("cloud_cover")
+                        pm_cloud=pm_weather.get("cloud_cover"),
+                        pm_temp=pm_weather.get("temperature")
                     ))
 
         return DetectionsTimelineResponse(

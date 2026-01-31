@@ -536,6 +536,7 @@
     "percentage_of_total": "{percentage}% del totale",
     "unidentified_desc": "Rilevamento non identificato - clicca per rivedere e riclassificare",
     "needs_review": "Necessita Revisione",
+    "temperature": "Temperatura",
     "load_failed": "Caricamento dati specie fallito"
   },
   "about": {

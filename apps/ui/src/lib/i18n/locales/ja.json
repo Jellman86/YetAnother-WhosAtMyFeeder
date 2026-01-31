@@ -528,6 +528,7 @@
     "percentage_of_total": "全体の {percentage}%",
     "unidentified_desc": "未特定の検出 - クリックして確認および再分類",
     "needs_review": "要確認",
+    "temperature": "気温",
     "load_failed": "種のデータの読み込みに失敗しました"
   },
   "about": {
