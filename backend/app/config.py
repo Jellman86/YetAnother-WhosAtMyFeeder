@@ -149,6 +149,14 @@ class BirdWeatherSettings(BaseModel):
     enabled: bool = Field(default=False, description="Enable BirdWeather reporting")
     station_token: Optional[str] = Field(None, description="BirdWeather Station Token")
 
+class InaturalistSettings(BaseModel):
+    enabled: bool = Field(default=False, description="Enable iNaturalist submissions")
+    client_id: Optional[str] = Field(default=None, description="iNaturalist OAuth Client ID")
+    client_secret: Optional[str] = Field(default=None, description="iNaturalist OAuth Client Secret")
+    default_latitude: Optional[float] = Field(default=None, description="Default latitude for submissions")
+    default_longitude: Optional[float] = Field(default=None, description="Default longitude for submissions")
+    default_place_guess: Optional[str] = Field(default=None, description="Default place guess for submissions")
+
 class LLMSettings(BaseModel):
     enabled: bool = Field(default=False, description="Enable LLM integration")
     provider: str = Field(default="gemini", description="AI provider (gemini, openai, claude)")
@@ -291,6 +299,7 @@ class Settings(BaseSettings):
     media_cache: MediaCacheSettings = MediaCacheSettings()
     location: LocationSettings = LocationSettings()
     birdweather: BirdWeatherSettings = BirdWeatherSettings()
+    inaturalist: InaturalistSettings = InaturalistSettings()
     llm: LLMSettings = LLMSettings()
     telemetry: TelemetrySettings = TelemetrySettings()
     notifications: NotificationSettings = NotificationSettings()
@@ -380,6 +389,16 @@ class Settings(BaseSettings):
         birdweather_data = {
             'enabled': os.environ.get('BIRDWEATHER__ENABLED', 'false').lower() == 'true',
             'station_token': os.environ.get('BIRDWEATHER__STATION_TOKEN', None),
+        }
+
+        # iNaturalist settings
+        inaturalist_data = {
+            'enabled': os.environ.get('INATURALIST__ENABLED', 'false').lower() == 'true',
+            'client_id': os.environ.get('INATURALIST__CLIENT_ID', None),
+            'client_secret': os.environ.get('INATURALIST__CLIENT_SECRET', None),
+            'default_latitude': None,
+            'default_longitude': None,
+            'default_place_guess': None,
         }
 
         # LLM settings
@@ -536,6 +555,12 @@ class Settings(BaseSettings):
                         env_key = f'BIRDWEATHER__{key.upper()}'
                         if env_key not in os.environ:
                             birdweather_data[key] = value
+
+                if 'inaturalist' in file_data:
+                    for key, value in file_data['inaturalist'].items():
+                        env_key = f'INATURALIST__{key.upper()}'
+                        if env_key not in os.environ:
+                            inaturalist_data[key] = value
                         
                 if 'llm' in file_data:
                     for key, value in file_data['llm'].items():
@@ -658,6 +683,7 @@ class Settings(BaseSettings):
                  cache_clips=media_cache_data['cache_clips'],
                  retention_days=media_cache_data['retention_days'])
         log.info("BirdWeather config", enabled=birdweather_data['enabled'])
+        log.info("iNaturalist config", enabled=inaturalist_data['enabled'])
         log.info("LLM config", enabled=llm_data['enabled'], provider=llm_data['provider'])
         log.info("Telemetry config", enabled=telemetry_data['enabled'], installation_id=telemetry_data['installation_id'])
         log.info("Notification config",
@@ -679,6 +705,7 @@ class Settings(BaseSettings):
             media_cache=MediaCacheSettings(**media_cache_data),
             location=LocationSettings(**location_data),
             birdweather=BirdWeatherSettings(**birdweather_data),
+            inaturalist=InaturalistSettings(**inaturalist_data),
             llm=LLMSettings(**llm_data),
             telemetry=TelemetrySettings(**telemetry_data),
             notifications=NotificationSettings(**notifications_data),

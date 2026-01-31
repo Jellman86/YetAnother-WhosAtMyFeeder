@@ -80,6 +80,16 @@
       "invalid_state": "Stato OAuth non valido. Riprova.",
       "state_expired": "Stato OAuth scaduto. Riprova.",
       "email_missing": "Indirizzo email non restituito dal provider."
+    },
+    "inat": {
+      "disabled": "Integrazione iNaturalist disabilitata",
+      "not_configured": "Credenziali OAuth iNaturalist non configurate",
+      "invalid_state": "Stato OAuth non valido. Riprova.",
+      "state_expired": "Stato OAuth scaduto. Riprova.",
+      "oauth_failed": "OAuth iNaturalist fallito: {error}",
+      "not_connected": "Account iNaturalist non connesso",
+      "event_missing": "Rilevamento non trovato per l’invio",
+      "submit_failed": "Invio a iNaturalist fallito: {error}"
     }
   }
 }

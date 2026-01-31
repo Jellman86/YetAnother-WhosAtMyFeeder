@@ -16,6 +16,7 @@ from app.services.telemetry_service import telemetry_service
 from app.services.notification_service import notification_service
 from app.services.auto_video_classifier_service import auto_video_classifier
 from app.services.birdweather_service import birdweather_service
+from app.services.inaturalist_service import inaturalist_service
 
 from fastapi import BackgroundTasks
 
@@ -242,6 +243,13 @@ class SettingsUpdate(BaseModel):
     # BirdWeather settings
     birdweather_enabled: Optional[bool] = Field(False, description="Enable BirdWeather reporting")
     birdweather_station_token: Optional[str] = Field(None, description="BirdWeather Station Token")
+    # iNaturalist settings
+    inaturalist_enabled: Optional[bool] = Field(False, description="Enable iNaturalist submissions")
+    inaturalist_client_id: Optional[str] = Field(None, description="iNaturalist OAuth Client ID")
+    inaturalist_client_secret: Optional[str] = Field(None, description="iNaturalist OAuth Client Secret")
+    inaturalist_default_latitude: Optional[float] = Field(None, description="Default latitude for iNaturalist submissions")
+    inaturalist_default_longitude: Optional[float] = Field(None, description="Default longitude for iNaturalist submissions")
+    inaturalist_default_place_guess: Optional[str] = Field(None, description="Default place guess for iNaturalist submissions")
     # LLM settings
     llm_enabled: Optional[bool] = Field(False, description="Enable AI behavior analysis")
     llm_provider: Optional[str] = Field("gemini", description="AI provider")
@@ -372,6 +380,8 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
     connected_email = oauth_status["email"] if oauth_status else None
     connected_provider = oauth_status["provider"] if oauth_status else settings.notifications.email.oauth_provider
 
+    inat_user = await inaturalist_service.refresh_connected_user()
+
     circuit_status = auto_video_classifier.get_circuit_status()
     return {
         "frigate_url": settings.frigate.frigate_url,
@@ -416,6 +426,14 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "birdweather_enabled": settings.birdweather.enabled,
         # SECURITY: Never expose station tokens via API
         "birdweather_station_token": "***REDACTED***" if settings.birdweather.station_token else None,
+        # iNaturalist settings
+        "inaturalist_enabled": settings.inaturalist.enabled,
+        "inaturalist_client_id": "***REDACTED***" if settings.inaturalist.client_id else None,
+        "inaturalist_client_secret": "***REDACTED***" if settings.inaturalist.client_secret else None,
+        "inaturalist_default_latitude": settings.inaturalist.default_latitude,
+        "inaturalist_default_longitude": settings.inaturalist.default_longitude,
+        "inaturalist_default_place_guess": settings.inaturalist.default_place_guess,
+        "inaturalist_connected_user": inat_user,
         # LLM settings
         "llm_enabled": settings.llm.enabled,
         "llm_provider": settings.llm.provider,
@@ -548,6 +566,20 @@ async def update_settings(
     # Only update token if it's not the redacted placeholder
     if update.birdweather_station_token and update.birdweather_station_token != "***REDACTED***":
         settings.birdweather.station_token = update.birdweather_station_token
+
+    # iNaturalist settings
+    if update.inaturalist_enabled is not None:
+        settings.inaturalist.enabled = update.inaturalist_enabled
+    if update.inaturalist_client_id and update.inaturalist_client_id != "***REDACTED***":
+        settings.inaturalist.client_id = update.inaturalist_client_id
+    if update.inaturalist_client_secret and update.inaturalist_client_secret != "***REDACTED***":
+        settings.inaturalist.client_secret = update.inaturalist_client_secret
+    if update.inaturalist_default_latitude is not None:
+        settings.inaturalist.default_latitude = update.inaturalist_default_latitude
+    if update.inaturalist_default_longitude is not None:
+        settings.inaturalist.default_longitude = update.inaturalist_default_longitude
+    if update.inaturalist_default_place_guess is not None:
+        settings.inaturalist.default_place_guess = update.inaturalist_default_place_guess
 
     # LLM settings
     settings.llm.enabled = update.llm_enabled if update.llm_enabled is not None else False

@@ -80,6 +80,16 @@
       "invalid_state": "Неверное состояние OAuth. Пожалуйста, попробуйте снова.",
       "state_expired": "Срок действия состояния OAuth истек. Пожалуйста, попробуйте снова.",
       "email_missing": "Email адрес не возвращен провайдером."
+    },
+    "inat": {
+      "disabled": "Интеграция iNaturalist отключена",
+      "not_configured": "Учетные данные OAuth iNaturalist не настроены",
+      "invalid_state": "Неверное состояние OAuth. Пожалуйста, попробуйте снова.",
+      "state_expired": "Срок действия состояния OAuth истек. Пожалуйста, попробуйте снова.",
+      "oauth_failed": "Ошибка OAuth iNaturalist: {error}",
+      "not_connected": "Аккаунт iNaturalist не подключен",
+      "event_missing": "Детекция для отправки не найдена",
+      "submit_failed": "Не удалось отправить в iNaturalist: {error}"
     }
   }
 }

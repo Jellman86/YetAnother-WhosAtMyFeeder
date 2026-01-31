@@ -80,6 +80,16 @@
       "invalid_state": "État OAuth invalide. Veuillez réessayer.",
       "state_expired": "L’état OAuth a expiré. Veuillez réessayer.",
       "email_missing": "Le fournisseur n'a pas renvoyé l'adresse e-mail."
+    },
+    "inat": {
+      "disabled": "L’intégration iNaturalist est désactivée",
+      "not_configured": "Identifiants OAuth iNaturalist non configurés",
+      "invalid_state": "État OAuth invalide. Veuillez réessayer.",
+      "state_expired": "L’état OAuth a expiré. Veuillez réessayer.",
+      "oauth_failed": "Échec OAuth iNaturalist : {error}",
+      "not_connected": "Compte iNaturalist non connecté",
+      "event_missing": "Détection introuvable pour l’envoi",
+      "submit_failed": "Échec de l’envoi à iNaturalist : {error}"
     }
   }
 }

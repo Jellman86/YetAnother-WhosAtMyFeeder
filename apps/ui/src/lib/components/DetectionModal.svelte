@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { getThumbnailUrl, analyzeDetection, updateDetectionSpecies, hideDetection, deleteDetection, searchSpecies, fetchAudioContext, type SearchResult, type AudioContextDetection } from '../api';
+    import { getThumbnailUrl, analyzeDetection, updateDetectionSpecies, hideDetection, deleteDetection, searchSpecies, fetchAudioContext, createInaturalistDraft, submitInaturalistObservation, type SearchResult, type AudioContextDetection, type InaturalistDraft } from '../api';
     import type { Detection } from '../api';
     import ReclassificationOverlay from './ReclassificationOverlay.svelte';
     import { detectionsStore, type ReclassificationProgress } from '../stores/detections.svelte';
@@ -43,6 +43,15 @@
     let audioContext = $state<AudioContextDetection[]>([]);
     let audioContextError = $state<string | null>(null);
     let weatherDetailsOpen = $state(false);
+    let inatPanelOpen = $state(false);
+    let inatLoading = $state(false);
+    let inatSubmitting = $state(false);
+    let inatError = $state<string | null>(null);
+    let inatDraft = $state<InaturalistDraft | null>(null);
+    let inatNotes = $state('');
+    let inatLat = $state<number | null>(null);
+    let inatLon = $state<number | null>(null);
+    let inatPlace = $state('');
 
     $effect(() => {
         if (modalElement) {
@@ -116,14 +125,70 @@
         detection.weather_rain !== undefined && detection.weather_rain !== null ||
         detection.weather_snowfall !== undefined && detection.weather_snowfall !== null
     );
+    const inatEnabled = $derived(settingsStore.settings?.inaturalist_enabled ?? false);
+    const inatConnectedUser = $derived(settingsStore.settings?.inaturalist_connected_user ?? null);
+    const canShowInat = $derived(!readOnly && authStore.canModify && inatEnabled && !!inatConnectedUser);
 
     $effect(() => {
         if (!detection?.frigate_event) return;
         if (detection.frigate_event !== lastEventId) {
             lastEventId = detection.frigate_event;
             aiAnalysis = detection.ai_analysis || null;
+            inatPanelOpen = false;
+            inatDraft = null;
+            inatNotes = '';
+            inatLat = null;
+            inatLon = null;
+            inatPlace = '';
         }
     });
+
+    async function openInatPanel() {
+        inatPanelOpen = !inatPanelOpen;
+        if (!inatPanelOpen || !detection?.frigate_event) {
+            return;
+        }
+        if (inatDraft && inatDraft.event_id === detection.frigate_event) {
+            return;
+        }
+        inatLoading = true;
+        inatError = null;
+        try {
+            inatDraft = await createInaturalistDraft(detection.frigate_event);
+            inatNotes = '';
+            inatLat = inatDraft.latitude ?? null;
+            inatLon = inatDraft.longitude ?? null;
+            inatPlace = inatDraft.place_guess ?? '';
+        } catch (e: any) {
+            inatError = e?.message || 'Failed to load iNaturalist draft';
+        } finally {
+            inatLoading = false;
+        }
+    }
+
+    async function submitInat() {
+        if (!inatDraft) return;
+        inatSubmitting = true;
+        inatError = null;
+        try {
+            await submitInaturalistObservation({
+                event_id: inatDraft.event_id,
+                notes: inatNotes || undefined,
+                latitude: inatLat ?? undefined,
+                longitude: inatLon ?? undefined,
+                place_guess: inatPlace || undefined
+            });
+            inatPanelOpen = false;
+            inatNotes = '';
+            inatLat = inatDraft.latitude ?? null;
+            inatLon = inatDraft.longitude ?? null;
+            inatPlace = inatDraft.place_guess ?? '';
+        } catch (e: any) {
+            inatError = e?.message || 'Failed to submit to iNaturalist';
+        } finally {
+            inatSubmitting = false;
+        }
+    }
 
     // Handle search input
     let searchTimeout: any;
@@ -621,6 +686,100 @@
                                     {/if}
                                 </p>
                             </div>
+                        </div>
+                    {/if}
+                </div>
+            {/if}
+
+            {#if canShowInat}
+                <div class="p-4 rounded-2xl bg-emerald-50/70 dark:bg-slate-900/40 border border-emerald-100/80 dark:border-slate-700/60 space-y-3">
+                    <div class="flex items-center justify-between gap-3">
+                        <div class="flex items-center gap-3">
+                            <div class="w-9 h-9 rounded-xl bg-emerald-500/20 flex items-center justify-center text-emerald-600 dark:text-emerald-300">
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v4m0 0a4 4 0 110 8m0-8a4 4 0 10-4 4m4-4v4m0 0a4 4 0 010 8m0-8a4 4 0 10-4 4" />
+                                </svg>
+                            </div>
+                            <div>
+                                <p class="text-[10px] font-black uppercase tracking-widest text-emerald-600/80 dark:text-emerald-300/80">{$_('detection.inat.title')}</p>
+                                <p class="text-xs font-semibold text-slate-700 dark:text-slate-200">{$_('detection.inat.connected', { values: { user: inatConnectedUser } })}</p>
+                            </div>
+                        </div>
+                        <button
+                            type="button"
+                            onclick={openInatPanel}
+                            class="px-3 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white transition-all"
+                            aria-label={$_('detection.inat.open_label')}
+                        >
+                            {inatPanelOpen ? $_('detection.inat.close') : $_('detection.inat.open')}
+                        </button>
+                    </div>
+
+                    {#if inatPanelOpen}
+                        <div class="space-y-3">
+                            {#if inatLoading}
+                                <div class="text-xs font-semibold text-emerald-600/80">{$_('detection.inat.loading')}</div>
+                            {:else}
+                                {#if inatError}
+                                    <div class="text-xs font-semibold text-rose-600">{inatError}</div>
+                                {/if}
+                                {#if inatDraft}
+                                    <div class="grid grid-cols-2 gap-3 text-[11px] text-slate-600 dark:text-slate-300">
+                                        <div class="rounded-xl bg-white/80 dark:bg-slate-900/40 border border-slate-200/60 dark:border-slate-700/60 p-2">
+                                            <p class="text-[9px] font-black uppercase tracking-widest text-slate-400">{$_('detection.inat.species')}</p>
+                                            <p class="font-semibold text-slate-700 dark:text-slate-200">{inatDraft.species_guess}</p>
+                                        </div>
+                                        <div class="rounded-xl bg-white/80 dark:bg-slate-900/40 border border-slate-200/60 dark:border-slate-700/60 p-2">
+                                            <p class="text-[9px] font-black uppercase tracking-widest text-slate-400">{$_('detection.inat.observed')}</p>
+                                            <p class="font-semibold text-slate-700 dark:text-slate-200">{new Date(inatDraft.observed_on_string).toLocaleString()}</p>
+                                        </div>
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label class="block text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">{$_('detection.inat.latitude')}</label>
+                                            <input
+                                                type="number"
+                                                step="0.0001"
+                                                bind:value={inatLat}
+                                                class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-900/50 text-xs font-bold"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label class="block text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">{$_('detection.inat.longitude')}</label>
+                                            <input
+                                                type="number"
+                                                step="0.0001"
+                                                bind:value={inatLon}
+                                                class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-900/50 text-xs font-bold"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label class="block text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">{$_('detection.inat.place')}</label>
+                                        <input
+                                            type="text"
+                                            bind:value={inatPlace}
+                                            class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-900/50 text-xs font-bold"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label class="block text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">{$_('detection.inat.notes')}</label>
+                                        <textarea
+                                            rows="3"
+                                            bind:value={inatNotes}
+                                            class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-900/50 text-xs font-bold"
+                                        ></textarea>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onclick={submitInat}
+                                        disabled={inatSubmitting}
+                                        class="w-full py-2 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-black uppercase tracking-widest disabled:opacity-50"
+                                    >
+                                        {inatSubmitting ? $_('detection.inat.submitting') : $_('detection.inat.submit')}
+                                    </button>
+                                {/if}
+                            {/if}
                         </div>
                     {/if}
                 </div>

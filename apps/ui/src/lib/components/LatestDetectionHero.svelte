@@ -119,36 +119,6 @@
                 {/if}
             </div>
 
-            {#if hasWeather}
-                <div class="flex flex-wrap items-center gap-2 mb-3">
-                    {#if detection.weather_condition}
-                        <span class="px-2 py-0.5 bg-slate-800/70 text-white/80 text-[10px] font-bold uppercase tracking-widest rounded-md">
-                            {detection.weather_condition}
-                        </span>
-                    {/if}
-                    {#if (detection.weather_rain ?? 0) > 0 || (detection.weather_precipitation ?? 0) > 0}
-                        <span class="px-2 py-0.5 bg-blue-500/20 text-blue-200 text-[10px] font-bold uppercase tracking-widest rounded-md">
-                            {formatPrecip((detection.weather_rain ?? 0) + (detection.weather_precipitation ?? 0))}
-                        </span>
-                    {/if}
-                    {#if (detection.weather_snowfall ?? 0) > 0}
-                        <span class="px-2 py-0.5 bg-indigo-500/20 text-indigo-200 text-[10px] font-bold uppercase tracking-widest rounded-md">
-                            {formatPrecip(detection.weather_snowfall)}
-                        </span>
-                    {/if}
-                    {#if detection.weather_cloud_cover !== undefined && detection.weather_cloud_cover !== null}
-                        <span class="px-2 py-0.5 bg-slate-700/60 text-slate-200 text-[10px] font-bold uppercase tracking-widest rounded-md">
-                            {Math.round(detection.weather_cloud_cover)}% {$_('detection.weather_cloud')}
-                        </span>
-                    {/if}
-                    {#if detection.weather_wind_speed !== undefined && detection.weather_wind_speed !== null}
-                        <span class="px-2 py-0.5 bg-emerald-500/20 text-emerald-200 text-[10px] font-bold uppercase tracking-widest rounded-md">
-                            {Math.round(detection.weather_wind_speed)} km/h {$_('detection.weather_wind')}
-                        </span>
-                    {/if}
-                </div>
-            {/if}
-            
             <h2 class="text-3xl sm:text-4xl font-black text-white drop-shadow-lg tracking-tight truncate">
                 {primaryName}
             </h2>
@@ -182,6 +152,36 @@
                     </span>
                 {/if}
             </div>
+
+            {#if hasWeather}
+                <div class="flex flex-wrap items-center gap-2 mt-3">
+                    {#if detection.weather_condition}
+                        <span class="px-2 py-0.5 bg-slate-800/70 text-white/80 text-[10px] font-bold uppercase tracking-widest rounded-md">
+                            {detection.weather_condition}
+                        </span>
+                    {/if}
+                    {#if (detection.weather_rain ?? 0) > 0 || (detection.weather_precipitation ?? 0) > 0}
+                        <span class="px-2 py-0.5 bg-blue-500/20 text-blue-200 text-[10px] font-bold uppercase tracking-widest rounded-md">
+                            {formatPrecip((detection.weather_rain ?? 0) + (detection.weather_precipitation ?? 0))}
+                        </span>
+                    {/if}
+                    {#if (detection.weather_snowfall ?? 0) > 0}
+                        <span class="px-2 py-0.5 bg-indigo-500/20 text-indigo-200 text-[10px] font-bold uppercase tracking-widest rounded-md">
+                            {formatPrecip(detection.weather_snowfall)}
+                        </span>
+                    {/if}
+                    {#if detection.weather_cloud_cover !== undefined && detection.weather_cloud_cover !== null}
+                        <span class="px-2 py-0.5 bg-slate-700/60 text-slate-200 text-[10px] font-bold uppercase tracking-widest rounded-md">
+                            {Math.round(detection.weather_cloud_cover)}% {$_('detection.weather_cloud')}
+                        </span>
+                    {/if}
+                    {#if detection.weather_wind_speed !== undefined && detection.weather_wind_speed !== null}
+                        <span class="px-2 py-0.5 bg-emerald-500/20 text-emerald-200 text-[10px] font-bold uppercase tracking-widest rounded-md">
+                            {Math.round(detection.weather_wind_speed)} km/h {$_('detection.weather_wind')}
+                        </span>
+                    {/if}
+                </div>
+            {/if}
         </div>
 
         <div class="flex items-center gap-3 self-start sm:self-auto shrink-0">

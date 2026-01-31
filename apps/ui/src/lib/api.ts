@@ -125,6 +125,14 @@ export interface Settings {
     // BirdWeather settings
     birdweather_enabled: boolean;
     birdweather_station_token?: string | null;
+    // iNaturalist settings
+    inaturalist_enabled?: boolean;
+    inaturalist_client_id?: string | null;
+    inaturalist_client_secret?: string | null;
+    inaturalist_default_latitude?: number | null;
+    inaturalist_default_longitude?: number | null;
+    inaturalist_default_place_guess?: string | null;
+    inaturalist_connected_user?: string | null;
     // LLM settings
     llm_enabled: boolean;
     llm_provider?: string;
@@ -1204,4 +1212,62 @@ export async function sendTestEmail(request: TestEmailRequest = {}): Promise<Tes
         })
     });
     return handleResponse<TestEmailResponse>(response);
+}
+
+// ============================================================================
+// iNaturalist API
+// ============================================================================
+
+export interface InaturalistDraft {
+    event_id: string;
+    species_guess: string;
+    taxon_id?: number | null;
+    observed_on_string: string;
+    time_zone: string;
+    latitude?: number | null;
+    longitude?: number | null;
+    place_guess?: string | null;
+    notes?: string | null;
+    snapshot_url?: string | null;
+}
+
+export interface InaturalistSubmitResult {
+    status: string;
+    observation_id?: number;
+}
+
+export async function initiateInaturalistOAuth(): Promise<OAuthAuthorizeResponse> {
+    const response = await apiFetch(`${API_BASE}/inaturalist/oauth/authorize`);
+    return handleResponse<OAuthAuthorizeResponse>(response);
+}
+
+export async function disconnectInaturalistOAuth(): Promise<{ status: string }> {
+    const response = await apiFetch(`${API_BASE}/inaturalist/oauth/disconnect`, {
+        method: 'DELETE'
+    });
+    return handleResponse<{ status: string }>(response);
+}
+
+export async function createInaturalistDraft(eventId: string): Promise<InaturalistDraft> {
+    const response = await apiFetch(`${API_BASE}/inaturalist/draft`, {
+        method: 'POST',
+        headers: getHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ event_id: eventId })
+    });
+    return handleResponse<InaturalistDraft>(response);
+}
+
+export async function submitInaturalistObservation(payload: {
+    event_id: string;
+    notes?: string;
+    latitude?: number | null;
+    longitude?: number | null;
+    place_guess?: string | null;
+}): Promise<InaturalistSubmitResult> {
+    const response = await apiFetch(`${API_BASE}/inaturalist/submit`, {
+        method: 'POST',
+        headers: getHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify(payload)
+    });
+    return handleResponse<InaturalistSubmitResult>(response);
 }

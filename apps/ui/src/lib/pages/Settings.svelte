@@ -28,6 +28,8 @@
         initiateGmailOAuth,
         initiateOutlookOAuth,
         disconnectEmailOAuth,
+        initiateInaturalistOAuth,
+        disconnectInaturalistOAuth,
         sendTestEmail,
         type ClassifierStatus,
         type WildlifeModelStatus,
@@ -102,6 +104,17 @@
     // BirdWeather Settings
     let birdweatherEnabled = $state(false);
     let birdweatherStationToken = $state('');
+
+    // iNaturalist Settings
+    let inaturalistEnabled = $state(false);
+    let inaturalistClientId = $state('');
+    let inaturalistClientSecret = $state('');
+    let inaturalistClientIdSaved = $state(false);
+    let inaturalistClientSecretSaved = $state(false);
+    let inaturalistDefaultLat = $state<number | null>(null);
+    let inaturalistDefaultLon = $state<number | null>(null);
+    let inaturalistDefaultPlace = $state('');
+    let inaturalistConnectedUser = $state<string | null>(null);
 
     // LLM Settings
     let llmEnabled = $state(false);
@@ -787,6 +800,26 @@
             // BirdWeather settings
             birdweatherEnabled = settings.birdweather_enabled ?? false;
             birdweatherStationToken = settings.birdweather_station_token ?? '';
+            // iNaturalist settings
+            inaturalistEnabled = settings.inaturalist_enabled ?? false;
+            if (settings.inaturalist_client_id === '***REDACTED***') {
+                inaturalistClientIdSaved = true;
+                inaturalistClientId = '';
+            } else {
+                inaturalistClientIdSaved = false;
+                inaturalistClientId = settings.inaturalist_client_id || '';
+            }
+            if (settings.inaturalist_client_secret === '***REDACTED***') {
+                inaturalistClientSecretSaved = true;
+                inaturalistClientSecret = '';
+            } else {
+                inaturalistClientSecretSaved = false;
+                inaturalistClientSecret = settings.inaturalist_client_secret || '';
+            }
+            inaturalistDefaultLat = settings.inaturalist_default_latitude ?? null;
+            inaturalistDefaultLon = settings.inaturalist_default_longitude ?? null;
+            inaturalistDefaultPlace = settings.inaturalist_default_place_guess ?? '';
+            inaturalistConnectedUser = settings.inaturalist_connected_user ?? null;
             // LLM settings
             llmEnabled = settings.llm_enabled ?? false;
             llmProvider = settings.llm_provider ?? 'gemini';
@@ -965,6 +998,12 @@
                 location_temperature_unit: locationTemperatureUnit,
                 birdweather_enabled: birdweatherEnabled,
                 birdweather_station_token: birdweatherStationToken,
+                inaturalist_enabled: inaturalistEnabled,
+                inaturalist_client_id: inaturalistClientId,
+                inaturalist_client_secret: inaturalistClientSecret,
+                inaturalist_default_latitude: inaturalistDefaultLat,
+                inaturalist_default_longitude: inaturalistDefaultLon,
+                inaturalist_default_place_guess: inaturalistDefaultPlace,
                 llm_enabled: llmEnabled,
                 llm_provider: llmProvider,
                 llm_api_key: llmApiKey,
@@ -1345,6 +1384,15 @@
                     bind:cameraAudioMapping
                     bind:birdweatherEnabled
                     bind:birdweatherStationToken
+                    bind:inaturalistEnabled
+                    bind:inaturalistClientId
+                    bind:inaturalistClientSecret
+                    bind:inaturalistClientIdSaved
+                    bind:inaturalistClientSecretSaved
+                    bind:inaturalistDefaultLat
+                    bind:inaturalistDefaultLon
+                    bind:inaturalistDefaultPlace
+                    bind:inaturalistConnectedUser
                     bind:llmEnabled
                     bind:llmProvider
                     bind:llmApiKey
@@ -1358,6 +1406,12 @@
                     {testingBirdWeather}
                     {handleTestBirdNET}
                     {handleTestBirdWeather}
+                    {initiateInaturalistOAuth}
+                    {disconnectInaturalistOAuth}
+                    refreshInaturalistStatus={async () => {
+                        await settingsStore.load();
+                        await loadSettings(true);
+                    }}
                     bind:testingBirdNET
                 />
             {/if}
