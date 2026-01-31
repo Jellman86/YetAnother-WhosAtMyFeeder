@@ -189,6 +189,64 @@
     let timelineCounts = $derived(timeline?.daily?.map((d) => d.count) || []);
     let timelineMax = $derived(timelineCounts.length ? Math.max(...timelineCounts) : 0);
     let isDark = $derived(() => themeStore.isDark);
+    let weatherAnnotations = $derived(() => {
+        const daily = timeline?.daily || [];
+        const weather = timeline?.weather || [];
+        if (!daily.length || !weather.length) return { xaxis: [] };
+
+        const weatherMap = new Map(weather.map((w) => [w.date, w]));
+        const xaxis = [];
+
+        for (let i = 0; i < daily.length; i += 1) {
+            const day = daily[i];
+            const summary = weatherMap.get(day.date);
+            if (!summary) continue;
+
+            const rain = (summary.rain_total ?? 0) + (summary.precip_total ?? 0);
+            const snow = summary.snow_total ?? 0;
+            const wind = summary.wind_max ?? 0;
+            const cloud = summary.cloud_avg ?? 0;
+
+            let label = '';
+            let fillColor = '';
+            if (snow > 0.1) {
+                label = $_('detection.weather_snow');
+                fillColor = '#6366f1';
+            } else if (rain > 0.2) {
+                label = $_('detection.weather_rain');
+                fillColor = '#3b82f6';
+            } else if (wind >= 25) {
+                label = $_('detection.weather_wind');
+                fillColor = '#10b981';
+            } else if (cloud >= 70) {
+                label = $_('detection.weather_cloud');
+                fillColor = '#94a3b8';
+            } else {
+                continue;
+            }
+
+            const nextDate = daily[i + 1]?.date || day.date;
+            xaxis.push({
+                x: day.date,
+                x2: nextDate,
+                borderColor: 'transparent',
+                fillColor,
+                opacity: 0.08,
+                label: {
+                    text: label,
+                    style: {
+                        fontSize: '9px',
+                        fontWeight: 700,
+                        color: fillColor
+                    },
+                    offsetY: -6
+                }
+            });
+        }
+
+        return { xaxis };
+    });
+
     let chartOptions = $derived(() => ({
         chart: {
             type: 'area',
@@ -234,7 +292,8 @@
             theme: isDark() ? 'dark' : 'light',
             x: { show: true },
             y: { formatter: (value: number) => `${value} detections` }
-        }
+        },
+        annotations: weatherAnnotations()
     }));
 
     function getWindowCount(item: SpeciesCount | undefined): number {

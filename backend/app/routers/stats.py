@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Request, Depends
 from datetime import datetime, time, date, timedelta
 from typing import List, Optional
+from collections import Counter
 from pydantic import BaseModel
 
 from app.database import get_db
@@ -8,6 +9,7 @@ from app.repositories.detection_repository import DetectionRepository
 from app.models import DetectionResponse
 from app.config import settings
 from app.services.taxonomy.taxonomy_service import taxonomy_service
+from app.services.weather_service import weather_service
 from app.auth import AuthContext
 from app.auth_legacy import get_auth_context_with_legacy
 from app.ratelimit import guest_rate_limit
@@ -33,10 +35,20 @@ class DailyCount(BaseModel):
     date: str
     count: int
 
+class DailyWeatherSummary(BaseModel):
+    date: str
+    condition: Optional[str] = None
+    precip_total: Optional[float] = None
+    rain_total: Optional[float] = None
+    snow_total: Optional[float] = None
+    wind_max: Optional[float] = None
+    cloud_avg: Optional[float] = None
+
 class DetectionsTimelineResponse(BaseModel):
     days: int
     total_count: int
     daily: List[DailyCount]
+    weather: Optional[List[DailyWeatherSummary]] = None
 
 @router.get("/stats/daily-summary", response_model=DailySummaryResponse)
 @guest_rate_limit()
@@ -168,9 +180,76 @@ async def get_detection_timeline(request: Request, days: int = 30):
         await repo.ensure_recent_rollups(max(days, 90))
         daily = await repo.get_total_daily_counts(days=days)
         total = sum(item["count"] for item in daily)
+        weather_summary: List[DailyWeatherSummary] = []
+
+        if daily:
+            start_date = datetime.strptime(daily[0]["date"], "%Y-%m-%d")
+            end_date = datetime.strptime(daily[-1]["date"], "%Y-%m-%d")
+            hourly = await weather_service.get_hourly_weather(start_date, end_date)
+
+            if hourly:
+                stats: dict[str, dict] = {}
+                for time_str, weather in hourly.items():
+                    try:
+                        dt = datetime.fromisoformat(time_str)
+                        date_key = dt.date().isoformat()
+                    except ValueError:
+                        continue
+
+                    entry = stats.setdefault(date_key, {
+                        "precip_total": 0.0,
+                        "rain_total": 0.0,
+                        "snow_total": 0.0,
+                        "wind_max": None,
+                        "cloud_sum": 0.0,
+                        "cloud_count": 0,
+                        "conditions": []
+                    })
+
+                    precip = weather.get("precipitation")
+                    rain = weather.get("rain")
+                    snow = weather.get("snowfall")
+                    wind = weather.get("wind_speed")
+                    cloud = weather.get("cloud_cover")
+                    condition = weather.get("condition_text")
+
+                    if precip is not None:
+                        entry["precip_total"] += float(precip)
+                    if rain is not None:
+                        entry["rain_total"] += float(rain)
+                    if snow is not None:
+                        entry["snow_total"] += float(snow)
+                    if wind is not None:
+                        entry["wind_max"] = wind if entry["wind_max"] is None else max(entry["wind_max"], wind)
+                    if cloud is not None:
+                        entry["cloud_sum"] += float(cloud)
+                        entry["cloud_count"] += 1
+                    if condition:
+                        entry["conditions"].append(condition)
+
+                for item in daily:
+                    date_key = item["date"]
+                    entry = stats.get(date_key)
+                    if not entry:
+                        continue
+                    conditions = entry["conditions"]
+                    condition = Counter(conditions).most_common(1)[0][0] if conditions else None
+                    cloud_avg = None
+                    if entry["cloud_count"]:
+                        cloud_avg = entry["cloud_sum"] / entry["cloud_count"]
+                    weather_summary.append(DailyWeatherSummary(
+                        date=date_key,
+                        condition=condition,
+                        precip_total=entry["precip_total"],
+                        rain_total=entry["rain_total"],
+                        snow_total=entry["snow_total"],
+                        wind_max=entry["wind_max"],
+                        cloud_avg=cloud_avg
+                    ))
 
         return DetectionsTimelineResponse(
             days=days,
             total_count=total,
-            daily=[DailyCount(**item) for item in daily]
+            daily=[DailyCount(**item) for item in daily],
+            weather=weather_summary or None
         )

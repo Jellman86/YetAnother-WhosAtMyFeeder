@@ -751,10 +751,21 @@ export interface DailyDetectionCount {
     count: number;
 }
 
+export interface DailyWeatherSummary {
+    date: string;
+    condition?: string | null;
+    precip_total?: number | null;
+    rain_total?: number | null;
+    snow_total?: number | null;
+    wind_max?: number | null;
+    cloud_avg?: number | null;
+}
+
 export interface DetectionsTimeline {
     days: number;
     total_count: number;
     daily: DailyDetectionCount[];
+    weather?: DailyWeatherSummary[] | null;
 }
 
 export async function fetchSpeciesStats(speciesName: string): Promise<SpeciesStats> {
