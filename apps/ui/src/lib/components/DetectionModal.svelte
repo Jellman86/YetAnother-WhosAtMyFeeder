@@ -597,17 +597,13 @@
                             </div>
                             <div class="rounded-xl bg-white/80 dark:bg-slate-900/50 border border-slate-200/60 dark:border-slate-700/60 p-2">
                                 <div class="flex items-center gap-2 text-[9px] font-black uppercase tracking-widest text-slate-400">
-                                    <svg class="w-3 h-3 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v2m0 14v2m6-8h2M4 11H2m13.536-5.536l1.414-1.414M7.05 16.95l-1.414 1.414m10.9 0l1.414 1.414M7.05 7.05L5.636 5.636" />
+                                    <svg class="w-3 h-3 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a4 4 0 100-8h-1a5 5 0 10-9 4H7a4 4 0 00-4 4z" />
                                     </svg>
-                                    {$_('detection.weather_precip')}
+                                    {$_('detection.weather_title')}
                                 </div>
                                 <p class="text-xs font-bold text-slate-700 dark:text-slate-200">
-                                    {#if detection.weather_precipitation !== undefined && detection.weather_precipitation !== null}
-                                        {formatPrecip(detection.weather_precipitation)}
-                                    {:else}
-                                        —
-                                    {/if}
+                                    {detection.weather_condition || $_('detection.weather_unknown')}
                                 </p>
                             </div>
                             <div class="rounded-xl bg-white/80 dark:bg-slate-900/50 border border-slate-200/60 dark:border-slate-700/60 p-2">
