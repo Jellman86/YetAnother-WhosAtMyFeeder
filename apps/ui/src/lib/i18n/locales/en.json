@@ -161,6 +161,7 @@
         "default_place_guess_label": "Default place guess",
         "default_place_guess_placeholder": "Backyard Feeder",
         "oauth_desc": "Connect your iNaturalist account to submit verified detections.",
+        "app_owner_note": "Requires iNaturalist App Owner approval (account 2+ months old and 10 improving IDs in the last month).",
         "connect": "Connect iNaturalist",
         "connect_label": "Connect iNaturalist account",
         "disconnect": "Disconnect",
@@ -608,6 +609,10 @@
       "taxonomy": {
         "title": "Taxonomy Normalization",
         "desc": "Automatic scientific ↔ common name mapping using iNaturalist data"
+      },
+      "inaturalist_submissions": {
+        "title": "iNaturalist Submissions",
+        "desc": "Owner-reviewed submissions with photos, location, and notes"
       },
       "weather": {
         "title": "Weather Enrichment",

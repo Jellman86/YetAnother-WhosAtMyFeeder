@@ -161,6 +161,7 @@
         "default_place_guess_label": "Local padrão",
         "default_place_guess_placeholder": "Comedouro do quintal",
         "oauth_desc": "Conecte sua conta iNaturalist para enviar detecções verificadas.",
+        "app_owner_note": "Requer aprovação de App Owner do iNaturalist (conta com 2+ meses e 10 IDs melhoradoras no último mês).",
         "connect": "Conectar iNaturalist",
         "connect_label": "Conectar conta iNaturalist",
         "disconnect": "Desconectar",
@@ -605,6 +606,10 @@
       "taxonomy": {
         "title": "Normalização de Taxonomia",
         "desc": "Mapeamento automático de nomes científicos ↔ comuns usando dados do iNaturalist"
+      },
+      "inaturalist_submissions": {
+        "title": "Envios para iNaturalist",
+        "desc": "Envios revisados pelo proprietário com foto, local e notas"
       },
       "weather": {
         "title": "Enriquecimento Meteorológico",

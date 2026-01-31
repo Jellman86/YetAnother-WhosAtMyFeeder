@@ -153,6 +153,7 @@
         "default_place_guess_label": "Lugar predeterminado",
         "default_place_guess_placeholder": "Comedero del jardín",
         "oauth_desc": "Conecta tu cuenta de iNaturalist para enviar detecciones verificadas.",
+        "app_owner_note": "Requiere aprobación de App Owner de iNaturalist (cuenta de 2+ meses y 10 identificaciones que mejoren en el último mes).",
         "connect": "Conectar iNaturalist",
         "connect_label": "Conectar cuenta de iNaturalist",
         "disconnect": "Desconectar",
@@ -597,6 +598,10 @@
       "taxonomy": {
         "title": "Normalización Taxonómica",
         "desc": "Mapeo automático de nombres científicos ↔ comunes usando datos de iNaturalist"
+      },
+      "inaturalist_submissions": {
+        "title": "Envíos a iNaturalist",
+        "desc": "Envíos revisados por el propietario con foto, ubicación y notas"
       },
       "weather": {
         "title": "Enriquecimiento Meteorológico",

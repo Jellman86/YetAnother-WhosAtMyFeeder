@@ -32,6 +32,7 @@ Connect YA-WAMF to the rest of your smart home and community projects.
 - **[Frigate NVR](integrations/frigate.md)** - Connecting to your camera system.
 - **[BirdNET-Go](integrations/birdnet-go.md)** - Multi-sensor audio correlation.
 - **[BirdWeather](integrations/birdweather.md)** - Uploading to community science stations.
+- **[iNaturalist](integrations/inaturalist.md)** - Owner-reviewed submissions to iNaturalist.
 - **[Home Assistant](integrations/home-assistant.md)** - Sensors, cards, and automations.
 
 ## Feature Deep Dives

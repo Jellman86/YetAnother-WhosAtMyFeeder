@@ -161,6 +161,7 @@
         "default_place_guess_label": "Luogo predefinito",
         "default_place_guess_placeholder": "Mangiatoia in giardino",
         "oauth_desc": "Collega il tuo account iNaturalist per inviare rilevamenti verificati.",
+        "app_owner_note": "Richiede approvazione App Owner iNaturalist (account da 2+ mesi e 10 identificazioni migliorative nell’ultimo mese).",
         "connect": "Collega iNaturalist",
         "connect_label": "Collega account iNaturalist",
         "disconnect": "Disconnetti",
@@ -605,6 +606,10 @@
       "taxonomy": {
         "title": "Normalizzazione Tassonomia",
         "desc": "Mappatura automatica nomi scientifici ↔ comuni usando dati iNaturalist"
+      },
+      "inaturalist_submissions": {
+        "title": "Invii a iNaturalist",
+        "desc": "Invii revisionati dal proprietario con foto, posizione e note"
       },
       "weather": {
         "title": "Arricchimento Meteo",

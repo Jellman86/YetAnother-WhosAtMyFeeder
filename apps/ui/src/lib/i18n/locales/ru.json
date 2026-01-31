@@ -161,6 +161,7 @@
         "default_place_guess_label": "Место по умолчанию",
         "default_place_guess_placeholder": "Кормушка в саду",
         "oauth_desc": "Подключите аккаунт iNaturalist для отправки проверенных обнаружений.",
+        "app_owner_note": "Требуется одобрение App Owner iNaturalist (аккаунт 2+ месяца и 10 улучшающих идентификаций за последний месяц).",
         "connect": "Подключить iNaturalist",
         "connect_label": "Подключить аккаунт iNaturalist",
         "disconnect": "Отключить",
@@ -605,6 +606,10 @@
       "taxonomy": {
         "title": "Нормализация Таксономии",
         "desc": "Автоматическое сопоставление научных ↔ общих имен с использованием данных iNaturalist"
+      },
+      "inaturalist_submissions": {
+        "title": "Отправка в iNaturalist",
+        "desc": "Отправки с фото, местом и заметками после проверки владельцем"
       },
       "weather": {
         "title": "Обогащение Погодой",

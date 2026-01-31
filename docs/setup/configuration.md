@@ -45,6 +45,7 @@ Configure third-party services.
 
 - **BirdNET-Go:** Configure the MQTT topic and map Frigate cameras to audio sensor IDs.
 - **BirdWeather:** Enter your Station Token to contribute detections to the BirdWeather community.
+- **iNaturalist:** Owner-reviewed submissions via OAuth. Requires App Owner approval (currently untested).
 - **AI Insights:** Connect Google Gemini (default: `gemini-3-flash-preview`), OpenAI, or Claude to get behavioral analysis of your visitors.
 
 ## Notification Settings

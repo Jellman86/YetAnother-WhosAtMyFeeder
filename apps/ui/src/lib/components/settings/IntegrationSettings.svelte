@@ -269,6 +269,9 @@
 
             <div class="p-4 rounded-2xl bg-emerald-500/5 border border-emerald-500/10 space-y-3">
                 <p class="text-xs text-emerald-700 dark:text-emerald-300">{$_('settings.integrations.inaturalist.oauth_desc')}</p>
+                <p class="text-[10px] text-emerald-700/80 dark:text-emerald-300/80 font-semibold">
+                    {$_('settings.integrations.inaturalist.app_owner_note')}
+                </p>
                 <div class="flex flex-wrap gap-2">
                     <button
                         onclick={async () => {

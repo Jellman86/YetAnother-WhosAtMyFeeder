@@ -153,6 +153,7 @@
         "default_place_guess_label": "默认地点",
         "default_place_guess_placeholder": "后院喂食器",
         "oauth_desc": "连接你的 iNaturalist 账号以提交已验证的检测。",
+        "app_owner_note": "需要 iNaturalist App Owner 批准（账号 2+ 个月且最近 1 个月有 10 次改进鉴定）。",
         "connect": "连接 iNaturalist",
         "connect_label": "连接 iNaturalist 账号",
         "disconnect": "断开连接",
@@ -597,6 +598,10 @@
       "taxonomy": {
         "title": "分类标准化",
         "desc": "使用 iNaturalist 数据自动进行学名 ↔ 通用名映射"
+      },
+      "inaturalist_submissions": {
+        "title": "iNaturalist 提交",
+        "desc": "由管理员审核后提交，包含照片、地点和备注"
       },
       "weather": {
         "title": "天气丰富化",

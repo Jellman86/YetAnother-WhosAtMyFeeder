@@ -54,6 +54,11 @@
             description: $_('about.feature_list.taxonomy.desc')
         },
         {
+            icon: '🌿',
+            title: $_('about.feature_list.inaturalist_submissions.title'),
+            description: $_('about.feature_list.inaturalist_submissions.desc')
+        },
+        {
             icon: '🌦️',
             title: $_('about.feature_list.weather.title'),
             description: $_('about.feature_list.weather.desc')

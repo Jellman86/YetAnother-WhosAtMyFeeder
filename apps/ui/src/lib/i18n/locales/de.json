@@ -153,6 +153,7 @@
         "default_place_guess_label": "Standard-Ortsangabe",
         "default_place_guess_placeholder": "Gartenfütterung",
         "oauth_desc": "Verbinde dein iNaturalist-Konto, um verifizierte Erkennungen zu übermitteln.",
+        "app_owner_note": "Erfordert iNaturalist App-Owner-Freigabe (Konto 2+ Monate alt und 10 verbessernde IDs im letzten Monat).",
         "connect": "iNaturalist verbinden",
         "connect_label": "iNaturalist-Konto verbinden",
         "disconnect": "Trennen",
@@ -597,6 +598,10 @@
       "taxonomy": {
         "title": "Taxonomie-Normalisierung",
         "desc": "Automatische Zuordnung wissenschaftlicher ↔ gebräuchlicher Namen via iNaturalist-Daten"
+      },
+      "inaturalist_submissions": {
+        "title": "iNaturalist-Übermittlungen",
+        "desc": "Vom Besitzer geprüfte Übermittlungen mit Foto, Ort und Notizen"
       },
       "weather": {
         "title": "Wetter-Anreicherung",
