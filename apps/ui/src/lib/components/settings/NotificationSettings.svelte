@@ -140,6 +140,9 @@
                         {$_('settings.notifications.enable_notify_hint', { default: 'Notifications are currently off. Enable "Notify on new detections" or "Notify on updates" to send any alerts.' })}
                     </div>
                 {/if}
+                <div class="mb-4 rounded-2xl border border-slate-200/70 bg-white/70 px-4 py-3 text-[11px] font-bold text-slate-600 dark:border-slate-700/60 dark:bg-slate-900/40 dark:text-slate-300">
+                    {$_('settings.notifications.confirmation_policy')}
+                </div>
                 <div class="space-y-4">
                     <div class="flex items-center justify-between gap-4">
                         <div id="notify-insert-label">

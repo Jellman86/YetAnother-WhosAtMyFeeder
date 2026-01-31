@@ -15,6 +15,7 @@ from datetime import datetime, timedelta, timezone
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.mime.image import MIMEImage
+from email.utils import formataddr, formatdate, make_msgid, parseaddr
 from typing import Optional, Dict, Any
 import base64
 import json
@@ -177,8 +178,12 @@ class SMTPService:
         """Build MIME email message with HTML and optional image"""
         message = MIMEMultipart('alternative')
         message['Subject'] = subject
-        message['From'] = from_email
-        message['To'] = to_email
+        from_name, from_addr = parseaddr(from_email)
+        to_name, to_addr = parseaddr(to_email)
+        message['From'] = formataddr((from_name or "YA-WAMF", from_addr))
+        message['To'] = formataddr((to_name or "Recipient", to_addr))
+        message['Date'] = formatdate(localtime=True)
+        message['Message-ID'] = make_msgid(domain=(from_addr.split("@")[-1] if "@" in from_addr else None))
 
         # Add plain text part
         if plain_body:

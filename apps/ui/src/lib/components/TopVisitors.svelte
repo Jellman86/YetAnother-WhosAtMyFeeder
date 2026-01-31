@@ -31,7 +31,7 @@
 
 <div class="space-y-4">
     <h3 class="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-        Today's Top Visitors
+        Top Visitors (Last 24 Hours)
     </h3>
 
     <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">

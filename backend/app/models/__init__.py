@@ -21,6 +21,12 @@ class Detection(BaseModel):
     # Weather fields
     temperature: float | None = None
     weather_condition: str | None = None
+    weather_cloud_cover: float | None = None
+    weather_wind_speed: float | None = None
+    weather_wind_direction: float | None = None
+    weather_precipitation: float | None = None
+    weather_rain: float | None = None
+    weather_snowfall: float | None = None
     # Taxonomy fields
     scientific_name: str | None = None
     common_name: str | None = None

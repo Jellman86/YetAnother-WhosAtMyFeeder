@@ -590,6 +590,12 @@ async def get_species_stats(
                 audio_score=d.audio_score,
                 temperature=d.temperature,
                 weather_condition=d.weather_condition,
+                weather_cloud_cover=d.weather_cloud_cover,
+                weather_wind_speed=d.weather_wind_speed,
+                weather_wind_direction=d.weather_wind_direction,
+                weather_precipitation=d.weather_precipitation,
+                weather_rain=d.weather_rain,
+                weather_snowfall=d.weather_snowfall,
                 scientific_name=d.scientific_name,
                 common_name=common_name,
                 taxa_id=d.taxa_id

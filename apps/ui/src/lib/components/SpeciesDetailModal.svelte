@@ -159,6 +159,10 @@
         }
     }
 
+    function handleOpenExplorer() {
+        window.location.assign('/events?species=Unknown%20Bird');
+    }
+
     async function handleReclassify(strategy: 'snapshot' | 'video') {
         // Get the most recent sighting for reclassification
         const recentSighting = stats?.recent_sightings?.[0];
@@ -262,49 +266,10 @@
                         Retry
                     </button>
                 </div>
-            {:else if stats}
-                <!-- Hero Image from Wikipedia -->
-                {#if info?.thumbnail_url}
-                    <section class="relative -mx-6 -mt-6 mb-6">
-                        <div class="relative h-48 sm:h-64 overflow-hidden">
-                            <img
-                                src={info.thumbnail_url}
-                                alt={primaryName}
-                                class="w-full h-full object-cover"
-                                onerror={(e) => {
-                                    const target = e.target as HTMLImageElement;
-                                    target.parentElement?.classList.add('hidden');
-                                }}
-                            />
-                            <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
-                            <div class="absolute bottom-4 right-4">
-                                {#if info.source_url}
-                                    <a
-                                        href={info.source_url}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        class="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-white/70 text-slate-600 text-[10px] font-black uppercase tracking-widest backdrop-blur-sm border border-white/60"
-                                    >
-                                        {info.source || 'Source'}
-                                    </a>
-                                {/if}
-                            </div>
-                            <div class="absolute bottom-4 left-6 right-6">
-                                <h3 class="text-2xl font-bold text-white drop-shadow-lg">{primaryName}</h3>
-                                {#if subName && subName !== primaryName}
-                                    <p class="text-sm italic text-white/80 mt-0.5 drop-shadow">{subName}</p>
-                                {/if}
-                                {#if info.description}
-                                    <p class="text-sm text-white/90 mt-1 drop-shadow">{info.description}</p>
-                                {/if}
-                            </div>
-                        </div>
-                    </section>
-                {/if}
-
+            {:else}
                 <!-- Unknown Bird Message and Reclassify Options -->
                 {#if isUnknownBird}
-                    <section class="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-6 border-2 border-amber-200 dark:border-amber-800">
+                    <section class="bg-amber-50 dark:bg-amber-900/20 rounded-2xl p-6 border-2 border-amber-200 dark:border-amber-800">
                         <div class="flex items-start gap-4">
                             <!-- Icon -->
                             <div class="flex-shrink-0 w-12 h-12 rounded-full bg-amber-500 flex items-center justify-center">
@@ -344,16 +309,68 @@
                                         </svg>
                                         {reclassifying ? $_('common.testing') : $_('actions.reclassify')}
                                     </button>
+
+                                    <button
+                                        type="button"
+                                        onclick={handleOpenExplorer}
+                                        class="px-4 py-2 bg-white/80 dark:bg-slate-900/40 border border-amber-200 dark:border-amber-700 text-amber-800 dark:text-amber-100 font-semibold rounded-lg transition-colors shadow-sm flex items-center gap-2"
+                                    >
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                                        </svg>
+                                        {$_('detection.review_in_explorer')}
+                                    </button>
                                 </div>
 
                                 {#if !stats?.recent_sightings?.[0]}
                                     <p class="text-xs text-amber-700 dark:text-amber-300 mt-2 italic">
-                                        No recent sightings available for reclassification
+                                        {$_('detection.review_in_explorer_hint')}
                                     </p>
                                 {/if}
                             </div>
                         </div>
                     </section>
+                {/if}
+
+                {#if stats}
+                    <!-- Hero Image from Wikipedia -->
+                    {#if info?.thumbnail_url}
+                        <section class="relative -mx-6 -mt-6 mb-6">
+                            <div class="relative h-48 sm:h-64 overflow-hidden">
+                                <img
+                                    src={info.thumbnail_url}
+                                    alt={primaryName}
+                                    class="w-full h-full object-cover"
+                                    onerror={(e) => {
+                                        const target = e.target as HTMLImageElement;
+                                        target.parentElement?.classList.add('hidden');
+                                    }}
+                                />
+                                <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
+                                <div class="absolute bottom-4 right-4">
+                                    {#if info.source_url}
+                                        <a
+                                            href={info.source_url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            class="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-white/70 text-slate-600 text-[10px] font-black uppercase tracking-widest backdrop-blur-sm border border-white/60"
+                                        >
+                                            {info.source || 'Source'}
+                                        </a>
+                                    {/if}
+                                </div>
+                                <div class="absolute bottom-4 left-6 right-6">
+                                    <h3 class="text-2xl font-bold text-white drop-shadow-lg">{primaryName}</h3>
+                                    {#if subName && subName !== primaryName}
+                                        <p class="text-sm italic text-white/80 mt-0.5 drop-shadow">{subName}</p>
+                                    {/if}
+                                    {#if info.description}
+                                        <p class="text-sm text-white/90 mt-1 drop-shadow">{info.description}</p>
+                                    {/if}
+                                </div>
+                            </div>
+                        </section>
+                    {/if}
                 {/if}
 
                 <!-- Species Description -->

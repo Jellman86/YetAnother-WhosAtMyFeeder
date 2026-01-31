@@ -5,6 +5,8 @@ from typing import Optional, Deque
 from dataclasses import dataclass
 from collections import deque
 from app.config import settings
+from app.database import get_db
+from app.repositories.detection_repository import DetectionRepository
 
 log = structlog.get_logger()
 
@@ -81,6 +83,19 @@ class AudioService:
                 buffer_len = len(self._buffer)
                 log.info("Audio detection added to buffer", species=species, confidence=confidence, sensor_id=sensor_id, ts=timestamp.isoformat(), buffer_len=buffer_len)
                 self._cleanup_buffer()
+
+            try:
+                async with get_db() as db:
+                    repo = DetectionRepository(db)
+                    await repo.insert_audio_detection(
+                        timestamp=timestamp,
+                        species=species,
+                        confidence=float(confidence),
+                        sensor_id=sensor_id,
+                        raw_data=data
+                    )
+            except Exception as e:
+                log.warning("Failed to persist audio detection", error=str(e))
             
         except Exception as e:
             log.error("Failed to process audio detection", error=str(e))
@@ -248,6 +263,52 @@ class AudioService:
                     "sensor_id": d.sensor_id
                 }
                 for d in sorted_detections[:limit]
+            ]
+
+    async def get_detections_near(
+        self,
+        target_time: datetime,
+        camera_name: str | None = None,
+        window_seconds: int | None = None,
+        limit: int = 5
+    ) -> list[dict]:
+        """Get audio detections within a time window around a target timestamp."""
+        if window_seconds is None:
+            window_seconds = 300
+
+        async with self._lock:
+            self._cleanup_buffer()
+
+            expected_sensor_id = None
+            if camera_name and settings.frigate.camera_audio_mapping:
+                expected_sensor_id = settings.frigate.camera_audio_mapping.get(camera_name)
+
+            if target_time.tzinfo is None:
+                target_time = target_time.replace(tzinfo=timezone.utc)
+
+            matches: list[tuple[float, AudioDetection]] = []
+            for detection in self._buffer:
+                if expected_sensor_id and expected_sensor_id != "*" and detection.sensor_id != expected_sensor_id:
+                    continue
+
+                det_ts = detection.timestamp
+                if det_ts.tzinfo is None:
+                    det_ts = det_ts.replace(tzinfo=timezone.utc)
+
+                delta = (det_ts - target_time).total_seconds()
+                if abs(delta) <= window_seconds:
+                    matches.append((delta, detection))
+
+            matches.sort(key=lambda item: (abs(item[0]), -item[1].confidence))
+            return [
+                {
+                    "timestamp": d.timestamp.isoformat(),
+                    "species": d.species,
+                    "confidence": d.confidence,
+                    "sensor_id": d.sensor_id,
+                    "offset_seconds": int(delta)
+                }
+                for delta, d in matches[:limit]
             ]
 
 audio_service = AudioService()

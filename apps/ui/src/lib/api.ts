@@ -19,6 +19,12 @@ export interface Detection {
     // Weather fields
     temperature?: number;
     weather_condition?: string;
+    weather_cloud_cover?: number;
+    weather_wind_speed?: number;
+    weather_wind_direction?: number;
+    weather_precipitation?: number;
+    weather_rain?: number;
+    weather_snowfall?: number;
     // Taxonomy fields
     scientific_name?: string;
     common_name?: string;
@@ -1032,6 +1038,27 @@ export async function fetchRecentAudio(limit: number = 10): Promise<AudioDetecti
     return handleResponse<AudioDetection[]>(response);
 }
 
+export interface AudioContextDetection extends AudioDetection {
+    offset_seconds: number;
+}
+
+export async function fetchAudioContext(
+    timestamp: string,
+    camera?: string,
+    windowSeconds: number = 300,
+    limit: number = 5
+): Promise<AudioContextDetection[]> {
+    const params = new URLSearchParams();
+    params.set('timestamp', timestamp);
+    params.set('window_seconds', String(windowSeconds));
+    params.set('limit', String(limit));
+    if (camera) {
+        params.set('camera', camera);
+    }
+    const response = await apiFetch(`${API_BASE}/audio/context?${params.toString()}`);
+    return handleResponse<AudioContextDetection[]>(response);
+}
+
 export interface SearchResult {
     id: string;
     display_name: string;
@@ -1063,6 +1090,7 @@ export interface DailySummary {
     top_species: DailySpeciesSummary[];
     latest_detection: Detection | null;
     total_count: number;
+    audio_confirmations: number;
 }
 
 export async function fetchDailySummary(): Promise<DailySummary> {

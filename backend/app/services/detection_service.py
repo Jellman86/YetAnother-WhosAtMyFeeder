@@ -106,7 +106,10 @@ class DetectionService:
     async def save_detection(self, frigate_event: str, camera: str, start_time: float, 
                            classification: dict, frigate_score: float = None, sub_label: str = None,
                            audio_confirmed: bool = False, audio_species: str = None, audio_score: float = None,
-                           temperature: float = None, weather_condition: str = None) -> tuple[bool, bool]:
+                           temperature: float = None, weather_condition: str = None,
+                           weather_cloud_cover: float = None, weather_wind_speed: float = None,
+                           weather_wind_direction: float = None, weather_precipitation: float = None,
+                           weather_rain: float = None, weather_snowfall: float = None) -> tuple[bool, bool]:
         """
         Save or update a detection in the database and broadcast the event.
         Returns (changed, was_inserted).
@@ -148,6 +151,12 @@ class DetectionService:
                 audio_score=audio_score,
                 temperature=temperature,
                 weather_condition=weather_condition,
+                weather_cloud_cover=weather_cloud_cover,
+                weather_wind_speed=weather_wind_speed,
+                weather_wind_direction=weather_wind_direction,
+                weather_precipitation=weather_precipitation,
+                weather_rain=weather_rain,
+                weather_snowfall=weather_snowfall,
                 scientific_name=scientific_name,
                 common_name=common_name,
                 taxa_id=taxa_id
@@ -186,7 +195,13 @@ class DetectionService:
                         "audio_species": audio_species,
                         "audio_score": audio_score,
                         "temperature": temperature,
-                        "weather_condition": weather_condition
+                        "weather_condition": weather_condition,
+                        "weather_cloud_cover": weather_cloud_cover,
+                        "weather_wind_speed": weather_wind_speed,
+                        "weather_wind_direction": weather_wind_direction,
+                        "weather_precipitation": weather_precipitation,
+                        "weather_rain": weather_rain,
+                        "weather_snowfall": weather_snowfall
                     }
                 })
 

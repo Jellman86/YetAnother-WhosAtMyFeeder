@@ -13,8 +13,8 @@
     import RecentAudio from '../components/RecentAudio.svelte';
     import { detectionsStore } from '../stores/detections.svelte';
     import { toastStore } from '../stores/toast.svelte';
-    import type { Detection, DailySummary } from '../api';
-    import { getThumbnailUrl, deleteDetection, hideDetection, updateDetectionSpecies, analyzeDetection, fetchDailySummary, fetchClassifierLabels, reclassifyDetection } from '../api';
+    import type { Detection, DailySummary, SpeciesInfo } from '../api';
+    import { deleteDetection, hideDetection, updateDetectionSpecies, analyzeDetection, fetchDailySummary, fetchClassifierLabels, reclassifyDetection, fetchSpeciesInfo } from '../api';
     import { settingsStore } from '../stores/settings.svelte';
     import { authStore } from '../stores/auth.svelte';
     import { _ } from 'svelte-i18n';
@@ -30,6 +30,7 @@
 
     let summary = $state<DailySummary | null>(null);
     let summaryLoading = $state(true);
+    let topSpeciesInfo = $state<SpeciesInfo | null>(null);
     let selectedEvent = $state<Detection | null>(null);
     let selectedSpecies = $state<string | null>(null);
     let deleting = $state(false);
@@ -87,8 +88,9 @@
     let modalPrimaryName = $derived(modalNaming.primary);
     let modalSubName = $derived(modalNaming.secondary);
 
-    // Derive audio confirmations count from recent detections
-    let audioConfirmations = $derived(detectionsStore.detections.filter(d => d.audio_confirmed).length);
+    let last24hCount = $derived(summary?.total_count ?? detectionsStore.totalToday);
+    let last24hSpecies = $derived(summary?.top_species.length ?? 0);
+    let audioConfirmations = $derived(summary?.audio_confirmations ?? 0);
 
     // Derive most seen species name based on preference
     let mostSeenName = $derived.by(() => {
@@ -113,6 +115,27 @@
             summaryLoading = false;
         }
     }
+
+    $effect(() => {
+        const topSpecies = summary?.top_species?.[0]?.species;
+        if (!topSpecies || topSpecies === 'Unknown Bird') {
+            topSpeciesInfo = null;
+            return;
+        }
+        const speciesName = topSpecies;
+        void (async () => {
+            try {
+                const info = await fetchSpeciesInfo(speciesName);
+                if (summary?.top_species?.[0]?.species === speciesName) {
+                    topSpeciesInfo = info;
+                }
+            } catch {
+                if (summary?.top_species?.[0]?.species === speciesName) {
+                    topSpeciesInfo = null;
+                }
+            }
+        })();
+    });
 
     onMount(async () => {
         await loadSummary(true);
@@ -230,11 +253,12 @@
     {#if summary || detectionsStore.totalToday > 0}
         <div in:fly={{ y: -20, duration: 500 }}>
             <StatsRibbon
-                todayCount={detectionsStore.totalToday}
-                uniqueSpecies={summary?.top_species.length ?? 0}
+                todayCount={last24hCount}
+                uniqueSpecies={last24hSpecies}
                 mostSeenSpecies={mostSeenName}
                 mostSeenCount={summary?.top_species[0]?.count ?? 0}
                 {audioConfirmations}
+                topVisitorImageUrl={topSpeciesInfo?.thumbnail_url ?? null}
             />
         </div>
     {:else if summaryLoading}

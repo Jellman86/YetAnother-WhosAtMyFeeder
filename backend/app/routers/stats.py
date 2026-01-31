@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Request, Depends
-from datetime import datetime, time, date
+from datetime import datetime, time, date, timedelta
 from typing import List, Optional
 from pydantic import BaseModel
 
@@ -27,6 +27,7 @@ class DailySummaryResponse(BaseModel):
     top_species: List[DailySpeciesSummary]
     latest_detection: Optional[DetectionResponse]
     total_count: int
+    audio_confirmations: int
 
 class DailyCount(BaseModel):
     date: str
@@ -50,9 +51,8 @@ async def get_daily_summary(
         and settings.public_access.enabled
         and not settings.public_access.show_camera_names
     )
-    today = date.today()
-    start_dt = datetime.combine(today, time.min)
-    end_dt = datetime.combine(today, time.max)
+    end_dt = datetime.now()
+    start_dt = end_dt - timedelta(hours=24)
     
     async with get_db() as db:
         repo = DetectionRepository(db)
@@ -134,18 +134,26 @@ async def get_daily_summary(
                 audio_score=d.audio_score,
                 temperature=d.temperature,
                 weather_condition=d.weather_condition,
+                weather_cloud_cover=d.weather_cloud_cover,
+                weather_wind_speed=d.weather_wind_speed,
+                weather_wind_direction=d.weather_wind_direction,
+                weather_precipitation=d.weather_precipitation,
+                weather_rain=d.weather_rain,
+                weather_snowfall=d.weather_snowfall,
                 scientific_name=d.scientific_name,
                 common_name=common_name,
                 taxa_id=d.taxa_id
             )
             
         total_today = sum(hourly)
+        audio_confirmations = await repo.get_audio_confirmations_count(start_dt, end_dt)
         
         return DailySummaryResponse(
             hourly_distribution=hourly,
             top_species=summary_species,
             latest_detection=latest_detection,
-            total_count=total_today
+            total_count=total_today,
+            audio_confirmations=audio_confirmations
         )
 
 @router.get("/stats/detections/daily", response_model=DetectionsTimelineResponse)

@@ -288,9 +288,21 @@ class EventProcessor:
         # Extract weather data
         temperature = None
         weather_condition = None
+        weather_cloud_cover = None
+        weather_wind_speed = None
+        weather_wind_direction = None
+        weather_precipitation = None
+        weather_rain = None
+        weather_snowfall = None
         if context['weather_data']:
             temperature = context['weather_data'].get("temperature")
             weather_condition = context['weather_data'].get("condition_text")
+            weather_cloud_cover = context['weather_data'].get("cloud_cover")
+            weather_wind_speed = context['weather_data'].get("wind_speed")
+            weather_wind_direction = context['weather_data'].get("wind_direction")
+            weather_precipitation = context['weather_data'].get("precipitation")
+            weather_rain = context['weather_data'].get("rain")
+            weather_snowfall = context['weather_data'].get("snowfall")
 
         # Save detection (upsert)
         changed, was_inserted = await self.detection_service.save_detection(
@@ -304,7 +316,13 @@ class EventProcessor:
             audio_species=classification['audio_species'],
             audio_score=classification['audio_score'],
             temperature=temperature,
-            weather_condition=weather_condition
+            weather_condition=weather_condition,
+            weather_cloud_cover=weather_cloud_cover,
+            weather_wind_speed=weather_wind_speed,
+            weather_wind_direction=weather_wind_direction,
+            weather_precipitation=weather_precipitation,
+            weather_rain=weather_rain,
+            weather_snowfall=weather_snowfall
         )
 
         # Update Frigate sublabel if confident
@@ -344,6 +362,10 @@ class EventProcessor:
         )
 
         if should_notify:
+            snapshot_confirmed = (
+                classification['score'] >= settings.classification.threshold
+                or classification['audio_confirmed']
+            )
             if settings.notifications.delay_until_video and settings.classification.auto_video_classification:
                 asyncio.create_task(self._notify_after_video(
                     event,
@@ -352,32 +374,48 @@ class EventProcessor:
                     audio_species=classification['audio_species']
                 ))
             else:
+                if snapshot_confirmed:
+                    sent = await self._send_notification(
+                        event,
+                        label=classification['label'],
+                        score=classification['score'],
+                        audio_confirmed=classification['audio_confirmed'],
+                        audio_species=classification['audio_species'],
+                        snapshot_data=snapshot_data
+                    )
+                    if sent:
+                        async with get_db() as db:
+                            repo = DetectionRepository(db)
+                            await repo.mark_notified(event.frigate_event)
+                else:
+                    log.info("Notification skipped: snapshot not confirmed",
+                             event_id=event.frigate_event,
+                             label=classification['label'],
+                             score=classification['score'])
+        elif email_only_on_end:
+            snapshot_confirmed = (
+                classification['score'] >= settings.classification.threshold
+                or classification['audio_confirmed']
+            )
+            if snapshot_confirmed:
                 sent = await self._send_notification(
                     event,
                     label=classification['label'],
                     score=classification['score'],
                     audio_confirmed=classification['audio_confirmed'],
                     audio_species=classification['audio_species'],
-                    snapshot_data=snapshot_data
+                    snapshot_data=snapshot_data,
+                    channels=["email"]
                 )
                 if sent:
                     async with get_db() as db:
                         repo = DetectionRepository(db)
                         await repo.mark_notified(event.frigate_event)
-        elif email_only_on_end:
-            sent = await self._send_notification(
-                event,
-                label=classification['label'],
-                score=classification['score'],
-                audio_confirmed=classification['audio_confirmed'],
-                audio_species=classification['audio_species'],
-                snapshot_data=snapshot_data,
-                channels=["email"]
-            )
-            if sent:
-                async with get_db() as db:
-                    repo = DetectionRepository(db)
-                    await repo.mark_notified(event.frigate_event)
+            else:
+                log.info("Email notification skipped: snapshot not confirmed",
+                         event_id=event.frigate_event,
+                         label=classification['label'],
+                         score=classification['score'])
 
     async def _send_notification(
         self,
@@ -439,24 +477,35 @@ class EventProcessor:
     ):
         """Delay notification until video analysis completes (with fallback)."""
         timeout = settings.notifications.video_fallback_timeout
+        snapshot_confirmed = (
+            classification['score'] >= settings.classification.threshold
+            or classification['audio_confirmed']
+        )
         if timeout <= 0:
-            sent = await self._send_notification(
-                event,
-                label=classification['label'],
-                score=classification['score'],
-                audio_confirmed=audio_confirmed,
-                audio_species=audio_species,
-                snapshot_data=None
-            )
-            if sent:
-                async with get_db() as db:
-                    repo = DetectionRepository(db)
-                    await repo.mark_notified(event.frigate_event)
+            if snapshot_confirmed:
+                sent = await self._send_notification(
+                    event,
+                    label=classification['label'],
+                    score=classification['score'],
+                    audio_confirmed=audio_confirmed,
+                    audio_species=audio_species,
+                    snapshot_data=None
+                )
+                if sent:
+                    async with get_db() as db:
+                        repo = DetectionRepository(db)
+                        await repo.mark_notified(event.frigate_event)
+            else:
+                log.info("Notification skipped: snapshot not confirmed",
+                         event_id=event.frigate_event,
+                         label=classification['label'],
+                         score=classification['score'])
             return
 
         deadline = asyncio.get_running_loop().time() + timeout
         label = classification['label']
         score = classification['score']
+        video_confirmed = False
 
         while True:
             async with get_db() as db:
@@ -467,6 +516,7 @@ class EventProcessor:
                 if det.video_classification_label and det.video_classification_score is not None:
                     label = det.video_classification_label
                     score = det.video_classification_score
+                    video_confirmed = det.video_classification_score >= settings.classification.threshold
                 break
             if det and det.video_classification_status == 'failed':
                 break
@@ -474,15 +524,21 @@ class EventProcessor:
                 break
             await asyncio.sleep(2)
 
-        sent = await self._send_notification(
-            event,
-            label=label,
-            score=score,
-            audio_confirmed=audio_confirmed,
-            audio_species=audio_species,
-            snapshot_data=None
-        )
-        if sent:
-            async with get_db() as db:
-                repo = DetectionRepository(db)
-                await repo.mark_notified(event.frigate_event)
+        if video_confirmed or snapshot_confirmed:
+            sent = await self._send_notification(
+                event,
+                label=label,
+                score=score,
+                audio_confirmed=audio_confirmed,
+                audio_species=audio_species,
+                snapshot_data=None
+            )
+            if sent:
+                async with get_db() as db:
+                    repo = DetectionRepository(db)
+                    await repo.mark_notified(event.frigate_event)
+        else:
+            log.info("Notification skipped: video/snapshot not confirmed",
+                     event_id=event.frigate_event,
+                     label=label,
+                     score=score)

@@ -49,7 +49,7 @@ class WeatherService:
             params = {
                 "latitude": lat,
                 "longitude": lon,
-                "current": "temperature_2m,weather_code,is_day",
+                "current": "temperature_2m,weather_code,is_day,cloud_cover,wind_speed_10m,wind_direction_10m,precipitation,rain,snowfall",
                 "temperature_unit": "celsius"  # Always store in Celsius
             }
             
@@ -64,7 +64,13 @@ class WeatherService:
                     "temperature": current.get("temperature_2m"),
                     "condition_code": current.get("weather_code"),
                     "is_day": current.get("is_day") == 1,
-                    "condition_text": self._get_condition_text(current.get("weather_code"))
+                    "condition_text": self._get_condition_text(current.get("weather_code")),
+                    "cloud_cover": current.get("cloud_cover"),
+                    "wind_speed": current.get("wind_speed_10m"),
+                    "wind_direction": current.get("wind_direction_10m"),
+                    "precipitation": current.get("precipitation"),
+                    "rain": current.get("rain"),
+                    "snowfall": current.get("snowfall")
                 }
         except httpx.TimeoutException:
             log.warning("Weather API timeout - skipping weather context")
