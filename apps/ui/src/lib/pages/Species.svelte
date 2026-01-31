@@ -20,6 +20,7 @@
     let showWeatherBands = $state(true);
     let showTemperature = $state(true);
     let showWind = $state(false);
+    let showPrecip = $state(false);
 
     // Derived processed species with naming logic
     let processedSpecies = $derived(() => {
@@ -330,10 +331,28 @@
                         };
                     })
                     : []
+            },
+            {
+                name: $_('leaderboard.precip'),
+                type: 'line',
+                data: showPrecip
+                    ? (timeline?.daily || []).map((d) => {
+                        const summary = (timeline?.weather || []).find((w) => w.date === d.date);
+                        return {
+                            x: Date.parse(`${d.date}T00:00:00Z`),
+                            y: summary?.precip_total ?? null
+                        };
+                    })
+                    : []
             }
         ],
         dataLabels: { enabled: false },
-        stroke: { curve: 'smooth', width: [2, 2, 2], colors: ['#10b981', '#f97316', '#0ea5e9'], dashArray: [0, 4, 4] },
+        stroke: {
+            curve: 'smooth',
+            width: [2, 2, 2, 2],
+            colors: ['#10b981', '#f97316', '#0ea5e9', '#38bdf8'],
+            dashArray: [0, 4, 4, 6]
+        },
         fill: {
             type: ['gradient', 'solid'],
             gradient: {
@@ -343,7 +362,7 @@
                 stops: [0, 90, 100]
             }
         },
-        markers: { size: [0, showTemperature ? 3 : 0, showWind ? 3 : 0], hover: { size: 4 } },
+        markers: { size: [0, showTemperature ? 3 : 0, showWind ? 3 : 0, showPrecip ? 3 : 0], hover: { size: 4 } },
         grid: {
             borderColor: 'rgba(148,163,184,0.2)',
             strokeDashArray: 3,
@@ -377,6 +396,14 @@
                     style: { fontSize: '10px', colors: '#0ea5e9' },
                     formatter: (value: number) => `${Math.round(value)} km/h`
                 }
+            },
+            {
+                opposite: true,
+                show: showPrecip,
+                labels: {
+                    style: { fontSize: '10px', colors: '#38bdf8' },
+                    formatter: (value: number) => `${value.toFixed(1)} mm`
+                }
             }
         ],
         tooltip: {
@@ -385,7 +412,8 @@
             y: [
                 { formatter: (value: number) => `${Math.round(value)} detections` },
                 { formatter: (value: number) => formatTemperature(value, temperatureUnit as any) },
-                { formatter: (value: number) => `${Math.round(value)} km/h` }
+                { formatter: (value: number) => `${Math.round(value)} km/h` },
+                { formatter: (value: number) => `${value.toFixed(1)} mm` }
             ]
         },
         annotations: weatherAnnotations()
@@ -726,6 +754,13 @@
                         >
                             {showWind ? $_('leaderboard.hide_wind') : $_('leaderboard.show_wind')}
                         </button>
+                        <button
+                            type="button"
+                            onclick={() => showPrecip = !showPrecip}
+                            class="px-2 py-1 rounded-full border border-slate-200/70 dark:border-slate-700/60 text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400"
+                        >
+                            {showPrecip ? $_('leaderboard.hide_precip') : $_('leaderboard.show_precip')}
+                        </button>
                     </div>
                     <div class="flex items-center gap-1">
                         <span class="inline-block w-2 h-2 rounded-full bg-blue-500/40"></span>
@@ -742,6 +777,10 @@
                     <div class="flex items-center gap-1">
                         <span class="inline-block w-2 h-2 rounded-full bg-sky-500/60"></span>
                         {$_('leaderboard.wind_avg')}
+                    </div>
+                    <div class="flex items-center gap-1">
+                        <span class="inline-block w-2 h-2 rounded-full bg-sky-400/70"></span>
+                        {$_('leaderboard.precip')}
                     </div>
                     <span class="text-slate-400/70">{$_('leaderboard.am_pm_bands')}</span>
                 </div>
