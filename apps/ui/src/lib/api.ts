@@ -840,6 +840,31 @@ export async function runBackfill(request: BackfillRequest): Promise<BackfillRes
     return handleResponse<BackfillResult>(response);
 }
 
+export interface WeatherBackfillRequest {
+    date_range: 'day' | 'week' | 'month' | 'custom';
+    start_date?: string;
+    end_date?: string;
+    only_missing?: boolean;
+}
+
+export interface WeatherBackfillResult {
+    status: string;
+    processed: number;
+    updated: number;
+    skipped: number;
+    errors: number;
+    message: string;
+}
+
+export async function runWeatherBackfill(request: WeatherBackfillRequest): Promise<WeatherBackfillResult> {
+    const response = await apiFetch(`${API_BASE}/backfill/weather`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(request),
+    });
+    return handleResponse<WeatherBackfillResult>(response);
+}
+
 export interface ResetDatabaseResult {
     status: string;
     message: string;

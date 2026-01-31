@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { getThumbnailUrl, analyzeDetection, updateDetectionSpecies, hideDetection, deleteDetection, searchSpecies, type SearchResult } from '../api';
+    import { getThumbnailUrl, analyzeDetection, updateDetectionSpecies, hideDetection, deleteDetection, searchSpecies, fetchAudioContext, type SearchResult, type AudioContextDetection } from '../api';
     import type { Detection } from '../api';
     import ReclassificationOverlay from './ReclassificationOverlay.svelte';
     import { detectionsStore, type ReclassificationProgress } from '../stores/detections.svelte';
@@ -37,6 +37,12 @@
     // State
     let modalElement = $state<HTMLElement | null>(null);
     let analyzingAI = $state(false);
+    let audioContextOpen = $state(false);
+    let audioContextLoading = $state(false);
+    let audioContextLoaded = $state(false);
+    let audioContext = $state<AudioContextDetection[]>([]);
+    let audioContextError = $state<string | null>(null);
+    let weatherDetailsOpen = $state(false);
 
     $effect(() => {
         if (modalElement) {
@@ -100,6 +106,16 @@
     const naming = $derived(getBirdNames(detection, showCommon, preferSci));
     const primaryName = $derived(naming.primary);
     const subName = $derived(naming.secondary);
+    const hasAudioContext = $derived(!!detection.audio_species || detection.audio_confirmed);
+    const hasWeather = $derived(
+        detection.temperature !== undefined && detection.temperature !== null ||
+        !!detection.weather_condition ||
+        detection.weather_cloud_cover !== undefined && detection.weather_cloud_cover !== null ||
+        detection.weather_wind_speed !== undefined && detection.weather_wind_speed !== null ||
+        detection.weather_precipitation !== undefined && detection.weather_precipitation !== null ||
+        detection.weather_rain !== undefined && detection.weather_rain !== null ||
+        detection.weather_snowfall !== undefined && detection.weather_snowfall !== null
+    );
 
     $effect(() => {
         if (!detection?.frigate_event) return;
@@ -192,6 +208,51 @@
                 return $_('detection.video_analysis.errors.event_missing');
             default:
                 return $_('detection.video_analysis.errors.unknown');
+        }
+    }
+
+    function formatWindDirection(deg?: number | null): string {
+        if (deg === null || deg === undefined || Number.isNaN(deg)) return '';
+        const directions = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+        const index = Math.round(((deg % 360) / 45)) % 8;
+        return directions[index];
+    }
+
+    function formatPrecip(value?: number | null): string {
+        if (value === null || value === undefined || Number.isNaN(value)) return '';
+        if (value < 0.1) return `${value.toFixed(2)}mm`;
+        if (value < 1) return `${value.toFixed(1)}mm`;
+        return `${value.toFixed(0)}mm`;
+    }
+
+    function formatAudioOffset(offsetSeconds: number): string {
+        const abs = Math.abs(offsetSeconds);
+        const mins = Math.floor(abs / 60);
+        const secs = abs % 60;
+        const label = mins > 0 ? `${mins}m` : `${secs}s`;
+        if (offsetSeconds === 0) return '0s';
+        return `${offsetSeconds > 0 ? '+' : '-'}${label}`;
+    }
+
+    async function toggleAudioContext(event: MouseEvent) {
+        event.stopPropagation();
+        audioContextOpen = !audioContextOpen;
+        if (audioContextOpen && !audioContextLoaded && !audioContextLoading) {
+            audioContextLoading = true;
+            audioContextError = null;
+            try {
+                audioContext = await fetchAudioContext(
+                    detection.detection_time,
+                    detection.camera_name,
+                    300,
+                    6
+                );
+                audioContextLoaded = true;
+            } catch (e) {
+                audioContextError = $_('common.error');
+            } finally {
+                audioContextLoading = false;
+            }
         }
     }
 
@@ -404,6 +465,148 @@
                     </div>
                 {/if}
             </div>
+
+            {#if hasAudioContext}
+                <div class="p-4 rounded-2xl bg-teal-500/5 border border-teal-500/10 dark:border-teal-500/20 space-y-3">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl bg-teal-500/20 flex items-center justify-center">
+                            <svg class="w-5 h-5 text-teal-600 dark:text-teal-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                            </svg>
+                        </div>
+                        <div class="min-w-0">
+                            <p class="text-[10px] font-black uppercase tracking-widest text-teal-600/70 dark:text-teal-400/70">
+                                {$_('detection.audio_match')}
+                            </p>
+                            <p class="text-sm font-bold text-slate-700 dark:text-slate-200 truncate">
+                                {detection.audio_species || $_('detection.birdnet_confirmed')}
+                                {#if detection.audio_score}
+                                    <span class="ml-1 opacity-60">({(detection.audio_score * 100).toFixed(0)}%)</span>
+                                {/if}
+                            </p>
+                        </div>
+                    </div>
+                    <button
+                        type="button"
+                        onclick={toggleAudioContext}
+                        class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 flex items-center gap-2"
+                    >
+                        <span>{$_('detection.audio_context')}</span>
+                        <svg class="w-3 h-3 transition-transform {audioContextOpen ? 'rotate-180' : ''}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                        </svg>
+                    </button>
+                    {#if audioContextOpen}
+                        <div class="rounded-2xl border border-slate-200/60 dark:border-slate-700/60 bg-white/70 dark:bg-slate-900/40 p-3 space-y-2">
+                            {#if audioContextLoading}
+                                <p class="text-[10px] font-semibold uppercase tracking-widest text-slate-400">{$_('detection.audio_context_loading')}</p>
+                            {:else if audioContextError}
+                                <p class="text-[10px] font-semibold uppercase tracking-widest text-rose-500">{audioContextError}</p>
+                            {:else if audioContext.length === 0}
+                                <p class="text-[10px] font-semibold uppercase tracking-widest text-slate-400">{$_('detection.audio_context_empty')}</p>
+                            {:else}
+                                {#each audioContext as audio}
+                                    <div class="flex items-center justify-between gap-3 text-xs text-slate-600 dark:text-slate-300">
+                                        <div class="min-w-0">
+                                            <p class="font-semibold truncate">{audio.species}</p>
+                                            <p class="text-[10px] uppercase tracking-widest text-slate-400">
+                                                {(audio.confidence * 100).toFixed(0)}%
+                                                {#if audio.sensor_id}
+                                                    <span class="ml-1 opacity-70">{audio.sensor_id}</span>
+                                                {/if}
+                                            </p>
+                                        </div>
+                                        <div class="text-[10px] font-black text-slate-500 dark:text-slate-400">
+                                            {formatAudioOffset(audio.offset_seconds)}
+                                        </div>
+                                    </div>
+                                {/each}
+                            {/if}
+                        </div>
+                    {/if}
+                </div>
+            {/if}
+
+            {#if hasWeather}
+                <div class="p-4 rounded-2xl bg-sky-50/80 dark:bg-slate-900/40 border border-sky-100/80 dark:border-slate-700/60 space-y-3">
+                    <div class="flex items-center justify-between gap-3">
+                        <div class="flex items-center gap-3 min-w-0">
+                            <div class="w-10 h-10 rounded-xl bg-sky-500/20 flex items-center justify-center flex-shrink-0">
+                                <svg class="w-5 h-5 text-sky-600 dark:text-sky-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a4 4 0 100-8h-1a5 5 0 10-9 4H7a4 4 0 00-4 4z" />
+                                </svg>
+                            </div>
+                            <div class="min-w-0">
+                                <p class="text-[10px] font-black uppercase tracking-widest text-sky-600/70 dark:text-sky-300/70 mb-0.5">
+                                    {$_('detection.weather_title')}
+                                </p>
+                                <p class="text-sm font-bold text-slate-700 dark:text-slate-200 truncate">
+                                    {detection.weather_condition || $_('detection.weather_unknown')}
+                                </p>
+                            </div>
+                        </div>
+                        {#if detection.temperature !== undefined && detection.temperature !== null}
+                            <div class="text-sm font-black text-slate-800 dark:text-slate-100">
+                                {formatTemperature(detection.temperature, settingsStore.settings?.location_temperature_unit as any)}
+                            </div>
+                        {/if}
+                    </div>
+                    <button
+                        type="button"
+                        onclick={(event) => { event.stopPropagation(); weatherDetailsOpen = !weatherDetailsOpen; }}
+                        class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 flex items-center gap-2"
+                    >
+                        <span>{$_('detection.weather_details')}</span>
+                        <svg class="w-3 h-3 transition-transform {weatherDetailsOpen ? 'rotate-180' : ''}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                        </svg>
+                    </button>
+                    {#if weatherDetailsOpen}
+                        <div class="grid grid-cols-2 gap-2">
+                            <div class="rounded-xl bg-white/80 dark:bg-slate-900/50 border border-slate-200/60 dark:border-slate-700/60 p-2">
+                                <p class="text-[9px] font-black uppercase tracking-widest text-slate-400">{$_('detection.weather_wind')}</p>
+                                <p class="text-xs font-bold text-slate-700 dark:text-slate-200">
+                                    {#if detection.weather_wind_speed !== undefined && detection.weather_wind_speed !== null}
+                                        {Math.round(detection.weather_wind_speed)} km/h {formatWindDirection(detection.weather_wind_direction)}
+                                    {:else}
+                                        —
+                                    {/if}
+                                </p>
+                            </div>
+                            <div class="rounded-xl bg-white/80 dark:bg-slate-900/50 border border-slate-200/60 dark:border-slate-700/60 p-2">
+                                <p class="text-[9px] font-black uppercase tracking-widest text-slate-400">{$_('detection.weather_cloud')}</p>
+                                <p class="text-xs font-bold text-slate-700 dark:text-slate-200">
+                                    {#if detection.weather_cloud_cover !== undefined && detection.weather_cloud_cover !== null}
+                                        {Math.round(detection.weather_cloud_cover)}%
+                                    {:else}
+                                        —
+                                    {/if}
+                                </p>
+                            </div>
+                            <div class="rounded-xl bg-white/80 dark:bg-slate-900/50 border border-slate-200/60 dark:border-slate-700/60 p-2">
+                                <p class="text-[9px] font-black uppercase tracking-widest text-slate-400">{$_('detection.weather_precip')}</p>
+                                <p class="text-xs font-bold text-slate-700 dark:text-slate-200">
+                                    {#if detection.weather_precipitation !== undefined && detection.weather_precipitation !== null}
+                                        {formatPrecip(detection.weather_precipitation)}
+                                    {:else}
+                                        —
+                                    {/if}
+                                </p>
+                            </div>
+                            <div class="rounded-xl bg-white/80 dark:bg-slate-900/50 border border-slate-200/60 dark:border-slate-700/60 p-2">
+                                <p class="text-[9px] font-black uppercase tracking-widest text-slate-400">{$_('detection.weather_rain')} / {$_('detection.weather_snow')}</p>
+                                <p class="text-xs font-bold text-slate-700 dark:text-slate-200">
+                                    {#if detection.weather_rain !== undefined && detection.weather_rain !== null || detection.weather_snowfall !== undefined && detection.weather_snowfall !== null}
+                                        {formatPrecip(detection.weather_rain)} / {formatPrecip(detection.weather_snowfall)}
+                                    {:else}
+                                        —
+                                    {/if}
+                                </p>
+                            </div>
+                        </div>
+                    {/if}
+                </div>
+            {/if}
 
             <!-- AI Analysis -->
             {#if aiAnalysis}

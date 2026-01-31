@@ -12,6 +12,7 @@
         fetchMaintenanceStats,
         runCleanup,
         runBackfill,
+        runWeatherBackfill,
         fetchCacheStats,
         runCacheCleanup,
         fetchTaxonomyStatus,
@@ -32,6 +33,7 @@
         type WildlifeModelStatus,
         type MaintenanceStats,
         type BackfillResult,
+        type WeatherBackfillResult,
         type CacheStats,
         type CacheCleanupResult,
         type TaxonomySyncStatus,
@@ -451,6 +453,8 @@
     let backfillEndDate = $state('');
     let backfilling = $state(false);
     let backfillResult = $state<BackfillResult | null>(null);
+    let weatherBackfilling = $state(false);
+    let weatherBackfillResult = $state<WeatherBackfillResult | null>(null);
     let resettingDatabase = $state(false);
     let analyzingUnknowns = $state(false);
     let analysisTotal = $state(0);
@@ -641,6 +645,26 @@
             message = { type: 'error', text: e.message || 'Backfill failed' };
         } finally {
             backfilling = false;
+        }
+    }
+
+    async function handleWeatherBackfill() {
+        weatherBackfilling = true;
+        message = null;
+        weatherBackfillResult = null;
+        try {
+            const result = await runWeatherBackfill({
+                date_range: backfillDateRange,
+                start_date: backfillDateRange === 'custom' ? backfillStartDate : undefined,
+                end_date: backfillDateRange === 'custom' ? backfillEndDate : undefined,
+                only_missing: true
+            });
+            weatherBackfillResult = result;
+            message = { type: 'success', text: result.message };
+        } catch (e: any) {
+            message = { type: 'error', text: e.message || 'Weather backfill failed' };
+        } finally {
+            weatherBackfilling = false;
         }
     }
 
@@ -1388,6 +1412,8 @@
                     {cleaningCache}
                     {backfilling}
                     {backfillResult}
+                    {weatherBackfilling}
+                    {weatherBackfillResult}
                     {taxonomyStatus}
                     {syncingTaxonomy}
                     {resettingDatabase}
@@ -1398,6 +1424,7 @@
                     {handleCacheCleanup}
                     {handleStartTaxonomySync}
                     {handleBackfill}
+                    {handleWeatherBackfill}
                     {handleAnalyzeUnknowns}
                     {handleResetDatabase}
                 />

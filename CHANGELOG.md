@@ -8,10 +8,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 - **Changed:** Dashboard summary stats now use a rolling last-24-hours window for detections, species, top visitor, and audio confirmations.
 - **Added:** Top Visitor stat now uses species thumbnail imagery (iNaturalist/Wikipedia) when available.
-- **Added:** Detection cards can expand to show nearby audio detections (±5 minutes) without changing the visual species label.
+- **Changed:** Detection cards now show compact weather icons; audio context and detailed weather expanders now live in the detection details panel.
 - **Changed:** Audio badges now only show when audio confirms the visual detection.
 - **Added:** Audio detections are now persisted in the database so audio context survives in-memory buffer expiry.
-- **Added:** Detection cards now show a richer weather summary with expandable details (wind, cloud cover, precipitation).
+- **Added:** Detection details now include expandable weather summaries (wind, cloud cover, precipitation).
+- **Added:** Weather backfill action in Settings → Data to populate missing weather fields for historical detections.
 - **Fixed:** Unknown Bird species modal now shows reclassification actions and a link to review detections in Explorer instead of a blank panel.
 - **Changed:** Notifications now require a confirmed snapshot (confidence threshold or audio-confirmed) or confirmed video result before sending.
 - **Fixed:** Email notifications now include Date/Message-ID headers and toned-down HTML sizing to reduce spam flags.

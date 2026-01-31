@@ -1,6 +1,6 @@
 <script lang="ts">
     import { _ } from 'svelte-i18n';
-    import type { MaintenanceStats, BackfillResult, CacheStats, TaxonomySyncStatus } from '../../api';
+    import type { MaintenanceStats, BackfillResult, WeatherBackfillResult, CacheStats, TaxonomySyncStatus } from '../../api';
 
     // Props
     let {
@@ -21,6 +21,8 @@
         backfillEndDate = $bindable(''),
         backfilling,
         backfillResult,
+        weatherBackfilling,
+        weatherBackfillResult,
         resettingDatabase,
         analyzingUnknowns,
         analysisStatus,
@@ -29,6 +31,7 @@
         handleCacheCleanup,
         handleStartTaxonomySync,
         handleBackfill,
+        handleWeatherBackfill,
         handleAnalyzeUnknowns,
         handleResetDatabase
     }: {
@@ -49,6 +52,8 @@
         backfillEndDate: string;
         backfilling: boolean;
         backfillResult: BackfillResult | null;
+        weatherBackfilling: boolean;
+        weatherBackfillResult: WeatherBackfillResult | null;
         resettingDatabase: boolean;
         analyzingUnknowns: boolean;
         analysisStatus: { pending: number; active: number; circuit_open: boolean } | null;
@@ -57,6 +62,7 @@
         handleCacheCleanup: () => Promise<void>;
         handleStartTaxonomySync: () => Promise<void>;
         handleBackfill: () => Promise<void>;
+        handleWeatherBackfill: () => Promise<void>;
         handleAnalyzeUnknowns: () => Promise<void>;
         handleResetDatabase: () => Promise<void>;
     } = $props();
@@ -351,6 +357,32 @@
                 {/if}
                 {backfilling ? 'Analyzing Frigate...' : 'Scan History'}
             </button>
+
+            <div class="pt-2 border-t border-slate-100 dark:border-slate-800">
+                <p class="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-3">Weather Backfill</p>
+                {#if weatherBackfillResult}
+                    <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 grid grid-cols-4 gap-2 text-center mb-3">
+                        <div><p class="text-sm font-black text-slate-900 dark:text-white">{weatherBackfillResult.processed}</p><p class="text-[8px] font-black uppercase text-slate-500 tracking-tighter">Total</p></div>
+                        <div><p class="text-sm font-black text-emerald-500">{weatherBackfillResult.updated}</p><p class="text-[8px] font-black uppercase text-slate-500 tracking-tighter">Upd</p></div>
+                        <div><p class="text-sm font-black text-slate-400">{weatherBackfillResult.skipped}</p><p class="text-[8px] font-black uppercase text-slate-500 tracking-tighter">Skip</p></div>
+                        <div><p class="text-sm font-black text-red-500">{weatherBackfillResult.errors}</p><p class="text-[8px] font-black uppercase text-slate-500 tracking-tighter">Err</p></div>
+                    </div>
+                {/if}
+                <button
+                    onclick={handleWeatherBackfill}
+                    disabled={weatherBackfilling}
+                    aria-label="Backfill weather fields"
+                    class="w-full px-4 py-4 text-xs font-black uppercase tracking-widest rounded-2xl bg-slate-800 hover:bg-slate-900 text-white transition-all shadow-lg shadow-slate-500/10 flex items-center justify-center gap-3 disabled:opacity-50"
+                >
+                    {#if weatherBackfilling}
+                        <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                    {/if}
+                    {weatherBackfilling ? 'Filling Weather...' : 'Fill Weather Fields'}
+                </button>
+            </div>
         </div>
     </section>
 

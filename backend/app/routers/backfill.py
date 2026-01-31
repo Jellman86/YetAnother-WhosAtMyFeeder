@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, List
 from fastapi import APIRouter, HTTPException, Request, Depends
 from pydantic import BaseModel, Field
@@ -8,6 +8,7 @@ from app.services.backfill_service import BackfillService
 from app.services.classifier_service import get_classifier
 from app.services.i18n_service import i18n_service
 from app.services.media_cache import media_cache
+from app.services.weather_service import weather_service
 from app.repositories.detection_repository import DetectionRepository
 from app.database import get_db
 from app.utils.language import get_user_language
@@ -47,6 +48,64 @@ class BackfillResponse(BaseModel):
     errors: int
     skipped_reasons: dict[str, int] = Field(default_factory=dict)
     message: str
+
+
+class WeatherBackfillRequest(BaseModel):
+    date_range: str = Field(
+        default="week",
+        description="Date range preset: 'day', 'week', 'month', or 'custom'"
+    )
+    start_date: Optional[str] = Field(
+        default=None,
+        description="Start date for custom range (YYYY-MM-DD)"
+    )
+    end_date: Optional[str] = Field(
+        default=None,
+        description="End date for custom range (YYYY-MM-DD)"
+    )
+    only_missing: bool = Field(
+        default=True,
+        description="Only fill detections missing weather fields"
+    )
+
+
+class WeatherBackfillResponse(BaseModel):
+    status: str
+    processed: int
+    updated: int
+    skipped: int
+    errors: int
+    message: str
+
+
+def _resolve_date_range(date_range: str, start_date: Optional[str], end_date: Optional[str], lang: str) -> tuple[datetime, datetime]:
+    now = datetime.now()
+    if date_range == "day":
+        return now - timedelta(days=1), now
+    if date_range == "week":
+        return now - timedelta(weeks=1), now
+    if date_range == "month":
+        return now - timedelta(days=30), now
+    if date_range == "custom":
+        if not start_date or not end_date:
+            raise HTTPException(
+                status_code=400,
+                detail=i18n_service.translate("errors.backfill.invalid_time_range", lang)
+            )
+        try:
+            start = datetime.strptime(start_date, "%Y-%m-%d")
+            end = datetime.strptime(end_date, "%Y-%m-%d")
+            end = end.replace(hour=23, minute=59, second=59)
+            return start, end
+        except ValueError:
+            raise HTTPException(
+                status_code=400,
+                detail=i18n_service.translate("errors.backfill.invalid_time_range", lang)
+            )
+    raise HTTPException(
+        status_code=400,
+        detail=i18n_service.translate("errors.backfill.invalid_time_range", lang)
+    )
 
 
 @router.delete("/backfill/reset")
@@ -102,39 +161,12 @@ async def backfill_detections(
     """
     lang = get_user_language(request)
     try:
-        now = datetime.now()
-
-        # Calculate date range
-        if backfill_request.date_range == "day":
-            start = now - timedelta(days=1)
-            end = now
-        elif backfill_request.date_range == "week":
-            start = now - timedelta(weeks=1)
-            end = now
-        elif backfill_request.date_range == "month":
-            start = now - timedelta(days=30)
-            end = now
-        elif backfill_request.date_range == "custom":
-            if not backfill_request.start_date or not backfill_request.end_date:
-                raise HTTPException(
-                    status_code=400,
-                    detail=i18n_service.translate("errors.backfill.invalid_time_range", lang)
-                )
-            try:
-                start = datetime.strptime(backfill_request.start_date, "%Y-%m-%d")
-                end = datetime.strptime(backfill_request.end_date, "%Y-%m-%d")
-                # Set end to end of day
-                end = end.replace(hour=23, minute=59, second=59)
-            except ValueError:
-                raise HTTPException(
-                    status_code=400,
-                    detail=i18n_service.translate("errors.backfill.invalid_time_range", lang)
-                )
-        else:
-            raise HTTPException(
-                status_code=400,
-                detail=i18n_service.translate("errors.backfill.invalid_time_range", lang)
-            )
+        start, end = _resolve_date_range(
+            backfill_request.date_range,
+            backfill_request.start_date,
+            backfill_request.end_date,
+            lang
+        )
 
         # Validate date range
         if start > end:
@@ -172,6 +204,120 @@ async def backfill_detections(
         raise
     except Exception as e:
         log.error("Backfill failed", error=str(e))
+        raise HTTPException(
+            status_code=500,
+            detail=i18n_service.translate("errors.backfill.processing_error", lang, error=str(e))
+        )
+
+
+@router.post("/backfill/weather", response_model=WeatherBackfillResponse)
+async def backfill_weather(
+    backfill_request: WeatherBackfillRequest,
+    request: Request,
+    auth: AuthContext = Depends(require_owner)
+):
+    """Backfill missing weather fields for detections in a date range."""
+    lang = get_user_language(request)
+    try:
+        start, end = _resolve_date_range(
+            backfill_request.date_range,
+            backfill_request.start_date,
+            backfill_request.end_date,
+            lang
+        )
+
+        if start > end:
+            raise HTTPException(
+                status_code=400,
+                detail=i18n_service.translate("errors.backfill.invalid_time_range", lang)
+            )
+
+        async with get_db() as db:
+            repo = DetectionRepository(db)
+            detections = await repo.list_for_weather_backfill(
+                start.isoformat(),
+                end.isoformat(),
+                backfill_request.only_missing
+            )
+
+            if not detections:
+                return WeatherBackfillResponse(
+                    status="completed",
+                    processed=0,
+                    updated=0,
+                    skipped=0,
+                    errors=0,
+                    message="No detections found in range"
+                )
+
+            hourly = await weather_service.get_hourly_weather(start, end)
+            if not hourly:
+                return WeatherBackfillResponse(
+                    status="completed",
+                    processed=len(detections),
+                    updated=0,
+                    skipped=len(detections),
+                    errors=0,
+                    message="Weather archive unavailable for range"
+                )
+
+            updated = 0
+            skipped = 0
+            errors = 0
+
+            for det in detections:
+                try:
+                    time_str = det["detection_time"]
+                    if time_str.endswith("Z"):
+                        time_str = time_str.replace("Z", "+00:00")
+                    det_time = datetime.fromisoformat(time_str)
+                    if det_time.tzinfo is None:
+                        det_time = det_time.replace(tzinfo=timezone.utc)
+                    det_time = det_time.astimezone(timezone.utc)
+
+                    base_hour = det_time.replace(minute=0, second=0, microsecond=0)
+                    if det_time.minute >= 30:
+                        base_hour = base_hour + timedelta(hours=1)
+                    hour_key = base_hour.strftime("%Y-%m-%dT%H:00")
+                    weather = hourly.get(hour_key)
+                    if not weather:
+                        skipped += 1
+                        continue
+
+                    await repo.update_weather_fields(
+                        det["frigate_event"],
+                        weather.get("temperature"),
+                        weather.get("condition_text"),
+                        weather.get("cloud_cover"),
+                        weather.get("wind_speed"),
+                        weather.get("wind_direction"),
+                        weather.get("precipitation"),
+                        weather.get("rain"),
+                        weather.get("snowfall")
+                    )
+                    updated += 1
+                except Exception as e:
+                    errors += 1
+                    log.warning("Weather backfill failed", error=str(e), event_id=det.get("frigate_event"))
+
+            message = f"Updated {updated} detection(s)"
+            if skipped:
+                message += f", {skipped} skipped"
+            if errors:
+                message += f", {errors} errors"
+
+            return WeatherBackfillResponse(
+                status="completed",
+                processed=len(detections),
+                updated=updated,
+                skipped=skipped,
+                errors=errors,
+                message=message
+            )
+    except HTTPException:
+        raise
+    except Exception as e:
+        log.error("Weather backfill failed", error=str(e))
         raise HTTPException(
             status_code=500,
             detail=i18n_service.translate("errors.backfill.processing_error", lang, error=str(e))

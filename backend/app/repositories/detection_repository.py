@@ -247,6 +247,82 @@ class DetectionRepository:
         """, (detection.detection_time, detection.detection_index, detection.score, detection.display_name, detection.category_name, detection.frigate_score, detection.sub_label, detection.audio_confirmed, detection.audio_species, detection.audio_score, detection.temperature, detection.weather_condition, detection.weather_cloud_cover, detection.weather_wind_speed, detection.weather_wind_direction, detection.weather_precipitation, detection.weather_rain, detection.weather_snowfall, detection.scientific_name, detection.common_name, detection.taxa_id, 1 if detection.manual_tagged else 0, detection.frigate_event))
         await self.db.commit()
 
+    async def list_for_weather_backfill(self, start: str, end: str, only_missing: bool = True) -> list[dict]:
+        """Return detections within range for weather backfill."""
+        query = """
+            SELECT frigate_event, detection_time, temperature, weather_condition, weather_cloud_cover,
+                   weather_wind_speed, weather_wind_direction, weather_precipitation, weather_rain, weather_snowfall
+            FROM detections
+            WHERE detection_time BETWEEN ? AND ?
+        """
+        params = [start, end]
+        if only_missing:
+            query += """
+                AND (
+                    temperature IS NULL OR
+                    weather_condition IS NULL OR
+                    weather_cloud_cover IS NULL OR
+                    weather_wind_speed IS NULL OR
+                    weather_wind_direction IS NULL OR
+                    weather_precipitation IS NULL OR
+                    weather_rain IS NULL OR
+                    weather_snowfall IS NULL
+                )
+            """
+        cursor = await self.db.execute(query, params)
+        rows = await cursor.fetchall()
+        return [
+            {
+                "frigate_event": row[0],
+                "detection_time": row[1],
+                "temperature": row[2],
+                "weather_condition": row[3],
+                "weather_cloud_cover": row[4],
+                "weather_wind_speed": row[5],
+                "weather_wind_direction": row[6],
+                "weather_precipitation": row[7],
+                "weather_rain": row[8],
+                "weather_snowfall": row[9]
+            }
+            for row in rows
+        ]
+
+    async def update_weather_fields(
+        self,
+        frigate_event: str,
+        temperature: float | None,
+        weather_condition: str | None,
+        cloud_cover: float | None,
+        wind_speed: float | None,
+        wind_direction: float | None,
+        precipitation: float | None,
+        rain: float | None,
+        snowfall: float | None
+    ) -> None:
+        await self.db.execute("""
+            UPDATE detections
+            SET temperature = ?,
+                weather_condition = ?,
+                weather_cloud_cover = ?,
+                weather_wind_speed = ?,
+                weather_wind_direction = ?,
+                weather_precipitation = ?,
+                weather_rain = ?,
+                weather_snowfall = ?
+            WHERE frigate_event = ?
+        """, (
+            temperature,
+            weather_condition,
+            cloud_cover,
+            wind_speed,
+            wind_direction,
+            precipitation,
+            rain,
+            snowfall,
+            frigate_event
+        ))
+        await self.db.commit()
+
     async def upsert_if_higher_score(self, detection: Detection) -> tuple[bool, bool]:
         """Atomically insert or update a detection, only updating if new score is higher.
 

@@ -1,6 +1,6 @@
 <script lang="ts">
-    import type { Detection, AudioContextDetection } from '../api';
-    import { getThumbnailUrl, fetchAudioContext } from '../api';
+    import type { Detection } from '../api';
+    import { getThumbnailUrl } from '../api';
     import { detectionsStore } from '../stores/detections.svelte';
     import { settingsStore } from '../stores/settings.svelte';
     import { _ } from 'svelte-i18n';
@@ -34,7 +34,6 @@
     let subName = $derived(naming.secondary);
 
     let isVerified = $derived(detection.audio_confirmed && detection.score > 0.7);
-    let hasAudioContext = $derived(!!detection.audio_species || detection.audio_confirmed);
     let hasWeather = $derived(
         detection.temperature !== undefined && detection.temperature !== null ||
         !!detection.weather_condition ||
@@ -49,12 +48,6 @@
     let imageLoaded = $state(false);
     let cardElement = $state<HTMLElement | null>(null);
     let isVisible = $state(false);
-    let audioContextOpen = $state(false);
-    let audioContextLoading = $state(false);
-    let audioContextLoaded = $state(false);
-    let audioContext = $state<AudioContextDetection[]>([]);
-    let audioContextError = $state<string | null>(null);
-    let weatherDetailsOpen = $state(false);
 
     function handleReclassifyClick(event: MouseEvent) {
         event.stopPropagation();
@@ -125,50 +118,28 @@
         return 'border-red-500/30';
     }
 
-    function formatWindDirection(deg?: number | null): string {
-        if (deg === null || deg === undefined || Number.isNaN(deg)) return '';
-        const directions = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
-        const index = Math.round(((deg % 360) / 45)) % 8;
-        return directions[index];
-    }
-
-    function formatPrecip(value?: number | null): string {
-        if (value === null || value === undefined || Number.isNaN(value)) return '';
-        if (value < 0.1) return `${value.toFixed(2)}mm`;
-        if (value < 1) return `${value.toFixed(1)}mm`;
-        return `${value.toFixed(0)}mm`;
-    }
-
-    function formatAudioOffset(offsetSeconds: number): string {
-        const abs = Math.abs(offsetSeconds);
-        const mins = Math.floor(abs / 60);
-        const secs = abs % 60;
-        const label = mins > 0 ? `${mins}m` : `${secs}s`;
-        if (offsetSeconds === 0) return '0s';
-        return `${offsetSeconds > 0 ? '+' : '-'}${label}`;
-    }
-
-    async function toggleAudioContext(event: MouseEvent) {
-        event.stopPropagation();
-        audioContextOpen = !audioContextOpen;
-        if (audioContextOpen && !audioContextLoaded && !audioContextLoading) {
-            audioContextLoading = true;
-            audioContextError = null;
-            try {
-                audioContext = await fetchAudioContext(
-                    detection.detection_time,
-                    detection.camera_name,
-                    300,
-                    6
-                );
-                audioContextLoaded = true;
-            } catch (e) {
-                audioContextError = $_('common.error');
-            } finally {
-                audioContextLoading = false;
-            }
-        }
-    }
+    const hasRain = $derived(
+        (detection.weather_rain ?? 0) > 0 ||
+        (detection.weather_precipitation ?? 0) > 0 ||
+        (detection.weather_condition || '').toLowerCase().includes('rain')
+    );
+    const hasSnow = $derived(
+        (detection.weather_snowfall ?? 0) > 0 ||
+        (detection.weather_condition || '').toLowerCase().includes('snow')
+    );
+    const hasCloud = $derived(
+        detection.weather_cloud_cover !== undefined &&
+        detection.weather_cloud_cover !== null
+    );
+    const hasWind = $derived(
+        detection.weather_wind_speed !== undefined &&
+        detection.weather_wind_speed !== null
+    );
+    const hasIcy = $derived(
+        detection.temperature !== undefined &&
+        detection.temperature !== null &&
+        detection.temperature <= 0
+    );
 </script>
 
 <div
@@ -360,155 +331,38 @@
                 </div>
             </div>
         {/if}
-        {#if hasAudioContext}
-            <button
-                type="button"
-                onclick={toggleAudioContext}
-                class="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 flex items-center gap-2 self-start"
-            >
-                <span>{$_('detection.audio_context')}</span>
-                <svg class="w-3 h-3 transition-transform {audioContextOpen ? 'rotate-180' : ''}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                </svg>
-            </button>
-            {#if audioContextOpen}
-                <div class="rounded-2xl border border-slate-200/60 dark:border-slate-700/60 bg-slate-50/80 dark:bg-slate-900/40 p-3 space-y-2">
-                    {#if audioContextLoading}
-                        <p class="text-[10px] font-semibold uppercase tracking-widest text-slate-400">{$_('detection.audio_context_loading')}</p>
-                    {:else if audioContextError}
-                        <p class="text-[10px] font-semibold uppercase tracking-widest text-rose-500">{audioContextError}</p>
-                    {:else if audioContext.length === 0}
-                        <p class="text-[10px] font-semibold uppercase tracking-widest text-slate-400">{$_('detection.audio_context_empty')}</p>
-                    {:else}
-                        {#each audioContext as audio}
-                            <div class="flex items-center justify-between gap-3 text-xs text-slate-600 dark:text-slate-300">
-                                <div class="min-w-0">
-                                    <p class="font-semibold truncate">{audio.species}</p>
-                                    <p class="text-[10px] uppercase tracking-widest text-slate-400">
-                                        {(audio.confidence * 100).toFixed(0)}%
-                                        {#if audio.sensor_id}
-                                            <span class="ml-1 opacity-70">{audio.sensor_id}</span>
-                                        {/if}
-                                    </p>
-                                </div>
-                                <div class="text-[10px] font-black text-slate-500 dark:text-slate-400">
-                                    {formatAudioOffset(audio.offset_seconds)}
-                                </div>
-                            </div>
-                        {/each}
-                    {/if}
-                </div>
-            {/if}
-        {/if}
         {#if hasWeather}
-            <div class="p-3 rounded-2xl bg-sky-50/80 dark:bg-slate-900/40 border border-sky-100/80 dark:border-slate-700/60 space-y-2">
-                <div class="flex items-center justify-between gap-3">
-                    <div class="flex items-center gap-3 min-w-0">
-                        <div class="w-8 h-8 rounded-xl bg-sky-500/20 flex items-center justify-center flex-shrink-0">
-                            <svg class="w-4 h-4 text-sky-600 dark:text-sky-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a4 4 0 100-8h-1a5 5 0 10-9 4H7a4 4 0 00-4 4z" />
-                            </svg>
-                        </div>
-                        <div class="min-w-0">
-                            <p class="text-[10px] font-black uppercase tracking-widest text-sky-600/70 dark:text-sky-300/70 mb-0.5">
-                                {$_('detection.weather_title')}
-                            </p>
-                            <p class="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">
-                                {detection.weather_condition || $_('detection.weather_unknown')}
-                            </p>
-                        </div>
-                    </div>
-                    {#if detection.temperature !== undefined && detection.temperature !== null}
-                        <div class="text-sm font-black text-slate-800 dark:text-slate-100">
-                            {formatTemperature(detection.temperature, settingsStore.settings?.location_temperature_unit as any)}
-                        </div>
+            <div class="flex items-center justify-between gap-3 rounded-2xl bg-sky-50/80 dark:bg-slate-900/40 border border-sky-100/80 dark:border-slate-700/60 px-3 py-2">
+                <div class="flex items-center gap-2 text-slate-500 dark:text-slate-300">
+                    {#if hasRain}
+                        <svg class="w-4 h-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-label={$_('detection.weather_rain')}>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 13v4m-4-2v4m-4-2v2m1-8a5 5 0 119.584 1.245A4 4 0 0117 16H7a4 4 0 01-1-7.874" />
+                        </svg>
+                    {/if}
+                    {#if hasSnow}
+                        <svg class="w-4 h-4 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-label={$_('detection.weather_snow')}>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v18m9-9H3m15.364-6.364l-12.728 12.728m0-12.728l12.728 12.728" />
+                        </svg>
+                    {/if}
+                    {#if hasCloud}
+                        <svg class="w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-label={$_('detection.weather_cloud')}>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a4 4 0 100-8h-1a5 5 0 10-9 4H7a4 4 0 00-4 4z" />
+                        </svg>
+                    {/if}
+                    {#if hasWind}
+                        <svg class="w-4 h-4 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-label={$_('detection.weather_wind')}>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h11a3 3 0 100-6M2 12h13a3 3 0 110 6H9" />
+                        </svg>
+                    {/if}
+                    {#if hasIcy}
+                        <svg class="w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-label={$_('detection.weather_icy')}>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v18m4-10l-4 4-4-4" />
+                        </svg>
                     {/if}
                 </div>
-                <div class="flex flex-wrap gap-2">
-                    {#if (detection.weather_rain ?? 0) > 0 || (detection.weather_precipitation ?? 0) > 0 || (detection.weather_condition || '').toLowerCase().includes('rain')}
-                        <span class="px-2 py-1 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-300 text-[9px] font-black uppercase tracking-widest">
-                            {$_('detection.weather_rain')}
-                            {#if detection.weather_rain !== undefined && detection.weather_rain !== null}
-                                <span class="ml-1 opacity-70">{formatPrecip(detection.weather_rain)}</span>
-                            {/if}
-                        </span>
-                    {/if}
-                    {#if (detection.weather_snowfall ?? 0) > 0 || (detection.weather_condition || '').toLowerCase().includes('snow')}
-                        <span class="px-2 py-1 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 text-[9px] font-black uppercase tracking-widest">
-                            {$_('detection.weather_snow')}
-                            {#if detection.weather_snowfall !== undefined && detection.weather_snowfall !== null}
-                                <span class="ml-1 opacity-70">{formatPrecip(detection.weather_snowfall)}</span>
-                            {/if}
-                        </span>
-                    {/if}
-                    {#if detection.temperature !== undefined && detection.temperature !== null && detection.temperature <= 0}
-                        <span class="px-2 py-1 rounded-full bg-slate-700/10 text-slate-600 dark:text-slate-300 text-[9px] font-black uppercase tracking-widest">
-                            {$_('detection.weather_icy')}
-                        </span>
-                    {/if}
-                    {#if detection.weather_cloud_cover !== undefined && detection.weather_cloud_cover !== null}
-                        <span class="px-2 py-1 rounded-full bg-slate-500/10 text-slate-600 dark:text-slate-300 text-[9px] font-black uppercase tracking-widest">
-                            {$_('detection.weather_cloud')} {Math.round(detection.weather_cloud_cover)}%
-                        </span>
-                    {/if}
-                    {#if detection.weather_wind_speed !== undefined && detection.weather_wind_speed !== null}
-                        <span class="px-2 py-1 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-300 text-[9px] font-black uppercase tracking-widest">
-                            {$_('detection.weather_wind')} {Math.round(detection.weather_wind_speed)} km/h {formatWindDirection(detection.weather_wind_direction)}
-                        </span>
-                    {/if}
-                </div>
-                <button
-                    type="button"
-                    onclick={(event) => { event.stopPropagation(); weatherDetailsOpen = !weatherDetailsOpen; }}
-                    class="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 flex items-center gap-2"
-                >
-                    <span>{$_('detection.weather_details')}</span>
-                    <svg class="w-3 h-3 transition-transform {weatherDetailsOpen ? 'rotate-180' : ''}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                    </svg>
-                </button>
-                {#if weatherDetailsOpen}
-                    <div class="grid grid-cols-2 gap-2">
-                        <div class="rounded-xl bg-white/80 dark:bg-slate-900/50 border border-slate-200/60 dark:border-slate-700/60 p-2">
-                            <p class="text-[9px] font-black uppercase tracking-widest text-slate-400">{$_('detection.weather_wind')}</p>
-                            <p class="text-xs font-bold text-slate-700 dark:text-slate-200">
-                                {#if detection.weather_wind_speed !== undefined && detection.weather_wind_speed !== null}
-                                    {Math.round(detection.weather_wind_speed)} km/h {formatWindDirection(detection.weather_wind_direction)}
-                                {:else}
-                                    —
-                                {/if}
-                            </p>
-                        </div>
-                        <div class="rounded-xl bg-white/80 dark:bg-slate-900/50 border border-slate-200/60 dark:border-slate-700/60 p-2">
-                            <p class="text-[9px] font-black uppercase tracking-widest text-slate-400">{$_('detection.weather_cloud')}</p>
-                            <p class="text-xs font-bold text-slate-700 dark:text-slate-200">
-                                {#if detection.weather_cloud_cover !== undefined && detection.weather_cloud_cover !== null}
-                                    {Math.round(detection.weather_cloud_cover)}%
-                                {:else}
-                                    —
-                                {/if}
-                            </p>
-                        </div>
-                        <div class="rounded-xl bg-white/80 dark:bg-slate-900/50 border border-slate-200/60 dark:border-slate-700/60 p-2">
-                            <p class="text-[9px] font-black uppercase tracking-widest text-slate-400">{$_('detection.weather_precip')}</p>
-                            <p class="text-xs font-bold text-slate-700 dark:text-slate-200">
-                                {#if detection.weather_precipitation !== undefined && detection.weather_precipitation !== null}
-                                    {formatPrecip(detection.weather_precipitation)}
-                                {:else}
-                                    —
-                                {/if}
-                            </p>
-                        </div>
-                        <div class="rounded-xl bg-white/80 dark:bg-slate-900/50 border border-slate-200/60 dark:border-slate-700/60 p-2">
-                            <p class="text-[9px] font-black uppercase tracking-widest text-slate-400">{$_('detection.weather_rain')} / {$_('detection.weather_snow')}</p>
-                            <p class="text-xs font-bold text-slate-700 dark:text-slate-200">
-                                {#if detection.weather_rain !== undefined && detection.weather_rain !== null || detection.weather_snowfall !== undefined && detection.weather_snowfall !== null}
-                                    {formatPrecip(detection.weather_rain)} / {formatPrecip(detection.weather_snowfall)}
-                                {:else}
-                                    —
-                                {/if}
-                            </p>
-                        </div>
+                {#if detection.temperature !== undefined && detection.temperature !== null}
+                    <div class="text-xs font-black text-slate-700 dark:text-slate-200">
+                        {formatTemperature(detection.temperature, settingsStore.settings?.location_temperature_unit as any)}
                     </div>
                 {/if}
             </div>

@@ -2,6 +2,7 @@
     import type { DailySpeciesSummary } from '../api';
     import { getThumbnailUrl } from '../api';
     import { settingsStore } from '../stores/settings.svelte';
+    import { _ } from 'svelte-i18n';
 
     import { getBirdNames } from '../naming';
 
@@ -30,9 +31,14 @@
 </script>
 
 <div class="space-y-4">
-    <h3 class="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-        Top Visitors (Last 24 Hours)
-    </h3>
+    <div class="flex items-center gap-3">
+        <h3 class="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+            Top Visitors
+        </h3>
+        <span class="text-[10px] font-medium text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full">
+            {$_('dashboard.histogram.last_24h')}
+        </span>
+    </div>
 
     <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
         {#each processedSpecies as item}
