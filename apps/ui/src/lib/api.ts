@@ -759,6 +759,16 @@ export interface DailyWeatherSummary {
     snow_total?: number | null;
     wind_max?: number | null;
     cloud_avg?: number | null;
+    am_condition?: string | null;
+    am_rain?: number | null;
+    am_snow?: number | null;
+    am_wind?: number | null;
+    am_cloud?: number | null;
+    pm_condition?: string | null;
+    pm_rain?: number | null;
+    pm_snow?: number | null;
+    pm_wind?: number | null;
+    pm_cloud?: number | null;
 }
 
 export interface DetectionsTimeline {

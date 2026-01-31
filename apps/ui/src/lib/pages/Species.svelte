@@ -189,62 +189,78 @@
     let timelineCounts = $derived(timeline?.daily?.map((d) => d.count) || []);
     let timelineMax = $derived(timelineCounts.length ? Math.max(...timelineCounts) : 0);
     let isDark = $derived(() => themeStore.isDark);
+    function resolveWeatherIcon(entry: any) {
+        const rain = entry?.rain ?? 0;
+        const snow = entry?.snow ?? 0;
+        const wind = entry?.wind ?? 0;
+        const cloud = entry?.cloud ?? 0;
+
+        if (snow > 0.1) return { text: '❄', color: 'rgba(99,102,241,0.5)' };
+        if (rain > 0.2) return { text: '☔', color: 'rgba(59,130,246,0.5)' };
+        if (wind >= 25) return { text: '🌬', color: 'rgba(16,185,129,0.5)' };
+        if (cloud >= 70) return { text: '☁', color: 'rgba(148,163,184,0.5)' };
+        return null;
+    }
+
     let weatherAnnotations = $derived(() => {
         const daily = timeline?.daily || [];
         const weather = timeline?.weather || [];
-        if (!daily.length || !weather.length) return { xaxis: [] };
+        if (!daily.length || !weather.length) return { points: [] };
 
         const weatherMap = new Map(weather.map((w) => [w.date, w]));
-        const xaxis = [];
+        const points = [];
 
-        for (let i = 0; i < daily.length; i += 1) {
-            const day = daily[i];
+        for (const day of daily) {
             const summary = weatherMap.get(day.date);
             if (!summary) continue;
 
-            const rain = (summary.rain_total ?? 0) + (summary.precip_total ?? 0);
-            const snow = summary.snow_total ?? 0;
-            const wind = summary.wind_max ?? 0;
-            const cloud = summary.cloud_avg ?? 0;
+            const amIcon = resolveWeatherIcon({
+                rain: summary.am_rain,
+                snow: summary.am_snow,
+                wind: summary.am_wind,
+                cloud: summary.am_cloud
+            });
+            const pmIcon = resolveWeatherIcon({
+                rain: summary.pm_rain,
+                snow: summary.pm_snow,
+                wind: summary.pm_wind,
+                cloud: summary.pm_cloud
+            });
 
-            let label = '';
-            let fillColor = '';
-            if (snow > 0.1) {
-                label = $_('detection.weather_snow');
-                fillColor = '#6366f1';
-            } else if (rain > 0.2) {
-                label = $_('detection.weather_rain');
-                fillColor = '#3b82f6';
-            } else if (wind >= 25) {
-                label = $_('detection.weather_wind');
-                fillColor = '#10b981';
-            } else if (cloud >= 70) {
-                label = $_('detection.weather_cloud');
-                fillColor = '#94a3b8';
-            } else {
-                continue;
+            if (amIcon) {
+                points.push({
+                    x: day.date,
+                    y: 0,
+                    marker: { size: 0 },
+                    label: {
+                        text: amIcon.text,
+                        offsetY: -8,
+                        style: {
+                            fontSize: '12px',
+                            color: amIcon.color
+                        }
+                    }
+                });
             }
 
-            const nextDate = daily[i + 1]?.date || day.date;
-            xaxis.push({
-                x: day.date,
-                x2: nextDate,
-                borderColor: 'transparent',
-                fillColor,
-                opacity: 0.08,
-                label: {
-                    text: label,
-                    style: {
-                        fontSize: '9px',
-                        fontWeight: 700,
-                        color: fillColor
-                    },
-                    offsetY: -6
-                }
-            });
+            if (pmIcon) {
+                points.push({
+                    x: day.date,
+                    y: 0,
+                    marker: { size: 0 },
+                    label: {
+                        text: pmIcon.text,
+                        offsetY: 12,
+                        style: {
+                            fontSize: '12px',
+                            color: pmIcon.color
+                        }
+                    }
+                });
+            }
         }
 
-        return { xaxis };
+        return { points };
     });
 
     let chartOptions = $derived(() => ({

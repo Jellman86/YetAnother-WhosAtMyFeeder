@@ -43,6 +43,16 @@ class DailyWeatherSummary(BaseModel):
     snow_total: Optional[float] = None
     wind_max: Optional[float] = None
     cloud_avg: Optional[float] = None
+    am_condition: Optional[str] = None
+    am_rain: Optional[float] = None
+    am_snow: Optional[float] = None
+    am_wind: Optional[float] = None
+    am_cloud: Optional[float] = None
+    pm_condition: Optional[str] = None
+    pm_rain: Optional[float] = None
+    pm_snow: Optional[float] = None
+    pm_wind: Optional[float] = None
+    pm_cloud: Optional[float] = None
 
 class DetectionsTimelineResponse(BaseModel):
     days: int
@@ -237,6 +247,12 @@ async def get_detection_timeline(request: Request, days: int = 30):
                     cloud_avg = None
                     if entry["cloud_count"]:
                         cloud_avg = entry["cloud_sum"] / entry["cloud_count"]
+
+                    am_key = f"{date_key}T10:00"
+                    pm_key = f"{date_key}T17:00"
+                    am_weather = hourly.get(am_key, {})
+                    pm_weather = hourly.get(pm_key, {})
+
                     weather_summary.append(DailyWeatherSummary(
                         date=date_key,
                         condition=condition,
@@ -244,7 +260,17 @@ async def get_detection_timeline(request: Request, days: int = 30):
                         rain_total=entry["rain_total"],
                         snow_total=entry["snow_total"],
                         wind_max=entry["wind_max"],
-                        cloud_avg=cloud_avg
+                        cloud_avg=cloud_avg,
+                        am_condition=am_weather.get("condition_text"),
+                        am_rain=am_weather.get("rain"),
+                        am_snow=am_weather.get("snowfall"),
+                        am_wind=am_weather.get("wind_speed"),
+                        am_cloud=am_weather.get("cloud_cover"),
+                        pm_condition=pm_weather.get("condition_text"),
+                        pm_rain=pm_weather.get("rain"),
+                        pm_snow=pm_weather.get("snowfall"),
+                        pm_wind=pm_weather.get("wind_speed"),
+                        pm_cloud=pm_weather.get("cloud_cover")
                     ))
 
         return DetectionsTimelineResponse(
