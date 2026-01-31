@@ -350,7 +350,7 @@
         stroke: {
             curve: 'smooth',
             width: [2, 2, 2, 2],
-            colors: ['#10b981', '#f97316', '#0ea5e9', '#38bdf8'],
+            colors: ['#10b981', '#f97316', '#0ea5e9', '#a855f7'],
             dashArray: [0, 4, 4, 6]
         },
         fill: {
@@ -416,6 +416,7 @@
                 { formatter: (value: number) => `${value.toFixed(1)} mm` }
             ]
         },
+        legend: { show: false },
         annotations: weatherAnnotations()
     }));
 
@@ -783,7 +784,7 @@
                         {$_('leaderboard.wind_avg')}
                     </div>
                     <div class="flex items-center gap-1">
-                        <span class="inline-block w-2 h-2 rounded-full bg-cyan-400/70"></span>
+                        <span class="inline-block w-2 h-2 rounded-full bg-fuchsia-500/70"></span>
                         {$_('leaderboard.precip')}
                     </div>
                     <span class="text-slate-400/70">{$_('leaderboard.am_pm_bands')}</span>
