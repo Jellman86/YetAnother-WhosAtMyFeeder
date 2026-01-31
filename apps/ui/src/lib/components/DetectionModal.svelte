@@ -736,8 +736,9 @@
                                     </div>
                                     <div class="grid grid-cols-2 gap-3">
                                         <div>
-                                            <label class="block text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">{$_('detection.inat.latitude')}</label>
+                                            <label for="inat-lat" class="block text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">{$_('detection.inat.latitude')}</label>
                                             <input
+                                                id="inat-lat"
                                                 type="number"
                                                 step="0.0001"
                                                 bind:value={inatLat}
@@ -745,8 +746,9 @@
                                             />
                                         </div>
                                         <div>
-                                            <label class="block text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">{$_('detection.inat.longitude')}</label>
+                                            <label for="inat-lon" class="block text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">{$_('detection.inat.longitude')}</label>
                                             <input
+                                                id="inat-lon"
                                                 type="number"
                                                 step="0.0001"
                                                 bind:value={inatLon}
@@ -755,16 +757,18 @@
                                         </div>
                                     </div>
                                     <div>
-                                        <label class="block text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">{$_('detection.inat.place')}</label>
+                                        <label for="inat-place" class="block text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">{$_('detection.inat.place')}</label>
                                         <input
+                                            id="inat-place"
                                             type="text"
                                             bind:value={inatPlace}
                                             class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-900/50 text-xs font-bold"
                                         />
                                     </div>
                                     <div>
-                                        <label class="block text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">{$_('detection.inat.notes')}</label>
+                                        <label for="inat-notes" class="block text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">{$_('detection.inat.notes')}</label>
                                         <textarea
+                                            id="inat-notes"
                                             rows="3"
                                             bind:value={inatNotes}
                                             class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-900/50 text-xs font-bold"
