@@ -197,7 +197,11 @@
 <!-- Backdrop -->
 <div
     class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
-    onclick={onclose}
+    onclick={(e) => {
+        if (e.target === e.currentTarget) {
+            onclose();
+        }
+    }}
     onkeydown={(e) => e.key === 'Escape' && onclose()}
     role="dialog"
     aria-modal="true"
@@ -209,8 +213,6 @@
         bind:this={modalElement}
         class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden
                border border-slate-200 dark:border-slate-700 animate-fade-in"
-        onclick={(e) => e.stopPropagation()}
-        onkeydown={(e) => e.stopPropagation()}
         role="document"
         tabindex="-1"
     >
@@ -517,8 +519,10 @@
                         <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4">{$_('species_detail.recent_sightings')}</h3>
                         <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
                             {#each stats.recent_sightings as sighting}
-                                <div
-                                    class="bg-slate-100 dark:bg-slate-700 rounded-lg overflow-hidden group cursor-pointer relative"
+                                <button
+                                    type="button"
+                                    class="bg-slate-100 dark:bg-slate-700 rounded-lg overflow-hidden group cursor-pointer relative text-left"
+                                    aria-label="{$_('detection.play_video', { values: { species: sighting.display_name } })}"
                                     onclick={() => {
                                         selectedSighting = sighting as Detection;
                                         if (sighting.has_clip) {
@@ -556,7 +560,7 @@
                                             {formatTime(sighting.detection_time)} - {(sighting.score * 100).toFixed(0)}%
                                         </p>
                                     </div>
-                                </div>
+                                </button>
                             {/each}
                         </div>
                     </section>
@@ -605,10 +609,4 @@
         }
     }
 
-    .line-clamp-4 {
-        display: -webkit-box;
-        -webkit-line-clamp: 4;
-        -webkit-box-orient: vertical;
-        overflow: hidden;
-    }
 </style>

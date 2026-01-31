@@ -397,7 +397,11 @@
 
 <div
     class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
-    onclick={onClose}
+    onclick={(e) => {
+        if (e.target === e.currentTarget) {
+            onClose();
+        }
+    }}
     onkeydown={(e) => e.key === 'Escape' && onClose()}
     role="dialog"
     aria-modal="true"
@@ -406,8 +410,6 @@
     <div
         bind:this={modalElement}
         class="relative bg-white dark:bg-slate-800 rounded-3xl shadow-2xl max-w-lg w-full max-h-[90vh] flex flex-col border border-white/20 overflow-hidden"
-        onclick={(e) => e.stopPropagation()}
-        onkeydown={(e) => e.stopPropagation()}
         role="document"
         tabindex="-1"
     >
@@ -435,6 +437,7 @@
                 <button
                     type="button"
                     onclick={onPlayVideo}
+                    aria-label={$_('detection.play_video', { values: { species: primaryName } })}
                     class="absolute inset-0 flex items-center justify-center bg-black/0 hover:bg-black/20 transition-all group/play focus:outline-none"
                 >
                     <div class="w-16 h-16 rounded-full bg-white/90 dark:bg-slate-800/90 flex items-center justify-center shadow-lg opacity-70 group-hover/play:opacity-100 transform scale-90 group-hover/play:scale-100 transition-all duration-200">

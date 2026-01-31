@@ -1529,15 +1529,3 @@
     {/if}
 </div>
 
-<style>
-    .custom-scrollbar::-webkit-scrollbar {
-        width: 4px;
-    }
-    .custom-scrollbar::-webkit-scrollbar-track {
-        background: transparent;
-    }
-    .custom-scrollbar::-webkit-scrollbar-thumb {
-        background: #94a3b833;
-        border-radius: 10px;
-    }
-</style>

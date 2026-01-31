@@ -186,17 +186,7 @@
 </script>
 
 <div
-    role="article"
-    tabindex="0"
-    aria-label="{$_('detection.card_label', { values: { species: primaryName, camera: detection.camera_name } })}"
     bind:this={cardElement}
-    onclick={onclick}
-    onkeydown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            onclick?.();
-        }
-    }}
     class="group relative bg-white/95 dark:bg-slate-800/85 rounded-3xl
            shadow-card dark:shadow-card-dark hover:shadow-card-hover dark:hover:shadow-card-dark-hover
            border border-slate-200/80 dark:border-slate-700/60
@@ -204,11 +194,17 @@
            hover:border-teal-500/30 dark:hover:border-teal-500/20
            overflow-hidden transition-all duration-500 ease-out
            hover:-translate-y-1.5 flex flex-col h-full
-           text-left w-full cursor-pointer
-           focus:outline-none focus:ring-2 focus:ring-teal-500/50
+           text-left w-full
            {detection.is_hidden ? 'opacity-60 grayscale-[0.5]' : ''}
            {isVerified ? 'ring-2 ring-emerald-500/20 dark:ring-emerald-500/10' : ''}"
 >
+    <button
+        type="button"
+        aria-label="{$_('detection.card_label', { values: { species: primaryName, camera: detection.camera_name } })}"
+        onclick={onclick}
+        class="absolute inset-0 z-10 rounded-3xl focus:outline-none focus:ring-2 focus:ring-teal-500/50"
+    ></button>
+
     <!-- Reclassification Overlay -->
     {#if reclassifyProgress}
         <ReclassificationOverlay progress={reclassifyProgress} small={true} />
@@ -245,7 +241,7 @@
                             }
                         }}
                         aria-label="{$_('detection.play_video', { values: { species: primaryName } })}"
-                        class="w-14 h-14 rounded-full bg-white/90 dark:bg-slate-800/90 flex items-center justify-center shadow-2xl text-teal-600 dark:text-teal-400 hover:scale-110 active:scale-90 transition-transform"
+                        class="relative z-20 w-14 h-14 rounded-full bg-white/90 dark:bg-slate-800/90 flex items-center justify-center shadow-2xl text-teal-600 dark:text-teal-400 hover:scale-110 active:scale-90 transition-transform"
                     >
                         <svg xmlns="http://www.w3.org/2000/svg" class="w-7 h-7 ml-1" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                             <path d="M8 5v14l11-7z"/>
