@@ -17,8 +17,8 @@
     let selectedSpecies = $state<string | null>(null);
     let timeline = $state<DetectionsTimeline | null>(null);
     let speciesInfoCache = $state<Record<string, SpeciesInfo>>({});
-    let showWeatherBands = $state(true);
-    let showTemperature = $state(true);
+    let showWeatherBands = $state(false);
+    let showTemperature = $state(false);
     let showWind = $state(false);
     let showPrecip = $state(false);
 
@@ -738,6 +738,7 @@
                             onclick={() => showWeatherBands = !showWeatherBands}
                             class="px-2 py-1 rounded-full border border-slate-200/70 dark:border-slate-700/60 text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400"
                         >
+                            <span aria-hidden="true">🌦️</span>
                             {showWeatherBands ? $_('leaderboard.hide_weather') : $_('leaderboard.show_weather')}
                         </button>
                         <button
@@ -745,6 +746,7 @@
                             onclick={() => showTemperature = !showTemperature}
                             class="px-2 py-1 rounded-full border border-slate-200/70 dark:border-slate-700/60 text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400"
                         >
+                            <span aria-hidden="true">🌡️</span>
                             {showTemperature ? $_('leaderboard.hide_temperature') : $_('leaderboard.show_temperature')}
                         </button>
                         <button
@@ -752,6 +754,7 @@
                             onclick={() => showWind = !showWind}
                             class="px-2 py-1 rounded-full border border-slate-200/70 dark:border-slate-700/60 text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400"
                         >
+                            <span aria-hidden="true">💨</span>
                             {showWind ? $_('leaderboard.hide_wind') : $_('leaderboard.show_wind')}
                         </button>
                         <button
@@ -759,6 +762,7 @@
                             onclick={() => showPrecip = !showPrecip}
                             class="px-2 py-1 rounded-full border border-slate-200/70 dark:border-slate-700/60 text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400"
                         >
+                            <span aria-hidden="true">🌧️</span>
                             {showPrecip ? $_('leaderboard.hide_precip') : $_('leaderboard.show_precip')}
                         </button>
                     </div>
@@ -779,19 +783,25 @@
                         {$_('leaderboard.wind_avg')}
                     </div>
                     <div class="flex items-center gap-1">
-                        <span class="inline-block w-2 h-2 rounded-full bg-sky-400/70"></span>
+                        <span class="inline-block w-2 h-2 rounded-full bg-cyan-400/70"></span>
                         {$_('leaderboard.precip')}
                     </div>
                     <span class="text-slate-400/70">{$_('leaderboard.am_pm_bands')}</span>
                 </div>
 
                 {#if sunriseRange || sunsetRange}
-                    <div class="mt-2 flex flex-wrap items-center gap-3 text-[10px] text-slate-500">
+                    <div class="mt-2 flex flex-wrap items-center gap-2 text-[10px] text-slate-500">
                         {#if sunriseRange}
-                            <span>{$_('leaderboard.sunrise')}: {sunriseRange}</span>
+                            <span class="inline-flex items-center gap-1 rounded-full border border-amber-200/60 dark:border-amber-700/50 bg-amber-50/60 dark:bg-amber-900/20 px-2 py-1 text-amber-700 dark:text-amber-300">
+                                <span aria-hidden="true">🌅</span>
+                                {$_('leaderboard.sunrise')}: {sunriseRange}
+                            </span>
                         {/if}
                         {#if sunsetRange}
-                            <span>{$_('leaderboard.sunset')}: {sunsetRange}</span>
+                            <span class="inline-flex items-center gap-1 rounded-full border border-orange-200/60 dark:border-orange-700/50 bg-orange-50/60 dark:bg-orange-900/20 px-2 py-1 text-orange-700 dark:text-orange-300">
+                                <span aria-hidden="true">🌇</span>
+                                {$_('leaderboard.sunset')}: {sunsetRange}
+                            </span>
                         {/if}
                     </div>
                 {/if}
