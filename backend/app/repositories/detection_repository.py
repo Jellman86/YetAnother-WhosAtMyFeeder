@@ -253,7 +253,7 @@ class DetectionRepository:
             SELECT frigate_event, detection_time, temperature, weather_condition, weather_cloud_cover,
                    weather_wind_speed, weather_wind_direction, weather_precipitation, weather_rain, weather_snowfall
             FROM detections
-            WHERE detection_time BETWEEN ? AND ?
+            WHERE datetime(detection_time) BETWEEN datetime(?) AND datetime(?)
         """
         params = [start, end]
         if only_missing:

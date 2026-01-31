@@ -235,8 +235,8 @@ async def backfill_weather(
         async with get_db() as db:
             repo = DetectionRepository(db)
             detections = await repo.list_for_weather_backfill(
-                start.isoformat(),
-                end.isoformat(),
+                start.strftime("%Y-%m-%d %H:%M:%S"),
+                end.strftime("%Y-%m-%d %H:%M:%S"),
                 backfill_request.only_missing
             )
 
