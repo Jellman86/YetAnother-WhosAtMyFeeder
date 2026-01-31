@@ -245,17 +245,8 @@ class DetectionService:
                 status='completed'
             )
 
-            # 2. Determine if video result should override primary identification
-            # Criteria: 
-            # - Video score is higher than current score OR 
-            # - Current ID is "Unknown Bird" and video found something OR
-            # - Current ID was previously 'upgraded' by audio (manual check if needed, but score usually handles it)
-            
-            should_override = (
-                video_score > existing.score or 
-                existing.display_name == "Unknown Bird" or
-                (existing.display_name in settings.classification.unknown_bird_labels)
-            )
+            # 2. Video detections should always be primary when available.
+            should_override = True
 
             if should_override:
                 log.info("Video analysis overriding primary identification", 
@@ -278,6 +269,8 @@ class DetectionService:
 
                 # Re-evaluate audio confirmation against new species
                 audio_confirmed = False
+                audio_species = existing.audio_species
+                audio_score = existing.audio_score
                 if existing.audio_species:
                     # Check if the stored audio match actually matches the NEW video label
                     if existing.audio_species.lower() == video_label.lower():
@@ -288,6 +281,8 @@ class DetectionService:
                                   event_id=frigate_event, 
                                   audio=existing.audio_species, 
                                   video=video_label)
+                        audio_species = None
+                        audio_score = None
 
                 # Update primary fields
                 await db.execute("""
@@ -299,7 +294,9 @@ class DetectionService:
                         scientific_name = ?,
                         common_name = ?,
                         taxa_id = ?,
-                        audio_confirmed = ?
+                        audio_confirmed = ?,
+                        audio_species = ?,
+                        audio_score = ?
                     WHERE frigate_event = ?
                 """, (
                     display_name,
@@ -310,6 +307,8 @@ class DetectionService:
                     common_name,
                     taxonomy.get("taxa_id"),
                     1 if audio_confirmed else 0,
+                    audio_species,
+                    audio_score,
                     frigate_event
                 ))
                 await db.commit()

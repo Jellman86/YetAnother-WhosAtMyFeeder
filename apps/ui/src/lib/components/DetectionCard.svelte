@@ -376,66 +376,46 @@
         {/if}
         {#if hasWeather}
             <div class="flex items-center justify-between gap-3 rounded-2xl bg-sky-50/80 dark:bg-slate-900/40 border border-sky-100/80 dark:border-slate-700/60 px-3 py-2">
-                <div class="flex items-center gap-2 text-slate-500 dark:text-slate-300">
+                <div class="flex items-center gap-3 text-slate-500 dark:text-slate-300 text-[10px] font-semibold">
                     {#if hasRain}
-                        <svg
-                            class="w-4 h-4 {rainColor(rainTotal)}"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                            aria-label={$_('detection.weather_rain')}
-                            title={`${$_('detection.weather_rain')}: ${formatPrecip(rainTotal)}`}
-                        >
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 13v4m-4-2v4m-4-2v2m1-8a5 5 0 119.584 1.245A4 4 0 0117 16H7a4 4 0 01-1-7.874" />
-                        </svg>
+                        <div class="flex items-center gap-1">
+                            <svg class="w-4 h-4 {rainColor(rainTotal)}" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-label={$_('detection.weather_rain')}>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 13v4m-4-2v4m-4-2v2m1-8a5 5 0 119.584 1.245A4 4 0 0117 16H7a4 4 0 01-1-7.874" />
+                            </svg>
+                            <span>{formatPrecip(rainTotal)}</span>
+                        </div>
                     {/if}
                     {#if hasSnow}
-                        <svg
-                            class="w-4 h-4 {snowColor(snowTotal)}"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                            aria-label={$_('detection.weather_snow')}
-                            title={`${$_('detection.weather_snow')}: ${formatPrecip(snowTotal)}`}
-                        >
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v18m9-9H3m15.364-6.364l-12.728 12.728m0-12.728l12.728 12.728" />
-                        </svg>
+                        <div class="flex items-center gap-1">
+                            <svg class="w-4 h-4 {snowColor(snowTotal)}" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-label={$_('detection.weather_snow')}>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v18m9-9H3m15.364-6.364l-12.728 12.728m0-12.728l12.728 12.728" />
+                            </svg>
+                            <span>{formatPrecip(snowTotal)}</span>
+                        </div>
                     {/if}
                     {#if hasCloud}
-                        <svg
-                            class="w-4 h-4 {cloudColor(detection.weather_cloud_cover)}"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                            aria-label={$_('detection.weather_cloud')}
-                            title={`${$_('detection.weather_cloud')}: ${Math.round(detection.weather_cloud_cover ?? 0)}%`}
-                        >
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a4 4 0 100-8h-1a5 5 0 10-9 4H7a4 4 0 00-4 4z" />
-                        </svg>
+                        <div class="flex items-center gap-1">
+                            <svg class="w-4 h-4 {cloudColor(detection.weather_cloud_cover)}" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-label={$_('detection.weather_cloud')}>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a4 4 0 100-8h-1a5 5 0 10-9 4H7a4 4 0 00-4 4z" />
+                            </svg>
+                            <span>{Math.round(detection.weather_cloud_cover ?? 0)}%</span>
+                        </div>
                     {/if}
                     {#if hasWind}
-                        <svg
-                            class="w-4 h-4 {windColor(windSpeed)}"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                            aria-label={$_('detection.weather_wind')}
-                            title={`${$_('detection.weather_wind')}: ${Math.round(windSpeed ?? 0)} km/h`}
-                        >
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h11a3 3 0 100-6M2 12h13a3 3 0 110 6H9" />
-                        </svg>
+                        <div class="flex items-center gap-1">
+                            <svg class="w-4 h-4 {windColor(windSpeed)}" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-label={$_('detection.weather_wind')}>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h11a3 3 0 100-6M2 12h13a3 3 0 110 6H9" />
+                            </svg>
+                            <span>{Math.round(windSpeed ?? 0)} km/h</span>
+                        </div>
                     {/if}
                     {#if hasIcy}
-                        <svg
-                            class="w-4 h-4 text-sky-500"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                            aria-label={$_('detection.weather_icy')}
-                            title={`${$_('detection.weather_icy')}: ${formatTemperature(detection.temperature, settingsStore.settings?.location_temperature_unit as any)}`}
-                        >
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v18m4-10l-4 4-4-4" />
-                        </svg>
+                        <div class="flex items-center gap-1">
+                            <svg class="w-4 h-4 text-sky-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-label={$_('detection.weather_icy')}>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v18m4-10l-4 4-4-4" />
+                            </svg>
+                            <span>{formatTemperature(detection.temperature, settingsStore.settings?.location_temperature_unit as any)}</span>
+                        </div>
                     {/if}
                 </div>
                 {#if detection.temperature !== undefined && detection.temperature !== null}

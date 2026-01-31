@@ -29,6 +29,15 @@
 
     let primaryName = $derived(naming.primary);
     let subName = $derived(naming.secondary);
+    let hasWeather = $derived(
+        detection.temperature !== undefined && detection.temperature !== null ||
+        !!detection.weather_condition ||
+        detection.weather_cloud_cover !== undefined && detection.weather_cloud_cover !== null ||
+        detection.weather_wind_speed !== undefined && detection.weather_wind_speed !== null ||
+        detection.weather_precipitation !== undefined && detection.weather_precipitation !== null ||
+        detection.weather_rain !== undefined && detection.weather_rain !== null ||
+        detection.weather_snowfall !== undefined && detection.weather_snowfall !== null
+    );
 
     function formatTime(dateString: string): string {
         try {
@@ -61,6 +70,13 @@
         } catch {
             return t('dashboard.hero.just_discovered');
         }
+    }
+
+    function formatPrecip(value?: number | null): string {
+        if (value === null || value === undefined || Number.isNaN(value)) return '';
+        if (value < 0.1) return `${value.toFixed(2)}mm`;
+        if (value < 1) return `${value.toFixed(1)}mm`;
+        return `${value.toFixed(0)}mm`;
     }
 </script>
 
@@ -102,6 +118,36 @@
                     </span>
                 {/if}
             </div>
+
+            {#if hasWeather}
+                <div class="flex flex-wrap items-center gap-2 mb-3">
+                    {#if detection.weather_condition}
+                        <span class="px-2 py-0.5 bg-slate-800/70 text-white/80 text-[10px] font-bold uppercase tracking-widest rounded-md">
+                            {detection.weather_condition}
+                        </span>
+                    {/if}
+                    {#if (detection.weather_rain ?? 0) > 0 || (detection.weather_precipitation ?? 0) > 0}
+                        <span class="px-2 py-0.5 bg-blue-500/20 text-blue-200 text-[10px] font-bold uppercase tracking-widest rounded-md">
+                            {formatPrecip((detection.weather_rain ?? 0) + (detection.weather_precipitation ?? 0))}
+                        </span>
+                    {/if}
+                    {#if (detection.weather_snowfall ?? 0) > 0}
+                        <span class="px-2 py-0.5 bg-indigo-500/20 text-indigo-200 text-[10px] font-bold uppercase tracking-widest rounded-md">
+                            {formatPrecip(detection.weather_snowfall)}
+                        </span>
+                    {/if}
+                    {#if detection.weather_cloud_cover !== undefined && detection.weather_cloud_cover !== null}
+                        <span class="px-2 py-0.5 bg-slate-700/60 text-slate-200 text-[10px] font-bold uppercase tracking-widest rounded-md">
+                            {Math.round(detection.weather_cloud_cover)}% {$_('detection.weather_cloud')}
+                        </span>
+                    {/if}
+                    {#if detection.weather_wind_speed !== undefined && detection.weather_wind_speed !== null}
+                        <span class="px-2 py-0.5 bg-emerald-500/20 text-emerald-200 text-[10px] font-bold uppercase tracking-widest rounded-md">
+                            {Math.round(detection.weather_wind_speed)} km/h {$_('detection.weather_wind')}
+                        </span>
+                    {/if}
+                </div>
+            {/if}
             
             <h2 class="text-3xl sm:text-4xl font-black text-white drop-shadow-lg tracking-tight truncate">
                 {primaryName}
