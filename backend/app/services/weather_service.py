@@ -157,4 +157,48 @@ class WeatherService:
             return "Thunderstorm"
         return "Cloudy"
 
+    async def get_daily_sun_times(self, start: datetime, end: datetime) -> dict:
+        """Fetch daily sunrise/sunset times for a time range (UTC)."""
+        try:
+            lat, lon = await self.get_location()
+
+            if lat is None or lon is None:
+                return {}
+
+            start_date = start.date().isoformat()
+            end_date = end.date().isoformat()
+
+            params = {
+                "latitude": lat,
+                "longitude": lon,
+                "start_date": start_date,
+                "end_date": end_date,
+                "daily": "sunrise,sunset",
+                "timezone": "UTC"
+            }
+
+            async with httpx.AsyncClient(timeout=6.0) as client:
+                resp = await client.get(self.ARCHIVE_URL, params=params)
+                resp.raise_for_status()
+                data = resp.json()
+
+            daily = data.get("daily", {})
+            dates = daily.get("time", [])
+            if not dates:
+                return {}
+
+            sun = {}
+            for idx, date_str in enumerate(dates):
+                sun[date_str] = {
+                    "sunrise": daily.get("sunrise", [None] * len(dates))[idx],
+                    "sunset": daily.get("sunset", [None] * len(dates))[idx]
+                }
+            return sun
+        except httpx.TimeoutException:
+            log.warning("Weather archive API timeout - skipping sunrise/sunset")
+            return {}
+        except Exception as e:
+            log.error("Failed to fetch sunrise/sunset", error=str(e))
+            return {}
+
 weather_service = WeatherService()

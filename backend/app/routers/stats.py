@@ -42,8 +42,11 @@ class DailyWeatherSummary(BaseModel):
     rain_total: Optional[float] = None
     snow_total: Optional[float] = None
     wind_max: Optional[float] = None
+    wind_avg: Optional[float] = None
     cloud_avg: Optional[float] = None
     temp_avg: Optional[float] = None
+    sunrise: Optional[str] = None
+    sunset: Optional[str] = None
     am_condition: Optional[str] = None
     am_rain: Optional[float] = None
     am_snow: Optional[float] = None
@@ -214,6 +217,8 @@ async def get_detection_timeline(request: Request, days: int = 30):
                         "rain_total": 0.0,
                         "snow_total": 0.0,
                         "wind_max": None,
+                        "wind_sum": 0.0,
+                        "wind_count": 0,
                         "cloud_sum": 0.0,
                         "cloud_count": 0,
                         "temp_sum": 0.0,
@@ -237,6 +242,8 @@ async def get_detection_timeline(request: Request, days: int = 30):
                         entry["snow_total"] += float(snow)
                     if wind is not None:
                         entry["wind_max"] = wind if entry["wind_max"] is None else max(entry["wind_max"], wind)
+                        entry["wind_sum"] += float(wind)
+                        entry["wind_count"] += 1
                     if cloud is not None:
                         entry["cloud_sum"] += float(cloud)
                         entry["cloud_count"] += 1
@@ -245,6 +252,8 @@ async def get_detection_timeline(request: Request, days: int = 30):
                         entry["temp_count"] += 1
                     if condition:
                         entry["conditions"].append(condition)
+
+                sun = await weather_service.get_daily_sun_times(start_date, end_date)
 
                 for item in daily:
                     date_key = item["date"]
@@ -259,11 +268,15 @@ async def get_detection_timeline(request: Request, days: int = 30):
                     temp_avg = None
                     if entry["temp_count"]:
                         temp_avg = entry["temp_sum"] / entry["temp_count"]
+                    wind_avg = None
+                    if entry["wind_count"]:
+                        wind_avg = entry["wind_sum"] / entry["wind_count"]
 
                     am_key = f"{date_key}T10:00"
                     pm_key = f"{date_key}T17:00"
                     am_weather = hourly.get(am_key, {})
                     pm_weather = hourly.get(pm_key, {})
+                    sun_entry = sun.get(date_key, {}) if sun else {}
 
                     weather_summary.append(DailyWeatherSummary(
                         date=date_key,
@@ -272,8 +285,11 @@ async def get_detection_timeline(request: Request, days: int = 30):
                         rain_total=entry["rain_total"],
                         snow_total=entry["snow_total"],
                         wind_max=entry["wind_max"],
+                        wind_avg=wind_avg,
                         cloud_avg=cloud_avg,
                         temp_avg=temp_avg,
+                        sunrise=sun_entry.get("sunrise"),
+                        sunset=sun_entry.get("sunset"),
                         am_condition=am_weather.get("condition_text"),
                         am_rain=am_weather.get("rain"),
                         am_snow=am_weather.get("snowfall"),

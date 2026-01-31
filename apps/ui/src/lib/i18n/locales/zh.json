@@ -529,6 +529,16 @@
     "unidentified_desc": "未识别的检测 - 点击查看并重新分类",
     "needs_review": "需要审核",
     "temperature": "温度",
+    "show_weather": "显示天气",
+    "hide_weather": "隐藏天气",
+    "show_temperature": "显示温度",
+    "hide_temperature": "隐藏温度",
+    "show_wind": "显示风",
+    "hide_wind": "隐藏风",
+    "wind_avg": "平均风速",
+    "sunrise": "日出",
+    "sunset": "日落",
+    "am_pm_bands": "AM/PM 带",
     "load_failed": "加载物种数据失败"
   },
   "about": {

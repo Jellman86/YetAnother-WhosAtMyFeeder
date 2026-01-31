@@ -529,6 +529,16 @@
     "unidentified_desc": "Nicht identifizierte Erkennung - klicken zum Überprüfen und Reklassifizieren",
     "needs_review": "Überprüfung nötig",
     "temperature": "Temperatur",
+    "show_weather": "Wetter anzeigen",
+    "hide_weather": "Wetter ausblenden",
+    "show_temperature": "Temperatur anzeigen",
+    "hide_temperature": "Temperatur ausblenden",
+    "show_wind": "Wind anzeigen",
+    "hide_wind": "Wind ausblenden",
+    "wind_avg": "Ø Wind",
+    "sunrise": "Sonnenaufgang",
+    "sunset": "Sonnenuntergang",
+    "am_pm_bands": "AM/PM-Bänder",
     "load_failed": "Speziesdaten konnten nicht geladen werden"
   },
   "about": {

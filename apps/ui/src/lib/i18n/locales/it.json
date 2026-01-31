@@ -537,6 +537,16 @@
     "unidentified_desc": "Rilevamento non identificato - clicca per rivedere e riclassificare",
     "needs_review": "Necessita Revisione",
     "temperature": "Temperatura",
+    "show_weather": "Mostra meteo",
+    "hide_weather": "Nascondi meteo",
+    "show_temperature": "Mostra temperatura",
+    "hide_temperature": "Nascondi temperatura",
+    "show_wind": "Mostra vento",
+    "hide_wind": "Nascondi vento",
+    "wind_avg": "Vento medio",
+    "sunrise": "Alba",
+    "sunset": "Tramonto",
+    "am_pm_bands": "Bande AM/PM",
     "load_failed": "Caricamento dati specie fallito"
   },
   "about": {

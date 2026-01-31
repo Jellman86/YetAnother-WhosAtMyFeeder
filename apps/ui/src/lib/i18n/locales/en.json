@@ -540,6 +540,16 @@
     "unidentified_desc": "Unidentified detection - click to review and reclassify",
     "needs_review": "Needs Review",
     "temperature": "Temperature",
+    "show_weather": "Show weather",
+    "hide_weather": "Hide weather",
+    "show_temperature": "Show temperature",
+    "hide_temperature": "Hide temperature",
+    "show_wind": "Show wind",
+    "hide_wind": "Hide wind",
+    "wind_avg": "Avg wind",
+    "sunrise": "Sunrise",
+    "sunset": "Sunset",
+    "am_pm_bands": "AM/PM bands",
     "load_failed": "Failed to load species data"
   },
   "about": {

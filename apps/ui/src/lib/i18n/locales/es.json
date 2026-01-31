@@ -529,6 +529,16 @@
     "unidentified_desc": "Detección no identificada - haz clic para revisar y reclasificar",
     "needs_review": "Necesita Revisión",
     "temperature": "Temperatura",
+    "show_weather": "Mostrar clima",
+    "hide_weather": "Ocultar clima",
+    "show_temperature": "Mostrar temperatura",
+    "hide_temperature": "Ocultar temperatura",
+    "show_wind": "Mostrar viento",
+    "hide_wind": "Ocultar viento",
+    "wind_avg": "Viento prom.",
+    "sunrise": "Amanecer",
+    "sunset": "Atardecer",
+    "am_pm_bands": "Bandas AM/PM",
     "load_failed": "Error al cargar los datos de las especies"
   },
   "about": {

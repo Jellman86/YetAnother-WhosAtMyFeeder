@@ -529,6 +529,16 @@
     "unidentified_desc": "未特定の検出 - クリックして確認および再分類",
     "needs_review": "要確認",
     "temperature": "気温",
+    "show_weather": "天気を表示",
+    "hide_weather": "天気を非表示",
+    "show_temperature": "気温を表示",
+    "hide_temperature": "気温を非表示",
+    "show_wind": "風を表示",
+    "hide_wind": "風を非表示",
+    "wind_avg": "平均風速",
+    "sunrise": "日の出",
+    "sunset": "日の入り",
+    "am_pm_bands": "AM/PM バンド",
     "load_failed": "種のデータの読み込みに失敗しました"
   },
   "about": {

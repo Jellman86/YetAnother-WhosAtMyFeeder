@@ -105,6 +105,17 @@ location ~ ^/api/frigate/.+/clip\.mp4$ {
 }
 
 # 3. Root / Main App
+location /api/ {
+    # Route all API traffic directly to the backend to preserve HTTPS detection
+    proxy_pass http://$backend_upstream:8000;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+    proxy_http_version 1.1;
+}
+
+# 4. Root / Main App
 location / {
     proxy_pass http://$frontend_upstream:80;
     
@@ -148,6 +159,12 @@ server {
         proxy_read_timeout 86400s;
         
         # Headers
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /api/ {
+        proxy_pass http://yawamf-backend:8000;
         proxy_set_header Host $host;
         proxy_set_header X-Forwarded-Proto $scheme;
     }

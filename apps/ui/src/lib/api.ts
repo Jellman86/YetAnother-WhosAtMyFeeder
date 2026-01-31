@@ -766,8 +766,11 @@ export interface DailyWeatherSummary {
     rain_total?: number | null;
     snow_total?: number | null;
     wind_max?: number | null;
+    wind_avg?: number | null;
     cloud_avg?: number | null;
     temp_avg?: number | null;
+    sunrise?: string | null;
+    sunset?: string | null;
     am_condition?: string | null;
     am_rain?: number | null;
     am_snow?: number | null;

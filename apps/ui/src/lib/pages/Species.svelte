@@ -17,6 +17,9 @@
     let selectedSpecies = $state<string | null>(null);
     let timeline = $state<DetectionsTimeline | null>(null);
     let speciesInfoCache = $state<Record<string, SpeciesInfo>>({});
+    let showWeatherBands = $state(true);
+    let showTemperature = $state(true);
+    let showWind = $state(false);
 
     // Derived processed species with naming logic
     let processedSpecies = $derived(() => {
@@ -199,10 +202,33 @@
         }
         return value;
     }
+
+    function formatSunTime(value?: string | null) {
+        if (!value) return null;
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return null;
+        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+
+    function getSunRange(key: 'sunrise' | 'sunset') {
+        const weather = timeline?.weather || [];
+        const times = weather
+            .map((w) => (key === 'sunrise' ? w.sunrise : w.sunset))
+            .map((t) => formatSunTime(t))
+            .filter(Boolean) as string[];
+        if (!times.length) return null;
+        const sorted = [...times].sort();
+        const first = sorted[0];
+        const last = sorted[sorted.length - 1];
+        return first === last ? first : `${first}–${last}`;
+    }
+
+    let sunriseRange = $derived(getSunRange('sunrise'));
+    let sunsetRange = $derived(getSunRange('sunset'));
     let weatherAnnotations = $derived(() => {
         const daily = timeline?.daily || [];
         const weather = timeline?.weather || [];
-        if (!daily.length || !weather.length) return { xaxis: [] };
+        if (!showWeatherBands || !daily.length || !weather.length) return { xaxis: [] };
 
         const weatherMap = new Map(weather.map((w) => [w.date, w]));
         const xaxis = [];
@@ -277,22 +303,37 @@
             {
                 name: $_('leaderboard.temperature'),
                 type: 'line',
-                data: (timeline?.daily || []).map((d) => {
-                    const summary = (timeline?.weather || []).find((w) => w.date === d.date);
-                    const tempAvg = summary?.temp_avg ?? null;
-                    const fallback = (summary?.am_temp != null && summary?.pm_temp != null)
-                        ? (summary.am_temp + summary.pm_temp) / 2
-                        : (summary?.am_temp ?? summary?.pm_temp ?? null);
-                    const temp = convertTemperature(tempAvg ?? fallback);
-                    return {
-                        x: Date.parse(`${d.date}T00:00:00Z`),
-                        y: temp
-                    };
-                })
+                data: showTemperature
+                    ? (timeline?.daily || []).map((d) => {
+                        const summary = (timeline?.weather || []).find((w) => w.date === d.date);
+                        const tempAvg = summary?.temp_avg ?? null;
+                        const fallback = (summary?.am_temp != null && summary?.pm_temp != null)
+                            ? (summary.am_temp + summary.pm_temp) / 2
+                            : (summary?.am_temp ?? summary?.pm_temp ?? null);
+                        const temp = convertTemperature(tempAvg ?? fallback);
+                        return {
+                            x: Date.parse(`${d.date}T00:00:00Z`),
+                            y: temp
+                        };
+                    })
+                    : []
+            },
+            {
+                name: $_('leaderboard.wind_avg'),
+                type: 'line',
+                data: showWind
+                    ? (timeline?.daily || []).map((d) => {
+                        const summary = (timeline?.weather || []).find((w) => w.date === d.date);
+                        return {
+                            x: Date.parse(`${d.date}T00:00:00Z`),
+                            y: summary?.wind_avg ?? null
+                        };
+                    })
+                    : []
             }
         ],
         dataLabels: { enabled: false },
-        stroke: { curve: 'smooth', width: [2, 2], colors: ['#10b981', '#f97316'] },
+        stroke: { curve: 'smooth', width: [2, 2, 2], colors: ['#10b981', '#f97316', '#0ea5e9'], dashArray: [0, 4, 4] },
         fill: {
             type: ['gradient', 'solid'],
             gradient: {
@@ -302,7 +343,7 @@
                 stops: [0, 90, 100]
             }
         },
-        markers: { size: [0, 3], hover: { size: 4 } },
+        markers: { size: [0, showTemperature ? 3 : 0, showWind ? 3 : 0], hover: { size: 4 } },
         grid: {
             borderColor: 'rgba(148,163,184,0.2)',
             strokeDashArray: 3,
@@ -316,13 +357,25 @@
         yaxis: [
             {
                 min: 0,
-                labels: { style: { fontSize: '10px', colors: '#94a3b8' } }
+                labels: {
+                    style: { fontSize: '10px', colors: '#94a3b8' },
+                    formatter: (value: number) => Math.round(value).toString()
+                }
             },
             {
                 opposite: true,
+                show: showTemperature,
                 labels: {
                     style: { fontSize: '10px', colors: '#f59e0b' },
                     formatter: (value: number) => formatTemperature(value, temperatureUnit as any)
+                }
+            },
+            {
+                opposite: true,
+                show: showWind,
+                labels: {
+                    style: { fontSize: '10px', colors: '#0ea5e9' },
+                    formatter: (value: number) => `${Math.round(value)} km/h`
                 }
             }
         ],
@@ -330,8 +383,9 @@
             theme: isDark() ? 'dark' : 'light',
             x: { format: 'MMM dd' },
             y: [
-                { formatter: (value: number) => `${value} detections` },
-                { formatter: (value: number) => formatTemperature(value, temperatureUnit as any) }
+                { formatter: (value: number) => `${Math.round(value)} detections` },
+                { formatter: (value: number) => formatTemperature(value, temperatureUnit as any) },
+                { formatter: (value: number) => `${Math.round(value)} km/h` }
             ]
         },
         annotations: weatherAnnotations()
@@ -649,7 +703,30 @@
                     <span>•</span>
                     <span>Avg/day: {timeline?.daily?.length ? Math.round((timeline?.total_count || 0) / timeline.daily.length).toLocaleString() : '0'}</span>
                 </div>
-                <div class="mt-2 flex flex-wrap items-center gap-3 text-[10px] text-slate-400">
+                <div class="mt-4 flex flex-wrap items-center gap-3 text-[10px] text-slate-400">
+                    <div class="flex items-center gap-2">
+                        <button
+                            type="button"
+                            onclick={() => showWeatherBands = !showWeatherBands}
+                            class="px-2 py-1 rounded-full border border-slate-200/70 dark:border-slate-700/60 text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400"
+                        >
+                            {showWeatherBands ? $_('leaderboard.hide_weather') : $_('leaderboard.show_weather')}
+                        </button>
+                        <button
+                            type="button"
+                            onclick={() => showTemperature = !showTemperature}
+                            class="px-2 py-1 rounded-full border border-slate-200/70 dark:border-slate-700/60 text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400"
+                        >
+                            {showTemperature ? $_('leaderboard.hide_temperature') : $_('leaderboard.show_temperature')}
+                        </button>
+                        <button
+                            type="button"
+                            onclick={() => showWind = !showWind}
+                            class="px-2 py-1 rounded-full border border-slate-200/70 dark:border-slate-700/60 text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400"
+                        >
+                            {showWind ? $_('leaderboard.hide_wind') : $_('leaderboard.show_wind')}
+                        </button>
+                    </div>
                     <div class="flex items-center gap-1">
                         <span class="inline-block w-2 h-2 rounded-full bg-blue-500/40"></span>
                         {$_('detection.weather_rain')}
@@ -662,8 +739,23 @@
                         <span class="inline-block w-2 h-2 rounded-full bg-orange-500/60"></span>
                         {$_('leaderboard.temperature')}
                     </div>
-                    <span class="text-slate-400/70">AM/PM bands</span>
+                    <div class="flex items-center gap-1">
+                        <span class="inline-block w-2 h-2 rounded-full bg-sky-500/60"></span>
+                        {$_('leaderboard.wind_avg')}
+                    </div>
+                    <span class="text-slate-400/70">{$_('leaderboard.am_pm_bands')}</span>
                 </div>
+
+                {#if sunriseRange || sunsetRange}
+                    <div class="mt-2 flex flex-wrap items-center gap-3 text-[10px] text-slate-500">
+                        {#if sunriseRange}
+                            <span>{$_('leaderboard.sunrise')}: {sunriseRange}</span>
+                        {/if}
+                        {#if sunsetRange}
+                            <span>{$_('leaderboard.sunset')}: {sunsetRange}</span>
+                        {/if}
+                    </div>
+                {/if}
             </div>
         </div>
 
