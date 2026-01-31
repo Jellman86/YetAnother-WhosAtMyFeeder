@@ -118,28 +118,71 @@
         return 'border-red-500/30';
     }
 
+    const rainTotal = $derived(
+        (detection.weather_rain ?? 0) + (detection.weather_precipitation ?? 0)
+    );
     const hasRain = $derived(
-        (detection.weather_rain ?? 0) > 0 ||
-        (detection.weather_precipitation ?? 0) > 0 ||
-        (detection.weather_condition || '').toLowerCase().includes('rain')
+        rainTotal > 0 || (detection.weather_condition || '').toLowerCase().includes('rain')
+    );
+    const snowTotal = $derived(
+        detection.weather_snowfall ?? 0
     );
     const hasSnow = $derived(
-        (detection.weather_snowfall ?? 0) > 0 ||
-        (detection.weather_condition || '').toLowerCase().includes('snow')
+        snowTotal > 0 || (detection.weather_condition || '').toLowerCase().includes('snow')
     );
     const hasCloud = $derived(
         detection.weather_cloud_cover !== undefined &&
         detection.weather_cloud_cover !== null
     );
-    const hasWind = $derived(
+    const windSpeed = $derived(
         detection.weather_wind_speed !== undefined &&
         detection.weather_wind_speed !== null
+            ? Number(detection.weather_wind_speed)
+            : null
     );
+    const hasWind = $derived(windSpeed !== null && !Number.isNaN(windSpeed));
     const hasIcy = $derived(
         detection.temperature !== undefined &&
         detection.temperature !== null &&
         detection.temperature <= 0
     );
+
+    function rainColor(total: number) {
+        if (total >= 5) return 'text-blue-600';
+        if (total >= 1) return 'text-blue-500';
+        if (total > 0) return 'text-blue-400';
+        return 'text-blue-300';
+    }
+
+    function snowColor(total: number) {
+        if (total >= 5) return 'text-indigo-600';
+        if (total >= 1) return 'text-indigo-500';
+        if (total > 0) return 'text-indigo-400';
+        return 'text-indigo-300';
+    }
+
+    function windColor(speed: number | null) {
+        if (speed === null || Number.isNaN(speed)) return 'text-emerald-400';
+        if (speed >= 40) return 'text-rose-500';
+        if (speed >= 25) return 'text-amber-500';
+        if (speed >= 10) return 'text-emerald-500';
+        return 'text-emerald-400';
+    }
+
+    function cloudColor(cover?: number | null) {
+        if (cover === null || cover === undefined || Number.isNaN(cover)) return 'text-slate-400';
+        if (cover >= 80) return 'text-slate-600';
+        if (cover >= 50) return 'text-slate-500';
+        if (cover >= 20) return 'text-slate-400';
+        return 'text-slate-300';
+    }
+
+    function formatPrecip(value?: number | null): string {
+        if (value === null || value === undefined || Number.isNaN(value)) return '0mm';
+        if (value < 0.1) return `${value.toFixed(2)}mm`;
+        if (value < 1) return `${value.toFixed(1)}mm`;
+        return `${value.toFixed(0)}mm`;
+    }
 </script>
 
 <div
@@ -335,27 +378,62 @@
             <div class="flex items-center justify-between gap-3 rounded-2xl bg-sky-50/80 dark:bg-slate-900/40 border border-sky-100/80 dark:border-slate-700/60 px-3 py-2">
                 <div class="flex items-center gap-2 text-slate-500 dark:text-slate-300">
                     {#if hasRain}
-                        <svg class="w-4 h-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-label={$_('detection.weather_rain')}>
+                        <svg
+                            class="w-4 h-4 {rainColor(rainTotal)}"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            aria-label={$_('detection.weather_rain')}
+                            title={`${$_('detection.weather_rain')}: ${formatPrecip(rainTotal)}`}
+                        >
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 13v4m-4-2v4m-4-2v2m1-8a5 5 0 119.584 1.245A4 4 0 0117 16H7a4 4 0 01-1-7.874" />
                         </svg>
                     {/if}
                     {#if hasSnow}
-                        <svg class="w-4 h-4 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-label={$_('detection.weather_snow')}>
+                        <svg
+                            class="w-4 h-4 {snowColor(snowTotal)}"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            aria-label={$_('detection.weather_snow')}
+                            title={`${$_('detection.weather_snow')}: ${formatPrecip(snowTotal)}`}
+                        >
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v18m9-9H3m15.364-6.364l-12.728 12.728m0-12.728l12.728 12.728" />
                         </svg>
                     {/if}
                     {#if hasCloud}
-                        <svg class="w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-label={$_('detection.weather_cloud')}>
+                        <svg
+                            class="w-4 h-4 {cloudColor(detection.weather_cloud_cover)}"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            aria-label={$_('detection.weather_cloud')}
+                            title={`${$_('detection.weather_cloud')}: ${Math.round(detection.weather_cloud_cover ?? 0)}%`}
+                        >
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a4 4 0 100-8h-1a5 5 0 10-9 4H7a4 4 0 00-4 4z" />
                         </svg>
                     {/if}
                     {#if hasWind}
-                        <svg class="w-4 h-4 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-label={$_('detection.weather_wind')}>
+                        <svg
+                            class="w-4 h-4 {windColor(windSpeed)}"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            aria-label={$_('detection.weather_wind')}
+                            title={`${$_('detection.weather_wind')}: ${Math.round(windSpeed ?? 0)} km/h`}
+                        >
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h11a3 3 0 100-6M2 12h13a3 3 0 110 6H9" />
                         </svg>
                     {/if}
                     {#if hasIcy}
-                        <svg class="w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-label={$_('detection.weather_icy')}>
+                        <svg
+                            class="w-4 h-4 text-sky-500"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            aria-label={$_('detection.weather_icy')}
+                            title={`${$_('detection.weather_icy')}: ${formatTemperature(detection.temperature, settingsStore.settings?.location_temperature_unit as any)}`}
+                        >
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v18m4-10l-4 4-4-4" />
                         </svg>
                     {/if}
