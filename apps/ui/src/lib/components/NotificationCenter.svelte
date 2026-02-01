@@ -12,7 +12,8 @@
         collapsed = false,
         buttonClass = 'relative p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-all duration-200 focus-ring',
         onNavigate,
-        panelAlignOverride
+        panelAlignOverride,
+        panelStyle
     } = $props<{
         position?: 'top' | 'bottom';
         align?: 'left' | 'right';
@@ -23,6 +24,7 @@
         buttonClass?: string;
         onNavigate?: (path: string) => void;
         panelAlignOverride?: string;
+        panelStyle?: string;
     }>();
 
     let open = $state(false);
@@ -120,7 +122,7 @@
     </button>
 
     {#if open}
-        <div class={`absolute ${panelAlignClass} ${panelPositionClass} w-[320px] max-w-[90vw] rounded-2xl bg-white dark:bg-slate-900 shadow-xl border border-slate-200 dark:border-slate-700/60 overflow-hidden z-50`}>
+        <div class={`absolute ${panelAlignClass} ${panelPositionClass} w-[320px] max-w-[90vw] rounded-2xl bg-white dark:bg-slate-900 shadow-2xl border border-slate-200 dark:border-slate-700/60 overflow-hidden z-50`} style={panelStyle}>
             <div class="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-slate-700/60">
                 <div class="text-xs font-black uppercase tracking-widest text-slate-500">{$_('notifications.center_title')}</div>
                 <div class="flex items-center gap-2 text-[10px] font-semibold text-slate-400">
