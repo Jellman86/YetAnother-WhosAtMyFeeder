@@ -17,7 +17,8 @@ class AIService:
         species: str,
         image_data: Optional[bytes],
         metadata: dict,
-        image_list: Optional[list[bytes]] = None
+        image_list: Optional[list[bytes]] = None,
+        language: Optional[str] = None
     ) -> Optional[str]:
         """Send image(s) and metadata to LLM for analysis."""
         if not settings.llm.enabled or not settings.llm.api_key:
@@ -29,7 +30,7 @@ class AIService:
         if not images:
             return "No image data available for AI analysis."
 
-        prompt = self._build_prompt(species, metadata)
+        prompt = self._build_prompt(species, metadata, language)
         if settings.llm.provider == "gemini":
             return await self._analyze_gemini_prompt(prompt, images)
         elif settings.llm.provider == "openai":
@@ -39,14 +40,14 @@ class AIService:
 
         return "Unsupported AI provider."
 
-    async def analyze_chart(self, image_data: bytes, metadata: dict) -> Optional[str]:
+    async def analyze_chart(self, image_data: bytes, metadata: dict, language: Optional[str] = None) -> Optional[str]:
         """Analyze a leaderboard chart image for trends."""
         if not settings.llm.enabled or not settings.llm.api_key:
             return "AI Analysis is disabled or API key is missing."
         if not image_data:
             return "No image data available for AI analysis."
 
-        prompt = self._build_chart_prompt(metadata)
+        prompt = self._build_chart_prompt(metadata, language)
         images = [image_data]
 
         if settings.llm.provider == "gemini":
@@ -202,7 +203,7 @@ class AIService:
             log.error("Claude analysis failed", error=str(e))
             return f"Error during AI analysis: {str(e)}"
 
-    def _build_prompt(self, species: str, metadata: dict) -> str:
+    def _build_prompt(self, species: str, metadata: dict, language: Optional[str]) -> str:
         """Construct the prompt for the LLM."""
         temp = metadata.get("temperature")
         condition = metadata.get("weather_condition")
@@ -215,6 +216,8 @@ class AIService:
         weather_str = ""
         if temp is not None:
             weather_str = f"The weather is currently {temp}°C and {condition or 'clear'}."
+
+        language_note = f"Respond in {language}." if language else ""
 
         return f"""
         You are an expert ornithologist and naturalist.
@@ -231,15 +234,17 @@ class AIService:
         ## Seasonal Context
 
         Keep the response concise (under 200 words). No extra sections.
+        {language_note}
         """
 
-    def _build_chart_prompt(self, metadata: dict) -> str:
+    def _build_chart_prompt(self, metadata: dict, language: Optional[str]) -> str:
         """Construct a prompt for leaderboard trend analysis."""
         timeframe = metadata.get("timeframe", "Unknown timeframe")
         total_count = metadata.get("total_count", "unknown")
         series = ", ".join(metadata.get("series", [])) or "Detections"
         weather_notes = metadata.get("weather_notes", "")
         notes = metadata.get("notes", "")
+        language_note = f"Respond in {language}." if language else ""
         return f"""
         You are a data analyst for bird feeder activity.
         You are looking at a chart of detections over time.
@@ -257,6 +262,7 @@ class AIService:
         ## Caveats
 
         Keep it concise (under 200 words). No extra sections.
+        {language_note}
         {notes}
         """
 

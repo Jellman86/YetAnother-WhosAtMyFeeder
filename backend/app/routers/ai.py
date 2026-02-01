@@ -108,7 +108,8 @@ async def analyze_event(
             species=detection.display_name,
             image_data=image_data,
             metadata=metadata,
-            image_list=frames if frames else None
+            image_list=frames if frames else None,
+            language=lang
         )
 
         # Save analysis to database
@@ -144,6 +145,7 @@ async def analyze_leaderboard(
         raise HTTPException(status_code=403, detail="Owner access required.")
 
     config_key = body.config_key or _compute_config_key(body.config)
+    lang = get_user_language(request)
 
     async with get_db() as db:
         repo = LeaderboardAnalysisRepository(db)
@@ -162,7 +164,7 @@ async def analyze_leaderboard(
         except Exception:
             raise HTTPException(status_code=400, detail="Invalid image payload.")
 
-        analysis = await ai_service.analyze_chart(image_bytes, body.config)
+        analysis = await ai_service.analyze_chart(image_bytes, body.config, language=lang)
         if not analysis:
             raise HTTPException(status_code=502, detail="AI analysis failed.")
 
