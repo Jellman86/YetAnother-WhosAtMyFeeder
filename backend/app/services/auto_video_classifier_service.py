@@ -17,6 +17,7 @@ from app.repositories.detection_repository import DetectionRepository
 from app.utils.tasks import create_background_task
 
 log = structlog.get_logger()
+MAX_PENDING_QUEUE = 1000
 
 class AutoVideoClassifierService:
     """
@@ -217,6 +218,14 @@ class AutoVideoClassifierService:
         Queue a video classification task.
         Use this for bulk operations or retries.
         """
+        if self._pending_queue.qsize() >= MAX_PENDING_QUEUE:
+            log.warning(
+                "Video classification queue full; dropping task",
+                event_id=frigate_event,
+                queue_size=self._pending_queue.qsize(),
+                max_pending=MAX_PENDING_QUEUE
+            )
+            return
         await self._pending_queue.put((frigate_event, camera))
         log.debug("Queued video classification", event_id=frigate_event, queue_size=self._pending_queue.qsize())
 
