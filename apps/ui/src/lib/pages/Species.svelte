@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { onMount } from 'svelte';
+    import { onMount, tick } from 'svelte';
     import { analyzeLeaderboardGraph, fetchDetectionsTimeline, fetchLeaderboardAnalysis, fetchSpecies, fetchSpeciesInfo, type DetectionsTimeline, type SpeciesCount, type SpeciesInfo } from '../api';
     import { chart } from '../actions/apexchart';
     import SpeciesDetailModal from '../components/SpeciesDetailModal.svelte';
@@ -444,25 +444,28 @@
         return Array.from(new Uint8Array(hash)).map((b) => b.toString(16).padStart(2, '0')).join('');
     }
 
-    function buildLeaderboardConfig() {
+    function buildLeaderboardConfig(includeAll = false) {
         const days = timeline?.days ?? timelineDays;
         const daily = timeline?.daily ?? [];
         const startDate = daily[0]?.date ?? null;
         const endDate = daily[daily.length - 1]?.date ?? null;
         const series = ['Detections'];
-        if (showTemperature) series.push($_('leaderboard.temperature'));
-        if (showWind) series.push($_('leaderboard.wind_avg'));
-        if (showPrecip) series.push($_('leaderboard.precip'));
+        const includeTemperature = includeAll || showTemperature;
+        const includeWind = includeAll || showWind;
+        const includePrecip = includeAll || showPrecip;
+        if (includeTemperature) series.push($_('leaderboard.temperature'));
+        if (includeWind) series.push($_('leaderboard.wind_avg'));
+        if (includePrecip) series.push($_('leaderboard.precip'));
         return {
             sortBy,
             days,
             startDate,
             endDate,
             totalCount: timeline?.total_count ?? 0,
-            showWeatherBands,
-            showTemperature,
-            showWind,
-            showPrecip,
+            showWeatherBands: includeAll || showWeatherBands,
+            showTemperature: includeTemperature,
+            showWind: includeWind,
+            showPrecip: includePrecip,
             series
         };
     }
@@ -470,7 +473,7 @@
     async function refreshLeaderboardAnalysis() {
         if (!timeline) return;
         leaderboardAnalysisError = null;
-        const config = buildLeaderboardConfig();
+        const config = buildLeaderboardConfig(true);
         const key = await computeConfigKey(config);
         if (leaderboardConfigKey === key && leaderboardAnalysis) return;
         leaderboardConfigKey = key;
@@ -494,8 +497,23 @@
         if (!chartEl) return;
         leaderboardAnalysisLoading = true;
         leaderboardAnalysisError = null;
+        const priorToggles = {
+            showWeatherBands,
+            showTemperature,
+            showWind,
+            showPrecip
+        };
         try {
-            const config = buildLeaderboardConfig();
+            const shouldEnableAll = !showWeatherBands || !showTemperature || !showWind || !showPrecip;
+            if (shouldEnableAll) {
+                showWeatherBands = true;
+                showTemperature = true;
+                showWind = true;
+                showPrecip = true;
+                await tick();
+                await new Promise((resolve) => setTimeout(resolve, 50));
+            }
+            const config = buildLeaderboardConfig(true);
             const key = await computeConfigKey(config);
             leaderboardConfigKey = key;
             const chartInstance = (chartEl as any).__apexchart;
@@ -509,8 +527,8 @@
                     timeframe: `${config.days} days (${config.startDate ?? 'start'} → ${config.endDate ?? 'end'})`,
                     total_count: config.totalCount,
                     series: config.series,
-                    weather_notes: showWeatherBands ? 'AM/PM weather bands are visible.' : '',
-                    notes: 'Detections are shown as an area series; other series are weather overlays.'
+                    weather_notes: 'AM/PM weather bands and weather overlays are included for analysis.',
+                    notes: 'Detections are shown as an area series; weather overlays include temperature, wind, and precipitation.'
                 },
                 image_base64: imageBase64,
                 force,
@@ -521,6 +539,11 @@
         } catch (e: any) {
             leaderboardAnalysisError = e?.message || 'Failed to analyze chart';
         } finally {
+            showWeatherBands = priorToggles.showWeatherBands;
+            showTemperature = priorToggles.showTemperature;
+            showWind = priorToggles.showWind;
+            showPrecip = priorToggles.showPrecip;
+            await tick();
             leaderboardAnalysisLoading = false;
         }
     }
