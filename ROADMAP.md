@@ -23,6 +23,7 @@ YA-WAMF already has extensive functionality built-in:
 - ✅ Home Assistant custom integration
 - ✅ LLM behavioral analysis (Gemini, OpenAI, Claude)
 - ✅ iNaturalist taxonomy normalization
+- ✅ iNaturalist submission integration (owner-reviewed, currently untested)
 - ✅ Multiple Language Support (i18n) - Translations for 9+ languages
 - ✅ Built-in Authentication system (Admin/Owner & Guest roles)
 
@@ -86,22 +87,8 @@ See [DEVELOPER.md](DEVELOPER.md) for architectural details.
 
 These are the highest-impact features planned for the next major release.
 
-### 1. iNaturalist Photo Submission 🌿
-**Priority:** P2 | **Effort:** M (5-7 days)
-
-Enable users to contribute high-quality bird observations directly to the iNaturalist community.
-
-**Features:**
-- **OAuth2 Integration:** Allow users to link their personal iNaturalist accounts.
-- **Human-in-the-loop Verification:** Simple "Submit to iNaturalist" button on high-confidence detections to ensure data quality and avoid bot spam.
-- **Automatic Metadata Mapping:** Submit observations with accurate timestamps, GPS coordinates (from camera settings), and taxon IDs.
-- **Photo Upload:** Automatically upload the best snapshot or video frame alongside the observation.
-
-**Breakdown:**
-- iNaturalist OAuth2 flow: 2 days
-- API client for observation creation and photo upload: 2 days
-- UI for submission and verification: 1.5 days
-- Testing: 1 day
+### 1. iNaturalist Photo Submission 🌿 (Completed)
+**Status:** ✅ Implemented (owner-reviewed, currently untested due to App Owner approval limits)
 
 ---
 
