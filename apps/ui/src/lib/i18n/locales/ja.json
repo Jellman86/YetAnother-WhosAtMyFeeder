@@ -76,6 +76,8 @@
     "delete": "削除",
     "close": "閉じる",
     "refresh": "更新",
+    "show": "表示",
+    "hide": "非表示",
     "save": "保存",
     "saved": "保存済み",
     "saving": "保存中...",

@@ -76,6 +76,8 @@
     "delete": "Elimina",
     "close": "Chiudi",
     "refresh": "Aggiorna",
+    "show": "Mostra",
+    "hide": "Nascondi",
     "save": "Salva",
     "saved": "Salvato",
     "saving": "Salvataggio...",

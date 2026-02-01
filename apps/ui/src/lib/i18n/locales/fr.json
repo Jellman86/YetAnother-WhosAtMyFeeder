@@ -76,6 +76,8 @@
     "delete": "Supprimer",
     "close": "Fermer",
     "refresh": "Actualiser",
+    "show": "Afficher",
+    "hide": "Masquer",
     "save": "Enregistrer",
     "saved": "Enregistré",
     "saving": "Enregistrement...",

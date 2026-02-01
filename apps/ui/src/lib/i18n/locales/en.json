@@ -76,6 +76,8 @@
     "delete": "Delete",
     "close": "Close",
     "refresh": "Refresh",
+    "show": "Show",
+    "hide": "Hide",
     "save": "Save",
     "saved": "Saved",
     "saving": "Saving...",

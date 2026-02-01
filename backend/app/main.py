@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Depends, HTTPException, status, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse, Response
+from fastapi.responses import StreamingResponse, Response, JSONResponse
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
@@ -242,6 +242,18 @@ async def custom_rate_limit_handler(request: Request, exc: RateLimitExceeded):
         headers={"Retry-After": str(exc.detail)},
         media_type="application/json"
     )
+
+# Global exception handler for unexpected 500s
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    log.error(
+        "Unhandled exception",
+        path=request.url.path,
+        method=request.method,
+        error=str(exc),
+        exc_info=True
+    )
+    return JSONResponse(status_code=500, content={"detail": "Internal server error"})
 
 app.add_middleware(LanguageMiddleware)
 

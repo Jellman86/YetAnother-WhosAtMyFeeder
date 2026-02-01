@@ -76,6 +76,8 @@
     "delete": "Eliminar",
     "close": "Cerrar",
     "refresh": "Refrescar",
+    "show": "Mostrar",
+    "hide": "Ocultar",
     "save": "Guardar",
     "saved": "Guardado",
     "saving": "Guardando...",
