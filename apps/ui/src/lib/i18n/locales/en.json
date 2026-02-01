@@ -680,7 +680,8 @@
       },
       "inaturalist_submissions": {
         "title": "iNaturalist Submissions",
-        "desc": "Owner-reviewed submissions with photos, location, and notes"
+        "desc": "Owner-reviewed submissions with photos, location, and notes",
+        "badge": "Testers needed"
       },
       "weather": {
         "title": "Weather Enrichment",

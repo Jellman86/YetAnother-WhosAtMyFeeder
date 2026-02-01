@@ -56,7 +56,8 @@
         {
             icon: '🌿',
             title: $_('about.feature_list.inaturalist_submissions.title'),
-            description: $_('about.feature_list.inaturalist_submissions.desc')
+            description: $_('about.feature_list.inaturalist_submissions.desc'),
+            badge: $_('about.feature_list.inaturalist_submissions.badge')
         },
         {
             icon: '🌦️',
@@ -194,7 +195,14 @@
                     <div class="flex items-start gap-3">
                         <span class="text-3xl flex-shrink-0">{feature.icon}</span>
                         <div class="space-y-1">
-                            <h3 class="font-semibold text-slate-900 dark:text-white text-sm">{feature.title}</h3>
+                            <div class="flex items-center gap-2">
+                                <h3 class="font-semibold text-slate-900 dark:text-white text-sm">{feature.title}</h3>
+                                {#if feature.badge}
+                                    <span class="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-400/20 dark:text-amber-200">
+                                        {feature.badge}
+                                    </span>
+                                {/if}
+                            </div>
                             <p class="text-xs text-slate-600 dark:text-slate-400">{feature.description}</p>
                         </div>
                     </div>
@@ -304,4 +312,3 @@
         <p class="mt-1">{$_('about.built_with_ai')}</p>
     </div>
 </div>
-
