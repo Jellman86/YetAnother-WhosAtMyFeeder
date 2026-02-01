@@ -160,7 +160,7 @@
                     {/if}
                 </button>
 
-                <NotificationCenter align="left" onNavigate={onNavigate} />
+                <NotificationCenter align="right" onNavigate={onNavigate} />
 
                 <!-- Mobile menu button -->
                 <button
