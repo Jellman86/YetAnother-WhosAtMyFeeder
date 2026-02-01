@@ -11,7 +11,8 @@
         label = '',
         collapsed = false,
         buttonClass = 'relative p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-all duration-200 focus-ring',
-        onNavigate
+        onNavigate,
+        panelAlignOverride
     } = $props<{
         position?: 'top' | 'bottom';
         align?: 'left' | 'right';
@@ -21,6 +22,7 @@
         collapsed?: boolean;
         buttonClass?: string;
         onNavigate?: (path: string) => void;
+        panelAlignOverride?: string;
     }>();
 
     let open = $state(false);
@@ -36,6 +38,9 @@
             : 'top-full mt-2'
     );
     const panelAlignClass = $derived(() => {
+        if (panelAlignOverride) {
+            return panelAlignOverride;
+        }
         if (placement === 'outside') {
             return align === 'left'
                 ? 'left-full ml-3'
