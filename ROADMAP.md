@@ -529,14 +529,14 @@ Investigate moving from `unsafe-inline` to CSP nonces where feasible.
 
 | Issue | Effort | Priority | Notes |
 |-------|--------|----------|-------|
-| Settings update secret clearing bug | S (1 day) | P0 | Redacted fields get cleared on PUT |
-| Blocking I/O in config save | S (1 day) | P0 | `config.py` blocks event loop |
-| TypeScript type errors (bool → boolean) | S (0.5 days) | P0 | In `api.ts` |
-| EventProcessor refactoring | M (3-4 days) | P1 | 200+ line method needs decomposition |
-| Memory leak in auto video classifier | M (2 days) | P1 | Unbounded task dict |
-| Telegram markdown injection | S (1 day) | P1 | Escape special chars in species names |
-| Missing database connection pooling | M (2 days) | P1 | Use SQLAlchemy async pool |
-| Video analysis schema mismatch | M (1 day) | P1 | Ensure columns exist in db_schema.py |
+| Settings update secret clearing bug | S (1 day) | P0 | ✅ Fixed: partial updates no longer overwrite unrelated fields |
+| Blocking I/O in config save | S (1 day) | P0 | ✅ Fixed: async config save via aiofiles |
+| TypeScript type errors (bool → boolean) | S (0.5 days) | P0 | ✅ Fixed |
+| EventProcessor refactoring | M (3-4 days) | P1 | ✅ Partial refactor; remaining decomposition optional |
+| Memory leak in auto video classifier | M (2 days) | P1 | ✅ Mitigated: queue cap + cleanup |
+| Telegram markdown injection | S (1 day) | P1 | ✅ Fixed: HTML escaping |
+| Missing database connection pooling | M (2 days) | P1 | ✅ Implemented |
+| Video analysis schema mismatch | M (1 day) | P1 | ✅ Schema/migrations aligned |
 
 **Total Effort for High Priority Fixes:** ~2 weeks
 
@@ -612,5 +612,5 @@ Have a feature idea not on this list? Open an issue on [GitHub](https://github.c
 
 ---
 
-**Last Updated:** 2026-01-29
+**Last Updated:** 2026-02-01
 **Version:** 2.6.7

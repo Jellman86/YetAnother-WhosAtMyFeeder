@@ -8,13 +8,19 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 - **Added:** Notification Center now separates ongoing actions with pinned progress bars for long-running jobs.
 - **Added:** Notification Center expand button opens a full notifications page.
-- **Added:** Camera selection now includes a hover preview popout (auto-refreshing snapshot) in Connection settings.
+- **Added:** Camera selection now includes a snapshot preview in Connection settings (auto-refreshing).
 - **Fixed:** iNaturalist settings now correctly mark the Settings page dirty so changes can be saved.
 - **Fixed:** Common "Show/Hide" labels now translate correctly in detection detail expanders.
 - **Fixed:** Background tasks now log unhandled exceptions instead of failing silently.
 - **Added:** Global exception handler now logs unhandled 500s with structured context.
 - **Fixed:** Camera preview now uses a backend proxy (avoids CSP/mixed-content issues and supports auth).
 - **Changed:** Database reset now pauses ingestion and cancels long-running jobs for a clean slate.
+- **Fixed:** Notification Center popout aligns correctly in horizontal navigation and uses stronger shadows.
+- **Changed:** Camera preview is now an accordion toggle (mobile-friendly, no popout clipping).
+- **Fixed:** Camera preview works with unauthenticated Frigate endpoints and owner-auth mode.
+- **Fixed:** Settings updates no longer overwrite unrelated fields on partial updates.
+- **Added:** Auto video classification queue now has a safety cap with cleanup to prevent unbounded growth.
+- **Changed:** EventProcessor flow refactored for clearer, more robust handling.
 
 ## [2.6.8] - 2026-01-31
 
