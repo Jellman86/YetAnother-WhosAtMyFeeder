@@ -87,7 +87,28 @@ See [DEVELOPER.md](DEVELOPER.md) for architectural details.
 
 These are the highest-impact features planned for the next major release.
 
-### 1. iNaturalist Photo Submission 🌿 (Completed)
+### 1. Technical Debt Cleanup Sprint 🧹
+**Priority:** P0 | **Effort:** L (1-2 weeks)
+
+Focus the next release cycle on resolving outstanding technical debt and stability improvements.
+
+**Scope (examples):**
+- Finish background task hardening across all services
+- Audit and tighten CSP (nonce-based where possible)
+- Complete remaining Svelte 5 state migration
+- Consolidate logging + error handling patterns
+- Remove legacy/dead code paths and document any breaking changes
+
+### 2. eBird Integration 🐦
+**Priority:** P1 | **Effort:** M (4-7 days)
+
+Add eBird integration for taxonomy lookup and optional submission/links.
+
+**Notes:**
+- Use eBird taxonomy for name normalization/links where configured.
+- Optional submission flow should be owner-reviewed like iNaturalist.
+
+### 3. iNaturalist Photo Submission 🌿 (Completed)
 **Status:** ✅ Implemented (owner-reviewed, currently untested due to App Owner approval limits)
 
 ---
