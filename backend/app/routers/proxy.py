@@ -213,10 +213,13 @@ async def proxy_snapshot(
 async def proxy_latest_camera_snapshot(
     request: Request,
     camera: str = Path(..., min_length=1, max_length=64),
-    auth: AuthContext = Depends(require_owner)
+    auth: AuthContext = Depends(get_auth_context_with_legacy)
 ):
     """Proxy latest snapshot for a camera from Frigate."""
     lang = get_user_language(request)
+
+    if not auth.is_owner:
+        raise HTTPException(status_code=403, detail="Owner privileges required for this operation")
 
     if not validate_camera_name(camera):
         raise HTTPException(
