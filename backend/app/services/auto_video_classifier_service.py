@@ -98,6 +98,7 @@ class AutoVideoClassifierService:
         """Background loop to process queued classification tasks."""
         while self._running:
             try:
+                self._cleanup_completed_tasks()
                 # Check constraints
                 if self._is_circuit_open():
                     await asyncio.sleep(5)
