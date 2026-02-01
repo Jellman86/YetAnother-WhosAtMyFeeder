@@ -424,19 +424,17 @@
             ]
         },
         legend: { show: false },
-        subtitle: leaderboardAnalysisSubtitle
-            ? {
-                text: leaderboardAnalysisSubtitle,
-                align: 'left',
-                offsetX: 0,
-                offsetY: 0,
-                style: {
-                    fontSize: '10px',
-                    fontWeight: 600,
-                    color: isDark() ? '#94a3b8' : '#64748b'
-                }
+        subtitle: {
+            text: leaderboardAnalysisSubtitle ?? '',
+            align: 'left',
+            offsetX: 0,
+            offsetY: 0,
+            style: {
+                fontSize: '10px',
+                fontWeight: 600,
+                color: isDark() ? '#94a3b8' : '#64748b'
             }
-            : undefined,
+        },
         annotations: weatherAnnotations()
     }));
 
