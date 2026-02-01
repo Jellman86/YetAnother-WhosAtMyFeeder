@@ -458,6 +458,10 @@
         return Array.from(new Uint8Array(hash)).map((b) => b.toString(16).padStart(2, '0')).join('');
     }
 
+    function sleep(ms: number) {
+        return new Promise((resolve) => setTimeout(resolve, ms));
+    }
+
     function buildLeaderboardConfig(includeAll = false) {
         const days = timeline?.days ?? timelineDays;
         const daily = timeline?.daily ?? [];
@@ -528,7 +532,7 @@
                 showWind = true;
                 showPrecip = true;
                 await tick();
-                await new Promise((resolve) => setTimeout(resolve, 50));
+                await sleep(200);
             }
             const config = buildLeaderboardConfig(true);
             const sunriseText = config.sunriseRange ? `Sunrise ${config.sunriseRange}` : '';
@@ -536,7 +540,7 @@
             const sunSummary = [sunriseText, sunsetText].filter(Boolean).join(' • ');
             leaderboardAnalysisSubtitle = [sunSummary, 'Weather overlays on'].filter(Boolean).join(' • ');
             await tick();
-            await new Promise((resolve) => setTimeout(resolve, 50));
+            await sleep(200);
             const key = await computeConfigKey(config);
             leaderboardConfigKey = key;
             const chartInstance = (chartEl as any).__apexchart;
@@ -570,6 +574,7 @@
             showPrecip = priorToggles.showPrecip;
             leaderboardAnalysisSubtitle = priorSubtitle;
             await tick();
+            await sleep(150);
             leaderboardAnalysisLoading = false;
         }
     }
