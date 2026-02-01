@@ -13,7 +13,7 @@ Settings for communicating with your NVR and messaging broker.
 | **MQTT Broker** | The hostname of your MQTT broker. |
 | **Port** | MQTT port (default 1883). |
 | **Authentication** | Toggle if your broker requires a username and password. |
-| **Active Cameras** | Select which Frigate cameras YA-WAMF should monitor for bird events. |
+| **Active Cameras** | Select which Frigate cameras YA-WAMF should monitor for bird events. Hover the play icon to preview a live snapshot. |
 
 ## Detection Settings
 Fine-tune how AI identifications are handled. This is the most important section for balancing accuracy and noise.

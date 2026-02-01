@@ -2,6 +2,10 @@
 
 YA-WAMF includes a flexible multi-platform notification system that alerts you when birds are detected.
 
+## Notification Center
+
+Use the bell icon in the header to open the Notification Center. It separates **ongoing actions** (like backfills and reclassifications) with pinned progress bars, and lists completed notifications below.
+
 ## Supported Platforms
 
 ### Discord

@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog, and this project adheres to Semantic Versioning.
 
+## [2.7.0] - 2026-02-01
+
+- **Added:** Notification Center now separates ongoing actions with pinned progress bars for long-running jobs.
+- **Added:** Camera selection now includes a hover preview popout (auto-refreshing snapshot) in Connection settings.
+- **Fixed:** iNaturalist settings now correctly mark the Settings page dirty so changes can be saved.
+- **Fixed:** Common "Show/Hide" labels now translate correctly in detection detail expanders.
+- **Fixed:** Background tasks now log unhandled exceptions instead of failing silently.
+- **Added:** Global exception handler now logs unhandled 500s with structured context.
+
 ## [2.6.8] - 2026-01-31
 
 - **Changed:** Dashboard summary stats now use a rolling last-24-hours window for detections, species, top visitor, and audio confirmations.
