@@ -23,6 +23,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Changed:** EventProcessor flow refactored for clearer, more robust handling.
 - **Added:** Leaderboard chart AI analysis with persisted insights and rerun support.
 - **Changed:** AI analysis responses now respect the configured UI language.
+- **Changed:** Leaderboard AI analysis always includes all weather overlays for richer insights.
 
 ## [2.6.8] - 2026-01-31
 
