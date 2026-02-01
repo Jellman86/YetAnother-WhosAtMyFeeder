@@ -362,25 +362,28 @@
                                 </div>
                             </div>
 
-                    <div class="flex items-center justify-between gap-4">
-                        <div>
-                            <span class="block text-sm font-black text-slate-900 dark:text-white">{$_('settings.notifications.cooldown')}</span>
-                            <span class="block text-[10px] text-slate-500 font-bold leading-tight mt-1">{$_('settings.notifications.cooldown_desc')}</span>
+                            <div class="flex items-center justify-between gap-4">
+                                <div>
+                                    <span class="block text-sm font-black text-slate-900 dark:text-white">{$_('settings.notifications.cooldown')}</span>
+                                    <span class="block text-[10px] text-slate-500 font-bold leading-tight mt-1">{$_('settings.notifications.cooldown_desc')}</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        step="1"
+                                        bind:value={notifyCooldownMinutes}
+                                        class="w-24 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-xs"
+                                        aria-label={$_('settings.notifications.cooldown')}
+                                    />
+                                    <span class="text-[10px] font-bold text-slate-500">{$_('settings.notifications.cooldown_unit')}</span>
+                                </div>
+                            </div>
                         </div>
-                        <div class="flex items-center gap-2">
-                            <input
-                                type="number"
-                                min="0"
-                                step="1"
-                                bind:value={notifyCooldownMinutes}
-                                class="w-24 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-xs"
-                                aria-label={$_('settings.notifications.cooldown')}
-                            />
-                            <span class="text-[10px] font-bold text-slate-500">{$_('settings.notifications.cooldown_unit')}</span>
-                        </div>
-                    </div>
+                    {/if}
                 </div>
-            </div>
+
+                </div>
 
             <!-- Minimum Confidence -->
             <div>

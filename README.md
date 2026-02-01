@@ -52,7 +52,7 @@ When Frigate detects a bird at your feeder, YA-WAMF:
 - **Taxonomy Normalization:** Automatic Scientific ↔ Common name mapping using iNaturalist data.
 - **iNaturalist Submissions (Beta):** Owner-reviewed submissions are implemented but currently untested due to App Owner approval limits. Testers welcome.
 
-> Note: To preview the iNaturalist submission UI without OAuth, enable the integration in Settings → Integrations and add `?inat_preview=1` to the dashboard URL.
+> Note: To preview the iNaturalist submission UI without OAuth, enable Debug UI (`DEBUG_UI_ENABLED=true`) and toggle **Settings → Debug → iNaturalist preview UI**.
 - **Fast Path Efficiency:** Skip local AI and use Frigate's sublabels directly to save CPU.
 - **Home Assistant Integration:** Full support for tracking the last detected bird and daily counts in HA.
 - **Observability:** Built-in Prometheus metrics, Telemetry (opt-in), and real-time MQTT diagnostics.
