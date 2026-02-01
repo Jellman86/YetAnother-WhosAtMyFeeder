@@ -197,13 +197,14 @@
           total: total.toLocaleString()
       });
       notificationCenter.upsert({
-          id: `reclassify:${eventId}`,
+          id: 'reclassify:progress',
           type: 'process',
           title,
           message,
           timestamp: Date.now(),
           read: false,
           meta: {
+              event_id: eventId,
               current,
               total
           }
