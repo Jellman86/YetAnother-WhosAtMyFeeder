@@ -14,6 +14,7 @@ from app.services.detection_service import DetectionService
 from app.services.audio.audio_service import audio_service
 from app.services.weather_service import weather_service
 from app.services.notification_service import notification_service
+from app.utils.tasks import create_background_task
 from app.database import get_db
 from app.repositories.detection_repository import DetectionRepository
 
@@ -385,12 +386,12 @@ class EventProcessor:
                 delay_until_video = settings.classification.auto_video_classification
 
             if delay_until_video and settings.classification.auto_video_classification:
-                asyncio.create_task(self._notify_after_video(
+                create_background_task(self._notify_after_video(
                     event,
                     classification,
                     audio_confirmed=classification['audio_confirmed'],
                     audio_species=classification['audio_species']
-                ))
+                ), name=f"notify_after_video:{event.frigate_event}")
             else:
                 if snapshot_confirmed:
                     sent = await self._send_notification(

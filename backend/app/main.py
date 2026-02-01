@@ -26,6 +26,7 @@ from app.routers import events, proxy, settings as settings_router, species, bac
 from app.config import settings, _expand_trusted_hosts
 from app.middleware.language import LanguageMiddleware
 from app.services.i18n_service import i18n_service
+from app.utils.tasks import create_background_task
 from app.ratelimit import limiter
 from app.auth import get_auth_context, AuthContext, AuthLevel
 from app.auth_legacy import get_auth_context_with_legacy
@@ -186,10 +187,10 @@ async def lifespan(app: FastAPI):
     global cleanup_task, cleanup_running
     # Startup
     await init_db()
-    asyncio.create_task(mqtt_service.start(event_processor))
+    create_background_task(mqtt_service.start(event_processor), name="mqtt_service_start")
     await telemetry_service.start()
     await auto_video_classifier.start()
-    cleanup_task = asyncio.create_task(cleanup_scheduler())
+    cleanup_task = create_background_task(cleanup_scheduler(), name="cleanup_scheduler")
     log.info("Background cleanup scheduler started",
              interval_hours=CLEANUP_INTERVAL_HOURS,
              retention_days=settings.maintenance.retention_days,
