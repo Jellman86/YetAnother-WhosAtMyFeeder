@@ -22,6 +22,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Added:** Auto video classification queue now has a safety cap with cleanup to prevent unbounded growth.
 - **Changed:** EventProcessor flow refactored for clearer, more robust handling.
 - **Added:** Leaderboard chart AI analysis with persisted insights and rerun support.
+- **Changed:** AI analysis responses now respect the configured UI language.
 
 ## [2.6.8] - 2026-01-31
 
