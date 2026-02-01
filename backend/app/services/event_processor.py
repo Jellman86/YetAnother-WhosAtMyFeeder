@@ -268,6 +268,68 @@ class EventProcessor:
 
         return classification
 
+    def _extract_weather_fields(self, context: Dict[str, Any]) -> Dict[str, Any]:
+        """Extract weather fields from context payload."""
+        weather = context.get('weather_data') or {}
+        return {
+            "temperature": weather.get("temperature"),
+            "weather_condition": weather.get("condition_text"),
+            "weather_cloud_cover": weather.get("cloud_cover"),
+            "weather_wind_speed": weather.get("wind_speed"),
+            "weather_wind_direction": weather.get("wind_direction"),
+            "weather_precipitation": weather.get("precipitation"),
+            "weather_rain": weather.get("rain"),
+            "weather_snowfall": weather.get("snowfall"),
+        }
+
+    def _should_notify(
+        self,
+        event_type: str,
+        notify_mode: str,
+        changed: bool,
+        was_inserted: bool,
+        already_notified: bool
+    ) -> tuple[bool, bool]:
+        """Determine notification behavior for an event."""
+        was_updated = changed and not was_inserted
+        if notify_mode == "silent":
+            return False, was_updated
+        if notify_mode == "final":
+            return event_type == "end" and not already_notified, was_updated
+        if notify_mode == "standard":
+            return event_type == "new" and not already_notified, was_updated
+        if notify_mode == "realtime":
+            if event_type == "new":
+                return not already_notified, was_updated
+            return was_updated, was_updated
+        if event_type == "new":
+            return settings.notifications.notify_on_insert and not already_notified, was_updated
+        return settings.notifications.notify_on_update and was_updated and not already_notified, was_updated
+
+    async def _mark_notified(self, event_id: str) -> None:
+        async with get_db() as db:
+            repo = DetectionRepository(db)
+            await repo.mark_notified(event_id)
+
+    async def _send_and_mark_notified(
+        self,
+        event: EventData,
+        classification: Dict[str, Any],
+        snapshot_data: Optional[bytes],
+        channels: Optional[list[str]] = None
+    ) -> None:
+        sent = await self._send_notification(
+            event,
+            label=classification['label'],
+            score=classification['score'],
+            audio_confirmed=classification['audio_confirmed'],
+            audio_species=classification['audio_species'],
+            snapshot_data=snapshot_data,
+            channels=channels
+        )
+        if sent:
+            await self._mark_notified(event.frigate_event)
+
     async def _handle_detection_save_and_notify(
         self,
         event: EventData,
@@ -286,24 +348,7 @@ class EventProcessor:
         label = classification['label']
         score = classification['score']
 
-        # Extract weather data
-        temperature = None
-        weather_condition = None
-        weather_cloud_cover = None
-        weather_wind_speed = None
-        weather_wind_direction = None
-        weather_precipitation = None
-        weather_rain = None
-        weather_snowfall = None
-        if context['weather_data']:
-            temperature = context['weather_data'].get("temperature")
-            weather_condition = context['weather_data'].get("condition_text")
-            weather_cloud_cover = context['weather_data'].get("cloud_cover")
-            weather_wind_speed = context['weather_data'].get("wind_speed")
-            weather_wind_direction = context['weather_data'].get("wind_direction")
-            weather_precipitation = context['weather_data'].get("precipitation")
-            weather_rain = context['weather_data'].get("rain")
-            weather_snowfall = context['weather_data'].get("snowfall")
+        weather_fields = self._extract_weather_fields(context)
 
         # Save detection (upsert)
         changed, was_inserted = await self.detection_service.save_detection(
@@ -316,14 +361,14 @@ class EventProcessor:
             audio_confirmed=classification['audio_confirmed'],
             audio_species=classification['audio_species'],
             audio_score=classification['audio_score'],
-            temperature=temperature,
-            weather_condition=weather_condition,
-            weather_cloud_cover=weather_cloud_cover,
-            weather_wind_speed=weather_wind_speed,
-            weather_wind_direction=weather_wind_direction,
-            weather_precipitation=weather_precipitation,
-            weather_rain=weather_rain,
-            weather_snowfall=weather_snowfall
+            temperature=weather_fields["temperature"],
+            weather_condition=weather_fields["weather_condition"],
+            weather_cloud_cover=weather_fields["weather_cloud_cover"],
+            weather_wind_speed=weather_fields["weather_wind_speed"],
+            weather_wind_direction=weather_fields["weather_wind_direction"],
+            weather_precipitation=weather_fields["weather_precipitation"],
+            weather_rain=weather_fields["weather_rain"],
+            weather_snowfall=weather_fields["weather_snowfall"]
         )
 
         # Update Frigate sublabel if confident
@@ -347,25 +392,13 @@ class EventProcessor:
         already_notified = bool(detection and detection.notified_at)
 
         notify_mode = (settings.notifications.mode or "standard").lower()
-        should_notify = False
-        was_updated = changed and not was_inserted
-
-        if notify_mode == "silent":
-            should_notify = False
-        elif notify_mode == "final":
-            should_notify = event_type == "end" and not already_notified
-        elif notify_mode == "standard":
-            should_notify = event_type == "new" and not already_notified
-        elif notify_mode == "realtime":
-            if event_type == "new":
-                should_notify = not already_notified
-            else:
-                should_notify = was_updated
-        else:
-            if event_type == "new":
-                should_notify = settings.notifications.notify_on_insert and not already_notified
-            else:
-                should_notify = settings.notifications.notify_on_update and was_updated and not already_notified
+        should_notify, was_updated = self._should_notify(
+            event_type=event_type,
+            notify_mode=notify_mode,
+            changed=changed,
+            was_inserted=was_inserted,
+            already_notified=already_notified
+        )
 
         email_only_on_end = (
             notify_mode == "custom"
@@ -394,18 +427,7 @@ class EventProcessor:
                 ), name=f"notify_after_video:{event.frigate_event}")
             else:
                 if snapshot_confirmed:
-                    sent = await self._send_notification(
-                        event,
-                        label=classification['label'],
-                        score=classification['score'],
-                        audio_confirmed=classification['audio_confirmed'],
-                        audio_species=classification['audio_species'],
-                        snapshot_data=snapshot_data
-                    )
-                    if sent:
-                        async with get_db() as db:
-                            repo = DetectionRepository(db)
-                            await repo.mark_notified(event.frigate_event)
+                    await self._send_and_mark_notified(event, classification, snapshot_data)
                 else:
                     log.info("Notification skipped: snapshot not confirmed",
                              event_id=event.frigate_event,
@@ -417,19 +439,7 @@ class EventProcessor:
                 or classification['audio_confirmed']
             )
             if snapshot_confirmed:
-                sent = await self._send_notification(
-                    event,
-                    label=classification['label'],
-                    score=classification['score'],
-                    audio_confirmed=classification['audio_confirmed'],
-                    audio_species=classification['audio_species'],
-                    snapshot_data=snapshot_data,
-                    channels=["email"]
-                )
-                if sent:
-                    async with get_db() as db:
-                        repo = DetectionRepository(db)
-                        await repo.mark_notified(event.frigate_event)
+                await self._send_and_mark_notified(event, classification, snapshot_data, channels=["email"])
             else:
                 log.info("Email notification skipped: snapshot not confirmed",
                          event_id=event.frigate_event,
