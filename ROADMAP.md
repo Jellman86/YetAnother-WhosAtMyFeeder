@@ -473,6 +473,35 @@ Create a repository for community-trained models.
 
 ## Technical Debt & Maintenance
 
+### Harden Background Task Visibility 🔎
+**Priority:** P1 | **Effort:** S (1-2 days)
+
+Ensure fire-and-forget tasks always surface exceptions in structured logs.
+
+**Notes:**
+- Use a shared `create_background_task()` wrapper across services.
+- Add task naming for easier tracing.
+
+### Global Exception Handler 🧯
+**Priority:** P1 | **Effort:** S (1 day)
+
+Add a top-level exception handler to capture unexpected 500s with structured context.
+
+### Finish Frontend State Migration (Svelte 5 Runes) ⚙️
+**Priority:** P2 | **Effort:** M (4-6 days)
+
+Complete the migration of remaining global state (theme/layout/stores) to Svelte 5 runes to simplify subscriptions.
+
+### Optional Frontend Log Shipping 📡
+**Priority:** P3 | **Effort:** M (3-5 days)
+
+Allow UI logs to be optionally sent to a backend endpoint for better remote debugging.
+
+### CSP Tightening (Nonce-based) 🛡️
+**Priority:** P3 | **Effort:** M (3-5 days)
+
+Investigate moving from `unsafe-inline` to CSP nonces where feasible.
+
 ### High Priority Fixes
 
 > See [DEVELOPER.md](DEVELOPER.md) for comprehensive technical debt tracking.
