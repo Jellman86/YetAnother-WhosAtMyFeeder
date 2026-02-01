@@ -367,7 +367,7 @@
                                 <span class="font-bold text-sm">{camera}</span>
                                 <button
                                     type="button"
-                                    class="opacity-0 group-hover:opacity-100 transition text-slate-500 hover:text-teal-600 dark:text-slate-400 dark:hover:text-teal-300"
+                                    class={`transition text-slate-500 hover:text-teal-600 dark:text-slate-400 dark:hover:text-teal-300 ${isTouch ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
                                     aria-label="{$_('settings.cameras.preview', { default: 'Preview {camera}', values: { camera } })}"
                                     disabled={!frigateUrl}
                                     onmouseenter={(e) => !isTouch && startPreview(camera, false, e.currentTarget as HTMLElement)}
@@ -394,9 +394,23 @@
                                     onmouseenter={(e) => !isTouch && startPreview(camera, false, previewAnchorEl ?? (e.currentTarget as HTMLElement))}
                                     onmouseleave={() => !isTouch && stopPreview(camera)}
                                 >
-                                    <div class="px-3 py-2 border-b border-slate-200/80 dark:border-slate-700/60 flex items-center justify-between">
+                                    <div class="px-3 py-2 border-b border-slate-200/80 dark:border-slate-700/60 flex items-center justify-between gap-2">
                                         <span class="text-[9px] font-black uppercase tracking-widest text-slate-500">{$_('settings.cameras.preview_label', { default: 'Live Preview' })}</span>
-                                        <span class="text-[9px] font-semibold text-emerald-500">{$_('settings.cameras.preview_live', { default: 'LIVE' })}</span>
+                                        <div class="flex items-center gap-2">
+                                            <span class="text-[9px] font-semibold text-emerald-500">{$_('settings.cameras.preview_live', { default: 'LIVE' })}</span>
+                                            {#if isTouch}
+                                                <button
+                                                    type="button"
+                                                    class="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+                                                    aria-label="Close preview"
+                                                    onclick={() => stopPreview(camera)}
+                                                >
+                                                    <svg class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                                        <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                                                    </svg>
+                                                </button>
+                                            {/if}
+                                        </div>
                                     </div>
                                     <div class="bg-slate-100 dark:bg-slate-800/60">
                                         <div class="relative w-full h-36">
