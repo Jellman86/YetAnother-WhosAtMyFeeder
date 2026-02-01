@@ -249,9 +249,14 @@ class AIService:
         Series shown: {series}
         {weather_notes}
 
-        Provide concise insights about trends and correlations (e.g., temperature, wind, precipitation).
-        Highlight any notable spikes, dips, or consistent patterns.
-        Keep it under 200 words. Use short bullet points.
+        Respond in Markdown with these exact section headings and short bullet points:
+        ## Overview
+        ## Patterns
+        ## Weather Correlations
+        ## Notable Spikes/Dips
+        ## Caveats
+
+        Keep it concise (under 200 words). No extra sections.
         {notes}
         """
 
