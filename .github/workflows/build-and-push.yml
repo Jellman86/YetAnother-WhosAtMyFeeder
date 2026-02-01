@@ -4,6 +4,9 @@ on:
   push:
     branches: [dev]
     tags: ["v*"]
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
   workflow_dispatch:  # Allow manual trigger
 
 env:
