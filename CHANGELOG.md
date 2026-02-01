@@ -32,6 +32,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Added:** Backfill async runs now broadcast start/progress/completion events for real-time UI updates.
 - **Fixed:** Settings updates no longer overwrite existing secrets when placeholders or empty values are sent.
 - **Changed:** Telegram notifications now use HTML escaping to prevent Markdown injection.
+- **Changed:** Notification status icon now uses a chat bubble to avoid confusion with the Notification Center bell.
 
 ## [2.6.7] - 2026-01-29
 
