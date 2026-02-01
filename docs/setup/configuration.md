@@ -69,6 +69,7 @@ Optional debug tools for testing and diagnostics.
 
 - Enable via env: `SYSTEM__DEBUG_UI_ENABLED=true`
 - Or in config: `"system": { "debug_ui_enabled": true }`
+- Or via compose: `DEBUG_UI_ENABLED=true`
 
 This reveals a **Debug** tab in Settings (e.g., iNaturalist preview toggle).
 
