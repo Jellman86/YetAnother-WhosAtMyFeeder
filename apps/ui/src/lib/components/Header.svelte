@@ -100,8 +100,6 @@
 
                 <LanguageSelector />
 
-                <NotificationCenter />
-
                 <!-- Keyboard Shortcuts button -->
                 {#if onShowKeyboardShortcuts}
                     <button
@@ -161,6 +159,8 @@
                         </svg>
                     {/if}
                 </button>
+
+                <NotificationCenter align="right" />
 
                 <!-- Mobile menu button -->
                 <button

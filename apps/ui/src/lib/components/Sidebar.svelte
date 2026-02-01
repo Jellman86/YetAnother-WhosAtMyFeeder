@@ -81,20 +81,17 @@
             </button>
         {/if}
 
-        <div class="flex items-center gap-2">
-            <NotificationCenter />
-            {#if !collapsed}
-                <button
-                    class="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-all duration-200 focus-ring"
-                    onclick={() => layoutStore.toggleSidebar()}
-                    title={$_('nav.collapse_sidebar')}
-                >
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
-                    </svg>
-                </button>
-            {/if}
-        </div>
+        {#if !collapsed}
+            <button
+                class="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-all duration-200 focus-ring"
+                onclick={() => layoutStore.toggleSidebar()}
+                title={$_('nav.collapse_sidebar')}
+            >
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+                </svg>
+            </button>
+        {/if}
     </div>
 
     <!-- Navigation -->
@@ -175,6 +172,10 @@
 
     <!-- Language selector and Theme Toggle at Bottom -->
     <div class="p-3 border-t border-slate-200/80 dark:border-slate-700/50 space-y-2">
+        <div class="flex items-center justify-between px-1">
+            <span class="text-[10px] font-black uppercase tracking-widest text-slate-400">{$_('notifications.center_title')}</span>
+            <NotificationCenter position="bottom" align="right" />
+        </div>
         {#if !collapsed}
             <div class="px-2 py-1">
                 <LanguageSelector dropUp />

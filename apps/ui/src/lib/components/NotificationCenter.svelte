@@ -3,11 +3,23 @@
     import { _ } from 'svelte-i18n';
     import { notificationCenter, type NotificationItem } from '../stores/notification_center.svelte';
 
+    let { position = 'top', align = 'right' } = $props<{ position?: 'top' | 'bottom'; align?: 'left' | 'right' }>();
+
     let open = $state(false);
     let panelRef = $state<HTMLDivElement | null>(null);
 
     let items = $derived(notificationCenter.items);
     let unreadCount = $derived(items.filter((item) => !item.read).length);
+    const panelPositionClass = $derived(
+        position === 'bottom'
+            ? 'bottom-full mb-2'
+            : 'top-full mt-2'
+    );
+    const panelAlignClass = $derived(
+        align === 'left'
+            ? 'left-0'
+            : 'right-0'
+    );
 
     function toggle() {
         open = !open;
@@ -57,7 +69,7 @@
     </button>
 
     {#if open}
-        <div class="absolute right-0 mt-2 w-[320px] max-w-[90vw] rounded-2xl bg-white dark:bg-slate-900 shadow-xl border border-slate-200 dark:border-slate-700/60 overflow-hidden z-50">
+        <div class={`absolute ${panelAlignClass} ${panelPositionClass} w-[320px] max-w-[90vw] rounded-2xl bg-white dark:bg-slate-900 shadow-xl border border-slate-200 dark:border-slate-700/60 overflow-hidden z-50`}>
             <div class="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-slate-700/60">
                 <div class="text-xs font-black uppercase tracking-widest text-slate-500">{$_('notifications.center_title')}</div>
                 <div class="flex items-center gap-2 text-[10px] font-semibold text-slate-400">
