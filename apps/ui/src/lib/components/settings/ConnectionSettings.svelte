@@ -2,6 +2,7 @@
     import { onDestroy } from 'svelte';
     import { _ } from 'svelte-i18n';
     import type { VersionInfo } from '../../api';
+    import { authStore } from '../../stores/auth.svelte';
 
     // Props
     let {
@@ -98,7 +99,9 @@
 
     function getPreviewUrl(camera: string) {
         if (!frigateUrl) return '';
-        return `/api/frigate/camera/${encodeURIComponent(camera)}/latest.jpg?cache=${previewTimestamp}`;
+        const token = authStore.token;
+        const tokenParam = token ? `&token=${encodeURIComponent(token)}` : '';
+        return `/api/frigate/camera/${encodeURIComponent(camera)}/latest.jpg?cache=${previewTimestamp}${tokenParam}`;
     }
 
     onDestroy(() => {

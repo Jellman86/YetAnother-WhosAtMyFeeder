@@ -10,7 +10,7 @@ from app.config import settings
 from app.services.frigate_client import frigate_client
 from app.services.i18n_service import i18n_service
 from app.utils.language import get_user_language
-from app.auth import AuthContext, require_owner
+from app.auth import AuthContext, AuthLevel, require_owner, verify_token
 from app.auth_legacy import get_auth_context_with_legacy
 from app.ratelimit import guest_rate_limit
 from app.database import get_db
@@ -219,7 +219,16 @@ async def proxy_latest_camera_snapshot(
     lang = get_user_language(request)
 
     if not auth.is_owner:
-        raise HTTPException(status_code=403, detail="Owner privileges required for this operation")
+        token = request.query_params.get("token")
+        if token:
+            try:
+                token_data = verify_token(token)
+                if token_data.auth_level != AuthLevel.OWNER:
+                    raise HTTPException(status_code=403, detail="Owner privileges required for this operation")
+            except HTTPException:
+                raise HTTPException(status_code=403, detail="Owner privileges required for this operation")
+        else:
+            raise HTTPException(status_code=403, detail="Owner privileges required for this operation")
 
     if not validate_camera_name(camera):
         raise HTTPException(
