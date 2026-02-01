@@ -8,12 +8,13 @@ A bird classification system that integrates with [Frigate NVR](https://frigate.
 
 - **Advanced AI Classification** - MobileNetV2, ConvNeXt, or EVA-02 models (up to 91% accuracy)
 - **Multi-Sensor Verification** - Correlates visual detections with BirdNET-Go audio
-- **Smart Notifications** - Discord, Telegram, Pushover, Email with customizable filters
+- **Smart Notifications** - Discord, Telegram, Pushover, Email with customizable filters + Notification Center
 - **Video Analysis** - Automatic scanning of 15+ frames (temporal ensemble) for improved accuracy
 - **LLM Insights** - AI-powered behavioral analysis (Gemini/OpenAI/Claude)
 - **Home Assistant Integration** - Sensors, automation, and dashboard cards
 - **BirdWeather Reporting** - Contribute to community science
 - **Real-time Dashboard** - Live updates, video playback, species statistics
+- **Notification Center** - Pinned progress for long-running jobs and a full notifications view
 - **Public View (Guest Mode)** - Share a read-only dashboard with rate limits and optional camera name hiding
 
 ## About This Project
@@ -51,6 +52,7 @@ When Frigate detects a bird at your feeder, YA-WAMF:
 - **Elite Accuracy:** Support for state-of-the-art **EVA-02 Large** models (~91% accuracy).
 - **Taxonomy Normalization:** Automatic Scientific ↔ Common name mapping using iNaturalist data.
 - **iNaturalist Submissions (Beta):** Owner-reviewed submissions are implemented but currently untested due to App Owner approval limits. Testers welcome.
+- **Camera Preview:** Hover camera names in Settings → Connection to see a live snapshot popout.
 
 > Note: To preview the iNaturalist submission UI without OAuth, enable Debug UI (`DEBUG_UI_ENABLED=true`) and toggle **Settings → Debug → iNaturalist preview UI**.
 - **Fast Path Efficiency:** Skip local AI and use Frigate's sublabels directly to save CPU.

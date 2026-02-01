@@ -7,11 +7,14 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 ## [2.7.0] - 2026-02-01
 
 - **Added:** Notification Center now separates ongoing actions with pinned progress bars for long-running jobs.
+- **Added:** Notification Center expand button opens a full notifications page.
 - **Added:** Camera selection now includes a hover preview popout (auto-refreshing snapshot) in Connection settings.
 - **Fixed:** iNaturalist settings now correctly mark the Settings page dirty so changes can be saved.
 - **Fixed:** Common "Show/Hide" labels now translate correctly in detection detail expanders.
 - **Fixed:** Background tasks now log unhandled exceptions instead of failing silently.
 - **Added:** Global exception handler now logs unhandled 500s with structured context.
+- **Fixed:** Camera preview now uses a backend proxy (avoids CSP/mixed-content issues and supports auth).
+- **Changed:** Database reset now pauses ingestion and cancels long-running jobs for a clean slate.
 
 ## [2.6.8] - 2026-01-31
 
