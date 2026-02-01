@@ -97,9 +97,8 @@
     }
 
     function getPreviewUrl(camera: string) {
-        const base = getFrigateBase();
-        if (!base) return '';
-        return `${base}/api/${encodeURIComponent(camera)}/latest.jpg?cache=${previewTimestamp}`;
+        if (!frigateUrl) return '';
+        return `/api/frigate/camera/${encodeURIComponent(camera)}/latest.jpg?cache=${previewTimestamp}`;
     }
 
     onDestroy(() => {

@@ -30,9 +30,13 @@ def get_http_client() -> httpx.AsyncClient:
 
 # Validate event_id format (Frigate uses UUIDs, numeric IDs, or timestamp-based IDs with dots)
 EVENT_ID_PATTERN = re.compile(r'^[a-zA-Z0-9\-_.]+$')
+CAMERA_NAME_PATTERN = re.compile(r'^[a-zA-Z0-9_\-]+$')
 
 def validate_event_id(event_id: str) -> bool:
     return bool(EVENT_ID_PATTERN.match(event_id)) and len(event_id) <= 64
+
+def validate_camera_name(camera: str) -> bool:
+    return bool(CAMERA_NAME_PATTERN.match(camera)) and len(camera) <= 64
 
 async def require_event_access(event_id: str, auth: AuthContext, lang: str) -> None:
     """Ensure guests can only access visible, recent events."""
@@ -187,6 +191,45 @@ async def proxy_snapshot(
         if settings.media_cache.enabled and settings.media_cache.cache_snapshots:
             await media_cache.cache_snapshot(event_id, resp.content)
 
+        return Response(content=resp.content, media_type=resp.headers.get("content-type", "image/jpeg"))
+    except httpx.TimeoutException:
+        raise HTTPException(
+            status_code=504,
+            detail=i18n_service.translate("errors.proxy.frigate_timeout", lang)
+        )
+    except httpx.HTTPStatusError as e:
+        raise HTTPException(
+            status_code=e.response.status_code,
+            detail=i18n_service.translate("errors.proxy.frigate_error", lang, status_code=e.response.status_code)
+        )
+    except httpx.RequestError:
+        raise HTTPException(
+            status_code=502,
+            detail=i18n_service.translate("errors.proxy.connection_failed", lang, url=settings.frigate.frigate_url)
+        )
+
+
+@router.get("/frigate/camera/{camera}/latest.jpg")
+async def proxy_latest_camera_snapshot(
+    request: Request,
+    camera: str = Path(..., min_length=1, max_length=64),
+    auth: AuthContext = Depends(require_owner)
+):
+    """Proxy latest snapshot for a camera from Frigate."""
+    lang = get_user_language(request)
+
+    if not validate_camera_name(camera):
+        raise HTTPException(
+            status_code=400,
+            detail=i18n_service.translate("errors.proxy.invalid_event_id", lang)
+        )
+
+    url = f"{settings.frigate.frigate_url}/api/{camera}/latest.jpg"
+    client = get_http_client()
+    headers = frigate_client._get_headers()
+    try:
+        resp = await client.get(url, headers=headers)
+        resp.raise_for_status()
         return Response(content=resp.content, media_type=resp.headers.get("content-type", "image/jpeg"))
     except httpx.TimeoutException:
         raise HTTPException(
