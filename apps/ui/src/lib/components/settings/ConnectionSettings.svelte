@@ -105,18 +105,12 @@
     async function fetchPreview(camera: string) {
         if (!frigateUrl || !previewVisible) return;
         const token = authStore.token;
-        if (!token) {
-            previewError = $_('settings.cameras.preview_failed', { default: 'Preview unavailable.' });
-            previewLoading = false;
-            return;
-        }
         previewLoading = true;
         previewError = null;
         try {
+            const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
             const resp = await fetch(`/api/frigate/camera/${encodeURIComponent(camera)}/latest.jpg?cache=${previewTimestamp}`, {
-                headers: {
-                    Authorization: `Bearer ${token}`
-                }
+                headers
             });
             if (!resp.ok) {
                 previewError = $_('settings.cameras.preview_failed', { default: 'Preview unavailable.' });
