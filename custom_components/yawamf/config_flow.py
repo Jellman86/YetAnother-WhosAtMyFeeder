@@ -32,6 +32,8 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str,
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             response = await client.get(f"{url}/health")
+            if response.status_code in (401, 403):
+                raise InvalidAuth
             if response.status_code != 200:
                 raise CannotConnect
             
@@ -42,7 +44,7 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str,
         raise CannotConnect
     except Exception:
         _LOGGER.exception("Unexpected exception during validation")
-        raise InvalidAuth
+        raise CannotConnect
 
     # Return info that you want to store in the config entry.
     return {"title": "YA-WAMF"}
@@ -107,6 +109,12 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             step_id="init",
             data_schema=vol.Schema(
                 {
+                    vol.Optional(
+                        CONF_URL,
+                        default=self.config_entry.options.get(
+                            CONF_URL, self.config_entry.data.get(CONF_URL, "http://localhost:8946")
+                        ),
+                    ): str,
                     vol.Optional(
                         CONF_POLLING_INTERVAL,
                         default=self.config_entry.options.get(

@@ -14,7 +14,16 @@ Restart Home Assistant to load the new component.
 Go to **Settings > Devices & Services > Add Integration** and search for "YA-WAMF".
 
 ### 4. Configure
-Enter the URL of your YA-WAMF instance (e.g., `http://192.168.1.50:9852`).
+Enter the URL of your YA-WAMF instance (e.g., `http://192.168.1.50:9852` or `https://yoursite.example.com`).
+
+### Updating the URL
+If you change your server address (for example, moving from direct IP to a reverse proxy URL), use:
+**Settings → Devices & Services → YA-WAMF → Configure** and update the URL.
+
+### Reverse Proxy Notes
+- Use the **public hostname** you configured on the proxy (not the internal container IP).
+- Ensure the proxy forwards the `/health` and `/api/stats/daily-summary` endpoints.
+- If your proxy enforces HTTPS, use the `https://` URL in Home Assistant.
 
 ## Sensors Provided
 
