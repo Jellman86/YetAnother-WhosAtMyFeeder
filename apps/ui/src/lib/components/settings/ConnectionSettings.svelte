@@ -54,6 +54,7 @@
     let previewTimestamp = $state(0);
     let previewLoading = $state(false);
     let previewError = $state<string | null>(null);
+    let previewBlobUrl = $state<string | null>(null);
     let previewTimer: ReturnType<typeof setInterval> | null = null;
     let previewHoverTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -91,22 +92,58 @@
         previewCamera = null;
         previewLoading = false;
         previewError = null;
+        if (previewBlobUrl) {
+            URL.revokeObjectURL(previewBlobUrl);
+            previewBlobUrl = null;
+        }
         if (previewTimer) {
             clearInterval(previewTimer);
             previewTimer = null;
         }
     }
 
-    function getPreviewUrl(camera: string) {
-        if (!frigateUrl) return '';
+    async function fetchPreview(camera: string) {
+        if (!frigateUrl || !previewVisible) return;
         const token = authStore.token;
-        const tokenParam = token ? `&token=${encodeURIComponent(token)}` : '';
-        return `/api/frigate/camera/${encodeURIComponent(camera)}/latest.jpg?cache=${previewTimestamp}${tokenParam}`;
+        if (!token) {
+            previewError = $_('settings.cameras.preview_failed', { default: 'Preview unavailable.' });
+            previewLoading = false;
+            return;
+        }
+        previewLoading = true;
+        previewError = null;
+        try {
+            const resp = await fetch(`/api/frigate/camera/${encodeURIComponent(camera)}/latest.jpg?cache=${previewTimestamp}`, {
+                headers: {
+                    Authorization: `Bearer ${token}`
+                }
+            });
+            if (!resp.ok) {
+                previewError = $_('settings.cameras.preview_failed', { default: 'Preview unavailable.' });
+                previewLoading = false;
+                return;
+            }
+            const blob = await resp.blob();
+            if (previewBlobUrl) {
+                URL.revokeObjectURL(previewBlobUrl);
+            }
+            previewBlobUrl = URL.createObjectURL(blob);
+        } catch {
+            previewError = $_('settings.cameras.preview_failed', { default: 'Preview unavailable.' });
+        } finally {
+            previewLoading = false;
+        }
     }
+
+    $effect(() => {
+        if (!previewVisible || !previewCamera) return;
+        fetchPreview(previewCamera);
+    });
 
     onDestroy(() => {
         if (previewTimer) clearInterval(previewTimer);
         if (previewHoverTimer) clearTimeout(previewHoverTimer);
+        if (previewBlobUrl) URL.revokeObjectURL(previewBlobUrl);
     });
 </script>
 
@@ -326,19 +363,9 @@
                                     </div>
                                     <div class="bg-slate-100 dark:bg-slate-800/60">
                                         <div class="relative w-full h-36">
-                                            <img
-                                                class="w-full h-36 object-cover"
-                                                alt=""
-                                                src={getPreviewUrl(camera)}
-                                                onload={() => {
-                                                    previewLoading = false;
-                                                    previewError = null;
-                                                }}
-                                                onerror={() => {
-                                                    previewLoading = false;
-                                                    previewError = $_('settings.cameras.preview_failed', { default: 'Preview unavailable.' });
-                                                }}
-                                            />
+                                            {#if previewBlobUrl}
+                                                <img class="w-full h-36 object-cover" alt="" src={previewBlobUrl} />
+                                            {/if}
                                             {#if previewLoading}
                                                 <div class="absolute inset-0 flex items-center justify-center bg-white/70 dark:bg-slate-900/70 text-[10px] font-semibold text-slate-500">
                                                     {$_('settings.cameras.preview_loading', { default: 'Loading preview…' })}
