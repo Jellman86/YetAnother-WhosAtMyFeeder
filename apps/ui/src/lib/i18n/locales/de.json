@@ -113,7 +113,15 @@
       "data": "Daten",
       "security": "Sicherheit",
       "appearance": "Aussehen",
-      "accessibility": "Barrierefreiheit"
+      "accessibility": "Barrierefreiheit",
+      "debug": "Debug"
+    },
+    "debug": {
+      "title": "Debug-Tools",
+      "subtitle": "Zusätzliche Schalter für Tests und Diagnose.",
+      "inat_preview": "iNaturalist Vorschau-UI",
+      "inat_preview_desc": "Zeigt das Einreichungs-Panel ohne OAuth (nur Owner).",
+      "inat_preview_hint": "Tipp: Öffne eine Detailkarte, um das iNaturalist-Panel zu sehen."
     },
     "integrations": {
       "birdnet": {

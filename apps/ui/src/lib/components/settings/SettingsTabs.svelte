@@ -4,9 +4,10 @@
     interface Props {
         activeTab: string;
         ontabchange: (tab: string) => void;
+        debugUiEnabled?: boolean;
     }
 
-    let { activeTab, ontabchange }: Props = $props();
+    let { activeTab, ontabchange, debugUiEnabled = false }: Props = $props();
 
     const tabs = $derived([
         { id: "connection", label: $_("settings.tabs.connection"), icon: "🔗" },
@@ -29,6 +30,7 @@
             label: $_("settings.tabs.accessibility"),
             icon: "♿",
         },
+        ...(debugUiEnabled ? [{ id: "debug", label: $_("settings.tabs.debug"), icon: "🧪" }] : []),
     ]);
 </script>
 

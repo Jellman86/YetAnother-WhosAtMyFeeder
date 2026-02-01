@@ -24,6 +24,12 @@ In **Settings → Integrations → iNaturalist**:
 - (Optional) Set default latitude/longitude/place
 - Click **Connect iNaturalist** and complete OAuth
 
+## Preview Mode (No OAuth)
+If you do not have App Owner approval yet, you can still preview the submission UI:
+
+1. Enable **Debug UI** (`SYSTEM__DEBUG_UI_ENABLED=true` or `system.debug_ui_enabled`).
+2. Open **Settings → Debug** and enable **iNaturalist preview UI**.
+3. Open a detection details card to see the submission panel.
+
 ## Status
 **Note:** This integration is currently **untested** in YA-WAMF due to unavailable app credentials during development.
-

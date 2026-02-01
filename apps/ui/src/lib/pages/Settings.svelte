@@ -185,6 +185,8 @@
     let publicAccessShowCameraNames = $state(true);
     let publicAccessHistoricalDays = $state(7);
     let publicAccessRateLimitPerMinute = $state(30);
+    let debugUiEnabled = $state(false);
+    let inatPreviewEnabled = $state(false);
 
     // Notifications
     let discordEnabled = $state(false);
@@ -494,25 +496,26 @@
     onMount(async () => {
         // Handle deep linking to tabs
         const hash = window.location.hash.slice(1);
-        if (hash && ['connection', 'detection', 'notifications', 'integrations', 'security', 'data', 'appearance', 'accessibility'].includes(hash)) {
+        if (hash && ['connection', 'detection', 'notifications', 'integrations', 'security', 'data', 'appearance', 'accessibility', 'debug'].includes(hash)) {
             activeTab = hash;
         }
 
         // Ensure settings store is loaded for dirty checking
         await settingsStore.load();
 
-        await Promise.all([
-            loadSettings(),
-            loadCameras(),
-            loadClassifierStatus(),
-            loadWildlifeStatus(),
-            loadMaintenanceStats(),
-            loadCacheStats(),
-            loadTaxonomyStatus(),
-            loadVersion(),
-            loadAnalysisStatus(), // Check if there's an ongoing job
-            loadBackfillStatus()
-        ]);
+            await Promise.all([
+                loadSettings(),
+                loadCameras(),
+                loadClassifierStatus(),
+                loadWildlifeStatus(),
+                loadMaintenanceStats(),
+                loadCacheStats(),
+                loadTaxonomyStatus(),
+                loadVersion(),
+                loadAnalysisStatus(), // Check if there's an ongoing job
+                loadBackfillStatus()
+            ]);
+            inatPreviewEnabled = window.localStorage.getItem('inat_preview') === '1';
 
         taxonomyPollInterval = setInterval(loadTaxonomyStatus, 3000);
         
@@ -927,6 +930,7 @@
             publicAccessShowCameraNames = settings.public_access_show_camera_names ?? true;
             publicAccessHistoricalDays = settings.public_access_historical_days ?? 7;
             publicAccessRateLimitPerMinute = settings.public_access_rate_limit_per_minute ?? 30;
+            debugUiEnabled = settings.debug_ui_enabled ?? false;
 
             // Notifications
             discordEnabled = settings.notifications_discord_enabled ?? false;
@@ -1364,7 +1368,7 @@
         </div>
     {:else}
         <!-- Tab Navigation -->
-        <SettingsTabs {activeTab} ontabchange={handleTabChange} />
+        <SettingsTabs {activeTab} {debugUiEnabled} ontabchange={handleTabChange} />
 
         <div class="space-y-6">
             <!-- Connection Tab -->
@@ -1601,6 +1605,53 @@
                     bind:dyslexiaFont
                     bind:liveAnnouncements
                 />
+            {/if}
+
+            {#if activeTab === 'debug'}
+                <div class="space-y-6">
+                    <section class="card-base p-8">
+                        <div class="flex items-center gap-3 mb-6">
+                            <div class="w-10 h-10 rounded-2xl bg-slate-900/5 dark:bg-slate-100/10 flex items-center justify-center text-slate-600 dark:text-slate-300">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 3v2.25M14.25 3v2.25M4.5 7.5h15M6 7.5a6 6 0 0 0 12 0m-9 6h6m-3 0v6" /></svg>
+                            </div>
+                            <div>
+                                <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">{$_('settings.debug.title')}</h3>
+                                <p class="text-xs text-slate-500">{$_('settings.debug.subtitle')}</p>
+                            </div>
+                        </div>
+
+                        <div class="space-y-4">
+                            <div class="flex items-center justify-between gap-4 rounded-2xl border border-slate-200/70 dark:border-slate-700/60 bg-white/70 dark:bg-slate-900/40 px-4 py-3">
+                                <div>
+                                    <span class="block text-sm font-black text-slate-900 dark:text-white">{$_('settings.debug.inat_preview')}</span>
+                                    <span class="block text-[10px] font-bold text-slate-500 mt-1">{$_('settings.debug.inat_preview_desc')}</span>
+                                </div>
+                                <button
+                                    role="switch"
+                                    aria-checked={inatPreviewEnabled}
+                                    onclick={() => {
+                                        inatPreviewEnabled = !inatPreviewEnabled;
+                                        window.localStorage.setItem('inat_preview', inatPreviewEnabled ? '1' : '0');
+                                    }}
+                                    onkeydown={(e) => {
+                                        if (e.key === 'Enter' || e.key === ' ') {
+                                            e.preventDefault();
+                                            inatPreviewEnabled = !inatPreviewEnabled;
+                                            window.localStorage.setItem('inat_preview', inatPreviewEnabled ? '1' : '0');
+                                        }
+                                    }}
+                                    class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {inatPreviewEnabled ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-600'}"
+                                >
+                                    <span class="sr-only">{$_('settings.debug.inat_preview')}</span>
+                                    <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {inatPreviewEnabled ? 'translate-x-5' : 'translate-x-0'}"></span>
+                                </button>
+                            </div>
+                            <div class="text-[10px] font-bold text-slate-500">
+                                {$_('settings.debug.inat_preview_hint')}
+                            </div>
+                        </div>
+                    </section>
+                </div>
             {/if}
         </div>
 

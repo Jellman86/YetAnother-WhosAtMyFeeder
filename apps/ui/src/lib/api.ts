@@ -209,6 +209,7 @@ export interface Settings {
     auth_session_expiry_hours: number;
     auth_password?: string;
     trusted_proxy_hosts?: string[];
+    debug_ui_enabled?: boolean;
 
     // Public access
     public_access_enabled: boolean;

@@ -113,7 +113,15 @@
       "data": "数据",
       "security": "安全",
       "appearance": "外观",
-      "accessibility": "辅助功能"
+      "accessibility": "辅助功能",
+      "debug": "调试"
+    },
+    "debug": {
+      "title": "调试工具",
+      "subtitle": "用于测试和诊断的额外开关。",
+      "inat_preview": "iNaturalist 预览界面",
+      "inat_preview_desc": "无需 OAuth 显示提交面板（仅限所有者）。",
+      "inat_preview_hint": "提示：打开检测详情卡即可看到 iNaturalist 面板。"
     },
     "integrations": {
       "birdnet": {

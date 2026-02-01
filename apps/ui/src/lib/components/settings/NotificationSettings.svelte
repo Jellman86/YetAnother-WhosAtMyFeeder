@@ -142,6 +142,12 @@
         notifyMode === 'custom' ? (notifyOnInsert || notifyOnUpdate) : notifyMode !== 'silent'
     );
 
+    $effect(() => {
+        if (notifyMode === 'custom') {
+            showAdvanced = true;
+        }
+    });
+
     function applyPreset(mode: typeof notifyMode) {
         if (mode === 'silent') {
             notifyOnInsert = false;

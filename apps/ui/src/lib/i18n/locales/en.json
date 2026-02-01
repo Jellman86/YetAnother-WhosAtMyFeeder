@@ -121,7 +121,15 @@
       "data": "Data",
       "security": "Security",
       "appearance": "Appearance",
-      "accessibility": "Accessibility"
+      "accessibility": "Accessibility",
+      "debug": "Debug"
+    },
+    "debug": {
+      "title": "Debug Tools",
+      "subtitle": "Extra switches for testing and diagnostics.",
+      "inat_preview": "iNaturalist preview UI",
+      "inat_preview_desc": "Show the submission panel without OAuth (owner-only).",
+      "inat_preview_hint": "Tip: open a detection details card to see the iNaturalist panel."
     },
     "integrations": {
       "birdnet": {

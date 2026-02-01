@@ -121,7 +121,15 @@
       "data": "Dados",
       "security": "Segurança",
       "appearance": "Aparência",
-      "accessibility": "Acessibilidade"
+      "accessibility": "Acessibilidade",
+      "debug": "Debug"
+    },
+    "debug": {
+      "title": "Ferramentas de debug",
+      "subtitle": "Interruptores extras para testes e diagnóstico.",
+      "inat_preview": "UI de pré-visualização iNaturalist",
+      "inat_preview_desc": "Mostra o painel de envio sem OAuth (somente proprietário).",
+      "inat_preview_hint": "Dica: abra o detalhe de uma detecção para ver o painel do iNaturalist."
     },
     "integrations": {
       "birdnet": {

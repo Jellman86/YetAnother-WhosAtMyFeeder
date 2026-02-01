@@ -513,6 +513,7 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "auth_has_password": settings.auth.password_hash is not None,
         "auth_session_expiry_hours": settings.auth.session_expiry_hours,
         "trusted_proxy_hosts": settings.system.trusted_proxy_hosts,
+        "debug_ui_enabled": settings.system.debug_ui_enabled,
         # Public access
         "public_access_enabled": settings.public_access.enabled,
         "public_access_show_camera_names": settings.public_access.show_camera_names,

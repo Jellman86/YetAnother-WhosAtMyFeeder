@@ -36,6 +36,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Added:** Reclassification progress now updates a pinned notification while batch analysis runs.
 - **Changed:** Notifications settings now use a mode selector (Final-only / Standard / Realtime / Silent) with advanced overrides.
 - **Added:** Notification mode is now stored in settings and respected by the backend dispatcher.
+- **Added:** Optional Debug tab in Settings (gated by config) with iNaturalist preview toggle.
 
 ## [2.6.7] - 2026-01-29
 

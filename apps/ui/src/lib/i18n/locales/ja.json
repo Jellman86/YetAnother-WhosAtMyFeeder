@@ -113,7 +113,15 @@
       "data": "データ",
       "security": "セキュリティ",
       "appearance": "外観",
-      "accessibility": "アクセシビリティ"
+      "accessibility": "アクセシビリティ",
+      "debug": "デバッグ"
+    },
+    "debug": {
+      "title": "デバッグツール",
+      "subtitle": "テストと診断のための追加スイッチ。",
+      "inat_preview": "iNaturalist プレビューUI",
+      "inat_preview_desc": "OAuthなしで送信パネルを表示（オーナーのみ）。",
+      "inat_preview_hint": "ヒント: 検出詳細カードを開くとiNaturalistパネルが表示されます。"
     },
     "integrations": {
       "birdnet": {

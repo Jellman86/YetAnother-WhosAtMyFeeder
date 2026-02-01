@@ -64,6 +64,14 @@ Customize the UI experience for comfort and assistive technologies.
 - **Live Announcements:** Toggle screen reader announcements for new detections.
 - **UI Language:** Set the interface language (also used for notifications).
 
+## Debug UI
+Optional debug tools for testing and diagnostics.
+
+- Enable via env: `SYSTEM__DEBUG_UI_ENABLED=true`
+- Or in config: `"system": { "debug_ui_enabled": true }`
+
+This reveals a **Debug** tab in Settings (e.g., iNaturalist preview toggle).
+
 ## Security & Access
 Configure authentication and public access controls.
 

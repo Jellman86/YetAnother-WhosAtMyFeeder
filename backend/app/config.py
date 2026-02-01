@@ -241,6 +241,7 @@ class SystemSettings(BaseModel):
     broadcaster_max_queue_size: int = Field(default=100, ge=10, le=1000, description="Maximum SSE message queue size per subscriber")
     broadcaster_max_consecutive_full: int = Field(default=10, ge=1, le=100, description="Remove subscriber after this many consecutive backpressure failures")
     trusted_proxy_hosts: list[str] = Field(default_factory=lambda: ["*"], description="Trusted proxy hosts for X-Forwarded-* headers")
+    debug_ui_enabled: bool = Field(default=False, description="Expose debug UI sections in the web app")
 
 
 class AuthSettings(BaseModel):
@@ -509,6 +510,7 @@ class Settings(BaseSettings):
             'broadcaster_max_queue_size': int(os.environ.get('SYSTEM__BROADCASTER_MAX_QUEUE_SIZE', '100')),
             'broadcaster_max_consecutive_full': int(os.environ.get('SYSTEM__BROADCASTER_MAX_CONSECUTIVE_FULL', '10')),
             'trusted_proxy_hosts': trusted_hosts,
+            'debug_ui_enabled': os.environ.get('SYSTEM__DEBUG_UI_ENABLED', 'false').lower() == 'true',
         }
 
         species_info_source = os.environ.get('SPECIES_INFO__SOURCE', 'auto')
