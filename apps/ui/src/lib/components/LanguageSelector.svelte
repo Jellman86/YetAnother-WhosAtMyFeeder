@@ -9,7 +9,10 @@
         fr: 'Français',
         de: 'Deutsch',
         ja: '日本語',
-        zh: '中文'
+        zh: '中文',
+        ru: 'Русский',
+        pt: 'Português',
+        it: 'Italiano'
     };
 
     let showDropdown = $state(false);
@@ -21,7 +24,7 @@
     let unsubscribeLocale: () => void;
     onMount(() => {
         unsubscribeLocale = locale.subscribe(value => {
-            currentLocaleValue = value;
+            currentLocaleValue = typeof value === 'string' && value ? value : 'en';
         });
 
         // Load saved preference on mount

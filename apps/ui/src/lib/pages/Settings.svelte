@@ -12,6 +12,10 @@
         fetchMaintenanceStats,
         runCleanup,
         runBackfill,
+        runWeatherBackfill,
+        startBackfillJob,
+        startWeatherBackfillJob,
+        getBackfillStatus,
         fetchCacheStats,
         runCacheCleanup,
         fetchTaxonomyStatus,
@@ -27,11 +31,15 @@
         initiateGmailOAuth,
         initiateOutlookOAuth,
         disconnectEmailOAuth,
+        initiateInaturalistOAuth,
+        disconnectInaturalistOAuth,
         sendTestEmail,
         type ClassifierStatus,
         type WildlifeModelStatus,
         type MaintenanceStats,
         type BackfillResult,
+        type WeatherBackfillResult,
+        type BackfillJobStatus,
         type CacheStats,
         type CacheCleanupResult,
         type TaxonomySyncStatus,
@@ -101,6 +109,17 @@
     let birdweatherEnabled = $state(false);
     let birdweatherStationToken = $state('');
 
+    // iNaturalist Settings
+    let inaturalistEnabled = $state(false);
+    let inaturalistClientId = $state('');
+    let inaturalistClientSecret = $state('');
+    let inaturalistClientIdSaved = $state(false);
+    let inaturalistClientSecretSaved = $state(false);
+    let inaturalistDefaultLat = $state<number | null>(null);
+    let inaturalistDefaultLon = $state<number | null>(null);
+    let inaturalistDefaultPlace = $state('');
+    let inaturalistConnectedUser = $state<string | null>(null);
+
     // LLM Settings
     let llmEnabled = $state(false);
     let llmProvider = $state('gemini');
@@ -166,6 +185,9 @@
     let publicAccessShowCameraNames = $state(true);
     let publicAccessHistoricalDays = $state(7);
     let publicAccessRateLimitPerMinute = $state(30);
+    let debugUiEnabled = $state(false);
+    let inatPreviewEnabled = $state(false);
+    let inatPreviewDirty = $state(false);
 
     // Notifications
     let discordEnabled = $state(false);
@@ -190,6 +212,7 @@
     let emailUseOAuth = $state(false);
     let emailOAuthProvider = $state<string | null>(null);
     let emailConnectedEmail = $state<string | null>(null);
+    let emailOnlyOnEnd = $state(false);
     let emailSmtpHost = $state('');
     let emailSmtpPort = $state(587);
     let emailSmtpUsername = $state('');
@@ -205,10 +228,12 @@
     let newWhitelistSpecies = $state('');
     let filterConfidence = $state(0.7);
     let filterAudioOnly = $state(false);
+    let notifyMode = $state<'silent' | 'final' | 'standard' | 'realtime' | 'custom'>('standard');
     let notifyOnInsert = $state(true);
     let notifyOnUpdate = $state(false);
     let notifyDelayUntilVideo = $state(false);
     let notifyVideoFallbackTimeout = $state(45);
+    let notifyCooldownMinutes = $state(0);
 
     let testingNotification = $state<Record<string, boolean>>({});
 
@@ -354,6 +379,12 @@
             { key: 'locationTemperatureUnit', val: locationTemperatureUnit, store: s.location_temperature_unit ?? 'celsius' },
             { key: 'birdweatherEnabled', val: birdweatherEnabled, store: s.birdweather_enabled ?? false },
             { key: 'birdweatherStationToken', val: birdweatherStationToken, store: s.birdweather_station_token || '' },
+            { key: 'inaturalistEnabled', val: inaturalistEnabled, store: s.inaturalist_enabled ?? false },
+            { key: 'inaturalistClientId', val: inaturalistClientId, store: normalizeSecret(s.inaturalist_client_id) },
+            { key: 'inaturalistClientSecret', val: inaturalistClientSecret, store: normalizeSecret(s.inaturalist_client_secret) },
+            { key: 'inaturalistDefaultLat', val: inaturalistDefaultLat, store: s.inaturalist_default_latitude ?? null },
+            { key: 'inaturalistDefaultLon', val: inaturalistDefaultLon, store: s.inaturalist_default_longitude ?? null },
+            { key: 'inaturalistDefaultPlace', val: inaturalistDefaultPlace, store: s.inaturalist_default_place_guess ?? '' },
             { key: 'llmEnabled', val: llmEnabled, store: s.llm_enabled ?? false },
             { key: 'llmProvider', val: llmProvider, store: s.llm_provider ?? 'gemini' },
             { key: 'llmApiKey', val: llmApiKey, store: s.llm_api_key || '' },
@@ -400,6 +431,7 @@
             { key: 'filterWhitelist', val: JSON.stringify(filterWhitelist), store: JSON.stringify(s.notifications_filter_species_whitelist || []) },
             { key: 'filterConfidence', val: filterConfidence, store: s.notifications_filter_min_confidence ?? 0.7 },
             { key: 'filterAudioOnly', val: filterAudioOnly, store: s.notifications_filter_audio_confirmed_only ?? false },
+            { key: 'notifyMode', val: notifyMode, store: s.notifications_mode ?? 'standard' },
             { key: 'notifyOnInsert', val: notifyOnInsert, store: s.notifications_notify_on_insert ?? true },
             { key: 'notifyOnUpdate', val: notifyOnUpdate, store: s.notifications_notify_on_update ?? false },
             { key: 'notifyDelayUntilVideo', val: notifyDelayUntilVideo, store: s.notifications_delay_until_video ?? false },
@@ -449,6 +481,13 @@
     let backfillEndDate = $state('');
     let backfilling = $state(false);
     let backfillResult = $state<BackfillResult | null>(null);
+    let backfillJob = $state<BackfillJobStatus | null>(null);
+    let backfillTotal = $state(0);
+    let weatherBackfilling = $state(false);
+    let weatherBackfillResult = $state<WeatherBackfillResult | null>(null);
+    let weatherBackfillJob = $state<BackfillJobStatus | null>(null);
+    let weatherBackfillTotal = $state(0);
+    let backfillPollInterval: ReturnType<typeof setInterval> | null = null;
     let resettingDatabase = $state(false);
     let analyzingUnknowns = $state(false);
     let analysisTotal = $state(0);
@@ -464,24 +503,27 @@
     onMount(async () => {
         // Handle deep linking to tabs
         const hash = window.location.hash.slice(1);
-        if (hash && ['connection', 'detection', 'notifications', 'integrations', 'security', 'data', 'appearance', 'accessibility'].includes(hash)) {
+        if (hash && ['connection', 'detection', 'notifications', 'integrations', 'security', 'data', 'appearance', 'accessibility', 'debug'].includes(hash)) {
             activeTab = hash;
         }
 
         // Ensure settings store is loaded for dirty checking
         await settingsStore.load();
 
-        await Promise.all([
-            loadSettings(),
-            loadCameras(),
-            loadClassifierStatus(),
-            loadWildlifeStatus(),
-            loadMaintenanceStats(),
-            loadCacheStats(),
-            loadTaxonomyStatus(),
-            loadVersion(),
-            loadAnalysisStatus() // Check if there's an ongoing job
-        ]);
+            await Promise.all([
+                loadSettings(),
+                loadCameras(),
+                loadClassifierStatus(),
+                loadWildlifeStatus(),
+                loadMaintenanceStats(),
+                loadCacheStats(),
+                loadTaxonomyStatus(),
+                loadVersion(),
+                loadAnalysisStatus(), // Check if there's an ongoing job
+                loadBackfillStatus()
+            ]);
+            inatPreviewEnabled = window.localStorage.getItem('inat_preview') === '1';
+            inatPreviewDirty = false;
 
         taxonomyPollInterval = setInterval(loadTaxonomyStatus, 3000);
         
@@ -493,6 +535,10 @@
                  analysisTotal = analysisStatus.pending + analysisStatus.active;
              }
         }
+
+        if ((backfillJob && backfillJob.status === 'running') || (weatherBackfillJob && weatherBackfillJob.status === 'running')) {
+            startBackfillPolling();
+        }
     });
 
     function handleTabChange(tab: string) {
@@ -501,9 +547,16 @@
         window.location.hash = tab;
     }
 
+    function applyInatPreview() {
+        window.localStorage.setItem('inat_preview', inatPreviewEnabled ? '1' : '0');
+        inatPreviewDirty = false;
+        toastStore.success($_('settings.debug.apply_notice'));
+    }
+
     onDestroy(() => {
         if (taxonomyPollInterval) clearInterval(taxonomyPollInterval);
         if (analysisPollInterval) clearInterval(analysisPollInterval);
+        if (backfillPollInterval) clearInterval(backfillPollInterval);
     });
 
     async function loadTaxonomyStatus() {
@@ -626,19 +679,105 @@
         backfilling = true;
         message = null;
         backfillResult = null;
+        backfillJob = null;
+        backfillTotal = 0;
         try {
-            const result = await runBackfill({
+            const job = await startBackfillJob({
                 date_range: backfillDateRange,
                 start_date: backfillDateRange === 'custom' ? backfillStartDate : undefined,
                 end_date: backfillDateRange === 'custom' ? backfillEndDate : undefined
             });
-            backfillResult = result;
-            message = { type: 'success', text: result.message };
-            await loadMaintenanceStats();
+            backfillJob = job;
+            backfillTotal = job.total || 0;
+            startBackfillPolling();
         } catch (e: any) {
             message = { type: 'error', text: e.message || 'Backfill failed' };
-        } finally {
-            backfilling = false;
+        }
+    }
+
+    async function handleWeatherBackfill() {
+        weatherBackfilling = true;
+        message = null;
+        weatherBackfillResult = null;
+        weatherBackfillJob = null;
+        weatherBackfillTotal = 0;
+        try {
+            const job = await startWeatherBackfillJob({
+                date_range: backfillDateRange,
+                start_date: backfillDateRange === 'custom' ? backfillStartDate : undefined,
+                end_date: backfillDateRange === 'custom' ? backfillEndDate : undefined,
+                only_missing: true
+            });
+            weatherBackfillJob = job;
+            weatherBackfillTotal = job.total || 0;
+            startBackfillPolling();
+        } catch (e: any) {
+            message = { type: 'error', text: e.message || 'Weather backfill failed' };
+        }
+    }
+
+    function startBackfillPolling() {
+        if (backfillPollInterval) {
+            clearInterval(backfillPollInterval);
+        }
+        loadBackfillStatus();
+        backfillPollInterval = setInterval(loadBackfillStatus, 2000);
+    }
+
+    async function loadBackfillStatus() {
+        try {
+            const [detections, weather] = await Promise.all([
+                getBackfillStatus('detections'),
+                getBackfillStatus('weather')
+            ]);
+
+            if (detections) {
+                backfillJob = detections;
+                backfillResult = {
+                    status: detections.status,
+                    processed: detections.processed,
+                    new_detections: detections.new_detections ?? 0,
+                    skipped: detections.skipped,
+                    errors: detections.errors,
+                    message: detections.message || ''
+                };
+                backfillTotal = detections.total || 0;
+                backfilling = detections.status === 'running';
+                if (detections.status === 'completed') {
+                    message = { type: 'success', text: detections.message || 'Backfill complete' };
+                    await loadMaintenanceStats();
+                } else if (detections.status === 'failed') {
+                    message = { type: 'error', text: detections.message || 'Backfill failed' };
+                }
+            }
+
+            if (weather) {
+                weatherBackfillJob = weather;
+                weatherBackfillResult = {
+                    status: weather.status,
+                    processed: weather.processed,
+                    updated: weather.updated ?? 0,
+                    skipped: weather.skipped,
+                    errors: weather.errors,
+                    message: weather.message || ''
+                };
+                weatherBackfillTotal = weather.total || 0;
+                weatherBackfilling = weather.status === 'running';
+                if (weather.status === 'completed') {
+                    message = { type: 'success', text: weather.message || 'Weather backfill complete' };
+                } else if (weather.status === 'failed') {
+                    message = { type: 'error', text: weather.message || 'Weather backfill failed' };
+                }
+            }
+
+            const detectionsDone = !backfillJob || backfillJob.status !== 'running';
+            const weatherDone = !weatherBackfillJob || weatherBackfillJob.status !== 'running';
+            if (detectionsDone && weatherDone && backfillPollInterval) {
+                clearInterval(backfillPollInterval);
+                backfillPollInterval = null;
+            }
+        } catch (e) {
+            console.error('Failed to load backfill status', e);
         }
     }
 
@@ -757,10 +896,30 @@
             locationLat = settings.location_latitude ?? null;
             locationLon = settings.location_longitude ?? null;
             locationAuto = settings.location_automatic ?? true;
-            locationTemperatureUnit = settings.location_temperature_unit ?? 'celsius';
+            locationTemperatureUnit = (settings.location_temperature_unit as 'celsius' | 'fahrenheit') ?? 'celsius';
             // BirdWeather settings
             birdweatherEnabled = settings.birdweather_enabled ?? false;
             birdweatherStationToken = settings.birdweather_station_token ?? '';
+            // iNaturalist settings
+            inaturalistEnabled = settings.inaturalist_enabled ?? false;
+            if (settings.inaturalist_client_id === '***REDACTED***') {
+                inaturalistClientIdSaved = true;
+                inaturalistClientId = '';
+            } else {
+                inaturalistClientIdSaved = false;
+                inaturalistClientId = settings.inaturalist_client_id || '';
+            }
+            if (settings.inaturalist_client_secret === '***REDACTED***') {
+                inaturalistClientSecretSaved = true;
+                inaturalistClientSecret = '';
+            } else {
+                inaturalistClientSecretSaved = false;
+                inaturalistClientSecret = settings.inaturalist_client_secret || '';
+            }
+            inaturalistDefaultLat = settings.inaturalist_default_latitude ?? null;
+            inaturalistDefaultLon = settings.inaturalist_default_longitude ?? null;
+            inaturalistDefaultPlace = settings.inaturalist_default_place_guess ?? '';
+            inaturalistConnectedUser = settings.inaturalist_connected_user ?? null;
             // LLM settings
             llmEnabled = settings.llm_enabled ?? false;
             llmProvider = settings.llm_provider ?? 'gemini';
@@ -785,6 +944,7 @@
             publicAccessShowCameraNames = settings.public_access_show_camera_names ?? true;
             publicAccessHistoricalDays = settings.public_access_historical_days ?? 7;
             publicAccessRateLimitPerMinute = settings.public_access_rate_limit_per_minute ?? 30;
+            debugUiEnabled = settings.debug_ui_enabled ?? false;
 
             // Notifications
             discordEnabled = settings.notifications_discord_enabled ?? false;
@@ -834,6 +994,7 @@
             emailUseOAuth = settings.notifications_email_use_oauth ?? false;
             emailOAuthProvider = settings.notifications_email_oauth_provider || null;
             emailConnectedEmail = settings.notifications_email_connected_email || null;
+            emailOnlyOnEnd = settings.notifications_email_only_on_end ?? false;
             emailSmtpHost = settings.notifications_email_smtp_host || '';
             emailSmtpPort = settings.notifications_email_smtp_port ?? 587;
             emailSmtpUsername = settings.notifications_email_smtp_username || '';
@@ -853,10 +1014,22 @@
             filterWhitelist = settings.notifications_filter_species_whitelist || [];
             filterConfidence = settings.notifications_filter_min_confidence ?? 0.7;
             filterAudioOnly = settings.notifications_filter_audio_confirmed_only ?? false;
+            if (settings.notifications_mode) {
+                notifyMode = settings.notifications_mode as typeof notifyMode;
+            } else if (!settings.notifications_notify_on_insert && !settings.notifications_notify_on_update) {
+                notifyMode = 'silent';
+            } else if (settings.notifications_delay_until_video) {
+                notifyMode = 'final';
+            } else if (settings.notifications_notify_on_insert && settings.notifications_notify_on_update) {
+                notifyMode = 'realtime';
+            } else {
+                notifyMode = 'standard';
+            }
             notifyOnInsert = settings.notifications_notify_on_insert ?? true;
-            notifyOnUpdate = settings.notifications_notify_on_update ?? false;
-            notifyDelayUntilVideo = settings.notifications_delay_until_video ?? false;
-            notifyVideoFallbackTimeout = settings.notifications_video_fallback_timeout ?? 45;
+            if (settings.notifications_notify_on_update !== undefined) notifyOnUpdate = settings.notifications_notify_on_update;
+            if (settings.notifications_delay_until_video !== undefined) notifyDelayUntilVideo = settings.notifications_delay_until_video;
+            if (settings.notifications_video_fallback_timeout !== undefined) notifyVideoFallbackTimeout = settings.notifications_video_fallback_timeout;
+            if (settings.notifications_notification_cooldown_minutes !== undefined) notifyCooldownMinutes = settings.notifications_notification_cooldown_minutes;
 
             // Accessibility
             highContrast = settings.accessibility_high_contrast ?? false;
@@ -937,6 +1110,12 @@
                 location_temperature_unit: locationTemperatureUnit,
                 birdweather_enabled: birdweatherEnabled,
                 birdweather_station_token: birdweatherStationToken,
+                inaturalist_enabled: inaturalistEnabled,
+                inaturalist_client_id: inaturalistClientId,
+                inaturalist_client_secret: inaturalistClientSecret,
+                inaturalist_default_latitude: inaturalistDefaultLat,
+                inaturalist_default_longitude: inaturalistDefaultLon,
+                inaturalist_default_place_guess: inaturalistDefaultPlace,
                 llm_enabled: llmEnabled,
                 llm_provider: llmProvider,
                 llm_api_key: llmApiKey,
@@ -967,6 +1146,7 @@
                 notifications_telegram_chat_id: telegramChatId,
 
                 notifications_email_enabled: emailEnabled,
+                notifications_email_only_on_end: emailOnlyOnEnd,
                 notifications_email_use_oauth: emailUseOAuth,
                 notifications_email_oauth_provider: emailOAuthProvider,
                 notifications_email_smtp_host: emailSmtpHost,
@@ -982,11 +1162,12 @@
                 notifications_filter_species_whitelist: filterWhitelist,
                 notifications_filter_min_confidence: filterConfidence,
                 notifications_filter_audio_confirmed_only: filterAudioOnly,
+                notifications_mode: notifyMode,
                 notifications_notify_on_insert: notifyOnInsert,
                 notifications_notify_on_update: notifyOnUpdate,
                 notifications_delay_until_video: notifyDelayUntilVideo,
                 notifications_video_fallback_timeout: notifyVideoFallbackTimeout,
-                notification_language: $locale || 'en',
+                notifications_notification_cooldown_minutes: notifyCooldownMinutes,
 
                 // Accessibility
                 accessibility_high_contrast: highContrast,
@@ -1201,7 +1382,7 @@
         </div>
     {:else}
         <!-- Tab Navigation -->
-        <SettingsTabs {activeTab} ontabchange={handleTabChange} />
+        <SettingsTabs {activeTab} {debugUiEnabled} ontabchange={handleTabChange} />
 
         <div class="space-y-6">
             <!-- Connection Tab -->
@@ -1226,6 +1407,7 @@
                     {loadCameras}
                     {handleTestBirdNET}
                     {toggleCamera}
+                    bind:testingBirdNET
                 />
             {/if}
 
@@ -1257,10 +1439,12 @@
                     bind:notifyAudioOnly={filterAudioOnly}
                     bind:notifySpeciesWhitelist={filterWhitelist}
                     bind:newSpecies={newWhitelistSpecies}
+                    bind:notifyMode
                     bind:notifyOnInsert
                     bind:notifyOnUpdate
                     bind:notifyDelayUntilVideo
                     bind:notifyVideoFallbackTimeout
+                    bind:notifyCooldownMinutes
                     bind:discordEnabled
                     bind:discordWebhook
                     bind:discordWebhookSaved
@@ -1280,6 +1464,7 @@
                     bind:emailUseOAuth
                     bind:emailConnectedEmail
                     bind:emailOAuthProvider
+                    bind:emailOnlyOnEnd
                     bind:emailSmtpHost
                     bind:emailSmtpPort
                     bind:emailSmtpUseTls
@@ -1313,6 +1498,15 @@
                     bind:cameraAudioMapping
                     bind:birdweatherEnabled
                     bind:birdweatherStationToken
+                    bind:inaturalistEnabled
+                    bind:inaturalistClientId
+                    bind:inaturalistClientSecret
+                    bind:inaturalistClientIdSaved
+                    bind:inaturalistClientSecretSaved
+                    bind:inaturalistDefaultLat
+                    bind:inaturalistDefaultLon
+                    bind:inaturalistDefaultPlace
+                    bind:inaturalistConnectedUser
                     bind:llmEnabled
                     bind:llmProvider
                     bind:llmApiKey
@@ -1326,6 +1520,13 @@
                     {testingBirdWeather}
                     {handleTestBirdNET}
                     {handleTestBirdWeather}
+                    {initiateInaturalistOAuth}
+                    {disconnectInaturalistOAuth}
+                    refreshInaturalistStatus={async () => {
+                        await settingsStore.load();
+                        await loadSettings(true);
+                    }}
+                    bind:testingBirdNET
                 />
             {/if}
 
@@ -1379,6 +1580,10 @@
                     {cleaningCache}
                     {backfilling}
                     {backfillResult}
+                    {backfillTotal}
+                    {weatherBackfilling}
+                    {weatherBackfillResult}
+                    {weatherBackfillTotal}
                     {taxonomyStatus}
                     {syncingTaxonomy}
                     {resettingDatabase}
@@ -1389,6 +1594,7 @@
                     {handleCacheCleanup}
                     {handleStartTaxonomySync}
                     {handleBackfill}
+                    {handleWeatherBackfill}
                     {handleAnalyzeUnknowns}
                     {handleResetDatabase}
                 />
@@ -1414,6 +1620,66 @@
                     bind:liveAnnouncements
                 />
             {/if}
+
+            {#if activeTab === 'debug'}
+                <div class="space-y-6">
+                    <section class="card-base p-8">
+                        <div class="flex items-center gap-3 mb-6">
+                            <div class="w-10 h-10 rounded-2xl bg-slate-900/5 dark:bg-slate-100/10 flex items-center justify-center text-slate-600 dark:text-slate-300">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 3v2.25M14.25 3v2.25M4.5 7.5h15M6 7.5a6 6 0 0 0 12 0m-9 6h6m-3 0v6" /></svg>
+                            </div>
+                            <div>
+                                <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">{$_('settings.debug.title')}</h3>
+                                <p class="text-xs text-slate-500">{$_('settings.debug.subtitle')}</p>
+                            </div>
+                        </div>
+
+                        <div class="space-y-4">
+                            <div class="flex items-center justify-between gap-4 rounded-2xl border border-slate-200/70 dark:border-slate-700/60 bg-white/70 dark:bg-slate-900/40 px-4 py-3">
+                                <div>
+                                    <span class="block text-sm font-black text-slate-900 dark:text-white">{$_('settings.debug.inat_preview')}</span>
+                                    <span class="block text-[10px] font-bold text-slate-500 mt-1">{$_('settings.debug.inat_preview_desc')}</span>
+                                </div>
+                                <button
+                                    role="switch"
+                                    aria-checked={inatPreviewEnabled}
+                                    onclick={() => {
+                                        inatPreviewEnabled = !inatPreviewEnabled;
+                                        inatPreviewDirty = true;
+                                    }}
+                                    onkeydown={(e) => {
+                                        if (e.key === 'Enter' || e.key === ' ') {
+                                            e.preventDefault();
+                                            inatPreviewEnabled = !inatPreviewEnabled;
+                                            inatPreviewDirty = true;
+                                        }
+                                    }}
+                                    class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {inatPreviewEnabled ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-600'}"
+                                >
+                                    <span class="sr-only">{$_('settings.debug.inat_preview')}</span>
+                                    <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {inatPreviewEnabled ? 'translate-x-5' : 'translate-x-0'}"></span>
+                                </button>
+                            </div>
+                            <div class="flex items-center justify-between text-[10px] font-bold">
+                                <span class={inatPreviewDirty ? 'text-amber-600' : 'text-emerald-600/80'}>
+                                    {inatPreviewDirty ? $_('settings.debug.apply_pending') : $_('settings.debug.apply_applied')}
+                                </span>
+                                <button
+                                    type="button"
+                                    class="px-3 py-1 rounded-full border border-slate-200/70 dark:border-slate-700/60 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                                    disabled={!inatPreviewDirty}
+                                    onclick={applyInatPreview}
+                                >
+                                    {$_('settings.debug.apply_button')}
+                                </button>
+                            </div>
+                            <div class="text-[10px] font-bold text-slate-500">
+                                {$_('settings.debug.inat_preview_hint')}
+                            </div>
+                        </div>
+                    </section>
+                </div>
+            {/if}
         </div>
 
         <!-- Save Button (Sticky Footer) -->
@@ -1438,16 +1704,3 @@
         {/if}
     {/if}
 </div>
-
-<style>
-    .custom-scrollbar::-webkit-scrollbar {
-        width: 4px;
-    }
-    .custom-scrollbar::-webkit-scrollbar-track {
-        background: transparent;
-    }
-    .custom-scrollbar::-webkit-scrollbar-thumb {
-        background: #94a3b833;
-        border-radius: 10px;
-    }
-</style>

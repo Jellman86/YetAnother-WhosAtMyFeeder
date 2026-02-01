@@ -54,6 +54,8 @@ If the dashboard is blank or buttons don't work:
 ## Missed Detections (Backfill)
 If the Backfill tool is skipping events you expected to see, check the **Skipped Breakdown** table in the settings page after a scan.
 
+**Audio context note:** Backfill reprocesses **Frigate** events only. BirdNET-Go audio confirmations are not backfilled unless you have a separate historical audio source to import. After a database reset, audio context will only appear for new detections once BirdNET-Go is running again.
+
 | Reason | Explanation |
 |--------|-------------|
 | **Already in Database** | The event ID already exists and the AI score was not improved by this scan. |

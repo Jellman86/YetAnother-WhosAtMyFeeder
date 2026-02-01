@@ -80,6 +80,16 @@
       "invalid_state": "Ungültiger OAuth-Status. Bitte erneut versuchen.",
       "state_expired": "Der OAuth-Status ist abgelaufen. Bitte erneut versuchen.",
       "email_missing": "Der Anbieter hat keine E-Mail-Adresse zurückgegeben."
+    },
+    "inat": {
+      "disabled": "iNaturalist-Integration ist deaktiviert",
+      "not_configured": "iNaturalist OAuth-Anmeldedaten nicht konfiguriert",
+      "invalid_state": "Ungültiger OAuth-Status. Bitte erneut versuchen.",
+      "state_expired": "Der OAuth-Status ist abgelaufen. Bitte erneut versuchen.",
+      "oauth_failed": "iNaturalist OAuth fehlgeschlagen: {error}",
+      "not_connected": "iNaturalist-Konto nicht verbunden",
+      "event_missing": "Erkennung für die Übermittlung nicht gefunden",
+      "submit_failed": "Übermittlung an iNaturalist fehlgeschlagen: {error}"
     }
   }
 }

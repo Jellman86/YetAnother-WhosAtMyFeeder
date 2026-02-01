@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Request, Depends
-from datetime import datetime, time, date
+from datetime import datetime, time, date, timedelta
 from typing import List, Optional
+from collections import Counter
 from pydantic import BaseModel
 
 from app.database import get_db
@@ -8,6 +9,7 @@ from app.repositories.detection_repository import DetectionRepository
 from app.models import DetectionResponse
 from app.config import settings
 from app.services.taxonomy.taxonomy_service import taxonomy_service
+from app.services.weather_service import weather_service
 from app.auth import AuthContext
 from app.auth_legacy import get_auth_context_with_legacy
 from app.ratelimit import guest_rate_limit
@@ -27,15 +29,42 @@ class DailySummaryResponse(BaseModel):
     top_species: List[DailySpeciesSummary]
     latest_detection: Optional[DetectionResponse]
     total_count: int
+    audio_confirmations: int
 
 class DailyCount(BaseModel):
     date: str
     count: int
 
+class DailyWeatherSummary(BaseModel):
+    date: str
+    condition: Optional[str] = None
+    precip_total: Optional[float] = None
+    rain_total: Optional[float] = None
+    snow_total: Optional[float] = None
+    wind_max: Optional[float] = None
+    wind_avg: Optional[float] = None
+    cloud_avg: Optional[float] = None
+    temp_avg: Optional[float] = None
+    sunrise: Optional[str] = None
+    sunset: Optional[str] = None
+    am_condition: Optional[str] = None
+    am_rain: Optional[float] = None
+    am_snow: Optional[float] = None
+    am_wind: Optional[float] = None
+    am_cloud: Optional[float] = None
+    am_temp: Optional[float] = None
+    pm_condition: Optional[str] = None
+    pm_rain: Optional[float] = None
+    pm_snow: Optional[float] = None
+    pm_wind: Optional[float] = None
+    pm_cloud: Optional[float] = None
+    pm_temp: Optional[float] = None
+
 class DetectionsTimelineResponse(BaseModel):
     days: int
     total_count: int
     daily: List[DailyCount]
+    weather: Optional[List[DailyWeatherSummary]] = None
 
 @router.get("/stats/daily-summary", response_model=DailySummaryResponse)
 @guest_rate_limit()
@@ -50,9 +79,8 @@ async def get_daily_summary(
         and settings.public_access.enabled
         and not settings.public_access.show_camera_names
     )
-    today = date.today()
-    start_dt = datetime.combine(today, time.min)
-    end_dt = datetime.combine(today, time.max)
+    end_dt = datetime.now()
+    start_dt = end_dt - timedelta(hours=24)
     
     async with get_db() as db:
         repo = DetectionRepository(db)
@@ -134,18 +162,26 @@ async def get_daily_summary(
                 audio_score=d.audio_score,
                 temperature=d.temperature,
                 weather_condition=d.weather_condition,
+                weather_cloud_cover=d.weather_cloud_cover,
+                weather_wind_speed=d.weather_wind_speed,
+                weather_wind_direction=d.weather_wind_direction,
+                weather_precipitation=d.weather_precipitation,
+                weather_rain=d.weather_rain,
+                weather_snowfall=d.weather_snowfall,
                 scientific_name=d.scientific_name,
                 common_name=common_name,
                 taxa_id=d.taxa_id
             )
             
         total_today = sum(hourly)
+        audio_confirmations = await repo.get_audio_confirmations_count(start_dt, end_dt)
         
         return DailySummaryResponse(
             hourly_distribution=hourly,
             top_species=summary_species,
             latest_detection=latest_detection,
-            total_count=total_today
+            total_count=total_today,
+            audio_confirmations=audio_confirmations
         )
 
 @router.get("/stats/detections/daily", response_model=DetectionsTimelineResponse)
@@ -160,9 +196,117 @@ async def get_detection_timeline(request: Request, days: int = 30):
         await repo.ensure_recent_rollups(max(days, 90))
         daily = await repo.get_total_daily_counts(days=days)
         total = sum(item["count"] for item in daily)
+        weather_summary: List[DailyWeatherSummary] = []
+
+        if daily:
+            start_date = datetime.strptime(daily[0]["date"], "%Y-%m-%d")
+            end_date = datetime.strptime(daily[-1]["date"], "%Y-%m-%d")
+            hourly = await weather_service.get_hourly_weather(start_date, end_date)
+
+            if hourly:
+                stats: dict[str, dict] = {}
+                for time_str, weather in hourly.items():
+                    try:
+                        dt = datetime.fromisoformat(time_str)
+                        date_key = dt.date().isoformat()
+                    except ValueError:
+                        continue
+
+                    entry = stats.setdefault(date_key, {
+                        "precip_total": 0.0,
+                        "rain_total": 0.0,
+                        "snow_total": 0.0,
+                        "wind_max": None,
+                        "wind_sum": 0.0,
+                        "wind_count": 0,
+                        "cloud_sum": 0.0,
+                        "cloud_count": 0,
+                        "temp_sum": 0.0,
+                        "temp_count": 0,
+                        "conditions": []
+                    })
+
+                    precip = weather.get("precipitation")
+                    rain = weather.get("rain")
+                    snow = weather.get("snowfall")
+                    wind = weather.get("wind_speed")
+                    cloud = weather.get("cloud_cover")
+                    temp = weather.get("temperature")
+                    condition = weather.get("condition_text")
+
+                    if precip is not None:
+                        entry["precip_total"] += float(precip)
+                    if rain is not None:
+                        entry["rain_total"] += float(rain)
+                    if snow is not None:
+                        entry["snow_total"] += float(snow)
+                    if wind is not None:
+                        entry["wind_max"] = wind if entry["wind_max"] is None else max(entry["wind_max"], wind)
+                        entry["wind_sum"] += float(wind)
+                        entry["wind_count"] += 1
+                    if cloud is not None:
+                        entry["cloud_sum"] += float(cloud)
+                        entry["cloud_count"] += 1
+                    if temp is not None:
+                        entry["temp_sum"] += float(temp)
+                        entry["temp_count"] += 1
+                    if condition:
+                        entry["conditions"].append(condition)
+
+                sun = await weather_service.get_daily_sun_times(start_date, end_date)
+
+                for item in daily:
+                    date_key = item["date"]
+                    entry = stats.get(date_key)
+                    if not entry:
+                        continue
+                    conditions = entry["conditions"]
+                    condition = Counter(conditions).most_common(1)[0][0] if conditions else None
+                    cloud_avg = None
+                    if entry["cloud_count"]:
+                        cloud_avg = entry["cloud_sum"] / entry["cloud_count"]
+                    temp_avg = None
+                    if entry["temp_count"]:
+                        temp_avg = entry["temp_sum"] / entry["temp_count"]
+                    wind_avg = None
+                    if entry["wind_count"]:
+                        wind_avg = entry["wind_sum"] / entry["wind_count"]
+
+                    am_key = f"{date_key}T10:00"
+                    pm_key = f"{date_key}T17:00"
+                    am_weather = hourly.get(am_key, {})
+                    pm_weather = hourly.get(pm_key, {})
+                    sun_entry = sun.get(date_key, {}) if sun else {}
+
+                    weather_summary.append(DailyWeatherSummary(
+                        date=date_key,
+                        condition=condition,
+                        precip_total=entry["precip_total"],
+                        rain_total=entry["rain_total"],
+                        snow_total=entry["snow_total"],
+                        wind_max=entry["wind_max"],
+                        wind_avg=wind_avg,
+                        cloud_avg=cloud_avg,
+                        temp_avg=temp_avg,
+                        sunrise=sun_entry.get("sunrise"),
+                        sunset=sun_entry.get("sunset"),
+                        am_condition=am_weather.get("condition_text"),
+                        am_rain=am_weather.get("rain"),
+                        am_snow=am_weather.get("snowfall"),
+                        am_wind=am_weather.get("wind_speed"),
+                        am_cloud=am_weather.get("cloud_cover"),
+                        am_temp=am_weather.get("temperature"),
+                        pm_condition=pm_weather.get("condition_text"),
+                        pm_rain=pm_weather.get("rain"),
+                        pm_snow=pm_weather.get("snowfall"),
+                        pm_wind=pm_weather.get("wind_speed"),
+                        pm_cloud=pm_weather.get("cloud_cover"),
+                        pm_temp=pm_weather.get("temperature")
+                    ))
 
         return DetectionsTimelineResponse(
             days=days,
             total_count=total,
-            daily=[DailyCount(**item) for item in daily]
+            daily=[DailyCount(**item) for item in daily],
+            weather=weather_summary or None
         )

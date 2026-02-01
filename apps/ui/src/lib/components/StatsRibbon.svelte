@@ -1,16 +1,27 @@
 <script lang="ts">
+    import { _ } from 'svelte-i18n';
+
     interface Props {
         todayCount: number;
         uniqueSpecies: number;
         mostSeenSpecies: string | null;
         mostSeenCount: number;
         audioConfirmations: number;
+        topVisitorImageUrl?: string | null;
     }
 
-    let { todayCount, uniqueSpecies, mostSeenSpecies, mostSeenCount, audioConfirmations }: Props = $props();
+    let { todayCount, uniqueSpecies, mostSeenSpecies, mostSeenCount, audioConfirmations, topVisitorImageUrl }: Props = $props();
 </script>
 
 <div class="stats-ribbon">
+    <div class="flex items-center gap-3 mb-3">
+        <h3 class="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+            {$_('dashboard.title')}
+        </h3>
+        <span class="text-[10px] font-medium text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full">
+            {$_('dashboard.histogram.last_24h')}
+        </span>
+    </div>
     <!-- Stats grid -->
     <div class="relative grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
         <!-- Today's Count -->
@@ -22,7 +33,7 @@
             </div>
             <div class="min-w-0">
                 <div class="stat-number">{todayCount}</div>
-                <div class="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">Today</div>
+                <div class="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">{$_('dashboard.stats.today')}</div>
             </div>
         </div>
 
@@ -35,28 +46,34 @@
             </div>
             <div class="min-w-0">
                 <div class="stat-number">{uniqueSpecies}</div>
-                <div class="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">Species</div>
+                <div class="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">{$_('dashboard.stats.species')}</div>
             </div>
         </div>
 
         <!-- Most Seen -->
         <div class="card-base flex items-center gap-3 p-3">
-            <div class="flex items-center justify-center w-12 h-12 rounded-xl bg-amber-500 text-white shadow-md">
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
-                </svg>
-            </div>
+            {#if topVisitorImageUrl}
+                <div class="flex items-center justify-center w-12 h-12 rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-700 shadow-md ring-2 ring-amber-400/40">
+                    <img src={topVisitorImageUrl} alt={mostSeenSpecies || $_('dashboard.stats.top_visitor')} class="w-full h-full object-cover" />
+                </div>
+            {:else}
+                <div class="flex items-center justify-center w-12 h-12 rounded-xl bg-amber-500 text-white shadow-md">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                    </svg>
+                </div>
+            {/if}
             <div class="min-w-0 flex-1">
                 {#if mostSeenSpecies}
                     <div class="text-lg font-bold text-slate-900 dark:text-white truncate" title={mostSeenSpecies}>
                         {mostSeenSpecies}
                     </div>
                     <div class="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">
-                        Top Visitor ({mostSeenCount}x)
+                        {$_('dashboard.stats.top_visitor')} ({mostSeenCount}x)
                     </div>
                 {:else}
                     <div class="text-lg font-bold text-slate-400 dark:text-slate-500">—</div>
-                    <div class="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">Top Visitor</div>
+                    <div class="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">{$_('dashboard.stats.top_visitor')}</div>
                 {/if}
             </div>
         </div>
@@ -73,7 +90,7 @@
             </div>
             <div class="min-w-0">
                 <div class="stat-number">{audioConfirmations}</div>
-                <div class="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">Audio</div>
+                <div class="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">{$_('dashboard.stats.audio')}</div>
             </div>
         </div>
     </div>

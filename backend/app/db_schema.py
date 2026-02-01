@@ -23,6 +23,12 @@ detections = Table(
     Column("audio_score", Float),
     Column("temperature", Float),
     Column("weather_condition", String),
+    Column("weather_cloud_cover", Float),
+    Column("weather_wind_speed", Float),
+    Column("weather_wind_direction", Float),
+    Column("weather_precipitation", Float),
+    Column("weather_rain", Float),
+    Column("weather_snowfall", Float),
     Column("scientific_name", String),
     Column("common_name", String),
     Column("taxa_id", Integer),
@@ -50,6 +56,32 @@ Index("idx_detections_taxa_id", detections.c.taxa_id)
 Index("idx_detections_frigate_event", detections.c.frigate_event)
 Index("idx_detections_video_status", detections.c.video_classification_status)
 Index("idx_detections_notified_at", detections.c.notified_at)
+
+audio_detections = Table(
+    "audio_detections",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("timestamp", TIMESTAMP, nullable=False),
+    Column("species", String, nullable=False),
+    Column("confidence", Float, nullable=False),
+    Column("sensor_id", String),
+    Column("raw_data", String),
+    Column("created_at", TIMESTAMP, server_default=func.now()),
+)
+
+Index("idx_audio_detections_time", audio_detections.c.timestamp)
+Index("idx_audio_detections_sensor", audio_detections.c.sensor_id)
+
+leaderboard_analyses = Table(
+    "leaderboard_analyses",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("config_key", String, nullable=False, unique=True),
+    Column("config_json", String, nullable=False),
+    Column("analysis", String, nullable=False),
+    Column("analysis_timestamp", TIMESTAMP, nullable=False),
+    Column("created_at", TIMESTAMP, server_default=func.now(), nullable=False),
+)
 
 taxonomy_cache = Table(
     "taxonomy_cache",

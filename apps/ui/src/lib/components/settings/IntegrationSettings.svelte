@@ -9,10 +9,19 @@
         audioCorrelationWindowSeconds = $bindable(300),
         cameraAudioMapping = $bindable<Record<string, string>>({}),
         availableCameras,
-        testingBirdNET,
+        testingBirdNET = $bindable(false),
         birdweatherEnabled = $bindable(false),
         birdweatherStationToken = $bindable(''),
         testingBirdWeather,
+        inaturalistEnabled = $bindable(false),
+        inaturalistClientId = $bindable(''),
+        inaturalistClientSecret = $bindable(''),
+        inaturalistClientIdSaved = $bindable(false),
+        inaturalistClientSecretSaved = $bindable(false),
+        inaturalistDefaultLat = $bindable<number | null>(null),
+        inaturalistDefaultLon = $bindable<number | null>(null),
+        inaturalistDefaultPlace = $bindable(''),
+        inaturalistConnectedUser = $bindable<string | null>(null),
         llmEnabled = $bindable(false),
         llmProvider = $bindable('gemini'),
         llmModel = $bindable('gemini-3-flash-preview'),
@@ -23,7 +32,10 @@
         locationLon = $bindable<number | null>(null),
         locationTemperatureUnit = $bindable<'celsius' | 'fahrenheit'>('celsius'),
         handleTestBirdNET,
-        handleTestBirdWeather
+        handleTestBirdWeather,
+        initiateInaturalistOAuth,
+        disconnectInaturalistOAuth,
+        refreshInaturalistStatus
     }: {
         birdnetEnabled: boolean;
         audioTopic: string;
@@ -35,6 +47,15 @@
         birdweatherEnabled: boolean;
         birdweatherStationToken: string;
         testingBirdWeather: boolean;
+        inaturalistEnabled: boolean;
+        inaturalistClientId: string;
+        inaturalistClientSecret: string;
+        inaturalistClientIdSaved: boolean;
+        inaturalistClientSecretSaved: boolean;
+        inaturalistDefaultLat: number | null;
+        inaturalistDefaultLon: number | null;
+        inaturalistDefaultPlace: string;
+        inaturalistConnectedUser: string | null;
         llmEnabled: boolean;
         llmProvider: string;
         llmModel: string;
@@ -46,7 +67,22 @@
         locationTemperatureUnit: 'celsius' | 'fahrenheit';
         handleTestBirdNET: () => Promise<void>;
         handleTestBirdWeather: () => Promise<void>;
+        initiateInaturalistOAuth: () => Promise<{ authorization_url: string }>;
+        disconnectInaturalistOAuth: () => Promise<{ status: string }>;
+        refreshInaturalistStatus: () => Promise<void>;
     } = $props();
+
+    let inatDefaultsTouched = $state(false);
+
+    $effect(() => {
+        if (inatDefaultsTouched) return;
+        if (inaturalistDefaultLat === null && locationLat !== null && locationLat !== undefined) {
+            inaturalistDefaultLat = locationLat;
+        }
+        if (inaturalistDefaultLon === null && locationLon !== null && locationLon !== undefined) {
+            inaturalistDefaultLon = locationLon;
+        }
+    });
 </script>
 
 <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
@@ -57,12 +93,12 @@
                 <div class="w-10 h-10 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-600 dark:text-amber-400">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
                 </div>
-                <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">BirdNET-Go</h3>
+                <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">{$_('settings.integrations.birdnet.title')}</h3>
             </div>
             <button
                 role="switch"
                 aria-checked={birdnetEnabled}
-                aria-label="Toggle BirdNET-Go integration"
+                aria-label={$_('settings.integrations.birdnet.toggle_label')}
                 onclick={() => birdnetEnabled = !birdnetEnabled}
                 onkeydown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
@@ -79,57 +115,57 @@
 
         <div class="space-y-6">
             <div>
-                <label for="audio-topic" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">MQTT Topic</label>
+                <label for="audio-topic" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.integrations.birdnet.mqtt_topic')}</label>
                 <input
                     id="audio-topic"
                     type="text"
                     bind:value={audioTopic}
                     placeholder="birdnet/text"
-                    aria-label="BirdNET MQTT topic"
+                    aria-label={$_('settings.integrations.birdnet.mqtt_topic_label')}
                     class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-teal-500 outline-none"
                 />
             </div>
 
             <div class="grid grid-cols-2 gap-4">
                 <div>
-                    <label for="audio-buffer" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Audio Buffer (Hours)</label>
+                    <label for="audio-buffer" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.integrations.birdnet.audio_buffer_hours')}</label>
                     <input
                         id="audio-buffer"
                         type="number"
                         bind:value={audioBufferHours}
                         min="1"
                         max="168"
-                        aria-label="Audio buffer hours"
+                        aria-label={$_('settings.integrations.birdnet.audio_buffer_label')}
                         class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-teal-500 outline-none"
                     />
-                    <p class="mt-1 text-[10px] text-slate-400 font-bold italic">How long to keep audio detections for correlation (1-168 hours)</p>
+                    <p class="mt-1 text-[10px] text-slate-400 font-bold italic">{$_('settings.integrations.birdnet.audio_buffer_help')}</p>
                 </div>
                 <div>
-                    <label for="correlation-window" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Match Window (Seconds)</label>
+                    <label for="correlation-window" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.integrations.birdnet.match_window_seconds')}</label>
                     <input
                         id="correlation-window"
                         type="number"
                         bind:value={audioCorrelationWindowSeconds}
                         min="5"
                         max="3600"
-                        aria-label="Audio correlation window in seconds"
+                        aria-label={$_('settings.integrations.birdnet.match_window_label')}
                         class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-teal-500 outline-none"
                     />
-                    <p class="mt-1 text-[10px] text-slate-400 font-bold italic">Time window for matching audio with visual (±5-3600 seconds)</p>
+                    <p class="mt-1 text-[10px] text-slate-400 font-bold italic">{$_('settings.integrations.birdnet.match_window_help')}</p>
                 </div>
             </div>
 
             <button
                 onclick={handleTestBirdNET}
                 disabled={testingBirdNET}
-                aria-label="Test audio detection"
+                aria-label={$_('settings.integrations.birdnet.test_button')}
                 class="w-full px-4 py-3 text-xs font-black uppercase tracking-widest rounded-2xl bg-amber-500 hover:bg-amber-600 text-white transition-all shadow-lg shadow-amber-500/20 disabled:opacity-50"
             >
-                {testingBirdNET ? 'Simulating...' : 'Test Audio detection'}
+                {testingBirdNET ? $_('settings.integrations.birdnet.test_loading') : $_('settings.integrations.birdnet.test_button')}
             </button>
 
             <div class="pt-4 border-t border-slate-100 dark:border-slate-700/50">
-                <div id="sensor-mapping-label" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-4">Sensor Mapping (Optional)</div>
+                <div id="sensor-mapping-label" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-4">{$_('settings.integrations.birdnet.sensor_mapping_title')}</div>
                 <div class="space-y-3" role="group" aria-labelledby="sensor-mapping-label">
                     {#each availableCameras as camera}
                         <div class="flex items-center gap-3">
@@ -137,18 +173,168 @@
                             <input
                                 type="text"
                                 bind:value={cameraAudioMapping[camera]}
-                                placeholder="Sensor ID"
-                                aria-label="Audio sensor ID for {camera}"
+                                placeholder={$_('settings.integrations.birdnet.sensor_id_placeholder')}
+                                aria-label={$_('settings.integrations.birdnet.sensor_id_label', { values: { camera } })}
                                 class="flex-1 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-xs font-bold"
                             />
                         </div>
                     {/each}
                     {#if availableCameras.length === 0}
-                        <p class="text-[10px] text-slate-400 font-bold italic">No cameras detected. Check Frigate connection.</p>
+                        <p class="text-[10px] text-slate-400 font-bold italic">{$_('settings.integrations.birdnet.sensor_mapping_empty')}</p>
                     {:else}
-                        <p class="text-[10px] text-slate-400 font-bold italic">Add your Frigate cameras to map them to audio sensors. Use <code class="text-teal-500 font-black">*</code> for random/dynamic Sensor IDs.</p>
+                        <p class="text-[10px] text-slate-400 font-bold italic">{$_('settings.integrations.birdnet.sensor_mapping_help')}</p>
                     {/if}
                 </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- iNaturalist -->
+    <section class="card-base rounded-3xl p-8 backdrop-blur-md">
+        <div class="flex items-center justify-between mb-6">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v4m0 0a4 4 0 110 8m0-8a4 4 0 10-4 4m4-4v4m0 0a4 4 0 010 8m0-8a4 4 0 10-4 4" /></svg>
+                </div>
+                <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">{$_('settings.integrations.inaturalist.title')}</h3>
+            </div>
+            <button
+                role="switch"
+                aria-checked={inaturalistEnabled}
+                aria-label={$_('settings.integrations.inaturalist.toggle_label')}
+                onclick={() => inaturalistEnabled = !inaturalistEnabled}
+                onkeydown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        inaturalistEnabled = !inaturalistEnabled;
+                    }
+                }}
+                class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {inaturalistEnabled ? 'bg-teal-500' : 'bg-slate-300 dark:bg-slate-600'}"
+            >
+                <span class="sr-only">iNaturalist</span>
+                <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {inaturalistEnabled ? 'translate-x-5' : 'translate-x-0'}"></span>
+            </button>
+        </div>
+
+        <div class="space-y-5">
+            <div class="grid grid-cols-1 gap-3">
+                <div>
+                    <label for="inat-client-id" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.integrations.inaturalist.client_id')}</label>
+                    <input
+                        id="inat-client-id"
+                        type="text"
+                        bind:value={inaturalistClientId}
+                        placeholder={inaturalistClientIdSaved ? $_('settings.integrations.inaturalist.saved_placeholder') : $_('settings.integrations.inaturalist.client_id_placeholder')}
+                        aria-label={$_('settings.integrations.inaturalist.client_id_label')}
+                        class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"
+                    />
+                </div>
+                <div>
+                    <label for="inat-client-secret" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.integrations.inaturalist.client_secret')}</label>
+                    <input
+                        id="inat-client-secret"
+                        type="password"
+                        bind:value={inaturalistClientSecret}
+                        placeholder={inaturalistClientSecretSaved ? $_('settings.integrations.inaturalist.saved_placeholder') : $_('settings.integrations.inaturalist.client_secret_placeholder')}
+                        aria-label={$_('settings.integrations.inaturalist.client_secret_label')}
+                        class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"
+                    />
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label for="inat-lat" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.integrations.inaturalist.default_latitude')}</label>
+                    <input
+                        id="inat-lat"
+                        type="number"
+                        bind:value={inaturalistDefaultLat}
+                        step="0.0001"
+                        oninput={() => inatDefaultsTouched = true}
+                        aria-label={$_('settings.integrations.inaturalist.default_latitude_label')}
+                        class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"
+                    />
+                </div>
+                <div>
+                    <label for="inat-lon" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.integrations.inaturalist.default_longitude')}</label>
+                    <input
+                        id="inat-lon"
+                        type="number"
+                        bind:value={inaturalistDefaultLon}
+                        step="0.0001"
+                        oninput={() => inatDefaultsTouched = true}
+                        aria-label={$_('settings.integrations.inaturalist.default_longitude_label')}
+                        class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"
+                    />
+                </div>
+            </div>
+
+            <div>
+                <label for="inat-place" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.integrations.inaturalist.default_place_guess')}</label>
+                <input
+                    id="inat-place"
+                    type="text"
+                    bind:value={inaturalistDefaultPlace}
+                    oninput={() => inatDefaultsTouched = true}
+                    placeholder={$_('settings.integrations.inaturalist.default_place_guess_placeholder')}
+                    aria-label={$_('settings.integrations.inaturalist.default_place_guess_label')}
+                    class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"
+                />
+            </div>
+
+            <div class="p-4 rounded-2xl bg-emerald-500/5 border border-emerald-500/10 space-y-3">
+                <p class="text-xs text-emerald-700 dark:text-emerald-300">{$_('settings.integrations.inaturalist.oauth_desc')}</p>
+                <p class="text-[10px] text-emerald-700/80 dark:text-emerald-300/80 font-semibold">
+                    {$_('settings.integrations.inaturalist.app_owner_note')}
+                </p>
+                <div class="flex flex-wrap gap-2">
+                    <button
+                        onclick={async () => {
+                            try {
+                                const response = await initiateInaturalistOAuth();
+                                window.open(response.authorization_url, '_blank', 'width=600,height=700');
+                            } catch (error) {
+                                console.error('iNaturalist OAuth error:', error);
+                            }
+                        }}
+                        aria-label={$_('settings.integrations.inaturalist.connect_label')}
+                        class="flex-1 min-w-[150px] px-4 py-2 rounded-xl bg-white dark:bg-slate-800 border-2 border-emerald-200 dark:border-emerald-700 hover:border-emerald-500 dark:hover:border-emerald-500 text-sm font-bold transition-all"
+                    >
+                        {$_('settings.integrations.inaturalist.connect')}
+                    </button>
+                    <button
+                        onclick={async () => {
+                            try {
+                                await refreshInaturalistStatus();
+                            } catch (error) {
+                                console.error('iNaturalist refresh error:', error);
+                            }
+                        }}
+                        aria-label={$_('settings.integrations.inaturalist.refresh_label')}
+                        class="flex-1 min-w-[150px] px-4 py-2 rounded-xl bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 hover:border-emerald-500 dark:hover:border-emerald-500 text-sm font-bold transition-all"
+                    >
+                        {$_('settings.integrations.inaturalist.refresh')}
+                    </button>
+                </div>
+                {#if inaturalistConnectedUser}
+                    <div class="flex items-center justify-between gap-2 p-3 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl">
+                        <span class="text-sm text-emerald-700 dark:text-emerald-300">{$_('settings.integrations.inaturalist.connected', { values: { user: inaturalistConnectedUser } })}</span>
+                        <button
+                            onclick={async () => {
+                                try {
+                                    await disconnectInaturalistOAuth();
+                                    await refreshInaturalistStatus();
+                                } catch (error) {
+                                    console.error('iNaturalist disconnect error:', error);
+                                }
+                            }}
+                            aria-label={$_('settings.integrations.inaturalist.disconnect_label')}
+                            class="text-xs text-rose-600 dark:text-rose-400 hover:underline"
+                        >
+                            {$_('settings.integrations.inaturalist.disconnect')}
+                        </button>
+                    </div>
+                {/if}
             </div>
         </div>
     </section>

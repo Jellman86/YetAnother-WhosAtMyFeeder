@@ -1,11 +1,12 @@
 <script lang="ts">
-    import { onMount } from 'svelte';
-    import { fetchDetectionsTimeline, fetchSpecies, fetchSpeciesInfo, type DetectionsTimeline, type SpeciesCount, type SpeciesInfo } from '../api';
-    import { chart } from 'svelte-apexcharts';
+    import { onMount, tick } from 'svelte';
+    import { analyzeLeaderboardGraph, fetchDetectionsTimeline, fetchLeaderboardAnalysis, fetchSpecies, fetchSpeciesInfo, type DetectionsTimeline, type SpeciesCount, type SpeciesInfo } from '../api';
+    import { chart } from '../actions/apexchart';
     import SpeciesDetailModal from '../components/SpeciesDetailModal.svelte';
     import { settingsStore } from '../stores/settings.svelte';
     import { themeStore } from '../stores/theme.svelte';
     import { getBirdNames } from '../naming';
+    import { formatTemperature } from '../utils/temperature';
     import { _ } from 'svelte-i18n';
 
     let species: SpeciesCount[] = $state([]);
@@ -16,6 +17,17 @@
     let selectedSpecies = $state<string | null>(null);
     let timeline = $state<DetectionsTimeline | null>(null);
     let speciesInfoCache = $state<Record<string, SpeciesInfo>>({});
+    let showWeatherBands = $state(false);
+    let showTemperature = $state(false);
+    let showWind = $state(false);
+    let showPrecip = $state(false);
+    let chartEl = $state<HTMLDivElement | null>(null);
+    let leaderboardAnalysis = $state<string | null>(null);
+    let leaderboardAnalysisTimestamp = $state<string | null>(null);
+    let leaderboardAnalysisLoading = $state(false);
+    let leaderboardAnalysisError = $state<string | null>(null);
+    let leaderboardConfigKey = $state<string | null>(null);
+    let leaderboardAnalysisSubtitle = $state<string | null>(null);
 
     // Derived processed species with naming logic
     let processedSpecies = $derived(() => {
@@ -189,9 +201,98 @@
     let timelineCounts = $derived(timeline?.daily?.map((d) => d.count) || []);
     let timelineMax = $derived(timelineCounts.length ? Math.max(...timelineCounts) : 0);
     let isDark = $derived(() => themeStore.isDark);
+    let temperatureUnit = $derived(settingsStore.settings?.location_temperature_unit ?? 'celsius');
+
+    function convertTemperature(value: number | null | undefined) {
+        if (value === null || value === undefined || Number.isNaN(value)) return null;
+        if (temperatureUnit === 'fahrenheit') {
+            return (value * 9) / 5 + 32;
+        }
+        return value;
+    }
+
+    function formatSunTime(value?: string | null) {
+        if (!value) return null;
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return null;
+        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+
+    function getSunRange(key: 'sunrise' | 'sunset') {
+        const weather = timeline?.weather || [];
+        const times = weather
+            .map((w) => (key === 'sunrise' ? w.sunrise : w.sunset))
+            .map((t) => formatSunTime(t))
+            .filter(Boolean) as string[];
+        if (!times.length) return null;
+        const sorted = [...times].sort();
+        const first = sorted[0];
+        const last = sorted[sorted.length - 1];
+        return first === last ? first : `${first}–${last}`;
+    }
+
+    let sunriseRange = $derived(getSunRange('sunrise'));
+    let sunsetRange = $derived(getSunRange('sunset'));
+    let weatherAnnotations = $derived(() => {
+        const daily = timeline?.daily || [];
+        const weather = timeline?.weather || [];
+        if (!showWeatherBands || !daily.length || !weather.length) return { xaxis: [] };
+
+        const weatherMap = new Map(weather.map((w) => [w.date, w]));
+        const xaxis = [];
+
+        for (const day of daily) {
+            const summary = weatherMap.get(day.date);
+            if (!summary) continue;
+            const am = resolveWeatherBand({
+                rain: summary.am_rain,
+                snow: summary.am_snow
+            });
+            const pm = resolveWeatherBand({
+                rain: summary.pm_rain,
+                snow: summary.pm_snow
+            });
+
+            const dayStart = Date.parse(`${day.date}T00:00:00Z`);
+            const dayMid = Date.parse(`${day.date}T12:00:00Z`);
+            const dayEnd = Date.parse(`${day.date}T24:00:00Z`);
+
+            if (am) {
+                xaxis.push({
+                    x: dayStart,
+                    x2: dayMid,
+                    borderColor: 'transparent',
+                    fillColor: am.color,
+                    opacity: 0.08
+                });
+            }
+
+            if (pm) {
+                xaxis.push({
+                    x: dayMid,
+                    x2: dayEnd,
+                    borderColor: 'transparent',
+                    fillColor: pm.color,
+                    opacity: 0.08
+                });
+            }
+        }
+
+        return { xaxis };
+    });
+
+    function resolveWeatherBand(entry: any) {
+        const rain = entry?.rain ?? 0;
+        const snow = entry?.snow ?? 0;
+
+        if (snow > 0.1) return { label: $_('detection.weather_snow'), color: '#6366f1' };
+        if (rain > 0.2) return { label: $_('detection.weather_rain'), color: '#3b82f6' };
+        return null;
+    }
+
     let chartOptions = $derived(() => ({
         chart: {
-            type: 'area',
+            type: 'line',
             height: 260,
             width: '100%',
             toolbar: { show: false },
@@ -201,13 +302,66 @@
         series: [
             {
                 name: 'Detections',
-                data: timeline?.daily?.map((d) => d.count) || []
+                type: 'area',
+                data: timeline?.daily?.map((d) => ({
+                    x: Date.parse(`${d.date}T00:00:00Z`),
+                    y: d.count
+                })) || []
+            },
+            {
+                name: $_('leaderboard.temperature'),
+                type: 'line',
+                data: showTemperature
+                    ? (timeline?.daily || []).map((d) => {
+                        const summary = (timeline?.weather || []).find((w) => w.date === d.date);
+                        const tempAvg = summary?.temp_avg ?? null;
+                        const fallback = (summary?.am_temp != null && summary?.pm_temp != null)
+                            ? (summary.am_temp + summary.pm_temp) / 2
+                            : (summary?.am_temp ?? summary?.pm_temp ?? null);
+                        const temp = convertTemperature(tempAvg ?? fallback);
+                        return {
+                            x: Date.parse(`${d.date}T00:00:00Z`),
+                            y: temp
+                        };
+                    })
+                    : []
+            },
+            {
+                name: $_('leaderboard.wind_avg'),
+                type: 'line',
+                data: showWind
+                    ? (timeline?.daily || []).map((d) => {
+                        const summary = (timeline?.weather || []).find((w) => w.date === d.date);
+                        return {
+                            x: Date.parse(`${d.date}T00:00:00Z`),
+                            y: summary?.wind_avg ?? null
+                        };
+                    })
+                    : []
+            },
+            {
+                name: $_('leaderboard.precip'),
+                type: 'line',
+                data: showPrecip
+                    ? (timeline?.daily || []).map((d) => {
+                        const summary = (timeline?.weather || []).find((w) => w.date === d.date);
+                        return {
+                            x: Date.parse(`${d.date}T00:00:00Z`),
+                            y: summary?.precip_total ?? null
+                        };
+                    })
+                    : []
             }
         ],
         dataLabels: { enabled: false },
-        stroke: { curve: 'smooth', width: 2, colors: ['#10b981'] },
+        stroke: {
+            curve: 'smooth',
+            width: [2, 2, 2, 2],
+            colors: ['#10b981', '#f97316', '#0ea5e9', '#a855f7'],
+            dashArray: [0, 4, 4, 6]
+        },
         fill: {
-            type: 'gradient',
+            type: ['gradient', 'solid'],
             gradient: {
                 shadeIntensity: 1,
                 opacityFrom: 0.35,
@@ -215,27 +369,213 @@
                 stops: [0, 90, 100]
             }
         },
-        markers: { size: 0, hover: { size: 4 } },
+        markers: { size: [0, showTemperature ? 3 : 0, showWind ? 3 : 0, showPrecip ? 3 : 0], hover: { size: 4 } },
         grid: {
             borderColor: 'rgba(148,163,184,0.2)',
             strokeDashArray: 3,
             padding: { left: 12, right: 12, top: 8, bottom: 4 }
         },
         xaxis: {
-            categories: timeline?.daily?.map((d) => d.date) || [],
+            type: 'datetime',
             tickAmount: Math.min(6, (timeline?.daily?.length || 0)),
             labels: { rotate: 0, style: { fontSize: '10px', colors: '#94a3b8' } }
         },
-        yaxis: {
-            min: 0,
-            labels: { style: { fontSize: '10px', colors: '#94a3b8' } }
-        },
+        yaxis: [
+            {
+                min: 0,
+                labels: {
+                    style: { fontSize: '10px', colors: '#94a3b8' },
+                    formatter: (value: number) => Math.round(value).toString()
+                }
+            },
+            {
+                opposite: true,
+                show: showTemperature,
+                labels: {
+                    style: { fontSize: '10px', colors: '#f59e0b' },
+                    formatter: (value: number) => formatTemperature(value, temperatureUnit as any)
+                }
+            },
+            {
+                opposite: true,
+                show: showWind,
+                labels: {
+                    style: { fontSize: '10px', colors: '#0ea5e9' },
+                    formatter: (value: number) => `${Math.round(value)} km/h`
+                }
+            },
+            {
+                opposite: true,
+                show: showPrecip,
+                labels: {
+                    style: { fontSize: '10px', colors: '#38bdf8' },
+                    formatter: (value: number) => `${value.toFixed(1)} mm`
+                }
+            }
+        ],
         tooltip: {
             theme: isDark() ? 'dark' : 'light',
-            x: { show: true },
-            y: { formatter: (value: number) => `${value} detections` }
-        }
+            x: { format: 'MMM dd' },
+            y: [
+                { formatter: (value: number) => `${Math.round(value)} detections` },
+                { formatter: (value: number) => formatTemperature(value, temperatureUnit as any) },
+                { formatter: (value: number) => `${Math.round(value)} km/h` },
+                { formatter: (value: number) => `${value.toFixed(1)} mm` }
+            ]
+        },
+        legend: { show: false },
+        subtitle: {
+            text: leaderboardAnalysisSubtitle ?? '',
+            align: 'left',
+            offsetX: 0,
+            offsetY: 0,
+            style: {
+                fontSize: '10px',
+                fontWeight: 600,
+                color: isDark() ? '#94a3b8' : '#64748b'
+            }
+        },
+        annotations: weatherAnnotations()
     }));
+
+    function stableStringify(value: any): string {
+        if (value === null || typeof value !== 'object') {
+            return JSON.stringify(value);
+        }
+        if (Array.isArray(value)) {
+            return `[${value.map(stableStringify).join(',')}]`;
+        }
+        const keys = Object.keys(value).sort();
+        return `{${keys.map((k) => `${JSON.stringify(k)}:${stableStringify(value[k])}`).join(',')}}`;
+    }
+
+    async function computeConfigKey(config: Record<string, unknown>): Promise<string> {
+        const raw = stableStringify(config);
+        const data = new TextEncoder().encode(raw);
+        const hash = await crypto.subtle.digest('SHA-256', data);
+        return Array.from(new Uint8Array(hash)).map((b) => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    function sleep(ms: number) {
+        return new Promise((resolve) => setTimeout(resolve, ms));
+    }
+
+    function buildLeaderboardConfig(includeAll = false) {
+        const days = timeline?.days ?? timelineDays;
+        const daily = timeline?.daily ?? [];
+        const startDate = daily[0]?.date ?? null;
+        const endDate = daily[daily.length - 1]?.date ?? null;
+        const series = ['Detections'];
+        const includeTemperature = includeAll || showTemperature;
+        const includeWind = includeAll || showWind;
+        const includePrecip = includeAll || showPrecip;
+        if (includeTemperature) series.push($_('leaderboard.temperature'));
+        if (includeWind) series.push($_('leaderboard.wind_avg'));
+        if (includePrecip) series.push($_('leaderboard.precip'));
+        return {
+            sortBy,
+            days,
+            startDate,
+            endDate,
+            totalCount: timeline?.total_count ?? 0,
+            sunriseRange,
+            sunsetRange,
+            showWeatherBands: includeAll || showWeatherBands,
+            showTemperature: includeTemperature,
+            showWind: includeWind,
+            showPrecip: includePrecip,
+            series
+        };
+    }
+
+    async function refreshLeaderboardAnalysis() {
+        if (!timeline) return;
+        leaderboardAnalysisError = null;
+        const config = buildLeaderboardConfig(true);
+        const key = await computeConfigKey(config);
+        if (leaderboardConfigKey === key && leaderboardAnalysis) return;
+        leaderboardConfigKey = key;
+        try {
+            const result = await fetchLeaderboardAnalysis(key);
+            leaderboardAnalysis = result.analysis;
+            leaderboardAnalysisTimestamp = result.analysis_timestamp;
+        } catch {
+            leaderboardAnalysis = null;
+            leaderboardAnalysisTimestamp = null;
+        }
+    }
+
+    $effect(() => {
+        if (!timeline) return;
+        const _deps = [sortBy, timelineDays, showWeatherBands, showTemperature, showWind, showPrecip];
+        void refreshLeaderboardAnalysis();
+    });
+
+    async function runLeaderboardAnalysis(force = false) {
+        if (!chartEl) return;
+        leaderboardAnalysisLoading = true;
+        leaderboardAnalysisError = null;
+        const priorToggles = {
+            showWeatherBands,
+            showTemperature,
+            showWind,
+            showPrecip
+        };
+        const priorSubtitle = leaderboardAnalysisSubtitle;
+        try {
+            const shouldEnableAll = !showWeatherBands || !showTemperature || !showWind || !showPrecip;
+            if (shouldEnableAll) {
+                showWeatherBands = true;
+                showTemperature = true;
+                showWind = true;
+                showPrecip = true;
+                await tick();
+                await sleep(200);
+            }
+            const config = buildLeaderboardConfig(true);
+            const sunriseText = config.sunriseRange ? `Sunrise ${config.sunriseRange}` : '';
+            const sunsetText = config.sunsetRange ? `Sunset ${config.sunsetRange}` : '';
+            const sunSummary = [sunriseText, sunsetText].filter(Boolean).join(' • ');
+            leaderboardAnalysisSubtitle = [sunSummary, 'Weather overlays on'].filter(Boolean).join(' • ');
+            await tick();
+            await sleep(200);
+            const key = await computeConfigKey(config);
+            leaderboardConfigKey = key;
+            const chartInstance = (chartEl as any).__apexchart;
+            const dataUri = await chartInstance?.dataURI();
+            const imageBase64 = dataUri?.imgURI ?? null;
+            if (!imageBase64) {
+                throw new Error('Unable to capture chart image');
+            }
+            const result = await analyzeLeaderboardGraph({
+                config: {
+                    timeframe: `${config.days} days (${config.startDate ?? 'start'} → ${config.endDate ?? 'end'})`,
+                    total_count: config.totalCount,
+                    series: config.series,
+                    sunrise_range: config.sunriseRange ?? null,
+                    sunset_range: config.sunsetRange ?? null,
+                    weather_notes: 'AM/PM weather bands and weather overlays are included for analysis. Sunrise and sunset ranges are available.',
+                    notes: 'Detections are shown as an area series; weather overlays include temperature, wind, and precipitation.'
+                },
+                image_base64: imageBase64,
+                force,
+                config_key: key
+            });
+            leaderboardAnalysis = result.analysis;
+            leaderboardAnalysisTimestamp = result.analysis_timestamp;
+        } catch (e: any) {
+            leaderboardAnalysisError = e?.message || 'Failed to analyze chart';
+        } finally {
+            showWeatherBands = priorToggles.showWeatherBands;
+            showTemperature = priorToggles.showTemperature;
+            showWind = priorToggles.showWind;
+            showPrecip = priorToggles.showPrecip;
+            leaderboardAnalysisSubtitle = priorSubtitle;
+            await tick();
+            await sleep(150);
+            leaderboardAnalysisLoading = false;
+        }
+    }
 
     function getWindowCount(item: SpeciesCount | undefined): number {
         if (!item) return 0;
@@ -249,6 +589,42 @@
         if (sortBy === 'week') return $_('leaderboard.sort_by_week');
         return $_('leaderboard.sort_by_month');
     }
+
+    type AiBlock = { type: 'heading' | 'paragraph'; text: string };
+
+    function parseAiAnalysis(text: string): AiBlock[] {
+        if (!text) return [];
+        const lines = text
+            .split('\n')
+            .map((line) => line.trim())
+            .filter(Boolean);
+
+        const blocks: AiBlock[] = [];
+
+        for (const line of lines) {
+            const headingMatch = line.match(/^#{1,6}\s+(.*)$/);
+            if (headingMatch) {
+                blocks.push({ type: 'heading', text: headingMatch[1] });
+                continue;
+            }
+
+            const listMatch = line.match(/^[-*•]\s+(.*)$/);
+            if (listMatch) {
+                const last = blocks[blocks.length - 1];
+                if (last?.type === 'paragraph') {
+                    last.text = `${last.text} ${listMatch[1]}`.trim();
+                } else {
+                    blocks.push({ type: 'paragraph', text: listMatch[1] });
+                }
+                continue;
+            }
+            blocks.push({ type: 'paragraph', text: line });
+        }
+
+        return blocks;
+    }
+
+    let leaderboardAiBlocks = $derived(() => (leaderboardAnalysis ? parseAiAnalysis(leaderboardAnalysis) : []));
 </script>
 
 <div class="space-y-6">
@@ -527,15 +903,27 @@
                         </p>
                         <h3 class="text-xl md:text-2xl font-black text-slate-900 dark:text-white">{$_('leaderboard.detections_over_time')}</h3>
                     </div>
-                    <div class="text-sm font-semibold text-slate-500 dark:text-slate-400">
-                        {$_('leaderboard.detections_count', { values: { count: timeline?.total_count?.toLocaleString() || '0' } })}
+                    <div class="flex flex-wrap items-center gap-3 text-sm font-semibold text-slate-500 dark:text-slate-400">
+                        <span>{$_('leaderboard.detections_count', { values: { count: timeline?.total_count?.toLocaleString() || '0' } })}</span>
+                        <button
+                            type="button"
+                            class="px-3 py-1.5 rounded-full border border-emerald-200/70 dark:border-emerald-800/60 text-[10px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-300 bg-emerald-50/70 dark:bg-emerald-900/20 hover:bg-emerald-100/70 dark:hover:bg-emerald-900/40 disabled:opacity-60 disabled:cursor-not-allowed"
+                            disabled={!timeline?.daily?.length || leaderboardAnalysisLoading}
+                            onclick={() => runLeaderboardAnalysis(!!leaderboardAnalysis)}
+                        >
+                            {leaderboardAnalysisLoading
+                                ? $_('leaderboard.ai_analyzing', { default: 'Analyzing…' })
+                                : leaderboardAnalysis
+                                    ? $_('leaderboard.ai_rerun', { default: 'Rerun analysis' })
+                                    : $_('leaderboard.ai_analyze', { default: 'Analyze chart' })}
+                        </button>
                     </div>
                 </div>
 
                 <div class="mt-6 w-full flex-1 min-h-[140px] max-h-[240px]">
                     {#if timeline?.daily?.length}
                         {#key timeline.total_count}
-                            <div use:chart={chartOptions()} class="w-full h-[240px]"></div>
+                            <div use:chart={chartOptions()} bind:this={chartEl} class="w-full h-[240px]"></div>
                         {/key}
                     {:else}
                         <div class="h-full w-full rounded-2xl bg-slate-100 dark:bg-slate-800/60 animate-pulse"></div>
@@ -549,6 +937,105 @@
                     <span>•</span>
                     <span>Avg/day: {timeline?.daily?.length ? Math.round((timeline?.total_count || 0) / timeline.daily.length).toLocaleString() : '0'}</span>
                 </div>
+                {#if leaderboardAnalysisLoading || leaderboardAnalysisError || leaderboardAnalysis}
+                    <div class="mt-4 rounded-2xl border border-slate-200/70 dark:border-slate-700/60 bg-white/70 dark:bg-slate-900/40 px-4 py-3 text-sm text-slate-600 dark:text-slate-300 shadow-sm">
+                        <div class="flex flex-wrap items-center justify-between gap-2 text-[10px] uppercase tracking-widest font-black text-slate-400">
+                            <span>{$_('leaderboard.ai_summary', { default: 'AI insight' })}</span>
+                            {#if leaderboardAnalysisTimestamp}
+                                <span class="font-semibold normal-case tracking-normal">{new Date(leaderboardAnalysisTimestamp).toLocaleString()}</span>
+                            {/if}
+                        </div>
+                        {#if leaderboardAnalysisLoading}
+                            <p class="mt-2 text-xs text-slate-500">{$_('leaderboard.ai_analyzing', { default: 'Analyzing…' })}</p>
+                        {:else if leaderboardAnalysisError}
+                            <p class="mt-2 text-xs text-rose-500">{leaderboardAnalysisError}</p>
+                        {:else if leaderboardAnalysis}
+                            <div class="mt-2 space-y-2">
+                                {#each leaderboardAiBlocks() as block}
+                                    {#if block.type === 'heading'}
+                                        <p class="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-600 dark:text-emerald-300">{block.text}</p>
+                                    {:else}
+                                        <p class="text-sm text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">{block.text}</p>
+                                    {/if}
+                                {/each}
+                            </div>
+                        {/if}
+                    </div>
+                {/if}
+                <div class="mt-4 flex flex-wrap items-center gap-3 text-[10px] text-slate-400">
+                    <div class="flex items-center gap-2">
+                        <button
+                            type="button"
+                            onclick={() => showWeatherBands = !showWeatherBands}
+                            class="px-2 py-1 rounded-full border border-slate-200/70 dark:border-slate-700/60 text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400"
+                        >
+                            <span aria-hidden="true">🌦️</span>
+                            {showWeatherBands ? $_('leaderboard.hide_weather') : $_('leaderboard.show_weather')}
+                        </button>
+                        <button
+                            type="button"
+                            onclick={() => showTemperature = !showTemperature}
+                            class="px-2 py-1 rounded-full border border-slate-200/70 dark:border-slate-700/60 text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400"
+                        >
+                            <span aria-hidden="true">🌡️</span>
+                            {showTemperature ? $_('leaderboard.hide_temperature') : $_('leaderboard.show_temperature')}
+                        </button>
+                        <button
+                            type="button"
+                            onclick={() => showWind = !showWind}
+                            class="px-2 py-1 rounded-full border border-slate-200/70 dark:border-slate-700/60 text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400"
+                        >
+                            <span aria-hidden="true">💨</span>
+                            {showWind ? $_('leaderboard.hide_wind') : $_('leaderboard.show_wind')}
+                        </button>
+                        <button
+                            type="button"
+                            onclick={() => showPrecip = !showPrecip}
+                            class="px-2 py-1 rounded-full border border-slate-200/70 dark:border-slate-700/60 text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400"
+                        >
+                            <span aria-hidden="true">🌧️</span>
+                            {showPrecip ? $_('leaderboard.hide_precip') : $_('leaderboard.show_precip')}
+                        </button>
+                    </div>
+                    <div class="flex items-center gap-1">
+                        <span class="inline-block w-2 h-2 rounded-full bg-blue-500/40"></span>
+                        {$_('detection.weather_rain')}
+                    </div>
+                    <div class="flex items-center gap-1">
+                        <span class="inline-block w-2 h-2 rounded-full bg-indigo-500/40"></span>
+                        {$_('detection.weather_snow')}
+                    </div>
+                    <div class="flex items-center gap-1">
+                        <span class="inline-block w-2 h-2 rounded-full bg-orange-500/60"></span>
+                        {$_('leaderboard.temperature')}
+                    </div>
+                    <div class="flex items-center gap-1">
+                        <span class="inline-block w-2 h-2 rounded-full bg-sky-500/60"></span>
+                        {$_('leaderboard.wind_avg')}
+                    </div>
+                    <div class="flex items-center gap-1">
+                        <span class="inline-block w-2 h-2 rounded-full bg-fuchsia-500/70"></span>
+                        {$_('leaderboard.precip')}
+                    </div>
+                    <span class="text-slate-400/70">{$_('leaderboard.am_pm_bands')}</span>
+                </div>
+
+                {#if sunriseRange || sunsetRange}
+                    <div class="mt-2 flex flex-wrap items-center gap-2 text-[10px] text-slate-500">
+                        {#if sunriseRange}
+                            <span class="inline-flex items-center gap-1 rounded-full border border-amber-200/60 dark:border-amber-700/50 bg-amber-50/60 dark:bg-amber-900/20 px-2 py-1 text-amber-700 dark:text-amber-300">
+                                <span aria-hidden="true">🌅</span>
+                                {$_('leaderboard.sunrise')}: {sunriseRange}
+                            </span>
+                        {/if}
+                        {#if sunsetRange}
+                            <span class="inline-flex items-center gap-1 rounded-full border border-orange-200/60 dark:border-orange-700/50 bg-orange-50/60 dark:bg-orange-900/20 px-2 py-1 text-orange-700 dark:text-orange-300">
+                                <span aria-hidden="true">🌇</span>
+                                {$_('leaderboard.sunset')}: {sunsetRange}
+                            </span>
+                        {/if}
+                    </div>
+                {/if}
             </div>
         </div>
 

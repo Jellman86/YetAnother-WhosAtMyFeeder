@@ -5,11 +5,14 @@ import fr from './locales/fr.json';
 import de from './locales/de.json';
 import ja from './locales/ja.json';
 import zh from './locales/zh.json';
+import ru from './locales/ru.json';
+import pt from './locales/pt.json';
+import it from './locales/it.json';
 
 const appVersion = typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : 'unknown';
 console.log(`Running YA-WAMF ${appVersion}`);
 
-const supportedLocales = ['en', 'es', 'fr', 'de', 'ja', 'zh'];
+const supportedLocales = ['en', 'es', 'fr', 'de', 'ja', 'zh', 'ru', 'pt', 'it'];
 
 function normalizeLocale(value: unknown): string | null {
     if (typeof value !== 'string') {
@@ -52,6 +55,9 @@ addMessages('fr', fr);
 addMessages('de', de);
 addMessages('ja', ja);
 addMessages('zh', zh);
+addMessages('ru', ru);
+addMessages('pt', pt);
+addMessages('it', it);
 
 const initialLocale = determineLocale();
 // Ensure locale store is always a string before any translations run.

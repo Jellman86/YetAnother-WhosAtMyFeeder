@@ -23,7 +23,6 @@
     },
     "dependencies": {
         "apexcharts": "^5.3.6",
-        "svelte-apexcharts": "^1.0.2",
         "svelte-i18n": "^4.0.1"
     }
 }

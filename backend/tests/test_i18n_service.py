@@ -4,13 +4,16 @@ from app.services.i18n_service import i18n_service
 
 def test_load_all_locales():
     """All locale files should load without errors."""
-    assert len(i18n_service.translations) == 6
+    assert len(i18n_service.translations) == 9
     assert "en" in i18n_service.translations
     assert "es" in i18n_service.translations
     assert "fr" in i18n_service.translations
     assert "de" in i18n_service.translations
     assert "ja" in i18n_service.translations
     assert "zh" in i18n_service.translations
+    assert "ru" in i18n_service.translations
+    assert "pt" in i18n_service.translations
+    assert "it" in i18n_service.translations
 
 
 def test_translate_simple_key():
@@ -71,7 +74,7 @@ def test_all_locales_have_core_notification_keys():
         "notification.detection_body",
         "notification.audio_confirmed"
     ]
-    for locale in ["en", "es", "fr", "de", "ja", "zh"]:
+    for locale in ["en", "es", "fr", "de", "ja", "zh", "ru", "pt", "it"]:
         for key in core_keys:
             result = i18n_service.translate(key, locale)
             assert result != key, f"Missing translation for {key} in {locale}"
@@ -89,7 +92,7 @@ def test_all_locales_have_core_error_keys():
         "errors.events.snapshot_fetch_failed",
         "errors.events.classification_failed"
     ]
-    for locale in ["en", "es", "fr", "de", "ja", "zh"]:
+    for locale in ["en", "es", "fr", "de", "ja", "zh", "ru", "pt", "it"]:
         for key in core_keys:
             result = i18n_service.translate(key, locale)
             assert result != key, f"Missing translation for {key} in {locale}"
@@ -193,8 +196,8 @@ def test_backfill_error_structure():
 def test_unsupported_language_fallback():
     """Unsupported language should fall back to English."""
     # i18n_service should handle this gracefully
-    # Try Portuguese (not supported)
-    result = i18n_service.translate("errors.detection_not_found", "pt")
+    # Try Korean (not supported)
+    result = i18n_service.translate("errors.detection_not_found", "ko")
     # Should either fall back to English or return the key
     assert len(result) > 0
 
@@ -259,7 +262,7 @@ def test_translation_completeness():
     en_keys = get_all_keys(en_translations)
 
     # Verify all other locales have the same keys
-    for locale in ["es", "fr", "de", "ja", "zh"]:
+    for locale in ["es", "fr", "de", "ja", "zh", "ru", "pt", "it"]:
         locale_translations = i18n_service.translations.get(locale, {})
         locale_keys = get_all_keys(locale_translations)
 
@@ -285,7 +288,7 @@ def test_no_extra_keys_in_other_locales():
 
     en_keys = set(get_all_keys(en_translations))
 
-    for locale in ["es", "fr", "de", "ja", "zh"]:
+    for locale in ["es", "fr", "de", "ja", "zh", "ru", "pt", "it"]:
         locale_translations = i18n_service.translations.get(locale, {})
         locale_keys = set(get_all_keys(locale_translations))
 
@@ -346,7 +349,7 @@ def test_email_errors():
         "errors.email.smtp_incomplete",
         "errors.email.send_failed"
     ]
-    for locale in ["en", "es", "fr", "de", "ja", "zh"]:
+    for locale in ["en", "es", "fr", "de", "ja", "zh", "ru", "pt", "it"]:
         for key in email_keys:
             result = i18n_service.translate(key, locale)
             assert result != key, f"Missing email translation for {key} in {locale}"

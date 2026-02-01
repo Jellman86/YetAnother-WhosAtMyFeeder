@@ -80,6 +80,16 @@
       "invalid_state": "Invalid OAuth state. Please try again.",
       "state_expired": "OAuth state expired. Please try again.",
       "email_missing": "Email address not returned by provider."
+    },
+    "inat": {
+      "disabled": "iNaturalist integration is disabled",
+      "not_configured": "iNaturalist OAuth credentials not configured",
+      "invalid_state": "Invalid OAuth state. Please try again.",
+      "state_expired": "OAuth state expired. Please try again.",
+      "oauth_failed": "Failed to complete iNaturalist OAuth: {error}",
+      "not_connected": "iNaturalist account not connected",
+      "event_missing": "Detection not found for submission",
+      "submit_failed": "Failed to submit to iNaturalist: {error}"
     }
   }
 }

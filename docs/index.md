@@ -12,6 +12,7 @@ Everything you need to get the containers running and configured correctly.
 - **[Getting Started](setup/getting-started.md)** - Fast-track installation using Docker Compose.
 - **[Full Docker Stack](setup/docker-stack.md)** - A complete example including Frigate and MQTT.
 - **[Recommended Frigate Config](setup/frigate-config.md)** - Optimized settings for bird snapshots.
+- **[Reverse Proxy Guide](setup/reverse-proxy.md)** - Configs for Cloudflare Tunnel, Nginx, Caddy.
 - **[Configuration Guide](setup/configuration.md)** - Deep dive into all web UI settings.
 
 ## 🔌 API & Development
@@ -31,6 +32,7 @@ Connect YA-WAMF to the rest of your smart home and community projects.
 - **[Frigate NVR](integrations/frigate.md)** - Connecting to your camera system.
 - **[BirdNET-Go](integrations/birdnet-go.md)** - Multi-sensor audio correlation.
 - **[BirdWeather](integrations/birdweather.md)** - Uploading to community science stations.
+- **[iNaturalist](integrations/inaturalist.md)** - Owner-reviewed submissions to iNaturalist.
 - **[Home Assistant](integrations/home-assistant.md)** - Sensors, cards, and automations.
 
 ## Feature Deep Dives
@@ -38,7 +40,7 @@ Connect YA-WAMF to the rest of your smart home and community projects.
 - [🔐 Authentication & Access](features/authentication.md) - Admin passwords, guest mode, and security
 - [🧠 AI Models & Performance](features/ai-models.md) - Understanding MobileNet vs ConvNeXt vs EVA-02
 - [🗂 Taxonomy & Naming](features/taxonomy.md) - How scientific naming works
-- [🔔 Notifications](features/notifications.md) - Discord, Pushover, Telegram, Email
+- [🔔 Notifications](features/notifications.md) - Discord, Pushover, Telegram, Email + Notification Center
 - [📊 Telemetry](features/telemetry.md) - Transparency on anonymous usage metrics
 
 ## Troubleshooting

@@ -15,6 +15,12 @@ REQUIRED_COLUMNS = {
         "ai_analysis_timestamp",
         "manual_tagged",
         "notified_at",
+        "weather_cloud_cover",
+        "weather_wind_speed",
+        "weather_wind_direction",
+        "weather_precipitation",
+        "weather_rain",
+        "weather_snowfall",
     }
 }
 

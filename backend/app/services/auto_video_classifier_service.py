@@ -14,8 +14,10 @@ from app.services.broadcaster import broadcaster
 from app.services.media_cache import media_cache
 from app.database import get_db
 from app.repositories.detection_repository import DetectionRepository
+from app.utils.tasks import create_background_task
 
 log = structlog.get_logger()
+MAX_PENDING_QUEUE = 1000
 
 class AutoVideoClassifierService:
     """
@@ -33,6 +35,7 @@ class AutoVideoClassifierService:
         self._circuit_open_until: float | None = None
         self._pending_queue: asyncio.Queue[tuple[str, str]] = asyncio.Queue()
         self._processor_task: Optional[asyncio.Task] = None
+        self._stale_task: Optional[asyncio.Task] = None
         self._running = False
 
     async def start(self):
@@ -40,7 +43,8 @@ class AutoVideoClassifierService:
         if self._running:
             return
         self._running = True
-        self._processor_task = asyncio.create_task(self._process_queue_loop())
+        self._processor_task = create_background_task(self._process_queue_loop(), name="video_classifier_queue")
+        self._stale_task = create_background_task(self._stale_watchdog_loop(), name="video_classifier_stale_watchdog")
         log.info("AutoVideoClassifierService started")
 
     async def stop(self):
@@ -52,16 +56,49 @@ class AutoVideoClassifierService:
                 await self._processor_task
             except asyncio.CancelledError:
                 pass
+        if self._stale_task:
+            self._stale_task.cancel()
+            try:
+                await self._stale_task
+            except asyncio.CancelledError:
+                pass
         # Cancel all active tasks
         for task in self._active_tasks.values():
             task.cancel()
         self._active_tasks.clear()
         log.info("AutoVideoClassifierService stopped")
 
+    async def reset_state(self):
+        """Cancel active tasks and clear pending queue without stopping the service."""
+        for task in self._active_tasks.values():
+            task.cancel()
+        for task in list(self._active_tasks.values()):
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+            except Exception as e:
+                log.error("Video classifier task failed during reset", error=str(e))
+        self._active_tasks.clear()
+
+        # Drain pending queue
+        while not self._pending_queue.empty():
+            try:
+                self._pending_queue.get_nowait()
+                self._pending_queue.task_done()
+            except asyncio.QueueEmpty:
+                break
+
+        # Reset circuit breaker state
+        self._failure_events.clear()
+        self._failure_event_ids.clear()
+        self._circuit_open_until = None
+
     async def _process_queue_loop(self):
         """Background loop to process queued classification tasks."""
         while self._running:
             try:
+                self._cleanup_completed_tasks()
                 # Check constraints
                 if self._is_circuit_open():
                     await asyncio.sleep(5)
@@ -84,7 +121,10 @@ class AutoVideoClassifierService:
                     continue
 
                 # Start task - skip initial delay for queued (historical) tasks
-                task = asyncio.create_task(self._process_event(frigate_event, camera, skip_delay=True))
+                task = create_background_task(
+                    self._process_event(frigate_event, camera, skip_delay=True),
+                    name=f"video_classifier:{frigate_event}"
+                )
                 self._active_tasks[frigate_event] = task
                 task.add_done_callback(lambda t: self._cleanup_task(frigate_event, t))
                 self._pending_queue.task_done()
@@ -98,6 +138,22 @@ class AutoVideoClassifierService:
             except Exception as e:
                 log.error("Error in video classification queue loop", error=str(e))
                 await asyncio.sleep(5)
+
+    async def _stale_watchdog_loop(self):
+        """Periodically mark stale pending/processing detections as failed."""
+        while self._running:
+            try:
+                max_age = settings.classification.video_classification_stale_minutes
+                async with get_db() as db:
+                    repo = DetectionRepository(db)
+                    count = await repo.reset_stale_video_statuses(max_age)
+                if count:
+                    log.warning("Reset stale video classifications", count=count, max_age_minutes=max_age)
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                log.error("Error in stale watchdog loop", error=str(e))
+            await asyncio.sleep(60)
 
     def _prune_failures(self):
         window = settings.classification.video_classification_failure_window_minutes * 60
@@ -163,6 +219,14 @@ class AutoVideoClassifierService:
         Queue a video classification task.
         Use this for bulk operations or retries.
         """
+        if self._pending_queue.qsize() >= MAX_PENDING_QUEUE:
+            log.warning(
+                "Video classification queue full; dropping task",
+                event_id=frigate_event,
+                queue_size=self._pending_queue.qsize(),
+                max_pending=MAX_PENDING_QUEUE
+            )
+            return
         await self._pending_queue.put((frigate_event, camera))
         log.debug("Queued video classification", event_id=frigate_event, queue_size=self._pending_queue.qsize())
 
@@ -206,7 +270,10 @@ class AutoVideoClassifierService:
                         limit=max_concurrent)
             return
 
-        task = asyncio.create_task(self._process_event(frigate_event, camera))
+        task = create_background_task(
+            self._process_event(frigate_event, camera),
+            name=f"video_classifier:{frigate_event}"
+        )
         self._active_tasks[frigate_event] = task
         task.add_done_callback(lambda t: self._cleanup_task(frigate_event, t))
 
@@ -286,11 +353,25 @@ class AutoVideoClassifierService:
                         }
                     })
 
-                results = await self._classifier.classify_video_async(
-                    tmp_path,
-                    max_frames=15,
-                    progress_callback=progress_callback
-                )
+                timeout = settings.classification.video_classification_timeout_seconds
+                try:
+                    results = await asyncio.wait_for(
+                        self._classifier.classify_video_async(
+                            tmp_path,
+                            max_frames=15,
+                            progress_callback=progress_callback
+                        ),
+                        timeout=timeout
+                    )
+                except asyncio.TimeoutError:
+                    log.warning("Video classification timed out", event_id=frigate_event, timeout_seconds=timeout)
+                    await self._update_status(frigate_event, 'failed', error="video_timeout", broadcast=True)
+                    self._record_failure(frigate_event)
+                    await broadcaster.broadcast({
+                        "type": "reclassification_completed",
+                        "data": { "event_id": frigate_event, "results": [] }
+                    })
+                    return
 
                 if results:
                     top = results[0]
@@ -456,6 +537,12 @@ class AutoVideoClassifierService:
                             "audio_score": det.audio_score,
                             "temperature": det.temperature,
                             "weather_condition": det.weather_condition,
+                            "weather_cloud_cover": det.weather_cloud_cover,
+                            "weather_wind_speed": det.weather_wind_speed,
+                            "weather_wind_direction": det.weather_wind_direction,
+                            "weather_precipitation": det.weather_precipitation,
+                            "weather_rain": det.weather_rain,
+                            "weather_snowfall": det.weather_snowfall,
                             "scientific_name": det.scientific_name,
                             "common_name": det.common_name,
                             "taxa_id": det.taxa_id,
@@ -468,47 +555,16 @@ class AutoVideoClassifierService:
                     })
 
     async def _save_results(self, frigate_event: str, result: dict):
-        """Save final results to DB and broadcast detection update."""
-        async with get_db() as db:
-            repo = DetectionRepository(db)
-            await repo.update_video_classification(
-                frigate_event=frigate_event,
-                label=result['label'],
-                score=result['score'],
-                index=result['index'],
-                status='completed'
-            )
-            
-            # Fetch the full updated detection to broadcast
-            det = await repo.get_by_frigate_event(frigate_event)
-            if det:
-                await broadcaster.broadcast({
-                    "type": "detection_updated",
-                    "data": {
-                        "frigate_event": frigate_event,
-                        "display_name": det.display_name,
-                        "score": det.score,
-                        "timestamp": det.detection_time.isoformat(),
-                        "camera": det.camera_name,
-                        "is_hidden": det.is_hidden,
-                        "frigate_score": det.frigate_score,
-                        "sub_label": det.sub_label,
-                        "manual_tagged": det.manual_tagged,
-                        "audio_confirmed": det.audio_confirmed,
-                        "audio_species": det.audio_species,
-                        "audio_score": det.audio_score,
-                        "temperature": det.temperature,
-                        "weather_condition": det.weather_condition,
-                        "scientific_name": det.scientific_name,
-                        "common_name": det.common_name,
-                        "taxa_id": det.taxa_id,
-                        "video_classification_score": det.video_classification_score,
-                        "video_classification_label": det.video_classification_label,
-                        "video_classification_status": det.video_classification_status,
-                        "video_classification_error": det.video_classification_error,
-                        "video_classification_timestamp": det.video_classification_timestamp.isoformat() if det.video_classification_timestamp else None
-                    }
-                })
+        """Save final results via DetectionService to handle intelligent overrides."""
+        from app.services.detection_service import DetectionService
+        svc = DetectionService(self._classifier)
+        
+        await svc.apply_video_result(
+            frigate_event=frigate_event,
+            video_label=result['label'],
+            video_score=result['score'],
+            video_index=result['index']
+        )
         # _record_success is already called on completion in _process_event.
 
 # Global singleton

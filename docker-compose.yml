@@ -44,6 +44,7 @@ services:
       - FRIGATE__MQTT_AUTH=${MQTT_AUTH:-false}
       - FRIGATE__MQTT_USERNAME=${MQTT_USERNAME:-}
       - FRIGATE__MQTT_PASSWORD=${MQTT_PASSWORD:-}
+      - SYSTEM__DEBUG_UI_ENABLED=${DEBUG_UI_ENABLED:-false}
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:8000/health" ]
       interval: 30s

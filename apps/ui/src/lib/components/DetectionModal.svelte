@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { getThumbnailUrl, analyzeDetection, updateDetectionSpecies, hideDetection, deleteDetection, searchSpecies, type SearchResult } from '../api';
+    import { getThumbnailUrl, analyzeDetection, updateDetectionSpecies, hideDetection, deleteDetection, searchSpecies, fetchAudioContext, createInaturalistDraft, submitInaturalistObservation, type SearchResult, type AudioContextDetection, type InaturalistDraft } from '../api';
     import type { Detection } from '../api';
     import ReclassificationOverlay from './ReclassificationOverlay.svelte';
     import { detectionsStore, type ReclassificationProgress } from '../stores/detections.svelte';
@@ -7,6 +7,7 @@
     import { authStore } from '../stores/auth.svelte';
     import { getBirdNames } from '../naming';
     import { _ } from 'svelte-i18n';
+    import { onMount } from 'svelte';
     import { trapFocus } from '../utils/focus-trap';
     import { formatTemperature } from '../utils/temperature';
 
@@ -37,6 +38,22 @@
     // State
     let modalElement = $state<HTMLElement | null>(null);
     let analyzingAI = $state(false);
+    let audioContextOpen = $state(false);
+    let audioContextLoading = $state(false);
+    let audioContextLoaded = $state(false);
+    let audioContext = $state<AudioContextDetection[]>([]);
+    let audioContextError = $state<string | null>(null);
+    let weatherDetailsOpen = $state(false);
+    let inatPanelOpen = $state(false);
+    let inatLoading = $state(false);
+    let inatSubmitting = $state(false);
+    let inatError = $state<string | null>(null);
+    let inatDraft = $state<InaturalistDraft | null>(null);
+    let inatNotes = $state('');
+    let inatLat = $state<number | null>(null);
+    let inatLon = $state<number | null>(null);
+    let inatPlace = $state('');
+    let inatPreview = $state(false);
 
     $effect(() => {
         if (modalElement) {
@@ -54,8 +71,7 @@
 
     type AiBlock =
         | { type: 'heading'; text: string }
-        | { type: 'paragraph'; text: string }
-        | { type: 'list'; items: string[] };
+        | { type: 'paragraph'; text: string };
 
     function parseAiAnalysis(text: string): AiBlock[] {
         const lines = text
@@ -64,35 +80,25 @@
             .filter(Boolean);
 
         const blocks: AiBlock[] = [];
-        let listItems: string[] | null = null;
 
         for (const line of lines) {
             const headingMatch = line.match(/^#{1,6}\s+(.*)$/);
             if (headingMatch) {
-                if (listItems?.length) {
-                    blocks.push({ type: 'list', items: listItems });
-                    listItems = null;
-                }
                 blocks.push({ type: 'heading', text: headingMatch[1] });
                 continue;
             }
 
             const listMatch = line.match(/^[-*•]\s+(.*)$/);
             if (listMatch) {
-                if (!listItems) listItems = [];
-                listItems.push(listMatch[1]);
+                const last = blocks[blocks.length - 1];
+                if (last?.type === 'paragraph') {
+                    last.text = `${last.text} ${listMatch[1]}`.trim();
+                } else {
+                    blocks.push({ type: 'paragraph', text: listMatch[1] });
+                }
                 continue;
             }
-
-            if (listItems?.length) {
-                blocks.push({ type: 'list', items: listItems });
-                listItems = null;
-            }
             blocks.push({ type: 'paragraph', text: line });
-        }
-
-        if (listItems?.length) {
-            blocks.push({ type: 'list', items: listItems });
         }
 
         return blocks;
@@ -111,14 +117,107 @@
     const naming = $derived(getBirdNames(detection, showCommon, preferSci));
     const primaryName = $derived(naming.primary);
     const subName = $derived(naming.secondary);
+    const hasAudioContext = $derived(!!detection.audio_species || detection.audio_confirmed);
+    const hasWeather = $derived(
+        detection.temperature !== undefined && detection.temperature !== null ||
+        !!detection.weather_condition ||
+        detection.weather_cloud_cover !== undefined && detection.weather_cloud_cover !== null ||
+        detection.weather_wind_speed !== undefined && detection.weather_wind_speed !== null ||
+        detection.weather_precipitation !== undefined && detection.weather_precipitation !== null ||
+        detection.weather_rain !== undefined && detection.weather_rain !== null ||
+        detection.weather_snowfall !== undefined && detection.weather_snowfall !== null
+    );
+    const inatEnabled = $derived(settingsStore.settings?.inaturalist_enabled ?? false);
+    const inatConnectedUser = $derived(settingsStore.settings?.inaturalist_connected_user ?? null);
+    const canShowInat = $derived(!readOnly && authStore.canModify && inatEnabled && (!!inatConnectedUser || inatPreview));
+
+    onMount(() => {
+        try {
+            const params = new URLSearchParams(window.location.search);
+            const queryPreview = params.get('inat_preview');
+            const storedPreview = window.localStorage.getItem('inat_preview');
+            inatPreview = queryPreview === '1' || storedPreview === '1';
+        } catch {
+            inatPreview = false;
+        }
+    });
 
     $effect(() => {
         if (!detection?.frigate_event) return;
         if (detection.frigate_event !== lastEventId) {
             lastEventId = detection.frigate_event;
             aiAnalysis = detection.ai_analysis || null;
+            inatPanelOpen = false;
+            inatDraft = null;
+            inatNotes = '';
+            inatLat = null;
+            inatLon = null;
+            inatPlace = '';
         }
     });
+
+    async function openInatPanel() {
+        inatPanelOpen = !inatPanelOpen;
+        if (!inatPanelOpen || !detection?.frigate_event) {
+            return;
+        }
+        if (inatDraft && inatDraft.event_id === detection.frigate_event) {
+            return;
+        }
+        inatLoading = true;
+        inatError = null;
+        try {
+            if (inatPreview && !inatConnectedUser) {
+                const defaults = settingsStore.settings;
+                const observed = detection.detection_time ? new Date(detection.detection_time).toISOString() : new Date().toISOString();
+                inatDraft = {
+                    event_id: detection.frigate_event,
+                    species_guess: primaryName,
+                    observed_on_string: observed,
+                    time_zone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
+                    latitude: defaults?.inaturalist_default_latitude ?? null,
+                    longitude: defaults?.inaturalist_default_longitude ?? null,
+                    place_guess: defaults?.inaturalist_default_place_guess ?? null,
+                    snapshot_url: detection.snapshot_url ?? null
+                };
+            } else {
+                inatDraft = await createInaturalistDraft(detection.frigate_event);
+            }
+            inatNotes = '';
+            const defaults = settingsStore.settings;
+            inatLat = inatDraft.latitude ?? defaults?.inaturalist_default_latitude ?? defaults?.location_latitude ?? null;
+            inatLon = inatDraft.longitude ?? defaults?.inaturalist_default_longitude ?? defaults?.location_longitude ?? null;
+            inatPlace = inatDraft.place_guess ?? defaults?.inaturalist_default_place_guess ?? '';
+        } catch (e: any) {
+            inatError = e?.message || 'Failed to load iNaturalist draft';
+        } finally {
+            inatLoading = false;
+        }
+    }
+
+    async function submitInat() {
+        if (!inatDraft || (inatPreview && !inatConnectedUser)) return;
+        inatSubmitting = true;
+        inatError = null;
+        try {
+            await submitInaturalistObservation({
+                event_id: inatDraft.event_id,
+                notes: inatNotes || undefined,
+                latitude: inatLat ?? undefined,
+                longitude: inatLon ?? undefined,
+                place_guess: inatPlace || undefined
+            });
+            inatPanelOpen = false;
+            inatNotes = '';
+            inatLat = inatDraft.latitude ?? null;
+            inatLon = inatDraft.longitude ?? null;
+            inatPlace = inatDraft.place_guess ?? '';
+        } catch (e: any) {
+            inatError = e?.message || 'Failed to submit to iNaturalist';
+        } finally {
+            inatSubmitting = false;
+        }
+    }
 
     // Handle search input
     let searchTimeout: any;
@@ -206,6 +305,51 @@
         }
     }
 
+    function formatWindDirection(deg?: number | null): string {
+        if (deg === null || deg === undefined || Number.isNaN(deg)) return '';
+        const directions = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+        const index = Math.round(((deg % 360) / 45)) % 8;
+        return directions[index];
+    }
+
+    function formatPrecip(value?: number | null): string {
+        if (value === null || value === undefined || Number.isNaN(value)) return '';
+        if (value < 0.1) return `${value.toFixed(2)}mm`;
+        if (value < 1) return `${value.toFixed(1)}mm`;
+        return `${value.toFixed(0)}mm`;
+    }
+
+    function formatAudioOffset(offsetSeconds: number): string {
+        const abs = Math.abs(offsetSeconds);
+        const mins = Math.floor(abs / 60);
+        const secs = abs % 60;
+        const label = mins > 0 ? `${mins}m` : `${secs}s`;
+        if (offsetSeconds === 0) return '0s';
+        return `${offsetSeconds > 0 ? '+' : '-'}${label}`;
+    }
+
+    async function toggleAudioContext(event: MouseEvent) {
+        event.stopPropagation();
+        audioContextOpen = !audioContextOpen;
+        if (audioContextOpen && !audioContextLoaded && !audioContextLoading) {
+            audioContextLoading = true;
+            audioContextError = null;
+            try {
+                audioContext = await fetchAudioContext(
+                    detection.detection_time,
+                    detection.camera_name,
+                    300,
+                    6
+                );
+                audioContextLoaded = true;
+            } catch (e) {
+                audioContextError = $_('common.error');
+            } finally {
+                audioContextLoading = false;
+            }
+        }
+    }
+
     async function handleAIAnalysis(force: boolean = false) {
         if (readOnly) return;
         if (!detection) return;
@@ -282,7 +426,11 @@
 
 <div
     class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
-    onclick={onClose}
+    onclick={(e) => {
+        if (e.target === e.currentTarget) {
+            onClose();
+        }
+    }}
     onkeydown={(e) => e.key === 'Escape' && onClose()}
     role="dialog"
     aria-modal="true"
@@ -291,8 +439,6 @@
     <div
         bind:this={modalElement}
         class="relative bg-white dark:bg-slate-800 rounded-3xl shadow-2xl max-w-lg w-full max-h-[90vh] flex flex-col border border-white/20 overflow-hidden"
-        onclick={(e) => e.stopPropagation()}
-        onkeydown={(e) => e.stopPropagation()}
         role="document"
         tabindex="-1"
     >
@@ -320,6 +466,7 @@
                 <button
                     type="button"
                     onclick={onPlayVideo}
+                    aria-label={$_('detection.play_video', { values: { species: primaryName } })}
                     class="absolute inset-0 flex items-center justify-center bg-black/0 hover:bg-black/20 transition-all group/play focus:outline-none"
                 >
                     <div class="w-16 h-16 rounded-full bg-white/90 dark:bg-slate-800/90 flex items-center justify-center shadow-lg opacity-70 group-hover/play:opacity-100 transform scale-90 group-hover/play:scale-100 transition-all duration-200">
@@ -410,11 +557,279 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
                         </svg>
                         <span class="text-sm font-bold text-slate-700 dark:text-slate-300">
-                            {formatTemperature(detection.temperature, settingsStore.settings?.location_temperature_unit)}
+                            {formatTemperature(detection.temperature, settingsStore.settings?.location_temperature_unit as any)}
                         </span>
                     </div>
                 {/if}
             </div>
+
+            {#if hasAudioContext}
+                <div class="p-4 rounded-2xl bg-teal-500/5 border border-teal-500/10 dark:border-teal-500/20 space-y-3">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl bg-teal-500/20 flex items-center justify-center">
+                            <svg class="w-5 h-5 text-teal-600 dark:text-teal-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                            </svg>
+                        </div>
+                        <div class="min-w-0">
+                            <p class="text-[10px] font-black uppercase tracking-widest text-teal-600/70 dark:text-teal-400/70">
+                                {$_('detection.audio_match')}
+                            </p>
+                            <p class="text-sm font-bold text-slate-700 dark:text-slate-200 truncate">
+                                {detection.audio_species || $_('detection.birdnet_confirmed')}
+                                {#if detection.audio_score}
+                                    <span class="ml-1 opacity-60">({(detection.audio_score * 100).toFixed(0)}%)</span>
+                                {/if}
+                            </p>
+                        </div>
+                    </div>
+                    <button
+                        type="button"
+                        onclick={toggleAudioContext}
+                        class="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-slate-100/70 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60 text-[11px] font-bold uppercase tracking-widest text-slate-600 dark:text-slate-300"
+                        aria-label={$_('detection.audio_context')}
+                    >
+                        <span class="flex items-center gap-2">
+                            <svg class="w-3 h-3 transition-transform {audioContextOpen ? '-rotate-90' : 'rotate-0'}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                            </svg>
+                            {$_('detection.audio_context')}
+                        </span>
+                        <span class="text-[9px] font-black text-slate-400">{audioContextOpen ? $_('common.hide') : $_('common.show')}</span>
+                    </button>
+                    {#if audioContextOpen}
+                        <div class="rounded-2xl border border-slate-200/60 dark:border-slate-700/60 bg-white/70 dark:bg-slate-900/40 p-3 space-y-2">
+                            {#if audioContextLoading}
+                                <p class="text-[10px] font-semibold uppercase tracking-widest text-slate-400">{$_('detection.audio_context_loading')}</p>
+                            {:else if audioContextError}
+                                <p class="text-[10px] font-semibold uppercase tracking-widest text-rose-500">{audioContextError}</p>
+                            {:else if audioContext.length === 0}
+                                <p class="text-[10px] font-semibold uppercase tracking-widest text-slate-400">{$_('detection.audio_context_empty')}</p>
+                            {:else}
+                                {#each audioContext as audio}
+                                    <div class="flex items-center justify-between gap-3 text-xs text-slate-600 dark:text-slate-300">
+                                        <div class="min-w-0">
+                                            <p class="font-semibold truncate">{audio.species}</p>
+                                            <p class="text-[10px] uppercase tracking-widest text-slate-400">
+                                                {(audio.confidence * 100).toFixed(0)}%
+                                                {#if audio.sensor_id}
+                                                    <span class="ml-1 opacity-70">{audio.sensor_id}</span>
+                                                {/if}
+                                            </p>
+                                        </div>
+                                        <div class="text-[10px] font-black text-slate-500 dark:text-slate-400">
+                                            {formatAudioOffset(audio.offset_seconds)}
+                                        </div>
+                                    </div>
+                                {/each}
+                            {/if}
+                        </div>
+                    {/if}
+                </div>
+            {/if}
+
+            {#if hasWeather}
+                <div class="p-4 rounded-2xl bg-sky-50/80 dark:bg-slate-900/40 border border-sky-100/80 dark:border-slate-700/60 space-y-3">
+                    <div class="flex items-center justify-between gap-3">
+                        <div class="flex items-center gap-3 min-w-0">
+                            <div class="w-10 h-10 rounded-xl bg-sky-500/20 flex items-center justify-center flex-shrink-0">
+                                <svg class="w-5 h-5 text-sky-600 dark:text-sky-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a4 4 0 100-8h-1a5 5 0 10-9 4H7a4 4 0 00-4 4z" />
+                                </svg>
+                            </div>
+                            <div class="min-w-0">
+                                <p class="text-[10px] font-black uppercase tracking-widest text-sky-600/70 dark:text-sky-300/70 mb-0.5">
+                                    {$_('detection.weather_title')}
+                                </p>
+                                <p class="text-sm font-bold text-slate-700 dark:text-slate-200 truncate">
+                                    {detection.weather_condition || $_('detection.weather_unknown')}
+                                </p>
+                            </div>
+                        </div>
+                        {#if detection.temperature !== undefined && detection.temperature !== null}
+                            <div class="text-sm font-black text-slate-800 dark:text-slate-100">
+                                {formatTemperature(detection.temperature, settingsStore.settings?.location_temperature_unit as any)}
+                            </div>
+                        {/if}
+                    </div>
+                    <button
+                        type="button"
+                        onclick={(event) => { event.stopPropagation(); weatherDetailsOpen = !weatherDetailsOpen; }}
+                        class="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-slate-100/70 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60 text-[11px] font-bold uppercase tracking-widest text-slate-600 dark:text-slate-300"
+                        aria-label={$_('detection.weather_details')}
+                    >
+                        <span class="flex items-center gap-2">
+                            <svg class="w-3 h-3 transition-transform {weatherDetailsOpen ? '-rotate-90' : 'rotate-0'}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                            </svg>
+                            {$_('detection.weather_details')}
+                        </span>
+                        <span class="text-[9px] font-black text-slate-400">{weatherDetailsOpen ? $_('common.hide') : $_('common.show')}</span>
+                    </button>
+                    {#if weatherDetailsOpen}
+                        <div class="grid grid-cols-2 gap-2">
+                            <div class="rounded-xl bg-white/80 dark:bg-slate-900/50 border border-slate-200/60 dark:border-slate-700/60 p-2">
+                                <div class="flex items-center gap-2 text-[9px] font-black uppercase tracking-widest text-slate-400">
+                                    <svg class="w-3 h-3 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h11a3 3 0 100-6M2 12h13a3 3 0 110 6H9" />
+                                    </svg>
+                                    {$_('detection.weather_wind')}
+                                </div>
+                                <p class="text-xs font-bold text-slate-700 dark:text-slate-200">
+                                    {#if detection.weather_wind_speed !== undefined && detection.weather_wind_speed !== null}
+                                        {Math.round(detection.weather_wind_speed)} km/h {formatWindDirection(detection.weather_wind_direction)}
+                                    {:else}
+                                        —
+                                    {/if}
+                                </p>
+                            </div>
+                            <div class="rounded-xl bg-white/80 dark:bg-slate-900/50 border border-slate-200/60 dark:border-slate-700/60 p-2">
+                                <div class="flex items-center gap-2 text-[9px] font-black uppercase tracking-widest text-slate-400">
+                                    <svg class="w-3 h-3 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a4 4 0 100-8h-1a5 5 0 10-9 4H7a4 4 0 00-4 4z" />
+                                    </svg>
+                                    {$_('detection.weather_cloud')}
+                                </div>
+                                <p class="text-xs font-bold text-slate-700 dark:text-slate-200">
+                                    {#if detection.weather_cloud_cover !== undefined && detection.weather_cloud_cover !== null}
+                                        {Math.round(detection.weather_cloud_cover)}%
+                                    {:else}
+                                        —
+                                    {/if}
+                                </p>
+                            </div>
+                            <div class="rounded-xl bg-white/80 dark:bg-slate-900/50 border border-slate-200/60 dark:border-slate-700/60 p-2">
+                                <div class="flex items-center gap-2 text-[9px] font-black uppercase tracking-widest text-slate-400">
+                                    <svg class="w-3 h-3 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a4 4 0 100-8h-1a5 5 0 10-9 4H7a4 4 0 00-4 4z" />
+                                    </svg>
+                                    {$_('detection.weather_title')}
+                                </div>
+                                <p class="text-xs font-bold text-slate-700 dark:text-slate-200">
+                                    {detection.weather_condition || $_('detection.weather_unknown')}
+                                </p>
+                            </div>
+                            <div class="rounded-xl bg-white/80 dark:bg-slate-900/50 border border-slate-200/60 dark:border-slate-700/60 p-2">
+                                <div class="flex items-center gap-2 text-[9px] font-black uppercase tracking-widest text-slate-400">
+                                    <svg class="w-3 h-3 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v18m9-9H3m15.364-6.364l-12.728 12.728m0-12.728l12.728 12.728" />
+                                    </svg>
+                                    {$_('detection.weather_rain')} / {$_('detection.weather_snow')}
+                                </div>
+                                <p class="text-xs font-bold text-slate-700 dark:text-slate-200">
+                                    {#if detection.weather_rain !== undefined && detection.weather_rain !== null || detection.weather_snowfall !== undefined && detection.weather_snowfall !== null}
+                                        {formatPrecip(detection.weather_rain)} / {formatPrecip(detection.weather_snowfall)}
+                                    {:else}
+                                        —
+                                    {/if}
+                                </p>
+                            </div>
+                        </div>
+                    {/if}
+                </div>
+            {/if}
+
+            {#if canShowInat}
+                <div class="p-4 rounded-2xl bg-emerald-50/70 dark:bg-slate-900/40 border border-emerald-100/80 dark:border-slate-700/60 space-y-3">
+                    <div class="flex items-center justify-between gap-3">
+                        <div class="flex items-center gap-3">
+                            <div class="w-9 h-9 rounded-xl bg-emerald-500/20 flex items-center justify-center text-emerald-600 dark:text-emerald-300">
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v4m0 0a4 4 0 110 8m0-8a4 4 0 10-4 4m4-4v4m0 0a4 4 0 010 8m0-8a4 4 0 10-4 4" />
+                                </svg>
+                            </div>
+                            <div>
+                                <p class="text-[10px] font-black uppercase tracking-widest text-emerald-600/80 dark:text-emerald-300/80">{$_('detection.inat.title')}</p>
+                                {#if inatConnectedUser}
+                                    <p class="text-xs font-semibold text-slate-700 dark:text-slate-200">{$_('detection.inat.connected', { values: { user: inatConnectedUser } })}</p>
+                                {:else if inatPreview}
+                                    <p class="text-xs font-semibold text-slate-700 dark:text-slate-200">{$_('detection.inat.preview_note')}</p>
+                                {/if}
+                            </div>
+                        </div>
+                        <button
+                            type="button"
+                            onclick={openInatPanel}
+                            class="px-3 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white transition-all"
+                            aria-label={$_('detection.inat.open_label')}
+                        >
+                            {inatPanelOpen ? $_('detection.inat.close') : $_('detection.inat.open')}
+                        </button>
+                    </div>
+
+                    {#if inatPanelOpen}
+                        <div class="space-y-3">
+                            {#if inatLoading}
+                                <div class="text-xs font-semibold text-emerald-600/80">{$_('detection.inat.loading')}</div>
+                            {:else}
+                                {#if inatError}
+                                    <div class="text-xs font-semibold text-rose-600">{inatError}</div>
+                                {/if}
+                                {#if inatDraft}
+                                    <div class="grid grid-cols-2 gap-3 text-[11px] text-slate-600 dark:text-slate-300">
+                                        <div class="rounded-xl bg-white/80 dark:bg-slate-900/40 border border-slate-200/60 dark:border-slate-700/60 p-2">
+                                            <p class="text-[9px] font-black uppercase tracking-widest text-slate-400">{$_('detection.inat.species')}</p>
+                                            <p class="font-semibold text-slate-700 dark:text-slate-200">{inatDraft.species_guess}</p>
+                                        </div>
+                                        <div class="rounded-xl bg-white/80 dark:bg-slate-900/40 border border-slate-200/60 dark:border-slate-700/60 p-2">
+                                            <p class="text-[9px] font-black uppercase tracking-widest text-slate-400">{$_('detection.inat.observed')}</p>
+                                            <p class="font-semibold text-slate-700 dark:text-slate-200">{new Date(inatDraft.observed_on_string).toLocaleString()}</p>
+                                        </div>
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label for="inat-lat" class="block text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">{$_('detection.inat.latitude')}</label>
+                                            <input
+                                                id="inat-lat"
+                                                type="number"
+                                                step="0.0001"
+                                                bind:value={inatLat}
+                                                class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-900/50 text-xs font-bold"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label for="inat-lon" class="block text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">{$_('detection.inat.longitude')}</label>
+                                            <input
+                                                id="inat-lon"
+                                                type="number"
+                                                step="0.0001"
+                                                bind:value={inatLon}
+                                                class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-900/50 text-xs font-bold"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label for="inat-place" class="block text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">{$_('detection.inat.place')}</label>
+                                        <input
+                                            id="inat-place"
+                                            type="text"
+                                            bind:value={inatPlace}
+                                            class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-900/50 text-xs font-bold"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label for="inat-notes" class="block text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">{$_('detection.inat.notes')}</label>
+                                        <textarea
+                                            id="inat-notes"
+                                            rows="3"
+                                            bind:value={inatNotes}
+                                            class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-900/50 text-xs font-bold"
+                                        ></textarea>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onclick={submitInat}
+                                        disabled={inatSubmitting || (inatPreview && !inatConnectedUser)}
+                                        class="w-full py-2 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-black uppercase tracking-widest disabled:opacity-50"
+                                    >
+                                        {inatSubmitting ? $_('detection.inat.submitting') : $_('detection.inat.submit')}
+                                    </button>
+                                {/if}
+                            {/if}
+                        </div>
+                    {/if}
+                </div>
+            {/if}
 
             <!-- AI Analysis -->
             {#if aiAnalysis}
@@ -427,12 +842,6 @@
                             {#each aiBlocks() as block}
                                 {#if block.type === 'heading'}
                                     <p class="text-[11px] font-black uppercase tracking-[0.2em] text-teal-700 dark:text-teal-300">{block.text}</p>
-                                {:else if block.type === 'list'}
-                                    <ul class="space-y-1 list-disc list-inside text-sm text-slate-700 dark:text-slate-300">
-                                        {#each block.items as item}
-                                            <li>{item}</li>
-                                        {/each}
-                                    </ul>
                                 {:else}
                                     <p class="text-sm text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">{block.text}</p>
                                 {/if}

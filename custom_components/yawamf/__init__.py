@@ -18,7 +18,7 @@ PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.CAMERA]
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Yet Another WhosAtMyFeeder from a config entry."""
-    url = entry.data[CONF_URL]
+    url = entry.options.get(CONF_URL, entry.data[CONF_URL])
     polling_interval = entry.options.get(CONF_POLLING_INTERVAL, DEFAULT_POLLING_INTERVAL)
 
     coordinator = YAWAMFDataUpdateCoordinator(

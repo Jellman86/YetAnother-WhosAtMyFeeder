@@ -8,12 +8,14 @@ A bird classification system that integrates with [Frigate NVR](https://frigate.
 
 - **Advanced AI Classification** - MobileNetV2, ConvNeXt, or EVA-02 models (up to 91% accuracy)
 - **Multi-Sensor Verification** - Correlates visual detections with BirdNET-Go audio
-- **Smart Notifications** - Discord, Telegram, Pushover, Email with customizable filters
-- **Video Analysis** - Automatic frame-by-frame scanning for improved accuracy
+- **Smart Notifications** - Discord, Telegram, Pushover, Email with customizable filters + Notification Center
+- **Video Analysis** - Automatic scanning of 15+ frames (temporal ensemble) for improved accuracy
 - **LLM Insights** - AI-powered behavioral analysis (Gemini/OpenAI/Claude)
+- **Leaderboard AI Insights** - Analyze detection charts for trends and weather correlations
 - **Home Assistant Integration** - Sensors, automation, and dashboard cards
 - **BirdWeather Reporting** - Contribute to community science
 - **Real-time Dashboard** - Live updates, video playback, species statistics
+- **Notification Center** - Pinned progress for long-running jobs and a full notifications view
 - **Public View (Guest Mode)** - Share a read-only dashboard with rate limits and optional camera name hiding
 
 ## About This Project
@@ -34,7 +36,7 @@ When Frigate detects a bird at your feeder, YA-WAMF:
 1. Grabs the snapshot image
 2. Runs it through an advanced AI model (MobileNetV2, ConvNeXt, or EVA-02)
 3. Cross-references with audio detections from **BirdNET-Go** for multi-sensor confirmation
-4. **Automatically analyzes the video clip** (optional) for higher accuracy using temporal ensemble logic
+4. **Automatically analyzes the video clip** (optional) using a temporal ensemble of 15+ frames for higher accuracy
 5. Sends **rich notifications** to Discord, Pushover, Telegram, or Email (OAuth/SMTP)
 6. Enriches detections with local weather data and behavior analysis via **LLMs (Gemini/OpenAI/Claude)**
 7. Keeps track of all your visitors in a nice dashboard with taxonomic normalization
@@ -50,8 +52,11 @@ When Frigate detects a bird at your feeder, YA-WAMF:
 - **AI Naturalist Insight:** One-click behavioral analysis of your visitors using state-of-the-art LLMs.
 - **Elite Accuracy:** Support for state-of-the-art **EVA-02 Large** models (~91% accuracy).
 - **Taxonomy Normalization:** Automatic Scientific ↔ Common name mapping using iNaturalist data.
+- **iNaturalist Submissions (Beta):** Owner-reviewed submissions are implemented but currently untested due to App Owner approval limits. Testers welcome.
+- **Camera Preview:** Expand a camera in Settings → Connection to see a live snapshot preview.
+
+> Note: To preview the iNaturalist submission UI without OAuth, enable Debug UI (`DEBUG_UI_ENABLED=true`) and toggle **Settings → Debug → iNaturalist preview UI**.
 - **Fast Path Efficiency:** Skip local AI and use Frigate's sublabels directly to save CPU.
-- **Wildlife Classifier:** identify squirrels, foxes, and other non-bird visitors.
 - **Home Assistant Integration:** Full support for tracking the last detected bird and daily counts in HA.
 - **Observability:** Built-in Prometheus metrics, Telemetry (opt-in), and real-time MQTT diagnostics.
 - **Public View (Guest Mode):** Optional read-only sharing with rate limits and privacy controls.
@@ -63,6 +68,7 @@ For detailed guides on setup, integrations, and troubleshooting, please see the 
 - [🚀 Getting Started](docs/setup/getting-started.md)
 - [📦 Full Docker Stack Example](docs/setup/docker-stack.md)
 - [📷 Recommended Frigate Config](docs/setup/frigate-config.md)
+- [🌐 Reverse Proxy Guide](docs/setup/reverse-proxy.md) - Cloudflare Tunnel, Nginx, Caddy configs
 - [🔌 API Reference](docs/api.md) - Complete REST API documentation
 - [🔗 BirdNET-Go Integration](docs/integrations/birdnet-go.md)
 - [🏠 Home Assistant Setup](docs/integrations/home-assistant.md)
@@ -111,7 +117,7 @@ Here's the flow from bird to identification:
 1. **Frigate spots a bird** - Your camera picks up movement, Frigate's object detection identifies it as a bird
 2. **MQTT message sent** - Frigate publishes an event to `frigate/events` on your MQTT broker
 3. **YA-WAMF receives the event** - The backend is subscribed to that MQTT topic and picks up the message
-4. **Efficiency Check** - If "Trust Frigate Sublabels" is enabled and Frigate already has a label, we use it instantly.
+4. **Efficiency Check** - If "Trust Frigate Sublabels" is enabled and Frigate already has a label, I use it instantly.
 5. **Classification runs** - Otherwise, the image goes through a local model (TFLite or ONNX) trained on bird species.
 6. **Results stored & Notified** - The detection is saved, and notifications (Discord/Telegram/Pushover) are fired immediately.
 7. **Deep Analysis** - If enabled, a background task waits for the video clip to finalize, then scans it frame-by-frame to refine the ID.
@@ -242,7 +248,7 @@ YA-WAMF v2.6.0 introduces a robust built-in authentication system.
 👉 **[Read the Full Authentication & Access Control Guide](docs/features/authentication.md)**
 
 ### 🔑 Legacy API Key (Deprecated)
-If you are upgrading from an older version using `YA_WAMF_API_KEY`, your setup will continue to work. However, this method is **deprecated** and will be removed in v2.9.0. We recommend migrating to the new password-based system via **Settings > Security**.
+If you are upgrading from an older version using `YA_WAMF_API_KEY`, your setup will continue to work. However, this method is **deprecated** and will be removed in v2.9.0. I recommend migrating to the new password-based system via **Settings > Security**.
 
 For detailed upgrade instructions, see the [Migration Guide](MIGRATION.md).
 
@@ -272,8 +278,9 @@ YA-WAMF includes a custom component for Home Assistant to bring your bird sighti
 **Setup:**
 1. Copy the `custom_components/yawamf` folder to your Home Assistant `custom_components` directory.
 2. Restart Home Assistant.
-3. Add the integration via **Settings > Devices & Services > Add Integration**.
-4. Enter your YA-WAMF backend URL (e.g., `http://192.168.1.50:9852`).
+3. If the integration icon doesn't appear right away, hard-refresh Home Assistant or clear the browser cache (icons are cached).
+4. Add the integration via **Settings > Devices & Services > Add Integration**.
+5. Enter your YA-WAMF backend URL (e.g., `http://192.168.1.50:9852`).
 
 ## Help Improve YA-WAMF
 
@@ -281,7 +288,7 @@ This project is actively developed and your feedback is valuable!
 
 **How to contribute:**
 - **Report bugs** - [Open an issue](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues) for bugs or feature requests
-- **Share feedback** - Let us know what works and what doesn't
+- **Share feedback** - Let me know what works and what doesn't
 - **Enable telemetry** - Turn on anonymous usage stats in **Settings > Connections** (see [Telemetry Spec](docs/TELEMETRY_SPEC.md))
 - **Test features** - Try video analysis, notifications, and integrations in your environment
 

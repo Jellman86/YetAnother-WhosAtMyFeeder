@@ -219,6 +219,8 @@ Retrieve current system settings. **Secrets are redacted.**
   "auto_video_classification": true,
   "display_common_names": true,
   "scientific_name_primary": false,
+  "debug_ui_enabled": false,
+  "notifications_mode": "standard",
   "notifications_discord_enabled": true,
   "birdweather_enabled": true
 }
@@ -606,6 +608,53 @@ Generate (or fetch) the AI Naturalist analysis for a specific detection event.
 - Requires LLM configuration (Gemini/OpenAI/Claude).
 - Owner access is required to generate analysis; guests can view stored analysis in event payloads.
 - The response is standardized Markdown with fixed headings: `Appearance`, `Behavior`, `Naturalist Note`, `Seasonal Context`.
+
+### Leaderboard Chart Analysis
+
+**`POST /api/leaderboard/analyze`**
+
+Generate AI insights for the leaderboard detections chart and persist them by config key.
+
+**Request Body**:
+```json
+{
+  "config": {
+    "timeframe": "30 days (2026-01-01 → 2026-01-30)",
+    "total_count": 1234,
+    "series": ["Detections", "Temperature", "Avg wind", "Precipitation"],
+    "weather_notes": "AM/PM weather bands are visible.",
+    "notes": "Detections are shown as an area series; other series are weather overlays."
+  },
+  "image_base64": "data:image/png;base64,...",
+  "force": false,
+  "config_key": "optional-sha256"
+}
+```
+
+**Response**:
+```json
+{
+  "analysis": "- ...",
+  "analysis_timestamp": "2026-02-01T12:00:00Z"
+}
+```
+
+**Notes**:
+- Requires LLM configuration (Gemini/OpenAI/Claude).
+- Owner access is required.
+- If `force` is false and an analysis exists for the `config_key`, the cached result is returned.
+
+**`GET /api/leaderboard/analysis?config_key=...`**
+
+Fetch a stored leaderboard analysis by config key.
+
+**Response**:
+```json
+{
+  "analysis": "- ...",
+  "analysis_timestamp": "2026-02-01T12:00:00Z"
+}
+```
 
 ---
 

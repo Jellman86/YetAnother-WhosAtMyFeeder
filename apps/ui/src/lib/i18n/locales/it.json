@@ -1,0 +1,799 @@
+{
+  "app": {
+    "title": "YA-WAMF",
+    "logo_subtitle": "WhosAtMyFeeder",
+    "logo_title": "Yet Another",
+    "tagline": "Classificazione uccelli potenziata da IA per il tuo Frigate NVR"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "explorer": "Esplora",
+    "leaderboard": "Classifica",
+    "settings": "Impostazioni",
+    "about": "Informazioni",
+    "toggle_menu": "Attiva/disattiva menu",
+    "collapse_sidebar": "Comprimi barra laterale",
+    "expand_sidebar": "Espandi barra laterale"
+  },
+  "theme": {
+    "switch_light": "Passa alla modalità chiara",
+    "switch_dark": "Passa alla modalità scura",
+    "light": "Chiaro",
+    "dark": "Scuro",
+    "system": "Sistema",
+    "title": "Tema e Aspetto",
+    "layout": "Layout di Navigazione",
+    "horizontal": "Orizzontale",
+    "vertical": "Verticale",
+    "horizontal_desc": "Barra di navigazione superiore",
+    "vertical_desc": "Barra laterale sinistra (comprimibile)"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "live_feed": "Live Feed",
+    "showing_last_3_days": "Visualizzazione ultimi 3 giorni",
+    "no_detections": "Nessun rilevamento ancora",
+    "waiting_first_visitor": "In attesa del primo visitatore del giorno...",
+    "discovery_feed": "Feed Scoperte",
+    "see_full_history": "Vedi cronologia completa",
+    "audio_confirmations": "Conferme Audio",
+    "hero": {
+      "just_discovered": "Appena rilevato",
+      "hours_ago": "{count} ore fa",
+      "one_hour_ago": "1 ora fa",
+      "days_ago": "{count} giorni fa",
+      "one_day_ago": "1 giorno fa",
+      "audio_confirmed": "Audio confermato",
+      "heard": "Udito: {species}",
+      "view_details": "Vedi dettagli",
+      "conf": "Conf."
+    },
+    "stats": {
+      "today": "Oggi",
+      "species": "Specie",
+      "top_visitor": "Visitatore principale",
+      "audio": "Audio"
+    },
+    "histogram": {
+      "title": "Impulso attività",
+      "last_24h": "Ultime 24 ore",
+      "tooltip": "{count} uccelli alle {time}"
+    },
+    "audio_feed": {
+      "title": "Audio recente",
+      "subtitle": "Feed audio in tempo reale",
+      "active": "Attivo",
+      "empty_title": "Nessuna rilevazione audio nel buffer",
+      "empty_subtitle": "Il buffer si svuota ogni 5 min",
+      "unknown_sensor": "Sensore sconosciuto"
+    }
+  },
+  "common": {
+    "loading": "Caricamento...",
+    "error": "Errore",
+    "success": "Successo",
+    "cancel": "Annulla",
+    "delete": "Elimina",
+    "close": "Chiudi",
+    "refresh": "Aggiorna",
+    "show": "Mostra",
+    "hide": "Nascondi",
+    "save": "Salva",
+    "saved": "Salvato",
+    "saving": "Salvataggio...",
+    "test": "Test",
+    "testing": "Testing...",
+    "add": "Aggiungi",
+    "apply_settings": "Applica Impostazioni",
+    "unsaved_changes": "Modifiche non salvate",
+    "today": "Oggi",
+    "yesterday": "Ieri",
+    "search": "Cerca...",
+    "retry": "Riprova",
+    "github": "GitHub",
+    "mit_license": "Licenza MIT",
+    "view_snapshot": "Visualizza Snapshot",
+    "statistics": "Statistiche",
+    "period": "Periodo",
+    "detections": "rilevamenti"
+  },
+  "error": {
+    "boundary_title": "Qualcosa è andato storto",
+    "boundary_subtitle": "Si è verificato un errore imprevisto. Riprova o contatta il supporto se il problema persiste.",
+    "show_details": "Mostra dettagli errore",
+    "try_again": "Riprova",
+    "copy_details": "Copia Dettagli Errore",
+    "reload_page": "Ricarica Pagina"
+  },
+  "settings": {
+    "title": "Impostazioni",
+    "subtitle": "Configura e gestisci la tua istanza YA-WAMF",
+    "language_selector": "Lingua",
+    "language_desc": "Cambia il testo dell'interfaccia e il contenuto delle notifiche.",
+    "video_circuit": {
+      "title": "Analisi Video In Pausa",
+      "message": "Analisi video automatica in pausa dopo {failures} fallimenti.",
+      "until": "Riprovo tra: {time}"
+    },
+    "tabs": {
+      "connection": "Connessione",
+      "detection": "Rilevamento",
+      "notifications": "Notifiche",
+      "integrations": "Integrazioni",
+      "data": "Dati",
+      "security": "Sicurezza",
+      "appearance": "Aspetto",
+      "accessibility": "Accessibilità",
+      "debug": "Debug"
+    },
+    "debug": {
+      "title": "Strumenti di debug",
+      "subtitle": "Interruttori extra per test e diagnostica.",
+      "inat_preview": "UI di anteprima iNaturalist",
+      "inat_preview_desc": "Mostra il pannello di invio senza OAuth (solo owner).",
+      "inat_preview_hint": "Suggerimento: apri i dettagli di una rilevazione per vedere il pannello iNaturalist.",
+      "apply_pending": "In sospeso — fai clic su Applica per attivare.",
+      "apply_applied": "Applicato.",
+      "apply_button": "Applica",
+      "apply_notice": "Impostazione anteprima aggiornata."
+    },
+    "integrations": {
+      "birdnet": {
+        "title": "BirdNET-Go",
+        "toggle_label": "Attiva/Disattiva integrazione BirdNET-Go",
+        "mqtt_topic": "Tema MQTT",
+        "mqtt_topic_label": "Tema MQTT di BirdNET",
+        "audio_buffer_hours": "Buffer audio (ore)",
+        "audio_buffer_label": "Ore buffer audio",
+        "audio_buffer_help": "Quanto tempo conservare le rilevazioni audio per la correlazione (1-168 ore)",
+        "match_window_seconds": "Finestra di corrispondenza (secondi)",
+        "match_window_label": "Finestra di correlazione audio in secondi",
+        "match_window_help": "Finestra temporale per abbinare audio e video (±5-3600 secondi)",
+        "test_button": "Test rilevazione audio",
+        "test_loading": "Simulazione...",
+        "sensor_mapping_title": "Mappatura sensori (opzionale)",
+        "sensor_id_placeholder": "ID sensore",
+        "sensor_id_label": "ID sensore audio per {camera}",
+        "sensor_mapping_empty": "Nessuna fotocamera rilevata. Controlla la connessione a Frigate.",
+        "sensor_mapping_help": "Aggiungi le tue telecamere Frigate per mapparle ai sensori audio. Usa * per ID sensore casuali/dinamici."
+      },
+      "inaturalist": {
+        "title": "iNaturalist",
+        "toggle_label": "Abilita invii iNaturalist",
+        "client_id": "ID client",
+        "client_id_label": "ID client iNaturalist",
+        "client_id_placeholder": "ID client iNaturalist",
+        "client_secret": "Segreto client",
+        "client_secret_label": "Segreto client iNaturalist",
+        "client_secret_placeholder": "Segreto client iNaturalist",
+        "saved_placeholder": "Salvato",
+        "default_latitude": "Latitudine predefinita",
+        "default_latitude_label": "Latitudine predefinita per invii",
+        "default_longitude": "Longitudine predefinita",
+        "default_longitude_label": "Longitudine predefinita per invii",
+        "default_place_guess": "Luogo predefinito",
+        "default_place_guess_label": "Luogo predefinito",
+        "default_place_guess_placeholder": "Mangiatoia in giardino",
+        "oauth_desc": "Collega il tuo account iNaturalist per inviare rilevamenti verificati.",
+        "app_owner_note": "Richiede approvazione App Owner iNaturalist (account da 2+ mesi e 10 identificazioni migliorative nell’ultimo mese).",
+        "connect": "Collega iNaturalist",
+        "connect_label": "Collega account iNaturalist",
+        "disconnect": "Disconnetti",
+        "disconnect_label": "Disconnetti account iNaturalist",
+        "refresh": "Aggiorna stato",
+        "refresh_label": "Aggiorna connessione iNaturalist",
+        "connected": "Connesso come {user}"
+      }
+    },
+    "auth": {
+      "title": "Autenticazione",
+      "desc": "Richiedi login per accesso completo.",
+      "enable": "Abilita autenticazione",
+      "enable_desc": "Proteggi impostazioni e azioni amministrative con login",
+      "username": "Nome utente admin",
+      "password": "Nuova password",
+      "password_new": "Imposta una nuova password",
+      "password_placeholder": "Lascia vuoto per mantenere la password attuale",
+      "password_confirm": "Conferma password",
+      "password_confirm_placeholder": "Inserisci nuovamente la password",
+      "session_expiry": "Scadenza sessione (ore)",
+      "proxy_trust_note": "Le intestazioni proxy sono attendibili da tutti gli host per impostazione predefinita. Se utilizzi un reverse proxy, imposta gli host proxy attendibili per prevenire spoofing IP.",
+      "trusted_proxies": "Host proxy attendibili",
+      "trusted_proxies_desc": "Aggiungi nomi contenitore o IP del tuo reverse proxy (es. nginx-rp, cloudflare-tunnel, 172.19.0.10). I nomi DNS Docker funzionano quando i servizi condividono una rete.",
+      "trusted_proxies_placeholder": "Aggiungi host proxy o IP",
+      "trusted_proxies_suggested_label": "Suggerito",
+      "trusted_proxies_suggested_note": "Questi sono solo suggerimenti. Il salvataggio manterrà il valore predefinito (tutti attendibili) a meno che non accetti o modifichi.",
+      "trusted_proxies_use_suggestions": "Usa suggerimenti",
+      "trusted_proxies_add": "Aggiungi host proxy attendibile",
+      "trusted_proxies_remove": "Rimuovi host proxy attendibile",
+      "trusted_proxies_empty": "Nessun proxy attendibile configurato (tutti i proxy sono attendibili)."
+    },
+    "public_access": {
+      "title": "Accesso Pubblico",
+      "desc": "Consenti accesso in sola lettura senza login.",
+      "enable": "Abilita accesso pubblico",
+      "enable_desc": "Gli ospiti possono visualizzare rilevamenti senza login",
+      "show_camera_names": "Mostra nomi telecamere",
+      "show_camera_names_desc": "Nascondi etichette telecamere per visitatori pubblici",
+      "history_days": "Finestra cronologia (giorni)",
+      "rate_limit": "Limite frequenza (al minuto)"
+    },
+    "accessibility": {
+      "title": "Opzioni Accessibilità",
+      "high_contrast": "Contrasto Elevato",
+      "high_contrast_desc": "Massimizza contrasto con tema nero/bianco/giallo",
+      "dyslexia_font": "Font per Dislessia",
+      "dyslexia_font_desc": "Usa font OpenDyslexic per migliore leggibilità",
+      "reduced_motion": "Riduzione Movimento",
+      "reduced_motion_desc": "Disabilita animazioni e transizioni",
+      "zen_mode": "Modalità Zen",
+      "zen_mode_desc": "Semplifica interfaccia per ridurre carico cognitivo",
+      "live_announcements": "Annunci dal vivo",
+      "live_announcements_desc": "Annuncia nuovi rilevamenti con avvisi screen reader."
+    },
+    "frigate": {
+      "title": "Frigate NVR",
+      "url": "URL Server",
+      "test_connection": "Test Connessione",
+      "sync_cameras": "Sincronizza Telecamere",
+      "test_mqtt": "Test Pipeline MQTT",
+      "mqtt_broker": "Broker MQTT",
+      "mqtt_port": "Porta",
+      "mqtt_auth": "Usa Autenticazione",
+      "mqtt_user": "Utente",
+      "mqtt_pass": "Password",
+      "fetch_clips": "Recupera Clip Video",
+      "fetch_clips_desc": "Usa registrazioni Frigate per riclassificazione"
+    },
+    "cameras": {
+      "title": "Telecamere Attive",
+      "none_found": "Nessuna Telecamera Trovata",
+      "syncing": "Scansione..."
+    },
+    "telemetry": {
+      "title": "Telemetria",
+      "desc": "Aiuta a migliorare YA-WAMF condividendo statistiche di utilizzo anonime.",
+      "transparency": "Trasparenza: Cosa inviamo",
+      "install_id": "ID Installazione",
+      "version": "Versione App",
+      "platform": "Piattaforma",
+      "features": "Funzionalità Abilitate",
+      "privacy_notice": "Questi dati sono inviati in modo sicuro per aiutarci a capire come viene usata l'app. Nessuna immagine o dato personale di rilevamento viene condiviso."
+    },
+    "email": {
+      "title": "Notifiche Email",
+      "desc": "Invia avvisi email per rilevamenti uccelli",
+      "enable": "Abilita Notifiche Email",
+      "auth_mode": "Modalità Autenticazione",
+      "oauth": "OAuth (Consigliato)",
+      "smtp": "SMTP Tradizionale",
+      "oauth_section": "Configurazione OAuth",
+      "oauth_desc": "Autenticazione sicura usando Gmail o Outlook",
+      "connect_gmail": "Connetti Gmail",
+      "connect_outlook": "Connetti Outlook",
+      "connected": "Connesso come {email}",
+      "disconnect": "Disconnetti",
+      "not_connected": "Non connesso",
+      "oauth_instructions": "Clicca il pulsante per autorizzare YA-WAMF a inviare email per tuo conto. Verrai reindirizzato a {provider} per accedere.",
+      "smtp_section": "Configurazione SMTP",
+      "smtp_desc": "Impostazioni server email tradizionali",
+      "smtp_host": "Server SMTP",
+      "smtp_host_placeholder": "smtp.gmail.com",
+      "smtp_port": "Porta",
+      "smtp_username": "Nome utente",
+      "smtp_password": "Password",
+      "smtp_use_tls": "Usa TLS/STARTTLS",
+      "from_email": "Email Mittente",
+      "from_email_placeholder": "tua-email@esempio.com",
+      "to_email": "Email Destinatario",
+      "to_email_placeholder": "destinatario@esempio.com",
+      "preferences": "Preferenze Email",
+      "include_snapshot": "Includi Immagine Snapshot",
+      "only_on_end": "Invia solo alla fine dell'evento",
+      "only_on_end_desc": "Invia email solo quando Frigate pubblica l'evento di fine (trattato come aggiornamento).",
+      "dashboard_url": "URL Dashboard",
+      "dashboard_url_placeholder": "https://tuo-dominio.com",
+      "dashboard_url_desc": "Link alla tua dashboard nelle notifiche email",
+      "test_email": "Invia Email di Test",
+      "test_email_sending": "Invio...",
+      "test_email_success": "Email di test inviata con successo a {email}!",
+      "test_email_error": "Impossibile inviare email di test: {error}",
+      "oauth_connect_success": "{provider} connesso con successo!",
+      "oauth_disconnect_success": "{provider} disconnesso",
+      "oauth_error": "Errore OAuth: {error}",
+      "credentials_required": "Per favore configura prima le credenziali OAuth o SMTP"
+    },
+    "notifications": {
+      "global_filters": "Filtri Notifica Globali",
+      "min_confidence": "Confidenza minima",
+      "notify_all": "Notifica tutti",
+      "high_confidence_only": "Solo alta confidenza",
+      "audio_only": "Solo confermati audio",
+      "audio_only_desc": "Avvisa solo quando l'audio BirdNET conferma il rilevamento.",
+      "species_whitelist": "Whitelist specie",
+      "species_placeholder": "Aggiungi una specie (es. Cardinale Rosso)",
+      "no_species_filter": "Nessun filtro specie applicato",
+      "delivery_policy": "Politica di consegna",
+      "mode_title": "Modalità notifiche",
+      "mode_desc": "Scegli quando inviare le notifiche. Avanzato permette di personalizzare i trigger.",
+      "mode_final": "Solo finale",
+      "mode_final_desc": "Notifica solo quando l'evento termina e l'analisi video (se attiva) è completata.",
+      "mode_standard": "Standard",
+      "mode_standard_desc": "Notifica quando viene creato un rilevamento confermato.",
+      "mode_realtime": "In tempo reale",
+      "mode_realtime_desc": "Notifica presto e consente aggiornamenti mentre il rilevamento evolve.",
+      "mode_silent": "Silenzioso",
+      "mode_silent_desc": "Disattiva tutte le notifiche.",
+      "advanced_title": "Controlli avanzati",
+      "advanced_desc": "Regola finemente i trigger (interruttori).",
+      "advanced_on": "Avanzato attivo",
+      "advanced_off": "Avanzato disattivo",
+      "notify_on_insert": "Notifica su nuovi rilevamenti",
+      "notify_on_insert_desc": "Invia notifiche solo quando viene creato un nuovo rilevamento.",
+      "notify_on_update": "Notifica su aggiornamenti",
+      "notify_on_update_desc": "Invia notifiche quando i rilevamenti vengono aggiornati (punteggio più alto o confermato audio).",
+      "confirmation_policy": "Le notifiche vengono inviate solo quando lo snapshot è confermato (soglia di confidenza o audio confermato) oppure quando l’analisi video conferma il rilevamento.",
+      "delay_until_video": "Ritarda fino analisi video",
+      "delay_until_video_desc": "Attendi analisi video automatica prima di notificare, se abilitata.",
+      "video_fallback_timeout": "Timeout fallback video",
+      "video_fallback_timeout_desc": "Attendi questo tempo per il video prima di inviare notifica snapshot.",
+      "video_fallback_seconds": "secondi",
+      "cooldown": "Raffreddamento notifiche",
+      "cooldown_desc": "Tempo minimo tra notifiche in minuti (0 per disattivare).",
+      "cooldown_unit": "minuti"
+    },
+    "discord": {
+      "title": "Notifiche Discord",
+      "webhook_url": "URL Webhook",
+      "webhook_placeholder": "https://discord.com/api/webhooks/...",
+      "bot_username": "Nome utente Bot",
+      "test_notification": "Invia notifica test",
+      "test_sending": "Invio..."
+    },
+    "pushover": {
+      "title": "Notifiche Pushover",
+      "user_key": "Chiave Utente",
+      "user_key_placeholder": "La tua chiave utente Pushover",
+      "api_token": "Token API",
+      "api_token_placeholder": "Il tuo token API Pushover",
+      "priority": "Priorità",
+      "priority_lowest": "Minima",
+      "priority_low": "Bassa",
+      "priority_normal": "Normale",
+      "priority_high": "Alta",
+      "priority_emergency": "Emergenza",
+      "test_notification": "Invia notifica test",
+      "test_sending": "Invio..."
+    },
+    "telegram": {
+      "title": "Notifiche Telegram",
+      "bot_token": "Token Bot",
+      "bot_token_placeholder": "123456:ABC-DEF...",
+      "chat_id": "ID Chat",
+      "chat_id_placeholder": "123456789",
+      "test_notification": "Invia notifica test",
+      "test_sending": "Invio..."
+    },
+    "location": {
+      "title": "Posizione",
+      "auto": "Auto",
+      "manual": "Manuale",
+      "latitude": "Latitudine",
+      "longitude": "Longitudine",
+      "temperature_unit": "Unità Temperatura",
+      "celsius": "Celsius (°C)",
+      "fahrenheit": "Fahrenheit (°F)",
+      "temperature_unit_desc": "Mostra temperatura nei dati meteo",
+      "auto_detect_enabled": "Rilevamento auto tramite IP abilitato",
+      "desc": "Usato per contesto meteo locale durante rilevamenti."
+    },
+    "danger": {
+      "title": "Zona Pericolo",
+      "subtitle": "Azioni distruttive",
+      "reset_desc": "Il reset del database eliminerà DEFINITIVAMENTE TUTTI i rilevamenti e pulirà la cache media. Questa azione non può essere annullata.",
+      "reset_button": "Reset Database e Cache",
+      "resetting": "Reset...",
+      "confirm": "PERICOLO: Questo eliminerà TUTTI i rilevamenti e pulirà la cache media. Questa azione non può essere annullata. Sei sicuro?"
+    }
+  },
+  "auth": {
+    "login": "Accedi",
+    "logout": "Esci",
+    "welcome_back": "Bentornato",
+    "signin_desc": "Accedi per gestire la tua mangiatoia",
+    "username": "Nome utente",
+    "password": "Password",
+    "username_placeholder": "admin",
+    "signin_button": "Accedi",
+    "verifying": "Accesso...",
+    "continue_guest": "Continua come Ospite",
+    "secure_access": "Accesso Sicuro YA-WAMF"
+  },
+  "status": {
+    "audio_active": "Analisi Audio Attiva",
+    "notifications_enabled": "Notifiche Abilitate",
+    "system_online": "Sistema Online",
+    "system_offline": "Sistema Offline"
+  },
+  "notifications": {
+    "reclassify_fallback": "⚠️ Video non disponibile - usato snapshot",
+    "reclassify_failed": "Riclassificazione fallita: {message}",
+    "settings_saved": "Impostazioni salvate con successo!",
+    "settings_load_failed": "Caricamento impostazioni fallito",
+    "center_title": "Notifiche",
+    "center_expand": "Espandi",
+    "center_ongoing": "Azioni in corso",
+    "center_ongoing_label": "In esecuzione",
+    "center_history": "Notifiche",
+    "center_history_empty": "Nessuna notifica recente.",
+    "center_empty": "Tutto in ordine.",
+    "center_mark_all": "Segna tutte come lette",
+    "center_clear": "Svuota",
+    "page_title": "Notifiche",
+    "page_subtitle": "Rivedi azioni in corso e avvisi passati.",
+    "page_ongoing": "Azioni in corso",
+    "page_history": "Cronologia",
+    "page_empty": "Nessuna notifica al momento.",
+    "event_detection": "Nuova rilevazione",
+    "event_detection_desc": "{species} • {camera}",
+    "event_reclassify": "Riclassificazione completata",
+    "event_reclassify_desc": "{species}",
+    "event_reclassify_progress": "Analisi {current}/{total}",
+    "event_backfill": "Backfill rilevazioni in corso",
+    "event_backfill_done": "Backfill rilevazioni completato",
+    "event_backfill_failed": "Backfill rilevazioni fallito",
+    "event_weather_backfill": "Backfill meteo in corso",
+    "event_weather_backfill_done": "Backfill meteo completato",
+    "event_weather_backfill_failed": "Backfill meteo fallito"
+  },
+  "actions": {
+    "confirm_delete": "Eliminare questo rilevamento di {species}?",
+    "play_video": "Riproduci Video",
+    "deep_reclassify": "Riclassificazione Profonda",
+    "manual_tag": "Tag Manuale",
+    "reclassify": "Riclassifica",
+    "species_info": "Info Specie",
+    "delete_detection": "Elimina Rilevamento",
+    "hide_detection": "Nascondi Rilevamento",
+    "read_more_wikipedia": "Leggi altro su Wikipedia",
+    "read_more_source": "Leggi altro su {source}"
+  },
+  "detection": {
+    "confidence": "Confidenza",
+    "verified": "Verificato",
+    "hidden": "Nascosto",
+    "frigate_score": "FRIGATE: {score}%",
+    "audio_match": "Audio confermato",
+    "audio_context": "Contesto audio",
+    "audio_context_loading": "Caricamento contesto audio...",
+    "audio_context_empty": "Nessuna rilevazione audio vicina",
+    "weather_title": "Meteo",
+    "weather_details": "Dettagli",
+    "weather_unknown": "Meteo",
+    "weather_wind": "Vento",
+    "weather_cloud": "Copertura nuvolosa",
+    "weather_precip": "Precip",
+    "weather_rain": "Pioggia",
+    "weather_snow": "Neve",
+    "weather_icy": "Ghiaccio",
+    "inat": {
+      "title": "iNaturalist",
+      "connected": "Connesso: {user}",
+      "preview_note": "Modalità anteprima (connetti per inviare)",
+      "open": "Apri",
+      "close": "Chiudi",
+      "open_label": "Apri invio iNaturalist",
+      "loading": "Preparazione invio...",
+      "species": "Specie",
+      "observed": "Osservato",
+      "latitude": "Latitudine",
+      "longitude": "Longitudine",
+      "place": "Luogo",
+      "notes": "Note",
+      "submit": "Invia a iNaturalist",
+      "submitting": "Invio..."
+    },
+    "review_in_explorer": "Apri nell'esploratore",
+    "review_in_explorer_hint": "Apri l'esploratore per rivedere e taggare i rilevamenti sconosciuti.",
+    "birdnet_confirmed": "Confermato BirdNET",
+    "frigate_verified": "Verificato Frigate",
+    "video_analysis": {
+      "title": "Analisi Video Profonda",
+      "match": "{score}% Corrispondenza",
+      "verified_desc": "Verificato tramite logica insieme temporale (Soft-Voting).",
+      "in_progress": "Analisi Video in corso...",
+      "failed_title": "Analisi Video Fallita",
+      "errors": {
+        "clip_unavailable": "Clip non disponibile. Usata analisi snapshot.",
+        "clip_invalid": "Formato clip non valido. Usata analisi snapshot.",
+        "clip_decode_failed": "Impossibile decodificare clip. Usata analisi snapshot.",
+        "timeout": "Timeout Frigate durante preparazione clip.",
+        "frigate_unavailable": "Frigate non disponibile. Usata analisi snapshot.",
+        "no_results": "L'analisi video non ha prodotto risultati.",
+        "event_missing": "Evento non trovato in Frigate.",
+        "unknown": "Analisi video fallita. Usata analisi snapshot."
+      }
+    },
+    "reclassification": {
+      "analysis": "Analisi",
+      "ai_analysis": "Analisi IA",
+      "frame_grid": "Griglia Frame",
+      "frame_progress": "Frame {current}/{total}",
+      "model": "Modello: {name}",
+      "done": "Fatto"
+    },
+    "ai": {
+      "insight": "Insight Naturalista IA",
+      "ask": "Chiedi a Naturalista IA",
+      "analyzing": "Analisi comportamento...",
+      "regenerating": "Rigenerazione...",
+      "regenerate": "Rigenera Analisi",
+      "error": "Errore: {message}"
+    },
+    "tagging": {
+      "search_placeholder": "Cerca specie...",
+      "no_results": "Nessuna specie trovata"
+    },
+    "card_label": "{species} rilevato su {camera}",
+    "image_alt": "{species} rilevato su {camera}",
+    "play_video": "Riproduci video di {species}",
+    "reclassify": "Riclassifica rilevamento di {species}",
+    "retag": "Tag manuale rilevamento di {species}"
+  },
+  "events": {
+    "title": "Eventi",
+    "total_count": "{count} totali",
+    "filters": {
+      "all_time": "Tutto il tempo",
+      "week": "Settimana",
+      "month": "Mese",
+      "custom": "Personalizzato",
+      "all_species": "Tutte le Specie",
+      "all_cameras": "Tutte le Telecamere"
+    },
+    "sort": {
+      "newest": "Più recenti",
+      "oldest": "Meno recenti",
+      "confidence": "Confidenza"
+    },
+    "empty_title": "Nessun evento ancora",
+    "empty_desc": "Esegui backfill o attendi nuovi rilevamenti per vederli qui.",
+    "load_failed": "Caricamento eventi fallito"
+  },
+  "leaderboard": {
+    "title": "Classifica Specie",
+    "species_count": "{count} specie",
+    "detections_count": "{count} rilevamenti",
+    "sort_by_day": "Giorno",
+    "sort_by_week": "Settimana",
+    "sort_by_month": "Mese",
+    "featured": "In evidenza",
+    "view_details": "Vedi dettagli",
+    "total_sightings": "Avvistamenti totali",
+    "last_30_days": "Ultimi 30 giorni",
+    "last_7_days": "Ultimi 7 giorni",
+    "last_n_days": "Ultimi {days} giorni",
+    "detections_over_time": "Rilevamenti nel tempo",
+    "last_seen": "Visto l'ultima volta",
+    "trend": "Trend",
+    "streak_14d": "Sequenza 14 giorni",
+    "days": "giorni",
+    "cameras": "Telecamere",
+    "avg_confidence": "Confidenza media",
+    "most_active": "Più attivi",
+    "longest_streak": "Sequenza più lunga",
+    "rising": "In ascesa",
+    "most_recent": "Più recenti",
+    "rank": "Posizione",
+    "species": "Specie",
+    "view_species": "Vedi {species}",
+    "no_species": "Nessuna specie rilevata ancora",
+    "no_species_desc": "I rilevamenti uccelli appariranno qui una volta registrati",
+    "all_species": "Tutte le Specie",
+    "percentage_of_total": "{percentage}% del totale",
+    "unidentified_desc": "Rilevamento non identificato - clicca per rivedere e riclassificare",
+    "needs_review": "Necessita Revisione",
+    "temperature": "Temperatura",
+    "show_weather": "Mostra meteo",
+    "hide_weather": "Nascondi meteo",
+    "show_temperature": "Mostra temperatura",
+    "hide_temperature": "Nascondi temperatura",
+    "show_wind": "Mostra vento",
+    "hide_wind": "Nascondi vento",
+    "show_precip": "Mostra precipitazioni",
+    "hide_precip": "Nascondi precipitazioni",
+    "wind_avg": "Vento medio",
+    "precip": "Precipitazioni",
+    "sunrise": "Alba",
+    "sunset": "Tramonto",
+    "am_pm_bands": "Bande AM/PM",
+    "load_failed": "Caricamento dati specie fallito",
+    "ai_analyze": "Analizza grafico",
+    "ai_analyzing": "Analisi in corso…",
+    "ai_rerun": "Riesegui analisi",
+    "ai_summary": "Insight IA"
+  },
+  "about": {
+    "title": "Informazioni su questo Progetto",
+    "how_it_works": "Come Funziona",
+    "features": "Funzionalità",
+    "tech_stack": "Stack Tecnologico",
+    "docs_resources": "Documentazione e Risorse",
+    "credits": "Crediti e Ringraziamenti",
+    "built_with_ai": "Costruito con assistenza IA per amore del birdwatching 🐦",
+    "project_desc_1": "YA-WAMF è un progetto personale iniziato per sperimentare con la programmazione assistita da IA. Quando il progetto originale {link} non è stato più mantenuto, questo è nato come opportunità di apprendimento e strumento utile per gli appassionati di uccelli.",
+    "project_desc_2": "L'intera applicazione è stata costruita con l'aiuto di assistenti di programmazione IA - è stata un'esplorazione interessante di ciò che è possibile con questi strumenti. Se noti qualche imperfezione, probabilmente è per questo!",
+    "steps": {
+      "1": {
+        "title": "Frigate Rileva",
+        "desc": "La tua telecamera rileva movimento, Frigate lo identifica come un uccello"
+      },
+      "2": {
+        "title": "Messaggio MQTT",
+        "desc": "Frigate pubblica un evento al tuo broker MQTT"
+      },
+      "3": {
+        "title": "YA-WAMF Elabora",
+        "desc": "Il backend sottoscrive MQTT e preleva l'evento"
+      },
+      "4": {
+        "title": "Classificazione",
+        "desc": "L'immagine passa attraverso il modello ML (o usa sub-label Frigate)"
+      },
+      "5": {
+        "title": "Correlazione Audio",
+        "desc": "Incrocia con identificazioni audio BirdNET-Go se disponibili"
+      },
+      "6": {
+        "title": "Salva e Notifica",
+        "desc": "Rilevamento salvato nel database, notifiche inviate"
+      },
+      "7": {
+        "title": "Analisi Video",
+        "desc": "Opzionale: Scansiona frame clip video per accuratezza raffinata"
+      },
+      "8": {
+        "title": "Aggiornamenti Live",
+        "desc": "La dashboard riceve aggiornamenti in tempo reale via Server-Sent Events"
+      }
+    },
+    "feature_list": {
+      "ai_models": {
+        "title": "Modelli IA Avanzati",
+        "desc": "Scegli tra MobileNetV2 (veloce), ConvNeXt (alta precisione) o EVA-02 (elite ~91% precisione)"
+      },
+      "multi_sensor": {
+        "title": "Correlazione Multi-Sensore",
+        "desc": "Incrocia rilevamenti visivi con identificazioni audio BirdNET-Go per avvistamenti verificati"
+      },
+      "video_analysis": {
+        "title": "Auto Analisi Video",
+        "desc": "Scansiona automaticamente 15+ frame da clip video per maggiore accuratezza usando logica insieme temporale"
+      },
+      "notifications": {
+        "title": "Notifiche Ricche",
+        "desc": "Supporto Discord, Telegram e Pushover con filtri personalizzabili e avvisi specifici per specie"
+      },
+      "ai_insights": {
+        "title": "Insight Naturalista IA",
+        "desc": "Ottieni analisi comportamentale dei tuoi visitatori usando modelli di linguaggio Gemini, OpenAI o Claude"
+      },
+      "taxonomy": {
+        "title": "Normalizzazione Tassonomia",
+        "desc": "Mappatura automatica nomi scientifici ↔ comuni usando dati iNaturalist"
+      },
+      "inaturalist_submissions": {
+        "title": "Invii a iNaturalist",
+        "desc": "Invii revisionati dal proprietario con foto, posizione e note",
+        "badge": "Tester richiesti"
+      },
+      "weather": {
+        "title": "Arricchimento Meteo",
+        "desc": "Traccia rilevamenti con condizioni meteo locali e dati temperatura"
+      },
+      "home_assistant": {
+        "title": "Integrazione Home Assistant",
+        "desc": "Sensori nativi per tracciare l'ultimo uccello rilevato e conteggi giornalieri visitatori"
+      },
+      "birdweather": {
+        "title": "Reporting BirdWeather",
+        "desc": "Opzionale: Contribuisci con i tuoi rilevamenti alla piattaforma di scienza cittadina BirdWeather"
+      },
+      "observability": {
+        "title": "Osservabilità",
+        "desc": "Metriche Prometheus integrate, telemetria opzionale e diagnostica MQTT in tempo reale"
+      },
+      "wildlife": {
+        "title": "Classificatore Fauna Selvatica",
+        "desc": "Identifica scoiattoli, volpi e altri visitatori non uccelli alla tua mangiatoia"
+      },
+      "fast_path": {
+        "title": "Efficienza Fast Path",
+        "desc": "Salta elaborazione IA locale e usa direttamente sub-label Frigate per risparmiare risorse CPU"
+      },
+      "guest_mode": {
+        "title": "Vista Pubblica (Modalità Ospite)",
+        "desc": "Condividi dashboard sola lettura con limiti frequenza e occultamento opzionale nomi telecamere"
+      }
+    },
+    "tech": {
+      "backend": "Backend",
+      "frontend": "Frontend",
+      "ml": "Motore ML",
+      "messaging": "Messaggistica",
+      "deployment": "Deploy"
+    },
+    "links": {
+      "repo": "Repository GitHub",
+      "repo_desc": "Codice sorgente, issues e release",
+      "docs": "Documentazione",
+      "docs_desc": "Guide configurazione, riferimento API e risoluzione problemi",
+      "frigate": "Frigate NVR",
+      "frigate_desc": "Richiesto: NVR open-source con rilevamento oggetti",
+      "birdnet": "BirdNET-Go",
+      "birdnet_desc": "Opzionale: Identificazione audio uccelli"
+    },
+    "credits_list": {
+      "preamble": "Questo progetto non sarebbe possibile senza:",
+      "inspiration": "Il progetto originale {link} per l'ispirazione",
+      "frigate": "{link} per essere un eccellente NVR open-source",
+      "birdnet": "{link} per l'integrazione della classificazione audio",
+      "benjordan": "{link} su YouTube per i contenuti ispiratori sul rilevamento uccelli",
+      "ai_assistants": "Assistenti IA che hanno aiutato a costruire questa applicazione"
+    }
+  },
+  "species_detail": {
+    "no_wiki": "Nessuna informazione Wikipedia disponibile per questa specie.",
+    "no_info": "Nessuna informazione di riferimento disponibile per questa specie.",
+    "avg_confidence": "Confidenza Media",
+    "first_seen": "Visto Primo",
+    "last_seen": "Visto Ultimo",
+    "activity_patterns": "Pattern Attività",
+    "camera_breakdown": "Ripartizione Telecamere",
+    "recent_sightings": "Avvistamenti Recenti"
+  },
+  "pagination": {
+    "navigation": "Paginazione",
+    "previous_page": "Pagina precedente",
+    "next_page": "Pagina successiva",
+    "page_number": "Pagina {number}",
+    "page_size_label": "Mostra:",
+    "page_size_aria": "Elementi per pagina"
+  },
+  "shortcuts": {
+    "title": "Scorciatoie Tastiera",
+    "hint": "Scorciatoie tastiera (?)",
+    "open_panel": "Apri pannello scorciatoie",
+    "go_dashboard": "Vai a Dashboard",
+    "go_events": "Vai a Eventi",
+    "go_species": "Vai a Classifica",
+    "go_settings": "Vai a Impostazioni",
+    "close_modal": "Chiudi modale",
+    "refresh": "Aggiorna pagina"
+  },
+  "footer": {
+    "did_you_know": "Lo sapevi?",
+    "bird_facts": [
+      "I colibrì possono volare all'indietro e sono gli unici uccelli che possono librarsi sul posto",
+      "I corvi possono riconoscere i volti umani e ricordare le persone che hanno fatto loro un torto",
+      "La sterna codalunga migra oltre 44.000 miglia all'anno - la migrazione più lunga di qualsiasi uccello",
+      "I gufi non possono muovere i bulbi oculari, ecco perché possono ruotare la testa fino a 270 gradi",
+      "Il falco pellegrino può picchiare a velocità superiori a 240 mph, rendendolo l'animale più veloce sulla Terra",
+      "I corvi imperiali possono imitare la voce umana e altri suoni come motori di auto e sciacquoni",
+      "I pinguini fanno la proposta ai loro compagni con un sassolino",
+      "Le ghiandaie azzurre possono imitare i richiami dei falchi per spaventare altri uccelli dalle mangiatoie",
+      "Le piume di un uccello pesano più del suo scheletro",
+      "Il colibrì di Elena è l'uccello più piccolo del mondo, pesa meno di un centesimo",
+      "Le fregate possono rimanere in aria per mesi senza atterrare",
+      "Le gazze sono uno dei pochi animali che possono riconoscersi allo specchio",
+      "L'albatro urlatore ha l'apertura alare più grande di qualsiasi uccello vivente, fino a 11,8 piedi",
+      "I picchi non hanno mal di testa perché i loro crani hanno sacche d'aria per assorbire l'impatto",
+      "I rondoni passano la maggior parte della loro vita in aria e possono persino dormire mentre volano",
+      "Gli uccelli non sono reali - sono droni di sorveglianza del governo (presumibilmente)",
+      "Le oche hanno denti sulla lingua. Dormi bene stanotte!",
+      "Meglio un uccello in mano che due nel cespuglio",
+      "I pinguini sono solo polli formali vestiti per un gala",
+      "I galli urlano al sole perché hanno paura del buio"
+    ]
+  }
+}

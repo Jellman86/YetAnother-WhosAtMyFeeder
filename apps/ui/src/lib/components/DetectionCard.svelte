@@ -34,6 +34,15 @@
     let subName = $derived(naming.secondary);
 
     let isVerified = $derived(detection.audio_confirmed && detection.score > 0.7);
+    let hasWeather = $derived(
+        detection.temperature !== undefined && detection.temperature !== null ||
+        !!detection.weather_condition ||
+        detection.weather_cloud_cover !== undefined && detection.weather_cloud_cover !== null ||
+        detection.weather_wind_speed !== undefined && detection.weather_wind_speed !== null ||
+        detection.weather_precipitation !== undefined && detection.weather_precipitation !== null ||
+        detection.weather_rain !== undefined && detection.weather_rain !== null ||
+        detection.weather_snowfall !== undefined && detection.weather_snowfall !== null
+    );
 
     let imageError = $state(false);
     let imageLoaded = $state(false);
@@ -108,20 +117,76 @@
         if (score >= 0.7) return 'border-amber-500/30';
         return 'border-red-500/30';
     }
+
+    const rainTotal = $derived(
+        (detection.weather_rain ?? 0) + (detection.weather_precipitation ?? 0)
+    );
+    const hasRain = $derived(
+        rainTotal > 0 || (detection.weather_condition || '').toLowerCase().includes('rain')
+    );
+    const snowTotal = $derived(
+        detection.weather_snowfall ?? 0
+    );
+    const hasSnow = $derived(
+        snowTotal > 0 || (detection.weather_condition || '').toLowerCase().includes('snow')
+    );
+    const hasCloud = $derived(
+        detection.weather_cloud_cover !== undefined &&
+        detection.weather_cloud_cover !== null
+    );
+    const windSpeed = $derived(
+        detection.weather_wind_speed !== undefined &&
+        detection.weather_wind_speed !== null
+            ? Number(detection.weather_wind_speed)
+            : null
+    );
+    const hasWind = $derived(windSpeed !== null && !Number.isNaN(windSpeed));
+    const hasIcy = $derived(
+        detection.temperature !== undefined &&
+        detection.temperature !== null &&
+        detection.temperature <= 0
+    );
+
+    function rainColor(total: number) {
+        if (total >= 5) return 'text-blue-600';
+        if (total >= 1) return 'text-blue-500';
+        if (total > 0) return 'text-blue-400';
+        return 'text-blue-300';
+    }
+
+    function snowColor(total: number) {
+        if (total >= 5) return 'text-indigo-600';
+        if (total >= 1) return 'text-indigo-500';
+        if (total > 0) return 'text-indigo-400';
+        return 'text-indigo-300';
+    }
+
+    function windColor(speed: number | null) {
+        if (speed === null || Number.isNaN(speed)) return 'text-emerald-400';
+        if (speed >= 40) return 'text-rose-500';
+        if (speed >= 25) return 'text-amber-500';
+        if (speed >= 10) return 'text-emerald-500';
+        return 'text-emerald-400';
+    }
+
+    function cloudColor(cover?: number | null) {
+        if (cover === null || cover === undefined || Number.isNaN(cover)) return 'text-slate-400';
+        if (cover >= 80) return 'text-slate-600';
+        if (cover >= 50) return 'text-slate-500';
+        if (cover >= 20) return 'text-slate-400';
+        return 'text-slate-300';
+    }
+
+    function formatPrecip(value?: number | null): string {
+        if (value === null || value === undefined || Number.isNaN(value)) return '0mm';
+        if (value < 0.1) return `${value.toFixed(2)}mm`;
+        if (value < 1) return `${value.toFixed(1)}mm`;
+        return `${value.toFixed(0)}mm`;
+    }
 </script>
 
 <div
-    role="article"
-    tabindex="0"
-    aria-label="{$_('detection.card_label', { values: { species: primaryName, camera: detection.camera_name } })}"
     bind:this={cardElement}
-    onclick={onclick}
-    onkeydown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            onclick?.();
-        }
-    }}
     class="group relative bg-white/95 dark:bg-slate-800/85 rounded-3xl
            shadow-card dark:shadow-card-dark hover:shadow-card-hover dark:hover:shadow-card-dark-hover
            border border-slate-200/80 dark:border-slate-700/60
@@ -129,11 +194,17 @@
            hover:border-teal-500/30 dark:hover:border-teal-500/20
            overflow-hidden transition-all duration-500 ease-out
            hover:-translate-y-1.5 flex flex-col h-full
-           text-left w-full cursor-pointer
-           focus:outline-none focus:ring-2 focus:ring-teal-500/50
+           text-left w-full
            {detection.is_hidden ? 'opacity-60 grayscale-[0.5]' : ''}
            {isVerified ? 'ring-2 ring-emerald-500/20 dark:ring-emerald-500/10' : ''}"
 >
+    <button
+        type="button"
+        aria-label="{$_('detection.card_label', { values: { species: primaryName, camera: detection.camera_name } })}"
+        onclick={onclick}
+        class="absolute inset-0 z-10 rounded-3xl focus:outline-none focus:ring-2 focus:ring-teal-500/50"
+    ></button>
+
     <!-- Reclassification Overlay -->
     {#if reclassifyProgress}
         <ReclassificationOverlay progress={reclassifyProgress} small={true} />
@@ -170,7 +241,7 @@
                             }
                         }}
                         aria-label="{$_('detection.play_video', { values: { species: primaryName } })}"
-                        class="w-14 h-14 rounded-full bg-white/90 dark:bg-slate-800/90 flex items-center justify-center shadow-2xl text-teal-600 dark:text-teal-400 hover:scale-110 active:scale-90 transition-transform"
+                        class="relative z-20 w-14 h-14 rounded-full bg-white/90 dark:bg-slate-800/90 flex items-center justify-center shadow-2xl text-teal-600 dark:text-teal-400 hover:scale-110 active:scale-90 transition-transform"
                     >
                         <svg xmlns="http://www.w3.org/2000/svg" class="w-7 h-7 ml-1" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                             <path d="M8 5v14l11-7z"/>
@@ -281,7 +352,7 @@
                 </p>
             {/if}
         </div>
-        {#if (detection.audio_species || detection.audio_confirmed) && (detection.audio_score !== undefined && detection.audio_score !== null)}
+        {#if detection.audio_confirmed}
             <div class="p-3 rounded-2xl bg-teal-500/5 dark:bg-teal-500/10 border border-teal-500/10 dark:border-teal-500/20 flex items-center gap-3 group/audio">
                 <div class="w-8 h-8 rounded-xl bg-teal-500/20 flex items-center justify-center flex-shrink-0">
                     <svg class="w-4 h-4 text-teal-600 dark:text-teal-400 {detection.audio_confirmed ? 'animate-pulse-slow' : ''}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -299,8 +370,59 @@
                 </div>
             </div>
         {/if}
+        {#if hasWeather}
+            <div class="flex items-center justify-between gap-3 rounded-2xl bg-sky-50/80 dark:bg-slate-900/40 border border-sky-100/80 dark:border-slate-700/60 px-3 py-2">
+                <div class="flex items-center gap-3 text-slate-500 dark:text-slate-300 text-[10px] font-semibold">
+                    {#if hasRain}
+                        <div class="flex items-center gap-1">
+                            <svg class="w-4 h-4 {rainColor(rainTotal)}" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-label={$_('detection.weather_rain')}>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 13v4m-4-2v4m-4-2v2m1-8a5 5 0 119.584 1.245A4 4 0 0117 16H7a4 4 0 01-1-7.874" />
+                            </svg>
+                            <span>{formatPrecip(rainTotal)}</span>
+                        </div>
+                    {/if}
+                    {#if hasSnow}
+                        <div class="flex items-center gap-1">
+                            <svg class="w-4 h-4 {snowColor(snowTotal)}" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-label={$_('detection.weather_snow')}>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v18m9-9H3m15.364-6.364l-12.728 12.728m0-12.728l12.728 12.728" />
+                            </svg>
+                            <span>{formatPrecip(snowTotal)}</span>
+                        </div>
+                    {/if}
+                    {#if hasCloud}
+                        <div class="flex items-center gap-1">
+                            <svg class="w-4 h-4 {cloudColor(detection.weather_cloud_cover)}" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-label={$_('detection.weather_cloud')}>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a4 4 0 100-8h-1a5 5 0 10-9 4H7a4 4 0 00-4 4z" />
+                            </svg>
+                            <span>{Math.round(detection.weather_cloud_cover ?? 0)}%</span>
+                        </div>
+                    {/if}
+                    {#if hasWind}
+                        <div class="flex items-center gap-1">
+                            <svg class="w-4 h-4 {windColor(windSpeed)}" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-label={$_('detection.weather_wind')}>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h11a3 3 0 100-6M2 12h13a3 3 0 110 6H9" />
+                            </svg>
+                            <span>{Math.round(windSpeed ?? 0)} km/h</span>
+                        </div>
+                    {/if}
+                    {#if hasIcy}
+                        <div class="flex items-center gap-1">
+                            <svg class="w-4 h-4 text-sky-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-label={$_('detection.weather_icy')}>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v18m4-10l-4 4-4-4" />
+                            </svg>
+                            <span>{formatTemperature(detection.temperature, settingsStore.settings?.location_temperature_unit as any)}</span>
+                        </div>
+                    {/if}
+                </div>
+                {#if detection.temperature !== undefined && detection.temperature !== null}
+                    <div class="text-xs font-black text-slate-700 dark:text-slate-200">
+                        {formatTemperature(detection.temperature, settingsStore.settings?.location_temperature_unit as any)}
+                    </div>
+                {/if}
+            </div>
+        {/if}
         <div class="mt-auto grid grid-cols-2 gap-2">
-            <div class="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-200/50 dark:border-slate-700/50">
+            <div class="col-span-2 flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-200/50 dark:border-slate-700/50">
                 <svg class="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
@@ -308,16 +430,6 @@
                     {formatDate(detection.detection_time)}
                 </span>
             </div>
-            {#if detection.temperature !== undefined && detection.temperature !== null}
-                <div class="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-200/50 dark:border-slate-700/50">
-                    <svg class="w-3.5 h-3.5 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-                    </svg>
-                    <span class="text-[10px] font-black text-slate-700 dark:text-slate-300">
-                        {formatTemperature(detection.temperature, settingsStore.settings?.location_temperature_unit)}
-                    </span>
-                </div>
-            {/if}
             <div class="col-span-2 flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-200/50 dark:border-slate-700/50 overflow-hidden">
                 <svg class="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />

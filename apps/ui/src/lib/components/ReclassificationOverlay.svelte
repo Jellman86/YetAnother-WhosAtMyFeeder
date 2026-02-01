@@ -155,8 +155,3 @@
     </div>
 </div>
 
-<style>
-    .shadow-glow {
-        box-shadow: 0 0 15px rgba(20, 184, 166, 0.3);
-    }
-</style>

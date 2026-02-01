@@ -10,8 +10,8 @@ YA-WAMF already has extensive functionality built-in:
 
 **Core Classification:**
 - ✅ Multiple ML model support (TFLite/ONNX: MobileNetV2, ConvNeXt, EVA-02)
-- ✅ Auto video classification with temporal ensemble (15+ frames)
-- ✅ Wildlife classification (non-bird animals)
+- ✅ Svelte 5 migration
+- ✅ Built-in Authentication system
 - ✅ Fast path mode (trust Frigate sublabels)
 - ✅ Manual reclassification with confidence override
 
@@ -23,11 +23,15 @@ YA-WAMF already has extensive functionality built-in:
 - ✅ Home Assistant custom integration
 - ✅ LLM behavioral analysis (Gemini, OpenAI, Claude)
 - ✅ iNaturalist taxonomy normalization
+- ✅ iNaturalist submission integration (owner-reviewed, currently untested)
+- ✅ Multiple Language Support (i18n) - Translations for 9+ languages
+- ✅ Built-in Authentication system (Admin/Owner & Guest roles)
 
 **User Interface:**
 - ✅ Real-time dashboard with SSE updates
 - ✅ Dark mode support
 - ✅ Detection filtering (species, camera, date, confidence, audio)
+- ✅ Advanced Search & Filtering UI
 - ✅ Video playback with seeking (HTTP Range support)
 - ✅ Statistics dashboard (top visitors, daily histogram, recent audio)
 - ✅ Species detail modals with Wikipedia info
@@ -38,6 +42,7 @@ YA-WAMF already has extensive functionality built-in:
 - ✅ Media caching (snapshots & clips)
 - ✅ Telemetry service (opt-in, anonymous)
 - ✅ Backfill service (reprocess historical events)
+- ✅ AI Integration Persistence (Caching) - Avoid redundant LLM API calls
 - ✅ Health checks & Prometheus metrics
 - ✅ Optional API key authentication
 - ✅ Weather data enrichment
@@ -82,122 +87,29 @@ See [DEVELOPER.md](DEVELOPER.md) for architectural details.
 
 These are the highest-impact features planned for the next major release.
 
-### 1. Multiple Language Support (i18n) 🌍
-**Priority:** P1 | **Effort:** L (2-3 weeks)
+### 1. Technical Debt Cleanup Sprint 🧹
+**Priority:** P0 | **Effort:** L (1-2 weeks)
 
-Make YA-WAMF accessible to users worldwide by adding full internationalization support.
+Focus the next release cycle on resolving outstanding technical debt and stability improvements.
 
-**Why This Matters:**
-Bird watching is a global hobby! Users in non-English speaking countries deserve a native language experience. This includes translating the UI, notifications, and even species names.
+**Scope (examples):**
+- Finish background task hardening across all services
+- Audit and tighten CSP (nonce-based where possible)
+- Complete remaining Svelte 5 state migration
+- Consolidate logging + error handling patterns
+- Remove legacy/dead code paths and document any breaking changes
 
-**What Will Be Implemented:**
+### 2. eBird Integration 🐦
+**Priority:** P1 | **Effort:** M (4-7 days)
 
-**Backend (6 days):**
-- Install and configure i18n framework (Flask-Babel or similar)
-- Extract all hardcoded English strings to translation files
-- Add `/api/settings/language` endpoint for language selection
-- Implement language detection from `Accept-Language` headers
-- Add language parameter to notification services (Discord, Telegram, Pushover)
-- Support multi-lingual species names via iNaturalist API (scientific name + localized common names)
+Add eBird integration for taxonomy lookup and optional submission/links.
 
-**Frontend (7 days):**
-- Integrate Svelte i18n library (`svelte-i18n` or `typesafe-i18n`)
-- Extract all UI strings (buttons, labels, messages, errors) to translation keys
-- Create translation files for each language (JSON format)
-- Add language selector dropdown to Settings → General
-- Implement live language switching (no page reload required)
-- Handle date/time formatting per locale
-- Support RTL (Right-to-Left) layouts for Arabic/Hebrew
+**Notes:**
+- Use eBird taxonomy for name normalization/links where configured.
+- Optional submission flow should be owner-reviewed like iNaturalist.
 
-**Initial Languages:**
-- 🇬🇧 English (default, already complete)
-- 🇪🇸 Spanish
-- 🇩🇪 German
-- 🇫🇷 French
-- 🇳🇱 Dutch
-- 🇵🇹 Portuguese
-- 🇮🇹 Italian (bonus)
-
-**Deliverables:**
-- Translation files: `locales/en.json`, `locales/es.json`, etc.
-- Language selector in Settings UI
-- Localized notifications
-- Localized species common names (fallback to scientific name if unavailable)
-- Documentation for community to contribute translations
-
-**Estimated Breakdown:**
-| Task | Effort |
-|------|--------|
-| Backend i18n framework setup | 2 days |
-| Extract & translate backend strings | 2 days |
-| Frontend i18n library integration | 2 days |
-| Extract & translate frontend strings | 3 days |
-| Language selector UI | 1 day |
-| Species name localization | 1 day |
-| Testing all languages | 2 days |
-| **Total** | **13 days (~2.5 weeks)** |
-
----
-
-### 2. AI Integration Persistence 🧠
-**Priority:** P1 | **Effort:** M (5-7 days)
-
-Add persistent storage for AI-generated behavioral analyses to reduce API costs and improve response times.
-
-**Why This Matters:**
-Currently, every time you view a detection and request AI analysis, it makes a fresh API call to Gemini/OpenAI/Claude. This is expensive ($$$ API costs) and slow. By caching analyses, we can:
-- Reduce API costs by 90%+ (only generate once per detection)
-- Instant display of previously generated analyses
-- Allow offline viewing of past analyses
-- Track which AI model/version generated each analysis
-
-**What Will Be Implemented:**
-
-**Database Schema (1 day):**
-```sql
-CREATE TABLE ai_analyses (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  detection_id INTEGER NOT NULL REFERENCES detections(id) ON DELETE CASCADE,
-  provider VARCHAR(50) NOT NULL,  -- 'gemini', 'openai', 'claude'
-  model VARCHAR(100) NOT NULL,    -- 'gemini-2.0-flash-exp', 'gpt-4o', etc.
-  analysis_text TEXT NOT NULL,
-  metadata JSON,                  -- token usage, temperature, etc.
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE(detection_id, provider, model)
-);
-CREATE INDEX idx_ai_analyses_detection ON ai_analyses(detection_id);
-```
-
-**Backend (3 days):**
-- Update `ai_service.py` to check cache before API call
-- Store all successful analyses in `ai_analyses` table
-- Add TTL/expiration logic (configurable, default: never expire)
-- Add settings option: `llm.cache_enabled` (default: true)
-- Add settings option: `llm.cache_retention_days` (default: 0 = unlimited)
-
-**API Endpoints (1 day):**
-- `GET /api/detections/{id}/ai-analysis` - Get cached or generate new
-  - Query param: `force_regenerate=true` to bypass cache
-- `DELETE /api/detections/{id}/ai-analysis` - Clear cached analysis
-- `GET /api/ai/cache/stats` - Cache statistics (hit rate, total analyses, cost saved)
-
-**Frontend (2 days):**
-- Update `SpeciesDetailModal.svelte` to show cache status:
-  - "✓ Cached analysis from 2 hours ago"
-  - "🔄 Regenerate" button to force fresh analysis
-  - Show which model generated the analysis
-- Add cache stats to Settings → AI Integration
-- Add "Clear All AI Caches" button in Settings
-
-**Estimated Breakdown:**
-| Task | Effort |
-|------|--------|
-| Database schema & Alembic migration | 1 day |
-| Backend cache implementation | 2 days |
-| API endpoints | 1 day |
-| Frontend UI updates | 1.5 days |
-| Testing & documentation | 1 day |
-| **Total** | **6.5 days (~1.5 weeks)** |
+### 3. iNaturalist Photo Submission 🌿 (Completed)
+**Status:** ✅ Implemented (owner-reviewed, currently untested due to App Owner approval limits)
 
 ---
 
@@ -244,24 +156,12 @@ Enhance the detection search interface with an intuitive filter panel.
 
 **Current State:**
 - ✅ Backend supports filtering by species, camera, date, confidence, audio confirmation
-- ❌ Frontend only has basic text search
-
-**What to Add:**
-- Visual filter panel with:
-  - Date range picker (from/to)
-  - Camera multi-select dropdown
-  - Confidence range slider (0-100%)
-  - Audio-confirmed checkbox
-  - "Hidden detections" toggle
-- Saved filter presets (save favorite filters)
-- "Clear All Filters" button
-- Export filtered results to CSV/JSON
+- ✅ Visual filter panel implemented (date presets, species, camera, sort)
 
 **Breakdown:**
-- Frontend filter panel UI: 2 days
-- Saved presets (localStorage): 1 day
-- Export functionality: 1 day
-- Testing: 0.5 days
+- ✅ Frontend filter panel UI
+- ❌ Saved filter presets (save favorite filters)
+- ❌ Export filtered results to CSV/JSON
 
 ### 2.2 Enhanced Analytics Dashboard 📊
 **Priority:** P2 | **Effort:** M (5-7 days)
@@ -316,27 +216,14 @@ Enhance the detection search interface with an intuitive filter panel.
 ### 3.1 Multi-User Support & Roles 👥
 **Priority:** P2 | **Effort:** XL (3-4 weeks)
 
-Add user accounts, authentication, and role-based access control.
+✅ **Implemented in v2.6.0**
 
-**Implementation:**
-- User authentication system (JWT tokens)
-- User registration/login/logout
-- Password reset flow
-- User roles:
-  - **Admin:** Full access, settings management
-  - **User:** View detections, limited settings
-  - **Viewer:** Read-only access
-- Per-user notification preferences
-- Audit log for settings changes
-- SSO support (OAuth2: Google, GitHub)
-
-**Breakdown:**
-- Auth backend (JWT, DB schema): 5 days
-- User management UI: 4 days
-- Role-based permissions: 3 days
-- SSO integration: 3 days
-- Migration path from single-key auth: 2 days
-- Testing & security audit: 3 days
+- ✅ User authentication system (JWT tokens)
+- ✅ User registration/login/logout
+- ✅ User roles: Admin (Owner) and Viewer (Guest)
+- ✅ Rate limiting and session management
+- ❌ Password reset flow (currently manual reset via config.json)
+- ❌ SSO support (OAuth2: Google, GitHub)
 
 ### 3.2 Enhanced Notification Rules 🔔
 **Priority:** P2 | **Effort:** S (2-3 days)
@@ -430,7 +317,7 @@ Add support for self-hosted LLMs via Ollama for privacy-conscious users.
 - History page: 1 day
 - Testing: 0.5 days
 
-### 4.2 eBird Integration 🐦
+### 4.3 eBird Integration 🐦
 **Priority:** P2 | **Effort:** M (6-7 days)
 
 Integrate with eBird for species validation and community science.
@@ -450,25 +337,6 @@ Integrate with eBird for species validation and community science.
 - Submission flow with consent: 1.5 days
 - UI integration: 1.5 days
 - Testing: 1 day
-
-### 4.3 PostgreSQL Support 🐘
-**Priority:** P2 | **Effort:** M (5-6 days)
-
-Add PostgreSQL as an alternative to SQLite for high-volume installations.
-
-**Implementation:**
-- Abstract database layer (keep SQLite support)
-- PostgreSQL-specific optimizations (indexes, materialized views)
-- Migration tool from SQLite to PostgreSQL
-- Connection pooling
-- Docker Compose update with PostgreSQL service
-- Performance benchmarking guide
-
-**Breakdown:**
-- Database abstraction: 2 days
-- PostgreSQL adapter: 2 days
-- Migration tooling: 1.5 days
-- Testing & documentation: 1 day
 
 ### 4.4 Backup & Export Tools 💾
 **Priority:** P1 | **Effort:** M (4-5 days)
@@ -546,30 +414,13 @@ Optimize system performance for large installations.
 ### 5.3 Testing Infrastructure 🧪
 **Priority:** P1 | **Effort:** L (1.5-2 weeks)
 
-Establish comprehensive testing coverage.
+✅ **Implemented**
 
-**Tasks:**
-- Unit tests:
-  - Service layer (target 80% coverage)
-  - Repository layer
-  - Utility functions
-- Integration tests:
-  - API endpoints
-  - MQTT event flow
-  - Database migrations
-- E2E tests:
-  - Frontend critical paths (Playwright)
-  - User workflows
-- CI/CD pipeline:
-  - GitHub Actions for automated testing
-  - Code coverage reporting
-  - Linting enforcement
-
-**Breakdown:**
-- Unit tests: 5 days
-- Integration tests: 3 days
-- E2E tests: 2 days
-- CI/CD setup: 2 days
+- ✅ Unit tests for Service layer, repositories, and utilities
+- ✅ Integration tests for API endpoints and MQTT flow
+- ✅ CI/CD pipeline (GitHub Actions) with automated testing
+- ✅ Code coverage reporting
+- ❌ E2E tests (Playwright coverage is currently minimal)
 
 ---
 
@@ -643,20 +494,58 @@ Create a repository for community-trained models.
 
 ## Technical Debt & Maintenance
 
+### Harden Background Task Visibility 🔎
+**Priority:** P1 | **Effort:** S (1-2 days)
+
+Ensure fire-and-forget tasks always surface exceptions in structured logs.
+
+**Notes:**
+- Use a shared `create_background_task()` wrapper across services.
+- Add task naming for easier tracing.
+
+### Global Exception Handler 🧯
+**Priority:** P1 | **Effort:** S (1 day)
+
+Add a top-level exception handler to capture unexpected 500s with structured context.
+
+### Finish Frontend State Migration (Svelte 5 Runes) ⚙️
+**Priority:** P2 | **Effort:** M (4-6 days)
+
+Complete the migration of remaining global state (theme/layout/stores) to Svelte 5 runes to simplify subscriptions.
+
+### Optional Frontend Log Shipping 📡
+**Priority:** P3 | **Effort:** M (3-5 days)
+
+Allow UI logs to be optionally sent to a backend endpoint for better remote debugging.
+
+### CSP Tightening (Nonce-based) 🛡️
+**Priority:** P3 | **Effort:** M (3-5 days)
+
+Investigate moving from `unsafe-inline` to CSP nonces where feasible.
+
+### BirdNET-Go Audio Backfill 🐦🎧
+**Priority:** P2 | **Effort:** M (3-5 days)
+
+Backfill BirdNET-Go audio detections into `audio_detections` so historical detections can regain audio context after a DB reset.
+
+**Notes:**
+- Requires a persistent BirdNET-Go data source (SQLite/JSON logs/API).
+- Add an importer + mapping to camera IDs, then re-correlate detections.
+
 ### High Priority Fixes
 
 > See [DEVELOPER.md](DEVELOPER.md) for comprehensive technical debt tracking.
 
 | Issue | Effort | Priority | Notes |
 |-------|--------|----------|-------|
-| Settings update secret clearing bug | S (1 day) | P0 | Redacted fields get cleared on PUT |
-| Blocking I/O in config save | S (1 day) | P0 | `config.py` blocks event loop |
-| TypeScript type errors (bool → boolean) | S (0.5 days) | P0 | In `api.ts` |
-| EventProcessor refactoring | M (3-4 days) | P1 | 200+ line method needs decomposition |
-| Memory leak in auto video classifier | M (2 days) | P1 | Unbounded task dict |
-| Telegram markdown injection | S (1 day) | P1 | Escape special chars in species names |
-| Missing database connection pooling | M (2 days) | P1 | Use SQLAlchemy async pool |
-| Video analysis schema mismatch | M (1 day) | P1 | Ensure columns exist in db_schema.py |
+| Settings update secret clearing bug | S (1 day) | P0 | ✅ Fixed: partial updates no longer overwrite unrelated fields |
+| Blocking I/O in config save | S (1 day) | P0 | ✅ Fixed: async config save via aiofiles |
+| TypeScript type errors (bool → boolean) | S (0.5 days) | P0 | ✅ Fixed |
+| EventProcessor refactoring | M (3-4 days) | P1 | ✅ Partial refactor; remaining decomposition optional |
+| Memory leak in auto video classifier | M (2 days) | P1 | ✅ Mitigated: queue cap + cleanup |
+| Telegram markdown injection | S (1 day) | P1 | ✅ Fixed: HTML escaping |
+| Missing database connection pooling | M (2 days) | P1 | ✅ Implemented |
+| Video analysis schema mismatch | M (1 day) | P1 | ✅ Schema/migrations aligned |
 
 **Total Effort for High Priority Fixes:** ~2 weeks
 
@@ -732,5 +621,5 @@ Have a feature idea not on this list? Open an issue on [GitHub](https://github.c
 
 ---
 
-**Last Updated:** 2026-01-11
-**Version:** 2.5.0
+**Last Updated:** 2026-02-01
+**Version:** 2.6.7

@@ -1,15 +1,20 @@
 import re
+from datetime import date, timedelta
 from fastapi import APIRouter, HTTPException, Response, Path, Request, Depends
 from fastapi.responses import StreamingResponse
 from starlette.background import BackgroundTask
 import httpx
+import sqlite3
+import structlog
 from app.config import settings
 from app.services.frigate_client import frigate_client
 from app.services.i18n_service import i18n_service
 from app.utils.language import get_user_language
-from app.auth import AuthContext, require_owner
+from app.auth import AuthContext, AuthLevel, require_owner, verify_token
 from app.auth_legacy import get_auth_context_with_legacy
 from app.ratelimit import guest_rate_limit
+from app.database import get_db
+from app.repositories.detection_repository import DetectionRepository
 
 router = APIRouter()
 
@@ -25,9 +30,50 @@ def get_http_client() -> httpx.AsyncClient:
 
 # Validate event_id format (Frigate uses UUIDs, numeric IDs, or timestamp-based IDs with dots)
 EVENT_ID_PATTERN = re.compile(r'^[a-zA-Z0-9\-_.]+$')
+CAMERA_NAME_PATTERN = re.compile(r'^[a-zA-Z0-9_\-]+$')
 
 def validate_event_id(event_id: str) -> bool:
     return bool(EVENT_ID_PATTERN.match(event_id)) and len(event_id) <= 64
+
+def validate_camera_name(camera: str) -> bool:
+    return bool(CAMERA_NAME_PATTERN.match(camera)) and len(camera) <= 64
+
+async def require_event_access(event_id: str, auth: AuthContext, lang: str) -> None:
+    """Ensure guests can only access visible, recent events."""
+    if auth.is_owner:
+        return
+
+    try:
+        async with get_db() as db:
+            repo = DetectionRepository(db)
+            detection = await repo.get_by_frigate_event(event_id)
+    except sqlite3.OperationalError as exc:
+        log = structlog.get_logger()
+        log.warning("Failed to check event access; allowing fallback", error=str(exc))
+        return
+
+    if not detection or detection.is_hidden or not detection.detection_time:
+        raise HTTPException(
+            status_code=404,
+            detail=i18n_service.translate("errors.proxy.event_not_found", lang)
+        )
+
+    if settings.public_access.enabled:
+        max_days = settings.public_access.show_historical_days
+        detection_date = detection.detection_time.date()
+        if max_days > 0:
+            cutoff = date.today() - timedelta(days=max_days)
+            if detection_date < cutoff:
+                raise HTTPException(
+                    status_code=404,
+                    detail=i18n_service.translate("errors.proxy.event_not_found", lang)
+                )
+        else:
+            if detection_date != date.today():
+                raise HTTPException(
+                    status_code=404,
+                    detail=i18n_service.translate("errors.proxy.event_not_found", lang)
+                )
 
 @router.get("/frigate/test")
 async def test_frigate_connection(
@@ -120,6 +166,8 @@ async def proxy_snapshot(
             detail=i18n_service.translate("errors.proxy.invalid_event_id", lang)
         )
 
+    await require_event_access(event_id, auth, lang)
+
     # Check cache first
     if settings.media_cache.enabled and settings.media_cache.cache_snapshots:
         cached = await media_cache.get_snapshot(event_id)
@@ -160,6 +208,60 @@ async def proxy_snapshot(
             detail=i18n_service.translate("errors.proxy.connection_failed", lang, url=settings.frigate.frigate_url)
         )
 
+
+@router.get("/frigate/camera/{camera}/latest.jpg")
+async def proxy_latest_camera_snapshot(
+    request: Request,
+    camera: str = Path(..., min_length=1, max_length=64)
+):
+    """Proxy latest snapshot for a camera from Frigate."""
+    lang = get_user_language(request)
+
+    # Require owner access (query token or Authorization header). Avoid Depends so query token works.
+    if settings.auth.enabled and not settings.public_access.enabled:
+        token = request.query_params.get("token")
+        if not token:
+            auth_header = request.headers.get("Authorization", "")
+            if auth_header.startswith("Bearer "):
+                token = auth_header[7:]
+        if not token:
+            raise HTTPException(status_code=403, detail="Owner privileges required for this operation")
+        try:
+            token_data = verify_token(token)
+            if token_data.auth_level != AuthLevel.OWNER:
+                raise HTTPException(status_code=403, detail="Owner privileges required for this operation")
+        except HTTPException:
+            raise HTTPException(status_code=403, detail="Owner privileges required for this operation")
+
+    if not validate_camera_name(camera):
+        raise HTTPException(
+            status_code=400,
+            detail=i18n_service.translate("errors.proxy.invalid_event_id", lang)
+        )
+
+    url = f"{settings.frigate.frigate_url}/api/{camera}/latest.jpg"
+    client = get_http_client()
+    headers = frigate_client._get_headers()
+    try:
+        resp = await client.get(url, headers=headers)
+        resp.raise_for_status()
+        return Response(content=resp.content, media_type=resp.headers.get("content-type", "image/jpeg"))
+    except httpx.TimeoutException:
+        raise HTTPException(
+            status_code=504,
+            detail=i18n_service.translate("errors.proxy.frigate_timeout", lang)
+        )
+    except httpx.HTTPStatusError as e:
+        raise HTTPException(
+            status_code=e.response.status_code,
+            detail=i18n_service.translate("errors.proxy.frigate_error", lang, status_code=e.response.status_code)
+        )
+    except httpx.RequestError:
+        raise HTTPException(
+            status_code=502,
+            detail=i18n_service.translate("errors.proxy.connection_failed", lang, url=settings.frigate.frigate_url)
+        )
+
 @router.head("/frigate/{event_id}/clip.mp4")
 @guest_rate_limit()
 async def check_clip_exists(
@@ -181,6 +283,9 @@ async def check_clip_exists(
             status_code=400,
             detail=i18n_service.translate("errors.proxy.invalid_event_id", lang)
         )
+
+    await require_event_access(event_id, auth, lang)
+
     # Frigate doesn't support HEAD for clips, so check event exists instead
     url = f"{settings.frigate.frigate_url}/api/events/{event_id}"
     client = get_http_client()
@@ -243,6 +348,8 @@ async def proxy_clip(
             status_code=400,
             detail=i18n_service.translate("errors.proxy.invalid_event_id", lang)
         )
+
+    await require_event_access(event_id, auth, lang)
 
     # Check cache first
     if settings.media_cache.enabled and settings.media_cache.cache_clips:
@@ -387,6 +494,8 @@ async def proxy_thumb(
             status_code=400,
             detail=i18n_service.translate("errors.proxy.invalid_event_id", lang)
         )
+
+    await require_event_access(event_id, auth, lang)
 
     # Thumbnails share cache with snapshots (they're the same image in Frigate)
     # Check cache first

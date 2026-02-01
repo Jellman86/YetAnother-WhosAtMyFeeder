@@ -1,6 +1,8 @@
 <script lang="ts">
+    import { onDestroy } from 'svelte';
     import { _ } from 'svelte-i18n';
     import type { VersionInfo } from '../../api';
+    import { authStore } from '../../stores/auth.svelte';
 
     // Props
     let {
@@ -16,7 +18,7 @@
         availableCameras = $bindable<string[]>([]),
         camerasLoading,
         testing,
-        testingBirdNET,
+        testingBirdNET = $bindable(false),
         telemetryInstallationId,
         telemetryPlatform,
         versionInfo,
@@ -46,11 +48,101 @@
         handleTestBirdNET: () => Promise<void>;
         toggleCamera: (camera: string) => void;
     } = $props();
+
+    let previewCamera = $state<string | null>(null);
+    let previewVisible = $state(false);
+    let previewTimestamp = $state(0);
+    let previewLoading = $state(false);
+    let previewError = $state<string | null>(null);
+    let previewBlobUrl = $state<string | null>(null);
+    let previewTimer: ReturnType<typeof setInterval> | null = null;
+
+    function getFrigateBase() {
+        return frigateUrl ? frigateUrl.replace(/\/+$/, '') : '';
+    }
+
+    function startPreview(camera: string) {
+        if (!frigateUrl) {
+            previewError = $_('settings.cameras.preview_missing_url', { default: 'Set a Frigate URL to preview.' });
+            return;
+        }
+        previewCamera = camera;
+        previewVisible = true;
+        previewLoading = true;
+        previewError = null;
+        previewTimestamp = Date.now();
+        if (!previewTimer) {
+            previewTimer = setInterval(() => {
+                previewTimestamp = Date.now();
+            }, 2000);
+        }
+    }
+
+    function stopPreview(camera: string) {
+        if (previewCamera !== camera) return;
+        previewVisible = false;
+        previewCamera = null;
+        previewLoading = false;
+        previewError = null;
+        if (previewBlobUrl) {
+            URL.revokeObjectURL(previewBlobUrl);
+            previewBlobUrl = null;
+        }
+        if (previewTimer) {
+            clearInterval(previewTimer);
+            previewTimer = null;
+        }
+    }
+
+    function togglePreview(camera: string) {
+        if (previewVisible && previewCamera === camera) {
+            stopPreview(camera);
+            return;
+        }
+        startPreview(camera);
+    }
+
+    async function fetchPreview(camera: string) {
+        if (!frigateUrl || !previewVisible) return;
+        const token = authStore.token;
+        previewLoading = true;
+        previewError = null;
+        try {
+            const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
+            const resp = await fetch(`/api/frigate/camera/${encodeURIComponent(camera)}/latest.jpg?cache=${previewTimestamp}`, {
+                headers
+            });
+            if (!resp.ok) {
+                previewError = $_('settings.cameras.preview_failed', { default: 'Preview unavailable.' });
+                previewLoading = false;
+                return;
+            }
+            const blob = await resp.blob();
+            if (previewBlobUrl) {
+                URL.revokeObjectURL(previewBlobUrl);
+            }
+            previewBlobUrl = URL.createObjectURL(blob);
+        } catch {
+            previewError = $_('settings.cameras.preview_failed', { default: 'Preview unavailable.' });
+        } finally {
+            previewLoading = false;
+        }
+    }
+
+    $effect(() => {
+        if (!previewVisible || !previewCamera) return;
+        fetchPreview(previewCamera);
+    });
+
+    onDestroy(() => {
+        if (previewTimer) clearInterval(previewTimer);
+        if (previewBlobUrl) URL.revokeObjectURL(previewBlobUrl);
+    });
 </script>
 
-<div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
     <!-- Frigate Connection -->
-    <section class="card-base rounded-3xl p-8 backdrop-blur-md">
+    <section class="card-base rounded-3xl p-8 backdrop-blur-md h-full flex flex-col">
         <div class="flex items-center gap-3 mb-6">
             <div class="w-10 h-10 rounded-2xl bg-teal-500/10 flex items-center justify-center text-teal-600 dark:text-teal-400">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
@@ -199,7 +291,7 @@
     </section>
 
     <!-- Camera Selection -->
-    <section class="card-base rounded-3xl p-8 backdrop-blur-md">
+    <section class="card-base rounded-3xl p-8 backdrop-blur-md h-full flex flex-col">
         <div class="flex items-center gap-3 mb-6">
             <div class="w-10 h-10 rounded-2xl bg-blue-500/10 flex items-center justify-center text-blue-600 dark:text-blue-400">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /></svg>
@@ -207,7 +299,7 @@
             <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">{$_('settings.cameras.title')}</h3>
         </div>
 
-        <div class="space-y-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+        <div class="space-y-3 flex-1 min-h-0 overflow-y-auto pr-2 custom-scrollbar">
             {#if availableCameras.length === 0}
                 <div class="p-8 text-center bg-slate-50 dark:bg-slate-900/30 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-700">
                     <p class="text-xs font-bold text-slate-400 uppercase tracking-widest">{$_('settings.cameras.none_found')}</p>
@@ -215,19 +307,82 @@
             {:else}
                 <div class="grid grid-cols-1 gap-2">
                     {#each availableCameras as camera}
-                        <button
-                            aria-label="{selectedCameras.includes(camera) ? $_('settings.cameras.deselect', { default: 'Deselect {camera}', camera }) : $_('settings.cameras.select', { default: 'Select {camera}', camera })}"
-                            class="flex items-center justify-between p-4 rounded-2xl border-2 transition-all group
+                        <div
+                            role="button"
+                            tabindex="0"
+                            aria-label="{selectedCameras.includes(camera) ? $_('settings.cameras.deselect', { default: 'Deselect {camera}', values: { camera } }) : $_('settings.cameras.select', { default: 'Select {camera}', values: { camera } })}"
+                            class="relative flex flex-col gap-3 p-4 rounded-2xl border-2 transition-all group cursor-pointer
                                    {selectedCameras.includes(camera)
                                        ? 'border-teal-500 bg-teal-500/5 text-teal-700 dark:text-teal-400'
                                        : 'border-slate-100 dark:border-slate-700/50 bg-slate-50/50 dark:bg-slate-900/30 text-slate-500 hover:border-teal-500/30'}"
                             onclick={() => toggleCamera(camera)}
+                            onkeydown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault();
+                                    toggleCamera(camera);
+                                }
+                            }}
                         >
-                            <span class="font-bold text-sm">{camera}</span>
-                            <div class="w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all {selectedCameras.includes(camera) ? 'bg-teal-500 border-teal-500 scale-110' : 'border-slate-300 dark:border-slate-600 group-hover:border-teal-500/50'}">
-                                {#if selectedCameras.includes(camera)}<svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" /></svg>{/if}
+                            <div class="flex items-center justify-between gap-3">
+                                <div class="flex items-center gap-3">
+                                    <span class="font-bold text-sm">{camera}</span>
+                                    <button
+                                        type="button"
+                                        class="transition text-slate-500 hover:text-teal-600 dark:text-slate-400 dark:hover:text-teal-300"
+                                        aria-label="{$_('settings.cameras.preview', { default: 'Preview {camera}', values: { camera } })}"
+                                        disabled={!frigateUrl}
+                                        onclick={(e) => {
+                                            e.stopPropagation();
+                                            togglePreview(camera);
+                                        }}
+                                    >
+                                        <svg class={`w-4 h-4 transition-transform ${previewVisible && previewCamera === camera ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                        </svg>
+                                    </button>
+                                </div>
+                                <div class="w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all {selectedCameras.includes(camera) ? 'bg-teal-500 border-teal-500 scale-110' : 'border-slate-300 dark:border-slate-600 group-hover:border-teal-500/50'}">
+                                    {#if selectedCameras.includes(camera)}<svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" /></svg>{/if}
+                                </div>
                             </div>
-                        </button>
+                            {#if previewVisible && previewCamera === camera}
+                                <div class="rounded-2xl border border-slate-200/80 dark:border-slate-700/60 bg-white/95 dark:bg-slate-900/95 overflow-hidden shadow-lg shadow-slate-900/10 dark:shadow-black/30">
+                                    <div class="px-4 py-2 flex items-center justify-between gap-2">
+                                        <span class="text-[9px] font-black uppercase tracking-widest text-slate-500">{$_('settings.cameras.preview_label', { default: 'Live Preview' })}</span>
+                                        <div class="flex items-center gap-2">
+                                            <span class="text-[9px] font-semibold text-emerald-500">{$_('settings.cameras.preview_live', { default: 'LIVE' })}</span>
+                                            <button
+                                                type="button"
+                                                class="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+                                                aria-label="Close preview"
+                                                onclick={() => stopPreview(camera)}
+                                            >
+                                                <svg class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                                    <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                                                </svg>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="bg-slate-100 dark:bg-slate-800/60">
+                                        <div class="relative w-full h-36">
+                                            {#if previewBlobUrl}
+                                                <img class="w-full h-36 object-cover" alt="" src={previewBlobUrl} />
+                                            {/if}
+                                            {#if previewLoading}
+                                                <div class="absolute inset-0 flex items-center justify-center bg-white/70 dark:bg-slate-900/70 text-[10px] font-semibold text-slate-500">
+                                                    {$_('settings.cameras.preview_loading', { default: 'Loading preview…' })}
+                                                </div>
+                                            {/if}
+                                            {#if previewError}
+                                                <div class="absolute inset-0 flex items-center justify-center bg-white/80 dark:bg-slate-900/80 text-[10px] font-semibold text-rose-500 text-center px-3">
+                                                    {previewError}
+                                                </div>
+                                            {/if}
+                                        </div>
+                                    </div>
+                                </div>
+                            {/if}
+                        </div>
                     {/each}
                 </div>
             {/if}

@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Depends, HTTPException, status, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse, Response
+from fastapi.responses import StreamingResponse, Response, JSONResponse
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
@@ -22,10 +22,11 @@ from app.services.telemetry_service import telemetry_service
 from app.services.auto_video_classifier_service import auto_video_classifier
 from app.services.frigate_client import frigate_client
 from app.repositories.detection_repository import DetectionRepository
-from app.routers import events, proxy, settings as settings_router, species, backfill, classifier, models, ai, stats, debug, audio, email, auth as auth_router
+from app.routers import events, proxy, settings as settings_router, species, backfill, classifier, models, ai, stats, debug, audio, email, inaturalist, auth as auth_router
 from app.config import settings, _expand_trusted_hosts
 from app.middleware.language import LanguageMiddleware
 from app.services.i18n_service import i18n_service
+from app.utils.tasks import create_background_task
 from app.ratelimit import limiter
 from app.auth import get_auth_context, AuthContext, AuthLevel
 from app.auth_legacy import get_auth_context_with_legacy
@@ -68,9 +69,39 @@ def get_git_hash() -> str:
 
     return "unknown"
 
+def get_app_branch() -> str:
+    """Get app branch from environment or by running git."""
+    # First check environment variable (set during Docker build)
+    branch = os.environ.get('APP_BRANCH', '').strip()
+    if branch:
+        return branch
+
+    # Try to get from git command (for development)
+    try:
+        import subprocess
+        result = subprocess.run(
+            ['git', 'rev-parse', '--abbrev-ref', 'HEAD'],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        if result.returncode == 0:
+            return result.stdout.strip()
+    except (subprocess.SubprocessError, FileNotFoundError):
+        pass
+
+    return "unknown"
+
 BASE_VERSION = get_base_version()
 GIT_HASH = get_git_hash()
-APP_VERSION = f"{BASE_VERSION}+{GIT_HASH}"
+APP_BRANCH = get_app_branch()
+
+# Format: version-branch+hash (omit branch if main or unknown)
+if APP_BRANCH and APP_BRANCH not in ["main", "unknown"]:
+    APP_VERSION = f"{BASE_VERSION}-{APP_BRANCH}+{GIT_HASH}"
+else:
+    APP_VERSION = f"{BASE_VERSION}+{GIT_HASH}"
+
 os.environ["APP_VERSION"] = APP_VERSION # Make available to other services
 
 # Metrics
@@ -156,10 +187,10 @@ async def lifespan(app: FastAPI):
     global cleanup_task, cleanup_running
     # Startup
     await init_db()
-    asyncio.create_task(mqtt_service.start(event_processor))
+    create_background_task(mqtt_service.start(event_processor), name="mqtt_service_start")
     await telemetry_service.start()
     await auto_video_classifier.start()
-    cleanup_task = asyncio.create_task(cleanup_scheduler())
+    cleanup_task = create_background_task(cleanup_scheduler(), name="cleanup_scheduler")
     log.info("Background cleanup scheduler started",
              interval_hours=CLEANUP_INTERVAL_HOURS,
              retention_days=settings.maintenance.retention_days,
@@ -212,6 +243,18 @@ async def custom_rate_limit_handler(request: Request, exc: RateLimitExceeded):
         media_type="application/json"
     )
 
+# Global exception handler for unexpected 500s
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    log.error(
+        "Unhandled exception",
+        path=request.url.path,
+        method=request.method,
+        error=str(exc),
+        exc_info=True
+    )
+    return JSONResponse(status_code=500, content={"detail": "Internal server error"})
+
 app.add_middleware(LanguageMiddleware)
 
 # CORS configuration - Note: wildcard origins cannot be used with credentials
@@ -241,6 +284,7 @@ app.include_router(backfill.router, prefix="/api", tags=["backfill"], dependenci
 app.include_router(models.router, prefix="/api", tags=["models"], dependencies=[Depends(get_auth_context_with_legacy)])
 app.include_router(debug.router, prefix="/api", tags=["debug"], dependencies=[Depends(get_auth_context_with_legacy)])
 app.include_router(email.router, prefix="/api", tags=["email"], dependencies=[Depends(get_auth_context_with_legacy)])
+app.include_router(inaturalist.router, prefix="/api", tags=["inaturalist"], dependencies=[Depends(get_auth_context_with_legacy)])
 
 @app.middleware("http")
 async def add_security_headers(request: Request, call_next):
@@ -260,11 +304,11 @@ async def add_security_headers(request: Request, call_next):
     # Adjust as needed for your specific requirements
     csp_policy = (
         "default-src 'self'; "
-        "script-src 'self' 'unsafe-inline'; "
+        "script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com; "
         "style-src 'self' 'unsafe-inline'; "
         "img-src 'self' data: https:; "
         "font-src 'self' data:; "
-        "connect-src 'self'; "
+        "connect-src 'self' https://cloudflareinsights.com https://static.cloudflareinsights.com; "
         "frame-ancestors 'none';"
     )
     response.headers["Content-Security-Policy"] = csp_policy
@@ -419,7 +463,7 @@ async def sse_endpoint(
                     if not auth.is_owner:
                         event_type = message.get('type', '')
                         # Block owner-only events from public users
-                        if event_type in ['settings_updated', 'backfill_progress', 'backfill_complete']:
+                        if event_type in ['settings_updated', 'backfill_started', 'backfill_progress', 'backfill_complete', 'backfill_failed']:
                             continue
 
                     if not auth.is_owner:
@@ -440,7 +484,8 @@ async def get_version():
     return {
         "version": APP_VERSION,
         "base_version": BASE_VERSION,
-        "git_hash": GIT_HASH
+        "git_hash": GIT_HASH,
+        "branch": APP_BRANCH
     }
 
 

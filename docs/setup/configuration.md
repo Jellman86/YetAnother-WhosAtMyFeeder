@@ -13,7 +13,7 @@ Settings for communicating with your NVR and messaging broker.
 | **MQTT Broker** | The hostname of your MQTT broker. |
 | **Port** | MQTT port (default 1883). |
 | **Authentication** | Toggle if your broker requires a username and password. |
-| **Active Cameras** | Select which Frigate cameras YA-WAMF should monitor for bird events. |
+| **Active Cameras** | Select which Frigate cameras YA-WAMF should monitor for bird events. Hover the play icon to preview a live snapshot (via the Frigate proxy). |
 
 ## Detection Settings
 Fine-tune how AI identifications are handled. This is the most important section for balancing accuracy and noise.
@@ -45,6 +45,7 @@ Configure third-party services.
 
 - **BirdNET-Go:** Configure the MQTT topic and map Frigate cameras to audio sensor IDs.
 - **BirdWeather:** Enter your Station Token to contribute detections to the BirdWeather community.
+- **iNaturalist:** Owner-reviewed submissions via OAuth. Requires App Owner approval (currently untested).
 - **AI Insights:** Connect Google Gemini (default: `gemini-3-flash-preview`), OpenAI, or Claude to get behavioral analysis of your visitors.
 
 ## Notification Settings
@@ -52,6 +53,7 @@ Configure how and where alerts are sent.
 
 - **Discord / Pushover / Telegram:** Provide platform tokens and enable snapshots.
 - **Email (OAuth/SMTP):** Use Gmail/Outlook OAuth or traditional SMTP with optional auth.
+- **Mode:** Choose Final-only, Standard, Realtime, or Silent delivery (Advanced allows custom triggers).
 - **Filters:** Minimum confidence, audio-confirmed only, and species whitelist.
 - **Language:** Choose the language used in notifications.
 
@@ -61,6 +63,15 @@ Customize the UI experience for comfort and assistive technologies.
 - **High Contrast / Dyslexia Font / Reduced Motion:** Adjust UI readability.
 - **Live Announcements:** Toggle screen reader announcements for new detections.
 - **UI Language:** Set the interface language (also used for notifications).
+
+## Debug UI
+Optional debug tools for testing and diagnostics.
+
+- Enable via env: `SYSTEM__DEBUG_UI_ENABLED=true`
+- Or in config: `"system": { "debug_ui_enabled": true }`
+- Or via compose: `DEBUG_UI_ENABLED=true`
+
+This reveals a **Debug** tab in Settings (e.g., iNaturalist preview toggle).
 
 ## Security & Access
 Configure authentication and public access controls.

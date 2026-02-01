@@ -17,6 +17,7 @@ async def test_should_notify_respects_confidence_threshold(notification_service)
         mock_settings.notifications.filters.min_confidence = 0.7
         mock_settings.notifications.filters.audio_confirmed_only = False
         mock_settings.notifications.filters.camera_filters = {}
+        mock_settings.notifications.notification_cooldown_minutes = 0
 
         # Above threshold
         should_notify = await notification_service._should_notify(
@@ -45,6 +46,7 @@ async def test_should_notify_species_whitelist(notification_service):
         mock_settings.notifications.filters.min_confidence = 0.5
         mock_settings.notifications.filters.audio_confirmed_only = False
         mock_settings.notifications.filters.camera_filters = {}
+        mock_settings.notifications.notification_cooldown_minutes = 0
 
         # In whitelist
         should_notify = await notification_service._should_notify(
@@ -73,6 +75,7 @@ async def test_should_notify_audio_confirmed_only(notification_service):
         mock_settings.notifications.filters.min_confidence = 0.5
         mock_settings.notifications.filters.audio_confirmed_only = True
         mock_settings.notifications.filters.camera_filters = {}
+        mock_settings.notifications.notification_cooldown_minutes = 0
 
         # Audio confirmed
         should_notify = await notification_service._should_notify(
@@ -103,6 +106,7 @@ async def test_should_notify_per_camera_filters(notification_service):
         mock_settings.notifications.filters.camera_filters = {
             "front": {"min_confidence": 0.8}
         }
+        mock_settings.notifications.notification_cooldown_minutes = 0
 
         # Camera with higher threshold - passes
         should_notify = await notification_service._should_notify(
@@ -293,6 +297,7 @@ async def test_notify_detection_sends_to_all_platforms(notification_service):
         mock_settings.notifications.filters.min_confidence = 0.5
         mock_settings.notifications.filters.audio_confirmed_only = False
         mock_settings.notifications.filters.camera_filters = {}
+        mock_settings.notifications.notification_cooldown_minutes = 0
         mock_settings.notifications.notification_language = "en"
         mock_settings.notifications.discord.enabled = True
         mock_settings.notifications.pushover.enabled = True
@@ -329,6 +334,7 @@ async def test_notify_detection_handles_errors_gracefully(notification_service):
         mock_settings.notifications.filters.min_confidence = 0.5
         mock_settings.notifications.filters.audio_confirmed_only = False
         mock_settings.notifications.filters.camera_filters = {}
+        mock_settings.notifications.notification_cooldown_minutes = 0
         mock_settings.notifications.notification_language = "en"
         mock_settings.notifications.discord.enabled = True
         mock_settings.notifications.pushover.enabled = True

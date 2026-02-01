@@ -1,7 +1,7 @@
 import structlog
 import asyncio
 import httpx
-import re
+import html
 from datetime import datetime, timezone
 from typing import Optional, Any
 import json
@@ -11,16 +11,14 @@ from app.services.i18n_service import i18n_service
 
 log = structlog.get_logger()
 
-def escape_markdown(text: str) -> str:
-    """Escape special characters for Telegram Markdown (v1)."""
-    # Telegram Markdown v1 only requires escaping these in some contexts, 
-    # but it's safer to escape characters that could trigger formatting.
-    # Note: * _ ` [ are the main ones for v1.
-    return re.sub(r'([*_`\[])', r'\\\1', text)
+def escape_html(text: str) -> str:
+    """Escape text for Telegram HTML parse mode."""
+    return html.escape(text, quote=True)
 
 class NotificationService:
     def __init__(self):
         self.client = httpx.AsyncClient(timeout=10.0)
+        self.last_notification_time = datetime.min.replace(tzinfo=timezone.utc)
 
     async def _should_notify(
         self,
@@ -56,6 +54,15 @@ class NotificationService:
                 return False
             # Add more per-camera logic here if needed
 
+        # 5. Global Cooldown
+        cooldown = settings.notifications.notification_cooldown_minutes
+        if cooldown > 0:
+            now = datetime.now(timezone.utc)
+            elapsed_minutes = (now - self.last_notification_time).total_seconds() / 60
+            if elapsed_minutes < cooldown:
+                log.info("Notification skipped: cooldown active", elapsed=f"{elapsed_minutes:.1f}m", cooldown=f"{cooldown}m")
+                return False
+
         return True
 
     async def notify_detection(
@@ -68,6 +75,8 @@ class NotificationService:
         camera: str,
         timestamp: datetime,
         snapshot_url: str,
+        event_type: Optional[str] = None,
+        channels: Optional[list[str]] = None,
         audio_confirmed: bool = False,
         audio_species: Optional[str] = None,
         snapshot_data: Optional[bytes] = None
@@ -81,27 +90,31 @@ class NotificationService:
         lang = settings.notifications.notification_language
         display_name = common_name or species
         tasks = []
+        channel_filter = set(channels) if channels else None
+        allow_channel = (lambda name: channel_filter is None or name in channel_filter)
 
         # Discord
-        if settings.notifications.discord.enabled:
+        if settings.notifications.discord.enabled and allow_channel("discord"):
             tasks.append(self._send_discord(
                 display_name, confidence, camera, timestamp, snapshot_url, audio_confirmed, lang, snapshot_data
             ))
 
         # Pushover
-        if settings.notifications.pushover.enabled:
+        if settings.notifications.pushover.enabled and allow_channel("pushover"):
             tasks.append(self._send_pushover(
                 display_name, confidence, camera, timestamp, snapshot_url, snapshot_data, lang
             ))
 
         # Telegram
-        if settings.notifications.telegram.enabled:
+        if settings.notifications.telegram.enabled and allow_channel("telegram"):
             tasks.append(self._send_telegram(
                 display_name, confidence, camera, timestamp, snapshot_url, snapshot_data, lang
             ))
 
         # Email
-        if settings.notifications.email.enabled:
+        email_event_type = (event_type or "").lower()
+        email_allowed = not settings.notifications.email.only_on_end or email_event_type == "end"
+        if settings.notifications.email.enabled and email_allowed and allow_channel("email"):
             tasks.append(self._send_email(
                 display_name, scientific_name, confidence, camera, timestamp, snapshot_url, snapshot_data, audio_confirmed, lang
             ))
@@ -110,7 +123,10 @@ class NotificationService:
             log.info("Sending notifications", species=species, platforms=len(tasks), lang=lang)
             results = await asyncio.gather(*tasks, return_exceptions=True)
             # Consider it sent if at least one platform succeeded
-            return any(not isinstance(result, Exception) for result in results)
+            success = any(not isinstance(result, Exception) for result in results)
+            if success:
+                self.last_notification_time = datetime.now(timezone.utc)
+            return success
 
         return False
 
@@ -261,8 +277,8 @@ class NotificationService:
             confidence=int(confidence * 100)
         )
         
-        safe_body = escape_markdown(body)
-        caption = f"🐦 *{safe_body}*"
+        safe_body = escape_html(body)
+        caption = f"🐦 <b>{safe_body}</b>"
         base_url = f"https://api.telegram.org/bot{cfg.bot_token}"
 
         try:
@@ -272,7 +288,7 @@ class NotificationService:
                 data = {
                     "chat_id": cfg.chat_id,
                     "caption": caption,
-                    "parse_mode": "Markdown"
+                    "parse_mode": "HTML"
                 }
                 files = {"photo": ("snapshot.jpg", snapshot_data, "image/jpeg")}
                 resp = await self.client.post(url, data=data, files=files)
@@ -280,11 +296,12 @@ class NotificationService:
                 # Send Message
                 url = f"{base_url}/sendMessage"
                 # If no snapshot, maybe include link in text
-                caption += f"\n[View Snapshot]({snapshot_url})"
+                safe_url = escape_html(snapshot_url)
+                caption += f"\n<a href=\"{safe_url}\">View Snapshot</a>"
                 data = {
                     "chat_id": cfg.chat_id,
                     "text": caption,
-                    "parse_mode": "Markdown"
+                    "parse_mode": "HTML"
                 }
                 resp = await self.client.post(url, json=data)
             

@@ -80,6 +80,16 @@
       "invalid_state": "OAuth 状态无效，请重试。",
       "state_expired": "OAuth 状态已过期，请重试。",
       "email_missing": "提供方未返回电子邮件地址。"
+    },
+    "inat": {
+      "disabled": "iNaturalist 集成已禁用",
+      "not_configured": "iNaturalist OAuth 凭据未配置",
+      "invalid_state": "OAuth 状态无效，请重试。",
+      "state_expired": "OAuth 状态已过期，请重试。",
+      "oauth_failed": "iNaturalist OAuth 失败：{error}",
+      "not_connected": "iNaturalist 账号未连接",
+      "event_missing": "未找到可提交的检测",
+      "submit_failed": "提交到 iNaturalist 失败：{error}"
     }
   }
 }

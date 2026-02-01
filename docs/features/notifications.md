@@ -2,6 +2,10 @@
 
 YA-WAMF includes a flexible multi-platform notification system that alerts you when birds are detected.
 
+## Notification Center
+
+Use the bell icon in the header to open the Notification Center. It separates **ongoing actions** (like backfills and reclassifications) with pinned progress bars, and lists completed notifications below.
+
 ## Supported Platforms
 
 ### Discord
@@ -52,6 +56,16 @@ This creates a "dual-factor authentication" system for bird sightings, making al
 
 ### 3. Species Whitelist
 Only want to know about Cardinals and Blue Jays? Add them here. If the list is empty, you get notifications for everything.
+
+## Notification Modes
+
+Choose a delivery mode in **Settings → Notifications**:
+
+- **Final-only:** Notify only when Frigate ends the event and video analysis (if enabled) completes.
+- **Standard:** Notify when a confirmed detection is created.
+- **Realtime:** Notify as early as possible and allow update notifications as detections evolve.
+- **Silent:** Disable all notifications.
+- **Advanced (Custom):** Manually toggle the exact triggers.
 
 ## How it Works
 

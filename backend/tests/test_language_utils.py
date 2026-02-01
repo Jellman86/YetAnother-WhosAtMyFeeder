@@ -53,14 +53,14 @@ def test_get_user_language_japanese():
     assert result == "ja"
 
 
-def test_get_user_language_unsupported_fallback():
-    """Unsupported language should fallback to 'en'."""
+def test_get_user_language_portuguese():
+    """Should extract 'pt' from Portuguese header."""
     request = MagicMock()
-    request.headers.get.return_value = "pt-BR"  # Portuguese not supported
+    request.headers.get.return_value = "pt-BR"
 
     result = get_user_language(request)
 
-    assert result == "en"
+    assert result == "pt"
 
 
 def test_get_user_language_missing_header():

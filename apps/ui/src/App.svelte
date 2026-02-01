@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { _ } from 'svelte-i18n';
+  import { get } from 'svelte/store';
   import ErrorBoundary from './lib/components/ErrorBoundary.svelte';
   import Header from './lib/components/Header.svelte';
   import Sidebar from './lib/components/Sidebar.svelte';
@@ -13,6 +14,7 @@
   import Species from './lib/pages/Species.svelte';
   import Settings from './lib/pages/Settings.svelte';
   import About from './lib/pages/About.svelte';
+  import Notifications from './lib/pages/Notifications.svelte';
   import Login from './lib/components/Login.svelte';
   import FirstRunWizard from './lib/pages/FirstRunWizard.svelte';
   import { fetchEvents, fetchEventsCount, type Detection, setAuthErrorCallback } from './lib/api';
@@ -21,6 +23,7 @@
   import { settingsStore } from './lib/stores/settings.svelte';
   import { detectionsStore } from './lib/stores/detections.svelte';
   import { authStore } from './lib/stores/auth.svelte';
+  import { notificationCenter } from './lib/stores/notification_center.svelte';
   import { announcer } from './lib/components/Announcer.svelte';
   import Announcer from './lib/components/Announcer.svelte';
   import { initKeyboardShortcuts } from './lib/utils/keyboard-shortcuts';
@@ -84,60 +87,174 @@
   });
 
   // Handle back button and initial load
-  onMount(async () => {
-      // Register auth error callback
-      setAuthErrorCallback(() => {
-          authStore.handleAuthError();
-      });
+  onMount(() => {
+      (async () => {
+          // Register auth error callback
+          setAuthErrorCallback(() => {
+              authStore.handleAuthError();
+          });
 
-      const handlePopState = () => {
-          currentRoute = window.location.pathname;
-      };
-      window.addEventListener('popstate', handlePopState);
+          const handlePopState = () => {
+              currentRoute = window.location.pathname;
+          };
+          window.addEventListener('popstate', handlePopState);
 
-      const path = window.location.pathname;
-      currentRoute = path === '' ? '/' : path;
+          const path = window.location.pathname;
+          currentRoute = path === '' ? '/' : path;
 
-      await authStore.loadStatus();
+          await authStore.loadStatus();
+          notificationCenter.hydrate();
 
-      // Handle page visibility changes - reconnect when tab becomes visible
-      const handleVisibilityChange = () => {
-          if (!document.hidden && !detectionsStore.connected && !isReconnecting) {
-              logger.info("Tab became visible, attempting to reconnect SSE");
-              reconnectAttempts = 0; // Reset backoff when user returns to tab
-              scheduleReconnect();
-          }
-      };
-      document.addEventListener('visibilitychange', handleVisibilityChange);
+          // Handle page visibility changes - reconnect when tab becomes visible
+          const handleVisibilityChange = () => {
+              if (!document.hidden && !detectionsStore.connected && !isReconnecting) {
+                  logger.info("Tab became visible, attempting to reconnect SSE");
+                  reconnectAttempts = 0; // Reset backoff when user returns to tab
+                  scheduleReconnect();
+              }
+          };
+          document.addEventListener('visibilitychange', handleVisibilityChange);
 
-      // Initialize keyboard shortcuts
-      const cleanupShortcuts = initKeyboardShortcuts({
-          '?': () => showKeyboardShortcuts = true,
-          'g d': () => navigate('/'),
-          'g e': () => navigate('/events'),
-          'g l': () => navigate('/species'),
-          'g t': () => navigate('/settings'),
-          'Escape': () => {
-              // Close keyboard shortcuts modal
-              showKeyboardShortcuts = false;
-          },
-          'r': () => window.location.reload()
-      });
+          // Initialize keyboard shortcuts
+          const cleanupShortcuts = initKeyboardShortcuts({
+              '?': () => showKeyboardShortcuts = true,
+              'g d': () => navigate('/'),
+              'g e': () => navigate('/events'),
+              'g l': () => navigate('/species'),
+              'g t': () => navigate('/settings'),
+              'Escape': () => {
+                  // Close keyboard shortcuts modal
+                  showKeyboardShortcuts = false;
+              },
+              'r': () => window.location.reload()
+          });
 
+          // Store cleanup function to return
+          cleanupFn = () => {
+              window.removeEventListener('popstate', handlePopState);
+              document.removeEventListener('visibilitychange', handleVisibilityChange);
+              cleanupShortcuts();
+              if (evtSource) {
+                  evtSource.close();
+                  evtSource = null;
+              }
+              if (reconnectTimeout) {
+                  clearTimeout(reconnectTimeout);
+                  reconnectTimeout = null;
+              }
+          };
+      })();
+
+      // Return cleanup function (will be assigned inside the async IIFE, but we need a stable ref)
       return () => {
-          window.removeEventListener('popstate', handlePopState);
-          document.removeEventListener('visibilitychange', handleVisibilityChange);
-          cleanupShortcuts();
-          if (evtSource) {
-              evtSource.close();
-              evtSource = null;
-          }
-          if (reconnectTimeout) {
-              clearTimeout(reconnectTimeout);
-              reconnectTimeout = null;
-          }
+          if (cleanupFn) cleanupFn();
       };
   });
+
+  let cleanupFn: (() => void) | null = null;
+  const t = (key: string, values: Record<string, any> = {}) => get(_)(key, { values });
+
+  function shouldNotify() {
+      return !authStore.isGuest;
+  }
+
+  function addDetectionNotification(det: Detection) {
+      if (!shouldNotify()) return;
+      const title = t('notifications.event_detection');
+      const message = t('notifications.event_detection_desc', {
+          species: det.display_name,
+          camera: det.camera_name
+      });
+      notificationCenter.add({
+          id: `detection:${det.frigate_event}:${det.detection_time}`,
+          type: 'detection',
+          title,
+          message
+      });
+  }
+
+  function addReclassifyNotification(eventId: string, label: string | null) {
+      if (!shouldNotify()) return;
+      const title = t('notifications.event_reclassify');
+      const message = t('notifications.event_reclassify_desc', {
+          species: label ?? 'Unknown'
+      });
+      notificationCenter.upsert({
+          id: `reclassify:${eventId}`,
+          type: 'update',
+          title,
+          message,
+          timestamp: Date.now(),
+          read: false
+      });
+  }
+
+  function updateReclassifyProgress(eventId: string, current: number, total: number) {
+      if (!shouldNotify()) return;
+      const title = t('notifications.event_reclassify');
+      const message = t('notifications.event_reclassify_progress', {
+          current: current.toLocaleString(),
+          total: total.toLocaleString()
+      });
+      notificationCenter.upsert({
+          id: 'reclassify:progress',
+          type: 'process',
+          title,
+          message,
+          timestamp: Date.now(),
+          read: false,
+          meta: {
+              event_id: eventId,
+              current,
+              total
+          }
+      });
+  }
+
+  function updateBackfillNotification(payload: any) {
+      if (!shouldNotify()) return;
+      if (!payload || typeof payload !== 'object') return;
+      const data = payload.data ?? {};
+      const jobId = data.id ?? data.job_id ?? 'unknown';
+      const kind = data.kind ?? 'detections';
+      const isWeather = kind === 'weather';
+      const total = data.total ?? 0;
+      const processed = data.processed ?? 0;
+      const updated = data.updated ?? data.new_detections ?? 0;
+      const skipped = data.skipped ?? 0;
+      const errors = data.errors ?? 0;
+
+      let title = isWeather ? t('notifications.event_weather_backfill') : t('notifications.event_backfill');
+      if (payload.type === 'backfill_complete') {
+          title = isWeather ? t('notifications.event_weather_backfill_done') : t('notifications.event_backfill_done');
+      }
+      if (payload.type === 'backfill_failed') {
+          title = isWeather ? t('notifications.event_weather_backfill_failed') : t('notifications.event_backfill_failed');
+      }
+
+      let message = '';
+      if (payload.type === 'backfill_progress' || payload.type === 'backfill_started') {
+          message = `${processed.toLocaleString()}/${total.toLocaleString()} • ${updated.toLocaleString()} upd • ${skipped.toLocaleString()} skip • ${errors.toLocaleString()} err`;
+      } else if (payload.type === 'backfill_complete') {
+          message = data.message || `${updated.toLocaleString()} updated, ${skipped.toLocaleString()} skipped, ${errors.toLocaleString()} errors`;
+      } else if (payload.type === 'backfill_failed') {
+          message = data.message || t('notifications.event_backfill_failed');
+      }
+
+      notificationCenter.upsert({
+          id: `backfill:${jobId}`,
+          type: 'process',
+          title,
+          message,
+          timestamp: Date.now(),
+          read: payload.type === 'backfill_complete' || payload.type === 'backfill_failed',
+          meta: {
+              kind,
+              processed,
+              total
+          }
+      });
+  }
 
   $effect(() => {
       if (!authStore.statusLoaded) {
@@ -252,6 +369,12 @@
                              audio_score: payload.data.audio_score,
                              temperature: payload.data.temperature,
                              weather_condition: payload.data.weather_condition,
+                             weather_cloud_cover: payload.data.weather_cloud_cover,
+                             weather_wind_speed: payload.data.weather_wind_speed,
+                             weather_wind_direction: payload.data.weather_wind_direction,
+                             weather_precipitation: payload.data.weather_precipitation,
+                             weather_rain: payload.data.weather_rain,
+                             weather_snowfall: payload.data.weather_snowfall,
                              scientific_name: payload.data.scientific_name,
                              common_name: payload.data.common_name,
                              taxa_id: payload.data.taxa_id,
@@ -264,6 +387,7 @@
                          if (settingsStore.settings?.accessibility_live_announcements ?? true) {
                              announcer.announce(`New bird detected: ${newDet.display_name} at ${newDet.camera_name}`);
                          }
+                         addDetectionNotification(newDet);
                      } else if (payload.type === 'detection_updated') {
                          if (!payload.data || !payload.data.frigate_event) {
                              logger.error("SSE Invalid detection_updated data", undefined, { payload });
@@ -284,6 +408,12 @@
                              audio_score: payload.data.audio_score,
                              temperature: payload.data.temperature,
                              weather_condition: payload.data.weather_condition,
+                             weather_cloud_cover: payload.data.weather_cloud_cover,
+                             weather_wind_speed: payload.data.weather_wind_speed,
+                             weather_wind_direction: payload.data.weather_wind_direction,
+                             weather_precipitation: payload.data.weather_precipitation,
+                             weather_rain: payload.data.weather_rain,
+                             weather_snowfall: payload.data.weather_snowfall,
                              scientific_name: payload.data.scientific_name,
                              common_name: payload.data.common_name,
                              taxa_id: payload.data.taxa_id,
@@ -305,6 +435,7 @@
                              return;
                          }
                          detectionsStore.startReclassification(payload.data.event_id);
+                         updateReclassifyProgress(payload.data.event_id, 0, payload.data.total_frames ?? 0);
                      } else if (payload.type === 'reclassification_progress') {
                          if (!payload.data || !payload.data.event_id) {
                              console.error("SSE Invalid reclassification_progress data:", payload);
@@ -321,6 +452,7 @@
                              payload.data.clip_total,
                              payload.data.model_name
                          );
+                         updateReclassifyProgress(payload.data.event_id, payload.data.current_frame, payload.data.total_frames);
                      } else if (payload.type === 'reclassification_completed') {
                          if (!payload.data || !payload.data.event_id) {
                              console.error("SSE Invalid reclassification_completed data:", payload);
@@ -330,6 +462,12 @@
                              payload.data.event_id,
                              payload.data.results
                          );
+                         const topLabel = Array.isArray(payload.data.results) && payload.data.results.length > 0
+                             ? payload.data.results[0]?.label ?? null
+                             : null;
+                         addReclassifyNotification(payload.data.event_id, topLabel);
+                     } else if (payload.type === 'backfill_started' || payload.type === 'backfill_progress' || payload.type === 'backfill_complete' || payload.type === 'backfill_failed') {
+                         updateBackfillNotification(payload);
                      } else {
                          console.warn("SSE Unknown message type:", payload.type);
                      }
@@ -425,7 +563,7 @@
 
                       {#if notificationsActive}
                           <div class="relative flex items-center justify-center text-indigo-500 dark:text-indigo-400 cursor-help" title={$_('status.notifications_enabled')}>
-                              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
+                              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h6m-6 8 4-4h6a4 4 0 0 0 4-4V7a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v9a4 4 0 0 0 4 4z" /></svg>
                           </div>
                       {/if}
 
@@ -457,7 +595,7 @@
 
                       {#if notificationsActive}
                           <div class="relative flex items-center justify-center text-indigo-500 dark:text-indigo-400 cursor-help" title={$_('status.notifications_enabled')}>
-                              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
+                              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h6m-6 8 4-4h6a4 4 0 0 0 4-4V7a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v9a4 4 0 0 0 4 4z" /></svg>
                           </div>
                       {/if}
 
@@ -492,6 +630,8 @@
                   <Species />
               {:else if currentRoute.startsWith('/settings')}
                    <Settings />
+              {:else if currentRoute.startsWith('/notifications')}
+                  <Notifications />
               {:else if currentRoute.startsWith('/about')}
                    <About />
               {/if}

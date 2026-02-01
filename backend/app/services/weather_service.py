@@ -1,6 +1,7 @@
 import httpx
 import structlog
 from typing import Optional, Tuple
+from datetime import datetime
 from app.config import settings
 
 log = structlog.get_logger()
@@ -9,6 +10,7 @@ class WeatherService:
     """Service to fetch weather data from OpenMeteo."""
     
     BASE_URL = "https://api.open-meteo.com/v1/forecast"
+    ARCHIVE_URL = "https://archive-api.open-meteo.com/v1/archive"
     GEO_URL = "http://ip-api.com/json" # Fallback for auto-location
 
     async def get_location(self) -> Tuple[Optional[float], Optional[float]]:
@@ -49,7 +51,7 @@ class WeatherService:
             params = {
                 "latitude": lat,
                 "longitude": lon,
-                "current": "temperature_2m,weather_code,is_day",
+                "current": "temperature_2m,weather_code,is_day,cloud_cover,wind_speed_10m,wind_direction_10m,precipitation,rain,snowfall",
                 "temperature_unit": "celsius"  # Always store in Celsius
             }
             
@@ -64,13 +66,72 @@ class WeatherService:
                     "temperature": current.get("temperature_2m"),
                     "condition_code": current.get("weather_code"),
                     "is_day": current.get("is_day") == 1,
-                    "condition_text": self._get_condition_text(current.get("weather_code"))
+                    "condition_text": self._get_condition_text(current.get("weather_code")),
+                    "cloud_cover": current.get("cloud_cover"),
+                    "wind_speed": current.get("wind_speed_10m"),
+                    "wind_direction": current.get("wind_direction_10m"),
+                    "precipitation": current.get("precipitation"),
+                    "rain": current.get("rain"),
+                    "snowfall": current.get("snowfall")
                 }
         except httpx.TimeoutException:
             log.warning("Weather API timeout - skipping weather context")
             return {}
         except Exception as e:
             log.error("Failed to fetch weather", error=str(e))
+            return {}
+
+    async def get_hourly_weather(self, start: datetime, end: datetime) -> dict:
+        """Fetch hourly weather data for a time range (UTC)."""
+        try:
+            lat, lon = await self.get_location()
+
+            if lat is None or lon is None:
+                return {}
+
+            start_date = start.date().isoformat()
+            end_date = end.date().isoformat()
+
+            params = {
+                "latitude": lat,
+                "longitude": lon,
+                "start_date": start_date,
+                "end_date": end_date,
+                "hourly": "temperature_2m,weather_code,cloud_cover,wind_speed_10m,wind_direction_10m,precipitation,rain,snowfall",
+                "temperature_unit": "celsius",
+                "timezone": "UTC"
+            }
+
+            async with httpx.AsyncClient(timeout=6.0) as client:
+                resp = await client.get(self.ARCHIVE_URL, params=params)
+                resp.raise_for_status()
+                data = resp.json()
+
+            hourly = data.get("hourly", {})
+            times = hourly.get("time", [])
+            if not times:
+                return {}
+
+            result = {}
+            for idx, time_str in enumerate(times):
+                result[time_str] = {
+                    "temperature": hourly.get("temperature_2m", [None] * len(times))[idx],
+                    "condition_code": hourly.get("weather_code", [None] * len(times))[idx],
+                    "condition_text": self._get_condition_text(hourly.get("weather_code", [None] * len(times))[idx]),
+                    "cloud_cover": hourly.get("cloud_cover", [None] * len(times))[idx],
+                    "wind_speed": hourly.get("wind_speed_10m", [None] * len(times))[idx],
+                    "wind_direction": hourly.get("wind_direction_10m", [None] * len(times))[idx],
+                    "precipitation": hourly.get("precipitation", [None] * len(times))[idx],
+                    "rain": hourly.get("rain", [None] * len(times))[idx],
+                    "snowfall": hourly.get("snowfall", [None] * len(times))[idx]
+                }
+
+            return result
+        except httpx.TimeoutException:
+            log.warning("Weather archive API timeout - skipping weather backfill")
+            return {}
+        except Exception as e:
+            log.error("Failed to fetch hourly weather", error=str(e))
             return {}
 
     def _get_condition_text(self, code: int) -> str:
@@ -95,5 +156,49 @@ class WeatherService:
         if code in [95, 96, 99]:
             return "Thunderstorm"
         return "Cloudy"
+
+    async def get_daily_sun_times(self, start: datetime, end: datetime) -> dict:
+        """Fetch daily sunrise/sunset times for a time range (UTC)."""
+        try:
+            lat, lon = await self.get_location()
+
+            if lat is None or lon is None:
+                return {}
+
+            start_date = start.date().isoformat()
+            end_date = end.date().isoformat()
+
+            params = {
+                "latitude": lat,
+                "longitude": lon,
+                "start_date": start_date,
+                "end_date": end_date,
+                "daily": "sunrise,sunset",
+                "timezone": "UTC"
+            }
+
+            async with httpx.AsyncClient(timeout=6.0) as client:
+                resp = await client.get(self.ARCHIVE_URL, params=params)
+                resp.raise_for_status()
+                data = resp.json()
+
+            daily = data.get("daily", {})
+            dates = daily.get("time", [])
+            if not dates:
+                return {}
+
+            sun = {}
+            for idx, date_str in enumerate(dates):
+                sun[date_str] = {
+                    "sunrise": daily.get("sunrise", [None] * len(dates))[idx],
+                    "sunset": daily.get("sunset", [None] * len(dates))[idx]
+                }
+            return sun
+        except httpx.TimeoutException:
+            log.warning("Weather archive API timeout - skipping sunrise/sunset")
+            return {}
+        except Exception as e:
+            log.error("Failed to fetch sunrise/sunset", error=str(e))
+            return {}
 
 weather_service = WeatherService()

@@ -114,6 +114,8 @@ class ClassificationSettings(BaseModel):
     video_classification_failure_threshold: int = Field(default=5, ge=1, description="Failures in window to open circuit breaker")
     video_classification_failure_window_minutes: int = Field(default=10, ge=1, description="Failure window size in minutes")
     video_classification_failure_cooldown_minutes: int = Field(default=15, ge=1, description="Cooldown minutes when circuit breaker is open")
+    video_classification_timeout_seconds: int = Field(default=180, ge=30, description="Timeout for a single video classification run")
+    video_classification_stale_minutes: int = Field(default=15, ge=1, description="Mark pending/processing as failed after this many minutes")
 
     # Classification output settings
     max_classification_results: int = Field(default=5, ge=1, le=20, description="Maximum number of top results to return from classifier")
@@ -147,6 +149,14 @@ class BirdWeatherSettings(BaseModel):
     enabled: bool = Field(default=False, description="Enable BirdWeather reporting")
     station_token: Optional[str] = Field(None, description="BirdWeather Station Token")
 
+class InaturalistSettings(BaseModel):
+    enabled: bool = Field(default=False, description="Enable iNaturalist submissions")
+    client_id: Optional[str] = Field(default=None, description="iNaturalist OAuth Client ID")
+    client_secret: Optional[str] = Field(default=None, description="iNaturalist OAuth Client Secret")
+    default_latitude: Optional[float] = Field(default=None, description="Default latitude for submissions")
+    default_longitude: Optional[float] = Field(default=None, description="Default longitude for submissions")
+    default_place_guess: Optional[str] = Field(default=None, description="Default place guess for submissions")
+
 class LLMSettings(BaseModel):
     enabled: bool = Field(default=False, description="Enable LLM integration")
     provider: str = Field(default="gemini", description="AI provider (gemini, openai, claude)")
@@ -179,6 +189,7 @@ class TelegramSettings(BaseModel):
 
 class EmailSettings(BaseModel):
     enabled: bool = Field(default=False, description="Enable Email notifications")
+    only_on_end: bool = Field(default=False, description="Only send email notifications on Frigate MQTT end events")
     # OAuth2 Settings
     use_oauth: bool = Field(default=False, description="Use OAuth2 authentication (Gmail/Outlook)")
     oauth_provider: Optional[str] = Field(default=None, description="OAuth provider: 'gmail' or 'outlook'")
@@ -210,11 +221,13 @@ class NotificationSettings(BaseModel):
     telegram: TelegramSettings = TelegramSettings()
     email: EmailSettings = EmailSettings()
     filters: NotificationFilterSettings = NotificationFilterSettings()
-    notification_language: str = Field(default="en", description="Language for notifications (en, es, fr, de, ja)")
+    notification_language: str = Field(default="en", description="Language for notifications (en, es, fr, de, ja, ru, pt, it)")
+    mode: str = Field(default="standard", description="Notification mode: silent, final, standard, realtime, custom")
     notify_on_insert: bool = Field(default=True, description="Notify on new detection insert")
     notify_on_update: bool = Field(default=False, description="Notify on detection updates")
     delay_until_video: bool = Field(default=False, description="Delay notifications until video analysis completes (if enabled)")
     video_fallback_timeout: int = Field(default=45, description="Seconds to wait for video before falling back to snapshot notification")
+    notification_cooldown_minutes: int = Field(default=0, description="Global cooldown between notifications in minutes (0 = disabled)")
 
 class AccessibilitySettings(BaseModel):
     high_contrast: bool = Field(default=False, description="Enable high contrast mode")
@@ -228,6 +241,7 @@ class SystemSettings(BaseModel):
     broadcaster_max_queue_size: int = Field(default=100, ge=10, le=1000, description="Maximum SSE message queue size per subscriber")
     broadcaster_max_consecutive_full: int = Field(default=10, ge=1, le=100, description="Remove subscriber after this many consecutive backpressure failures")
     trusted_proxy_hosts: list[str] = Field(default_factory=lambda: ["*"], description="Trusted proxy hosts for X-Forwarded-* headers")
+    debug_ui_enabled: bool = Field(default=False, description="Expose debug UI sections in the web app")
 
 
 class AuthSettings(BaseModel):
@@ -287,6 +301,7 @@ class Settings(BaseSettings):
     media_cache: MediaCacheSettings = MediaCacheSettings()
     location: LocationSettings = LocationSettings()
     birdweather: BirdWeatherSettings = BirdWeatherSettings()
+    inaturalist: InaturalistSettings = InaturalistSettings()
     llm: LLMSettings = LLMSettings()
     telemetry: TelemetrySettings = TelemetrySettings()
     notifications: NotificationSettings = NotificationSettings()
@@ -378,6 +393,16 @@ class Settings(BaseSettings):
             'station_token': os.environ.get('BIRDWEATHER__STATION_TOKEN', None),
         }
 
+        # iNaturalist settings
+        inaturalist_data = {
+            'enabled': os.environ.get('INATURALIST__ENABLED', 'false').lower() == 'true',
+            'client_id': os.environ.get('INATURALIST__CLIENT_ID', None),
+            'client_secret': os.environ.get('INATURALIST__CLIENT_SECRET', None),
+            'default_latitude': None,
+            'default_longitude': None,
+            'default_place_guess': None,
+        }
+
         # LLM settings
         llm_data = {
             'enabled': os.environ.get('LLM__ENABLED', 'false').lower() == 'true',
@@ -416,6 +441,7 @@ class Settings(BaseSettings):
             },
             'email': {
                 'enabled': os.environ.get('NOTIFICATIONS__EMAIL__ENABLED', 'false').lower() == 'true',
+                'only_on_end': os.environ.get('NOTIFICATIONS__EMAIL__ONLY_ON_END', 'false').lower() == 'true',
                 'use_oauth': os.environ.get('NOTIFICATIONS__EMAIL__USE_OAUTH', 'false').lower() == 'true',
                 'oauth_provider': os.environ.get('NOTIFICATIONS__EMAIL__OAUTH_PROVIDER', None),
                 'gmail_client_id': os.environ.get('NOTIFICATIONS__EMAIL__GMAIL_CLIENT_ID', None),
@@ -439,6 +465,7 @@ class Settings(BaseSettings):
                 'camera_filters': {}
             },
             'notification_language': os.environ.get('NOTIFICATIONS__NOTIFICATION_LANGUAGE', 'en'),
+            'mode': os.environ.get('NOTIFICATIONS__MODE', 'standard'),
             'notify_on_insert': os.environ.get('NOTIFICATIONS__NOTIFY_ON_INSERT', 'true').lower() == 'true',
             'notify_on_update': os.environ.get('NOTIFICATIONS__NOTIFY_ON_UPDATE', 'false').lower() == 'true',
             'delay_until_video': os.environ.get('NOTIFICATIONS__DELAY_UNTIL_VIDEO', 'false').lower() == 'true',
@@ -483,6 +510,7 @@ class Settings(BaseSettings):
             'broadcaster_max_queue_size': int(os.environ.get('SYSTEM__BROADCASTER_MAX_QUEUE_SIZE', '100')),
             'broadcaster_max_consecutive_full': int(os.environ.get('SYSTEM__BROADCASTER_MAX_CONSECUTIVE_FULL', '10')),
             'trusted_proxy_hosts': trusted_hosts,
+            'debug_ui_enabled': os.environ.get('SYSTEM__DEBUG_UI_ENABLED', 'false').lower() == 'true',
         }
 
         species_info_source = os.environ.get('SPECIES_INFO__SOURCE', 'auto')
@@ -531,6 +559,12 @@ class Settings(BaseSettings):
                         env_key = f'BIRDWEATHER__{key.upper()}'
                         if env_key not in os.environ:
                             birdweather_data[key] = value
+
+                if 'inaturalist' in file_data:
+                    for key, value in file_data['inaturalist'].items():
+                        env_key = f'INATURALIST__{key.upper()}'
+                        if env_key not in os.environ:
+                            inaturalist_data[key] = value
                         
                 if 'llm' in file_data:
                     for key, value in file_data['llm'].items():
@@ -585,6 +619,11 @@ class Settings(BaseSettings):
                         if env_key not in os.environ:
                             notifications_data['notification_language'] = n_file['notification_language']
 
+                    if 'mode' in n_file:
+                        env_key = 'NOTIFICATIONS__MODE'
+                        if env_key not in os.environ:
+                            notifications_data['mode'] = n_file['mode']
+
                     if 'notify_on_insert' in n_file:
                         env_key = 'NOTIFICATIONS__NOTIFY_ON_INSERT'
                         if env_key not in os.environ:
@@ -601,6 +640,10 @@ class Settings(BaseSettings):
                         env_key = 'NOTIFICATIONS__VIDEO_FALLBACK_TIMEOUT'
                         if env_key not in os.environ:
                             notifications_data['video_fallback_timeout'] = n_file['video_fallback_timeout']
+                    if 'notification_cooldown_minutes' in n_file:
+                        env_key = 'NOTIFICATIONS__NOTIFICATION_COOLDOWN_MINUTES'
+                        if env_key not in os.environ:
+                            notifications_data['notification_cooldown_minutes'] = n_file['notification_cooldown_minutes']
 
                 if 'accessibility' in file_data:
                     for k, v in file_data['accessibility'].items():
@@ -649,6 +692,7 @@ class Settings(BaseSettings):
                  cache_clips=media_cache_data['cache_clips'],
                  retention_days=media_cache_data['retention_days'])
         log.info("BirdWeather config", enabled=birdweather_data['enabled'])
+        log.info("iNaturalist config", enabled=inaturalist_data['enabled'])
         log.info("LLM config", enabled=llm_data['enabled'], provider=llm_data['provider'])
         log.info("Telemetry config", enabled=telemetry_data['enabled'], installation_id=telemetry_data['installation_id'])
         log.info("Notification config",
@@ -670,6 +714,7 @@ class Settings(BaseSettings):
             media_cache=MediaCacheSettings(**media_cache_data),
             location=LocationSettings(**location_data),
             birdweather=BirdWeatherSettings(**birdweather_data),
+            inaturalist=InaturalistSettings(**inaturalist_data),
             llm=LLMSettings(**llm_data),
             telemetry=TelemetrySettings(**telemetry_data),
             notifications=NotificationSettings(**notifications_data),

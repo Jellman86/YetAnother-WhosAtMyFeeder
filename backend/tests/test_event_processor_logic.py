@@ -60,7 +60,8 @@ async def test_audio_confirmation(mock_dependencies):
     assert kwargs["audio_species"] == "Cardinal"
 
 @pytest.mark.asyncio
-async def test_audio_enhancement_unknown_bird(mock_dependencies):
+async def test_audio_enhancement_no_upgrade(mock_dependencies):
+    """Test that audio no longer upgrades visual 'Unknown Bird' detections."""
     classifier = MagicMock()
     classifier.classify_async = AsyncMock(return_value=[{"label": "Background", "score": 0.5, "index": 0}])
     
@@ -78,10 +79,11 @@ async def test_audio_enhancement_unknown_bird(mock_dependencies):
     
     await processor.process_mqtt_message(payload)
     
-    # Verify label was upgraded to Blue Jay and audio_confirmed is True
+    # Verify label remains Unknown Bird and audio_confirmed is False
     args, kwargs = mock_dependencies["det_service"].save_detection.call_args
-    assert kwargs["classification"]["label"] == "Blue Jay"
-    assert kwargs["audio_confirmed"] is True
+    assert kwargs["classification"]["label"] == "Unknown Bird"
+    assert kwargs["audio_confirmed"] is False
+    assert kwargs["audio_species"] == "Blue Jay"
 
 @pytest.mark.asyncio
 async def test_weather_context(mock_dependencies):
@@ -102,7 +104,8 @@ async def test_weather_context(mock_dependencies):
     assert kwargs["weather_condition"] == "Sunny"
 
 @pytest.mark.asyncio
-async def test_audio_mismatch_ignored(mock_dependencies):
+async def test_audio_mismatch_recorded_as_heard(mock_dependencies):
+    """Test that mismatched audio is still recorded as metadata but not confirmed."""
     classifier = MagicMock()
     classifier.classify_async = AsyncMock(return_value=[{"label": "Blue Tit", "score": 0.9, "index": 1}])
     mock_dependencies["det_service"].filter_and_label.return_value = ({"label": "Blue Tit", "score": 0.9}, {})
@@ -120,5 +123,5 @@ async def test_audio_mismatch_ignored(mock_dependencies):
 
     args, kwargs = mock_dependencies["det_service"].save_detection.call_args
     assert kwargs["audio_confirmed"] is False
-    assert kwargs["audio_species"] is None
-    assert kwargs["audio_score"] is None
+    assert kwargs["audio_species"] == "European Robin"
+    assert kwargs["audio_score"] == 0.95

@@ -1,0 +1,95 @@
+{
+  "notification": {
+    "new_detection": "Nuovo Uccello Rilevato: {species}",
+    "detection_body": "{species} rilevato su {camera} con confidenza del {confidence}%",
+    "audio_confirmed": "🎤 Audio Confermato da BirdNET-Go"
+  },
+  "errors": {
+    "detection_not_found": "Rilevamento non trovato",
+    "frigate_fetch_failed": "Impossibile recuperare snapshot da Frigate",
+    "classification_no_results": "La classificazione non ha prodotto risultati",
+    "invalid_api_key": "Chiave API non valida",
+    "missing_api_key": "Chiave API mancante",
+    "frigate_timeout": "Timeout connessione Frigate",
+    "frigate_auth_failed": "Autenticazione Frigate fallita",
+    "clip_disabled": "Recupero clip disabilitato",
+    "invalid_frigate_event": "Formato evento Frigate non valido",
+    "proxy": {
+      "frigate_timeout": "Timeout connessione Frigate",
+      "frigate_auth_failed": "Autenticazione Frigate fallita - controlla il token di autenticazione",
+      "frigate_error": "Frigate ha restituito errore: {status_code}",
+      "connection_failed": "Impossibile connettersi a Frigate su {url}",
+      "snapshot_not_found": "Snapshot non trovato",
+      "thumbnail_not_found": "Miniatura non trovata",
+      "clip_not_found": "Clip non trovata",
+      "clip_not_available": "Clip non disponibile per questo evento",
+      "event_not_found": "Evento non trovato in Frigate",
+      "empty_clip": "Frigate ha restituito una clip video vuota",
+      "media_fetch_failed": "Impossibile recuperare media da Frigate",
+      "invalid_event_id": "Formato ID evento non valido"
+    },
+    "events": {
+      "snapshot_fetch_failed": "Impossibile recuperare snapshot da Frigate",
+      "classification_failed": "La classificazione non ha prodotto risultati",
+      "delete_failed": "Impossibile eliminare il rilevamento",
+      "update_failed": "Impossibile aggiornare il rilevamento",
+      "wildlife_model_unavailable": "Modello fauna selvatica non disponibile. Si prega di scaricarlo prima.",
+      "reclassification_failed": "Riclassificazione fallita"
+    },
+    "species": {
+      "unknown_bird": "Uccello Sconosciuto",
+      "species_not_found": "Specie non trovata"
+    },
+    "ai": {
+      "provider_not_configured": "Provider AI non configurato",
+      "api_key_missing": "Chiave API non configurata per {provider}",
+      "analysis_failed": "Impossibile analizzare l'immagine",
+      "image_fetch_failed": "Impossibile recuperare immagine da Frigate",
+      "gemini_not_configured": "Chiave API Gemini non configurata",
+      "openai_not_configured": "Chiave API OpenAI non configurata",
+      "claude_not_configured": "Chiave API Claude non configurata"
+    },
+    "backfill": {
+      "no_events": "Nessun evento Frigate trovato nell'intervallo di tempo specificato",
+      "processing_error": "Errore elaborazione backfill: {error}",
+      "invalid_time_range": "Intervallo di tempo specificato non valido"
+    },
+    "classifier": {
+      "bird_model_not_loaded": "Modello uccelli non caricato",
+      "wildlife_model_not_loaded": "Modello fauna selvatica non caricato",
+      "model_load_failed": "Impossibile caricare il modello di classificazione"
+    },
+    "models": {
+      "not_installed": "Modello non installato",
+      "download_failed": "Download modello fallito"
+    },
+    "email": {
+      "gmail_oauth_not_configured": "Credenziali OAuth Gmail non configurate",
+      "outlook_oauth_not_configured": "Credenziali OAuth Outlook non configurate",
+      "gmail_oauth_failed": "Impossibile avviare OAuth Gmail: {error}",
+      "outlook_oauth_failed": "Impossibile avviare OAuth Outlook: {error}",
+      "access_token_failed": "Impossibile ottenere token di accesso",
+      "invalid_provider": "Provider non valido. Deve essere 'gmail' o 'outlook'",
+      "disconnect_failed": "Impossibile disconnettere",
+      "disconnect_error": "Errore disconnessione: {error}",
+      "not_enabled": "Notifiche email non abilitate",
+      "recipient_not_configured": "Email destinatario non configurata",
+      "smtp_incomplete": "Configurazione SMTP incompleta",
+      "send_failed": "Impossibile inviare email di test",
+      "send_error": "Impossibile inviare email di test: {error}",
+      "invalid_state": "Stato OAuth non valido. Riprova.",
+      "state_expired": "Stato OAuth scaduto. Riprova.",
+      "email_missing": "Indirizzo email non restituito dal provider."
+    },
+    "inat": {
+      "disabled": "Integrazione iNaturalist disabilitata",
+      "not_configured": "Credenziali OAuth iNaturalist non configurate",
+      "invalid_state": "Stato OAuth non valido. Riprova.",
+      "state_expired": "Stato OAuth scaduto. Riprova.",
+      "oauth_failed": "OAuth iNaturalist fallito: {error}",
+      "not_connected": "Account iNaturalist non connesso",
+      "event_missing": "Rilevamento non trovato per l’invio",
+      "submit_failed": "Invio a iNaturalist fallito: {error}"
+    }
+  }
+}

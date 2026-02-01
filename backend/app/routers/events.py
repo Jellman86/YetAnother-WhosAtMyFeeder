@@ -206,6 +206,12 @@ async def get_events(
                 audio_score=event.audio_score,
                 temperature=event.temperature,
                 weather_condition=event.weather_condition,
+                weather_cloud_cover=event.weather_cloud_cover,
+                weather_wind_speed=event.weather_wind_speed,
+                weather_wind_direction=event.weather_wind_direction,
+                weather_precipitation=event.weather_precipitation,
+                weather_rain=event.weather_rain,
+                weather_snowfall=event.weather_snowfall,
                 scientific_name=event.scientific_name,
                 common_name=common_name,
                 taxa_id=event.taxa_id,
@@ -363,6 +369,12 @@ async def toggle_hide_event(
                     "audio_score": detection.audio_score,
                     "temperature": detection.temperature,
                     "weather_condition": detection.weather_condition,
+                    "weather_cloud_cover": detection.weather_cloud_cover,
+                    "weather_wind_speed": detection.weather_wind_speed,
+                    "weather_wind_direction": detection.weather_wind_direction,
+                    "weather_precipitation": detection.weather_precipitation,
+                    "weather_rain": detection.weather_rain,
+                    "weather_snowfall": detection.weather_snowfall,
                     "scientific_name": detection.scientific_name,
                     "common_name": detection.common_name,
                     "taxa_id": detection.taxa_id
@@ -476,6 +488,12 @@ async def reclassify_event(
                     "audio_score": detection.audio_score,
                     "temperature": detection.temperature,
                     "weather_condition": detection.weather_condition,
+                    "weather_cloud_cover": detection.weather_cloud_cover,
+                    "weather_wind_speed": detection.weather_wind_speed,
+                    "weather_wind_direction": detection.weather_wind_direction,
+                    "weather_precipitation": detection.weather_precipitation,
+                    "weather_rain": detection.weather_rain,
+                    "weather_snowfall": detection.weather_snowfall,
                     "scientific_name": detection.scientific_name,
                     "common_name": detection.common_name,
                     "taxa_id": detection.taxa_id,
@@ -613,6 +631,14 @@ async def reclassify_event(
                         await broadcast_video_status("failed", "video_no_results")
                         effective_strategy = "snapshot"
                     else:
+                        top_result = results[0]
+                        await repo.update_video_classification(
+                            frigate_event=event_id,
+                            label=top_result["label"],
+                            score=top_result["score"],
+                            index=top_result["index"],
+                            status="completed"
+                        )
                         await broadcast_video_status("completed", None)
 
         # Snapshot strategy (Default or Fallback)
@@ -737,6 +763,12 @@ async def reclassify_event(
                     "audio_score": audio_score,           # NEW: Re-correlated audio data
                     "temperature": detection.temperature,
                     "weather_condition": detection.weather_condition,
+                    "weather_cloud_cover": detection.weather_cloud_cover,
+                    "weather_wind_speed": detection.weather_wind_speed,
+                    "weather_wind_direction": detection.weather_wind_direction,
+                    "weather_precipitation": detection.weather_precipitation,
+                    "weather_rain": detection.weather_rain,
+                    "weather_snowfall": detection.weather_snowfall,
                     "scientific_name": sci_name,
                     "common_name": com_name,
                     "taxa_id": t_id
@@ -852,6 +884,12 @@ async def update_event(
                 "audio_score": audio_score,           # NEW: Re-correlated audio data
                 "temperature": detection.temperature,
                 "weather_condition": detection.weather_condition,
+                "weather_cloud_cover": detection.weather_cloud_cover,
+                "weather_wind_speed": detection.weather_wind_speed,
+                "weather_wind_direction": detection.weather_wind_direction,
+                "weather_precipitation": detection.weather_precipitation,
+                "weather_rain": detection.weather_rain,
+                "weather_snowfall": detection.weather_snowfall,
                 "scientific_name": sci_name,
                 "common_name": com_name,
                 "taxa_id": t_id

@@ -36,5 +36,5 @@ def get_user_language(request: Request) -> str:
     primary_lang = accept_lang.split(",")[0].split("-")[0].split(";")[0].strip()
 
     # Validate against supported languages
-    supported = ["en", "es", "fr", "de", "ja", "zh"]
+    supported = ["en", "es", "fr", "de", "ja", "zh", "ru", "pt", "it"]
     return primary_lang if primary_lang in supported else "en"

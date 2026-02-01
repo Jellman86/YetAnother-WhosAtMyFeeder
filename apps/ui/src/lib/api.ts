@@ -19,6 +19,12 @@ export interface Detection {
     // Weather fields
     temperature?: number;
     weather_condition?: string;
+    weather_cloud_cover?: number;
+    weather_wind_speed?: number;
+    weather_wind_direction?: number;
+    weather_precipitation?: number;
+    weather_rain?: number;
+    weather_snowfall?: number;
     // Taxonomy fields
     scientific_name?: string;
     common_name?: string;
@@ -38,6 +44,7 @@ export interface VersionInfo {
     version: string;
     base_version: string;
     git_hash: string;
+    branch: string;
 }
 
 export interface AuthStatus {
@@ -114,10 +121,18 @@ export interface Settings {
     location_latitude?: number | null;
     location_longitude?: number | null;
     location_automatic?: boolean;
-    location_temperature_unit?: string;
+    location_temperature_unit?: 'celsius' | 'fahrenheit' | string;
     // BirdWeather settings
     birdweather_enabled: boolean;
     birdweather_station_token?: string | null;
+    // iNaturalist settings
+    inaturalist_enabled?: boolean;
+    inaturalist_client_id?: string | null;
+    inaturalist_client_secret?: string | null;
+    inaturalist_default_latitude?: number | null;
+    inaturalist_default_longitude?: number | null;
+    inaturalist_default_place_guess?: string | null;
+    inaturalist_connected_user?: string | null;
     // LLM settings
     llm_enabled: boolean;
     llm_provider?: string;
@@ -143,6 +158,7 @@ export interface Settings {
 
     // Email notification settings
     notifications_email_enabled: boolean;
+    notifications_email_only_on_end: boolean;
     notifications_email_use_oauth: boolean;
     notifications_email_oauth_provider?: string | null;
     notifications_email_connected_email?: string | null;
@@ -164,10 +180,20 @@ export interface Settings {
     notifications_filter_min_confidence: number;
     notifications_filter_audio_confirmed_only: boolean;
     notification_language: string;
+    notifications_mode: string;
     notifications_notify_on_insert: boolean;
     notifications_notify_on_update: boolean;
     notifications_delay_until_video: boolean;
     notifications_video_fallback_timeout: number;
+    notifications_notification_cooldown_minutes: number;
+
+    // Optional nested notifications object for backward compatibility/UI grouping
+    notifications?: {
+        discord?: { enabled: boolean };
+        pushover?: { enabled: boolean };
+        telegram?: { enabled: boolean };
+        email?: { enabled: boolean };
+    };
 
     // Accessibility settings
     accessibility_high_contrast: boolean;
@@ -183,6 +209,7 @@ export interface Settings {
     auth_session_expiry_hours: number;
     auth_password?: string;
     trusted_proxy_hosts?: string[];
+    debug_ui_enabled?: boolean;
 
     // Public access
     public_access_enabled: boolean;
@@ -482,10 +509,12 @@ export async function fetchVersion(): Promise<VersionInfo> {
     }
     const appVersion = typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : 'unknown';
     const appVersionBase = appVersion.includes('+') ? appVersion.split('+')[0] : appVersion;
+    const appBranch = typeof __APP_BRANCH__ === 'string' ? __APP_BRANCH__ : 'unknown';
     return { 
         version: appVersion, 
         base_version: appVersionBase, 
-        git_hash: __GIT_HASH__ 
+        git_hash: typeof __GIT_HASH__ === 'string' ? __GIT_HASH__ : 'unknown',
+        branch: appBranch
     };
 }
 
@@ -732,10 +761,37 @@ export interface DailyDetectionCount {
     count: number;
 }
 
+export interface DailyWeatherSummary {
+    date: string;
+    condition?: string | null;
+    precip_total?: number | null;
+    rain_total?: number | null;
+    snow_total?: number | null;
+    wind_max?: number | null;
+    wind_avg?: number | null;
+    cloud_avg?: number | null;
+    temp_avg?: number | null;
+    sunrise?: string | null;
+    sunset?: string | null;
+    am_condition?: string | null;
+    am_rain?: number | null;
+    am_snow?: number | null;
+    am_wind?: number | null;
+    am_cloud?: number | null;
+    am_temp?: number | null;
+    pm_condition?: string | null;
+    pm_rain?: number | null;
+    pm_snow?: number | null;
+    pm_wind?: number | null;
+    pm_cloud?: number | null;
+    pm_temp?: number | null;
+}
+
 export interface DetectionsTimeline {
     days: number;
     total_count: number;
     daily: DailyDetectionCount[];
+    weather?: DailyWeatherSummary[] | null;
 }
 
 export async function fetchSpeciesStats(speciesName: string): Promise<SpeciesStats> {
@@ -819,6 +875,70 @@ export async function runBackfill(request: BackfillRequest): Promise<BackfillRes
         body: JSON.stringify(request),
     });
     return handleResponse<BackfillResult>(response);
+}
+
+export interface WeatherBackfillRequest {
+    date_range: 'day' | 'week' | 'month' | 'custom';
+    start_date?: string;
+    end_date?: string;
+    only_missing?: boolean;
+}
+
+export interface WeatherBackfillResult {
+    status: string;
+    processed: number;
+    updated: number;
+    skipped: number;
+    errors: number;
+    message: string;
+}
+
+export async function runWeatherBackfill(request: WeatherBackfillRequest): Promise<WeatherBackfillResult> {
+    const response = await apiFetch(`${API_BASE}/backfill/weather`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(request),
+    });
+    return handleResponse<WeatherBackfillResult>(response);
+}
+
+export interface BackfillJobStatus {
+    id: string;
+    kind: string;
+    status: string;
+    processed: number;
+    total: number;
+    new_detections?: number;
+    updated?: number;
+    skipped: number;
+    errors: number;
+    message?: string;
+    started_at?: string | null;
+    finished_at?: string | null;
+}
+
+export async function startBackfillJob(request: BackfillRequest): Promise<BackfillJobStatus> {
+    const response = await apiFetch(`${API_BASE}/backfill/async`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(request),
+    });
+    return handleResponse<BackfillJobStatus>(response);
+}
+
+export async function startWeatherBackfillJob(request: WeatherBackfillRequest): Promise<BackfillJobStatus> {
+    const response = await apiFetch(`${API_BASE}/backfill/weather/async`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(request),
+    });
+    return handleResponse<BackfillJobStatus>(response);
+}
+
+export async function getBackfillStatus(kind?: 'detections' | 'weather'): Promise<BackfillJobStatus | null> {
+    const params = kind ? `?kind=${kind}` : '';
+    const response = await apiFetch(`${API_BASE}/backfill/status${params}`);
+    return handleResponse<BackfillJobStatus | null>(response);
 }
 
 export interface ResetDatabaseResult {
@@ -1007,6 +1127,30 @@ export async function analyzeDetection(eventId: string, force: boolean = false):
     );
 }
 
+export interface LeaderboardAnalysisResponse {
+    analysis: string;
+    analysis_timestamp: string;
+}
+
+export async function fetchLeaderboardAnalysis(configKey: string): Promise<LeaderboardAnalysisResponse> {
+    const response = await apiFetch(`${API_BASE}/leaderboard/analysis?config_key=${encodeURIComponent(configKey)}`);
+    return handleResponse<LeaderboardAnalysisResponse>(response);
+}
+
+export async function analyzeLeaderboardGraph(payload: {
+    config: Record<string, unknown>;
+    image_base64: string;
+    force?: boolean;
+    config_key?: string;
+}): Promise<LeaderboardAnalysisResponse> {
+    const response = await apiFetch(`${API_BASE}/leaderboard/analyze`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    });
+    return handleResponse<LeaderboardAnalysisResponse>(response);
+}
+
 export interface AudioDetection {
     timestamp: string;
     species: string;
@@ -1017,6 +1161,27 @@ export interface AudioDetection {
 export async function fetchRecentAudio(limit: number = 10): Promise<AudioDetection[]> {
     const response = await apiFetch(`${API_BASE}/audio/recent?limit=${limit}`);
     return handleResponse<AudioDetection[]>(response);
+}
+
+export interface AudioContextDetection extends AudioDetection {
+    offset_seconds: number;
+}
+
+export async function fetchAudioContext(
+    timestamp: string,
+    camera?: string,
+    windowSeconds: number = 300,
+    limit: number = 5
+): Promise<AudioContextDetection[]> {
+    const params = new URLSearchParams();
+    params.set('timestamp', timestamp);
+    params.set('window_seconds', String(windowSeconds));
+    params.set('limit', String(limit));
+    if (camera) {
+        params.set('camera', camera);
+    }
+    const response = await apiFetch(`${API_BASE}/audio/context?${params.toString()}`);
+    return handleResponse<AudioContextDetection[]>(response);
 }
 
 export interface SearchResult {
@@ -1050,6 +1215,7 @@ export interface DailySummary {
     top_species: DailySpeciesSummary[];
     latest_detection: Detection | null;
     total_count: number;
+    audio_confirmations: number;
 }
 
 export async function fetchDailySummary(): Promise<DailySummary> {
@@ -1117,4 +1283,62 @@ export async function sendTestEmail(request: TestEmailRequest = {}): Promise<Tes
         })
     });
     return handleResponse<TestEmailResponse>(response);
+}
+
+// ============================================================================
+// iNaturalist API
+// ============================================================================
+
+export interface InaturalistDraft {
+    event_id: string;
+    species_guess: string;
+    taxon_id?: number | null;
+    observed_on_string: string;
+    time_zone: string;
+    latitude?: number | null;
+    longitude?: number | null;
+    place_guess?: string | null;
+    notes?: string | null;
+    snapshot_url?: string | null;
+}
+
+export interface InaturalistSubmitResult {
+    status: string;
+    observation_id?: number;
+}
+
+export async function initiateInaturalistOAuth(): Promise<OAuthAuthorizeResponse> {
+    const response = await apiFetch(`${API_BASE}/inaturalist/oauth/authorize`);
+    return handleResponse<OAuthAuthorizeResponse>(response);
+}
+
+export async function disconnectInaturalistOAuth(): Promise<{ status: string }> {
+    const response = await apiFetch(`${API_BASE}/inaturalist/oauth/disconnect`, {
+        method: 'DELETE'
+    });
+    return handleResponse<{ status: string }>(response);
+}
+
+export async function createInaturalistDraft(eventId: string): Promise<InaturalistDraft> {
+    const response = await apiFetch(`${API_BASE}/inaturalist/draft`, {
+        method: 'POST',
+        headers: getHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ event_id: eventId })
+    });
+    return handleResponse<InaturalistDraft>(response);
+}
+
+export async function submitInaturalistObservation(payload: {
+    event_id: string;
+    notes?: string;
+    latitude?: number | null;
+    longitude?: number | null;
+    place_guess?: string | null;
+}): Promise<InaturalistSubmitResult> {
+    const response = await apiFetch(`${API_BASE}/inaturalist/submit`, {
+        method: 'POST',
+        headers: getHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify(payload)
+    });
+    return handleResponse<InaturalistSubmitResult>(response);
 }

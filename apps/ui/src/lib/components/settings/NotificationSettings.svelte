@@ -1,5 +1,22 @@
 <script lang="ts">
     import { _ } from 'svelte-i18n';
+    import type { TestEmailRequest, TestEmailResponse, OAuthAuthorizeResponse } from '../../api';
+
+    function extractErrorMessage(error: any, fallback: string) {
+        const message = error?.message || fallback;
+        if (typeof message === 'string' && message.trim().startsWith('{')) {
+            try {
+                const parsed = JSON.parse(message);
+                return parsed.detail || parsed.message || fallback;
+            } catch {
+                return message;
+            }
+        }
+        return message;
+    }
+
+    let emailTestError = $state<string | null>(null);
+    let emailTestSuccess = $state<string | null>(null);
 
     // Props
     let {
@@ -8,10 +25,12 @@
         notifyAudioOnly = $bindable(false),
         notifySpeciesWhitelist = $bindable<string[]>([]),
         newSpecies = $bindable(''),
+        notifyMode = $bindable<'silent' | 'final' | 'standard' | 'realtime' | 'custom'>('standard'),
         notifyOnInsert = $bindable(true),
         notifyOnUpdate = $bindable(false),
         notifyDelayUntilVideo = $bindable(false),
         notifyVideoFallbackTimeout = $bindable(45),
+        notifyCooldownMinutes = $bindable(0),
 
         // Discord
         discordEnabled = $bindable(false),
@@ -39,6 +58,7 @@
         emailUseOAuth = $bindable(true),
         emailConnectedEmail = $bindable<string | null>(null),
         emailOAuthProvider = $bindable<string | null>(null),
+        emailOnlyOnEnd = $bindable(false),
         emailSmtpHost = $bindable(''),
         emailSmtpPort = $bindable(587),
         emailSmtpUseTls = $bindable(true),
@@ -68,10 +88,12 @@
         notifyAudioOnly: boolean;
         notifySpeciesWhitelist: string[];
         newSpecies: string;
+        notifyMode: 'silent' | 'final' | 'standard' | 'realtime' | 'custom';
         notifyOnInsert: boolean;
         notifyOnUpdate: boolean;
         notifyDelayUntilVideo: boolean;
         notifyVideoFallbackTimeout: number;
+        notifyCooldownMinutes: number;
         discordEnabled: boolean;
         discordWebhook: string;
         discordWebhookSaved: boolean;
@@ -91,6 +113,7 @@
         emailUseOAuth: boolean;
         emailConnectedEmail: string | null;
         emailOAuthProvider: string | null;
+        emailOnlyOnEnd: boolean;
         emailSmtpHost: string;
         emailSmtpPort: number;
         emailSmtpUseTls: boolean;
@@ -107,13 +130,62 @@
         sendTestDiscord: () => Promise<void>;
         sendTestPushover: () => Promise<void>;
         sendTestTelegram: () => Promise<void>;
-        sendTestEmail: () => Promise<void>;
-        initiateGmailOAuth: () => Promise<{ authorization_url: string }>;
-        initiateOutlookOAuth: () => Promise<{ authorization_url: string }>;
-        disconnectEmailOAuth: (provider: string) => Promise<void>;
+        sendTestEmail: (request?: TestEmailRequest) => Promise<TestEmailResponse>;
+        initiateGmailOAuth: () => Promise<OAuthAuthorizeResponse>;
+        initiateOutlookOAuth: () => Promise<OAuthAuthorizeResponse>;
+        disconnectEmailOAuth: (provider: 'gmail' | 'outlook') => Promise<{ message: string }>;
     } = $props();
 
-    const notificationsEnabled = $derived(notifyOnInsert || notifyOnUpdate);
+    let showAdvanced = $state(false);
+
+    const notificationsEnabled = $derived(
+        notifyMode === 'custom' ? (notifyOnInsert || notifyOnUpdate) : notifyMode !== 'silent'
+    );
+
+    $effect(() => {
+        if (notifyMode === 'custom') {
+            showAdvanced = true;
+        }
+    });
+
+    function applyPreset(mode: typeof notifyMode) {
+        if (mode === 'silent') {
+            notifyOnInsert = false;
+            notifyOnUpdate = false;
+            notifyDelayUntilVideo = false;
+            return;
+        }
+        if (mode === 'final') {
+            notifyOnInsert = true;
+            notifyOnUpdate = false;
+            notifyDelayUntilVideo = true;
+            return;
+        }
+        if (mode === 'realtime') {
+            notifyOnInsert = true;
+            notifyOnUpdate = true;
+            notifyDelayUntilVideo = false;
+            return;
+        }
+        if (mode === 'standard') {
+            notifyOnInsert = true;
+            notifyOnUpdate = false;
+            notifyDelayUntilVideo = false;
+        }
+    }
+
+    function setMode(mode: typeof notifyMode) {
+        notifyMode = mode;
+        if (mode !== 'custom') {
+            showAdvanced = false;
+            applyPreset(mode);
+        }
+    }
+
+    function setCustom(updateFn: () => void) {
+        notifyMode = 'custom';
+        updateFn();
+    }
 </script>
 
 <div class="space-y-6">
@@ -135,101 +207,183 @@
                         {$_('settings.notifications.enable_notify_hint', { default: 'Notifications are currently off. Enable "Notify on new detections" or "Notify on updates" to send any alerts.' })}
                     </div>
                 {/if}
+                <div class="mb-4 rounded-2xl border border-slate-200/70 bg-white/70 px-4 py-3 text-[11px] font-bold text-slate-600 dark:border-slate-700/60 dark:bg-slate-900/40 dark:text-slate-300">
+                    {$_('settings.notifications.confirmation_policy')}
+                </div>
                 <div class="space-y-4">
-                    <div class="flex items-center justify-between gap-4">
-                        <div id="notify-insert-label">
-                            <span class="block text-sm font-black text-slate-900 dark:text-white">{$_('settings.notifications.notify_on_insert')}</span>
-                            <span class="block text-[10px] text-slate-500 font-bold leading-tight mt-1">{$_('settings.notifications.notify_on_insert_desc')}</span>
-                        </div>
-                        <button
-                            role="switch"
-                            aria-checked={notifyOnInsert}
-                            aria-labelledby="notify-insert-label"
-                            onclick={() => notifyOnInsert = !notifyOnInsert}
-                            onkeydown={(e) => {
-                                if (e.key === 'Enter' || e.key === ' ') {
-                                    e.preventDefault();
-                                    notifyOnInsert = !notifyOnInsert;
-                                }
-                            }}
-                            class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {notifyOnInsert ? 'bg-amber-500' : 'bg-slate-300 dark:bg-slate-600'}"
-                        >
-                            <span class="sr-only">{$_('settings.notifications.notify_on_insert')}</span>
-                            <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {notifyOnInsert ? 'translate-x-5' : 'translate-x-0'}"></span>
-                        </button>
+                    <div>
+                        <p class="text-[11px] font-black uppercase tracking-[0.2em] text-slate-500">{$_('settings.notifications.mode_title')}</p>
+                        <p class="text-xs text-slate-500 mt-1">{$_('settings.notifications.mode_desc')}</p>
                     </div>
-
-                    <div class="flex items-center justify-between gap-4">
-                        <div id="notify-update-label">
-                            <span class="block text-sm font-black text-slate-900 dark:text-white">{$_('settings.notifications.notify_on_update')}</span>
-                            <span class="block text-[10px] text-slate-500 font-bold leading-tight mt-1">{$_('settings.notifications.notify_on_update_desc')}</span>
-                        </div>
+                    <div class="grid gap-3 md:grid-cols-2">
                         <button
-                            role="switch"
-                            aria-checked={notifyOnUpdate}
-                            aria-labelledby="notify-update-label"
-                            onclick={() => notifyOnUpdate = !notifyOnUpdate}
-                            onkeydown={(e) => {
-                                if (e.key === 'Enter' || e.key === ' ') {
-                                    e.preventDefault();
-                                    notifyOnUpdate = !notifyOnUpdate;
-                                }
-                            }}
-                            class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {notifyOnUpdate ? 'bg-amber-500' : 'bg-slate-300 dark:bg-slate-600'}"
+                            type="button"
+                            onclick={() => setMode('final')}
+                            class="rounded-2xl border px-4 py-3 text-left transition-all duration-200 {notifyMode === 'final' ? 'border-amber-400 bg-amber-50/80 shadow-sm' : 'border-slate-200/70 bg-white/70 hover:border-amber-200 dark:border-slate-700/60 dark:bg-slate-900/40'}"
                         >
-                            <span class="sr-only">{$_('settings.notifications.notify_on_update')}</span>
-                            <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {notifyOnUpdate ? 'translate-x-5' : 'translate-x-0'}"></span>
+                            <p class="text-sm font-black text-slate-900 dark:text-white">{$_('settings.notifications.mode_final')}</p>
+                            <p class="text-[10px] font-bold text-slate-500 mt-1">{$_('settings.notifications.mode_final_desc')}</p>
                         </button>
-                    </div>
-
-                    <div class="flex items-center justify-between gap-4 {notificationsEnabled ? '' : 'opacity-50'}">
-                        <div id="notify-delay-label">
-                            <span class="block text-sm font-black text-slate-900 dark:text-white">{$_('settings.notifications.delay_until_video')}</span>
-                            <span class="block text-[10px] text-slate-500 font-bold leading-tight mt-1">{$_('settings.notifications.delay_until_video_desc')}</span>
-                        </div>
                         <button
-                            role="switch"
-                            aria-checked={notifyDelayUntilVideo}
-                            aria-disabled={!notificationsEnabled}
-                            aria-labelledby="notify-delay-label"
-                            onclick={() => {
-                                if (!notificationsEnabled) return;
-                                notifyDelayUntilVideo = !notifyDelayUntilVideo;
-                            }}
-                            onkeydown={(e) => {
-                                if (e.key === 'Enter' || e.key === ' ') {
-                                    e.preventDefault();
-                                    if (!notificationsEnabled) return;
-                                    notifyDelayUntilVideo = !notifyDelayUntilVideo;
-                                }
-                            }}
-                            class="relative inline-flex h-6 w-11 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {notificationsEnabled ? 'cursor-pointer' : 'cursor-not-allowed'} {notifyDelayUntilVideo && notificationsEnabled ? 'bg-amber-500' : 'bg-slate-300 dark:bg-slate-600'}"
+                            type="button"
+                            onclick={() => setMode('standard')}
+                            class="rounded-2xl border px-4 py-3 text-left transition-all duration-200 {notifyMode === 'standard' ? 'border-amber-400 bg-amber-50/80 shadow-sm' : 'border-slate-200/70 bg-white/70 hover:border-amber-200 dark:border-slate-700/60 dark:bg-slate-900/40'}"
                         >
-                            <span class="sr-only">{$_('settings.notifications.delay_until_video')}</span>
-                            <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {notifyDelayUntilVideo ? 'translate-x-5' : 'translate-x-0'}"></span>
+                            <p class="text-sm font-black text-slate-900 dark:text-white">{$_('settings.notifications.mode_standard')}</p>
+                            <p class="text-[10px] font-bold text-slate-500 mt-1">{$_('settings.notifications.mode_standard_desc')}</p>
+                        </button>
+                        <button
+                            type="button"
+                            onclick={() => setMode('realtime')}
+                            class="rounded-2xl border px-4 py-3 text-left transition-all duration-200 {notifyMode === 'realtime' ? 'border-amber-400 bg-amber-50/80 shadow-sm' : 'border-slate-200/70 bg-white/70 hover:border-amber-200 dark:border-slate-700/60 dark:bg-slate-900/40'}"
+                        >
+                            <p class="text-sm font-black text-slate-900 dark:text-white">{$_('settings.notifications.mode_realtime')}</p>
+                            <p class="text-[10px] font-bold text-slate-500 mt-1">{$_('settings.notifications.mode_realtime_desc')}</p>
+                        </button>
+                        <button
+                            type="button"
+                            onclick={() => setMode('silent')}
+                            class="rounded-2xl border px-4 py-3 text-left transition-all duration-200 {notifyMode === 'silent' ? 'border-amber-400 bg-amber-50/80 shadow-sm' : 'border-slate-200/70 bg-white/70 hover:border-amber-200 dark:border-slate-700/60 dark:bg-slate-900/40'}"
+                        >
+                            <p class="text-sm font-black text-slate-900 dark:text-white">{$_('settings.notifications.mode_silent')}</p>
+                            <p class="text-[10px] font-bold text-slate-500 mt-1">{$_('settings.notifications.mode_silent_desc')}</p>
                         </button>
                     </div>
 
                     <div class="flex items-center justify-between gap-4">
                         <div>
-                            <span class="block text-sm font-black text-slate-900 dark:text-white">{$_('settings.notifications.video_fallback_timeout')}</span>
-                            <span class="block text-[10px] text-slate-500 font-bold leading-tight mt-1">{$_('settings.notifications.video_fallback_timeout_desc')}</span>
+                            <span class="block text-sm font-black text-slate-900 dark:text-white">{$_('settings.notifications.advanced_title')}</span>
+                            <span class="block text-[10px] text-slate-500 font-bold leading-tight mt-1">{$_('settings.notifications.advanced_desc')}</span>
                         </div>
-                        <div class="flex items-center gap-2">
-                            <input
-                                type="number"
-                                min="0"
-                                step="5"
-                                bind:value={notifyVideoFallbackTimeout}
-                                disabled={!notifyDelayUntilVideo || !notificationsEnabled}
-                                class="w-24 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-xs disabled:opacity-50"
-                                aria-label={$_('settings.notifications.video_fallback_timeout')}
-                            />
-                            <span class="text-[10px] font-bold text-slate-500">{$_('settings.notifications.video_fallback_seconds')}</span>
-                        </div>
+                        <button
+                            type="button"
+                            onclick={() => {
+                                showAdvanced = !showAdvanced;
+                                if (showAdvanced) notifyMode = 'custom';
+                            }}
+                            class="px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border {showAdvanced ? 'border-amber-400 text-amber-700 bg-amber-50' : 'border-slate-200 text-slate-500 bg-white/70 dark:border-slate-700 dark:text-slate-300 dark:bg-slate-900/40'}"
+                        >
+                            {showAdvanced ? $_('settings.notifications.advanced_on') : $_('settings.notifications.advanced_off')}
+                        </button>
                     </div>
+
+                    {#if showAdvanced}
+                        <div class="space-y-4 border-t border-dashed border-slate-200/70 pt-4">
+                            <div class="flex items-center justify-between gap-4">
+                                <div id="notify-insert-label">
+                                    <span class="block text-sm font-black text-slate-900 dark:text-white">{$_('settings.notifications.notify_on_insert')}</span>
+                                    <span class="block text-[10px] text-slate-500 font-bold leading-tight mt-1">{$_('settings.notifications.notify_on_insert_desc')}</span>
+                                </div>
+                                <button
+                                    role="switch"
+                                    aria-checked={notifyOnInsert}
+                                    aria-labelledby="notify-insert-label"
+                                    onclick={() => setCustom(() => notifyOnInsert = !notifyOnInsert)}
+                                    onkeydown={(e) => {
+                                        if (e.key === 'Enter' || e.key === ' ') {
+                                            e.preventDefault();
+                                            setCustom(() => notifyOnInsert = !notifyOnInsert);
+                                        }
+                                    }}
+                                    class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {notifyOnInsert ? 'bg-amber-500' : 'bg-slate-300 dark:bg-slate-600'}"
+                                >
+                                    <span class="sr-only">{$_('settings.notifications.notify_on_insert')}</span>
+                                    <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {notifyOnInsert ? 'translate-x-5' : 'translate-x-0'}"></span>
+                                </button>
+                            </div>
+
+                            <div class="flex items-center justify-between gap-4">
+                                <div id="notify-update-label">
+                                    <span class="block text-sm font-black text-slate-900 dark:text-white">{$_('settings.notifications.notify_on_update')}</span>
+                                    <span class="block text-[10px] text-slate-500 font-bold leading-tight mt-1">{$_('settings.notifications.notify_on_update_desc')}</span>
+                                </div>
+                                <button
+                                    role="switch"
+                                    aria-checked={notifyOnUpdate}
+                                    aria-labelledby="notify-update-label"
+                                    onclick={() => setCustom(() => notifyOnUpdate = !notifyOnUpdate)}
+                                    onkeydown={(e) => {
+                                        if (e.key === 'Enter' || e.key === ' ') {
+                                            e.preventDefault();
+                                            setCustom(() => notifyOnUpdate = !notifyOnUpdate);
+                                        }
+                                    }}
+                                    class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {notifyOnUpdate ? 'bg-amber-500' : 'bg-slate-300 dark:bg-slate-600'}"
+                                >
+                                    <span class="sr-only">{$_('settings.notifications.notify_on_update')}</span>
+                                    <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {notifyOnUpdate ? 'translate-x-5' : 'translate-x-0'}"></span>
+                                </button>
+                            </div>
+
+                            <div class="flex items-center justify-between gap-4 {notificationsEnabled ? '' : 'opacity-50'}">
+                                <div id="notify-delay-label">
+                                    <span class="block text-sm font-black text-slate-900 dark:text-white">{$_('settings.notifications.delay_until_video')}</span>
+                                    <span class="block text-[10px] text-slate-500 font-bold leading-tight mt-1">{$_('settings.notifications.delay_until_video_desc')}</span>
+                                </div>
+                                <button
+                                    role="switch"
+                                    aria-checked={notifyDelayUntilVideo}
+                                    aria-disabled={!notificationsEnabled}
+                                    aria-labelledby="notify-delay-label"
+                                    onclick={() => {
+                                        if (!notificationsEnabled) return;
+                                        setCustom(() => notifyDelayUntilVideo = !notifyDelayUntilVideo);
+                                    }}
+                                    onkeydown={(e) => {
+                                        if (e.key === 'Enter' || e.key === ' ') {
+                                            e.preventDefault();
+                                            if (!notificationsEnabled) return;
+                                            setCustom(() => notifyDelayUntilVideo = !notifyDelayUntilVideo);
+                                        }
+                                    }}
+                                    class="relative inline-flex h-6 w-11 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {notificationsEnabled ? 'cursor-pointer' : 'cursor-not-allowed'} {notifyDelayUntilVideo && notificationsEnabled ? 'bg-amber-500' : 'bg-slate-300 dark:bg-slate-600'}"
+                                >
+                                    <span class="sr-only">{$_('settings.notifications.delay_until_video')}</span>
+                                    <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {notifyDelayUntilVideo ? 'translate-x-5' : 'translate-x-0'}"></span>
+                                </button>
+                            </div>
+
+                            <div class="flex items-center justify-between gap-4">
+                                <div>
+                                    <span class="block text-sm font-black text-slate-900 dark:text-white">{$_('settings.notifications.video_fallback_timeout')}</span>
+                                    <span class="block text-[10px] text-slate-500 font-bold leading-tight mt-1">{$_('settings.notifications.video_fallback_timeout_desc')}</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        step="5"
+                                        bind:value={notifyVideoFallbackTimeout}
+                                        disabled={!notifyDelayUntilVideo || !notificationsEnabled}
+                                        class="w-24 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-xs disabled:opacity-50"
+                                        aria-label={$_('settings.notifications.video_fallback_timeout')}
+                                    />
+                                    <span class="text-[10px] font-bold text-slate-500">{$_('settings.notifications.video_fallback_seconds')}</span>
+                                </div>
+                            </div>
+
+                            <div class="flex items-center justify-between gap-4">
+                                <div>
+                                    <span class="block text-sm font-black text-slate-900 dark:text-white">{$_('settings.notifications.cooldown')}</span>
+                                    <span class="block text-[10px] text-slate-500 font-bold leading-tight mt-1">{$_('settings.notifications.cooldown_desc')}</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        step="1"
+                                        bind:value={notifyCooldownMinutes}
+                                        class="w-24 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-xs"
+                                        aria-label={$_('settings.notifications.cooldown')}
+                                    />
+                                    <span class="text-[10px] font-bold text-slate-500">{$_('settings.notifications.cooldown_unit')}</span>
+                                </div>
+                            </div>
+                        </div>
+                    {/if}
                 </div>
-            </div>
+
+                </div>
 
             <!-- Minimum Confidence -->
             <div>
@@ -246,7 +400,7 @@
                     bind:value={notifyMinConfidence}
                     aria-valuemin="0"
                     aria-valuemax="100"
-                    aria-valuenow={(notifyMinConfidence * 100).toFixed(0)}
+                    aria-valuenow={Math.round(notifyMinConfidence * 100)}
                     aria-valuetext="{(notifyMinConfidence * 100).toFixed(0)} percent"
                     aria-label="Notification minimum confidence: {(notifyMinConfidence * 100).toFixed(0)}%"
                     class="w-full h-2 rounded-lg bg-slate-200 dark:bg-slate-700 appearance-none cursor-pointer accent-amber-500"
@@ -635,11 +789,11 @@
                         </div>
                         {#if emailConnectedEmail}
                             <div class="flex items-center justify-between p-3 bg-green-50 dark:bg-green-900/20 rounded-xl">
-                                <span class="text-sm text-green-700 dark:text-green-300">{$_('settings.email.connected', { email: emailConnectedEmail })}</span>
+                                <span class="text-sm text-green-700 dark:text-green-300">{$_('settings.email.connected', { values: { email: emailConnectedEmail } })}</span>
                                 <button
                                     onclick={async () => {
                                         try {
-                                            await disconnectEmailOAuth(emailOAuthProvider || 'gmail');
+                                            await disconnectEmailOAuth((emailOAuthProvider as 'gmail' | 'outlook') || 'gmail');
                                             emailConnectedEmail = null;
                                             emailOAuthProvider = null;
                                         } catch (error) {
@@ -755,6 +909,18 @@
                         </label>
                     </div>
                     <div>
+                        <label for="email-only-on-end" class="flex items-center gap-2 px-4 py-3 bg-slate-50 dark:bg-slate-900/50 rounded-2xl cursor-pointer">
+                            <input
+                                id="email-only-on-end"
+                                type="checkbox"
+                                bind:checked={emailOnlyOnEnd}
+                                class="rounded"
+                            />
+                            <span class="text-sm font-bold text-slate-700 dark:text-slate-300">{$_('settings.email.only_on_end')}</span>
+                        </label>
+                        <p class="mt-1 text-xs text-slate-500">{$_('settings.email.only_on_end_desc')}</p>
+                    </div>
+                    <div>
                         <label for="email-dashboard-url" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.email.dashboard_url')}</label>
                         <input
                             id="email-dashboard-url"
@@ -772,8 +938,13 @@
                 <button
                     onclick={async () => {
                         try {
+                            emailTestError = null;
+                            emailTestSuccess = null;
                             testingNotification['email'] = true;
-                            await sendTestEmail();
+                            const result = await sendTestEmail();
+                            emailTestSuccess = result.message || 'Test email sent';
+                        } catch (e: any) {
+                            emailTestError = extractErrorMessage(e, 'Failed to send test email');
                         } finally {
                             testingNotification['email'] = false;
                         }
@@ -784,6 +955,11 @@
                 >
                     {testingNotification['email'] ? $_('settings.email.test_email_sending') : $_('settings.email.test_email')}
                 </button>
+                {#if emailTestError}
+                    <p class="mt-2 text-xs font-semibold text-rose-600">{emailTestError}</p>
+                {:else if emailTestSuccess}
+                    <p class="mt-2 text-xs font-semibold text-emerald-600">{emailTestSuccess}</p>
+                {/if}
             </div>
         </section>
     </div>

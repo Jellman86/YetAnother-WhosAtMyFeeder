@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, date
 import aiosqlite
 import asyncio
+import json
 
 @dataclass
 class Detection:
@@ -25,6 +26,12 @@ class Detection:
     # Weather fields
     temperature: Optional[float] = None
     weather_condition: Optional[str] = None
+    weather_cloud_cover: Optional[float] = None
+    weather_wind_speed: Optional[float] = None
+    weather_wind_direction: Optional[float] = None
+    weather_precipitation: Optional[float] = None
+    weather_rain: Optional[float] = None
+    weather_snowfall: Optional[float] = None
     # Taxonomy fields
     scientific_name: Optional[str] = None
     common_name: Optional[str] = None
@@ -78,30 +85,36 @@ def _row_to_detection(row) -> Detection:
         audio_score=row[13] if len(row) > 13 else None,
         temperature=row[14] if len(row) > 14 else None,
         weather_condition=row[15] if len(row) > 15 else None,
-        scientific_name=row[16] if len(row) > 16 else None,
-        common_name=row[17] if len(row) > 17 else None,
-        taxa_id=row[18] if len(row) > 18 else None
+        weather_cloud_cover=row[16] if len(row) > 16 else None,
+        weather_wind_speed=row[17] if len(row) > 17 else None,
+        weather_wind_direction=row[18] if len(row) > 18 else None,
+        weather_precipitation=row[19] if len(row) > 19 else None,
+        weather_rain=row[20] if len(row) > 20 else None,
+        weather_snowfall=row[21] if len(row) > 21 else None,
+        scientific_name=row[22] if len(row) > 22 else None,
+        common_name=row[23] if len(row) > 23 else None,
+        taxa_id=row[24] if len(row) > 24 else None
     )
     
     # Optional video fields (might not be in row if using older query)
-    if len(row) > 19:
-        d.video_classification_score = row[19]
-        d.video_classification_label = row[20]
-        d.video_classification_index = row[21]
-        d.video_classification_timestamp = _parse_datetime(row[22]) if row[22] else None
-        d.video_classification_status = row[23]
-        d.video_classification_error = row[24] if len(row) > 24 else None
+    if len(row) > 25:
+        d.video_classification_score = row[25]
+        d.video_classification_label = row[26]
+        d.video_classification_index = row[27]
+        d.video_classification_timestamp = _parse_datetime(row[28]) if row[28] else None
+        d.video_classification_status = row[29]
+        d.video_classification_error = row[30] if len(row) > 30 else None
 
     # Optional AI analysis fields
-    if len(row) > 25:
-        d.ai_analysis = row[25]
-        d.ai_analysis_timestamp = _parse_datetime(row[26]) if row[26] else None
+    if len(row) > 31:
+        d.ai_analysis = row[31]
+        d.ai_analysis_timestamp = _parse_datetime(row[32]) if row[32] else None
 
-    if len(row) > 27:
-        d.manual_tagged = bool(row[27])
+    if len(row) > 33:
+        d.manual_tagged = bool(row[33])
 
-    if len(row) > 28:
-        d.notified_at = _parse_datetime(row[28]) if row[28] else None
+    if len(row) > 34:
+        d.notified_at = _parse_datetime(row[34]) if row[34] else None
 
     return d
 
@@ -112,7 +125,7 @@ class DetectionRepository:
 
     async def get_by_frigate_event(self, frigate_event: str) -> Optional[Detection]:
         async with self.db.execute(
-            "SELECT id, detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label, audio_confirmed, audio_species, audio_score, temperature, weather_condition, scientific_name, common_name, taxa_id, video_classification_score, video_classification_label, video_classification_index, video_classification_timestamp, video_classification_status, video_classification_error, ai_analysis, ai_analysis_timestamp, manual_tagged, notified_at FROM detections WHERE frigate_event = ?",
+            "SELECT id, detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label, audio_confirmed, audio_species, audio_score, temperature, weather_condition, weather_cloud_cover, weather_wind_speed, weather_wind_direction, weather_precipitation, weather_rain, weather_snowfall, scientific_name, common_name, taxa_id, video_classification_score, video_classification_label, video_classification_index, video_classification_timestamp, video_classification_status, video_classification_error, ai_analysis, ai_analysis_timestamp, manual_tagged, notified_at FROM detections WHERE frigate_event = ?",
             (frigate_event,)
         ) as cursor:
             row = await cursor.fetchone()
@@ -137,13 +150,32 @@ class DetectionRepository:
 
     async def update_video_status(self, frigate_event: str, status: str, error: Optional[str] = None):
         """Update just the video classification status."""
+        now = datetime.now()
         await self.db.execute("""
             UPDATE detections
             SET video_classification_status = ?,
-                video_classification_error = ?
+                video_classification_error = ?,
+                video_classification_timestamp = ?
             WHERE frigate_event = ?
-        """, (status, error, frigate_event))
+        """, (status, error, now, frigate_event))
         await self.db.commit()
+
+    async def reset_stale_video_statuses(self, max_age_minutes: int) -> int:
+        """Mark pending/processing video classifications as failed if they are too old."""
+        now = datetime.now()
+        await self.db.execute("""
+            UPDATE detections
+            SET video_classification_status = 'failed',
+                video_classification_error = 'stale_timeout',
+                video_classification_timestamp = ?
+            WHERE video_classification_status IN ('pending', 'processing')
+              AND (video_classification_timestamp IS NULL
+                   OR video_classification_timestamp < datetime('now', ?))
+        """, (now, f'-{max_age_minutes} minutes'))
+        await self.db.commit()
+        cur = await self.db.execute("SELECT changes()")
+        row = await cur.fetchone()
+        return int(row[0]) if row else 0
 
     async def mark_notified(self, frigate_event: str, timestamp: Optional[datetime] = None):
         """Mark a detection as notified."""
@@ -202,17 +234,93 @@ class DetectionRepository:
 
     async def create(self, detection: Detection):
         await self.db.execute("""
-            INSERT INTO detections (detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label, audio_confirmed, audio_species, audio_score, temperature, weather_condition, scientific_name, common_name, taxa_id, manual_tagged)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (detection.detection_time, detection.detection_index, detection.score, detection.display_name, detection.category_name, detection.frigate_event, detection.camera_name, 1 if detection.is_hidden else 0, detection.frigate_score, detection.sub_label, 1 if detection.audio_confirmed else 0, detection.audio_species, detection.audio_score, detection.temperature, detection.weather_condition, detection.scientific_name, detection.common_name, detection.taxa_id, 1 if detection.manual_tagged else 0))
+            INSERT INTO detections (detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label, audio_confirmed, audio_species, audio_score, temperature, weather_condition, weather_cloud_cover, weather_wind_speed, weather_wind_direction, weather_precipitation, weather_rain, weather_snowfall, scientific_name, common_name, taxa_id, manual_tagged)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (detection.detection_time, detection.detection_index, detection.score, detection.display_name, detection.category_name, detection.frigate_event, detection.camera_name, 1 if detection.is_hidden else 0, detection.frigate_score, detection.sub_label, 1 if detection.audio_confirmed else 0, detection.audio_species, detection.audio_score, detection.temperature, detection.weather_condition, detection.weather_cloud_cover, detection.weather_wind_speed, detection.weather_wind_direction, detection.weather_precipitation, detection.weather_rain, detection.weather_snowfall, detection.scientific_name, detection.common_name, detection.taxa_id, 1 if detection.manual_tagged else 0))
         await self.db.commit()
 
     async def update(self, detection: Detection):
         await self.db.execute("""
             UPDATE detections
-            SET detection_time = ?, detection_index = ?, score = ?, display_name = ?, category_name = ?, frigate_score = ?, sub_label = ?, audio_confirmed = ?, audio_species = ?, audio_score = ?, temperature = ?, weather_condition = ?, scientific_name = ?, common_name = ?, taxa_id = ?, manual_tagged = ?
+            SET detection_time = ?, detection_index = ?, score = ?, display_name = ?, category_name = ?, frigate_score = ?, sub_label = ?, audio_confirmed = ?, audio_species = ?, audio_score = ?, temperature = ?, weather_condition = ?, weather_cloud_cover = ?, weather_wind_speed = ?, weather_wind_direction = ?, weather_precipitation = ?, weather_rain = ?, weather_snowfall = ?, scientific_name = ?, common_name = ?, taxa_id = ?, manual_tagged = ?
             WHERE frigate_event = ?
-        """, (detection.detection_time, detection.detection_index, detection.score, detection.display_name, detection.category_name, detection.frigate_score, detection.sub_label, detection.audio_confirmed, detection.audio_species, detection.audio_score, detection.temperature, detection.weather_condition, detection.scientific_name, detection.common_name, detection.taxa_id, 1 if detection.manual_tagged else 0, detection.frigate_event))
+        """, (detection.detection_time, detection.detection_index, detection.score, detection.display_name, detection.category_name, detection.frigate_score, detection.sub_label, detection.audio_confirmed, detection.audio_species, detection.audio_score, detection.temperature, detection.weather_condition, detection.weather_cloud_cover, detection.weather_wind_speed, detection.weather_wind_direction, detection.weather_precipitation, detection.weather_rain, detection.weather_snowfall, detection.scientific_name, detection.common_name, detection.taxa_id, 1 if detection.manual_tagged else 0, detection.frigate_event))
+        await self.db.commit()
+
+    async def list_for_weather_backfill(self, start: str, end: str, only_missing: bool = True) -> list[dict]:
+        """Return detections within range for weather backfill."""
+        query = """
+            SELECT frigate_event, detection_time, temperature, weather_condition, weather_cloud_cover,
+                   weather_wind_speed, weather_wind_direction, weather_precipitation, weather_rain, weather_snowfall
+            FROM detections
+            WHERE datetime(detection_time) BETWEEN datetime(?) AND datetime(?)
+        """
+        params = [start, end]
+        if only_missing:
+            query += """
+                AND (
+                    temperature IS NULL OR
+                    weather_condition IS NULL OR
+                    weather_cloud_cover IS NULL OR
+                    weather_wind_speed IS NULL OR
+                    weather_wind_direction IS NULL OR
+                    weather_precipitation IS NULL OR
+                    weather_rain IS NULL OR
+                    weather_snowfall IS NULL
+                )
+            """
+        cursor = await self.db.execute(query, params)
+        rows = await cursor.fetchall()
+        return [
+            {
+                "frigate_event": row[0],
+                "detection_time": row[1],
+                "temperature": row[2],
+                "weather_condition": row[3],
+                "weather_cloud_cover": row[4],
+                "weather_wind_speed": row[5],
+                "weather_wind_direction": row[6],
+                "weather_precipitation": row[7],
+                "weather_rain": row[8],
+                "weather_snowfall": row[9]
+            }
+            for row in rows
+        ]
+
+    async def update_weather_fields(
+        self,
+        frigate_event: str,
+        temperature: float | None,
+        weather_condition: str | None,
+        cloud_cover: float | None,
+        wind_speed: float | None,
+        wind_direction: float | None,
+        precipitation: float | None,
+        rain: float | None,
+        snowfall: float | None
+    ) -> None:
+        await self.db.execute("""
+            UPDATE detections
+            SET temperature = ?,
+                weather_condition = ?,
+                weather_cloud_cover = ?,
+                weather_wind_speed = ?,
+                weather_wind_direction = ?,
+                weather_precipitation = ?,
+                weather_rain = ?,
+                weather_snowfall = ?
+            WHERE frigate_event = ?
+        """, (
+            temperature,
+            weather_condition,
+            cloud_cover,
+            wind_speed,
+            wind_direction,
+            precipitation,
+            rain,
+            snowfall,
+            frigate_event
+        ))
         await self.db.commit()
 
     async def upsert_if_higher_score(self, detection: Detection) -> tuple[bool, bool]:
@@ -233,8 +341,8 @@ class DetectionRepository:
         # Then, try to insert. If conflict on frigate_event, update only if score is higher.
         # SQLite's ON CONFLICT DO UPDATE with WHERE clause handles this atomically.
         await self.db.execute("""
-            INSERT INTO detections (detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label, audio_confirmed, audio_species, audio_score, temperature, weather_condition, scientific_name, common_name, taxa_id, manual_tagged)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO detections (detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label, audio_confirmed, audio_species, audio_score, temperature, weather_condition, weather_cloud_cover, weather_wind_speed, weather_wind_direction, weather_precipitation, weather_rain, weather_snowfall, scientific_name, common_name, taxa_id, manual_tagged)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(frigate_event) DO UPDATE SET
                 detection_time = excluded.detection_time,
                 detection_index = excluded.detection_index,
@@ -248,6 +356,12 @@ class DetectionRepository:
                 audio_score = excluded.audio_score,
                 temperature = excluded.temperature,
                 weather_condition = excluded.weather_condition,
+                weather_cloud_cover = excluded.weather_cloud_cover,
+                weather_wind_speed = excluded.weather_wind_speed,
+                weather_wind_direction = excluded.weather_wind_direction,
+                weather_precipitation = excluded.weather_precipitation,
+                weather_rain = excluded.weather_rain,
+                weather_snowfall = excluded.weather_snowfall,
                 scientific_name = excluded.scientific_name,
                 common_name = excluded.common_name,
                 taxa_id = excluded.taxa_id,
@@ -269,6 +383,12 @@ class DetectionRepository:
             detection.audio_score,
             detection.temperature,
             detection.weather_condition,
+            detection.weather_cloud_cover,
+            detection.weather_wind_speed,
+            detection.weather_wind_direction,
+            detection.weather_precipitation,
+            detection.weather_rain,
+            detection.weather_snowfall,
             getattr(detection, 'scientific_name', None),
             getattr(detection, 'common_name', None),
             getattr(detection, 'taxa_id', None),
@@ -298,8 +418,8 @@ class DetectionRepository:
         """
         await self.db.execute("""
             INSERT OR IGNORE INTO detections
-            (detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label, audio_confirmed, audio_species, audio_score, temperature, weather_condition, scientific_name, common_name, taxa_id, manual_tagged)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label, audio_confirmed, audio_species, audio_score, temperature, weather_condition, weather_cloud_cover, weather_wind_speed, weather_wind_direction, weather_precipitation, weather_rain, weather_snowfall, scientific_name, common_name, taxa_id, manual_tagged)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             detection.detection_time,
             detection.detection_index,
@@ -316,6 +436,12 @@ class DetectionRepository:
             detection.audio_score,
             detection.temperature,
             detection.weather_condition,
+            detection.weather_cloud_cover,
+            detection.weather_wind_speed,
+            detection.weather_wind_direction,
+            detection.weather_precipitation,
+            detection.weather_rain,
+            detection.weather_snowfall,
             detection.scientific_name,
             detection.common_name,
             detection.taxa_id,
@@ -337,7 +463,7 @@ class DetectionRepository:
         sort: str = "newest",
         include_hidden: bool = False
     ) -> list[Detection]:
-        query = "SELECT id, detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label, audio_confirmed, audio_species, audio_score, temperature, weather_condition, scientific_name, common_name, taxa_id, video_classification_score, video_classification_label, video_classification_index, video_classification_timestamp, video_classification_status, video_classification_error, ai_analysis, ai_analysis_timestamp, manual_tagged, notified_at FROM detections"
+        query = "SELECT id, detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label, audio_confirmed, audio_species, audio_score, temperature, weather_condition, weather_cloud_cover, weather_wind_speed, weather_wind_direction, weather_precipitation, weather_rain, weather_snowfall, scientific_name, common_name, taxa_id, video_classification_score, video_classification_label, video_classification_index, video_classification_timestamp, video_classification_status, video_classification_error, ai_analysis, ai_analysis_timestamp, manual_tagged, notified_at FROM detections"
         params: list = []
         conditions = []
 
@@ -480,7 +606,9 @@ class DetectionRepository:
         query = """
             SELECT id, detection_time, detection_index, score, display_name, category_name, 
                    frigate_event, camera_name, is_hidden, frigate_score, sub_label, 
-                   audio_confirmed, audio_species, audio_score, temperature, weather_condition, 
+                   audio_confirmed, audio_species, audio_score, temperature, weather_condition,
+                   weather_cloud_cover, weather_wind_speed, weather_wind_direction,
+                   weather_precipitation, weather_rain, weather_snowfall,
                    scientific_name, common_name, taxa_id, video_classification_score, 
                    video_classification_label, video_classification_index, 
                    video_classification_timestamp, video_classification_status, 
@@ -901,12 +1029,79 @@ class DetectionRepository:
                 for row in rows
             ]
 
+    async def insert_audio_detection(
+        self,
+        timestamp: datetime,
+        species: str,
+        confidence: float,
+        sensor_id: Optional[str],
+        raw_data: Optional[dict]
+    ) -> None:
+        payload = json.dumps(raw_data or {}, ensure_ascii=True)
+        await self.db.execute(
+            """INSERT INTO audio_detections (timestamp, species, confidence, sensor_id, raw_data)
+               VALUES (?, ?, ?, ?, ?)""",
+            (timestamp.isoformat(sep=' '), species, confidence, sensor_id, payload)
+        )
+        await self.db.commit()
+
+    async def get_audio_context(
+        self,
+        target_time: datetime,
+        window_seconds: int,
+        sensor_id: Optional[str],
+        limit: int
+    ) -> list[dict]:
+        start_dt = target_time - timedelta(seconds=window_seconds)
+        end_dt = target_time + timedelta(seconds=window_seconds)
+        query = """SELECT timestamp, species, confidence, sensor_id
+                   FROM audio_detections
+                   WHERE timestamp >= ? AND timestamp <= ?"""
+        params: list = [start_dt.isoformat(sep=' '), end_dt.isoformat(sep=' ')]
+        if sensor_id:
+            query += " AND sensor_id = ?"
+            params.append(sensor_id)
+        query += " ORDER BY timestamp DESC"
+
+        async with self.db.execute(query, params) as cursor:
+            rows = await cursor.fetchall()
+
+        results: list[dict] = []
+        for row in rows:
+            det_time = _parse_datetime(row[0])
+            offset_seconds = int((det_time - target_time).total_seconds())
+            results.append({
+                "timestamp": det_time.isoformat(),
+                "species": row[1],
+                "confidence": row[2],
+                "sensor_id": row[3],
+                "offset_seconds": offset_seconds
+            })
+
+        results.sort(key=lambda item: (abs(item["offset_seconds"]), -item["confidence"]))
+        return results[:limit]
+
+    async def get_audio_confirmations_count(self, start_date: datetime, end_date: datetime) -> int:
+        """Get total audio-confirmed detections in a time range."""
+        async with self.db.execute(
+            """SELECT COUNT(*)
+               FROM detections
+               WHERE detection_time >= ? AND detection_time <= ?
+               AND audio_confirmed = 1
+               AND (is_hidden = 0 OR is_hidden IS NULL)""",
+            (start_date.isoformat(sep=' '), end_date.isoformat(sep=' '))
+        ) as cursor:
+            row = await cursor.fetchone()
+            return int(row[0] or 0)
+
     async def get_recent_by_species(self, species_name: str, limit: int = 5, include_hidden: bool = False) -> list[Detection]:
         """Get most recent detections for a species."""
         if include_hidden:
             query = """SELECT id, detection_time, detection_index, score, display_name,
                           category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label,
                           audio_confirmed, audio_species, audio_score, temperature, weather_condition,
+                          weather_cloud_cover, weather_wind_speed, weather_wind_direction,
+                          weather_precipitation, weather_rain, weather_snowfall,
                           scientific_name, common_name, taxa_id, video_classification_score, video_classification_label,
                           video_classification_index, video_classification_timestamp, video_classification_status,
                           video_classification_error, ai_analysis, ai_analysis_timestamp
@@ -917,6 +1112,8 @@ class DetectionRepository:
             query = """SELECT id, detection_time, detection_index, score, display_name,
                           category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label,
                           audio_confirmed, audio_species, audio_score, temperature, weather_condition,
+                          weather_cloud_cover, weather_wind_speed, weather_wind_direction,
+                          weather_precipitation, weather_rain, weather_snowfall,
                           scientific_name, common_name, taxa_id, video_classification_score, video_classification_label,
                           video_classification_index, video_classification_timestamp, video_classification_status,
                           video_classification_error, ai_analysis, ai_analysis_timestamp

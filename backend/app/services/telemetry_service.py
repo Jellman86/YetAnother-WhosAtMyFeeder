@@ -6,6 +6,7 @@ import platform
 import os
 from datetime import datetime, timezone
 from app.config import settings
+from app.utils.tasks import create_background_task
 
 log = structlog.get_logger()
 
@@ -79,7 +80,7 @@ class TelemetryService:
                 settings.telemetry.installation_id = str(uuid.uuid4())
 
         self._running = True
-        self._task = asyncio.create_task(self._report_loop())
+        self._task = create_background_task(self._report_loop(), name="telemetry_report_loop")
         log.info("Telemetry service started",
                 enabled=settings.telemetry.enabled,
                 has_persistent_id=bool(settings.telemetry.installation_id))

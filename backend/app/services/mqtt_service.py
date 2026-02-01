@@ -16,6 +16,7 @@ class MQTTService:
     def __init__(self, version: str = "unknown"):
         self.client = None
         self.running = False
+        self.paused = False
         self.reconnect_delay = INITIAL_BACKOFF
         # Simplified Client ID: yawamf-{git_hash}
         # version format is usually "2.0.0+abc1234"
@@ -85,6 +86,8 @@ class MQTTService:
                     self._reset_backoff()
 
                     async for message in client.messages:
+                        if self.paused:
+                            continue
                         # Check for topic changes in settings
                         if settings.frigate.audio_topic != birdnet_topic:
                             log.info("MQTT Audio topic changed in settings, reconnecting...", 
@@ -139,5 +142,11 @@ class MQTTService:
         if self.client:
             # aiomqtt client context manager handles disconnect, but we can break the loop
             pass
+
+    def pause(self):
+        self.paused = True
+
+    def resume(self):
+        self.paused = False
 
 mqtt_service = MQTTService()
