@@ -109,7 +109,8 @@ async def analyze_event(
             image_data=image_data,
             metadata=metadata,
             image_list=frames if frames else None,
-            language=lang
+            language=lang,
+            mime_type="image/jpeg"
         )
 
         # Save analysis to database
@@ -158,13 +159,17 @@ async def analyze_leaderboard(
 
         try:
             raw = body.image_base64
+            mime_type = "image/png"
             if raw.startswith("data:image"):
-                raw = raw.split(",", 1)[1]
+                header, raw = raw.split(",", 1)
+                header_parts = header.split(";")[0].split(":")
+                if len(header_parts) == 2:
+                    mime_type = header_parts[1]
             image_bytes = base64.b64decode(raw)
         except Exception:
             raise HTTPException(status_code=400, detail="Invalid image payload.")
 
-        analysis = await ai_service.analyze_chart(image_bytes, body.config, language=lang)
+        analysis = await ai_service.analyze_chart(image_bytes, body.config, language=lang, mime_type=mime_type)
         if not analysis:
             raise HTTPException(status_code=502, detail="AI analysis failed.")
 

@@ -18,15 +18,16 @@ class AIService:
         image_data: Optional[bytes],
         metadata: dict,
         image_list: Optional[list[bytes]] = None,
-        language: Optional[str] = None
+        language: Optional[str] = None,
+        mime_type: str = "image/jpeg"
     ) -> Optional[str]:
         """Send image(s) and metadata to LLM for analysis."""
         if not settings.llm.enabled or not settings.llm.api_key:
             return "AI Analysis is disabled or API key is missing."
 
-        images = [img for img in (image_list or []) if img]
+        images = [(img, mime_type) for img in (image_list or []) if img]
         if not images and image_data:
-            images = [image_data]
+            images = [(image_data, mime_type)]
         if not images:
             return "No image data available for AI analysis."
 
@@ -40,7 +41,7 @@ class AIService:
 
         return "Unsupported AI provider."
 
-    async def analyze_chart(self, image_data: bytes, metadata: dict, language: Optional[str] = None) -> Optional[str]:
+    async def analyze_chart(self, image_data: bytes, metadata: dict, language: Optional[str] = None, mime_type: str = "image/png") -> Optional[str]:
         """Analyze a leaderboard chart image for trends."""
         if not settings.llm.enabled or not settings.llm.api_key:
             return "AI Analysis is disabled or API key is missing."
@@ -48,7 +49,7 @@ class AIService:
             return "No image data available for AI analysis."
 
         prompt = self._build_chart_prompt(metadata, language)
-        images = [image_data]
+        images = [(image_data, mime_type)]
 
         if settings.llm.provider == "gemini":
             return await self._analyze_gemini_prompt(prompt, images)
@@ -59,16 +60,16 @@ class AIService:
 
         return "Unsupported AI provider."
 
-    async def _analyze_gemini_prompt(self, prompt: str, images: list[bytes]) -> Optional[str]:
+    async def _analyze_gemini_prompt(self, prompt: str, images: list[tuple[bytes, str]]) -> Optional[str]:
         """Analyze using Google Gemini API."""
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{settings.llm.model}:generateContent?key={settings.llm.api_key}"
         
         parts = [{"text": prompt}]
-        for image_data in images:
+        for image_data, mime_type in images:
             image_base64 = base64.b64encode(image_data).decode('utf-8')
             parts.append({
                 "inline_data": {
-                    "mime_type": "image/jpeg",
+                    "mime_type": mime_type,
                     "data": image_base64
                 }
             })
@@ -106,17 +107,17 @@ class AIService:
             log.error("Gemini analysis failed", error=str(e))
             return f"Error during AI analysis: {str(e)}"
 
-    async def _analyze_openai_prompt(self, prompt: str, images: list[bytes]) -> Optional[str]:
+    async def _analyze_openai_prompt(self, prompt: str, images: list[tuple[bytes, str]]) -> Optional[str]:
         """Analyze using OpenAI API (GPT-4o)."""
         url = "https://api.openai.com/v1/chat/completions"
         
         content = [{"type": "text", "text": prompt}]
-        for image_data in images:
+        for image_data, mime_type in images:
             image_base64 = base64.b64encode(image_data).decode('utf-8')
             content.append({
                 "type": "image_url",
                 "image_url": {
-                    "url": f"data:image/jpeg;base64,{image_base64}"
+                    "url": f"data:{mime_type};base64,{image_base64}"
                 }
             })
 
@@ -151,18 +152,18 @@ class AIService:
             log.error("OpenAI analysis failed", error=str(e))
             return f"Error during AI analysis: {str(e)}"
 
-    async def _analyze_claude_prompt(self, prompt: str, images: list[bytes]) -> Optional[str]:
+    async def _analyze_claude_prompt(self, prompt: str, images: list[tuple[bytes, str]]) -> Optional[str]:
         """Analyze using Anthropic Claude API."""
         url = "https://api.anthropic.com/v1/messages"
 
         content = []
-        for image_data in images:
+        for image_data, mime_type in images:
             image_base64 = base64.b64encode(image_data).decode('utf-8')
             content.append({
                 "type": "image",
                 "source": {
                     "type": "base64",
-                    "media_type": "image/jpeg",
+                    "media_type": mime_type,
                     "data": image_base64
                 }
             })
