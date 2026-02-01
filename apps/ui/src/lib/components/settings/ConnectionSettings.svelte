@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { onDestroy } from 'svelte';
+    import { onDestroy, onMount } from 'svelte';
     import { _ } from 'svelte-i18n';
     import type { VersionInfo } from '../../api';
     import { authStore } from '../../stores/auth.svelte';
@@ -57,18 +57,19 @@
     let previewBlobUrl = $state<string | null>(null);
     let previewTimer: ReturnType<typeof setInterval> | null = null;
     let previewHoverTimer: ReturnType<typeof setTimeout> | null = null;
+    let isTouch = $state(false);
 
     function getFrigateBase() {
         return frigateUrl ? frigateUrl.replace(/\/+$/, '') : '';
     }
 
-    function startPreview(camera: string) {
+    function startPreview(camera: string, immediate = false) {
         if (!frigateUrl) {
             previewError = $_('settings.cameras.preview_missing_url', { default: 'Set a Frigate URL to preview.' });
             return;
         }
         if (previewHoverTimer) clearTimeout(previewHoverTimer);
-        previewHoverTimer = setTimeout(() => {
+        const showPreview = () => {
             previewCamera = camera;
             previewVisible = true;
             previewLoading = true;
@@ -79,7 +80,12 @@
                     previewTimestamp = Date.now();
                 }, 2000);
             }
-        }, 150);
+        };
+        if (immediate) {
+            showPreview();
+        } else {
+            previewHoverTimer = setTimeout(showPreview, 150);
+        }
     }
 
     function stopPreview(camera: string) {
@@ -100,6 +106,14 @@
             clearInterval(previewTimer);
             previewTimer = null;
         }
+    }
+
+    function togglePreview(camera: string) {
+        if (previewVisible && previewCamera === camera) {
+            stopPreview(camera);
+            return;
+        }
+        startPreview(camera, true);
     }
 
     async function fetchPreview(camera: string) {
@@ -138,6 +152,14 @@
         if (previewTimer) clearInterval(previewTimer);
         if (previewHoverTimer) clearTimeout(previewHoverTimer);
         if (previewBlobUrl) URL.revokeObjectURL(previewBlobUrl);
+    });
+
+    onMount(() => {
+        try {
+            isTouch = window.matchMedia('(hover: none)').matches;
+        } catch {
+            isTouch = false;
+        }
     });
 </script>
 
@@ -331,9 +353,12 @@
                                     class="opacity-0 group-hover:opacity-100 transition text-slate-500 hover:text-teal-600 dark:text-slate-400 dark:hover:text-teal-300"
                                     aria-label="{$_('settings.cameras.preview', { default: 'Preview {camera}', values: { camera } })}"
                                     disabled={!frigateUrl}
-                                    onmouseenter={() => startPreview(camera)}
-                                    onmouseleave={() => stopPreview(camera)}
-                                    onclick={(e) => e.stopPropagation()}
+                                    onmouseenter={() => !isTouch && startPreview(camera)}
+                                    onmouseleave={() => !isTouch && stopPreview(camera)}
+                                    onclick={(e) => {
+                                        e.stopPropagation();
+                                        if (isTouch) togglePreview(camera);
+                                    }}
                                 >
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-4.197-2.398A1 1 0 009 9.64v4.72a1 1 0 001.555.832l4.197-2.398a1 1 0 000-1.664z" />
@@ -348,8 +373,8 @@
                             {#if previewVisible && previewCamera === camera}
                                 <div
                                     class="absolute right-12 top-1/2 -translate-y-1/2 w-56 rounded-2xl overflow-hidden border border-slate-200/80 dark:border-slate-700/60 bg-white/95 dark:bg-slate-900/95 shadow-xl z-20"
-                                    onmouseenter={() => startPreview(camera)}
-                                    onmouseleave={() => stopPreview(camera)}
+                                    onmouseenter={() => !isTouch && startPreview(camera)}
+                                    onmouseleave={() => !isTouch && stopPreview(camera)}
                                 >
                                     <div class="px-3 py-2 border-b border-slate-200/80 dark:border-slate-700/60 flex items-center justify-between">
                                         <span class="text-[9px] font-black uppercase tracking-widest text-slate-500">{$_('settings.cameras.preview_label', { default: 'Live Preview' })}</span>

@@ -39,7 +39,7 @@
             ? 'bottom-full mb-2'
             : 'top-full mt-2'
     );
-    const panelAlignClass = $derived(() => {
+    const panelAlignClass = $derived.by(() => {
         if (panelAlignOverride) {
             return panelAlignOverride;
         }
