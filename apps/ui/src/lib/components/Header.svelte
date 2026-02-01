@@ -160,7 +160,7 @@
                     {/if}
                 </button>
 
-                <NotificationCenter align="right" />
+                <NotificationCenter align="left" />
 
                 <!-- Mobile menu button -->
                 <button
