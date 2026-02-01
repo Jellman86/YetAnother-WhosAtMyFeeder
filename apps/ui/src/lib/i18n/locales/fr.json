@@ -329,7 +329,10 @@
       "delay_until_video_desc": "Attendre l'analyse video automatique avant de notifier.",
       "video_fallback_timeout": "Delai d'attente video",
       "video_fallback_timeout_desc": "Attendre ce delai avant d'envoyer une notification de capture.",
-      "video_fallback_seconds": "secondes"
+      "video_fallback_seconds": "secondes",
+      "cooldown": "Délai entre notifications",
+      "cooldown_desc": "Temps minimum entre notifications en minutes (0 pour désactiver).",
+      "cooldown_unit": "minutes"
     },
     "discord": {
       "title": "Notifications Discord",
@@ -596,7 +599,11 @@
     "sunrise": "Lever du soleil",
     "sunset": "Coucher du soleil",
     "am_pm_bands": "Bandes AM/PM",
-    "load_failed": "Échec du chargement des données sur les espèces"
+    "load_failed": "Échec du chargement des données sur les espèces",
+    "ai_analyze": "Analyser le graphique",
+    "ai_analyzing": "Analyse en cours…",
+    "ai_rerun": "Relancer l’analyse",
+    "ai_summary": "Insight IA"
   },
   "about": {
     "title": "À propos de ce projet",
@@ -669,7 +676,8 @@
       },
       "inaturalist_submissions": {
         "title": "Soumissions iNaturalist",
-        "desc": "Soumissions vérifiées par le propriétaire avec photo, lieu et notes"
+        "desc": "Soumissions vérifiées par le propriétaire avec photo, lieu et notes",
+        "badge": "Testeurs recherchés"
       },
       "weather": {
         "title": "Enrichissement Météo",

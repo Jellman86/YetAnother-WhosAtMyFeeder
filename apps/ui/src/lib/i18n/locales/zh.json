@@ -329,7 +329,10 @@
       "delay_until_video_desc": "启用自动视频分析时，等待完成再通知。",
       "video_fallback_timeout": "视频超时回退",
       "video_fallback_timeout_desc": "等待此时长后发送快照通知。",
-      "video_fallback_seconds": "秒"
+      "video_fallback_seconds": "秒",
+      "cooldown": "通知冷却",
+      "cooldown_desc": "通知之间的最小间隔（分钟，0 为禁用）。",
+      "cooldown_unit": "分钟"
     },
     "discord": {
       "title": "Discord 通知",
@@ -596,7 +599,11 @@
     "sunrise": "日出",
     "sunset": "日落",
     "am_pm_bands": "AM/PM 带",
-    "load_failed": "加载物种数据失败"
+    "load_failed": "加载物种数据失败",
+    "ai_analyze": "分析图表",
+    "ai_analyzing": "分析中…",
+    "ai_rerun": "重新分析",
+    "ai_summary": "AI 洞察"
   },
   "about": {
     "title": "关于本项目",
@@ -669,7 +676,8 @@
       },
       "inaturalist_submissions": {
         "title": "iNaturalist 提交",
-        "desc": "由管理员审核后提交，包含照片、地点和备注"
+        "desc": "由管理员审核后提交，包含照片、地点和备注",
+        "badge": "需要测试者"
       },
       "weather": {
         "title": "天气丰富化",

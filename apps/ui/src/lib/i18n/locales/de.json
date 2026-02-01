@@ -329,7 +329,10 @@
       "delay_until_video_desc": "Bei aktivierter Videoanalyse mit der Benachrichtigung warten.",
       "video_fallback_timeout": "Video-Fallback-Timeout",
       "video_fallback_timeout_desc": "So lange auf Video warten, bevor eine Snapshot-Benachrichtigung gesendet wird.",
-      "video_fallback_seconds": "Sekunden"
+      "video_fallback_seconds": "Sekunden",
+      "cooldown": "Benachrichtigungs‑Abkühlzeit",
+      "cooldown_desc": "Mindestabstand zwischen Benachrichtigungen in Minuten (0 zum Deaktivieren).",
+      "cooldown_unit": "Minuten"
     },
     "discord": {
       "title": "Discord-Benachrichtigungen",
@@ -596,7 +599,11 @@
     "sunrise": "Sonnenaufgang",
     "sunset": "Sonnenuntergang",
     "am_pm_bands": "AM/PM-Bänder",
-    "load_failed": "Speziesdaten konnten nicht geladen werden"
+    "load_failed": "Speziesdaten konnten nicht geladen werden",
+    "ai_analyze": "Diagramm analysieren",
+    "ai_analyzing": "Analysiere…",
+    "ai_rerun": "Analyse erneut ausführen",
+    "ai_summary": "KI‑Einblick"
   },
   "about": {
     "title": "Über dieses Projekt",
@@ -669,7 +676,8 @@
       },
       "inaturalist_submissions": {
         "title": "iNaturalist-Übermittlungen",
-        "desc": "Vom Besitzer geprüfte Übermittlungen mit Foto, Ort und Notizen"
+        "desc": "Vom Besitzer geprüfte Übermittlungen mit Foto, Ort und Notizen",
+        "badge": "Tester gesucht"
       },
       "weather": {
         "title": "Wetter-Anreicherung",

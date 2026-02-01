@@ -329,7 +329,10 @@
       "delay_until_video_desc": "自動動画解析が有効な場合、完了まで通知を待ちます。",
       "video_fallback_timeout": "動画フォールバック時間",
       "video_fallback_timeout_desc": "この時間を過ぎるとスナップショット通知を送信します。",
-      "video_fallback_seconds": "秒"
+      "video_fallback_seconds": "秒",
+      "cooldown": "通知クールダウン",
+      "cooldown_desc": "通知間隔の最小時間（分、0で無効）。",
+      "cooldown_unit": "分"
     },
     "discord": {
       "title": "Discord通知",
@@ -596,7 +599,11 @@
     "sunrise": "日の出",
     "sunset": "日の入り",
     "am_pm_bands": "AM/PM バンド",
-    "load_failed": "種のデータの読み込みに失敗しました"
+    "load_failed": "種のデータの読み込みに失敗しました",
+    "ai_analyze": "グラフを分析",
+    "ai_analyzing": "分析中…",
+    "ai_rerun": "分析を再実行",
+    "ai_summary": "AIインサイト"
   },
   "about": {
     "title": "このプロジェクトについて",
@@ -669,7 +676,8 @@
       },
       "inaturalist_submissions": {
         "title": "iNaturalist 送信",
-        "desc": "写真・場所・メモ付きの送信をオーナーが確認して投稿"
+        "desc": "写真・場所・メモ付きの送信をオーナーが確認して投稿",
+        "badge": "テスター募集"
       },
       "weather": {
         "title": "気象情報の付加",
