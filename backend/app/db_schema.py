@@ -72,6 +72,17 @@ audio_detections = Table(
 Index("idx_audio_detections_time", audio_detections.c.timestamp)
 Index("idx_audio_detections_sensor", audio_detections.c.sensor_id)
 
+leaderboard_analyses = Table(
+    "leaderboard_analyses",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("config_key", String, nullable=False, unique=True),
+    Column("config_json", String, nullable=False),
+    Column("analysis", String, nullable=False),
+    Column("analysis_timestamp", TIMESTAMP, nullable=False),
+    Column("created_at", TIMESTAMP, server_default=func.now(), nullable=False),
+)
+
 taxonomy_cache = Table(
     "taxonomy_cache",
     metadata,

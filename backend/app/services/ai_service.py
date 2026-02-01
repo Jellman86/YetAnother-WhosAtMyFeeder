@@ -29,20 +29,39 @@ class AIService:
         if not images:
             return "No image data available for AI analysis."
 
+        prompt = self._build_prompt(species, metadata)
         if settings.llm.provider == "gemini":
-            return await self._analyze_gemini(species, images, metadata)
+            return await self._analyze_gemini_prompt(prompt, images)
         elif settings.llm.provider == "openai":
-            return await self._analyze_openai(species, images, metadata)
+            return await self._analyze_openai_prompt(prompt, images)
         elif settings.llm.provider == "claude":
-            return await self._analyze_claude(species, images, metadata)
+            return await self._analyze_claude_prompt(prompt, images)
 
         return "Unsupported AI provider."
 
-    async def _analyze_gemini(self, species: str, images: list[bytes], metadata: dict) -> Optional[str]:
+    async def analyze_chart(self, image_data: bytes, metadata: dict) -> Optional[str]:
+        """Analyze a leaderboard chart image for trends."""
+        if not settings.llm.enabled or not settings.llm.api_key:
+            return "AI Analysis is disabled or API key is missing."
+        if not image_data:
+            return "No image data available for AI analysis."
+
+        prompt = self._build_chart_prompt(metadata)
+        images = [image_data]
+
+        if settings.llm.provider == "gemini":
+            return await self._analyze_gemini_prompt(prompt, images)
+        elif settings.llm.provider == "openai":
+            return await self._analyze_openai_prompt(prompt, images)
+        elif settings.llm.provider == "claude":
+            return await self._analyze_claude_prompt(prompt, images)
+
+        return "Unsupported AI provider."
+
+    async def _analyze_gemini_prompt(self, prompt: str, images: list[bytes]) -> Optional[str]:
         """Analyze using Google Gemini API."""
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{settings.llm.model}:generateContent?key={settings.llm.api_key}"
         
-        prompt = self._build_prompt(species, metadata)
         parts = [{"text": prompt}]
         for image_data in images:
             image_base64 = base64.b64encode(image_data).decode('utf-8')
@@ -86,11 +105,10 @@ class AIService:
             log.error("Gemini analysis failed", error=str(e))
             return f"Error during AI analysis: {str(e)}"
 
-    async def _analyze_openai(self, species: str, images: list[bytes], metadata: dict) -> Optional[str]:
+    async def _analyze_openai_prompt(self, prompt: str, images: list[bytes]) -> Optional[str]:
         """Analyze using OpenAI API (GPT-4o)."""
         url = "https://api.openai.com/v1/chat/completions"
         
-        prompt = self._build_prompt(species, metadata)
         content = [{"type": "text", "text": prompt}]
         for image_data in images:
             image_base64 = base64.b64encode(image_data).decode('utf-8')
@@ -132,11 +150,10 @@ class AIService:
             log.error("OpenAI analysis failed", error=str(e))
             return f"Error during AI analysis: {str(e)}"
 
-    async def _analyze_claude(self, species: str, images: list[bytes], metadata: dict) -> Optional[str]:
+    async def _analyze_claude_prompt(self, prompt: str, images: list[bytes]) -> Optional[str]:
         """Analyze using Anthropic Claude API."""
         url = "https://api.anthropic.com/v1/messages"
 
-        prompt = self._build_prompt(species, metadata)
         content = []
         for image_data in images:
             image_base64 = base64.b64encode(image_data).decode('utf-8')
@@ -214,6 +231,28 @@ class AIService:
         ## Seasonal Context
 
         Keep the response concise (under 200 words). No extra sections.
+        """
+
+    def _build_chart_prompt(self, metadata: dict) -> str:
+        """Construct a prompt for leaderboard trend analysis."""
+        timeframe = metadata.get("timeframe", "Unknown timeframe")
+        total_count = metadata.get("total_count", "unknown")
+        series = ", ".join(metadata.get("series", [])) or "Detections"
+        weather_notes = metadata.get("weather_notes", "")
+        notes = metadata.get("notes", "")
+        return f"""
+        You are a data analyst for bird feeder activity.
+        You are looking at a chart of detections over time.
+
+        Timeframe: {timeframe}
+        Total detections in range: {total_count}
+        Series shown: {series}
+        {weather_notes}
+
+        Provide concise insights about trends and correlations (e.g., temperature, wind, precipitation).
+        Highlight any notable spikes, dips, or consistent patterns.
+        Keep it under 200 words. Use short bullet points.
+        {notes}
         """
 
     def extract_frames_from_clip(self, clip_bytes: bytes, frame_count: int = 5) -> list[bytes]:

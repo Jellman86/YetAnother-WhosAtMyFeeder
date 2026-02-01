@@ -140,7 +140,7 @@
     });
 </script>
 
-<div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
     <!-- Frigate Connection -->
     <section class="card-base rounded-3xl p-8 backdrop-blur-md h-full flex flex-col">
         <div class="flex items-center gap-3 mb-6">
@@ -311,7 +311,7 @@
                             role="button"
                             tabindex="0"
                             aria-label="{selectedCameras.includes(camera) ? $_('settings.cameras.deselect', { default: 'Deselect {camera}', values: { camera } }) : $_('settings.cameras.select', { default: 'Select {camera}', values: { camera } })}"
-                            class="relative flex items-center justify-between p-4 rounded-2xl border-2 transition-all group cursor-pointer
+                            class="relative flex flex-col gap-3 p-4 rounded-2xl border-2 transition-all group cursor-pointer
                                    {selectedCameras.includes(camera)
                                        ? 'border-teal-500 bg-teal-500/5 text-teal-700 dark:text-teal-400'
                                        : 'border-slate-100 dark:border-slate-700/50 bg-slate-50/50 dark:bg-slate-900/30 text-slate-500 hover:border-teal-500/30'}"
@@ -323,28 +323,30 @@
                                 }
                             }}
                         >
-                            <div class="flex items-center gap-3">
-                                <span class="font-bold text-sm">{camera}</span>
-                                <button
-                                    type="button"
-                                    class="transition text-slate-500 hover:text-teal-600 dark:text-slate-400 dark:hover:text-teal-300"
-                                    aria-label="{$_('settings.cameras.preview', { default: 'Preview {camera}', values: { camera } })}"
-                                    disabled={!frigateUrl}
-                                    onclick={(e) => {
-                                        e.stopPropagation();
-                                        togglePreview(camera);
-                                    }}
-                                >
-                                    <svg class={`w-4 h-4 transition-transform ${previewVisible && previewCamera === camera ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                                    </svg>
-                                </button>
-                            </div>
-                            <div class="w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all {selectedCameras.includes(camera) ? 'bg-teal-500 border-teal-500 scale-110' : 'border-slate-300 dark:border-slate-600 group-hover:border-teal-500/50'}">
-                                {#if selectedCameras.includes(camera)}<svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" /></svg>{/if}
+                            <div class="flex items-center justify-between gap-3">
+                                <div class="flex items-center gap-3">
+                                    <span class="font-bold text-sm">{camera}</span>
+                                    <button
+                                        type="button"
+                                        class="transition text-slate-500 hover:text-teal-600 dark:text-slate-400 dark:hover:text-teal-300"
+                                        aria-label="{$_('settings.cameras.preview', { default: 'Preview {camera}', values: { camera } })}"
+                                        disabled={!frigateUrl}
+                                        onclick={(e) => {
+                                            e.stopPropagation();
+                                            togglePreview(camera);
+                                        }}
+                                    >
+                                        <svg class={`w-4 h-4 transition-transform ${previewVisible && previewCamera === camera ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                        </svg>
+                                    </button>
+                                </div>
+                                <div class="w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all {selectedCameras.includes(camera) ? 'bg-teal-500 border-teal-500 scale-110' : 'border-slate-300 dark:border-slate-600 group-hover:border-teal-500/50'}">
+                                    {#if selectedCameras.includes(camera)}<svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" /></svg>{/if}
+                                </div>
                             </div>
                             {#if previewVisible && previewCamera === camera}
-                                <div class="mt-3 -mx-4 border-t border-slate-200/80 dark:border-slate-700/60 bg-white/95 dark:bg-slate-900/95">
+                                <div class="rounded-2xl border border-slate-200/80 dark:border-slate-700/60 bg-white/95 dark:bg-slate-900/95 overflow-hidden shadow-lg shadow-slate-900/10 dark:shadow-black/30">
                                     <div class="px-4 py-2 flex items-center justify-between gap-2">
                                         <span class="text-[9px] font-black uppercase tracking-widest text-slate-500">{$_('settings.cameras.preview_label', { default: 'Live Preview' })}</span>
                                         <div class="flex items-center gap-2">

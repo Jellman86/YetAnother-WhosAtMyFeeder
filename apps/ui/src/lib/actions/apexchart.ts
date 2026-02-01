@@ -17,6 +17,7 @@ export const chart: Action<HTMLElement, ApexOptions> = (node, options) => {
             const ApexCharts = (mod as any).default ?? mod;
             chartInstance = new ApexCharts(node, pendingOptions);
             await chartInstance.render();
+            (node as any).__apexchart = chartInstance;
         })();
         return initPromise;
     }
@@ -36,6 +37,7 @@ export const chart: Action<HTMLElement, ApexOptions> = (node, options) => {
                 chartInstance.destroy();
                 chartInstance = null;
             }
+            (node as any).__apexchart = null;
         }
     };
 };

@@ -1,9 +1,14 @@
 from fastapi import APIRouter, HTTPException, Request, Depends
 from pydantic import BaseModel
+from datetime import datetime, timezone
+import base64
+import hashlib
+import json
 import structlog
 from app.services.ai_service import ai_service
 from app.services.frigate_client import frigate_client
 from app.repositories.detection_repository import DetectionRepository
+from app.repositories.leaderboard_analysis_repository import LeaderboardAnalysisRepository
 from app.database import get_db
 from app.services.i18n_service import i18n_service
 from app.utils.language import get_user_language
@@ -16,6 +21,20 @@ log = structlog.get_logger()
 
 class AIAnalysisResponse(BaseModel):
     analysis: str
+
+class LeaderboardAnalysisRequest(BaseModel):
+    config: dict
+    image_base64: str
+    force: bool = False
+    config_key: str | None = None
+
+class LeaderboardAnalysisResponse(BaseModel):
+    analysis: str
+    analysis_timestamp: str
+
+def _compute_config_key(config: dict) -> str:
+    payload = json.dumps(config, sort_keys=True).encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
 
 @router.post("/events/{event_id}/analyze", response_model=AIAnalysisResponse)
 async def analyze_event(
@@ -96,3 +115,61 @@ async def analyze_event(
         await repo.update_ai_analysis(event_id, analysis)
 
         return AIAnalysisResponse(analysis=analysis)
+
+@router.get("/leaderboard/analysis", response_model=LeaderboardAnalysisResponse)
+async def get_leaderboard_analysis(
+    request: Request,
+    config_key: str,
+    auth: AuthContext = Depends(get_auth_context_with_legacy)
+):
+    if not auth.is_owner:
+        raise HTTPException(status_code=403, detail="Owner access required.")
+    async with get_db() as db:
+        repo = LeaderboardAnalysisRepository(db)
+        entry = await repo.get_by_config_key(config_key)
+        if not entry:
+            raise HTTPException(status_code=404, detail="Analysis not found.")
+        return LeaderboardAnalysisResponse(
+            analysis=entry.analysis,
+            analysis_timestamp=entry.analysis_timestamp.isoformat()
+        )
+
+@router.post("/leaderboard/analyze", response_model=LeaderboardAnalysisResponse)
+async def analyze_leaderboard(
+    request: Request,
+    body: LeaderboardAnalysisRequest,
+    auth: AuthContext = Depends(get_auth_context_with_legacy)
+):
+    if not auth.is_owner:
+        raise HTTPException(status_code=403, detail="Owner access required.")
+
+    config_key = body.config_key or _compute_config_key(body.config)
+
+    async with get_db() as db:
+        repo = LeaderboardAnalysisRepository(db)
+        existing = await repo.get_by_config_key(config_key)
+        if existing and not body.force:
+            return LeaderboardAnalysisResponse(
+                analysis=existing.analysis,
+                analysis_timestamp=existing.analysis_timestamp.isoformat()
+            )
+
+        try:
+            raw = body.image_base64
+            if raw.startswith("data:image"):
+                raw = raw.split(",", 1)[1]
+            image_bytes = base64.b64decode(raw)
+        except Exception:
+            raise HTTPException(status_code=400, detail="Invalid image payload.")
+
+        analysis = await ai_service.analyze_chart(image_bytes, body.config)
+        if not analysis:
+            raise HTTPException(status_code=502, detail="AI analysis failed.")
+
+        now = datetime.now(timezone.utc)
+        await repo.upsert_analysis(config_key, body.config, analysis, now)
+
+        return LeaderboardAnalysisResponse(
+            analysis=analysis,
+            analysis_timestamp=now.isoformat()
+        )

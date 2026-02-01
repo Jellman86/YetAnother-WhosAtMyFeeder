@@ -1127,6 +1127,30 @@ export async function analyzeDetection(eventId: string, force: boolean = false):
     );
 }
 
+export interface LeaderboardAnalysisResponse {
+    analysis: string;
+    analysis_timestamp: string;
+}
+
+export async function fetchLeaderboardAnalysis(configKey: string): Promise<LeaderboardAnalysisResponse> {
+    const response = await apiFetch(`${API_BASE}/leaderboard/analysis?config_key=${encodeURIComponent(configKey)}`);
+    return handleResponse<LeaderboardAnalysisResponse>(response);
+}
+
+export async function analyzeLeaderboardGraph(payload: {
+    config: Record<string, unknown>;
+    image_base64: string;
+    force?: boolean;
+    config_key?: string;
+}): Promise<LeaderboardAnalysisResponse> {
+    const response = await apiFetch(`${API_BASE}/leaderboard/analyze`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    });
+    return handleResponse<LeaderboardAnalysisResponse>(response);
+}
+
 export interface AudioDetection {
     timestamp: string;
     species: string;

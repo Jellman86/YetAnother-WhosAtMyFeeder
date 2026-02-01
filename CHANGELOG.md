@@ -21,6 +21,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Fixed:** Settings updates no longer overwrite unrelated fields on partial updates.
 - **Added:** Auto video classification queue now has a safety cap with cleanup to prevent unbounded growth.
 - **Changed:** EventProcessor flow refactored for clearer, more robust handling.
+- **Added:** Leaderboard chart AI analysis with persisted insights and rerun support.
 
 ## [2.6.8] - 2026-01-31
 
