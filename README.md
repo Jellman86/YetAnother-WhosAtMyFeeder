@@ -277,8 +277,9 @@ YA-WAMF includes a custom component for Home Assistant to bring your bird sighti
 **Setup:**
 1. Copy the `custom_components/yawamf` folder to your Home Assistant `custom_components` directory.
 2. Restart Home Assistant.
-3. Add the integration via **Settings > Devices & Services > Add Integration**.
-4. Enter your YA-WAMF backend URL (e.g., `http://192.168.1.50:9852`).
+3. If the integration icon doesn't appear right away, hard-refresh Home Assistant or clear the browser cache (icons are cached).
+4. Add the integration via **Settings > Devices & Services > Add Integration**.
+5. Enter your YA-WAMF backend URL (e.g., `http://192.168.1.50:9852`).
 
 ## Help Improve YA-WAMF
 

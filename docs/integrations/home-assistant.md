@@ -10,6 +10,9 @@ Copy the `custom_components/yawamf` folder from the YA-WAMF repository to your H
 ### 2. Restart
 Restart Home Assistant to load the new component.
 
+### Icon Cache Note
+Home Assistant may cache integration icons. If the icon does not update after an upgrade, hard-refresh the HA frontend or clear the browser cache.
+
 ### 3. Add Integration
 Go to **Settings > Devices & Services > Add Integration** and search for "YA-WAMF".
 
