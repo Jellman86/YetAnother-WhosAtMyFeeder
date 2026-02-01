@@ -14,6 +14,7 @@
   import Species from './lib/pages/Species.svelte';
   import Settings from './lib/pages/Settings.svelte';
   import About from './lib/pages/About.svelte';
+  import Notifications from './lib/pages/Notifications.svelte';
   import Login from './lib/components/Login.svelte';
   import FirstRunWizard from './lib/pages/FirstRunWizard.svelte';
   import { fetchEvents, fetchEventsCount, type Detection, setAuthErrorCallback } from './lib/api';
@@ -628,6 +629,8 @@
                   <Species />
               {:else if currentRoute.startsWith('/settings')}
                    <Settings />
+              {:else if currentRoute.startsWith('/notifications')}
+                  <Notifications />
               {:else if currentRoute.startsWith('/about')}
                    <About />
               {/if}

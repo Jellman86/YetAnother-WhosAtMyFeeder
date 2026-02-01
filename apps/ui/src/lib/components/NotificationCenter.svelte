@@ -10,7 +10,8 @@
         showLabel = false,
         label = '',
         collapsed = false,
-        buttonClass = 'relative p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-all duration-200 focus-ring'
+        buttonClass = 'relative p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-all duration-200 focus-ring',
+        onNavigate
     } = $props<{
         position?: 'top' | 'bottom';
         align?: 'left' | 'right';
@@ -19,6 +20,7 @@
         label?: string;
         collapsed?: boolean;
         buttonClass?: string;
+        onNavigate?: (path: string) => void;
     }>();
 
     let open = $state(false);
@@ -50,6 +52,15 @@
 
     function close() {
         open = false;
+    }
+
+    function handleExpand() {
+        close();
+        if (onNavigate) {
+            onNavigate('/notifications');
+        } else {
+            window.location.assign('/notifications');
+        }
     }
 
     function formatTime(ts: number) {
@@ -108,6 +119,10 @@
             <div class="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-slate-700/60">
                 <div class="text-xs font-black uppercase tracking-widest text-slate-500">{$_('notifications.center_title')}</div>
                 <div class="flex items-center gap-2 text-[10px] font-semibold text-slate-400">
+                    <button type="button" class="hover:text-slate-600 dark:hover:text-slate-200" onclick={handleExpand} aria-label={$_('notifications.center_expand')}>
+                        {$_('notifications.center_expand')}
+                    </button>
+                    <span>•</span>
                     <button type="button" class="hover:text-slate-600 dark:hover:text-slate-200" onclick={() => notificationCenter.markAllRead()}>
                         {$_('notifications.center_mark_all')}
                     </button>
