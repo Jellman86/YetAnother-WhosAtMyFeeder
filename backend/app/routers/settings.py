@@ -532,88 +532,121 @@ async def update_settings(
     def should_update_secret(value: Optional[str]) -> bool:
         return value not in (None, "", "***REDACTED***")
 
-    settings.frigate.frigate_url = update.frigate_url
-    settings.frigate.mqtt_server = update.mqtt_server
-    settings.frigate.mqtt_port = update.mqtt_port
-    settings.frigate.mqtt_auth = update.mqtt_auth
-    if update.mqtt_username is not None:
+    fields_set = update.model_fields_set
+
+    if "frigate_url" in fields_set:
+        settings.frigate.frigate_url = update.frigate_url
+    if "mqtt_server" in fields_set:
+        settings.frigate.mqtt_server = update.mqtt_server
+    if "mqtt_port" in fields_set:
+        settings.frigate.mqtt_port = update.mqtt_port
+    if "mqtt_auth" in fields_set:
+        settings.frigate.mqtt_auth = update.mqtt_auth
+    if "mqtt_username" in fields_set and update.mqtt_username is not None:
         settings.frigate.mqtt_username = update.mqtt_username
     # Only update password if it's not the redacted placeholder
-    if should_update_secret(update.mqtt_password):
+    if "mqtt_password" in fields_set and should_update_secret(update.mqtt_password):
         settings.frigate.mqtt_password = update.mqtt_password
-    settings.frigate.birdnet_enabled = update.birdnet_enabled if update.birdnet_enabled is not None else True
-    settings.frigate.audio_topic = update.audio_topic
-    settings.frigate.camera_audio_mapping = update.camera_audio_mapping
-    settings.frigate.audio_buffer_hours = update.audio_buffer_hours
-    settings.frigate.audio_correlation_window_seconds = update.audio_correlation_window_seconds
+    if "birdnet_enabled" in fields_set and update.birdnet_enabled is not None:
+        settings.frigate.birdnet_enabled = update.birdnet_enabled
+    if "audio_topic" in fields_set:
+        settings.frigate.audio_topic = update.audio_topic
+    if "camera_audio_mapping" in fields_set:
+        settings.frigate.camera_audio_mapping = update.camera_audio_mapping
+    if "audio_buffer_hours" in fields_set:
+        settings.frigate.audio_buffer_hours = update.audio_buffer_hours
+    if "audio_correlation_window_seconds" in fields_set:
+        settings.frigate.audio_correlation_window_seconds = update.audio_correlation_window_seconds
 
-    settings.frigate.clips_enabled = update.clips_enabled
-    settings.frigate.camera = update.cameras
-    settings.classification.threshold = update.classification_threshold
-    settings.classification.min_confidence = update.classification_min_confidence
-    settings.maintenance.retention_days = update.retention_days
-    settings.maintenance.auto_delete_missing_clips = update.auto_delete_missing_clips
-    settings.classification.blocked_labels = update.blocked_labels
-    settings.classification.trust_frigate_sublabel = update.trust_frigate_sublabel
-    settings.classification.display_common_names = update.display_common_names
-    settings.classification.scientific_name_primary = update.scientific_name_primary
+    if "clips_enabled" in fields_set:
+        settings.frigate.clips_enabled = update.clips_enabled
+    if "cameras" in fields_set:
+        settings.frigate.camera = update.cameras
+    if "classification_threshold" in fields_set:
+        settings.classification.threshold = update.classification_threshold
+    if "classification_min_confidence" in fields_set:
+        settings.classification.min_confidence = update.classification_min_confidence
+    if "retention_days" in fields_set:
+        settings.maintenance.retention_days = update.retention_days
+    if "auto_delete_missing_clips" in fields_set:
+        settings.maintenance.auto_delete_missing_clips = update.auto_delete_missing_clips
+    if "blocked_labels" in fields_set:
+        settings.classification.blocked_labels = update.blocked_labels
+    if "trust_frigate_sublabel" in fields_set:
+        settings.classification.trust_frigate_sublabel = update.trust_frigate_sublabel
+    if "display_common_names" in fields_set:
+        settings.classification.display_common_names = update.display_common_names
+    if "scientific_name_primary" in fields_set:
+        settings.classification.scientific_name_primary = update.scientific_name_primary
     
-    if update.auto_video_classification is not None:
+    if "auto_video_classification" in fields_set and update.auto_video_classification is not None:
         settings.classification.auto_video_classification = update.auto_video_classification
-    if update.video_classification_delay is not None:
+    if "video_classification_delay" in fields_set and update.video_classification_delay is not None:
         settings.classification.video_classification_delay = update.video_classification_delay
-    if update.video_classification_max_retries is not None:
+    if "video_classification_max_retries" in fields_set and update.video_classification_max_retries is not None:
         settings.classification.video_classification_max_retries = update.video_classification_max_retries
 
     # Media cache settings
-    settings.media_cache.enabled = update.media_cache_enabled
-    settings.media_cache.cache_snapshots = update.media_cache_snapshots
-    settings.media_cache.cache_clips = update.media_cache_clips
-    settings.media_cache.retention_days = update.media_cache_retention_days
+    if "media_cache_enabled" in fields_set:
+        settings.media_cache.enabled = update.media_cache_enabled
+    if "media_cache_snapshots" in fields_set:
+        settings.media_cache.cache_snapshots = update.media_cache_snapshots
+    if "media_cache_clips" in fields_set:
+        settings.media_cache.cache_clips = update.media_cache_clips
+    if "media_cache_retention_days" in fields_set:
+        settings.media_cache.retention_days = update.media_cache_retention_days
     
     # Location settings
-    settings.location.latitude = update.location_latitude
-    settings.location.longitude = update.location_longitude
-    settings.location.automatic = update.location_automatic if update.location_automatic is not None else True
-    if update.location_temperature_unit is not None:
+    if "location_latitude" in fields_set:
+        settings.location.latitude = update.location_latitude
+    if "location_longitude" in fields_set:
+        settings.location.longitude = update.location_longitude
+    if "location_automatic" in fields_set and update.location_automatic is not None:
+        settings.location.automatic = update.location_automatic
+    if "location_temperature_unit" in fields_set and update.location_temperature_unit is not None:
         settings.location.temperature_unit = update.location_temperature_unit
 
     # BirdWeather settings
-    settings.birdweather.enabled = update.birdweather_enabled if update.birdweather_enabled is not None else False
+    if "birdweather_enabled" in fields_set and update.birdweather_enabled is not None:
+        settings.birdweather.enabled = update.birdweather_enabled
     # Only update token if it's not the redacted placeholder
-    if should_update_secret(update.birdweather_station_token):
+    if "birdweather_station_token" in fields_set and should_update_secret(update.birdweather_station_token):
         settings.birdweather.station_token = update.birdweather_station_token
 
     # iNaturalist settings
-    if update.inaturalist_enabled is not None:
+    if "inaturalist_enabled" in fields_set and update.inaturalist_enabled is not None:
         settings.inaturalist.enabled = update.inaturalist_enabled
-    if should_update_secret(update.inaturalist_client_id):
+    if "inaturalist_client_id" in fields_set and should_update_secret(update.inaturalist_client_id):
         settings.inaturalist.client_id = update.inaturalist_client_id
-    if should_update_secret(update.inaturalist_client_secret):
+    if "inaturalist_client_secret" in fields_set and should_update_secret(update.inaturalist_client_secret):
         settings.inaturalist.client_secret = update.inaturalist_client_secret
-    if update.inaturalist_default_latitude is not None:
+    if "inaturalist_default_latitude" in fields_set and update.inaturalist_default_latitude is not None:
         settings.inaturalist.default_latitude = update.inaturalist_default_latitude
-    if update.inaturalist_default_longitude is not None:
+    if "inaturalist_default_longitude" in fields_set and update.inaturalist_default_longitude is not None:
         settings.inaturalist.default_longitude = update.inaturalist_default_longitude
-    if update.inaturalist_default_place_guess is not None:
+    if "inaturalist_default_place_guess" in fields_set and update.inaturalist_default_place_guess is not None:
         settings.inaturalist.default_place_guess = update.inaturalist_default_place_guess
 
     # LLM settings
-    settings.llm.enabled = update.llm_enabled if update.llm_enabled is not None else False
-    settings.llm.provider = update.llm_provider if update.llm_provider else "gemini"
+    if "llm_enabled" in fields_set and update.llm_enabled is not None:
+        settings.llm.enabled = update.llm_enabled
+    if "llm_provider" in fields_set and update.llm_provider:
+        settings.llm.provider = update.llm_provider
     # Only update API key if it's not the redacted placeholder
-    if should_update_secret(update.llm_api_key):
+    if "llm_api_key" in fields_set and should_update_secret(update.llm_api_key):
         settings.llm.api_key = update.llm_api_key
-    settings.llm.model = update.llm_model if update.llm_model else "gemini-2.0-flash-exp"
+    if "llm_model" in fields_set and update.llm_model:
+        settings.llm.model = update.llm_model
     
     # Telemetry
-    settings.telemetry.enabled = update.telemetry_enabled if update.telemetry_enabled is not None else True
+    if "telemetry_enabled" in fields_set and update.telemetry_enabled is not None:
+        settings.telemetry.enabled = update.telemetry_enabled
 
     # Authentication
     auth_changed = False
     password_changed = False
 
-    if update.auth_enabled is not None:
+    if "auth_enabled" in fields_set and update.auth_enabled is not None:
         if settings.auth.enabled != update.auth_enabled:
             auth_changed = True
             log.info(
@@ -624,7 +657,7 @@ async def update_settings(
             )
         settings.auth.enabled = update.auth_enabled
 
-    if update.auth_username is not None and update.auth_username.strip():
+    if "auth_username" in fields_set and update.auth_username is not None and update.auth_username.strip():
         if settings.auth.username != update.auth_username.strip():
             log.info(
                 "AUTH_AUDIT: Username changed",
@@ -635,7 +668,7 @@ async def update_settings(
             )
         settings.auth.username = update.auth_username.strip()
 
-    if update.auth_password:
+    if "auth_password" in fields_set and update.auth_password:
         settings.auth.password_hash = hash_password(update.auth_password)
         password_changed = True
         log.info(
@@ -645,122 +678,122 @@ async def update_settings(
             changed_by=auth.username
         )
 
-    if update.auth_session_expiry_hours is not None:
+    if "auth_session_expiry_hours" in fields_set and update.auth_session_expiry_hours is not None:
         settings.auth.session_expiry_hours = update.auth_session_expiry_hours
-    if update.trusted_proxy_hosts is not None:
+    if "trusted_proxy_hosts" in fields_set and update.trusted_proxy_hosts is not None:
         settings.system.trusted_proxy_hosts = update.trusted_proxy_hosts
 
     # Public access
-    if update.public_access_enabled is not None:
+    if "public_access_enabled" in fields_set and update.public_access_enabled is not None:
         settings.public_access.enabled = update.public_access_enabled
-    if update.public_access_show_camera_names is not None:
+    if "public_access_show_camera_names" in fields_set and update.public_access_show_camera_names is not None:
         settings.public_access.show_camera_names = update.public_access_show_camera_names
-    if update.public_access_historical_days is not None:
+    if "public_access_historical_days" in fields_set and update.public_access_historical_days is not None:
         settings.public_access.show_historical_days = update.public_access_historical_days
-    if update.public_access_rate_limit_per_minute is not None:
+    if "public_access_rate_limit_per_minute" in fields_set and update.public_access_rate_limit_per_minute is not None:
         settings.public_access.rate_limit_per_minute = update.public_access_rate_limit_per_minute
 
     # Notifications - Discord
-    if update.notifications_discord_enabled is not None:
+    if "notifications_discord_enabled" in fields_set and update.notifications_discord_enabled is not None:
         settings.notifications.discord.enabled = update.notifications_discord_enabled
     # Only update webhook URL if it's not the redacted placeholder
-    if should_update_secret(update.notifications_discord_webhook_url):
+    if "notifications_discord_webhook_url" in fields_set and should_update_secret(update.notifications_discord_webhook_url):
         settings.notifications.discord.webhook_url = update.notifications_discord_webhook_url
-    if update.notifications_discord_username:
+    if "notifications_discord_username" in fields_set and update.notifications_discord_username:
         settings.notifications.discord.username = update.notifications_discord_username
 
     # Notifications - Pushover
-    if update.notifications_pushover_enabled is not None:
+    if "notifications_pushover_enabled" in fields_set and update.notifications_pushover_enabled is not None:
         settings.notifications.pushover.enabled = update.notifications_pushover_enabled
     # Only update keys/tokens if they're not the redacted placeholder
-    if should_update_secret(update.notifications_pushover_user_key):
+    if "notifications_pushover_user_key" in fields_set and should_update_secret(update.notifications_pushover_user_key):
         settings.notifications.pushover.user_key = update.notifications_pushover_user_key
-    if should_update_secret(update.notifications_pushover_api_token):
+    if "notifications_pushover_api_token" in fields_set and should_update_secret(update.notifications_pushover_api_token):
         settings.notifications.pushover.api_token = update.notifications_pushover_api_token
-    if update.notifications_pushover_priority is not None:
+    if "notifications_pushover_priority" in fields_set and update.notifications_pushover_priority is not None:
         settings.notifications.pushover.priority = update.notifications_pushover_priority
 
     # Notifications - Telegram
-    if update.notifications_telegram_enabled is not None:
+    if "notifications_telegram_enabled" in fields_set and update.notifications_telegram_enabled is not None:
         settings.notifications.telegram.enabled = update.notifications_telegram_enabled
     # Only update bot token if it's not the redacted placeholder
-    if should_update_secret(update.notifications_telegram_bot_token):
+    if "notifications_telegram_bot_token" in fields_set and should_update_secret(update.notifications_telegram_bot_token):
         settings.notifications.telegram.bot_token = update.notifications_telegram_bot_token
     # Only update chat ID if it's not the redacted placeholder
-    if should_update_secret(update.notifications_telegram_chat_id):
+    if "notifications_telegram_chat_id" in fields_set and should_update_secret(update.notifications_telegram_chat_id):
         settings.notifications.telegram.chat_id = update.notifications_telegram_chat_id
 
     # Notifications - Email
-    if update.notifications_email_enabled is not None:
+    if "notifications_email_enabled" in fields_set and update.notifications_email_enabled is not None:
         settings.notifications.email.enabled = update.notifications_email_enabled
-    if update.notifications_email_only_on_end is not None:
+    if "notifications_email_only_on_end" in fields_set and update.notifications_email_only_on_end is not None:
         settings.notifications.email.only_on_end = update.notifications_email_only_on_end
-    if update.notifications_email_use_oauth is not None:
+    if "notifications_email_use_oauth" in fields_set and update.notifications_email_use_oauth is not None:
         settings.notifications.email.use_oauth = update.notifications_email_use_oauth
-    if update.notifications_email_oauth_provider is not None:
+    if "notifications_email_oauth_provider" in fields_set and update.notifications_email_oauth_provider is not None:
         settings.notifications.email.oauth_provider = update.notifications_email_oauth_provider
-    if update.notifications_email_gmail_client_id is not None:
+    if "notifications_email_gmail_client_id" in fields_set and update.notifications_email_gmail_client_id is not None:
         settings.notifications.email.gmail_client_id = update.notifications_email_gmail_client_id
-    if should_update_secret(update.notifications_email_gmail_client_secret):
+    if "notifications_email_gmail_client_secret" in fields_set and should_update_secret(update.notifications_email_gmail_client_secret):
         settings.notifications.email.gmail_client_secret = update.notifications_email_gmail_client_secret
-    if update.notifications_email_outlook_client_id is not None:
+    if "notifications_email_outlook_client_id" in fields_set and update.notifications_email_outlook_client_id is not None:
         settings.notifications.email.outlook_client_id = update.notifications_email_outlook_client_id
-    if should_update_secret(update.notifications_email_outlook_client_secret):
+    if "notifications_email_outlook_client_secret" in fields_set and should_update_secret(update.notifications_email_outlook_client_secret):
         settings.notifications.email.outlook_client_secret = update.notifications_email_outlook_client_secret
-    if update.notifications_email_smtp_host is not None:
+    if "notifications_email_smtp_host" in fields_set and update.notifications_email_smtp_host is not None:
         settings.notifications.email.smtp_host = update.notifications_email_smtp_host
-    if update.notifications_email_smtp_port is not None:
+    if "notifications_email_smtp_port" in fields_set and update.notifications_email_smtp_port is not None:
         settings.notifications.email.smtp_port = update.notifications_email_smtp_port
-    if update.notifications_email_smtp_username is not None:
+    if "notifications_email_smtp_username" in fields_set and update.notifications_email_smtp_username is not None:
         settings.notifications.email.smtp_username = update.notifications_email_smtp_username
-    if should_update_secret(update.notifications_email_smtp_password):
+    if "notifications_email_smtp_password" in fields_set and should_update_secret(update.notifications_email_smtp_password):
         settings.notifications.email.smtp_password = update.notifications_email_smtp_password
-    if update.notifications_email_smtp_use_tls is not None:
+    if "notifications_email_smtp_use_tls" in fields_set and update.notifications_email_smtp_use_tls is not None:
         settings.notifications.email.smtp_use_tls = update.notifications_email_smtp_use_tls
-    if update.notifications_email_from_email is not None:
+    if "notifications_email_from_email" in fields_set and update.notifications_email_from_email is not None:
         settings.notifications.email.from_email = update.notifications_email_from_email
-    if update.notifications_email_to_email is not None:
+    if "notifications_email_to_email" in fields_set and update.notifications_email_to_email is not None:
         settings.notifications.email.to_email = update.notifications_email_to_email
-    if update.notifications_email_include_snapshot is not None:
+    if "notifications_email_include_snapshot" in fields_set and update.notifications_email_include_snapshot is not None:
         settings.notifications.email.include_snapshot = update.notifications_email_include_snapshot
-    if update.notifications_email_dashboard_url is not None:
+    if "notifications_email_dashboard_url" in fields_set and update.notifications_email_dashboard_url is not None:
         settings.notifications.email.dashboard_url = update.notifications_email_dashboard_url
     
     # Notifications - Filters
-    if update.notifications_filter_species_whitelist is not None:
+    if "notifications_filter_species_whitelist" in fields_set and update.notifications_filter_species_whitelist is not None:
         settings.notifications.filters.species_whitelist = update.notifications_filter_species_whitelist
-    if update.notifications_filter_min_confidence is not None:
+    if "notifications_filter_min_confidence" in fields_set and update.notifications_filter_min_confidence is not None:
         settings.notifications.filters.min_confidence = update.notifications_filter_min_confidence
-    if update.notifications_filter_audio_confirmed_only is not None:
+    if "notifications_filter_audio_confirmed_only" in fields_set and update.notifications_filter_audio_confirmed_only is not None:
         settings.notifications.filters.audio_confirmed_only = update.notifications_filter_audio_confirmed_only
 
-    if update.notification_language:
+    if "notification_language" in fields_set and update.notification_language:
         settings.notifications.notification_language = update.notification_language
 
-    if update.notifications_mode is not None:
+    if "notifications_mode" in fields_set and update.notifications_mode is not None:
         settings.notifications.mode = update.notifications_mode
 
-    if update.notifications_notify_on_insert is not None:
+    if "notifications_notify_on_insert" in fields_set and update.notifications_notify_on_insert is not None:
         settings.notifications.notify_on_insert = update.notifications_notify_on_insert
-    if update.notifications_notify_on_update is not None:
+    if "notifications_notify_on_update" in fields_set and update.notifications_notify_on_update is not None:
         settings.notifications.notify_on_update = update.notifications_notify_on_update
-    if update.notifications_delay_until_video is not None:
+    if "notifications_delay_until_video" in fields_set and update.notifications_delay_until_video is not None:
         settings.notifications.delay_until_video = update.notifications_delay_until_video
-    if update.notifications_video_fallback_timeout is not None:
+    if "notifications_video_fallback_timeout" in fields_set and update.notifications_video_fallback_timeout is not None:
         settings.notifications.video_fallback_timeout = update.notifications_video_fallback_timeout
-    if update.notifications_notification_cooldown_minutes is not None:
+    if "notifications_notification_cooldown_minutes" in fields_set and update.notifications_notification_cooldown_minutes is not None:
         settings.notifications.notification_cooldown_minutes = update.notifications_notification_cooldown_minutes
 
     # Accessibility
-    if update.accessibility_high_contrast is not None:
+    if "accessibility_high_contrast" in fields_set and update.accessibility_high_contrast is not None:
         settings.accessibility.high_contrast = update.accessibility_high_contrast
-    if update.accessibility_dyslexia_font is not None:
+    if "accessibility_dyslexia_font" in fields_set and update.accessibility_dyslexia_font is not None:
         settings.accessibility.dyslexia_font = update.accessibility_dyslexia_font
-    if update.accessibility_reduced_motion is not None:
+    if "accessibility_reduced_motion" in fields_set and update.accessibility_reduced_motion is not None:
         settings.accessibility.reduced_motion = update.accessibility_reduced_motion
-    if update.accessibility_zen_mode is not None:
+    if "accessibility_zen_mode" in fields_set and update.accessibility_zen_mode is not None:
         settings.accessibility.zen_mode = update.accessibility_zen_mode
-    if update.accessibility_live_announcements is not None:
+    if "accessibility_live_announcements" in fields_set and update.accessibility_live_announcements is not None:
         settings.accessibility.live_announcements = update.accessibility_live_announcements
 
     if update.species_info_source:
