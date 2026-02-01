@@ -203,7 +203,7 @@ class AIService:
             log.error("Claude analysis failed", error=str(e))
             return f"Error during AI analysis: {str(e)}"
 
-    def _build_prompt(self, species: str, metadata: dict, language: Optional[str]) -> str:
+    def _build_prompt(self, species: str, metadata: dict, language: Optional[str] = None) -> str:
         """Construct the prompt for the LLM."""
         temp = metadata.get("temperature")
         condition = metadata.get("weather_condition")
@@ -237,7 +237,7 @@ class AIService:
         {language_note}
         """
 
-    def _build_chart_prompt(self, metadata: dict, language: Optional[str]) -> str:
+    def _build_chart_prompt(self, metadata: dict, language: Optional[str] = None) -> str:
         """Construct a prompt for leaderboard trend analysis."""
         timeframe = metadata.get("timeframe", "Unknown timeframe")
         total_count = metadata.get("total_count", "unknown")
