@@ -523,6 +523,15 @@ Allow UI logs to be optionally sent to a backend endpoint for better remote debu
 
 Investigate moving from `unsafe-inline` to CSP nonces where feasible.
 
+### BirdNET-Go Audio Backfill 🐦🎧
+**Priority:** P2 | **Effort:** M (3-5 days)
+
+Backfill BirdNET-Go audio detections into `audio_detections` so historical detections can regain audio context after a DB reset.
+
+**Notes:**
+- Requires a persistent BirdNET-Go data source (SQLite/JSON logs/API).
+- Add an importer + mapping to camera IDs, then re-correlate detections.
+
 ### High Priority Fixes
 
 > See [DEVELOPER.md](DEVELOPER.md) for comprehensive technical debt tracking.
