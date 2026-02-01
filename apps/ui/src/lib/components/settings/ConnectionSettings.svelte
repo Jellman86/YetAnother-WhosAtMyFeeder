@@ -58,26 +58,41 @@
     let previewTimer: ReturnType<typeof setInterval> | null = null;
     let previewHoverTimer: ReturnType<typeof setTimeout> | null = null;
     let isTouch = $state(false);
+    let previewAnchorEl = $state<HTMLElement | null>(null);
+    let previewStyle = $state('');
 
     function getFrigateBase() {
         return frigateUrl ? frigateUrl.replace(/\/+$/, '') : '';
     }
 
-    function startPreview(camera: string, immediate = false) {
+    function updatePreviewPosition() {
+        if (!previewAnchorEl) return;
+        const rect = previewAnchorEl.getBoundingClientRect();
+        const top = rect.top + rect.height / 2;
+        const left = rect.right + 12;
+        previewStyle = `position: fixed; top: ${top}px; left: ${left}px; transform: translateY(-50%);`;
+    }
+
+    function startPreview(camera: string, immediate = false, anchor?: HTMLElement | null) {
         if (!frigateUrl) {
             previewError = $_('settings.cameras.preview_missing_url', { default: 'Set a Frigate URL to preview.' });
             return;
         }
         if (previewHoverTimer) clearTimeout(previewHoverTimer);
+        if (anchor) {
+            previewAnchorEl = anchor;
+        }
         const showPreview = () => {
             previewCamera = camera;
             previewVisible = true;
             previewLoading = true;
             previewError = null;
             previewTimestamp = Date.now();
+            updatePreviewPosition();
             if (!previewTimer) {
                 previewTimer = setInterval(() => {
                     previewTimestamp = Date.now();
+                    updatePreviewPosition();
                 }, 2000);
             }
         };
@@ -98,6 +113,8 @@
         previewCamera = null;
         previewLoading = false;
         previewError = null;
+        previewAnchorEl = null;
+        previewStyle = '';
         if (previewBlobUrl) {
             URL.revokeObjectURL(previewBlobUrl);
             previewBlobUrl = null;
@@ -108,12 +125,12 @@
         }
     }
 
-    function togglePreview(camera: string) {
+    function togglePreview(camera: string, anchor?: HTMLElement | null) {
         if (previewVisible && previewCamera === camera) {
             stopPreview(camera);
             return;
         }
-        startPreview(camera, true);
+        startPreview(camera, true, anchor);
     }
 
     async function fetchPreview(camera: string) {
@@ -353,11 +370,11 @@
                                     class="opacity-0 group-hover:opacity-100 transition text-slate-500 hover:text-teal-600 dark:text-slate-400 dark:hover:text-teal-300"
                                     aria-label="{$_('settings.cameras.preview', { default: 'Preview {camera}', values: { camera } })}"
                                     disabled={!frigateUrl}
-                                    onmouseenter={() => !isTouch && startPreview(camera)}
+                                    onmouseenter={(e) => !isTouch && startPreview(camera, false, e.currentTarget as HTMLElement)}
                                     onmouseleave={() => !isTouch && stopPreview(camera)}
                                     onclick={(e) => {
                                         e.stopPropagation();
-                                        if (isTouch) togglePreview(camera);
+                                        if (isTouch) togglePreview(camera, e.currentTarget as HTMLElement);
                                     }}
                                 >
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -372,8 +389,9 @@
 
                             {#if previewVisible && previewCamera === camera}
                                 <div
-                                    class="absolute right-12 top-1/2 -translate-y-1/2 w-56 rounded-2xl overflow-hidden border border-slate-200/80 dark:border-slate-700/60 bg-white/95 dark:bg-slate-900/95 shadow-xl z-20"
-                                    onmouseenter={() => !isTouch && startPreview(camera)}
+                                    class="w-56 rounded-2xl overflow-hidden border border-slate-200/80 dark:border-slate-700/60 bg-white/95 dark:bg-slate-900/95 shadow-xl z-20"
+                                    style={previewStyle}
+                                    onmouseenter={(e) => !isTouch && startPreview(camera, false, previewAnchorEl ?? (e.currentTarget as HTMLElement))}
                                     onmouseleave={() => !isTouch && stopPreview(camera)}
                                 >
                                     <div class="px-3 py-2 border-b border-slate-200/80 dark:border-slate-700/60 flex items-center justify-between">
