@@ -58,48 +58,44 @@ class EventProcessor:
         """Main entry point for processing Frigate MQTT events."""
         try:
             data = json.loads(payload)
-
-            # Step 1: Parse and validate event
-            event = self._parse_and_validate_event(data)
-            if not event:
-                return
-
-            # Handle False Positives (Clean up if needed)
-            if event.is_false_positive:
-                log.info("Frigate marked event as false positive - cleaning up", event_id=event.frigate_event)
-                await self._handle_false_positive(event.frigate_event)
-                return
-
-            # Step 2: Classify snapshot (or use Frigate sublabel if trusted)
-            classification_result = await self._classify_snapshot(event)
-            if not classification_result:
-                return
-
-            results, snapshot_data = classification_result
-
-            # Step 3: Filter and label the top result
-            top, _ = self.detection_service.filter_and_label(
-                results[0], event.frigate_event, event.sub_label, event.frigate_score
-            )
-            if not top:
-                return
-
-            # Step 4: Gather context data (audio + weather) in parallel
-            context = await self._gather_context_data(event)
-
-            # Step 5: Correlate audio with visual detection
-            top_with_audio = self._correlate_audio(top, context['audio_match'])
-
-            # Step 6: Save detection and send notifications
-            await self._handle_detection_save_and_notify(
-                event, top_with_audio, snapshot_data, context
-            )
-
+            await self._process_event_payload(data)
         except json.JSONDecodeError as e:
             log.error("Invalid JSON payload", error=str(e))
         except Exception as e:
             event_id = locals().get('event', EventData({'after': {'id': 'unknown'}, 'type': 'unknown'})).frigate_event
             log.error("Error processing event", event_id=event_id, error=str(e), exc_info=True)
+            return
+
+    async def _process_event_payload(self, data: Dict[str, Any]) -> None:
+        """Process a decoded MQTT payload end-to-end with guardrails."""
+        event = self._parse_and_validate_event(data)
+        if not event:
+            return
+
+        if event.is_false_positive:
+            log.info("Frigate marked event as false positive - cleaning up", event_id=event.frigate_event)
+            await self._handle_false_positive(event.frigate_event)
+            return
+
+        classification_result = await self._classify_snapshot(event)
+        if not classification_result:
+            return
+
+        results, snapshot_data = classification_result
+        if not results:
+            return
+
+        top, _ = self.detection_service.filter_and_label(
+            results[0], event.frigate_event, event.sub_label, event.frigate_score
+        )
+        if not top:
+            return
+
+        context = await self._gather_context_data(event)
+        top_with_audio = self._correlate_audio(top, context['audio_match'])
+        await self._handle_detection_save_and_notify(
+            event, top_with_audio, snapshot_data, context
+        )
 
     async def _handle_false_positive(self, frigate_event_id: str):
         """Delete detection if Frigate marks it as false positive."""
@@ -145,6 +141,14 @@ class EventProcessor:
 
         # Only process bird events
         if event.label != 'bird':
+            return None
+
+        if not event.frigate_event or event.frigate_event == "unknown":
+            log.warning("Skipping event with missing id", event_id=event.frigate_event)
+            return None
+
+        if not event.camera:
+            log.warning("Skipping event with missing camera", event_id=event.frigate_event)
             return None
 
         # Filter by camera if configured
