@@ -244,6 +244,11 @@ class AIService:
         total_count = metadata.get("total_count", "unknown")
         series = ", ".join(metadata.get("series", [])) or "Detections"
         weather_notes = metadata.get("weather_notes", "")
+        sunrise_range = metadata.get("sunrise_range")
+        sunset_range = metadata.get("sunset_range")
+        sun_notes = ""
+        if sunrise_range or sunset_range:
+            sun_notes = f"Sunrise range: {sunrise_range or 'unknown'}; Sunset range: {sunset_range or 'unknown'}."
         notes = metadata.get("notes", "")
         language_note = f"Respond in {language}." if language else ""
         return f"""
@@ -254,6 +259,7 @@ class AIService:
         Total detections in range: {total_count}
         Series shown: {series}
         {weather_notes}
+        {sun_notes}
 
         Respond in Markdown with these exact section headings and short bullet points:
         ## Overview

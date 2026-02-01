@@ -27,6 +27,7 @@
     let leaderboardAnalysisLoading = $state(false);
     let leaderboardAnalysisError = $state<string | null>(null);
     let leaderboardConfigKey = $state<string | null>(null);
+    let leaderboardAnalysisSubtitle = $state<string | null>(null);
 
     // Derived processed species with naming logic
     let processedSpecies = $derived(() => {
@@ -423,6 +424,19 @@
             ]
         },
         legend: { show: false },
+        subtitle: leaderboardAnalysisSubtitle
+            ? {
+                text: leaderboardAnalysisSubtitle,
+                align: 'left',
+                offsetX: 0,
+                offsetY: 0,
+                style: {
+                    fontSize: '10px',
+                    fontWeight: 600,
+                    color: isDark() ? '#94a3b8' : '#64748b'
+                }
+            }
+            : undefined,
         annotations: weatherAnnotations()
     }));
 
@@ -462,6 +476,8 @@
             startDate,
             endDate,
             totalCount: timeline?.total_count ?? 0,
+            sunriseRange,
+            sunsetRange,
             showWeatherBands: includeAll || showWeatherBands,
             showTemperature: includeTemperature,
             showWind: includeWind,
@@ -503,6 +519,7 @@
             showWind,
             showPrecip
         };
+        const priorSubtitle = leaderboardAnalysisSubtitle;
         try {
             const shouldEnableAll = !showWeatherBands || !showTemperature || !showWind || !showPrecip;
             if (shouldEnableAll) {
@@ -514,6 +531,12 @@
                 await new Promise((resolve) => setTimeout(resolve, 50));
             }
             const config = buildLeaderboardConfig(true);
+            const sunriseText = config.sunriseRange ? `Sunrise ${config.sunriseRange}` : '';
+            const sunsetText = config.sunsetRange ? `Sunset ${config.sunsetRange}` : '';
+            const sunSummary = [sunriseText, sunsetText].filter(Boolean).join(' • ');
+            leaderboardAnalysisSubtitle = [sunSummary, 'Weather overlays on'].filter(Boolean).join(' • ');
+            await tick();
+            await new Promise((resolve) => setTimeout(resolve, 50));
             const key = await computeConfigKey(config);
             leaderboardConfigKey = key;
             const chartInstance = (chartEl as any).__apexchart;
@@ -527,7 +550,9 @@
                     timeframe: `${config.days} days (${config.startDate ?? 'start'} → ${config.endDate ?? 'end'})`,
                     total_count: config.totalCount,
                     series: config.series,
-                    weather_notes: 'AM/PM weather bands and weather overlays are included for analysis.',
+                    sunrise_range: config.sunriseRange ?? null,
+                    sunset_range: config.sunsetRange ?? null,
+                    weather_notes: 'AM/PM weather bands and weather overlays are included for analysis. Sunrise and sunset ranges are available.',
                     notes: 'Detections are shown as an area series; weather overlays include temperature, wind, and precipitation.'
                 },
                 image_base64: imageBase64,
@@ -543,6 +568,7 @@
             showTemperature = priorToggles.showTemperature;
             showWind = priorToggles.showWind;
             showPrecip = priorToggles.showPrecip;
+            leaderboardAnalysisSubtitle = priorSubtitle;
             await tick();
             leaderboardAnalysisLoading = false;
         }
