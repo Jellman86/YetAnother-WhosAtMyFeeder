@@ -4,6 +4,7 @@
     import { authStore } from '../stores/auth.svelte';
     import { _ } from 'svelte-i18n';
     import LanguageSelector from './LanguageSelector.svelte';
+    import NotificationCenter from './NotificationCenter.svelte';
 
     let { currentRoute, onNavigate, mobileSidebarOpen = false, onMobileClose, status } = $props<{
         currentRoute: string;
@@ -80,17 +81,20 @@
             </button>
         {/if}
 
-        {#if !collapsed}
-            <button
-                class="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-all duration-200 focus-ring"
-                onclick={() => layoutStore.toggleSidebar()}
-                title={$_('nav.collapse_sidebar')}
-            >
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
-                </svg>
-            </button>
-        {/if}
+        <div class="flex items-center gap-2">
+            <NotificationCenter />
+            {#if !collapsed}
+                <button
+                    class="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-all duration-200 focus-ring"
+                    onclick={() => layoutStore.toggleSidebar()}
+                    title={$_('nav.collapse_sidebar')}
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+                    </svg>
+                </button>
+            {/if}
+        </div>
     </div>
 
     <!-- Navigation -->

@@ -178,11 +178,34 @@
       const message = t('notifications.event_reclassify_desc', {
           species: label ?? 'Unknown'
       });
-      notificationCenter.add({
-          id: `reclassify:${eventId}:${Date.now()}`,
+      notificationCenter.upsert({
+          id: `reclassify:${eventId}`,
           type: 'update',
           title,
-          message
+          message,
+          timestamp: Date.now(),
+          read: false
+      });
+  }
+
+  function updateReclassifyProgress(eventId: string, current: number, total: number) {
+      if (!shouldNotify()) return;
+      const title = t('notifications.event_reclassify');
+      const message = t('notifications.event_reclassify_progress', {
+          current: current.toLocaleString(),
+          total: total.toLocaleString()
+      });
+      notificationCenter.upsert({
+          id: `reclassify:${eventId}`,
+          type: 'process',
+          title,
+          message,
+          timestamp: Date.now(),
+          read: false,
+          meta: {
+              current,
+              total
+          }
       });
   }
 
@@ -410,6 +433,7 @@
                              return;
                          }
                          detectionsStore.startReclassification(payload.data.event_id);
+                         updateReclassifyProgress(payload.data.event_id, 0, payload.data.total_frames ?? 0);
                      } else if (payload.type === 'reclassification_progress') {
                          if (!payload.data || !payload.data.event_id) {
                              console.error("SSE Invalid reclassification_progress data:", payload);
@@ -426,6 +450,7 @@
                              payload.data.clip_total,
                              payload.data.model_name
                          );
+                         updateReclassifyProgress(payload.data.event_id, payload.data.current_frame, payload.data.total_frames);
                      } else if (payload.type === 'reclassification_completed') {
                          if (!payload.data || !payload.data.event_id) {
                              console.error("SSE Invalid reclassification_completed data:", payload);

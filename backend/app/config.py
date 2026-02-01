@@ -222,6 +222,7 @@ class NotificationSettings(BaseModel):
     email: EmailSettings = EmailSettings()
     filters: NotificationFilterSettings = NotificationFilterSettings()
     notification_language: str = Field(default="en", description="Language for notifications (en, es, fr, de, ja, ru, pt, it)")
+    mode: str = Field(default="standard", description="Notification mode: silent, final, standard, realtime, custom")
     notify_on_insert: bool = Field(default=True, description="Notify on new detection insert")
     notify_on_update: bool = Field(default=False, description="Notify on detection updates")
     delay_until_video: bool = Field(default=False, description="Delay notifications until video analysis completes (if enabled)")
@@ -463,6 +464,7 @@ class Settings(BaseSettings):
                 'camera_filters': {}
             },
             'notification_language': os.environ.get('NOTIFICATIONS__NOTIFICATION_LANGUAGE', 'en'),
+            'mode': os.environ.get('NOTIFICATIONS__MODE', 'standard'),
             'notify_on_insert': os.environ.get('NOTIFICATIONS__NOTIFY_ON_INSERT', 'true').lower() == 'true',
             'notify_on_update': os.environ.get('NOTIFICATIONS__NOTIFY_ON_UPDATE', 'false').lower() == 'true',
             'delay_until_video': os.environ.get('NOTIFICATIONS__DELAY_UNTIL_VIDEO', 'false').lower() == 'true',
@@ -614,6 +616,11 @@ class Settings(BaseSettings):
                         env_key = 'NOTIFICATIONS__NOTIFICATION_LANGUAGE'
                         if env_key not in os.environ:
                             notifications_data['notification_language'] = n_file['notification_language']
+
+                    if 'mode' in n_file:
+                        env_key = 'NOTIFICATIONS__MODE'
+                        if env_key not in os.environ:
+                            notifications_data['mode'] = n_file['mode']
 
                     if 'notify_on_insert' in n_file:
                         env_key = 'NOTIFICATIONS__NOTIFY_ON_INSERT'

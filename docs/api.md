@@ -219,6 +219,7 @@ Retrieve current system settings. **Secrets are redacted.**
   "auto_video_classification": true,
   "display_common_names": true,
   "scientific_name_primary": false,
+  "notifications_mode": "standard",
   "notifications_discord_enabled": true,
   "birdweather_enabled": true
 }

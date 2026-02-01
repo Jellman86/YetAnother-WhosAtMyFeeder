@@ -50,6 +50,9 @@ When Frigate detects a bird at your feeder, YA-WAMF:
 - **AI Naturalist Insight:** One-click behavioral analysis of your visitors using state-of-the-art LLMs.
 - **Elite Accuracy:** Support for state-of-the-art **EVA-02 Large** models (~91% accuracy).
 - **Taxonomy Normalization:** Automatic Scientific ↔ Common name mapping using iNaturalist data.
+- **iNaturalist Submissions (Beta):** Owner-reviewed submissions are implemented but currently untested due to App Owner approval limits. Testers welcome.
+
+> Note: To preview the iNaturalist submission UI without OAuth, enable the integration in Settings → Integrations and add `?inat_preview=1` to the dashboard URL.
 - **Fast Path Efficiency:** Skip local AI and use Frigate's sublabels directly to save CPU.
 - **Home Assistant Integration:** Full support for tracking the last detected bird and daily counts in HA.
 - **Observability:** Built-in Prometheus metrics, Telemetry (opt-in), and real-time MQTT diagnostics.

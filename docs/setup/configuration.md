@@ -53,6 +53,7 @@ Configure how and where alerts are sent.
 
 - **Discord / Pushover / Telegram:** Provide platform tokens and enable snapshots.
 - **Email (OAuth/SMTP):** Use Gmail/Outlook OAuth or traditional SMTP with optional auth.
+- **Mode:** Choose Final-only, Standard, Realtime, or Silent delivery (Advanced allows custom triggers).
 - **Filters:** Minimum confidence, audio-confirmed only, and species whitelist.
 - **Language:** Choose the language used in notifications.
 

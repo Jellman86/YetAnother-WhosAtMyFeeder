@@ -295,6 +295,7 @@ class SettingsUpdate(BaseModel):
     notifications_filter_min_confidence: Optional[float] = 0.7
     notifications_filter_audio_confirmed_only: Optional[bool] = False
     notification_language: Optional[str] = "en"
+    notifications_mode: Optional[str] = "standard"
     notifications_notify_on_insert: Optional[bool] = True
     notifications_notify_on_update: Optional[bool] = False
     notifications_delay_until_video: Optional[bool] = False
@@ -357,6 +358,17 @@ class SettingsUpdate(BaseModel):
         normalized = v.strip().lower()
         if normalized not in ("celsius", "fahrenheit"):
             raise ValueError("location_temperature_unit must be 'celsius' or 'fahrenheit'")
+        return normalized
+
+    @field_validator('notifications_mode')
+    @classmethod
+    def validate_notifications_mode(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        normalized = v.strip().lower()
+        allowed = {"silent", "final", "standard", "realtime", "custom"}
+        if normalized not in allowed:
+            raise ValueError("notifications_mode must be one of: silent, final, standard, realtime, custom")
         return normalized
 
     @field_validator('frigate_url')
@@ -482,6 +494,7 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "notifications_filter_min_confidence": settings.notifications.filters.min_confidence,
         "notifications_filter_audio_confirmed_only": settings.notifications.filters.audio_confirmed_only,
         "notification_language": settings.notifications.notification_language,
+        "notifications_mode": settings.notifications.mode,
         "notifications_notify_on_insert": settings.notifications.notify_on_insert,
         "notifications_notify_on_update": settings.notifications.notify_on_update,
         "notifications_delay_until_video": settings.notifications.delay_until_video,
@@ -722,6 +735,9 @@ async def update_settings(
 
     if update.notification_language:
         settings.notifications.notification_language = update.notification_language
+
+    if update.notifications_mode is not None:
+        settings.notifications.mode = update.notifications_mode
 
     if update.notifications_notify_on_insert is not None:
         settings.notifications.notify_on_insert = update.notifications_notify_on_insert

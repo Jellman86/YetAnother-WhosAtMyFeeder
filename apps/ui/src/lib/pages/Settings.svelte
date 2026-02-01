@@ -225,6 +225,7 @@
     let newWhitelistSpecies = $state('');
     let filterConfidence = $state(0.7);
     let filterAudioOnly = $state(false);
+    let notifyMode = $state<'silent' | 'final' | 'standard' | 'realtime' | 'custom'>('standard');
     let notifyOnInsert = $state(true);
     let notifyOnUpdate = $state(false);
     let notifyDelayUntilVideo = $state(false);
@@ -421,6 +422,7 @@
             { key: 'filterWhitelist', val: JSON.stringify(filterWhitelist), store: JSON.stringify(s.notifications_filter_species_whitelist || []) },
             { key: 'filterConfidence', val: filterConfidence, store: s.notifications_filter_min_confidence ?? 0.7 },
             { key: 'filterAudioOnly', val: filterAudioOnly, store: s.notifications_filter_audio_confirmed_only ?? false },
+            { key: 'notifyMode', val: notifyMode, store: s.notifications_mode ?? 'standard' },
             { key: 'notifyOnInsert', val: notifyOnInsert, store: s.notifications_notify_on_insert ?? true },
             { key: 'notifyOnUpdate', val: notifyOnUpdate, store: s.notifications_notify_on_update ?? false },
             { key: 'notifyDelayUntilVideo', val: notifyDelayUntilVideo, store: s.notifications_delay_until_video ?? false },
@@ -994,6 +996,17 @@
             filterWhitelist = settings.notifications_filter_species_whitelist || [];
             filterConfidence = settings.notifications_filter_min_confidence ?? 0.7;
             filterAudioOnly = settings.notifications_filter_audio_confirmed_only ?? false;
+            if (settings.notifications_mode) {
+                notifyMode = settings.notifications_mode as typeof notifyMode;
+            } else if (!settings.notifications_notify_on_insert && !settings.notifications_notify_on_update) {
+                notifyMode = 'silent';
+            } else if (settings.notifications_delay_until_video) {
+                notifyMode = 'final';
+            } else if (settings.notifications_notify_on_insert && settings.notifications_notify_on_update) {
+                notifyMode = 'realtime';
+            } else {
+                notifyMode = 'standard';
+            }
             notifyOnInsert = settings.notifications_notify_on_insert ?? true;
             if (settings.notifications_notify_on_update !== undefined) notifyOnUpdate = settings.notifications_notify_on_update;
             if (settings.notifications_delay_until_video !== undefined) notifyDelayUntilVideo = settings.notifications_delay_until_video;
@@ -1131,6 +1144,7 @@
                 notifications_filter_species_whitelist: filterWhitelist,
                 notifications_filter_min_confidence: filterConfidence,
                 notifications_filter_audio_confirmed_only: filterAudioOnly,
+                notifications_mode: notifyMode,
                 notifications_notify_on_insert: notifyOnInsert,
                 notifications_notify_on_update: notifyOnUpdate,
                 notifications_delay_until_video: notifyDelayUntilVideo,
@@ -1407,6 +1421,7 @@
                     bind:notifyAudioOnly={filterAudioOnly}
                     bind:notifySpeciesWhitelist={filterWhitelist}
                     bind:newSpecies={newWhitelistSpecies}
+                    bind:notifyMode
                     bind:notifyOnInsert
                     bind:notifyOnUpdate
                     bind:notifyDelayUntilVideo

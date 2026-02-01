@@ -180,6 +180,7 @@ export interface Settings {
     notifications_filter_min_confidence: number;
     notifications_filter_audio_confirmed_only: boolean;
     notification_language: string;
+    notifications_mode: string;
     notifications_notify_on_insert: boolean;
     notifications_notify_on_update: boolean;
     notifications_delay_until_video: boolean;

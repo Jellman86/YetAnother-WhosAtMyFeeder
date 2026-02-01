@@ -33,6 +33,9 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Fixed:** Settings updates no longer overwrite existing secrets when placeholders or empty values are sent.
 - **Changed:** Telegram notifications now use HTML escaping to prevent Markdown injection.
 - **Changed:** Notification status icon now uses a chat bubble to avoid confusion with the Notification Center bell.
+- **Added:** Reclassification progress now updates a pinned notification while batch analysis runs.
+- **Changed:** Notifications settings now use a mode selector (Final-only / Standard / Realtime / Silent) with advanced overrides.
+- **Added:** Notification mode is now stored in settings and respected by the backend dispatcher.
 
 ## [2.6.7] - 2026-01-29
 

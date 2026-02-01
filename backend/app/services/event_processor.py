@@ -345,16 +345,30 @@ class EventProcessor:
         detection = await self.detection_service.get_detection_by_frigate_event(event.frigate_event)
         already_notified = bool(detection and detection.notified_at)
 
+        notify_mode = (settings.notifications.mode or "standard").lower()
         should_notify = False
-        if event_type == "new":
-            should_notify = settings.notifications.notify_on_insert and not already_notified
+        was_updated = changed and not was_inserted
+
+        if notify_mode == "silent":
+            should_notify = False
+        elif notify_mode == "final":
+            should_notify = event_type == "end" and not already_notified
+        elif notify_mode == "standard":
+            should_notify = event_type == "new" and not already_notified
+        elif notify_mode == "realtime":
+            if event_type == "new":
+                should_notify = not already_notified
+            else:
+                should_notify = was_updated
         else:
-            # Only notify on updates if explicitly enabled and not yet notified
-            was_updated = changed and not was_inserted
-            should_notify = settings.notifications.notify_on_update and was_updated and not already_notified
+            if event_type == "new":
+                should_notify = settings.notifications.notify_on_insert and not already_notified
+            else:
+                should_notify = settings.notifications.notify_on_update and was_updated and not already_notified
 
         email_only_on_end = (
-            settings.notifications.email.enabled
+            notify_mode == "custom"
+            and settings.notifications.email.enabled
             and settings.notifications.email.only_on_end
             and event_type == "end"
             and detection is not None
@@ -366,7 +380,11 @@ class EventProcessor:
                 classification['score'] >= settings.classification.threshold
                 or classification['audio_confirmed']
             )
-            if settings.notifications.delay_until_video and settings.classification.auto_video_classification:
+            delay_until_video = settings.notifications.delay_until_video
+            if notify_mode == "final":
+                delay_until_video = settings.classification.auto_video_classification
+
+            if delay_until_video and settings.classification.auto_video_classification:
                 asyncio.create_task(self._notify_after_video(
                     event,
                     classification,
