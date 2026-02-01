@@ -46,6 +46,43 @@
         handleTestBirdNET: () => Promise<void>;
         toggleCamera: (camera: string) => void;
     } = $props();
+
+    let previewCamera = $state<string | null>(null);
+    let previewVisible = $state(false);
+    let previewTimestamp = $state(0);
+    let previewTimer: ReturnType<typeof setInterval> | null = null;
+
+    function getFrigateBase() {
+        return frigateUrl ? frigateUrl.replace(/\/+$/, '') : '';
+    }
+
+    function startPreview(camera: string) {
+        if (!frigateUrl) return;
+        previewCamera = camera;
+        previewVisible = true;
+        previewTimestamp = Date.now();
+        if (!previewTimer) {
+            previewTimer = setInterval(() => {
+                previewTimestamp = Date.now();
+            }, 2000);
+        }
+    }
+
+    function stopPreview(camera: string) {
+        if (previewCamera !== camera) return;
+        previewVisible = false;
+        previewCamera = null;
+        if (previewTimer) {
+            clearInterval(previewTimer);
+            previewTimer = null;
+        }
+    }
+
+    function getPreviewUrl(camera: string) {
+        const base = getFrigateBase();
+        if (!base) return '';
+        return `${base}/api/${encodeURIComponent(camera)}/latest.jpg?cache=${previewTimestamp}`;
+    }
 </script>
 
 <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
@@ -215,19 +252,59 @@
             {:else}
                 <div class="grid grid-cols-1 gap-2">
                     {#each availableCameras as camera}
-                        <button
+                        <div
+                            role="button"
+                            tabindex="0"
                             aria-label="{selectedCameras.includes(camera) ? $_('settings.cameras.deselect', { default: 'Deselect {camera}', values: { camera } }) : $_('settings.cameras.select', { default: 'Select {camera}', values: { camera } })}"
-                            class="flex items-center justify-between p-4 rounded-2xl border-2 transition-all group
+                            class="relative flex items-center justify-between p-4 rounded-2xl border-2 transition-all group cursor-pointer
                                    {selectedCameras.includes(camera)
                                        ? 'border-teal-500 bg-teal-500/5 text-teal-700 dark:text-teal-400'
                                        : 'border-slate-100 dark:border-slate-700/50 bg-slate-50/50 dark:bg-slate-900/30 text-slate-500 hover:border-teal-500/30'}"
                             onclick={() => toggleCamera(camera)}
+                            onkeydown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault();
+                                    toggleCamera(camera);
+                                }
+                            }}
                         >
-                            <span class="font-bold text-sm">{camera}</span>
+                            <div class="flex items-center gap-3">
+                                <span class="font-bold text-sm">{camera}</span>
+                                <button
+                                    type="button"
+                                    class="opacity-0 group-hover:opacity-100 transition text-slate-500 hover:text-teal-600 dark:text-slate-400 dark:hover:text-teal-300"
+                                    aria-label="{$_('settings.cameras.preview', { default: 'Preview {camera}', values: { camera } })}"
+                                    disabled={!frigateUrl}
+                                    onmouseenter={() => startPreview(camera)}
+                                    onmouseleave={() => stopPreview(camera)}
+                                    onclick={(e) => e.stopPropagation()}
+                                >
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-4.197-2.398A1 1 0 009 9.64v4.72a1 1 0 001.555.832l4.197-2.398a1 1 0 000-1.664z" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                </button>
+                            </div>
                             <div class="w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all {selectedCameras.includes(camera) ? 'bg-teal-500 border-teal-500 scale-110' : 'border-slate-300 dark:border-slate-600 group-hover:border-teal-500/50'}">
                                 {#if selectedCameras.includes(camera)}<svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" /></svg>{/if}
                             </div>
-                        </button>
+
+                            {#if previewVisible && previewCamera === camera}
+                                <div
+                                    class="absolute right-12 top-1/2 -translate-y-1/2 w-56 rounded-2xl overflow-hidden border border-slate-200/80 dark:border-slate-700/60 bg-white/95 dark:bg-slate-900/95 shadow-xl z-20"
+                                    onmouseenter={() => startPreview(camera)}
+                                    onmouseleave={() => stopPreview(camera)}
+                                >
+                                    <div class="px-3 py-2 border-b border-slate-200/80 dark:border-slate-700/60 flex items-center justify-between">
+                                        <span class="text-[9px] font-black uppercase tracking-widest text-slate-500">{$_('settings.cameras.preview_label', { default: 'Live Preview' })}</span>
+                                        <span class="text-[9px] font-semibold text-emerald-500">{$_('settings.cameras.preview_live', { default: 'LIVE' })}</span>
+                                    </div>
+                                    <div class="bg-slate-100 dark:bg-slate-800/60">
+                                        <img class="w-full h-36 object-cover" alt="" src={getPreviewUrl(camera)} />
+                                    </div>
+                                </div>
+                            {/if}
+                        </div>
                     {/each}
                 </div>
             {/if}

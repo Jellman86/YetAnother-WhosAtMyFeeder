@@ -14,6 +14,7 @@ from app.services.broadcaster import broadcaster
 from app.services.media_cache import media_cache
 from app.database import get_db
 from app.repositories.detection_repository import DetectionRepository
+from app.utils.tasks import create_background_task
 
 log = structlog.get_logger()
 
@@ -41,8 +42,8 @@ class AutoVideoClassifierService:
         if self._running:
             return
         self._running = True
-        self._processor_task = asyncio.create_task(self._process_queue_loop())
-        self._stale_task = asyncio.create_task(self._stale_watchdog_loop())
+        self._processor_task = create_background_task(self._process_queue_loop(), name="video_classifier_queue")
+        self._stale_task = create_background_task(self._stale_watchdog_loop(), name="video_classifier_stale_watchdog")
         log.info("AutoVideoClassifierService started")
 
     async def stop(self):
@@ -92,7 +93,10 @@ class AutoVideoClassifierService:
                     continue
 
                 # Start task - skip initial delay for queued (historical) tasks
-                task = asyncio.create_task(self._process_event(frigate_event, camera, skip_delay=True))
+                task = create_background_task(
+                    self._process_event(frigate_event, camera, skip_delay=True),
+                    name=f"video_classifier:{frigate_event}"
+                )
                 self._active_tasks[frigate_event] = task
                 task.add_done_callback(lambda t: self._cleanup_task(frigate_event, t))
                 self._pending_queue.task_done()
@@ -230,7 +234,10 @@ class AutoVideoClassifierService:
                         limit=max_concurrent)
             return
 
-        task = asyncio.create_task(self._process_event(frigate_event, camera))
+        task = create_background_task(
+            self._process_event(frigate_event, camera),
+            name=f"video_classifier:{frigate_event}"
+        )
         self._active_tasks[frigate_event] = task
         task.add_done_callback(lambda t: self._cleanup_task(frigate_event, t))
 

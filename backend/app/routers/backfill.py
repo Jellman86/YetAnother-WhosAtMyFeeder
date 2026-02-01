@@ -16,6 +16,7 @@ from app.database import get_db
 from app.utils.language import get_user_language
 from app.auth import require_owner, AuthContext
 from app.services.broadcaster import broadcaster
+from app.utils.tasks import create_background_task
 
 router = APIRouter()
 log = structlog.get_logger()
@@ -338,7 +339,7 @@ async def backfill_detections_async(
                 "data": _job_payload(job)
             })
 
-    asyncio.create_task(runner())
+    create_background_task(runner(), name=f"backfill_job:{job.id}")
     return job
 
 
@@ -593,7 +594,7 @@ async def backfill_weather_async(
                 "data": _job_payload(job)
             })
 
-    asyncio.create_task(runner())
+    create_background_task(runner(), name=f"backfill_weather_job:{job.id}")
     return job
 
 
