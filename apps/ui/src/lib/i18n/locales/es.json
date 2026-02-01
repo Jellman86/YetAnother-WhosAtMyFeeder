@@ -121,7 +121,11 @@
       "subtitle": "Interruptores extra para pruebas y diagnóstico.",
       "inat_preview": "UI de vista previa iNaturalist",
       "inat_preview_desc": "Muestra el panel de envío sin OAuth (solo propietario).",
-      "inat_preview_hint": "Consejo: abre el detalle de una detección para ver el panel de iNaturalist."
+      "inat_preview_hint": "Consejo: abre el detalle de una detección para ver el panel de iNaturalist.",
+      "apply_pending": "Pendiente — haz clic en Aplicar para activar.",
+      "apply_applied": "Aplicado.",
+      "apply_button": "Aplicar",
+      "apply_notice": "Configuración de vista previa actualizada."
     },
     "integrations": {
       "birdnet": {

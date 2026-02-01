@@ -121,7 +121,11 @@
       "subtitle": "Zusätzliche Schalter für Tests und Diagnose.",
       "inat_preview": "iNaturalist Vorschau-UI",
       "inat_preview_desc": "Zeigt das Einreichungs-Panel ohne OAuth (nur Owner).",
-      "inat_preview_hint": "Tipp: Öffne eine Detailkarte, um das iNaturalist-Panel zu sehen."
+      "inat_preview_hint": "Tipp: Öffne eine Detailkarte, um das iNaturalist-Panel zu sehen.",
+      "apply_pending": "Ausstehend — zum Aktivieren auf Anwenden klicken.",
+      "apply_applied": "Angewendet.",
+      "apply_button": "Anwenden",
+      "apply_notice": "Vorschau-Einstellung aktualisiert."
     },
     "integrations": {
       "birdnet": {

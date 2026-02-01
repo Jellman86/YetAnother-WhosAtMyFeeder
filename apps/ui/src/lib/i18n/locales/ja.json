@@ -121,7 +121,11 @@
       "subtitle": "テストと診断のための追加スイッチ。",
       "inat_preview": "iNaturalist プレビューUI",
       "inat_preview_desc": "OAuthなしで送信パネルを表示（オーナーのみ）。",
-      "inat_preview_hint": "ヒント: 検出詳細カードを開くとiNaturalistパネルが表示されます。"
+      "inat_preview_hint": "ヒント: 検出詳細カードを開くとiNaturalistパネルが表示されます。",
+      "apply_pending": "保留中 — 有効化するには適用をクリック。",
+      "apply_applied": "適用済み。",
+      "apply_button": "適用",
+      "apply_notice": "プレビュー設定を更新しました。"
     },
     "integrations": {
       "birdnet": {

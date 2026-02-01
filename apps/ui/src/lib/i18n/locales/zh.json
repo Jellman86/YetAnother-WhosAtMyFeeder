@@ -121,7 +121,11 @@
       "subtitle": "用于测试和诊断的额外开关。",
       "inat_preview": "iNaturalist 预览界面",
       "inat_preview_desc": "无需 OAuth 显示提交面板（仅限所有者）。",
-      "inat_preview_hint": "提示：打开检测详情卡即可看到 iNaturalist 面板。"
+      "inat_preview_hint": "提示：打开检测详情卡即可看到 iNaturalist 面板。",
+      "apply_pending": "待应用 — 点击“应用”以启用。",
+      "apply_applied": "已应用。",
+      "apply_button": "应用",
+      "apply_notice": "预览设置已更新。"
     },
     "integrations": {
       "birdnet": {

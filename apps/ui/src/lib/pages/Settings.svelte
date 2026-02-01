@@ -187,6 +187,7 @@
     let publicAccessRateLimitPerMinute = $state(30);
     let debugUiEnabled = $state(false);
     let inatPreviewEnabled = $state(false);
+    let inatPreviewDirty = $state(false);
 
     // Notifications
     let discordEnabled = $state(false);
@@ -516,6 +517,7 @@
                 loadBackfillStatus()
             ]);
             inatPreviewEnabled = window.localStorage.getItem('inat_preview') === '1';
+            inatPreviewDirty = false;
 
         taxonomyPollInterval = setInterval(loadTaxonomyStatus, 3000);
         
@@ -537,6 +539,12 @@
         console.log('Tab changed to:', tab);
         activeTab = tab;
         window.location.hash = tab;
+    }
+
+    function applyInatPreview() {
+        window.localStorage.setItem('inat_preview', inatPreviewEnabled ? '1' : '0');
+        inatPreviewDirty = false;
+        toastStore.success($_('settings.debug.apply_notice'));
     }
 
     onDestroy(() => {
@@ -1631,19 +1639,32 @@
                                     aria-checked={inatPreviewEnabled}
                                     onclick={() => {
                                         inatPreviewEnabled = !inatPreviewEnabled;
-                                        window.localStorage.setItem('inat_preview', inatPreviewEnabled ? '1' : '0');
+                                        inatPreviewDirty = true;
                                     }}
                                     onkeydown={(e) => {
                                         if (e.key === 'Enter' || e.key === ' ') {
                                             e.preventDefault();
                                             inatPreviewEnabled = !inatPreviewEnabled;
-                                            window.localStorage.setItem('inat_preview', inatPreviewEnabled ? '1' : '0');
+                                            inatPreviewDirty = true;
                                         }
                                     }}
                                     class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {inatPreviewEnabled ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-600'}"
                                 >
                                     <span class="sr-only">{$_('settings.debug.inat_preview')}</span>
                                     <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {inatPreviewEnabled ? 'translate-x-5' : 'translate-x-0'}"></span>
+                                </button>
+                            </div>
+                            <div class="flex items-center justify-between text-[10px] font-bold">
+                                <span class={inatPreviewDirty ? 'text-amber-600' : 'text-emerald-600/80'}>
+                                    {inatPreviewDirty ? $_('settings.debug.apply_pending') : $_('settings.debug.apply_applied')}
+                                </span>
+                                <button
+                                    type="button"
+                                    class="px-3 py-1 rounded-full border border-slate-200/70 dark:border-slate-700/60 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                                    disabled={!inatPreviewDirty}
+                                    onclick={applyInatPreview}
+                                >
+                                    {$_('settings.debug.apply_button')}
                                 </button>
                             </div>
                             <div class="text-[10px] font-bold text-slate-500">

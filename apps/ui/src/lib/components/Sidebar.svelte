@@ -172,10 +172,15 @@
 
     <!-- Language selector and Theme Toggle at Bottom -->
     <div class="p-3 border-t border-slate-200/80 dark:border-slate-700/50 space-y-2">
-        <div class="flex items-center justify-between px-1">
-            <span class="text-[10px] font-black uppercase tracking-widest text-slate-400">{$_('notifications.center_title')}</span>
-            <NotificationCenter position="bottom" align="right" />
-        </div>
+        <NotificationCenter
+            position="bottom"
+            align="left"
+            placement="outside"
+            showLabel
+            label={$_('notifications.center_title')}
+            {collapsed}
+            buttonClass="relative w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-all duration-200 focus-ring"
+        />
         {#if !collapsed}
             <div class="px-2 py-1">
                 <LanguageSelector dropUp />

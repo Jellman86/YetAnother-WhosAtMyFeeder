@@ -129,7 +129,11 @@
       "subtitle": "Extra switches for testing and diagnostics.",
       "inat_preview": "iNaturalist preview UI",
       "inat_preview_desc": "Show the submission panel without OAuth (owner-only).",
-      "inat_preview_hint": "Tip: open a detection details card to see the iNaturalist panel."
+      "inat_preview_hint": "Tip: open a detection details card to see the iNaturalist panel.",
+      "apply_pending": "Pending — click Apply to activate.",
+      "apply_applied": "Applied.",
+      "apply_button": "Apply",
+      "apply_notice": "Preview setting updated."
     },
     "integrations": {
       "birdnet": {
