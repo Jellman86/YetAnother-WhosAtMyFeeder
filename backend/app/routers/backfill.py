@@ -16,6 +16,8 @@ from app.database import get_db
 from app.utils.language import get_user_language
 from app.auth import require_owner, AuthContext
 from app.services.broadcaster import broadcaster
+from app.services.mqtt_service import mqtt_service
+from app.services.auto_video_classifier_service import auto_video_classifier
 from app.utils.tasks import create_background_task
 
 router = APIRouter()
@@ -40,6 +42,7 @@ class BackfillJobStatus(BaseModel):
 
 _JOB_STORE: dict[str, BackfillJobStatus] = {}
 _LATEST_JOB_BY_KIND: dict[str, str] = {}
+_JOB_TASKS: dict[str, asyncio.Task] = {}
 _JOB_LOCK = asyncio.Lock()
 
 def _now_iso() -> str:
@@ -157,6 +160,14 @@ async def reset_database(
     Reset the database: Delete ALL detections and clear media cache. Owner only.
     """
     try:
+        mqtt_service.pause()
+        await auto_video_classifier.reset_state()
+        for job_id, task in list(_JOB_TASKS.items()):
+            task.cancel()
+            _JOB_TASKS.pop(job_id, None)
+        _JOB_STORE.clear()
+        _LATEST_JOB_BY_KIND.clear()
+
         # Clear detections
         async with get_db() as db:
             repo = DetectionRepository(db)
@@ -168,6 +179,8 @@ async def reset_database(
         log.warning("Database reset triggered by user", 
                     deleted_detections=deleted_count, 
                     cache_stats=cache_stats)
+
+        mqtt_service.resume()
         
         return {
             "status": "success",
@@ -176,6 +189,7 @@ async def reset_database(
             "cache_stats": cache_stats
         }
     except Exception as e:
+        mqtt_service.resume()
         log.error("Database reset failed", error=str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -339,7 +353,9 @@ async def backfill_detections_async(
                 "data": _job_payload(job)
             })
 
-    create_background_task(runner(), name=f"backfill_job:{job.id}")
+    task = create_background_task(runner(), name=f"backfill_job:{job.id}")
+    _JOB_TASKS[job.id] = task
+    task.add_done_callback(lambda _: _JOB_TASKS.pop(job.id, None))
     return job
 
 
@@ -594,7 +610,9 @@ async def backfill_weather_async(
                 "data": _job_payload(job)
             })
 
-    create_background_task(runner(), name=f"backfill_weather_job:{job.id}")
+    task = create_background_task(runner(), name=f"backfill_weather_job:{job.id}")
+    _JOB_TASKS[job.id] = task
+    task.add_done_callback(lambda _: _JOB_TASKS.pop(job.id, None))
     return job
 
 

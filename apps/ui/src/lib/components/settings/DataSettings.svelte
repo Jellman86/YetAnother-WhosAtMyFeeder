@@ -504,6 +504,11 @@
                 {/if}
                 {resettingDatabase ? $_('settings.danger.resetting') : $_('settings.danger.reset_button')}
             </button>
+            {#if resettingDatabase}
+                <div class="h-2 rounded-full bg-red-100 dark:bg-red-900/30 overflow-hidden">
+                    <div class="h-full bg-gradient-to-r from-red-500 via-rose-500 to-orange-400 animate-pulse"></div>
+                </div>
+            {/if}
         </div>
     </section>
 </div>

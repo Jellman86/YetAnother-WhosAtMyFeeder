@@ -67,6 +67,32 @@ class AutoVideoClassifierService:
         self._active_tasks.clear()
         log.info("AutoVideoClassifierService stopped")
 
+    async def reset_state(self):
+        """Cancel active tasks and clear pending queue without stopping the service."""
+        for task in self._active_tasks.values():
+            task.cancel()
+        for task in list(self._active_tasks.values()):
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+            except Exception as e:
+                log.error("Video classifier task failed during reset", error=str(e))
+        self._active_tasks.clear()
+
+        # Drain pending queue
+        while not self._pending_queue.empty():
+            try:
+                self._pending_queue.get_nowait()
+                self._pending_queue.task_done()
+            except asyncio.QueueEmpty:
+                break
+
+        # Reset circuit breaker state
+        self._failure_events.clear()
+        self._failure_event_ids.clear()
+        self._circuit_open_until = None
+
     async def _process_queue_loop(self):
         """Background loop to process queued classification tasks."""
         while self._running:
