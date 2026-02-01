@@ -142,7 +142,7 @@
 
 <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
     <!-- Frigate Connection -->
-    <section class="card-base rounded-3xl p-8 backdrop-blur-md">
+    <section class="card-base rounded-3xl p-8 backdrop-blur-md h-full flex flex-col">
         <div class="flex items-center gap-3 mb-6">
             <div class="w-10 h-10 rounded-2xl bg-teal-500/10 flex items-center justify-center text-teal-600 dark:text-teal-400">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
@@ -291,7 +291,7 @@
     </section>
 
     <!-- Camera Selection -->
-    <section class="card-base rounded-3xl p-8 backdrop-blur-md">
+    <section class="card-base rounded-3xl p-8 backdrop-blur-md h-full flex flex-col">
         <div class="flex items-center gap-3 mb-6">
             <div class="w-10 h-10 rounded-2xl bg-blue-500/10 flex items-center justify-center text-blue-600 dark:text-blue-400">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /></svg>
@@ -299,7 +299,7 @@
             <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">{$_('settings.cameras.title')}</h3>
         </div>
 
-        <div class="space-y-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+        <div class="space-y-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar flex-1">
             {#if availableCameras.length === 0}
                 <div class="p-8 text-center bg-slate-50 dark:bg-slate-900/30 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-700">
                     <p class="text-xs font-bold text-slate-400 uppercase tracking-widest">{$_('settings.cameras.none_found')}</p>
@@ -343,45 +343,44 @@
                             <div class="w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all {selectedCameras.includes(camera) ? 'bg-teal-500 border-teal-500 scale-110' : 'border-slate-300 dark:border-slate-600 group-hover:border-teal-500/50'}">
                                 {#if selectedCameras.includes(camera)}<svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" /></svg>{/if}
                             </div>
-
+                            {#if previewVisible && previewCamera === camera}
+                                <div class="mt-3 -mx-4 border-t border-slate-200/80 dark:border-slate-700/60 bg-white/95 dark:bg-slate-900/95">
+                                    <div class="px-4 py-2 flex items-center justify-between gap-2">
+                                        <span class="text-[9px] font-black uppercase tracking-widest text-slate-500">{$_('settings.cameras.preview_label', { default: 'Live Preview' })}</span>
+                                        <div class="flex items-center gap-2">
+                                            <span class="text-[9px] font-semibold text-emerald-500">{$_('settings.cameras.preview_live', { default: 'LIVE' })}</span>
+                                            <button
+                                                type="button"
+                                                class="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+                                                aria-label="Close preview"
+                                                onclick={() => stopPreview(camera)}
+                                            >
+                                                <svg class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                                    <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                                                </svg>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="bg-slate-100 dark:bg-slate-800/60">
+                                        <div class="relative w-full h-36">
+                                            {#if previewBlobUrl}
+                                                <img class="w-full h-36 object-cover" alt="" src={previewBlobUrl} />
+                                            {/if}
+                                            {#if previewLoading}
+                                                <div class="absolute inset-0 flex items-center justify-center bg-white/70 dark:bg-slate-900/70 text-[10px] font-semibold text-slate-500">
+                                                    {$_('settings.cameras.preview_loading', { default: 'Loading preview…' })}
+                                                </div>
+                                            {/if}
+                                            {#if previewError}
+                                                <div class="absolute inset-0 flex items-center justify-center bg-white/80 dark:bg-slate-900/80 text-[10px] font-semibold text-rose-500 text-center px-3">
+                                                    {previewError}
+                                                </div>
+                                            {/if}
+                                        </div>
+                                    </div>
+                                </div>
+                            {/if}
                         </div>
-                        {#if previewVisible && previewCamera === camera}
-                            <div class="mt-3 rounded-2xl overflow-hidden border border-slate-200/80 dark:border-slate-700/60 bg-white/95 dark:bg-slate-900/95 shadow-inner">
-                                <div class="px-3 py-2 border-b border-slate-200/80 dark:border-slate-700/60 flex items-center justify-between gap-2">
-                                    <span class="text-[9px] font-black uppercase tracking-widest text-slate-500">{$_('settings.cameras.preview_label', { default: 'Live Preview' })}</span>
-                                    <div class="flex items-center gap-2">
-                                        <span class="text-[9px] font-semibold text-emerald-500">{$_('settings.cameras.preview_live', { default: 'LIVE' })}</span>
-                                        <button
-                                            type="button"
-                                            class="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
-                                            aria-label="Close preview"
-                                            onclick={() => stopPreview(camera)}
-                                        >
-                                            <svg class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                                                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
-                                            </svg>
-                                        </button>
-                                    </div>
-                                </div>
-                                <div class="bg-slate-100 dark:bg-slate-800/60">
-                                    <div class="relative w-full h-36">
-                                        {#if previewBlobUrl}
-                                            <img class="w-full h-36 object-cover" alt="" src={previewBlobUrl} />
-                                        {/if}
-                                        {#if previewLoading}
-                                            <div class="absolute inset-0 flex items-center justify-center bg-white/70 dark:bg-slate-900/70 text-[10px] font-semibold text-slate-500">
-                                                {$_('settings.cameras.preview_loading', { default: 'Loading preview…' })}
-                                            </div>
-                                        {/if}
-                                        {#if previewError}
-                                            <div class="absolute inset-0 flex items-center justify-center bg-white/80 dark:bg-slate-900/80 text-[10px] font-semibold text-rose-500 text-center px-3">
-                                                {previewError}
-                                            </div>
-                                        {/if}
-                                    </div>
-                                </div>
-                            </div>
-                        {/if}
                     {/each}
                 </div>
             {/if}
