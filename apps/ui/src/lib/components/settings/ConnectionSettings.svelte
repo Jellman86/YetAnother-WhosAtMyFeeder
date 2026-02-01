@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { onDestroy } from 'svelte';
     import { _ } from 'svelte-i18n';
     import type { VersionInfo } from '../../api';
 
@@ -50,28 +51,45 @@
     let previewCamera = $state<string | null>(null);
     let previewVisible = $state(false);
     let previewTimestamp = $state(0);
+    let previewLoading = $state(false);
+    let previewError = $state<string | null>(null);
     let previewTimer: ReturnType<typeof setInterval> | null = null;
+    let previewHoverTimer: ReturnType<typeof setTimeout> | null = null;
 
     function getFrigateBase() {
         return frigateUrl ? frigateUrl.replace(/\/+$/, '') : '';
     }
 
     function startPreview(camera: string) {
-        if (!frigateUrl) return;
-        previewCamera = camera;
-        previewVisible = true;
-        previewTimestamp = Date.now();
-        if (!previewTimer) {
-            previewTimer = setInterval(() => {
-                previewTimestamp = Date.now();
-            }, 2000);
+        if (!frigateUrl) {
+            previewError = $_('settings.cameras.preview_missing_url', { default: 'Set a Frigate URL to preview.' });
+            return;
         }
+        if (previewHoverTimer) clearTimeout(previewHoverTimer);
+        previewHoverTimer = setTimeout(() => {
+            previewCamera = camera;
+            previewVisible = true;
+            previewLoading = true;
+            previewError = null;
+            previewTimestamp = Date.now();
+            if (!previewTimer) {
+                previewTimer = setInterval(() => {
+                    previewTimestamp = Date.now();
+                }, 2000);
+            }
+        }, 150);
     }
 
     function stopPreview(camera: string) {
+        if (previewHoverTimer) {
+            clearTimeout(previewHoverTimer);
+            previewHoverTimer = null;
+        }
         if (previewCamera !== camera) return;
         previewVisible = false;
         previewCamera = null;
+        previewLoading = false;
+        previewError = null;
         if (previewTimer) {
             clearInterval(previewTimer);
             previewTimer = null;
@@ -83,6 +101,11 @@
         if (!base) return '';
         return `${base}/api/${encodeURIComponent(camera)}/latest.jpg?cache=${previewTimestamp}`;
     }
+
+    onDestroy(() => {
+        if (previewTimer) clearInterval(previewTimer);
+        if (previewHoverTimer) clearTimeout(previewHoverTimer);
+    });
 </script>
 
 <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
@@ -300,7 +323,31 @@
                                         <span class="text-[9px] font-semibold text-emerald-500">{$_('settings.cameras.preview_live', { default: 'LIVE' })}</span>
                                     </div>
                                     <div class="bg-slate-100 dark:bg-slate-800/60">
-                                        <img class="w-full h-36 object-cover" alt="" src={getPreviewUrl(camera)} />
+                                        <div class="relative w-full h-36">
+                                            <img
+                                                class="w-full h-36 object-cover"
+                                                alt=""
+                                                src={getPreviewUrl(camera)}
+                                                onload={() => {
+                                                    previewLoading = false;
+                                                    previewError = null;
+                                                }}
+                                                onerror={() => {
+                                                    previewLoading = false;
+                                                    previewError = $_('settings.cameras.preview_failed', { default: 'Preview unavailable.' });
+                                                }}
+                                            />
+                                            {#if previewLoading}
+                                                <div class="absolute inset-0 flex items-center justify-center bg-white/70 dark:bg-slate-900/70 text-[10px] font-semibold text-slate-500">
+                                                    {$_('settings.cameras.preview_loading', { default: 'Loading preview…' })}
+                                                </div>
+                                            {/if}
+                                            {#if previewError}
+                                                <div class="absolute inset-0 flex items-center justify-center bg-white/80 dark:bg-slate-900/80 text-[10px] font-semibold text-rose-500 text-center px-3">
+                                                    {previewError}
+                                                </div>
+                                            {/if}
+                                        </div>
                                     </div>
                                 </div>
                             {/if}
