@@ -184,9 +184,10 @@
                 inatDraft = await createInaturalistDraft(detection.frigate_event);
             }
             inatNotes = '';
-            inatLat = inatDraft.latitude ?? null;
-            inatLon = inatDraft.longitude ?? null;
-            inatPlace = inatDraft.place_guess ?? '';
+            const defaults = settingsStore.settings;
+            inatLat = inatDraft.latitude ?? defaults?.inaturalist_default_latitude ?? defaults?.location_latitude ?? null;
+            inatLon = inatDraft.longitude ?? defaults?.inaturalist_default_longitude ?? defaults?.location_longitude ?? null;
+            inatPlace = inatDraft.place_guess ?? defaults?.inaturalist_default_place_guess ?? '';
         } catch (e: any) {
             inatError = e?.message || 'Failed to load iNaturalist draft';
         } finally {

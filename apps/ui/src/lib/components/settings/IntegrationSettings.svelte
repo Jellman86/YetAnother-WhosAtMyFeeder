@@ -71,6 +71,18 @@
         disconnectInaturalistOAuth: () => Promise<{ status: string }>;
         refreshInaturalistStatus: () => Promise<void>;
     } = $props();
+
+    let inatDefaultsTouched = $state(false);
+
+    $effect(() => {
+        if (inatDefaultsTouched) return;
+        if (inaturalistDefaultLat === null && locationLat !== null && locationLat !== undefined) {
+            inaturalistDefaultLat = locationLat;
+        }
+        if (inaturalistDefaultLon === null && locationLon !== null && locationLon !== undefined) {
+            inaturalistDefaultLon = locationLon;
+        }
+    });
 </script>
 
 <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
@@ -238,6 +250,7 @@
                         type="number"
                         bind:value={inaturalistDefaultLat}
                         step="0.0001"
+                        oninput={() => inatDefaultsTouched = true}
                         aria-label={$_('settings.integrations.inaturalist.default_latitude_label')}
                         class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"
                     />
@@ -249,6 +262,7 @@
                         type="number"
                         bind:value={inaturalistDefaultLon}
                         step="0.0001"
+                        oninput={() => inatDefaultsTouched = true}
                         aria-label={$_('settings.integrations.inaturalist.default_longitude_label')}
                         class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"
                     />
@@ -261,6 +275,7 @@
                     id="inat-place"
                     type="text"
                     bind:value={inaturalistDefaultPlace}
+                    oninput={() => inatDefaultsTouched = true}
                     placeholder={$_('settings.integrations.inaturalist.default_place_guess_placeholder')}
                     aria-label={$_('settings.integrations.inaturalist.default_place_guess_label')}
                     class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"
