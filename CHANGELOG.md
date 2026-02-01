@@ -25,6 +25,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Changed:** AI analysis responses now respect the configured UI language.
 - **Changed:** Leaderboard AI analysis always includes all weather overlays for richer insights.
 - **Changed:** Leaderboard AI analysis now includes sunrise/sunset ranges in the prompt and chart capture.
+- **Fixed:** Leaderboard chart analysis now correctly passes PNG mime types for Claude.
+- **Fixed:** ApexCharts subtitle no longer throws errors when analysis banners toggle.
+- **Changed:** Added render delays to ensure all chart overlays are captured before AI analysis.
+- **Fixed:** Camera list now fills the available height in Connection settings.
 
 ## [2.6.8] - 2026-01-31
 
