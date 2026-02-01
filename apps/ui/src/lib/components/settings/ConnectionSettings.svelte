@@ -299,7 +299,7 @@
             <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">{$_('settings.cameras.title')}</h3>
         </div>
 
-        <div class="space-y-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar flex-1">
+        <div class="space-y-3 flex-1 min-h-0 overflow-y-auto pr-2 custom-scrollbar">
             {#if availableCameras.length === 0}
                 <div class="p-8 text-center bg-slate-50 dark:bg-slate-900/30 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-700">
                     <p class="text-xs font-bold text-slate-400 uppercase tracking-widest">{$_('settings.cameras.none_found')}</p>
