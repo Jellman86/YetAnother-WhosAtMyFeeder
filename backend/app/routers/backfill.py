@@ -3,6 +3,8 @@ from typing import Optional, List
 from fastapi import APIRouter, HTTPException, Request, Depends
 from pydantic import BaseModel, Field
 import structlog
+import asyncio
+from uuid import uuid4
 
 from app.services.backfill_service import BackfillService
 from app.services.classifier_service import get_classifier
@@ -20,6 +22,39 @@ log = structlog.get_logger()
 # Use shared classifier instance
 backfill_service = BackfillService(get_classifier())
 
+class BackfillJobStatus(BaseModel):
+    id: str
+    kind: str
+    status: str
+    processed: int = 0
+    total: int = 0
+    new_detections: int = 0
+    updated: int = 0
+    skipped: int = 0
+    errors: int = 0
+    message: str = ""
+    started_at: Optional[str] = None
+    finished_at: Optional[str] = None
+
+_JOB_STORE: dict[str, BackfillJobStatus] = {}
+_LATEST_JOB_BY_KIND: dict[str, str] = {}
+_JOB_LOCK = asyncio.Lock()
+
+def _now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+def _track_job(job: BackfillJobStatus):
+    _JOB_STORE[job.id] = job
+    _LATEST_JOB_BY_KIND[job.kind] = job.id
+
+async def _get_running_job(kind: str) -> Optional[BackfillJobStatus]:
+    job_id = _LATEST_JOB_BY_KIND.get(kind)
+    if not job_id:
+        return None
+    job = _JOB_STORE.get(job_id)
+    if job and job.status == "running":
+        return job
+    return None
 
 class BackfillRequest(BaseModel):
     date_range: str = Field(
@@ -210,6 +245,79 @@ async def backfill_detections(
         )
 
 
+@router.post("/backfill/async", response_model=BackfillJobStatus)
+async def backfill_detections_async(
+    backfill_request: BackfillRequest,
+    request: Request,
+    auth: AuthContext = Depends(require_owner)
+):
+    """Run detection backfill in the background and return a job status."""
+    lang = get_user_language(request)
+    async with _JOB_LOCK:
+        running = await _get_running_job("detections")
+        if running:
+            return running
+
+        job = BackfillJobStatus(
+            id=str(uuid4()),
+            kind="detections",
+            status="running",
+            started_at=_now_iso()
+        )
+        _track_job(job)
+
+    async def runner():
+        try:
+            start, end = _resolve_date_range(
+                backfill_request.date_range,
+                backfill_request.start_date,
+                backfill_request.end_date,
+                lang
+            )
+            if start > end:
+                raise HTTPException(
+                    status_code=400,
+                    detail=i18n_service.translate("errors.backfill.invalid_time_range", lang)
+                )
+
+            events = await backfill_service.fetch_frigate_events(
+                start.timestamp(),
+                end.timestamp(),
+                backfill_request.cameras
+            )
+            job.total = len(events)
+            job.processed = 0
+
+            for event in events:
+                status, reason = await backfill_service.process_historical_event(event)
+                job.processed += 1
+                if status == "new":
+                    job.new_detections += 1
+                elif status == "skipped":
+                    job.skipped += 1
+                else:
+                    job.errors += 1
+            if job.new_detections > 0:
+                message = f"Added {job.new_detections} new detection(s)"
+            else:
+                message = "No new detections found"
+            if job.skipped:
+                message += f", {job.skipped} already existed"
+            if job.errors:
+                message += f", {job.errors} error(s)"
+            job.message = message
+            job.status = "completed"
+            job.finished_at = _now_iso()
+        except Exception as e:
+            log.error("Async backfill failed", error=str(e))
+            job.status = "failed"
+            job.message = str(e)
+            job.finished_at = _now_iso()
+
+    asyncio.create_task(runner())
+    return job
+
+
 @router.post("/backfill/weather", response_model=WeatherBackfillResponse)
 async def backfill_weather(
     backfill_request: WeatherBackfillRequest,
@@ -322,3 +430,142 @@ async def backfill_weather(
             status_code=500,
             detail=i18n_service.translate("errors.backfill.processing_error", lang, error=str(e))
         )
+
+
+@router.post("/backfill/weather/async", response_model=BackfillJobStatus)
+async def backfill_weather_async(
+    backfill_request: WeatherBackfillRequest,
+    request: Request,
+    auth: AuthContext = Depends(require_owner)
+):
+    """Run weather backfill in the background and return a job status."""
+    lang = get_user_language(request)
+    async with _JOB_LOCK:
+        running = await _get_running_job("weather")
+        if running:
+            return running
+
+        job = BackfillJobStatus(
+            id=str(uuid4()),
+            kind="weather",
+            status="running",
+            started_at=_now_iso()
+        )
+        _track_job(job)
+
+    async def runner():
+        try:
+            start, end = _resolve_date_range(
+                backfill_request.date_range,
+                backfill_request.start_date,
+                backfill_request.end_date,
+                lang
+            )
+            if start > end:
+                raise HTTPException(
+                    status_code=400,
+                    detail=i18n_service.translate("errors.backfill.invalid_time_range", lang)
+                )
+
+            async with get_db() as db:
+                repo = DetectionRepository(db)
+                detections = await repo.list_for_weather_backfill(
+                    start.strftime("%Y-%m-%d %H:%M:%S"),
+                    end.strftime("%Y-%m-%d %H:%M:%S"),
+                    backfill_request.only_missing
+                )
+
+                job.total = len(detections)
+                if not detections:
+                    job.status = "completed"
+                    job.message = "No detections found in range"
+                    job.finished_at = _now_iso()
+                    return
+
+                hourly = await weather_service.get_hourly_weather(start, end)
+                if not hourly:
+                    job.processed = job.total
+                    job.skipped = job.total
+                    job.status = "completed"
+                    job.message = "Weather archive unavailable for range"
+                    job.finished_at = _now_iso()
+                    return
+
+                for det in detections:
+                    try:
+                        time_str = det["detection_time"]
+                        if time_str.endswith("Z"):
+                            time_str = time_str.replace("Z", "+00:00")
+                        det_time = datetime.fromisoformat(time_str)
+                        if det_time.tzinfo is None:
+                            det_time = det_time.replace(tzinfo=timezone.utc)
+                        det_time = det_time.astimezone(timezone.utc)
+
+                        base_hour = det_time.replace(minute=0, second=0, microsecond=0)
+                        if det_time.minute >= 30:
+                            base_hour = base_hour + timedelta(hours=1)
+                        hour_key = base_hour.strftime("%Y-%m-%dT%H:00")
+                        weather = hourly.get(hour_key)
+                        if not weather:
+                            job.skipped += 1
+                        else:
+                            await repo.update_weather_fields(
+                                det["frigate_event"],
+                                weather.get("temperature"),
+                                weather.get("condition_text"),
+                                weather.get("cloud_cover"),
+                                weather.get("wind_speed"),
+                                weather.get("wind_direction"),
+                                weather.get("precipitation"),
+                                weather.get("rain"),
+                                weather.get("snowfall")
+                            )
+                            job.updated += 1
+                    except Exception as e:
+                        job.errors += 1
+                        log.warning("Weather backfill failed", error=str(e), event_id=det.get("frigate_event"))
+                    finally:
+                        job.processed += 1
+
+                message = f"Updated {job.updated} detection(s)"
+                if job.skipped:
+                    message += f", {job.skipped} skipped"
+                if job.errors:
+                    message += f", {job.errors} errors"
+                job.message = message
+                job.status = "completed"
+                job.finished_at = _now_iso()
+        except Exception as e:
+            log.error("Async weather backfill failed", error=str(e))
+            job.status = "failed"
+            job.message = str(e)
+            job.finished_at = _now_iso()
+
+    asyncio.create_task(runner())
+    return job
+
+
+@router.get("/backfill/status")
+async def get_backfill_status(
+    kind: Optional[str] = None,
+    auth: AuthContext = Depends(require_owner)
+):
+    """Return the latest backfill job status (optionally filtered by kind)."""
+    if kind:
+        job_id = _LATEST_JOB_BY_KIND.get(kind)
+        return _JOB_STORE.get(job_id) if job_id else None
+    if not _LATEST_JOB_BY_KIND:
+        return None
+    latest = max(_JOB_STORE.values(), key=lambda j: j.started_at or "")
+    return latest
+
+
+@router.get("/backfill/status/{job_id}", response_model=BackfillJobStatus)
+async def get_backfill_status_by_id(
+    job_id: str,
+    auth: AuthContext = Depends(require_owner)
+):
+    job = _JOB_STORE.get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Backfill job not found")
+    return job

@@ -7,6 +7,7 @@
     import { authStore } from '../stores/auth.svelte';
     import { getBirdNames } from '../naming';
     import { _ } from 'svelte-i18n';
+    import { onMount } from 'svelte';
     import { trapFocus } from '../utils/focus-trap';
     import { formatTemperature } from '../utils/temperature';
 
@@ -52,6 +53,7 @@
     let inatLat = $state<number | null>(null);
     let inatLon = $state<number | null>(null);
     let inatPlace = $state('');
+    let inatPreview = $state(false);
 
     $effect(() => {
         if (modalElement) {
@@ -127,7 +129,18 @@
     );
     const inatEnabled = $derived(settingsStore.settings?.inaturalist_enabled ?? false);
     const inatConnectedUser = $derived(settingsStore.settings?.inaturalist_connected_user ?? null);
-    const canShowInat = $derived(!readOnly && authStore.canModify && inatEnabled && !!inatConnectedUser);
+    const canShowInat = $derived(!readOnly && authStore.canModify && inatEnabled && (!!inatConnectedUser || inatPreview));
+
+    onMount(() => {
+        try {
+            const params = new URLSearchParams(window.location.search);
+            const queryPreview = params.get('inat_preview');
+            const storedPreview = window.localStorage.getItem('inat_preview');
+            inatPreview = queryPreview === '1' || storedPreview === '1';
+        } catch {
+            inatPreview = false;
+        }
+    });
 
     $effect(() => {
         if (!detection?.frigate_event) return;
@@ -154,7 +167,22 @@
         inatLoading = true;
         inatError = null;
         try {
-            inatDraft = await createInaturalistDraft(detection.frigate_event);
+            if (inatPreview && !inatConnectedUser) {
+                const defaults = settingsStore.settings;
+                const observed = detection.detection_time ? new Date(detection.detection_time).toISOString() : new Date().toISOString();
+                inatDraft = {
+                    event_id: detection.frigate_event,
+                    species_guess: primaryName,
+                    observed_on_string: observed,
+                    time_zone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
+                    latitude: defaults?.inaturalist_default_latitude ?? null,
+                    longitude: defaults?.inaturalist_default_longitude ?? null,
+                    place_guess: defaults?.inaturalist_default_place_guess ?? null,
+                    snapshot_url: detection.snapshot_url ?? null
+                };
+            } else {
+                inatDraft = await createInaturalistDraft(detection.frigate_event);
+            }
             inatNotes = '';
             inatLat = inatDraft.latitude ?? null;
             inatLon = inatDraft.longitude ?? null;
@@ -167,7 +195,7 @@
     }
 
     async function submitInat() {
-        if (!inatDraft) return;
+        if (!inatDraft || (inatPreview && !inatConnectedUser)) return;
         inatSubmitting = true;
         inatError = null;
         try {
@@ -711,7 +739,11 @@
                             </div>
                             <div>
                                 <p class="text-[10px] font-black uppercase tracking-widest text-emerald-600/80 dark:text-emerald-300/80">{$_('detection.inat.title')}</p>
-                                <p class="text-xs font-semibold text-slate-700 dark:text-slate-200">{$_('detection.inat.connected', { values: { user: inatConnectedUser } })}</p>
+                                {#if inatConnectedUser}
+                                    <p class="text-xs font-semibold text-slate-700 dark:text-slate-200">{$_('detection.inat.connected', { values: { user: inatConnectedUser } })}</p>
+                                {:else if inatPreview}
+                                    <p class="text-xs font-semibold text-slate-700 dark:text-slate-200">{$_('detection.inat.preview_note')}</p>
+                                {/if}
                             </div>
                         </div>
                         <button
@@ -786,7 +818,7 @@
                                     <button
                                         type="button"
                                         onclick={submitInat}
-                                        disabled={inatSubmitting}
+                                        disabled={inatSubmitting || (inatPreview && !inatConnectedUser)}
                                         class="w-full py-2 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-black uppercase tracking-widest disabled:opacity-50"
                                     >
                                         {inatSubmitting ? $_('detection.inat.submitting') : $_('detection.inat.submit')}

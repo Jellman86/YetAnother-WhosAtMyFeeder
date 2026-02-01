@@ -423,6 +423,7 @@
     "inat": {
       "title": "iNaturalist",
       "connected": "Conectado: {user}",
+      "preview_note": "Modo prévia (conecte para enviar)",
       "open": "Abrir",
       "close": "Fechar",
       "open_label": "Abrir envio iNaturalist",

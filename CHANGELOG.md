@@ -16,6 +16,12 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Added:** Detections over time chart now shows subtle AM/PM rain/snow bands per day with a small legend, plus a temperature line series.
 - **Added:** Detections over time chart now supports toggling weather bands/temperature/wind, shows average wind speed, and displays sunrise/sunset ranges.
 - **Added:** Detections over time chart now supports a precipitation toggle with mm values.
+- **Changed:** Adjusted precipitation chart styling and removed the native chart legend to use the custom legend.
+- **Fixed:** Unknown Bird modal now correctly loads aggregated stats even when the underlying label is background/unknown.
+- **Fixed:** Species detail modal close buttons now use explicit click handlers to avoid stuck modals.
+- **Added:** Backfill jobs now run in the background with progress tracking so you can navigate away and return safely.
+- **Added:** iNaturalist submission panel can be previewed without OAuth by enabling preview mode.
+- **Fixed:** Test email failures now surface readable error feedback instead of an unhandled promise rejection.
 - **Fixed:** Unknown Bird species modal now shows reclassification actions and a link to review detections in Explorer instead of a blank panel.
 - **Changed:** Notifications now require a confirmed snapshot (confidence threshold or audio-confirmed) or confirmed video result before sending.
 - **Fixed:** Email notifications now include Date/Message-ID headers and toned-down HTML sizing to reduce spam flags.

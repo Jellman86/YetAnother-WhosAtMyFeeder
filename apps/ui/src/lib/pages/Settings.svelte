@@ -13,6 +13,9 @@
         runCleanup,
         runBackfill,
         runWeatherBackfill,
+        startBackfillJob,
+        startWeatherBackfillJob,
+        getBackfillStatus,
         fetchCacheStats,
         runCacheCleanup,
         fetchTaxonomyStatus,
@@ -36,6 +39,7 @@
         type MaintenanceStats,
         type BackfillResult,
         type WeatherBackfillResult,
+        type BackfillJobStatus,
         type CacheStats,
         type CacheCleanupResult,
         type TaxonomySyncStatus,
@@ -466,8 +470,13 @@
     let backfillEndDate = $state('');
     let backfilling = $state(false);
     let backfillResult = $state<BackfillResult | null>(null);
+    let backfillJob = $state<BackfillJobStatus | null>(null);
+    let backfillTotal = $state(0);
     let weatherBackfilling = $state(false);
     let weatherBackfillResult = $state<WeatherBackfillResult | null>(null);
+    let weatherBackfillJob = $state<BackfillJobStatus | null>(null);
+    let weatherBackfillTotal = $state(0);
+    let backfillPollInterval: ReturnType<typeof setInterval> | null = null;
     let resettingDatabase = $state(false);
     let analyzingUnknowns = $state(false);
     let analysisTotal = $state(0);
@@ -499,7 +508,8 @@
             loadCacheStats(),
             loadTaxonomyStatus(),
             loadVersion(),
-            loadAnalysisStatus() // Check if there's an ongoing job
+            loadAnalysisStatus(), // Check if there's an ongoing job
+            loadBackfillStatus()
         ]);
 
         taxonomyPollInterval = setInterval(loadTaxonomyStatus, 3000);
@@ -512,6 +522,10 @@
                  analysisTotal = analysisStatus.pending + analysisStatus.active;
              }
         }
+
+        if ((backfillJob && backfillJob.status === 'running') || (weatherBackfillJob && weatherBackfillJob.status === 'running')) {
+            startBackfillPolling();
+        }
     });
 
     function handleTabChange(tab: string) {
@@ -523,6 +537,7 @@
     onDestroy(() => {
         if (taxonomyPollInterval) clearInterval(taxonomyPollInterval);
         if (analysisPollInterval) clearInterval(analysisPollInterval);
+        if (backfillPollInterval) clearInterval(backfillPollInterval);
     });
 
     async function loadTaxonomyStatus() {
@@ -645,19 +660,19 @@
         backfilling = true;
         message = null;
         backfillResult = null;
+        backfillJob = null;
+        backfillTotal = 0;
         try {
-            const result = await runBackfill({
+            const job = await startBackfillJob({
                 date_range: backfillDateRange,
                 start_date: backfillDateRange === 'custom' ? backfillStartDate : undefined,
                 end_date: backfillDateRange === 'custom' ? backfillEndDate : undefined
             });
-            backfillResult = result;
-            message = { type: 'success', text: result.message };
-            await loadMaintenanceStats();
+            backfillJob = job;
+            backfillTotal = job.total || 0;
+            startBackfillPolling();
         } catch (e: any) {
             message = { type: 'error', text: e.message || 'Backfill failed' };
-        } finally {
-            backfilling = false;
         }
     }
 
@@ -665,19 +680,85 @@
         weatherBackfilling = true;
         message = null;
         weatherBackfillResult = null;
+        weatherBackfillJob = null;
+        weatherBackfillTotal = 0;
         try {
-            const result = await runWeatherBackfill({
+            const job = await startWeatherBackfillJob({
                 date_range: backfillDateRange,
                 start_date: backfillDateRange === 'custom' ? backfillStartDate : undefined,
                 end_date: backfillDateRange === 'custom' ? backfillEndDate : undefined,
                 only_missing: true
             });
-            weatherBackfillResult = result;
-            message = { type: 'success', text: result.message };
+            weatherBackfillJob = job;
+            weatherBackfillTotal = job.total || 0;
+            startBackfillPolling();
         } catch (e: any) {
             message = { type: 'error', text: e.message || 'Weather backfill failed' };
-        } finally {
-            weatherBackfilling = false;
+        }
+    }
+
+    function startBackfillPolling() {
+        if (backfillPollInterval) {
+            clearInterval(backfillPollInterval);
+        }
+        loadBackfillStatus();
+        backfillPollInterval = setInterval(loadBackfillStatus, 2000);
+    }
+
+    async function loadBackfillStatus() {
+        try {
+            const [detections, weather] = await Promise.all([
+                getBackfillStatus('detections'),
+                getBackfillStatus('weather')
+            ]);
+
+            if (detections) {
+                backfillJob = detections;
+                backfillResult = {
+                    status: detections.status,
+                    processed: detections.processed,
+                    new_detections: detections.new_detections ?? 0,
+                    skipped: detections.skipped,
+                    errors: detections.errors,
+                    message: detections.message || ''
+                };
+                backfillTotal = detections.total || 0;
+                backfilling = detections.status === 'running';
+                if (detections.status === 'completed') {
+                    message = { type: 'success', text: detections.message || 'Backfill complete' };
+                    await loadMaintenanceStats();
+                } else if (detections.status === 'failed') {
+                    message = { type: 'error', text: detections.message || 'Backfill failed' };
+                }
+            }
+
+            if (weather) {
+                weatherBackfillJob = weather;
+                weatherBackfillResult = {
+                    status: weather.status,
+                    processed: weather.processed,
+                    updated: weather.updated ?? 0,
+                    skipped: weather.skipped,
+                    errors: weather.errors,
+                    message: weather.message || ''
+                };
+                weatherBackfillTotal = weather.total || 0;
+                weatherBackfilling = weather.status === 'running';
+                if (weather.status === 'completed') {
+                    message = { type: 'success', text: weather.message || 'Weather backfill complete' };
+                } else if (weather.status === 'failed') {
+                    message = { type: 'error', text: weather.message || 'Weather backfill failed' };
+                }
+            }
+
+            const detectionsDone = !backfillJob || backfillJob.status !== 'running';
+            const weatherDone = !weatherBackfillJob || weatherBackfillJob.status !== 'running';
+            if (detectionsDone && weatherDone && backfillPollInterval) {
+                clearInterval(backfillPollInterval);
+                backfillPollInterval = null;
+            }
+        } catch (e) {
+            console.error('Failed to load backfill status', e);
         }
     }
 
@@ -1466,8 +1547,10 @@
                     {cleaningCache}
                     {backfilling}
                     {backfillResult}
+                    {backfillTotal}
                     {weatherBackfilling}
                     {weatherBackfillResult}
+                    {weatherBackfillTotal}
                     {taxonomyStatus}
                     {syncingTaxonomy}
                     {resettingDatabase}
@@ -1528,4 +1611,3 @@
         {/if}
     {/if}
 </div>
-

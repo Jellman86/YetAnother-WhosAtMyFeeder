@@ -423,6 +423,7 @@
     "inat": {
       "title": "iNaturalist",
       "connected": "Подключено: {user}",
+      "preview_note": "Режим предварительного просмотра (подключите для отправки)",
       "open": "Открыть",
       "close": "Закрыть",
       "open_label": "Открыть отправку в iNaturalist",

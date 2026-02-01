@@ -2,6 +2,22 @@
     import { _ } from 'svelte-i18n';
     import type { TestEmailRequest, TestEmailResponse, OAuthAuthorizeResponse } from '../../api';
 
+    function extractErrorMessage(error: any, fallback: string) {
+        const message = error?.message || fallback;
+        if (typeof message === 'string' && message.trim().startsWith('{')) {
+            try {
+                const parsed = JSON.parse(message);
+                return parsed.detail || parsed.message || fallback;
+            } catch {
+                return message;
+            }
+        }
+        return message;
+    }
+
+    let emailTestError = $state<string | null>(null);
+    let emailTestSuccess = $state<string | null>(null);
+
     // Props
     let {
         // Global filters
@@ -810,8 +826,13 @@
                 <button
                     onclick={async () => {
                         try {
+                            emailTestError = null;
+                            emailTestSuccess = null;
                             testingNotification['email'] = true;
-                            await sendTestEmail();
+                            const result = await sendTestEmail();
+                            emailTestSuccess = result.message || 'Test email sent';
+                        } catch (e: any) {
+                            emailTestError = extractErrorMessage(e, 'Failed to send test email');
                         } finally {
                             testingNotification['email'] = false;
                         }
@@ -822,6 +843,11 @@
                 >
                     {testingNotification['email'] ? $_('settings.email.test_email_sending') : $_('settings.email.test_email')}
                 </button>
+                {#if emailTestError}
+                    <p class="mt-2 text-xs font-semibold text-rose-600">{emailTestError}</p>
+                {:else if emailTestSuccess}
+                    <p class="mt-2 text-xs font-semibold text-emerald-600">{emailTestSuccess}</p>
+                {/if}
             </div>
         </section>
     </div>

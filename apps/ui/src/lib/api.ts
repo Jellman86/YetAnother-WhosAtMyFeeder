@@ -900,6 +900,45 @@ export async function runWeatherBackfill(request: WeatherBackfillRequest): Promi
     return handleResponse<WeatherBackfillResult>(response);
 }
 
+export interface BackfillJobStatus {
+    id: string;
+    kind: string;
+    status: string;
+    processed: number;
+    total: number;
+    new_detections?: number;
+    updated?: number;
+    skipped: number;
+    errors: number;
+    message?: string;
+    started_at?: string | null;
+    finished_at?: string | null;
+}
+
+export async function startBackfillJob(request: BackfillRequest): Promise<BackfillJobStatus> {
+    const response = await apiFetch(`${API_BASE}/backfill/async`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(request),
+    });
+    return handleResponse<BackfillJobStatus>(response);
+}
+
+export async function startWeatherBackfillJob(request: WeatherBackfillRequest): Promise<BackfillJobStatus> {
+    const response = await apiFetch(`${API_BASE}/backfill/weather/async`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(request),
+    });
+    return handleResponse<BackfillJobStatus>(response);
+}
+
+export async function getBackfillStatus(kind?: 'detections' | 'weather'): Promise<BackfillJobStatus | null> {
+    const params = kind ? `?kind=${kind}` : '';
+    const response = await apiFetch(`${API_BASE}/backfill/status${params}`);
+    return handleResponse<BackfillJobStatus | null>(response);
+}
+
 export interface ResetDatabaseResult {
     status: string;
     message: string;

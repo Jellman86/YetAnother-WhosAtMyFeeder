@@ -21,8 +21,10 @@
         backfillEndDate = $bindable(''),
         backfilling,
         backfillResult,
+        backfillTotal = $bindable(0),
         weatherBackfilling,
         weatherBackfillResult,
+        weatherBackfillTotal = $bindable(0),
         resettingDatabase,
         analyzingUnknowns,
         analysisStatus,
@@ -52,8 +54,10 @@
         backfillEndDate: string;
         backfilling: boolean;
         backfillResult: BackfillResult | null;
+        backfillTotal: number;
         weatherBackfilling: boolean;
         weatherBackfillResult: WeatherBackfillResult | null;
+        weatherBackfillTotal: number;
         resettingDatabase: boolean;
         analyzingUnknowns: boolean;
         analysisStatus: { pending: number; active: number; circuit_open: boolean } | null;
@@ -308,6 +312,18 @@
             {/if}
 
             {#if backfillResult}
+                {#if backfillTotal > 0}
+                    {@const backfillProgress = Math.min(100, Math.round((backfillResult.processed / backfillTotal) * 100))}
+                    <div class="mb-3">
+                        <div class="flex items-center justify-between text-[10px] font-bold text-slate-500 mb-2">
+                            <span>{backfillResult.processed.toLocaleString()} / {backfillTotal.toLocaleString()}</span>
+                            <span>{backfillProgress}%</span>
+                        </div>
+                        <div class="h-2 rounded-full bg-slate-200/80 dark:bg-slate-800/80 overflow-hidden">
+                            <div class="h-full bg-teal-500 transition-all" style={`width: ${backfillProgress}%`}></div>
+                        </div>
+                    </div>
+                {/if}
                 <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 grid grid-cols-4 gap-2 text-center">
                     <div><p class="text-sm font-black text-slate-900 dark:text-white">{backfillResult.processed}</p><p class="text-[8px] font-black uppercase text-slate-500 tracking-tighter">Total</p></div>
                     <div><p class="text-sm font-black text-emerald-500">{backfillResult.new_detections}</p><p class="text-[8px] font-black uppercase text-slate-500 tracking-tighter">New</p></div>
@@ -361,6 +377,18 @@
             <div class="pt-2 border-t border-slate-100 dark:border-slate-800">
                 <p class="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-3">Weather Backfill</p>
                 {#if weatherBackfillResult}
+                    {#if weatherBackfillTotal > 0}
+                        {@const weatherProgress = Math.min(100, Math.round((weatherBackfillResult.processed / weatherBackfillTotal) * 100))}
+                        <div class="mb-3">
+                            <div class="flex items-center justify-between text-[10px] font-bold text-slate-500 mb-2">
+                                <span>{weatherBackfillResult.processed.toLocaleString()} / {weatherBackfillTotal.toLocaleString()}</span>
+                                <span>{weatherProgress}%</span>
+                            </div>
+                            <div class="h-2 rounded-full bg-slate-200/80 dark:bg-slate-800/80 overflow-hidden">
+                                <div class="h-full bg-slate-700 transition-all" style={`width: ${weatherProgress}%`}></div>
+                            </div>
+                        </div>
+                    {/if}
                     <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 grid grid-cols-4 gap-2 text-center mb-3">
                         <div><p class="text-sm font-black text-slate-900 dark:text-white">{weatherBackfillResult.processed}</p><p class="text-[8px] font-black uppercase text-slate-500 tracking-tighter">Total</p></div>
                         <div><p class="text-sm font-black text-emerald-500">{weatherBackfillResult.updated}</p><p class="text-[8px] font-black uppercase text-slate-500 tracking-tighter">Upd</p></div>

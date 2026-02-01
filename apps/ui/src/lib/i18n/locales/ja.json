@@ -415,6 +415,7 @@
     "inat": {
       "title": "iNaturalist",
       "connected": "接続中: {user}",
+      "preview_note": "プレビュー（送信には接続が必要）",
       "open": "開く",
       "close": "閉じる",
       "open_label": "iNaturalist 送信を開く",

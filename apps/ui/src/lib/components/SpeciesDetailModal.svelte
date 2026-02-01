@@ -56,6 +56,14 @@
         preferSci = settingsStore.settings?.scientific_name_primary ?? false;
     });
 
+    const UNKNOWN_SPECIES_NAME = 'Unknown Bird';
+    const UNKNOWN_LABELS = new Set(['unknown bird', 'unknown', 'background']);
+
+    function isUnknownLabel(label: string | null | undefined) {
+        const normalized = (label || '').trim().toLowerCase();
+        return UNKNOWN_LABELS.has(normalized);
+    }
+
     // Content
     let naming = $derived.by(() => {
         if (stats) {
@@ -107,11 +115,11 @@
 
     onMount(async () => {
         // Check if this is an unknown bird detection
-        isUnknownBird = speciesName === "Unknown Bird";
+        isUnknownBird = isUnknownLabel(speciesName);
 
         try {
             // Always fetch stats
-            const statsData = await fetchSpeciesStats(speciesName);
+            const statsData = await fetchSpeciesStats(isUnknownBird ? UNKNOWN_SPECIES_NAME : speciesName);
             stats = statsData;
 
             // Only fetch Wikipedia info for identified species
@@ -160,7 +168,7 @@
     }
 
     function handleOpenExplorer() {
-        window.location.assign('/events?species=Unknown%20Bird');
+        window.location.assign(`/events?species=${encodeURIComponent(UNKNOWN_SPECIES_NAME)}`);
     }
 
     async function handleReclassify(strategy: 'snapshot' | 'video') {
@@ -229,6 +237,7 @@
                 {/if}
             </div>
             <button
+                type="button"
                 onclick={onclose}
                 class="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
                 aria-label="Close modal"
@@ -571,6 +580,7 @@
         <!-- Footer -->
         <div class="flex justify-end p-4 border-t border-slate-200 dark:border-slate-700">
             <button
+                type="button"
                 onclick={onclose}
                 class="px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300
                        bg-slate-100 dark:bg-slate-700 rounded-lg
