@@ -388,7 +388,21 @@
     "reclassify_fallback": "⚠️ Видео недоступно - используется снимок",
     "reclassify_failed": "Не удалось реклассифицировать: {message}",
     "settings_saved": "Настройки успешно сохранены!",
-    "settings_load_failed": "Не удалось загрузить настройки"
+    "settings_load_failed": "Не удалось загрузить настройки",
+    "center_title": "Уведомления",
+    "center_empty": "Все прочитано.",
+    "center_mark_all": "Отметить все как прочитанные",
+    "center_clear": "Очистить",
+    "event_detection": "Новое обнаружение",
+    "event_detection_desc": "{species} • {camera}",
+    "event_reclassify": "Реклассификация завершена",
+    "event_reclassify_desc": "{species}",
+    "event_backfill": "Бэкфилл обнаружений выполняется",
+    "event_backfill_done": "Бэкфилл обнаружений завершен",
+    "event_backfill_failed": "Бэкфилл обнаружений не удался",
+    "event_weather_backfill": "Бэкфилл погоды выполняется",
+    "event_weather_backfill_done": "Бэкфилл погоды завершен",
+    "event_weather_backfill_failed": "Бэкфилл погоды не удался"
   },
   "actions": {
     "confirm_delete": "Удалить это обнаружение {species}?",

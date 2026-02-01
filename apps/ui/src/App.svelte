@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { _ } from 'svelte-i18n';
+  import { get } from 'svelte/store';
   import ErrorBoundary from './lib/components/ErrorBoundary.svelte';
   import Header from './lib/components/Header.svelte';
   import Sidebar from './lib/components/Sidebar.svelte';
@@ -21,6 +22,7 @@
   import { settingsStore } from './lib/stores/settings.svelte';
   import { detectionsStore } from './lib/stores/detections.svelte';
   import { authStore } from './lib/stores/auth.svelte';
+  import { notificationCenter } from './lib/stores/notification_center.svelte';
   import { announcer } from './lib/components/Announcer.svelte';
   import Announcer from './lib/components/Announcer.svelte';
   import { initKeyboardShortcuts } from './lib/utils/keyboard-shortcuts';
@@ -100,6 +102,7 @@
           currentRoute = path === '' ? '/' : path;
 
           await authStore.loadStatus();
+          notificationCenter.hydrate();
 
           // Handle page visibility changes - reconnect when tab becomes visible
           const handleVisibilityChange = () => {
@@ -148,6 +151,85 @@
   });
 
   let cleanupFn: (() => void) | null = null;
+  const t = (key: string, values: Record<string, any> = {}) => get(_)(key, { values });
+
+  function shouldNotify() {
+      return !authStore.isGuest;
+  }
+
+  function addDetectionNotification(det: Detection) {
+      if (!shouldNotify()) return;
+      const title = t('notifications.event_detection');
+      const message = t('notifications.event_detection_desc', {
+          species: det.display_name,
+          camera: det.camera_name
+      });
+      notificationCenter.add({
+          id: `detection:${det.frigate_event}:${det.detection_time}`,
+          type: 'detection',
+          title,
+          message
+      });
+  }
+
+  function addReclassifyNotification(eventId: string, label: string | null) {
+      if (!shouldNotify()) return;
+      const title = t('notifications.event_reclassify');
+      const message = t('notifications.event_reclassify_desc', {
+          species: label ?? 'Unknown'
+      });
+      notificationCenter.add({
+          id: `reclassify:${eventId}:${Date.now()}`,
+          type: 'update',
+          title,
+          message
+      });
+  }
+
+  function updateBackfillNotification(payload: any) {
+      if (!shouldNotify()) return;
+      if (!payload || typeof payload !== 'object') return;
+      const data = payload.data ?? {};
+      const jobId = data.id ?? data.job_id ?? 'unknown';
+      const kind = data.kind ?? 'detections';
+      const isWeather = kind === 'weather';
+      const total = data.total ?? 0;
+      const processed = data.processed ?? 0;
+      const updated = data.updated ?? data.new_detections ?? 0;
+      const skipped = data.skipped ?? 0;
+      const errors = data.errors ?? 0;
+
+      let title = isWeather ? t('notifications.event_weather_backfill') : t('notifications.event_backfill');
+      if (payload.type === 'backfill_complete') {
+          title = isWeather ? t('notifications.event_weather_backfill_done') : t('notifications.event_backfill_done');
+      }
+      if (payload.type === 'backfill_failed') {
+          title = isWeather ? t('notifications.event_weather_backfill_failed') : t('notifications.event_backfill_failed');
+      }
+
+      let message = '';
+      if (payload.type === 'backfill_progress' || payload.type === 'backfill_started') {
+          message = `${processed.toLocaleString()}/${total.toLocaleString()} • ${updated.toLocaleString()} upd • ${skipped.toLocaleString()} skip • ${errors.toLocaleString()} err`;
+      } else if (payload.type === 'backfill_complete') {
+          message = data.message || `${updated.toLocaleString()} updated, ${skipped.toLocaleString()} skipped, ${errors.toLocaleString()} errors`;
+      } else if (payload.type === 'backfill_failed') {
+          message = data.message || t('notifications.event_backfill_failed');
+      }
+
+      notificationCenter.upsert({
+          id: `backfill:${jobId}`,
+          type: 'process',
+          title,
+          message,
+          timestamp: Date.now(),
+          read: payload.type === 'backfill_complete' || payload.type === 'backfill_failed',
+          meta: {
+              kind,
+              processed,
+              total
+          }
+      });
+  }
 
   $effect(() => {
       if (!authStore.statusLoaded) {
@@ -280,6 +362,7 @@
                          if (settingsStore.settings?.accessibility_live_announcements ?? true) {
                              announcer.announce(`New bird detected: ${newDet.display_name} at ${newDet.camera_name}`);
                          }
+                         addDetectionNotification(newDet);
                      } else if (payload.type === 'detection_updated') {
                          if (!payload.data || !payload.data.frigate_event) {
                              logger.error("SSE Invalid detection_updated data", undefined, { payload });
@@ -352,6 +435,12 @@
                              payload.data.event_id,
                              payload.data.results
                          );
+                         const topLabel = Array.isArray(payload.data.results) && payload.data.results.length > 0
+                             ? payload.data.results[0]?.label ?? null
+                             : null;
+                         addReclassifyNotification(payload.data.event_id, topLabel);
+                     } else if (payload.type === 'backfill_started' || payload.type === 'backfill_progress' || payload.type === 'backfill_complete' || payload.type === 'backfill_failed') {
+                         updateBackfillNotification(payload);
                      } else {
                          console.warn("SSE Unknown message type:", payload.type);
                      }

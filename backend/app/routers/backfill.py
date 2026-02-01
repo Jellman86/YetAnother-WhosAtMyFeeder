@@ -15,6 +15,7 @@ from app.repositories.detection_repository import DetectionRepository
 from app.database import get_db
 from app.utils.language import get_user_language
 from app.auth import require_owner, AuthContext
+from app.services.broadcaster import broadcaster
 
 router = APIRouter()
 log = structlog.get_logger()
@@ -46,6 +47,9 @@ def _now_iso() -> str:
 def _track_job(job: BackfillJobStatus):
     _JOB_STORE[job.id] = job
     _LATEST_JOB_BY_KIND[job.kind] = job.id
+
+def _job_payload(job: BackfillJobStatus) -> dict:
+    return job.model_dump()
 
 async def _get_running_job(kind: str) -> Optional[BackfillJobStatus]:
     job_id = _LATEST_JOB_BY_KIND.get(kind)
@@ -287,6 +291,12 @@ async def backfill_detections_async(
             )
             job.total = len(events)
             job.processed = 0
+            last_broadcast = 0
+            broadcast_every = max(1, job.total // 20) if job.total else 1
+            await broadcaster.broadcast({
+                "type": "backfill_started",
+                "data": _job_payload(job)
+            })
 
             for event in events:
                 status, reason = await backfill_service.process_historical_event(event)
@@ -297,6 +307,12 @@ async def backfill_detections_async(
                     job.skipped += 1
                 else:
                     job.errors += 1
+                if job.processed - last_broadcast >= broadcast_every or job.processed == job.total:
+                    last_broadcast = job.processed
+                    await broadcaster.broadcast({
+                        "type": "backfill_progress",
+                        "data": _job_payload(job)
+                    })
             if job.new_detections > 0:
                 message = f"Added {job.new_detections} new detection(s)"
             else:
@@ -308,11 +324,19 @@ async def backfill_detections_async(
             job.message = message
             job.status = "completed"
             job.finished_at = _now_iso()
+            await broadcaster.broadcast({
+                "type": "backfill_complete",
+                "data": _job_payload(job)
+            })
         except Exception as e:
             log.error("Async backfill failed", error=str(e))
             job.status = "failed"
             job.message = str(e)
             job.finished_at = _now_iso()
+            await broadcaster.broadcast({
+                "type": "backfill_failed",
+                "data": _job_payload(job)
+            })
 
     asyncio.create_task(runner())
     return job
@@ -476,10 +500,20 @@ async def backfill_weather_async(
                 )
 
                 job.total = len(detections)
+                last_broadcast = 0
+                broadcast_every = max(1, job.total // 20) if job.total else 1
+                await broadcaster.broadcast({
+                    "type": "backfill_started",
+                    "data": _job_payload(job)
+                })
                 if not detections:
                     job.status = "completed"
                     job.message = "No detections found in range"
                     job.finished_at = _now_iso()
+                    await broadcaster.broadcast({
+                        "type": "backfill_complete",
+                        "data": _job_payload(job)
+                    })
                     return
 
                 hourly = await weather_service.get_hourly_weather(start, end)
@@ -489,6 +523,10 @@ async def backfill_weather_async(
                     job.status = "completed"
                     job.message = "Weather archive unavailable for range"
                     job.finished_at = _now_iso()
+                    await broadcaster.broadcast({
+                        "type": "backfill_complete",
+                        "data": _job_payload(job)
+                    })
                     return
 
                 for det in detections:
@@ -526,6 +564,12 @@ async def backfill_weather_async(
                         log.warning("Weather backfill failed", error=str(e), event_id=det.get("frigate_event"))
                     finally:
                         job.processed += 1
+                        if job.processed - last_broadcast >= broadcast_every or job.processed == job.total:
+                            last_broadcast = job.processed
+                            await broadcaster.broadcast({
+                                "type": "backfill_progress",
+                                "data": _job_payload(job)
+                            })
 
                 message = f"Updated {job.updated} detection(s)"
                 if job.skipped:
@@ -535,11 +579,19 @@ async def backfill_weather_async(
                 job.message = message
                 job.status = "completed"
                 job.finished_at = _now_iso()
+                await broadcaster.broadcast({
+                    "type": "backfill_complete",
+                    "data": _job_payload(job)
+                })
         except Exception as e:
             log.error("Async weather backfill failed", error=str(e))
             job.status = "failed"
             job.message = str(e)
             job.finished_at = _now_iso()
+            await broadcaster.broadcast({
+                "type": "backfill_failed",
+                "data": _job_payload(job)
+            })
 
     asyncio.create_task(runner())
     return job

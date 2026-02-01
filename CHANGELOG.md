@@ -28,6 +28,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Added:** iNaturalist submission integration (owner-reviewed), with OAuth settings UI, connection flow, and detection-detail submission panel.
 - **Added:** iNaturalist integration documentation and About page feature entry (marked untested pending App Owner credentials).
 - **Fixed:** Leaderboard weather overlay removed wind/cloud bands; temperature plotted alongside detections for clarity.
+- **Added:** Notification Center bell with persistent detection, reclassification, and backfill status updates.
+- **Added:** Backfill async runs now broadcast start/progress/completion events for real-time UI updates.
+- **Fixed:** Settings updates no longer overwrite existing secrets when placeholders or empty values are sent.
+- **Changed:** Telegram notifications now use HTML escaping to prevent Markdown injection.
 
 ## [2.6.7] - 2026-01-29
 

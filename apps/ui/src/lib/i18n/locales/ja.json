@@ -380,7 +380,21 @@
     "reclassify_fallback": "⚠️ ビデオが利用不可 - 代わりにスナップショットを使用しました",
     "reclassify_failed": "再分類に失敗しました: {message}",
     "settings_saved": "設定を正常に保存しました！",
-    "settings_load_failed": "設定の読み込みに失敗しました"
+    "settings_load_failed": "設定の読み込みに失敗しました",
+    "center_title": "通知",
+    "center_empty": "すべて完了しました。",
+    "center_mark_all": "すべて既読にする",
+    "center_clear": "クリア",
+    "event_detection": "新しい検出",
+    "event_detection_desc": "{species} • {camera}",
+    "event_reclassify": "再分類完了",
+    "event_reclassify_desc": "{species}",
+    "event_backfill": "検出のバックフィル実行中",
+    "event_backfill_done": "検出のバックフィル完了",
+    "event_backfill_failed": "検出のバックフィル失敗",
+    "event_weather_backfill": "天気のバックフィル実行中",
+    "event_weather_backfill_done": "天気のバックフィル完了",
+    "event_weather_backfill_failed": "天気のバックフィル失敗"
   },
   "actions": {
     "confirm_delete": "この {species} の検出を削除しますか？",

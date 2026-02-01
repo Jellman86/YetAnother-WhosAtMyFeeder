@@ -380,7 +380,21 @@
     "reclassify_fallback": "⚠️ 视频不可用 - 改用快照",
     "reclassify_failed": "重新分类失败：{message}",
     "settings_saved": "设置保存成功！",
-    "settings_load_failed": "加载设置失败"
+    "settings_load_failed": "加载设置失败",
+    "center_title": "通知",
+    "center_empty": "暂无通知。",
+    "center_mark_all": "全部标为已读",
+    "center_clear": "清空",
+    "event_detection": "新检测",
+    "event_detection_desc": "{species} • {camera}",
+    "event_reclassify": "重新分类完成",
+    "event_reclassify_desc": "{species}",
+    "event_backfill": "检测回填进行中",
+    "event_backfill_done": "检测回填完成",
+    "event_backfill_failed": "检测回填失败",
+    "event_weather_backfill": "天气回填进行中",
+    "event_weather_backfill_done": "天气回填完成",
+    "event_weather_backfill_failed": "天气回填失败"
   },
   "actions": {
     "confirm_delete": "删除此 {species} 检测记录？",

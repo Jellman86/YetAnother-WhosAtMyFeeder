@@ -380,7 +380,21 @@
     "reclassify_fallback": "⚠️ Vidéo non disponible - capture utilisée à la place",
     "reclassify_failed": "Échec de la reclasification : {message}",
     "settings_saved": "Paramètres enregistrés avec succès !",
-    "settings_load_failed": "Échec du chargement des paramètres"
+    "settings_load_failed": "Échec du chargement des paramètres",
+    "center_title": "Notifications",
+    "center_empty": "Tout est à jour.",
+    "center_mark_all": "Tout marquer comme lu",
+    "center_clear": "Effacer",
+    "event_detection": "Nouvelle détection",
+    "event_detection_desc": "{species} • {camera}",
+    "event_reclassify": "Reclassification terminée",
+    "event_reclassify_desc": "{species}",
+    "event_backfill": "Rattrapage des détections en cours",
+    "event_backfill_done": "Rattrapage des détections terminé",
+    "event_backfill_failed": "Rattrapage des détections échoué",
+    "event_weather_backfill": "Rattrapage météo en cours",
+    "event_weather_backfill_done": "Rattrapage météo terminé",
+    "event_weather_backfill_failed": "Rattrapage météo échoué"
   },
   "actions": {
     "confirm_delete": "Supprimer cette détection de {species} ?",

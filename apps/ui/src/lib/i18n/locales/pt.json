@@ -388,7 +388,21 @@
     "reclassify_fallback": "⚠️ Vídeo não disponível - usando snapshot",
     "reclassify_failed": "Falha ao reclassificar: {message}",
     "settings_saved": "Configurações salvas com sucesso!",
-    "settings_load_failed": "Falha ao carregar configurações"
+    "settings_load_failed": "Falha ao carregar configurações",
+    "center_title": "Notificações",
+    "center_empty": "Tudo em dia.",
+    "center_mark_all": "Marcar todas como lidas",
+    "center_clear": "Limpar",
+    "event_detection": "Nova detecção",
+    "event_detection_desc": "{species} • {camera}",
+    "event_reclassify": "Reclassificação concluída",
+    "event_reclassify_desc": "{species}",
+    "event_backfill": "Backfill de detecções em andamento",
+    "event_backfill_done": "Backfill de detecções concluído",
+    "event_backfill_failed": "Backfill de detecções falhou",
+    "event_weather_backfill": "Backfill de clima em andamento",
+    "event_weather_backfill_done": "Backfill de clima concluído",
+    "event_weather_backfill_failed": "Backfill de clima falhou"
   },
   "actions": {
     "confirm_delete": "Excluir esta detecção de {species}?",

@@ -515,6 +515,9 @@ async def update_settings(
     auth: AuthContext = Depends(require_owner)
 ):
     """Update application settings. Owner only."""
+    def should_update_secret(value: Optional[str]) -> bool:
+        return value not in (None, "", "***REDACTED***")
+
     settings.frigate.frigate_url = update.frigate_url
     settings.frigate.mqtt_server = update.mqtt_server
     settings.frigate.mqtt_port = update.mqtt_port
@@ -522,7 +525,7 @@ async def update_settings(
     if update.mqtt_username is not None:
         settings.frigate.mqtt_username = update.mqtt_username
     # Only update password if it's not the redacted placeholder
-    if update.mqtt_password and update.mqtt_password != "***REDACTED***":
+    if should_update_secret(update.mqtt_password):
         settings.frigate.mqtt_password = update.mqtt_password
     settings.frigate.birdnet_enabled = update.birdnet_enabled if update.birdnet_enabled is not None else True
     settings.frigate.audio_topic = update.audio_topic
@@ -564,15 +567,15 @@ async def update_settings(
     # BirdWeather settings
     settings.birdweather.enabled = update.birdweather_enabled if update.birdweather_enabled is not None else False
     # Only update token if it's not the redacted placeholder
-    if update.birdweather_station_token and update.birdweather_station_token != "***REDACTED***":
+    if should_update_secret(update.birdweather_station_token):
         settings.birdweather.station_token = update.birdweather_station_token
 
     # iNaturalist settings
     if update.inaturalist_enabled is not None:
         settings.inaturalist.enabled = update.inaturalist_enabled
-    if update.inaturalist_client_id and update.inaturalist_client_id != "***REDACTED***":
+    if should_update_secret(update.inaturalist_client_id):
         settings.inaturalist.client_id = update.inaturalist_client_id
-    if update.inaturalist_client_secret and update.inaturalist_client_secret != "***REDACTED***":
+    if should_update_secret(update.inaturalist_client_secret):
         settings.inaturalist.client_secret = update.inaturalist_client_secret
     if update.inaturalist_default_latitude is not None:
         settings.inaturalist.default_latitude = update.inaturalist_default_latitude
@@ -585,7 +588,7 @@ async def update_settings(
     settings.llm.enabled = update.llm_enabled if update.llm_enabled is not None else False
     settings.llm.provider = update.llm_provider if update.llm_provider else "gemini"
     # Only update API key if it's not the redacted placeholder
-    if update.llm_api_key and update.llm_api_key != "***REDACTED***":
+    if should_update_secret(update.llm_api_key):
         settings.llm.api_key = update.llm_api_key
     settings.llm.model = update.llm_model if update.llm_model else "gemini-2.0-flash-exp"
     
@@ -647,7 +650,7 @@ async def update_settings(
     if update.notifications_discord_enabled is not None:
         settings.notifications.discord.enabled = update.notifications_discord_enabled
     # Only update webhook URL if it's not the redacted placeholder
-    if update.notifications_discord_webhook_url and update.notifications_discord_webhook_url != "***REDACTED***":
+    if should_update_secret(update.notifications_discord_webhook_url):
         settings.notifications.discord.webhook_url = update.notifications_discord_webhook_url
     if update.notifications_discord_username:
         settings.notifications.discord.username = update.notifications_discord_username
@@ -656,9 +659,9 @@ async def update_settings(
     if update.notifications_pushover_enabled is not None:
         settings.notifications.pushover.enabled = update.notifications_pushover_enabled
     # Only update keys/tokens if they're not the redacted placeholder
-    if update.notifications_pushover_user_key and update.notifications_pushover_user_key != "***REDACTED***":
+    if should_update_secret(update.notifications_pushover_user_key):
         settings.notifications.pushover.user_key = update.notifications_pushover_user_key
-    if update.notifications_pushover_api_token and update.notifications_pushover_api_token != "***REDACTED***":
+    if should_update_secret(update.notifications_pushover_api_token):
         settings.notifications.pushover.api_token = update.notifications_pushover_api_token
     if update.notifications_pushover_priority is not None:
         settings.notifications.pushover.priority = update.notifications_pushover_priority
@@ -667,10 +670,10 @@ async def update_settings(
     if update.notifications_telegram_enabled is not None:
         settings.notifications.telegram.enabled = update.notifications_telegram_enabled
     # Only update bot token if it's not the redacted placeholder
-    if update.notifications_telegram_bot_token and update.notifications_telegram_bot_token != "***REDACTED***":
+    if should_update_secret(update.notifications_telegram_bot_token):
         settings.notifications.telegram.bot_token = update.notifications_telegram_bot_token
     # Only update chat ID if it's not the redacted placeholder
-    if update.notifications_telegram_chat_id and update.notifications_telegram_chat_id != "***REDACTED***":
+    if should_update_secret(update.notifications_telegram_chat_id):
         settings.notifications.telegram.chat_id = update.notifications_telegram_chat_id
 
     # Notifications - Email
@@ -684,11 +687,11 @@ async def update_settings(
         settings.notifications.email.oauth_provider = update.notifications_email_oauth_provider
     if update.notifications_email_gmail_client_id is not None:
         settings.notifications.email.gmail_client_id = update.notifications_email_gmail_client_id
-    if update.notifications_email_gmail_client_secret and update.notifications_email_gmail_client_secret != "***REDACTED***":
+    if should_update_secret(update.notifications_email_gmail_client_secret):
         settings.notifications.email.gmail_client_secret = update.notifications_email_gmail_client_secret
     if update.notifications_email_outlook_client_id is not None:
         settings.notifications.email.outlook_client_id = update.notifications_email_outlook_client_id
-    if update.notifications_email_outlook_client_secret and update.notifications_email_outlook_client_secret != "***REDACTED***":
+    if should_update_secret(update.notifications_email_outlook_client_secret):
         settings.notifications.email.outlook_client_secret = update.notifications_email_outlook_client_secret
     if update.notifications_email_smtp_host is not None:
         settings.notifications.email.smtp_host = update.notifications_email_smtp_host
@@ -696,7 +699,7 @@ async def update_settings(
         settings.notifications.email.smtp_port = update.notifications_email_smtp_port
     if update.notifications_email_smtp_username is not None:
         settings.notifications.email.smtp_username = update.notifications_email_smtp_username
-    if update.notifications_email_smtp_password and update.notifications_email_smtp_password != "***REDACTED***":
+    if should_update_secret(update.notifications_email_smtp_password):
         settings.notifications.email.smtp_password = update.notifications_email_smtp_password
     if update.notifications_email_smtp_use_tls is not None:
         settings.notifications.email.smtp_use_tls = update.notifications_email_smtp_use_tls

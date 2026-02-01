@@ -391,7 +391,21 @@
     "reclassify_fallback": "⚠️ Video not available - snapshot used instead",
     "reclassify_failed": "Failed to reclassify: {message}",
     "settings_saved": "Settings saved successfully!",
-    "settings_load_failed": "Failed to load settings"
+    "settings_load_failed": "Failed to load settings",
+    "center_title": "Notifications",
+    "center_empty": "You're all caught up.",
+    "center_mark_all": "Mark all read",
+    "center_clear": "Clear",
+    "event_detection": "New detection",
+    "event_detection_desc": "{species} • {camera}",
+    "event_reclassify": "Reclassification complete",
+    "event_reclassify_desc": "{species}",
+    "event_backfill": "Detection backfill running",
+    "event_backfill_done": "Detection backfill complete",
+    "event_backfill_failed": "Detection backfill failed",
+    "event_weather_backfill": "Weather backfill running",
+    "event_weather_backfill_done": "Weather backfill complete",
+    "event_weather_backfill_failed": "Weather backfill failed"
   },
   "actions": {
     "confirm_delete": "Delete this {species} detection?",

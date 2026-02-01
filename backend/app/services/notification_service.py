@@ -1,7 +1,7 @@
 import structlog
 import asyncio
 import httpx
-import re
+import html
 from datetime import datetime, timezone
 from typing import Optional, Any
 import json
@@ -11,12 +11,9 @@ from app.services.i18n_service import i18n_service
 
 log = structlog.get_logger()
 
-def escape_markdown(text: str) -> str:
-    """Escape special characters for Telegram Markdown (v1)."""
-    # Telegram Markdown v1 only requires escaping these in some contexts, 
-    # but it's safer to escape characters that could trigger formatting.
-    # Note: * _ ` [ are the main ones for v1.
-    return re.sub(r'([*_`\[])', r'\\\1', text)
+def escape_html(text: str) -> str:
+    """Escape text for Telegram HTML parse mode."""
+    return html.escape(text, quote=True)
 
 class NotificationService:
     def __init__(self):
@@ -280,8 +277,8 @@ class NotificationService:
             confidence=int(confidence * 100)
         )
         
-        safe_body = escape_markdown(body)
-        caption = f"🐦 *{safe_body}*"
+        safe_body = escape_html(body)
+        caption = f"🐦 <b>{safe_body}</b>"
         base_url = f"https://api.telegram.org/bot{cfg.bot_token}"
 
         try:
@@ -291,7 +288,7 @@ class NotificationService:
                 data = {
                     "chat_id": cfg.chat_id,
                     "caption": caption,
-                    "parse_mode": "Markdown"
+                    "parse_mode": "HTML"
                 }
                 files = {"photo": ("snapshot.jpg", snapshot_data, "image/jpeg")}
                 resp = await self.client.post(url, data=data, files=files)
@@ -299,11 +296,12 @@ class NotificationService:
                 # Send Message
                 url = f"{base_url}/sendMessage"
                 # If no snapshot, maybe include link in text
-                caption += f"\n[View Snapshot]({snapshot_url})"
+                safe_url = escape_html(snapshot_url)
+                caption += f"\n<a href=\"{safe_url}\">View Snapshot</a>"
                 data = {
                     "chat_id": cfg.chat_id,
                     "text": caption,
-                    "parse_mode": "Markdown"
+                    "parse_mode": "HTML"
                 }
                 resp = await self.client.post(url, json=data)
             

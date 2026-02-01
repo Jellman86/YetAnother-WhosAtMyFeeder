@@ -450,7 +450,7 @@ async def sse_endpoint(
                     if not auth.is_owner:
                         event_type = message.get('type', '')
                         # Block owner-only events from public users
-                        if event_type in ['settings_updated', 'backfill_progress', 'backfill_complete']:
+                        if event_type in ['settings_updated', 'backfill_started', 'backfill_progress', 'backfill_complete', 'backfill_failed']:
                             continue
 
                     if not auth.is_owner:

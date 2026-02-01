@@ -380,7 +380,21 @@
     "reclassify_fallback": "⚠️ Video nicht verfügbar - stattdessen Schnappschuss verwendet",
     "reclassify_failed": "Reklassifizierung fehlgeschlagen: {message}",
     "settings_saved": "Einstellungen erfolgreich gespeichert!",
-    "settings_load_failed": "Einstellungen konnten nicht geladen werden"
+    "settings_load_failed": "Einstellungen konnten nicht geladen werden",
+    "center_title": "Benachrichtigungen",
+    "center_empty": "Alles erledigt.",
+    "center_mark_all": "Alle als gelesen markieren",
+    "center_clear": "Leeren",
+    "event_detection": "Neue Erkennung",
+    "event_detection_desc": "{species} • {camera}",
+    "event_reclassify": "Reklassifizierung abgeschlossen",
+    "event_reclassify_desc": "{species}",
+    "event_backfill": "Erkennungs-Backfill läuft",
+    "event_backfill_done": "Erkennungs-Backfill abgeschlossen",
+    "event_backfill_failed": "Erkennungs-Backfill fehlgeschlagen",
+    "event_weather_backfill": "Wetter-Backfill läuft",
+    "event_weather_backfill_done": "Wetter-Backfill abgeschlossen",
+    "event_weather_backfill_failed": "Wetter-Backfill fehlgeschlagen"
   },
   "actions": {
     "confirm_delete": "Diese {species} Erkennung löschen?",

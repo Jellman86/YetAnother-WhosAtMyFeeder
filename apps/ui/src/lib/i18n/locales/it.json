@@ -388,7 +388,21 @@
     "reclassify_fallback": "⚠️ Video non disponibile - usato snapshot",
     "reclassify_failed": "Riclassificazione fallita: {message}",
     "settings_saved": "Impostazioni salvate con successo!",
-    "settings_load_failed": "Caricamento impostazioni fallito"
+    "settings_load_failed": "Caricamento impostazioni fallito",
+    "center_title": "Notifiche",
+    "center_empty": "Tutto in ordine.",
+    "center_mark_all": "Segna tutte come lette",
+    "center_clear": "Svuota",
+    "event_detection": "Nuova rilevazione",
+    "event_detection_desc": "{species} • {camera}",
+    "event_reclassify": "Riclassificazione completata",
+    "event_reclassify_desc": "{species}",
+    "event_backfill": "Backfill rilevazioni in corso",
+    "event_backfill_done": "Backfill rilevazioni completato",
+    "event_backfill_failed": "Backfill rilevazioni fallito",
+    "event_weather_backfill": "Backfill meteo in corso",
+    "event_weather_backfill_done": "Backfill meteo completato",
+    "event_weather_backfill_failed": "Backfill meteo fallito"
   },
   "actions": {
     "confirm_delete": "Eliminare questo rilevamento di {species}?",

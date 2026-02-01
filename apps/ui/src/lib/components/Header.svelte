@@ -3,6 +3,7 @@
     import { authStore } from '../stores/auth.svelte';
     import { _ } from 'svelte-i18n';
     import LanguageSelector from './LanguageSelector.svelte';
+    import NotificationCenter from './NotificationCenter.svelte';
 
     let { currentRoute, onNavigate, status, onShowKeyboardShortcuts } = $props<{
         currentRoute: string;
@@ -98,6 +99,8 @@
                 {/if}
 
                 <LanguageSelector />
+
+                <NotificationCenter />
 
                 <!-- Keyboard Shortcuts button -->
                 {#if onShowKeyboardShortcuts}
