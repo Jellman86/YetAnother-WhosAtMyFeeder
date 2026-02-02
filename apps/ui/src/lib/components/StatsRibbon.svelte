@@ -69,7 +69,7 @@
                         {mostSeenSpecies}
                     </div>
                     <div class="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">
-                        {$_('dashboard.stats.top_visitor')} ({mostSeenCount}x)
+                        {$_('dashboard.stats.top_visitor')}
                     </div>
                 {:else}
                     <div class="text-lg font-bold text-slate-400 dark:text-slate-500">—</div>
