@@ -831,6 +831,7 @@ export interface EbirdObservation {
     lng?: number | null;
     obs_valid?: boolean | null;
     obs_reviewed?: boolean | null;
+    thumbnail_url?: string | null;
 }
 
 export interface EbirdNearbyResult {

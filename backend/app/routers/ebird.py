@@ -1,4 +1,5 @@
 from typing import Optional
+import asyncio
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -6,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from app.auth_legacy import get_auth_context_with_legacy
 from app.config import settings
 from app.services.ebird_service import ebird_service
+from app.services.taxonomy.taxonomy_service import taxonomy_service
 
 log = structlog.get_logger()
 router = APIRouter(prefix="/ebird", tags=["ebird"])
@@ -91,7 +93,20 @@ async def get_notable_observations(
         max_results=max_results,
         notable=True
     )
+    
+    results = ebird_service.simplify_observations(items)
+
+    async def enrich(item):
+        name = item.get("common_name") or item.get("scientific_name")
+        if name:
+            tax = await taxonomy_service.get_names(name)
+            if tax and tax.get("thumbnail_url"):
+                item["thumbnail_url"] = tax.get("thumbnail_url")
+
+    # Enrich concurrently (cached lookups are fast, uncached hit iNat)
+    await asyncio.gather(*(enrich(item) for item in results))
+
     return {
         "status": "ok",
-        "results": ebird_service.simplify_observations(items)
+        "results": results
     }

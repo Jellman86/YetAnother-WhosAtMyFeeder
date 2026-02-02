@@ -91,7 +91,7 @@ class TaxonomyService:
 
     async def _query_cache(self, db: aiosqlite.Connection, name: str) -> Optional[Dict]:
         async with db.execute(
-            "SELECT scientific_name, common_name, taxa_id, is_not_found FROM taxonomy_cache WHERE LOWER(scientific_name) = LOWER(?) OR LOWER(common_name) = LOWER(?)",
+            "SELECT scientific_name, common_name, taxa_id, is_not_found, thumbnail_url FROM taxonomy_cache WHERE LOWER(scientific_name) = LOWER(?) OR LOWER(common_name) = LOWER(?)",
             (name, name)
         ) as cursor:
             row = await cursor.fetchone()
@@ -100,7 +100,8 @@ class TaxonomyService:
                     "scientific_name": row[0],
                     "common_name": row[1],
                     "taxa_id": row[2],
-                    "is_not_found": bool(row[3])
+                    "is_not_found": bool(row[3]),
+                    "thumbnail_url": row[4]
                 }
         return None
 
@@ -116,9 +117,9 @@ class TaxonomyService:
     async def _insert_cache(self, db: aiosqlite.Connection, data: Dict):
         await db.execute(
             """INSERT OR REPLACE INTO taxonomy_cache 
-               (scientific_name, common_name, taxa_id, is_not_found, last_updated) 
-               VALUES (?, ?, ?, ?, ?)""",
-            (data["scientific_name"], data["common_name"], data.get("taxa_id"), 1 if data.get("is_not_found") else 0, datetime.now())
+               (scientific_name, common_name, taxa_id, is_not_found, thumbnail_url, last_updated) 
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            (data["scientific_name"], data["common_name"], data.get("taxa_id"), 1 if data.get("is_not_found") else 0, data.get("thumbnail_url"), datetime.now())
         )
 
     async def _lookup_inaturalist(self, name: str) -> Optional[Dict]:
@@ -137,10 +138,13 @@ class TaxonomyService:
             
             if data.get("total_results", 0) > 0:
                 taxon = data["results"][0]
+                photo = taxon.get("default_photo")
+                thumb = photo.get("square_url") if photo else None
                 return {
                     "scientific_name": taxon.get("name"),
                     "common_name": taxon.get("preferred_common_name"),
-                    "taxa_id": taxon.get("id")
+                    "taxa_id": taxon.get("id"),
+                    "thumbnail_url": thumb
                 }
         except Exception as e:
             log.warning("iNaturalist lookup failed", query=name, error=str(e))

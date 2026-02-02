@@ -652,12 +652,15 @@
                                 {:else if ebirdNotable}
                                     <div class="space-y-2">
                                         {#each ebirdNotable.results.slice(0, 6) as obs}
-                                            <div class="flex items-center justify-between gap-3 p-2.5 rounded-xl bg-white/60 dark:bg-slate-900/40 border border-amber-100 dark:border-amber-900/30 hover:border-amber-300 dark:hover:border-amber-700/50 transition-colors">
-                                                <div class="min-w-0">
+                                            <div class="flex items-center gap-3 p-2.5 rounded-xl bg-white/60 dark:bg-slate-900/40 border border-amber-100 dark:border-amber-900/30 hover:border-amber-300 dark:hover:border-amber-700/50 transition-colors">
+                                                {#if obs.thumbnail_url}
+                                                    <img src={obs.thumbnail_url} alt={obs.common_name || 'Bird'} class="w-10 h-10 rounded-lg object-cover bg-slate-200 dark:bg-slate-700 shrink-0" loading="lazy" />
+                                                {/if}
+                                                <div class="min-w-0 flex-1">
                                                     <p class="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">{obs.common_name || obs.scientific_name || 'Unknown species'}</p>
                                                     <p class="text-[10px] font-medium text-slate-400 truncate">{obs.location_name || 'Unknown location'}</p>
                                                 </div>
-                                                <div class="text-right">
+                                                <div class="text-right shrink-0">
                                                     <p class="text-[10px] font-bold text-amber-600 dark:text-amber-400">{formatEbirdDate(obs.observed_at)}</p>
                                                 </div>
                                             </div>
