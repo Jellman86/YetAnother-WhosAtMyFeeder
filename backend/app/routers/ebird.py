@@ -3,7 +3,7 @@ from typing import Optional
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from app.auth import get_auth_context_with_legacy
+from app.auth_legacy import get_auth_context_with_legacy
 from app.config import settings
 from app.services.ebird_service import ebird_service
 
