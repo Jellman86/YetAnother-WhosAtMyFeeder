@@ -8,8 +8,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 - **Added:** New dedicated Enrichment tab in Settings for centralizing all species data source configurations.
 - **Added:** Interactive Map visualization for eBird sightings in species and detection modals (user location hidden in guest mode).
+- **Added:** Expanded telemetry collection to include feature usage (notifications, integrations, enrichment settings) for better development insights.
 - **Changed:** Refined Species Info, Recent Sightings, and Notable Nearby sections in Detection and Species modals with a new structured "beautiful" card-based layout.
 - **Fixed:** Resolved mobile scrollability issue in the Detection Details pane.
+- **Fixed:** Critical iNaturalist token expiration bug by implementing automatic refresh logic.
 - **Added:** Visual headers and icons for all enrichment sources (Wikipedia, eBird, iNaturalist) in modals.
 - **Changed:** Centralized enrichment provider selection logic to ensure consistent data presentation across the UI.
 

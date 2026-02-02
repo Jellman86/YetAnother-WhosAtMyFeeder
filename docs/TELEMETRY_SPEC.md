@@ -18,13 +18,15 @@ The heartbeat payload is strictly limited to metadata about the installation and
 - **Installation ID**: A random UUID generated once per installation. It is not linked to any personal identity.
 - **Application Version**: The current version/build of YA-WAMF.
 - **Platform Metadata**: Operating system type, release version, and machine architecture (e.g., Linux x86_64).
-- **Configuration Flags**: Enabled features such as BirdNET integration, LLM providers, and Media Caching.
+- **Configuration Flags**: Enabled features such as LLM providers, Media Caching, and Auto Video Classification.
+- **Feature Usage**: Which integrations (eBird, iNaturalist), notification channels (Discord, Email, etc.), and enrichment modes are active.
+- **Access Settings**: Whether authentication or public access is enabled (boolean flags only).
 - **Geography**: The approximate country derived from the Cloudflare request header (the IP address itself is **not** stored in the database).
 
 ### What is NOT Collected?
 - **No Private Data**: No audio recordings, video clips, or snapshots are ever sent.
 - **No User Content**: No bird detection transcripts, species names, or scientific data are collected.
-- **No PII**: No names, email addresses, IP addresses, or precise locations are stored.
+- **No PII**: No names, email addresses, IP addresses, usernames, tokens, or precise locations are stored.
 
 ## Technical Details
 
@@ -44,11 +46,34 @@ The heartbeat payload is strictly limited to metadata about the installation and
   },
   "configuration": {
     "model_type": "string",
-    "birdnet_enabled": "boolean",
-    "birdweather_enabled": "boolean",
     "llm_enabled": "boolean",
     "llm_provider": "string",
-    "media_cache_enabled": "boolean"
+    "media_cache_enabled": "boolean",
+    "media_cache_clips": "boolean",
+    "auto_video_classification": "boolean"
+  },
+  "integrations": {
+    "birdnet_enabled": "boolean",
+    "birdweather_enabled": "boolean",
+    "ebird_enabled": "boolean",
+    "inaturalist_enabled": "boolean"
+  },
+  "notifications": {
+    "discord_enabled": "boolean",
+    "pushover_enabled": "boolean",
+    "telegram_enabled": "boolean",
+    "email_enabled": "boolean",
+    "mode": "string"
+  },
+  "enrichment": {
+    "mode": "string",
+    "summary_source": "string",
+    "sightings_source": "string",
+    "taxonomy_source": "string"
+  },
+  "access": {
+    "auth_enabled": "boolean",
+    "public_access_enabled": "boolean"
   }
 }
 ```
@@ -62,5 +87,4 @@ On first launch, you may see a friendly banner inviting you to opt in - this can
 I believe in full transparency regarding the data I collect. You can inspect exactly how the heartbeat is constructed and transmitted in the backend source code:
 
 - **[Telemetry Service (Backend)](../backend/app/services/telemetry_service.py)**: This module handles the generation of the anonymous Installation ID, gathers the metadata defined above, and transmits the payload via HTTPS.
-
-**Note on Repository Privacy**: While the client-side reporting logic is public, the `apps/telemetry-worker` (the receiver) is excluded from the public repository to protect infrastructure secrets such as database IDs and API keys. The receiver is a standard implementation using Cloudflare Workers and D1.
+- **[Telemetry Worker (Receiver)](../apps/telemetry-worker/)**: The source code for the Cloudflare Worker that receives and stores the data is available in the repository.
