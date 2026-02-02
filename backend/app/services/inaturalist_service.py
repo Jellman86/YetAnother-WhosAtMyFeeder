@@ -79,6 +79,77 @@ class InaturalistService:
                 "scope": row[5]
             }
 
+    async def get_valid_token(self) -> Optional[dict]:
+        token = await self.get_token()
+        if not token:
+            return None
+            
+        expires_at = token.get("expires_at")
+        if expires_at:
+            expires_dt = None
+            if isinstance(expires_at, str):
+                for fmt in ("%Y-%m-%d %H:%M:%S.%f", "%Y-%m-%d %H:%M:%S"):
+                    try:
+                        expires_dt = datetime.strptime(expires_at, fmt)
+                        break
+                    except ValueError:
+                        continue
+                if not expires_dt:
+                    # Try ISO format as fallback
+                    try:
+                        expires_dt = datetime.fromisoformat(expires_at)
+                    except ValueError:
+                        log.warning("inat_token_expiry_parse_failed", expires_at=expires_at)
+                        return await self.refresh_token(token)
+            else:
+                expires_dt = expires_at
+                
+            # If expiring within 5 minutes, refresh
+            if expires_dt and datetime.utcnow() >= expires_dt - timedelta(minutes=5):
+                log.info("inat_token_expired_refreshing", expires_at=expires_dt)
+                return await self.refresh_token(token)
+                
+        return token
+
+    async def refresh_token(self, token: dict) -> Optional[dict]:
+        refresh_token = token.get("refresh_token")
+        if not refresh_token:
+            log.warning("inat_token_refresh_missing_token")
+            return None
+
+        from app.config import settings
+        
+        payload = {
+            "client_id": settings.inaturalist.client_id,
+            "client_secret": settings.inaturalist.client_secret,
+            "grant_type": "refresh_token",
+            "refresh_token": refresh_token
+        }
+        
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                resp = await client.post(INAT_TOKEN_URL, data=payload)
+                resp.raise_for_status()
+                new_token_data = resp.json()
+                
+                email = token.get("email")
+                new_refresh = new_token_data.get("refresh_token") or refresh_token
+                
+                await self.store_token(
+                    email=email,
+                    access_token=new_token_data["access_token"],
+                    refresh_token=new_refresh,
+                    token_type=new_token_data.get("token_type"),
+                    expires_in=new_token_data.get("expires_in"),
+                    scope=new_token_data.get("scope")
+                )
+                
+                log.info("inat_token_refreshed_success")
+                return await self.get_token()
+        except Exception as e:
+            log.error("inat_token_refresh_failed", error=str(e))
+            return None
+
     async def delete_token(self) -> bool:
         async with get_db() as db:
             await db.execute("DELETE FROM oauth_tokens WHERE provider = ?", ("inaturalist",))

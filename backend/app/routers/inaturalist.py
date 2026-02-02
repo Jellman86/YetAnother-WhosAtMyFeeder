@@ -172,7 +172,7 @@ async def inaturalist_submit(request: Request, body: InaturalistSubmitRequest, a
     if not settings.inaturalist.enabled:
         raise HTTPException(status_code=400, detail=i18n_service.translate("errors.inat.disabled", lang))
 
-    token = await inaturalist_service.get_token()
+    token = await inaturalist_service.get_valid_token()
     if not token:
         raise HTTPException(status_code=400, detail=i18n_service.translate("errors.inat.not_connected", lang))
 
