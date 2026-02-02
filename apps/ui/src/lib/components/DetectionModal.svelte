@@ -1,6 +1,8 @@
 <script lang="ts">
+    import Map from './Map.svelte';
     import {
         getThumbnailUrl,
+        getSnapshotUrl,
         analyzeDetection,
         updateDetectionSpecies,
         hideDetection,
@@ -327,7 +329,7 @@
                     latitude: defaults?.inaturalist_default_latitude ?? null,
                     longitude: defaults?.inaturalist_default_longitude ?? null,
                     place_guess: defaults?.inaturalist_default_place_guess ?? null,
-                    snapshot_url: detection.snapshot_url ?? null
+                    snapshot_url: getSnapshotUrl(detection.frigate_event)
                 };
             } else {
                 inatDraft = await createInaturalistDraft(detection.frigate_event);
@@ -1009,6 +1011,22 @@
                                     <p class="text-[10px] text-slate-400/60 mt-1">Try increasing the search radius in settings.</p>
                                 </div>
                             {:else if ebirdNearby}
+                                {#if ebirdNearby.results.some(r => r.lat && r.lng)}
+                                    <div class="h-48 mb-4 rounded-xl overflow-hidden border border-sky-100 dark:border-sky-900/30 shadow-sm relative z-0">
+                                        <Map
+                                            markers={ebirdNearby.results
+                                                .filter(r => r.lat && r.lng)
+                                                .map(r => ({
+                                                    lat: r.lat!,
+                                                    lng: r.lng!,
+                                                    title: r.location_name || 'Unknown Location',
+                                                    popupText: `<div class="font-sans"><p class="font-bold text-sm mb-1">${r.location_name}</p><p class="text-xs opacity-75">${formatEbirdDate(r.observed_at)}</p><p class="text-xs font-bold mt-1">Count: ${r.how_many ?? '?'}</p></div>`
+                                                }))}
+                                            userLocation={authStore.canModify && settingsStore.settings?.location_latitude && settingsStore.settings?.location_longitude ? [settingsStore.settings.location_latitude, settingsStore.settings.location_longitude] : null}
+                                            zoom={10}
+                                        />
+                                    </div>
+                                {/if}
                                 <div class="space-y-2">
                                     {#each ebirdNearby.results.slice(0, 5) as obs}
                                         <div class="flex items-start justify-between gap-3 p-2.5 rounded-xl bg-white/60 dark:bg-slate-900/40 border border-sky-100 dark:border-sky-900/30 hover:border-sky-300 dark:hover:border-sky-700/50 transition-colors">

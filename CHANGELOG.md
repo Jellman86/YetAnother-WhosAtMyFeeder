@@ -7,6 +7,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 ## [2.7.1] - 2026-02-02
 
 - **Added:** New dedicated Enrichment tab in Settings for centralizing all species data source configurations.
+- **Added:** Interactive Map visualization for eBird sightings in species and detection modals (user location hidden in guest mode).
 - **Changed:** Refined Species Info, Recent Sightings, and Notable Nearby sections in Detection and Species modals with a new structured "beautiful" card-based layout.
 - **Fixed:** Resolved mobile scrollability issue in the Detection Details pane.
 - **Added:** Visual headers and icons for all enrichment sources (Wikipedia, eBird, iNaturalist) in modals.
