@@ -125,6 +125,13 @@ export interface Settings {
     // BirdWeather settings
     birdweather_enabled: boolean;
     birdweather_station_token?: string | null;
+    // eBird settings
+    ebird_enabled?: boolean;
+    ebird_api_key?: string | null;
+    ebird_default_radius_km?: number;
+    ebird_default_days_back?: number;
+    ebird_max_results?: number;
+    ebird_locale?: string;
     // iNaturalist settings
     inaturalist_enabled?: boolean;
     inaturalist_client_id?: string | null;
@@ -133,6 +140,15 @@ export interface Settings {
     inaturalist_default_longitude?: number | null;
     inaturalist_default_place_guess?: string | null;
     inaturalist_connected_user?: string | null;
+    // Enrichment settings
+    enrichment_mode?: string;
+    enrichment_single_provider?: string;
+    enrichment_summary_source?: string;
+    enrichment_taxonomy_source?: string;
+    enrichment_sightings_source?: string;
+    enrichment_seasonality_source?: string;
+    enrichment_rarity_source?: string;
+    enrichment_links_sources?: string[];
     // LLM settings
     llm_enabled: boolean;
     llm_provider?: string;
@@ -802,6 +818,44 @@ export async function fetchSpeciesStats(speciesName: string): Promise<SpeciesSta
 export async function fetchSpeciesInfo(speciesName: string): Promise<SpeciesInfo> {
     const response = await apiFetch(`${API_BASE}/species/${encodeURIComponent(speciesName)}/info`);
     return handleResponse<SpeciesInfo>(response);
+}
+
+export interface EbirdObservation {
+    species_code?: string | null;
+    common_name?: string | null;
+    scientific_name?: string | null;
+    observed_at?: string | null;
+    location_name?: string | null;
+    how_many?: number | null;
+    lat?: number | null;
+    lng?: number | null;
+    obs_valid?: boolean | null;
+    obs_reviewed?: boolean | null;
+}
+
+export interface EbirdNearbyResult {
+    status: string;
+    species_name?: string | null;
+    species_code?: string | null;
+    warning?: string | null;
+    results: EbirdObservation[];
+}
+
+export interface EbirdNotableResult {
+    status: string;
+    results: EbirdObservation[];
+}
+
+export async function fetchEbirdNearby(speciesName?: string): Promise<EbirdNearbyResult> {
+    const params = new URLSearchParams();
+    if (speciesName) params.set("species_name", speciesName);
+    const response = await apiFetch(`${API_BASE}/ebird/nearby?${params.toString()}`);
+    return handleResponse<EbirdNearbyResult>(response);
+}
+
+export async function fetchEbirdNotable(): Promise<EbirdNotableResult> {
+    const response = await apiFetch(`${API_BASE}/ebird/notable`);
+    return handleResponse<EbirdNotableResult>(response);
 }
 
 export async function fetchDetectionsTimeline(days = 30): Promise<DetectionsTimeline> {

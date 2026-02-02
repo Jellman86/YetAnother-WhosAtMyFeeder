@@ -243,6 +243,13 @@ class SettingsUpdate(BaseModel):
     # BirdWeather settings
     birdweather_enabled: Optional[bool] = Field(False, description="Enable BirdWeather reporting")
     birdweather_station_token: Optional[str] = Field(None, description="BirdWeather Station Token")
+    # eBird settings
+    ebird_enabled: Optional[bool] = Field(False, description="Enable eBird enrichment")
+    ebird_api_key: Optional[str] = Field(None, description="eBird API key")
+    ebird_default_radius_km: Optional[int] = Field(25, ge=1, le=50, description="Default radius in km for eBird queries")
+    ebird_default_days_back: Optional[int] = Field(14, ge=1, le=30, description="Days back for eBird queries")
+    ebird_max_results: Optional[int] = Field(25, ge=1, le=200, description="Max eBird results to return")
+    ebird_locale: Optional[str] = Field("en", description="eBird locale for common names")
     # iNaturalist settings
     inaturalist_enabled: Optional[bool] = Field(False, description="Enable iNaturalist submissions")
     inaturalist_client_id: Optional[str] = Field(None, description="iNaturalist OAuth Client ID")
@@ -250,6 +257,15 @@ class SettingsUpdate(BaseModel):
     inaturalist_default_latitude: Optional[float] = Field(None, description="Default latitude for iNaturalist submissions")
     inaturalist_default_longitude: Optional[float] = Field(None, description="Default longitude for iNaturalist submissions")
     inaturalist_default_place_guess: Optional[str] = Field(None, description="Default place guess for iNaturalist submissions")
+    # Enrichment settings
+    enrichment_mode: Optional[str] = Field("per_enrichment", description="Enrichment source mode: single or per_enrichment")
+    enrichment_single_provider: Optional[str] = Field("wikipedia", description="Provider used when mode=single")
+    enrichment_summary_source: Optional[str] = Field("wikipedia", description="Provider for summaries/description")
+    enrichment_taxonomy_source: Optional[str] = Field("inaturalist", description="Provider for taxonomy/common names")
+    enrichment_sightings_source: Optional[str] = Field("disabled", description="Provider for nearby sightings")
+    enrichment_seasonality_source: Optional[str] = Field("disabled", description="Provider for seasonality")
+    enrichment_rarity_source: Optional[str] = Field("disabled", description="Provider for rarity indicators")
+    enrichment_links_sources: Optional[List[str]] = Field(default_factory=list, description="Providers for external links")
     # LLM settings
     llm_enabled: Optional[bool] = Field(False, description="Enable AI behavior analysis")
     llm_provider: Optional[str] = Field("gemini", description="AI provider")
@@ -371,6 +387,17 @@ class SettingsUpdate(BaseModel):
             raise ValueError("notifications_mode must be one of: silent, final, standard, realtime, custom")
         return normalized
 
+    @field_validator('enrichment_mode')
+    @classmethod
+    def validate_enrichment_mode(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        normalized = v.strip().lower()
+        allowed = {"single", "per_enrichment"}
+        if normalized not in allowed:
+            raise ValueError("enrichment_mode must be 'single' or 'per_enrichment'")
+        return normalized
+
     @field_validator('frigate_url')
     @classmethod
     def validate_frigate_url(cls, v: str) -> str:
@@ -438,6 +465,13 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "birdweather_enabled": settings.birdweather.enabled,
         # SECURITY: Never expose station tokens via API
         "birdweather_station_token": "***REDACTED***" if settings.birdweather.station_token else None,
+        # eBird settings
+        "ebird_enabled": settings.ebird.enabled,
+        "ebird_api_key": "***REDACTED***" if settings.ebird.api_key else None,
+        "ebird_default_radius_km": settings.ebird.default_radius_km,
+        "ebird_default_days_back": settings.ebird.default_days_back,
+        "ebird_max_results": settings.ebird.max_results,
+        "ebird_locale": settings.ebird.locale,
         # iNaturalist settings
         "inaturalist_enabled": settings.inaturalist.enabled,
         "inaturalist_client_id": "***REDACTED***" if settings.inaturalist.client_id else None,
@@ -446,6 +480,15 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "inaturalist_default_longitude": settings.inaturalist.default_longitude,
         "inaturalist_default_place_guess": settings.inaturalist.default_place_guess,
         "inaturalist_connected_user": inat_user,
+        # Enrichment settings
+        "enrichment_mode": settings.enrichment.mode,
+        "enrichment_single_provider": settings.enrichment.single_provider,
+        "enrichment_summary_source": settings.enrichment.summary_source,
+        "enrichment_taxonomy_source": settings.enrichment.taxonomy_source,
+        "enrichment_sightings_source": settings.enrichment.sightings_source,
+        "enrichment_seasonality_source": settings.enrichment.seasonality_source,
+        "enrichment_rarity_source": settings.enrichment.rarity_source,
+        "enrichment_links_sources": settings.enrichment.links_sources,
         # LLM settings
         "llm_enabled": settings.llm.enabled,
         "llm_provider": settings.llm.provider,
@@ -613,6 +656,20 @@ async def update_settings(
     if "birdweather_station_token" in fields_set and should_update_secret(update.birdweather_station_token):
         settings.birdweather.station_token = update.birdweather_station_token
 
+    # eBird settings
+    if "ebird_enabled" in fields_set and update.ebird_enabled is not None:
+        settings.ebird.enabled = update.ebird_enabled
+    if "ebird_api_key" in fields_set and should_update_secret(update.ebird_api_key):
+        settings.ebird.api_key = update.ebird_api_key
+    if "ebird_default_radius_km" in fields_set and update.ebird_default_radius_km is not None:
+        settings.ebird.default_radius_km = update.ebird_default_radius_km
+    if "ebird_default_days_back" in fields_set and update.ebird_default_days_back is not None:
+        settings.ebird.default_days_back = update.ebird_default_days_back
+    if "ebird_max_results" in fields_set and update.ebird_max_results is not None:
+        settings.ebird.max_results = update.ebird_max_results
+    if "ebird_locale" in fields_set and update.ebird_locale is not None:
+        settings.ebird.locale = update.ebird_locale
+
     # iNaturalist settings
     if "inaturalist_enabled" in fields_set and update.inaturalist_enabled is not None:
         settings.inaturalist.enabled = update.inaturalist_enabled
@@ -626,6 +683,24 @@ async def update_settings(
         settings.inaturalist.default_longitude = update.inaturalist_default_longitude
     if "inaturalist_default_place_guess" in fields_set and update.inaturalist_default_place_guess is not None:
         settings.inaturalist.default_place_guess = update.inaturalist_default_place_guess
+
+    # Enrichment settings
+    if "enrichment_mode" in fields_set and update.enrichment_mode is not None:
+        settings.enrichment.mode = update.enrichment_mode
+    if "enrichment_single_provider" in fields_set and update.enrichment_single_provider is not None:
+        settings.enrichment.single_provider = update.enrichment_single_provider
+    if "enrichment_summary_source" in fields_set and update.enrichment_summary_source is not None:
+        settings.enrichment.summary_source = update.enrichment_summary_source
+    if "enrichment_taxonomy_source" in fields_set and update.enrichment_taxonomy_source is not None:
+        settings.enrichment.taxonomy_source = update.enrichment_taxonomy_source
+    if "enrichment_sightings_source" in fields_set and update.enrichment_sightings_source is not None:
+        settings.enrichment.sightings_source = update.enrichment_sightings_source
+    if "enrichment_seasonality_source" in fields_set and update.enrichment_seasonality_source is not None:
+        settings.enrichment.seasonality_source = update.enrichment_seasonality_source
+    if "enrichment_rarity_source" in fields_set and update.enrichment_rarity_source is not None:
+        settings.enrichment.rarity_source = update.enrichment_rarity_source
+    if "enrichment_links_sources" in fields_set and update.enrichment_links_sources is not None:
+        settings.enrichment.links_sources = update.enrichment_links_sources
 
     # LLM settings
     if "llm_enabled" in fields_set and update.llm_enabled is not None:

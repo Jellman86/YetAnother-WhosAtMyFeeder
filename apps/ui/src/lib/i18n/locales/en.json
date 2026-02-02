@@ -95,7 +95,7 @@
     "view_snapshot": "View Snapshot",
     "statistics": "Statistics",
     "period": "Period",
-    "detections": "detections"
+    "detections": "Detections"
   },
   "error": {
     "boundary_title": "Something went wrong",
@@ -183,6 +183,19 @@
         "refresh": "Refresh Status",
         "refresh_label": "Refresh iNaturalist connection",
         "connected": "Connected as {user}"
+      },
+      "ebird": {
+        "title": "eBird",
+        "toggle_label": "Toggle eBird enrichment",
+        "api_key": "API Key",
+        "api_key_label": "eBird API key",
+        "api_key_placeholder": "eBird API Key",
+        "saved_placeholder": "Saved",
+        "api_key_desc": "Required to fetch recent sightings and notable birds.",
+        "radius": "Default radius (km)",
+        "days_back": "Days back",
+        "max_results": "Max results",
+        "locale": "Locale"
       }
     },
     "auth": {

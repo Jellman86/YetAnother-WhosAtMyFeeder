@@ -53,6 +53,29 @@ def _is_cache_valid(info: SpeciesInfo, cached_at: datetime | None) -> bool:
     cache_ttl = CACHE_TTL_SUCCESS if is_success else CACHE_TTL_FAILURE
     return datetime.now() - cached_at < cache_ttl
 
+
+def _normalize_provider(provider: str | None) -> str:
+    if not provider:
+        return "wikipedia"
+    normalized = provider.strip().lower()
+    if normalized in ("inat", "inaturalist"):
+        return "inaturalist"
+    if normalized in ("wiki", "wikipedia"):
+        return "wikipedia"
+    if normalized in ("disabled", "ebird"):
+        return "wikipedia"
+    return normalized
+
+
+def _resolve_summary_sources() -> list[str]:
+    mode = (settings.enrichment.mode or "per_enrichment").strip().lower()
+    if mode == "single":
+        primary = _normalize_provider(settings.enrichment.single_provider)
+    else:
+        primary = _normalize_provider(settings.enrichment.summary_source)
+    fallback = "wikipedia" if primary != "wikipedia" else "inaturalist"
+    return [primary, fallback]
+
 async def _lookup_taxa_id(species_name: str) -> int | None:
     async with get_db() as db:
         cursor = await db.execute(
@@ -692,17 +715,27 @@ async def get_species_info(
     if cached_info:
         return cached_info
 
-    source_pref = settings.species_info_source or "auto"
+    summary_sources = _resolve_summary_sources()
+    primary = summary_sources[0]
 
-    if source_pref == "wikipedia":
+    if primary == "wikipedia":
         info = await _fetch_wikipedia_info(species_name, lang)
         if info.extract:
             info.summary_source = info.source
             info.summary_source_url = info.source_url
-    elif source_pref == "inat":
-        info = await _fetch_inaturalist_info(species_name, lang)
+        if not info.extract or not info.thumbnail_url:
+            inat_info = await _fetch_inaturalist_info(species_name, lang)
+            if not info.extract and inat_info.extract:
+                info.extract = inat_info.extract
+                info.summary_source = inat_info.source
+                info.summary_source_url = inat_info.source_url
+            if not info.thumbnail_url and inat_info.thumbnail_url:
+                info.thumbnail_url = inat_info.thumbnail_url
+            if not info.wikipedia_url and inat_info.wikipedia_url:
+                info.wikipedia_url = inat_info.wikipedia_url
+            if not info.scientific_name and inat_info.scientific_name:
+                info.scientific_name = inat_info.scientific_name
     else:
-        # Fetch from iNaturalist first, then fill gaps with Wikipedia
         info = await _fetch_inaturalist_info(species_name, lang)
         if not info.extract or not info.thumbnail_url:
             wiki_info = None
@@ -727,6 +760,10 @@ async def get_species_info(
                 info.extract = fallback.extract
                 info.summary_source = fallback.source
                 info.summary_source_url = fallback.source_url
+
+    if info.extract and not info.summary_source:
+        info.summary_source = info.source
+        info.summary_source_url = info.source_url
 
     # Cache the result
     await _save_species_info(species_name, taxa_id, lang, info)

@@ -241,7 +241,25 @@
     let highContrast = $state(false);
     let dyslexiaFont = $state(false);
     let liveAnnouncements = $state(true);
-    let speciesInfoSource = $state('auto');
+
+    // eBird
+    let ebirdEnabled = $state(false);
+    let ebirdApiKey = $state('');
+    let ebirdApiKeySaved = $state(false);
+    let ebirdDefaultRadiusKm = $state(25);
+    let ebirdDefaultDaysBack = $state(14);
+    let ebirdMaxResults = $state(25);
+    let ebirdLocale = $state('en');
+
+    // Enrichment sources
+    let enrichmentMode = $state<'single' | 'per_enrichment'>('per_enrichment');
+    let enrichmentSingleProvider = $state('wikipedia');
+    let enrichmentSummarySource = $state('wikipedia');
+    let enrichmentTaxonomySource = $state('inaturalist');
+    let enrichmentSightingsSource = $state('disabled');
+    let enrichmentSeasonalitySource = $state('disabled');
+    let enrichmentRaritySource = $state('disabled');
+    let enrichmentLinksSources = $state<string[]>(['wikipedia', 'inaturalist']);
 
     $effect(() => {
         if (highContrast) document.documentElement.classList.add('high-contrast');
@@ -379,12 +397,26 @@
             { key: 'locationTemperatureUnit', val: locationTemperatureUnit, store: s.location_temperature_unit ?? 'celsius' },
             { key: 'birdweatherEnabled', val: birdweatherEnabled, store: s.birdweather_enabled ?? false },
             { key: 'birdweatherStationToken', val: birdweatherStationToken, store: s.birdweather_station_token || '' },
+            { key: 'ebirdEnabled', val: ebirdEnabled, store: s.ebird_enabled ?? false },
+            { key: 'ebirdApiKey', val: ebirdApiKey, store: normalizeSecret(s.ebird_api_key) },
+            { key: 'ebirdDefaultRadiusKm', val: ebirdDefaultRadiusKm, store: s.ebird_default_radius_km ?? 25 },
+            { key: 'ebirdDefaultDaysBack', val: ebirdDefaultDaysBack, store: s.ebird_default_days_back ?? 14 },
+            { key: 'ebirdMaxResults', val: ebirdMaxResults, store: s.ebird_max_results ?? 25 },
+            { key: 'ebirdLocale', val: ebirdLocale, store: s.ebird_locale ?? 'en' },
             { key: 'inaturalistEnabled', val: inaturalistEnabled, store: s.inaturalist_enabled ?? false },
             { key: 'inaturalistClientId', val: inaturalistClientId, store: normalizeSecret(s.inaturalist_client_id) },
             { key: 'inaturalistClientSecret', val: inaturalistClientSecret, store: normalizeSecret(s.inaturalist_client_secret) },
             { key: 'inaturalistDefaultLat', val: inaturalistDefaultLat, store: s.inaturalist_default_latitude ?? null },
             { key: 'inaturalistDefaultLon', val: inaturalistDefaultLon, store: s.inaturalist_default_longitude ?? null },
             { key: 'inaturalistDefaultPlace', val: inaturalistDefaultPlace, store: s.inaturalist_default_place_guess ?? '' },
+            { key: 'enrichmentMode', val: enrichmentMode, store: (s.enrichment_mode as typeof enrichmentMode) ?? 'per_enrichment' },
+            { key: 'enrichmentSingleProvider', val: enrichmentSingleProvider, store: s.enrichment_single_provider ?? 'wikipedia' },
+            { key: 'enrichmentSummarySource', val: enrichmentSummarySource, store: s.enrichment_summary_source ?? 'wikipedia' },
+            { key: 'enrichmentTaxonomySource', val: enrichmentTaxonomySource, store: s.enrichment_taxonomy_source ?? 'inaturalist' },
+            { key: 'enrichmentSightingsSource', val: enrichmentSightingsSource, store: s.enrichment_sightings_source ?? 'disabled' },
+            { key: 'enrichmentSeasonalitySource', val: enrichmentSeasonalitySource, store: s.enrichment_seasonality_source ?? 'disabled' },
+            { key: 'enrichmentRaritySource', val: enrichmentRaritySource, store: s.enrichment_rarity_source ?? 'disabled' },
+            { key: 'enrichmentLinksSources', val: JSON.stringify(enrichmentLinksSources), store: JSON.stringify(s.enrichment_links_sources || ['wikipedia', 'inaturalist']) },
             { key: 'llmEnabled', val: llmEnabled, store: s.llm_enabled ?? false },
             { key: 'llmProvider', val: llmProvider, store: s.llm_provider ?? 'gemini' },
             { key: 'llmApiKey', val: llmApiKey, store: s.llm_api_key || '' },
@@ -440,8 +472,7 @@
             // Accessibility
             { key: 'highContrast', val: highContrast, store: s.accessibility_high_contrast ?? false },
             { key: 'dyslexiaFont', val: dyslexiaFont, store: s.accessibility_dyslexia_font ?? false },
-            { key: 'liveAnnouncements', val: liveAnnouncements, store: s.accessibility_live_announcements ?? true },
-            { key: 'speciesInfoSource', val: speciesInfoSource, store: s.species_info_source ?? 'auto' }
+            { key: 'liveAnnouncements', val: liveAnnouncements, store: s.accessibility_live_announcements ?? true }
         ];
 
         if (authPassword.length > 0 || authPasswordConfirm.length > 0) {
@@ -900,6 +931,19 @@
             // BirdWeather settings
             birdweatherEnabled = settings.birdweather_enabled ?? false;
             birdweatherStationToken = settings.birdweather_station_token ?? '';
+            // eBird settings
+            ebirdEnabled = settings.ebird_enabled ?? false;
+            if (settings.ebird_api_key === '***REDACTED***') {
+                ebirdApiKeySaved = true;
+                ebirdApiKey = '';
+            } else {
+                ebirdApiKeySaved = false;
+                ebirdApiKey = settings.ebird_api_key || '';
+            }
+            ebirdDefaultRadiusKm = settings.ebird_default_radius_km ?? 25;
+            ebirdDefaultDaysBack = settings.ebird_default_days_back ?? 14;
+            ebirdMaxResults = settings.ebird_max_results ?? 25;
+            ebirdLocale = settings.ebird_locale ?? 'en';
             // iNaturalist settings
             inaturalistEnabled = settings.inaturalist_enabled ?? false;
             if (settings.inaturalist_client_id === '***REDACTED***') {
@@ -920,6 +964,15 @@
             inaturalistDefaultLon = settings.inaturalist_default_longitude ?? null;
             inaturalistDefaultPlace = settings.inaturalist_default_place_guess ?? '';
             inaturalistConnectedUser = settings.inaturalist_connected_user ?? null;
+            // Enrichment settings
+            enrichmentMode = (settings.enrichment_mode as typeof enrichmentMode) ?? 'per_enrichment';
+            enrichmentSingleProvider = settings.enrichment_single_provider ?? 'wikipedia';
+            enrichmentSummarySource = settings.enrichment_summary_source ?? 'wikipedia';
+            enrichmentTaxonomySource = settings.enrichment_taxonomy_source ?? 'inaturalist';
+            enrichmentSightingsSource = settings.enrichment_sightings_source ?? 'disabled';
+            enrichmentSeasonalitySource = settings.enrichment_seasonality_source ?? 'disabled';
+            enrichmentRaritySource = settings.enrichment_rarity_source ?? 'disabled';
+            enrichmentLinksSources = settings.enrichment_links_sources || ['wikipedia', 'inaturalist'];
             // LLM settings
             llmEnabled = settings.llm_enabled ?? false;
             llmProvider = settings.llm_provider ?? 'gemini';
@@ -1035,7 +1088,6 @@
             highContrast = settings.accessibility_high_contrast ?? false;
             dyslexiaFont = settings.accessibility_dyslexia_font ?? false;
             liveAnnouncements = settings.accessibility_live_announcements ?? true;
-            speciesInfoSource = settings.species_info_source ?? 'auto';
         } catch (e) {
             message = { type: 'error', text: $_('notifications.settings_load_failed') };
         } finally {
@@ -1110,12 +1162,26 @@
                 location_temperature_unit: locationTemperatureUnit,
                 birdweather_enabled: birdweatherEnabled,
                 birdweather_station_token: birdweatherStationToken,
+                ebird_enabled: ebirdEnabled,
+                ebird_api_key: ebirdApiKey,
+                ebird_default_radius_km: ebirdDefaultRadiusKm,
+                ebird_default_days_back: ebirdDefaultDaysBack,
+                ebird_max_results: ebirdMaxResults,
+                ebird_locale: ebirdLocale,
                 inaturalist_enabled: inaturalistEnabled,
                 inaturalist_client_id: inaturalistClientId,
                 inaturalist_client_secret: inaturalistClientSecret,
                 inaturalist_default_latitude: inaturalistDefaultLat,
                 inaturalist_default_longitude: inaturalistDefaultLon,
                 inaturalist_default_place_guess: inaturalistDefaultPlace,
+                enrichment_mode: enrichmentMode,
+                enrichment_single_provider: enrichmentSingleProvider,
+                enrichment_summary_source: enrichmentSummarySource,
+                enrichment_taxonomy_source: enrichmentTaxonomySource,
+                enrichment_sightings_source: enrichmentSightingsSource,
+                enrichment_seasonality_source: enrichmentSeasonalitySource,
+                enrichment_rarity_source: enrichmentRaritySource,
+                enrichment_links_sources: enrichmentLinksSources,
                 llm_enabled: llmEnabled,
                 llm_provider: llmProvider,
                 llm_api_key: llmApiKey,
@@ -1172,8 +1238,7 @@
                 // Accessibility
                 accessibility_high_contrast: highContrast,
                 accessibility_dyslexia_font: dyslexiaFont,
-                accessibility_live_announcements: liveAnnouncements,
-                species_info_source: speciesInfoSource
+                accessibility_live_announcements: liveAnnouncements
             });
             // Update store
             await settingsStore.load();
@@ -1498,6 +1563,13 @@
                     bind:cameraAudioMapping
                     bind:birdweatherEnabled
                     bind:birdweatherStationToken
+                    bind:ebirdEnabled
+                    bind:ebirdApiKey
+                    bind:ebirdApiKeySaved
+                    bind:ebirdDefaultRadiusKm
+                    bind:ebirdDefaultDaysBack
+                    bind:ebirdMaxResults
+                    bind:ebirdLocale
                     bind:inaturalistEnabled
                     bind:inaturalistClientId
                     bind:inaturalistClientSecret
@@ -1570,7 +1642,14 @@
                     bind:cacheSnapshots
                     bind:cacheClips
                     bind:cacheRetentionDays
-                    bind:speciesInfoSource
+                    bind:enrichmentMode
+                    bind:enrichmentSingleProvider
+                    bind:enrichmentSummarySource
+                    bind:enrichmentTaxonomySource
+                    bind:enrichmentSightingsSource
+                    bind:enrichmentSeasonalitySource
+                    bind:enrichmentRaritySource
+                    bind:enrichmentLinksSources
                     bind:backfillDateRange
                     bind:backfillStartDate
                     bind:backfillEndDate

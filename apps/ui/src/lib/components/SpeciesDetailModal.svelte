@@ -3,9 +3,13 @@
     import {
         fetchSpeciesStats,
         fetchSpeciesInfo,
+        fetchEbirdNearby,
+        fetchEbirdNotable,
         reclassifyDetection,
         type SpeciesStats,
         type SpeciesInfo,
+        type EbirdNearbyResult,
+        type EbirdNotableResult,
         type Detection,
         getThumbnailUrl
     } from '../api';
@@ -42,6 +46,14 @@
     let error = $state<string | null>(null);
     let isUnknownBird = $state(false);
 
+    // Enrichment (eBird)
+    let ebirdNearby = $state<EbirdNearbyResult | null>(null);
+    let ebirdNearbyLoading = $state(false);
+    let ebirdNearbyError = $state<string | null>(null);
+    let ebirdNotable = $state<EbirdNotableResult | null>(null);
+    let ebirdNotableLoading = $state(false);
+    let ebirdNotableError = $state<string | null>(null);
+
     // Video playback state
     let showVideo = $state(false);
     let selectedSighting = $state<Detection | null>(null);
@@ -55,6 +67,37 @@
         showCommon = settingsStore.settings?.display_common_names ?? true;
         preferSci = settingsStore.settings?.scientific_name_primary ?? false;
     });
+
+    const enrichmentModeSetting = $derived(settingsStore.settings?.enrichment_mode ?? 'per_enrichment');
+    const enrichmentSingleProviderSetting = $derived(settingsStore.settings?.enrichment_single_provider ?? 'wikipedia');
+    const enrichmentSightingsProvider = $derived(
+        enrichmentModeSetting === 'single'
+            ? enrichmentSingleProviderSetting
+            : (settingsStore.settings?.enrichment_sightings_source ?? 'disabled')
+    );
+    const enrichmentSeasonalityProvider = $derived(
+        enrichmentModeSetting === 'single'
+            ? enrichmentSingleProviderSetting
+            : (settingsStore.settings?.enrichment_seasonality_source ?? 'disabled')
+    );
+    const enrichmentRarityProvider = $derived(
+        enrichmentModeSetting === 'single'
+            ? enrichmentSingleProviderSetting
+            : (settingsStore.settings?.enrichment_rarity_source ?? 'disabled')
+    );
+    const ebirdEnabled = $derived(settingsStore.settings?.ebird_enabled ?? false);
+    const ebirdRadius = $derived(settingsStore.settings?.ebird_default_radius_km ?? 25);
+    const ebirdDaysBack = $derived(settingsStore.settings?.ebird_default_days_back ?? 14);
+    const showEbirdNearby = $derived(
+        enrichmentSightingsProvider === 'ebird' || enrichmentSeasonalityProvider === 'ebird'
+    );
+    const showEbirdNotable = $derived(enrichmentRarityProvider === 'ebird');
+    const enrichmentLinksProviders = $derived(
+        enrichmentModeSetting === 'single'
+            ? [enrichmentSingleProviderSetting]
+            : (settingsStore.settings?.enrichment_links_sources ?? ['wikipedia', 'inaturalist'])
+    );
+    const enrichmentLinksProvidersNormalized = $derived(enrichmentLinksProviders.map((provider) => provider.toLowerCase()));
 
     const UNKNOWN_SPECIES_NAME = 'Unknown Bird';
     const UNKNOWN_LABELS = new Set(['unknown bird', 'unknown', 'background']);
@@ -94,6 +137,8 @@
         const items: { label: string; url: string | null }[] = [];
         const push = (label: string | null, url: string | null) => {
             if (!label) return;
+            const normalized = label.toLowerCase();
+            if (!enrichmentLinksProvidersNormalized.includes(normalized)) return;
             const existing = items.find((item) => item.label === label);
             if (existing) {
                 if (!existing.url && url) existing.url = url;
@@ -106,11 +151,37 @@
         push(info.summary_source, info.summary_source_url);
 
         if (items.length === 0 && info.wikipedia_url) {
-            items.push({ label: 'Wikipedia', url: info.wikipedia_url });
+            if (enrichmentLinksProvidersNormalized.includes('wikipedia')) {
+                items.push({ label: 'Wikipedia', url: info.wikipedia_url });
+            }
         }
 
         return items;
     });
+
+    async function loadEbirdNearby(name: string) {
+        ebirdNearbyLoading = true;
+        ebirdNearbyError = null;
+        try {
+            ebirdNearby = await fetchEbirdNearby(name);
+        } catch (e: any) {
+            ebirdNearbyError = e?.message || 'Failed to load eBird sightings';
+        } finally {
+            ebirdNearbyLoading = false;
+        }
+    }
+
+    async function loadEbirdNotable() {
+        ebirdNotableLoading = true;
+        ebirdNotableError = null;
+        try {
+            ebirdNotable = await fetchEbirdNotable();
+        } catch (e: any) {
+            ebirdNotableError = e?.message || 'Failed to load eBird notable sightings';
+        } finally {
+            ebirdNotableLoading = false;
+        }
+    }
 
 
     onMount(async () => {
@@ -126,6 +197,13 @@
             if (!isUnknownBird) {
                 const infoData = await fetchSpeciesInfo(speciesName);
                 info = infoData;
+            }
+
+            if (!isUnknownBird && ebirdEnabled && showEbirdNearby) {
+                void loadEbirdNearby(speciesName);
+            }
+            if (!isUnknownBird && ebirdEnabled && showEbirdNotable) {
+                void loadEbirdNotable();
             }
         } catch (e: any) {
             console.error('Failed to load species details', e);
@@ -147,6 +225,15 @@
             });
         } catch {
             return 'N/A';
+        }
+    }
+
+    function formatEbirdDate(dateStr?: string | null): string {
+        if (!dateStr) return '—';
+        try {
+            return new Date(dateStr).toLocaleString();
+        } catch {
+            return '—';
         }
     }
 
@@ -432,6 +519,80 @@
                                 {/if}
                             </div>
                         </div>
+                    </section>
+                {/if}
+
+                {#if !isUnknownBird && (showEbirdNearby || showEbirdNotable)}
+                    <section class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                        {#if showEbirdNearby}
+                            <div class="rounded-2xl border border-sky-200/70 dark:border-slate-600/40 bg-sky-50/70 dark:bg-slate-800/60 p-5">
+                                <div class="flex items-center justify-between gap-3 mb-3">
+                                    <h4 class="text-xs font-black uppercase tracking-[0.2em] text-sky-600">Recent sightings</h4>
+                                    <span class="text-[10px] font-black uppercase tracking-widest text-slate-500">{ebirdDaysBack} days · {ebirdRadius} km</span>
+                                </div>
+                                {#if !ebirdEnabled}
+                                    <p class="text-xs text-slate-500">Enable eBird integration to show sightings.</p>
+                                {:else if ebirdNearbyLoading}
+                                    <div class="flex items-center gap-2 text-xs text-slate-500">
+                                        <div class="w-3 h-3 border-2 border-sky-500 border-t-transparent rounded-full animate-spin"></div>
+                                        Loading eBird sightings...
+                                    </div>
+                                {:else if ebirdNearbyError}
+                                    <p class="text-xs text-rose-600">{ebirdNearbyError}</p>
+                                {:else if ebirdNearby?.warning}
+                                    <p class="text-xs text-amber-600">{ebirdNearby.warning}</p>
+                                {:else if (ebirdNearby?.results?.length || 0) === 0}
+                                    <p class="text-xs text-slate-500 italic">No recent sightings reported.</p>
+                                {:else if ebirdNearby}
+                                    <div class="space-y-2">
+                                        {#each ebirdNearby.results.slice(0, 6) as obs}
+                                            <div class="flex items-center justify-between gap-3 text-xs text-slate-600 dark:text-slate-300">
+                                                <div class="min-w-0">
+                                                    <p class="font-semibold truncate">{obs.location_name || 'Unknown location'}</p>
+                                                    <p class="text-[10px] uppercase tracking-widest text-slate-400">{formatEbirdDate(obs.observed_at)}</p>
+                                                </div>
+                                                {#if obs.how_many}
+                                                    <span class="text-[10px] font-black text-slate-500">x{obs.how_many}</span>
+                                                {/if}
+                                            </div>
+                                        {/each}
+                                    </div>
+                                {/if}
+                            </div>
+                        {/if}
+
+                        {#if showEbirdNotable}
+                            <div class="rounded-2xl border border-amber-200/70 dark:border-slate-600/40 bg-amber-50/70 dark:bg-slate-800/60 p-5">
+                                <div class="flex items-center justify-between gap-3 mb-3">
+                                    <h4 class="text-xs font-black uppercase tracking-[0.2em] text-amber-600">Notable nearby</h4>
+                                    <span class="text-[10px] font-black uppercase tracking-widest text-slate-500">eBird</span>
+                                </div>
+                                {#if !ebirdEnabled}
+                                    <p class="text-xs text-slate-500">Enable eBird integration to show notable sightings.</p>
+                                {:else if ebirdNotableLoading}
+                                    <div class="flex items-center gap-2 text-xs text-slate-500">
+                                        <div class="w-3 h-3 border-2 border-amber-500 border-t-transparent rounded-full animate-spin"></div>
+                                        Loading notable sightings...
+                                    </div>
+                                {:else if ebirdNotableError}
+                                    <p class="text-xs text-rose-600">{ebirdNotableError}</p>
+                                {:else if (ebirdNotable?.results?.length || 0) === 0}
+                                    <p class="text-xs text-slate-500 italic">No notable sightings reported.</p>
+                                {:else if ebirdNotable}
+                                    <div class="space-y-2">
+                                        {#each ebirdNotable.results.slice(0, 6) as obs}
+                                            <div class="flex items-center justify-between gap-3 text-xs text-slate-600 dark:text-slate-300">
+                                                <div class="min-w-0">
+                                                    <p class="font-semibold truncate">{obs.common_name || obs.scientific_name || 'Unknown species'}</p>
+                                                    <p class="text-[10px] uppercase tracking-widest text-slate-400">{obs.location_name || 'Unknown location'}</p>
+                                                </div>
+                                                <span class="text-[10px] font-black text-slate-500">{formatEbirdDate(obs.observed_at)}</span>
+                                            </div>
+                                        {/each}
+                                    </div>
+                                {/if}
+                            </div>
+                        {/if}
                     </section>
                 {/if}
 

@@ -22,7 +22,7 @@ from app.services.telemetry_service import telemetry_service
 from app.services.auto_video_classifier_service import auto_video_classifier
 from app.services.frigate_client import frigate_client
 from app.repositories.detection_repository import DetectionRepository
-from app.routers import events, proxy, settings as settings_router, species, backfill, classifier, models, ai, stats, debug, audio, email, inaturalist, auth as auth_router
+from app.routers import events, proxy, settings as settings_router, species, backfill, classifier, models, ai, stats, debug, audio, email, inaturalist, ebird, auth as auth_router
 from app.config import settings, _expand_trusted_hosts
 from app.middleware.language import LanguageMiddleware
 from app.services.i18n_service import i18n_service
@@ -285,6 +285,7 @@ app.include_router(models.router, prefix="/api", tags=["models"], dependencies=[
 app.include_router(debug.router, prefix="/api", tags=["debug"], dependencies=[Depends(get_auth_context_with_legacy)])
 app.include_router(email.router, prefix="/api", tags=["email"], dependencies=[Depends(get_auth_context_with_legacy)])
 app.include_router(inaturalist.router, prefix="/api", tags=["inaturalist"], dependencies=[Depends(get_auth_context_with_legacy)])
+app.include_router(ebird.router, prefix="/api", tags=["ebird"], dependencies=[Depends(get_auth_context_with_legacy)])
 
 @app.middleware("http")
 async def add_security_headers(request: Request, call_next):
