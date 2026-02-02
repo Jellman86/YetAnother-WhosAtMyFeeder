@@ -769,6 +769,7 @@ export interface SpeciesInfo {
     summary_source_url: string | null;
     scientific_name: string | null;
     conservation_status: string | null;
+    taxa_id?: number | null;
     cached_at: string | null;
 }
 
@@ -1396,4 +1397,22 @@ export async function submitInaturalistObservation(payload: {
         body: JSON.stringify(payload)
     });
     return handleResponse<InaturalistSubmitResult>(response);
+}
+
+export interface SeasonalityResult {
+    status: string;
+    taxon_id: number;
+    local: boolean;
+    month_counts: number[];
+    total_observations: number;
+}
+
+export async function fetchSeasonality(taxonId: number, lat?: number, lng?: number): Promise<SeasonalityResult> {
+    const params = new URLSearchParams({ taxon_id: String(taxonId) });
+    if (lat !== undefined && lng !== undefined) {
+        params.set('lat', String(lat));
+        params.set('lng', String(lng));
+    }
+    const response = await apiFetch(`${API_BASE}/inaturalist/seasonality?${params.toString()}`);
+    return handleResponse<SeasonalityResult>(response);
 }

@@ -5,7 +5,7 @@
         fetchSpeciesStats,
         fetchSpeciesInfo,
         fetchEbirdNearby,
-        fetchEbirdNotable,
+        fetchSeasonality,
         reclassifyDetection,
         type SpeciesStats,
         type SpeciesInfo,
@@ -52,9 +52,8 @@
     let ebirdNearby = $state<EbirdNearbyResult | null>(null);
     let ebirdNearbyLoading = $state(false);
     let ebirdNearbyError = $state<string | null>(null);
-    let ebirdNotable = $state<EbirdNotableResult | null>(null);
-    let ebirdNotableLoading = $state(false);
-    let ebirdNotableError = $state<string | null>(null);
+    let seasonality = $state<{ month_counts: number[], total: number, local: boolean } | null>(null);
+    let seasonalityLoading = $state(false);
 
     // Video playback state
     let showVideo = $state(false);
@@ -173,15 +172,18 @@
         }
     }
 
-    async function loadEbirdNotable() {
-        ebirdNotableLoading = true;
-        ebirdNotableError = null;
+    async function loadSeasonality(taxonId: number) {
+        seasonalityLoading = true;
         try {
-            ebirdNotable = await fetchEbirdNotable();
-        } catch (e: any) {
-            ebirdNotableError = e?.message || 'Failed to load eBird notable sightings';
+            // Use local coords if available for local context
+            const lat = settingsStore.settings?.location_latitude ?? undefined;
+            const lng = settingsStore.settings?.location_longitude ?? undefined;
+            const res = await fetchSeasonality(taxonId, lat, lng);
+            seasonality = { month_counts: res.month_counts, total: res.total_observations, local: res.local };
+        } catch (e) {
+            console.error('Failed to load seasonality', e);
         } finally {
-            ebirdNotableLoading = false;
+            seasonalityLoading = false;
         }
     }
 
@@ -204,8 +206,12 @@
             if (!isUnknownBird && ebirdEnabled && showEbirdNearby) {
                 void loadEbirdNearby(speciesName);
             }
-            if (!isUnknownBird && ebirdEnabled && showEbirdNotable) {
-                void loadEbirdNotable();
+            
+            // Fetch seasonality if we have a taxa_id (from stats or info)
+            // Note: stats.taxa_id might be missing if not in detections table yet, but info.taxa_id might be there
+            const taxonId = info?.taxa_id || stats?.recent_sightings?.[0]?.taxa_id;
+            if (taxonId) {
+                void loadSeasonality(taxonId);
             }
         } catch (e: any) {
             console.error('Failed to load species details', e);
@@ -527,7 +533,7 @@
                     </section>
                 {/if}
 
-                {#if !isUnknownBird && (showEbirdNearby || showEbirdNotable)}
+                {#if !isUnknownBird && (showEbirdNearby || seasonality)}
                     <section class="grid grid-cols-1 lg:grid-cols-2 gap-4">
                         {#if showEbirdNearby}
                             <div class="group relative overflow-hidden rounded-2xl border border-sky-200/60 dark:border-sky-800/40 bg-sky-50/30 dark:bg-sky-900/10 p-5 hover:bg-sky-50/50 dark:hover:bg-sky-900/20 transition-all duration-300">
@@ -615,58 +621,30 @@
                             </div>
                         {/if}
 
-                        {#if showEbirdNotable}
-                            <div class="group relative overflow-hidden rounded-2xl border border-amber-200/60 dark:border-amber-800/40 bg-amber-50/30 dark:bg-amber-900/10 p-5 hover:bg-amber-50/50 dark:hover:bg-amber-900/20 transition-all duration-300">
-                                <div class="flex items-center justify-between gap-3 mb-4">
-                                    <div class="flex items-center gap-2">
-                                        <div class="p-1.5 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400">
-                                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
-                                            </svg>
-                                        </div>
-                                        <div class="flex flex-col">
-                                            <h4 class="text-[10px] font-black uppercase tracking-[0.2em] text-amber-700 dark:text-amber-400">Notable nearby</h4>
-                                            <div class="flex items-center gap-1.5 mt-0.5">
-                                                <span class="text-[9px] font-bold text-amber-600/60 dark:text-amber-500/60 uppercase tracking-wider">eBird</span>
-                                            </div>
-                                        </div>
+                        {#if seasonality}
+                            <div class="group relative overflow-hidden rounded-2xl border border-indigo-200/60 dark:border-indigo-800/40 bg-indigo-50/30 dark:bg-indigo-900/10 p-5 hover:bg-indigo-50/50 dark:hover:bg-indigo-900/20 transition-all duration-300">
+                                <div class="flex items-center gap-2 mb-4">
+                                    <div class="p-1.5 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
+                                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <h4 class="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-700 dark:text-indigo-400">
+                                            {seasonality.local ? $_('species_detail.seasonality_local') : $_('species_detail.seasonality_global')}
+                                        </h4>
+                                        <p class="text-[9px] font-medium text-slate-400">iNaturalist Observations</p>
                                     </div>
                                 </div>
-
-                                {#if !ebirdEnabled}
-                                    <div class="text-center py-4 rounded-xl bg-white/50 dark:bg-slate-900/30 border border-dashed border-amber-200 dark:border-amber-800/30">
-                                        <p class="text-xs font-medium text-slate-500">Enable eBird to see notable reports</p>
-                                    </div>
-                                {:else if ebirdNotableLoading}
-                                    <div class="space-y-3">
-                                        {#each [1, 2] as _}
-                                            <div class="h-12 w-full bg-amber-100 dark:bg-amber-900/30 rounded-xl animate-pulse"></div>
-                                        {/each}
-                                    </div>
-                                {:else if ebirdNotableError}
-                                    <p class="text-xs text-rose-600">{ebirdNotableError}</p>
-                                {:else if (ebirdNotable?.results?.length || 0) === 0}
-                                    <div class="text-center py-4">
-                                        <p class="text-sm text-slate-400 font-medium">No notable sightings reported.</p>
-                                    </div>
-                                {:else if ebirdNotable}
-                                    <div class="space-y-2">
-                                        {#each ebirdNotable.results.slice(0, 6) as obs}
-                                            <div class="flex items-center gap-3 p-2.5 rounded-xl bg-white/60 dark:bg-slate-900/40 border border-amber-100 dark:border-amber-900/30 hover:border-amber-300 dark:hover:border-amber-700/50 transition-colors">
-                                                {#if obs.thumbnail_url}
-                                                    <img src={obs.thumbnail_url} alt={obs.common_name || 'Bird'} class="w-10 h-10 rounded-lg object-cover bg-slate-200 dark:bg-slate-700 shrink-0" loading="lazy" />
-                                                {/if}
-                                                <div class="min-w-0 flex-1">
-                                                    <p class="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">{obs.common_name || obs.scientific_name || 'Unknown species'}</p>
-                                                    <p class="text-[10px] font-medium text-slate-400 truncate">{obs.location_name || 'Unknown location'}</p>
-                                                </div>
-                                                <div class="text-right shrink-0">
-                                                    <p class="text-[10px] font-bold text-amber-600 dark:text-amber-400">{formatEbirdDate(obs.observed_at)}</p>
-                                                </div>
-                                            </div>
-                                        {/each}
-                                    </div>
-                                {/if}
+                                <div class="h-48">
+                                    <SimpleBarChart
+                                        data={seasonality.month_counts}
+                                        labels={MONTH_LABELS}
+                                        title=""
+                                        showEveryNthLabel={2}
+                                        color="#6366f1"
+                                    />
+                                </div>
                             </div>
                         {/if}
                     </section>
