@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog, and this project adheres to Semantic Versioning.
 
+## [2.7.1] - 2026-02-02
+
+- **Added:** New dedicated Enrichment tab in Settings for centralizing all species data source configurations.
+- **Changed:** Refined Species Info, Recent Sightings, and Notable Nearby sections in Detection and Species modals with a new structured "beautiful" card-based layout.
+- **Fixed:** Resolved mobile scrollability issue in the Detection Details pane.
+- **Added:** Visual headers and icons for all enrichment sources (Wikipedia, eBird, iNaturalist) in modals.
+- **Changed:** Centralized enrichment provider selection logic to ensure consistent data presentation across the UI.
+
 ## [2.7.0] - 2026-02-01
 
 - **Added:** Notification Center now separates ongoing actions with pinned progress bars for long-running jobs.
