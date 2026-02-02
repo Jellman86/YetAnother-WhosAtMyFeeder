@@ -21,6 +21,9 @@ REQUIRED_COLUMNS = {
         "weather_precipitation",
         "weather_rain",
         "weather_snowfall",
+    },
+    "taxonomy_cache": {
+        "thumbnail_url",
     }
 }
 
