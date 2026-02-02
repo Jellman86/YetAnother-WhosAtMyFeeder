@@ -60,6 +60,7 @@
     import ConnectionSettings from '../components/settings/ConnectionSettings.svelte';
     import DetectionSettings from '../components/settings/DetectionSettings.svelte';
     import DataSettings from '../components/settings/DataSettings.svelte';
+    import EnrichmentSettings from '../components/settings/EnrichmentSettings.svelte';
     import IntegrationSettings from '../components/settings/IntegrationSettings.svelte';
     import NotificationSettings from '../components/settings/NotificationSettings.svelte';
     import AuthenticationSettings from '../components/settings/AuthenticationSettings.svelte';
@@ -534,7 +535,7 @@
     onMount(async () => {
         // Handle deep linking to tabs
         const hash = window.location.hash.slice(1);
-        if (hash && ['connection', 'detection', 'notifications', 'integrations', 'security', 'data', 'appearance', 'accessibility', 'debug'].includes(hash)) {
+        if (hash && ['connection', 'detection', 'notifications', 'integrations', 'enrichment', 'security', 'data', 'appearance', 'accessibility', 'debug'].includes(hash)) {
             activeTab = hash;
         }
 
@@ -1602,6 +1603,20 @@
                 />
             {/if}
 
+            <!-- Enrichment Tab -->
+            {#if activeTab === 'enrichment'}
+                <EnrichmentSettings
+                    bind:enrichmentMode
+                    bind:enrichmentSingleProvider
+                    bind:enrichmentSummarySource
+                    bind:enrichmentTaxonomySource
+                    bind:enrichmentSightingsSource
+                    bind:enrichmentSeasonalitySource
+                    bind:enrichmentRaritySource
+                    bind:enrichmentLinksSources
+                />
+            {/if}
+
             <!-- Security Tab -->
             {#if activeTab === 'security'}
                 {#if authStore.httpsWarning}
@@ -1642,14 +1657,6 @@
                     bind:cacheSnapshots
                     bind:cacheClips
                     bind:cacheRetentionDays
-                    bind:enrichmentMode
-                    bind:enrichmentSingleProvider
-                    bind:enrichmentSummarySource
-                    bind:enrichmentTaxonomySource
-                    bind:enrichmentSightingsSource
-                    bind:enrichmentSeasonalitySource
-                    bind:enrichmentRaritySource
-                    bind:enrichmentLinksSources
                     bind:backfillDateRange
                     bind:backfillStartDate
                     bind:backfillEndDate
