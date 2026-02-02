@@ -86,4 +86,5 @@ class SpeciesInfo(BaseModel):
     summary_source_url: str | None = None
     scientific_name: str | None = None
     conservation_status: str | None = None
+    taxa_id: int | None = None
     cached_at: datetime | None = None

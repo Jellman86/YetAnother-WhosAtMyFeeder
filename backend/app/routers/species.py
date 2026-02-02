@@ -104,7 +104,7 @@ async def _get_cached_species_info(species_name: str, taxa_id: int | None, langu
         if taxa_id:
             cursor = await db.execute(
                 """SELECT title, description, extract, thumbnail_url, wikipedia_url, source, source_url,
-                          summary_source, summary_source_url, scientific_name, conservation_status, cached_at
+                          summary_source, summary_source_url, scientific_name, conservation_status, cached_at, taxa_id
                    FROM species_info_cache WHERE taxa_id = ? AND language = ?
                    ORDER BY cached_at DESC LIMIT 1""",
                 (taxa_id, language)
@@ -112,7 +112,7 @@ async def _get_cached_species_info(species_name: str, taxa_id: int | None, langu
         else:
             cursor = await db.execute(
                 """SELECT title, description, extract, thumbnail_url, wikipedia_url, source, source_url,
-                          summary_source, summary_source_url, scientific_name, conservation_status, cached_at
+                          summary_source, summary_source_url, scientific_name, conservation_status, cached_at, taxa_id
                    FROM species_info_cache WHERE species_name = ? AND language = ?""",
                 (species_name, language)
             )
@@ -134,7 +134,8 @@ async def _get_cached_species_info(species_name: str, taxa_id: int | None, langu
         summary_source_url=row[8],
         scientific_name=row[9],
         conservation_status=row[10],
-        cached_at=cached_at
+        cached_at=cached_at,
+        taxa_id=row[12]
     )
 
     if _is_cache_valid(info, cached_at):
@@ -764,6 +765,9 @@ async def get_species_info(
     if info.extract and not info.summary_source:
         info.summary_source = info.source
         info.summary_source_url = info.source_url
+
+    if taxa_id and not info.taxa_id:
+        info.taxa_id = taxa_id
 
     # Cache the result
     await _save_species_info(species_name, taxa_id, lang, info)
