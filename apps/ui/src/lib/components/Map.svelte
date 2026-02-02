@@ -14,6 +14,7 @@
   export let center: [number, number] | null = null;
   export let zoom: number = 10;
   export let userLocation: [number, number] | null = null; // To show "You are here"
+  export let obfuscate: boolean = false;
 
   let mapElement: HTMLElement;
   let map: any;
@@ -48,12 +49,31 @@
   function initMap() {
     if (!mapElement || map) return;
 
-    // Default center if nothing provided
-    const initialCenter = center || (userLocation ? userLocation : (markers.length > 0 ? [markers[0].lat, markers[0].lng] : [0, 0]));
+    // Default center logic
+    let initialCenter = center;
+    let initialZoom = zoom;
+
+    if (!initialCenter) {
+        if (userLocation) {
+            initialCenter = userLocation;
+        } else if (markers.length > 0) {
+            if (obfuscate) {
+                // Privacy Mode: Center on a RANDOM marker (bird) instead of the geometric center
+                // This prevents "zoom to center" from revealing the user's home location
+                const randomMarker = markers[Math.floor(Math.random() * markers.length)];
+                initialCenter = [randomMarker.lat, randomMarker.lng];
+                initialZoom = 12; // Start closer in
+            } else {
+                initialCenter = [markers[0].lat, markers[0].lng];
+            }
+        } else {
+            initialCenter = [0, 0];
+        }
+    }
 
     map = L.map(mapElement, {
         attributionControl: false // Cleaner look, add manually if needed or stick to bottom-right
-    }).setView(initialCenter, zoom);
+    }).setView(initialCenter, initialZoom);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
@@ -62,8 +82,8 @@
 
     updateMarkers();
     
-    // Auto-fit bounds if we have markers and no explicit center was forced that forbids it
-    if (markers.length > 0 && !center) {
+    // Auto-fit bounds logic (only if we didn't force a center or obfuscate)
+    if (markers.length > 0 && !center && !userLocation && !obfuscate) {
         const group = new L.featureGroup(markers.map(m => L.marker([m.lat, m.lng])));
         map.fitBounds(group.getBounds().pad(0.1));
     }

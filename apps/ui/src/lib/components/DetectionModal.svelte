@@ -1024,6 +1024,7 @@
                                                 }))}
                                             userLocation={authStore.canModify && settingsStore.settings?.location_latitude && settingsStore.settings?.location_longitude ? [settingsStore.settings.location_latitude, settingsStore.settings.location_longitude] : null}
                                             zoom={10}
+                                            obfuscate={!authStore.canModify}
                                         />
                                     </div>
                                 {/if}
