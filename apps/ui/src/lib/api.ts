@@ -860,6 +860,22 @@ export async function fetchEbirdNotable(): Promise<EbirdNotableResult> {
     return handleResponse<EbirdNotableResult>(response);
 }
 
+export async function exportEbirdCsv(): Promise<void> {
+    const response = await apiFetch(`${API_BASE}/ebird/export`);
+    if (!response.ok) {
+        throw new Error('Failed to export eBird CSV');
+    }
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `ebird_export_${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+}
+
 export async function fetchDetectionsTimeline(days = 30): Promise<DetectionsTimeline> {
     const response = await apiFetch(`${API_BASE}/stats/detections/daily?days=${days}`);
     return handleResponse<DetectionsTimeline>(response);

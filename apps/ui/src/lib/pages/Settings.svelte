@@ -34,6 +34,7 @@
         initiateInaturalistOAuth,
         disconnectInaturalistOAuth,
         sendTestEmail,
+        exportEbirdCsv,
         type ClassifierStatus,
         type WildlifeModelStatus,
         type MaintenanceStats,
@@ -1595,6 +1596,7 @@
                     {handleTestBirdWeather}
                     {initiateInaturalistOAuth}
                     {disconnectInaturalistOAuth}
+                    {exportEbirdCsv}
                     refreshInaturalistStatus={async () => {
                         await settingsStore.load();
                         await loadSettings(true);

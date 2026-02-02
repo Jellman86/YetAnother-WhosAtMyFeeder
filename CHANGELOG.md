@@ -9,6 +9,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Added:** New dedicated Enrichment tab in Settings for centralizing all species data source configurations.
 - **Added:** Interactive Map visualization for eBird sightings in species and detection modals (user location hidden in guest mode).
 - **Added:** eBird Notable Nearby sightings now include species thumbnails powered by iNaturalist.
+- **Added:** CSV Export feature for eBird integration to allow manual bulk import of sightings.
 - **Added:** Local Seasonality chart in Species Details (replacing Notable Nearby), showing monthly observation frequency from iNaturalist.
 - **Added:** Expanded telemetry collection to include feature usage (notifications, integrations, enrichment settings) for better development insights.
 - **Changed:** Refined Species Info, Recent Sightings, and Notable Nearby sections in Detection and Species modals with a new structured "beautiful" card-based layout.

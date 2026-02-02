@@ -42,7 +42,8 @@
         handleTestBirdWeather,
         initiateInaturalistOAuth,
         disconnectInaturalistOAuth,
-        refreshInaturalistStatus
+        refreshInaturalistStatus,
+        exportEbirdCsv
     }: {
         birdnetEnabled: boolean;
         audioTopic: string;
@@ -84,6 +85,7 @@
         initiateInaturalistOAuth: () => Promise<{ authorization_url: string }>;
         disconnectInaturalistOAuth: () => Promise<{ status: string }>;
         refreshInaturalistStatus: () => Promise<void>;
+        exportEbirdCsv: () => Promise<void>;
     } = $props();
 
     let inatDefaultsTouched = $state(false);
@@ -450,6 +452,24 @@
                         class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-teal-500 outline-none"
                     />
                 </div>
+            </div>
+
+            <div class="pt-4 border-t border-slate-100 dark:border-slate-700/50">
+                <button
+                    onclick={async () => {
+                        try {
+                            await exportEbirdCsv();
+                        } catch (e) {
+                            console.error('Failed to export CSV', e);
+                            alert('Failed to export CSV');
+                        }
+                    }}
+                    class="flex items-center gap-2 px-4 py-3 rounded-2xl bg-sky-50 dark:bg-sky-900/20 text-sky-600 dark:text-sky-400 font-bold text-xs uppercase tracking-widest hover:bg-sky-100 dark:hover:bg-sky-900/40 transition-colors w-full justify-center"
+                >
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                    {$_('settings.integrations.ebird.export_csv') || 'Export All Sightings (CSV)'}
+                </button>
+                <p class="mt-2 text-[10px] text-slate-400 font-bold italic text-center">Download detections in eBird Record Format for manual import.</p>
             </div>
         </div>
     </section>
