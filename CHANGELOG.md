@@ -17,6 +17,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Changed:** Refined Species Info, Recent Sightings, and Notable Nearby sections in Detection and Species modals with a new structured "beautiful" card-based layout.
 - **Fixed:** Resolved mobile scrollability issue in the Detection Details pane.
 - **Fixed:** Critical iNaturalist token expiration bug by implementing automatic refresh logic.
+- **Fixed:** Multiple TypeScript and accessibility issues across frontend components, resulting in a clean build check.
 - **Added:** Visual headers and icons for all enrichment sources (Wikipedia, eBird, iNaturalist) in modals.
 - **Changed:** Centralized enrichment provider selection logic to ensure consistent data presentation across the UI.
 

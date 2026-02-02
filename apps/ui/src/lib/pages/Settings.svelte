@@ -342,7 +342,8 @@
     let versionInfo = $state<VersionInfo>({
         version: appVersion,
         base_version: appVersionBase,
-        git_hash: __GIT_HASH__
+        git_hash: __GIT_HASH__,
+        branch: typeof __APP_BRANCH__ === 'string' ? __APP_BRANCH__ : 'unknown'
     });
 
     let availableCameras = $state<string[]>([]);

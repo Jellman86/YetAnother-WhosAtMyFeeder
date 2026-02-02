@@ -120,7 +120,7 @@
                         </select>
                     </div>
                     <div>
-                        <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">External Links</label>
+                        <span class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">External Links</span>
                         <div class="grid grid-cols-2 gap-2">
                             <button
                                 onclick={() => enrichmentLinksSources = enrichmentLinksSources.includes('wikipedia') ? enrichmentLinksSources.filter(s => s !== 'wikipedia') : [...enrichmentLinksSources, 'wikipedia']}
