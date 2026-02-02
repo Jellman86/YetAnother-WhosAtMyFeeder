@@ -139,11 +139,34 @@ class TelemetryService:
                 },
                 "configuration": {
                     "model_type": model_manager.active_model_id,
-                    "birdnet_enabled": settings.frigate.birdnet_enabled,
-                    "birdweather_enabled": settings.birdweather.enabled,
                     "llm_enabled": settings.llm.enabled,
                     "llm_provider": settings.llm.provider,
                     "media_cache_enabled": settings.media_cache.enabled,
+                    "media_cache_clips": settings.media_cache.cache_clips,
+                    "auto_video_classification": settings.classification.auto_video_classification,
+                },
+                "integrations": {
+                    "birdnet_enabled": settings.frigate.birdnet_enabled,
+                    "birdweather_enabled": settings.birdweather.enabled,
+                    "ebird_enabled": settings.ebird.enabled,
+                    "inaturalist_enabled": settings.inaturalist.enabled,
+                },
+                "notifications": {
+                    "discord_enabled": settings.notifications.discord.enabled,
+                    "pushover_enabled": settings.notifications.pushover.enabled,
+                    "telegram_enabled": settings.notifications.telegram.enabled,
+                    "email_enabled": settings.notifications.email.enabled,
+                    "mode": settings.notifications.mode,
+                },
+                "enrichment": {
+                    "mode": settings.enrichment.mode,
+                    "summary_source": settings.enrichment.summary_source,
+                    "sightings_source": settings.enrichment.sightings_source,
+                    "taxonomy_source": settings.enrichment.taxonomy_source,
+                },
+                "access": {
+                    "auth_enabled": settings.auth.enabled,
+                    "public_access_enabled": settings.public_access.enabled,
                 }
             }
 
