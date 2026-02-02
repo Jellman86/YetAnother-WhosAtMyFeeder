@@ -886,9 +886,9 @@
                             <div class="flex items-center justify-between gap-3">
                                 <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Enrichment</p>
                                 {#if speciesInfo}
+                                    {@const summaryLabel = speciesInfo.summary_source || 'Source'}
+                                    {@const summaryKey = summaryLabel.toLowerCase()}
                                     <div class="flex flex-wrap items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500">
-                                        {@const summaryLabel = speciesInfo.summary_source || 'Source'}
-                                        {@const summaryKey = summaryLabel.toLowerCase()}
                                         {#if enrichmentLinksProvidersNormalized.includes(summaryKey)}
                                             {#if speciesInfo.summary_source_url}
                                                 <a
