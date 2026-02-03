@@ -445,6 +445,7 @@
       "test_email_sent": "Test email sent",
       "test_email_success": "Test email sent successfully to {email}!",
       "test_email_error": "Failed to send test email: {error}",
+      "test_email_error_generic": "Failed to send test email",
       "oauth_connect_success": "{provider} connected successfully!",
       "oauth_disconnect_success": "{provider} disconnected",
       "oauth_error": "OAuth error: {error}",

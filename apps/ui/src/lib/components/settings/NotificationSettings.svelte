@@ -944,7 +944,7 @@
                             const result = await sendTestEmail();
                             emailTestSuccess = result.message || $_('settings.email.test_email_sent');
                         } catch (e: any) {
-                            emailTestError = extractErrorMessage(e, $_('settings.email.test_email_error', { values: { error: '' } }).replace(': ', ''));
+                            emailTestError = extractErrorMessage(e, $_('settings.email.test_email_error_generic'));
                         } finally {
                             testingNotification['email'] = false;
                         }

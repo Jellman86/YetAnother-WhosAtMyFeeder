@@ -336,7 +336,8 @@
       "oauth_connect_success": "{provider} connecté avec succès !",
       "oauth_disconnect_success": "{provider} déconnecté",
       "oauth_error": "Erreur OAuth : {error}",
-      "credentials_required": "Veuillez d'abord configurer les identifiants OAuth ou SMTP"
+      "credentials_required": "Veuillez d'abord configurer les identifiants OAuth ou SMTP",
+      "test_email_error_generic": "Failed to send test email"
     },
     "notifications": {
       "global_filters": "Filtres globaux de notifications",

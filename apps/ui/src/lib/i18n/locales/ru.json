@@ -344,7 +344,8 @@
       "oauth_connect_success": "{provider} успешно подключен!",
       "oauth_disconnect_success": "{provider} отключен",
       "oauth_error": "Ошибка OAuth: {error}",
-      "credentials_required": "Пожалуйста, сначала настройте учетные данные OAuth или SMTP"
+      "credentials_required": "Пожалуйста, сначала настройте учетные данные OAuth или SMTP",
+      "test_email_error_generic": "Failed to send test email"
     },
     "notifications": {
       "global_filters": "Глобальные фильтры уведомлений",

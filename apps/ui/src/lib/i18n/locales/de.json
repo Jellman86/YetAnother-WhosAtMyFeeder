@@ -440,7 +440,8 @@
       "oauth_connect_success": "{provider} erfolgreich verbunden!",
       "oauth_disconnect_success": "{provider} getrennt",
       "oauth_error": "OAuth-Fehler: {error}",
-      "credentials_required": "Bitte konfigurieren Sie zuerst OAuth- oder SMTP-Anmeldedaten"
+      "credentials_required": "Bitte konfigurieren Sie zuerst OAuth- oder SMTP-Anmeldedaten",
+      "test_email_error_generic": "Failed to send test email"
     },
     "notifications": {
       "global_filters": "Globale Benachrichtigungsfilter",

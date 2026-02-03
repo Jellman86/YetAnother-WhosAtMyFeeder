@@ -336,7 +336,8 @@
       "oauth_connect_success": "{provider}に正常に接続しました！",
       "oauth_disconnect_success": "{provider}から切断されました",
       "oauth_error": "OAuthエラー: {error}",
-      "credentials_required": "まずOAuthまたはSMTP認証情報を設定してください"
+      "credentials_required": "まずOAuthまたはSMTP認証情報を設定してください",
+      "test_email_error_generic": "Failed to send test email"
     },
     "notifications": {
       "global_filters": "通知の全体フィルター",
