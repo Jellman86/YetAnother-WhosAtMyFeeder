@@ -629,6 +629,8 @@ async def get_species_stats(
         taxonomy = await repo.get_taxonomy_names(species_name)
         common_name = taxonomy["common_name"]
         taxa_id = taxonomy.get("taxa_id")
+        if not taxa_id and recent:
+            taxa_id = recent[0].taxa_id
         
         # Localize main common name if needed
         if lang != 'en' and taxa_id:
