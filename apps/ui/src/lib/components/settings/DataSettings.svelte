@@ -102,11 +102,11 @@
                         class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-teal-500 outline-none transition-all"
                     >
                         <option value={0}>{$_('settings.data.keep_everything')}</option>
-                        <option value={7}>1 {$_('events.filters.week')}</option>
-                        <option value={14}>2 {$_('leaderboard.days')}</option>
-                        <option value={30}>1 {$_('events.filters.month')}</option>
-                        <option value={90}>3 {$_('events.filters.month')}</option>
-                        <option value={365}>1 {$_('leaderboard.featured') === 'Featured' ? 'Year' : 'Jahr'}</option>
+                        <option value={7}>{$_('settings.data.retention_week')}</option>
+                        <option value={14}>{$_('settings.data.retention_weeks')}</option>
+                        <option value={30}>{$_('settings.data.retention_month')}</option>
+                        <option value={90}>{$_('settings.data.retention_months')}</option>
+                        <option value={365}>{$_('settings.data.retention_year')}</option>
                     </select>
                 </div>
                 <div class="pt-4 border-t border-slate-100 dark:border-slate-700/50 flex flex-col gap-3">

@@ -174,7 +174,12 @@
       "weather_backfill_error": "Wetter-Backfill fehlgeschlagen",
       "analysis_error": "Analyse fehlgeschlagen",
       "wildlife_download_error": "Download des Wildtiermodells fehlgeschlagen",
-      "taxonomy_sync_error": "Taxonomie-Synchronisierung konnte nicht gestartet werden: {error}"
+      "taxonomy_sync_error": "Taxonomie-Synchronisierung konnte nicht gestartet werden: {error}",
+      "retention_week": "1 Week",
+      "retention_weeks": "2 Weeks",
+      "retention_month": "1 Month",
+      "retention_months": "3 Months",
+      "retention_year": "1 Year"
     },
     "security": {
       "title": "Sicherheit",

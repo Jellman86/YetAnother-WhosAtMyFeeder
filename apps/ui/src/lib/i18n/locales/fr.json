@@ -498,7 +498,12 @@
       "weather_backfill_error": "Weather backfill failed",
       "analysis_error": "Analysis failed",
       "wildlife_download_error": "Failed to download wildlife model",
-      "taxonomy_sync_error": "Failed to start taxonomy sync: {error}"
+      "taxonomy_sync_error": "Failed to start taxonomy sync: {error}",
+      "retention_week": "1 Week",
+      "retention_weeks": "2 Weeks",
+      "retention_month": "1 Month",
+      "retention_months": "3 Months",
+      "retention_year": "1 Year"
     },
     "security": {
       "title": "Security",
