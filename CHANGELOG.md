@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog, and this project adheres to Semantic Versioning.
 
+## [2.7.3] - 2026-02-03
+
+- **Fixed:** Restored `taxa_id` lookup flow to ensure seasonality and localized names load when taxonomy cache entries exist or recent detections provide the ID.
+- **Fixed:** Filled missing Detection settings translation keys across all supported locales.
+- **Fixed:** Localized retention duration labels instead of relying on hardcoded language checks.
+- **Fixed:** Added a generic localized fallback for test email failures.
+
 ## [2.7.2] - 2026-02-03
 
 - **Fixed:** Resolved issue where enrichments (eBird sightings, iNaturalist seasonality) were hidden in guest mode due to missing configuration state and restricted endpoints.
