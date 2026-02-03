@@ -43,13 +43,13 @@ async def export_ebird_csv(auth=Depends(get_auth_context_with_legacy)):
             async with db.execute("""
                 SELECT 
                     display_name, scientific_name, detection_time, 
-                    score, camera_name
+                    score, camera_name, common_name
                 FROM detections
                 WHERE is_hidden = 0 
                 ORDER BY detection_time DESC
             """) as cursor:
                 async for row in cursor:
-                    display_name, scientific_name, detection_time, score, camera_name = row
+                    display_name, scientific_name, detection_time, score, camera_name, common_name = row
                     
                     # Handle date parsing if string
                     dt = detection_time
@@ -79,6 +79,9 @@ async def export_ebird_csv(auth=Depends(get_auth_context_with_legacy)):
                         if len(parts) > 1:
                             species = parts[1]
                     
+                    # Use stored common name if available (likely eBird or iNat normalized), otherwise fallback to display label
+                    ebird_common_name = common_name if common_name else display_name
+
                     # eBird Record Format (Extended) - 19 Columns
                     # 1. Common Name
                     # 2. Genus
@@ -101,7 +104,7 @@ async def export_ebird_csv(auth=Depends(get_auth_context_with_legacy)):
                     # 19. Submission Comments
                     
                     writer.writerow([
-                        display_name,                               # 1. Common Name
+                        ebird_common_name,                          # 1. Common Name
                         genus,                                      # 2. Genus
                         species,                                    # 3. Species
                         1,                                          # 4. Number
