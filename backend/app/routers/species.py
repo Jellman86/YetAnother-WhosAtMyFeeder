@@ -11,6 +11,7 @@ from app.config import settings
 from app.services.taxonomy.taxonomy_service import taxonomy_service
 from app.services.i18n_service import i18n_service
 from app.services.classifier_service import get_classifier
+from app.services.ebird_service import ebird_service
 from app.utils.language import get_user_language
 from app.auth import require_owner, AuthContext
 from app.auth_legacy import get_auth_context_with_legacy
@@ -62,7 +63,9 @@ def _normalize_provider(provider: str | None) -> str:
         return "inaturalist"
     if normalized in ("wiki", "wikipedia"):
         return "wikipedia"
-    if normalized in ("disabled", "ebird"):
+    if normalized == "ebird":
+        return "ebird"
+    if normalized == "disabled":
         return "wikipedia"
     return normalized
 
@@ -798,6 +801,44 @@ async def get_species_info(
                 info.wikipedia_url = inat_info.wikipedia_url
             if not info.scientific_name and inat_info.scientific_name:
                 info.scientific_name = inat_info.scientific_name
+    elif primary == "ebird":
+        info = await _fetch_ebird_info(species_name, lang)
+        
+        # eBird rarely provides text/images via API, so we almost always need fallbacks
+        # Use the eBird-resolved common name for better fallback lookup success
+        search_name = info.title if info.title and info.title != species_name else species_name
+        
+        # Fallback to Wikipedia for text/images
+        if not info.extract or not info.thumbnail_url:
+            wiki_info = await _fetch_wikipedia_info(search_name, lang)
+            # If search by eBird name failed, try original name
+            if not wiki_info.extract and search_name != species_name:
+                 wiki_info = await _fetch_wikipedia_info(species_name, lang)
+
+            if wiki_info.extract:
+                info.extract = wiki_info.extract
+                info.summary_source = wiki_info.source
+                info.summary_source_url = wiki_info.source_url
+            if wiki_info.thumbnail_url:
+                info.thumbnail_url = wiki_info.thumbnail_url
+            if wiki_info.wikipedia_url:
+                info.wikipedia_url = wiki_info.wikipedia_url
+            if not info.scientific_name and wiki_info.scientific_name:
+                info.scientific_name = wiki_info.scientific_name
+
+        # Fallback to iNaturalist if still missing
+        if not info.extract or not info.thumbnail_url:
+            inat_info = await _fetch_inaturalist_info(search_name, lang)
+            if inat_info.extract:
+                info.extract = inat_info.extract
+                info.summary_source = inat_info.source
+                info.summary_source_url = inat_info.source_url
+            if inat_info.thumbnail_url:
+                info.thumbnail_url = inat_info.thumbnail_url
+            if inat_info.wikipedia_url and not info.wikipedia_url:
+                info.wikipedia_url = inat_info.wikipedia_url
+            if inat_info.scientific_name and not info.scientific_name:
+                info.scientific_name = inat_info.scientific_name
     else:
         info = await _fetch_inaturalist_info(species_name, lang)
         if not info.extract or not info.thumbnail_url:
@@ -846,6 +887,51 @@ async def get_species_info(
     )
 
     return info
+
+async def _fetch_ebird_info(species_name: str, lang: str) -> SpeciesInfo:
+    """Fetch species information from eBird API."""
+    try:
+        # Resolve name to code
+        code = await ebird_service.resolve_species_code(species_name)
+        if code:
+             # Find item in taxonomy (pass locale to get localized common name)
+             # eBird locales use hyphens (e.g. pt-BR) but app might use underscores or just code
+             # We pass it as is, eBird service handles defaults
+             taxonomy = await ebird_service.get_taxonomy(locale=lang)
+             item = next((i for i in taxonomy if i.get("speciesCode") == code), None)
+             
+             if item:
+                 return SpeciesInfo(
+                     title=item.get("comName") or species_name,
+                     description=None, # eBird doesn't provide descriptions
+                     extract=None,
+                     thumbnail_url=None,
+                     wikipedia_url=None,
+                     source="eBird",
+                     source_url=f"https://ebird.org/species/{code}",
+                     summary_source=None,
+                     summary_source_url=None,
+                     scientific_name=item.get("sciName"),
+                     conservation_status=None,
+                     cached_at=datetime.now()
+                 )
+    except Exception as e:
+        log.error("eBird info fetch failed", species=species_name, error=str(e))
+    
+    # Return minimal info if eBird lookup failed
+    return SpeciesInfo(
+        title=species_name,
+        description=None,
+        extract=None,
+        thumbnail_url=None,
+        wikipedia_url=None,
+        source="eBird (Failed)",
+        source_url=None,
+        scientific_name=None,
+        conservation_status=None,
+        cached_at=datetime.now()
+    )
+
 
 async def _fetch_wikipedia_info(species_name: str, lang: str) -> SpeciesInfo:
     """Fetch species information from Wikipedia API."""

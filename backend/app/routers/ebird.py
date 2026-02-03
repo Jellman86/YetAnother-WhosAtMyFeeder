@@ -68,42 +68,58 @@ async def export_ebird_csv(auth=Depends(get_auth_context_with_legacy)):
                     
                     lat = settings.location.latitude
                     lon = settings.location.longitude
+
+                    # Parse Scientific Name into Genus and Species
+                    genus = ""
+                    species = ""
+                    if scientific_name:
+                        parts = scientific_name.strip().split(' ', 1)
+                        if len(parts) > 0:
+                            genus = parts[0]
+                        if len(parts) > 1:
+                            species = parts[1]
                     
-                    # Standard eBird Record Format (16 Columns)
+                    # eBird Record Format (Extended) - 19 Columns
                     # 1. Common Name
-                    # 2. Scientific Name
-                    # 3. Number (Count)
-                    # 4. Observation Details (Species-specific comments)
-                    # 5. Date (MM/DD/YYYY)
-                    # 6. Time (HH:MM)
-                    # 7. Location Name
-                    # 8. Latitude
-                    # 9. Longitude
-                    # 10. Protocol (Stationary, Traveling, Incidental)
-                    # 11. Duration (min)
-                    # 12. Distance (miles or km)
-                    # 13. Effort Area (acres or hectares)
+                    # 2. Genus
+                    # 3. Species
+                    # 4. Number
+                    # 5. Species Comments
+                    # 6. Location Name
+                    # 7. Latitude
+                    # 8. Longitude
+                    # 9. Date
+                    # 10. Start Time
+                    # 11. State/Province
+                    # 12. Country Code
+                    # 13. Protocol
                     # 14. Number of Observers
-                    # 15. All Observations Reported (Y/N)
-                    # 16. Checklist Comments
+                    # 15. Duration
+                    # 16. All Observations Reported?
+                    # 17. Effort Distance Miles
+                    # 18. Effort Area Acres
+                    # 19. Submission Comments
                     
                     writer.writerow([
                         display_name,                               # 1. Common Name
-                        scientific_name or "",                      # 2. Scientific Name
-                        1,                                          # 3. Number
-                        f"Confidence: {score:.2f}",                 # 4. Observation Details
-                        date_str,                                   # 5. Date
-                        time_str,                                   # 6. Time
-                        f"Home ({camera_name})",                    # 7. Location Name
-                        f"{lat:.6f}" if lat is not None else "",    # 8. Latitude
-                        f"{lon:.6f}" if lon is not None else "",    # 9. Longitude
-                        "Incidental",                               # 10. Protocol
-                        "",                                         # 11. Duration
-                        "",                                         # 12. Distance
-                        "",                                         # 13. Effort Area
+                        genus,                                      # 2. Genus
+                        species,                                    # 3. Species
+                        1,                                          # 4. Number
+                        f"Confidence: {score:.2f}",                 # 5. Species Comments
+                        f"Home ({camera_name})",                    # 6. Location Name
+                        f"{lat:.6f}" if lat is not None else "",    # 7. Latitude
+                        f"{lon:.6f}" if lon is not None else "",    # 8. Longitude
+                        date_str,                                   # 9. Date
+                        time_str,                                   # 10. Start Time
+                        "",                                         # 11. State/Province
+                        "",                                         # 12. Country Code
+                        "Incidental",                               # 13. Protocol
                         1,                                          # 14. Number of Observers
-                        "N",                                        # 15. All Obs Reported
-                        "Exported from YA-WAMF"                     # 16. Checklist Comments
+                        "",                                         # 15. Duration
+                        "N",                                        # 16. All Obs Reported
+                        "",                                         # 17. Effort Distance Miles
+                        "",                                         # 18. Effort Area Acres
+                        "Exported from YA-WAMF"                     # 19. Submission Comments
                     ])
                     
                     f.seek(0)
