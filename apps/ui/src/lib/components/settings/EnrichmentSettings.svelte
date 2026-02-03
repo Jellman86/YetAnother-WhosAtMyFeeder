@@ -60,7 +60,7 @@
                         <option value="inaturalist">iNaturalist</option>
                         <option value="ebird">eBird</option>
                     </select>
-                    <p class="text-xs text-slate-500 mt-2">{$_('settings.enrichment.fallback_note')} (eBird falls back to iNaturalist)</p>
+                    <p class="text-xs text-slate-500 mt-2">{$_('settings.enrichment.fallback_note')}</p>
                 </div>
             {:else}
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -108,7 +108,7 @@
                         >
                             <option value="disabled">{$_('settings.enrichment.disabled')}</option>
                             <option value="inaturalist">iNaturalist</option>
-                            <option value="ebird">eBird (Fall back to iNaturalist)</option>
+                            <option value="ebird">eBird</option>
                         </select>
                     </div>
                     <div>

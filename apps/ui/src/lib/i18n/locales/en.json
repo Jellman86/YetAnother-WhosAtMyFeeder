@@ -322,7 +322,7 @@
       "mode_single": "Single Provider",
       "mode_per": "Per Enrichment",
       "provider": "Provider",
-      "fallback_note": "Fallbacks apply when a provider cannot supply a field.",
+      "fallback_note": "Fallbacks apply when a provider cannot supply a field. (eBird falls back to iNaturalist)",
       "summary_title": "Summary & Description",
       "taxonomy_title": "Taxonomy & Common Names",
       "sightings_title": "Nearby Sightings",
