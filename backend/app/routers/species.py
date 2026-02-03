@@ -420,21 +420,44 @@ def _is_bird_article(data: dict) -> bool:
         if phrase in description:
             return True
 
+    # Standalone bird groups that often appear at the beginning of descriptions
+    # e.g., "Thrush native to Europe"
+    standalone_bird_groups = [
+        "thrush", "finch", "sparrow", "warbler", "wren", "tit", "duck", "goose",
+        "owl", "hawk", "eagle", "heron", "gull", "woodpecker", "hummingbird",
+        "corvid", "pigeon", "dove", "swift", "swallow", "falcon", "plover",
+        "sandpiper", "kingfisher", "starling", "nuthatch", "creeper", "bulbul",
+        "blackbird", "mockingbird", "thrasher", "waxwing", "tanager", "bunting",
+        "cardinal", "grosbeak", "oriole", "blackbird", "grackle", "cowbird"
+    ]
+
+    # Check for standalone groups in description
+    description_words = description.split()
+    if description_words and any(word.strip(",.;") in standalone_bird_groups for word in description_words):
+        return True
+
     # If description doesn't match, check for bird-specific terms in extract
     # But be stricter - require multiple bird-related terms
-    bird_extract_keywords = ["bird", "avian", "ornithology", "plumage", "wingspan", "migratory"]
-    taxonomy_keywords = ["passeriformes", "aves", "passerine", "oscine", "corvidae", "paridae", "fringillidae"]
+    bird_extract_keywords = [
+        "bird", "avian", "ornithology", "plumage", "wingspan", "migratory",
+        "nesting", "beak", "bill", "talon", "passerine", "songbird"
+    ]
+    taxonomy_keywords = [
+        "passeriformes", "aves", "passerine", "oscine", "corvidae", "paridae",
+        "fringillidae", "turdidae", "accipitridae", "anatidae", "picidae",
+        "strigidae", "columbidae", "hirundinidae", "emberizidae", "ictenidae"
+    ]
 
     # Count how many bird-specific keywords are present
     bird_keyword_count = sum(1 for kw in bird_extract_keywords if kw in extract)
     taxonomy_count = sum(1 for kw in taxonomy_keywords if kw in extract)
 
-    # Require at least 2 bird keywords OR 1 taxonomy term to be confident
-    if bird_keyword_count >= 2 or taxonomy_count >= 1:
+    # Higher ranks often mention "birds" in the plural
+    if "birds" in extract or "birds" in description:
         return True
 
-    # Special case: if "bird" is in description (not just extract), that's usually good enough
-    if "bird" in description:
+    # Require at least 2 bird keywords OR 1 taxonomy term to be confident
+    if bird_keyword_count >= 2 or taxonomy_count >= 1:
         return True
 
     return False
