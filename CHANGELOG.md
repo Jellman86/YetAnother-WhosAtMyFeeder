@@ -7,10 +7,15 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 ## [2.7.2] - 2026-02-03
 
 - **Fixed:** Resolved issue where enrichments (eBird sightings, iNaturalist seasonality) were hidden in guest mode due to missing configuration state and restricted endpoints.
-- **Changed:** eBird taxonomic lookups now include Genus, Spuh, Slash, and ISSF categories, enabling lookups for broader groups like "Siskins and New World Goldfinches".
-- **Changed:** eBird resolution now automatically falls back to scientific names if common name lookups fail.
 - **Added:** Public configuration state is now synchronized to guests via the auth status endpoint, enabling correct localized naming and feature toggles without requiring owner login.
+- **Changed:** eBird taxonomic lookups now include Genus, Spuh, Slash, and ISSF categories, enabling lookups for broader groups like "Siskins and New World Goldfinches" (genus `Spinus`).
+- **Changed:** eBird resolution now automatically falls back to scientific names if common name lookups fail.
+- **Fixed:** Resolved issue where Seasonality chart would not appear in modals due to missing `taxa_id` in some API responses.
+- **Added:** Comprehensive translation sync across all 9 supported languages, ensuring all settings panels (Data, Integrations, Enrichment) are fully localized.
+- **Fixed:** Corrected multiple TypeScript and syntax issues in the frontend, resulting in a clean `npm run check`.
 - **Fixed:** Accessibility live announcements now respect user settings even in guest mode.
+- **Fixed:** Resolved JSON syntax error in German locale file (`de.json`).
+- **Fixed:** Added missing `AuthStatusResponse` type handling in frontend API service.
 
 ## [2.7.1] - 2026-02-02
 
