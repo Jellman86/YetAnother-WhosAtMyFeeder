@@ -118,6 +118,23 @@ class EbirdService:
         index: Dict[str, str] = self._taxonomy_cache.get("index", {})
         return index.get(_normalize_name(name))
 
+    async def get_common_name(self, scientific_name: str, locale: Optional[str] = None) -> Optional[str]:
+        """Resolve common name from scientific name using eBird taxonomy."""
+        if not scientific_name:
+            return None
+        
+        # Ensure taxonomy is loaded
+        items = await self.get_taxonomy(locale)
+        
+        # Search for scientific name match
+        normalized_sci = _normalize_name(scientific_name)
+        for item in items:
+            sci = item.get("sciName") or ""
+            if _normalize_name(sci) == normalized_sci:
+                return item.get("comName")
+        
+        return None
+
     def simplify_observations(self, items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         simplified = []
         for item in items:
