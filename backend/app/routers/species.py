@@ -22,7 +22,7 @@ log = structlog.get_logger()
 # Species info cache with TTL
 _wiki_cache: dict[str, tuple[SpeciesInfo, datetime]] = {}
 CACHE_TTL_SUCCESS = timedelta(hours=24)
-CACHE_TTL_FAILURE = timedelta(minutes=15)  # Short TTL for failures to allow retries
+CACHE_TTL_FAILURE = timedelta(minutes=1)  # Short TTL for failures to allow retries
 
 # User-Agent is required by Wikipedia API - they block requests without it
 WIKIPEDIA_USER_AGENT = "YA-WAMF/2.0 (Bird Watching App; https://github.com/Jellman86/YetAnother-WhosAtMyFeeder)"
