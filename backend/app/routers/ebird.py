@@ -33,20 +33,11 @@ async def export_ebird_csv(auth=Depends(get_auth_context_with_legacy)):
     
     async def iter_csv():
         f = io.StringIO()
-        writer = csv.writer(f)
+        writer = csv.writer(f, quoting=csv.QUOTE_MINIMAL)
         
-        # eBird Record Format Headers
-        # https://support.ebird.org/en/support/solutions/articles/48000950570-ebird-import-formatting-csv-files
-        header = [
-            "Common Name", "Scientific Name", "Count", "Observation Date", "Time", 
-            "Location Name", "Latitude", "Longitude", 
-            "Protocol", "Duration (min)", "All Obs Reported", "Comments"
-        ]
-        writer.writerow(header)
-        f.seek(0)
-        yield f.read()
-        f.truncate(0)
-        f.seek(0)
+        # We omit the header row as eBird 'Record Format' imports often 
+        # try to parse it as data, and different eBird locales expect different headers.
+        # The column order below matches the standard eBird Record Format (Extended).
         
         async with get_db() as db:
             async with db.execute("""
@@ -64,34 +55,55 @@ async def export_ebird_csv(auth=Depends(get_auth_context_with_legacy)):
                     dt = detection_time
                     if isinstance(dt, str):
                         try:
-                            # Try ISO format
                             dt = datetime.fromisoformat(dt)
                         except ValueError:
-                            # Fallback
                             try:
                                 dt = datetime.strptime(dt, "%Y-%m-%d %H:%M:%S.%f")
                             except ValueError:
                                 continue # Skip invalid dates
                     
+                    # eBird preferred formats
                     date_str = dt.strftime("%m/%d/%Y")
                     time_str = dt.strftime("%H:%M")
                     
                     lat = settings.location.latitude
                     lon = settings.location.longitude
                     
+                    # Standard eBird Record Format (16 Columns)
+                    # 1. Common Name
+                    # 2. Scientific Name
+                    # 3. Number (Count)
+                    # 4. Observation Details (Species-specific comments)
+                    # 5. Date (MM/DD/YYYY)
+                    # 6. Time (HH:MM)
+                    # 7. Location Name
+                    # 8. Latitude
+                    # 9. Longitude
+                    # 10. Protocol (Stationary, Traveling, Incidental)
+                    # 11. Duration (min)
+                    # 12. Distance (miles or km)
+                    # 13. Effort Area (acres or hectares)
+                    # 14. Number of Observers
+                    # 15. All Observations Reported (Y/N)
+                    # 16. Checklist Comments
+                    
                     writer.writerow([
-                        display_name,
-                        scientific_name,
-                        1,
-                        date_str,
-                        time_str,
-                        f"Home ({camera_name})",
-                        lat if lat else "",
-                        lon if lon else "",
-                        "Incidental",
-                        0,
-                        "N",
-                        f"Confidence: {score:.2f} | YA-WAMF"
+                        display_name,                               # 1. Common Name
+                        scientific_name or "",                      # 2. Scientific Name
+                        1,                                          # 3. Number
+                        f"Confidence: {score:.2f}",                 # 4. Observation Details
+                        date_str,                                   # 5. Date
+                        time_str,                                   # 6. Time
+                        f"Home ({camera_name})",                    # 7. Location Name
+                        f"{lat:.6f}" if lat is not None else "",    # 8. Latitude
+                        f"{lon:.6f}" if lon is not None else "",    # 9. Longitude
+                        "Incidental",                               # 10. Protocol
+                        "",                                         # 11. Duration
+                        "",                                         # 12. Distance
+                        "",                                         # 13. Effort Area
+                        1,                                          # 14. Number of Observers
+                        "N",                                        # 15. All Obs Reported
+                        "Exported from YA-WAMF"                     # 16. Checklist Comments
                     ])
                     
                     f.seek(0)
