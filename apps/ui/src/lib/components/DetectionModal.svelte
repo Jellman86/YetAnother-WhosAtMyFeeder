@@ -910,21 +910,22 @@
                                 </div>
                                 {#if speciesInfo}
                                     {@const summaryLabel = speciesInfo.summary_source || 'Source'}
-                                    {@const summaryKey = summaryLabel.toLowerCase()}
-                                    {#if enrichmentLinksProvidersNormalized.includes(summaryKey)}
-                                        {#if speciesInfo.summary_source_url}
-                                            <a
-                                                href={speciesInfo.summary_source_url}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                class="flex items-center gap-1.5 px-2 py-1 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[9px] font-black uppercase tracking-wider text-slate-500 hover:text-teal-600 dark:hover:text-teal-400 hover:border-teal-500/30 transition-colors shadow-sm"
-                                            >
-                                                {summaryLabel}
-                                                <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                                                </svg>
-                                            </a>
-                                        {/if}
+                                    {#if speciesInfo.summary_source_url}
+                                        <a
+                                            href={speciesInfo.summary_source_url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            class="flex items-center gap-1.5 px-2 py-1 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[9px] font-black uppercase tracking-wider text-slate-500 hover:text-teal-600 dark:hover:text-teal-400 hover:border-teal-500/30 transition-colors shadow-sm"
+                                        >
+                                            {summaryLabel}
+                                            <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                            </svg>
+                                        </a>
+                                    {:else}
+                                        <span class="flex items-center gap-1.5 px-2 py-1 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[9px] font-black uppercase tracking-wider text-slate-500">
+                                            {summaryLabel}
+                                        </span>
                                     {/if}
                                 {/if}
                             </div>

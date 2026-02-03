@@ -139,7 +139,11 @@
         const push = (label: string | null, url: string | null) => {
             if (!label) return;
             const normalized = label.toLowerCase();
-            if (!enrichmentLinksProvidersNormalized.includes(normalized)) return;
+            
+            // Always show the source of the displayed content
+            const isContentSource = label === info.source || label === info.summary_source;
+            
+            if (!isContentSource && !enrichmentLinksProvidersNormalized.includes(normalized)) return;
             const existing = items.find((item) => item.label === label);
             if (existing) {
                 if (!existing.url && url) existing.url = url;
