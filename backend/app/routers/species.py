@@ -266,7 +266,7 @@ async def search_species(
 
     async with get_db() as db:
         if q:
-            matches = [l for l in labels if q_lower in l.lower()]
+            matches = [label for label in labels if q_lower in label.lower()]
 
             # Include labels whose cached common/scientific names match the query.
             async with db.execute(
@@ -340,7 +340,7 @@ async def search_species(
 
     return results
 
-# ... existing code ...
+def _is_bird_article(data: dict) -> bool:
     """
     Strictly validate that a Wikipedia article is about a bird species.
     Uses the description field which is very reliable for bird articles.
@@ -372,8 +372,47 @@ async def search_species(
         "species of woodpecker",
         "species of hummingbird",
         "genus of bird",
+        "genus of birds",
         "family of bird",
+        "family of birds",
         "order of bird",
+        "order of birds",
+        "class of bird",
+        "class of birds",
+        "subfamily of bird",
+        "subfamily of birds",
+        "subspecies of bird",
+        "subspecies of birds",
+        # German
+        "vogelart",
+        "art der vögel",
+        "familie der vögel",
+        "gattung der vögel",
+        # French
+        "espèce d'oiseau",
+        "famille d'oiseaux",
+        "genre d'oiseaux",
+        # Spanish
+        "especie de ave",
+        "especie de pájaro",
+        "familia de aves",
+        "género de aves",
+        # Italian
+        "specie di uccello",
+        "famiglia di uccelli",
+        "genere di uccelli",
+        # Dutch
+        "vogelsoort",
+        "familie van vogels",
+        # Portuguese
+        "espécie de ave",
+        "família de aves",
+        # Polish
+        "gatunek ptaka",
+        "rodzina ptaków",
+        # Russian
+        "вид птиц",
+        "семейство птиц",
     ]
 
     # Check description first - this is very reliable

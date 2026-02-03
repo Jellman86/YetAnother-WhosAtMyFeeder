@@ -164,7 +164,13 @@
         ebirdNearbyLoading = true;
         ebirdNearbyError = null;
         try {
-            ebirdNearby = await fetchEbirdNearby(name, sciName);
+            const res = await fetchEbirdNearby(name, sciName);
+            if (res.status === 'error') {
+                ebirdNearbyError = (res as any).message || 'Failed to load eBird sightings';
+                ebirdNearby = null;
+            } else {
+                ebirdNearby = res;
+            }
         } catch (e: any) {
             ebirdNearbyError = e?.message || 'Failed to load eBird sightings';
         } finally {

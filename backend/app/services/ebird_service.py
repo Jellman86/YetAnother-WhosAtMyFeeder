@@ -1,6 +1,6 @@
 import re
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 import httpx
 import structlog
@@ -35,10 +35,17 @@ class EbirdService:
         if not headers:
             raise ValueError("eBird API key not configured")
 
-        async with httpx.AsyncClient(timeout=15.0) as client:
-            resp = await client.get(url, params=params, headers=headers)
-            resp.raise_for_status()
-            return resp.json()
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                resp = await client.get(url, params=params, headers=headers)
+                resp.raise_for_status()
+                return resp.json()
+        except httpx.HTTPStatusError as e:
+            log.error("eBird API error", status_code=e.response.status_code, url=str(e.request.url), detail=e.response.text)
+            raise
+        except Exception as e:
+            log.error("eBird connection error", error=str(e), url=url)
+            raise
 
     async def get_recent_observations(
         self,
@@ -82,9 +89,14 @@ class EbirdService:
         params = {
             "fmt": "json",
             "locale": locale or settings.ebird.locale,
-            "cat": "species,issf,spuh,slash,genus",
+            "cat": "species,issf,spuh,slash",
         }
-        items = await self._fetch_json("/ref/taxonomy/ebird", params)
+        try:
+            items = await self._fetch_json("/ref/taxonomy/ebird", params)
+        except Exception as e:
+            log.error("Failed to fetch eBird taxonomy", error=str(e))
+            return []
+            
         index: Dict[str, str] = {}
         for item in items:
             code = item.get("speciesCode")

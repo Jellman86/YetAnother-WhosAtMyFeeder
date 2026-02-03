@@ -142,14 +142,23 @@ async def get_nearby_observations(
     if species_name and not species_code:
         warning = "Species code not found for provided name(s); returning general nearby sightings"
 
-    items = await ebird_service.get_recent_observations(
-        lat=lat,
-        lng=lng,
-        dist_km=dist,
-        back_days=back,
-        max_results=max_results,
-        species_code=species_code
-    )
+    try:
+        items = await ebird_service.get_recent_observations(
+            lat=lat,
+            lng=lng,
+            dist_km=dist,
+            back_days=back,
+            max_results=max_results,
+            species_code=species_code
+        )
+    except Exception as e:
+        log.error("eBird nearby search failed", error=str(e))
+        return {
+            "status": "error",
+            "message": str(e),
+            "results": []
+        }
+
     return {
         "status": "ok",
         "species_name": species_name,
@@ -179,14 +188,22 @@ async def get_notable_observations(
     back = days_back or settings.ebird.default_days_back
     max_results = max_results or settings.ebird.max_results
 
-    items = await ebird_service.get_recent_observations(
-        lat=lat,
-        lng=lng,
-        dist_km=dist,
-        back_days=back,
-        max_results=max_results,
-        notable=True
-    )
+    try:
+        items = await ebird_service.get_recent_observations(
+            lat=lat,
+            lng=lng,
+            dist_km=dist,
+            back_days=back,
+            max_results=max_results,
+            notable=True
+        )
+    except Exception as e:
+        log.error("eBird notable search failed", error=str(e))
+        return {
+            "status": "error",
+            "message": str(e),
+            "results": []
+        }
     
     results = ebird_service.simplify_observations(items)
 

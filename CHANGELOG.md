@@ -10,6 +10,9 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Fixed:** Filled missing Detection settings translation keys across all supported locales.
 - **Fixed:** Localized retention duration labels instead of relying on hardcoded language checks.
 - **Fixed:** Added a generic localized fallback for test email failures.
+- **Fixed:** Resolved eBird API 400 error caused by invalid `genus` category and added backend error handling for eBird service failures.
+- **Fixed:** Expanded Wikipedia bird validation to support higher taxonomic ranks (Family, Genus, Order) and multiple languages (DE, FR, ES, IT, NL, PT, PL, RU).
+- **Fixed:** Improved UI error states for eBird sightings in species and detection modals.
 
 ## [2.7.2] - 2026-02-03
 

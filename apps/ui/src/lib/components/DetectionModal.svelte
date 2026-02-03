@@ -253,7 +253,13 @@
         ebirdNearbyLoading = true;
         ebirdNearbyError = null;
         try {
-            ebirdNearby = await fetchEbirdNearby(speciesName, scientificName);
+            const res = await fetchEbirdNearby(speciesName, scientificName);
+            if (res.status === 'error') {
+                ebirdNearbyError = (res as any).message || 'Failed to load eBird sightings';
+                ebirdNearby = null;
+            } else {
+                ebirdNearby = res;
+            }
         } catch (e: any) {
             ebirdNearbyError = e?.message || 'Failed to load eBird sightings';
         } finally {
@@ -265,7 +271,13 @@
         ebirdNotableLoading = true;
         ebirdNotableError = null;
         try {
-            ebirdNotable = await fetchEbirdNotable();
+            const res = await fetchEbirdNotable();
+            if (res.status === 'error') {
+                ebirdNotableError = (res as any).message || 'Failed to load eBird notable sightings';
+                ebirdNotable = null;
+            } else {
+                ebirdNotable = res;
+            }
         } catch (e: any) {
             ebirdNotableError = e?.message || 'Failed to load eBird notable sightings';
         } finally {
