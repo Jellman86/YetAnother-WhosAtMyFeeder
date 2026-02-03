@@ -132,22 +132,22 @@
     "integrations": {
       "birdnet": {
         "title": "BirdNET-Go",
-        "toggle_label": "Basculer l’intégration BirdNET-Go",
+        "toggle_label": "Activer l'intégration BirdNET-Go",
         "mqtt_topic": "Sujet MQTT",
-        "mqtt_topic_label": "Sujet MQTT de BirdNET",
+        "mqtt_topic_label": "Sujet MQTT BirdNET",
         "audio_buffer_hours": "Tampon audio (heures)",
         "audio_buffer_label": "Heures de tampon audio",
-        "audio_buffer_help": "Durée de conservation des détections audio pour la corrélation (1–168 heures)",
+        "audio_buffer_help": "Durée de conservation des détections audio pour corrélation (1-168 heures)",
         "match_window_seconds": "Fenêtre de correspondance (secondes)",
         "match_window_label": "Fenêtre de corrélation audio en secondes",
-        "match_window_help": "Fenêtre temporelle pour associer audio et vidéo (±5–3600 secondes)",
+        "match_window_help": "Fenêtre de temps pour faire correspondre l'audio avec le visuel (±5-3600 secondes)",
         "test_button": "Tester la détection audio",
         "test_loading": "Simulation...",
-        "sensor_mapping_title": "Association des capteurs (optionnel)",
+        "sensor_mapping_title": "Mappage des capteurs (facultatif)",
         "sensor_id_placeholder": "ID du capteur",
         "sensor_id_label": "ID du capteur audio pour {camera}",
         "sensor_mapping_empty": "Aucune caméra détectée. Vérifiez la connexion Frigate.",
-        "sensor_mapping_help": "Ajoutez vos caméras Frigate pour les associer à des capteurs audio. Utilisez * pour des IDs aléatoires/dynamiques."
+        "sensor_mapping_help": "Ajoutez vos caméras Frigate pour les mapper aux capteurs audio. Utilisez * pour des ID de capteur aléatoires/dynamiques."
       },
       "inaturalist": {
         "title": "iNaturalist",
@@ -175,6 +175,49 @@
         "refresh": "Actualiser le statut",
         "refresh_label": "Actualiser la connexion iNaturalist",
         "connected": "Connecté en tant que {user}"
+      },
+      "ebird": {
+        "title": "eBird",
+        "toggle_label": "Activer l'enrichissement eBird",
+        "api_key": "Clé API",
+        "api_key_label": "Clé API eBird",
+        "api_key_placeholder": "Clé API eBird",
+        "saved_placeholder": "Enregistré",
+        "api_key_desc": "Requis pour récupérer les observations récentes et les oiseaux notables.",
+        "radius": "Rayon par défaut (km)",
+        "days_back": "Jours en arrière",
+        "max_results": "Résultats max",
+        "locale": "Langue",
+        "export_csv": "Exporter toutes les observations (CSV)",
+        "export_csv_desc": "Télécharger les détections au format eBird Record pour l'import manuel.",
+        "export_csv_error": "Échec de l'exportation CSV"
+      },
+      "birdweather": {
+        "title": "BirdWeather",
+        "toggle_label": "Activer l'intégration BirdWeather",
+        "token": "Jeton de station",
+        "token_label": "Jeton de station BirdWeather",
+        "token_placeholder": "Votre jeton BirdWeather",
+        "token_desc": "Disponible dans les paramètres de votre station sous \"BirdWeather Token\".",
+        "test_button": "Tester la connexion",
+        "test_loading": "Vérification...",
+        "test_success": "Connexion BirdWeather vérifiée !",
+        "test_error": "Échec de la connexion BirdWeather"
+      },
+      "llm": {
+        "title": "Analyses IA",
+        "toggle_label": "Activer les analyses IA",
+        "provider": "Fournisseur",
+        "provider_label": "Fournisseur LLM",
+        "model": "Modèle",
+        "model_label": "Modèle LLM",
+        "api_key": "Clé API",
+        "api_key_label": "Clé API LLM",
+        "providers": {
+          "gemini": "Google Gemini",
+          "openai": "OpenAI",
+          "claude": "Anthropic Claude"
+        }
       }
     },
     "auth": {
@@ -332,7 +375,8 @@
       "video_fallback_seconds": "secondes",
       "cooldown": "Délai entre notifications",
       "cooldown_desc": "Temps minimum entre notifications en minutes (0 pour désactiver).",
-      "cooldown_unit": "minutes"
+      "cooldown_unit": "minutes",
+      "enable_notify_hint": "Notifications are currently off. Enable \"Notify on new detections\" or \"Notify on updates\" to send any alerts."
     },
     "discord": {
       "title": "Notifications Discord",
@@ -386,6 +430,104 @@
       "reset_button": "Réinitialiser BDD & Cache",
       "resetting": "Réinitialisation...",
       "confirm": "DANGER : Cela supprimera TOUTES les détections et effacera le cache média. Cette action est irréversible. Êtes-vous sûr ?"
+    },
+    "data": {
+      "title": "Data Management",
+      "records": "Total Records",
+      "oldest": "Oldest Seen",
+      "retention": "Retention",
+      "pending_gc": "Pending GC",
+      "retention_title": "Retention Policy",
+      "history_duration": "History Duration",
+      "keep_everything": "Keep Everything (∞)",
+      "purge_button": "Purge Old Records",
+      "cleaning": "Cleaning...",
+      "auto_cleanup_note": "Automatic cleanup runs daily at 3 AM",
+      "cache_title": "Media Cache",
+      "cache_snapshots": "Snapshots",
+      "cache_clips": "Video Clips",
+      "cache_size": "Cache Size",
+      "cache_clear_button": "Clear Cached Files",
+      "taxonomy_title": "Taxonomy Repair",
+      "taxonomy_desc": "Connect scientific and common names",
+      "taxonomy_syncing": "Syncing",
+      "taxonomy_repairing": "Repairing Database",
+      "taxonomy_run_button": "Run Full Taxonomy Repair",
+      "backfill_title": "Missed Detections",
+      "backfill_desc": "Query Frigate history to fetch and classify past events.",
+      "backfill_window": "Time Window",
+      "backfill_24h": "Last 24 Hours",
+      "backfill_week": "Last Week",
+      "backfill_month": "Last Month",
+      "backfill_custom": "Custom Range",
+      "backfill_start": "Start",
+      "backfill_end": "End",
+      "backfill_total": "Total",
+      "backfill_new": "New",
+      "backfill_skip": "Skip",
+      "backfill_err": "Err",
+      "backfill_skipped_breakdown": "Skipped Breakdown",
+      "backfill_reasons": {
+        "low_confidence": "Below Minimum Confidence Floor",
+        "below_threshold": "Below Confidence Threshold",
+        "blocked_label": "Filtered (Blocked Label)",
+        "already_exists": "Already in Database",
+        "fetch_snapshot_failed": "Frigate Snapshot Missing"
+      },
+      "backfill_scanning": "Analyzing Frigate...",
+      "backfill_scan_button": "Scan History",
+      "weather_backfill_title": "Weather Backfill",
+      "weather_backfill_filling": "Filling Weather...",
+      "weather_backfill_button": "Fill Weather Fields",
+      "batch_analysis_title": "Batch Analysis",
+      "batch_analysis_desc": "Refine existing detections",
+      "batch_analysis_long_desc": "Run video analysis on all detections labeled as \"Unknown Bird\". This will queue background tasks to download clips and re-classify them.",
+      "batch_analysis_queueing": "Queueing...",
+      "batch_analysis_button": "Analyze All Unknowns",
+      "batch_analysis_processing": "Processing...",
+      "batch_analysis_pending": "Pending",
+      "batch_analysis_active": "Active",
+      "batch_analysis_circuit_open": "Circuit Breaker Open (Paused due to failures)",
+      "cleanup_success": "Cleanup complete! Deleted {count} old detections.",
+      "cleanup_none": "No cleanup needed.",
+      "cleanup_error": "Cleanup failed",
+      "reset_error": "Database reset failed",
+      "cache_cleanup_success": "Cache cleanup complete! Deleted {snapshots} snapshots, {clips} clips ({freed} freed).",
+      "cache_cleanup_error": "Cache cleanup failed",
+      "backfill_error": "Backfill failed",
+      "weather_backfill_error": "Weather backfill failed",
+      "analysis_error": "Analysis failed",
+      "wildlife_download_error": "Failed to download wildlife model",
+      "taxonomy_sync_error": "Failed to start taxonomy sync: {error}"
+    },
+    "security": {
+      "title": "Security",
+      "https_warning": "Security Warning: Authentication is enabled over HTTP. Your credentials may be exposed. Use HTTPS in production."
+    },
+    "connection": {
+      "frigate_success": "Connected to Frigate v{version} at {url}",
+      "frigate_unexpected": "Frigate returned unexpected status",
+      "frigate_error": "Failed to connect to Frigate",
+      "mqtt_title": "MQTT Settings (Frigate Events)",
+      "simulating": "Simulating..."
+    },
+    "common": {
+      "save_error": "Failed to save settings"
+    },
+    "enrichment": {
+      "title": "Enrichment Sources",
+      "desc": "Choose where each enrichment comes from",
+      "mode_single": "Single Provider",
+      "mode_per": "Per Enrichment",
+      "provider": "Provider",
+      "fallback_note": "Fallbacks apply when a provider cannot supply a field.",
+      "summary_title": "Summary & Description",
+      "taxonomy_title": "Taxonomy & Common Names",
+      "sightings_title": "Nearby Sightings",
+      "seasonality_title": "Seasonality",
+      "rarity_title": "Rarity Indicators",
+      "links_title": "External Links",
+      "disabled": "Disabled"
     }
   },
   "auth": {

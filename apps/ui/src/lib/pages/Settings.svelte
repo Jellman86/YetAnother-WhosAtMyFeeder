@@ -636,13 +636,13 @@
         try {
             const result = await runCleanup();
             if (result.status === 'completed') {
-                message = { type: 'success', text: `Cleanup complete! Deleted ${result.deleted_count} old detections.` };
+                message = { type: 'success', text: $_('settings.data.cleanup_success', { values: { count: result.deleted_count } }) };
             } else {
-                message = { type: 'success', text: result.message || 'No cleanup needed.' };
+                message = { type: 'success', text: result.message || $_('settings.data.cleanup_none') };
             }
             await loadMaintenanceStats();
         } catch (e: any) {
-            message = { type: 'error', text: e.message || 'Cleanup failed' };
+            message = { type: 'error', text: e.message || $_('settings.data.cleanup_error') };
         } finally {
             cleaningUp = false;
         }
@@ -652,8 +652,7 @@
         console.log('Reset database requested');
         let confirmMsg = 'DANGER: This will delete ALL detections and clear the media cache. This action cannot be undone. Are you sure?';
         try {
-            const t = get(_);
-            confirmMsg = t('settings.danger.confirm');
+            confirmMsg = $_('settings.danger.confirm');
         } catch (e) {
             console.warn('Translation lookup failed, using fallback', e);
         }
@@ -673,8 +672,8 @@
             toastStore.success(result.message || $_('settings.danger.reset_button'));
             await Promise.all([loadMaintenanceStats(), loadCacheStats()]);
         } catch (e: any) {
-            message = { type: 'error', text: e.message || 'Database reset failed' };
-            toastStore.error(e.message || 'Database reset failed');
+            message = { type: 'error', text: e.message || $_('settings.data.reset_error') };
+            toastStore.error(e.message || $_('settings.data.reset_error'));
         } finally {
             resettingDatabase = false;
         }
@@ -697,13 +696,13 @@
                 const freed = result.bytes_freed > 1024 * 1024
                     ? `${(result.bytes_freed / (1024 * 1024)).toFixed(1)} MB`
                     : `${(result.bytes_freed / 1024).toFixed(1)} KB`;
-                message = { type: 'success', text: `Cache cleanup complete! Deleted ${result.snapshots_deleted} snapshots, ${result.clips_deleted} clips (${freed} freed).` };
+                message = { type: 'success', text: $_('settings.data.cache_cleanup_success', { values: { snapshots: result.snapshots_deleted, clips: result.clips_deleted, freed } }) };
             } else {
-                message = { type: 'success', text: result.message || 'No cleanup needed.' };
+                message = { type: 'success', text: result.message || $_('settings.data.cleanup_none') };
             }
             await loadCacheStats();
         } catch (e: any) {
-            message = { type: 'error', text: e.message || 'Cache cleanup failed' };
+            message = { type: 'error', text: e.message || $_('settings.data.cache_cleanup_error') };
         } finally {
             cleaningCache = false;
         }
@@ -725,7 +724,7 @@
             backfillTotal = job.total || 0;
             startBackfillPolling();
         } catch (e: any) {
-            message = { type: 'error', text: e.message || 'Backfill failed' };
+            message = { type: 'error', text: e.message || $_('settings.data.backfill_error') };
         }
     }
 
@@ -746,7 +745,7 @@
             weatherBackfillTotal = job.total || 0;
             startBackfillPolling();
         } catch (e: any) {
-            message = { type: 'error', text: e.message || 'Weather backfill failed' };
+            message = { type: 'error', text: e.message || $_('settings.data.weather_backfill_error') };
         }
     }
 

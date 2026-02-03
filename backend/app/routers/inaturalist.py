@@ -10,7 +10,8 @@ from urllib.parse import urlencode
 
 from app.config import settings
 from app.auth import require_owner, AuthContext
-from app.services.inaturalist_service import inaturalist_service, INAT_AUTHORIZE_URL, INAT_TOKEN_URL
+from app.auth_legacy import get_auth_context_with_legacy
+from app.services.inaturalist_service import inaturalist_service, INAT_AUTHORIZE_URL, INAT_TOKEN_URL, INAT_BASE_URL
 from app.services.i18n_service import i18n_service
 from app.utils.language import get_user_language
 from app.database import get_db
@@ -226,7 +227,7 @@ async def inaturalist_seasonality(
     lat: Optional[float] = Query(None, description="Latitude"),
     lng: Optional[float] = Query(None, description="Longitude"),
     radius: int = Query(50, description="Radius in km"),
-    auth=Depends(require_owner)
+    auth=Depends(get_auth_context_with_legacy)
 ):
     """
     Fetch seasonality histogram (observations by month) from iNaturalist.

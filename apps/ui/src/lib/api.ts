@@ -47,15 +47,28 @@ export interface VersionInfo {
     branch: string;
 }
 
-export interface AuthStatus {
+export interface AuthStatusResponse {
     auth_required: boolean;
     public_access_enabled: boolean;
     is_authenticated: boolean;
-    birdnet_enabled?: boolean;
-    llm_enabled?: boolean;
-    username?: string | null;
+    birdnet_enabled: boolean;
+    llm_enabled: boolean;
+    ebird_enabled: boolean;
+    inaturalist_enabled: boolean;
+    enrichment_mode: string;
+    enrichment_single_provider: string;
+    enrichment_summary_source: string;
+    enrichment_sightings_source: string;
+    enrichment_seasonality_source: string;
+    enrichment_rarity_source: string;
+    enrichment_links_sources: string[];
+    display_common_names: boolean;
+    scientific_name_primary: boolean;
+    accessibility_live_announcements: boolean;
+    location_temperature_unit: string;
+    username: string | null;
     needs_initial_setup: boolean;
-    https_warning?: boolean;
+    https_warning: boolean;
 }
 
 export interface LoginResponse {
@@ -380,7 +393,7 @@ async function apiFetch(url: string, options: RequestInit = {}): Promise<Respons
     return response;
 }
 
-export async function fetchAuthStatus(): Promise<AuthStatus> {
+export async function fetchAuthStatus(): Promise<AuthStatusResponse> {
     const response = await fetch(`${API_BASE}/auth/status`, {
         headers: getHeaders()
     });
@@ -848,9 +861,10 @@ export interface EbirdNotableResult {
     results: EbirdObservation[];
 }
 
-export async function fetchEbirdNearby(speciesName?: string): Promise<EbirdNearbyResult> {
+export async function fetchEbirdNearby(speciesName?: string, scientificName?: string): Promise<EbirdNearbyResult> {
     const params = new URLSearchParams();
-    if (speciesName) params.set("species_name", speciesName);
+    if (speciesName) params.append('species_name', speciesName);
+    if (scientificName) params.append('scientific_name', scientificName);
     const response = await apiFetch(`${API_BASE}/ebird/nearby?${params.toString()}`);
     return handleResponse<EbirdNearbyResult>(response);
 }

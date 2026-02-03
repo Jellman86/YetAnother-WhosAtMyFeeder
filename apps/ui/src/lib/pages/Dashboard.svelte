@@ -41,9 +41,9 @@
     let showCommon = $state(true);
     let preferSci = $state(false);
     $effect(() => {
-        llmEnabled = settingsStore.settings?.llm_enabled ?? authStore.llmEnabled ?? false;
-        showCommon = settingsStore.settings?.display_common_names ?? true;
-        preferSci = settingsStore.settings?.scientific_name_primary ?? false;
+        llmEnabled = settingsStore.llmEnabled;
+        showCommon = settingsStore.displayCommonNames;
+        preferSci = settingsStore.scientificNamePrimary;
     });
 
     const birdnetEnabled = $derived(
@@ -80,8 +80,8 @@
     // Derive naming logic for the modal
     let modalNaming = $derived.by(() => {
         if (!selectedEvent) return { primary: '', secondary: null };
-        const showCommon = settingsStore.settings?.display_common_names ?? true;
-        const preferSci = settingsStore.settings?.scientific_name_primary ?? false;
+        const showCommon = settingsStore.displayCommonNames;
+        const preferSci = settingsStore.scientificNamePrimary;
         return getBirdNames(selectedEvent, showCommon, preferSci);
     });
 
@@ -96,8 +96,8 @@
     let mostSeenName = $derived.by(() => {
         const top = summary?.top_species[0];
         if (!top) return null;
-        const showCommon = settingsStore.settings?.display_common_names ?? true;
-        const preferSci = settingsStore.settings?.scientific_name_primary ?? false;
+        const showCommon = settingsStore.displayCommonNames;
+        const preferSci = settingsStore.scientificNamePrimary;
         return getBirdNames(top, showCommon, preferSci).primary;
     });
 

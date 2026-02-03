@@ -53,6 +53,19 @@ class AuthStatusResponse(BaseModel):
     is_authenticated: bool
     birdnet_enabled: bool = False
     llm_enabled: bool = False
+    ebird_enabled: bool = False
+    inaturalist_enabled: bool = False
+    enrichment_mode: str = "per_enrichment"
+    enrichment_single_provider: str = "wikipedia"
+    enrichment_summary_source: str = "wikipedia"
+    enrichment_sightings_source: str = "disabled"
+    enrichment_seasonality_source: str = "disabled"
+    enrichment_rarity_source: str = "disabled"
+    enrichment_links_sources: list[str] = ["wikipedia", "inaturalist"]
+    display_common_names: bool = True
+    scientific_name_primary: bool = False
+    accessibility_live_announcements: bool = True
+    location_temperature_unit: str = "celsius"
     username: Optional[str] = None
     needs_initial_setup: bool = False
     https_warning: bool = False  # True if auth enabled over HTTP
@@ -232,6 +245,19 @@ async def get_auth_status(request: Request):
         is_authenticated=auth_level == AuthLevel.OWNER,
         birdnet_enabled=settings.frigate.birdnet_enabled,
         llm_enabled=settings.llm.enabled,
+        ebird_enabled=settings.ebird.enabled,
+        inaturalist_enabled=settings.inaturalist.enabled,
+        enrichment_mode=settings.enrichment.mode,
+        enrichment_single_provider=settings.enrichment.single_provider,
+        enrichment_summary_source=settings.enrichment.summary_source,
+        enrichment_sightings_source=settings.enrichment.sightings_source,
+        enrichment_seasonality_source=settings.enrichment.seasonality_source,
+        enrichment_rarity_source=settings.enrichment.rarity_source,
+        enrichment_links_sources=settings.enrichment.links_sources,
+        display_common_names=settings.classification.display_common_names,
+        scientific_name_primary=settings.classification.scientific_name_primary,
+        accessibility_live_announcements=settings.accessibility.live_announcements,
+        location_temperature_unit=settings.location.temperature_unit,
         username=username if auth_level == AuthLevel.OWNER else None,
         needs_initial_setup=needs_setup,
         https_warning=https_warning

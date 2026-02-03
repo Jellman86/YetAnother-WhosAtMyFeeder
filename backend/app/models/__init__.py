@@ -62,6 +62,7 @@ class SpeciesStats(BaseModel):
     species_name: str
     scientific_name: str | None = None
     common_name: str | None = None
+    taxa_id: int | None = None
     total_sightings: int
     first_seen: datetime | None
     last_seen: datetime | None

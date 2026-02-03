@@ -461,15 +461,15 @@
                             await exportEbirdCsv();
                         } catch (e) {
                             console.error('Failed to export CSV', e);
-                            alert('Failed to export CSV');
+                            alert($_('settings.integrations.ebird.export_csv_error'));
                         }
                     }}
                     class="flex items-center gap-2 px-4 py-3 rounded-2xl bg-sky-50 dark:bg-sky-900/20 text-sky-600 dark:text-sky-400 font-bold text-xs uppercase tracking-widest hover:bg-sky-100 dark:hover:bg-sky-900/40 transition-colors w-full justify-center"
                 >
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-                    {$_('settings.integrations.ebird.export_csv') || 'Export All Sightings (CSV)'}
+                    {$_('settings.integrations.ebird.export_csv')}
                 </button>
-                <p class="mt-2 text-[10px] text-slate-400 font-bold italic text-center">Download detections in eBird Record Format for manual import.</p>
+                <p class="mt-2 text-[10px] text-slate-400 font-bold italic text-center">{$_('settings.integrations.ebird.export_csv_desc')}</p>
             </div>
         </div>
     </section>
@@ -481,12 +481,12 @@
                 <div class="w-10 h-10 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" /></svg>
                 </div>
-                <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">BirdWeather</h3>
+                <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">{$_('settings.integrations.birdweather.title')}</h3>
             </div>
             <button
                 role="switch"
                 aria-checked={birdweatherEnabled}
-                aria-label="Toggle BirdWeather integration"
+                aria-label={$_('settings.integrations.birdweather.toggle_label')}
                 onclick={() => birdweatherEnabled = !birdweatherEnabled}
                 onkeydown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
@@ -503,24 +503,24 @@
 
         <div class="space-y-6">
             <div>
-                <label for="birdweather-token" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Station Token</label>
+                <label for="birdweather-token" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.integrations.birdweather.token')}</label>
                 <input
                     id="birdweather-token"
                     type="password"
                     bind:value={birdweatherStationToken}
-                    placeholder="Your BirdWeather token"
-                    aria-label="BirdWeather station token"
+                    placeholder={$_('settings.integrations.birdweather.token_placeholder')}
+                    aria-label={$_('settings.integrations.birdweather.token_label')}
                     class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"
                 />
-                <p class="mt-2 text-[10px] text-slate-500 font-bold italic">Available in your station settings under "BirdWeather Token".</p>
+                <p class="mt-2 text-[10px] text-slate-500 font-bold italic">{$_('settings.integrations.birdweather.token_desc')}</p>
             </div>
             <button
                 onclick={handleTestBirdWeather}
                 disabled={testingBirdWeather || !birdweatherStationToken}
-                aria-label="Test BirdWeather connection"
+                aria-label={$_('settings.integrations.birdweather.test_button')}
                 class="w-full px-4 py-3 text-xs font-black uppercase tracking-widest rounded-2xl bg-indigo-500 hover:bg-indigo-600 text-white transition-all shadow-lg shadow-indigo-500/20 disabled:opacity-50"
             >
-                {testingBirdWeather ? 'Verifying...' : 'Test Connection'}
+                {testingBirdWeather ? $_('settings.integrations.birdweather.test_loading') : $_('settings.integrations.birdweather.test_button')}
             </button>
         </div>
     </section>
@@ -532,12 +532,12 @@
                 <div class="w-10 h-10 rounded-2xl bg-brand-500/10 flex items-center justify-center text-brand-500">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
                 </div>
-                <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">AI Insights</h3>
+                <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">{$_('settings.integrations.llm.title')}</h3>
             </div>
             <button
                 role="switch"
                 aria-checked={llmEnabled}
-                aria-label="Toggle AI insights"
+                aria-label={$_('settings.integrations.llm.toggle_label')}
                 onclick={() => llmEnabled = !llmEnabled}
                 onkeydown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
@@ -555,24 +555,24 @@
         <div class="space-y-6">
             <div class="grid grid-cols-2 gap-4">
                 <div>
-                    <label for="llm-provider" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Provider</label>
+                    <label for="llm-provider" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.integrations.llm.provider')}</label>
                     <select
                         id="llm-provider"
                         bind:value={llmProvider}
-                        aria-label="LLM provider"
+                        aria-label={$_('settings.integrations.llm.provider_label')}
                         class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"
                     >
-                        <option value="gemini">Google Gemini</option>
-                        <option value="openai">OpenAI</option>
-                        <option value="claude">Anthropic Claude</option>
+                        <option value="gemini">{$_('settings.integrations.llm.providers.gemini')}</option>
+                        <option value="openai">{$_('settings.integrations.llm.providers.openai')}</option>
+                        <option value="claude">{$_('settings.integrations.llm.providers.claude')}</option>
                     </select>
                 </div>
                 <div>
-                    <label for="llm-model" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Model</label>
+                    <label for="llm-model" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.integrations.llm.model')}</label>
                     <select
                         id="llm-model"
                         bind:value={llmModel}
-                        aria-label="LLM model"
+                        aria-label={$_('settings.integrations.llm.model_label')}
                         class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"
                     >
                         {#each availableModels as model}
@@ -582,12 +582,12 @@
                 </div>
             </div>
             <div>
-                <label for="llm-api-key" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">API Key</label>
+                <label for="llm-api-key" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.integrations.llm.api_key')}</label>
                 <input
                     id="llm-api-key"
                     type="password"
                     bind:value={llmApiKey}
-                    aria-label="LLM API key"
+                    aria-label={$_('settings.integrations.llm.api_key_label')}
                     class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"
                 />
             </div>

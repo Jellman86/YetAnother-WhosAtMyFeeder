@@ -185,14 +185,14 @@
             <button
                 onclick={handleTestBirdNET}
                 disabled={testingBirdNET}
-                aria-label="{$_('settings.frigate.test_mqtt')}"
+                aria-label={$_('settings.frigate.test_mqtt')}
                 class="w-full px-4 py-3 text-xs font-black uppercase tracking-widest rounded-2xl bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 transition-all border border-indigo-500/20 disabled:opacity-50"
             >
-                {testingBirdNET ? 'Simulating...' : $_('settings.frigate.test_mqtt')}
+                {testingBirdNET ? $_('settings.connection.simulating') : $_('settings.frigate.test_mqtt')}
             </button>
 
             <div class="pt-6 border-t border-slate-100 dark:border-slate-700/50">
-                <h4 class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4">MQTT Settings (Frigate Events)</h4>
+                <h4 class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4">{$_('settings.connection.mqtt_title')}</h4>
                 <div class="space-y-4">
                     <div class="grid grid-cols-3 gap-4">
                         <div class="col-span-2">

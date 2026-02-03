@@ -31,8 +31,8 @@
 
     // Derived processed species with naming logic
     let processedSpecies = $derived(() => {
-        const showCommon = settingsStore.settings?.display_common_names ?? true;
-        const preferSci = settingsStore.settings?.scientific_name_primary ?? false;
+        const showCommon = settingsStore.displayCommonNames;
+        const preferSci = settingsStore.scientificNamePrimary;
 
         return species.map(item => {
             const naming = getBirdNames(item as any, showCommon, preferSci);

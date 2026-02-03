@@ -67,17 +67,17 @@
         llmEnabled = settingsStore.settings?.llm_enabled ?? authStore.llmEnabled ?? false;
     });
 
-    // Derive naming logic for the modal
-    let modalNaming = $derived.by(() => {
+    // Naming logic
+    let naming = $derived.by(() => {
         if (!selectedEvent) return { primary: '', secondary: null };
-        const showCommon = settingsStore.settings?.display_common_names ?? true;
-        const preferSci = settingsStore.settings?.scientific_name_primary ?? false;
+        const showCommon = settingsStore.displayCommonNames;
+        const preferSci = settingsStore.scientificNamePrimary;
         return getBirdNames(selectedEvent, showCommon, preferSci);
     });
 
     let modalReclassifyProgress = $derived(selectedEvent ? detectionsStore.getReclassificationProgress(selectedEvent.frigate_event) : undefined);
-    let modalPrimaryName = $derived(modalNaming.primary);
-    let modalSubName = $derived(modalNaming.secondary);
+    let modalPrimaryName = $derived(naming.primary);
+    let modalSubName = $derived(naming.secondary);
 
     let dateRange = $derived.by(() => {
         const today = new Date();

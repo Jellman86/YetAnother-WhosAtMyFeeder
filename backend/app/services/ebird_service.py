@@ -82,7 +82,7 @@ class EbirdService:
         params = {
             "fmt": "json",
             "locale": locale or settings.ebird.locale,
-            "cat": "species",
+            "cat": "species,issf,spuh,slash,genus",
         }
         items = await self._fetch_json("/ref/taxonomy/ebird", params)
         index: Dict[str, str] = {}

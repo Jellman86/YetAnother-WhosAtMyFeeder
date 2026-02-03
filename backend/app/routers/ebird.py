@@ -112,6 +112,7 @@ async def export_ebird_csv(auth=Depends(get_auth_context_with_legacy)):
 @router.get("/nearby")
 async def get_nearby_observations(
     species_name: Optional[str] = Query(None, description="Species common/scientific name"),
+    scientific_name: Optional[str] = Query(None, description="Scientific name fallback"),
     lat: Optional[float] = Query(None, description="Latitude override"),
     lng: Optional[float] = Query(None, description="Longitude override"),
     dist_km: Optional[int] = Query(None, ge=1, le=50, description="Search radius in km"),
@@ -134,8 +135,12 @@ async def get_nearby_observations(
     warning = None
     if species_name:
         species_code = await ebird_service.resolve_species_code(species_name)
-        if not species_code:
-            warning = "Species code not found for provided name; returning general nearby sightings"
+        
+    if not species_code and scientific_name:
+        species_code = await ebird_service.resolve_species_code(scientific_name)
+
+    if species_name and not species_code:
+        warning = "Species code not found for provided name(s); returning general nearby sightings"
 
     items = await ebird_service.get_recent_observations(
         lat=lat,

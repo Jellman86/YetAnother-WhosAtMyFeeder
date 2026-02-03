@@ -107,6 +107,89 @@
       "message": "Die automatische Videoanalyse wurde nach {failures} Fehlern pausiert.",
       "until": "Neuer Versuch nach: {time}"
     },
+    "data": {
+      "title": "Datenverwaltung",
+      "records": "Gesamt-Erkennungen",
+      "oldest": "Älteste Erkennung",
+      "retention": "Aufbewahrung",
+      "pending_gc": "Bereinigung ausstehend",
+      "retention_title": "Aufbewahrungsrichtlinie",
+      "history_duration": "Dauer der Historie",
+      "keep_everything": "Alles behalten (∞)",
+      "purge_button": "Alte Datensätze löschen",
+      "cleaning": "Wird bereinigt...",
+      "auto_cleanup_note": "Die automatische Bereinigung läuft täglich um 3 Uhr morgens",
+      "cache_title": "Medien-Cache",
+      "cache_snapshots": "Schnappschüsse",
+      "cache_clips": "Videoclips",
+      "cache_size": "Cache-Größe",
+      "cache_clear_button": "Gecachte Dateien löschen",
+      "taxonomy_title": "Taxonomie-Reparatur",
+      "taxonomy_desc": "Wissenschaftliche und gebräuchliche Namen verknüpfen",
+      "taxonomy_syncing": "Wird synchronisiert",
+      "taxonomy_repairing": "Datenbank wird repariert",
+      "taxonomy_run_button": "Vollständige Taxonomie-Reparatur starten",
+      "backfill_title": "Verpasste Erkennungen",
+      "backfill_desc": "Frigate-Historie abfragen, um vergangene Ereignisse zu klassifizieren.",
+      "backfill_window": "Zeitfenster",
+      "backfill_24h": "Letzte 24 Stunden",
+      "backfill_week": "Letzte Woche",
+      "backfill_month": "Letzter Monat",
+      "backfill_custom": "Benutzerdefinierter Zeitraum",
+      "backfill_start": "Start",
+      "backfill_end": "Ende",
+      "backfill_total": "Gesamt",
+      "backfill_new": "Neu",
+      "backfill_skip": "Übersprungen",
+      "backfill_err": "Fehler",
+      "backfill_skipped_breakdown": "Aufschlüsselung übersprungener Ereignisse",
+      "backfill_reasons": {
+        "low_confidence": "Unter Mindestkonfidenz",
+        "below_threshold": "Unter Konfidenzschwelle",
+        "blocked_label": "Gefiltert (Blockiertes Label)",
+        "already_exists": "Bereits in Datenbank vorhanden",
+        "fetch_snapshot_failed": "Frigate-Schnappschuss fehlt"
+      },
+      "backfill_scanning": "Frigate wird analysiert...",
+      "backfill_scan_button": "Historie scannen",
+      "weather_backfill_title": "Wetter-Nachfüllung",
+      "weather_backfill_filling": "Wetterdaten werden gefüllt...",
+      "weather_backfill_button": "Wetterfelder füllen",
+      "batch_analysis_title": "Stapelverarbeitung",
+      "batch_analysis_desc": "Bestehende Erkennungen verfeinern",
+      "batch_analysis_long_desc": "Führe eine Videoanalyse für alle als \"Unbekannter Vogel\" markierten Erkennungen aus. Dies reiht Hintergrundaufgaben zum Herunterladen von Clips und zur Neuklassifizierung ein.",
+      "batch_analysis_queueing": "Wird eingereiht...",
+      "batch_analysis_button": "Alle Unbekannten analysieren",
+      "batch_analysis_processing": "Wird verarbeitet...",
+      "batch_analysis_pending": "Ausstehend",
+      "batch_analysis_active": "Aktiv",
+      "batch_analysis_circuit_open": "Leistungsschutzschalter offen (wegen Fehlern pausiert)",
+      "cleanup_success": "Bereinigung abgeschlossen! {count} alte Erkennungen gelöscht.",
+      "cleanup_none": "Keine Bereinigung erforderlich.",
+      "cleanup_error": "Bereinigung fehlgeschlagen",
+      "reset_error": "Datenbank-Reset fehlgeschlagen",
+      "cache_cleanup_success": "Cache-Bereinigung abgeschlossen! {snapshots} Schnappschüsse, {clips} Clips gelöscht ({freed} freigegeben).",
+      "cache_cleanup_error": "Cache-Bereinigung fehlgeschlagen",
+      "backfill_error": "Backfill fehlgeschlagen",
+      "weather_backfill_error": "Wetter-Backfill fehlgeschlagen",
+      "analysis_error": "Analyse fehlgeschlagen",
+      "wildlife_download_error": "Download des Wildtiermodells fehlgeschlagen",
+      "taxonomy_sync_error": "Taxonomie-Synchronisierung konnte nicht gestartet werden: {error}"
+    },
+    "security": {
+      "title": "Sicherheit",
+      "https_warning": "Sicherheitshinweis: Die Authentifizierung ist über HTTP aktiviert. Ihre Anmeldedaten könnten offengelegt werden. Verwenden Sie HTTPS in der Produktion."
+    },
+    "connection": {
+      "frigate_success": "Verbunden mit Frigate v{version} unter {url}",
+      "frigate_unexpected": "Frigate gab einen unerwarteten Status zurück",
+      "frigate_error": "Verbindung zu Frigate fehlgeschlagen",
+      "mqtt_title": "MQTT-Einstellungen (Frigate-Ereignisse)",
+      "simulating": "Simulierung..."
+    },
+    "common": {
+      "save_error": "Speichern der Einstellungen fehlgeschlagen"
+    },
     "tabs": {
       "connection": "Verbindung",
       "detection": "Erkennung",
@@ -175,7 +258,65 @@
         "refresh": "Status aktualisieren",
         "refresh_label": "iNaturalist-Verbindung aktualisieren",
         "connected": "Verbunden als {user}"
+      },
+      "ebird": {
+        "title": "eBird",
+        "toggle_label": "eBird-Anreicherung umschalten",
+        "api_key": "API-Schlüssel",
+        "api_key_label": "eBird-API-Schlüssel",
+        "api_key_placeholder": "eBird-API-Schlüssel",
+        "saved_placeholder": "Gespeichert",
+        "api_key_desc": "Erforderlich, um aktuelle Sichtungen und bemerkenswerte Vögel abzurufen.",
+        "radius": "Standard-Radius (km)",
+        "days_back": "Tage zurück",
+        "max_results": "Max. Ergebnisse",
+        "locale": "Sprachregion",
+        "export_csv": "Alle Sichtungen exportieren (CSV)",
+        "export_csv_desc": "Lade Erkennungen im eBird Record Format für den manuellen Import herunter.",
+        "export_csv_error": "CSV-Export fehlgeschlagen"
+      },
+      "birdweather": {
+        "title": "BirdWeather",
+        "toggle_label": "BirdWeather-Integration umschalten",
+        "token": "Stations-Token",
+        "token_label": "BirdWeather-Stations-Token",
+        "token_placeholder": "Dein BirdWeather-Token",
+        "token_desc": "Verfügbar in deinen Stations-Einstellungen unter \"BirdWeather Token\".",
+        "test_button": "Verbindung testen",
+        "test_loading": "Verifizierung...",
+        "test_success": "BirdWeather-Verbindung verifiziert!",
+        "test_error": "BirdWeather-Verbindung fehlgeschlagen"
+      },
+      "llm": {
+        "title": "KI-Einblicke",
+        "toggle_label": "KI-Einblicke umschalten",
+        "provider": "Anbieter",
+        "provider_label": "LLM-Anbieter",
+        "model": "Modell",
+        "model_label": "LLM-Modell",
+        "api_key": "API-Schlüssel",
+        "api_key_label": "LLM-API-Schlüssel",
+        "providers": {
+          "gemini": "Google Gemini",
+          "openai": "OpenAI",
+          "claude": "Anthropic Claude"
+        }
       }
+    },
+    "enrichment": {
+      "title": "Anreicherungsquellen",
+      "desc": "Wähle aus, woher jede Anreicherung stammt",
+      "mode_single": "Einzellanbieter",
+      "mode_per": "Pro Anreicherung",
+      "provider": "Anbieter",
+      "fallback_note": "Fallbacks greifen, wenn ein Anbieter ein Feld nicht liefern kann.",
+      "summary_title": "Zusammenfassung & Beschreibung",
+      "taxonomy_title": "Taxonomie & Trivialnamen",
+      "sightings_title": "Sichtungen in der Nähe",
+      "seasonality_title": "Saisonalität",
+      "rarity_title": "Seltenheitsindikatoren",
+      "links_title": "Externe Links",
+      "disabled": "Deaktiviert"
     },
     "auth": {
       "title": "Authentifizierung",
@@ -288,6 +429,7 @@
       "dashboard_url_desc": "Link zu Ihrem Dashboard in E-Mail-Benachrichtigungen",
       "test_email": "Test-E-Mail senden",
       "test_email_sending": "Wird gesendet...",
+      "test_email_sent": "Test-E-Mail gesendet",
       "test_email_success": "Test-E-Mail erfolgreich an {email} gesendet!",
       "test_email_error": "Fehler beim Senden der Test-E-Mail: {error}",
       "oauth_connect_success": "{provider} erfolgreich verbunden!",
@@ -332,7 +474,8 @@
       "video_fallback_seconds": "Sekunden",
       "cooldown": "Benachrichtigungs‑Abkühlzeit",
       "cooldown_desc": "Mindestabstand zwischen Benachrichtigungen in Minuten (0 zum Deaktivieren).",
-      "cooldown_unit": "Minuten"
+      "cooldown_unit": "Minuten",
+      "enable_notify_hint": "Benachrichtigungen sind derzeit deaktiviert. Aktivieren Sie \"Bei neuen Erkennungen benachrichtigen\" oder \"Bei Updates benachrichtigen\", um Warnungen zu senden."
     },
     "discord": {
       "title": "Discord-Benachrichtigungen",
@@ -787,13 +930,5 @@
       "Pinguine sind einfach formelle Hühner, die für eine Gala gekleidet sind",
       "Hähne schreien die Sonne an, weil sie Angst vor der Dunkelheit haben"
     ]
-  },
-  "error": {
-    "boundary_title": "Something went wrong",
-    "boundary_subtitle": "An unexpected error occurred. Please try again or contact support if the problem persists.",
-    "show_details": "Show error details",
-    "try_again": "Try Again",
-    "copy_details": "Copy Error Details",
-    "reload_page": "Reload Page"
   }
 }

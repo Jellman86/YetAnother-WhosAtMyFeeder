@@ -19,6 +19,19 @@ class AuthStore {
     forceLogin = $state(false);
     birdnetEnabled = $state(false);
     llmEnabled = $state(false);
+    ebirdEnabled = $state(false);
+    inaturalistEnabled = $state(false);
+    enrichmentMode = $state("per_enrichment");
+    enrichmentSingleProvider = $state("wikipedia");
+    enrichmentSummarySource = $state("wikipedia");
+    enrichmentSightingsSource = $state("disabled");
+    enrichmentSeasonalitySource = $state("disabled");
+    enrichmentRaritySource = $state("disabled");
+    enrichmentLinksSources = $state<string[]>(["wikipedia", "inaturalist"]);
+    displayCommonNames = $state(true);
+    scientificNamePrimary = $state(false);
+    liveAnnouncements = $state(true);
+    locationTemperatureUnit = $state("celsius");
 
     // Derived permission states
     canModify = $derived(this.isAuthenticated || !this.authRequired);
@@ -48,6 +61,19 @@ class AuthStore {
             this.httpsWarning = status.https_warning ?? false;
             this.birdnetEnabled = status.birdnet_enabled ?? false;
             this.llmEnabled = status.llm_enabled ?? false;
+            this.ebirdEnabled = status.ebird_enabled ?? false;
+            this.inaturalistEnabled = status.inaturalist_enabled ?? false;
+            this.enrichmentMode = status.enrichment_mode ?? "per_enrichment";
+            this.enrichmentSingleProvider = status.enrichment_single_provider ?? "wikipedia";
+            this.enrichmentSummarySource = status.enrichment_summary_source ?? "wikipedia";
+            this.enrichmentSightingsSource = status.enrichment_sightings_source ?? "disabled";
+            this.enrichmentSeasonalitySource = status.enrichment_seasonality_source ?? "disabled";
+            this.enrichmentRaritySource = status.enrichment_rarity_source ?? "disabled";
+            this.enrichmentLinksSources = status.enrichment_links_sources ?? ["wikipedia", "inaturalist"];
+            this.displayCommonNames = status.display_common_names ?? true;
+            this.scientificNamePrimary = status.scientific_name_primary ?? false;
+            this.liveAnnouncements = status.accessibility_live_announcements ?? true;
+            this.locationTemperatureUnit = status.location_temperature_unit ?? "celsius";
         } catch (err) {
             console.error('Failed to load auth status', err);
         } finally {

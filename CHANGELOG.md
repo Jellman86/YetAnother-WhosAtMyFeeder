@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog, and this project adheres to Semantic Versioning.
 
+## [2.7.2] - 2026-02-03
+
+- **Fixed:** Resolved issue where enrichments (eBird sightings, iNaturalist seasonality) were hidden in guest mode due to missing configuration state and restricted endpoints.
+- **Changed:** eBird taxonomic lookups now include Genus, Spuh, Slash, and ISSF categories, enabling lookups for broader groups like "Siskins and New World Goldfinches".
+- **Changed:** eBird resolution now automatically falls back to scientific names if common name lookups fail.
+- **Added:** Public configuration state is now synchronized to guests via the auth status endpoint, enabling correct localized naming and feature toggles without requiring owner login.
+- **Fixed:** Accessibility live announcements now respect user settings even in guest mode.
+
 ## [2.7.1] - 2026-02-02
 
 - **Added:** New dedicated Enrichment tab in Settings for centralizing all species data source configurations.

@@ -628,12 +628,9 @@ async def get_species_stats(
         # Get taxonomy names for the main species
         taxonomy = await repo.get_taxonomy_names(species_name)
         common_name = taxonomy["common_name"]
+        taxa_id = taxonomy.get("taxa_id")
         
         # Localize main common name if needed
-        taxa_id = None
-        if recent:
-            taxa_id = recent[0].taxa_id
-        
         if lang != 'en' and taxa_id:
             localized = await taxonomy_service.get_localized_common_name(taxa_id, lang, db=db)
             if localized:
@@ -643,6 +640,7 @@ async def get_species_stats(
             species_name=species_name,
             scientific_name=taxonomy["scientific_name"],
             common_name=common_name,
+            taxa_id=taxa_id,
             total_sightings=total_stats["total"],
             first_seen=total_stats["first_seen"],
             last_seen=total_stats["last_seen"],
@@ -898,12 +896,13 @@ async def _fetch_inaturalist_info(species_name: str, lang: str) -> SpeciesInfo:
                 )
 
             taxon = results[0]
+            taxa_id = taxon.get("id")
             scientific_name = taxon.get("name")
             preferred_common = taxon.get("preferred_common_name")
             title = preferred_common or scientific_name or species_name
             extract = taxon.get("wikipedia_summary")
             wikipedia_url = taxon.get("wikipedia_url")
-            source_url = taxon.get("uri") or (f"https://www.inaturalist.org/taxa/{taxon.get('id')}" if taxon.get("id") else None)
+            source_url = taxon.get("uri") or (f"https://www.inaturalist.org/taxa/{taxa_id}" if taxa_id else None)
             thumbnail_url = None
             default_photo = taxon.get("default_photo")
             if isinstance(default_photo, dict):
@@ -921,6 +920,7 @@ async def _fetch_inaturalist_info(species_name: str, lang: str) -> SpeciesInfo:
                 summary_source_url=source_url if extract else None,
                 scientific_name=scientific_name,
                 conservation_status=None,
+                taxa_id=taxa_id,
                 cached_at=datetime.now()
             )
     except httpx.TimeoutException:

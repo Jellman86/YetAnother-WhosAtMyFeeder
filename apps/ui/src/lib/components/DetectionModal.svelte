@@ -145,8 +145,8 @@
     );
 
     // Naming logic
-    const showCommon = $derived(settingsStore.settings?.display_common_names ?? true);
-    const preferSci = $derived(settingsStore.settings?.scientific_name_primary ?? false);
+    const showCommon = $derived(settingsStore.settings?.display_common_names ?? authStore.displayCommonNames ?? true);
+    const preferSci = $derived(settingsStore.settings?.scientific_name_primary ?? authStore.scientificNamePrimary ?? false);
     const naming = $derived(getBirdNames(detection, showCommon, preferSci));
     const primaryName = $derived(naming.primary);
     const subName = $derived(naming.secondary);
@@ -160,42 +160,42 @@
         detection.weather_rain !== undefined && detection.weather_rain !== null ||
         detection.weather_snowfall !== undefined && detection.weather_snowfall !== null
     );
-    const inatEnabled = $derived(settingsStore.settings?.inaturalist_enabled ?? false);
+    const inatEnabled = $derived(settingsStore.settings?.inaturalist_enabled ?? authStore.inaturalistEnabled ?? false);
     const inatConnectedUser = $derived(settingsStore.settings?.inaturalist_connected_user ?? null);
     const canShowInat = $derived(!readOnly && authStore.canModify && inatEnabled && (!!inatConnectedUser || inatPreview));
 
     const UNKNOWN_SPECIES_LABELS = new Set(['unknown', 'unknown bird', 'background']);
     const isUnknownSpecies = $derived(UNKNOWN_SPECIES_LABELS.has((detection.display_name || '').trim().toLowerCase()));
 
-    const enrichmentModeSetting = $derived(settingsStore.settings?.enrichment_mode ?? 'per_enrichment');
-    const enrichmentSingleProviderSetting = $derived(settingsStore.settings?.enrichment_single_provider ?? 'wikipedia');
+    const enrichmentModeSetting = $derived(settingsStore.settings?.enrichment_mode ?? authStore.enrichmentMode ?? 'per_enrichment');
+    const enrichmentSingleProviderSetting = $derived(settingsStore.settings?.enrichment_single_provider ?? authStore.enrichmentSingleProvider ?? 'wikipedia');
     const enrichmentSummaryProvider = $derived(
         enrichmentModeSetting === 'single'
             ? enrichmentSingleProviderSetting
-            : (settingsStore.settings?.enrichment_summary_source ?? 'wikipedia')
+            : (settingsStore.settings?.enrichment_summary_source ?? authStore.enrichmentSummarySource ?? 'wikipedia')
     );
     const enrichmentSightingsProvider = $derived(
         enrichmentModeSetting === 'single'
             ? enrichmentSingleProviderSetting
-            : (settingsStore.settings?.enrichment_sightings_source ?? 'disabled')
+            : (settingsStore.settings?.enrichment_sightings_source ?? authStore.enrichmentSightingsSource ?? 'disabled')
     );
     const enrichmentSeasonalityProvider = $derived(
         enrichmentModeSetting === 'single'
             ? enrichmentSingleProviderSetting
-            : (settingsStore.settings?.enrichment_seasonality_source ?? 'disabled')
+            : (settingsStore.settings?.enrichment_seasonality_source ?? authStore.enrichmentSeasonalitySource ?? 'disabled')
     );
     const enrichmentRarityProvider = $derived(
         enrichmentModeSetting === 'single'
             ? enrichmentSingleProviderSetting
-            : (settingsStore.settings?.enrichment_rarity_source ?? 'disabled')
+            : (settingsStore.settings?.enrichment_rarity_source ?? authStore.enrichmentRaritySource ?? 'disabled')
     );
     const enrichmentLinksProviders = $derived(
         enrichmentModeSetting === 'single'
             ? [enrichmentSingleProviderSetting]
-            : (settingsStore.settings?.enrichment_links_sources ?? ['wikipedia', 'inaturalist'])
+            : (settingsStore.settings?.enrichment_links_sources ?? authStore.enrichmentLinksSources ?? ['wikipedia', 'inaturalist'])
     );
     const enrichmentLinksProvidersNormalized = $derived(enrichmentLinksProviders.map((provider) => provider.toLowerCase()));
-    const ebirdEnabled = $derived(settingsStore.settings?.ebird_enabled ?? false);
+    const ebirdEnabled = $derived(settingsStore.settings?.ebird_enabled ?? authStore.ebirdEnabled ?? false);
     const ebirdRadius = $derived(settingsStore.settings?.ebird_default_radius_km ?? 25);
     const ebirdDaysBack = $derived(settingsStore.settings?.ebird_default_days_back ?? 14);
     const showEbirdNearby = $derived(
@@ -249,11 +249,11 @@
         }
     }
 
-    async function loadEbirdNearby(speciesName: string) {
+    async function loadEbirdNearby(speciesName: string, scientificName?: string) {
         ebirdNearbyLoading = true;
         ebirdNearbyError = null;
         try {
-            ebirdNearby = await fetchEbirdNearby(speciesName);
+            ebirdNearby = await fetchEbirdNearby(speciesName, scientificName);
         } catch (e: any) {
             ebirdNearbyError = e?.message || 'Failed to load eBird sightings';
         } finally {
@@ -300,7 +300,7 @@
         const needsEbirdNearby = ebirdEnabled && showEbirdNearby;
         const needsEbirdNotable = ebirdEnabled && showEbirdNotable;
         if (needsEbirdNearby) {
-            void loadEbirdNearby(detection.display_name);
+            void loadEbirdNearby(detection.display_name, detection.scientific_name);
         }
         if (needsEbirdNotable) {
             void loadEbirdNotable();
