@@ -933,7 +933,8 @@
     "seasonality_local": "Stagionalità locale",
     "seasonality_global": "Stagionalità globale",
     "range_map": "Mappa di distribuzione",
-    "range_unavailable": "Mappa di distribuzione non disponibile."
+    "range_unavailable": "Mappa di distribuzione non disponibile.",
+    "range_map_hint": "Trascina per spostare • Scorri per zoomare"
   },
   "pagination": {
     "navigation": "Paginazione",

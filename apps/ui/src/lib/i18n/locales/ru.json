@@ -933,7 +933,8 @@
     "seasonality_local": "Локальная сезонность",
     "seasonality_global": "Глобальная сезонность",
     "range_map": "Карта ареала",
-    "range_unavailable": "Карта ареала недоступна."
+    "range_unavailable": "Карта ареала недоступна.",
+    "range_map_hint": "Перетащите для перемещения • Прокрутите для масштабирования"
   },
   "pagination": {
     "navigation": "Пагинация",

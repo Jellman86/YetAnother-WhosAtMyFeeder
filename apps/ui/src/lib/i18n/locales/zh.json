@@ -925,7 +925,8 @@
     "seasonality_local": "本地季节性",
     "seasonality_global": "全球季节性",
     "range_map": "分布地图",
-    "range_unavailable": "分布地图不可用。"
+    "range_unavailable": "分布地图不可用。",
+    "range_map_hint": "拖动平移 • 滚动缩放"
   },
   "pagination": {
     "navigation": "分页",

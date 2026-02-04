@@ -14,6 +14,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Added:** Species detail modal now includes a GBIF-based global range map under seasonality.
 - **Fixed:** Detection details now distinguish between confirmed audio matches and merely detected audio.
 - **Fixed:** Detection cards and hero badge now distinguish audio detected vs confirmed.
+- **Changed:** Range map now defaults to a wider zoom and includes interaction hints.
 
 ## [2.7.4] - 2026-02-03
 

@@ -925,7 +925,8 @@
     "seasonality_local": "Estacionalidad local",
     "seasonality_global": "Estacionalidad global",
     "range_map": "Mapa de distribución",
-    "range_unavailable": "Mapa de distribución no disponible."
+    "range_unavailable": "Mapa de distribución no disponible.",
+    "range_map_hint": "Arrastra para mover • Desplaza para acercar"
   },
   "pagination": {
     "navigation": "Paginación",

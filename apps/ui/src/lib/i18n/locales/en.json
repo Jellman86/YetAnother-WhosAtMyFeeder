@@ -933,7 +933,8 @@
     "seasonality_local": "Local seasonality",
     "seasonality_global": "Global seasonality",
     "range_map": "Range map",
-    "range_unavailable": "Range map unavailable."
+    "range_unavailable": "Range map unavailable.",
+    "range_map_hint": "Drag to pan • Scroll to zoom"
   },
   "pagination": {
     "navigation": "Pagination",

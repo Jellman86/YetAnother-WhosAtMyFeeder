@@ -925,7 +925,8 @@
     "seasonality_local": "Lokale Saisonalität",
     "seasonality_global": "Globale Saisonalität",
     "range_map": "Verbreitungskarte",
-    "range_unavailable": "Verbreitungskarte nicht verfügbar."
+    "range_unavailable": "Verbreitungskarte nicht verfügbar.",
+    "range_map_hint": "Ziehen zum Verschieben • Scrollen zum Zoomen"
   },
   "pagination": {
     "navigation": "Paginierung",

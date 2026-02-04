@@ -742,10 +742,11 @@
                                         <div class="flex-1 min-h-[140px] rounded-2xl bg-slate-100 dark:bg-slate-800/60 animate-pulse"></div>
                                     {:else if rangeMap?.tileUrl}
                                         {#if rangeMapCenter}
-                                            <RangeMap tileUrl={rangeMap.tileUrl} heightClass="h-full" center={rangeMapCenter} zoom={3} />
+                                            <RangeMap tileUrl={rangeMap.tileUrl} heightClass="h-full" center={rangeMapCenter} zoom={2} />
                                         {:else}
                                             <RangeMap tileUrl={rangeMap.tileUrl} heightClass="h-full" />
                                         {/if}
+                                        <p class="mt-2 text-[10px] uppercase tracking-widest text-slate-400">{$_('species_detail.range_map_hint')}</p>
                                     {:else}
                                         <p class="text-xs text-slate-500 italic">{rangeMapError || $_('species_detail.range_unavailable')}</p>
                                     {/if}
