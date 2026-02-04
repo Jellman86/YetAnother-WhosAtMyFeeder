@@ -10,11 +10,16 @@
   let mapElement: HTMLElement;
   let map: any;
   let L: any;
+  let resizeObserver: ResizeObserver | null = null;
 
   onDestroy(() => {
     if (map) {
       map.remove();
       map = null;
+    }
+    if (resizeObserver) {
+      resizeObserver.disconnect();
+      resizeObserver = null;
     }
   });
 
@@ -54,6 +59,13 @@
     setTimeout(() => {
       if (map) map.invalidateSize();
     }, 0);
+
+    if (mapElement && typeof ResizeObserver !== 'undefined') {
+      resizeObserver = new ResizeObserver(() => {
+        if (map) map.invalidateSize();
+      });
+      resizeObserver.observe(mapElement);
+    }
   }
 </script>
 
