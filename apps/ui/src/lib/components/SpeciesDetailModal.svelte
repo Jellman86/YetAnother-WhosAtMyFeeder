@@ -99,6 +99,11 @@
     const ebirdEnabled = $derived(settingsStore.settings?.ebird_enabled ?? authStore.ebirdEnabled ?? false);
     const ebirdRadius = $derived(settingsStore.settings?.ebird_default_radius_km ?? 25);
     const ebirdDaysBack = $derived(settingsStore.settings?.ebird_default_days_back ?? 14);
+    const rangeMapCenter = $derived(
+        authStore.canModify && settingsStore.settings?.location_latitude && settingsStore.settings?.location_longitude
+            ? [settingsStore.settings.location_latitude, settingsStore.settings.location_longitude] as [number, number]
+            : null
+    );
     const showEbirdNearby = $derived(
         enrichmentSightingsProvider === 'ebird' || enrichmentSeasonalityProvider === 'ebird'
     );
@@ -736,7 +741,11 @@
                                     {#if rangeMapLoading}
                                         <div class="h-[160px] rounded-2xl bg-slate-100 dark:bg-slate-800/60 animate-pulse"></div>
                                     {:else if rangeMap?.tileUrl}
-                                        <RangeMap tileUrl={rangeMap.tileUrl} heightClass="h-[160px]" />
+                                        {#if rangeMapCenter}
+                                            <RangeMap tileUrl={rangeMap.tileUrl} heightClass="h-[200px]" center={rangeMapCenter} zoom={3} />
+                                        {:else}
+                                            <RangeMap tileUrl={rangeMap.tileUrl} heightClass="h-[200px]" />
+                                        {/if}
                                     {:else}
                                         <p class="text-xs text-slate-500 italic">{rangeMapError || $_('species_detail.range_unavailable')}</p>
                                     {/if}
