@@ -737,10 +737,12 @@
                         </div>
                         <div class="min-w-0">
                             <p class="text-[10px] font-black uppercase tracking-widest text-teal-600/70 dark:text-teal-400/70">
-                                {$_('detection.audio_match')}
+                                {detection.audio_confirmed ? $_('detection.audio_match') : $_('detection.audio_detected')}
                             </p>
                             <p class="text-sm font-bold text-slate-700 dark:text-slate-200 truncate">
-                                {detection.audio_species || $_('detection.birdnet_confirmed')}
+                                {detection.audio_confirmed
+                                    ? (detection.audio_species || $_('detection.birdnet_confirmed'))
+                                    : $_('detection.audio_heard', { values: { species: detection.audio_species || $_('detection.audio_detected') } })}
                                 {#if detection.audio_score}
                                     <span class="ml-1 opacity-60">({(detection.audio_score * 100).toFixed(0)}%)</span>
                                 {/if}

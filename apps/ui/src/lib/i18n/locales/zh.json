@@ -707,7 +707,9 @@
     "image_alt": "在 {camera} 检测到 {species}",
     "play_video": "播放 {species} 的视频",
     "reclassify": "重新分类 {species} 检测",
-    "retag": "手动标记 {species} 检测"
+    "retag": "手动标记 {species} 检测",
+    "audio_detected": "检测到音频",
+    "audio_heard": "听到：{species}"
   },
   "events": {
     "title": "事件",

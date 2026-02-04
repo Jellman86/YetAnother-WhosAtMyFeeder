@@ -707,7 +707,9 @@
     "image_alt": "{species} detectado en {camera}",
     "play_video": "Reproducir video de {species}",
     "reclassify": "Reclasificar detección de {species}",
-    "retag": "Etiquetar manualmente detección de {species}"
+    "retag": "Etiquetar manualmente detección de {species}",
+    "audio_detected": "Audio detectado",
+    "audio_heard": "Oído: {species}"
   },
   "events": {
     "title": "Eventos",

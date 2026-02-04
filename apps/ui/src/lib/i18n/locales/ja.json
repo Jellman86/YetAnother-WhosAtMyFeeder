@@ -707,7 +707,9 @@
     "image_alt": "{camera} で {species} を検出",
     "play_video": "{species} のビデオを再生",
     "reclassify": "{species} の検出を再分類",
-    "retag": "{species} の検出を手動でタグ付け"
+    "retag": "{species} の検出を手動でタグ付け",
+    "audio_detected": "音声検出",
+    "audio_heard": "確認音声: {species}"
   },
   "events": {
     "title": "イベント",

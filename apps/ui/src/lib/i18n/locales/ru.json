@@ -715,7 +715,9 @@
     "image_alt": "{species} обнаружен(а) на {camera}",
     "play_video": "Воспроизвести видео {species}",
     "reclassify": "Реклассифицировать обнаружение {species}",
-    "retag": "Вручную отметить обнаружение {species}"
+    "retag": "Вручную отметить обнаружение {species}",
+    "audio_detected": "Аудио обнаружено",
+    "audio_heard": "Слышно: {species}"
   },
   "events": {
     "title": "События",
