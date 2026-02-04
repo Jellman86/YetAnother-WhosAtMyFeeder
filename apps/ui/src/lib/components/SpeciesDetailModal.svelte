@@ -259,10 +259,6 @@
             if (seasonalityEnabled && taxonId) {
                 void loadSeasonality(taxonId);
             }
-
-            if (!isUnknownBird) {
-                void loadRangeMap(speciesName, sciName);
-            }
         } catch (e: any) {
             console.error('Failed to load species details', e);
             if (!isUnknownBird) {
@@ -270,6 +266,11 @@
             }
         } finally {
             loading = false;
+        }
+
+        if (!isUnknownBird) {
+            const sciName = info?.scientific_name || stats?.scientific_name || undefined;
+            void loadRangeMap(speciesName, sciName);
         }
     });
 

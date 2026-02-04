@@ -49,6 +49,11 @@
         minZoom: 1
       }).addTo(map);
     }
+
+    // Ensure proper sizing inside modals and flex containers
+    setTimeout(() => {
+      if (map) map.invalidateSize();
+    }, 0);
   }
 </script>
 
