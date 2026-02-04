@@ -680,7 +680,7 @@
 
                         <div class="space-y-4 h-full flex flex-col">
                             {#if seasonality}
-                                <div class="group relative overflow-hidden rounded-2xl border border-indigo-200/60 dark:border-indigo-800/40 bg-indigo-50/30 dark:bg-indigo-900/10 p-5 hover:bg-indigo-50/50 dark:hover:bg-indigo-900/20 transition-all duration-300 flex-1 flex flex-col">
+                                <div class="group relative overflow-hidden rounded-2xl border border-indigo-200/60 dark:border-indigo-800/40 bg-indigo-50/30 dark:bg-indigo-900/10 p-5 hover:bg-indigo-50/50 dark:hover:bg-indigo-900/20 transition-all duration-300 lg:flex-1 lg:flex lg:flex-col">
                                     <div class="flex items-center gap-2 mb-3">
                                         <div class="p-1.5 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
                                             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -707,7 +707,7 @@
                             {/if}
 
                             {#if rangeMapLoading || rangeMap || rangeMapError}
-                                <div class="group relative overflow-hidden rounded-2xl border border-slate-200/60 dark:border-slate-700/60 bg-white/50 dark:bg-slate-900/30 p-5 hover:bg-white/80 dark:hover:bg-slate-900/50 transition-all duration-300 flex-1 flex flex-col">
+                                <div class="group relative overflow-hidden rounded-2xl border border-slate-200/60 dark:border-slate-700/60 bg-white/50 dark:bg-slate-900/30 p-5 hover:bg-white/80 dark:hover:bg-slate-900/50 transition-all duration-300 lg:flex-1 lg:flex lg:flex-col">
                                     <div class="relative flex items-center justify-between gap-3 mb-3">
                                         <div class="flex items-center gap-2">
                                             <div class="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
