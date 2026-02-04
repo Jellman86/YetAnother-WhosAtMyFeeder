@@ -353,7 +353,7 @@
                 </p>
             {/if}
         </div>
-        {#if detection.audio_confirmed}
+        {#if detection.audio_confirmed || detection.audio_species}
             <div class="p-3 rounded-2xl bg-teal-500/5 dark:bg-teal-500/10 border border-teal-500/10 dark:border-teal-500/20 flex items-center gap-3 group/audio">
                 <div class="w-8 h-8 rounded-xl bg-teal-500/20 flex items-center justify-center flex-shrink-0">
                     <svg class="w-4 h-4 text-teal-600 dark:text-teal-400 {detection.audio_confirmed ? 'animate-pulse-slow' : ''}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -361,9 +361,13 @@
                     </svg>
                 </div>
                 <div class="min-w-0">
-                    <p class="text-[10px] font-black uppercase tracking-widest text-teal-600/70 dark:text-teal-400/70 mb-0.5">{$_('detection.audio_match')}</p>
+                    <p class="text-[10px] font-black uppercase tracking-widest text-teal-600/70 dark:text-teal-400/70 mb-0.5">
+                        {detection.audio_confirmed ? $_('detection.audio_match') : $_('detection.audio_detected')}
+                    </p>
                     <p class="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">
-                        {detection.audio_species || $_('detection.birdnet_confirmed')}
+                        {detection.audio_confirmed
+                            ? (detection.audio_species || $_('detection.birdnet_confirmed'))
+                            : $_('detection.audio_heard', { values: { species: detection.audio_species || $_('detection.audio_detected') } })}
                         {#if detection.audio_score}
                             <span class="ml-1 opacity-60">({(detection.audio_score * 100).toFixed(0)}%)</span>
                         {/if}
