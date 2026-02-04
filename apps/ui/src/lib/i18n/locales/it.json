@@ -926,7 +926,9 @@
     "last_seen": "Visto Ultimo",
     "activity_patterns": "Pattern Attività",
     "camera_breakdown": "Ripartizione Telecamere",
-    "recent_sightings": "Avvistamenti Recenti"
+    "recent_sightings": "Avvistamenti Recenti",
+    "seasonality_local": "Stagionalità locale",
+    "seasonality_global": "Stagionalità globale"
   },
   "pagination": {
     "navigation": "Paginazione",

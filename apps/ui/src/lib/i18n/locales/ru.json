@@ -926,7 +926,9 @@
     "last_seen": "Последний раз замечен",
     "activity_patterns": "Шаблоны активности",
     "camera_breakdown": "Разбивка по камерам",
-    "recent_sightings": "Недавние наблюдения"
+    "recent_sightings": "Недавние наблюдения",
+    "seasonality_local": "Локальная сезонность",
+    "seasonality_global": "Глобальная сезонность"
   },
   "pagination": {
     "navigation": "Пагинация",

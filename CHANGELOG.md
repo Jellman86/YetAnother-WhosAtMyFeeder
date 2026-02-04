@@ -10,6 +10,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Fixed:** Species card labels and empty summary messaging now use localized translations.
 - **Changed:** Enrichment sources are now automatic: eBird API key enables eBird-first enrichment with iNaturalist seasonality fallback; without a key, Wikipedia + iNaturalist are used.
 - **Changed:** Enrichment settings UI is now read-only and reflects the effective source selection.
+- **Fixed:** Added missing seasonality labels for species detail translations across locales.
 
 ## [2.7.4] - 2026-02-03
 

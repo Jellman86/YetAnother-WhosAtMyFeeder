@@ -918,7 +918,9 @@
     "last_seen": "最終観測",
     "activity_patterns": "活動パターン",
     "camera_breakdown": "カメラ別内訳",
-    "recent_sightings": "最近の目撃情報"
+    "recent_sightings": "最近の目撃情報",
+    "seasonality_local": "ローカル季節性",
+    "seasonality_global": "グローバル季節性"
   },
   "pagination": {
     "navigation": "ページネーション",

@@ -918,7 +918,9 @@
     "last_seen": "最后发现",
     "activity_patterns": "活动模式",
     "camera_breakdown": "摄像头细分",
-    "recent_sightings": "最近目击"
+    "recent_sightings": "最近目击",
+    "seasonality_local": "本地季节性",
+    "seasonality_global": "全球季节性"
   },
   "pagination": {
     "navigation": "分页",

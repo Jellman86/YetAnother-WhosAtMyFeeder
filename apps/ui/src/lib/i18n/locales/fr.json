@@ -918,7 +918,9 @@
     "last_seen": "Dernière vue",
     "activity_patterns": "Modèles d'activité",
     "camera_breakdown": "Répartition par caméra",
-    "recent_sightings": "Observations récentes"
+    "recent_sightings": "Observations récentes",
+    "seasonality_local": "Saisonnalité locale",
+    "seasonality_global": "Saisonnalité globale"
   },
   "pagination": {
     "navigation": "Pagination",

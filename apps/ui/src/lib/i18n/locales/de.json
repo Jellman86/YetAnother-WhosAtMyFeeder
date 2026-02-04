@@ -919,7 +919,9 @@
     "last_seen": "Zuletzt gesehen",
     "activity_patterns": "Aktivitätsmuster",
     "camera_breakdown": "Kamera-Aufschlüsselung",
-    "recent_sightings": "Kürzliche Sichtungen"
+    "recent_sightings": "Kürzliche Sichtungen",
+    "seasonality_local": "Lokale Saisonalität",
+    "seasonality_global": "Globale Saisonalität"
   },
   "pagination": {
     "navigation": "Paginierung",
