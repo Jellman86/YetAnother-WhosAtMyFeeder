@@ -928,6 +928,7 @@ async def get_species_info(
 @guest_rate_limit()
 async def get_species_range(
     species_name: str,
+    request: Request,
     scientific_name: str | None = None,
     auth: AuthContext = Depends(get_auth_context_with_legacy)
 ):
