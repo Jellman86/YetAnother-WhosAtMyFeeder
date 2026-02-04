@@ -530,7 +530,7 @@
     },
     "enrichment": {
       "title": "Enrichment Sources",
-      "desc": "Choose where each enrichment comes from",
+      "desc": "Le fonti vengono selezionate automaticamente in base alle integrazioni.",
       "mode_single": "Single Provider",
       "mode_per": "Per Enrichment",
       "provider": "Provider",

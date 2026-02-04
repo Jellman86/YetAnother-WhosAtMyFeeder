@@ -522,7 +522,7 @@
     },
     "enrichment": {
       "title": "Enrichment Sources",
-      "desc": "Choose where each enrichment comes from",
+      "desc": "ソースは連携状況に基づき自動的に選択されます。",
       "mode_single": "Single Provider",
       "mode_per": "Per Enrichment",
       "provider": "Provider",

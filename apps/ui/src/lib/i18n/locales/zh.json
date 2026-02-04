@@ -522,7 +522,7 @@
     },
     "enrichment": {
       "title": "Enrichment Sources",
-      "desc": "Choose where each enrichment comes from",
+      "desc": "来源会根据你的集成自动选择。",
       "mode_single": "Single Provider",
       "mode_per": "Per Enrichment",
       "provider": "Provider",

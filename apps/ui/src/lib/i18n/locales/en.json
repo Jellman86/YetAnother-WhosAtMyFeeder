@@ -318,7 +318,7 @@
     },
     "enrichment": {
       "title": "Enrichment Sources",
-      "desc": "Choose where each enrichment comes from",
+      "desc": "Sources are selected automatically based on your integrations.",
       "mode_single": "Single Provider",
       "mode_per": "Per Enrichment",
       "provider": "Provider",

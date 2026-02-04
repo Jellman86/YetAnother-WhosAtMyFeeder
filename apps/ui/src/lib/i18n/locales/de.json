@@ -310,7 +310,7 @@
     },
     "enrichment": {
       "title": "Anreicherungsquellen",
-      "desc": "Wähle aus, woher jede Anreicherung stammt",
+      "desc": "Quellen werden automatisch anhand Ihrer Integrationen ausgewählt.",
       "mode_single": "Einzellanbieter",
       "mode_per": "Pro Anreicherung",
       "provider": "Anbieter",
