@@ -968,5 +968,13 @@
       "Pinguine sind einfach formelle Hühner, die für eine Gala gekleidet sind",
       "Hähne schreien die Sonne an, weil sie Angst vor der Dunkelheit haben"
     ]
+  },
+  "error": {
+    "boundary_title": "Etwas ist schiefgelaufen",
+    "boundary_subtitle": "Ein unerwarteter Fehler ist aufgetreten. Bitte versuche es erneut.",
+    "show_details": "Details anzeigen",
+    "try_again": "Erneut versuchen",
+    "copy_details": "Details kopieren",
+    "reload_page": "Seite neu laden"
   }
 }

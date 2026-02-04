@@ -345,7 +345,8 @@
       "oauth_disconnect_success": "{provider} desconectado",
       "oauth_error": "Erro OAuth: {error}",
       "credentials_required": "Por favor configure credenciais OAuth ou SMTP primeiro",
-      "test_email_error_generic": "Failed to send test email"
+      "test_email_error_generic": "Failed to send test email",
+      "test_email_sent": "Email de teste enviado."
     },
     "notifications": {
       "global_filters": "Filtros Globais de Notificação",

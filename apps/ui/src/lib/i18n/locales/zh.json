@@ -337,7 +337,8 @@
       "oauth_disconnect_success": "{provider} 已断开连接",
       "oauth_error": "OAuth 错误：{error}",
       "credentials_required": "请先配置 OAuth 或 SMTP 凭据",
-      "test_email_error_generic": "Failed to send test email"
+      "test_email_error_generic": "Failed to send test email",
+      "test_email_sent": "测试邮件已发送。"
     },
     "notifications": {
       "global_filters": "全局通知筛选",
