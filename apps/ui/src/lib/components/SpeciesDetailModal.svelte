@@ -736,7 +736,7 @@
                                     {#if rangeMapLoading}
                                         <div class="h-[160px] rounded-2xl bg-slate-100 dark:bg-slate-800/60 animate-pulse"></div>
                                     {:else if rangeMap?.tileUrl}
-                                        <RangeMap tileUrl={rangeMap.tileUrl} heightClass="min-h-[160px]" />
+                                        <RangeMap tileUrl={rangeMap.tileUrl} heightClass="h-[160px]" />
                                     {:else}
                                         <p class="text-xs text-slate-500 italic">{rangeMapError || $_('species_detail.range_unavailable')}</p>
                                     {/if}
