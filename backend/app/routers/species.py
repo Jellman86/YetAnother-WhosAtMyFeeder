@@ -6,7 +6,7 @@ import structlog
 
 from app.database import get_db
 from app.repositories.detection_repository import DetectionRepository
-from app.models import SpeciesStats, SpeciesInfo, CameraStats, Detection
+from app.models import SpeciesStats, SpeciesInfo, CameraStats, Detection, SpeciesRangeMap
 from app.config import settings
 from app.services.taxonomy.taxonomy_service import taxonomy_service
 from app.services.i18n_service import i18n_service
@@ -28,6 +28,11 @@ CACHE_TTL_FAILURE = timedelta(minutes=1)  # Short TTL for failures to allow retr
 
 # User-Agent is required by Wikipedia API - they block requests without it
 WIKIPEDIA_USER_AGENT = "YA-WAMF/2.0 (Bird Watching App; https://github.com/Jellman86/YetAnother-WhosAtMyFeeder)"
+
+GBIF_MATCH_URL = "https://api.gbif.org/v1/species/match"
+GBIF_TILE_URL = "https://api.gbif.org/v2/map/occurrence/density/{z}/{x}/{y}@1x.png"
+GBIF_CACHE_TTL = timedelta(hours=24)
+_gbif_cache: dict[str, tuple[int | None, datetime]] = {}
 
 # Species names that should NOT trigger Wikipedia lookup (no valid article exists)
 SKIP_WIKIPEDIA_LOOKUP = {
@@ -80,6 +85,34 @@ def _resolve_summary_sources() -> list[str]:
         primary = _normalize_provider(effective["summary_source"])
     fallback = "wikipedia" if primary != "wikipedia" else "inaturalist"
     return [primary, fallback]
+
+async def _get_gbif_taxon_key(name: str) -> int | None:
+    if not name:
+        return None
+    normalized = name.strip().lower()
+    cached = _gbif_cache.get(normalized)
+    if cached and datetime.now() - cached[1] < GBIF_CACHE_TTL:
+        return cached[0]
+
+    params = {"name": name}
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            resp = await client.get(GBIF_MATCH_URL, params=params)
+            resp.raise_for_status()
+            data = resp.json()
+    except Exception as e:
+        log.warning("GBIF match failed", species=name, error=str(e))
+        return None
+
+    key = data.get("usageKey") or data.get("speciesKey") or None
+    if key is not None:
+        try:
+            key = int(key)
+        except (TypeError, ValueError):
+            key = None
+
+    _gbif_cache[normalized] = (key, datetime.now())
+    return key
 
 async def _lookup_taxa_id(species_name: str) -> int | None:
     async with get_db() as db:
@@ -889,6 +922,34 @@ async def get_species_info(
     )
 
     return info
+
+
+@router.get("/species/{species_name}/range", response_model=SpeciesRangeMap)
+@guest_rate_limit()
+async def get_species_range(
+    species_name: str,
+    scientific_name: str | None = None,
+    auth: AuthContext = Depends(get_auth_context_with_legacy)
+):
+    query_name = scientific_name or species_name
+    if not query_name:
+        return SpeciesRangeMap(status="error", message="No species name provided")
+
+    taxon_key = await _get_gbif_taxon_key(query_name)
+    if not taxon_key:
+        return SpeciesRangeMap(status="error", message="GBIF match not found")
+
+    tile_url = (
+        f"{GBIF_TILE_URL}?srs=EPSG:3857&taxonKey={taxon_key}"
+        "&bin=hex&hexPerTile=57&style=classic.poly"
+    )
+    return SpeciesRangeMap(
+        status="ok",
+        taxon_key=taxon_key,
+        map_tile_url=tile_url,
+        source="GBIF",
+        source_url=f"https://www.gbif.org/species/{taxon_key}"
+    )
 
 async def _fetch_ebird_info(species_name: str, lang: str) -> SpeciesInfo:
     """Fetch species information from eBird API."""

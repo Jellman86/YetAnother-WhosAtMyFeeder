@@ -6,6 +6,7 @@
         fetchSpeciesInfo,
         fetchEbirdNearby,
         fetchSeasonality,
+        fetchSpeciesRange,
         reclassifyDetection,
         type SpeciesStats,
         type SpeciesInfo,
@@ -20,6 +21,7 @@
     import { toastStore } from '../stores/toast.svelte';
     import SimpleBarChart from './SimpleBarChart.svelte';
     import VideoPlayer from './VideoPlayer.svelte';
+    import RangeMap from './RangeMap.svelte';
     import { _ } from 'svelte-i18n';
     import { trapFocus } from '../utils/focus-trap';
 
@@ -54,6 +56,9 @@
     let ebirdNearbyError = $state<string | null>(null);
     let seasonality = $state<{ month_counts: number[], total: number, local: boolean } | null>(null);
     let seasonalityLoading = $state(false);
+    let rangeMap = $state<{ tileUrl: string; source: string | null; sourceUrl: string | null } | null>(null);
+    let rangeMapLoading = $state(false);
+    let rangeMapError = $state<string | null>(null);
 
     // Video playback state
     let showVideo = $state(false);
@@ -204,6 +209,25 @@
         }
     }
 
+    async function loadRangeMap(name: string, scientificName?: string) {
+        rangeMapLoading = true;
+        rangeMapError = null;
+        try {
+            const res = await fetchSpeciesRange(name, scientificName);
+            if (res.status === 'ok' && res.map_tile_url) {
+                rangeMap = { tileUrl: res.map_tile_url, source: res.source ?? null, sourceUrl: res.source_url ?? null };
+            } else {
+                rangeMap = null;
+                rangeMapError = res.message || 'Range map unavailable';
+            }
+        } catch (e: any) {
+            rangeMapError = e?.message || 'Range map unavailable';
+            rangeMap = null;
+        } finally {
+            rangeMapLoading = false;
+        }
+    }
+
 
     onMount(async () => {
         // Check if this is an unknown bird detection
@@ -223,8 +247,9 @@
                 }
             }
 
+            const sciName = info?.scientific_name || stats?.scientific_name || undefined;
+
             if (!isUnknownBird && ebirdEnabled && showEbirdNearby) {
-                const sciName = info?.scientific_name || stats?.scientific_name || undefined;
                 void loadEbirdNearby(speciesName, sciName);
             }
             
@@ -233,6 +258,10 @@
             const taxonId = info?.taxa_id || stats?.recent_sightings?.[0]?.taxa_id;
             if (seasonalityEnabled && taxonId) {
                 void loadSeasonality(taxonId);
+            }
+
+            if (!isUnknownBird) {
+                void loadRangeMap(speciesName, sciName);
             }
         } catch (e: any) {
             console.error('Failed to load species details', e);
@@ -668,6 +697,48 @@
                                     />
                                 </div>
                             </div>
+                        {/if}
+                    </section>
+                {/if}
+
+                {#if !isUnknownBird}
+                    <section class="group relative overflow-hidden rounded-2xl border border-slate-200/60 dark:border-slate-700/60 bg-white/50 dark:bg-slate-900/30 p-5 hover:bg-white/80 dark:hover:bg-slate-900/50 transition-all duration-300">
+                        <div class="relative flex items-center justify-between gap-3 mb-4">
+                            <div class="flex items-center gap-2">
+                                <div class="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v18m9-9H3" />
+                                    </svg>
+                                </div>
+                                <h4 class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">{$_('species_detail.range_map')}</h4>
+                            </div>
+                            {#if rangeMap?.source}
+                                {#if rangeMap.sourceUrl}
+                                    <a
+                                        href={rangeMap.sourceUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        class="flex items-center gap-1.5 px-2 py-1 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[9px] font-black uppercase tracking-wider text-slate-500 hover:text-emerald-600 dark:hover:text-emerald-400 hover:border-emerald-500/30 transition-colors shadow-sm"
+                                    >
+                                        {rangeMap.source}
+                                        <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                        </svg>
+                                    </a>
+                                {:else}
+                                    <span class="flex items-center gap-1.5 px-2 py-1 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[9px] font-black uppercase tracking-wider text-slate-500">
+                                        {rangeMap.source}
+                                    </span>
+                                {/if}
+                            {/if}
+                        </div>
+
+                        {#if rangeMapLoading}
+                            <div class="h-[220px] rounded-2xl bg-slate-100 dark:bg-slate-800/60 animate-pulse"></div>
+                        {:else if rangeMap?.tileUrl}
+                            <RangeMap tileUrl={rangeMap.tileUrl} />
+                        {:else}
+                            <p class="text-xs text-slate-500 italic">{rangeMapError || $_('species_detail.range_unavailable')}</p>
                         {/if}
                     </section>
                 {/if}

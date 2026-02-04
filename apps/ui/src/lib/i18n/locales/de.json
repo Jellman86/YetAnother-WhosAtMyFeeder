@@ -921,7 +921,9 @@
     "camera_breakdown": "Kamera-Aufschlüsselung",
     "recent_sightings": "Kürzliche Sichtungen",
     "seasonality_local": "Lokale Saisonalität",
-    "seasonality_global": "Globale Saisonalität"
+    "seasonality_global": "Globale Saisonalität",
+    "range_map": "Verbreitungskarte",
+    "range_unavailable": "Verbreitungskarte nicht verfügbar."
   },
   "pagination": {
     "navigation": "Paginierung",

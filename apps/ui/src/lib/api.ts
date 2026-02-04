@@ -1437,6 +1437,15 @@ export interface SeasonalityResult {
     total_observations: number;
 }
 
+export interface SpeciesRangeMap {
+    status: string;
+    taxon_key?: number | null;
+    map_tile_url?: string | null;
+    source?: string | null;
+    source_url?: string | null;
+    message?: string | null;
+}
+
 export async function fetchSeasonality(taxonId: number, lat?: number, lng?: number): Promise<SeasonalityResult> {
     const params = new URLSearchParams({ taxon_id: String(taxonId) });
     if (lat !== undefined && lng !== undefined) {
@@ -1445,4 +1454,12 @@ export async function fetchSeasonality(taxonId: number, lat?: number, lng?: numb
     }
     const response = await apiFetch(`${API_BASE}/inaturalist/seasonality?${params.toString()}`);
     return handleResponse<SeasonalityResult>(response);
+}
+
+export async function fetchSpeciesRange(speciesName: string, scientificName?: string): Promise<SpeciesRangeMap> {
+    const params = new URLSearchParams();
+    if (scientificName) params.set('scientific_name', scientificName);
+    const suffix = params.toString() ? `?${params.toString()}` : '';
+    const response = await apiFetch(`${API_BASE}/species/${encodeURIComponent(speciesName)}/range${suffix}`);
+    return handleResponse<SpeciesRangeMap>(response);
 }

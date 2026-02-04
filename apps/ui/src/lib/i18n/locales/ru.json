@@ -928,7 +928,9 @@
     "camera_breakdown": "Разбивка по камерам",
     "recent_sightings": "Недавние наблюдения",
     "seasonality_local": "Локальная сезонность",
-    "seasonality_global": "Глобальная сезонность"
+    "seasonality_global": "Глобальная сезонность",
+    "range_map": "Карта ареала",
+    "range_unavailable": "Карта ареала недоступна."
   },
   "pagination": {
     "navigation": "Пагинация",

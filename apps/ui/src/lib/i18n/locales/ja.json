@@ -920,7 +920,9 @@
     "camera_breakdown": "カメラ別内訳",
     "recent_sightings": "最近の目撃情報",
     "seasonality_local": "ローカル季節性",
-    "seasonality_global": "グローバル季節性"
+    "seasonality_global": "グローバル季節性",
+    "range_map": "分布マップ",
+    "range_unavailable": "分布マップは利用できません。"
   },
   "pagination": {
     "navigation": "ページネーション",

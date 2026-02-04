@@ -920,7 +920,9 @@
     "camera_breakdown": "Répartition par caméra",
     "recent_sightings": "Observations récentes",
     "seasonality_local": "Saisonnalité locale",
-    "seasonality_global": "Saisonnalité globale"
+    "seasonality_global": "Saisonnalité globale",
+    "range_map": "Carte de répartition",
+    "range_unavailable": "Carte de répartition indisponible."
   },
   "pagination": {
     "navigation": "Pagination",

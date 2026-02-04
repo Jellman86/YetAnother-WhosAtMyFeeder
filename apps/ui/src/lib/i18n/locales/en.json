@@ -929,7 +929,9 @@
     "camera_breakdown": "Camera Breakdown",
     "recent_sightings": "Recent Sightings",
     "seasonality_local": "Local seasonality",
-    "seasonality_global": "Global seasonality"
+    "seasonality_global": "Global seasonality",
+    "range_map": "Range map",
+    "range_unavailable": "Range map unavailable."
   },
   "pagination": {
     "navigation": "Pagination",

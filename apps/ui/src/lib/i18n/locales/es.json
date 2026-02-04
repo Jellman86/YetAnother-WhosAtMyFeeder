@@ -920,7 +920,9 @@
     "camera_breakdown": "Desglose por Cámara",
     "recent_sightings": "Avistamientos Recientes",
     "seasonality_local": "Estacionalidad local",
-    "seasonality_global": "Estacionalidad global"
+    "seasonality_global": "Estacionalidad global",
+    "range_map": "Mapa de distribución",
+    "range_unavailable": "Mapa de distribución no disponible."
   },
   "pagination": {
     "navigation": "Paginación",
