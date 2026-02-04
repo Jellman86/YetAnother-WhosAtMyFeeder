@@ -906,10 +906,10 @@
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                                         </svg>
                                     </div>
-                                    <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Species Info</p>
+                                    <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">{$_('actions.species_info')}</p>
                                 </div>
                                 {#if speciesInfo}
-                                    {@const summaryLabel = speciesInfo.summary_source || 'Source'}
+                                    {@const summaryLabel = speciesInfo.summary_source || speciesInfo.source || 'Source'}
                                     {#if speciesInfo.summary_source_url}
                                         <a
                                             href={speciesInfo.summary_source_url}
@@ -951,7 +951,7 @@
                                             {summaryText}
                                         </p>
                                     {:else}
-                                        <p class="text-xs text-slate-500 italic">No summary available.</p>
+                                        <p class="text-xs text-slate-500 italic">{$_('species_detail.no_info')}</p>
                                     {/if}
                                     {#if speciesInfo.scientific_name || speciesInfo.conservation_status}
                                         <div class="flex flex-wrap gap-2 mt-3 pt-3 border-t border-slate-100 dark:border-slate-700/50">

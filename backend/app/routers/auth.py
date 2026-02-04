@@ -17,6 +17,7 @@ from app.auth import (
     verify_token
 )
 from app.config import settings
+from app.utils.enrichment import get_effective_enrichment_settings, has_ebird_key
 from app.ratelimit import login_rate_limit
 
 router = APIRouter()
@@ -239,21 +240,24 @@ async def get_auth_status(request: Request):
                 trusted_proxy_hosts=settings.system.trusted_proxy_hosts
             )
 
+    effective_enrichment = get_effective_enrichment_settings()
+    ebird_active = has_ebird_key()
+
     return AuthStatusResponse(
         auth_required=settings.auth.enabled,
         public_access_enabled=settings.public_access.enabled,
         is_authenticated=auth_level == AuthLevel.OWNER,
         birdnet_enabled=settings.frigate.birdnet_enabled,
         llm_enabled=settings.llm.enabled,
-        ebird_enabled=settings.ebird.enabled,
+        ebird_enabled=ebird_active,
         inaturalist_enabled=settings.inaturalist.enabled,
-        enrichment_mode=settings.enrichment.mode,
-        enrichment_single_provider=settings.enrichment.single_provider,
-        enrichment_summary_source=settings.enrichment.summary_source,
-        enrichment_sightings_source=settings.enrichment.sightings_source,
-        enrichment_seasonality_source=settings.enrichment.seasonality_source,
-        enrichment_rarity_source=settings.enrichment.rarity_source,
-        enrichment_links_sources=settings.enrichment.links_sources,
+        enrichment_mode=effective_enrichment["mode"],
+        enrichment_single_provider=effective_enrichment["single_provider"],
+        enrichment_summary_source=effective_enrichment["summary_source"],
+        enrichment_sightings_source=effective_enrichment["sightings_source"],
+        enrichment_seasonality_source=effective_enrichment["seasonality_source"],
+        enrichment_rarity_source=effective_enrichment["rarity_source"],
+        enrichment_links_sources=effective_enrichment["links_sources"],
         display_common_names=settings.classification.display_common_names,
         scientific_name_primary=settings.classification.scientific_name_primary,
         accessibility_live_announcements=settings.accessibility.live_announcements,

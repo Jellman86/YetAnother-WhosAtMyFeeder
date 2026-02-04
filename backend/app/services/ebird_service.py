@@ -19,7 +19,8 @@ def _normalize_name(value: str) -> str:
 
 class EbirdService:
     def __init__(self) -> None:
-        self._taxonomy_cache: Dict[str, Any] = {"fetched_at": None, "items": [], "index": {}}
+        # Cache results per locale: {locale: {"fetched_at": datetime, "items": [], "index": {}}}
+        self._taxonomy_cache: Dict[str, Dict[str, Any]] = {}
 
     def _headers(self) -> dict:
         if not settings.ebird.api_key:
@@ -27,7 +28,7 @@ class EbirdService:
         return {"X-eBirdApiToken": settings.ebird.api_key}
 
     def is_configured(self) -> bool:
-        return bool(settings.ebird.enabled and settings.ebird.api_key)
+        return bool(settings.ebird.api_key)
 
     async def _fetch_json(self, path: str, params: dict) -> List[Dict[str, Any]]:
         url = f"{EBIRD_BASE_URL}{path}"
@@ -78,23 +79,25 @@ class EbirdService:
         return await self._fetch_json(path, params)
 
     async def get_taxonomy(self, locale: Optional[str] = None) -> List[Dict[str, Any]]:
+        effective_locale = locale or settings.ebird.locale or "en"
         now = datetime.utcnow()
-        cached_at = self._taxonomy_cache.get("fetched_at")
-        if cached_at and now - cached_at < TAXONOMY_CACHE_TTL:
-            return self._taxonomy_cache["items"]
+        
+        cache = self._taxonomy_cache.get(effective_locale)
+        if cache and cache.get("fetched_at") and now - cache["fetched_at"] < TAXONOMY_CACHE_TTL:
+            return cache["items"]
 
         if not self.is_configured():
             return []
 
         params = {
             "fmt": "json",
-            "locale": locale or settings.ebird.locale,
+            "locale": effective_locale,
             "cat": "species,issf,spuh,slash",
         }
         try:
             items = await self._fetch_json("/ref/taxonomy/ebird", params)
         except Exception as e:
-            log.error("Failed to fetch eBird taxonomy", error=str(e))
+            log.error("Failed to fetch eBird taxonomy", locale=effective_locale, error=str(e))
             return []
             
         index: Dict[str, str] = {}
@@ -108,22 +111,36 @@ class EbirdService:
                 index[_normalize_name(com)] = code
             if sci:
                 index[_normalize_name(sci)] = code
-        self._taxonomy_cache = {"fetched_at": now, "items": items, "index": index}
+        
+        self._taxonomy_cache[effective_locale] = {
+            "fetched_at": now, 
+            "items": items, 
+            "index": index
+        }
         return items
 
     async def resolve_species_code(self, name: str) -> Optional[str]:
         if not name:
             return None
+        # Use default settings locale for code resolution
         await self.get_taxonomy()
-        index: Dict[str, str] = self._taxonomy_cache.get("index", {})
-        return index.get(_normalize_name(name))
+        
+        # We need to search across ALL cached indices to find the code if possible,
+        # but usually it's in the default locale.
+        for cache in self._taxonomy_cache.values():
+            index = cache.get("index", {})
+            code = index.get(_normalize_name(name))
+            if code:
+                return code
+        
+        return None
 
     async def get_common_name(self, scientific_name: str, locale: Optional[str] = None) -> Optional[str]:
         """Resolve common name from scientific name using eBird taxonomy."""
         if not scientific_name:
             return None
         
-        # Ensure taxonomy is loaded
+        # Ensure taxonomy is loaded for requested locale
         items = await self.get_taxonomy(locale)
         
         # Search for scientific name match

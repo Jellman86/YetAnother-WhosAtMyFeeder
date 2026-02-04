@@ -2,14 +2,14 @@
     import { _ } from 'svelte-i18n';
 
     let {
-        enrichmentMode = $bindable<'single' | 'per_enrichment'>('per_enrichment'),
-        enrichmentSingleProvider = $bindable('wikipedia'),
-        enrichmentSummarySource = $bindable('wikipedia'),
-        enrichmentTaxonomySource = $bindable('inaturalist'),
-        enrichmentSightingsSource = $bindable('disabled'),
-        enrichmentSeasonalitySource = $bindable('disabled'),
-        enrichmentRaritySource = $bindable('disabled'),
-        enrichmentLinksSources = $bindable<string[]>(['wikipedia', 'inaturalist']),
+        enrichmentMode = 'per_enrichment',
+        enrichmentSingleProvider = 'wikipedia',
+        enrichmentSummarySource = 'wikipedia',
+        enrichmentTaxonomySource = 'inaturalist',
+        enrichmentSightingsSource = 'disabled',
+        enrichmentSeasonalitySource = 'disabled',
+        enrichmentRaritySource = 'disabled',
+        enrichmentLinksSources = ['wikipedia', 'inaturalist'],
     }: {
         enrichmentMode: 'single' | 'per_enrichment';
         enrichmentSingleProvider: string;
@@ -20,6 +20,15 @@
         enrichmentRaritySource: string;
         enrichmentLinksSources: string[];
     } = $props();
+
+    const formatProvider = (value: string) => {
+        const normalized = (value || '').toLowerCase();
+        if (normalized === 'disabled') return $_('settings.enrichment.disabled');
+        if (normalized === 'ebird') return 'eBird';
+        if (normalized === 'inaturalist') return 'iNaturalist';
+        if (normalized === 'wikipedia') return 'Wikipedia';
+        return value;
+    };
 </script>
 
 <div class="space-y-6">
@@ -32,121 +41,49 @@
             </div>
         </div>
 
-        <div class="space-y-6">
-            <div class="grid grid-cols-2 gap-3">
-                <button
-                    onclick={() => enrichmentMode = 'single'}
-                    class="p-4 rounded-2xl border-2 transition-all text-center {enrichmentMode === 'single' ? 'border-teal-500 bg-teal-500/5 text-teal-600' : 'border-slate-100 dark:border-slate-700/50 text-slate-400'}"
-                >
-                    <p class="text-xs font-black uppercase tracking-widest">{$_('settings.enrichment.mode_single')}</p>
-                </button>
-                <button
-                    onclick={() => enrichmentMode = 'per_enrichment'}
-                    class="p-4 rounded-2xl border-2 transition-all text-center {enrichmentMode === 'per_enrichment' ? 'border-teal-500 bg-teal-500/5 text-teal-600' : 'border-slate-100 dark:border-slate-700/50 text-slate-400'}"
-                >
-                    <p class="text-xs font-black uppercase tracking-widest">{$_('settings.enrichment.mode_per')}</p>
-                </button>
+        <div class="space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 p-4">
+                    <p class="text-[10px] font-black uppercase tracking-widest text-slate-500">{$_('settings.enrichment.summary_title')}</p>
+                    <p class="text-sm font-bold text-slate-900 dark:text-white mt-2">{formatProvider(enrichmentSummarySource)}</p>
+                </div>
+                <div class="rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 p-4">
+                    <p class="text-[10px] font-black uppercase tracking-widest text-slate-500">{$_('settings.enrichment.taxonomy_title')}</p>
+                    <p class="text-sm font-bold text-slate-900 dark:text-white mt-2">{formatProvider(enrichmentTaxonomySource)}</p>
+                </div>
+                <div class="rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 p-4">
+                    <p class="text-[10px] font-black uppercase tracking-widest text-slate-500">{$_('settings.enrichment.sightings_title')}</p>
+                    <p class="text-sm font-bold text-slate-900 dark:text-white mt-2">{formatProvider(enrichmentSightingsSource)}</p>
+                </div>
+                <div class="rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 p-4">
+                    <p class="text-[10px] font-black uppercase tracking-widest text-slate-500">{$_('settings.enrichment.seasonality_title')}</p>
+                    <p class="text-sm font-bold text-slate-900 dark:text-white mt-2">{formatProvider(enrichmentSeasonalitySource)}</p>
+                </div>
+                <div class="rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 p-4">
+                    <p class="text-[10px] font-black uppercase tracking-widest text-slate-500">{$_('settings.enrichment.rarity_title')}</p>
+                    <p class="text-sm font-bold text-slate-900 dark:text-white mt-2">{formatProvider(enrichmentRaritySource)}</p>
+                </div>
+                <div class="rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 p-4">
+                    <p class="text-[10px] font-black uppercase tracking-widest text-slate-500">{$_('settings.enrichment.links_title')}</p>
+                    <div class="mt-2 flex flex-wrap gap-2 text-xs font-semibold text-slate-700 dark:text-slate-200">
+                        {#each enrichmentLinksSources as source}
+                            <span class="px-2 py-1 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+                                {formatProvider(source)}
+                            </span>
+                        {/each}
+                    </div>
+                </div>
             </div>
 
-            {#if enrichmentMode === 'single'}
-                <div>
-                    <label for="enrich-single" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.enrichment.provider')}</label>
-                    <select
-                        id="enrich-single"
-                        bind:value={enrichmentSingleProvider}
-                        class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"
-                    >
-                        <option value="wikipedia">Wikipedia</option>
-                        <option value="inaturalist">iNaturalist</option>
-                        <option value="ebird">eBird</option>
-                    </select>
-                    <p class="text-xs text-slate-500 mt-2">{$_('settings.enrichment.fallback_note')}</p>
-                </div>
-            {:else}
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label for="enrich-summary" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.enrichment.summary_title')}</label>
-                        <select
-                            id="enrich-summary"
-                            bind:value={enrichmentSummarySource}
-                            class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"
-                        >
-                            <option value="wikipedia">Wikipedia</option>
-                            <option value="inaturalist">iNaturalist</option>
-                            <option value="ebird">eBird</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label for="enrich-taxonomy" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.enrichment.taxonomy_title')}</label>
-                        <select
-                            id="enrich-taxonomy"
-                            bind:value={enrichmentTaxonomySource}
-                            class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"
-                        >
-                            <option value="inaturalist">iNaturalist</option>
-                            <option value="wikipedia">Wikipedia</option>
-                            <option value="ebird">eBird</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label for="enrich-sightings" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.enrichment.sightings_title')}</label>
-                        <select
-                            id="enrich-sightings"
-                            bind:value={enrichmentSightingsSource}
-                            class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"
-                        >
-                            <option value="disabled">{$_('settings.enrichment.disabled')}</option>
-                            <option value="ebird">eBird</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label for="enrich-seasonality" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.enrichment.seasonality_title')}</label>
-                        <select
-                            id="enrich-seasonality"
-                            bind:value={enrichmentSeasonalitySource}
-                            class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"
-                        >
-                            <option value="disabled">{$_('settings.enrichment.disabled')}</option>
-                            <option value="inaturalist">iNaturalist</option>
-                            <option value="ebird">eBird</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label for="enrich-rarity" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.enrichment.rarity_title')}</label>
-                        <select
-                            id="enrich-rarity"
-                            bind:value={enrichmentRaritySource}
-                            class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"
-                        >
-                            <option value="disabled">{$_('settings.enrichment.disabled')}</option>
-                            <option value="ebird">eBird</option>
-                        </select>
-                    </div>
-                    <div>
-                        <span class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.enrichment.links_title')}</span>
-                        <div class="grid grid-cols-3 gap-2">
-                            <button
-                                onclick={() => enrichmentLinksSources = enrichmentLinksSources.includes('wikipedia') ? enrichmentLinksSources.filter(s => s !== 'wikipedia') : [...enrichmentLinksSources, 'wikipedia']}
-                                class="p-3 rounded-xl border-2 transition-all text-center {enrichmentLinksSources.includes('wikipedia') ? 'border-teal-500 bg-teal-500/5 text-teal-600' : 'border-slate-100 dark:border-slate-700/50 text-slate-400'}"
-                            >
-                                <p class="text-[10px] font-black uppercase tracking-widest">Wikipedia</p>
-                            </button>
-                            <button
-                                onclick={() => enrichmentLinksSources = enrichmentLinksSources.includes('inaturalist') ? enrichmentLinksSources.filter(s => s !== 'inaturalist') : [...enrichmentLinksSources, 'inaturalist']}
-                                class="p-3 rounded-xl border-2 transition-all text-center {enrichmentLinksSources.includes('inaturalist') ? 'border-teal-500 bg-teal-500/5 text-teal-600' : 'border-slate-100 dark:border-slate-700/50 text-slate-400'}"
-                            >
-                                <p class="text-[10px] font-black uppercase tracking-widest">iNaturalist</p>
-                            </button>
-                            <button
-                                onclick={() => enrichmentLinksSources = enrichmentLinksSources.includes('ebird') ? enrichmentLinksSources.filter(s => s !== 'ebird') : [...enrichmentLinksSources, 'ebird']}
-                                class="p-3 rounded-xl border-2 transition-all text-center {enrichmentLinksSources.includes('ebird') ? 'border-teal-500 bg-teal-500/5 text-teal-600' : 'border-slate-100 dark:border-slate-700/50 text-slate-400'}"
-                            >
-                                <p class="text-[10px] font-black uppercase tracking-widest">eBird</p>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            {/if}
+            <div class="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white/60 dark:bg-slate-900/40 p-4 text-xs text-slate-600 dark:text-slate-300">
+                {#if enrichmentMode === 'single'}
+                    <strong class="text-slate-700 dark:text-slate-100">{$_('settings.enrichment.mode_single')}:</strong>
+                    <span class="ml-2">{formatProvider(enrichmentSingleProvider)}</span>
+                {:else}
+                    <strong class="text-slate-700 dark:text-slate-100">{$_('settings.enrichment.mode_per')}:</strong>
+                    <span class="ml-2">{$_('settings.enrichment.desc')}</span>
+                {/if}
+            </div>
         </div>
     </section>
 </div>

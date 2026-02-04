@@ -1608,14 +1608,14 @@
             <!-- Enrichment Tab -->
             {#if activeTab === 'enrichment'}
                 <EnrichmentSettings
-                    bind:enrichmentMode
-                    bind:enrichmentSingleProvider
-                    bind:enrichmentSummarySource
-                    bind:enrichmentTaxonomySource
-                    bind:enrichmentSightingsSource
-                    bind:enrichmentSeasonalitySource
-                    bind:enrichmentRaritySource
-                    bind:enrichmentLinksSources
+                    enrichmentMode={enrichmentMode}
+                    enrichmentSingleProvider={enrichmentSingleProvider}
+                    enrichmentSummarySource={enrichmentSummarySource}
+                    enrichmentTaxonomySource={enrichmentTaxonomySource}
+                    enrichmentSightingsSource={enrichmentSightingsSource}
+                    enrichmentSeasonalitySource={enrichmentSeasonalitySource}
+                    enrichmentRaritySource={enrichmentRaritySource}
+                    enrichmentLinksSources={enrichmentLinksSources}
                 />
             {/if}
 

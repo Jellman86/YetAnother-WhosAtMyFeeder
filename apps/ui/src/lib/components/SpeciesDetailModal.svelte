@@ -71,6 +71,11 @@
 
     const enrichmentModeSetting = $derived(settingsStore.settings?.enrichment_mode ?? authStore.enrichmentMode ?? 'per_enrichment');
     const enrichmentSingleProviderSetting = $derived(settingsStore.settings?.enrichment_single_provider ?? authStore.enrichmentSingleProvider ?? 'wikipedia');
+    const enrichmentSummaryProvider = $derived(
+        enrichmentModeSetting === 'single'
+            ? enrichmentSingleProviderSetting
+            : (settingsStore.settings?.enrichment_summary_source ?? authStore.enrichmentSummarySource ?? 'wikipedia')
+    );
     const enrichmentSightingsProvider = $derived(
         enrichmentModeSetting === 'single'
             ? enrichmentSingleProviderSetting
@@ -99,6 +104,8 @@
             : (settingsStore.settings?.enrichment_links_sources ?? authStore.enrichmentLinksSources ?? ['wikipedia', 'inaturalist'])
     );
     const enrichmentLinksProvidersNormalized = $derived(enrichmentLinksProviders.map((provider) => provider.toLowerCase()));
+    const summaryEnabled = $derived(enrichmentSummaryProvider !== 'disabled');
+    const seasonalityEnabled = $derived(enrichmentSeasonalityProvider === 'inaturalist');
 
     const UNKNOWN_SPECIES_NAME = 'Unknown Bird';
     const UNKNOWN_LABELS = new Set(['unknown bird', 'unknown', 'background']);
@@ -207,10 +214,13 @@
             const statsData = await fetchSpeciesStats(isUnknownBird ? UNKNOWN_SPECIES_NAME : speciesName);
             stats = statsData;
 
-            // Only fetch Wikipedia info for identified species
+            // Fetch summary only when enabled. If seasonality is enabled, we may need taxa_id.
             if (!isUnknownBird) {
-                const infoData = await fetchSpeciesInfo(speciesName);
-                info = infoData;
+                const statsTaxaId = statsData?.recent_sightings?.[0]?.taxa_id ?? null;
+                if (summaryEnabled || (seasonalityEnabled && !statsTaxaId)) {
+                    const infoData = await fetchSpeciesInfo(speciesName);
+                    info = infoData;
+                }
             }
 
             if (!isUnknownBird && ebirdEnabled && showEbirdNearby) {
@@ -221,7 +231,7 @@
             // Fetch seasonality if we have a taxa_id (from stats or info)
             // Note: stats.taxa_id might be missing if not in detections table yet, but info.taxa_id might be there
             const taxonId = info?.taxa_id || stats?.recent_sightings?.[0]?.taxa_id;
-            if (taxonId) {
+            if (seasonalityEnabled && taxonId) {
                 void loadSeasonality(taxonId);
             }
         } catch (e: any) {
@@ -449,7 +459,7 @@
                     </section>
                 {/if}
 
-                {#if stats}
+                {#if summaryEnabled && stats}
                     <!-- Hero Image from Wikipedia -->
                     {#if info?.thumbnail_url}
                         <section class="relative -mx-6 -mt-6 mb-6">
@@ -491,7 +501,7 @@
                 {/if}
 
                 <!-- Species Description -->
-                {#if info}
+                {#if summaryEnabled && info}
                     <section class="group relative overflow-hidden rounded-2xl border border-slate-200/60 dark:border-slate-700/60 bg-white/50 dark:bg-slate-900/30 p-6 hover:bg-white/80 dark:hover:bg-slate-900/50 transition-all duration-300">
                         <div class="absolute inset-0 bg-gradient-to-br from-teal-500/5 via-transparent to-brand-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
                         
@@ -502,7 +512,7 @@
                                         <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z"/>
                                     </svg>
                                 </div>
-                                <h4 class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Species Info</h4>
+                                <h4 class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">{$_('actions.species_info')}</h4>
                             </div>
                             
                             {#if infoSourceChips.length}
@@ -557,7 +567,7 @@
                                             </svg>
                                         </div>
                                         <div class="flex flex-col">
-                                            <h4 class="text-[10px] font-black uppercase tracking-[0.2em] text-sky-700 dark:text-sky-400">Recent sightings</h4>
+                                        <h4 class="text-[10px] font-black uppercase tracking-[0.2em] text-sky-700 dark:text-sky-400">{$_('species_detail.recent_sightings')}</h4>
                                             <div class="flex items-center gap-1.5 mt-0.5">
                                                 <span class="text-[9px] font-bold text-sky-600/60 dark:text-sky-500/60 uppercase tracking-wider">eBird</span>
                                                 <span class="w-0.5 h-0.5 rounded-full bg-sky-300"></span>

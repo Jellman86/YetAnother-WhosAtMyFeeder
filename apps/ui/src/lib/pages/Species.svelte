@@ -4,6 +4,7 @@
     import { chart } from '../actions/apexchart';
     import SpeciesDetailModal from '../components/SpeciesDetailModal.svelte';
     import { settingsStore } from '../stores/settings.svelte';
+    import { authStore } from '../stores/auth.svelte';
     import { themeStore } from '../stores/theme.svelte';
     import { getBirdNames } from '../naming';
     import { formatTemperature } from '../utils/temperature';
@@ -28,6 +29,15 @@
     let leaderboardAnalysisError = $state<string | null>(null);
     let leaderboardConfigKey = $state<string | null>(null);
     let leaderboardAnalysisSubtitle = $state<string | null>(null);
+
+    const enrichmentModeSetting = $derived(settingsStore.settings?.enrichment_mode ?? authStore.enrichmentMode ?? 'per_enrichment');
+    const enrichmentSingleProviderSetting = $derived(settingsStore.settings?.enrichment_single_provider ?? authStore.enrichmentSingleProvider ?? 'wikipedia');
+    const enrichmentSummaryProvider = $derived(
+        enrichmentModeSetting === 'single'
+            ? enrichmentSingleProviderSetting
+            : (settingsStore.settings?.enrichment_summary_source ?? authStore.enrichmentSummarySource ?? 'wikipedia')
+    );
+    const summaryEnabled = $derived(enrichmentSummaryProvider !== 'disabled');
 
     // Derived processed species with naming logic
     let processedSpecies = $derived(() => {
@@ -99,7 +109,7 @@
     }
 
     async function loadSpeciesInfo(speciesName: string) {
-        if (!speciesName || speciesName === "Unknown Bird" || speciesInfoCache[speciesName]) {
+        if (!summaryEnabled || !speciesName || speciesName === "Unknown Bird" || speciesInfoCache[speciesName]) {
             return;
         }
         try {
@@ -111,6 +121,9 @@
     }
 
     $effect(() => {
+        if (!summaryEnabled) {
+            return;
+        }
         if (topByCount?.species) {
             void loadSpeciesInfo(topByCount.species);
         }
@@ -190,13 +203,13 @@
         return null;
     }
 
-    let heroInfo = $derived(topByCount ? speciesInfoCache[topByCount.species] : null);
+    let heroInfo = $derived(summaryEnabled && topByCount ? speciesInfoCache[topByCount.species] : null);
     let heroBlurb = $derived(getHeroBlurb(heroInfo));
     let heroSource = $derived(getHeroSource(heroInfo));
-    let streakInfo = $derived(topByStreak ? speciesInfoCache[topByStreak.species] : null);
-    let activeInfo = $derived(topBy7d ? speciesInfoCache[topBy7d.species] : null);
-    let risingInfo = $derived(topByTrend ? speciesInfoCache[topByTrend.species] : null);
-    let recentInfo = $derived(mostRecent ? speciesInfoCache[mostRecent.species] : null);
+    let streakInfo = $derived(summaryEnabled && topByStreak ? speciesInfoCache[topByStreak.species] : null);
+    let activeInfo = $derived(summaryEnabled && topBy7d ? speciesInfoCache[topBy7d.species] : null);
+    let risingInfo = $derived(summaryEnabled && topByTrend ? speciesInfoCache[topByTrend.species] : null);
+    let recentInfo = $derived(summaryEnabled && mostRecent ? speciesInfoCache[mostRecent.species] : null);
 
     let timelineCounts = $derived(timeline?.daily?.map((d) => d.count) || []);
     let timelineMax = $derived(timelineCounts.length ? Math.max(...timelineCounts) : 0);
@@ -726,7 +739,9 @@
                                         rel="noopener noreferrer"
                                         class="inline-flex items-center gap-2 text-xs font-semibold text-emerald-700 dark:text-emerald-300 hover:text-emerald-600 dark:hover:text-emerald-200 mt-2"
                                     >
-                                        Read more on {heroSource.label}
+                                        {heroSource.label === 'Wikipedia'
+                                            ? $_('actions.read_more_wikipedia')
+                                            : $_('actions.read_more_source', { values: { source: heroSource.label } })}
                                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 3h7v7m0-7L10 14m-1 7h11a2 2 0 002-2V9" />
                                         </svg>

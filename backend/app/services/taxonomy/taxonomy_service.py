@@ -7,6 +7,7 @@ from datetime import datetime
 from app.database import get_db
 from app.config import settings
 from app.services.ebird_service import ebird_service
+from app.utils.enrichment import get_effective_enrichment_settings
 
 log = structlog.get_logger()
 
@@ -78,7 +79,8 @@ class TaxonomyService:
             
         # 3. Enrichment Override (eBird)
         # If user prefers eBird common names, try to fetch and override
-        if settings.enrichment.taxonomy_source == "ebird":
+        effective = get_effective_enrichment_settings()
+        if effective["taxonomy_source"] == "ebird":
              try:
                  # Use the scientific name we just found to lookup in eBird
                  # This is safer than using the raw query_name

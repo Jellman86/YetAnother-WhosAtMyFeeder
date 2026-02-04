@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog, and this project adheres to Semantic Versioning.
 
+## [2.7.5] - 2026-02-04
+
+- **Fixed:** Species cards now respect enrichment summary/seasonality settings and avoid fetching disabled sources.
+- **Fixed:** Species card labels and empty summary messaging now use localized translations.
+- **Changed:** Enrichment sources are now automatic: eBird API key enables eBird-first enrichment with iNaturalist seasonality fallback; without a key, Wikipedia + iNaturalist are used.
+- **Changed:** Enrichment settings UI is now read-only and reflects the effective source selection.
+
 ## [2.7.4] - 2026-02-03
 
 - **Added:** eBird integration as a primary enrichment source for Species Info and Taxonomy (Common Names).

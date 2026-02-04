@@ -17,6 +17,7 @@ from app.services.notification_service import notification_service
 from app.services.auto_video_classifier_service import auto_video_classifier
 from app.services.birdweather_service import birdweather_service
 from app.services.inaturalist_service import inaturalist_service
+from app.utils.enrichment import get_effective_enrichment_settings, has_ebird_key
 
 from fastapi import BackgroundTasks
 
@@ -422,6 +423,9 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
     inat_user = await inaturalist_service.refresh_connected_user()
 
     circuit_status = auto_video_classifier.get_circuit_status()
+    effective_enrichment = get_effective_enrichment_settings()
+    ebird_active = has_ebird_key()
+
     return {
         "frigate_url": settings.frigate.frigate_url,
         "mqtt_server": settings.frigate.mqtt_server,
@@ -466,7 +470,7 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         # SECURITY: Never expose station tokens via API
         "birdweather_station_token": "***REDACTED***" if settings.birdweather.station_token else None,
         # eBird settings
-        "ebird_enabled": settings.ebird.enabled,
+        "ebird_enabled": ebird_active,
         "ebird_api_key": "***REDACTED***" if settings.ebird.api_key else None,
         "ebird_default_radius_km": settings.ebird.default_radius_km,
         "ebird_default_days_back": settings.ebird.default_days_back,
@@ -481,14 +485,14 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "inaturalist_default_place_guess": settings.inaturalist.default_place_guess,
         "inaturalist_connected_user": inat_user,
         # Enrichment settings
-        "enrichment_mode": settings.enrichment.mode,
-        "enrichment_single_provider": settings.enrichment.single_provider,
-        "enrichment_summary_source": settings.enrichment.summary_source,
-        "enrichment_taxonomy_source": settings.enrichment.taxonomy_source,
-        "enrichment_sightings_source": settings.enrichment.sightings_source,
-        "enrichment_seasonality_source": settings.enrichment.seasonality_source,
-        "enrichment_rarity_source": settings.enrichment.rarity_source,
-        "enrichment_links_sources": settings.enrichment.links_sources,
+        "enrichment_mode": effective_enrichment["mode"],
+        "enrichment_single_provider": effective_enrichment["single_provider"],
+        "enrichment_summary_source": effective_enrichment["summary_source"],
+        "enrichment_taxonomy_source": effective_enrichment["taxonomy_source"],
+        "enrichment_sightings_source": effective_enrichment["sightings_source"],
+        "enrichment_seasonality_source": effective_enrichment["seasonality_source"],
+        "enrichment_rarity_source": effective_enrichment["rarity_source"],
+        "enrichment_links_sources": effective_enrichment["links_sources"],
         # LLM settings
         "llm_enabled": settings.llm.enabled,
         "llm_provider": settings.llm.provider,

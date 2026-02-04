@@ -13,6 +13,7 @@ from app.services.i18n_service import i18n_service
 from app.services.classifier_service import get_classifier
 from app.services.ebird_service import ebird_service
 from app.utils.language import get_user_language
+from app.utils.enrichment import get_effective_enrichment_settings
 from app.auth import require_owner, AuthContext
 from app.auth_legacy import get_auth_context_with_legacy
 from app.ratelimit import guest_rate_limit
@@ -71,11 +72,12 @@ def _normalize_provider(provider: str | None) -> str:
 
 
 def _resolve_summary_sources() -> list[str]:
-    mode = (settings.enrichment.mode or "per_enrichment").strip().lower()
+    effective = get_effective_enrichment_settings()
+    mode = (effective["mode"] or "per_enrichment").strip().lower()
     if mode == "single":
-        primary = _normalize_provider(settings.enrichment.single_provider)
+        primary = _normalize_provider(effective["single_provider"])
     else:
-        primary = _normalize_provider(settings.enrichment.summary_source)
+        primary = _normalize_provider(effective["summary_source"])
     fallback = "wikipedia" if primary != "wikipedia" else "inaturalist"
     return [primary, fallback]
 

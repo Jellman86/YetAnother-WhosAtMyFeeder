@@ -6,6 +6,7 @@ import platform
 import os
 from datetime import datetime, timezone
 from app.config import settings
+from app.utils.enrichment import get_effective_enrichment_settings, has_ebird_key
 from app.utils.tasks import create_background_task
 
 log = structlog.get_logger()
@@ -148,7 +149,7 @@ class TelemetryService:
                 "integrations": {
                     "birdnet_enabled": settings.frigate.birdnet_enabled,
                     "birdweather_enabled": settings.birdweather.enabled,
-                    "ebird_enabled": settings.ebird.enabled,
+                    "ebird_enabled": has_ebird_key(),
                     "inaturalist_enabled": settings.inaturalist.enabled,
                 },
                 "notifications": {
@@ -159,10 +160,10 @@ class TelemetryService:
                     "mode": settings.notifications.mode,
                 },
                 "enrichment": {
-                    "mode": settings.enrichment.mode,
-                    "summary_source": settings.enrichment.summary_source,
-                    "sightings_source": settings.enrichment.sightings_source,
-                    "taxonomy_source": settings.enrichment.taxonomy_source,
+                    "mode": get_effective_enrichment_settings()["mode"],
+                    "summary_source": get_effective_enrichment_settings()["summary_source"],
+                    "sightings_source": get_effective_enrichment_settings()["sightings_source"],
+                    "taxonomy_source": get_effective_enrichment_settings()["taxonomy_source"],
                 },
                 "access": {
                     "auth_enabled": settings.auth.enabled,
