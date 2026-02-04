@@ -694,7 +694,7 @@
                                             <p class="text-[9px] font-medium text-slate-400">iNaturalist Observations</p>
                                         </div>
                                     </div>
-                                    <div class="flex-1 min-h-[140px]">
+                                    <div class="h-[140px] sm:h-[160px] lg:flex-1">
                                         <SimpleBarChart
                                             data={seasonality.month_counts}
                                             labels={MONTH_LABELS}
