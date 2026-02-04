@@ -583,7 +583,7 @@
                     </section>
                 {/if}
 
-                {#if !isUnknownBird && (showEbirdNearby || seasonality)}
+                {#if !isUnknownBird && (showEbirdNearby || seasonality || rangeMap || rangeMapLoading || rangeMapError)}
                     <section class="grid grid-cols-1 lg:grid-cols-2 gap-4">
                         {#if showEbirdNearby}
                             <div class="group relative overflow-hidden rounded-2xl border border-sky-200/60 dark:border-sky-800/40 bg-sky-50/30 dark:bg-sky-900/10 p-5 hover:bg-sky-50/50 dark:hover:bg-sky-900/20 transition-all duration-300">
@@ -672,74 +672,76 @@
                             </div>
                         {/if}
 
-                        {#if seasonality}
-                            <div class="group relative overflow-hidden rounded-2xl border border-indigo-200/60 dark:border-indigo-800/40 bg-indigo-50/30 dark:bg-indigo-900/10 p-5 hover:bg-indigo-50/50 dark:hover:bg-indigo-900/20 transition-all duration-300">
-                                <div class="flex items-center gap-2 mb-4">
-                                    <div class="p-1.5 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
-                                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                        </svg>
+                        <div class="space-y-4">
+                            {#if seasonality}
+                                <div class="group relative overflow-hidden rounded-2xl border border-indigo-200/60 dark:border-indigo-800/40 bg-indigo-50/30 dark:bg-indigo-900/10 p-5 hover:bg-indigo-50/50 dark:hover:bg-indigo-900/20 transition-all duration-300">
+                                    <div class="flex items-center gap-2 mb-3">
+                                        <div class="p-1.5 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
+                                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                            </svg>
+                                        </div>
+                                        <div>
+                                            <h4 class="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-700 dark:text-indigo-400">
+                                                {seasonality.local ? $_('species_detail.seasonality_local') : $_('species_detail.seasonality_global')}
+                                            </h4>
+                                            <p class="text-[9px] font-medium text-slate-400">iNaturalist Observations</p>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <h4 class="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-700 dark:text-indigo-400">
-                                            {seasonality.local ? $_('species_detail.seasonality_local') : $_('species_detail.seasonality_global')}
-                                        </h4>
-                                        <p class="text-[9px] font-medium text-slate-400">iNaturalist Observations</p>
+                                    <div class="h-32">
+                                        <SimpleBarChart
+                                            data={seasonality.month_counts}
+                                            labels={MONTH_LABELS}
+                                            title=""
+                                            showEveryNthLabel={2}
+                                            color="#6366f1"
+                                        />
                                     </div>
                                 </div>
-                                <div class="h-48">
-                                    <SimpleBarChart
-                                        data={seasonality.month_counts}
-                                        labels={MONTH_LABELS}
-                                        title=""
-                                        showEveryNthLabel={2}
-                                        color="#6366f1"
-                                    />
-                                </div>
-                            </div>
-                        {/if}
-                    </section>
-                {/if}
+                            {/if}
 
-                {#if !isUnknownBird}
-                    <section class="group relative overflow-hidden rounded-2xl border border-slate-200/60 dark:border-slate-700/60 bg-white/50 dark:bg-slate-900/30 p-5 hover:bg-white/80 dark:hover:bg-slate-900/50 transition-all duration-300">
-                        <div class="relative flex items-center justify-between gap-3 mb-4">
-                            <div class="flex items-center gap-2">
-                                <div class="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-                                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v18m9-9H3" />
-                                    </svg>
+                            {#if rangeMapLoading || rangeMap || rangeMapError}
+                                <div class="group relative overflow-hidden rounded-2xl border border-slate-200/60 dark:border-slate-700/60 bg-white/50 dark:bg-slate-900/30 p-5 hover:bg-white/80 dark:hover:bg-slate-900/50 transition-all duration-300">
+                                    <div class="relative flex items-center justify-between gap-3 mb-3">
+                                        <div class="flex items-center gap-2">
+                                            <div class="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                                                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v18m9-9H3" />
+                                                </svg>
+                                            </div>
+                                            <h4 class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">{$_('species_detail.range_map')}</h4>
+                                        </div>
+                                        {#if rangeMap?.source}
+                                            {#if rangeMap.sourceUrl}
+                                                <a
+                                                    href={rangeMap.sourceUrl}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    class="flex items-center gap-1.5 px-2 py-1 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[9px] font-black uppercase tracking-wider text-slate-500 hover:text-emerald-600 dark:hover:text-emerald-400 hover:border-emerald-500/30 transition-colors shadow-sm"
+                                                >
+                                                    {rangeMap.source}
+                                                    <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                                    </svg>
+                                                </a>
+                                            {:else}
+                                                <span class="flex items-center gap-1.5 px-2 py-1 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[9px] font-black uppercase tracking-wider text-slate-500">
+                                                    {rangeMap.source}
+                                                </span>
+                                            {/if}
+                                        {/if}
+                                    </div>
+
+                                    {#if rangeMapLoading}
+                                        <div class="h-[160px] rounded-2xl bg-slate-100 dark:bg-slate-800/60 animate-pulse"></div>
+                                    {:else if rangeMap?.tileUrl}
+                                        <RangeMap tileUrl={rangeMap.tileUrl} heightClass="min-h-[160px]" />
+                                    {:else}
+                                        <p class="text-xs text-slate-500 italic">{rangeMapError || $_('species_detail.range_unavailable')}</p>
+                                    {/if}
                                 </div>
-                                <h4 class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">{$_('species_detail.range_map')}</h4>
-                            </div>
-                            {#if rangeMap?.source}
-                                {#if rangeMap.sourceUrl}
-                                    <a
-                                        href={rangeMap.sourceUrl}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        class="flex items-center gap-1.5 px-2 py-1 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[9px] font-black uppercase tracking-wider text-slate-500 hover:text-emerald-600 dark:hover:text-emerald-400 hover:border-emerald-500/30 transition-colors shadow-sm"
-                                    >
-                                        {rangeMap.source}
-                                        <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                                        </svg>
-                                    </a>
-                                {:else}
-                                    <span class="flex items-center gap-1.5 px-2 py-1 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[9px] font-black uppercase tracking-wider text-slate-500">
-                                        {rangeMap.source}
-                                    </span>
-                                {/if}
                             {/if}
                         </div>
-
-                        {#if rangeMapLoading}
-                            <div class="h-[220px] rounded-2xl bg-slate-100 dark:bg-slate-800/60 animate-pulse"></div>
-                        {:else if rangeMap?.tileUrl}
-                            <RangeMap tileUrl={rangeMap.tileUrl} />
-                        {:else}
-                            <p class="text-xs text-slate-500 italic">{rangeMapError || $_('species_detail.range_unavailable')}</p>
-                        {/if}
                     </section>
                 {/if}
 

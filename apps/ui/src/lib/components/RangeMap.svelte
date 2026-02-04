@@ -5,6 +5,7 @@
   export let opacity: number = 0.65;
   export let zoom: number = 1;
   export let center: [number, number] = [0, 20];
+  export let heightClass: string = 'min-h-[220px]';
 
   let mapElement: HTMLElement;
   let map: any;
@@ -51,6 +52,6 @@
   }
 </script>
 
-<div class="relative w-full h-full min-h-[220px] rounded-2xl overflow-hidden border border-slate-200/60 dark:border-slate-700/60 bg-slate-100 dark:bg-slate-800">
+<div class={`relative w-full h-full ${heightClass} rounded-2xl overflow-hidden border border-slate-200/60 dark:border-slate-700/60 bg-slate-100 dark:bg-slate-800`}>
   <div bind:this={mapElement} class="w-full h-full"></div>
 </div>
