@@ -505,7 +505,13 @@
       "retention_weeks": "2 Weeks",
       "retention_month": "1 Month",
       "retention_months": "3 Months",
-      "retention_year": "1 Year"
+      "retention_year": "1 Year",
+      "media_integrity_title": "媒体完整性清理",
+      "purge_missing_clips": "删除没有片段的检测",
+      "purge_missing_snapshots": "删除没有快照的检测",
+      "media_integrity_note": "当 Frigate 媒体缺失时删除检测记录。",
+      "purge_missing_clips_confirm": "删除没有片段的检测？此操作无法撤销。",
+      "purge_missing_snapshots_confirm": "删除没有快照的检测？此操作无法撤销。"
     },
     "security": {
       "title": "Security",

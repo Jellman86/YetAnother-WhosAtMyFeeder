@@ -19,6 +19,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Changed:** Species detail activity charts now match the modal card styling for a more consistent look.
 - **Changed:** Refined UI cohesion with unified navigation, button, and form-control styling.
 - **Changed:** Refined Species Detail modal styling for consistent cards, headers, and recent sightings layout.
+- **Changed:** Events species filter now uses taxonomic normalization and respects naming preferences.
+- **Added:** Data settings now include cleanup actions for detections missing clips or snapshots.
 
 ## [2.7.4] - 2026-02-03
 

@@ -513,7 +513,13 @@
       "retention_weeks": "2 Weeks",
       "retention_month": "1 Month",
       "retention_months": "3 Months",
-      "retention_year": "1 Year"
+      "retention_year": "1 Year",
+      "media_integrity_title": "Очистка целостности медиа",
+      "purge_missing_clips": "Удалить обнаружения без клипов",
+      "purge_missing_snapshots": "Удалить обнаружения без снимков",
+      "media_integrity_note": "Удаляет обнаружения, когда медиа Frigate отсутствуют.",
+      "purge_missing_clips_confirm": "Удалить обнаружения без клипов? Это действие нельзя отменить.",
+      "purge_missing_snapshots_confirm": "Удалить обнаружения без снимков? Это действие нельзя отменить."
     },
     "security": {
       "title": "Security",

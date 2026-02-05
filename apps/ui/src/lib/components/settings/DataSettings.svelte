@@ -8,6 +8,8 @@
         retentionDays = $bindable(0),
         cacheRetentionDays = $bindable(0),
         cleaningUp,
+        purgingMissingClips,
+        purgingMissingSnapshots,
         cacheEnabled = $bindable(true),
         cacheSnapshots = $bindable(true),
         cacheClips = $bindable(true),
@@ -29,6 +31,8 @@
         analysisStatus,
         analysisTotal,
         handleCleanup,
+        handlePurgeMissingClips,
+        handlePurgeMissingSnapshots,
         handleCacheCleanup,
         handleStartTaxonomySync,
         handleBackfill,
@@ -40,6 +44,8 @@
         retentionDays: number;
         cacheRetentionDays: number;
         cleaningUp: boolean;
+        purgingMissingClips: boolean;
+        purgingMissingSnapshots: boolean;
         cacheEnabled: boolean;
         cacheSnapshots: boolean;
         cacheClips: boolean;
@@ -61,6 +67,8 @@
         analysisStatus: { pending: number; active: number; circuit_open: boolean } | null;
         analysisTotal: number;
         handleCleanup: () => Promise<void>;
+        handlePurgeMissingClips: () => Promise<void>;
+        handlePurgeMissingSnapshots: () => Promise<void>;
         handleCacheCleanup: () => Promise<void>;
         handleStartTaxonomySync: () => Promise<void>;
         handleBackfill: () => Promise<void>;
@@ -119,6 +127,35 @@
                         {cleaningUp ? $_('settings.data.cleaning') : $_('settings.data.purge_button')}
                     </button>
                     <p class="text-[10px] text-center text-slate-400 font-bold italic">{$_('settings.data.auto_cleanup_note')}</p>
+                </div>
+
+                <div class="pt-4 border-t border-slate-100 dark:border-slate-700/50 space-y-3">
+                    <p class="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                        {$_('settings.data.media_integrity_title', { default: 'Media Integrity Cleanup' })}
+                    </p>
+                    <button
+                        onclick={handlePurgeMissingClips}
+                        disabled={purgingMissingClips}
+                        aria-label={$_('settings.data.purge_missing_clips', { default: 'Remove detections without clips' })}
+                        class="btn btn-danger w-full py-3 text-xs font-black uppercase tracking-widest"
+                    >
+                        {purgingMissingClips
+                            ? $_('settings.data.cleaning', { default: 'Cleaning...' })
+                            : $_('settings.data.purge_missing_clips', { default: 'Remove detections without clips' })}
+                    </button>
+                    <button
+                        onclick={handlePurgeMissingSnapshots}
+                        disabled={purgingMissingSnapshots}
+                        aria-label={$_('settings.data.purge_missing_snapshots', { default: 'Remove detections without snapshots' })}
+                        class="btn btn-danger w-full py-3 text-xs font-black uppercase tracking-widest"
+                    >
+                        {purgingMissingSnapshots
+                            ? $_('settings.data.cleaning', { default: 'Cleaning...' })
+                            : $_('settings.data.purge_missing_snapshots', { default: 'Remove detections without snapshots' })}
+                    </button>
+                    <p class="text-[10px] text-slate-400 font-bold italic">
+                        {$_('settings.data.media_integrity_note', { default: 'Deletes detections when Frigate media is missing.' })}
+                    </p>
                 </div>
             </div>
         </section>

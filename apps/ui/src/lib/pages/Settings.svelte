@@ -11,6 +11,8 @@
         downloadWildlifeModel,
         fetchMaintenanceStats,
         runCleanup,
+        purgeMissingClips,
+        purgeMissingSnapshots,
         runBackfill,
         runWeatherBackfill,
         startBackfillJob,
@@ -500,6 +502,8 @@
 
     let maintenanceStats = $state<MaintenanceStats | null>(null);
     let cleaningUp = $state(false);
+    let purgingMissingClips = $state(false);
+    let purgingMissingSnapshots = $state(false);
 
     // Media cache state
     let cacheEnabled = $state(true);
@@ -645,6 +649,48 @@
             message = { type: 'error', text: e.message || $_('settings.data.cleanup_error') };
         } finally {
             cleaningUp = false;
+        }
+    }
+
+    async function handlePurgeMissingClips() {
+        const confirmMsg = $_('settings.data.purge_missing_clips_confirm', {
+            default: 'Remove detections without clips? This cannot be undone.'
+        });
+        if (!confirm(confirmMsg)) return;
+
+        purgingMissingClips = true;
+        message = null;
+        try {
+            const result = await purgeMissingClips();
+            const text = result.message
+                || `Removed ${result.deleted_count.toLocaleString()} detections without clips (checked ${result.checked.toLocaleString()}).`;
+            message = { type: 'success', text };
+            await loadMaintenanceStats();
+        } catch (e: any) {
+            message = { type: 'error', text: e.message || $_('settings.data.cleanup_error') };
+        } finally {
+            purgingMissingClips = false;
+        }
+    }
+
+    async function handlePurgeMissingSnapshots() {
+        const confirmMsg = $_('settings.data.purge_missing_snapshots_confirm', {
+            default: 'Remove detections without snapshots? This cannot be undone.'
+        });
+        if (!confirm(confirmMsg)) return;
+
+        purgingMissingSnapshots = true;
+        message = null;
+        try {
+            const result = await purgeMissingSnapshots();
+            const text = result.message
+                || `Removed ${result.deleted_count.toLocaleString()} detections without snapshots (checked ${result.checked.toLocaleString()}).`;
+            message = { type: 'success', text };
+            await loadMaintenanceStats();
+        } catch (e: any) {
+            message = { type: 'error', text: e.message || $_('settings.data.cleanup_error') };
+        } finally {
+            purgingMissingSnapshots = false;
         }
     }
 
@@ -1661,6 +1707,8 @@
                     {maintenanceStats}
                     {cacheStats}
                     {cleaningUp}
+                    {purgingMissingClips}
+                    {purgingMissingSnapshots}
                     {cleaningCache}
                     {backfilling}
                     {backfillResult}
@@ -1675,6 +1723,8 @@
                     {analysisStatus}
                     {analysisTotal}
                     {handleCleanup}
+                    {handlePurgeMissingClips}
+                    {handlePurgeMissingSnapshots}
                     {handleCacheCleanup}
                     {handleStartTaxonomySync}
                     {handleBackfill}

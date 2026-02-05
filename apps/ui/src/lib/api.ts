@@ -576,8 +576,16 @@ export async function fetchEvents(options: FetchEventsOptions = {}): Promise<Det
 }
 
 export interface EventFilters {
-    species: string[];
+    species: EventFilterSpecies[];
     cameras: string[];
+}
+
+export interface EventFilterSpecies {
+    value: string;
+    display_name: string;
+    scientific_name?: string | null;
+    common_name?: string | null;
+    taxa_id?: number | null;
 }
 
 export async function fetchEventFilters(): Promise<EventFilters> {
@@ -619,6 +627,24 @@ export async function fetchMaintenanceStats(): Promise<MaintenanceStats> {
 export async function runCleanup(): Promise<CleanupResult> {
     const response = await apiFetch(`${API_BASE}/maintenance/cleanup`, { method: 'POST' });
     return handleResponse<CleanupResult>(response);
+}
+
+export interface PurgeMissingMediaResult {
+    status: string;
+    deleted_count: number;
+    checked: number;
+    missing: number;
+    message?: string;
+}
+
+export async function purgeMissingClips(): Promise<PurgeMissingMediaResult> {
+    const response = await apiFetch(`${API_BASE}/maintenance/purge-missing-clips`, { method: 'POST' });
+    return handleResponse<PurgeMissingMediaResult>(response);
+}
+
+export async function purgeMissingSnapshots(): Promise<PurgeMissingMediaResult> {
+    const response = await apiFetch(`${API_BASE}/maintenance/purge-missing-snapshots`, { method: 'POST' });
+    return handleResponse<PurgeMissingMediaResult>(response);
 }
 
 export async function analyzeUnknowns(): Promise<{ status: string; count: number; message: string }> {

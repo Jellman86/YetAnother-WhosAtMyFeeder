@@ -1,6 +1,7 @@
 import platform
 import re
-from typing import List, Optional
+import asyncio
+from typing import List, Optional, Literal
 from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field, field_validator
@@ -17,12 +18,15 @@ from app.services.notification_service import notification_service
 from app.services.auto_video_classifier_service import auto_video_classifier
 from app.services.birdweather_service import birdweather_service
 from app.services.inaturalist_service import inaturalist_service
+from app.services.frigate_client import frigate_client
+from app.services.media_cache import media_cache
 from app.utils.enrichment import get_effective_enrichment_settings, is_ebird_active
 
 from fastapi import BackgroundTasks
 
 router = APIRouter()
 log = structlog.get_logger()
+PURGE_CHECK_CONCURRENCY = 8
 
 @router.get("/maintenance/taxonomy/status")
 async def get_taxonomy_status(auth: AuthContext = Depends(require_owner)):
@@ -928,6 +932,65 @@ async def run_cleanup(auth: AuthContext = Depends(require_owner)):
         "deleted_count": deleted_count,
         "cutoff_date": cutoff.isoformat()
     }
+
+
+async def _purge_missing_media(kind: Literal["clip", "snapshot"]) -> dict:
+    async with get_db() as db:
+        repo = DetectionRepository(db)
+        event_ids = await repo.get_all_frigate_event_ids()
+
+    if not event_ids:
+        return {
+            "status": "completed",
+            "deleted_count": 0,
+            "checked": 0,
+            "missing": 0,
+            "message": "No detections found"
+        }
+
+    semaphore = asyncio.Semaphore(PURGE_CHECK_CONCURRENCY)
+
+    async def check(event_id: str) -> tuple[str, bool]:
+        async with semaphore:
+            event_data, _error = await frigate_client.get_event_with_error(event_id)
+            if not event_data:
+                return event_id, True
+            if kind == "clip":
+                return event_id, not event_data.get("has_clip", False)
+            return event_id, not event_data.get("has_snapshot", True)
+
+    results = await asyncio.gather(*(check(event_id) for event_id in event_ids))
+    missing_ids = [event_id for event_id, missing in results if missing]
+
+    deleted_count = 0
+    if missing_ids:
+        await asyncio.gather(*(media_cache.delete_cached_media(event_id) for event_id in missing_ids))
+        async with get_db() as db:
+            repo = DetectionRepository(db)
+            deleted_count = await repo.delete_by_frigate_events(missing_ids)
+
+    return {
+        "status": "completed",
+        "deleted_count": deleted_count,
+        "checked": len(event_ids),
+        "missing": len(missing_ids)
+    }
+
+
+@router.post("/maintenance/purge-missing-clips")
+async def purge_missing_clips(auth: AuthContext = Depends(require_owner)):
+    """Remove detections without clips (or missing events). Owner only."""
+    result = await _purge_missing_media("clip")
+    log.info("Purge missing clips completed", **result)
+    return result
+
+
+@router.post("/maintenance/purge-missing-snapshots")
+async def purge_missing_snapshots(auth: AuthContext = Depends(require_owner)):
+    """Remove detections without snapshots (or missing events). Owner only."""
+    result = await _purge_missing_media("snapshot")
+    log.info("Purge missing snapshots completed", **result)
+    return result
 
 
 @router.post("/maintenance/analyze-unknowns")

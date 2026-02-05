@@ -13,7 +13,8 @@
         fetchEventsCount,
         analyzeDetection,
         type Detection,
-        type EventFilters
+        type EventFilters,
+        type EventFilterSpecies
     } from '../api';
     import { detectionsStore } from '../stores/detections.svelte';
     import { settingsStore } from '../stores/settings.svelte';
@@ -42,7 +43,7 @@
     let pageSize = $state(24);
     let totalCount = $state(0);
     let totalPages = $derived(Math.ceil(totalCount / pageSize));
-    let availableSpecies: string[] = $state([]);
+    let availableSpecies: EventFilterSpecies[] = $state([]);
     let availableCameras: string[] = $state([]);
     type DatePreset = 'all' | 'today' | 'week' | 'month' | 'custom';
     let datePreset = $state<DatePreset>('all');
@@ -78,6 +79,17 @@
     let modalReclassifyProgress = $derived(selectedEvent ? detectionsStore.getReclassificationProgress(selectedEvent.frigate_event) : undefined);
     let modalPrimaryName = $derived(naming.primary);
     let modalSubName = $derived(naming.secondary);
+
+    function formatSpeciesLabel(item: EventFilterSpecies) {
+        const showCommon = settingsStore.displayCommonNames;
+        const preferSci = settingsStore.scientificNamePrimary;
+        const naming = getBirdNames({
+            display_name: item.display_name,
+            scientific_name: item.scientific_name ?? undefined,
+            common_name: item.common_name ?? undefined
+        } as any, showCommon, preferSci);
+        return naming.secondary ? `${naming.primary} (${naming.secondary})` : naming.primary;
+    }
 
     let dateRange = $derived.by(() => {
         const today = new Date();
@@ -116,6 +128,17 @@
             availableCameras = (filters as EventFilters).cameras;
             classifierLabels = labels.labels;
             hiddenCount = hidden.hidden_count;
+
+            if (speciesFilter && !speciesFilter.startsWith('taxa:')) {
+                const normalized = speciesFilter.toLowerCase();
+                const match = availableSpecies.find((s) => {
+                    const display = (s.display_name || '').toLowerCase();
+                    const sci = (s.scientific_name || '').toLowerCase();
+                    const common = (s.common_name || '').toLowerCase();
+                    return display === normalized || sci === normalized || common === normalized;
+                });
+                if (match) speciesFilter = match.value;
+            }
         } catch {}
         await loadEvents();
     });
@@ -227,7 +250,7 @@
             <option value="all">{$_('events.filters.all_time')}</option><option value="today">{$_('common.today')}</option><option value="week">{$_('events.filters.week')}</option><option value="month">{$_('events.filters.month')}</option><option value="custom">{$_('events.filters.custom')}</option>
         </select>
         <select bind:value={speciesFilter} onchange={loadEvents} class="select-base min-w-[12rem]">
-            <option value="">{$_('events.filters.all_species')}</option>{#each availableSpecies as s}<option value={s}>{s}</option>{/each}
+            <option value="">{$_('events.filters.all_species')}</option>{#each availableSpecies as s}<option value={s.value}>{formatSpeciesLabel(s)}</option>{/each}
         </select>
         <select bind:value={cameraFilter} onchange={loadEvents} class="select-base min-w-[12rem]">
             <option value="">{$_('events.filters.all_cameras')}</option>{#each availableCameras as c}<option value={c}>{c}</option>{/each}

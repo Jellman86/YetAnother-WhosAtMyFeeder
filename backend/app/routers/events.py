@@ -29,6 +29,18 @@ log = structlog.get_logger()
 CLIP_CHECK_CONCURRENCY = 10
 LOCALIZED_NAME_CONCURRENCY = 5
 
+
+def parse_species_filter(species: Optional[str]) -> tuple[Optional[str], Optional[int]]:
+    """Parse species filter into display_name or taxa_id."""
+    if not species:
+        return None, None
+    if species.startswith("taxa:"):
+        try:
+            return None, int(species.split(":", 1)[1])
+        except ValueError:
+            return species, None
+    return species, None
+
 async def batch_check_clips(event_ids: list[str]) -> dict[str, bool]:
     """
     Check clip availability for multiple events from Frigate.
@@ -53,9 +65,18 @@ async def batch_check_clips(event_ids: list[str]) -> dict[str, bool]:
 # get_classifier is now imported from classifier_service
 
 
+class EventFilterSpecies(BaseModel):
+    """Species filter option with taxonomy data."""
+    value: str
+    display_name: str
+    scientific_name: Optional[str] = None
+    common_name: Optional[str] = None
+    taxa_id: Optional[int] = None
+
+
 class EventFilters(BaseModel):
     """Available filter options for events."""
-    species: List[str]
+    species: List[EventFilterSpecies]
     cameras: List[str]
 
 
@@ -77,11 +98,50 @@ async def get_event_filters(
         and settings.public_access.enabled
         and not settings.public_access.show_camera_names
     )
+    lang = get_user_language(request)
     async with get_db() as db:
         repo = DetectionRepository(db)
-        species = await repo.get_unique_species()
+        species_rows = await repo.get_unique_species_with_taxonomy()
         cameras = [] if hide_camera_names else await repo.get_unique_cameras()
-        return EventFilters(species=species, cameras=cameras)
+
+        semaphore = asyncio.Semaphore(LOCALIZED_NAME_CONCURRENCY)
+        species_options: list[EventFilterSpecies] = []
+
+        async def resolve_species(row: tuple[str, Optional[str], Optional[str], Optional[int]]) -> EventFilterSpecies:
+            display_name, scientific_name, common_name, taxa_id = row
+            async with semaphore:
+                taxonomy = await taxonomy_service.get_names(display_name)
+                sci_name = scientific_name or taxonomy.get("scientific_name") or display_name
+                com_name = common_name or taxonomy.get("common_name")
+                t_id = taxa_id or taxonomy.get("taxa_id")
+                if lang != "en" and t_id:
+                    localized = await taxonomy_service.get_localized_common_name(t_id, lang, db=db)
+                    if localized:
+                        com_name = localized
+                value = f"taxa:{t_id}" if t_id else display_name
+                return EventFilterSpecies(
+                    value=value,
+                    display_name=sci_name or display_name,
+                    scientific_name=sci_name,
+                    common_name=com_name,
+                    taxa_id=t_id
+                )
+
+        if species_rows:
+            resolved = await asyncio.gather(*(resolve_species(row) for row in species_rows))
+        else:
+            resolved = []
+
+        # Deduplicate by taxa_id when available; fallback to display_name
+        seen: set[str] = set()
+        for item in resolved:
+            key = f"taxa:{item.taxa_id}" if item.taxa_id else item.display_name.lower()
+            if key in seen:
+                continue
+            seen.add(key)
+            species_options.append(item)
+
+        return EventFilters(species=species_options, cameras=cameras)
 
 
 @router.get("/events", response_model=List[DetectionResponse])
@@ -139,12 +199,14 @@ async def get_events(
         start_datetime = datetime.combine(start_date, datetime.min.time()) if start_date else None
         end_datetime = datetime.combine(end_date, datetime.max.time()) if end_date else None
 
+        species_name, taxa_id = parse_species_filter(species)
         events = await repo.get_all(
             limit=limit,
             offset=offset,
             start_date=start_datetime,
             end_date=end_datetime,
-            species=species,
+            species=species_name,
+            taxa_id=taxa_id,
             camera=camera,
             sort=sort,
             include_hidden=include_hidden
@@ -278,11 +340,13 @@ async def get_events_count(
 
         start_datetime = datetime.combine(start_date, datetime.min.time()) if start_date else None
         end_datetime = datetime.combine(end_date, datetime.max.time()) if end_date else None
+        species_name, taxa_id = parse_species_filter(species)
 
         count = await repo.get_count(
             start_date=start_datetime,
             end_date=end_datetime,
-            species=species,
+            species=species_name,
+            taxa_id=taxa_id,
             camera=camera,
             include_hidden=include_hidden
         )

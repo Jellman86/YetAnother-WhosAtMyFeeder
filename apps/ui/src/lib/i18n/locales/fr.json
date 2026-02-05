@@ -505,7 +505,13 @@
       "retention_weeks": "2 Weeks",
       "retention_month": "1 Month",
       "retention_months": "3 Months",
-      "retention_year": "1 Year"
+      "retention_year": "1 Year",
+      "media_integrity_title": "Nettoyage d’intégrité des médias",
+      "purge_missing_clips": "Supprimer les détections sans clips",
+      "purge_missing_snapshots": "Supprimer les détections sans instantanés",
+      "media_integrity_note": "Supprime les détections lorsque les médias Frigate sont manquants.",
+      "purge_missing_clips_confirm": "Supprimer les détections sans clips ? Cette action est irréversible.",
+      "purge_missing_snapshots_confirm": "Supprimer les détections sans instantanés ? Cette action est irréversible."
     },
     "security": {
       "title": "Security",

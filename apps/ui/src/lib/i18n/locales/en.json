@@ -187,7 +187,13 @@
       "weather_backfill_error": "Weather backfill failed",
       "analysis_error": "Analysis failed",
       "wildlife_download_error": "Failed to download wildlife model",
-      "taxonomy_sync_error": "Failed to start taxonomy sync: {error}"
+      "taxonomy_sync_error": "Failed to start taxonomy sync: {error}",
+      "media_integrity_title": "Media Integrity Cleanup",
+      "purge_missing_clips": "Remove detections without clips",
+      "purge_missing_snapshots": "Remove detections without snapshots",
+      "media_integrity_note": "Deletes detections when Frigate media is missing.",
+      "purge_missing_clips_confirm": "Remove detections without clips? This cannot be undone.",
+      "purge_missing_snapshots_confirm": "Remove detections without snapshots? This cannot be undone."
     },
     "security": {
       "title": "Security",
