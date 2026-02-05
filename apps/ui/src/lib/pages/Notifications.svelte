@@ -34,10 +34,10 @@
             <p class="text-xs text-slate-500">{$_('notifications.page_subtitle')}</p>
         </div>
         <div class="flex items-center gap-2 text-[11px] font-semibold text-slate-500">
-            <button type="button" class="px-3 py-2 rounded-xl border border-slate-200/70 dark:border-slate-700/60 hover:bg-slate-100 dark:hover:bg-slate-800" onclick={() => notificationCenter.markAllRead()}>
+            <button type="button" class="btn btn-secondary px-3 py-2 text-xs" onclick={() => notificationCenter.markAllRead()}>
                 {$_('notifications.center_mark_all')}
             </button>
-            <button type="button" class="px-3 py-2 rounded-xl border border-slate-200/70 dark:border-slate-700/60 hover:bg-slate-100 dark:hover:bg-slate-800" onclick={() => notificationCenter.clear()}>
+            <button type="button" class="btn btn-secondary px-3 py-2 text-xs" onclick={() => notificationCenter.clear()}>
                 {$_('notifications.center_clear')}
             </button>
         </div>

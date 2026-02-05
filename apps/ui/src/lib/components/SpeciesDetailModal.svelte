@@ -537,8 +537,8 @@
 
                 <!-- Species Description -->
                 {#if summaryEnabled && info}
-                    <section class="group relative overflow-hidden rounded-2xl border border-slate-200/60 dark:border-slate-700/60 bg-white/50 dark:bg-slate-900/30 p-6 hover:bg-white/80 dark:hover:bg-slate-900/50 transition-all duration-300">
-                        <div class="absolute inset-0 bg-gradient-to-br from-teal-500/5 via-transparent to-brand-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                    <section class="card-base rounded-3xl p-6 relative overflow-hidden">
+                        <div class="absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-teal-400/40 to-transparent"></div>
                         
                         <div class="relative flex items-center justify-between gap-3 mb-4">
                             <div class="flex items-center gap-2">
@@ -558,7 +558,7 @@
                                                 href={chip.url}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
-                                                class="flex items-center gap-1.5 px-2 py-1 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[9px] font-black uppercase tracking-wider text-slate-500 hover:text-teal-600 dark:hover:text-teal-400 hover:border-teal-500/30 transition-colors shadow-sm"
+                                                class="badge bg-white/90 dark:bg-slate-800/80 border-slate-200/80 dark:border-slate-700/60 text-slate-500 hover:text-teal-600 dark:hover:text-teal-400 hover:border-teal-500/40 transition-colors shadow-sm"
                                             >
                                                 {chip.label}
                                                 <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -566,7 +566,7 @@
                                                 </svg>
                                             </a>
                                         {:else}
-                                            <span class="flex items-center gap-1.5 px-2 py-1 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[9px] font-black uppercase tracking-wider text-slate-500">
+                                            <span class="badge bg-white/90 dark:bg-slate-800/80 border-slate-200/80 dark:border-slate-700/60 text-slate-500">
                                                 {chip.label}
                                             </span>
                                         {/if}
@@ -759,25 +759,25 @@
                 {#if stats}
                 <!-- Quick Facts -->
                 <section>
-                    <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4">{$_('common.statistics')}</h3>
+                    <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4 font-display">{$_('common.statistics')}</h3>
                     <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
                         <div class="rounded-2xl p-4 bg-gradient-to-br from-teal-500 to-emerald-600 text-white shadow-lg">
                             <p class="text-3xl font-black">{stats.total_sightings}</p>
                             <p class="text-[11px] uppercase tracking-widest opacity-90">{$_('common.detections')}</p>
                         </div>
-                        <div class="rounded-2xl p-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm">
+                        <div class="card-base rounded-2xl p-4">
                             <p class="text-2xl font-black text-slate-900 dark:text-white">
                                 {(stats.avg_confidence * 100).toFixed(0)}%
                             </p>
                             <p class="text-[11px] uppercase tracking-widest text-slate-500">{$_('species_detail.avg_confidence')}</p>
                         </div>
-                        <div class="rounded-2xl p-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm">
+                        <div class="card-base rounded-2xl p-4">
                             <p class="text-sm font-semibold text-slate-900 dark:text-white">
                                 {formatDate(stats.first_seen)}
                             </p>
                             <p class="text-[11px] uppercase tracking-widest text-slate-500">{$_('species_detail.first_seen')}</p>
                         </div>
-                        <div class="rounded-2xl p-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm">
+                        <div class="card-base rounded-2xl p-4">
                             <p class="text-sm font-semibold text-slate-900 dark:text-white">
                                 {formatDate(stats.last_seen)}
                             </p>
@@ -788,11 +788,11 @@
 
                 <!-- Time Distribution Charts -->
                 <section>
-                    <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4">{$_('species_detail.activity_patterns')}</h3>
+                    <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4 font-display">{$_('species_detail.activity_patterns')}</h3>
 
                     <!-- Hourly chart - full width for better visibility -->
-                    <div class="group relative overflow-hidden rounded-2xl border border-slate-200/60 dark:border-slate-700/60 bg-white/60 dark:bg-slate-900/30 p-4 mb-4">
-                        <div class="absolute inset-0 bg-gradient-to-br from-emerald-500/5 via-transparent to-teal-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                    <div class="card-base rounded-2xl p-4 mb-4 relative overflow-hidden">
+                        <div class="absolute inset-0 bg-gradient-to-br from-emerald-500/6 via-transparent to-teal-500/6 opacity-60"></div>
                         <div class="relative flex items-center gap-2 mb-3">
                             <div class="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
                                 <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -813,8 +813,8 @@
 
                     <!-- Weekly and Monthly side by side -->
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div class="group relative overflow-hidden rounded-2xl border border-slate-200/60 dark:border-slate-700/60 bg-white/60 dark:bg-slate-900/30 p-4">
-                            <div class="absolute inset-0 bg-gradient-to-br from-sky-500/5 via-transparent to-indigo-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                        <div class="card-base rounded-2xl p-4 relative overflow-hidden">
+                            <div class="absolute inset-0 bg-gradient-to-br from-sky-500/6 via-transparent to-indigo-500/6 opacity-60"></div>
                             <div class="relative flex items-center gap-2 mb-3">
                                 <div class="p-1.5 rounded-lg bg-sky-500/10 text-sky-600 dark:text-sky-400">
                                     <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -831,8 +831,8 @@
                                 />
                             </div>
                         </div>
-                        <div class="group relative overflow-hidden rounded-2xl border border-slate-200/60 dark:border-slate-700/60 bg-white/60 dark:bg-slate-900/30 p-4">
-                            <div class="absolute inset-0 bg-gradient-to-br from-amber-500/5 via-transparent to-rose-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                        <div class="card-base rounded-2xl p-4 relative overflow-hidden">
+                            <div class="absolute inset-0 bg-gradient-to-br from-amber-500/6 via-transparent to-rose-500/6 opacity-60"></div>
                             <div class="relative flex items-center gap-2 mb-3">
                                 <div class="p-1.5 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400">
                                     <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -855,7 +855,7 @@
                 <!-- Camera Breakdown -->
                 {#if stats.cameras.length > 0}
                     <section>
-                        <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4">{$_('species_detail.camera_breakdown')}</h3>
+                        <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4 font-display">{$_('species_detail.camera_breakdown')}</h3>
                         <div class="space-y-3">
                             {#each stats.cameras as camera}
                                 <div class="flex items-center gap-3">
@@ -880,12 +880,12 @@
                 <!-- Recent Sightings -->
                 {#if stats.recent_sightings.length > 0}
                     <section>
-                        <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4">{$_('species_detail.recent_sightings')}</h3>
+                        <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4 font-display">{$_('species_detail.recent_sightings')}</h3>
                         <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
                             {#each stats.recent_sightings as sighting}
                                 <button
                                     type="button"
-                                    class="bg-slate-100 dark:bg-slate-700 rounded-lg overflow-hidden group cursor-pointer relative text-left"
+                                    class="card-base rounded-2xl overflow-hidden group cursor-pointer relative text-left"
                                     aria-label="{$_('detection.play_video', { values: { species: sighting.display_name } })}"
                                     onclick={() => {
                                         selectedSighting = sighting as Detection;
@@ -894,7 +894,7 @@
                                         }
                                     }}
                                 >
-                                    <div class="aspect-square bg-slate-200 dark:bg-slate-600 relative">
+                                    <div class="aspect-square bg-slate-200 dark:bg-slate-700 relative">
                                         <img
                                             src={getThumbnailUrl(sighting.frigate_event)}
                                             alt={sighting.display_name}
@@ -916,7 +916,7 @@
                                             </div>
                                         {/if}
                                     </div>
-                                    <div class="p-2">
+                                    <div class="p-2.5">
                                         <p class="text-xs text-slate-600 dark:text-slate-300">
                                             {formatDate(sighting.detection_time)}
                                         </p>
@@ -938,9 +938,7 @@
             <button
                 type="button"
                 onclick={onclose}
-                class="px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300
-                       bg-slate-100 dark:bg-slate-700 rounded-lg
-                       hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+                class="btn btn-secondary px-4 py-2 text-sm"
             >
                 {$_('common.close')}
             </button>

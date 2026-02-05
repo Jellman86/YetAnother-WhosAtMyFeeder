@@ -17,6 +17,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Changed:** Range map now defaults to a wider zoom and includes interaction hints.
 - **Fixed:** eBird usage now respects the integration toggle; disabled eBird no longer drives enrichments.
 - **Changed:** Species detail activity charts now match the modal card styling for a more consistent look.
+- **Changed:** Refined UI cohesion with unified navigation, button, and form-control styling.
+- **Changed:** Refined Species Detail modal styling for consistent cards, headers, and recent sightings layout.
 
 ## [2.7.4] - 2026-02-03
 

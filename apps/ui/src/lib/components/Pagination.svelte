@@ -85,9 +85,7 @@
                         value={itemsPerPage}
                         onchange={(e) => onPageSizeChange?.(Number(e.currentTarget.value))}
                         aria-label={$_('pagination.page_size_aria', { default: 'Items per page' })}
-                        class="px-2 py-1 rounded-md border border-slate-300 dark:border-slate-600
-                               bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm
-                               focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                        class="select-base py-1.5 text-xs"
                     >
                         {#each pageSizeOptions as size}
                             <option value={size}>{size}</option>
@@ -103,9 +101,7 @@
             <button
                 onclick={() => goToPage(currentPage - 1)}
                 disabled={currentPage === 1}
-                class="p-2 rounded-lg text-slate-600 dark:text-slate-400
-                       hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors
-                       disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                class="btn btn-ghost btn-icon text-slate-600 dark:text-slate-400"
                 aria-label={$_('pagination.previous_page', { default: 'Previous page' })}
             >
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -120,9 +116,9 @@
                 {:else}
                     <button
                         onclick={() => goToPage(page)}
-                        class="min-w-[2.5rem] h-10 px-3 rounded-lg text-sm font-medium transition-colors
+                        class="min-w-[2.5rem] h-10 px-3 rounded-xl text-sm font-semibold transition-colors
                                {page === currentPage
-                                   ? 'bg-teal-500 text-white shadow-sm'
+                                   ? 'bg-gradient-to-r from-teal-500 to-emerald-600 text-white shadow-sm'
                                    : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}"
                         aria-current={page === currentPage ? 'page' : undefined}
                         aria-label={$_('pagination.page_number', { values: { number: page }, default: `Page ${page}` })}
@@ -136,9 +132,7 @@
             <button
                 onclick={() => goToPage(currentPage + 1)}
                 disabled={currentPage === totalPages}
-                class="p-2 rounded-lg text-slate-600 dark:text-slate-400
-                       hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors
-                       disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                class="btn btn-ghost btn-icon text-slate-600 dark:text-slate-400"
                 aria-label={$_('pagination.next_page', { default: 'Next page' })}
             >
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

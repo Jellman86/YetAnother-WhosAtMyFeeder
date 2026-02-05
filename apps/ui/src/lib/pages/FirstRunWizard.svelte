@@ -57,7 +57,7 @@
                         type="text"
                         required
                         bind:value={username}
-                        class="mt-1 block w-full rounded-lg border border-gray-300 dark:border-surface-600 px-3 py-2 text-gray-900 dark:text-white dark:bg-surface-700 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
+                        class="input-base mt-1"
                     />
                 </div>
 
@@ -70,7 +70,7 @@
                         required
                         minlength="8"
                         bind:value={password}
-                        class="mt-1 block w-full rounded-lg border border-gray-300 dark:border-surface-600 px-3 py-2 text-gray-900 dark:text-white dark:bg-surface-700 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
+                        class="input-base mt-1"
                     />
                     <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Minimum 8 characters</p>
                 </div>
@@ -84,7 +84,7 @@
                         required
                         minlength="8"
                         bind:value={confirmPassword}
-                        class="mt-1 block w-full rounded-lg border border-gray-300 dark:border-surface-600 px-3 py-2 text-gray-900 dark:text-white dark:bg-surface-700 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
+                        class="input-base mt-1"
                     />
                 </div>
             {/if}
@@ -99,7 +99,7 @@
                 <input
                     type="checkbox"
                     bind:checked={skipAuth}
-                    class="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                    class="rounded border-slate-300 text-teal-600 focus:ring-teal-500"
                 />
                 Skip authentication (not recommended)
             </label>
@@ -107,7 +107,7 @@
             <button
                 type="submit"
                 disabled={isLoading}
-                class="w-full flex justify-center py-3 px-4 rounded-md text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 disabled:opacity-50"
+                class="btn btn-primary w-full py-3"
             >
                 {#if isLoading}
                     Setting up...
