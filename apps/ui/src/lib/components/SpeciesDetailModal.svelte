@@ -791,30 +791,63 @@
                     <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4">{$_('species_detail.activity_patterns')}</h3>
 
                     <!-- Hourly chart - full width for better visibility -->
-                    <div class="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-4 mb-4">
-                        <SimpleBarChart
-                            data={stats.hourly_distribution}
-                            labels={HOUR_LABELS}
-                            title="Time of Day"
-                            showEveryNthLabel={6}
-                        />
+                    <div class="group relative overflow-hidden rounded-2xl border border-slate-200/60 dark:border-slate-700/60 bg-white/60 dark:bg-slate-900/30 p-4 mb-4">
+                        <div class="absolute inset-0 bg-gradient-to-br from-emerald-500/5 via-transparent to-teal-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                        <div class="relative flex items-center gap-2 mb-3">
+                            <div class="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                </svg>
+                            </div>
+                            <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Time of Day</p>
+                        </div>
+                        <div class="relative">
+                            <SimpleBarChart
+                                data={stats.hourly_distribution}
+                                labels={HOUR_LABELS}
+                                title=""
+                                showEveryNthLabel={6}
+                            />
+                        </div>
                     </div>
 
                     <!-- Weekly and Monthly side by side -->
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div class="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-4">
-                            <SimpleBarChart
-                                data={stats.daily_distribution}
-                                labels={DAY_LABELS}
-                                title="Day of Week"
-                            />
+                        <div class="group relative overflow-hidden rounded-2xl border border-slate-200/60 dark:border-slate-700/60 bg-white/60 dark:bg-slate-900/30 p-4">
+                            <div class="absolute inset-0 bg-gradient-to-br from-sky-500/5 via-transparent to-indigo-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                            <div class="relative flex items-center gap-2 mb-3">
+                                <div class="p-1.5 rounded-lg bg-sky-500/10 text-sky-600 dark:text-sky-400">
+                                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9h18M9 21V9m6 12V9M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                    </svg>
+                                </div>
+                                <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Day of Week</p>
+                            </div>
+                            <div class="relative">
+                                <SimpleBarChart
+                                    data={stats.daily_distribution}
+                                    labels={DAY_LABELS}
+                                    title=""
+                                />
+                            </div>
                         </div>
-                        <div class="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-4">
-                            <SimpleBarChart
-                                data={stats.monthly_distribution}
-                                labels={MONTH_LABELS}
-                                title="Month"
-                            />
+                        <div class="group relative overflow-hidden rounded-2xl border border-slate-200/60 dark:border-slate-700/60 bg-white/60 dark:bg-slate-900/30 p-4">
+                            <div class="absolute inset-0 bg-gradient-to-br from-amber-500/5 via-transparent to-rose-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                            <div class="relative flex items-center gap-2 mb-3">
+                                <div class="p-1.5 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                    </svg>
+                                </div>
+                                <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Month</p>
+                            </div>
+                            <div class="relative">
+                                <SimpleBarChart
+                                    data={stats.monthly_distribution}
+                                    labels={MONTH_LABELS}
+                                    title=""
+                                />
+                            </div>
                         </div>
                     </div>
                 </section>
