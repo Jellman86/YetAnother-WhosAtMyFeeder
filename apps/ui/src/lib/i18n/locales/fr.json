@@ -26,7 +26,15 @@
     "horizontal": "Horizontal",
     "vertical": "Vertical",
     "horizontal_desc": "Top navigation bar",
-    "vertical_desc": "Left sidebar (collapsible)"
+    "vertical_desc": "Left sidebar (collapsible)",
+    "font_title": "Typographie",
+    "font_desc": "Choisissez une ambiance typographique pour l'interface.",
+    "font_default": "Par défaut",
+    "font_clean": "Épuré",
+    "font_studio": "Studio",
+    "font_classic": "Classique",
+    "font_compact": "Compact",
+    "font_selected": "Sélectionné"
   },
   "dashboard": {
     "title": "Tableau de bord",

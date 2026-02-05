@@ -26,7 +26,15 @@
     "horizontal": "Horizontal",
     "vertical": "Vertical",
     "horizontal_desc": "Top navigation bar",
-    "vertical_desc": "Left sidebar (collapsible)"
+    "vertical_desc": "Left sidebar (collapsible)",
+    "font_title": "タイポグラフィ",
+    "font_desc": "UI のフォント雰囲気を選んでください。",
+    "font_default": "デフォルト",
+    "font_clean": "クリーン",
+    "font_studio": "スタジオ",
+    "font_classic": "クラシック",
+    "font_compact": "コンパクト",
+    "font_selected": "選択中"
   },
   "dashboard": {
     "title": "ダッシュボード",

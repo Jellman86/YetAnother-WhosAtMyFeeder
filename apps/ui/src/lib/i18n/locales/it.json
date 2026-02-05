@@ -26,7 +26,15 @@
     "horizontal": "Orizzontale",
     "vertical": "Verticale",
     "horizontal_desc": "Barra di navigazione superiore",
-    "vertical_desc": "Barra laterale sinistra (comprimibile)"
+    "vertical_desc": "Barra laterale sinistra (comprimibile)",
+    "font_title": "Tipografia",
+    "font_desc": "Scegli uno stile tipografico per l’interfaccia.",
+    "font_default": "Predefinito",
+    "font_clean": "Pulito",
+    "font_studio": "Studio",
+    "font_classic": "Classico",
+    "font_compact": "Compatto",
+    "font_selected": "Selezionato"
   },
   "dashboard": {
     "title": "Dashboard",

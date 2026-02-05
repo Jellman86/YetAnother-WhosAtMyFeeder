@@ -26,7 +26,15 @@
     "horizontal": "Horizontal",
     "vertical": "Vertical",
     "horizontal_desc": "Barra de navegación superior",
-    "vertical_desc": "Barra lateral izquierda (plegable)"
+    "vertical_desc": "Barra lateral izquierda (plegable)",
+    "font_title": "Tipografía",
+    "font_desc": "Elige un estilo tipográfico para la interfaz.",
+    "font_default": "Predeterminado",
+    "font_clean": "Limpio",
+    "font_studio": "Studio",
+    "font_classic": "Clásico",
+    "font_compact": "Compacto",
+    "font_selected": "Seleccionado"
   },
   "dashboard": {
     "title": "Tablero",

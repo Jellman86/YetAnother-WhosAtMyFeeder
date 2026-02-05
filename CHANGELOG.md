@@ -25,6 +25,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Changed:** Media purge endpoints guard against Frigate outages and disabled clips.
 - **Added:** Events page now includes a legend for classification source badges.
 - **Changed:** eBird integration docs now recommend enabling eBird and clarify enrichment behavior.
+- **Added:** Appearance settings now include a font switcher with multiple typography presets.
 
 ## [2.7.4] - 2026-02-03
 

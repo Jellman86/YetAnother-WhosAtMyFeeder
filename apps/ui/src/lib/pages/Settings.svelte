@@ -359,6 +359,7 @@
     let message = $state<{ type: 'success' | 'error'; text: string } | null>(null);
     let currentTheme: Theme = $state('system');
     let currentLayout: Layout = $state('horizontal');
+    let currentFontTheme = $state('default');
 
     const normalizeSecret = (value?: string | null) => value === '***REDACTED***' ? '' : (value || '');
 
@@ -537,6 +538,9 @@
 
     theme.subscribe(t => currentTheme = t);
     layout.subscribe(l => currentLayout = l);
+    $effect(() => {
+        currentFontTheme = themeStore.fontTheme;
+    });
 
     onMount(async () => {
         // Handle deep linking to tabs
@@ -1372,6 +1376,10 @@
         themeStore.setTheme(t);
     }
 
+    function setFontTheme(font: import('../stores/theme.svelte').FontTheme) {
+        themeStore.setFontTheme(font);
+    }
+
     function setLayout(l: Layout) {
         layoutStore.setLayout(l);
     }
@@ -1741,6 +1749,8 @@
                     {currentLayout}
                     currentLocale={$locale || 'en'}
                     {setTheme}
+                    {currentFontTheme}
+                    {setFontTheme}
                     {setLayout}
                     {setLanguage}
                 />

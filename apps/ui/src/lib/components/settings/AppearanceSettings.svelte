@@ -1,6 +1,6 @@
 <script lang="ts">
     import { _ } from 'svelte-i18n';
-    import type { Theme } from '../../stores/theme.svelte';
+    import type { Theme, FontTheme } from '../../stores/theme.svelte';
     import type { Layout } from '../../stores/layout.svelte';
 
     // Props
@@ -10,7 +10,9 @@
         currentLocale,
         setTheme,
         setLayout,
-        setLanguage
+        setLanguage,
+        currentFontTheme,
+        setFontTheme
     }: {
         currentTheme: Theme;
         currentLayout: Layout;
@@ -18,6 +20,8 @@
         setTheme: (theme: Theme) => void;
         setLayout: (layout: Layout) => void;
         setLanguage: (lang: string) => void;
+        currentFontTheme: FontTheme;
+        setFontTheme: (font: FontTheme) => void;
     } = $props();
 </script>
 
@@ -106,6 +110,43 @@
                         <div class="text-sm font-black uppercase tracking-widest {currentLayout === opt.value ? 'text-white' : 'text-slate-900 dark:text-white'}">{opt.label}</div>
                         <div class="text-xs font-medium mt-1 {currentLayout === opt.value ? 'text-white/80' : 'text-slate-400'}">{opt.desc}</div>
                     </div>
+                </button>
+            {/each}
+        </div>
+    </div>
+
+    <div class="pt-8 mt-8 border-t border-slate-100 dark:border-slate-700/50">
+        <div class="flex items-center gap-3 mb-6">
+            <div class="w-8 h-8 rounded-xl bg-teal-500/10 flex items-center justify-center text-teal-600 dark:text-teal-400">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v12m-6-6h12" /></svg>
+            </div>
+            <div>
+                <h4 class="text-lg font-black text-slate-900 dark:text-white tracking-tight">{$_('theme.font_title')}</h4>
+                <p class="text-[10px] font-bold text-slate-500">{$_('theme.font_desc')}</p>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {#each [
+                { value: 'default', label: $_('theme.font_default'), preview: 'Instrument Sans / Bricolage' },
+                { value: 'clean', label: $_('theme.font_clean'), preview: 'Manrope / Sora' },
+                { value: 'studio', label: $_('theme.font_studio'), preview: 'Sora / Bricolage' },
+                { value: 'classic', label: $_('theme.font_classic'), preview: 'Source Serif 4 / Playfair' },
+                { value: 'compact', label: $_('theme.font_compact'), preview: 'Instrument Sans / Sora' }
+            ] as opt}
+                <button
+                    onclick={() => setFontTheme(opt.value as FontTheme)}
+                    aria-label={opt.label}
+                    class="flex items-center justify-between gap-3 p-4 rounded-2xl border-2 transition-all text-left
+                        {currentFontTheme === opt.value
+                            ? 'bg-teal-500 border-teal-500 text-white shadow-xl shadow-teal-500/20'
+                            : 'bg-white dark:bg-slate-900/50 border-slate-100 dark:border-slate-700/50 text-slate-500 hover:border-teal-500/30'}"
+                >
+                    <div>
+                        <div class="text-sm font-black uppercase tracking-widest {currentFontTheme === opt.value ? 'text-white' : 'text-slate-900 dark:text-white'}">{opt.label}</div>
+                        <div class="text-xs font-medium mt-1 {currentFontTheme === opt.value ? 'text-white/80' : 'text-slate-400'}">{opt.preview}</div>
+                    </div>
+                    <span class="text-xs font-bold uppercase tracking-widest opacity-70">{currentFontTheme === opt.value ? $_('theme.font_selected') : ''}</span>
                 </button>
             {/each}
         </div>

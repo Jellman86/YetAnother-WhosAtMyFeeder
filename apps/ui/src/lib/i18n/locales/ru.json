@@ -26,7 +26,15 @@
     "horizontal": "Горизонтальное",
     "vertical": "Вертикальное",
     "horizontal_desc": "Верхняя панель навигации",
-    "vertical_desc": "Левая боковая панель (сворачиваемая)"
+    "vertical_desc": "Левая боковая панель (сворачиваемая)",
+    "font_title": "Типографика",
+    "font_desc": "Выберите стиль шрифта для интерфейса.",
+    "font_default": "По умолчанию",
+    "font_clean": "Чистый",
+    "font_studio": "Студия",
+    "font_classic": "Классический",
+    "font_compact": "Компактный",
+    "font_selected": "Выбрано"
   },
   "dashboard": {
     "title": "Дашборд",

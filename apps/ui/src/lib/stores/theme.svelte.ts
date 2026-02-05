@@ -1,4 +1,5 @@
 export type Theme = 'light' | 'dark' | 'system';
+export type FontTheme = 'default' | 'clean' | 'studio' | 'classic' | 'compact';
 
 function getIsDark(theme: Theme): boolean {
     if (typeof window === 'undefined') return false;
@@ -12,8 +13,35 @@ function applyTheme(theme: Theme) {
     document.documentElement.classList.toggle('dark', isDark);
 }
 
+function applyFontTheme(fontTheme: FontTheme) {
+    if (typeof document === 'undefined') return;
+    switch (fontTheme) {
+        case 'clean':
+            document.documentElement.style.setProperty('--font-body', "'Manrope', 'Segoe UI', system-ui, -apple-system, sans-serif");
+            document.documentElement.style.setProperty('--font-display', "'Sora', 'Manrope', sans-serif");
+            break;
+        case 'studio':
+            document.documentElement.style.setProperty('--font-body', "'Sora', 'Segoe UI', system-ui, -apple-system, sans-serif");
+            document.documentElement.style.setProperty('--font-display', "'Bricolage Grotesque', 'Sora', sans-serif");
+            break;
+        case 'classic':
+            document.documentElement.style.setProperty('--font-body', "'Source Serif 4', 'Georgia', serif");
+            document.documentElement.style.setProperty('--font-display', "'Playfair Display', 'Source Serif 4', serif");
+            break;
+        case 'compact':
+            document.documentElement.style.setProperty('--font-body', "'Instrument Sans', 'Segoe UI', system-ui, -apple-system, sans-serif");
+            document.documentElement.style.setProperty('--font-display', "'Sora', 'Instrument Sans', sans-serif");
+            break;
+        default:
+            document.documentElement.style.setProperty('--font-body', "'Instrument Sans', 'Segoe UI', system-ui, -apple-system, sans-serif");
+            document.documentElement.style.setProperty('--font-display', "'Bricolage Grotesque', 'Instrument Sans', sans-serif");
+            break;
+    }
+}
+
 class ThemeStore {
     currentTheme = $state<Theme>('system');
+    currentFontTheme = $state<FontTheme>('default');
     private mediaQueryList: MediaQueryList | null = null;
 
     constructor() {
@@ -23,10 +51,15 @@ class ThemeStore {
             if (stored) {
                 this.currentTheme = stored;
             }
+            const storedFont = localStorage.getItem('font_theme') as FontTheme | null;
+            if (storedFont) {
+                this.currentFontTheme = storedFont;
+            }
         }
 
         // Apply theme immediately
         applyTheme(this.currentTheme);
+        applyFontTheme(this.currentFontTheme);
 
         // Use $effect.root() to create effect context outside components
         $effect.root(() => {
@@ -35,6 +68,10 @@ class ThemeStore {
                 $effect(() => {
                     localStorage.setItem('theme', this.currentTheme);
                     applyTheme(this.currentTheme);
+                });
+                $effect(() => {
+                    localStorage.setItem('font_theme', this.currentFontTheme);
+                    applyFontTheme(this.currentFontTheme);
                 });
             }
 
@@ -70,8 +107,16 @@ class ThemeStore {
         return getIsDark(this.currentTheme);
     }
 
+    get fontTheme(): FontTheme {
+        return this.currentFontTheme;
+    }
+
     setTheme(value: Theme) {
         this.currentTheme = value;
+    }
+
+    setFontTheme(value: FontTheme) {
+        this.currentFontTheme = value;
     }
 
     toggle() {
@@ -102,6 +147,18 @@ export const theme = {
     cleanup: () => {
         // No-op, cleanup happens automatically via $effect
     }
+};
+
+export const fontTheme = {
+    subscribe: (fn: (value: FontTheme) => void) => {
+        return $effect.root(() => {
+            $effect(() => {
+                fn(themeStore.fontTheme);
+            });
+            return () => {};
+        });
+    },
+    set: (value: FontTheme) => themeStore.setFontTheme(value)
 };
 
 export const isDark = {

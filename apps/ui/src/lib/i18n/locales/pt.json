@@ -26,7 +26,15 @@
     "horizontal": "Horizontal",
     "vertical": "Vertical",
     "horizontal_desc": "Barra de navegação superior",
-    "vertical_desc": "Barra lateral esquerda (recolhível)"
+    "vertical_desc": "Barra lateral esquerda (recolhível)",
+    "font_title": "Tipografia",
+    "font_desc": "Escolha um estilo tipográfico para a interface.",
+    "font_default": "Padrão",
+    "font_clean": "Limpo",
+    "font_studio": "Studio",
+    "font_classic": "Clássico",
+    "font_compact": "Compacto",
+    "font_selected": "Selecionado"
   },
   "dashboard": {
     "title": "Painel",
