@@ -17,7 +17,7 @@ from app.services.notification_service import notification_service
 from app.services.auto_video_classifier_service import auto_video_classifier
 from app.services.birdweather_service import birdweather_service
 from app.services.inaturalist_service import inaturalist_service
-from app.utils.enrichment import get_effective_enrichment_settings, has_ebird_key
+from app.utils.enrichment import get_effective_enrichment_settings, is_ebird_active
 
 from fastapi import BackgroundTasks
 
@@ -424,7 +424,7 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
 
     circuit_status = auto_video_classifier.get_circuit_status()
     effective_enrichment = get_effective_enrichment_settings()
-    ebird_active = has_ebird_key()
+    ebird_active = is_ebird_active()
 
     return {
         "frigate_url": settings.frigate.frigate_url,

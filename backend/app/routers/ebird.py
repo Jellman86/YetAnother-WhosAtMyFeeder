@@ -19,7 +19,7 @@ router = APIRouter(prefix="/ebird", tags=["ebird"])
 
 
 def _require_ebird():
-    if not settings.ebird.enabled and not settings.ebird.api_key:
+    if not settings.ebird.enabled or not settings.ebird.api_key:
         raise HTTPException(status_code=400, detail="eBird integration is disabled")
     # API key not strictly required for export, but config enabled is.
 

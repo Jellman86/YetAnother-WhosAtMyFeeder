@@ -17,7 +17,7 @@ from app.auth import (
     verify_token
 )
 from app.config import settings
-from app.utils.enrichment import get_effective_enrichment_settings, has_ebird_key
+from app.utils.enrichment import get_effective_enrichment_settings, is_ebird_active
 from app.ratelimit import login_rate_limit
 
 router = APIRouter()
@@ -241,7 +241,7 @@ async def get_auth_status(request: Request):
             )
 
     effective_enrichment = get_effective_enrichment_settings()
-    ebird_active = has_ebird_key()
+    ebird_active = is_ebird_active()
 
     return AuthStatusResponse(
         auth_required=settings.auth.enabled,

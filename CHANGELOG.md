@@ -15,6 +15,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Fixed:** Detection details now distinguish between confirmed audio matches and merely detected audio.
 - **Fixed:** Detection cards and hero badge now distinguish audio detected vs confirmed.
 - **Changed:** Range map now defaults to a wider zoom and includes interaction hints.
+- **Fixed:** eBird usage now respects the integration toggle; disabled eBird no longer drives enrichments.
 
 ## [2.7.4] - 2026-02-03
 

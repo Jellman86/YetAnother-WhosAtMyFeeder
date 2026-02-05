@@ -28,7 +28,7 @@ class EbirdService:
         return {"X-eBirdApiToken": settings.ebird.api_key}
 
     def is_configured(self) -> bool:
-        return bool(settings.ebird.api_key)
+        return bool(settings.ebird.enabled and settings.ebird.api_key)
 
     async def _fetch_json(self, path: str, params: dict) -> List[Dict[str, Any]]:
         url = f"{EBIRD_BASE_URL}{path}"

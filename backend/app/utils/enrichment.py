@@ -1,12 +1,12 @@
 from app.config import settings
 
 
-def has_ebird_key() -> bool:
-    return bool(settings.ebird.api_key)
+def is_ebird_active() -> bool:
+    return bool(settings.ebird.enabled and settings.ebird.api_key)
 
 
 def get_effective_enrichment_settings() -> dict:
-    if has_ebird_key():
+    if is_ebird_active():
         return {
             "mode": "per_enrichment",
             "single_provider": "ebird",
