@@ -738,7 +738,8 @@
     },
     "empty_title": "Noch keine Ereignisse",
     "empty_desc": "Starte ein Backfill oder warte auf neue Erkennungen.",
-    "load_failed": "Ereignisse konnten nicht geladen werden"
+    "load_failed": "Ereignisse konnten nicht geladen werden",
+    "classification_legend": "Klassifizierungsquellen: Manuell, Video, Schnappschuss"
   },
   "leaderboard": {
     "title": "Spezies-Bestenliste",

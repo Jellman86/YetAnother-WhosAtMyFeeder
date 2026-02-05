@@ -746,7 +746,8 @@
     },
     "empty_title": "Nessun evento ancora",
     "empty_desc": "Esegui backfill o attendi nuovi rilevamenti per vederli qui.",
-    "load_failed": "Caricamento eventi fallito"
+    "load_failed": "Caricamento eventi fallito",
+    "classification_legend": "Fonti di classificazione: Manuale, Video, Istantanea"
   },
   "leaderboard": {
     "title": "Classifica Specie",

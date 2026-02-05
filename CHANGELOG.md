@@ -23,6 +23,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Added:** Data settings now include cleanup actions for detections missing clips or snapshots.
 - **Added:** Detection cards now show classification source (manual, video, snapshot).
 - **Changed:** Media purge endpoints guard against Frigate outages and disabled clips.
+- **Added:** Events page now includes a legend for classification source badges.
+- **Changed:** eBird integration docs now recommend enabling eBird and clarify enrichment behavior.
 
 ## [2.7.4] - 2026-02-03
 

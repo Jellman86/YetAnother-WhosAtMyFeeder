@@ -738,7 +738,8 @@
     },
     "empty_title": "暂无事件",
     "empty_desc": "运行回填或等待新的检测。",
-    "load_failed": "加载事件失败"
+    "load_failed": "加载事件失败",
+    "classification_legend": "分类来源：手动、视频、快照"
   },
   "leaderboard": {
     "title": "物种排行榜",

@@ -738,7 +738,8 @@
     },
     "empty_title": "イベントはまだありません",
     "empty_desc": "バックフィルを実行するか、新しい検出を待ってください。",
-    "load_failed": "イベントの読み込みに失敗しました"
+    "load_failed": "イベントの読み込みに失敗しました",
+    "classification_legend": "分類ソース: 手動 / 動画 / スナップショット"
   },
   "leaderboard": {
     "title": "種のリーダーボード",

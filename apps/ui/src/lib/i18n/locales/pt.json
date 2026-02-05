@@ -746,7 +746,8 @@
     },
     "empty_title": "Nenhum evento ainda",
     "empty_desc": "Faça backfill ou aguarde novas detecções para vê-las aqui.",
-    "load_failed": "Falha ao carregar eventos"
+    "load_failed": "Falha ao carregar eventos",
+    "classification_legend": "Fontes de classificação: Manual, Vídeo, Instantâneo"
   },
   "leaderboard": {
     "title": "Ranking de Espécies",

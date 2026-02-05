@@ -240,8 +240,11 @@
 </script>
 
 <div class="space-y-6">
-    <div class="flex items-center justify-between">
-        <h2 class="text-2xl font-bold text-slate-900 dark:text-white">{$_('events.title')}</h2>
+    <div class="flex flex-wrap items-center justify-between gap-3">
+        <div>
+            <h2 class="text-2xl font-bold text-slate-900 dark:text-white">{$_('events.title')}</h2>
+            <p class="text-xs text-slate-500">{$_('events.classification_legend')}</p>
+        </div>
         <div class="text-sm text-slate-500">{$_('events.total_count', { values: { count: totalCount } })}</div>
     </div>
 

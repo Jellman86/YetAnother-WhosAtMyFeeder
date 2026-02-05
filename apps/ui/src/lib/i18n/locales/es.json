@@ -738,7 +738,8 @@
     },
     "empty_title": "Sin eventos todavía",
     "empty_desc": "Ejecuta un backfill o espera nuevas detecciones.",
-    "load_failed": "Error al cargar los eventos"
+    "load_failed": "Error al cargar los eventos",
+    "classification_legend": "Fuentes de clasificación: Manual, Vídeo, Instantánea"
   },
   "leaderboard": {
     "title": "Clasificación de Especies",
