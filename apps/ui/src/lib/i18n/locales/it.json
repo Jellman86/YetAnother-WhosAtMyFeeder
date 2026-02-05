@@ -723,7 +723,10 @@
     "reclassify": "Riclassifica rilevamento di {species}",
     "retag": "Tag manuale rilevamento di {species}",
     "audio_detected": "Audio rilevato",
-    "audio_heard": "Udito: {species}"
+    "audio_heard": "Udito: {species}",
+    "tag_manual": "Manuale",
+    "tag_video": "Video",
+    "tag_snapshot": "Istantanea"
   },
   "events": {
     "title": "Eventi",

@@ -582,12 +582,16 @@ class DetectionRepository:
         """Delete detections by a list of Frigate event IDs."""
         if not event_ids:
             return 0
-        placeholders = ",".join(["?"] * len(event_ids))
-        query = f"DELETE FROM detections WHERE frigate_event IN ({placeholders})"
-        async with self.db.execute(query, event_ids) as cursor:
-            count = cursor.rowcount or 0
-            await self.db.commit()
-            return count
+        total_deleted = 0
+        chunk_size = 500
+        for i in range(0, len(event_ids), chunk_size):
+            chunk = event_ids[i:i + chunk_size]
+            placeholders = ",".join(["?"] * len(chunk))
+            query = f"DELETE FROM detections WHERE frigate_event IN ({placeholders})"
+            async with self.db.execute(query, chunk) as cursor:
+                total_deleted += cursor.rowcount or 0
+                await self.db.commit()
+        return total_deleted
 
     async def get_taxonomy_names(self, name: str) -> dict:
         """Get scientific and common names for a given species name from cache."""

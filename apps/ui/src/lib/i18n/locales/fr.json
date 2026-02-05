@@ -715,7 +715,10 @@
     "reclassify": "Reclassifier la détection de {species}",
     "retag": "Étiqueter manuellement la détection de {species}",
     "audio_detected": "Audio détecté",
-    "audio_heard": "Entendu : {species}"
+    "audio_heard": "Entendu : {species}",
+    "tag_manual": "Manuel",
+    "tag_video": "Vidéo",
+    "tag_snapshot": "Instantané"
   },
   "events": {
     "title": "Événements",

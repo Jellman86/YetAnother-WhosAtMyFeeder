@@ -935,6 +935,15 @@ async def run_cleanup(auth: AuthContext = Depends(require_owner)):
 
 
 async def _purge_missing_media(kind: Literal["clip", "snapshot"]) -> dict:
+    if kind == "clip" and not settings.frigate.clips_enabled:
+        return {
+            "status": "skipped",
+            "deleted_count": 0,
+            "checked": 0,
+            "missing": 0,
+            "message": "Clip fetching is disabled in settings."
+        }
+
     async with get_db() as db:
         repo = DetectionRepository(db)
         event_ids = await repo.get_all_frigate_event_ids()
@@ -946,6 +955,20 @@ async def _purge_missing_media(kind: Literal["clip", "snapshot"]) -> dict:
             "checked": 0,
             "missing": 0,
             "message": "No detections found"
+        }
+
+    # Check Frigate availability before performing mass purge.
+    try:
+        version = await frigate_client.get_version()
+    except Exception:
+        version = None
+    if not version:
+        return {
+            "status": "failed",
+            "deleted_count": 0,
+            "checked": 0,
+            "missing": 0,
+            "message": "Frigate is not reachable. Aborting purge."
         }
 
     semaphore = asyncio.Semaphore(PURGE_CHECK_CONCURRENCY)

@@ -723,7 +723,10 @@
     "reclassify": "Reclassify {species} detection",
     "retag": "Manually tag {species} detection",
     "audio_detected": "Audio Detected",
-    "audio_heard": "Heard: {species}"
+    "audio_heard": "Heard: {species}",
+    "tag_manual": "Manual",
+    "tag_video": "Video",
+    "tag_snapshot": "Snapshot"
   },
   "events": {
     "title": "Events",

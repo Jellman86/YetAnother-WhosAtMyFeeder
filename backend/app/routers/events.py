@@ -1,4 +1,5 @@
 import asyncio
+import time
 from fastapi import APIRouter, HTTPException, Query, Request, Depends
 from typing import List, Optional, Literal
 from datetime import datetime, date, timedelta
@@ -28,6 +29,9 @@ log = structlog.get_logger()
 
 CLIP_CHECK_CONCURRENCY = 10
 LOCALIZED_NAME_CONCURRENCY = 5
+EVENT_FILTERS_CACHE_TTL_SECONDS = 60
+
+_event_filters_cache: dict[tuple[str, bool], tuple[float, EventFilters]] = {}
 
 
 def parse_species_filter(species: Optional[str]) -> tuple[Optional[str], Optional[int]]:
@@ -99,6 +103,11 @@ async def get_event_filters(
         and not settings.public_access.show_camera_names
     )
     lang = get_user_language(request)
+    cache_key = (lang, hide_camera_names)
+    now = time.monotonic()
+    cached = _event_filters_cache.get(cache_key)
+    if cached and (now - cached[0]) < EVENT_FILTERS_CACHE_TTL_SECONDS:
+        return cached[1]
     async with get_db() as db:
         repo = DetectionRepository(db)
         species_rows = await repo.get_unique_species_with_taxonomy()
@@ -141,7 +150,9 @@ async def get_event_filters(
             seen.add(key)
             species_options.append(item)
 
-        return EventFilters(species=species_options, cameras=cameras)
+        result = EventFilters(species=species_options, cameras=cameras)
+        _event_filters_cache[cache_key] = (now, result)
+        return result
 
 
 @router.get("/events", response_model=List[DetectionResponse])

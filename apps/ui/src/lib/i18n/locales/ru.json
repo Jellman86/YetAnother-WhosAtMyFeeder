@@ -723,7 +723,10 @@
     "reclassify": "Реклассифицировать обнаружение {species}",
     "retag": "Вручную отметить обнаружение {species}",
     "audio_detected": "Аудио обнаружено",
-    "audio_heard": "Слышно: {species}"
+    "audio_heard": "Слышно: {species}",
+    "tag_manual": "Вручную",
+    "tag_video": "Видео",
+    "tag_snapshot": "Снимок"
   },
   "events": {
     "title": "События",

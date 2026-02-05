@@ -715,7 +715,10 @@
     "reclassify": "{species} Erkennung reklassifizieren",
     "retag": "{species} Erkennung manuell markieren",
     "audio_detected": "Audio erkannt",
-    "audio_heard": "Gehört: {species}"
+    "audio_heard": "Gehört: {species}",
+    "tag_manual": "Manuell",
+    "tag_video": "Video",
+    "tag_snapshot": "Schnappschuss"
   },
   "events": {
     "title": "Ereignisse",

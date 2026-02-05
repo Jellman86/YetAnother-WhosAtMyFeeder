@@ -21,6 +21,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Changed:** Refined Species Detail modal styling for consistent cards, headers, and recent sightings layout.
 - **Changed:** Events species filter now uses taxonomic normalization and respects naming preferences.
 - **Added:** Data settings now include cleanup actions for detections missing clips or snapshots.
+- **Added:** Detection cards now show classification source (manual, video, snapshot).
+- **Changed:** Media purge endpoints guard against Frigate outages and disabled clips.
 
 ## [2.7.4] - 2026-02-03
 
