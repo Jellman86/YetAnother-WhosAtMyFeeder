@@ -464,9 +464,18 @@
 
     async function computeConfigKey(config: Record<string, unknown>): Promise<string> {
         const raw = stableStringify(config);
-        const data = new TextEncoder().encode(raw);
-        const hash = await crypto.subtle.digest('SHA-256', data);
-        return Array.from(new Uint8Array(hash)).map((b) => b.toString(16).padStart(2, '0')).join('');
+        const subtle = globalThis.crypto?.subtle;
+        if (subtle && globalThis.isSecureContext) {
+            const data = new TextEncoder().encode(raw);
+            const hash = await subtle.digest('SHA-256', data);
+            return Array.from(new Uint8Array(hash)).map((b) => b.toString(16).padStart(2, '0')).join('');
+        }
+        let hash = 5381;
+        for (let i = 0; i < raw.length; i += 1) {
+            hash = ((hash << 5) + hash) + raw.charCodeAt(i);
+            hash |= 0;
+        }
+        return `fallback-${Math.abs(hash)}`;
     }
 
     function sleep(ms: number) {
