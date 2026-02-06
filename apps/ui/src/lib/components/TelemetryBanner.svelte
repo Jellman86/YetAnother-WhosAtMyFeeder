@@ -1,5 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { _ } from 'svelte-i18n';
+  import { get } from 'svelte/store';
   import { settingsStore } from '../stores/settings.svelte';
   import { updateSettings } from '../api';
 
@@ -36,7 +38,7 @@
       dismiss();
     } catch (error) {
       console.error('Failed to enable telemetry:', error);
-      alert('Failed to enable telemetry. Please try again from Settings.');
+      alert(get(_)('telemetry_banner.enable_error', { default: 'Failed to enable telemetry. Please try again from Settings.' }));
     } finally {
       isEnabling = false;
     }
@@ -61,13 +63,13 @@
         <!-- Content -->
         <div class="flex-1 min-w-0">
           <p class="text-sm text-slate-700 dark:text-slate-300">
-            <span class="font-semibold">Help improve YA-WAMF!</span>
-            <span class="ml-1">Enable anonymous usage stats to guide development priorities and validate that this project serves the bird enthusiast community.</span>
+            <span class="font-semibold">{$_('telemetry_banner.title')}</span>
+            <span class="ml-1">{$_('telemetry_banner.body')}</span>
             <button
               onclick={openDocs}
               class="ml-1 text-teal-700 dark:text-teal-300 hover:text-emerald-700 dark:hover:text-emerald-300 underline font-medium"
             >
-              Learn more
+              {$_('telemetry_banner.learn_more')}
             </button>
           </p>
         </div>
@@ -79,14 +81,14 @@
             disabled={isEnabling}
             class="btn btn-primary px-4 py-1.5 text-sm"
           >
-            {isEnabling ? 'Enabling...' : 'Enable'}
+            {isEnabling ? $_('telemetry_banner.enabling') : $_('telemetry_banner.enable')}
           </button>
           <button
             onclick={dismiss}
             class="btn btn-ghost px-3 py-1.5 text-sm text-slate-600 dark:text-slate-300"
-            title="Dismiss"
+            title="{$_('telemetry_banner.dismiss')}"
           >
-            No Thanks
+            {$_('telemetry_banner.dismiss')}
           </button>
         </div>
       </div>

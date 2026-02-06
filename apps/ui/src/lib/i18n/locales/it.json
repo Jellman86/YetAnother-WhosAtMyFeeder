@@ -111,7 +111,10 @@
     "period": "Periodo",
     "detections": "rilevamenti",
     "zoom_in": "Zoom in",
-    "zoom_out": "Zoom out"
+    "zoom_out": "Zoom out",
+    "source": "Source",
+    "unknown_location": "Unknown location",
+    "unknown_species": "Unknown species"
   },
   "error": {
     "boundary_title": "Qualcosa è andato storto",
@@ -147,7 +150,8 @@
       "security": "Sicurezza",
       "appearance": "Aspetto",
       "accessibility": "Accessibilità",
-      "debug": "Debug"
+      "debug": "Debug",
+      "enrichment": "Enrichment"
     },
     "debug": {
       "title": "Strumenti di debug",
@@ -751,7 +755,15 @@
     "audio_heard": "Udito: {species}",
     "tag_manual": "Manuale",
     "tag_video": "Video",
-    "tag_snapshot": "Istantanea"
+    "tag_snapshot": "Istantanea",
+    "ebird_enable_sightings": "Enable eBird to see sightings",
+    "ebird_configure_settings": "Configure Settings →",
+    "ebird_none_nearby": "No recent sightings nearby.",
+    "ebird_try_radius": "Try increasing the search radius in settings.",
+    "ebird_notable_title": "Notable Nearby",
+    "ebird_notable_badge": "Rare Reports",
+    "ebird_enable_notable": "Enable eBird to see notable reports",
+    "ebird_none_notable": "No notable sightings reported."
   },
   "events": {
     "title": "Eventi",
@@ -971,7 +983,15 @@
     "seasonality_global": "Stagionalità globale",
     "range_map": "Mappa di distribuzione",
     "range_unavailable": "Mappa di distribuzione non disponibile.",
-    "range_map_hint": "Trascina per spostare • Scorri per zoomare"
+    "range_map_hint": "Trascina per spostare • Scorri per zoomare",
+    "video_unavailable": "Video clip not available",
+    "no_recent_sightings": "No recent sightings.",
+    "count_label": "Count",
+    "valid_observation": "Valid Observation",
+    "inat_observations": "iNaturalist Observations",
+    "time_of_day": "Time of Day",
+    "day_of_week": "Day of Week",
+    "month": "Month"
   },
   "pagination": {
     "navigation": "Paginazione",
@@ -1016,5 +1036,31 @@
       "I pinguini sono solo polli formali vestiti per un gala",
       "I galli urlano al sole perché hanno paura del buio"
     ]
+  },
+  "first_run": {
+    "title": "Welcome to YA-WAMF",
+    "subtitle": "Secure your installation by setting an admin password.",
+    "language_label": "Language",
+    "language_desc": "You can change this later in Settings.",
+    "admin_username": "Admin Username",
+    "password": "Password",
+    "password_hint": "Minimum 8 characters",
+    "confirm_password": "Confirm Password",
+    "skip_auth": "Skip authentication (not recommended)",
+    "setting_up": "Setting up...",
+    "continue_without_password": "Continue without password",
+    "set_password": "Set password and continue",
+    "password_mismatch": "Passwords don't match",
+    "password_min": "Password must be at least 8 characters",
+    "setup_failed": "Setup failed"
+  },
+  "telemetry_banner": {
+    "title": "Help improve YA-WAMF!",
+    "body": "Enable anonymous usage stats to guide development priorities and validate that this project serves the bird enthusiast community.",
+    "learn_more": "Learn more",
+    "enabling": "Enabling...",
+    "enable": "Enable",
+    "dismiss": "No Thanks",
+    "enable_error": "Failed to enable telemetry. Please try again from Settings."
   }
 }

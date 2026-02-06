@@ -23,6 +23,7 @@
     import VideoPlayer from './VideoPlayer.svelte';
     import RangeMap from './RangeMap.svelte';
     import { _ } from 'svelte-i18n';
+    import { get } from 'svelte/store';
     import { trapFocus } from '../utils/focus-trap';
     import { formatDate as formatDateValue, formatDateTime, formatTime } from '../utils/datetime';
 
@@ -371,7 +372,7 @@
                 type="button"
                 onclick={onclose}
                 class="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
-                aria-label="Close modal"
+                aria-label={$_('shortcuts.close_modal')}
             >
                 <svg class="w-6 h-6 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -405,7 +406,7 @@
                         onclick={() => window.location.reload()}
                         class="mt-4 px-4 py-2 text-teal-600 hover:text-teal-700 underline"
                     >
-                        Retry
+                        {$_('common.retry')}
                     </button>
                 </div>
             {:else}
@@ -444,7 +445,7 @@
                                         onclick={() => handleReclassify('video')}
                                         disabled={reclassifying || !stats?.recent_sightings?.[0]?.has_clip || !stats?.recent_sightings?.[0]}
                                         class="px-4 py-2 bg-brand-600 hover:bg-brand-700 disabled:bg-slate-400 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-colors shadow-md flex items-center gap-2"
-                                        title={!stats?.recent_sightings?.[0]?.has_clip ? 'Video clip not available' : ''}
+                                        title={!stats?.recent_sightings?.[0]?.has_clip ? $_('species_detail.video_unavailable') : ''}
                                     >
                                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
@@ -497,7 +498,7 @@
                                             rel="noopener noreferrer"
                                             class="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-white/70 text-slate-600 text-[10px] font-black uppercase tracking-widest backdrop-blur-sm border border-white/60"
                                         >
-                                            {info.source || 'Source'}
+                                            {info.source || $_('common.source')}
                                         </a>
                                     {/if}
                                 </div>
@@ -628,7 +629,7 @@
                                     {/if}
                                     {#if (ebirdNearby?.results?.length || 0) === 0}
                                         <div class="text-center py-6">
-                                            <p class="text-sm text-slate-400 font-medium">No recent sightings.</p>
+                                            <p class="text-sm text-slate-400 font-medium">{$_('species_detail.no_recent_sightings')}</p>
                                         </div>
                                     {:else}
                                         {#if ebirdNearby.results.some(r => r.lat && r.lng)}
@@ -640,7 +641,11 @@
                                                             lat: r.lat!,
                                                             lng: r.lng!,
                                                             title: r.location_name || 'Unknown Location',
-                                                            popupText: `<div class="font-sans"><p class="font-bold text-sm mb-1">${r.location_name}</p><p class="text-xs opacity-75">${formatEbirdDate(r.observed_at)}</p><p class="text-xs font-bold mt-1">Count: ${r.how_many ?? '?'}</p></div>`
+                                                            popupText: (() => {
+                                                                const t = get(_);
+                                                                const countLabel = t('species_detail.count_label', { default: 'Count' });
+                                                                return `<div class="font-sans"><p class="font-bold text-sm mb-1">${r.location_name}</p><p class="text-xs opacity-75">${formatEbirdDate(r.observed_at)}</p><p class="text-xs font-bold mt-1">${countLabel}: ${r.how_many ?? '?'}</p></div>`;
+                                                            })()
                                                         }))}
                                                     userLocation={authStore.canModify && settingsStore.settings?.location_latitude && settingsStore.settings?.location_longitude ? [settingsStore.settings.location_latitude, settingsStore.settings.location_longitude] : null}
                                                     zoom={10}
@@ -652,11 +657,11 @@
                                             {#each ebirdNearby.results.slice(0, 6) as obs}
                                                 <div class="flex items-start justify-between gap-3 p-2.5 rounded-xl bg-white/60 dark:bg-slate-900/40 border border-sky-100 dark:border-sky-900/30 hover:border-sky-300 dark:hover:border-sky-700/50 transition-colors">
                                                     <div class="min-w-0">
-                                                        <p class="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">{obs.location_name || 'Unknown location'}</p>
+                                                        <p class="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">{obs.location_name || $_('common.unknown_location')}</p>
                                                         <div class="flex items-center gap-2 mt-0.5">
                                                             <p class="text-[10px] font-medium text-slate-400">{formatEbirdDate(obs.observed_at)}</p>
                                                             {#if obs.obs_valid}
-                                                                <span class="w-1 h-1 rounded-full bg-emerald-400" title="Valid Observation"></span>
+                                                                <span class="w-1 h-1 rounded-full bg-emerald-400" title="{$_('species_detail.valid_observation')}"></span>
                                                             {/if}
                                                         </div>
                                                     </div>
@@ -686,7 +691,7 @@
                                             <h4 class="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-700 dark:text-indigo-400">
                                                 {seasonality.local ? $_('species_detail.seasonality_local') : $_('species_detail.seasonality_global')}
                                             </h4>
-                                            <p class="text-[9px] font-medium text-slate-400">iNaturalist Observations</p>
+                                            <p class="text-[9px] font-medium text-slate-400">{$_('species_detail.inat_observations')}</p>
                                         </div>
                                     </div>
                                     <div class="h-[140px] sm:h-[160px] lg:flex-1">
@@ -794,7 +799,7 @@
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                 </svg>
                             </div>
-                            <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Time of Day</p>
+                            <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">{$_('species_detail.time_of_day')}</p>
                         </div>
                         <div class="relative">
                             <SimpleBarChart
@@ -816,7 +821,7 @@
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9h18M9 21V9m6 12V9M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                     </svg>
                                 </div>
-                                <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Day of Week</p>
+                                <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">{$_('species_detail.day_of_week')}</p>
                             </div>
                             <div class="relative">
                                 <SimpleBarChart
@@ -834,7 +839,7 @@
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                     </svg>
                                 </div>
-                                <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Month</p>
+                                <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">{$_('species_detail.month')}</p>
                             </div>
                             <div class="relative">
                                 <SimpleBarChart

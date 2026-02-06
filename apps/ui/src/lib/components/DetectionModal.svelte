@@ -28,6 +28,7 @@
     import { authStore } from '../stores/auth.svelte';
     import { getBirdNames } from '../naming';
     import { _ } from 'svelte-i18n';
+    import { get } from 'svelte/store';
     import { onMount } from 'svelte';
     import { trapFocus } from '../utils/focus-trap';
     import { formatDateTime } from '../utils/datetime';
@@ -641,7 +642,7 @@
                 <button
                     onclick={onClose}
                     class="absolute top-4 right-4 w-8 h-8 rounded-full bg-black/40 text-white flex items-center justify-center hover:bg-black/60 transition-colors"
-                    aria-label="Close"
+                    aria-label={$_('common.close')}
                 >
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" />
@@ -993,7 +994,7 @@
                                         </svg>
                                     </div>
                                     <div class="flex flex-col">
-                                        <p class="text-[10px] font-black uppercase tracking-[0.2em] text-sky-700 dark:text-sky-400">Recent Sightings</p>
+                                        <p class="text-[10px] font-black uppercase tracking-[0.2em] text-sky-700 dark:text-sky-400">{$_('species_detail.recent_sightings')}</p>
                                         <div class="flex items-center gap-1.5 mt-0.5">
                                             <span class="text-[9px] font-bold text-sky-600/60 dark:text-sky-500/60 uppercase tracking-wider">eBird</span>
                                             <span class="w-0.5 h-0.5 rounded-full bg-sky-300"></span>
@@ -1005,8 +1006,8 @@
 
                             {#if !ebirdEnabled}
                                 <div class="text-center py-4 rounded-xl bg-white/50 dark:bg-slate-900/30 border border-dashed border-sky-200 dark:border-sky-800/30">
-                                    <p class="text-xs font-medium text-slate-500">Enable eBird to see sightings</p>
-                                    <a href="/settings#integrations" class="inline-block mt-2 text-[10px] font-bold text-sky-600 hover:text-sky-700 hover:underline">Configure Settings &rarr;</a>
+                                    <p class="text-xs font-medium text-slate-500">{$_('detection.ebird_enable_sightings')}</p>
+                                    <a href="/settings#integrations" class="inline-block mt-2 text-[10px] font-bold text-sky-600 hover:text-sky-700 hover:underline">{$_('detection.ebird_configure_settings')}</a>
                                 </div>
                             {:else if ebirdNearbyLoading}
                                 <div class="space-y-3">
@@ -1024,8 +1025,8 @@
                                 </div>
                             {:else if (ebirdNearby?.results?.length || 0) === 0}
                                 <div class="text-center py-6">
-                                    <p class="text-sm text-slate-400 font-medium">No recent sightings nearby.</p>
-                                    <p class="text-[10px] text-slate-400/60 mt-1">Try increasing the search radius in settings.</p>
+                                    <p class="text-sm text-slate-400 font-medium">{$_('detection.ebird_none_nearby')}</p>
+                                    <p class="text-[10px] text-slate-400/60 mt-1">{$_('detection.ebird_try_radius')}</p>
                                 </div>
                             {:else if ebirdNearby}
                                 {#if ebirdNearby.results.some(r => r.lat && r.lng)}
@@ -1037,7 +1038,11 @@
                                                     lat: r.lat!,
                                                     lng: r.lng!,
                                                     title: r.location_name || 'Unknown Location',
-                                                    popupText: `<div class="font-sans"><p class="font-bold text-sm mb-1">${r.location_name}</p><p class="text-xs opacity-75">${formatEbirdDate(r.observed_at)}</p><p class="text-xs font-bold mt-1">Count: ${r.how_many ?? '?'}</p></div>`
+                                                    popupText: (() => {
+                                                        const t = get(_);
+                                                        const countLabel = t('species_detail.count_label', { default: 'Count' });
+                                                        return `<div class="font-sans"><p class="font-bold text-sm mb-1">${r.location_name}</p><p class="text-xs opacity-75">${formatEbirdDate(r.observed_at)}</p><p class="text-xs font-bold mt-1">${countLabel}: ${r.how_many ?? '?'}</p></div>`;
+                                                    })()
                                                 }))}
                                             userLocation={authStore.canModify && settingsStore.settings?.location_latitude && settingsStore.settings?.location_longitude ? [settingsStore.settings.location_latitude, settingsStore.settings.location_longitude] : null}
                                             zoom={10}
@@ -1049,7 +1054,7 @@
                                     {#each ebirdNearby.results.slice(0, 5) as obs}
                                         <div class="flex items-start justify-between gap-3 p-2.5 rounded-xl bg-white/60 dark:bg-slate-900/40 border border-sky-100 dark:border-sky-900/30 hover:border-sky-300 dark:hover:border-sky-700/50 transition-colors">
                                             <div class="min-w-0">
-                                                <p class="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">{obs.location_name || 'Unknown location'}</p>
+                                                <p class="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">{obs.location_name || $_('common.unknown_location')}</p>
                                                 <div class="flex items-center gap-2 mt-0.5">
                                                     <p class="text-[10px] font-medium text-slate-400">{formatEbirdDate(obs.observed_at)}</p>
                                                     {#if obs.obs_valid}
@@ -1079,9 +1084,9 @@
                                         </svg>
                                     </div>
                                     <div class="flex flex-col">
-                                        <p class="text-[10px] font-black uppercase tracking-[0.2em] text-amber-700 dark:text-amber-400">Notable Nearby</p>
+                                        <p class="text-[10px] font-black uppercase tracking-[0.2em] text-amber-700 dark:text-amber-400">{$_('detection.ebird_notable_title')}</p>
                                         <div class="flex items-center gap-1.5 mt-0.5">
-                                            <span class="text-[9px] font-bold text-amber-600/60 dark:text-amber-500/60 uppercase tracking-wider">Rare Reports</span>
+                                            <span class="text-[9px] font-bold text-amber-600/60 dark:text-amber-500/60 uppercase tracking-wider">{$_('detection.ebird_notable_badge')}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -1089,7 +1094,7 @@
 
                             {#if !ebirdEnabled}
                                 <div class="text-center py-4 rounded-xl bg-white/50 dark:bg-slate-900/30 border border-dashed border-amber-200 dark:border-amber-800/30">
-                                    <p class="text-xs font-medium text-slate-500">Enable eBird to see notable reports</p>
+                                    <p class="text-xs font-medium text-slate-500">{$_('detection.ebird_enable_notable')}</p>
                                 </div>
                             {:else if ebirdNotableLoading}
                                 <div class="space-y-3">
@@ -1101,7 +1106,7 @@
                                 <p class="text-xs text-rose-600">{ebirdNotableError}</p>
                             {:else if (ebirdNotable?.results?.length || 0) === 0}
                                 <div class="text-center py-4">
-                                    <p class="text-sm text-slate-400 font-medium">No notable sightings reported.</p>
+                                    <p class="text-sm text-slate-400 font-medium">{$_('detection.ebird_none_notable')}</p>
                                 </div>
                             {:else if ebirdNotable}
                                 <div class="space-y-2">
@@ -1111,8 +1116,8 @@
                                                 <img src={obs.thumbnail_url} alt={obs.common_name || 'Bird'} class="w-10 h-10 rounded-lg object-cover bg-slate-200 dark:bg-slate-700 shrink-0" loading="lazy" />
                                             {/if}
                                             <div class="min-w-0 flex-1">
-                                                <p class="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">{obs.common_name || obs.scientific_name || 'Unknown species'}</p>
-                                                <p class="text-[10px] font-medium text-slate-400 truncate">{obs.location_name || 'Unknown location'}</p>
+                                                <p class="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">{obs.common_name || obs.scientific_name || $_('common.unknown_species')}</p>
+                                                <p class="text-[10px] font-medium text-slate-400 truncate">{obs.location_name || $_('common.unknown_location')}</p>
                                             </div>
                                             <div class="text-right shrink-0">
                                                 <p class="text-[10px] font-bold text-amber-600 dark:text-amber-400">{formatEbirdDate(obs.observed_at)}</p>

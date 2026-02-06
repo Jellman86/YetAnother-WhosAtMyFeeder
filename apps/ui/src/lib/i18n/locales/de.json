@@ -111,7 +111,10 @@
     "period": "Zeitraum",
     "detections": "Erkennungen",
     "zoom_in": "Hineinzoomen",
-    "zoom_out": "Herauszoomen"
+    "zoom_out": "Herauszoomen",
+    "source": "Source",
+    "unknown_location": "Unknown location",
+    "unknown_species": "Unknown species"
   },
   "settings": {
     "title": "Einstellungen",
@@ -233,7 +236,8 @@
       "security": "Sicherheit",
       "appearance": "Aussehen",
       "accessibility": "Barrierefreiheit",
-      "debug": "Debug"
+      "debug": "Debug",
+      "enrichment": "Enrichment"
     },
     "debug": {
       "title": "Debug-Tools",
@@ -743,7 +747,15 @@
     "audio_heard": "Gehört: {species}",
     "tag_manual": "Manuell",
     "tag_video": "Video",
-    "tag_snapshot": "Schnappschuss"
+    "tag_snapshot": "Schnappschuss",
+    "ebird_enable_sightings": "Enable eBird to see sightings",
+    "ebird_configure_settings": "Configure Settings →",
+    "ebird_none_nearby": "No recent sightings nearby.",
+    "ebird_try_radius": "Try increasing the search radius in settings.",
+    "ebird_notable_title": "Notable Nearby",
+    "ebird_notable_badge": "Rare Reports",
+    "ebird_enable_notable": "Enable eBird to see notable reports",
+    "ebird_none_notable": "No notable sightings reported."
   },
   "events": {
     "title": "Ereignisse",
@@ -963,7 +975,15 @@
     "seasonality_global": "Globale Saisonalität",
     "range_map": "Verbreitungskarte",
     "range_unavailable": "Verbreitungskarte nicht verfügbar.",
-    "range_map_hint": "Ziehen zum Verschieben • Scrollen zum Zoomen"
+    "range_map_hint": "Ziehen zum Verschieben • Scrollen zum Zoomen",
+    "video_unavailable": "Video clip not available",
+    "no_recent_sightings": "No recent sightings.",
+    "count_label": "Count",
+    "valid_observation": "Valid Observation",
+    "inat_observations": "iNaturalist Observations",
+    "time_of_day": "Time of Day",
+    "day_of_week": "Day of Week",
+    "month": "Month"
   },
   "pagination": {
     "navigation": "Paginierung",
@@ -1016,5 +1036,31 @@
     "try_again": "Erneut versuchen",
     "copy_details": "Details kopieren",
     "reload_page": "Seite neu laden"
+  },
+  "first_run": {
+    "title": "Welcome to YA-WAMF",
+    "subtitle": "Secure your installation by setting an admin password.",
+    "language_label": "Language",
+    "language_desc": "You can change this later in Settings.",
+    "admin_username": "Admin Username",
+    "password": "Password",
+    "password_hint": "Minimum 8 characters",
+    "confirm_password": "Confirm Password",
+    "skip_auth": "Skip authentication (not recommended)",
+    "setting_up": "Setting up...",
+    "continue_without_password": "Continue without password",
+    "set_password": "Set password and continue",
+    "password_mismatch": "Passwords don't match",
+    "password_min": "Password must be at least 8 characters",
+    "setup_failed": "Setup failed"
+  },
+  "telemetry_banner": {
+    "title": "Help improve YA-WAMF!",
+    "body": "Enable anonymous usage stats to guide development priorities and validate that this project serves the bird enthusiast community.",
+    "learn_more": "Learn more",
+    "enabling": "Enabling...",
+    "enable": "Enable",
+    "dismiss": "No Thanks",
+    "enable_error": "Failed to enable telemetry. Please try again from Settings."
   }
 }

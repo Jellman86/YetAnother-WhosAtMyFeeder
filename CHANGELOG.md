@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog, and this project adheres to Semantic Versioning.
 
+## [2.7.6] - 2026-02-06
+
+- **Added:** First-run language picker with persisted preference.
+- **Changed:** First-run setup, telemetry banner, and eBird sections in detection/species modals now use i18n keys.
+- **Changed:** Settings tab labels fully localized (including Enrichment).
+
 ## [2.7.5] - 2026-02-04
 
 - **Fixed:** Authenticated media (snapshots/clips/thumbnails) now include query tokens so owner access is honored even when public access limits are enabled.
