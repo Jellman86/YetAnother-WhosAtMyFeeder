@@ -132,7 +132,7 @@
     );
     const showEbirdNearbyCard = $derived(showEbirdNearby && ebirdEnabled);
     const showEbirdNotable = $derived(enrichmentRarityProvider === 'ebird');
-    const rangeMapHeightClass = $derived(ebirdEnabled ? 'h-[400px] lg:h-full' : 'h-[800px] lg:h-full');
+    const rangeMapHeightClass = $derived(ebirdEnabled ? 'h-[400px] lg:h-full' : 'h-[1200px] lg:h-full');
     const enrichmentLinksProviders = $derived(
         enrichmentModeSetting === 'single'
             ? [enrichmentSingleProviderSetting]
