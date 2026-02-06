@@ -112,9 +112,9 @@
     "detections": "检测",
     "zoom_in": "放大",
     "zoom_out": "缩小",
-    "source": "Source",
-    "unknown_location": "Unknown location",
-    "unknown_species": "Unknown species"
+    "source": "来源",
+    "unknown_location": "未知地点",
+    "unknown_species": "未知物种"
   },
   "settings": {
     "title": "设置",
@@ -143,7 +143,7 @@
       "appearance": "外观",
       "accessibility": "辅助功能",
       "debug": "调试",
-      "enrichment": "Enrichment"
+      "enrichment": "增强信息"
     },
     "debug": {
       "title": "调试工具",
@@ -748,14 +748,14 @@
     "tag_manual": "手动",
     "tag_video": "视频",
     "tag_snapshot": "快照",
-    "ebird_enable_sightings": "Enable eBird to see sightings",
-    "ebird_configure_settings": "Configure Settings →",
-    "ebird_none_nearby": "No recent sightings nearby.",
-    "ebird_try_radius": "Try increasing the search radius in settings.",
-    "ebird_notable_title": "Notable Nearby",
-    "ebird_notable_badge": "Rare Reports",
-    "ebird_enable_notable": "Enable eBird to see notable reports",
-    "ebird_none_notable": "No notable sightings reported."
+    "ebird_enable_sightings": "启用 eBird 以查看目击记录",
+    "ebird_configure_settings": "配置设置 →",
+    "ebird_none_nearby": "附近没有近期目击记录。",
+    "ebird_try_radius": "请在设置中扩大搜索半径。",
+    "ebird_notable_title": "附近的重大记录",
+    "ebird_notable_badge": "稀有报告",
+    "ebird_enable_notable": "启用 eBird 以查看重大报告",
+    "ebird_none_notable": "没有报告重大目击。"
   },
   "events": {
     "title": "事件",
@@ -976,14 +976,14 @@
     "range_map": "分布地图",
     "range_unavailable": "分布地图不可用。",
     "range_map_hint": "拖动平移 • 滚动缩放",
-    "video_unavailable": "Video clip not available",
-    "no_recent_sightings": "No recent sightings.",
-    "count_label": "Count",
-    "valid_observation": "Valid Observation",
-    "inat_observations": "iNaturalist Observations",
-    "time_of_day": "Time of Day",
-    "day_of_week": "Day of Week",
-    "month": "Month"
+    "video_unavailable": "视频片段不可用",
+    "no_recent_sightings": "没有最近的目击记录。",
+    "count_label": "数量",
+    "valid_observation": "有效观察",
+    "inat_observations": "iNaturalist 观察记录",
+    "time_of_day": "时间段",
+    "day_of_week": "星期几",
+    "month": "月份"
   },
   "pagination": {
     "navigation": "分页",
@@ -1038,29 +1038,29 @@
     "reload_page": "Reload Page"
   },
   "first_run": {
-    "title": "Welcome to YA-WAMF",
-    "subtitle": "Secure your installation by setting an admin password.",
-    "language_label": "Language",
-    "language_desc": "You can change this later in Settings.",
-    "admin_username": "Admin Username",
-    "password": "Password",
-    "password_hint": "Minimum 8 characters",
-    "confirm_password": "Confirm Password",
-    "skip_auth": "Skip authentication (not recommended)",
-    "setting_up": "Setting up...",
-    "continue_without_password": "Continue without password",
-    "set_password": "Set password and continue",
-    "password_mismatch": "Passwords don't match",
-    "password_min": "Password must be at least 8 characters",
-    "setup_failed": "Setup failed"
+    "title": "欢迎使用 YA-WAMF",
+    "subtitle": "设置管理员密码以保护你的安装。",
+    "language_label": "语言",
+    "language_desc": "可在设置中稍后更改。",
+    "admin_username": "管理员用户名",
+    "password": "密码",
+    "password_hint": "至少 8 个字符",
+    "confirm_password": "确认密码",
+    "skip_auth": "跳过认证（不推荐）",
+    "setting_up": "正在设置…",
+    "continue_without_password": "不设密码继续",
+    "set_password": "设置密码并继续",
+    "password_mismatch": "两次密码不一致",
+    "password_min": "密码至少需要 8 个字符",
+    "setup_failed": "设置失败"
   },
   "telemetry_banner": {
-    "title": "Help improve YA-WAMF!",
-    "body": "Enable anonymous usage stats to guide development priorities and validate that this project serves the bird enthusiast community.",
-    "learn_more": "Learn more",
-    "enabling": "Enabling...",
-    "enable": "Enable",
-    "dismiss": "No Thanks",
-    "enable_error": "Failed to enable telemetry. Please try again from Settings."
+    "title": "帮助改进 YA-WAMF！",
+    "body": "启用匿名使用统计，以指导开发优先级并验证本项目服务鸟类爱好者社区。",
+    "learn_more": "了解更多",
+    "enabling": "正在启用…",
+    "enable": "启用",
+    "dismiss": "不用了",
+    "enable_error": "无法启用遥测。请在设置中重试。"
   }
 }

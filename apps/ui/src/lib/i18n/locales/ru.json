@@ -112,9 +112,9 @@
     "detections": "обнаружений",
     "zoom_in": "Увеличить",
     "zoom_out": "Уменьшить",
-    "source": "Source",
-    "unknown_location": "Unknown location",
-    "unknown_species": "Unknown species"
+    "source": "Источник",
+    "unknown_location": "Неизвестное место",
+    "unknown_species": "Неизвестный вид"
   },
   "error": {
     "boundary_title": "Что-то пошло не так",
@@ -151,7 +151,7 @@
       "appearance": "Внешний вид",
       "accessibility": "Доступность",
       "debug": "Debug",
-      "enrichment": "Enrichment"
+      "enrichment": "Обогащение"
     },
     "debug": {
       "title": "Инструменты отладки",
@@ -756,14 +756,14 @@
     "tag_manual": "Вручную",
     "tag_video": "Видео",
     "tag_snapshot": "Снимок",
-    "ebird_enable_sightings": "Enable eBird to see sightings",
-    "ebird_configure_settings": "Configure Settings →",
-    "ebird_none_nearby": "No recent sightings nearby.",
-    "ebird_try_radius": "Try increasing the search radius in settings.",
-    "ebird_notable_title": "Notable Nearby",
-    "ebird_notable_badge": "Rare Reports",
-    "ebird_enable_notable": "Enable eBird to see notable reports",
-    "ebird_none_notable": "No notable sightings reported."
+    "ebird_enable_sightings": "Включите eBird, чтобы видеть наблюдения",
+    "ebird_configure_settings": "Настроить параметры →",
+    "ebird_none_nearby": "Поблизости нет недавних наблюдений.",
+    "ebird_try_radius": "Попробуйте увеличить радиус поиска в настройках.",
+    "ebird_notable_title": "Значимые поблизости",
+    "ebird_notable_badge": "Редкие сообщения",
+    "ebird_enable_notable": "Включите eBird, чтобы видеть значимые сообщения",
+    "ebird_none_notable": "Нет сообщений о значимых наблюдениях."
   },
   "events": {
     "title": "События",
@@ -984,14 +984,14 @@
     "range_map": "Карта ареала",
     "range_unavailable": "Карта ареала недоступна.",
     "range_map_hint": "Перетащите для перемещения • Прокрутите для масштабирования",
-    "video_unavailable": "Video clip not available",
-    "no_recent_sightings": "No recent sightings.",
-    "count_label": "Count",
-    "valid_observation": "Valid Observation",
-    "inat_observations": "iNaturalist Observations",
-    "time_of_day": "Time of Day",
-    "day_of_week": "Day of Week",
-    "month": "Month"
+    "video_unavailable": "Видеоклип недоступен",
+    "no_recent_sightings": "Нет недавних наблюдений.",
+    "count_label": "Количество",
+    "valid_observation": "Достоверное наблюдение",
+    "inat_observations": "Наблюдения iNaturalist",
+    "time_of_day": "Время суток",
+    "day_of_week": "День недели",
+    "month": "Месяц"
   },
   "pagination": {
     "navigation": "Пагинация",
@@ -1038,29 +1038,29 @@
     ]
   },
   "first_run": {
-    "title": "Welcome to YA-WAMF",
-    "subtitle": "Secure your installation by setting an admin password.",
-    "language_label": "Language",
-    "language_desc": "You can change this later in Settings.",
-    "admin_username": "Admin Username",
-    "password": "Password",
-    "password_hint": "Minimum 8 characters",
-    "confirm_password": "Confirm Password",
-    "skip_auth": "Skip authentication (not recommended)",
-    "setting_up": "Setting up...",
-    "continue_without_password": "Continue without password",
-    "set_password": "Set password and continue",
-    "password_mismatch": "Passwords don't match",
-    "password_min": "Password must be at least 8 characters",
-    "setup_failed": "Setup failed"
+    "title": "Добро пожаловать в YA-WAMF",
+    "subtitle": "Защитите установку, задав пароль администратора.",
+    "language_label": "Язык",
+    "language_desc": "Можно изменить позже в настройках.",
+    "admin_username": "Имя администратора",
+    "password": "Пароль",
+    "password_hint": "Минимум 8 символов",
+    "confirm_password": "Подтвердите пароль",
+    "skip_auth": "Пропустить авторизацию (не рекомендуется)",
+    "setting_up": "Настройка…",
+    "continue_without_password": "Продолжить без пароля",
+    "set_password": "Установить пароль и продолжить",
+    "password_mismatch": "Пароли не совпадают",
+    "password_min": "Пароль должен быть не короче 8 символов",
+    "setup_failed": "Настройка не удалась"
   },
   "telemetry_banner": {
-    "title": "Help improve YA-WAMF!",
-    "body": "Enable anonymous usage stats to guide development priorities and validate that this project serves the bird enthusiast community.",
-    "learn_more": "Learn more",
-    "enabling": "Enabling...",
-    "enable": "Enable",
-    "dismiss": "No Thanks",
-    "enable_error": "Failed to enable telemetry. Please try again from Settings."
+    "title": "Помогите улучшить YA-WAMF!",
+    "body": "Включите анонимную статистику использования, чтобы направлять приоритеты разработки и подтверждать, что проект полезен сообществу любителей птиц.",
+    "learn_more": "Подробнее",
+    "enabling": "Включение…",
+    "enable": "Включить",
+    "dismiss": "Нет, спасибо",
+    "enable_error": "Не удалось включить телеметрию. Попробуйте снова в настройках."
   }
 }

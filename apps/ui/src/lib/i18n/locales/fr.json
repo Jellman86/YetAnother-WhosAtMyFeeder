@@ -113,8 +113,8 @@
     "zoom_in": "Zoomer",
     "zoom_out": "Dézoomer",
     "source": "Source",
-    "unknown_location": "Unknown location",
-    "unknown_species": "Unknown species"
+    "unknown_location": "Lieu inconnu",
+    "unknown_species": "Espèce inconnue"
   },
   "settings": {
     "title": "Paramètres",
@@ -143,7 +143,7 @@
       "appearance": "Apparence",
       "accessibility": "Accessibilité",
       "debug": "Debug",
-      "enrichment": "Enrichment"
+      "enrichment": "Enrichissement"
     },
     "debug": {
       "title": "Outils de débogage",
@@ -748,14 +748,14 @@
     "tag_manual": "Manuel",
     "tag_video": "Vidéo",
     "tag_snapshot": "Instantané",
-    "ebird_enable_sightings": "Enable eBird to see sightings",
-    "ebird_configure_settings": "Configure Settings →",
-    "ebird_none_nearby": "No recent sightings nearby.",
-    "ebird_try_radius": "Try increasing the search radius in settings.",
-    "ebird_notable_title": "Notable Nearby",
-    "ebird_notable_badge": "Rare Reports",
-    "ebird_enable_notable": "Enable eBird to see notable reports",
-    "ebird_none_notable": "No notable sightings reported."
+    "ebird_enable_sightings": "Activez eBird pour voir les observations",
+    "ebird_configure_settings": "Configurer les paramètres →",
+    "ebird_none_nearby": "Aucune observation récente à proximité.",
+    "ebird_try_radius": "Essayez d’augmenter le rayon de recherche dans les paramètres.",
+    "ebird_notable_title": "Observations notables",
+    "ebird_notable_badge": "Signalements rares",
+    "ebird_enable_notable": "Activez eBird pour voir les observations notables",
+    "ebird_none_notable": "Aucune observation notable signalée."
   },
   "events": {
     "title": "Événements",
@@ -976,14 +976,14 @@
     "range_map": "Carte de répartition",
     "range_unavailable": "Carte de répartition indisponible.",
     "range_map_hint": "Glisser pour déplacer • Faire défiler pour zoomer",
-    "video_unavailable": "Video clip not available",
-    "no_recent_sightings": "No recent sightings.",
-    "count_label": "Count",
-    "valid_observation": "Valid Observation",
-    "inat_observations": "iNaturalist Observations",
-    "time_of_day": "Time of Day",
-    "day_of_week": "Day of Week",
-    "month": "Month"
+    "video_unavailable": "Clip vidéo indisponible",
+    "no_recent_sightings": "Aucune observation récente.",
+    "count_label": "Nombre",
+    "valid_observation": "Observation valide",
+    "inat_observations": "Observations iNaturalist",
+    "time_of_day": "Heure de la journée",
+    "day_of_week": "Jour de la semaine",
+    "month": "Mois"
   },
   "pagination": {
     "navigation": "Pagination",
@@ -1038,29 +1038,29 @@
     "reload_page": "Reload Page"
   },
   "first_run": {
-    "title": "Welcome to YA-WAMF",
-    "subtitle": "Secure your installation by setting an admin password.",
-    "language_label": "Language",
-    "language_desc": "You can change this later in Settings.",
-    "admin_username": "Admin Username",
-    "password": "Password",
-    "password_hint": "Minimum 8 characters",
-    "confirm_password": "Confirm Password",
-    "skip_auth": "Skip authentication (not recommended)",
-    "setting_up": "Setting up...",
-    "continue_without_password": "Continue without password",
-    "set_password": "Set password and continue",
-    "password_mismatch": "Passwords don't match",
-    "password_min": "Password must be at least 8 characters",
-    "setup_failed": "Setup failed"
+    "title": "Bienvenue sur YA-WAMF",
+    "subtitle": "Sécurisez votre installation en définissant un mot de passe administrateur.",
+    "language_label": "Langue",
+    "language_desc": "Vous pourrez le changer plus tard dans les paramètres.",
+    "admin_username": "Nom d’utilisateur admin",
+    "password": "Mot de passe",
+    "password_hint": "Minimum 8 caractères",
+    "confirm_password": "Confirmer le mot de passe",
+    "skip_auth": "Ignorer l’authentification (non recommandé)",
+    "setting_up": "Configuration…",
+    "continue_without_password": "Continuer sans mot de passe",
+    "set_password": "Définir le mot de passe et continuer",
+    "password_mismatch": "Les mots de passe ne correspondent pas",
+    "password_min": "Le mot de passe doit contenir au moins 8 caractères",
+    "setup_failed": "Échec de la configuration"
   },
   "telemetry_banner": {
-    "title": "Help improve YA-WAMF!",
-    "body": "Enable anonymous usage stats to guide development priorities and validate that this project serves the bird enthusiast community.",
-    "learn_more": "Learn more",
-    "enabling": "Enabling...",
-    "enable": "Enable",
-    "dismiss": "No Thanks",
-    "enable_error": "Failed to enable telemetry. Please try again from Settings."
+    "title": "Aidez à améliorer YA-WAMF !",
+    "body": "Activez des statistiques d’usage anonymes pour guider les priorités de développement et valider que ce projet sert la communauté des passionnés d’oiseaux.",
+    "learn_more": "En savoir plus",
+    "enabling": "Activation…",
+    "enable": "Activer",
+    "dismiss": "Non merci",
+    "enable_error": "Impossible d’activer la télémétrie. Veuillez réessayer depuis les paramètres."
   }
 }

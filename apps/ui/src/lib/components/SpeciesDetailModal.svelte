@@ -22,7 +22,7 @@
     import SimpleBarChart from './SimpleBarChart.svelte';
     import VideoPlayer from './VideoPlayer.svelte';
     import RangeMap from './RangeMap.svelte';
-    import { _ } from 'svelte-i18n';
+    import { _, locale } from 'svelte-i18n';
     import { get } from 'svelte/store';
     import { trapFocus } from '../utils/focus-trap';
     import { formatDate as formatDateValue, formatDateTime, formatTime } from '../utils/datetime';
@@ -34,9 +34,30 @@
 
     let { speciesName, onclose }: Props = $props();
 
-    const HOUR_LABELS = Array.from({ length: 24 }, (_, i) => `${i}:00`);
-    const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    function getLocaleTag(localeValue: string | null | undefined) {
+        if (!localeValue) return 'en';
+        const base = localeValue.split(/[-_]/)[0];
+        return base || 'en';
+    }
+
+    const HOUR_LABELS = $derived.by(() => {
+        const localeTag = getLocaleTag($locale);
+        const formatter = new Intl.DateTimeFormat(localeTag, { hour: 'numeric' });
+        return Array.from({ length: 24 }, (_, i) => formatter.format(new Date(2000, 0, 1, i, 0, 0)));
+    });
+
+    const DAY_LABELS = $derived.by(() => {
+        const localeTag = getLocaleTag($locale);
+        const formatter = new Intl.DateTimeFormat(localeTag, { weekday: 'short' });
+        const start = new Date(2000, 0, 2); // Sunday
+        return Array.from({ length: 7 }, (_, i) => formatter.format(new Date(start.getTime() + i * 86400000)));
+    });
+
+    const MONTH_LABELS = $derived.by(() => {
+        const localeTag = getLocaleTag($locale);
+        const formatter = new Intl.DateTimeFormat(localeTag, { month: 'short' });
+        return Array.from({ length: 12 }, (_, i) => formatter.format(new Date(2000, i, 1)));
+    });
 
     let modalElement = $state<HTMLElement | null>(null);
     let stats = $state<SpeciesStats | null>(null);
