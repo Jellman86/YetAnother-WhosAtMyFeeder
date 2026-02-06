@@ -56,7 +56,7 @@
       "hours_ago": "{count} hours ago",
       "one_hour_ago": "1 hour ago",
       "days_ago": "{count} days ago",
-      "one_day_ago": "1 hour ago",
+      "one_day_ago": "1 day ago",
       "audio_confirmed": "Audio Confirmed",
       "heard": "Heard: {species}",
       "view_details": "View Details",
