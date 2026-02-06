@@ -34,7 +34,8 @@
     "font_studio": "工作室",
     "font_classic": "经典",
     "font_compact": "紧凑",
-    "font_selected": "已选择"
+    "font_selected": "已选择",
+    "font_apply_hint": "更改将立即生效。"
   },
   "dashboard": {
     "title": "仪表盘",

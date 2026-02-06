@@ -34,7 +34,8 @@
     "font_studio": "Studio",
     "font_classic": "Clásico",
     "font_compact": "Compacto",
-    "font_selected": "Seleccionado"
+    "font_selected": "Seleccionado",
+    "font_apply_hint": "Los cambios se aplican al instante."
   },
   "dashboard": {
     "title": "Tablero",

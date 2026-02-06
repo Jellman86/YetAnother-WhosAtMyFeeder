@@ -34,7 +34,8 @@
     "font_studio": "Studio",
     "font_classic": "Classic",
     "font_compact": "Compact",
-    "font_selected": "Selected"
+    "font_selected": "Selected",
+    "font_apply_hint": "Changes apply immediately."
   },
   "dashboard": {
     "title": "Dashboard",

@@ -34,7 +34,8 @@
     "font_studio": "スタジオ",
     "font_classic": "クラシック",
     "font_compact": "コンパクト",
-    "font_selected": "選択中"
+    "font_selected": "選択中",
+    "font_apply_hint": "変更はすぐに反映されます。"
   },
   "dashboard": {
     "title": "ダッシュボード",

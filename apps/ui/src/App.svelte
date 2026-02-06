@@ -32,6 +32,8 @@
   // Track current layout using reactive derived
   let currentLayout = $derived(layoutStore.layout);
   let isSidebarCollapsed = $derived(layoutStore.sidebarCollapsed);
+  let isMobile = $state(false);
+  let effectiveLayout = $derived(isMobile ? 'vertical' : currentLayout);
 
 
   // Router state
@@ -89,6 +91,17 @@
   // Handle back button and initial load
   onMount(() => {
       (async () => {
+          let mediaQuery: MediaQueryList | null = null;
+          const updateMobile = () => {
+              if (!mediaQuery) return;
+              isMobile = mediaQuery.matches;
+          };
+          if (typeof window !== 'undefined') {
+              mediaQuery = window.matchMedia('(max-width: 767px)');
+              updateMobile();
+              mediaQuery.addEventListener('change', updateMobile);
+          }
+
           // Register auth error callback
           setAuthErrorCallback(() => {
               authStore.handleAuthError();
@@ -134,6 +147,9 @@
               window.removeEventListener('popstate', handlePopState);
               document.removeEventListener('visibilitychange', handleVisibilityChange);
               cleanupShortcuts();
+              if (mediaQuery) {
+                  mediaQuery.removeEventListener('change', updateMobile);
+              }
               if (evtSource) {
                   evtSource.close();
                   evtSource = null;
@@ -516,7 +532,7 @@
   {:else if requiresLogin}
       <Login />
   {:else}
-      {#if currentLayout === 'vertical'}
+      {#if effectiveLayout === 'vertical'}
           <!-- Mobile Header -->
           <div class="md:hidden sticky top-0 z-40 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border-b border-slate-200/80 dark:border-slate-700/50 h-16 flex items-center px-4 justify-between">
               <button 
@@ -620,7 +636,7 @@
       <TelemetryBanner />
 
       <!-- Main Content Wrapper -->
-      <div class="flex-1 flex flex-col transition-all duration-300 {currentLayout === 'vertical' ? (isSidebarCollapsed ? 'md:pl-20' : 'md:pl-64') : ''}">
+      <div class="flex-1 flex flex-col transition-all duration-300 {effectiveLayout === 'vertical' ? (isSidebarCollapsed ? 'md:pl-20' : 'md:pl-64') : ''}">
           <main id="main-content" class="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
               {#if currentRoute === '/'}
                   <Dashboard onnavigate={navigate} />

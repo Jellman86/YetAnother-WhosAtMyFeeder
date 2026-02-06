@@ -26,6 +26,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Added:** Events page now includes a legend for classification source badges.
 - **Changed:** eBird integration docs now recommend enabling eBird and clarify enrichment behavior.
 - **Added:** Appearance settings now include a font switcher with multiple typography presets.
+- **Fixed:** Mobile navigation now always uses the vertical layout for reliable menu access.
+- **Changed:** Appearance settings now clarify that font changes apply immediately.
 
 ## [2.7.4] - 2026-02-03
 

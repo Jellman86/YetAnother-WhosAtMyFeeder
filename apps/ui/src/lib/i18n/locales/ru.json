@@ -34,7 +34,8 @@
     "font_studio": "Студия",
     "font_classic": "Классический",
     "font_compact": "Компактный",
-    "font_selected": "Выбрано"
+    "font_selected": "Выбрано",
+    "font_apply_hint": "Изменения применяются сразу."
   },
   "dashboard": {
     "title": "Дашборд",

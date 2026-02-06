@@ -34,7 +34,8 @@
     "font_studio": "Studio",
     "font_classic": "Classique",
     "font_compact": "Compact",
-    "font_selected": "Sélectionné"
+    "font_selected": "Sélectionné",
+    "font_apply_hint": "Les changements s’appliquent immédiatement."
   },
   "dashboard": {
     "title": "Tableau de bord",

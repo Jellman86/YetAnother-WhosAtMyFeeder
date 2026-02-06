@@ -150,5 +150,6 @@
                 </button>
             {/each}
         </div>
+        <p class="mt-3 text-[10px] font-semibold text-slate-400">{$_('theme.font_apply_hint')}</p>
     </div>
 </section>
