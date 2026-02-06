@@ -6,6 +6,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [2.7.5] - 2026-02-04
 
+- **Fixed:** Authenticated media (snapshots/clips/thumbnails) now include query tokens so owner access is honored even when public access limits are enabled.
 - **Fixed:** Species cards now respect enrichment summary/seasonality settings and avoid fetching disabled sources.
 - **Fixed:** Species card labels and empty summary messaging now use localized translations.
 - **Changed:** Enrichment sources are now automatic: eBird API key enables eBird-first enrichment with iNaturalist seasonality fallback; without a key, Wikipedia + iNaturalist are used.

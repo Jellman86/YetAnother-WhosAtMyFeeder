@@ -15,7 +15,12 @@
     let clipUrl = $state("");
     
     $effect(() => {
-        clipUrl = retryCount > 0 ? `${clipUrlBase}?retry=${retryCount}` : clipUrlBase;
+        if (retryCount > 0) {
+            const separator = clipUrlBase.includes('?') ? '&' : '?';
+            clipUrl = `${clipUrlBase}${separator}retry=${retryCount}`;
+        } else {
+            clipUrl = clipUrlBase;
+        }
     });
 
     const maxRetries = 2;

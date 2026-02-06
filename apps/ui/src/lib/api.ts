@@ -317,6 +317,22 @@ export function getApiKey(): string | null {
     return apiKey;
 }
 
+function appendQueryParam(url: string, key: string, value: string): string {
+    const separator = url.includes('?') ? '&' : '?';
+    return `${url}${separator}${key}=${encodeURIComponent(value)}`;
+}
+
+function withAuthParams(url: string): string {
+    const token = getAuthToken();
+    if (token) {
+        return appendQueryParam(url, 'token', token);
+    }
+    if (apiKey) {
+        return appendQueryParam(url, 'api_key', apiKey);
+    }
+    return url;
+}
+
 function isAuthTokenExpired(): boolean {
     if (!authToken || !authTokenExpiresAt) {
         return false;
@@ -750,15 +766,15 @@ export async function downloadDefaultModel(): Promise<DownloadModelResult> {
 }
 
 export function getSnapshotUrl(frigateEvent: string): string {
-    return `${API_BASE}/frigate/${frigateEvent}/snapshot.jpg`;
+    return withAuthParams(`${API_BASE}/frigate/${frigateEvent}/snapshot.jpg`);
 }
 
 export function getThumbnailUrl(frigateEvent: string): string {
-    return `${API_BASE}/frigate/${frigateEvent}/thumbnail.jpg`;
+    return withAuthParams(`${API_BASE}/frigate/${frigateEvent}/thumbnail.jpg`);
 }
 
 export function getClipUrl(frigateEvent: string): string {
-    return `${API_BASE}/frigate/${frigateEvent}/clip.mp4`;
+    return withAuthParams(`${API_BASE}/frigate/${frigateEvent}/clip.mp4`);
 }
 
 export async function checkClipAvailable(frigateEvent: string): Promise<boolean> {
