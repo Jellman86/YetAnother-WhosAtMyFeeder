@@ -6,6 +6,7 @@ import platform
 import os
 from datetime import datetime, timezone
 from app.config import settings
+from app.utils.enrichment import get_effective_enrichment_settings, is_ebird_active
 from app.utils.tasks import create_background_task
 
 log = structlog.get_logger()
@@ -139,11 +140,34 @@ class TelemetryService:
                 },
                 "configuration": {
                     "model_type": model_manager.active_model_id,
-                    "birdnet_enabled": settings.frigate.birdnet_enabled,
-                    "birdweather_enabled": settings.birdweather.enabled,
                     "llm_enabled": settings.llm.enabled,
                     "llm_provider": settings.llm.provider,
                     "media_cache_enabled": settings.media_cache.enabled,
+                    "media_cache_clips": settings.media_cache.cache_clips,
+                    "auto_video_classification": settings.classification.auto_video_classification,
+                },
+                "integrations": {
+                    "birdnet_enabled": settings.frigate.birdnet_enabled,
+                    "birdweather_enabled": settings.birdweather.enabled,
+                    "ebird_enabled": is_ebird_active(),
+                    "inaturalist_enabled": settings.inaturalist.enabled,
+                },
+                "notifications": {
+                    "discord_enabled": settings.notifications.discord.enabled,
+                    "pushover_enabled": settings.notifications.pushover.enabled,
+                    "telegram_enabled": settings.notifications.telegram.enabled,
+                    "email_enabled": settings.notifications.email.enabled,
+                    "mode": settings.notifications.mode,
+                },
+                "enrichment": {
+                    "mode": get_effective_enrichment_settings()["mode"],
+                    "summary_source": get_effective_enrichment_settings()["summary_source"],
+                    "sightings_source": get_effective_enrichment_settings()["sightings_source"],
+                    "taxonomy_source": get_effective_enrichment_settings()["taxonomy_source"],
+                },
+                "access": {
+                    "auth_enabled": settings.auth.enabled,
+                    "public_access_enabled": settings.public_access.enabled,
                 }
             }
 

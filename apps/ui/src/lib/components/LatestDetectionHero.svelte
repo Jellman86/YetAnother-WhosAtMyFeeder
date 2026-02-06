@@ -3,10 +3,12 @@
     import type { Detection } from '../api';
     import { getThumbnailUrl } from '../api';
     import { settingsStore } from '../stores/settings.svelte';
+    import { authStore } from '../stores/auth.svelte';
     import { detectionsStore } from '../stores/detections.svelte';
     import ReclassificationOverlay from './ReclassificationOverlay.svelte';
 
     import { getBirdNames } from '../naming';
+    import { formatTime } from '../utils/datetime';
     import { formatTemperature } from '../utils/temperature';
 
     interface Props {
@@ -22,8 +24,8 @@
 
     // Dynamic Naming Logic
     let naming = $derived.by(() => {
-        const showCommon = settingsStore.settings?.display_common_names ?? true;
-        const preferSci = settingsStore.settings?.scientific_name_primary ?? false;
+        const showCommon = settingsStore.settings?.display_common_names ?? authStore.displayCommonNames ?? true;
+        const preferSci = settingsStore.settings?.scientific_name_primary ?? authStore.scientificNamePrimary ?? false;
         return getBirdNames(detection, showCommon, preferSci);
     });
 
@@ -38,15 +40,6 @@
         detection.weather_rain !== undefined && detection.weather_rain !== null ||
         detection.weather_snowfall !== undefined && detection.weather_snowfall !== null
     );
-
-    function formatTime(dateString: string): string {
-        try {
-            const date = new Date(dateString);
-            return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        } catch {
-            return '';
-        }
-    }
 
     function getRelativeTime(dateString: string, t: any): string {
         try {
@@ -109,12 +102,12 @@
                 <span class="px-2 py-0.5 bg-teal-600 text-white text-[10px] font-bold uppercase tracking-widest rounded-md">
                     {getRelativeTime(detection.detection_time, $_)}
                 </span>
-                {#if detection.audio_confirmed}
-                    <span class="px-2 py-0.5 bg-blue-500 text-white text-[10px] font-bold uppercase tracking-widest rounded-md flex items-center gap-1">
+                {#if detection.audio_confirmed || detection.audio_species}
+                    <span class="px-2 py-0.5 {detection.audio_confirmed ? 'bg-blue-500' : 'bg-slate-500'} text-white text-[10px] font-bold uppercase tracking-widest rounded-md flex items-center gap-1">
                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
                         </svg>
-                        {$_('dashboard.hero.audio_confirmed')}
+                        {detection.audio_confirmed ? $_('dashboard.hero.audio_confirmed') : $_('detection.audio_detected')}
                     </span>
                 {/if}
             </div>

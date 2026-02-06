@@ -2,6 +2,7 @@
     import { onMount } from 'svelte';
     import { _ } from 'svelte-i18n';
     import { notificationCenter, type NotificationItem } from '../stores/notification_center.svelte';
+    import { formatDateTime } from '../utils/datetime';
 
     let {
         position = 'top',
@@ -71,7 +72,7 @@
     }
 
     function formatTime(ts: number) {
-        return new Date(ts).toLocaleString();
+        return formatDateTime(ts);
     }
 
     function getIcon(type: NotificationItem['type']) {

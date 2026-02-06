@@ -17,6 +17,7 @@ from app.auth import (
     verify_token
 )
 from app.config import settings
+from app.utils.enrichment import get_effective_enrichment_settings, is_ebird_active
 from app.ratelimit import login_rate_limit
 
 router = APIRouter()
@@ -53,6 +54,20 @@ class AuthStatusResponse(BaseModel):
     is_authenticated: bool
     birdnet_enabled: bool = False
     llm_enabled: bool = False
+    ebird_enabled: bool = False
+    inaturalist_enabled: bool = False
+    enrichment_mode: str = "per_enrichment"
+    enrichment_single_provider: str = "wikipedia"
+    enrichment_summary_source: str = "wikipedia"
+    enrichment_sightings_source: str = "disabled"
+    enrichment_seasonality_source: str = "disabled"
+    enrichment_rarity_source: str = "disabled"
+    enrichment_links_sources: list[str] = ["wikipedia", "inaturalist"]
+    display_common_names: bool = True
+    scientific_name_primary: bool = False
+    accessibility_live_announcements: bool = True
+    location_temperature_unit: str = "celsius"
+    date_format: str = "locale"
     username: Optional[str] = None
     needs_initial_setup: bool = False
     https_warning: bool = False  # True if auth enabled over HTTP
@@ -226,12 +241,29 @@ async def get_auth_status(request: Request):
                 trusted_proxy_hosts=settings.system.trusted_proxy_hosts
             )
 
+    effective_enrichment = get_effective_enrichment_settings()
+    ebird_active = is_ebird_active()
+
     return AuthStatusResponse(
         auth_required=settings.auth.enabled,
         public_access_enabled=settings.public_access.enabled,
         is_authenticated=auth_level == AuthLevel.OWNER,
         birdnet_enabled=settings.frigate.birdnet_enabled,
         llm_enabled=settings.llm.enabled,
+        ebird_enabled=ebird_active,
+        inaturalist_enabled=settings.inaturalist.enabled,
+        enrichment_mode=effective_enrichment["mode"],
+        enrichment_single_provider=effective_enrichment["single_provider"],
+        enrichment_summary_source=effective_enrichment["summary_source"],
+        enrichment_sightings_source=effective_enrichment["sightings_source"],
+        enrichment_seasonality_source=effective_enrichment["seasonality_source"],
+        enrichment_rarity_source=effective_enrichment["rarity_source"],
+        enrichment_links_sources=effective_enrichment["links_sources"],
+        display_common_names=settings.classification.display_common_names,
+        scientific_name_primary=settings.classification.scientific_name_primary,
+        accessibility_live_announcements=settings.accessibility.live_announcements,
+        location_temperature_unit=settings.location.temperature_unit,
+        date_format=settings.date_format,
         username=username if auth_level == AuthLevel.OWNER else None,
         needs_initial_setup=needs_setup,
         https_warning=https_warning

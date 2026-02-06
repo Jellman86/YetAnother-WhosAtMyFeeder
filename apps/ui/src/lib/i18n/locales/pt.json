@@ -26,7 +26,21 @@
     "horizontal": "Horizontal",
     "vertical": "Vertical",
     "horizontal_desc": "Barra de navegação superior",
-    "vertical_desc": "Barra lateral esquerda (recolhível)"
+    "vertical_desc": "Barra lateral esquerda (recolhível)",
+    "font_title": "Tipografia",
+    "font_desc": "Escolha um estilo tipográfico para a interface.",
+    "font_default": "Padrão",
+    "font_clean": "Limpo",
+    "font_studio": "Studio",
+    "font_classic": "Clássico",
+    "font_compact": "Compacto",
+    "font_selected": "Selecionado",
+    "font_apply_hint": "As alterações são aplicadas imediatamente.",
+    "font_lang_default": "Prioriza o latim; outras escritas usam fontes do sistema.",
+    "font_lang_clean": "Prioriza o latim; outras escritas usam fontes do sistema.",
+    "font_lang_studio": "Prioriza o latim; outras escritas usam fontes do sistema.",
+    "font_lang_classic": "Prioriza o latim; outras escritas usam fontes do sistema.",
+    "font_lang_compact": "Prioriza o latim; outras escritas usam fontes do sistema."
   },
   "dashboard": {
     "title": "Painel",
@@ -95,7 +109,12 @@
     "view_snapshot": "Ver Snapshot",
     "statistics": "Estatísticas",
     "period": "Período",
-    "detections": "detecções"
+    "detections": "detecções",
+    "zoom_in": "Ampliar",
+    "zoom_out": "Reduzir",
+    "source": "Fonte",
+    "unknown_location": "Local desconhecido",
+    "unknown_species": "Espécie desconhecida"
   },
   "error": {
     "boundary_title": "Algo deu errado",
@@ -110,6 +129,13 @@
     "subtitle": "Configure e gerencie sua instância YA-WAMF",
     "language_selector": "Idioma",
     "language_desc": "Altera o texto da interface e conteúdo das notificações.",
+    "date_format": {
+      "label": "Formato de data",
+      "desc": "Escolha o formato de exibição para datas e horas.",
+      "us": "Estados Unidos (MM/DD/AAAA)",
+      "uk": "Reino Unido (DD/MM/AAAA)",
+      "ymd": "Japão/China (AAAA-MM-DD)"
+    },
     "video_circuit": {
       "title": "Análise de Vídeo Pausada",
       "message": "Análise automática de vídeo pausada após {failures} falhas.",
@@ -124,7 +150,8 @@
       "security": "Segurança",
       "appearance": "Aparência",
       "accessibility": "Acessibilidade",
-      "debug": "Debug"
+      "debug": "Debug",
+      "enrichment": "Enriquecimento"
     },
     "debug": {
       "title": "Ferramentas de debug",
@@ -183,6 +210,49 @@
         "refresh": "Atualizar status",
         "refresh_label": "Atualizar conexão iNaturalist",
         "connected": "Conectado como {user}"
+      },
+      "ebird": {
+        "title": "eBird",
+        "toggle_label": "Ativar enriquecimento eBird",
+        "api_key": "Chave API",
+        "api_key_label": "Chave API eBird",
+        "api_key_placeholder": "Chave API eBird",
+        "saved_placeholder": "Salvo",
+        "api_key_desc": "Necessário para buscar avistamentos recentes e aves notáveis.",
+        "radius": "Raio padrão (km)",
+        "days_back": "Dias atrás",
+        "max_results": "Resultados máx",
+        "locale": "Idioma",
+        "export_csv": "Exportar todos os avistamientos (CSV)",
+        "export_csv_desc": "Baixar detecções no formato eBird Record para importação manual.",
+        "export_csv_error": "Falha ao exportar CSV"
+      },
+      "birdweather": {
+        "title": "BirdWeather",
+        "toggle_label": "Ativar integração BirdWeather",
+        "token": "Token da Estação",
+        "token_label": "Token da estação BirdWeather",
+        "token_placeholder": "Seu token BirdWeather",
+        "token_desc": "Disponível nas configurações da sua estação em \"BirdWeather Token\".",
+        "test_button": "Testar Conexão",
+        "test_loading": "Verificando...",
+        "test_success": "Conexão BirdWeather verificada!",
+        "test_error": "Falha na conexão BirdWeather"
+      },
+      "llm": {
+        "title": "Análises de IA",
+        "toggle_label": "Ativar análises de IA",
+        "provider": "Provedor",
+        "provider_label": "Provedor LLM",
+        "model": "Modelo",
+        "model_label": "Modelo LLM",
+        "api_key": "Chave API",
+        "api_key_label": "Chave API LLM",
+        "providers": {
+          "gemini": "Google Gemini",
+          "openai": "OpenAI",
+          "claude": "Anthropic Claude"
+        }
       }
     },
     "auth": {
@@ -216,6 +286,7 @@
       "show_camera_names": "Mostrar nomes das câmeras",
       "show_camera_names_desc": "Ocultar rótulos das câmeras para visitantes públicos",
       "history_days": "Janela de histórico (dias)",
+      "media_days": "Janela de mídia (dias)",
       "rate_limit": "Limite de taxa (por minuto)"
     },
     "accessibility": {
@@ -301,7 +372,9 @@
       "oauth_connect_success": "{provider} conectado com sucesso!",
       "oauth_disconnect_success": "{provider} desconectado",
       "oauth_error": "Erro OAuth: {error}",
-      "credentials_required": "Por favor configure credenciais OAuth ou SMTP primeiro"
+      "credentials_required": "Por favor configure credenciais OAuth ou SMTP primeiro",
+      "test_email_error_generic": "Failed to send test email",
+      "test_email_sent": "Email de teste enviado."
     },
     "notifications": {
       "global_filters": "Filtros Globais de Notificação",
@@ -340,7 +413,8 @@
       "video_fallback_seconds": "segundos",
       "cooldown": "Resfriamento de notificações",
       "cooldown_desc": "Tempo mínimo entre notificações em minutos (0 para desativar).",
-      "cooldown_unit": "minutos"
+      "cooldown_unit": "minutos",
+      "enable_notify_hint": "Notifications are currently off. Enable \"Notify on new detections\" or \"Notify on updates\" to send any alerts."
     },
     "discord": {
       "title": "Notificações Discord",
@@ -394,6 +468,143 @@
       "reset_button": "Resetar Banco de Dados e Cache",
       "resetting": "Resetando...",
       "confirm": "PERIGO: Isso excluirá TODAS as detecções e limpará o cache de mídia. Esta ação não pode ser desfeita. Tem certeza?"
+    },
+    "data": {
+      "title": "Data Management",
+      "records": "Total Records",
+      "oldest": "Oldest Seen",
+      "retention": "Retention",
+      "pending_gc": "Pending GC",
+      "retention_title": "Retention Policy",
+      "history_duration": "History Duration",
+      "keep_everything": "Keep Everything (∞)",
+      "purge_button": "Purge Old Records",
+      "cleaning": "Cleaning...",
+      "auto_cleanup_note": "Automatic cleanup runs daily at 3 AM",
+      "cache_title": "Media Cache",
+      "cache_snapshots": "Snapshots",
+      "cache_clips": "Video Clips",
+      "cache_size": "Cache Size",
+      "cache_clear_button": "Clear Cached Files",
+      "taxonomy_title": "Taxonomy Repair",
+      "taxonomy_desc": "Connect scientific and common names",
+      "taxonomy_syncing": "Syncing",
+      "taxonomy_repairing": "Repairing Database",
+      "taxonomy_run_button": "Run Full Taxonomy Repair",
+      "backfill_title": "Missed Detections",
+      "backfill_desc": "Query Frigate history to fetch and classify past events.",
+      "backfill_window": "Time Window",
+      "backfill_24h": "Last 24 Hours",
+      "backfill_week": "Last Week",
+      "backfill_month": "Last Month",
+      "backfill_custom": "Custom Range",
+      "backfill_start": "Start",
+      "backfill_end": "End",
+      "backfill_total": "Total",
+      "backfill_new": "New",
+      "backfill_skip": "Skip",
+      "backfill_err": "Err",
+      "backfill_skipped_breakdown": "Skipped Breakdown",
+      "backfill_reasons": {
+        "low_confidence": "Below Minimum Confidence Floor",
+        "below_threshold": "Below Confidence Threshold",
+        "blocked_label": "Filtered (Blocked Label)",
+        "already_exists": "Already in Database",
+        "fetch_snapshot_failed": "Frigate Snapshot Missing"
+      },
+      "backfill_scanning": "Analyzing Frigate...",
+      "backfill_scan_button": "Scan History",
+      "weather_backfill_title": "Weather Backfill",
+      "weather_backfill_filling": "Filling Weather...",
+      "weather_backfill_button": "Fill Weather Fields",
+      "batch_analysis_title": "Batch Analysis",
+      "batch_analysis_desc": "Refine existing detections",
+      "batch_analysis_long_desc": "Run video analysis on all detections labeled as \"Unknown Bird\". This will queue background tasks to download clips and re-classify them.",
+      "batch_analysis_queueing": "Queueing...",
+      "batch_analysis_button": "Analyze All Unknowns",
+      "batch_analysis_processing": "Processing...",
+      "batch_analysis_pending": "Pending",
+      "batch_analysis_active": "Active",
+      "batch_analysis_circuit_open": "Circuit Breaker Open (Paused due to failures)",
+      "cleanup_success": "Cleanup complete! Deleted {count} old detections.",
+      "cleanup_none": "No cleanup needed.",
+      "cleanup_error": "Cleanup failed",
+      "reset_error": "Database reset failed",
+      "cache_cleanup_success": "Cache cleanup complete! Deleted {snapshots} snapshots, {clips} clips ({freed} freed).",
+      "cache_cleanup_error": "Cache cleanup failed",
+      "backfill_error": "Backfill failed",
+      "weather_backfill_error": "Weather backfill failed",
+      "analysis_error": "Analysis failed",
+      "wildlife_download_error": "Failed to download wildlife model",
+      "taxonomy_sync_error": "Failed to start taxonomy sync: {error}",
+      "retention_week": "1 Week",
+      "retention_weeks": "2 Weeks",
+      "retention_month": "1 Month",
+      "retention_months": "3 Months",
+      "retention_year": "1 Year",
+      "media_integrity_title": "Limpeza de integridade de mídia",
+      "purge_missing_clips": "Remover detecções sem clipes",
+      "purge_missing_snapshots": "Remover detecções sem instantâneos",
+      "media_integrity_note": "Exclui detecções quando a mídia do Frigate está ausente.",
+      "purge_missing_clips_confirm": "Remover detecções sem clipes? Esta ação não pode ser desfeita.",
+      "purge_missing_snapshots_confirm": "Remover detecções sem instantâneos? Esta ação não pode ser desfeita."
+    },
+    "security": {
+      "title": "Security",
+      "https_warning": "Security Warning: Authentication is enabled over HTTP. Your credentials may be exposed. Use HTTPS in production."
+    },
+    "connection": {
+      "frigate_success": "Connected to Frigate v{version} at {url}",
+      "frigate_unexpected": "Frigate returned unexpected status",
+      "frigate_error": "Failed to connect to Frigate",
+      "mqtt_title": "MQTT Settings (Frigate Events)",
+      "simulating": "Simulating..."
+    },
+    "common": {
+      "save_error": "Failed to save settings"
+    },
+    "enrichment": {
+      "title": "Enrichment Sources",
+      "desc": "As fontes são selecionadas automaticamente com base nas integrações.",
+      "mode_single": "Single Provider",
+      "mode_per": "Per Enrichment",
+      "provider": "Provider",
+      "fallback_note": "Fallbacks apply when a provider cannot supply a field.",
+      "summary_title": "Summary & Description",
+      "taxonomy_title": "Taxonomy & Common Names",
+      "sightings_title": "Nearby Sightings",
+      "seasonality_title": "Seasonality",
+      "rarity_title": "Rarity Indicators",
+      "links_title": "External Links",
+      "disabled": "Disabled"
+    },
+    "detection": {
+      "classification_engine": "Motor de classificação",
+      "fine_tuning": "Ajuste fino",
+      "confidence_threshold": "Limiar de confiança",
+      "threshold_loose": "Flexível",
+      "threshold_strict": "Estrito",
+      "min_confidence_floor": "Piso mínimo de confiança",
+      "floor_capture_all": "Capturar tudo",
+      "floor_reject_unsure": "Rejeitar inseguros",
+      "floor_help": "Eventos abaixo deste piso são ignorados completamente. Eventos entre o piso e o limiar são guardados como \"Ave desconhecida\".",
+      "trust_frigate": "Confiar nos sub-rótulos do Frigate",
+      "trust_frigate_desc": "Ignorar a classificação interna se o Frigate identificou a espécie",
+      "auto_video": "Análise de vídeo automática",
+      "auto_video_desc": "Executar automaticamente a reclassificação profunda de vídeo para cada evento",
+      "video_delay": "Atraso inicial (s)",
+      "video_retries": "Tentativas máximas",
+      "video_retry_note": "As tentativas usam um backoff exponencial para aguardar a finalização do clipe do Frigate.",
+      "naming_title": "Estilo de nomes de aves",
+      "naming_standard": "Padrão",
+      "naming_standard_sub": "Nomes comuns principais, científicos em legendas.",
+      "naming_hobbyist": "Amador",
+      "naming_hobbyist_sub": "Nomes científicos principais, comuns em legendas.",
+      "naming_scientific": "Científico",
+      "naming_scientific_sub": "Mostrar apenas nomes científicos. Oculta os nomes comuns.",
+      "blocked_labels": "Etiquetas bloqueadas",
+      "ignored_by_discovery": "Ignorado pela descoberta",
+      "no_blocked_labels": "Nenhuma etiqueta bloqueada ainda."
     }
   },
   "auth": {
@@ -476,6 +687,7 @@
     "weather_rain": "Chuva",
     "weather_snow": "Neve",
     "weather_icy": "Gelado",
+    "id": "ID de detecção",
     "inat": {
       "title": "iNaturalist",
       "connected": "Conectado: {user}",
@@ -538,7 +750,20 @@
     "image_alt": "{species} detectado em {camera}",
     "play_video": "Reproduzir vídeo de {species}",
     "reclassify": "Reclassificar detecção de {species}",
-    "retag": "Tag manual de detecção de {species}"
+    "retag": "Tag manual de detecção de {species}",
+    "audio_detected": "Áudio detectado",
+    "audio_heard": "Ouvido: {species}",
+    "tag_manual": "Manual",
+    "tag_video": "Vídeo",
+    "tag_snapshot": "Instantâneo",
+    "ebird_enable_sightings": "Ative o eBird para ver observações",
+    "ebird_configure_settings": "Configurar ajustes →",
+    "ebird_none_nearby": "Nenhuma observação recente nas proximidades.",
+    "ebird_try_radius": "Tente aumentar o raio de busca nas configurações.",
+    "ebird_notable_title": "Registros notáveis",
+    "ebird_notable_badge": "Relatos raros",
+    "ebird_enable_notable": "Ative o eBird para ver relatos notáveis",
+    "ebird_none_notable": "Nenhum registro notável reportado."
   },
   "events": {
     "title": "Eventos",
@@ -558,7 +783,8 @@
     },
     "empty_title": "Nenhum evento ainda",
     "empty_desc": "Faça backfill ou aguarde novas detecções para vê-las aqui.",
-    "load_failed": "Falha ao carregar eventos"
+    "load_failed": "Falha ao carregar eventos",
+    "classification_legend": "Fontes de classificação: Manual, Vídeo, Instantâneo"
   },
   "leaderboard": {
     "title": "Ranking de Espécies",
@@ -750,7 +976,22 @@
     "last_seen": "Visto Por Último",
     "activity_patterns": "Padrões de Atividade",
     "camera_breakdown": "Divisão por Câmera",
-    "recent_sightings": "Avistamentos Recentes"
+    "recent_sightings": "Avistamentos Recentes",
+    "ebird_disabled_title": "eBird não ativado",
+    "ebird_disabled_body": "Ative o eBird nas configurações para ver avistamentos próximos desta espécie.",
+    "seasonality_local": "Sazonalidade local",
+    "seasonality_global": "Sazonalidade global",
+    "range_map": "Mapa de distribuição",
+    "range_unavailable": "Mapa de distribuição indisponível.",
+    "range_map_hint": "Arraste para mover • Role para zoomar",
+    "video_unavailable": "Clipe de vídeo indisponível",
+    "no_recent_sightings": "Nenhuma observação recente.",
+    "count_label": "Contagem",
+    "valid_observation": "Observação válida",
+    "inat_observations": "Observações do iNaturalist",
+    "time_of_day": "Hora do dia",
+    "day_of_week": "Dia da semana",
+    "month": "Mês"
   },
   "pagination": {
     "navigation": "Paginação",
@@ -795,5 +1036,31 @@
       "Pinguins são apenas galinhas formais vestidas para uma festa de gala",
       "Galos gritam para o sol porque têm medo do escuro"
     ]
+  },
+  "first_run": {
+    "title": "Bem-vindo ao YA-WAMF",
+    "subtitle": "Proteja sua instalação definindo uma senha de administrador.",
+    "language_label": "Idioma",
+    "language_desc": "Você pode alterar depois nas Configurações.",
+    "admin_username": "Usuário administrador",
+    "password": "Senha",
+    "password_hint": "Mínimo de 8 caracteres",
+    "confirm_password": "Confirmar senha",
+    "skip_auth": "Pular autenticação (não recomendado)",
+    "setting_up": "Configurando…",
+    "continue_without_password": "Continuar sem senha",
+    "set_password": "Definir senha e continuar",
+    "password_mismatch": "As senhas não coincidem",
+    "password_min": "A senha deve ter pelo menos 8 caracteres",
+    "setup_failed": "Falha na configuração"
+  },
+  "telemetry_banner": {
+    "title": "Ajude a melhorar o YA-WAMF!",
+    "body": "Ative estatísticas de uso anônimas para orientar prioridades de desenvolvimento e validar que este projeto serve à comunidade de amantes de aves.",
+    "learn_more": "Saiba mais",
+    "enabling": "Ativando…",
+    "enable": "Ativar",
+    "dismiss": "Não, obrigado",
+    "enable_error": "Não foi possível ativar a telemetria. Tente novamente nas Configurações."
   }
 }

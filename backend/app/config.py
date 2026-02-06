@@ -149,6 +149,14 @@ class BirdWeatherSettings(BaseModel):
     enabled: bool = Field(default=False, description="Enable BirdWeather reporting")
     station_token: Optional[str] = Field(None, description="BirdWeather Station Token")
 
+class EbirdSettings(BaseModel):
+    enabled: bool = Field(default=False, description="Enable eBird enrichment")
+    api_key: Optional[str] = Field(default=None, description="eBird API key")
+    default_radius_km: int = Field(default=25, ge=1, le=50, description="Default search radius in km (1-50)")
+    default_days_back: int = Field(default=14, ge=1, le=30, description="Days back for recent observations (1-30)")
+    max_results: int = Field(default=25, ge=1, le=200, description="Maximum results to return")
+    locale: str = Field(default="en", description="Locale for species common names")
+
 class InaturalistSettings(BaseModel):
     enabled: bool = Field(default=False, description="Enable iNaturalist submissions")
     client_id: Optional[str] = Field(default=None, description="iNaturalist OAuth Client ID")
@@ -156,6 +164,16 @@ class InaturalistSettings(BaseModel):
     default_latitude: Optional[float] = Field(default=None, description="Default latitude for submissions")
     default_longitude: Optional[float] = Field(default=None, description="Default longitude for submissions")
     default_place_guess: Optional[str] = Field(default=None, description="Default place guess for submissions")
+
+class EnrichmentSettings(BaseModel):
+    mode: str = Field(default="per_enrichment", description="Enrichment source mode: single or per_enrichment")
+    single_provider: str = Field(default="wikipedia", description="Provider used when mode=single")
+    summary_source: str = Field(default="wikipedia", description="Provider for summaries/description")
+    taxonomy_source: str = Field(default="inaturalist", description="Provider for taxonomy/common names")
+    sightings_source: str = Field(default="disabled", description="Provider for nearby sightings")
+    seasonality_source: str = Field(default="disabled", description="Provider for seasonality")
+    rarity_source: str = Field(default="disabled", description="Provider for rarity indicators")
+    links_sources: list[str] = Field(default=["wikipedia", "inaturalist"], description="Providers for external links")
 
 class LLMSettings(BaseModel):
     enabled: bool = Field(default=False, description="Enable LLM integration")
@@ -286,6 +304,12 @@ class PublicAccessSettings(BaseModel):
         le=365,
         description="Days of historical data visible to public (0 = live only)"
     )
+    media_historical_days: int = Field(
+        default=7,
+        ge=0,
+        le=365,
+        description="Days of media (snapshots/clips) visible to public (0 = live only)"
+    )
     rate_limit_per_minute: int = Field(
         default=30,
         ge=1,
@@ -301,7 +325,9 @@ class Settings(BaseSettings):
     media_cache: MediaCacheSettings = MediaCacheSettings()
     location: LocationSettings = LocationSettings()
     birdweather: BirdWeatherSettings = BirdWeatherSettings()
+    ebird: EbirdSettings = EbirdSettings()
     inaturalist: InaturalistSettings = InaturalistSettings()
+    enrichment: EnrichmentSettings = EnrichmentSettings()
     llm: LLMSettings = LLMSettings()
     telemetry: TelemetrySettings = TelemetrySettings()
     notifications: NotificationSettings = NotificationSettings()
@@ -310,6 +336,7 @@ class Settings(BaseSettings):
     auth: AuthSettings = AuthSettings()
     public_access: PublicAccessSettings = PublicAccessSettings()
     species_info_source: str = Field(default="auto", description="Species info source: auto, inat, or wikipedia")
+    date_format: str = Field(default="locale", description="Date format: locale, mdy, dmy, ymd")
 
     # General app settings
     log_level: str = "INFO"
@@ -393,6 +420,16 @@ class Settings(BaseSettings):
             'station_token': os.environ.get('BIRDWEATHER__STATION_TOKEN', None),
         }
 
+        # eBird settings
+        ebird_data = {
+            'enabled': os.environ.get('EBIRD__ENABLED', 'false').lower() == 'true',
+            'api_key': os.environ.get('EBIRD__API_KEY', None),
+            'default_radius_km': int(os.environ.get('EBIRD__DEFAULT_RADIUS_KM', '25')),
+            'default_days_back': int(os.environ.get('EBIRD__DEFAULT_DAYS_BACK', '14')),
+            'max_results': int(os.environ.get('EBIRD__MAX_RESULTS', '25')),
+            'locale': os.environ.get('EBIRD__LOCALE', 'en'),
+        }
+
         # iNaturalist settings
         inaturalist_data = {
             'enabled': os.environ.get('INATURALIST__ENABLED', 'false').lower() == 'true',
@@ -401,6 +438,18 @@ class Settings(BaseSettings):
             'default_latitude': None,
             'default_longitude': None,
             'default_place_guess': None,
+        }
+
+        # Enrichment settings
+        enrichment_data = {
+            'mode': os.environ.get('ENRICHMENT__MODE', 'per_enrichment'),
+            'single_provider': os.environ.get('ENRICHMENT__SINGLE_PROVIDER', 'wikipedia'),
+            'summary_source': os.environ.get('ENRICHMENT__SUMMARY_SOURCE', 'wikipedia'),
+            'taxonomy_source': os.environ.get('ENRICHMENT__TAXONOMY_SOURCE', 'inaturalist'),
+            'sightings_source': os.environ.get('ENRICHMENT__SIGHTINGS_SOURCE', 'disabled'),
+            'seasonality_source': os.environ.get('ENRICHMENT__SEASONALITY_SOURCE', 'disabled'),
+            'rarity_source': os.environ.get('ENRICHMENT__RARITY_SOURCE', 'disabled'),
+            'links_sources': [s.strip() for s in os.environ.get('ENRICHMENT__LINKS_SOURCES', 'wikipedia,inaturalist').split(',') if s.strip()],
         }
 
         # LLM settings
@@ -495,6 +544,7 @@ class Settings(BaseSettings):
             'enabled': os.environ.get('PUBLIC_ACCESS__ENABLED', 'false').lower() == 'true',
             'show_camera_names': os.environ.get('PUBLIC_ACCESS__SHOW_CAMERA_NAMES', 'true').lower() == 'true',
             'show_historical_days': int(os.environ.get('PUBLIC_ACCESS__SHOW_HISTORICAL_DAYS', '7')),
+            'media_historical_days': int(os.environ.get('PUBLIC_ACCESS__MEDIA_HISTORICAL_DAYS', '7')),
             'rate_limit_per_minute': int(os.environ.get('PUBLIC_ACCESS__RATE_LIMIT_PER_MINUTE', '30')),
         }
 
@@ -514,6 +564,7 @@ class Settings(BaseSettings):
         }
 
         species_info_source = os.environ.get('SPECIES_INFO__SOURCE', 'auto')
+        date_format = os.environ.get('DISPLAY__DATE_FORMAT', 'locale')
 
         # Load from config file if it exists, env vars take precedence
         if CONFIG_PATH.exists():
@@ -560,11 +611,23 @@ class Settings(BaseSettings):
                         if env_key not in os.environ:
                             birdweather_data[key] = value
 
+                if 'ebird' in file_data:
+                    for key, value in file_data['ebird'].items():
+                        env_key = f'EBIRD__{key.upper()}'
+                        if env_key not in os.environ:
+                            ebird_data[key] = value
+
                 if 'inaturalist' in file_data:
                     for key, value in file_data['inaturalist'].items():
                         env_key = f'INATURALIST__{key.upper()}'
                         if env_key not in os.environ:
                             inaturalist_data[key] = value
+
+                if 'enrichment' in file_data:
+                    for key, value in file_data['enrichment'].items():
+                        env_key = f'ENRICHMENT__{key.upper()}'
+                        if env_key not in os.environ:
+                            enrichment_data[key] = value
                         
                 if 'llm' in file_data:
                     for key, value in file_data['llm'].items():
@@ -671,6 +734,17 @@ class Settings(BaseSettings):
 
                 if 'species_info_source' in file_data and 'SPECIES_INFO__SOURCE' not in os.environ:
                     species_info_source = file_data['species_info_source']
+                    # Back-compat: if enrichment isn't explicitly configured, map species_info_source to summary source.
+                    if 'enrichment' not in file_data and 'ENRICHMENT__SUMMARY_SOURCE' not in os.environ:
+                        if species_info_source == "inat":
+                            enrichment_data['summary_source'] = "inaturalist"
+                        elif species_info_source == "wikipedia":
+                            enrichment_data['summary_source'] = "wikipedia"
+                        else:
+                            enrichment_data['summary_source'] = "inaturalist"
+
+                if 'date_format' in file_data and 'DISPLAY__DATE_FORMAT' not in os.environ:
+                    date_format = file_data['date_format']
 
                 log.info("Loaded config from file", path=str(CONFIG_PATH))
             except Exception as e:
@@ -692,7 +766,9 @@ class Settings(BaseSettings):
                  cache_clips=media_cache_data['cache_clips'],
                  retention_days=media_cache_data['retention_days'])
         log.info("BirdWeather config", enabled=birdweather_data['enabled'])
+        log.info("eBird config", enabled=ebird_data['enabled'])
         log.info("iNaturalist config", enabled=inaturalist_data['enabled'])
+        log.info("Enrichment config", mode=enrichment_data['mode'])
         log.info("LLM config", enabled=llm_data['enabled'], provider=llm_data['provider'])
         log.info("Telemetry config", enabled=telemetry_data['enabled'], installation_id=telemetry_data['installation_id'])
         log.info("Notification config",
@@ -705,7 +781,8 @@ class Settings(BaseSettings):
                  has_password=auth_data['password_hash'] is not None)
         log.info("Public access config",
                  enabled=public_access_data['enabled'],
-                 historical_days=public_access_data['show_historical_days'])
+                 historical_days=public_access_data['show_historical_days'],
+                 media_historical_days=public_access_data['media_historical_days'])
 
         return cls(
             frigate=FrigateSettings(**frigate_data),
@@ -714,7 +791,9 @@ class Settings(BaseSettings):
             media_cache=MediaCacheSettings(**media_cache_data),
             location=LocationSettings(**location_data),
             birdweather=BirdWeatherSettings(**birdweather_data),
+            ebird=EbirdSettings(**ebird_data),
             inaturalist=InaturalistSettings(**inaturalist_data),
+            enrichment=EnrichmentSettings(**enrichment_data),
             llm=LLMSettings(**llm_data),
             telemetry=TelemetrySettings(**telemetry_data),
             notifications=NotificationSettings(**notifications_data),
@@ -723,6 +802,7 @@ class Settings(BaseSettings):
             auth=AuthSettings(**auth_data),
             public_access=PublicAccessSettings(**public_access_data),
             species_info_source=species_info_source,
+            date_format=date_format,
             api_key=api_key
         )
 

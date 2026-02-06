@@ -1,5 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { _ } from 'svelte-i18n';
+  import { get } from 'svelte/store';
   import { settingsStore } from '../stores/settings.svelte';
   import { updateSettings } from '../api';
 
@@ -36,7 +38,7 @@
       dismiss();
     } catch (error) {
       console.error('Failed to enable telemetry:', error);
-      alert('Failed to enable telemetry. Please try again from Settings.');
+      alert(get(_)('telemetry_banner.enable_error', { default: 'Failed to enable telemetry. Please try again from Settings.' }));
     } finally {
       isEnabling = false;
     }
@@ -48,12 +50,12 @@
 </script>
 
 {#if !isDismissed}
-  <div class="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 border-b border-blue-200 dark:border-blue-800">
+  <div class="bg-gradient-to-r from-teal-50 via-emerald-50 to-white dark:from-teal-950/30 dark:via-emerald-950/20 dark:to-slate-950/40 border-b border-teal-200/60 dark:border-teal-900/40">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
       <div class="flex items-start gap-3">
         <!-- Icon -->
         <div class="flex-shrink-0 mt-0.5">
-          <svg class="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg class="w-5 h-5 text-teal-600 dark:text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
         </div>
@@ -61,13 +63,13 @@
         <!-- Content -->
         <div class="flex-1 min-w-0">
           <p class="text-sm text-slate-700 dark:text-slate-300">
-            <span class="font-semibold">Help improve YA-WAMF!</span>
-            <span class="ml-1">Enable anonymous usage stats to help guide development priorities and validate that this project serves the bird enthusiast community.</span>
+            <span class="font-semibold">{$_('telemetry_banner.title')}</span>
+            <span class="ml-1">{$_('telemetry_banner.body')}</span>
             <button
               onclick={openDocs}
-              class="ml-1 text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 underline font-medium"
+              class="ml-1 text-teal-700 dark:text-teal-300 hover:text-emerald-700 dark:hover:text-emerald-300 underline font-medium"
             >
-              Learn more
+              {$_('telemetry_banner.learn_more')}
             </button>
           </p>
         </div>
@@ -77,16 +79,16 @@
           <button
             onclick={enableTelemetry}
             disabled={isEnabling}
-            class="px-4 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            class="btn btn-primary px-4 py-1.5 text-sm"
           >
-            {isEnabling ? 'Enabling...' : 'Enable'}
+            {isEnabling ? $_('telemetry_banner.enabling') : $_('telemetry_banner.enable')}
           </button>
           <button
             onclick={dismiss}
-            class="px-3 py-1.5 text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 transition-colors"
-            title="Dismiss"
+            class="btn btn-ghost px-3 py-1.5 text-sm text-slate-600 dark:text-slate-300"
+            title="{$_('telemetry_banner.dismiss')}"
           >
-            No Thanks
+            {$_('telemetry_banner.dismiss')}
           </button>
         </div>
       </div>

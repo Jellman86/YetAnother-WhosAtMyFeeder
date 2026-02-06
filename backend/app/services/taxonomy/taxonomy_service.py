@@ -5,6 +5,9 @@ import aiosqlite
 from typing import Optional, Dict
 from datetime import datetime
 from app.database import get_db
+from app.config import settings
+from app.services.ebird_service import ebird_service
+from app.utils.enrichment import get_effective_enrichment_settings
 
 log = structlog.get_logger()
 
@@ -40,6 +43,7 @@ class TaxonomyService:
         """
         Get both scientific and common names for a given name.
         Checks local cache first, then pings iNaturalist.
+        If configured, tries to use eBird for the common name preference.
         """
         # 1. Check Cache (skip if forcing refresh)
         if not force_refresh:
@@ -54,28 +58,44 @@ class TaxonomyService:
                     }
                 return cached
 
-        # 2. Lookup from iNaturalist
+        # 2. Lookup from iNaturalist (Base)
+        # We always need iNat for the taxa_id and scientific name structure
         log.info("Taxonomy lookup (iNaturalist)", query=query_name, force_refresh=force_refresh)
         result = await self._lookup_inaturalist(query_name)
-        
-        if result:
-            # 3. Save Success to Cache
-            await self._save_to_cache(result, db=db)
-            return result
-        else:
-            # 4. Save Failure to Cache (to prevent retrying forever)
+
+        if not result:
+             # 4. Save Failure to Cache (to prevent retrying forever)
             await self._save_to_cache({
                 "scientific_name": query_name,
                 "common_name": None,
                 "taxa_id": None,
                 "is_not_found": True
             }, db=db)
+            return {
+                "scientific_name": query_name,
+                "common_name": None,
+                "taxa_id": None
+            }
+            
+        # 3. Enrichment Override (eBird)
+        # If user prefers eBird common names, try to fetch and override
+        effective = get_effective_enrichment_settings()
+        if effective["taxonomy_source"] == "ebird":
+             try:
+                 # Use the scientific name we just found to lookup in eBird
+                 # This is safer than using the raw query_name
+                 sci_name = result.get("scientific_name") or query_name
+                 ebird_common = await ebird_service.get_common_name(sci_name, locale=settings.ebird.locale)
+                 
+                 if ebird_common:
+                     log.info("Overriding common name with eBird", original=result.get("common_name"), ebird=ebird_common)
+                     result["common_name"] = ebird_common
+             except Exception as e:
+                 log.warning("Failed to lookup eBird common name, falling back to iNaturalist", error=str(e))
 
-        return {
-            "scientific_name": query_name,
-            "common_name": None,
-            "taxa_id": None
-        }
+        # 4. Save Success to Cache
+        await self._save_to_cache(result, db=db)
+        return result
 
     async def _get_from_cache(self, name: str, db: Optional[aiosqlite.Connection] = None) -> Optional[Dict]:
         """Check the local taxonomy_cache table."""
@@ -91,7 +111,7 @@ class TaxonomyService:
 
     async def _query_cache(self, db: aiosqlite.Connection, name: str) -> Optional[Dict]:
         async with db.execute(
-            "SELECT scientific_name, common_name, taxa_id, is_not_found FROM taxonomy_cache WHERE LOWER(scientific_name) = LOWER(?) OR LOWER(common_name) = LOWER(?)",
+            "SELECT scientific_name, common_name, taxa_id, is_not_found, thumbnail_url FROM taxonomy_cache WHERE LOWER(scientific_name) = LOWER(?) OR LOWER(common_name) = LOWER(?)",
             (name, name)
         ) as cursor:
             row = await cursor.fetchone()
@@ -100,7 +120,8 @@ class TaxonomyService:
                     "scientific_name": row[0],
                     "common_name": row[1],
                     "taxa_id": row[2],
-                    "is_not_found": bool(row[3])
+                    "is_not_found": bool(row[3]),
+                    "thumbnail_url": row[4]
                 }
         return None
 
@@ -116,9 +137,9 @@ class TaxonomyService:
     async def _insert_cache(self, db: aiosqlite.Connection, data: Dict):
         await db.execute(
             """INSERT OR REPLACE INTO taxonomy_cache 
-               (scientific_name, common_name, taxa_id, is_not_found, last_updated) 
-               VALUES (?, ?, ?, ?, ?)""",
-            (data["scientific_name"], data["common_name"], data.get("taxa_id"), 1 if data.get("is_not_found") else 0, datetime.now())
+               (scientific_name, common_name, taxa_id, is_not_found, thumbnail_url, last_updated) 
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            (data["scientific_name"], data["common_name"], data.get("taxa_id"), 1 if data.get("is_not_found") else 0, data.get("thumbnail_url"), datetime.now())
         )
 
     async def _lookup_inaturalist(self, name: str) -> Optional[Dict]:
@@ -137,10 +158,13 @@ class TaxonomyService:
             
             if data.get("total_results", 0) > 0:
                 taxon = data["results"][0]
+                photo = taxon.get("default_photo")
+                thumb = photo.get("square_url") if photo else None
                 return {
                     "scientific_name": taxon.get("name"),
                     "common_name": taxon.get("preferred_common_name"),
-                    "taxa_id": taxon.get("id")
+                    "taxa_id": taxon.get("id"),
+                    "thumbnail_url": thumb
                 }
         except Exception as e:
             log.warning("iNaturalist lookup failed", query=name, error=str(e))

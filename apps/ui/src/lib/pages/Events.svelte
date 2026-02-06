@@ -13,7 +13,8 @@
         fetchEventsCount,
         analyzeDetection,
         type Detection,
-        type EventFilters
+        type EventFilters,
+        type EventFilterSpecies
     } from '../api';
     import { detectionsStore } from '../stores/detections.svelte';
     import { settingsStore } from '../stores/settings.svelte';
@@ -42,7 +43,7 @@
     let pageSize = $state(24);
     let totalCount = $state(0);
     let totalPages = $derived(Math.ceil(totalCount / pageSize));
-    let availableSpecies: string[] = $state([]);
+    let availableSpecies: EventFilterSpecies[] = $state([]);
     let availableCameras: string[] = $state([]);
     type DatePreset = 'all' | 'today' | 'week' | 'month' | 'custom';
     let datePreset = $state<DatePreset>('all');
@@ -67,17 +68,28 @@
         llmEnabled = settingsStore.settings?.llm_enabled ?? authStore.llmEnabled ?? false;
     });
 
-    // Derive naming logic for the modal
-    let modalNaming = $derived.by(() => {
+    // Naming logic
+    let naming = $derived.by(() => {
         if (!selectedEvent) return { primary: '', secondary: null };
-        const showCommon = settingsStore.settings?.display_common_names ?? true;
-        const preferSci = settingsStore.settings?.scientific_name_primary ?? false;
+        const showCommon = settingsStore.displayCommonNames;
+        const preferSci = settingsStore.scientificNamePrimary;
         return getBirdNames(selectedEvent, showCommon, preferSci);
     });
 
     let modalReclassifyProgress = $derived(selectedEvent ? detectionsStore.getReclassificationProgress(selectedEvent.frigate_event) : undefined);
-    let modalPrimaryName = $derived(modalNaming.primary);
-    let modalSubName = $derived(modalNaming.secondary);
+    let modalPrimaryName = $derived(naming.primary);
+    let modalSubName = $derived(naming.secondary);
+
+    function formatSpeciesLabel(item: EventFilterSpecies) {
+        const showCommon = settingsStore.displayCommonNames;
+        const preferSci = settingsStore.scientificNamePrimary;
+        const naming = getBirdNames({
+            display_name: item.display_name,
+            scientific_name: item.scientific_name ?? undefined,
+            common_name: item.common_name ?? undefined
+        } as any, showCommon, preferSci);
+        return naming.secondary ? `${naming.primary} (${naming.secondary})` : naming.primary;
+    }
 
     let dateRange = $derived.by(() => {
         const today = new Date();
@@ -116,6 +128,17 @@
             availableCameras = (filters as EventFilters).cameras;
             classifierLabels = labels.labels;
             hiddenCount = hidden.hidden_count;
+
+            if (speciesFilter && !speciesFilter.startsWith('taxa:')) {
+                const normalized = speciesFilter.toLowerCase();
+                const match = availableSpecies.find((s) => {
+                    const display = (s.display_name || '').toLowerCase();
+                    const sci = (s.scientific_name || '').toLowerCase();
+                    const common = (s.common_name || '').toLowerCase();
+                    return display === normalized || sci === normalized || common === normalized;
+                });
+                if (match) speciesFilter = match.value;
+            }
         } catch {}
         await loadEvents();
     });
@@ -217,19 +240,22 @@
 </script>
 
 <div class="space-y-6">
-    <div class="flex items-center justify-between">
-        <h2 class="text-2xl font-bold text-slate-900 dark:text-white">{$_('events.title')}</h2>
+    <div class="flex flex-wrap items-center justify-between gap-3">
+        <div>
+            <h2 class="text-2xl font-bold text-slate-900 dark:text-white">{$_('events.title')}</h2>
+            <p class="text-xs text-slate-500">{$_('events.classification_legend')}</p>
+        </div>
         <div class="text-sm text-slate-500">{$_('events.total_count', { values: { count: totalCount } })}</div>
     </div>
 
     <div class="card-base rounded-2xl p-4 flex flex-wrap gap-3">
-        <select bind:value={datePreset} onchange={loadEvents} class="px-3 py-2 rounded-lg bg-white/90 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 text-sm">
+        <select bind:value={datePreset} onchange={loadEvents} class="select-base min-w-[10rem]">
             <option value="all">{$_('events.filters.all_time')}</option><option value="today">{$_('common.today')}</option><option value="week">{$_('events.filters.week')}</option><option value="month">{$_('events.filters.month')}</option><option value="custom">{$_('events.filters.custom')}</option>
         </select>
-        <select bind:value={speciesFilter} onchange={loadEvents} class="px-3 py-2 rounded-lg bg-white/90 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 text-sm">
-            <option value="">{$_('events.filters.all_species')}</option>{#each availableSpecies as s}<option value={s}>{s}</option>{/each}
+        <select bind:value={speciesFilter} onchange={loadEvents} class="select-base min-w-[12rem]">
+            <option value="">{$_('events.filters.all_species')}</option>{#each availableSpecies as s}<option value={s.value}>{formatSpeciesLabel(s)}</option>{/each}
         </select>
-        <select bind:value={cameraFilter} onchange={loadEvents} class="px-3 py-2 rounded-lg bg-white/90 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 text-sm">
+        <select bind:value={cameraFilter} onchange={loadEvents} class="select-base min-w-[12rem]">
             <option value="">{$_('events.filters.all_cameras')}</option>{#each availableCameras as c}<option value={c}>{c}</option>{/each}
         </select>
     </div>

@@ -199,4 +199,6 @@ backend/data/models/**/*.onnx.data
 backend/data/models/**/*.tflite
 backend/data/models/**/*.onnx
 !backend/data/models/**/labels.txt
-apps/telemetry-worker/
+# apps/telemetry-worker/ # Un-ignored to allow tracking source
+apps/telemetry-worker/.wrangler/
+

@@ -1,4 +1,5 @@
 import { fetchSettings, type Settings } from '../api';
+import { authStore } from './auth.svelte';
 
 // Svelte 5 shared state for settings
 class SettingsStore {
@@ -48,15 +49,23 @@ class SettingsStore {
 
     // Computed properties for common settings
     get llmEnabled() {
-        return this.settings?.llm_enabled ?? false;
+        return this.settings?.llm_enabled ?? authStore.llmEnabled ?? false;
+    }
+
+    get birdnetEnabled() {
+        return this.settings?.birdnet_enabled ?? authStore.birdnetEnabled ?? false;
     }
 
     get displayCommonNames() {
-        return this.settings?.display_common_names ?? true;
+        return this.settings?.display_common_names ?? authStore.displayCommonNames ?? true;
     }
 
     get scientificNamePrimary() {
-        return this.settings?.scientific_name_primary ?? false;
+        return this.settings?.scientific_name_primary ?? authStore.scientificNamePrimary ?? false;
+    }
+
+    get liveAnnouncements() {
+        return this.settings?.accessibility_live_announcements ?? authStore.liveAnnouncements ?? true;
     }
 }
 

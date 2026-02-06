@@ -11,6 +11,8 @@
         downloadWildlifeModel,
         fetchMaintenanceStats,
         runCleanup,
+        purgeMissingClips,
+        purgeMissingSnapshots,
         runBackfill,
         runWeatherBackfill,
         startBackfillJob,
@@ -34,6 +36,7 @@
         initiateInaturalistOAuth,
         disconnectInaturalistOAuth,
         sendTestEmail,
+        exportEbirdCsv,
         type ClassifierStatus,
         type WildlifeModelStatus,
         type MaintenanceStats,
@@ -60,6 +63,7 @@
     import ConnectionSettings from '../components/settings/ConnectionSettings.svelte';
     import DetectionSettings from '../components/settings/DetectionSettings.svelte';
     import DataSettings from '../components/settings/DataSettings.svelte';
+    import EnrichmentSettings from '../components/settings/EnrichmentSettings.svelte';
     import IntegrationSettings from '../components/settings/IntegrationSettings.svelte';
     import NotificationSettings from '../components/settings/NotificationSettings.svelte';
     import AuthenticationSettings from '../components/settings/AuthenticationSettings.svelte';
@@ -184,7 +188,9 @@
     let publicAccessEnabled = $state(false);
     let publicAccessShowCameraNames = $state(true);
     let publicAccessHistoricalDays = $state(7);
+    let publicAccessMediaHistoricalDays = $state(7);
     let publicAccessRateLimitPerMinute = $state(30);
+    let dateFormat = $state('dmy');
     let debugUiEnabled = $state(false);
     let inatPreviewEnabled = $state(false);
     let inatPreviewDirty = $state(false);
@@ -241,7 +247,25 @@
     let highContrast = $state(false);
     let dyslexiaFont = $state(false);
     let liveAnnouncements = $state(true);
-    let speciesInfoSource = $state('auto');
+
+    // eBird
+    let ebirdEnabled = $state(false);
+    let ebirdApiKey = $state('');
+    let ebirdApiKeySaved = $state(false);
+    let ebirdDefaultRadiusKm = $state(25);
+    let ebirdDefaultDaysBack = $state(14);
+    let ebirdMaxResults = $state(25);
+    let ebirdLocale = $state('en');
+
+    // Enrichment sources
+    let enrichmentMode = $state<'single' | 'per_enrichment'>('per_enrichment');
+    let enrichmentSingleProvider = $state('wikipedia');
+    let enrichmentSummarySource = $state('wikipedia');
+    let enrichmentTaxonomySource = $state('inaturalist');
+    let enrichmentSightingsSource = $state('disabled');
+    let enrichmentSeasonalitySource = $state('disabled');
+    let enrichmentRaritySource = $state('disabled');
+    let enrichmentLinksSources = $state<string[]>(['wikipedia', 'inaturalist']);
 
     $effect(() => {
         if (highContrast) document.documentElement.classList.add('high-contrast');
@@ -322,7 +346,8 @@
     let versionInfo = $state<VersionInfo>({
         version: appVersion,
         base_version: appVersionBase,
-        git_hash: __GIT_HASH__
+        git_hash: __GIT_HASH__,
+        branch: typeof __APP_BRANCH__ === 'string' ? __APP_BRANCH__ : 'unknown'
     });
 
     let availableCameras = $state<string[]>([]);
@@ -336,6 +361,7 @@
     let message = $state<{ type: 'success' | 'error'; text: string } | null>(null);
     let currentTheme: Theme = $state('system');
     let currentLayout: Layout = $state('horizontal');
+    let currentFontTheme = $state<import('../stores/theme.svelte').FontTheme>('default');
 
     const normalizeSecret = (value?: string | null) => value === '***REDACTED***' ? '' : (value || '');
 
@@ -379,12 +405,26 @@
             { key: 'locationTemperatureUnit', val: locationTemperatureUnit, store: s.location_temperature_unit ?? 'celsius' },
             { key: 'birdweatherEnabled', val: birdweatherEnabled, store: s.birdweather_enabled ?? false },
             { key: 'birdweatherStationToken', val: birdweatherStationToken, store: s.birdweather_station_token || '' },
+            { key: 'ebirdEnabled', val: ebirdEnabled, store: s.ebird_enabled ?? false },
+            { key: 'ebirdApiKey', val: ebirdApiKey, store: normalizeSecret(s.ebird_api_key) },
+            { key: 'ebirdDefaultRadiusKm', val: ebirdDefaultRadiusKm, store: s.ebird_default_radius_km ?? 25 },
+            { key: 'ebirdDefaultDaysBack', val: ebirdDefaultDaysBack, store: s.ebird_default_days_back ?? 14 },
+            { key: 'ebirdMaxResults', val: ebirdMaxResults, store: s.ebird_max_results ?? 25 },
+            { key: 'ebirdLocale', val: ebirdLocale, store: s.ebird_locale ?? 'en' },
             { key: 'inaturalistEnabled', val: inaturalistEnabled, store: s.inaturalist_enabled ?? false },
             { key: 'inaturalistClientId', val: inaturalistClientId, store: normalizeSecret(s.inaturalist_client_id) },
             { key: 'inaturalistClientSecret', val: inaturalistClientSecret, store: normalizeSecret(s.inaturalist_client_secret) },
             { key: 'inaturalistDefaultLat', val: inaturalistDefaultLat, store: s.inaturalist_default_latitude ?? null },
             { key: 'inaturalistDefaultLon', val: inaturalistDefaultLon, store: s.inaturalist_default_longitude ?? null },
             { key: 'inaturalistDefaultPlace', val: inaturalistDefaultPlace, store: s.inaturalist_default_place_guess ?? '' },
+            { key: 'enrichmentMode', val: enrichmentMode, store: (s.enrichment_mode as typeof enrichmentMode) ?? 'per_enrichment' },
+            { key: 'enrichmentSingleProvider', val: enrichmentSingleProvider, store: s.enrichment_single_provider ?? 'wikipedia' },
+            { key: 'enrichmentSummarySource', val: enrichmentSummarySource, store: s.enrichment_summary_source ?? 'wikipedia' },
+            { key: 'enrichmentTaxonomySource', val: enrichmentTaxonomySource, store: s.enrichment_taxonomy_source ?? 'inaturalist' },
+            { key: 'enrichmentSightingsSource', val: enrichmentSightingsSource, store: s.enrichment_sightings_source ?? 'disabled' },
+            { key: 'enrichmentSeasonalitySource', val: enrichmentSeasonalitySource, store: s.enrichment_seasonality_source ?? 'disabled' },
+            { key: 'enrichmentRaritySource', val: enrichmentRaritySource, store: s.enrichment_rarity_source ?? 'disabled' },
+            { key: 'enrichmentLinksSources', val: JSON.stringify(enrichmentLinksSources), store: JSON.stringify(s.enrichment_links_sources || ['wikipedia', 'inaturalist']) },
             { key: 'llmEnabled', val: llmEnabled, store: s.llm_enabled ?? false },
             { key: 'llmProvider', val: llmProvider, store: s.llm_provider ?? 'gemini' },
             { key: 'llmApiKey', val: llmApiKey, store: s.llm_api_key || '' },
@@ -399,6 +439,7 @@
             { key: 'publicAccessEnabled', val: publicAccessEnabled, store: s.public_access_enabled ?? false },
             { key: 'publicAccessShowCameraNames', val: publicAccessShowCameraNames, store: s.public_access_show_camera_names ?? true },
             { key: 'publicAccessHistoricalDays', val: publicAccessHistoricalDays, store: s.public_access_historical_days ?? 7 },
+            { key: 'publicAccessMediaHistoricalDays', val: publicAccessMediaHistoricalDays, store: s.public_access_media_historical_days ?? 7 },
             { key: 'publicAccessRateLimitPerMinute', val: publicAccessRateLimitPerMinute, store: s.public_access_rate_limit_per_minute ?? 30 },
 
             // Notifications
@@ -440,8 +481,7 @@
             // Accessibility
             { key: 'highContrast', val: highContrast, store: s.accessibility_high_contrast ?? false },
             { key: 'dyslexiaFont', val: dyslexiaFont, store: s.accessibility_dyslexia_font ?? false },
-            { key: 'liveAnnouncements', val: liveAnnouncements, store: s.accessibility_live_announcements ?? true },
-            { key: 'speciesInfoSource', val: speciesInfoSource, store: s.species_info_source ?? 'auto' }
+            { key: 'liveAnnouncements', val: liveAnnouncements, store: s.accessibility_live_announcements ?? true }
         ];
 
         if (authPassword.length > 0 || authPasswordConfirm.length > 0) {
@@ -466,6 +506,8 @@
 
     let maintenanceStats = $state<MaintenanceStats | null>(null);
     let cleaningUp = $state(false);
+    let purgingMissingClips = $state(false);
+    let purgingMissingSnapshots = $state(false);
 
     // Media cache state
     let cacheEnabled = $state(true);
@@ -499,11 +541,14 @@
 
     theme.subscribe(t => currentTheme = t);
     layout.subscribe(l => currentLayout = l);
+    $effect(() => {
+        currentFontTheme = themeStore.fontTheme;
+    });
 
     onMount(async () => {
         // Handle deep linking to tabs
         const hash = window.location.hash.slice(1);
-        if (hash && ['connection', 'detection', 'notifications', 'integrations', 'security', 'data', 'appearance', 'accessibility', 'debug'].includes(hash)) {
+        if (hash && ['connection', 'detection', 'notifications', 'integrations', 'enrichment', 'security', 'data', 'appearance', 'accessibility', 'debug'].includes(hash)) {
             activeTab = hash;
         }
 
@@ -602,15 +647,57 @@
         try {
             const result = await runCleanup();
             if (result.status === 'completed') {
-                message = { type: 'success', text: `Cleanup complete! Deleted ${result.deleted_count} old detections.` };
+                message = { type: 'success', text: $_('settings.data.cleanup_success', { values: { count: result.deleted_count } }) };
             } else {
-                message = { type: 'success', text: result.message || 'No cleanup needed.' };
+                message = { type: 'success', text: result.message || $_('settings.data.cleanup_none') };
             }
             await loadMaintenanceStats();
         } catch (e: any) {
-            message = { type: 'error', text: e.message || 'Cleanup failed' };
+            message = { type: 'error', text: e.message || $_('settings.data.cleanup_error') };
         } finally {
             cleaningUp = false;
+        }
+    }
+
+    async function handlePurgeMissingClips() {
+        const confirmMsg = $_('settings.data.purge_missing_clips_confirm', {
+            default: 'Remove detections without clips? This cannot be undone.'
+        });
+        if (!confirm(confirmMsg)) return;
+
+        purgingMissingClips = true;
+        message = null;
+        try {
+            const result = await purgeMissingClips();
+            const text = result.message
+                || `Removed ${result.deleted_count.toLocaleString()} detections without clips (checked ${result.checked.toLocaleString()}).`;
+            message = { type: 'success', text };
+            await loadMaintenanceStats();
+        } catch (e: any) {
+            message = { type: 'error', text: e.message || $_('settings.data.cleanup_error') };
+        } finally {
+            purgingMissingClips = false;
+        }
+    }
+
+    async function handlePurgeMissingSnapshots() {
+        const confirmMsg = $_('settings.data.purge_missing_snapshots_confirm', {
+            default: 'Remove detections without snapshots? This cannot be undone.'
+        });
+        if (!confirm(confirmMsg)) return;
+
+        purgingMissingSnapshots = true;
+        message = null;
+        try {
+            const result = await purgeMissingSnapshots();
+            const text = result.message
+                || `Removed ${result.deleted_count.toLocaleString()} detections without snapshots (checked ${result.checked.toLocaleString()}).`;
+            message = { type: 'success', text };
+            await loadMaintenanceStats();
+        } catch (e: any) {
+            message = { type: 'error', text: e.message || $_('settings.data.cleanup_error') };
+        } finally {
+            purgingMissingSnapshots = false;
         }
     }
 
@@ -618,8 +705,7 @@
         console.log('Reset database requested');
         let confirmMsg = 'DANGER: This will delete ALL detections and clear the media cache. This action cannot be undone. Are you sure?';
         try {
-            const t = get(_);
-            confirmMsg = t('settings.danger.confirm');
+            confirmMsg = $_('settings.danger.confirm');
         } catch (e) {
             console.warn('Translation lookup failed, using fallback', e);
         }
@@ -639,8 +725,8 @@
             toastStore.success(result.message || $_('settings.danger.reset_button'));
             await Promise.all([loadMaintenanceStats(), loadCacheStats()]);
         } catch (e: any) {
-            message = { type: 'error', text: e.message || 'Database reset failed' };
-            toastStore.error(e.message || 'Database reset failed');
+            message = { type: 'error', text: e.message || $_('settings.data.reset_error') };
+            toastStore.error(e.message || $_('settings.data.reset_error'));
         } finally {
             resettingDatabase = false;
         }
@@ -663,13 +749,13 @@
                 const freed = result.bytes_freed > 1024 * 1024
                     ? `${(result.bytes_freed / (1024 * 1024)).toFixed(1)} MB`
                     : `${(result.bytes_freed / 1024).toFixed(1)} KB`;
-                message = { type: 'success', text: `Cache cleanup complete! Deleted ${result.snapshots_deleted} snapshots, ${result.clips_deleted} clips (${freed} freed).` };
+                message = { type: 'success', text: $_('settings.data.cache_cleanup_success', { values: { snapshots: result.snapshots_deleted, clips: result.clips_deleted, freed } }) };
             } else {
-                message = { type: 'success', text: result.message || 'No cleanup needed.' };
+                message = { type: 'success', text: result.message || $_('settings.data.cleanup_none') };
             }
             await loadCacheStats();
         } catch (e: any) {
-            message = { type: 'error', text: e.message || 'Cache cleanup failed' };
+            message = { type: 'error', text: e.message || $_('settings.data.cache_cleanup_error') };
         } finally {
             cleaningCache = false;
         }
@@ -691,7 +777,7 @@
             backfillTotal = job.total || 0;
             startBackfillPolling();
         } catch (e: any) {
-            message = { type: 'error', text: e.message || 'Backfill failed' };
+            message = { type: 'error', text: e.message || $_('settings.data.backfill_error') };
         }
     }
 
@@ -712,7 +798,7 @@
             weatherBackfillTotal = job.total || 0;
             startBackfillPolling();
         } catch (e: any) {
-            message = { type: 'error', text: e.message || 'Weather backfill failed' };
+            message = { type: 'error', text: e.message || $_('settings.data.weather_backfill_error') };
         }
     }
 
@@ -900,6 +986,19 @@
             // BirdWeather settings
             birdweatherEnabled = settings.birdweather_enabled ?? false;
             birdweatherStationToken = settings.birdweather_station_token ?? '';
+            // eBird settings
+            ebirdEnabled = settings.ebird_enabled ?? false;
+            if (settings.ebird_api_key === '***REDACTED***') {
+                ebirdApiKeySaved = true;
+                ebirdApiKey = '';
+            } else {
+                ebirdApiKeySaved = false;
+                ebirdApiKey = settings.ebird_api_key || '';
+            }
+            ebirdDefaultRadiusKm = settings.ebird_default_radius_km ?? 25;
+            ebirdDefaultDaysBack = settings.ebird_default_days_back ?? 14;
+            ebirdMaxResults = settings.ebird_max_results ?? 25;
+            ebirdLocale = settings.ebird_locale ?? 'en';
             // iNaturalist settings
             inaturalistEnabled = settings.inaturalist_enabled ?? false;
             if (settings.inaturalist_client_id === '***REDACTED***') {
@@ -920,6 +1019,15 @@
             inaturalistDefaultLon = settings.inaturalist_default_longitude ?? null;
             inaturalistDefaultPlace = settings.inaturalist_default_place_guess ?? '';
             inaturalistConnectedUser = settings.inaturalist_connected_user ?? null;
+            // Enrichment settings
+            enrichmentMode = (settings.enrichment_mode as typeof enrichmentMode) ?? 'per_enrichment';
+            enrichmentSingleProvider = settings.enrichment_single_provider ?? 'wikipedia';
+            enrichmentSummarySource = settings.enrichment_summary_source ?? 'wikipedia';
+            enrichmentTaxonomySource = settings.enrichment_taxonomy_source ?? 'inaturalist';
+            enrichmentSightingsSource = settings.enrichment_sightings_source ?? 'disabled';
+            enrichmentSeasonalitySource = settings.enrichment_seasonality_source ?? 'disabled';
+            enrichmentRaritySource = settings.enrichment_rarity_source ?? 'disabled';
+            enrichmentLinksSources = settings.enrichment_links_sources || ['wikipedia', 'inaturalist'];
             // LLM settings
             llmEnabled = settings.llm_enabled ?? false;
             llmProvider = settings.llm_provider ?? 'gemini';
@@ -943,7 +1051,13 @@
             publicAccessEnabled = settings.public_access_enabled ?? false;
             publicAccessShowCameraNames = settings.public_access_show_camera_names ?? true;
             publicAccessHistoricalDays = settings.public_access_historical_days ?? 7;
+            publicAccessMediaHistoricalDays = settings.public_access_media_historical_days ?? 7;
             publicAccessRateLimitPerMinute = settings.public_access_rate_limit_per_minute ?? 30;
+            if (settings.date_format === 'mdy' || settings.date_format === 'dmy' || settings.date_format === 'ymd') {
+                dateFormat = settings.date_format;
+            } else {
+                dateFormat = 'dmy';
+            }
             debugUiEnabled = settings.debug_ui_enabled ?? false;
 
             // Notifications
@@ -1035,7 +1149,6 @@
             highContrast = settings.accessibility_high_contrast ?? false;
             dyslexiaFont = settings.accessibility_dyslexia_font ?? false;
             liveAnnouncements = settings.accessibility_live_announcements ?? true;
-            speciesInfoSource = settings.species_info_source ?? 'auto';
         } catch (e) {
             message = { type: 'error', text: $_('notifications.settings_load_failed') };
         } finally {
@@ -1110,12 +1223,26 @@
                 location_temperature_unit: locationTemperatureUnit,
                 birdweather_enabled: birdweatherEnabled,
                 birdweather_station_token: birdweatherStationToken,
+                ebird_enabled: ebirdEnabled,
+                ebird_api_key: ebirdApiKey,
+                ebird_default_radius_km: ebirdDefaultRadiusKm,
+                ebird_default_days_back: ebirdDefaultDaysBack,
+                ebird_max_results: ebirdMaxResults,
+                ebird_locale: ebirdLocale,
                 inaturalist_enabled: inaturalistEnabled,
                 inaturalist_client_id: inaturalistClientId,
                 inaturalist_client_secret: inaturalistClientSecret,
                 inaturalist_default_latitude: inaturalistDefaultLat,
                 inaturalist_default_longitude: inaturalistDefaultLon,
                 inaturalist_default_place_guess: inaturalistDefaultPlace,
+                enrichment_mode: enrichmentMode,
+                enrichment_single_provider: enrichmentSingleProvider,
+                enrichment_summary_source: enrichmentSummarySource,
+                enrichment_taxonomy_source: enrichmentTaxonomySource,
+                enrichment_sightings_source: enrichmentSightingsSource,
+                enrichment_seasonality_source: enrichmentSeasonalitySource,
+                enrichment_rarity_source: enrichmentRaritySource,
+                enrichment_links_sources: enrichmentLinksSources,
                 llm_enabled: llmEnabled,
                 llm_provider: llmProvider,
                 llm_api_key: llmApiKey,
@@ -1129,7 +1256,9 @@
                 public_access_enabled: publicAccessEnabled,
                 public_access_show_camera_names: publicAccessShowCameraNames,
                 public_access_historical_days: publicAccessHistoricalDays,
+                public_access_media_historical_days: publicAccessMediaHistoricalDays,
                 public_access_rate_limit_per_minute: publicAccessRateLimitPerMinute,
+                date_format: dateFormat,
 
                 // Notifications
                 notifications_discord_enabled: discordEnabled,
@@ -1172,8 +1301,7 @@
                 // Accessibility
                 accessibility_high_contrast: highContrast,
                 accessibility_dyslexia_font: dyslexiaFont,
-                accessibility_live_announcements: liveAnnouncements,
-                species_info_source: speciesInfoSource
+                accessibility_live_announcements: liveAnnouncements
             });
             // Update store
             await settingsStore.load();
@@ -1257,6 +1385,10 @@
 
     function setTheme(t: Theme) {
         themeStore.setTheme(t);
+    }
+
+    function setFontTheme(font: import('../stores/theme.svelte').FontTheme) {
+        themeStore.setFontTheme(font);
     }
 
     function setLayout(l: Layout) {
@@ -1345,11 +1477,7 @@
         <button
             onclick={() => loadSettings()}
             disabled={loading}
-            class="inline-flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-xl
-                   text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-800
-                   border border-slate-200 dark:border-slate-700 shadow-sm
-                   hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-teal-600 dark:hover:text-teal-400
-                   transition-all disabled:opacity-50"
+            class="btn btn-secondary px-4 py-2 text-sm font-bold"
         >
             <svg class="w-4 h-4 {loading ? 'animate-spin' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -1498,6 +1626,13 @@
                     bind:cameraAudioMapping
                     bind:birdweatherEnabled
                     bind:birdweatherStationToken
+                    bind:ebirdEnabled
+                    bind:ebirdApiKey
+                    bind:ebirdApiKeySaved
+                    bind:ebirdDefaultRadiusKm
+                    bind:ebirdDefaultDaysBack
+                    bind:ebirdMaxResults
+                    bind:ebirdLocale
                     bind:inaturalistEnabled
                     bind:inaturalistClientId
                     bind:inaturalistClientSecret
@@ -1522,11 +1657,26 @@
                     {handleTestBirdWeather}
                     {initiateInaturalistOAuth}
                     {disconnectInaturalistOAuth}
+                    {exportEbirdCsv}
                     refreshInaturalistStatus={async () => {
                         await settingsStore.load();
                         await loadSettings(true);
                     }}
                     bind:testingBirdNET
+                />
+            {/if}
+
+            <!-- Enrichment Tab -->
+            {#if activeTab === 'enrichment'}
+                <EnrichmentSettings
+                    enrichmentMode={enrichmentMode}
+                    enrichmentSingleProvider={enrichmentSingleProvider}
+                    enrichmentSummarySource={enrichmentSummarySource}
+                    enrichmentTaxonomySource={enrichmentTaxonomySource}
+                    enrichmentSightingsSource={enrichmentSightingsSource}
+                    enrichmentSeasonalitySource={enrichmentSeasonalitySource}
+                    enrichmentRaritySource={enrichmentRaritySource}
+                    enrichmentLinksSources={enrichmentLinksSources}
                 />
             {/if}
 
@@ -1555,6 +1705,7 @@
                     bind:publicAccessEnabled
                     bind:publicAccessShowCameraNames
                     bind:publicAccessHistoricalDays
+                    bind:publicAccessMediaHistoricalDays
                     bind:publicAccessRateLimitPerMinute
                     addTrustedProxyHost={addTrustedProxyHost}
                     removeTrustedProxyHost={removeTrustedProxyHost}
@@ -1570,13 +1721,14 @@
                     bind:cacheSnapshots
                     bind:cacheClips
                     bind:cacheRetentionDays
-                    bind:speciesInfoSource
                     bind:backfillDateRange
                     bind:backfillStartDate
                     bind:backfillEndDate
                     {maintenanceStats}
                     {cacheStats}
                     {cleaningUp}
+                    {purgingMissingClips}
+                    {purgingMissingSnapshots}
                     {cleaningCache}
                     {backfilling}
                     {backfillResult}
@@ -1591,6 +1743,8 @@
                     {analysisStatus}
                     {analysisTotal}
                     {handleCleanup}
+                    {handlePurgeMissingClips}
+                    {handlePurgeMissingSnapshots}
                     {handleCacheCleanup}
                     {handleStartTaxonomySync}
                     {handleBackfill}
@@ -1606,9 +1760,13 @@
                     {currentTheme}
                     {currentLayout}
                     currentLocale={$locale || 'en'}
+                    currentDateFormat={dateFormat}
                     {setTheme}
+                    {currentFontTheme}
+                    {setFontTheme}
                     {setLayout}
                     {setLanguage}
+                    setDateFormat={(value) => (dateFormat = value)}
                 />
             {/if}
 

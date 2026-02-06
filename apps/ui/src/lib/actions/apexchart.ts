@@ -12,7 +12,7 @@ export const chart: Action<HTMLElement, ApexOptions> = (node, options) => {
     async function init() {
         if (initPromise) return initPromise;
         initPromise = (async () => {
-            const mod: ApexModule = await import('apexcharts');
+            const mod = await import('apexcharts');
             if (destroyed) return;
             const ApexCharts = (mod as any).default ?? mod;
             chartInstance = new ApexCharts(node, pendingOptions);

@@ -2,6 +2,7 @@
     import type { DailySpeciesSummary } from '../api';
     import { getThumbnailUrl } from '../api';
     import { settingsStore } from '../stores/settings.svelte';
+    import { authStore } from '../stores/auth.svelte';
     import { _ } from 'svelte-i18n';
 
     import { getBirdNames } from '../naming';
@@ -16,8 +17,8 @@
     // Ultra-reactive derivation
     let processedSpecies = $derived.by(() => {
         if (!species) return [];
-        const showCommon = settingsStore.settings?.display_common_names ?? true;
-        const preferSci = settingsStore.settings?.scientific_name_primary ?? false;
+        const showCommon = settingsStore.settings?.display_common_names ?? authStore.displayCommonNames ?? true;
+        const preferSci = settingsStore.settings?.scientific_name_primary ?? authStore.scientificNamePrimary ?? false;
         
         return species.map(item => {
             const naming = getBirdNames(item, showCommon, preferSci);

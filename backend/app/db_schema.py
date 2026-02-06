@@ -91,6 +91,7 @@ taxonomy_cache = Table(
     Column("common_name", String),
     Column("taxa_id", Integer),
     Column("is_not_found", Boolean, server_default="0"),
+    Column("thumbnail_url", String),
     Column("last_updated", TIMESTAMP, server_default=func.now()),
 )
 

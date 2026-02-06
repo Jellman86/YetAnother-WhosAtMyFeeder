@@ -156,7 +156,7 @@ async def get_auth_context(
     """
     from app.config import settings
 
-    # Try to extract token from Bearer header or Authorization header
+    # Try to extract token from Bearer header, Authorization header, or query param
     token = None
     if credentials:
         token = credentials.credentials
@@ -164,6 +164,8 @@ async def get_auth_context(
         auth_header = request.headers["Authorization"]
         if auth_header.startswith("Bearer "):
             token = auth_header[7:]
+    if not token:
+        token = request.query_params.get("token")
 
     # If token provided, verify it
     if token:

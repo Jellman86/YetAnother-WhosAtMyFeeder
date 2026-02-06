@@ -1,11 +1,35 @@
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Instrument+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&family=Playfair+Display:wght@600;700&family=Source+Serif+4:wght@400;600;700&family=Sora:wght@500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  --font-body: 'Instrument Sans', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --font-display: 'Bricolage Grotesque', 'Instrument Sans', sans-serif;
+  font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+@layer base {
+  body {
+    @apply text-slate-700 dark:text-slate-200;
+    font-family: var(--font-body);
+  }
+
+  h1,
+  h2,
+  h3,
+  .font-display {
+    font-family: var(--font-display);
+    letter-spacing: -0.02em;
+  }
+}
+
+/* Ensure Tailwind font utilities align with runtime font switcher */
+.font-sans {
+  font-family: var(--font-body) !important;
 }
 
 /* Smooth theme transitions */
@@ -116,6 +140,73 @@ html {
 
   .tab-button-inactive {
     @apply text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-slate-700/50;
+  }
+
+  /* Unified buttons */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl text-sm font-semibold transition-all duration-200 focus-ring disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-primary {
+    @apply bg-gradient-to-r from-teal-500 to-emerald-600 text-white shadow-sm hover:from-teal-400 hover:to-emerald-500;
+  }
+
+  .btn-secondary {
+    @apply bg-white/90 dark:bg-slate-800/80 text-slate-700 dark:text-slate-200 border border-slate-200/80 dark:border-slate-700/60 shadow-sm;
+    @apply hover:border-teal-300/60 hover:text-teal-700 dark:hover:text-teal-300;
+  }
+
+  .btn-ghost {
+    @apply text-slate-600 dark:text-slate-300 hover:bg-slate-100/80 dark:hover:bg-slate-800/70;
+  }
+
+  .btn-danger {
+    @apply text-red-600 dark:text-red-400 border border-red-200/70 dark:border-red-900/40 hover:bg-red-50/80 dark:hover:bg-red-900/30;
+  }
+
+  .btn-icon {
+    @apply p-2.5 rounded-xl;
+  }
+
+  /* Unified fields */
+  .input-base {
+    @apply w-full px-3 py-2.5 rounded-xl bg-white/90 dark:bg-slate-800/70 border border-slate-200/80 dark:border-slate-700/60;
+    @apply text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500;
+    @apply shadow-sm outline-none transition focus:ring-2 focus:ring-teal-400/40 focus:border-teal-400/60;
+  }
+
+  .select-base {
+    @apply input-base pr-9 appearance-none;
+    background-image: url("data:image/svg+xml,%3Csvg width='12' height='12' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M5 7l5 6 5-6' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.75rem center;
+    background-size: 12px 12px;
+  }
+
+  /* Navigation buttons */
+  .nav-button {
+    @apply px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-200 focus-ring;
+  }
+
+  .nav-button-active {
+    @apply bg-brand-100/70 dark:bg-brand-900/40 text-brand-800 dark:text-brand-200 ring-1 ring-brand-200/70 dark:ring-brand-700/40 shadow-sm;
+  }
+
+  .nav-button-inactive {
+    @apply text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white;
+  }
+
+  /* Badges */
+  .badge {
+    @apply inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border;
+  }
+
+  .badge-info {
+    @apply bg-indigo-100/80 dark:bg-indigo-900/30 border-indigo-200/70 dark:border-indigo-700/40 text-indigo-700 dark:text-indigo-300;
+  }
+
+  .badge-success {
+    @apply bg-emerald-100/80 dark:bg-emerald-900/30 border-emerald-200/70 dark:border-emerald-700/40 text-emerald-700 dark:text-emerald-300;
   }
 }
 

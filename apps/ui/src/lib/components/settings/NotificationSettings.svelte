@@ -942,9 +942,9 @@
                             emailTestSuccess = null;
                             testingNotification['email'] = true;
                             const result = await sendTestEmail();
-                            emailTestSuccess = result.message || 'Test email sent';
+                            emailTestSuccess = result.message || $_('settings.email.test_email_sent');
                         } catch (e: any) {
-                            emailTestError = extractErrorMessage(e, 'Failed to send test email');
+                            emailTestError = extractErrorMessage(e, $_('settings.email.test_email_error_generic'));
                         } finally {
                             testingNotification['email'] = false;
                         }

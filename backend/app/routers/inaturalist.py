@@ -10,7 +10,8 @@ from urllib.parse import urlencode
 
 from app.config import settings
 from app.auth import require_owner, AuthContext
-from app.services.inaturalist_service import inaturalist_service, INAT_AUTHORIZE_URL, INAT_TOKEN_URL
+from app.auth_legacy import get_auth_context_with_legacy
+from app.services.inaturalist_service import inaturalist_service, INAT_AUTHORIZE_URL, INAT_TOKEN_URL, INAT_BASE_URL
 from app.services.i18n_service import i18n_service
 from app.utils.language import get_user_language
 from app.database import get_db
@@ -172,7 +173,7 @@ async def inaturalist_submit(request: Request, body: InaturalistSubmitRequest, a
     if not settings.inaturalist.enabled:
         raise HTTPException(status_code=400, detail=i18n_service.translate("errors.inat.disabled", lang))
 
-    token = await inaturalist_service.get_token()
+    token = await inaturalist_service.get_valid_token()
     if not token:
         raise HTTPException(status_code=400, detail=i18n_service.translate("errors.inat.not_connected", lang))
 
@@ -218,3 +219,52 @@ async def inaturalist_submit(request: Request, body: InaturalistSubmitRequest, a
     except Exception as e:
         log.error("inat_submit_failed", error=str(e))
         raise HTTPException(status_code=500, detail=i18n_service.translate("errors.inat.submit_failed", lang, error=str(e)))
+
+
+@router.get("/seasonality")
+async def inaturalist_seasonality(
+    taxon_id: int = Query(..., description="iNaturalist Taxon ID"),
+    lat: Optional[float] = Query(None, description="Latitude"),
+    lng: Optional[float] = Query(None, description="Longitude"),
+    radius: int = Query(50, description="Radius in km"),
+    auth=Depends(get_auth_context_with_legacy)
+):
+    """
+    Fetch seasonality histogram (observations by month) from iNaturalist.
+    Defaults to global if lat/lng missing, otherwise local.
+    """
+    params = {
+        "taxon_id": taxon_id,
+        "date_field": "observed",
+        "interval": "month_of_year",
+        "verifiable": "true"
+    }
+    
+    if lat is not None and lng is not None:
+        params["lat"] = lat
+        params["lng"] = lng
+        params["radius"] = radius
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(f"{INAT_BASE_URL}/observations/histogram", params=params)
+            resp.raise_for_status()
+            data = resp.json()
+            
+            # Transform { "1": 10, "2": 20 } into array [10, 20, ...]
+            # iNat months are 1-12
+            histogram = data.get("results", {}).get("month_of_year", {})
+            values = []
+            for i in range(1, 13):
+                values.append(histogram.get(str(i), 0))
+                
+            return {
+                "status": "ok",
+                "taxon_id": taxon_id,
+                "local": lat is not None,
+                "month_counts": values,
+                "total_observations": sum(values)
+            }
+    except Exception as e:
+        log.error("inat_seasonality_failed", taxon_id=taxon_id, error=str(e))
+        raise HTTPException(status_code=502, detail="Failed to fetch seasonality data")

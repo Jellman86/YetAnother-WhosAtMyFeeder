@@ -31,5 +31,8 @@ If you do not have App Owner approval yet, you can still preview the submission 
 2. Open **Settings → Debug** and enable **iNaturalist preview UI**.
 3. Open a detection details card to see the submission panel.
 
+## Reliability
+The integration automatically handles OAuth token refresh, so your connection remains active indefinitely without manual re-authentication.
+
 ## Status
-**Note:** This integration is currently **untested** in YA-WAMF due to unavailable app credentials during development.
+This integration is considered **Beta**. While the authentication and submission logic is fully implemented, please report any issues on GitHub.

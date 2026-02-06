@@ -1,5 +1,26 @@
 <script lang="ts">
-    import { getThumbnailUrl, analyzeDetection, updateDetectionSpecies, hideDetection, deleteDetection, searchSpecies, fetchAudioContext, createInaturalistDraft, submitInaturalistObservation, type SearchResult, type AudioContextDetection, type InaturalistDraft } from '../api';
+    import Map from './Map.svelte';
+    import {
+        getThumbnailUrl,
+        getSnapshotUrl,
+        analyzeDetection,
+        updateDetectionSpecies,
+        hideDetection,
+        deleteDetection,
+        searchSpecies,
+        fetchAudioContext,
+        createInaturalistDraft,
+        submitInaturalistObservation,
+        fetchSpeciesInfo,
+        fetchEbirdNearby,
+        fetchEbirdNotable,
+        type SearchResult,
+        type AudioContextDetection,
+        type InaturalistDraft,
+        type SpeciesInfo,
+        type EbirdNearbyResult,
+        type EbirdNotableResult
+    } from '../api';
     import type { Detection } from '../api';
     import ReclassificationOverlay from './ReclassificationOverlay.svelte';
     import { detectionsStore, type ReclassificationProgress } from '../stores/detections.svelte';
@@ -7,8 +28,10 @@
     import { authStore } from '../stores/auth.svelte';
     import { getBirdNames } from '../naming';
     import { _ } from 'svelte-i18n';
+    import { get } from 'svelte/store';
     import { onMount } from 'svelte';
     import { trapFocus } from '../utils/focus-trap';
+    import { formatDateTime } from '../utils/datetime';
     import { formatTemperature } from '../utils/temperature';
 
     interface Props {
@@ -54,6 +77,18 @@
     let inatLon = $state<number | null>(null);
     let inatPlace = $state('');
     let inatPreview = $state(false);
+
+    // Enrichment state
+    let speciesInfo = $state<SpeciesInfo | null>(null);
+    let speciesInfoLoading = $state(false);
+    let speciesInfoError = $state<string | null>(null);
+    let ebirdNearby = $state<EbirdNearbyResult | null>(null);
+    let ebirdNearbyLoading = $state(false);
+    let ebirdNearbyError = $state<string | null>(null);
+    let ebirdNotable = $state<EbirdNotableResult | null>(null);
+    let ebirdNotableLoading = $state(false);
+    let ebirdNotableError = $state<string | null>(null);
+    let lastEnrichmentKey = $state<string | null>(null);
 
     $effect(() => {
         if (modalElement) {
@@ -112,8 +147,8 @@
     );
 
     // Naming logic
-    const showCommon = $derived(settingsStore.settings?.display_common_names ?? true);
-    const preferSci = $derived(settingsStore.settings?.scientific_name_primary ?? false);
+    const showCommon = $derived(settingsStore.settings?.display_common_names ?? authStore.displayCommonNames ?? true);
+    const preferSci = $derived(settingsStore.settings?.scientific_name_primary ?? authStore.scientificNamePrimary ?? false);
     const naming = $derived(getBirdNames(detection, showCommon, preferSci));
     const primaryName = $derived(naming.primary);
     const subName = $derived(naming.secondary);
@@ -127,9 +162,53 @@
         detection.weather_rain !== undefined && detection.weather_rain !== null ||
         detection.weather_snowfall !== undefined && detection.weather_snowfall !== null
     );
-    const inatEnabled = $derived(settingsStore.settings?.inaturalist_enabled ?? false);
+    const inatEnabled = $derived(settingsStore.settings?.inaturalist_enabled ?? authStore.inaturalistEnabled ?? false);
     const inatConnectedUser = $derived(settingsStore.settings?.inaturalist_connected_user ?? null);
     const canShowInat = $derived(!readOnly && authStore.canModify && inatEnabled && (!!inatConnectedUser || inatPreview));
+
+    const UNKNOWN_SPECIES_LABELS = new Set(['unknown', 'unknown bird', 'background']);
+    const isUnknownSpecies = $derived(UNKNOWN_SPECIES_LABELS.has((detection.display_name || '').trim().toLowerCase()));
+
+    const enrichmentModeSetting = $derived(settingsStore.settings?.enrichment_mode ?? authStore.enrichmentMode ?? 'per_enrichment');
+    const enrichmentSingleProviderSetting = $derived(settingsStore.settings?.enrichment_single_provider ?? authStore.enrichmentSingleProvider ?? 'wikipedia');
+    const enrichmentSummaryProvider = $derived(
+        enrichmentModeSetting === 'single'
+            ? enrichmentSingleProviderSetting
+            : (settingsStore.settings?.enrichment_summary_source ?? authStore.enrichmentSummarySource ?? 'wikipedia')
+    );
+    const enrichmentSightingsProvider = $derived(
+        enrichmentModeSetting === 'single'
+            ? enrichmentSingleProviderSetting
+            : (settingsStore.settings?.enrichment_sightings_source ?? authStore.enrichmentSightingsSource ?? 'disabled')
+    );
+    const enrichmentSeasonalityProvider = $derived(
+        enrichmentModeSetting === 'single'
+            ? enrichmentSingleProviderSetting
+            : (settingsStore.settings?.enrichment_seasonality_source ?? authStore.enrichmentSeasonalitySource ?? 'disabled')
+    );
+    const enrichmentRarityProvider = $derived(
+        enrichmentModeSetting === 'single'
+            ? enrichmentSingleProviderSetting
+            : (settingsStore.settings?.enrichment_rarity_source ?? authStore.enrichmentRaritySource ?? 'disabled')
+    );
+    const enrichmentLinksProviders = $derived(
+        enrichmentModeSetting === 'single'
+            ? [enrichmentSingleProviderSetting]
+            : (settingsStore.settings?.enrichment_links_sources ?? authStore.enrichmentLinksSources ?? ['wikipedia', 'inaturalist'])
+    );
+    const enrichmentLinksProvidersNormalized = $derived(enrichmentLinksProviders.map((provider) => provider.toLowerCase()));
+    const ebirdEnabled = $derived(settingsStore.settings?.ebird_enabled ?? authStore.ebirdEnabled ?? false);
+    const ebirdRadius = $derived(settingsStore.settings?.ebird_default_radius_km ?? 25);
+    const ebirdDaysBack = $derived(settingsStore.settings?.ebird_default_days_back ?? 14);
+    const showEbirdNearby = $derived(
+        enrichmentSightingsProvider === 'ebird' || enrichmentSeasonalityProvider === 'ebird'
+    );
+    const showEbirdNotable = $derived(enrichmentRarityProvider === 'ebird');
+
+    function formatEbirdDate(dateStr?: string | null) {
+        if (!dateStr) return '—';
+        return formatDateTime(dateStr);
+    }
 
     onMount(() => {
         try {
@@ -156,6 +235,88 @@
         }
     });
 
+    async function loadSpeciesInfo(speciesName: string) {
+        speciesInfoLoading = true;
+        speciesInfoError = null;
+        try {
+            speciesInfo = await fetchSpeciesInfo(speciesName);
+        } catch (e: any) {
+            speciesInfoError = e?.message || 'Failed to load species info';
+        } finally {
+            speciesInfoLoading = false;
+        }
+    }
+
+    async function loadEbirdNearby(speciesName: string, scientificName?: string) {
+        ebirdNearbyLoading = true;
+        ebirdNearbyError = null;
+        try {
+            const res = await fetchEbirdNearby(speciesName, scientificName);
+            if (res.status === 'error') {
+                ebirdNearbyError = (res as any).message || 'Failed to load eBird sightings';
+                ebirdNearby = null;
+            } else {
+                ebirdNearby = res;
+            }
+        } catch (e: any) {
+            ebirdNearbyError = e?.message || 'Failed to load eBird sightings';
+        } finally {
+            ebirdNearbyLoading = false;
+        }
+    }
+
+    async function loadEbirdNotable() {
+        ebirdNotableLoading = true;
+        ebirdNotableError = null;
+        try {
+            const res = await fetchEbirdNotable();
+            if (res.status === 'error') {
+                ebirdNotableError = (res as any).message || 'Failed to load eBird notable sightings';
+                ebirdNotable = null;
+            } else {
+                ebirdNotable = res;
+            }
+        } catch (e: any) {
+            ebirdNotableError = e?.message || 'Failed to load eBird notable sightings';
+        } finally {
+            ebirdNotableLoading = false;
+        }
+    }
+
+    $effect(() => {
+        if (!detection?.display_name || isUnknownSpecies) return;
+        const enrichmentKey = [
+            detection.display_name,
+            enrichmentSummaryProvider,
+            enrichmentSightingsProvider,
+            enrichmentSeasonalityProvider,
+            enrichmentRarityProvider,
+            ebirdEnabled
+        ].join('|');
+        if (enrichmentKey === lastEnrichmentKey) return;
+        lastEnrichmentKey = enrichmentKey;
+
+        speciesInfo = null;
+        speciesInfoError = null;
+        ebirdNearby = null;
+        ebirdNearbyError = null;
+        ebirdNotable = null;
+        ebirdNotableError = null;
+
+        if (enrichmentSummaryProvider !== 'disabled') {
+            void loadSpeciesInfo(detection.display_name);
+        }
+
+        const needsEbirdNearby = ebirdEnabled && showEbirdNearby;
+        const needsEbirdNotable = ebirdEnabled && showEbirdNotable;
+        if (needsEbirdNearby) {
+            void loadEbirdNearby(detection.display_name, detection.scientific_name);
+        }
+        if (needsEbirdNotable) {
+            void loadEbirdNotable();
+        }
+    });
+
     async function openInatPanel() {
         inatPanelOpen = !inatPanelOpen;
         if (!inatPanelOpen || !detection?.frigate_event) {
@@ -178,7 +339,7 @@
                     latitude: defaults?.inaturalist_default_latitude ?? null,
                     longitude: defaults?.inaturalist_default_longitude ?? null,
                     place_guess: defaults?.inaturalist_default_place_guess ?? null,
-                    snapshot_url: detection.snapshot_url ?? null
+                    snapshot_url: getSnapshotUrl(detection.frigate_event)
                 };
             } else {
                 inatDraft = await createInaturalistDraft(detection.frigate_event);
@@ -438,7 +599,7 @@
 >
     <div
         bind:this={modalElement}
-        class="relative bg-white dark:bg-slate-800 rounded-3xl shadow-2xl max-w-lg w-full max-h-[90vh] flex flex-col border border-white/20 overflow-hidden"
+        class="relative bg-white dark:bg-slate-800 rounded-3xl shadow-2xl max-w-5xl w-full max-h-[90vh] flex flex-col border border-white/20 overflow-hidden"
         role="document"
         tabindex="-1"
     >
@@ -448,47 +609,53 @@
             <ReclassificationOverlay progress={reclassifyProgress} />
         {/if}
 
-        <div class="relative aspect-video bg-slate-100 dark:bg-slate-700">
-            <img src={getThumbnailUrl(detection.frigate_event)} alt={detection.display_name} class="w-full h-full object-cover" />
-            <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent"></div>
-            <div class="absolute bottom-0 left-0 right-0 p-6">
-                <h3 class="text-2xl font-black text-white drop-shadow-lg leading-tight">{primaryName}</h3>
-                {#if subName && subName !== primaryName}
-                    <p class="text-white/70 text-sm italic drop-shadow -mt-1 mb-1">{subName}</p>
+        <div class="flex-1 overflow-hidden flex flex-col lg:grid lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
+            <div class="relative bg-slate-100 dark:bg-slate-700 aspect-video lg:aspect-auto lg:h-full lg:border-r lg:border-slate-200/70 dark:lg:border-slate-700/60">
+                <img src={getThumbnailUrl(detection.frigate_event)} alt={detection.display_name} class="w-full h-full object-cover" />
+                <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent"></div>
+                <div class="absolute bottom-0 left-0 right-0 p-6">
+                    <h3 class="text-2xl font-black text-white drop-shadow-lg leading-tight">{primaryName}</h3>
+                    {#if subName && subName !== primaryName}
+                        <p class="text-white/70 text-sm italic drop-shadow -mt-1 mb-1">{subName}</p>
+                    {/if}
+                    <p class="text-white/50 text-[10px] uppercase font-bold tracking-widest mt-2">
+                        {formatDateTime(detection.detection_time)}
+                    </p>
+                </div>
+
+                <!-- Video Play Button (optional) -->
+                {#if showVideoButton && detection.has_clip && onPlayVideo}
+                    <button
+                        type="button"
+                        onclick={onPlayVideo}
+                        aria-label={$_('detection.play_video', { values: { species: primaryName } })}
+                        class="absolute inset-0 flex items-center justify-center bg-black/0 hover:bg-black/20 transition-all group/play focus:outline-none"
+                    >
+                        <div class="w-16 h-16 rounded-full bg-white/90 dark:bg-slate-800/90 flex items-center justify-center shadow-lg opacity-70 group-hover/play:opacity-100 transform scale-90 group-hover/play:scale-100 transition-all duration-200">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-7 h-7 text-teal-600 dark:text-teal-400 ml-1" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M8 5v14l11-7z"/>
+                            </svg>
+                        </div>
+                    </button>
                 {/if}
-                <p class="text-white/50 text-[10px] uppercase font-bold tracking-widest mt-2">
-                    {new Date(detection.detection_time).toLocaleString()}
-                </p>
+
+                <button
+                    onclick={onClose}
+                    class="absolute top-4 right-4 w-8 h-8 rounded-full bg-black/40 text-white flex items-center justify-center hover:bg-black/60 transition-colors"
+                    aria-label={$_('common.close')}
+                >
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
             </div>
 
-            <!-- Video Play Button (optional) -->
-            {#if showVideoButton && detection.has_clip && onPlayVideo}
-                <button
-                    type="button"
-                    onclick={onPlayVideo}
-                    aria-label={$_('detection.play_video', { values: { species: primaryName } })}
-                    class="absolute inset-0 flex items-center justify-center bg-black/0 hover:bg-black/20 transition-all group/play focus:outline-none"
-                >
-                    <div class="w-16 h-16 rounded-full bg-white/90 dark:bg-slate-800/90 flex items-center justify-center shadow-lg opacity-70 group-hover/play:opacity-100 transform scale-90 group-hover/play:scale-100 transition-all duration-200">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="w-7 h-7 text-teal-600 dark:text-teal-400 ml-1" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M8 5v14l11-7z"/>
-                        </svg>
-                    </div>
-                </button>
-            {/if}
-
-            <button
-                onclick={onClose}
-                class="absolute top-4 right-4 w-8 h-8 rounded-full bg-black/40 text-white flex items-center justify-center hover:bg-black/60 transition-colors"
-                aria-label="Close"
-            >
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-            </button>
-        </div>
-
-        <div class="flex-1 overflow-y-auto p-6 space-y-6 {showTagDropdown ? 'blur-sm pointer-events-none select-none' : ''}">
+            <div class="flex-1 overflow-y-auto p-6 space-y-6 {showTagDropdown ? 'blur-sm pointer-events-none select-none' : ''}">
+            <!-- Detection ID -->
+            <div class="flex items-center justify-between gap-3 px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-700/50">
+                <span class="text-[10px] font-black uppercase tracking-widest text-slate-500">{$_('detection.id')}</span>
+                <span class="text-[10px] font-mono text-slate-700 dark:text-slate-300 break-all text-right">{detection.frigate_event}</span>
+            </div>
             <!-- Confidence Bar -->
             {#if !detection.manual_tagged}
                 <div>
@@ -573,10 +740,12 @@
                         </div>
                         <div class="min-w-0">
                             <p class="text-[10px] font-black uppercase tracking-widest text-teal-600/70 dark:text-teal-400/70">
-                                {$_('detection.audio_match')}
+                                {detection.audio_confirmed ? $_('detection.audio_match') : $_('detection.audio_detected')}
                             </p>
                             <p class="text-sm font-bold text-slate-700 dark:text-slate-200 truncate">
-                                {detection.audio_species || $_('detection.birdnet_confirmed')}
+                                {detection.audio_confirmed
+                                    ? (detection.audio_species || $_('detection.birdnet_confirmed'))
+                                    : $_('detection.audio_heard', { values: { species: detection.audio_species || $_('detection.audio_detected') } })}
                                 {#if detection.audio_score}
                                     <span class="ml-1 opacity-60">({(detection.audio_score * 100).toFixed(0)}%)</span>
                                 {/if}
@@ -729,6 +898,239 @@
                 </div>
             {/if}
 
+            {#if !isUnknownSpecies && (speciesInfoLoading || speciesInfo || speciesInfoError || showEbirdNearby || showEbirdNotable)}
+                <div class="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    {#if enrichmentSummaryProvider !== 'disabled'}
+                        <div class="group relative overflow-hidden rounded-2xl border border-slate-200/60 dark:border-slate-700/60 bg-white/50 dark:bg-slate-900/30 p-5 hover:bg-white/80 dark:hover:bg-slate-900/50 transition-all duration-300">
+                            <div class="absolute inset-0 bg-gradient-to-br from-teal-500/5 via-transparent to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                            
+                            <div class="relative flex items-center justify-between gap-3 mb-3">
+                                <div class="flex items-center gap-2">
+                                    <div class="p-1.5 rounded-lg bg-teal-500/10 text-teal-600 dark:text-teal-400">
+                                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                    </div>
+                                    <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">{$_('actions.species_info')}</p>
+                                </div>
+                                {#if speciesInfo}
+                                    {@const summaryLabel = speciesInfo.summary_source || speciesInfo.source || 'Source'}
+                                    {#if speciesInfo.summary_source_url}
+                                        <a
+                                            href={speciesInfo.summary_source_url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            class="flex items-center gap-1.5 px-2 py-1 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[9px] font-black uppercase tracking-wider text-slate-500 hover:text-teal-600 dark:hover:text-teal-400 hover:border-teal-500/30 transition-colors shadow-sm"
+                                        >
+                                            {summaryLabel}
+                                            <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                            </svg>
+                                        </a>
+                                    {:else}
+                                        <span class="flex items-center gap-1.5 px-2 py-1 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[9px] font-black uppercase tracking-wider text-slate-500">
+                                            {summaryLabel}
+                                        </span>
+                                    {/if}
+                                {/if}
+                            </div>
+
+                            <div class="relative">
+                                {#if speciesInfoLoading}
+                                    <div class="flex flex-col gap-2">
+                                        <div class="h-3 w-3/4 bg-slate-200 dark:bg-slate-700 rounded animate-pulse"></div>
+                                        <div class="h-3 w-full bg-slate-200 dark:bg-slate-700 rounded animate-pulse"></div>
+                                        <div class="h-3 w-5/6 bg-slate-200 dark:bg-slate-700 rounded animate-pulse"></div>
+                                    </div>
+                                {:else if speciesInfoError}
+                                    <div class="flex items-center gap-2 p-3 rounded-xl bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400">
+                                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                        <p class="text-xs font-semibold">{speciesInfoError}</p>
+                                    </div>
+                                {:else if speciesInfo}
+                                    {@const summaryText = speciesInfo.extract || speciesInfo.description}
+                                    {#if summaryText}
+                                        <p class="text-sm text-slate-600 dark:text-slate-300 leading-relaxed line-clamp-4">
+                                            {summaryText}
+                                        </p>
+                                    {:else}
+                                        <p class="text-xs text-slate-500 italic">{$_('species_detail.no_info')}</p>
+                                    {/if}
+                                    {#if speciesInfo.scientific_name || speciesInfo.conservation_status}
+                                        <div class="flex flex-wrap gap-2 mt-3 pt-3 border-t border-slate-100 dark:border-slate-700/50">
+                                            {#if speciesInfo.scientific_name}
+                                                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-100 dark:bg-slate-800 text-[10px] font-bold text-slate-600 dark:text-slate-400 italic">
+                                                    <svg class="w-3 h-3 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" />
+                                                    </svg>
+                                                    {speciesInfo.scientific_name}
+                                                </span>
+                                            {/if}
+                                            {#if speciesInfo.conservation_status}
+                                                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-50 dark:bg-emerald-900/20 text-[10px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wide">
+                                                    <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                    </svg>
+                                                    {speciesInfo.conservation_status}
+                                                </span>
+                                            {/if}
+                                        </div>
+                                    {/if}
+                                {/if}
+                            </div>
+                        </div>
+                    {/if}
+
+                    {#if showEbirdNearby}
+                        <div class="group relative overflow-hidden rounded-2xl border border-sky-200/60 dark:border-sky-800/40 bg-sky-50/30 dark:bg-sky-900/10 p-5 hover:bg-sky-50/50 dark:hover:bg-sky-900/20 transition-all duration-300">
+                            <div class="flex items-center justify-between gap-3 mb-4">
+                                <div class="flex items-center gap-2">
+                                    <div class="p-1.5 rounded-lg bg-sky-500/10 text-sky-600 dark:text-sky-400">
+                                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                                        </svg>
+                                    </div>
+                                    <div class="flex flex-col">
+                                        <p class="text-[10px] font-black uppercase tracking-[0.2em] text-sky-700 dark:text-sky-400">{$_('species_detail.recent_sightings')}</p>
+                                        <div class="flex items-center gap-1.5 mt-0.5">
+                                            <span class="text-[9px] font-bold text-sky-600/60 dark:text-sky-500/60 uppercase tracking-wider">eBird</span>
+                                            <span class="w-0.5 h-0.5 rounded-full bg-sky-300"></span>
+                                            <span class="text-[9px] font-medium text-slate-400">{ebirdRadius}km · {ebirdDaysBack}d</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {#if !ebirdEnabled}
+                                <div class="text-center py-4 rounded-xl bg-white/50 dark:bg-slate-900/30 border border-dashed border-sky-200 dark:border-sky-800/30">
+                                    <p class="text-xs font-medium text-slate-500">{$_('detection.ebird_enable_sightings')}</p>
+                                    <a href="/settings#integrations" class="inline-block mt-2 text-[10px] font-bold text-sky-600 hover:text-sky-700 hover:underline">{$_('detection.ebird_configure_settings')}</a>
+                                </div>
+                            {:else if ebirdNearbyLoading}
+                                <div class="space-y-3">
+                                    {#each [1, 2, 3] as _}
+                                        <div class="flex justify-between gap-4">
+                                            <div class="h-3 w-2/3 bg-sky-100 dark:bg-sky-900/30 rounded animate-pulse"></div>
+                                            <div class="h-3 w-1/4 bg-sky-100 dark:bg-sky-900/30 rounded animate-pulse"></div>
+                                        </div>
+                                    {/each}
+                                </div>
+                            {:else if ebirdNearbyError}
+                                <div class="flex items-center gap-2 p-3 rounded-xl bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400 border border-rose-100 dark:border-rose-800/30">
+                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                    <p class="text-xs font-semibold">{ebirdNearbyError}</p>
+                                </div>
+                            {:else if (ebirdNearby?.results?.length || 0) === 0}
+                                <div class="text-center py-6">
+                                    <p class="text-sm text-slate-400 font-medium">{$_('detection.ebird_none_nearby')}</p>
+                                    <p class="text-[10px] text-slate-400/60 mt-1">{$_('detection.ebird_try_radius')}</p>
+                                </div>
+                            {:else if ebirdNearby}
+                                {#if ebirdNearby.results.some(r => r.lat && r.lng)}
+                                    <div class="h-48 mb-4 rounded-xl overflow-hidden border border-sky-100 dark:border-sky-900/30 shadow-sm relative z-0">
+                                        <Map
+                                            markers={ebirdNearby.results
+                                                .filter(r => r.lat && r.lng)
+                                                .map(r => ({
+                                                    lat: r.lat!,
+                                                    lng: r.lng!,
+                                                    title: r.location_name || 'Unknown Location',
+                                                    popupText: (() => {
+                                                        const t = get(_);
+                                                        const countLabel = t('species_detail.count_label', { default: 'Count' });
+                                                        return `<div class="font-sans"><p class="font-bold text-sm mb-1">${r.location_name}</p><p class="text-xs opacity-75">${formatEbirdDate(r.observed_at)}</p><p class="text-xs font-bold mt-1">${countLabel}: ${r.how_many ?? '?'}</p></div>`;
+                                                    })()
+                                                }))}
+                                            userLocation={authStore.canModify && settingsStore.settings?.location_latitude && settingsStore.settings?.location_longitude ? [settingsStore.settings.location_latitude, settingsStore.settings.location_longitude] : null}
+                                            zoom={10}
+                                            obfuscate={!authStore.canModify}
+                                        />
+                                    </div>
+                                {/if}
+                                <div class="space-y-2">
+                                    {#each ebirdNearby.results.slice(0, 5) as obs}
+                                        <div class="flex items-start justify-between gap-3 p-2.5 rounded-xl bg-white/60 dark:bg-slate-900/40 border border-sky-100 dark:border-sky-900/30 hover:border-sky-300 dark:hover:border-sky-700/50 transition-colors">
+                                            <div class="min-w-0">
+                                                <p class="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">{obs.location_name || $_('common.unknown_location')}</p>
+                                                <div class="flex items-center gap-2 mt-0.5">
+                                                    <p class="text-[10px] font-medium text-slate-400">{formatEbirdDate(obs.observed_at)}</p>
+                                                    {#if obs.obs_valid}
+                                                        <span class="w-1 h-1 rounded-full bg-emerald-400" title="Valid Observation"></span>
+                                                    {/if}
+                                                </div>
+                                            </div>
+                                            {#if obs.how_many}
+                                                <span class="flex-shrink-0 px-2 py-1 rounded-lg bg-sky-100 dark:bg-sky-900/40 text-[10px] font-black text-sky-700 dark:text-sky-300">
+                                                    x{obs.how_many}
+                                                </span>
+                                            {/if}
+                                        </div>
+                                    {/each}
+                                </div>
+                            {/if}
+                        </div>
+                    {/if}
+
+                    {#if showEbirdNotable}
+                        <div class="group relative overflow-hidden rounded-2xl border border-amber-200/60 dark:border-amber-800/40 bg-amber-50/30 dark:bg-amber-900/10 p-5 hover:bg-amber-50/50 dark:hover:bg-amber-900/20 transition-all duration-300">
+                            <div class="flex items-center justify-between gap-3 mb-4">
+                                <div class="flex items-center gap-2">
+                                    <div class="p-1.5 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                                        </svg>
+                                    </div>
+                                    <div class="flex flex-col">
+                                        <p class="text-[10px] font-black uppercase tracking-[0.2em] text-amber-700 dark:text-amber-400">{$_('detection.ebird_notable_title')}</p>
+                                        <div class="flex items-center gap-1.5 mt-0.5">
+                                            <span class="text-[9px] font-bold text-amber-600/60 dark:text-amber-500/60 uppercase tracking-wider">{$_('detection.ebird_notable_badge')}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {#if !ebirdEnabled}
+                                <div class="text-center py-4 rounded-xl bg-white/50 dark:bg-slate-900/30 border border-dashed border-amber-200 dark:border-amber-800/30">
+                                    <p class="text-xs font-medium text-slate-500">{$_('detection.ebird_enable_notable')}</p>
+                                </div>
+                            {:else if ebirdNotableLoading}
+                                <div class="space-y-3">
+                                    {#each [1, 2] as _}
+                                        <div class="h-12 w-full bg-amber-100 dark:bg-amber-900/30 rounded-xl animate-pulse"></div>
+                                    {/each}
+                                </div>
+                            {:else if ebirdNotableError}
+                                <p class="text-xs text-rose-600">{ebirdNotableError}</p>
+                            {:else if (ebirdNotable?.results?.length || 0) === 0}
+                                <div class="text-center py-4">
+                                    <p class="text-sm text-slate-400 font-medium">{$_('detection.ebird_none_notable')}</p>
+                                </div>
+                            {:else if ebirdNotable}
+                                <div class="space-y-2">
+                                    {#each ebirdNotable.results.slice(0, 5) as obs}
+                                        <div class="flex items-center gap-3 p-2.5 rounded-xl bg-white/60 dark:bg-slate-900/40 border border-amber-100 dark:border-amber-900/30 hover:border-amber-300 dark:hover:border-amber-700/50 transition-colors">
+                                            {#if obs.thumbnail_url}
+                                                <img src={obs.thumbnail_url} alt={obs.common_name || 'Bird'} class="w-10 h-10 rounded-lg object-cover bg-slate-200 dark:bg-slate-700 shrink-0" loading="lazy" />
+                                            {/if}
+                                            <div class="min-w-0 flex-1">
+                                                <p class="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">{obs.common_name || obs.scientific_name || $_('common.unknown_species')}</p>
+                                                <p class="text-[10px] font-medium text-slate-400 truncate">{obs.location_name || $_('common.unknown_location')}</p>
+                                            </div>
+                                            <div class="text-right shrink-0">
+                                                <p class="text-[10px] font-bold text-amber-600 dark:text-amber-400">{formatEbirdDate(obs.observed_at)}</p>
+                                            </div>
+                                        </div>
+                                    {/each}
+                                </div>
+                            {/if}
+                        </div>
+                    {/if}
+                </div>
+            {/if}
+
             {#if canShowInat}
                 <div class="p-4 rounded-2xl bg-emerald-50/70 dark:bg-slate-900/40 border border-emerald-100/80 dark:border-slate-700/60 space-y-3">
                     <div class="flex items-center justify-between gap-3">
@@ -773,7 +1175,7 @@
                                         </div>
                                         <div class="rounded-xl bg-white/80 dark:bg-slate-900/40 border border-slate-200/60 dark:border-slate-700/60 p-2">
                                             <p class="text-[9px] font-black uppercase tracking-widest text-slate-400">{$_('detection.inat.observed')}</p>
-                                            <p class="font-semibold text-slate-700 dark:text-slate-200">{new Date(inatDraft.observed_on_string).toLocaleString()}</p>
+                                            <p class="font-semibold text-slate-700 dark:text-slate-200">{formatDateTime(inatDraft.observed_on_string)}</p>
                                         </div>
                                     </div>
                                     <div class="grid grid-cols-2 gap-3">
@@ -929,6 +1331,7 @@
                 >
                     {$_('actions.species_info')}
                 </button>
+            </div>
             </div>
         </div>
 

@@ -4,6 +4,97 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog, and this project adheres to Semantic Versioning.
 
+## [2.7.6] - 2026-02-06
+
+- **Added:** First-run language picker with persisted preference.
+- **Changed:** First-run setup, telemetry banner, and eBird sections in detection/species modals now use i18n keys.
+- **Changed:** Settings tab labels fully localized (including Enrichment).
+
+## [2.7.5] - 2026-02-04
+
+- **Fixed:** Authenticated media (snapshots/clips/thumbnails) now include query tokens so owner access is honored even when public access limits are enabled.
+- **Added:** Public access settings now include a separate media history window (snapshots/clips) from the detections list.
+- **Fixed:** eBird nearby sightings now render even when species code resolution fails (warning no longer suppresses results).
+- **Added:** Configurable date formats (US/UK/JP-CN) with consistent formatting across the UI.
+- **Added:** Detection details now display the detection/event ID.
+- **Added:** Range map zoom controls in the species detail view.
+- **Changed:** Range map panel grows taller when eBird is disabled.
+- **Fixed:** Species cards now respect enrichment summary/seasonality settings and avoid fetching disabled sources.
+- **Fixed:** Species card labels and empty summary messaging now use localized translations.
+- **Changed:** Enrichment sources are now automatic: eBird API key enables eBird-first enrichment with iNaturalist seasonality fallback; without a key, Wikipedia + iNaturalist are used.
+- **Changed:** Enrichment settings UI is now read-only and reflects the effective source selection.
+- **Fixed:** Added missing seasonality labels for species detail translations across locales.
+- **Added:** Species detail modal now includes a GBIF-based global range map under seasonality.
+- **Fixed:** Detection details now distinguish between confirmed audio matches and merely detected audio.
+- **Fixed:** Detection cards and hero badge now distinguish audio detected vs confirmed.
+- **Changed:** Range map now defaults to a wider zoom and includes interaction hints.
+- **Fixed:** eBird usage now respects the integration toggle; disabled eBird no longer drives enrichments.
+- **Changed:** Species detail activity charts now match the modal card styling for a more consistent look.
+- **Changed:** Refined UI cohesion with unified navigation, button, and form-control styling.
+- **Changed:** Refined Species Detail modal styling for consistent cards, headers, and recent sightings layout.
+- **Changed:** Events species filter now uses taxonomic normalization and respects naming preferences.
+- **Added:** Data settings now include cleanup actions for detections missing clips or snapshots.
+- **Added:** Detection cards now show classification source (manual, video, snapshot).
+- **Changed:** Media purge endpoints guard against Frigate outages and disabled clips.
+- **Added:** Events page now includes a legend for classification source badges.
+- **Changed:** eBird integration docs now recommend enabling eBird and clarify enrichment behavior.
+- **Added:** Appearance settings now include a font switcher with multiple typography presets.
+- **Fixed:** Mobile navigation now always uses the vertical layout for reliable menu access.
+- **Changed:** Appearance settings now clarify that font changes apply immediately.
+- **Fixed:** Font switcher now consistently applies across the UI.
+- **Added:** Appearance settings now show language coverage hints for each font preset.
+
+## [2.7.4] - 2026-02-03
+
+- **Added:** eBird integration as a primary enrichment source for Species Info and Taxonomy (Common Names).
+- **Changed:** Taxonomy lookup now respects the configured "Taxonomy Source" in settings. If set to eBird, the system prefers eBird common names (e.g., "Eurasian Blackbird") while still maintaining iNaturalist links for seasonality data.
+- **Fixed:** eBird CSV export now fully complies with the "eBird Record Format (Extended)" specification (19 columns), ensuring successful imports without "Unknown species" or "Invalid date" errors.
+- **Fixed:** eBird CSV export now uses the database's normalized `common_name`, resolving import mismatches (e.g., matching "Turdus merula" to "Eurasian Blackbird").
+- **Changed:** UI Enrichment Settings now include eBird as a valid source for Summary and Taxonomy.
+- **Changed:** Source attribution pills in detection details now always reflect the actual source of the displayed information.
+- **Fixed:** Added a fallback note in Enrichment Settings to clarify that eBird taxonomy falls back to iNaturalist for missing IDs.
+
+## [2.7.3] - 2026-02-03
+
+- **Fixed:** Restored `taxa_id` lookup flow to ensure seasonality and localized names load when taxonomy cache entries exist or recent detections provide the ID.
+- **Fixed:** Filled missing Detection settings translation keys across all supported locales.
+- **Fixed:** Localized retention duration labels instead of relying on hardcoded language checks.
+- **Fixed:** Added a generic localized fallback for test email failures.
+- **Fixed:** Resolved eBird API 400 error caused by invalid `genus` category and added backend error handling for eBird service failures.
+- **Fixed:** Expanded Wikipedia bird validation to support higher taxonomic ranks (Family, Genus, Order) and multiple languages (DE, FR, ES, IT, NL, PT, PL, RU).
+- **Fixed:** Improved UI error states for eBird sightings in species and detection modals.
+- **Fixed:** Aligned eBird CSV export with the standard 16-column Record Format (Extended) and removed the header row to prevent import parsing errors.
+
+## [2.7.2] - 2026-02-03
+
+- **Fixed:** Resolved issue where enrichments (eBird sightings, iNaturalist seasonality) were hidden in guest mode due to missing configuration state and restricted endpoints.
+- **Added:** Public configuration state is now synchronized to guests via the auth status endpoint, enabling correct localized naming and feature toggles without requiring owner login.
+- **Changed:** eBird taxonomic lookups now include Genus, Spuh, Slash, and ISSF categories, enabling lookups for broader groups like "Siskins and New World Goldfinches" (genus `Spinus`).
+- **Changed:** eBird resolution now automatically falls back to scientific names if common name lookups fail.
+- **Fixed:** Resolved issue where Seasonality chart would not appear in modals due to missing `taxa_id` in some API responses.
+- **Added:** Comprehensive translation sync across all 9 supported languages, ensuring all settings panels (Data, Integrations, Enrichment) are fully localized.
+- **Fixed:** Corrected multiple TypeScript and syntax issues in the frontend, resulting in a clean `npm run check`.
+- **Fixed:** Accessibility live announcements now respect user settings even in guest mode.
+- **Fixed:** Resolved JSON syntax error in German locale file (`de.json`).
+- **Fixed:** Added missing `AuthStatusResponse` type handling in frontend API service.
+
+## [2.7.1] - 2026-02-02
+
+- **Added:** New dedicated Enrichment tab in Settings for centralizing all species data source configurations.
+- **Added:** Interactive Map visualization for eBird sightings in species and detection modals (user location hidden in guest mode).
+- **Changed:** Map visualization in guest mode now centers on a random sighting rather than the geometric center to prevent location inference.
+- **Added:** eBird Notable Nearby sightings now include species thumbnails powered by iNaturalist.
+- **Added:** Local Seasonality chart in Species Details (replacing Notable Nearby), showing monthly observation frequency from iNaturalist.
+- **Changed:** Dashboard "Top Visitor" stat card now has a cleaner layout without the numeric visit count.
+- **Fixed:** Resolved issue where Seasonality chart would appear blank due to missing taxonomy ID.
+- **Added:** Expanded telemetry collection to include feature usage (notifications, integrations, enrichment settings) for better development insights.
+- **Changed:** Refined Species Info, Recent Sightings, and Notable Nearby sections in Detection and Species modals with a new structured "beautiful" card-based layout.
+- **Fixed:** Resolved mobile scrollability issue in the Detection Details pane.
+- **Fixed:** Critical iNaturalist token expiration bug by implementing automatic refresh logic.
+- **Fixed:** Multiple TypeScript and accessibility issues across frontend components, resulting in a clean build check.
+- **Added:** Visual headers and icons for all enrichment sources (Wikipedia, eBird, iNaturalist) in modals.
+- **Changed:** Centralized enrichment provider selection logic to ensure consistent data presentation across the UI.
+
 ## [2.7.0] - 2026-02-01
 
 - **Added:** Notification Center now separates ongoing actions with pinned progress bars for long-running jobs.

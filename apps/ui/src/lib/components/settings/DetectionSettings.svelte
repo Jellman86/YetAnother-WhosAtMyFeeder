@@ -1,5 +1,6 @@
 <script lang="ts">
     import { _ } from 'svelte-i18n';
+    import { formatDateTime } from '../../utils/datetime';
     import ModelManager from '../../pages/models/ModelManager.svelte';
 
     // Props
@@ -37,7 +38,7 @@
         removeBlockedLabel: (label: string) => void;
     } = $props();
 
-    const circuitUntil = $derived(videoCircuitUntil ? new Date(videoCircuitUntil).toLocaleString() : null);
+    const circuitUntil = $derived(videoCircuitUntil ? formatDateTime(videoCircuitUntil) : null);
 </script>
 
 <div class="space-y-6">
@@ -47,7 +48,7 @@
             <div class="w-10 h-10 rounded-2xl bg-teal-500/10 flex items-center justify-center text-teal-600 dark:text-teal-400">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>
             </div>
-            <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">Classification Engine</h3>
+            <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">{$_('settings.detection.classification_engine')}</h3>
         </div>
         <ModelManager />
     </section>
@@ -55,12 +56,12 @@
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
         <!-- Tuning -->
         <section class="card-base rounded-3xl p-8">
-            <h4 class="text-xs font-black uppercase tracking-[0.2em] text-slate-400 mb-6">Fine Tuning</h4>
+            <h4 class="text-xs font-black uppercase tracking-[0.2em] text-slate-400 mb-6">{$_('settings.detection.fine_tuning')}</h4>
 
             <div class="space-y-8">
                 <div>
                     <div class="flex justify-between mb-4">
-                        <label for="confidence-threshold-slider" class="text-sm font-black text-slate-900 dark:text-white">Confidence Threshold</label>
+                        <label for="confidence-threshold-slider" class="text-sm font-black text-slate-900 dark:text-white">{$_('settings.detection.confidence_threshold')}</label>
                         <output for="confidence-threshold-slider" class="px-2 py-1 bg-teal-500 text-white text-[10px] font-black rounded-lg">{(threshold * 100).toFixed(0)}%</output>
                     </div>
                     <input
@@ -74,15 +75,15 @@
                                             aria-valuemax="100"
                                             aria-valuenow={Math.round(threshold * 100)}
                                             aria-valuetext="{(threshold * 100).toFixed(0)} percent"
-                                            aria-label="Confidence threshold: {(threshold * 100).toFixed(0)}%"
+                                            aria-label="{$_('settings.detection.confidence_threshold')}: {(threshold * 100).toFixed(0)}%"
                                             class="w-full h-2 rounded-lg bg-slate-200 dark:bg-slate-700 appearance-none cursor-pointer accent-teal-500"
                                         />
-                                        <div class="flex justify-between mt-2"><span class="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Loose</span><span class="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Strict</span></div>
+                                        <div class="flex justify-between mt-2"><span class="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">{$_('settings.detection.threshold_loose')}</span><span class="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">{$_('settings.detection.threshold_strict')}</span></div>
                                     </div>
                         
                                         <div>
                                             <div class="flex justify-between mb-4">
-                                                <label for="min-confidence-slider" class="text-sm font-black text-slate-900 dark:text-white">Minimum Confidence Floor</label>
+                                                <label for="min-confidence-slider" class="text-sm font-black text-slate-900 dark:text-white">{$_('settings.detection.min_confidence_floor')}</label>
                                                 <output for="min-confidence-slider" class="px-2 py-1 bg-amber-500 text-white text-[10px] font-black rounded-lg">{(minConfidence * 100).toFixed(0)}%</output>
                                             </div>
                                             <input
@@ -96,20 +97,20 @@
                                                 aria-valuemax="100"
                                                 aria-valuenow={Math.round(minConfidence * 100)}
                                                 aria-valuetext="{(minConfidence * 100).toFixed(0)} percent"
-                                                aria-label="Minimum confidence floor: {(minConfidence * 100).toFixed(0)}%"
+                                                aria-label="{$_('settings.detection.min_confidence_floor')}: {(minConfidence * 100).toFixed(0)}%"
                                                 aria-describedby="min-confidence-help"
                                                 class="w-full h-2 rounded-lg bg-slate-200 dark:bg-slate-700 appearance-none cursor-pointer accent-amber-500"
                                             />
                                             <div class="flex justify-between mt-2">
-                                                <span class="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Capture All</span>
-                                                <span class="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Reject Unsure</span>
+                                                <span class="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">{$_('settings.detection.floor_capture_all')}</span>
+                                                <span class="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">{$_('settings.detection.floor_reject_unsure')}</span>
                                             </div>
-                                            <p id="min-confidence-help" class="mt-3 text-[10px] text-slate-500 font-bold leading-tight">Events below this floor are ignored completely. Events between floor and threshold are saved as "Unknown Bird".</p>
+                                            <p id="min-confidence-help" class="mt-3 text-[10px] text-slate-500 font-bold leading-tight">{$_('settings.detection.floor_help')}</p>
                                         </div>
                 <div class="p-4 rounded-2xl bg-teal-500/5 border border-teal-500/10 flex items-center justify-between gap-4">
                     <div id="trust-frigate-label" class="flex-1">
-                        <span class="block text-sm font-black text-slate-900 dark:text-white">Trust Frigate Sublabels</span>
-                        <span class="block text-[10px] text-slate-500 font-bold leading-tight mt-1">Skip internal classification if Frigate identified species</span>
+                        <span class="block text-sm font-black text-slate-900 dark:text-white">{$_('settings.detection.trust_frigate')}</span>
+                        <span class="block text-[10px] text-slate-500 font-bold leading-tight mt-1">{$_('settings.detection.trust_frigate_desc')}</span>
                     </div>
                     <button
                         role="switch"
@@ -124,7 +125,7 @@
                         }}
                         class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {trustFrigateSublabel ? 'bg-teal-500' : 'bg-slate-300 dark:bg-slate-600'}"
                     >
-                        <span class="sr-only">Trust Frigate Sublabels</span>
+                        <span class="sr-only">{$_('settings.detection.trust_frigate')}</span>
                         <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {trustFrigateSublabel ? 'translate-x-5' : 'translate-x-0'}"></span>
                     </button>
                 </div>
@@ -132,8 +133,8 @@
                 <div class="space-y-4 pt-4 border-t border-slate-100 dark:border-slate-700/50">
                     <div class="flex items-center justify-between">
                         <div id="auto-video-label">
-                            <span class="block text-sm font-black text-slate-900 dark:text-white">Auto Video Analysis</span>
-                            <span class="block text-[10px] text-slate-500 font-bold leading-tight mt-1">Automatically run deep video reclassification for every event</span>
+                            <span class="block text-sm font-black text-slate-900 dark:text-white">{$_('settings.detection.auto_video')}</span>
+                            <span class="block text-[10px] text-slate-500 font-bold leading-tight mt-1">{$_('settings.detection.auto_video_desc')}</span>
                         </div>
                         <button
                             role="switch"
@@ -148,7 +149,7 @@
                             }}
                             class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {autoVideoClassification ? 'bg-indigo-500' : 'bg-slate-300 dark:bg-slate-600'}"
                         >
-                            <span class="sr-only">Auto Video Analysis</span>
+                            <span class="sr-only">{$_('settings.detection.auto_video')}</span>
                             <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {autoVideoClassification ? 'translate-x-5' : 'translate-x-0'}"></span>
                         </button>
                     </div>
@@ -171,29 +172,29 @@
                         {/if}
                         <div class="grid grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2">
                             <div>
-                                <label for="video-delay" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Initial Delay (s)</label>
+                                <label for="video-delay" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.detection.video_delay')}</label>
                                 <input
                                     id="video-delay"
                                     type="number"
                                     bind:value={videoClassificationDelay}
                                     min="0"
-                                    aria-label="Initial delay in seconds"
+                                    aria-label={$_('settings.detection.video_delay')}
                                     class="w-full px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
                                 />
                             </div>
                             <div>
-                                <label for="video-retries" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Max Retries</label>
+                                <label for="video-retries" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.detection.video_retries')}</label>
                                 <input
                                     id="video-retries"
                                     type="number"
                                     bind:value={videoClassificationMaxRetries}
                                     min="0"
-                                    aria-label="Maximum retries"
+                                    aria-label={$_('settings.detection.video_retries')}
                                     class="w-full px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
                                 />
                             </div>
                         </div>
-                        <p class="text-[9px] text-slate-400 italic">Retries use exponential backoff to wait for Frigate clip finalization.</p>
+                        <p class="text-[9px] text-slate-400 italic">{$_('settings.detection.video_retry_note')}</p>
                     {/if}
                 </div>
             </div>
@@ -201,17 +202,17 @@
 
         <!-- Naming -->
         <section class="card-base rounded-3xl p-8">
-            <h4 class="text-xs font-black uppercase tracking-[0.2em] text-slate-400 mb-6">Bird Naming Style</h4>
+            <h4 class="text-xs font-black uppercase tracking-[0.2em] text-slate-400 mb-6">{$_('settings.detection.naming_title')}</h4>
 
             <div class="flex flex-col gap-3">
                 {#each [
-                    { id: 'standard', title: 'Standard', sub: 'Common names primary, scientific subtitles.', active: displayCommonNames && !scientificNamePrimary, action: () => { displayCommonNames = true; scientificNamePrimary = false; } },
-                    { id: 'hobbyist', title: 'Hobbyist', sub: 'Scientific names primary, common subtitles.', active: displayCommonNames && scientificNamePrimary, action: () => { displayCommonNames = true; scientificNamePrimary = true; } },
-                    { id: 'scientific', title: 'Strictly Scientific', sub: 'Only show scientific names. Hides common names.', active: !displayCommonNames, action: () => { displayCommonNames = false; } }
+                    { id: 'standard', title: $_('settings.detection.naming_standard'), sub: $_('settings.detection.naming_standard_sub'), active: displayCommonNames && !scientificNamePrimary, action: () => { displayCommonNames = true; scientificNamePrimary = false; } },
+                    { id: 'hobbyist', title: $_('settings.detection.naming_hobbyist'), sub: $_('settings.detection.naming_hobbyist_sub'), active: displayCommonNames && scientificNamePrimary, action: () => { displayCommonNames = true; scientificNamePrimary = true; } },
+                    { id: 'scientific', title: $_('settings.detection.naming_scientific'), sub: $_('settings.detection.naming_scientific_sub'), active: !displayCommonNames, action: () => { displayCommonNames = false; } }
                 ] as mode}
                     <button
                         onclick={mode.action}
-                        aria-label="Select {mode.title} naming style"
+                        aria-label="{$_('common.refresh') === 'Refresh' ? 'Select' : 'Auswählen'} {mode.title} {$_('settings.detection.naming_title') === 'Bird Naming Style' ? 'naming style' : 'Benennungsstil'}"
                         class="flex items-center gap-4 p-4 rounded-2xl border-2 text-left transition-all {mode.active ? 'border-teal-500 bg-teal-500/5' : 'border-slate-100 dark:border-slate-700/50 hover:border-teal-500/20'}"
                     >
                         <div class="w-5 h-5 rounded-full border-2 flex items-center justify-center {mode.active ? 'border-teal-500 bg-teal-500' : 'border-slate-300 dark:border-slate-600'}">
@@ -230,8 +231,8 @@
     <!-- Blocked Labels -->
     <section class="card-base rounded-3xl p-8">
         <div class="flex items-center justify-between mb-6">
-            <h4 class="text-xs font-black uppercase tracking-[0.2em] text-slate-400">Blocked Labels</h4>
-            <span class="px-2 py-0.5 bg-red-500/10 text-red-500 text-[9px] font-black rounded uppercase">Ignored by Discovery</span>
+            <h4 class="text-xs font-black uppercase tracking-[0.2em] text-slate-400">{$_('settings.detection.blocked_labels')}</h4>
+            <span class="px-2 py-0.5 bg-red-500/10 text-red-500 text-[9px] font-black rounded uppercase">{$_('settings.detection.ignored_by_discovery')}</span>
         </div>
 
         <div class="flex gap-2 mb-6">
@@ -239,16 +240,16 @@
                 bind:value={newBlockedLabel}
                 onkeydown={(e) => e.key === 'Enter' && addBlockedLabel()}
                 placeholder="e.g. background"
-                aria-label="New blocked label"
+                aria-label={$_('settings.detection.blocked_labels')}
                 class="flex-1 px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"
             />
             <button
                 onclick={addBlockedLabel}
                 disabled={!newBlockedLabel.trim()}
-                aria-label="Add blocked label"
+                aria-label="{$_('common.add')} {$_('settings.detection.blocked_labels')}"
                 class="px-6 py-3 bg-slate-900 dark:bg-slate-700 text-white text-xs font-black uppercase tracking-widest rounded-2xl hover:bg-slate-800 transition-all disabled:opacity-50"
             >
-                Add
+                {$_('common.add')}
             </button>
         </div>
 
@@ -265,7 +266,7 @@
                     </button>
                 </span>
             {/each}
-            {#if blockedLabels.length === 0}<p class="text-xs font-bold text-slate-400 italic">No labels blocked yet.</p>{/if}
+            {#if blockedLabels.length === 0}<p class="text-xs font-bold text-slate-400 italic">{$_('settings.detection.no_blocked_labels')}</p>{/if}
         </div>
     </section>
 </div>

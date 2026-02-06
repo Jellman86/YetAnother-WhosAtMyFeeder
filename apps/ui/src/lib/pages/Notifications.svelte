@@ -1,13 +1,14 @@
 <script lang="ts">
     import { _ } from 'svelte-i18n';
     import { notificationCenter, type NotificationItem } from '../stores/notification_center.svelte';
+    import { formatDateTime } from '../utils/datetime';
 
     let items = $derived(notificationCenter.items);
     let ongoingItems = $derived(items.filter((item) => item.type === 'process' && !item.read));
     let historyItems = $derived(items.filter((item) => !(item.type === 'process' && !item.read)));
 
     function formatTime(ts: number) {
-        return new Date(ts).toLocaleString();
+        return formatDateTime(ts);
     }
 
     function getIcon(type: NotificationItem['type']) {
@@ -34,10 +35,10 @@
             <p class="text-xs text-slate-500">{$_('notifications.page_subtitle')}</p>
         </div>
         <div class="flex items-center gap-2 text-[11px] font-semibold text-slate-500">
-            <button type="button" class="px-3 py-2 rounded-xl border border-slate-200/70 dark:border-slate-700/60 hover:bg-slate-100 dark:hover:bg-slate-800" onclick={() => notificationCenter.markAllRead()}>
+            <button type="button" class="btn btn-secondary px-3 py-2 text-xs" onclick={() => notificationCenter.markAllRead()}>
                 {$_('notifications.center_mark_all')}
             </button>
-            <button type="button" class="px-3 py-2 rounded-xl border border-slate-200/70 dark:border-slate-700/60 hover:bg-slate-100 dark:hover:bg-slate-800" onclick={() => notificationCenter.clear()}>
+            <button type="button" class="btn btn-secondary px-3 py-2 text-xs" onclick={() => notificationCenter.clear()}>
                 {$_('notifications.center_clear')}
             </button>
         </div>

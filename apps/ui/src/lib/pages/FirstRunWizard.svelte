@@ -1,5 +1,7 @@
 <script lang="ts">
     import { authStore } from '../stores/auth.svelte';
+    import { _, locale } from 'svelte-i18n';
+    import { get } from 'svelte/store';
 
     let username = $state('admin');
     let password = $state('');
@@ -8,17 +10,34 @@
     let isLoading = $state(false);
     let error = $state<string | null>(null);
 
+    const supportedLocales = [
+        { value: 'en', label: 'English' },
+        { value: 'es', label: 'Español' },
+        { value: 'fr', label: 'Français' },
+        { value: 'de', label: 'Deutsch' },
+        { value: 'ja', label: '日本語' },
+        { value: 'zh', label: '中文' },
+        { value: 'ru', label: 'Русский' },
+        { value: 'pt', label: 'Português' },
+        { value: 'it', label: 'Italiano' }
+    ];
+
+    function setLanguage(lang: string) {
+        locale.set(lang);
+        localStorage.setItem('preferred-language', lang);
+    }
+
     async function handleSubmit(e: Event) {
         e.preventDefault();
         error = null;
 
         if (!skipAuth) {
             if (password !== confirmPassword) {
-                error = "Passwords don't match";
+                error = get(_)('first_run.password_mismatch', { default: "Passwords don't match" });
                 return;
             }
             if (password.length < 8) {
-                error = 'Password must be at least 8 characters';
+                error = get(_)('first_run.password_min', { default: 'Password must be at least 8 characters' });
                 return;
             }
         }
@@ -31,7 +50,9 @@
                 enableAuth: !skipAuth
             });
         } catch (err) {
-            error = err instanceof Error ? err.message : 'Setup failed';
+            error = err instanceof Error
+                ? err.message
+                : get(_)('first_run.setup_failed', { default: 'Setup failed' });
         } finally {
             isLoading = false;
         }
@@ -41,28 +62,48 @@
 <div class="min-h-screen flex items-center justify-center bg-surface-50 dark:bg-surface-900 px-4">
     <div class="max-w-lg w-full space-y-8 bg-white dark:bg-surface-800 p-8 rounded-xl shadow-lg border border-surface-200 dark:border-surface-700">
         <div class="text-center space-y-2">
-            <h1 class="text-3xl font-bold text-gray-900 dark:text-white">Welcome to YA-WAMF</h1>
+            <h1 class="text-3xl font-bold text-gray-900 dark:text-white">{$_('first_run.title')}</h1>
             <p class="text-sm text-gray-600 dark:text-gray-400">
-                Secure your installation by setting an admin password.
+                {$_('first_run.subtitle')}
+            </p>
+        </div>
+
+        <div class="space-y-2">
+            <label for="language-select" class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                {$_('first_run.language_label')}
+            </label>
+            <select
+                id="language-select"
+                value={$locale}
+                onchange={(e) => setLanguage(e.currentTarget.value)}
+                aria-label="{$_('first_run.language_label')}"
+                class="input-base"
+            >
+                {#each supportedLocales as localeOption}
+                    <option value={localeOption.value}>{localeOption.label}</option>
+                {/each}
+            </select>
+            <p class="text-xs text-gray-500 dark:text-gray-400">
+                {$_('first_run.language_desc')}
             </p>
         </div>
 
         <form class="space-y-6" onsubmit={handleSubmit}>
             {#if !skipAuth}
                 <div>
-                    <label for="username" class="text-sm font-medium text-gray-700 dark:text-gray-300">Admin Username</label>
+                    <label for="username" class="text-sm font-medium text-gray-700 dark:text-gray-300">{$_('first_run.admin_username')}</label>
                     <input
                         id="username"
                         name="username"
                         type="text"
                         required
                         bind:value={username}
-                        class="mt-1 block w-full rounded-lg border border-gray-300 dark:border-surface-600 px-3 py-2 text-gray-900 dark:text-white dark:bg-surface-700 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
+                        class="input-base mt-1"
                     />
                 </div>
 
                 <div>
-                    <label for="password" class="text-sm font-medium text-gray-700 dark:text-gray-300">Password</label>
+                    <label for="password" class="text-sm font-medium text-gray-700 dark:text-gray-300">{$_('first_run.password')}</label>
                     <input
                         id="password"
                         name="password"
@@ -70,13 +111,13 @@
                         required
                         minlength="8"
                         bind:value={password}
-                        class="mt-1 block w-full rounded-lg border border-gray-300 dark:border-surface-600 px-3 py-2 text-gray-900 dark:text-white dark:bg-surface-700 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
+                        class="input-base mt-1"
                     />
-                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Minimum 8 characters</p>
+                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{$_('first_run.password_hint')}</p>
                 </div>
 
                 <div>
-                    <label for="confirm-password" class="text-sm font-medium text-gray-700 dark:text-gray-300">Confirm Password</label>
+                    <label for="confirm-password" class="text-sm font-medium text-gray-700 dark:text-gray-300">{$_('first_run.confirm_password')}</label>
                     <input
                         id="confirm-password"
                         name="confirm-password"
@@ -84,7 +125,7 @@
                         required
                         minlength="8"
                         bind:value={confirmPassword}
-                        class="mt-1 block w-full rounded-lg border border-gray-300 dark:border-surface-600 px-3 py-2 text-gray-900 dark:text-white dark:bg-surface-700 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
+                        class="input-base mt-1"
                     />
                 </div>
             {/if}
@@ -99,23 +140,23 @@
                 <input
                     type="checkbox"
                     bind:checked={skipAuth}
-                    class="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                    class="rounded border-slate-300 text-teal-600 focus:ring-teal-500"
                 />
-                Skip authentication (not recommended)
+                {$_('first_run.skip_auth')}
             </label>
 
             <button
                 type="submit"
                 disabled={isLoading}
-                class="w-full flex justify-center py-3 px-4 rounded-md text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 disabled:opacity-50"
+                class="btn btn-primary w-full py-3"
             >
                 {#if isLoading}
-                    Setting up...
+                    {$_('first_run.setting_up')}
                 {:else}
                     {#if skipAuth}
-                        Continue without password
+                        {$_('first_run.continue_without_password')}
                     {:else}
-                        Set password and continue
+                        {$_('first_run.set_password')}
                     {/if}
                 {/if}
             </button>

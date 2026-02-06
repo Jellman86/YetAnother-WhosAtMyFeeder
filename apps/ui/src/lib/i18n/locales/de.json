@@ -26,7 +26,21 @@
     "horizontal": "Horizontal",
     "vertical": "Vertical",
     "horizontal_desc": "Top navigation bar",
-    "vertical_desc": "Left sidebar (collapsible)"
+    "vertical_desc": "Left sidebar (collapsible)",
+    "font_title": "Typografie",
+    "font_desc": "Wähle eine Schriftstimmung für die UI.",
+    "font_default": "Standard",
+    "font_clean": "Klar",
+    "font_studio": "Studio",
+    "font_classic": "Klassisch",
+    "font_compact": "Kompakt",
+    "font_selected": "Ausgewählt",
+    "font_apply_hint": "Änderungen werden sofort angewendet.",
+    "font_lang_default": "Primär Lateinschrift; andere Schriften nutzen System-Fallback.",
+    "font_lang_clean": "Primär Lateinschrift; andere Schriften nutzen System-Fallback.",
+    "font_lang_studio": "Primär Lateinschrift; andere Schriften nutzen System-Fallback.",
+    "font_lang_classic": "Primär Lateinschrift; andere Schriften nutzen System-Fallback.",
+    "font_lang_compact": "Primär Lateinschrift; andere Schriften nutzen System-Fallback."
   },
   "dashboard": {
     "title": "Dashboard",
@@ -95,17 +109,123 @@
     "view_snapshot": "Schnappschuss ansehen",
     "statistics": "Statistiken",
     "period": "Zeitraum",
-    "detections": "Erkennungen"
+    "detections": "Erkennungen",
+    "zoom_in": "Hineinzoomen",
+    "zoom_out": "Herauszoomen",
+    "source": "Quelle",
+    "unknown_location": "Unbekannter Ort",
+    "unknown_species": "Unbekannte Art"
   },
   "settings": {
     "title": "Einstellungen",
     "subtitle": "Konfigurieren und verwalten Sie Ihre YA-WAMF-Instanz",
     "language_selector": "Sprache",
     "language_desc": "Ändert UI-Text und Benachrichtigungsinhalt.",
+    "date_format": {
+      "label": "Datumsformat",
+      "desc": "Standardanzeigeformat für Datum und Uhrzeit wählen.",
+      "us": "USA (MM/TT/JJJJ)",
+      "uk": "Vereinigtes Königreich (TT/MM/JJJJ)",
+      "ymd": "Japan/China (JJJJ-MM-TT)"
+    },
     "video_circuit": {
       "title": "Videoanalyse pausiert",
       "message": "Die automatische Videoanalyse wurde nach {failures} Fehlern pausiert.",
       "until": "Neuer Versuch nach: {time}"
+    },
+    "data": {
+      "title": "Datenverwaltung",
+      "records": "Gesamt-Erkennungen",
+      "oldest": "Älteste Erkennung",
+      "retention": "Aufbewahrung",
+      "pending_gc": "Bereinigung ausstehend",
+      "retention_title": "Aufbewahrungsrichtlinie",
+      "history_duration": "Dauer der Historie",
+      "keep_everything": "Alles behalten (∞)",
+      "purge_button": "Alte Datensätze löschen",
+      "cleaning": "Wird bereinigt...",
+      "auto_cleanup_note": "Die automatische Bereinigung läuft täglich um 3 Uhr morgens",
+      "cache_title": "Medien-Cache",
+      "cache_snapshots": "Schnappschüsse",
+      "cache_clips": "Videoclips",
+      "cache_size": "Cache-Größe",
+      "cache_clear_button": "Gecachte Dateien löschen",
+      "taxonomy_title": "Taxonomie-Reparatur",
+      "taxonomy_desc": "Wissenschaftliche und gebräuchliche Namen verknüpfen",
+      "taxonomy_syncing": "Wird synchronisiert",
+      "taxonomy_repairing": "Datenbank wird repariert",
+      "taxonomy_run_button": "Vollständige Taxonomie-Reparatur starten",
+      "backfill_title": "Verpasste Erkennungen",
+      "backfill_desc": "Frigate-Historie abfragen, um vergangene Ereignisse zu klassifizieren.",
+      "backfill_window": "Zeitfenster",
+      "backfill_24h": "Letzte 24 Stunden",
+      "backfill_week": "Letzte Woche",
+      "backfill_month": "Letzter Monat",
+      "backfill_custom": "Benutzerdefinierter Zeitraum",
+      "backfill_start": "Start",
+      "backfill_end": "Ende",
+      "backfill_total": "Gesamt",
+      "backfill_new": "Neu",
+      "backfill_skip": "Übersprungen",
+      "backfill_err": "Fehler",
+      "backfill_skipped_breakdown": "Aufschlüsselung übersprungener Ereignisse",
+      "backfill_reasons": {
+        "low_confidence": "Unter Mindestkonfidenz",
+        "below_threshold": "Unter Konfidenzschwelle",
+        "blocked_label": "Gefiltert (Blockiertes Label)",
+        "already_exists": "Bereits in Datenbank vorhanden",
+        "fetch_snapshot_failed": "Frigate-Schnappschuss fehlt"
+      },
+      "backfill_scanning": "Frigate wird analysiert...",
+      "backfill_scan_button": "Historie scannen",
+      "weather_backfill_title": "Wetter-Nachfüllung",
+      "weather_backfill_filling": "Wetterdaten werden gefüllt...",
+      "weather_backfill_button": "Wetterfelder füllen",
+      "batch_analysis_title": "Stapelverarbeitung",
+      "batch_analysis_desc": "Bestehende Erkennungen verfeinern",
+      "batch_analysis_long_desc": "Führe eine Videoanalyse für alle als \"Unbekannter Vogel\" markierten Erkennungen aus. Dies reiht Hintergrundaufgaben zum Herunterladen von Clips und zur Neuklassifizierung ein.",
+      "batch_analysis_queueing": "Wird eingereiht...",
+      "batch_analysis_button": "Alle Unbekannten analysieren",
+      "batch_analysis_processing": "Wird verarbeitet...",
+      "batch_analysis_pending": "Ausstehend",
+      "batch_analysis_active": "Aktiv",
+      "batch_analysis_circuit_open": "Leistungsschutzschalter offen (wegen Fehlern pausiert)",
+      "cleanup_success": "Bereinigung abgeschlossen! {count} alte Erkennungen gelöscht.",
+      "cleanup_none": "Keine Bereinigung erforderlich.",
+      "cleanup_error": "Bereinigung fehlgeschlagen",
+      "reset_error": "Datenbank-Reset fehlgeschlagen",
+      "cache_cleanup_success": "Cache-Bereinigung abgeschlossen! {snapshots} Schnappschüsse, {clips} Clips gelöscht ({freed} freigegeben).",
+      "cache_cleanup_error": "Cache-Bereinigung fehlgeschlagen",
+      "backfill_error": "Backfill fehlgeschlagen",
+      "weather_backfill_error": "Wetter-Backfill fehlgeschlagen",
+      "analysis_error": "Analyse fehlgeschlagen",
+      "wildlife_download_error": "Download des Wildtiermodells fehlgeschlagen",
+      "taxonomy_sync_error": "Taxonomie-Synchronisierung konnte nicht gestartet werden: {error}",
+      "retention_week": "1 Week",
+      "retention_weeks": "2 Weeks",
+      "retention_month": "1 Month",
+      "retention_months": "3 Months",
+      "retention_year": "1 Year",
+      "media_integrity_title": "Medienintegrität bereinigen",
+      "purge_missing_clips": "Detektionen ohne Clips entfernen",
+      "purge_missing_snapshots": "Detektionen ohne Schnappschüsse entfernen",
+      "media_integrity_note": "Löscht Detektionen, wenn Frigate-Medien fehlen.",
+      "purge_missing_clips_confirm": "Detektionen ohne Clips entfernen? Dies kann nicht rückgängig gemacht werden.",
+      "purge_missing_snapshots_confirm": "Detektionen ohne Schnappschüsse entfernen? Dies kann nicht rückgängig gemacht werden."
+    },
+    "security": {
+      "title": "Sicherheit",
+      "https_warning": "Sicherheitshinweis: Die Authentifizierung ist über HTTP aktiviert. Ihre Anmeldedaten könnten offengelegt werden. Verwenden Sie HTTPS in der Produktion."
+    },
+    "connection": {
+      "frigate_success": "Verbunden mit Frigate v{version} unter {url}",
+      "frigate_unexpected": "Frigate gab einen unerwarteten Status zurück",
+      "frigate_error": "Verbindung zu Frigate fehlgeschlagen",
+      "mqtt_title": "MQTT-Einstellungen (Frigate-Ereignisse)",
+      "simulating": "Simulierung..."
+    },
+    "common": {
+      "save_error": "Speichern der Einstellungen fehlgeschlagen"
     },
     "tabs": {
       "connection": "Verbindung",
@@ -116,7 +236,8 @@
       "security": "Sicherheit",
       "appearance": "Aussehen",
       "accessibility": "Barrierefreiheit",
-      "debug": "Debug"
+      "debug": "Debug",
+      "enrichment": "Anreicherung"
     },
     "debug": {
       "title": "Debug-Tools",
@@ -175,7 +296,65 @@
         "refresh": "Status aktualisieren",
         "refresh_label": "iNaturalist-Verbindung aktualisieren",
         "connected": "Verbunden als {user}"
+      },
+      "ebird": {
+        "title": "eBird",
+        "toggle_label": "eBird-Anreicherung umschalten",
+        "api_key": "API-Schlüssel",
+        "api_key_label": "eBird-API-Schlüssel",
+        "api_key_placeholder": "eBird-API-Schlüssel",
+        "saved_placeholder": "Gespeichert",
+        "api_key_desc": "Erforderlich, um aktuelle Sichtungen und bemerkenswerte Vögel abzurufen.",
+        "radius": "Standard-Radius (km)",
+        "days_back": "Tage zurück",
+        "max_results": "Max. Ergebnisse",
+        "locale": "Sprachregion",
+        "export_csv": "Alle Sichtungen exportieren (CSV)",
+        "export_csv_desc": "Lade Erkennungen im eBird Record Format für den manuellen Import herunter.",
+        "export_csv_error": "CSV-Export fehlgeschlagen"
+      },
+      "birdweather": {
+        "title": "BirdWeather",
+        "toggle_label": "BirdWeather-Integration umschalten",
+        "token": "Stations-Token",
+        "token_label": "BirdWeather-Stations-Token",
+        "token_placeholder": "Dein BirdWeather-Token",
+        "token_desc": "Verfügbar in deinen Stations-Einstellungen unter \"BirdWeather Token\".",
+        "test_button": "Verbindung testen",
+        "test_loading": "Verifizierung...",
+        "test_success": "BirdWeather-Verbindung verifiziert!",
+        "test_error": "BirdWeather-Verbindung fehlgeschlagen"
+      },
+      "llm": {
+        "title": "KI-Einblicke",
+        "toggle_label": "KI-Einblicke umschalten",
+        "provider": "Anbieter",
+        "provider_label": "LLM-Anbieter",
+        "model": "Modell",
+        "model_label": "LLM-Modell",
+        "api_key": "API-Schlüssel",
+        "api_key_label": "LLM-API-Schlüssel",
+        "providers": {
+          "gemini": "Google Gemini",
+          "openai": "OpenAI",
+          "claude": "Anthropic Claude"
+        }
       }
+    },
+    "enrichment": {
+      "title": "Anreicherungsquellen",
+      "desc": "Quellen werden automatisch anhand Ihrer Integrationen ausgewählt.",
+      "mode_single": "Einzellanbieter",
+      "mode_per": "Pro Anreicherung",
+      "provider": "Anbieter",
+      "fallback_note": "Fallbacks greifen, wenn ein Anbieter ein Feld nicht liefern kann.",
+      "summary_title": "Zusammenfassung & Beschreibung",
+      "taxonomy_title": "Taxonomie & Trivialnamen",
+      "sightings_title": "Sichtungen in der Nähe",
+      "seasonality_title": "Saisonalität",
+      "rarity_title": "Seltenheitsindikatoren",
+      "links_title": "Externe Links",
+      "disabled": "Deaktiviert"
     },
     "auth": {
       "title": "Authentifizierung",
@@ -208,6 +387,7 @@
       "show_camera_names": "Kameranamen anzeigen",
       "show_camera_names_desc": "Kameranamen für Gäste ausblenden",
       "history_days": "Historie (Tage)",
+      "media_days": "Medienfenster (Tage)",
       "rate_limit": "Rate-Limit (pro Minute)"
     },
     "accessibility": {
@@ -288,12 +468,14 @@
       "dashboard_url_desc": "Link zu Ihrem Dashboard in E-Mail-Benachrichtigungen",
       "test_email": "Test-E-Mail senden",
       "test_email_sending": "Wird gesendet...",
+      "test_email_sent": "Test-E-Mail gesendet",
       "test_email_success": "Test-E-Mail erfolgreich an {email} gesendet!",
       "test_email_error": "Fehler beim Senden der Test-E-Mail: {error}",
       "oauth_connect_success": "{provider} erfolgreich verbunden!",
       "oauth_disconnect_success": "{provider} getrennt",
       "oauth_error": "OAuth-Fehler: {error}",
-      "credentials_required": "Bitte konfigurieren Sie zuerst OAuth- oder SMTP-Anmeldedaten"
+      "credentials_required": "Bitte konfigurieren Sie zuerst OAuth- oder SMTP-Anmeldedaten",
+      "test_email_error_generic": "Failed to send test email"
     },
     "notifications": {
       "global_filters": "Globale Benachrichtigungsfilter",
@@ -332,7 +514,8 @@
       "video_fallback_seconds": "Sekunden",
       "cooldown": "Benachrichtigungs‑Abkühlzeit",
       "cooldown_desc": "Mindestabstand zwischen Benachrichtigungen in Minuten (0 zum Deaktivieren).",
-      "cooldown_unit": "Minuten"
+      "cooldown_unit": "Minuten",
+      "enable_notify_hint": "Benachrichtigungen sind derzeit deaktiviert. Aktivieren Sie \"Bei neuen Erkennungen benachrichtigen\" oder \"Bei Updates benachrichtigen\", um Warnungen zu senden."
     },
     "discord": {
       "title": "Discord-Benachrichtigungen",
@@ -386,6 +569,34 @@
       "reset_button": "Datenbank & Cache zurücksetzen",
       "resetting": "Wird zurückgesetzt...",
       "confirm": "GEFAHR: Dies löscht ALLE Erkennungen und leert den Medien-Cache. Diese Aktion kann nicht rückgängig gemacht werden. Sind Sie sicher?"
+    },
+    "detection": {
+      "classification_engine": "Klassifizierungs-Engine",
+      "fine_tuning": "Feineinstellung",
+      "confidence_threshold": "Konfidenzschwelle",
+      "threshold_loose": "Locker",
+      "threshold_strict": "Streng",
+      "min_confidence_floor": "Minimale Konfidenzuntergrenze",
+      "floor_capture_all": "Alles erfassen",
+      "floor_reject_unsure": "Unsichere ablehnen",
+      "floor_help": "Ereignisse unter dieser Untergrenze werden vollständig ignoriert. Ereignisse zwischen Untergrenze und Schwelle werden als \"Unbekannter Vogel\" gespeichert.",
+      "trust_frigate": "Frigate-Sublabels vertrauen",
+      "trust_frigate_desc": "Interne Klassifizierung überspringen, wenn Frigate die Art identifiziert hat",
+      "auto_video": "Automatische Videoanalyse",
+      "auto_video_desc": "Tiefenvideo-Reklassifizierung für jedes Ereignis automatisch ausführen",
+      "video_delay": "Anfangsverzögerung (s)",
+      "video_retries": "Maximale Wiederholungen",
+      "video_retry_note": "Wiederholungen nutzen einen exponentiellen Backoff, um auf die Fertigstellung des Frigate-Clips zu warten.",
+      "naming_title": "Vogel-Benennungsstil",
+      "naming_standard": "Standard",
+      "naming_standard_sub": "Gebräuchliche Namen primär, wissenschaftliche Namen als Untertitel.",
+      "naming_hobbyist": "Hobbyist",
+      "naming_hobbyist_sub": "Wissenschaftliche Namen primär, gebräuchliche Namen als Untertitel.",
+      "naming_scientific": "Rein wissenschaftlich",
+      "naming_scientific_sub": "Nur wissenschaftliche Namen anzeigen. Gebräuchliche Namen ausblenden.",
+      "blocked_labels": "Blockierte Labels",
+      "ignored_by_discovery": "Von Entdeckung ignoriert",
+      "no_blocked_labels": "Noch keine blockierten Labels."
     }
   },
   "auth": {
@@ -468,6 +679,7 @@
     "weather_rain": "Regen",
     "weather_snow": "Schnee",
     "weather_icy": "Eisig",
+    "id": "Erkennungs-ID",
     "inat": {
       "title": "iNaturalist",
       "connected": "Verbunden: {user}",
@@ -530,7 +742,20 @@
     "image_alt": "{species} erkannt bei {camera}",
     "play_video": "Video von {species} abspielen",
     "reclassify": "{species} Erkennung reklassifizieren",
-    "retag": "{species} Erkennung manuell markieren"
+    "retag": "{species} Erkennung manuell markieren",
+    "audio_detected": "Audio erkannt",
+    "audio_heard": "Gehört: {species}",
+    "tag_manual": "Manuell",
+    "tag_video": "Video",
+    "tag_snapshot": "Schnappschuss",
+    "ebird_enable_sightings": "eBird aktivieren, um Beobachtungen zu sehen",
+    "ebird_configure_settings": "Einstellungen konfigurieren →",
+    "ebird_none_nearby": "Keine aktuellen Beobachtungen in der Nähe.",
+    "ebird_try_radius": "Versuchen Sie, den Suchradius in den Einstellungen zu erhöhen.",
+    "ebird_notable_title": "Bemerkenswerte in der Nähe",
+    "ebird_notable_badge": "Seltene Meldungen",
+    "ebird_enable_notable": "eBird aktivieren, um bemerkenswerte Meldungen zu sehen",
+    "ebird_none_notable": "Keine bemerkenswerten Beobachtungen gemeldet."
   },
   "events": {
     "title": "Ereignisse",
@@ -550,7 +775,8 @@
     },
     "empty_title": "Noch keine Ereignisse",
     "empty_desc": "Starte ein Backfill oder warte auf neue Erkennungen.",
-    "load_failed": "Ereignisse konnten nicht geladen werden"
+    "load_failed": "Ereignisse konnten nicht geladen werden",
+    "classification_legend": "Klassifizierungsquellen: Manuell, Video, Schnappschuss"
   },
   "leaderboard": {
     "title": "Spezies-Bestenliste",
@@ -742,7 +968,22 @@
     "last_seen": "Zuletzt gesehen",
     "activity_patterns": "Aktivitätsmuster",
     "camera_breakdown": "Kamera-Aufschlüsselung",
-    "recent_sightings": "Kürzliche Sichtungen"
+    "recent_sightings": "Kürzliche Sichtungen",
+    "ebird_disabled_title": "eBird nicht aktiviert",
+    "ebird_disabled_body": "Aktivieren Sie eBird in den Einstellungen, um Sichtungen in der Nähe für diese Art zu sehen.",
+    "seasonality_local": "Lokale Saisonalität",
+    "seasonality_global": "Globale Saisonalität",
+    "range_map": "Verbreitungskarte",
+    "range_unavailable": "Verbreitungskarte nicht verfügbar.",
+    "range_map_hint": "Ziehen zum Verschieben • Scrollen zum Zoomen",
+    "video_unavailable": "Videoclip nicht verfügbar",
+    "no_recent_sightings": "Keine aktuellen Beobachtungen.",
+    "count_label": "Anzahl",
+    "valid_observation": "Gültige Beobachtung",
+    "inat_observations": "iNaturalist-Beobachtungen",
+    "time_of_day": "Tageszeit",
+    "day_of_week": "Wochentag",
+    "month": "Monat"
   },
   "pagination": {
     "navigation": "Paginierung",
@@ -789,11 +1030,37 @@
     ]
   },
   "error": {
-    "boundary_title": "Something went wrong",
-    "boundary_subtitle": "An unexpected error occurred. Please try again or contact support if the problem persists.",
-    "show_details": "Show error details",
-    "try_again": "Try Again",
-    "copy_details": "Copy Error Details",
-    "reload_page": "Reload Page"
+    "boundary_title": "Etwas ist schiefgelaufen",
+    "boundary_subtitle": "Ein unerwarteter Fehler ist aufgetreten. Bitte versuche es erneut.",
+    "show_details": "Details anzeigen",
+    "try_again": "Erneut versuchen",
+    "copy_details": "Details kopieren",
+    "reload_page": "Seite neu laden"
+  },
+  "first_run": {
+    "title": "Willkommen bei YA-WAMF",
+    "subtitle": "Sichern Sie Ihre Installation, indem Sie ein Admin-Passwort festlegen.",
+    "language_label": "Sprache",
+    "language_desc": "Sie können dies später in den Einstellungen ändern.",
+    "admin_username": "Admin-Benutzername",
+    "password": "Passwort",
+    "password_hint": "Mindestens 8 Zeichen",
+    "confirm_password": "Passwort bestätigen",
+    "skip_auth": "Authentifizierung überspringen (nicht empfohlen)",
+    "setting_up": "Wird eingerichtet…",
+    "continue_without_password": "Ohne Passwort fortfahren",
+    "set_password": "Passwort festlegen und fortfahren",
+    "password_mismatch": "Passwörter stimmen nicht überein",
+    "password_min": "Passwort muss mindestens 8 Zeichen lang sein",
+    "setup_failed": "Einrichtung fehlgeschlagen"
+  },
+  "telemetry_banner": {
+    "title": "Hilf mit, YA-WAMF zu verbessern!",
+    "body": "Aktivieren Sie anonyme Nutzungsstatistiken, um Entwicklungsprioritäten zu steuern und zu bestätigen, dass dieses Projekt der Vogel-Community dient.",
+    "learn_more": "Mehr erfahren",
+    "enabling": "Wird aktiviert…",
+    "enable": "Aktivieren",
+    "dismiss": "Nein danke",
+    "enable_error": "Telemetrie konnte nicht aktiviert werden. Bitte versuchen Sie es in den Einstellungen erneut."
   }
 }

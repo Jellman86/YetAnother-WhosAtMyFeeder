@@ -459,6 +459,7 @@ class DetectionRepository:
         start_date: datetime | None = None,
         end_date: datetime | None = None,
         species: str | None = None,
+        taxa_id: int | None = None,
         camera: str | None = None,
         sort: str = "newest",
         include_hidden: bool = False
@@ -480,6 +481,9 @@ class DetectionRepository:
         if species:
             conditions.append("display_name = ?")
             params.append(species)
+        if taxa_id is not None:
+            conditions.append("taxa_id = ?")
+            params.append(taxa_id)
         if camera:
             conditions.append("camera_name = ?")
             params.append(camera)
@@ -507,6 +511,7 @@ class DetectionRepository:
         start_date: datetime | None = None,
         end_date: datetime | None = None,
         species: str | None = None,
+        taxa_id: int | None = None,
         camera: str | None = None,
         include_hidden: bool = False
     ) -> int:
@@ -528,6 +533,9 @@ class DetectionRepository:
         if species:
             conditions.append("display_name = ?")
             params.append(species)
+        if taxa_id is not None:
+            conditions.append("taxa_id = ?")
+            params.append(taxa_id)
         if camera:
             conditions.append("camera_name = ?")
             params.append(camera)
@@ -547,6 +555,15 @@ class DetectionRepository:
             rows = await cursor.fetchall()
             return [row[0] for row in rows]
 
+    async def get_unique_species_with_taxonomy(self) -> list[tuple[str, str | None, str | None, int | None]]:
+        """Get list of unique species names with taxonomy info."""
+        async with self.db.execute(
+            """SELECT DISTINCT display_name, scientific_name, common_name, taxa_id
+               FROM detections
+               ORDER BY display_name ASC"""
+        ) as cursor:
+            return await cursor.fetchall()
+
     async def get_unique_cameras(self) -> list[str]:
         """Get list of unique camera names, sorted alphabetically."""
         async with self.db.execute(
@@ -555,16 +572,37 @@ class DetectionRepository:
             rows = await cursor.fetchall()
             return [row[0] for row in rows]
 
+    async def get_all_frigate_event_ids(self) -> list[str]:
+        """Get all Frigate event IDs."""
+        async with self.db.execute("SELECT frigate_event FROM detections") as cursor:
+            rows = await cursor.fetchall()
+            return [row[0] for row in rows]
+
+    async def delete_by_frigate_events(self, event_ids: list[str]) -> int:
+        """Delete detections by a list of Frigate event IDs."""
+        if not event_ids:
+            return 0
+        total_deleted = 0
+        chunk_size = 500
+        for i in range(0, len(event_ids), chunk_size):
+            chunk = event_ids[i:i + chunk_size]
+            placeholders = ",".join(["?"] * len(chunk))
+            query = f"DELETE FROM detections WHERE frigate_event IN ({placeholders})"
+            async with self.db.execute(query, chunk) as cursor:
+                total_deleted += cursor.rowcount or 0
+                await self.db.commit()
+        return total_deleted
+
     async def get_taxonomy_names(self, name: str) -> dict:
         """Get scientific and common names for a given species name from cache."""
         async with self.db.execute(
-            "SELECT scientific_name, common_name FROM taxonomy_cache WHERE LOWER(scientific_name) = LOWER(?) OR LOWER(common_name) = LOWER(?)",
+            "SELECT scientific_name, common_name, taxa_id FROM taxonomy_cache WHERE LOWER(scientific_name) = LOWER(?) OR LOWER(common_name) = LOWER(?)",
             (name, name)
         ) as cursor:
             row = await cursor.fetchone()
             if row:
-                return {"scientific_name": row[0], "common_name": row[1]}
-        return {"scientific_name": None, "common_name": None}
+                return {"scientific_name": row[0], "common_name": row[1], "taxa_id": row[2]}
+        return {"scientific_name": None, "common_name": None, "taxa_id": None}
 
     async def delete_older_than(self, cutoff_date: datetime, chunk_size: int = 1000) -> int:
         """Delete detections older than the cutoff date in chunks to avoid locking."""

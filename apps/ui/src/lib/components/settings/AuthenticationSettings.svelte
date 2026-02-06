@@ -14,6 +14,7 @@
         publicAccessEnabled = $bindable(false),
         publicAccessShowCameraNames = $bindable(true),
         publicAccessHistoricalDays = $bindable(7),
+        publicAccessMediaHistoricalDays = $bindable(7),
         publicAccessRateLimitPerMinute = $bindable(30),
         addTrustedProxyHost,
         removeTrustedProxyHost,
@@ -31,6 +32,7 @@
         publicAccessEnabled: boolean;
         publicAccessShowCameraNames: boolean;
         publicAccessHistoricalDays: number;
+        publicAccessMediaHistoricalDays: number;
         publicAccessRateLimitPerMinute: number;
         addTrustedProxyHost: () => void;
         removeTrustedProxyHost: (host: string) => void;
@@ -251,6 +253,17 @@
                         min="0"
                         max="365"
                         bind:value={publicAccessHistoricalDays}
+                        class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                    />
+                </div>
+                <div>
+                    <label for="public-media-days" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.public_access.media_days')}</label>
+                    <input
+                        id="public-media-days"
+                        type="number"
+                        min="0"
+                        max="365"
+                        bind:value={publicAccessMediaHistoricalDays}
                         class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
                     />
                 </div>

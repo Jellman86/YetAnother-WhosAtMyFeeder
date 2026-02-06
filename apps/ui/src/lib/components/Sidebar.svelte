@@ -83,7 +83,7 @@
 
         {#if !collapsed}
             <button
-                class="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-all duration-200 focus-ring"
+                class="btn btn-ghost btn-icon text-slate-500 dark:text-slate-400"
                 onclick={() => layoutStore.toggleSidebar()}
                 title={$_('nav.collapse_sidebar')}
             >
@@ -98,10 +98,7 @@
     <nav class="flex-1 overflow-y-auto p-3 space-y-1">
         {#each navItems as item}
             <button
-                class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left font-medium transition-all duration-200 focus-ring
-                       {currentRoute === item.path
-                           ? 'bg-brand-100/70 dark:bg-brand-900/40 text-brand-800 dark:text-brand-200 ring-1 ring-brand-200/70 dark:ring-brand-700/40 shadow-sm'
-                           : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white'}"
+                class="nav-button w-full flex items-center gap-3 text-left {currentRoute === item.path ? 'nav-button-active' : 'nav-button-inactive'}"
                 onclick={() => handleNavClick(item.path)}
                 title={collapsed ? item.label : ''}
             >
@@ -128,7 +125,7 @@
     {#if collapsed}
         <div class="p-3 border-t border-slate-200/80 dark:border-slate-700/50">
             <button
-                class="w-full flex items-center justify-center p-3 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-all duration-200 focus-ring"
+                class="btn btn-ghost w-full flex items-center justify-center p-3 text-slate-500 dark:text-slate-400"
                 onclick={() => layoutStore.toggleSidebar()}
                 title={$_('nav.expand_sidebar')}
             >
@@ -143,7 +140,7 @@
     <div class="p-3 border-t border-slate-200/80 dark:border-slate-700/50 space-y-2">
         {#if authStore.isAuthenticated}
             <button
-                class="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-red-50 dark:hover:bg-red-900/20 text-slate-600 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-400 transition-all duration-200 focus-ring group"
+                class="nav-button w-full flex items-center gap-3 text-left nav-button-inactive hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50/80 dark:hover:bg-red-900/30 group"
                 onclick={() => authStore.logout()}
                 title={collapsed ? $_('auth.logout') : ''}
             >
@@ -156,7 +153,7 @@
             </button>
         {:else if authStore.isGuest}
             <button
-                class="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-emerald-50 dark:hover:bg-emerald-900/20 text-slate-600 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-all duration-200 focus-ring group"
+                class="nav-button w-full flex items-center gap-3 text-left nav-button-inactive hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50/80 dark:hover:bg-emerald-900/30 group"
                 onclick={() => authStore.requestLogin()} 
                 title={collapsed ? $_('auth.login') : ''}
             >
@@ -180,7 +177,7 @@
             label={$_('notifications.center_title')}
             {collapsed}
             {onNavigate}
-            buttonClass="relative w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-all duration-200 focus-ring"
+            buttonClass="relative nav-button w-full flex items-center gap-3 text-left nav-button-inactive"
         />
         {#if !collapsed}
             <div class="px-2 py-1">
@@ -188,7 +185,7 @@
             </div>
         {/if}
         <button
-            class="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-all duration-200 focus-ring"
+            class="nav-button w-full flex items-center gap-3 text-left nav-button-inactive"
             onclick={() => themeStore.toggle()}
             title={collapsed ? (themeStore.isDark ? $_('theme.switch_light') : $_('theme.switch_dark')) : ''}
         >

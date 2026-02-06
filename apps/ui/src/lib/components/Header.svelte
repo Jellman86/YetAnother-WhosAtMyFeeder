@@ -60,10 +60,7 @@
             <nav class="hidden md:flex items-center gap-1">
                 {#each navItems as item}
                     <button
-                        class="px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 focus-ring
-                               {currentRoute === item.path
-                                   ? 'bg-brand-100/70 dark:bg-brand-900/40 text-brand-800 dark:text-brand-200 ring-1 ring-brand-200/70 dark:ring-brand-700/40 shadow-sm'
-                                   : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white'}"
+                        class="nav-button {currentRoute === item.path ? 'nav-button-active' : 'nav-button-inactive'}"
                         onclick={() => handleNavClick(item.path)}
                     >
                         {item.label}
@@ -75,7 +72,7 @@
             <div class="flex items-center gap-2">
                 <!-- Public Mode Badge -->
                 {#if authStore.isGuest}
-                    <div class="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-indigo-100 dark:bg-indigo-900/30 border border-indigo-200 dark:border-indigo-700/50" title="Public viewing mode">
+                    <div class="hidden md:flex badge badge-info" title="Public viewing mode">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-indigo-600 dark:text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                             <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
@@ -88,7 +85,7 @@
 
                 <!-- User Badge -->
                 {#if authStore.isAuthenticated && authStore.username}
-                    <div class="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-100 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-700/50">
+                    <div class="hidden md:flex badge badge-success">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-emerald-600 dark:text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                         </svg>
@@ -103,8 +100,7 @@
                 <!-- Keyboard Shortcuts button -->
                 {#if onShowKeyboardShortcuts}
                     <button
-                        class="p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400
-                               transition-all duration-200 focus-ring"
+                        class="btn btn-ghost btn-icon text-slate-500 dark:text-slate-400"
                         onclick={() => onShowKeyboardShortcuts?.()}
                         title={$_('shortcuts.hint', { default: 'Keyboard shortcuts (?)' })}
                         aria-label={$_('shortcuts.open_panel', { default: 'Open shortcuts panel' })}
@@ -118,8 +114,7 @@
                 <!-- Logout button -->
                 {#if authStore.isAuthenticated}
                     <button
-                        class="p-2.5 rounded-xl hover:bg-red-100 dark:hover:bg-red-900/30 text-slate-500 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-400
-                               transition-all duration-200 focus-ring"
+                        class="btn btn-ghost btn-icon text-slate-500 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-100/70 dark:hover:bg-red-900/30"
                         onclick={() => authStore.logout()}
                         title={$_('auth.logout')}
                         aria-label={$_('auth.logout')}
@@ -130,8 +125,7 @@
                     </button>
                 {:else if authStore.isGuest}
                     <button
-                        class="p-2.5 rounded-xl hover:bg-emerald-100 dark:hover:bg-emerald-900/30 text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400
-                               transition-all duration-200 focus-ring"
+                        class="btn btn-ghost btn-icon text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-100/70 dark:hover:bg-emerald-900/30"
                         onclick={() => authStore.requestLogin()}
                         title={$_('auth.login', { default: 'Login' })}
                         aria-label={$_('auth.login', { default: 'Login' })}
@@ -144,8 +138,7 @@
 
                 <!-- Theme toggle -->
                 <button
-                    class="p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400
-                           transition-all duration-200 focus-ring"
+                    class="btn btn-ghost btn-icon text-slate-500 dark:text-slate-400"
                     onclick={() => themeStore.toggle()}
                     title={themeStore.isDark ? $_('theme.switch_light') : $_('theme.switch_dark')}
                 >
@@ -170,8 +163,7 @@
 
                 <!-- Mobile menu button -->
                 <button
-                    class="md:hidden p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400
-                           transition-all duration-200 focus-ring"
+                    class="md:hidden btn btn-ghost btn-icon text-slate-500 dark:text-slate-400"
                     onclick={() => mobileMenuOpen = !mobileMenuOpen}
                     aria-expanded={mobileMenuOpen}
                     aria-label={$_('nav.toggle_menu')}
@@ -196,10 +188,7 @@
             <nav class="px-4 py-3 space-y-1">
                 {#each navItems as item}
                     <button
-                        class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left font-medium transition-all duration-200
-                               {currentRoute === item.path
-                                   ? 'bg-brand-100/70 dark:bg-brand-900/40 text-brand-800 dark:text-brand-200 ring-1 ring-brand-200/70 dark:ring-brand-700/40 shadow-sm'
-                                   : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}"
+                        class="nav-button w-full flex items-center gap-3 text-left {currentRoute === item.path ? 'nav-button-active' : 'nav-button-inactive'}"
                         onclick={() => handleNavClick(item.path)}
                     >
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">

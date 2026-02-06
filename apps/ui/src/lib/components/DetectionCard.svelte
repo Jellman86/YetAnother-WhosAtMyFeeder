@@ -3,10 +3,12 @@
     import { getThumbnailUrl } from '../api';
     import { detectionsStore } from '../stores/detections.svelte';
     import { settingsStore } from '../stores/settings.svelte';
+    import { authStore } from '../stores/auth.svelte';
     import { _ } from 'svelte-i18n';
     import ReclassificationOverlay from './ReclassificationOverlay.svelte';
 
     import { getBirdNames } from '../naming';
+    import { formatDate as formatDateValue, formatTime } from '../utils/datetime';
     import { formatTemperature } from '../utils/temperature';
 
     interface Props {
@@ -25,8 +27,8 @@
 
     // Dynamic Naming Logic
     let naming = $derived.by(() => {
-        const showCommon = settingsStore.settings?.display_common_names ?? true;
-        const preferSci = settingsStore.settings?.scientific_name_primary ?? false;
+        const showCommon = settingsStore.settings?.display_common_names ?? authStore.displayCommonNames ?? true;
+        const preferSci = settingsStore.settings?.scientific_name_primary ?? authStore.scientificNamePrimary ?? false;
         return getBirdNames(detection, showCommon, preferSci);
     });
 
@@ -34,6 +36,15 @@
     let subName = $derived(naming.secondary);
 
     let isVerified = $derived(detection.audio_confirmed && detection.score > 0.7);
+    let classificationSource = $derived.by(() => {
+        if (detection.manual_tagged) {
+            return { key: 'manual', label: $_('detection.tag_manual') };
+        }
+        if (detection.video_classification_status === 'completed') {
+            return { key: 'video', label: $_('detection.tag_video') };
+        }
+        return { key: 'snapshot', label: $_('detection.tag_snapshot') };
+    });
     let hasWeather = $derived(
         detection.temperature !== undefined && detection.temperature !== null ||
         !!detection.weather_condition ||
@@ -80,15 +91,6 @@
         return () => observer.disconnect();
     });
 
-    function formatTime(dateString: string): string {
-        try {
-            const date = new Date(dateString);
-            return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        } catch {
-            return '';
-        }
-    }
-
     function formatDate(dateString: string): string {
         try {
             const date = new Date(dateString);
@@ -100,7 +102,7 @@
             } else if (date.toDateString() === yesterday.toDateString()) {
                 return $_('common.yesterday');
             }
-            return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+            return formatDateValue(date);
         } catch {
             return '';
         }
@@ -273,6 +275,22 @@
                 {/if}
             </div>
             <div class="flex flex-col items-end gap-1.5">
+                <div class="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/40 text-white text-[9px] font-black uppercase tracking-wider backdrop-blur-md border border-white/10">
+                    {#if classificationSource.key === 'manual'}
+                        <svg class="w-3 h-3 text-amber-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 4h9m-9 4h7m-7 4h5m-7 4h7M5 6h.01M5 10h.01M5 14h.01M5 18h.01" />
+                        </svg>
+                    {:else if classificationSource.key === 'video'}
+                        <svg class="w-3 h-3 text-teal-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14m-4 4H5a2 2 0 01-2-2V8a2 2 0 012-2h6a2 2 0 012 2v8a2 2 0 01-2 2z" />
+                        </svg>
+                    {:else}
+                        <svg class="w-3 h-3 text-slate-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                        </svg>
+                    {/if}
+                    <span>{classificationSource.label}</span>
+                </div>
                 {#if !detection.manual_tagged}
                     <div class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-2xl bg-white/95 dark:bg-slate-900/95 shadow-xl backdrop-blur-md border {getConfidenceBg(detection.score)}">
                         <span class="w-2 h-2 rounded-full {detection.score >= 0.9 ? 'bg-emerald-500 animate-pulse' : detection.score >= 0.7 ? 'bg-amber-500' : 'bg-red-500'}"></span>
@@ -352,7 +370,7 @@
                 </p>
             {/if}
         </div>
-        {#if detection.audio_confirmed}
+        {#if detection.audio_confirmed || detection.audio_species}
             <div class="p-3 rounded-2xl bg-teal-500/5 dark:bg-teal-500/10 border border-teal-500/10 dark:border-teal-500/20 flex items-center gap-3 group/audio">
                 <div class="w-8 h-8 rounded-xl bg-teal-500/20 flex items-center justify-center flex-shrink-0">
                     <svg class="w-4 h-4 text-teal-600 dark:text-teal-400 {detection.audio_confirmed ? 'animate-pulse-slow' : ''}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -360,9 +378,13 @@
                     </svg>
                 </div>
                 <div class="min-w-0">
-                    <p class="text-[10px] font-black uppercase tracking-widest text-teal-600/70 dark:text-teal-400/70 mb-0.5">{$_('detection.audio_match')}</p>
+                    <p class="text-[10px] font-black uppercase tracking-widest text-teal-600/70 dark:text-teal-400/70 mb-0.5">
+                        {detection.audio_confirmed ? $_('detection.audio_match') : $_('detection.audio_detected')}
+                    </p>
                     <p class="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">
-                        {detection.audio_species || $_('detection.birdnet_confirmed')}
+                        {detection.audio_confirmed
+                            ? (detection.audio_species || $_('detection.birdnet_confirmed'))
+                            : $_('detection.audio_heard', { values: { species: detection.audio_species || $_('detection.audio_detected') } })}
                         {#if detection.audio_score}
                             <span class="ml-1 opacity-60">({(detection.audio_score * 100).toFixed(0)}%)</span>
                         {/if}

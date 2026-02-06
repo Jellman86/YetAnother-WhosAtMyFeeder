@@ -6,12 +6,14 @@ import structlog
 
 from app.database import get_db
 from app.repositories.detection_repository import DetectionRepository
-from app.models import SpeciesStats, SpeciesInfo, CameraStats, Detection
+from app.models import SpeciesStats, SpeciesInfo, CameraStats, Detection, SpeciesRangeMap
 from app.config import settings
 from app.services.taxonomy.taxonomy_service import taxonomy_service
 from app.services.i18n_service import i18n_service
 from app.services.classifier_service import get_classifier
+from app.services.ebird_service import ebird_service
 from app.utils.language import get_user_language
+from app.utils.enrichment import get_effective_enrichment_settings
 from app.auth import require_owner, AuthContext
 from app.auth_legacy import get_auth_context_with_legacy
 from app.ratelimit import guest_rate_limit
@@ -22,10 +24,15 @@ log = structlog.get_logger()
 # Species info cache with TTL
 _wiki_cache: dict[str, tuple[SpeciesInfo, datetime]] = {}
 CACHE_TTL_SUCCESS = timedelta(hours=24)
-CACHE_TTL_FAILURE = timedelta(minutes=15)  # Short TTL for failures to allow retries
+CACHE_TTL_FAILURE = timedelta(minutes=1)  # Short TTL for failures to allow retries
 
 # User-Agent is required by Wikipedia API - they block requests without it
 WIKIPEDIA_USER_AGENT = "YA-WAMF/2.0 (Bird Watching App; https://github.com/Jellman86/YetAnother-WhosAtMyFeeder)"
+
+GBIF_MATCH_URL = "https://api.gbif.org/v1/species/match"
+GBIF_TILE_URL = "https://api.gbif.org/v2/map/occurrence/density/{z}/{x}/{y}@1x.png"
+GBIF_CACHE_TTL = timedelta(hours=24)
+_gbif_cache: dict[str, tuple[int | None, datetime]] = {}
 
 # Species names that should NOT trigger Wikipedia lookup (no valid article exists)
 SKIP_WIKIPEDIA_LOOKUP = {
@@ -52,6 +59,60 @@ def _is_cache_valid(info: SpeciesInfo, cached_at: datetime | None) -> bool:
     is_success = bool(info.thumbnail_url or info.extract)
     cache_ttl = CACHE_TTL_SUCCESS if is_success else CACHE_TTL_FAILURE
     return datetime.now() - cached_at < cache_ttl
+
+
+def _normalize_provider(provider: str | None) -> str:
+    if not provider:
+        return "wikipedia"
+    normalized = provider.strip().lower()
+    if normalized in ("inat", "inaturalist"):
+        return "inaturalist"
+    if normalized in ("wiki", "wikipedia"):
+        return "wikipedia"
+    if normalized == "ebird":
+        return "ebird"
+    if normalized == "disabled":
+        return "wikipedia"
+    return normalized
+
+
+def _resolve_summary_sources() -> list[str]:
+    effective = get_effective_enrichment_settings()
+    mode = (effective["mode"] or "per_enrichment").strip().lower()
+    if mode == "single":
+        primary = _normalize_provider(effective["single_provider"])
+    else:
+        primary = _normalize_provider(effective["summary_source"])
+    fallback = "wikipedia" if primary != "wikipedia" else "inaturalist"
+    return [primary, fallback]
+
+async def _get_gbif_taxon_key(name: str) -> int | None:
+    if not name:
+        return None
+    normalized = name.strip().lower()
+    cached = _gbif_cache.get(normalized)
+    if cached and datetime.now() - cached[1] < GBIF_CACHE_TTL:
+        return cached[0]
+
+    params = {"name": name}
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            resp = await client.get(GBIF_MATCH_URL, params=params)
+            resp.raise_for_status()
+            data = resp.json()
+    except Exception as e:
+        log.warning("GBIF match failed", species=name, error=str(e))
+        return None
+
+    key = data.get("usageKey") or data.get("speciesKey") or None
+    if key is not None:
+        try:
+            key = int(key)
+        except (TypeError, ValueError):
+            key = None
+
+    _gbif_cache[normalized] = (key, datetime.now())
+    return key
 
 async def _lookup_taxa_id(species_name: str) -> int | None:
     async with get_db() as db:
@@ -81,7 +142,7 @@ async def _get_cached_species_info(species_name: str, taxa_id: int | None, langu
         if taxa_id:
             cursor = await db.execute(
                 """SELECT title, description, extract, thumbnail_url, wikipedia_url, source, source_url,
-                          summary_source, summary_source_url, scientific_name, conservation_status, cached_at
+                          summary_source, summary_source_url, scientific_name, conservation_status, cached_at, taxa_id
                    FROM species_info_cache WHERE taxa_id = ? AND language = ?
                    ORDER BY cached_at DESC LIMIT 1""",
                 (taxa_id, language)
@@ -89,7 +150,7 @@ async def _get_cached_species_info(species_name: str, taxa_id: int | None, langu
         else:
             cursor = await db.execute(
                 """SELECT title, description, extract, thumbnail_url, wikipedia_url, source, source_url,
-                          summary_source, summary_source_url, scientific_name, conservation_status, cached_at
+                          summary_source, summary_source_url, scientific_name, conservation_status, cached_at, taxa_id
                    FROM species_info_cache WHERE species_name = ? AND language = ?""",
                 (species_name, language)
             )
@@ -111,7 +172,8 @@ async def _get_cached_species_info(species_name: str, taxa_id: int | None, langu
         summary_source_url=row[8],
         scientific_name=row[9],
         conservation_status=row[10],
-        cached_at=cached_at
+        cached_at=cached_at,
+        taxa_id=row[12]
     )
 
     if _is_cache_valid(info, cached_at):
@@ -242,7 +304,7 @@ async def search_species(
 
     async with get_db() as db:
         if q:
-            matches = [l for l in labels if q_lower in l.lower()]
+            matches = [label for label in labels if q_lower in label.lower()]
 
             # Include labels whose cached common/scientific names match the query.
             async with db.execute(
@@ -316,7 +378,7 @@ async def search_species(
 
     return results
 
-# ... existing code ...
+def _is_bird_article(data: dict) -> bool:
     """
     Strictly validate that a Wikipedia article is about a bird species.
     Uses the description field which is very reliable for bird articles.
@@ -348,8 +410,47 @@ async def search_species(
         "species of woodpecker",
         "species of hummingbird",
         "genus of bird",
+        "genus of birds",
         "family of bird",
+        "family of birds",
         "order of bird",
+        "order of birds",
+        "class of bird",
+        "class of birds",
+        "subfamily of bird",
+        "subfamily of birds",
+        "subspecies of bird",
+        "subspecies of birds",
+        # German
+        "vogelart",
+        "art der vögel",
+        "familie der vögel",
+        "gattung der vögel",
+        # French
+        "espèce d'oiseau",
+        "famille d'oiseaux",
+        "genre d'oiseaux",
+        # Spanish
+        "especie de ave",
+        "especie de pájaro",
+        "familia de aves",
+        "género de aves",
+        # Italian
+        "specie di uccello",
+        "famiglia di uccelli",
+        "genere di uccelli",
+        # Dutch
+        "vogelsoort",
+        "familie van vogels",
+        # Portuguese
+        "espécie de ave",
+        "família de aves",
+        # Polish
+        "gatunek ptaka",
+        "rodzina ptaków",
+        # Russian
+        "вид птиц",
+        "семейство птиц",
     ]
 
     # Check description first - this is very reliable
@@ -357,21 +458,44 @@ async def search_species(
         if phrase in description:
             return True
 
+    # Standalone bird groups that often appear at the beginning of descriptions
+    # e.g., "Thrush native to Europe"
+    standalone_bird_groups = [
+        "thrush", "finch", "sparrow", "warbler", "wren", "tit", "duck", "goose",
+        "owl", "hawk", "eagle", "heron", "gull", "woodpecker", "hummingbird",
+        "corvid", "pigeon", "dove", "swift", "swallow", "falcon", "plover",
+        "sandpiper", "kingfisher", "starling", "nuthatch", "creeper", "bulbul",
+        "blackbird", "mockingbird", "thrasher", "waxwing", "tanager", "bunting",
+        "cardinal", "grosbeak", "oriole", "blackbird", "grackle", "cowbird"
+    ]
+
+    # Check for standalone groups in description
+    description_words = description.split()
+    if description_words and any(word.strip(",.;") in standalone_bird_groups for word in description_words):
+        return True
+
     # If description doesn't match, check for bird-specific terms in extract
     # But be stricter - require multiple bird-related terms
-    bird_extract_keywords = ["bird", "avian", "ornithology", "plumage", "wingspan", "migratory"]
-    taxonomy_keywords = ["passeriformes", "aves", "passerine", "oscine", "corvidae", "paridae", "fringillidae"]
+    bird_extract_keywords = [
+        "bird", "avian", "ornithology", "plumage", "wingspan", "migratory",
+        "nesting", "beak", "bill", "talon", "passerine", "songbird"
+    ]
+    taxonomy_keywords = [
+        "passeriformes", "aves", "passerine", "oscine", "corvidae", "paridae",
+        "fringillidae", "turdidae", "accipitridae", "anatidae", "picidae",
+        "strigidae", "columbidae", "hirundinidae", "emberizidae", "ictenidae"
+    ]
 
     # Count how many bird-specific keywords are present
     bird_keyword_count = sum(1 for kw in bird_extract_keywords if kw in extract)
     taxonomy_count = sum(1 for kw in taxonomy_keywords if kw in extract)
 
-    # Require at least 2 bird keywords OR 1 taxonomy term to be confident
-    if bird_keyword_count >= 2 or taxonomy_count >= 1:
+    # Higher ranks often mention "birds" in the plural
+    if "birds" in extract or "birds" in description:
         return True
 
-    # Special case: if "bird" is in description (not just extract), that's usually good enough
-    if "bird" in description:
+    # Require at least 2 bird keywords OR 1 taxonomy term to be confident
+    if bird_keyword_count >= 2 or taxonomy_count >= 1:
         return True
 
     return False
@@ -604,12 +728,11 @@ async def get_species_stats(
         # Get taxonomy names for the main species
         taxonomy = await repo.get_taxonomy_names(species_name)
         common_name = taxonomy["common_name"]
-        
-        # Localize main common name if needed
-        taxa_id = None
-        if recent:
+        taxa_id = taxonomy.get("taxa_id")
+        if not taxa_id and recent:
             taxa_id = recent[0].taxa_id
         
+        # Localize main common name if needed
         if lang != 'en' and taxa_id:
             localized = await taxonomy_service.get_localized_common_name(taxa_id, lang, db=db)
             if localized:
@@ -619,6 +742,7 @@ async def get_species_stats(
             species_name=species_name,
             scientific_name=taxonomy["scientific_name"],
             common_name=common_name,
+            taxa_id=taxa_id,
             total_sightings=total_stats["total"],
             first_seen=total_stats["first_seen"],
             last_seen=total_stats["last_seen"],
@@ -692,17 +816,65 @@ async def get_species_info(
     if cached_info:
         return cached_info
 
-    source_pref = settings.species_info_source or "auto"
+    summary_sources = _resolve_summary_sources()
+    primary = summary_sources[0]
 
-    if source_pref == "wikipedia":
+    if primary == "wikipedia":
         info = await _fetch_wikipedia_info(species_name, lang)
         if info.extract:
             info.summary_source = info.source
             info.summary_source_url = info.source_url
-    elif source_pref == "inat":
-        info = await _fetch_inaturalist_info(species_name, lang)
+        if not info.extract or not info.thumbnail_url:
+            inat_info = await _fetch_inaturalist_info(species_name, lang)
+            if not info.extract and inat_info.extract:
+                info.extract = inat_info.extract
+                info.summary_source = inat_info.source
+                info.summary_source_url = inat_info.source_url
+            if not info.thumbnail_url and inat_info.thumbnail_url:
+                info.thumbnail_url = inat_info.thumbnail_url
+            if not info.wikipedia_url and inat_info.wikipedia_url:
+                info.wikipedia_url = inat_info.wikipedia_url
+            if not info.scientific_name and inat_info.scientific_name:
+                info.scientific_name = inat_info.scientific_name
+    elif primary == "ebird":
+        info = await _fetch_ebird_info(species_name, lang)
+        
+        # eBird rarely provides text/images via API, so we almost always need fallbacks
+        # Use the eBird-resolved common name for better fallback lookup success
+        search_name = info.title if info.title and info.title != species_name else species_name
+        
+        # Fallback to Wikipedia for text/images
+        if not info.extract or not info.thumbnail_url:
+            wiki_info = await _fetch_wikipedia_info(search_name, lang)
+            # If search by eBird name failed, try original name
+            if not wiki_info.extract and search_name != species_name:
+                 wiki_info = await _fetch_wikipedia_info(species_name, lang)
+
+            if wiki_info.extract:
+                info.extract = wiki_info.extract
+                info.summary_source = wiki_info.source
+                info.summary_source_url = wiki_info.source_url
+            if wiki_info.thumbnail_url:
+                info.thumbnail_url = wiki_info.thumbnail_url
+            if wiki_info.wikipedia_url:
+                info.wikipedia_url = wiki_info.wikipedia_url
+            if not info.scientific_name and wiki_info.scientific_name:
+                info.scientific_name = wiki_info.scientific_name
+
+        # Fallback to iNaturalist if still missing
+        if not info.extract or not info.thumbnail_url:
+            inat_info = await _fetch_inaturalist_info(search_name, lang)
+            if inat_info.extract:
+                info.extract = inat_info.extract
+                info.summary_source = inat_info.source
+                info.summary_source_url = inat_info.source_url
+            if inat_info.thumbnail_url:
+                info.thumbnail_url = inat_info.thumbnail_url
+            if inat_info.wikipedia_url and not info.wikipedia_url:
+                info.wikipedia_url = inat_info.wikipedia_url
+            if inat_info.scientific_name and not info.scientific_name:
+                info.scientific_name = inat_info.scientific_name
     else:
-        # Fetch from iNaturalist first, then fill gaps with Wikipedia
         info = await _fetch_inaturalist_info(species_name, lang)
         if not info.extract or not info.thumbnail_url:
             wiki_info = None
@@ -728,6 +900,13 @@ async def get_species_info(
                 info.summary_source = fallback.source
                 info.summary_source_url = fallback.source_url
 
+    if info.extract and not info.summary_source:
+        info.summary_source = info.source
+        info.summary_source_url = info.source_url
+
+    if taxa_id and not info.taxa_id:
+        info.taxa_id = taxa_id
+
     # Cache the result
     await _save_species_info(species_name, taxa_id, lang, info)
     _wiki_cache[f"{species_name}:{lang}"] = (info, info.cached_at or datetime.now())
@@ -743,6 +922,80 @@ async def get_species_info(
     )
 
     return info
+
+
+@router.get("/species/{species_name}/range", response_model=SpeciesRangeMap)
+@guest_rate_limit()
+async def get_species_range(
+    species_name: str,
+    request: Request,
+    scientific_name: str | None = None,
+    auth: AuthContext = Depends(get_auth_context_with_legacy)
+):
+    query_name = scientific_name or species_name
+    if not query_name:
+        return SpeciesRangeMap(status="error", message="No species name provided")
+
+    taxon_key = await _get_gbif_taxon_key(query_name)
+    if not taxon_key:
+        return SpeciesRangeMap(status="error", message="GBIF match not found")
+
+    tile_url = (
+        f"{GBIF_TILE_URL}?srs=EPSG:3857&taxonKey={taxon_key}"
+        "&bin=hex&hexPerTile=57&style=classic.poly"
+    )
+    return SpeciesRangeMap(
+        status="ok",
+        taxon_key=taxon_key,
+        map_tile_url=tile_url,
+        source="GBIF",
+        source_url=f"https://www.gbif.org/species/{taxon_key}"
+    )
+
+async def _fetch_ebird_info(species_name: str, lang: str) -> SpeciesInfo:
+    """Fetch species information from eBird API."""
+    try:
+        # Resolve name to code
+        code = await ebird_service.resolve_species_code(species_name)
+        if code:
+             # Find item in taxonomy (pass locale to get localized common name)
+             # eBird locales use hyphens (e.g. pt-BR) but app might use underscores or just code
+             # We pass it as is, eBird service handles defaults
+             taxonomy = await ebird_service.get_taxonomy(locale=lang)
+             item = next((i for i in taxonomy if i.get("speciesCode") == code), None)
+             
+             if item:
+                 return SpeciesInfo(
+                     title=item.get("comName") or species_name,
+                     description=None, # eBird doesn't provide descriptions
+                     extract=None,
+                     thumbnail_url=None,
+                     wikipedia_url=None,
+                     source="eBird",
+                     source_url=f"https://ebird.org/species/{code}",
+                     summary_source=None,
+                     summary_source_url=None,
+                     scientific_name=item.get("sciName"),
+                     conservation_status=None,
+                     cached_at=datetime.now()
+                 )
+    except Exception as e:
+        log.error("eBird info fetch failed", species=species_name, error=str(e))
+    
+    # Return minimal info if eBird lookup failed
+    return SpeciesInfo(
+        title=species_name,
+        description=None,
+        extract=None,
+        thumbnail_url=None,
+        wikipedia_url=None,
+        source="eBird (Failed)",
+        source_url=None,
+        scientific_name=None,
+        conservation_status=None,
+        cached_at=datetime.now()
+    )
+
 
 async def _fetch_wikipedia_info(species_name: str, lang: str) -> SpeciesInfo:
     """Fetch species information from Wikipedia API."""
@@ -857,12 +1110,13 @@ async def _fetch_inaturalist_info(species_name: str, lang: str) -> SpeciesInfo:
                 )
 
             taxon = results[0]
+            taxa_id = taxon.get("id")
             scientific_name = taxon.get("name")
             preferred_common = taxon.get("preferred_common_name")
             title = preferred_common or scientific_name or species_name
             extract = taxon.get("wikipedia_summary")
             wikipedia_url = taxon.get("wikipedia_url")
-            source_url = taxon.get("uri") or (f"https://www.inaturalist.org/taxa/{taxon.get('id')}" if taxon.get("id") else None)
+            source_url = taxon.get("uri") or (f"https://www.inaturalist.org/taxa/{taxa_id}" if taxa_id else None)
             thumbnail_url = None
             default_photo = taxon.get("default_photo")
             if isinstance(default_photo, dict):
@@ -880,6 +1134,7 @@ async def _fetch_inaturalist_info(species_name: str, lang: str) -> SpeciesInfo:
                 summary_source_url=source_url if extract else None,
                 scientific_name=scientific_name,
                 conservation_status=None,
+                taxa_id=taxa_id,
                 cached_at=datetime.now()
             )
     except httpx.TimeoutException:

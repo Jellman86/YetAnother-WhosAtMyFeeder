@@ -22,6 +22,7 @@
             label: $_("settings.tabs.integrations"),
             icon: "🔌",
         },
+        { id: "enrichment", label: $_("settings.tabs.enrichment"), icon: "✨" },
         { id: "security", label: $_("settings.tabs.security"), icon: "🔐" },
         { id: "data", label: $_("settings.tabs.data"), icon: "💾" },
         { id: "appearance", label: $_("settings.tabs.appearance"), icon: "🎨" },

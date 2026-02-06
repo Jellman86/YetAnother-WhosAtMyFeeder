@@ -47,15 +47,29 @@ export interface VersionInfo {
     branch: string;
 }
 
-export interface AuthStatus {
+export interface AuthStatusResponse {
     auth_required: boolean;
     public_access_enabled: boolean;
     is_authenticated: boolean;
-    birdnet_enabled?: boolean;
-    llm_enabled?: boolean;
-    username?: string | null;
+    birdnet_enabled: boolean;
+    llm_enabled: boolean;
+    ebird_enabled: boolean;
+    inaturalist_enabled: boolean;
+    enrichment_mode: string;
+    enrichment_single_provider: string;
+    enrichment_summary_source: string;
+    enrichment_sightings_source: string;
+    enrichment_seasonality_source: string;
+    enrichment_rarity_source: string;
+    enrichment_links_sources: string[];
+    display_common_names: boolean;
+    scientific_name_primary: boolean;
+    accessibility_live_announcements: boolean;
+    location_temperature_unit: string;
+    date_format: string;
+    username: string | null;
     needs_initial_setup: boolean;
-    https_warning?: boolean;
+    https_warning: boolean;
 }
 
 export interface LoginResponse {
@@ -125,6 +139,13 @@ export interface Settings {
     // BirdWeather settings
     birdweather_enabled: boolean;
     birdweather_station_token?: string | null;
+    // eBird settings
+    ebird_enabled?: boolean;
+    ebird_api_key?: string | null;
+    ebird_default_radius_km?: number;
+    ebird_default_days_back?: number;
+    ebird_max_results?: number;
+    ebird_locale?: string;
     // iNaturalist settings
     inaturalist_enabled?: boolean;
     inaturalist_client_id?: string | null;
@@ -133,6 +154,15 @@ export interface Settings {
     inaturalist_default_longitude?: number | null;
     inaturalist_default_place_guess?: string | null;
     inaturalist_connected_user?: string | null;
+    // Enrichment settings
+    enrichment_mode?: string;
+    enrichment_single_provider?: string;
+    enrichment_summary_source?: string;
+    enrichment_taxonomy_source?: string;
+    enrichment_sightings_source?: string;
+    enrichment_seasonality_source?: string;
+    enrichment_rarity_source?: string;
+    enrichment_links_sources?: string[];
     // LLM settings
     llm_enabled: boolean;
     llm_provider?: string;
@@ -215,9 +245,11 @@ export interface Settings {
     public_access_enabled: boolean;
     public_access_show_camera_names: boolean;
     public_access_historical_days: number;
+    public_access_media_historical_days: number;
     public_access_rate_limit_per_minute: number;
 
     species_info_source?: string;
+    date_format?: string;
 }
 
 export type UpdateSettings = Partial<Settings>;
@@ -286,6 +318,22 @@ export function setApiKey(key: string | null) {
 
 export function getApiKey(): string | null {
     return apiKey;
+}
+
+function appendQueryParam(url: string, key: string, value: string): string {
+    const separator = url.includes('?') ? '&' : '?';
+    return `${url}${separator}${key}=${encodeURIComponent(value)}`;
+}
+
+function withAuthParams(url: string): string {
+    const token = getAuthToken();
+    if (token) {
+        return appendQueryParam(url, 'token', token);
+    }
+    if (apiKey) {
+        return appendQueryParam(url, 'api_key', apiKey);
+    }
+    return url;
 }
 
 function isAuthTokenExpired(): boolean {
@@ -364,7 +412,7 @@ async function apiFetch(url: string, options: RequestInit = {}): Promise<Respons
     return response;
 }
 
-export async function fetchAuthStatus(): Promise<AuthStatus> {
+export async function fetchAuthStatus(): Promise<AuthStatusResponse> {
     const response = await fetch(`${API_BASE}/auth/status`, {
         headers: getHeaders()
     });
@@ -547,8 +595,16 @@ export async function fetchEvents(options: FetchEventsOptions = {}): Promise<Det
 }
 
 export interface EventFilters {
-    species: string[];
+    species: EventFilterSpecies[];
     cameras: string[];
+}
+
+export interface EventFilterSpecies {
+    value: string;
+    display_name: string;
+    scientific_name?: string | null;
+    common_name?: string | null;
+    taxa_id?: number | null;
 }
 
 export async function fetchEventFilters(): Promise<EventFilters> {
@@ -590,6 +646,24 @@ export async function fetchMaintenanceStats(): Promise<MaintenanceStats> {
 export async function runCleanup(): Promise<CleanupResult> {
     const response = await apiFetch(`${API_BASE}/maintenance/cleanup`, { method: 'POST' });
     return handleResponse<CleanupResult>(response);
+}
+
+export interface PurgeMissingMediaResult {
+    status: string;
+    deleted_count: number;
+    checked: number;
+    missing: number;
+    message?: string;
+}
+
+export async function purgeMissingClips(): Promise<PurgeMissingMediaResult> {
+    const response = await apiFetch(`${API_BASE}/maintenance/purge-missing-clips`, { method: 'POST' });
+    return handleResponse<PurgeMissingMediaResult>(response);
+}
+
+export async function purgeMissingSnapshots(): Promise<PurgeMissingMediaResult> {
+    const response = await apiFetch(`${API_BASE}/maintenance/purge-missing-snapshots`, { method: 'POST' });
+    return handleResponse<PurgeMissingMediaResult>(response);
 }
 
 export async function analyzeUnknowns(): Promise<{ status: string; count: number; message: string }> {
@@ -695,15 +769,15 @@ export async function downloadDefaultModel(): Promise<DownloadModelResult> {
 }
 
 export function getSnapshotUrl(frigateEvent: string): string {
-    return `${API_BASE}/frigate/${frigateEvent}/snapshot.jpg`;
+    return withAuthParams(`${API_BASE}/frigate/${frigateEvent}/snapshot.jpg`);
 }
 
 export function getThumbnailUrl(frigateEvent: string): string {
-    return `${API_BASE}/frigate/${frigateEvent}/thumbnail.jpg`;
+    return withAuthParams(`${API_BASE}/frigate/${frigateEvent}/thumbnail.jpg`);
 }
 
 export function getClipUrl(frigateEvent: string): string {
-    return `${API_BASE}/frigate/${frigateEvent}/clip.mp4`;
+    return withAuthParams(`${API_BASE}/frigate/${frigateEvent}/clip.mp4`);
 }
 
 export async function checkClipAvailable(frigateEvent: string): Promise<boolean> {
@@ -753,6 +827,7 @@ export interface SpeciesInfo {
     summary_source_url: string | null;
     scientific_name: string | null;
     conservation_status: string | null;
+    taxa_id?: number | null;
     cached_at: string | null;
 }
 
@@ -802,6 +877,62 @@ export async function fetchSpeciesStats(speciesName: string): Promise<SpeciesSta
 export async function fetchSpeciesInfo(speciesName: string): Promise<SpeciesInfo> {
     const response = await apiFetch(`${API_BASE}/species/${encodeURIComponent(speciesName)}/info`);
     return handleResponse<SpeciesInfo>(response);
+}
+
+export interface EbirdObservation {
+    species_code?: string | null;
+    common_name?: string | null;
+    scientific_name?: string | null;
+    observed_at?: string | null;
+    location_name?: string | null;
+    how_many?: number | null;
+    lat?: number | null;
+    lng?: number | null;
+    obs_valid?: boolean | null;
+    obs_reviewed?: boolean | null;
+    thumbnail_url?: string | null;
+}
+
+export interface EbirdNearbyResult {
+    status: string;
+    species_name?: string | null;
+    species_code?: string | null;
+    warning?: string | null;
+    results: EbirdObservation[];
+}
+
+export interface EbirdNotableResult {
+    status: string;
+    results: EbirdObservation[];
+}
+
+export async function fetchEbirdNearby(speciesName?: string, scientificName?: string): Promise<EbirdNearbyResult> {
+    const params = new URLSearchParams();
+    if (speciesName) params.append('species_name', speciesName);
+    if (scientificName) params.append('scientific_name', scientificName);
+    const response = await apiFetch(`${API_BASE}/ebird/nearby?${params.toString()}`);
+    return handleResponse<EbirdNearbyResult>(response);
+}
+
+export async function fetchEbirdNotable(): Promise<EbirdNotableResult> {
+    const response = await apiFetch(`${API_BASE}/ebird/notable`);
+    return handleResponse<EbirdNotableResult>(response);
+}
+
+export async function exportEbirdCsv(): Promise<void> {
+    const response = await apiFetch(`${API_BASE}/ebird/export`);
+    if (!response.ok) {
+        throw new Error('Failed to export eBird CSV');
+    }
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `ebird_export_${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
 }
 
 export async function fetchDetectionsTimeline(days = 30): Promise<DetectionsTimeline> {
@@ -1341,4 +1472,39 @@ export async function submitInaturalistObservation(payload: {
         body: JSON.stringify(payload)
     });
     return handleResponse<InaturalistSubmitResult>(response);
+}
+
+export interface SeasonalityResult {
+    status: string;
+    taxon_id: number;
+    local: boolean;
+    month_counts: number[];
+    total_observations: number;
+}
+
+export interface SpeciesRangeMap {
+    status: string;
+    taxon_key?: number | null;
+    map_tile_url?: string | null;
+    source?: string | null;
+    source_url?: string | null;
+    message?: string | null;
+}
+
+export async function fetchSeasonality(taxonId: number, lat?: number, lng?: number): Promise<SeasonalityResult> {
+    const params = new URLSearchParams({ taxon_id: String(taxonId) });
+    if (lat !== undefined && lng !== undefined) {
+        params.set('lat', String(lat));
+        params.set('lng', String(lng));
+    }
+    const response = await apiFetch(`${API_BASE}/inaturalist/seasonality?${params.toString()}`);
+    return handleResponse<SeasonalityResult>(response);
+}
+
+export async function fetchSpeciesRange(speciesName: string, scientificName?: string): Promise<SpeciesRangeMap> {
+    const params = new URLSearchParams();
+    if (scientificName) params.set('scientific_name', scientificName);
+    const suffix = params.toString() ? `?${params.toString()}` : '';
+    const response = await apiFetch(`${API_BASE}/species/${encodeURIComponent(speciesName)}/range${suffix}`);
+    return handleResponse<SpeciesRangeMap>(response);
 }

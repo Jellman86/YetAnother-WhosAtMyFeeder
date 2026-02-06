@@ -26,7 +26,7 @@ Built with help from AI coding assistants as an experiment in what's possible wi
 
 ## Live Instance
 
-A public instance of YA-WAMF is available here:
+A public instance of YA-WAMF is available here (*always on dev branch, may be broken!*):
 
 - **https://yetanotherwhosatmyfeeder.pownet.uk**
 

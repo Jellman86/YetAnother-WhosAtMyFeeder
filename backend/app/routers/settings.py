@@ -1,6 +1,7 @@
 import platform
 import re
-from typing import List, Optional
+import asyncio
+from typing import List, Optional, Literal
 from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field, field_validator
@@ -17,11 +18,15 @@ from app.services.notification_service import notification_service
 from app.services.auto_video_classifier_service import auto_video_classifier
 from app.services.birdweather_service import birdweather_service
 from app.services.inaturalist_service import inaturalist_service
+from app.services.frigate_client import frigate_client
+from app.services.media_cache import media_cache
+from app.utils.enrichment import get_effective_enrichment_settings, is_ebird_active
 
 from fastapi import BackgroundTasks
 
 router = APIRouter()
 log = structlog.get_logger()
+PURGE_CHECK_CONCURRENCY = 8
 
 @router.get("/maintenance/taxonomy/status")
 async def get_taxonomy_status(auth: AuthContext = Depends(require_owner)):
@@ -243,6 +248,13 @@ class SettingsUpdate(BaseModel):
     # BirdWeather settings
     birdweather_enabled: Optional[bool] = Field(False, description="Enable BirdWeather reporting")
     birdweather_station_token: Optional[str] = Field(None, description="BirdWeather Station Token")
+    # eBird settings
+    ebird_enabled: Optional[bool] = Field(False, description="Enable eBird enrichment")
+    ebird_api_key: Optional[str] = Field(None, description="eBird API key")
+    ebird_default_radius_km: Optional[int] = Field(25, ge=1, le=50, description="Default radius in km for eBird queries")
+    ebird_default_days_back: Optional[int] = Field(14, ge=1, le=30, description="Days back for eBird queries")
+    ebird_max_results: Optional[int] = Field(25, ge=1, le=200, description="Max eBird results to return")
+    ebird_locale: Optional[str] = Field("en", description="eBird locale for common names")
     # iNaturalist settings
     inaturalist_enabled: Optional[bool] = Field(False, description="Enable iNaturalist submissions")
     inaturalist_client_id: Optional[str] = Field(None, description="iNaturalist OAuth Client ID")
@@ -250,6 +262,15 @@ class SettingsUpdate(BaseModel):
     inaturalist_default_latitude: Optional[float] = Field(None, description="Default latitude for iNaturalist submissions")
     inaturalist_default_longitude: Optional[float] = Field(None, description="Default longitude for iNaturalist submissions")
     inaturalist_default_place_guess: Optional[str] = Field(None, description="Default place guess for iNaturalist submissions")
+    # Enrichment settings
+    enrichment_mode: Optional[str] = Field("per_enrichment", description="Enrichment source mode: single or per_enrichment")
+    enrichment_single_provider: Optional[str] = Field("wikipedia", description="Provider used when mode=single")
+    enrichment_summary_source: Optional[str] = Field("wikipedia", description="Provider for summaries/description")
+    enrichment_taxonomy_source: Optional[str] = Field("inaturalist", description="Provider for taxonomy/common names")
+    enrichment_sightings_source: Optional[str] = Field("disabled", description="Provider for nearby sightings")
+    enrichment_seasonality_source: Optional[str] = Field("disabled", description="Provider for seasonality")
+    enrichment_rarity_source: Optional[str] = Field("disabled", description="Provider for rarity indicators")
+    enrichment_links_sources: Optional[List[str]] = Field(default_factory=list, description="Providers for external links")
     # LLM settings
     llm_enabled: Optional[bool] = Field(False, description="Enable AI behavior analysis")
     llm_provider: Optional[str] = Field("gemini", description="AI provider")
@@ -346,9 +367,11 @@ class SettingsUpdate(BaseModel):
     public_access_enabled: Optional[bool] = None
     public_access_show_camera_names: Optional[bool] = None
     public_access_historical_days: Optional[int] = Field(None, ge=0, le=365)
+    public_access_media_historical_days: Optional[int] = Field(None, ge=0, le=365)
     public_access_rate_limit_per_minute: Optional[int] = Field(None, ge=1, le=100)
 
     species_info_source: Optional[str] = "auto"
+    date_format: Optional[str] = None
 
     @field_validator('location_temperature_unit')
     @classmethod
@@ -371,12 +394,34 @@ class SettingsUpdate(BaseModel):
             raise ValueError("notifications_mode must be one of: silent, final, standard, realtime, custom")
         return normalized
 
+    @field_validator('enrichment_mode')
+    @classmethod
+    def validate_enrichment_mode(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        normalized = v.strip().lower()
+        allowed = {"single", "per_enrichment"}
+        if normalized not in allowed:
+            raise ValueError("enrichment_mode must be 'single' or 'per_enrichment'")
+        return normalized
+
     @field_validator('frigate_url')
     @classmethod
     def validate_frigate_url(cls, v: str) -> str:
         if not v.startswith(('http://', 'https://')):
             raise ValueError('frigate_url must start with http:// or https://')
         return v.rstrip('/')
+
+    @field_validator('date_format')
+    @classmethod
+    def validate_date_format(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        normalized = v.strip().lower()
+        allowed = {"locale", "mdy", "dmy", "ymd"}
+        if normalized not in allowed:
+            raise ValueError("date_format must be one of: locale, mdy, dmy, ymd")
+        return normalized
 
 @router.get("/settings")
 async def get_settings(auth: AuthContext = Depends(require_owner)):
@@ -395,6 +440,9 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
     inat_user = await inaturalist_service.refresh_connected_user()
 
     circuit_status = auto_video_classifier.get_circuit_status()
+    effective_enrichment = get_effective_enrichment_settings()
+    ebird_active = is_ebird_active()
+
     return {
         "frigate_url": settings.frigate.frigate_url,
         "mqtt_server": settings.frigate.mqtt_server,
@@ -438,6 +486,13 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "birdweather_enabled": settings.birdweather.enabled,
         # SECURITY: Never expose station tokens via API
         "birdweather_station_token": "***REDACTED***" if settings.birdweather.station_token else None,
+        # eBird settings
+        "ebird_enabled": ebird_active,
+        "ebird_api_key": "***REDACTED***" if settings.ebird.api_key else None,
+        "ebird_default_radius_km": settings.ebird.default_radius_km,
+        "ebird_default_days_back": settings.ebird.default_days_back,
+        "ebird_max_results": settings.ebird.max_results,
+        "ebird_locale": settings.ebird.locale,
         # iNaturalist settings
         "inaturalist_enabled": settings.inaturalist.enabled,
         "inaturalist_client_id": "***REDACTED***" if settings.inaturalist.client_id else None,
@@ -446,6 +501,15 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "inaturalist_default_longitude": settings.inaturalist.default_longitude,
         "inaturalist_default_place_guess": settings.inaturalist.default_place_guess,
         "inaturalist_connected_user": inat_user,
+        # Enrichment settings
+        "enrichment_mode": effective_enrichment["mode"],
+        "enrichment_single_provider": effective_enrichment["single_provider"],
+        "enrichment_summary_source": effective_enrichment["summary_source"],
+        "enrichment_taxonomy_source": effective_enrichment["taxonomy_source"],
+        "enrichment_sightings_source": effective_enrichment["sightings_source"],
+        "enrichment_seasonality_source": effective_enrichment["seasonality_source"],
+        "enrichment_rarity_source": effective_enrichment["rarity_source"],
+        "enrichment_links_sources": effective_enrichment["links_sources"],
         # LLM settings
         "llm_enabled": settings.llm.enabled,
         "llm_provider": settings.llm.provider,
@@ -518,8 +582,10 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "public_access_enabled": settings.public_access.enabled,
         "public_access_show_camera_names": settings.public_access.show_camera_names,
         "public_access_historical_days": settings.public_access.show_historical_days,
+        "public_access_media_historical_days": settings.public_access.media_historical_days,
         "public_access_rate_limit_per_minute": settings.public_access.rate_limit_per_minute,
         "species_info_source": settings.species_info_source,
+        "date_format": settings.date_format,
     }
 
 @router.post("/settings")
@@ -613,6 +679,20 @@ async def update_settings(
     if "birdweather_station_token" in fields_set and should_update_secret(update.birdweather_station_token):
         settings.birdweather.station_token = update.birdweather_station_token
 
+    # eBird settings
+    if "ebird_enabled" in fields_set and update.ebird_enabled is not None:
+        settings.ebird.enabled = update.ebird_enabled
+    if "ebird_api_key" in fields_set and should_update_secret(update.ebird_api_key):
+        settings.ebird.api_key = update.ebird_api_key
+    if "ebird_default_radius_km" in fields_set and update.ebird_default_radius_km is not None:
+        settings.ebird.default_radius_km = update.ebird_default_radius_km
+    if "ebird_default_days_back" in fields_set and update.ebird_default_days_back is not None:
+        settings.ebird.default_days_back = update.ebird_default_days_back
+    if "ebird_max_results" in fields_set and update.ebird_max_results is not None:
+        settings.ebird.max_results = update.ebird_max_results
+    if "ebird_locale" in fields_set and update.ebird_locale is not None:
+        settings.ebird.locale = update.ebird_locale
+
     # iNaturalist settings
     if "inaturalist_enabled" in fields_set and update.inaturalist_enabled is not None:
         settings.inaturalist.enabled = update.inaturalist_enabled
@@ -626,6 +706,24 @@ async def update_settings(
         settings.inaturalist.default_longitude = update.inaturalist_default_longitude
     if "inaturalist_default_place_guess" in fields_set and update.inaturalist_default_place_guess is not None:
         settings.inaturalist.default_place_guess = update.inaturalist_default_place_guess
+
+    # Enrichment settings
+    if "enrichment_mode" in fields_set and update.enrichment_mode is not None:
+        settings.enrichment.mode = update.enrichment_mode
+    if "enrichment_single_provider" in fields_set and update.enrichment_single_provider is not None:
+        settings.enrichment.single_provider = update.enrichment_single_provider
+    if "enrichment_summary_source" in fields_set and update.enrichment_summary_source is not None:
+        settings.enrichment.summary_source = update.enrichment_summary_source
+    if "enrichment_taxonomy_source" in fields_set and update.enrichment_taxonomy_source is not None:
+        settings.enrichment.taxonomy_source = update.enrichment_taxonomy_source
+    if "enrichment_sightings_source" in fields_set and update.enrichment_sightings_source is not None:
+        settings.enrichment.sightings_source = update.enrichment_sightings_source
+    if "enrichment_seasonality_source" in fields_set and update.enrichment_seasonality_source is not None:
+        settings.enrichment.seasonality_source = update.enrichment_seasonality_source
+    if "enrichment_rarity_source" in fields_set and update.enrichment_rarity_source is not None:
+        settings.enrichment.rarity_source = update.enrichment_rarity_source
+    if "enrichment_links_sources" in fields_set and update.enrichment_links_sources is not None:
+        settings.enrichment.links_sources = update.enrichment_links_sources
 
     # LLM settings
     if "llm_enabled" in fields_set and update.llm_enabled is not None:
@@ -690,8 +788,13 @@ async def update_settings(
         settings.public_access.show_camera_names = update.public_access_show_camera_names
     if "public_access_historical_days" in fields_set and update.public_access_historical_days is not None:
         settings.public_access.show_historical_days = update.public_access_historical_days
+    if "public_access_media_historical_days" in fields_set and update.public_access_media_historical_days is not None:
+        settings.public_access.media_historical_days = update.public_access_media_historical_days
     if "public_access_rate_limit_per_minute" in fields_set and update.public_access_rate_limit_per_minute is not None:
         settings.public_access.rate_limit_per_minute = update.public_access_rate_limit_per_minute
+
+    if "date_format" in fields_set and update.date_format is not None:
+        settings.date_format = update.date_format
 
     # Notifications - Discord
     if "notifications_discord_enabled" in fields_set and update.notifications_discord_enabled is not None:
@@ -849,6 +952,88 @@ async def run_cleanup(auth: AuthContext = Depends(require_owner)):
         "deleted_count": deleted_count,
         "cutoff_date": cutoff.isoformat()
     }
+
+
+async def _purge_missing_media(kind: Literal["clip", "snapshot"]) -> dict:
+    if kind == "clip" and not settings.frigate.clips_enabled:
+        return {
+            "status": "skipped",
+            "deleted_count": 0,
+            "checked": 0,
+            "missing": 0,
+            "message": "Clip fetching is disabled in settings."
+        }
+
+    async with get_db() as db:
+        repo = DetectionRepository(db)
+        event_ids = await repo.get_all_frigate_event_ids()
+
+    if not event_ids:
+        return {
+            "status": "completed",
+            "deleted_count": 0,
+            "checked": 0,
+            "missing": 0,
+            "message": "No detections found"
+        }
+
+    # Check Frigate availability before performing mass purge.
+    try:
+        version = await frigate_client.get_version()
+    except Exception:
+        version = None
+    if not version:
+        return {
+            "status": "failed",
+            "deleted_count": 0,
+            "checked": 0,
+            "missing": 0,
+            "message": "Frigate is not reachable. Aborting purge."
+        }
+
+    semaphore = asyncio.Semaphore(PURGE_CHECK_CONCURRENCY)
+
+    async def check(event_id: str) -> tuple[str, bool]:
+        async with semaphore:
+            event_data, _error = await frigate_client.get_event_with_error(event_id)
+            if not event_data:
+                return event_id, True
+            if kind == "clip":
+                return event_id, not event_data.get("has_clip", False)
+            return event_id, not event_data.get("has_snapshot", True)
+
+    results = await asyncio.gather(*(check(event_id) for event_id in event_ids))
+    missing_ids = [event_id for event_id, missing in results if missing]
+
+    deleted_count = 0
+    if missing_ids:
+        await asyncio.gather(*(media_cache.delete_cached_media(event_id) for event_id in missing_ids))
+        async with get_db() as db:
+            repo = DetectionRepository(db)
+            deleted_count = await repo.delete_by_frigate_events(missing_ids)
+
+    return {
+        "status": "completed",
+        "deleted_count": deleted_count,
+        "checked": len(event_ids),
+        "missing": len(missing_ids)
+    }
+
+
+@router.post("/maintenance/purge-missing-clips")
+async def purge_missing_clips(auth: AuthContext = Depends(require_owner)):
+    """Remove detections without clips (or missing events). Owner only."""
+    result = await _purge_missing_media("clip")
+    log.info("Purge missing clips completed", **result)
+    return result
+
+
+@router.post("/maintenance/purge-missing-snapshots")
+async def purge_missing_snapshots(auth: AuthContext = Depends(require_owner)):
+    """Remove detections without snapshots (or missing events). Owner only."""
+    result = await _purge_missing_media("snapshot")
+    log.info("Purge missing snapshots completed", **result)
+    return result
 
 
 @router.post("/maintenance/analyze-unknowns")

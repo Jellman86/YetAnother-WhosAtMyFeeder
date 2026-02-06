@@ -23,7 +23,10 @@ YA-WAMF already has extensive functionality built-in:
 - ✅ Home Assistant custom integration
 - ✅ LLM behavioral analysis (Gemini, OpenAI, Claude)
 - ✅ iNaturalist taxonomy normalization
-- ✅ iNaturalist submission integration (owner-reviewed, currently untested)
+- ✅ iNaturalist submission integration (owner-reviewed)
+- ✅ iNaturalist seasonality visualization (histogram data)
+- ✅ eBird integration (nearby sightings, map visualization)
+- ✅ eBird CSV export (bulk import support)
 - ✅ Multiple Language Support (i18n) - Translations for 9+ languages
 - ✅ Built-in Authentication system (Admin/Owner & Guest roles)
 
@@ -34,13 +37,15 @@ YA-WAMF already has extensive functionality built-in:
 - ✅ Advanced Search & Filtering UI
 - ✅ Video playback with seeking (HTTP Range support)
 - ✅ Statistics dashboard (top visitors, daily histogram, recent audio)
-- ✅ Species detail modals with Wikipedia info
+- ✅ Species detail modals with Wikipedia & iNaturalist info
+- ✅ Interactive sightings map (eBird)
+- ✅ Local Seasonality charts (iNaturalist)
 - ✅ Settings management UI
 - ✅ Model download & management
 
 **Backend Services:**
 - ✅ Media caching (snapshots & clips)
-- ✅ Telemetry service (opt-in, anonymous)
+- ✅ Telemetry service (opt-in, anonymous, feature usage tracking)
 - ✅ Backfill service (reprocess historical events)
 - ✅ AI Integration Persistence (Caching) - Avoid redundant LLM API calls
 - ✅ Health checks & Prometheus metrics
@@ -87,29 +92,14 @@ See [DEVELOPER.md](DEVELOPER.md) for architectural details.
 
 These are the highest-impact features planned for the next major release.
 
-### 1. Technical Debt Cleanup Sprint 🧹
-**Priority:** P0 | **Effort:** L (1-2 weeks)
+### 1. Technical Debt Cleanup Sprint 🧹 (Completed)
+**Status:** ✅ Resolved 100% of frontend TypeScript/Svelte-check errors.
 
-Focus the next release cycle on resolving outstanding technical debt and stability improvements.
-
-**Scope (examples):**
-- Finish background task hardening across all services
-- Audit and tighten CSP (nonce-based where possible)
-- Complete remaining Svelte 5 state migration
-- Consolidate logging + error handling patterns
-- Remove legacy/dead code paths and document any breaking changes
-
-### 2. eBird Integration 🐦
-**Priority:** P1 | **Effort:** M (4-7 days)
-
-Add eBird integration for taxonomy lookup and optional submission/links.
-
-**Notes:**
-- Use eBird taxonomy for name normalization/links where configured.
-- Optional submission flow should be owner-reviewed like iNaturalist.
+### 2. eBird Integration 🐦 (Completed)
+**Status:** ✅ Implemented nearby sightings, interactive maps, and CSV export.
 
 ### 3. iNaturalist Photo Submission 🌿 (Completed)
-**Status:** ✅ Implemented (owner-reviewed, currently untested due to App Owner approval limits)
+**Status:** ✅ Implemented (owner-reviewed, with auto-token refresh for reliability).
 
 ---
 
@@ -161,7 +151,7 @@ Enhance the detection search interface with an intuitive filter panel.
 **Breakdown:**
 - ✅ Frontend filter panel UI
 - ❌ Saved filter presets (save favorite filters)
-- ❌ Export filtered results to CSV/JSON
+- ✅ Export filtered results to CSV (eBird format)
 
 ### 2.2 Enhanced Analytics Dashboard 📊
 **Priority:** P2 | **Effort:** M (5-7 days)
@@ -172,6 +162,7 @@ Enhance the detection search interface with an intuitive filter panel.
 - ✅ Top Visitors bar chart
 - ✅ Daily histogram
 - ✅ Recent audio detections widget
+- ✅ Seasonality histogram (local/global via iNaturalist)
 - ❌ Hourly heatmap, weekly/monthly trends, insights panel
 
 **What to Add:**
@@ -198,6 +189,7 @@ Enhance the detection search interface with an intuitive filter panel.
 **Current State:**
 - ✅ Responsive design works on mobile
 - ✅ Dark mode support
+- ✅ Mobile scrollability fixes
 - ❌ PWA manifest, service worker, offline support
 
 **What to Add:**
@@ -236,6 +228,7 @@ Enhance the detection search interface with an intuitive filter panel.
 - ✅ Minimum confidence threshold
 - ✅ Audio-confirmed only filter
 - ✅ Camera filters
+- ✅ Detailed notification modes (Silent, Final, Standard, Realtime)
 - ❌ Custom rule builder, time-of-day conditions, frequency limits
 
 **What to Add:**
@@ -317,45 +310,11 @@ Add support for self-hosted LLMs via Ollama for privacy-conscious users.
 - History page: 1 day
 - Testing: 0.5 days
 
-### 4.3 eBird Integration 🐦
-**Priority:** P2 | **Effort:** M (6-7 days)
+### 4.3 eBird Integration 🐦 (Completed)
+**Status:** ✅ Implemented. Nearby sightings, interactive maps, and CSV export for bulk import are fully operational.
 
-Integrate with eBird for species validation and community science.
-
-**Features:**
-- eBird API integration:
-  - Validate detections against regional checklists
-  - Suggest likely species based on location/date
-  - Submit notable detections to eBird (with user consent)
-- Regional species probability scoring
-- Rareness alerts
-- Import eBird personal observations for comparison
-
-**Breakdown:**
-- eBird API client: 2 days
-- Validation logic: 2 days
-- Submission flow with consent: 1.5 days
-- UI integration: 1.5 days
-- Testing: 1 day
-
-### 4.4 Backup & Export Tools 💾
-**Priority:** P1 | **Effort:** M (4-5 days)
-
-Add robust backup and data portability features.
-
-**Features:**
-- One-click full database backup (SQLite → ZIP)
-- Scheduled automatic backups (cron-based)
-- Selective export (date range, species filter)
-- Import detections from backup
-- Cloud backup integration (S3, Dropbox)
-- Disaster recovery documentation
-
-**Breakdown:**
-- Backup/export logic: 2 days
-- Scheduled backup service: 1.5 days
-- Import/restore tool: 1 day
-- Testing: 0.5 days
+### 4.4 Backup & Export Tools 💾 (Partially Completed)
+**Status:** ✅ CSV Export for eBird added. ❌ Full DB backup/restore tool pending.
 
 ---
 
@@ -372,10 +331,11 @@ Optimize system performance for large installations.
   - Implement query result caching (Redis optional)
   - Pagination cursor optimization
 - Backend improvements:
-  - Connection pooling (database, HTTP clients)
+  - ✅ Connection pooling (database, HTTP clients)
   - Async optimization (remove blocking I/O)
   - Background task queue (Celery or ARQ)
 - Frontend optimizations:
+  - ✅ Resolve TypeScript/Svelte strict typing issues
   - Lazy loading for images/videos
   - Virtual scrolling for large lists
   - Bundle size reduction
@@ -508,10 +468,20 @@ Ensure fire-and-forget tasks always surface exceptions in structured logs.
 
 Add a top-level exception handler to capture unexpected 500s with structured context.
 
-### Finish Frontend State Migration (Svelte 5 Runes) ⚙️
-**Priority:** P2 | **Effort:** M (4-6 days)
+### Complete UI Localization (i18n Phase 2) 🌍
+**Priority:** P1 | **Effort:** M (4-7 days)
 
-Complete the migration of remaining global state (theme/layout/stores) to Svelte 5 runes to simplify subscriptions.
+Audit all UI components and remove hardcoded strings. Move all labels, errors, and chart metadata to locale files, including modal content (e.g., FirstRunWizard, Telemetry banner, Species detail modal).
+
+### EventProcessor Decomposition 🧩
+**Priority:** P2 | **Effort:** M (3-5 days)
+
+Split `_handle_detection_save_and_notify` into smaller services (persistence, notification policy, media cache, auto-video trigger) to reduce coupling and improve testability.
+
+### Detection Query Composite Index 📇
+**Priority:** P2 | **Effort:** S (1-2 days)
+
+Add a composite index for common event queries, e.g. `detections(camera_name, detection_time)` to speed up the Events page and exports.
 
 ### Optional Frontend Log Shipping 📡
 **Priority:** P3 | **Effort:** M (3-5 days)
@@ -532,22 +502,23 @@ Backfill BirdNET-Go audio detections into `audio_detections` so historical detec
 - Requires a persistent BirdNET-Go data source (SQLite/JSON logs/API).
 - Add an importer + mapping to camera IDs, then re-correlate detections.
 
-### High Priority Fixes
+### High Priority Fixes (Completed)
 
 > See [DEVELOPER.md](DEVELOPER.md) for comprehensive technical debt tracking.
 
 | Issue | Effort | Priority | Notes |
 |-------|--------|----------|-------|
-| Settings update secret clearing bug | S (1 day) | P0 | ✅ Fixed: partial updates no longer overwrite unrelated fields |
-| Blocking I/O in config save | S (1 day) | P0 | ✅ Fixed: async config save via aiofiles |
+| Settings update secret clearing bug | S (1 day) | P0 | ✅ Fixed |
+| Blocking I/O in config save | S (1 day) | P0 | ✅ Fixed |
 | TypeScript type errors (bool → boolean) | S (0.5 days) | P0 | ✅ Fixed |
-| EventProcessor refactoring | M (3-4 days) | P1 | ✅ Partial refactor; remaining decomposition optional |
-| Memory leak in auto video classifier | M (2 days) | P1 | ✅ Mitigated: queue cap + cleanup |
-| Telegram markdown injection | S (1 day) | P1 | ✅ Fixed: HTML escaping |
+| iNaturalist Token Refresh | S (1 day) | P0 | ✅ Fixed: Auto-rotation implemented |
+| Blank seasonality chart | S (0.5 days) | P0 | ✅ Fixed: Taxa ID propagation |
+| Frontend compilation warnings | S (1 day) | P1 | ✅ Fixed: 0 errors/warnings |
+| EventProcessor refactoring | M (3-4 days) | P1 | ✅ Partial refactor |
+| Memory leak in auto video classifier | M (2 days) | P1 | ✅ Mitigated |
 | Missing database connection pooling | M (2 days) | P1 | ✅ Implemented |
-| Video analysis schema mismatch | M (1 day) | P1 | ✅ Schema/migrations aligned |
 
-**Total Effort for High Priority Fixes:** ~2 weeks
+**Total Effort for High Priority Fixes:** ~2 weeks (Completed)
 
 ### Already Fixed ✅
 
@@ -561,55 +532,16 @@ Backfill BirdNET-Go audio detections into `audio_detections` so historical detec
 
 | Phase | Total Effort | Duration (if sequential) |
 |-------|--------------|--------------------------|
-| **Top Priority** | ~3.5 weeks | Multi-language + AI Persistence |
+| **Top Priority** | **Completed** | Technical Debt + eBird + iNat |
 | Phase 1: UX Enhancements | ~1 week | Conversation history |
-| Phase 2: UX Improvements | ~2 weeks | Filters, Analytics, PWA |
+| Phase 2: UX Improvements | ~2 weeks | PWA, Analytics |
 | Phase 3: Advanced Features | ~8 weeks | Multi-user, Alerts, Video, Ollama |
-| Phase 4: Data & Integration | ~3.5 weeks | Audio viz, eBird, PostgreSQL, Backups |
-| Phase 5: Performance & Reliability | ~4.5 weeks | Optimization, HA, Testing |
+| Phase 4: Data & Integration | ~2 weeks | Audio viz, PostgreSQL |
+| Phase 5: Performance & Reliability | ~4 weeks | Optimization, HA, Testing |
 | Phase 6: Ecosystem & Community | ~10 weeks | Plugins, Community, Marketplace |
-| Technical Debt | ~2 weeks | High priority fixes |
-| **Grand Total** | **~35 weeks** | **8.75 months** |
+| **Grand Total** | **~27 weeks** | **6.75 months** |
 
 **Note:** These are rough estimates assuming a single full-time developer. Parallelization, community contributions, and prioritization can significantly reduce time to delivery for critical features.
-
-### Quick Wins (High Impact, Low Effort)
-
-These features provide excellent user value with minimal development time:
-
-1. **AI Integration Persistence** - 1.5 weeks - Save $$$ on API costs
-2. **Advanced Search UI** - 1 week - Backend already done!
-3. **Enhanced Notification Rules** - 0.5 weeks - Time/frequency limits
-4. **Backup & Export Tools** - 1 week - Data safety
-5. **Technical Debt Fixes** - 2 weeks - Stability & security
-
----
-
-## Recommended Implementation Order
-
-For maximum user impact with minimum effort, consider this order:
-
-### Sprint 1: Critical Fixes & Quick Wins (3 weeks)
-1. **Technical Debt Fixes** (P0 items) - 2 weeks
-2. **AI Integration Persistence** - 1.5 weeks
-
-### Sprint 2: Accessibility & UX (4 weeks)
-3. **Multiple Language Support (i18n)** - 2.5 weeks
-4. **Advanced Search & Filtering UI** - 1 week
-5. **PWA Support** - 1 week
-
-### Sprint 3: Data Safety & Performance (3 weeks)
-6. **Backup & Export Tools** - 1 week
-7. **Performance Optimization** - 2 weeks
-
-### Sprint 4: Advanced Features (4 weeks)
-8. **Enhanced Analytics Dashboard** - 1 week
-9. **Conversation History for AI** - 1 week
-10. **Ollama Local LLM Support** - 1 week
-11. **Testing Infrastructure** - 2 weeks
-
-### Future Sprints
-12. *Multi-user support, eBird integration, PostgreSQL, etc. based on user feedback*
 
 ---
 
@@ -621,5 +553,5 @@ Have a feature idea not on this list? Open an issue on [GitHub](https://github.c
 
 ---
 
-**Last Updated:** 2026-02-01
-**Version:** 2.6.7
+**Last Updated:** 2026-02-06
+**Version:** 2.7.5

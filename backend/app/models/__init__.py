@@ -62,6 +62,7 @@ class SpeciesStats(BaseModel):
     species_name: str
     scientific_name: str | None = None
     common_name: str | None = None
+    taxa_id: int | None = None
     total_sightings: int
     first_seen: datetime | None
     last_seen: datetime | None
@@ -86,4 +87,13 @@ class SpeciesInfo(BaseModel):
     summary_source_url: str | None = None
     scientific_name: str | None = None
     conservation_status: str | None = None
+    taxa_id: int | None = None
     cached_at: datetime | None = None
+
+class SpeciesRangeMap(BaseModel):
+    status: str
+    taxon_key: int | None = None
+    map_tile_url: str | None = None
+    source: str | None = None
+    source_url: str | None = None
+    message: str | None = None
