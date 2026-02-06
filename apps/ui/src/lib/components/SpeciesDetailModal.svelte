@@ -505,7 +505,7 @@
                                 <img
                                     src={info.thumbnail_url}
                                     alt={primaryName}
-                                    class="w-full h-full object-cover"
+                                    class="w-full h-full object-cover object-[50%_30%]"
                                     onerror={(e) => {
                                         const target = e.target as HTMLImageElement;
                                         target.parentElement?.classList.add('hidden');
