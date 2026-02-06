@@ -954,6 +954,8 @@
     "activity_patterns": "Шаблоны активности",
     "camera_breakdown": "Разбивка по камерам",
     "recent_sightings": "Недавние наблюдения",
+    "ebird_disabled_title": "eBird не включен",
+    "ebird_disabled_body": "Включите eBird в настройках, чтобы видеть ближайшие наблюдения этого вида.",
     "seasonality_local": "Локальная сезонность",
     "seasonality_global": "Глобальная сезонность",
     "range_map": "Карта ареала",

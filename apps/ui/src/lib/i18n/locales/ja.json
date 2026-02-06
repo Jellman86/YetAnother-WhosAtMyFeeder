@@ -946,6 +946,8 @@
     "activity_patterns": "活動パターン",
     "camera_breakdown": "カメラ別内訳",
     "recent_sightings": "最近の目撃情報",
+    "ebird_disabled_title": "eBird が有効ではありません",
+    "ebird_disabled_body": "設定で eBird を有効にすると、この種の周辺の観察記録が表示されます。",
     "seasonality_local": "ローカル季節性",
     "seasonality_global": "グローバル季節性",
     "range_map": "分布マップ",

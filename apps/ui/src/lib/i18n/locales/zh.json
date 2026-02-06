@@ -946,6 +946,8 @@
     "activity_patterns": "活动模式",
     "camera_breakdown": "摄像头细分",
     "recent_sightings": "最近目击",
+    "ebird_disabled_title": "eBird 未启用",
+    "ebird_disabled_body": "在设置中启用 eBird 以查看该物种的附近观测。",
     "seasonality_local": "本地季节性",
     "seasonality_global": "全球季节性",
     "range_map": "分布地图",

@@ -946,6 +946,8 @@
     "activity_patterns": "Patrones de Actividad",
     "camera_breakdown": "Desglose por Cámara",
     "recent_sightings": "Avistamientos Recientes",
+    "ebird_disabled_title": "eBird no habilitado",
+    "ebird_disabled_body": "Activa eBird en Configuración para ver avistamientos cercanos de esta especie.",
     "seasonality_local": "Estacionalidad local",
     "seasonality_global": "Estacionalidad global",
     "range_map": "Mapa de distribución",

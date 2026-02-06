@@ -954,6 +954,8 @@
     "activity_patterns": "Activity Patterns",
     "camera_breakdown": "Camera Breakdown",
     "recent_sightings": "Recent Sightings",
+    "ebird_disabled_title": "eBird not enabled",
+    "ebird_disabled_body": "Enable eBird in Settings to see nearby sightings for this species.",
     "seasonality_local": "Local seasonality",
     "seasonality_global": "Global seasonality",
     "range_map": "Range map",
