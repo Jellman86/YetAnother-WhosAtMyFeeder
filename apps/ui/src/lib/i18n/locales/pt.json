@@ -35,7 +35,12 @@
     "font_classic": "Clássico",
     "font_compact": "Compacto",
     "font_selected": "Selecionado",
-    "font_apply_hint": "As alterações são aplicadas imediatamente."
+    "font_apply_hint": "As alterações são aplicadas imediatamente.",
+    "font_lang_default": "Prioriza o latim; outras escritas usam fontes do sistema.",
+    "font_lang_clean": "Prioriza o latim; outras escritas usam fontes do sistema.",
+    "font_lang_studio": "Prioriza o latim; outras escritas usam fontes do sistema.",
+    "font_lang_classic": "Prioriza o latim; outras escritas usam fontes do sistema.",
+    "font_lang_compact": "Prioriza o latim; outras escritas usam fontes do sistema."
   },
   "dashboard": {
     "title": "Painel",

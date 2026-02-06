@@ -28,6 +28,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Added:** Appearance settings now include a font switcher with multiple typography presets.
 - **Fixed:** Mobile navigation now always uses the vertical layout for reliable menu access.
 - **Changed:** Appearance settings now clarify that font changes apply immediately.
+- **Fixed:** Font switcher now consistently applies across the UI.
+- **Added:** Appearance settings now show language coverage hints for each font preset.
 
 ## [2.7.4] - 2026-02-03
 

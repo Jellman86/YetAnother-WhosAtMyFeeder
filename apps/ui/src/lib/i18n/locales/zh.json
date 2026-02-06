@@ -35,7 +35,12 @@
     "font_classic": "经典",
     "font_compact": "紧凑",
     "font_selected": "已选择",
-    "font_apply_hint": "更改将立即生效。"
+    "font_apply_hint": "更改将立即生效。",
+    "font_lang_default": "优先拉丁字母；非拉丁文字使用系统字体回退。",
+    "font_lang_clean": "优先拉丁字母；非拉丁文字使用系统字体回退。",
+    "font_lang_studio": "优先拉丁字母；非拉丁文字使用系统字体回退。",
+    "font_lang_classic": "优先拉丁字母；非拉丁文字使用系统字体回退。",
+    "font_lang_compact": "优先拉丁字母；非拉丁文字使用系统字体回退。"
   },
   "dashboard": {
     "title": "仪表盘",

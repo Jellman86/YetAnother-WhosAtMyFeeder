@@ -35,7 +35,12 @@
     "font_classic": "Classico",
     "font_compact": "Compatto",
     "font_selected": "Selezionato",
-    "font_apply_hint": "Le modifiche si applicano immediatamente."
+    "font_apply_hint": "Le modifiche si applicano immediatamente.",
+    "font_lang_default": "Priorità al latino; altre scritture usano i font di sistema.",
+    "font_lang_clean": "Priorità al latino; altre scritture usano i font di sistema.",
+    "font_lang_studio": "Priorità al latino; altre scritture usano i font di sistema.",
+    "font_lang_classic": "Priorità al latino; altre scritture usano i font di sistema.",
+    "font_lang_compact": "Priorità al latino; altre scritture usano i font di sistema."
   },
   "dashboard": {
     "title": "Dashboard",

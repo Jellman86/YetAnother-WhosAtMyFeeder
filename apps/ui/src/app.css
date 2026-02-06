@@ -15,6 +15,7 @@
 @layer base {
   body {
     @apply text-slate-700 dark:text-slate-200;
+    font-family: var(--font-body);
   }
 
   h1,
@@ -24,6 +25,11 @@
     font-family: var(--font-display);
     letter-spacing: -0.02em;
   }
+}
+
+/* Ensure Tailwind font utilities align with runtime font switcher */
+.font-sans {
+  font-family: var(--font-body) !important;
 }
 
 /* Smooth theme transitions */

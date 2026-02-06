@@ -35,7 +35,12 @@
     "font_classic": "Classic",
     "font_compact": "Compact",
     "font_selected": "Selected",
-    "font_apply_hint": "Changes apply immediately."
+    "font_apply_hint": "Changes apply immediately.",
+    "font_lang_default": "Latin-first; non-Latin falls back to system fonts.",
+    "font_lang_clean": "Latin-first; non-Latin falls back to system fonts.",
+    "font_lang_studio": "Latin-first; non-Latin falls back to system fonts.",
+    "font_lang_classic": "Latin-first; non-Latin falls back to system fonts.",
+    "font_lang_compact": "Latin-first; non-Latin falls back to system fonts."
   },
   "dashboard": {
     "title": "Dashboard",

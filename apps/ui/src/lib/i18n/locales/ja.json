@@ -35,7 +35,12 @@
     "font_classic": "クラシック",
     "font_compact": "コンパクト",
     "font_selected": "選択中",
-    "font_apply_hint": "変更はすぐに反映されます。"
+    "font_apply_hint": "変更はすぐに反映されます。",
+    "font_lang_default": "ラテン文字優先。非ラテン文字はシステムフォントにフォールバック。",
+    "font_lang_clean": "ラテン文字優先。非ラテン文字はシステムフォントにフォールバック。",
+    "font_lang_studio": "ラテン文字優先。非ラテン文字はシステムフォントにフォールバック。",
+    "font_lang_classic": "ラテン文字優先。非ラテン文字はシステムフォントにフォールバック。",
+    "font_lang_compact": "ラテン文字優先。非ラテン文字はシステムフォントにフォールバック。"
   },
   "dashboard": {
     "title": "ダッシュボード",

@@ -35,7 +35,12 @@
     "font_classic": "Klassisch",
     "font_compact": "Kompakt",
     "font_selected": "Ausgewählt",
-    "font_apply_hint": "Änderungen werden sofort angewendet."
+    "font_apply_hint": "Änderungen werden sofort angewendet.",
+    "font_lang_default": "Primär Lateinschrift; andere Schriften nutzen System-Fallback.",
+    "font_lang_clean": "Primär Lateinschrift; andere Schriften nutzen System-Fallback.",
+    "font_lang_studio": "Primär Lateinschrift; andere Schriften nutzen System-Fallback.",
+    "font_lang_classic": "Primär Lateinschrift; andere Schriften nutzen System-Fallback.",
+    "font_lang_compact": "Primär Lateinschrift; andere Schriften nutzen System-Fallback."
   },
   "dashboard": {
     "title": "Dashboard",

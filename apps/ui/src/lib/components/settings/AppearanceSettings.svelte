@@ -128,11 +128,11 @@
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {#each [
-                { value: 'default', label: $_('theme.font_default'), preview: 'Instrument Sans / Bricolage' },
-                { value: 'clean', label: $_('theme.font_clean'), preview: 'Manrope / Sora' },
-                { value: 'studio', label: $_('theme.font_studio'), preview: 'Sora / Bricolage' },
-                { value: 'classic', label: $_('theme.font_classic'), preview: 'Source Serif 4 / Playfair' },
-                { value: 'compact', label: $_('theme.font_compact'), preview: 'Instrument Sans / Sora' }
+                { value: 'default', label: $_('theme.font_default'), preview: 'Instrument Sans / Bricolage', lang: $_('theme.font_lang_default') },
+                { value: 'clean', label: $_('theme.font_clean'), preview: 'Manrope / Sora', lang: $_('theme.font_lang_clean') },
+                { value: 'studio', label: $_('theme.font_studio'), preview: 'Sora / Bricolage', lang: $_('theme.font_lang_studio') },
+                { value: 'classic', label: $_('theme.font_classic'), preview: 'Source Serif 4 / Playfair', lang: $_('theme.font_lang_classic') },
+                { value: 'compact', label: $_('theme.font_compact'), preview: 'Instrument Sans / Sora', lang: $_('theme.font_lang_compact') }
             ] as opt}
                 <button
                     onclick={() => setFontTheme(opt.value as FontTheme)}
@@ -145,6 +145,7 @@
                     <div>
                         <div class="text-sm font-black uppercase tracking-widest {currentFontTheme === opt.value ? 'text-white' : 'text-slate-900 dark:text-white'}">{opt.label}</div>
                         <div class="text-xs font-medium mt-1 {currentFontTheme === opt.value ? 'text-white/80' : 'text-slate-400'}">{opt.preview}</div>
+                        <div class="text-[10px] font-semibold mt-1 {currentFontTheme === opt.value ? 'text-white/70' : 'text-slate-400'}">{opt.lang}</div>
                     </div>
                     <span class="text-xs font-bold uppercase tracking-widest opacity-70">{currentFontTheme === opt.value ? $_('theme.font_selected') : ''}</span>
                 </button>

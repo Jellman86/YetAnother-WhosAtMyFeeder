@@ -35,7 +35,12 @@
     "font_classic": "Clásico",
     "font_compact": "Compacto",
     "font_selected": "Seleccionado",
-    "font_apply_hint": "Los cambios se aplican al instante."
+    "font_apply_hint": "Los cambios se aplican al instante.",
+    "font_lang_default": "Prioridad al alfabeto latino; otros idiomas usan fuentes del sistema.",
+    "font_lang_clean": "Prioridad al alfabeto latino; otros idiomas usan fuentes del sistema.",
+    "font_lang_studio": "Prioridad al alfabeto latino; otros idiomas usan fuentes del sistema.",
+    "font_lang_classic": "Prioridad al alfabeto latino; otros idiomas usan fuentes del sistema.",
+    "font_lang_compact": "Prioridad al alfabeto latino; otros idiomas usan fuentes del sistema."
   },
   "dashboard": {
     "title": "Tablero",
