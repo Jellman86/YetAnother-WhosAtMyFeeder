@@ -468,10 +468,20 @@ Ensure fire-and-forget tasks always surface exceptions in structured logs.
 
 Add a top-level exception handler to capture unexpected 500s with structured context.
 
-### Finish Frontend State Migration (Svelte 5 Runes) ⚙️
-**Priority:** P2 | **Effort:** M (4-6 days)
+### Complete UI Localization (i18n Phase 2) 🌍
+**Priority:** P1 | **Effort:** M (4-7 days)
 
-Complete the migration of remaining global state (theme/layout/stores) to Svelte 5 runes to simplify subscriptions.
+Audit all UI components and remove hardcoded strings. Move all labels, errors, and chart metadata to locale files, including modal content (e.g., FirstRunWizard, Telemetry banner, Species detail modal).
+
+### EventProcessor Decomposition 🧩
+**Priority:** P2 | **Effort:** M (3-5 days)
+
+Split `_handle_detection_save_and_notify` into smaller services (persistence, notification policy, media cache, auto-video trigger) to reduce coupling and improve testability.
+
+### Detection Query Composite Index 📇
+**Priority:** P2 | **Effort:** S (1-2 days)
+
+Add a composite index for common event queries, e.g. `detections(camera_name, detection_time)` to speed up the Events page and exports.
 
 ### Optional Frontend Log Shipping 📡
 **Priority:** P3 | **Effort:** M (3-5 days)
@@ -543,5 +553,5 @@ Have a feature idea not on this list? Open an issue on [GitHub](https://github.c
 
 ---
 
-**Last Updated:** 2026-02-02
-**Version:** 2.7.2
+**Last Updated:** 2026-02-06
+**Version:** 2.7.5
