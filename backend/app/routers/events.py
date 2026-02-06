@@ -31,8 +31,6 @@ CLIP_CHECK_CONCURRENCY = 10
 LOCALIZED_NAME_CONCURRENCY = 5
 EVENT_FILTERS_CACHE_TTL_SECONDS = 60
 
-_event_filters_cache: dict[tuple[str, bool], tuple[float, EventFilters]] = {}
-
 
 def parse_species_filter(species: Optional[str]) -> tuple[Optional[str], Optional[int]]:
     """Parse species filter into display_name or taxa_id."""
@@ -82,6 +80,9 @@ class EventFilters(BaseModel):
     """Available filter options for events."""
     species: List[EventFilterSpecies]
     cameras: List[str]
+
+
+_event_filters_cache: dict[tuple[str, bool], tuple[float, EventFilters]] = {}
 
 
 class EventsCountResponse(BaseModel):
