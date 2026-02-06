@@ -643,50 +643,53 @@
                                         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                                         <p class="text-xs font-semibold">{ebirdNearbyError}</p>
                                     </div>
-                                {:else if ebirdNearby?.warning}
-                                    <p class="text-xs text-amber-600 mb-2">{ebirdNearby.warning}</p>
-                                {:else if (ebirdNearby?.results?.length || 0) === 0}
-                                    <div class="text-center py-6">
-                                        <p class="text-sm text-slate-400 font-medium">No recent sightings.</p>
-                                    </div>
                                 {:else if ebirdNearby}
-                                    {#if ebirdNearby.results.some(r => r.lat && r.lng)}
-                                        <div class="h-48 mb-4 rounded-xl overflow-hidden border border-sky-100 dark:border-sky-900/30 shadow-sm relative z-0">
-                                            <Map
-                                                markers={ebirdNearby.results
-                                                    .filter(r => r.lat && r.lng)
-                                                    .map(r => ({
-                                                        lat: r.lat!,
-                                                        lng: r.lng!,
-                                                        title: r.location_name || 'Unknown Location',
-                                                        popupText: `<div class="font-sans"><p class="font-bold text-sm mb-1">${r.location_name}</p><p class="text-xs opacity-75">${formatEbirdDate(r.observed_at)}</p><p class="text-xs font-bold mt-1">Count: ${r.how_many ?? '?'}</p></div>`
-                                                    }))}
-                                                userLocation={authStore.canModify && settingsStore.settings?.location_latitude && settingsStore.settings?.location_longitude ? [settingsStore.settings.location_latitude, settingsStore.settings.location_longitude] : null}
-                                                zoom={10}
-                                                obfuscate={!authStore.canModify}
-                                            />
+                                    {#if ebirdNearby.warning}
+                                        <p class="text-xs text-amber-600 mb-2">{ebirdNearby.warning}</p>
+                                    {/if}
+                                    {#if (ebirdNearby?.results?.length || 0) === 0}
+                                        <div class="text-center py-6">
+                                            <p class="text-sm text-slate-400 font-medium">No recent sightings.</p>
+                                        </div>
+                                    {:else}
+                                        {#if ebirdNearby.results.some(r => r.lat && r.lng)}
+                                            <div class="h-48 mb-4 rounded-xl overflow-hidden border border-sky-100 dark:border-sky-900/30 shadow-sm relative z-0">
+                                                <Map
+                                                    markers={ebirdNearby.results
+                                                        .filter(r => r.lat && r.lng)
+                                                        .map(r => ({
+                                                            lat: r.lat!,
+                                                            lng: r.lng!,
+                                                            title: r.location_name || 'Unknown Location',
+                                                            popupText: `<div class="font-sans"><p class="font-bold text-sm mb-1">${r.location_name}</p><p class="text-xs opacity-75">${formatEbirdDate(r.observed_at)}</p><p class="text-xs font-bold mt-1">Count: ${r.how_many ?? '?'}</p></div>`
+                                                        }))}
+                                                    userLocation={authStore.canModify && settingsStore.settings?.location_latitude && settingsStore.settings?.location_longitude ? [settingsStore.settings.location_latitude, settingsStore.settings.location_longitude] : null}
+                                                    zoom={10}
+                                                    obfuscate={!authStore.canModify}
+                                                />
+                                            </div>
+                                        {/if}
+                                        <div class="space-y-2">
+                                            {#each ebirdNearby.results.slice(0, 6) as obs}
+                                                <div class="flex items-start justify-between gap-3 p-2.5 rounded-xl bg-white/60 dark:bg-slate-900/40 border border-sky-100 dark:border-sky-900/30 hover:border-sky-300 dark:hover:border-sky-700/50 transition-colors">
+                                                    <div class="min-w-0">
+                                                        <p class="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">{obs.location_name || 'Unknown location'}</p>
+                                                        <div class="flex items-center gap-2 mt-0.5">
+                                                            <p class="text-[10px] font-medium text-slate-400">{formatEbirdDate(obs.observed_at)}</p>
+                                                            {#if obs.obs_valid}
+                                                                <span class="w-1 h-1 rounded-full bg-emerald-400" title="Valid Observation"></span>
+                                                            {/if}
+                                                        </div>
+                                                    </div>
+                                                    {#if obs.how_many}
+                                                        <span class="flex-shrink-0 px-2 py-1 rounded-lg bg-sky-100 dark:bg-sky-900/40 text-[10px] font-black text-sky-700 dark:text-sky-300">
+                                                            x{obs.how_many}
+                                                        </span>
+                                                    {/if}
+                                                </div>
+                                            {/each}
                                         </div>
                                     {/if}
-                                    <div class="space-y-2">
-                                        {#each ebirdNearby.results.slice(0, 6) as obs}
-                                            <div class="flex items-start justify-between gap-3 p-2.5 rounded-xl bg-white/60 dark:bg-slate-900/40 border border-sky-100 dark:border-sky-900/30 hover:border-sky-300 dark:hover:border-sky-700/50 transition-colors">
-                                                <div class="min-w-0">
-                                                    <p class="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">{obs.location_name || 'Unknown location'}</p>
-                                                    <div class="flex items-center gap-2 mt-0.5">
-                                                        <p class="text-[10px] font-medium text-slate-400">{formatEbirdDate(obs.observed_at)}</p>
-                                                        {#if obs.obs_valid}
-                                                            <span class="w-1 h-1 rounded-full bg-emerald-400" title="Valid Observation"></span>
-                                                        {/if}
-                                                    </div>
-                                                </div>
-                                                {#if obs.how_many}
-                                                    <span class="flex-shrink-0 px-2 py-1 rounded-lg bg-sky-100 dark:bg-sky-900/40 text-[10px] font-black text-sky-700 dark:text-sky-300">
-                                                        x{obs.how_many}
-                                                    </span>
-                                                {/if}
-                                            </div>
-                                        {/each}
-                                    </div>
                                 {/if}
                             </div>
                         {/if}
