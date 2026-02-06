@@ -8,6 +8,7 @@
     import ReclassificationOverlay from './ReclassificationOverlay.svelte';
 
     import { getBirdNames } from '../naming';
+    import { formatTime } from '../utils/datetime';
     import { formatTemperature } from '../utils/temperature';
 
     interface Props {
@@ -39,15 +40,6 @@
         detection.weather_rain !== undefined && detection.weather_rain !== null ||
         detection.weather_snowfall !== undefined && detection.weather_snowfall !== null
     );
-
-    function formatTime(dateString: string): string {
-        try {
-            const date = new Date(dateString);
-            return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        } catch {
-            return '';
-        }
-    }
 
     function getRelativeTime(dateString: string, t: any): string {
         try {

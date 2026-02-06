@@ -109,13 +109,22 @@
     "view_snapshot": "Ver instantánea",
     "statistics": "Estadísticas",
     "period": "Período",
-    "detections": "detecciones"
+    "detections": "detecciones",
+    "zoom_in": "Acercar",
+    "zoom_out": "Alejar"
   },
   "settings": {
     "title": "Ajustes",
     "subtitle": "Configure y gestione su instancia de YA-WAMF",
     "language_selector": "Idioma",
     "language_desc": "Cambia el texto de la interfaz y el contenido de las notificaciones.",
+    "date_format": {
+      "label": "Formato de fecha",
+      "desc": "Elige el formato de visualización de fechas y horas.",
+      "us": "Estados Unidos (MM/DD/AAAA)",
+      "uk": "Reino Unido (DD/MM/AAAA)",
+      "ymd": "Japón/China (AAAA-MM-DD)"
+    },
     "video_circuit": {
       "title": "Análisis de video en pausa",
       "message": "El análisis de video automático se pausó tras {failures} fallos.",
@@ -666,6 +675,7 @@
     "weather_rain": "Lluvia",
     "weather_snow": "Nieve",
     "weather_icy": "Helado",
+    "id": "ID de detección",
     "inat": {
       "title": "iNaturalist",
       "connected": "Conectado: {user}",

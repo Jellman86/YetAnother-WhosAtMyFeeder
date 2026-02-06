@@ -66,6 +66,7 @@ export interface AuthStatusResponse {
     scientific_name_primary: boolean;
     accessibility_live_announcements: boolean;
     location_temperature_unit: string;
+    date_format: string;
     username: string | null;
     needs_initial_setup: boolean;
     https_warning: boolean;
@@ -248,6 +249,7 @@ export interface Settings {
     public_access_rate_limit_per_minute: number;
 
     species_info_source?: string;
+    date_format?: string;
 }
 
 export type UpdateSettings = Partial<Settings>;

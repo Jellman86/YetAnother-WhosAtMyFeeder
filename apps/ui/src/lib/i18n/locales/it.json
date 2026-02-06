@@ -109,7 +109,9 @@
     "view_snapshot": "Visualizza Snapshot",
     "statistics": "Statistiche",
     "period": "Periodo",
-    "detections": "rilevamenti"
+    "detections": "rilevamenti",
+    "zoom_in": "Zoom in",
+    "zoom_out": "Zoom out"
   },
   "error": {
     "boundary_title": "Qualcosa è andato storto",
@@ -124,6 +126,13 @@
     "subtitle": "Configura e gestisci la tua istanza YA-WAMF",
     "language_selector": "Lingua",
     "language_desc": "Cambia il testo dell'interfaccia e il contenuto delle notifiche.",
+    "date_format": {
+      "label": "Formato data",
+      "desc": "Scegli il formato di visualizzazione per date e orari.",
+      "us": "Stati Uniti (MM/GG/AAAA)",
+      "uk": "Regno Unito (GG/MM/AAAA)",
+      "ymd": "Giappone/Cina (AAAA-MM-GG)"
+    },
     "video_circuit": {
       "title": "Analisi Video In Pausa",
       "message": "Analisi video automatica in pausa dopo {failures} fallimenti.",
@@ -674,6 +683,7 @@
     "weather_rain": "Pioggia",
     "weather_snow": "Neve",
     "weather_icy": "Ghiaccio",
+    "id": "ID rilevamento",
     "inat": {
       "title": "iNaturalist",
       "connected": "Connesso: {user}",

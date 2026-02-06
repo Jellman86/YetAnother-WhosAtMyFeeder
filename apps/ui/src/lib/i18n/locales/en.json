@@ -109,7 +109,9 @@
     "view_snapshot": "View Snapshot",
     "statistics": "Statistics",
     "period": "Period",
-    "detections": "Detections"
+    "detections": "Detections",
+    "zoom_in": "Zoom in",
+    "zoom_out": "Zoom out"
   },
   "error": {
     "boundary_title": "Something went wrong",
@@ -124,6 +126,13 @@
     "subtitle": "Configure and manage your YA-WAMF instance",
     "language_selector": "Language",
     "language_desc": "Changes UI text and notification content.",
+    "date_format": {
+      "label": "Date format",
+      "desc": "Pick a default display format for dates and times.",
+      "us": "United States (MM/DD/YYYY)",
+      "uk": "United Kingdom (DD/MM/YYYY)",
+      "ymd": "Japan/China (YYYY-MM-DD)"
+    },
     "video_circuit": {
       "title": "Video Analysis Paused",
       "message": "Auto video analysis paused after {failures} failures.",
@@ -674,6 +683,7 @@
     "weather_rain": "Rain",
     "weather_snow": "Snow",
     "weather_icy": "Icy",
+    "id": "Detection ID",
     "inat": {
       "title": "iNaturalist",
       "connected": "Connected: {user}",

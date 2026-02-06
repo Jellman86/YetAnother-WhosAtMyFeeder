@@ -109,7 +109,9 @@
     "view_snapshot": "Посмотреть снимок",
     "statistics": "Статистика",
     "period": "Период",
-    "detections": "обнаружений"
+    "detections": "обнаружений",
+    "zoom_in": "Увеличить",
+    "zoom_out": "Уменьшить"
   },
   "error": {
     "boundary_title": "Что-то пошло не так",
@@ -124,6 +126,13 @@
     "subtitle": "Настройка и управление вашим экземпляром YA-WAMF",
     "language_selector": "Язык",
     "language_desc": "Изменяет текст интерфейса и содержание уведомлений.",
+    "date_format": {
+      "label": "Формат даты",
+      "desc": "Выберите формат отображения дат и времени.",
+      "us": "США (MM/DD/YYYY)",
+      "uk": "Великобритания (DD/MM/YYYY)",
+      "ymd": "Япония/Китай (YYYY-MM-DD)"
+    },
     "video_circuit": {
       "title": "Видеоанализ приостановлен",
       "message": "Автоматический видеоанализ приостановлен после {failures} сбоев.",
@@ -674,6 +683,7 @@
     "weather_rain": "Дождь",
     "weather_snow": "Снег",
     "weather_icy": "Лёд",
+    "id": "ID обнаружения",
     "inat": {
       "title": "iNaturalist",
       "connected": "Подключено: {user}",

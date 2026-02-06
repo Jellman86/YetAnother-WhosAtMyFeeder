@@ -8,6 +8,7 @@
     import { themeStore } from '../stores/theme.svelte';
     import { getBirdNames } from '../naming';
     import { formatTemperature } from '../utils/temperature';
+    import { formatDateTime, formatTime } from '../utils/datetime';
     import { _ } from 'svelte-i18n';
 
     let species: SpeciesCount[] = $state([]);
@@ -171,11 +172,7 @@
 
     function formatDate(value?: string | null): string {
         if (!value) return '—';
-        try {
-            return new Date(value).toLocaleString();
-        } catch {
-            return '—';
-        }
+        return formatDateTime(value);
     }
 
     function formatTrend(delta?: number, percent?: number): string {
@@ -226,9 +223,8 @@
 
     function formatSunTime(value?: string | null) {
         if (!value) return null;
-        const date = new Date(value);
-        if (Number.isNaN(date.getTime())) return null;
-        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const formatted = formatTime(value, { hour: '2-digit', minute: '2-digit' });
+        return formatted || null;
     }
 
     function getSunRange(key: 'sunrise' | 'sunset') {
@@ -966,7 +962,7 @@
                         <div class="flex flex-wrap items-center justify-between gap-2 text-[10px] uppercase tracking-widest font-black text-slate-400">
                             <span>{$_('leaderboard.ai_summary', { default: 'AI insight' })}</span>
                             {#if leaderboardAnalysisTimestamp}
-                                <span class="font-semibold normal-case tracking-normal">{new Date(leaderboardAnalysisTimestamp).toLocaleString()}</span>
+                                <span class="font-semibold normal-case tracking-normal">{formatDateTime(leaderboardAnalysisTimestamp)}</span>
                             {/if}
                         </div>
                         {#if leaderboardAnalysisLoading}

@@ -109,13 +109,22 @@
     "view_snapshot": "Schnappschuss ansehen",
     "statistics": "Statistiken",
     "period": "Zeitraum",
-    "detections": "Erkennungen"
+    "detections": "Erkennungen",
+    "zoom_in": "Hineinzoomen",
+    "zoom_out": "Herauszoomen"
   },
   "settings": {
     "title": "Einstellungen",
     "subtitle": "Konfigurieren und verwalten Sie Ihre YA-WAMF-Instanz",
     "language_selector": "Sprache",
     "language_desc": "Ändert UI-Text und Benachrichtigungsinhalt.",
+    "date_format": {
+      "label": "Datumsformat",
+      "desc": "Standardanzeigeformat für Datum und Uhrzeit wählen.",
+      "us": "USA (MM/TT/JJJJ)",
+      "uk": "Vereinigtes Königreich (TT/MM/JJJJ)",
+      "ymd": "Japan/China (JJJJ-MM-TT)"
+    },
     "video_circuit": {
       "title": "Videoanalyse pausiert",
       "message": "Die automatische Videoanalyse wurde nach {failures} Fehlern pausiert.",
@@ -666,6 +675,7 @@
     "weather_rain": "Regen",
     "weather_snow": "Schnee",
     "weather_icy": "Eisig",
+    "id": "Erkennungs-ID",
     "inat": {
       "title": "iNaturalist",
       "connected": "Verbunden: {user}",

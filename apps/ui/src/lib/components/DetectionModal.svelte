@@ -30,6 +30,7 @@
     import { _ } from 'svelte-i18n';
     import { onMount } from 'svelte';
     import { trapFocus } from '../utils/focus-trap';
+    import { formatDateTime } from '../utils/datetime';
     import { formatTemperature } from '../utils/temperature';
 
     interface Props {
@@ -205,11 +206,7 @@
 
     function formatEbirdDate(dateStr?: string | null) {
         if (!dateStr) return '—';
-        try {
-            return new Date(dateStr).toLocaleString();
-        } catch {
-            return '—';
-        }
+        return formatDateTime(dateStr);
     }
 
     onMount(() => {
@@ -621,7 +618,7 @@
                         <p class="text-white/70 text-sm italic drop-shadow -mt-1 mb-1">{subName}</p>
                     {/if}
                     <p class="text-white/50 text-[10px] uppercase font-bold tracking-widest mt-2">
-                        {new Date(detection.detection_time).toLocaleString()}
+                        {formatDateTime(detection.detection_time)}
                     </p>
                 </div>
 
@@ -653,6 +650,11 @@
             </div>
 
             <div class="flex-1 overflow-y-auto p-6 space-y-6 {showTagDropdown ? 'blur-sm pointer-events-none select-none' : ''}">
+            <!-- Detection ID -->
+            <div class="flex items-center justify-between gap-3 px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-700/50">
+                <span class="text-[10px] font-black uppercase tracking-widest text-slate-500">{$_('detection.id')}</span>
+                <span class="text-[10px] font-mono text-slate-700 dark:text-slate-300 break-all text-right">{detection.frigate_event}</span>
+            </div>
             <!-- Confidence Bar -->
             {#if !detection.manual_tagged}
                 <div>
@@ -1168,7 +1170,7 @@
                                         </div>
                                         <div class="rounded-xl bg-white/80 dark:bg-slate-900/40 border border-slate-200/60 dark:border-slate-700/60 p-2">
                                             <p class="text-[9px] font-black uppercase tracking-widest text-slate-400">{$_('detection.inat.observed')}</p>
-                                            <p class="font-semibold text-slate-700 dark:text-slate-200">{new Date(inatDraft.observed_on_string).toLocaleString()}</p>
+                                            <p class="font-semibold text-slate-700 dark:text-slate-200">{formatDateTime(inatDraft.observed_on_string)}</p>
                                         </div>
                                     </div>
                                     <div class="grid grid-cols-2 gap-3">

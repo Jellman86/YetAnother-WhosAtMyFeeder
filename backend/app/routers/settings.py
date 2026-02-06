@@ -371,6 +371,7 @@ class SettingsUpdate(BaseModel):
     public_access_rate_limit_per_minute: Optional[int] = Field(None, ge=1, le=100)
 
     species_info_source: Optional[str] = "auto"
+    date_format: Optional[str] = None
 
     @field_validator('location_temperature_unit')
     @classmethod
@@ -410,6 +411,17 @@ class SettingsUpdate(BaseModel):
         if not v.startswith(('http://', 'https://')):
             raise ValueError('frigate_url must start with http:// or https://')
         return v.rstrip('/')
+
+    @field_validator('date_format')
+    @classmethod
+    def validate_date_format(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        normalized = v.strip().lower()
+        allowed = {"locale", "mdy", "dmy", "ymd"}
+        if normalized not in allowed:
+            raise ValueError("date_format must be one of: locale, mdy, dmy, ymd")
+        return normalized
 
 @router.get("/settings")
 async def get_settings(auth: AuthContext = Depends(require_owner)):
@@ -573,6 +585,7 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "public_access_media_historical_days": settings.public_access.media_historical_days,
         "public_access_rate_limit_per_minute": settings.public_access.rate_limit_per_minute,
         "species_info_source": settings.species_info_source,
+        "date_format": settings.date_format,
     }
 
 @router.post("/settings")
@@ -779,6 +792,9 @@ async def update_settings(
         settings.public_access.media_historical_days = update.public_access_media_historical_days
     if "public_access_rate_limit_per_minute" in fields_set and update.public_access_rate_limit_per_minute is not None:
         settings.public_access.rate_limit_per_minute = update.public_access_rate_limit_per_minute
+
+    if "date_format" in fields_set and update.date_format is not None:
+        settings.date_format = update.date_format
 
     # Notifications - Discord
     if "notifications_discord_enabled" in fields_set and update.notifications_discord_enabled is not None:

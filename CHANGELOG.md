@@ -9,6 +9,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Fixed:** Authenticated media (snapshots/clips/thumbnails) now include query tokens so owner access is honored even when public access limits are enabled.
 - **Added:** Public access settings now include a separate media history window (snapshots/clips) from the detections list.
 - **Fixed:** eBird nearby sightings now render even when species code resolution fails (warning no longer suppresses results).
+- **Added:** Configurable date formats (US/UK/JP-CN) with consistent formatting across the UI.
+- **Added:** Detection details now display the detection/event ID.
+- **Added:** Range map zoom controls in the species detail view.
+- **Changed:** Range map panel grows taller when eBird is disabled.
 - **Fixed:** Species cards now respect enrichment summary/seasonality settings and avoid fetching disabled sources.
 - **Fixed:** Species card labels and empty summary messaging now use localized translations.
 - **Changed:** Enrichment sources are now automatic: eBird API key enables eBird-first enrichment with iNaturalist seasonality fallback; without a key, Wikipedia + iNaturalist are used.

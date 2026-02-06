@@ -190,6 +190,7 @@
     let publicAccessHistoricalDays = $state(7);
     let publicAccessMediaHistoricalDays = $state(7);
     let publicAccessRateLimitPerMinute = $state(30);
+    let dateFormat = $state('dmy');
     let debugUiEnabled = $state(false);
     let inatPreviewEnabled = $state(false);
     let inatPreviewDirty = $state(false);
@@ -1052,6 +1053,11 @@
             publicAccessHistoricalDays = settings.public_access_historical_days ?? 7;
             publicAccessMediaHistoricalDays = settings.public_access_media_historical_days ?? 7;
             publicAccessRateLimitPerMinute = settings.public_access_rate_limit_per_minute ?? 30;
+            if (settings.date_format === 'mdy' || settings.date_format === 'dmy' || settings.date_format === 'ymd') {
+                dateFormat = settings.date_format;
+            } else {
+                dateFormat = 'dmy';
+            }
             debugUiEnabled = settings.debug_ui_enabled ?? false;
 
             // Notifications
@@ -1252,6 +1258,7 @@
                 public_access_historical_days: publicAccessHistoricalDays,
                 public_access_media_historical_days: publicAccessMediaHistoricalDays,
                 public_access_rate_limit_per_minute: publicAccessRateLimitPerMinute,
+                date_format: dateFormat,
 
                 // Notifications
                 notifications_discord_enabled: discordEnabled,
@@ -1753,11 +1760,13 @@
                     {currentTheme}
                     {currentLayout}
                     currentLocale={$locale || 'en'}
+                    currentDateFormat={dateFormat}
                     {setTheme}
                     {currentFontTheme}
                     {setFontTheme}
                     {setLayout}
                     {setLanguage}
+                    setDateFormat={(value) => (dateFormat = value)}
                 />
             {/if}
 

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
+  import { _ } from 'svelte-i18n';
 
   export let tileUrl: string;
   export let opacity: number = 0.65;
@@ -67,8 +68,34 @@
       resizeObserver.observe(mapElement);
     }
   }
+
+  function zoomIn() {
+    if (map) map.zoomIn();
+  }
+
+  function zoomOut() {
+    if (map) map.zoomOut();
+  }
 </script>
 
 <div class={`relative w-full ${heightClass} rounded-2xl overflow-hidden border border-slate-200/60 dark:border-slate-700/60 bg-slate-100 dark:bg-slate-800`}>
   <div bind:this={mapElement} class="w-full h-full"></div>
+  <div class="absolute top-3 right-3 flex flex-col gap-2">
+    <button
+      type="button"
+      onclick={zoomIn}
+      aria-label={$_('common.zoom_in')}
+      class="w-8 h-8 rounded-full bg-white/90 dark:bg-slate-900/80 text-slate-700 dark:text-slate-200 shadow border border-slate-200/70 dark:border-slate-700/70 flex items-center justify-center hover:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+    >
+      +
+    </button>
+    <button
+      type="button"
+      onclick={zoomOut}
+      aria-label={$_('common.zoom_out')}
+      class="w-8 h-8 rounded-full bg-white/90 dark:bg-slate-900/80 text-slate-700 dark:text-slate-200 shadow border border-slate-200/70 dark:border-slate-700/70 flex items-center justify-center hover:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+    >
+      −
+    </button>
+  </div>
 </div>

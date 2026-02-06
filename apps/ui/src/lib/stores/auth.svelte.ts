@@ -32,6 +32,7 @@ class AuthStore {
     scientificNamePrimary = $state(false);
     liveAnnouncements = $state(true);
     locationTemperatureUnit = $state("celsius");
+    dateFormat = $state("locale");
 
     // Derived permission states
     canModify = $derived(this.isAuthenticated || !this.authRequired);
@@ -74,6 +75,7 @@ class AuthStore {
             this.scientificNamePrimary = status.scientific_name_primary ?? false;
             this.liveAnnouncements = status.accessibility_live_announcements ?? true;
             this.locationTemperatureUnit = status.location_temperature_unit ?? "celsius";
+            this.dateFormat = status.date_format ?? "locale";
         } catch (err) {
             console.error('Failed to load auth status', err);
         } finally {

@@ -8,6 +8,7 @@
     import ReclassificationOverlay from './ReclassificationOverlay.svelte';
 
     import { getBirdNames } from '../naming';
+    import { formatDate as formatDateValue, formatTime } from '../utils/datetime';
     import { formatTemperature } from '../utils/temperature';
 
     interface Props {
@@ -90,15 +91,6 @@
         return () => observer.disconnect();
     });
 
-    function formatTime(dateString: string): string {
-        try {
-            const date = new Date(dateString);
-            return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        } catch {
-            return '';
-        }
-    }
-
     function formatDate(dateString: string): string {
         try {
             const date = new Date(dateString);
@@ -110,7 +102,7 @@
             } else if (date.toDateString() === yesterday.toDateString()) {
                 return $_('common.yesterday');
             }
-            return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+            return formatDateValue(date);
         } catch {
             return '';
         }

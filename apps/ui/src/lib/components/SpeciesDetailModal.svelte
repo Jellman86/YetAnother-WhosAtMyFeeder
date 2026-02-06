@@ -24,6 +24,7 @@
     import RangeMap from './RangeMap.svelte';
     import { _ } from 'svelte-i18n';
     import { trapFocus } from '../utils/focus-trap';
+    import { formatDate as formatDateValue, formatDateTime, formatTime } from '../utils/datetime';
 
     interface Props {
         speciesName: string;
@@ -109,6 +110,7 @@
     );
     const showEbirdNearbyCard = $derived(showEbirdNearby && ebirdEnabled);
     const showEbirdNotable = $derived(enrichmentRarityProvider === 'ebird');
+    const rangeMapHeightClass = $derived(ebirdEnabled ? 'h-[400px] lg:h-full' : 'h-[520px] lg:h-full');
     const enrichmentLinksProviders = $derived(
         enrichmentModeSetting === 'single'
             ? [enrichmentSingleProviderSetting]
@@ -282,35 +284,12 @@
 
     function formatDate(dateStr: string | null): string {
         if (!dateStr) return 'N/A';
-        try {
-            return new Date(dateStr).toLocaleDateString(undefined, {
-                year: 'numeric',
-                month: 'short',
-                day: 'numeric'
-            });
-        } catch {
-            return 'N/A';
-        }
+        return formatDateValue(dateStr);
     }
 
     function formatEbirdDate(dateStr?: string | null): string {
         if (!dateStr) return '—';
-        try {
-            return new Date(dateStr).toLocaleString();
-        } catch {
-            return '—';
-        }
-    }
-
-    function formatTime(dateStr: string): string {
-        try {
-            return new Date(dateStr).toLocaleTimeString(undefined, {
-                hour: '2-digit',
-                minute: '2-digit'
-            });
-        } catch {
-            return '';
-        }
+        return formatDateTime(dateStr);
     }
 
     function handleKeydown(e: KeyboardEvent) {
@@ -758,9 +737,9 @@
                                         <div class="flex-1 min-h-[140px] rounded-2xl bg-slate-100 dark:bg-slate-800/60 animate-pulse"></div>
                                     {:else if rangeMap?.tileUrl}
                                         {#if rangeMapCenter}
-                                            <RangeMap tileUrl={rangeMap.tileUrl} heightClass="h-[400px] lg:h-full" center={rangeMapCenter} zoom={2} />
+                                            <RangeMap tileUrl={rangeMap.tileUrl} heightClass={rangeMapHeightClass} center={rangeMapCenter} zoom={2} />
                                         {:else}
-                                            <RangeMap tileUrl={rangeMap.tileUrl} heightClass="h-[400px] lg:h-full" />
+                                            <RangeMap tileUrl={rangeMap.tileUrl} heightClass={rangeMapHeightClass} />
                                         {/if}
                                         <p class="mt-2 text-[10px] uppercase tracking-widest text-slate-400">{$_('species_detail.range_map_hint')}</p>
                                     {:else}

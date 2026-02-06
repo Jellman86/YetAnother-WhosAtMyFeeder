@@ -336,6 +336,7 @@ class Settings(BaseSettings):
     auth: AuthSettings = AuthSettings()
     public_access: PublicAccessSettings = PublicAccessSettings()
     species_info_source: str = Field(default="auto", description="Species info source: auto, inat, or wikipedia")
+    date_format: str = Field(default="locale", description="Date format: locale, mdy, dmy, ymd")
 
     # General app settings
     log_level: str = "INFO"
@@ -563,6 +564,7 @@ class Settings(BaseSettings):
         }
 
         species_info_source = os.environ.get('SPECIES_INFO__SOURCE', 'auto')
+        date_format = os.environ.get('DISPLAY__DATE_FORMAT', 'locale')
 
         # Load from config file if it exists, env vars take precedence
         if CONFIG_PATH.exists():
@@ -741,6 +743,9 @@ class Settings(BaseSettings):
                         else:
                             enrichment_data['summary_source'] = "inaturalist"
 
+                if 'date_format' in file_data and 'DISPLAY__DATE_FORMAT' not in os.environ:
+                    date_format = file_data['date_format']
+
                 log.info("Loaded config from file", path=str(CONFIG_PATH))
             except Exception as e:
                 log.warning("Failed to load config from file", path=str(CONFIG_PATH), error=str(e))
@@ -797,6 +802,7 @@ class Settings(BaseSettings):
             auth=AuthSettings(**auth_data),
             public_access=PublicAccessSettings(**public_access_data),
             species_info_source=species_info_source,
+            date_format=date_format,
             api_key=api_key
         )
 

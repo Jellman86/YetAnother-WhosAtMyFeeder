@@ -8,20 +8,24 @@
         currentTheme,
         currentLayout,
         currentLocale,
+        currentDateFormat,
         setTheme,
         setLayout,
         setLanguage,
         currentFontTheme,
-        setFontTheme
+        setFontTheme,
+        setDateFormat
     }: {
         currentTheme: Theme;
         currentLayout: Layout;
         currentLocale: string;
+        currentDateFormat: string;
         setTheme: (theme: Theme) => void;
         setLayout: (layout: Layout) => void;
         setLanguage: (lang: string) => void;
         currentFontTheme: FontTheme;
         setFontTheme: (font: FontTheme) => void;
+        setDateFormat: (format: string) => void;
     } = $props();
 </script>
 
@@ -80,6 +84,25 @@
                     <option value="it">Italiano</option>
                 </select>
                 <p class="text-[9px] text-slate-400 font-bold italic mt-1">{$_('settings.language_desc')}</p>
+            </div>
+        </div>
+
+        <!-- Date Format -->
+        <div>
+            <label for="date-format-select" class="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4">{$_('settings.date_format.label')}</label>
+            <div class="grid grid-cols-1 gap-2">
+                <select
+                    id="date-format-select"
+                    value={currentDateFormat}
+                    onchange={(e) => setDateFormat(e.currentTarget.value)}
+                    aria-label="{$_('settings.date_format.label')}"
+                    class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-teal-500 outline-none transition-all"
+                >
+                    <option value="mdy">{$_('settings.date_format.us')}</option>
+                    <option value="dmy">{$_('settings.date_format.uk')}</option>
+                    <option value="ymd">{$_('settings.date_format.ymd')}</option>
+                </select>
+                <p class="text-[9px] text-slate-400 font-bold italic mt-1">{$_('settings.date_format.desc')}</p>
             </div>
         </div>
     </div>

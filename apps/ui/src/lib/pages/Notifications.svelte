@@ -1,13 +1,14 @@
 <script lang="ts">
     import { _ } from 'svelte-i18n';
     import { notificationCenter, type NotificationItem } from '../stores/notification_center.svelte';
+    import { formatDateTime } from '../utils/datetime';
 
     let items = $derived(notificationCenter.items);
     let ongoingItems = $derived(items.filter((item) => item.type === 'process' && !item.read));
     let historyItems = $derived(items.filter((item) => !(item.type === 'process' && !item.read)));
 
     function formatTime(ts: number) {
-        return new Date(ts).toLocaleString();
+        return formatDateTime(ts);
     }
 
     function getIcon(type: NotificationItem['type']) {

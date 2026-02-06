@@ -1,5 +1,6 @@
 <script lang="ts">
     import { _ } from 'svelte-i18n';
+    import { formatDateTime } from '../../utils/datetime';
     import ModelManager from '../../pages/models/ModelManager.svelte';
 
     // Props
@@ -37,7 +38,7 @@
         removeBlockedLabel: (label: string) => void;
     } = $props();
 
-    const circuitUntil = $derived(videoCircuitUntil ? new Date(videoCircuitUntil).toLocaleString() : null);
+    const circuitUntil = $derived(videoCircuitUntil ? formatDateTime(videoCircuitUntil) : null);
 </script>
 
 <div class="space-y-6">

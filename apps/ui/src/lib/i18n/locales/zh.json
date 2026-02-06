@@ -109,13 +109,22 @@
     "view_snapshot": "查看快照",
     "statistics": "统计",
     "period": "时间段",
-    "detections": "检测"
+    "detections": "检测",
+    "zoom_in": "放大",
+    "zoom_out": "缩小"
   },
   "settings": {
     "title": "设置",
     "subtitle": "配置和管理您的 YA-WAMF 实例",
     "language_selector": "语言",
     "language_desc": "更改用户界面文本和通知内容。",
+    "date_format": {
+      "label": "日期格式",
+      "desc": "选择日期与时间的显示格式。",
+      "us": "美国 (MM/DD/YYYY)",
+      "uk": "英国 (DD/MM/YYYY)",
+      "ymd": "日本/中国 (YYYY-MM-DD)"
+    },
     "video_circuit": {
       "title": "视频分析已暂停",
       "message": "自动视频分析在 {failures} 次失败后暂停。",
@@ -666,6 +675,7 @@
     "weather_rain": "雨",
     "weather_snow": "雪",
     "weather_icy": "结冰",
+    "id": "检测ID",
     "inat": {
       "title": "iNaturalist",
       "connected": "已连接：{user}",

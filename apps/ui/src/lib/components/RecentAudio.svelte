@@ -2,6 +2,7 @@
     import { onMount, onDestroy } from 'svelte';
     import { _ } from 'svelte-i18n';
     import { fetchRecentAudio, type AudioDetection } from '../api';
+    import { formatTime } from '../utils/datetime';
 
     let audioDetections = $state<AudioDetection[]>([]);
     let pollInterval: any;
@@ -26,13 +27,8 @@
         if (pollInterval) clearInterval(pollInterval);
     });
 
-    function formatTime(dateString: string): string {
-        try {
-            const date = new Date(dateString);
-            return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-        } catch {
-            return '';
-        }
+    function formatTimeWithSeconds(dateString: string): string {
+        return formatTime(dateString, { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     }
 </script>
 
@@ -76,7 +72,7 @@
             {#each audioDetections as detection}
                 <div class="group p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-700/50 hover:border-teal-500/30 transition-all">
                     <div class="flex items-center justify-between gap-3 mb-1">
-                        <span class="text-[10px] font-black text-teal-600/70 dark:text-teal-400/70 uppercase tracking-tighter">{formatTime(detection.timestamp)}</span>
+                        <span class="text-[10px] font-black text-teal-600/70 dark:text-teal-400/70 uppercase tracking-tighter">{formatTimeWithSeconds(detection.timestamp)}</span>
                         <span class="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">{detection.sensor_id || $_('dashboard.audio_feed.unknown_sensor')}</span>
                     </div>
                     <div class="flex items-center justify-between gap-4">

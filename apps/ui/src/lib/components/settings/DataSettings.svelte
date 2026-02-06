@@ -1,5 +1,6 @@
 <script lang="ts">
     import { _ } from 'svelte-i18n';
+    import { formatDate } from '../../utils/datetime';
     import type { MaintenanceStats, BackfillResult, WeatherBackfillResult, CacheStats, TaxonomySyncStatus } from '../../api';
 
     // Props
@@ -84,7 +85,7 @@
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
             {#each [
                 { label: $_('settings.data.records'), val: maintenanceStats.total_detections.toLocaleString(), color: 'text-teal-500' },
-                { label: $_('settings.data.oldest'), val: maintenanceStats.oldest_detection ? new Date(maintenanceStats.oldest_detection).toLocaleDateString() : 'N/A', color: 'text-blue-500' },
+                { label: $_('settings.data.oldest'), val: maintenanceStats.oldest_detection ? formatDate(maintenanceStats.oldest_detection) : 'N/A', color: 'text-blue-500' },
                 { label: $_('settings.data.retention'), val: retentionDays === 0 ? '∞' : `${retentionDays} ${$_('leaderboard.days')}`, color: 'text-indigo-500' },
                 { label: $_('settings.data.pending_gc'), val: maintenanceStats.detections_to_cleanup.toLocaleString(), color: maintenanceStats.detections_to_cleanup > 0 ? 'text-amber-500' : 'text-slate-400' }
             ] as stat}

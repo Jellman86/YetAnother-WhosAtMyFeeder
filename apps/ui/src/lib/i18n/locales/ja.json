@@ -109,13 +109,22 @@
     "view_snapshot": "スナップショットを表示",
     "statistics": "統計",
     "period": "期間",
-    "detections": "検出"
+    "detections": "検出",
+    "zoom_in": "拡大",
+    "zoom_out": "縮小"
   },
   "settings": {
     "title": "設定",
     "subtitle": "YA-WAMFインスタンスの構成と管理",
     "language_selector": "言語",
     "language_desc": "UIテキストと通知の内容を変更します。",
+    "date_format": {
+      "label": "日付形式",
+      "desc": "日付と時刻の表示形式を選択します。",
+      "us": "米国 (MM/DD/YYYY)",
+      "uk": "英国 (DD/MM/YYYY)",
+      "ymd": "日本/中国 (YYYY-MM-DD)"
+    },
     "video_circuit": {
       "title": "ビデオ分析を一時停止",
       "message": "自動ビデオ分析は {failures} 件の失敗後に一時停止されました。",
@@ -666,6 +675,7 @@
     "weather_rain": "雨",
     "weather_snow": "雪",
     "weather_icy": "凍結",
+    "id": "検出ID",
     "inat": {
       "title": "iNaturalist",
       "connected": "接続中: {user}",
