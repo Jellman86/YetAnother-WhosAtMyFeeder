@@ -265,6 +265,7 @@
       "show_camera_names": "显示摄像头名称",
       "show_camera_names_desc": "对公开访问隐藏摄像头名称",
       "history_days": "历史范围（天）",
+      "media_days": "媒体范围（天）",
       "rate_limit": "速率限制（每分钟）"
     },
     "accessibility": {

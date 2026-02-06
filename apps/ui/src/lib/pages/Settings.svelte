@@ -188,6 +188,7 @@
     let publicAccessEnabled = $state(false);
     let publicAccessShowCameraNames = $state(true);
     let publicAccessHistoricalDays = $state(7);
+    let publicAccessMediaHistoricalDays = $state(7);
     let publicAccessRateLimitPerMinute = $state(30);
     let debugUiEnabled = $state(false);
     let inatPreviewEnabled = $state(false);
@@ -437,6 +438,7 @@
             { key: 'publicAccessEnabled', val: publicAccessEnabled, store: s.public_access_enabled ?? false },
             { key: 'publicAccessShowCameraNames', val: publicAccessShowCameraNames, store: s.public_access_show_camera_names ?? true },
             { key: 'publicAccessHistoricalDays', val: publicAccessHistoricalDays, store: s.public_access_historical_days ?? 7 },
+            { key: 'publicAccessMediaHistoricalDays', val: publicAccessMediaHistoricalDays, store: s.public_access_media_historical_days ?? 7 },
             { key: 'publicAccessRateLimitPerMinute', val: publicAccessRateLimitPerMinute, store: s.public_access_rate_limit_per_minute ?? 30 },
 
             // Notifications
@@ -1048,6 +1050,7 @@
             publicAccessEnabled = settings.public_access_enabled ?? false;
             publicAccessShowCameraNames = settings.public_access_show_camera_names ?? true;
             publicAccessHistoricalDays = settings.public_access_historical_days ?? 7;
+            publicAccessMediaHistoricalDays = settings.public_access_media_historical_days ?? 7;
             publicAccessRateLimitPerMinute = settings.public_access_rate_limit_per_minute ?? 30;
             debugUiEnabled = settings.debug_ui_enabled ?? false;
 
@@ -1247,6 +1250,7 @@
                 public_access_enabled: publicAccessEnabled,
                 public_access_show_camera_names: publicAccessShowCameraNames,
                 public_access_historical_days: publicAccessHistoricalDays,
+                public_access_media_historical_days: publicAccessMediaHistoricalDays,
                 public_access_rate_limit_per_minute: publicAccessRateLimitPerMinute,
 
                 // Notifications
@@ -1694,6 +1698,7 @@
                     bind:publicAccessEnabled
                     bind:publicAccessShowCameraNames
                     bind:publicAccessHistoricalDays
+                    bind:publicAccessMediaHistoricalDays
                     bind:publicAccessRateLimitPerMinute
                     addTrustedProxyHost={addTrustedProxyHost}
                     removeTrustedProxyHost={removeTrustedProxyHost}

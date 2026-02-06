@@ -265,6 +265,7 @@
       "show_camera_names": "カメラ名を表示",
       "show_camera_names_desc": "公開閲覧でカメラ名を隠す",
       "history_days": "履歴（日）",
+      "media_days": "メディア期間（日）",
       "rate_limit": "レート制限（分あたり）"
     },
     "accessibility": {

@@ -265,6 +265,7 @@
       "show_camera_names": "Mostrar nombres de cámara",
       "show_camera_names_desc": "Ocultar cámaras para visitantes",
       "history_days": "Historial (días)",
+      "media_days": "Ventana de medios (días)",
       "rate_limit": "Límite (por minuto)"
     },
     "accessibility": {

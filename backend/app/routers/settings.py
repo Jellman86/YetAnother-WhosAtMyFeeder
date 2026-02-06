@@ -367,6 +367,7 @@ class SettingsUpdate(BaseModel):
     public_access_enabled: Optional[bool] = None
     public_access_show_camera_names: Optional[bool] = None
     public_access_historical_days: Optional[int] = Field(None, ge=0, le=365)
+    public_access_media_historical_days: Optional[int] = Field(None, ge=0, le=365)
     public_access_rate_limit_per_minute: Optional[int] = Field(None, ge=1, le=100)
 
     species_info_source: Optional[str] = "auto"
@@ -569,6 +570,7 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "public_access_enabled": settings.public_access.enabled,
         "public_access_show_camera_names": settings.public_access.show_camera_names,
         "public_access_historical_days": settings.public_access.show_historical_days,
+        "public_access_media_historical_days": settings.public_access.media_historical_days,
         "public_access_rate_limit_per_minute": settings.public_access.rate_limit_per_minute,
         "species_info_source": settings.species_info_source,
     }
@@ -773,6 +775,8 @@ async def update_settings(
         settings.public_access.show_camera_names = update.public_access_show_camera_names
     if "public_access_historical_days" in fields_set and update.public_access_historical_days is not None:
         settings.public_access.show_historical_days = update.public_access_historical_days
+    if "public_access_media_historical_days" in fields_set and update.public_access_media_historical_days is not None:
+        settings.public_access.media_historical_days = update.public_access_media_historical_days
     if "public_access_rate_limit_per_minute" in fields_set and update.public_access_rate_limit_per_minute is not None:
         settings.public_access.rate_limit_per_minute = update.public_access_rate_limit_per_minute
 

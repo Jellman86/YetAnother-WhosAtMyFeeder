@@ -304,6 +304,12 @@ class PublicAccessSettings(BaseModel):
         le=365,
         description="Days of historical data visible to public (0 = live only)"
     )
+    media_historical_days: int = Field(
+        default=7,
+        ge=0,
+        le=365,
+        description="Days of media (snapshots/clips) visible to public (0 = live only)"
+    )
     rate_limit_per_minute: int = Field(
         default=30,
         ge=1,
@@ -537,6 +543,7 @@ class Settings(BaseSettings):
             'enabled': os.environ.get('PUBLIC_ACCESS__ENABLED', 'false').lower() == 'true',
             'show_camera_names': os.environ.get('PUBLIC_ACCESS__SHOW_CAMERA_NAMES', 'true').lower() == 'true',
             'show_historical_days': int(os.environ.get('PUBLIC_ACCESS__SHOW_HISTORICAL_DAYS', '7')),
+            'media_historical_days': int(os.environ.get('PUBLIC_ACCESS__MEDIA_HISTORICAL_DAYS', '7')),
             'rate_limit_per_minute': int(os.environ.get('PUBLIC_ACCESS__RATE_LIMIT_PER_MINUTE', '30')),
         }
 
@@ -769,7 +776,8 @@ class Settings(BaseSettings):
                  has_password=auth_data['password_hash'] is not None)
         log.info("Public access config",
                  enabled=public_access_data['enabled'],
-                 historical_days=public_access_data['show_historical_days'])
+                 historical_days=public_access_data['show_historical_days'],
+                 media_historical_days=public_access_data['media_historical_days'])
 
         return cls(
             frigate=FrigateSettings(**frigate_data),

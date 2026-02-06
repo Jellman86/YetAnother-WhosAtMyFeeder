@@ -273,6 +273,7 @@
       "show_camera_names": "Mostra nomi telecamere",
       "show_camera_names_desc": "Nascondi etichette telecamere per visitatori pubblici",
       "history_days": "Finestra cronologia (giorni)",
+      "media_days": "Finestra media (giorni)",
       "rate_limit": "Limite frequenza (al minuto)"
     },
     "accessibility": {

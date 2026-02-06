@@ -59,7 +59,7 @@ async def require_event_access(event_id: str, auth: AuthContext, lang: str) -> N
         )
 
     if settings.public_access.enabled:
-        max_days = settings.public_access.show_historical_days
+        max_days = settings.public_access.media_historical_days
         detection_date = detection.detection_time.date()
         if max_days > 0:
             cutoff = date.today() - timedelta(days=max_days)

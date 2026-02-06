@@ -244,6 +244,7 @@ export interface Settings {
     public_access_enabled: boolean;
     public_access_show_camera_names: boolean;
     public_access_historical_days: number;
+    public_access_media_historical_days: number;
     public_access_rate_limit_per_minute: number;
 
     species_info_source?: string;

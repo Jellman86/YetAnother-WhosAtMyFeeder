@@ -382,6 +382,7 @@
       "show_camera_names": "Show camera names",
       "show_camera_names_desc": "Hide camera labels for public visitors",
       "history_days": "History window (days)",
+      "media_days": "Media window (days)",
       "rate_limit": "Rate limit (per minute)"
     },
     "accessibility": {
