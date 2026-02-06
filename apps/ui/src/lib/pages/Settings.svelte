@@ -361,7 +361,7 @@
     let message = $state<{ type: 'success' | 'error'; text: string } | null>(null);
     let currentTheme: Theme = $state('system');
     let currentLayout: Layout = $state('horizontal');
-    let currentFontTheme = $state('default');
+    let currentFontTheme = $state<import('../stores/theme.svelte').FontTheme>('default');
 
     const normalizeSecret = (value?: string | null) => value === '***REDACTED***' ? '' : (value || '');
 

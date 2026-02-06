@@ -176,14 +176,15 @@
     let subName = $derived(naming.secondary);
 
     let infoSourceChips = $derived.by(() => {
-        if (!info) return [];
+        const currentInfo = info;
+        if (!currentInfo) return [];
         const items: { label: string; url: string | null }[] = [];
         const push = (label: string | null, url: string | null) => {
             if (!label) return;
             const normalized = label.toLowerCase();
             
             // Always show the source of the displayed content
-            const isContentSource = label === info.source || label === info.summary_source;
+            const isContentSource = label === currentInfo.source || label === currentInfo.summary_source;
             
             if (!isContentSource && !enrichmentLinksProvidersNormalized.includes(normalized)) return;
             const existing = items.find((item) => item.label === label);
@@ -194,12 +195,12 @@
             items.push({ label, url: url || null });
         };
 
-        push(info.source, info.source_url);
-        push(info.summary_source, info.summary_source_url);
+        push(currentInfo.source, currentInfo.source_url);
+        push(currentInfo.summary_source, currentInfo.summary_source_url);
 
-        if (items.length === 0 && info.wikipedia_url) {
+        if (items.length === 0 && currentInfo.wikipedia_url) {
             if (enrichmentLinksProvidersNormalized.includes('wikipedia')) {
-                items.push({ label: 'Wikipedia', url: info.wikipedia_url });
+                items.push({ label: 'Wikipedia', url: currentInfo.wikipedia_url });
             }
         }
 

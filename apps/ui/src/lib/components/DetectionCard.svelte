@@ -36,7 +36,7 @@
     let subName = $derived(naming.secondary);
 
     let isVerified = $derived(detection.audio_confirmed && detection.score > 0.7);
-    let classificationSource = $derived(() => {
+    let classificationSource = $derived.by(() => {
         if (detection.manual_tagged) {
             return { key: 'manual', label: $_('detection.tag_manual') };
         }
