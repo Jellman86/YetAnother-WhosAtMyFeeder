@@ -80,7 +80,7 @@
 
 <div class={`relative w-full ${heightClass} rounded-2xl overflow-hidden border border-slate-200/60 dark:border-slate-700/60 bg-slate-100 dark:bg-slate-800`}>
   <div bind:this={mapElement} class="w-full h-full"></div>
-  <div class="absolute top-3 right-3 flex flex-col gap-2">
+  <div class="absolute top-3 right-3 z-10 flex flex-col gap-2">
     <button
       type="button"
       onclick={zoomIn}
