@@ -591,7 +591,23 @@
                 {/if}
 
                 {#if !isUnknownBird && (showEbirdNearby || seasonality || rangeMap || rangeMapLoading || rangeMapError)}
-                    <section class="grid grid-cols-1 lg:grid-cols-2 gap-4 items-stretch">
+                    {#if showEbirdNearby && !ebirdEnabled}
+                        <div class="group relative overflow-hidden rounded-2xl border border-sky-200/60 dark:border-sky-800/40 bg-white/70 dark:bg-slate-900/40 p-4 sm:p-5 transition-all duration-300">
+                            <div class="flex items-start gap-3">
+                                <div class="p-2 rounded-xl bg-sky-500/10 text-sky-600 dark:text-sky-400">
+                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                                    </svg>
+                                </div>
+                                <div>
+                                    <p class="text-xs font-bold uppercase tracking-widest text-sky-600 dark:text-sky-400">{$_('species_detail.ebird_disabled_title')}</p>
+                                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">{$_('species_detail.ebird_disabled_body')}</p>
+                                </div>
+                            </div>
+                        </div>
+                    {/if}
+                    <section class={`grid grid-cols-1 ${showEbirdNearbyCard ? 'lg:grid-cols-2' : 'lg:grid-cols-1'} gap-4 items-stretch`}>
                         {#if showEbirdNearbyCard}
                             <div class="group relative overflow-hidden rounded-2xl border border-sky-200/60 dark:border-sky-800/40 bg-sky-50/30 dark:bg-sky-900/10 p-5 hover:bg-sky-50/50 dark:hover:bg-sky-900/20 transition-all duration-300">
                                 <div class="flex items-center justify-between gap-3 mb-4">
@@ -676,22 +692,6 @@
                         {/if}
 
                         <div class="space-y-4 h-full flex flex-col">
-                            {#if showEbirdNearby && !ebirdEnabled}
-                                <div class="group relative overflow-hidden rounded-2xl border border-sky-200/60 dark:border-sky-800/40 bg-white/60 dark:bg-slate-900/40 p-5 transition-all duration-300">
-                                    <div class="flex items-start gap-3">
-                                        <div class="p-2 rounded-xl bg-sky-500/10 text-sky-600 dark:text-sky-400">
-                                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                                            </svg>
-                                        </div>
-                                        <div>
-                                            <p class="text-xs font-bold uppercase tracking-widest text-sky-600 dark:text-sky-400">{$_('species_detail.ebird_disabled_title')}</p>
-                                            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">{$_('species_detail.ebird_disabled_body')}</p>
-                                        </div>
-                                    </div>
-                                </div>
-                            {/if}
                             {#if seasonality}
                                 <div class="group relative overflow-hidden rounded-2xl border border-indigo-200/60 dark:border-indigo-800/40 bg-indigo-50/30 dark:bg-indigo-900/10 p-5 hover:bg-indigo-50/50 dark:hover:bg-indigo-900/20 transition-all duration-300 lg:flex-1 lg:flex lg:flex-col">
                                     <div class="flex items-center gap-2 mb-3">
