@@ -110,6 +110,9 @@
         if (typeof document === 'undefined') return;
         const observer = new MutationObserver(syncDarkMode);
         observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+        if (typeof window !== 'undefined') {
+            aiDiagnosticsEnabled = window.localStorage.getItem('ai_diagnostics_enabled') !== '0';
+        }
         return () => observer.disconnect();
     });
 
@@ -227,61 +230,7 @@
         };
     };
 
-    const formatAiDiagnostics = () => {
-        if (!aiDiagnostics) return '';
-        return JSON.stringify(aiDiagnostics, null, 2);
-    };
-
-    const copyAiDiagnostics = async () => {
-        collectAiDiagnostics();
-        const payload = formatAiDiagnostics();
-        if (!payload) {
-            aiDiagnosticsStatus = 'Diagnostics not available yet.';
-            return;
-        }
-        try {
-            await navigator.clipboard.writeText(payload);
-            aiDiagnosticsStatus = 'Diagnostics copied to clipboard.';
-        } catch (error) {
-            aiDiagnosticsStatus = 'Clipboard copy failed. Please copy manually.';
-        }
-    };
-
-    const copyAiRawContent = async () => {
-        const latestAssistant = [...conversationTurns].reverse().find((turn) => turn.role === 'assistant')?.content ?? null;
-        const payload = JSON.stringify(
-            {
-                analysis: aiAnalysis ?? '',
-                conversation_latest_assistant: latestAssistant ?? ''
-            },
-            null,
-            2
-        );
-        try {
-            await navigator.clipboard.writeText(payload);
-            aiDiagnosticsStatus = 'Raw AI content copied to clipboard.';
-        } catch (error) {
-            aiDiagnosticsStatus = 'Clipboard copy failed. Please copy manually.';
-        }
-    };
-
-    const copyAiPrompts = async () => {
-        const payload = JSON.stringify(
-            {
-                analysis_prompt_template: settingsStore.settings?.llm_analysis_prompt_template ?? '',
-                conversation_prompt_template: settingsStore.settings?.llm_conversation_prompt_template ?? ''
-            },
-            null,
-            2
-        );
-        try {
-            await navigator.clipboard.writeText(payload);
-            aiDiagnosticsStatus = 'AI prompt templates copied to clipboard.';
-        } catch (error) {
-            aiDiagnosticsStatus = 'Clipboard copy failed. Please copy manually.';
-        }
-    };
-
+    
     const copyAiFullBundle = async () => {
         collectAiDiagnostics();
         const latestAssistant = [...conversationTurns].reverse().find((turn) => turn.role === 'assistant')?.content ?? null;
@@ -298,12 +247,7 @@
             null,
             2
         );
-        try {
-            await navigator.clipboard.writeText(payload);
-            aiDiagnosticsStatus = 'Full AI diagnostics bundle copied to clipboard.';
-        } catch (error) {
-            aiDiagnosticsStatus = 'Clipboard copy failed. Please copy manually.';
-        }
+        await navigator.clipboard.writeText(payload);
     };
 
     let aiAnalysis = $state<string | null>(null);
@@ -344,10 +288,9 @@
         analysisSample: string;
         conversationSample: string;
     } | null>(null);
-    let aiDiagnosticsStatus = $state('');
     const debugUiEnabled = $derived(settingsStore.settings?.debug_ui_enabled ?? false);
     let isDarkMode = $state(false);
-    let showAiDiagnostics = $state(false);
+    let aiDiagnosticsEnabled = $state(false);
 
     
 
@@ -1302,15 +1245,29 @@
                     </button>
                 {/if}
 
-                <button
-                    onclick={onClose}
-                    class="absolute top-4 right-4 w-8 h-8 rounded-full bg-black/40 text-white flex items-center justify-center hover:bg-black/60 transition-colors"
-                    aria-label={$_('common.close')}
-                >
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                </button>
+        <button
+            onclick={onClose}
+            class="absolute top-4 right-4 w-8 h-8 rounded-full bg-black/40 text-white flex items-center justify-center hover:bg-black/60 transition-colors"
+            aria-label={$_('common.close')}
+        >
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+        </button>
+
+        {#if aiDiagnosticsEnabled}
+            <button
+                type="button"
+                onclick={copyAiFullBundle}
+                class="absolute top-4 right-14 w-8 h-8 rounded-full bg-emerald-500/20 text-emerald-100 flex items-center justify-center hover:bg-emerald-500/35 transition-colors"
+                title="Copy AI diagnostics bundle"
+                aria-label="Copy AI diagnostics bundle"
+            >
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H6a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2v-2M8 7a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2" />
+                </svg>
+            </button>
+        {/if}
             </div>
 
             <div class="flex-1 overflow-y-auto p-6 space-y-6 {showTagDropdown ? 'blur-sm pointer-events-none select-none' : ''}">
@@ -1992,71 +1949,7 @@
                         </div>
                     {/if}
 
-                    {#if authStore.canModify || debugUiEnabled}
-                        <div class="rounded-xl border border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/60 p-3 space-y-2">
-                            <div class="flex flex-wrap items-center justify-between gap-2">
-                                <span class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-300">AI Diagnostics</span>
-                                <div class="flex flex-wrap gap-2">
-                                    <button
-                                        type="button"
-                                        onclick={copyAiFullBundle}
-                                        class="px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest bg-emerald-500/20 text-emerald-700 dark:text-emerald-200 hover:bg-emerald-500/30"
-                                    >
-                                        Copy All
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onclick={() => {
-                                            showAiDiagnostics = !showAiDiagnostics;
-                                            if (showAiDiagnostics) collectAiDiagnostics();
-                                        }}
-                                        class="px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700"
-                                    >
-                                        {showAiDiagnostics ? 'Hide' : 'Show'}
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onclick={collectAiDiagnostics}
-                                        class="px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700"
-                                    >
-                                        Refresh
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onclick={copyAiDiagnostics}
-                                        class="px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest bg-teal-500/15 text-teal-700 dark:text-teal-200 hover:bg-teal-500/25"
-                                    >
-                                        Copy
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onclick={copyAiRawContent}
-                                        class="px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700"
-                                    >
-                                        Copy Raw
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onclick={copyAiPrompts}
-                                        class="px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700"
-                                    >
-                                        Copy Prompts
-                                    </button>
-                                </div>
-                            </div>
-                            {#if showAiDiagnostics}
-                                <textarea
-                                    rows="9"
-                                    readonly
-                                    value={formatAiDiagnostics()}
-                                    class="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-950/60 text-[11px] font-mono text-slate-700 dark:text-slate-200 p-2"
-                                ></textarea>
-                                {#if aiDiagnosticsStatus}
-                                    <p class="text-[10px] font-bold text-slate-500 dark:text-slate-400">{aiDiagnosticsStatus}</p>
-                                {/if}
-                            {/if}
-                        </div>
-                    {/if}
+                    
                 </div>
             {/if}
 

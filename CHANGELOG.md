@@ -37,6 +37,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Added:** AI diagnostics panel now supports copying raw AI content and prompt templates.
 - **Added:** AI diagnostics panel can copy a full diagnostics bundle in one click.
 - **Changed:** AI markdown styling now uses a dedicated surface class for stronger specificity in all themes.
+- **Added:** Debug setting to toggle the AI diagnostics clipboard button on detection modals.
 
 ## [2.7.6] - 2026-02-06
 
