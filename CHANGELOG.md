@@ -16,6 +16,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Changed:** AI analysis rendering now uses a cleaner markdown layout and improved dark-mode contrast.
 - **Changed:** Settings panels now align cards to consistent heights and widths.
 - **Changed:** Settings tooltips and aria-labels are fully localized.
+- **Changed:** Default font theme is now Classic.
 
 ## [2.7.6] - 2026-02-06
 

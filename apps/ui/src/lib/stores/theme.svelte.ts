@@ -41,7 +41,7 @@ function applyFontTheme(fontTheme: FontTheme) {
 
 class ThemeStore {
     currentTheme = $state<Theme>('system');
-    currentFontTheme = $state<FontTheme>('default');
+    currentFontTheme = $state<FontTheme>('classic');
     private mediaQueryList: MediaQueryList | null = null;
 
     constructor() {
