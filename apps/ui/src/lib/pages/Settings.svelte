@@ -136,21 +136,19 @@
         gemini: [
             { value: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite (Cheapest, Fastest)' },
             { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash (Recommended, Balanced)' },
-            { value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro (Most capable)' },
-            { value: 'gemini-3-flash-preview', label: 'Gemini 3 Flash Preview (Experimental)' },
-            { value: 'gemini-3-pro-preview', label: 'Gemini 3 Pro Preview (Experimental)' }
+            { value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro (Most capable)' }
         ],
         openai: [
-            { value: 'gpt-4.1-nano', label: 'GPT-4.1 nano (Cheapest)' },
-            { value: 'gpt-4.1-mini', label: 'GPT-4.1 mini (Fast)' },
-            { value: 'gpt-4.1', label: 'GPT-4.1 (Recommended)' }
+            { value: 'gpt-5-mini', label: 'GPT-5 mini (Cheapest, Fast)' },
+            { value: 'gpt-5.2', label: 'GPT-5.2 (Recommended)' },
+            { value: 'gpt-5.2-pro', label: 'GPT-5.2 Pro (Most capable)' }
         ],
         claude: [
-            { value: 'claude-3-5-haiku-20241022', label: 'Claude Haiku 3.5 (Cheapest, Fast)' },
-            { value: 'claude-3-5-sonnet-20241022', label: 'Claude Sonnet 3.5 v2 (Recommended)' },
-            { value: 'claude-3-7-sonnet-20250219', label: 'Claude Sonnet 3.7 (Stronger Reasoning)' },
-            { value: 'claude-opus-4-20250514', label: 'Claude Opus 4 (Most capable)' },
-            { value: 'claude-opus-4-1-20250805', label: 'Claude Opus 4.1 (Most capable, Newer)' }
+            { value: 'claude-3-5-haiku-latest', label: 'Claude Haiku 3.5 (Cheapest, Fast)' },
+            { value: 'claude-3-5-sonnet-latest', label: 'Claude Sonnet 3.5 (Recommended)' },
+            { value: 'claude-3-7-sonnet-latest', label: 'Claude Sonnet 3.7 (Stronger Reasoning)' },
+            { value: 'claude-sonnet-4-0', label: 'Claude Sonnet 4 (Most capable, Stable)' },
+            { value: 'claude-opus-4-0', label: 'Claude Opus 4 (Most capable, Stable)' }
         ]
     };
 
