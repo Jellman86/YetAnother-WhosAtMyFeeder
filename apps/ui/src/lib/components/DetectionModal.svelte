@@ -794,7 +794,8 @@
     }
 
     :global(.dark) .ai-bubble--assistant {
-        background: rgba(20, 184, 166, 0.14);
+        background: rgba(20, 184, 166, 0.22);
+        color: rgb(226 232 240);
     }
 
     .ai-bubble--user {
@@ -819,6 +820,11 @@
         font-size: 0.8rem;
         line-height: 1.45;
         white-space: pre-wrap;
+    }
+
+    .ai-bubble--assistant :global(.ai-markdown p),
+    .ai-bubble--assistant :global(.ai-markdown li) {
+        color: inherit;
     }
 
     :global(.dark) .ai-bubble__role {
