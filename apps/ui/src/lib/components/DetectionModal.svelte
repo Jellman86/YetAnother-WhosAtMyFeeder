@@ -682,7 +682,7 @@
     }
 
     :global(.ai-markdown h2) {
-        margin: 0.9rem 0 0.4rem;
+        margin: 0.7rem 0 0.35rem;
         font-size: 0.9rem;
         letter-spacing: 0.26em;
         text-transform: uppercase;
@@ -695,7 +695,7 @@
     }
 
     :global(.ai-markdown h3) {
-        margin: 0.85rem 0 0.35rem;
+        margin: 0.65rem 0 0.3rem;
         font-size: 0.82rem;
         letter-spacing: 0.22em;
         text-transform: uppercase;
@@ -708,7 +708,7 @@
     }
 
     :global(.ai-markdown h4) {
-        margin: 0.75rem 0 0.25rem;
+        margin: 0.6rem 0 0.25rem;
         font-size: 0.78rem;
         letter-spacing: 0.22em;
         text-transform: uppercase;
@@ -721,31 +721,31 @@
     }
 
     :global(.ai-markdown p) {
-        margin: 0.45rem 0;
+        margin: 0.3rem 0;
         font-size: 0.88rem;
         line-height: 1.55;
         color: rgb(51 65 85);
     }
 
     :global(.dark .ai-markdown p) {
-        color: rgb(226 232 240);
+        color: rgb(241 245 249);
     }
 
     :global(.ai-markdown ul) {
-        margin: 0.45rem 0 0.75rem;
+        margin: 0.35rem 0 0.65rem;
         padding-left: 1.2rem;
         list-style: disc;
         list-style-position: outside;
     }
 
     :global(.ai-markdown li) {
-        margin: 0.3rem 0;
+        margin: 0.25rem 0;
         font-size: 0.88rem;
         color: rgb(51 65 85);
     }
 
     :global(.dark .ai-markdown li) {
-        color: rgb(226 232 240);
+        color: rgb(241 245 249);
     }
 
     :global(.ai-markdown strong) {
@@ -754,7 +754,7 @@
     }
 
     :global(.dark .ai-markdown strong) {
-        color: rgb(94 234 212);
+        color: rgb(153 246 228);
     }
 
     :global(.ai-markdown em) {
@@ -762,7 +762,7 @@
     }
 
     :global(.dark .ai-markdown em) {
-        color: rgb(148 163 184);
+        color: rgb(203 213 225);
     }
 
     :global(.ai-markdown code) {
@@ -775,8 +775,16 @@
     }
 
     :global(.dark .ai-markdown code) {
-        background: rgba(20, 184, 166, 0.2);
-        color: rgb(94 234 212);
+        background: rgba(45, 212, 191, 0.25);
+        color: rgb(153 246 228);
+    }
+
+    :global(.ai-markdown > :first-child) {
+        margin-top: 0;
+    }
+
+    :global(.ai-markdown > :last-child) {
+        margin-bottom: 0;
     }
 
     .ai-bubble {
@@ -790,8 +798,8 @@
     }
 
     :global(.dark) .ai-bubble {
-        background: rgba(15, 23, 42, 0.65);
-        color: rgb(226 232 240);
+        background: rgba(15, 23, 42, 0.72);
+        color: rgb(241 245 249);
     }
 
     .ai-bubble.ai-surface {
