@@ -1937,13 +1937,18 @@
                             onclick={() => handleAIAnalysis(true)}
                             disabled={analyzingAI}
                             class="w-full py-2 px-4 bg-teal-500/10 hover:bg-teal-500/20 text-teal-600 dark:text-teal-400 font-semibold text-sm rounded-xl transition-all flex items-center justify-center gap-2 border border-teal-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
-                            title={$_('detection.ai.regenerate')}
+                            title={$_('detection.ai.regenerate_warning', { default: 'Regenerate analysis (clears AI conversation history for this detection)' })}
                         >
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                             </svg>
                             {analyzingAI ? $_('detection.ai.regenerating') : $_('detection.ai.regenerate')}
                         </button>
+                        {#if conversationTurns.length > 0}
+                            <p class="text-[10px] font-semibold text-slate-500 dark:text-slate-400">
+                                {$_('detection.ai.regenerate_clears_chat_note', { default: 'Note: Regenerating clears the AI conversation history for this detection.' })}
+                            </p>
+                        {/if}
                     {/if}
                 </div>
             {:else if llmReady && !analyzingAI && authStore.canModify}
