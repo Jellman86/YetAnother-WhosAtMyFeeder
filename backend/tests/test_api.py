@@ -1,10 +1,15 @@
-from fastapi.testclient import TestClient
+import pytest
+import httpx
+
 from app.main import app
 
-client = TestClient(app)
 
-def test_health_check():
-    response = client.get("/health")
+@pytest.mark.asyncio
+async def test_health_check():
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.get("/health")
+
     assert response.status_code == 200
     data = response.json()
     assert data["service"] == "ya-wamf-backend"

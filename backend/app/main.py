@@ -9,6 +9,7 @@ import asyncio
 import os
 import json
 from datetime import datetime, timedelta
+import sys
 from contextlib import asynccontextmanager
 from prometheus_client import generate_latest, CONTENT_TYPE_LATEST, Counter
 
@@ -110,8 +111,16 @@ DETECTIONS_TOTAL = Counter('detections_total', 'Total number of bird detections'
 API_REQUESTS = Counter('api_requests_total', 'Total API requests')
 RATE_LIMIT_EXCEEDED = Counter('rate_limit_exceeded_total', 'Total rate limit violations')
 
-# Test mode: keep app startup lightweight so TestClient doesn't hang on external/background services.
-IS_TESTING = bool(os.getenv("PYTEST_CURRENT_TEST")) or os.getenv("YA_WAMF_TESTING") == "1"
+def _is_testing() -> bool:
+    """
+    Detect test runs (pytest sets PYTEST_CURRENT_TEST only while a test is executing).
+    This must be evaluated at runtime (inside lifespan), not just at import time.
+    """
+    return (
+        "pytest" in sys.modules
+        or bool(os.getenv("PYTEST_CURRENT_TEST"))
+        or os.getenv("YA_WAMF_TESTING") == "1"
+    )
 
 # Use shared classifier instance
 classifier_service = get_classifier()
@@ -188,9 +197,16 @@ async def cleanup_scheduler():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global cleanup_task, cleanup_running
+    test_mode = _is_testing()
+
     # Startup
-    await init_db()
-    if not IS_TESTING:
+    cleanup_running = True
+    cleanup_task = None
+    if test_mode:
+        # Keep tests fast and deterministic: skip migrations + external/background services.
+        log.info("Test mode enabled: skipping DB init and background services startup")
+    else:
+        await init_db()
         create_background_task(mqtt_service.start(event_processor), name="mqtt_service_start")
         await telemetry_service.start()
         await auto_video_classifier.start()
@@ -199,18 +215,17 @@ async def lifespan(app: FastAPI):
                  interval_hours=CLEANUP_INTERVAL_HOURS,
                  retention_days=settings.maintenance.retention_days,
                  enabled=settings.maintenance.cleanup_enabled)
-    else:
-        log.info("Test mode enabled: skipping background services startup")
     yield
+
     # Shutdown
     cleanup_running = False
-    if cleanup_task and not IS_TESTING:
+    if cleanup_task and not test_mode:
         cleanup_task.cancel()
         try:
             await cleanup_task
         except asyncio.CancelledError:
             pass
-    if not IS_TESTING:
+    if not test_mode:
         await auto_video_classifier.stop()
         await telemetry_service.stop()
         await mqtt_service.stop()

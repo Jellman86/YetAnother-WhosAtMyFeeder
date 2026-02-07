@@ -1,38 +1,46 @@
-from fastapi.testclient import TestClient
 from unittest.mock import patch, MagicMock, AsyncMock
 from app.main import app
 from app.config import settings
 import pytest
+import pytest_asyncio
+import httpx
 
-client = TestClient(app)
+@pytest_asyncio.fixture
+async def client():
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        yield client
 
 
-def test_proxy_clip_disabled():
+@pytest.mark.asyncio
+async def test_proxy_clip_disabled(client: httpx.AsyncClient):
     """Test that clips return 403 when clips_enabled is False."""
     original_setting = settings.frigate.clips_enabled
     settings.frigate.clips_enabled = False
 
     try:
-        response = client.get("/api/frigate/test_event_id/clip.mp4")
+        response = await client.get("/api/frigate/test_event_id/clip.mp4")
         assert response.status_code == 403
         assert response.json()["detail"] == "Clip fetching is disabled"
     finally:
         settings.frigate.clips_enabled = original_setting
 
 
-def test_proxy_clip_head_disabled():
+@pytest.mark.asyncio
+async def test_proxy_clip_head_disabled(client: httpx.AsyncClient):
     """Test that HEAD requests for clips return 403 when clips_enabled is False."""
     original_setting = settings.frigate.clips_enabled
     settings.frigate.clips_enabled = False
 
     try:
-        response = client.head("/api/frigate/test_event_id/clip.mp4")
+        response = await client.head("/api/frigate/test_event_id/clip.mp4")
         assert response.status_code == 403
     finally:
         settings.frigate.clips_enabled = original_setting
 
 
-def test_proxy_clip_invalid_event_id():
+@pytest.mark.asyncio
+async def test_proxy_clip_invalid_event_id(client: httpx.AsyncClient):
     """Test that invalid event IDs are rejected."""
     original_setting = settings.frigate.clips_enabled
     settings.frigate.clips_enabled = True
@@ -40,7 +48,7 @@ def test_proxy_clip_invalid_event_id():
     try:
         # Use a path that won't be normalized away by the test client/server
         # but still fails our validation
-        response = client.get("/api/frigate/invalid@event!id/clip.mp4")
+        response = await client.get("/api/frigate/invalid@event!id/clip.mp4")
         assert response.status_code == 400
         assert "Invalid event ID format" in response.json()["detail"]
     finally:
@@ -83,7 +91,8 @@ def mock_frigate_partial_response():
     return mock_response
 
 
-def test_proxy_clip_enabled(mock_frigate_response):
+@pytest.mark.asyncio
+async def test_proxy_clip_enabled(client: httpx.AsyncClient, mock_frigate_response):
     """Test that clips are proxied when clips_enabled is True."""
     original_setting = settings.frigate.clips_enabled
     settings.frigate.clips_enabled = True
@@ -102,7 +111,7 @@ def test_proxy_clip_enabled(mock_frigate_response):
         MockClient.return_value = mock_client
 
         try:
-            response = client.get("/api/frigate/test_event_id/clip.mp4")
+            response = await client.get("/api/frigate/test_event_id/clip.mp4")
             assert response.status_code == 200
             assert response.headers.get("content-type") == "video/mp4"
             assert response.headers.get("accept-ranges") == "bytes"
@@ -110,7 +119,8 @@ def test_proxy_clip_enabled(mock_frigate_response):
             settings.frigate.clips_enabled = original_setting
 
 
-def test_proxy_clip_range_header_forwarded(mock_frigate_partial_response):
+@pytest.mark.asyncio
+async def test_proxy_clip_range_header_forwarded(client: httpx.AsyncClient, mock_frigate_partial_response):
     """Test that Range headers are forwarded to Frigate and 206 responses are returned."""
     original_setting = settings.frigate.clips_enabled
     settings.frigate.clips_enabled = True
@@ -129,7 +139,7 @@ def test_proxy_clip_range_header_forwarded(mock_frigate_partial_response):
         MockClient.return_value = mock_client
 
         try:
-            response = client.get(
+            response = await client.get(
                 "/api/frigate/test_event_id/clip.mp4",
                 headers={"Range": "bytes=0-999"}
             )
@@ -139,7 +149,8 @@ def test_proxy_clip_range_header_forwarded(mock_frigate_partial_response):
             settings.frigate.clips_enabled = original_setting
 
 
-def test_proxy_clip_404_from_frigate():
+@pytest.mark.asyncio
+async def test_proxy_clip_404_from_frigate(client: httpx.AsyncClient):
     """Test that 404 from Frigate is properly returned."""
     original_setting = settings.frigate.clips_enabled
     settings.frigate.clips_enabled = True
@@ -148,7 +159,7 @@ def test_proxy_clip_404_from_frigate():
         mock_frigate.get_event = AsyncMock(return_value=None)
 
         try:
-            response = client.get("/api/frigate/test_event_id/clip.mp4")
+            response = await client.get("/api/frigate/test_event_id/clip.mp4")
             assert response.status_code == 404
             assert "Event not found in Frigate" in response.json()["detail"]
         finally:

@@ -793,6 +793,7 @@
 <style>
     .ai-surface {
         position: relative;
+        overflow: hidden;
         padding: 1.25rem;
         border-radius: 1.25rem;
         background: linear-gradient(145deg, rgba(20, 184, 166, 0.08), rgba(14, 116, 144, 0.06));
@@ -801,12 +802,39 @@
         box-shadow: 0 12px 28px rgba(15, 118, 110, 0.15);
     }
 
+    .ai-surface::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        border-radius: inherit;
+        opacity: 0.85;
+        background:
+            radial-gradient(900px 420px at 18% 0%, rgba(20, 184, 166, 0.12), transparent 60%),
+            radial-gradient(680px 420px at 92% 95%, rgba(14, 116, 144, 0.10), transparent 55%);
+    }
+
+    .ai-surface > * {
+        position: relative;
+        z-index: 1;
+    }
+
     :global(.dark) .ai-surface,
     :global([data-theme='dark']) .ai-surface {
-        background: linear-gradient(145deg, rgba(15, 118, 110, 0.28), rgba(15, 23, 42, 0.85));
+        /* Softer dark surface: keep the teal identity, reduce the "hard slab" look. */
+        background: linear-gradient(145deg, rgba(15, 118, 110, 0.20), rgba(30, 41, 59, 0.78));
         border-color: rgba(45, 212, 191, 0.35);
         color: rgb(241 245 249);
-        box-shadow: 0 16px 36px rgba(8, 47, 73, 0.45);
+        box-shadow: 0 14px 30px rgba(2, 6, 23, 0.42);
+    }
+
+    :global(.dark) .ai-surface::before,
+    :global([data-theme='dark']) .ai-surface::before {
+        opacity: 0.95;
+        background:
+            radial-gradient(980px 440px at 16% 0%, rgba(94, 234, 212, 0.14), transparent 62%),
+            radial-gradient(760px 520px at 88% 90%, rgba(56, 189, 248, 0.10), transparent 58%),
+            radial-gradient(520px 420px at 50% 50%, rgba(2, 6, 23, 0.22), transparent 60%);
     }
 
     .ai-panel {
@@ -850,7 +878,7 @@
         font-size: 1.0rem;
         letter-spacing: 0.02em;
         text-transform: none;
-        font-weight: 950;
+        font-weight: 900;
         color: rgb(13 148 136);
     }
 
@@ -864,7 +892,7 @@
         font-size: 0.95rem;
         letter-spacing: 0.015em;
         text-transform: none;
-        font-weight: 900;
+        font-weight: 850;
         color: rgb(13 148 136);
     }
 
@@ -878,7 +906,7 @@
         font-size: 0.9rem;
         letter-spacing: 0.01em;
         text-transform: none;
-        font-weight: 850;
+        font-weight: 800;
         color: rgb(13 148 136);
     }
 
@@ -892,7 +920,7 @@
         font-size: 0.86rem;
         letter-spacing: 0.01em;
         text-transform: none;
-        font-weight: 850;
+        font-weight: 800;
         color: rgb(13 148 136);
     }
 
@@ -907,7 +935,7 @@
         font-size: 0.82rem;
         letter-spacing: 0.01em;
         text-transform: none;
-        font-weight: 800;
+        font-weight: 750;
         color: rgb(13 148 136);
     }
 
@@ -955,6 +983,15 @@
         margin: 0.25rem 0;
         font-size: 0.88rem;
         color: inherit;
+    }
+
+    :global(.ai-markdown-surface li::marker) {
+        color: rgba(13, 148, 136, 0.55);
+    }
+
+    :global(.dark .ai-markdown-surface li::marker),
+    :global([data-theme='dark'] .ai-markdown-surface li::marker) {
+        color: rgba(94, 234, 212, 0.55);
     }
 
     :global(.dark .ai-markdown-surface li),
@@ -1127,11 +1164,11 @@
 
     :global(.dark) .ai-bubble.ai-surface,
     :global([data-theme='dark']) .ai-bubble.ai-surface {
-        background: linear-gradient(145deg, rgba(15, 118, 110, 0.28), rgba(15, 23, 42, 0.85));
+        background: linear-gradient(145deg, rgba(15, 118, 110, 0.18), rgba(30, 41, 59, 0.78));
         border-color: rgba(45, 212, 191, 0.35);
         /* Match the main .ai-surface dark-mode foreground for consistent contrast. */
         color: rgb(241 245 249);
-        box-shadow: 0 16px 36px rgba(8, 47, 73, 0.45);
+        box-shadow: 0 14px 30px rgba(2, 6, 23, 0.42);
     }
 
     .ai-bubble--assistant {
@@ -1175,7 +1212,7 @@
     :global(.ai-bubble--assistant .ai-markdown-surface h6) {
         margin-top: 0.5rem;
         margin-bottom: 0.2rem;
-        letter-spacing: 0.18em;
+        letter-spacing: 0.08em;
     }
 
     :global(.ai-bubble--assistant .ai-markdown-surface p) {
@@ -1195,6 +1232,21 @@
     :global(.dark) .ai-bubble__role,
     :global([data-theme='dark']) .ai-bubble__role {
         color: rgb(148 163 184);
+    }
+
+    .ai-thread {
+        border-radius: 1.25rem;
+        padding: 0.9rem;
+        border: 1px solid rgba(148, 163, 184, 0.16);
+        background: rgba(248, 250, 252, 0.6);
+        box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
+    }
+
+    :global(.dark) .ai-thread,
+    :global([data-theme='dark']) .ai-thread {
+        border-color: rgba(45, 212, 191, 0.18);
+        background: rgba(2, 6, 23, 0.22);
+        box-shadow: 0 10px 22px rgba(2, 6, 23, 0.28);
     }
 </style>
 
@@ -1910,6 +1962,7 @@
                     <p class="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">
                         {$_('detection.ai.conversation_title')}
                     </p>
+                    <div class="ai-thread">
                     {#if conversationLoading}
                         <div class="w-full py-3 px-4 bg-slate-100 dark:bg-slate-800 text-slate-500 font-bold rounded-xl flex items-center justify-center gap-3 animate-pulse">
                             <div class="w-4 h-4 border-2 border-teal-500 border-t-transparent rounded-full animate-spin"></div>
@@ -1960,6 +2013,7 @@
                             </button>
                         </div>
                     {/if}
+                    </div>
 
                     
                 </div>

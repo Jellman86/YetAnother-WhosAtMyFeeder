@@ -1,13 +1,18 @@
 """Tests for authentication security features (Phase 6)."""
 
 import pytest
-import time
-from fastapi.testclient import TestClient
+import pytest_asyncio
+import httpx
 from app.main import app
 from app.config import settings
 from app.auth import hash_password
 
-client = TestClient(app)
+
+@pytest_asyncio.fixture
+async def client():
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        yield client
 
 
 @pytest.fixture(autouse=True)
@@ -38,7 +43,8 @@ def enable_rate_limiting():
 class TestLoginRateLimiting:
     """Tests for login endpoint rate limiting."""
 
-    def test_login_rate_limit_per_minute(self):
+    @pytest.mark.asyncio
+    async def test_login_rate_limit_per_minute(self, client: httpx.AsyncClient):
         """Test that login is rate limited to 5 per minute."""
         settings.auth.enabled = True
         settings.auth.username = "admin"
@@ -46,7 +52,7 @@ class TestLoginRateLimiting:
 
         # Make 5 attempts (should all succeed or fail normally)
         for i in range(5):
-            response = client.post("/api/auth/login", json={
+            response = await client.post("/api/auth/login", json={
                 "username": "admin",
                 "password": f"wrong{i}"
             })
@@ -54,7 +60,7 @@ class TestLoginRateLimiting:
             assert response.status_code == 401
 
         # 6th attempt should be rate limited
-        response = client.post("/api/auth/login", json={
+        response = await client.post("/api/auth/login", json={
             "username": "admin",
             "password": "wrong6"
         })
@@ -62,11 +68,12 @@ class TestLoginRateLimiting:
         assert "Rate limit exceeded" in response.json()["detail"]
         assert "Retry-After" in response.headers
 
-    def test_https_warning_flag(self):
+    @pytest.mark.asyncio
+    async def test_https_warning_flag(self, client: httpx.AsyncClient):
         """Test that https_warning flag is set correctly."""
         settings.auth.enabled = True
 
-        response = client.get("/api/auth/status")
+        response = await client.get("/api/auth/status")
         data = response.json()
 
         # Should have https_warning field
@@ -78,12 +85,13 @@ class TestLoginRateLimiting:
 class TestInputValidation:
     """Tests for input validation on auth endpoints."""
 
-    def test_login_username_validation_special_chars(self):
+    @pytest.mark.asyncio
+    async def test_login_username_validation_special_chars(self, client: httpx.AsyncClient):
         """Test that login rejects usernames with special characters."""
         settings.auth.enabled = True
         settings.auth.password_hash = hash_password("test123A")
 
-        response = client.post("/api/auth/login", json={
+        response = await client.post("/api/auth/login", json={
             "username": "admin<script>",
             "password": "test123A"
         })
@@ -91,33 +99,36 @@ class TestInputValidation:
         errors = response.json()["detail"]
         assert any("Username must contain only" in str(err) for err in errors)
 
-    def test_login_username_validation_spaces(self):
+    @pytest.mark.asyncio
+    async def test_login_username_validation_spaces(self, client: httpx.AsyncClient):
         """Test that login rejects usernames with spaces."""
         settings.auth.enabled = True
         settings.auth.password_hash = hash_password("test123A")
 
-        response = client.post("/api/auth/login", json={
+        response = await client.post("/api/auth/login", json={
             "username": "admin user",
             "password": "test123A"
         })
         assert response.status_code == 422
 
-    def test_login_username_too_long(self):
+    @pytest.mark.asyncio
+    async def test_login_username_too_long(self, client: httpx.AsyncClient):
         """Test that login rejects overly long usernames."""
         settings.auth.enabled = True
         settings.auth.password_hash = hash_password("test123A")
 
-        response = client.post("/api/auth/login", json={
+        response = await client.post("/api/auth/login", json={
             "username": "a" * 51,  # 51 chars, max is 50
             "password": "test123A"
         })
         assert response.status_code == 422
 
-    def test_initial_setup_password_too_short(self):
+    @pytest.mark.asyncio
+    async def test_initial_setup_password_too_short(self, client: httpx.AsyncClient):
         """Test that initial setup rejects short passwords."""
         settings.auth.password_hash = None
 
-        response = client.post("/api/auth/initial-setup", json={
+        response = await client.post("/api/auth/initial-setup", json={
             "username": "admin",
             "password": "short",  # Less than 8 chars
             "enable_auth": True
@@ -126,11 +137,12 @@ class TestInputValidation:
         errors = response.json()["detail"]
         assert any("at least 8 characters" in str(err) for err in errors)
 
-    def test_initial_setup_password_no_letter(self):
+    @pytest.mark.asyncio
+    async def test_initial_setup_password_no_letter(self, client: httpx.AsyncClient):
         """Test that initial setup rejects passwords without letters."""
         settings.auth.password_hash = None
 
-        response = client.post("/api/auth/initial-setup", json={
+        response = await client.post("/api/auth/initial-setup", json={
             "username": "admin",
             "password": "12345678",  # Only numbers
             "enable_auth": True
@@ -139,11 +151,12 @@ class TestInputValidation:
         errors = response.json()["detail"]
         assert any("at least one letter and one number" in str(err) for err in errors)
 
-    def test_initial_setup_password_no_number(self):
+    @pytest.mark.asyncio
+    async def test_initial_setup_password_no_number(self, client: httpx.AsyncClient):
         """Test that initial setup rejects passwords without numbers."""
         settings.auth.password_hash = None
 
-        response = client.post("/api/auth/initial-setup", json={
+        response = await client.post("/api/auth/initial-setup", json={
             "username": "admin",
             "password": "abcdefgh",  # Only letters
             "enable_auth": True
@@ -152,22 +165,24 @@ class TestInputValidation:
         errors = response.json()["detail"]
         assert any("at least one letter and one number" in str(err) for err in errors)
 
-    def test_initial_setup_valid_password(self):
+    @pytest.mark.asyncio
+    async def test_initial_setup_valid_password(self, client: httpx.AsyncClient):
         """Test that valid passwords are accepted."""
         settings.auth.password_hash = None
 
-        response = client.post("/api/auth/initial-setup", json={
+        response = await client.post("/api/auth/initial-setup", json={
             "username": "admin",
             "password": "test123A",  # Valid: 8 chars, letter + number
             "enable_auth": True
         })
         assert response.status_code == 200
 
-    def test_initial_setup_username_validation(self):
+    @pytest.mark.asyncio
+    async def test_initial_setup_username_validation(self, client: httpx.AsyncClient):
         """Test username validation in initial setup."""
         settings.auth.password_hash = None
 
-        response = client.post("/api/auth/initial-setup", json={
+        response = await client.post("/api/auth/initial-setup", json={
             "username": "admin@#$",
             "password": "test123A",
             "enable_auth": True
@@ -180,9 +195,10 @@ class TestInputValidation:
 class TestSecurityHeaders:
     """Tests for security headers."""
 
-    def test_security_headers_present(self):
+    @pytest.mark.asyncio
+    async def test_security_headers_present(self, client: httpx.AsyncClient):
         """Test that security headers are added to responses."""
-        response = client.get("/health")
+        response = await client.get("/health")
 
         # Check for security headers
         assert "X-Content-Type-Options" in response.headers
@@ -200,9 +216,10 @@ class TestSecurityHeaders:
         assert "Referrer-Policy" in response.headers
         assert "Permissions-Policy" in response.headers
 
-    def test_hsts_not_on_http(self):
+    @pytest.mark.asyncio
+    async def test_hsts_not_on_http(self, client: httpx.AsyncClient):
         """Test that HSTS header is not added for HTTP requests."""
-        response = client.get("/health")
+        response = await client.get("/health")
 
         # HSTS should only be on HTTPS
         # In test client, scheme is HTTP, so HSTS should not be present
@@ -214,13 +231,14 @@ class TestSecurityHeaders:
 class TestAuditLogging:
     """Tests that audit logging occurs for auth events."""
 
-    def test_login_success_logged(self, capsys):
+    @pytest.mark.asyncio
+    async def test_login_success_logged(self, client: httpx.AsyncClient, capsys):
         """Test that successful logins are logged."""
         settings.auth.enabled = True
         settings.auth.username = "admin"
         settings.auth.password_hash = hash_password("test123A")
 
-        response = client.post("/api/auth/login", json={
+        response = await client.post("/api/auth/login", json={
             "username": "admin",
             "password": "test123A"
         })
@@ -231,13 +249,14 @@ class TestAuditLogging:
         assert "AUTH_AUDIT" in captured.out or "AUTH_AUDIT" in captured.err
         assert "login_success" in captured.out or "login_success" in captured.err
 
-    def test_login_failure_logged(self, capsys):
+    @pytest.mark.asyncio
+    async def test_login_failure_logged(self, client: httpx.AsyncClient, capsys):
         """Test that failed logins are logged."""
         settings.auth.enabled = True
         settings.auth.username = "admin"
         settings.auth.password_hash = hash_password("test123A")
 
-        response = client.post("/api/auth/login", json={
+        response = await client.post("/api/auth/login", json={
             "username": "admin",
             "password": "wrongpass"
         })
@@ -248,11 +267,12 @@ class TestAuditLogging:
         assert "AUTH_AUDIT" in captured.out or "AUTH_AUDIT" in captured.err
         assert "login_failure" in captured.out or "login_failure" in captured.err
 
-    def test_initial_setup_logged(self, capsys):
+    @pytest.mark.asyncio
+    async def test_initial_setup_logged(self, client: httpx.AsyncClient, capsys):
         """Test that initial setup is logged."""
         settings.auth.password_hash = None
 
-        response = client.post("/api/auth/initial-setup", json={
+        response = await client.post("/api/auth/initial-setup", json={
             "username": "admin",
             "password": "test123A",
             "enable_auth": True
@@ -269,7 +289,8 @@ class TestAuditLogging:
 class TestProxySupport:
     """Tests for proxy header support in rate limiting."""
 
-    def test_x_forwarded_for_used(self):
+    @pytest.mark.asyncio
+    async def test_x_forwarded_for_used(self, client: httpx.AsyncClient):
         """Test that X-Forwarded-For header is respected."""
         settings.auth.enabled = True
         settings.auth.username = "admin"
@@ -280,18 +301,23 @@ class TestProxySupport:
 
         # Should use first IP (192.168.1.100) for rate limiting
         for i in range(5):
-            response = client.post("/api/auth/login",
-                                  json={"username": "admin", "password": f"wrong{i}"},
-                                  headers=headers)
+            response = await client.post(
+                "/api/auth/login",
+                json={"username": "admin", "password": f"wrong{i}"},
+                headers=headers,
+            )
             assert response.status_code == 401
 
         # 6th should be rate limited
-        response = client.post("/api/auth/login",
-                             json={"username": "admin", "password": "wrong6"},
-                             headers=headers)
+        response = await client.post(
+            "/api/auth/login",
+            json={"username": "admin", "password": "wrong6"},
+            headers=headers,
+        )
         assert response.status_code == 429
 
-    def test_x_real_ip_used(self):
+    @pytest.mark.asyncio
+    async def test_x_real_ip_used(self, client: httpx.AsyncClient):
         """Test that X-Real-IP header is respected."""
         settings.auth.enabled = True
         settings.auth.username = "admin"
@@ -301,13 +327,17 @@ class TestProxySupport:
         headers = {"X-Real-IP": "192.168.1.200"}
 
         for i in range(5):
-            response = client.post("/api/auth/login",
-                                  json={"username": "admin", "password": f"wrong{i}"},
-                                  headers=headers)
+            response = await client.post(
+                "/api/auth/login",
+                json={"username": "admin", "password": f"wrong{i}"},
+                headers=headers,
+            )
             assert response.status_code == 401
 
         # 6th should be rate limited
-        response = client.post("/api/auth/login",
-                             json={"username": "admin", "password": "wrong6"},
-                             headers=headers)
+        response = await client.post(
+            "/api/auth/login",
+            json={"username": "admin", "password": "wrong6"},
+            headers=headers,
+        )
         assert response.status_code == 429

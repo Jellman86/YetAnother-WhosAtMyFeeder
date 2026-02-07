@@ -3,11 +3,30 @@ import sys
 import asyncio
 import aiosqlite
 import structlog
+from pathlib import Path
 from contextlib import asynccontextmanager
 from typing import Optional
 
 log = structlog.get_logger()
-DB_PATH = os.environ.get("DB_PATH", "/data/speciesid.db")
+
+def _is_testing() -> bool:
+    # PYTEST_CURRENT_TEST is only set while a test is executing (not during collection/import).
+    return (
+        "pytest" in sys.modules
+        or bool(os.getenv("PYTEST_CURRENT_TEST"))
+        or os.getenv("YA_WAMF_TESTING") == "1"
+    )
+
+
+def _get_db_path() -> str:
+    env_path = os.environ.get("DB_PATH")
+    if env_path:
+        return env_path
+    # Default to a writable location during tests to avoid hangs if /data isn't mounted.
+    if _is_testing():
+        return "/tmp/yawamf-test.db"
+    return "/data/speciesid.db"
+
 REQUIRED_COLUMNS = {
     "detections": {
         "video_classification_error",
@@ -28,7 +47,7 @@ REQUIRED_COLUMNS = {
 }
 
 
-async def _verify_schema(backend_dir: str) -> None:
+async def _verify_schema(backend_dir: str, db_path: str) -> None:
     from alembic.config import Config
     from alembic.script import ScriptDirectory
 
@@ -42,7 +61,7 @@ async def _verify_schema(backend_dir: str) -> None:
         )
         raise RuntimeError("Multiple Alembic heads detected; merge required")
 
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with aiosqlite.connect(db_path) as db:
         try:
             async with db.execute("SELECT version_num FROM alembic_version") as cursor:
                 rows = await cursor.fetchall()
@@ -171,9 +190,18 @@ _db_pool: Optional[DatabasePool] = None
 async def init_db():
     """Initialize database and connection pool."""
     global _db_pool
+    db_path = _get_db_path()
+
+    # Fail fast with a clear message if configured to use a non-existent directory.
+    parent = Path(db_path).expanduser().resolve().parent
+    if not parent.exists():
+        raise RuntimeError(
+            f"DB_PATH directory does not exist: {parent}. "
+            f"Set DB_PATH to a writable location (current: {db_path})."
+        )
 
     # Initialize WAL mode and run migrations using a temporary connection
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with aiosqlite.connect(db_path) as db:
         # Enable Write-Ahead Logging for better concurrency
         await db.execute("PRAGMA journal_mode=WAL;")
         await db.execute("PRAGMA synchronous=NORMAL;")
@@ -185,7 +213,7 @@ async def init_db():
     try:
         import subprocess
         env = os.environ.copy()
-        env["DB_PATH"] = DB_PATH
+        env["DB_PATH"] = db_path
 
         result = subprocess.run(
             [sys.executable, "-m", "alembic", "upgrade", "head"],
@@ -213,11 +241,11 @@ async def init_db():
         raise
 
     log.info("Verifying database schema...")
-    await _verify_schema(backend_dir)
+    await _verify_schema(backend_dir, db_path)
     log.info("Database schema verification completed")
 
     # Initialize connection pool
-    _db_pool = DatabasePool(DB_PATH, pool_size=5)
+    _db_pool = DatabasePool(db_path, pool_size=5)
     await _db_pool.initialize()
 
 
@@ -241,7 +269,7 @@ async def get_db():
     if _db_pool is None:
         # Fallback: create connection if pool not initialized
         log.warning("Database pool not initialized, using direct connection")
-        async with aiosqlite.connect(DB_PATH) as db:
+        async with aiosqlite.connect(_get_db_path()) as db:
             yield db
         return
 
