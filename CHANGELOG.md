@@ -21,6 +21,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Fixed:** Detection modal AI analysis panel now boosts dark-mode contrast for headings, body text, and code blocks.
 - **Fixed:** Notification settings cards now size per row instead of matching the tallest card on the page.
 - **Fixed:** Integration and authentication settings cards now size per row instead of matching the tallest card on the page.
+- **Fixed:** AI analysis markdown now correctly applies dark-mode text colors for injected content.
 
 ## [2.7.6] - 2026-02-06
 

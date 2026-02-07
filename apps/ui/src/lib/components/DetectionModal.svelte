@@ -775,7 +775,7 @@
         color: rgb(226 232 240);
     }
 
-    .ai-markdown h4 {
+    :global(.ai-markdown h4) {
         margin: 0.75rem 0 0.25rem;
         font-size: 0.75rem;
         letter-spacing: 0.2em;
@@ -784,39 +784,39 @@
         color: rgb(13 148 136);
     }
 
-    :global(.dark) .ai-markdown h4 {
+    :global(.dark .ai-markdown h4) {
         color: rgb(94 234 212);
     }
 
-    .ai-markdown p {
+    :global(.ai-markdown p) {
         margin: 0.4rem 0;
         font-size: 0.85rem;
         line-height: 1.5;
         color: rgb(51 65 85);
     }
 
-    :global(.dark) .ai-markdown p {
+    :global(.dark .ai-markdown p) {
         color: rgb(226 232 240);
     }
 
-    .ai-markdown ul {
+    :global(.ai-markdown ul) {
         margin: 0.4rem 0 0.6rem;
         padding-left: 1.2rem;
         list-style: disc;
         list-style-position: outside;
     }
 
-    .ai-markdown li {
+    :global(.ai-markdown li) {
         margin: 0.25rem 0;
         font-size: 0.85rem;
         color: rgb(51 65 85);
     }
 
-    :global(.dark) .ai-markdown li {
+    :global(.dark .ai-markdown li) {
         color: rgb(226 232 240);
     }
 
-    .ai-markdown code {
+    :global(.ai-markdown code) {
         font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
         font-size: 0.75rem;
         padding: 0.1rem 0.3rem;
@@ -825,7 +825,7 @@
         color: rgb(15 118 110);
     }
 
-    :global(.dark) .ai-markdown code {
+    :global(.dark .ai-markdown code) {
         background: rgba(20, 184, 166, 0.2);
         color: rgb(94 234 212);
     }
