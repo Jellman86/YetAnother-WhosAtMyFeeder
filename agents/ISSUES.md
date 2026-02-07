@@ -6,7 +6,7 @@ This document tracks unresolved issues discovered during AI-assisted development
 
 ## 🔴 P0 - AI Analysis Formatting & Contrast (Detection Modal)
 
-**Status:** Open (regressions observed)
+**Status:** Open (not fixed)
 
 ### Summary
 The AI analysis panel and follow-up conversation bubbles in the Detection Modal are still inconsistent in formatting and contrast. The initial AI analysis often renders with uniform bright text (losing hierarchy), while the conversation reply bubble appears with darker text and inconsistent heading treatment. The result looks flat, hard to scan, and visually inconsistent between the analysis and conversation threads.
@@ -45,6 +45,21 @@ The AI analysis panel and follow-up conversation bubbles in the Detection Modal 
 - Need a **single formatting pipeline** that guarantees heading + bullet structure in both analysis and conversation outputs.
 - Need **explicit contrast enforcement** for assistant bubble text in dark mode.
 - Need **prompt alignment** (analysis + conversation use identical section structure).
+
+### Next Steps
+- Add a deterministic markdown schema for both analysis + conversation prompts (identical headings + bullet rules).
+- Add a visual regression snapshot for `DetectionModal` in dark + light mode to catch contrast drift.
+- Ensure `.ai-bubble__content` inherits text color from the bubble surface and remove any global `text-slate-*` overrides.
+- Add a test fixture that includes headings, lists, blockquotes, code, and tables to validate markdown rendering consistency.
+
+### Diagnostics Tooling (AI Styling)
+- Detection modal now includes an **AI Diagnostics** panel with one-click **Copy All** that copies:
+  - computed styles (text colors, backgrounds, borders),
+  - root/body classes,
+  - markdown element counts + sample styles,
+  - raw AI analysis + latest assistant reply,
+  - active prompt templates.
+- Use this to capture a full bundle when reporting formatting/contrast issues.
 
 ### Acceptance Criteria
 - Conversation replies render with the same headings and bullet structure as analysis panel.

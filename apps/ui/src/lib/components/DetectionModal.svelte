@@ -783,46 +783,6 @@
     }
 </script>
 
-<div
-    class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
-    data-theme={isDarkMode ? 'dark' : 'light'}
-    onclick={(e) => {
-        if (e.target === e.currentTarget) {
-            onClose();
-        }
-    }}
-    onkeydown={(e) => e.key === 'Escape' && onClose()}
-    role="dialog"
-    aria-modal="true"
-    tabindex="-1"
->
-    <div
-        bind:this={modalElement}
-        data-theme={isDarkMode ? 'dark' : 'light'}
-        class="relative bg-white dark:bg-slate-800 rounded-3xl shadow-2xl max-w-5xl w-full max-h-[90vh] flex flex-col border border-white/20 overflow-hidden"
-        role="document"
-        tabindex="-1"
-    >
-
-        <!-- Reclassification Overlay (covers entire modal content) -->
-        {#if reclassifyProgress}
-            <ReclassificationOverlay progress={reclassifyProgress} />
-        {/if}
-
-        <div class="flex-1 overflow-hidden flex flex-col lg:grid lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
-            <div class="relative bg-slate-100 dark:bg-slate-700 aspect-video lg:aspect-auto lg:h-full lg:border-r lg:border-slate-200/70 dark:lg:border-slate-700/60">
-                <img src={getThumbnailUrl(detection.frigate_event)} alt={detection.display_name} class="w-full h-full object-cover" />
-                <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent"></div>
-                <div class="absolute bottom-0 left-0 right-0 p-6">
-                    <h3 class="text-2xl font-black text-white drop-shadow-lg leading-tight">{primaryName}</h3>
-                    {#if subName && subName !== primaryName}
-                        <p class="text-white/70 text-sm italic drop-shadow -mt-1 mb-1">{subName}</p>
-                    {/if}
-                    <p class="text-white/50 text-[10px] uppercase font-bold tracking-widest mt-2">
-                        {formatDateTime(detection.detection_time)}
-                    </p>
-</div>
-
 <style>
     .ai-surface {
         position: relative;
@@ -1162,7 +1122,8 @@
     :global([data-theme='dark']) .ai-bubble.ai-surface {
         background: linear-gradient(145deg, rgba(15, 118, 110, 0.28), rgba(15, 23, 42, 0.85));
         border-color: rgba(45, 212, 191, 0.35);
-        color: rgb(226 232 240);
+        /* Match the main .ai-surface dark-mode foreground for consistent contrast. */
+        color: rgb(241 245 249);
         box-shadow: 0 16px 36px rgba(8, 47, 73, 0.45);
     }
 
@@ -1229,6 +1190,50 @@
         color: rgb(148 163 184);
     }
 </style>
+
+
+
+<div
+    class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+    data-theme={isDarkMode ? 'dark' : 'light'}
+    onclick={(e) => {
+        if (e.target === e.currentTarget) {
+            onClose();
+        }
+    }}
+    onkeydown={(e) => e.key === 'Escape' && onClose()}
+    role="dialog"
+    aria-modal="true"
+    tabindex="-1"
+>
+    <div
+        bind:this={modalElement}
+        data-theme={isDarkMode ? 'dark' : 'light'}
+        class="relative bg-white dark:bg-slate-800 rounded-3xl shadow-2xl max-w-5xl w-full max-h-[90vh] flex flex-col border border-white/20 overflow-hidden"
+        role="document"
+        tabindex="-1"
+    >
+
+        <!-- Reclassification Overlay (covers entire modal content) -->
+        {#if reclassifyProgress}
+            <ReclassificationOverlay progress={reclassifyProgress} />
+        {/if}
+
+        <div class="flex-1 overflow-hidden flex flex-col lg:grid lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
+            <div class="relative bg-slate-100 dark:bg-slate-700 aspect-video lg:aspect-auto lg:h-full lg:border-r lg:border-slate-200/70 dark:lg:border-slate-700/60">
+                <img src={getThumbnailUrl(detection.frigate_event)} alt={detection.display_name} class="w-full h-full object-cover" />
+                <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent"></div>
+                <div class="absolute bottom-0 left-0 right-0 p-6">
+                    <h3 class="text-2xl font-black text-white drop-shadow-lg leading-tight">{primaryName}</h3>
+                    {#if subName && subName !== primaryName}
+                        <p class="text-white/70 text-sm italic drop-shadow -mt-1 mb-1">{subName}</p>
+                    {/if}
+                    <p class="text-white/50 text-[10px] uppercase font-bold tracking-widest mt-2">
+                        {formatDateTime(detection.detection_time)}
+                    </p>
+</div>
+
+
                 <!-- Video Play Button (optional) -->
                 {#if showVideoButton && detection.has_clip && onPlayVideo}
                     <button
