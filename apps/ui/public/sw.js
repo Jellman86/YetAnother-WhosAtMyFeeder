@@ -76,6 +76,13 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
 
+  // Don't cache API responses or authenticated media. This avoids serving stale/private data
+  // after logout and reduces the chance of caching token-gated resources.
+  if (url.pathname.startsWith('/api/')) {
+    event.respondWith(fetch(request));
+    return;
+  }
+
   if (request.destination === 'document') {
     event.respondWith(networkFirst(request));
     return;

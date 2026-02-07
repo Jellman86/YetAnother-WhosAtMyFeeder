@@ -18,7 +18,6 @@ const normalizeMarkdown = (input: string) => {
     const lines = input.split(/\r?\n/);
     const out: string[] = [];
     let inCode = false;
-    let inSection = false;
 
     for (const rawLine of lines) {
         const line = rawLine.trimEnd();
@@ -41,26 +40,13 @@ const normalizeMarkdown = (input: string) => {
         }
 
         if (trimmed.startsWith('#')) {
-            inSection = true;
             out.push(trimmed);
             continue;
         }
 
         if (trimmed.endsWith(':') || isHeadingLike(trimmed)) {
-            inSection = true;
             const heading = trimmed.replace(/[:.]+$/, '').trim();
             out.push(`## ${heading}`);
-            continue;
-        }
-
-        if (trimmed.startsWith('- ') || trimmed.startsWith('* ') || trimmed.match(/^\d+\.\s+/)) {
-            inSection = true;
-            out.push(trimmed);
-            continue;
-        }
-
-        if (inSection) {
-            out.push(`- ${trimmed}`);
             continue;
         }
 

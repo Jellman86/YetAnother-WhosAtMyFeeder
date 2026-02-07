@@ -198,6 +198,8 @@ async def get_event_conversation(
     event_id: str,
     auth: AuthContext = Depends(get_auth_context_with_legacy)
 ):
+    if not auth.is_owner:
+        raise HTTPException(status_code=403, detail="Owner access required to view AI conversation.")
     async with get_db() as db:
         repo = AIConversationRepository(db)
         turns = await repo.list_turns(event_id)

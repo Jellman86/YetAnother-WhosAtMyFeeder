@@ -110,10 +110,17 @@
         if (typeof document === 'undefined') return;
         const observer = new MutationObserver(syncDarkMode);
         observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
-        if (typeof window !== 'undefined') {
+        const syncDiagnosticsToggle = () => {
+            if (typeof window === 'undefined') return;
             aiDiagnosticsEnabled = window.localStorage.getItem('ai_diagnostics_enabled') !== '0';
-        }
-        return () => observer.disconnect();
+        };
+        syncDiagnosticsToggle();
+        const onToggleChanged = () => syncDiagnosticsToggle();
+        window.addEventListener('ai-diagnostics-enabled-changed', onToggleChanged as any);
+        return () => {
+            observer.disconnect();
+            window.removeEventListener('ai-diagnostics-enabled-changed', onToggleChanged as any);
+        };
     });
 
     const hasMarkdownHeadings = (value: string | null) => {
@@ -840,10 +847,10 @@
 
     :global(.ai-markdown-surface h1) {
         margin: 0.75rem 0 0.4rem;
-        font-size: 0.95rem;
-        letter-spacing: 0.28em;
-        text-transform: uppercase;
-        font-weight: 900;
+        font-size: 1.0rem;
+        letter-spacing: 0.02em;
+        text-transform: none;
+        font-weight: 950;
         color: rgb(13 148 136);
     }
 
@@ -854,9 +861,9 @@
 
     :global(.ai-markdown-surface h2) {
         margin: 0.7rem 0 0.35rem;
-        font-size: 0.9rem;
-        letter-spacing: 0.26em;
-        text-transform: uppercase;
+        font-size: 0.95rem;
+        letter-spacing: 0.015em;
+        text-transform: none;
         font-weight: 900;
         color: rgb(13 148 136);
     }
@@ -868,10 +875,10 @@
 
     :global(.ai-markdown-surface h3) {
         margin: 0.65rem 0 0.3rem;
-        font-size: 0.82rem;
-        letter-spacing: 0.22em;
-        text-transform: uppercase;
-        font-weight: 800;
+        font-size: 0.9rem;
+        letter-spacing: 0.01em;
+        text-transform: none;
+        font-weight: 850;
         color: rgb(13 148 136);
     }
 
@@ -882,10 +889,10 @@
 
     :global(.ai-markdown-surface h4) {
         margin: 0.6rem 0 0.25rem;
-        font-size: 0.78rem;
-        letter-spacing: 0.22em;
-        text-transform: uppercase;
-        font-weight: 800;
+        font-size: 0.86rem;
+        letter-spacing: 0.01em;
+        text-transform: none;
+        font-weight: 850;
         color: rgb(13 148 136);
     }
 
@@ -897,9 +904,9 @@
     :global(.ai-markdown-surface h5),
     :global(.ai-markdown-surface h6) {
         margin: 0.55rem 0 0.2rem;
-        font-size: 0.72rem;
-        letter-spacing: 0.2em;
-        text-transform: uppercase;
+        font-size: 0.82rem;
+        letter-spacing: 0.01em;
+        text-transform: none;
         font-weight: 800;
         color: rgb(13 148 136);
     }

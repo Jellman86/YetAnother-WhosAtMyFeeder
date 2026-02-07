@@ -145,7 +145,7 @@ Species identified by system: {species}
 Time of detection: {time}
 {weather_str}
 
-Respond in Markdown with these exact section headings and short bullet points:
+Respond in Markdown with these exact section headings. Under each heading, write 1 short paragraph (or up to 3 bullets if it helps scanning):
 ## Appearance
 ## Behavior
 ## Naturalist Note
@@ -165,7 +165,7 @@ Conversation so far:
 User question: {question}
 
 Answer concisely in Markdown using the same headings as the analysis (## Appearance, ## Behavior, ## Naturalist Note, ## Seasonal Context).
-If a section is not relevant, include it with a short "Not observed" bullet.
+If a section is not relevant, include it with a short "Not observed." line.
 {language_note}`.trim(),
                 chart: `You are a data analyst for bird feeder activity.
 You are looking at a chart of detections over time.
@@ -2770,12 +2770,15 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                                     onclick={() => {
                                         aiDiagnosticsEnabled = !aiDiagnosticsEnabled;
                                         window.localStorage.setItem('ai_diagnostics_enabled', aiDiagnosticsEnabled ? '1' : '0');
+                                        // Storage events don't fire in the same tab; broadcast so open modals update immediately.
+                                        window.dispatchEvent(new CustomEvent('ai-diagnostics-enabled-changed', { detail: { enabled: aiDiagnosticsEnabled } }));
                                     }}
                                     onkeydown={(e) => {
                                         if (e.key === 'Enter' || e.key === ' ') {
                                             e.preventDefault();
                                             aiDiagnosticsEnabled = !aiDiagnosticsEnabled;
                                             window.localStorage.setItem('ai_diagnostics_enabled', aiDiagnosticsEnabled ? '1' : '0');
+                                            window.dispatchEvent(new CustomEvent('ai-diagnostics-enabled-changed', { detail: { enabled: aiDiagnosticsEnabled } }));
                                         }
                                     }}
                                     class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {aiDiagnosticsEnabled ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-600'}"

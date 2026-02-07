@@ -110,6 +110,9 @@ DETECTIONS_TOTAL = Counter('detections_total', 'Total number of bird detections'
 API_REQUESTS = Counter('api_requests_total', 'Total API requests')
 RATE_LIMIT_EXCEEDED = Counter('rate_limit_exceeded_total', 'Total rate limit violations')
 
+# Test mode: keep app startup lightweight so TestClient doesn't hang on external/background services.
+IS_TESTING = bool(os.getenv("PYTEST_CURRENT_TEST")) or os.getenv("YA_WAMF_TESTING") == "1"
+
 # Use shared classifier instance
 classifier_service = get_classifier()
 event_processor = EventProcessor(classifier_service)
@@ -187,27 +190,31 @@ async def lifespan(app: FastAPI):
     global cleanup_task, cleanup_running
     # Startup
     await init_db()
-    create_background_task(mqtt_service.start(event_processor), name="mqtt_service_start")
-    await telemetry_service.start()
-    await auto_video_classifier.start()
-    cleanup_task = create_background_task(cleanup_scheduler(), name="cleanup_scheduler")
-    log.info("Background cleanup scheduler started",
-             interval_hours=CLEANUP_INTERVAL_HOURS,
-             retention_days=settings.maintenance.retention_days,
-             enabled=settings.maintenance.cleanup_enabled)
+    if not IS_TESTING:
+        create_background_task(mqtt_service.start(event_processor), name="mqtt_service_start")
+        await telemetry_service.start()
+        await auto_video_classifier.start()
+        cleanup_task = create_background_task(cleanup_scheduler(), name="cleanup_scheduler")
+        log.info("Background cleanup scheduler started",
+                 interval_hours=CLEANUP_INTERVAL_HOURS,
+                 retention_days=settings.maintenance.retention_days,
+                 enabled=settings.maintenance.cleanup_enabled)
+    else:
+        log.info("Test mode enabled: skipping background services startup")
     yield
     # Shutdown
     cleanup_running = False
-    if cleanup_task:
+    if cleanup_task and not IS_TESTING:
         cleanup_task.cancel()
         try:
             await cleanup_task
         except asyncio.CancelledError:
             pass
-    await auto_video_classifier.stop()
-    await telemetry_service.stop()
-    await mqtt_service.stop()
-    await frigate_client.close()
+    if not IS_TESTING:
+        await auto_video_classifier.stop()
+        await telemetry_service.stop()
+        await mqtt_service.stop()
+        await frigate_client.close()
     await close_db()  # Close database connection pool
 
 app = FastAPI(title="Yet Another WhosAtMyFeeder API", version=APP_VERSION, lifespan=lifespan)

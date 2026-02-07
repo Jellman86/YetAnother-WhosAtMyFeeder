@@ -61,6 +61,96 @@
 
     let modalElement = $state<HTMLElement | null>(null);
     let stats = $state<SpeciesStats | null>(null);
+    let aiDiagnosticsEnabled = $state(false);
+
+    const buildSample = (value: string | null | undefined) => {
+        if (!value) return '';
+        return value.replace(/\s+/g, ' ').trim().slice(0, 240);
+    };
+
+    const describeElement = (element: Element | null) => {
+        if (!element || typeof window === 'undefined') return null;
+        const style = getComputedStyle(element as HTMLElement);
+        return {
+            tag: element.tagName.toLowerCase(),
+            color: style.color,
+            backgroundColor: style.backgroundColor,
+            fontSize: style.fontSize,
+            fontWeight: style.fontWeight,
+            lineHeight: style.lineHeight,
+            marginTop: style.marginTop,
+            marginBottom: style.marginBottom,
+            textTransform: style.textTransform,
+            letterSpacing: style.letterSpacing,
+            textDecorationLine: style.textDecorationLine
+        };
+    };
+
+    const collectSpeciesDiagnostics = () => {
+        if (!modalElement || typeof window === 'undefined') return null;
+
+        const root = document.documentElement;
+        const body = document.body;
+
+        const header = modalElement.querySelector('[data-species-modal-header]') as HTMLElement | null;
+        const title = modalElement.querySelector('#modal-title') as HTMLElement | null;
+        const firstCard = modalElement.querySelector('.card-base') as HTMLElement | null;
+        const firstBadge = modalElement.querySelector('.badge') as HTMLElement | null;
+
+        return {
+            theme: root.classList.contains('dark') ? 'dark' : 'light',
+            rootClasses: root.className,
+            bodyClasses: body?.className ?? '',
+            modalHasDarkAncestor: Boolean(modalElement.closest('.dark')),
+            modalClasses: modalElement.className,
+            title: {
+                speciesName,
+                primaryName,
+                subName
+            },
+            contentSample: {
+                info_source: info?.source ?? null,
+                info_summary_source: info?.summary_source ?? null,
+                info_extract_sample: buildSample(info?.extract),
+                recent_sighting_count: stats?.recent_sightings?.length ?? 0
+            },
+            styles: {
+                modal: describeElement(modalElement),
+                header: describeElement(header),
+                title: describeElement(title),
+                firstCard: describeElement(firstCard),
+                firstBadge: describeElement(firstBadge)
+            }
+        };
+    };
+
+    const copySpeciesDiagnosticsBundle = async () => {
+        const statsSummary = stats
+            ? {
+                total_sightings: stats.total_sightings,
+                first_seen: stats.first_seen,
+                last_seen: stats.last_seen,
+                cameras_count: stats.cameras?.length ?? 0,
+                recent_sightings_count: stats.recent_sightings?.length ?? 0,
+                recent_sightings_sample: (stats.recent_sightings || []).slice(0, 3),
+                hourly_distribution_len: stats.hourly_distribution?.length ?? 0,
+                daily_distribution_len: stats.daily_distribution?.length ?? 0,
+                monthly_distribution_len: stats.monthly_distribution?.length ?? 0
+            }
+            : null;
+
+        const payload = JSON.stringify(
+            {
+                diagnostics: collectSpeciesDiagnostics(),
+                speciesName,
+                stats: statsSummary,
+                info: info
+            },
+            null,
+            2
+        );
+        await navigator.clipboard.writeText(payload);
+    };
 
     $effect(() => {
         if (modalElement) {
@@ -260,49 +350,66 @@
     }
 
 
-    onMount(async () => {
-        // Check if this is an unknown bird detection
-        isUnknownBird = isUnknownLabel(speciesName);
+    onMount(() => {
+        const syncDiagnosticsToggle = () => {
+            if (typeof window === 'undefined') return;
+            aiDiagnosticsEnabled = window.localStorage.getItem('ai_diagnostics_enabled') !== '0';
+        };
+        syncDiagnosticsToggle();
+        const onToggleChanged = () => syncDiagnosticsToggle();
+        window.addEventListener('ai-diagnostics-enabled-changed', onToggleChanged as any);
 
-        try {
-            // Always fetch stats
-            const statsData = await fetchSpeciesStats(isUnknownBird ? UNKNOWN_SPECIES_NAME : speciesName);
-            stats = statsData;
+        return () => {
+            window.removeEventListener('ai-diagnostics-enabled-changed', onToggleChanged as any);
+        };
+    });
 
-            // Fetch summary only when enabled. If seasonality is enabled, we may need taxa_id.
-            if (!isUnknownBird) {
-                const statsTaxaId = statsData?.recent_sightings?.[0]?.taxa_id ?? null;
-                if (summaryEnabled || (seasonalityEnabled && !statsTaxaId)) {
-                    const infoData = await fetchSpeciesInfo(speciesName);
-                    info = infoData;
+    // Async work is kicked off separately so onMount can return a cleanup function.
+    onMount(() => {
+        (async () => {
+            // Check if this is an unknown bird detection
+            isUnknownBird = isUnknownLabel(speciesName);
+
+            try {
+                // Always fetch stats
+                const statsData = await fetchSpeciesStats(isUnknownBird ? UNKNOWN_SPECIES_NAME : speciesName);
+                stats = statsData;
+
+                // Fetch summary only when enabled. If seasonality is enabled, we may need taxa_id.
+                if (!isUnknownBird) {
+                    const statsTaxaId = statsData?.recent_sightings?.[0]?.taxa_id ?? null;
+                    if (summaryEnabled || (seasonalityEnabled && !statsTaxaId)) {
+                        const infoData = await fetchSpeciesInfo(speciesName);
+                        info = infoData;
+                    }
                 }
+
+                const sciName = info?.scientific_name || stats?.scientific_name || undefined;
+
+                if (!isUnknownBird && ebirdEnabled && showEbirdNearby) {
+                    void loadEbirdNearby(speciesName, sciName);
+                }
+
+                // Fetch seasonality if we have a taxa_id (from stats or info)
+                // Note: stats.taxa_id might be missing if not in detections table yet, but info.taxa_id might be there
+                const taxonId = info?.taxa_id || stats?.recent_sightings?.[0]?.taxa_id;
+                if (seasonalityEnabled && taxonId) {
+                    void loadSeasonality(taxonId);
+                }
+            } catch (e: any) {
+                console.error('Failed to load species details', e);
+                if (!isUnknownBird) {
+                    error = e.message || 'Failed to load species details';
+                }
+            } finally {
+                loading = false;
             }
 
-            const sciName = info?.scientific_name || stats?.scientific_name || undefined;
-
-            if (!isUnknownBird && ebirdEnabled && showEbirdNearby) {
-                void loadEbirdNearby(speciesName, sciName);
-            }
-            
-            // Fetch seasonality if we have a taxa_id (from stats or info)
-            // Note: stats.taxa_id might be missing if not in detections table yet, but info.taxa_id might be there
-            const taxonId = info?.taxa_id || stats?.recent_sightings?.[0]?.taxa_id;
-            if (seasonalityEnabled && taxonId) {
-                void loadSeasonality(taxonId);
-            }
-        } catch (e: any) {
-            console.error('Failed to load species details', e);
             if (!isUnknownBird) {
-                error = e.message || 'Failed to load species details';
+                const sciName = info?.scientific_name || stats?.scientific_name || undefined;
+                void loadRangeMap(speciesName, sciName);
             }
-        } finally {
-            loading = false;
-        }
-
-        if (!isUnknownBird) {
-            const sciName = info?.scientific_name || stats?.scientific_name || undefined;
-            void loadRangeMap(speciesName, sciName);
-        }
+        })();
     });
 
     function formatDate(dateStr: string | null): string {
@@ -379,7 +486,7 @@
         tabindex="-1"
     >
         <!-- Header -->
-        <div class="flex items-start justify-between p-6 border-b border-slate-200 dark:border-slate-700">
+        <div data-species-modal-header class="flex items-start justify-between p-6 border-b border-slate-200 dark:border-slate-700">
             <div>
                 <h2 id="modal-title" class="text-2xl font-bold text-slate-900 dark:text-white">
                     {primaryName}
@@ -390,16 +497,31 @@
                     </p>
                 {/if}
             </div>
-            <button
-                type="button"
-                onclick={onclose}
-                class="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
-                aria-label={$_('shortcuts.close_modal')}
-            >
-                <svg class="w-6 h-6 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-            </button>
+            <div class="flex items-center gap-2">
+                {#if aiDiagnosticsEnabled}
+                    <button
+                        type="button"
+                        onclick={copySpeciesDiagnosticsBundle}
+                        class="p-2 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-300 hover:bg-emerald-500/20 transition-colors"
+                        title="Copy diagnostics bundle"
+                        aria-label="Copy diagnostics bundle"
+                    >
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H6a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2v-2M8 7a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2" />
+                        </svg>
+                    </button>
+                {/if}
+                <button
+                    type="button"
+                    onclick={onclose}
+                    class="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                    aria-label={$_('shortcuts.close_modal')}
+                >
+                    <svg class="w-6 h-6 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
         </div>
 
         <!-- Content -->
