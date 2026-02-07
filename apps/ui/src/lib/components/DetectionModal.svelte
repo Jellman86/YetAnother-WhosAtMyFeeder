@@ -126,6 +126,8 @@
         let html = '';
         let inList = false;
         let pendingList: string[] = [];
+        let prevBlank = true;
+        let prevHeading = false;
 
         const closeList = () => {
             if (inList) {
@@ -157,6 +159,8 @@
             if (!line) {
                 closeList();
                 flushPendingAsList();
+                prevBlank = true;
+                prevHeading = false;
                 continue;
             }
 
@@ -166,12 +170,25 @@
                 flushPendingAsList();
                 const content = escapeHtml(headingMatch[1]);
                 html += `<h4>${content}</h4>`;
+                prevBlank = false;
+                prevHeading = true;
                 continue;
             }
 
             const listMatch = line.match(/^[-*•]\s+(.*)$/);
             if (listMatch) {
-                pendingList.push(listMatch[1]);
+                if (prevBlank || prevHeading) {
+                    pendingList.push(listMatch[1]);
+                    prevBlank = false;
+                    prevHeading = false;
+                    continue;
+                }
+                // Treat stray bullet lines as paragraphs to avoid over-listing.
+                closeList();
+                flushPendingAsList();
+                html += `<p>${escapeHtml(listMatch[1])}</p>`;
+                prevBlank = false;
+                prevHeading = false;
                 continue;
             }
 
@@ -185,6 +202,8 @@
             closeList();
             const paragraph = escapeHtml(line);
             html += `<p>${paragraph}</p>`;
+            prevBlank = false;
+            prevHeading = false;
         }
 
         if (pendingList.length) {
@@ -767,7 +786,7 @@
     }
 
     :global(.dark) .ai-markdown p {
-        color: rgb(241 245 249);
+        color: rgb(248 250 252);
     }
 
     .ai-markdown ul {
@@ -783,7 +802,7 @@
     }
 
     :global(.dark) .ai-markdown li {
-        color: rgb(241 245 249);
+        color: rgb(248 250 252);
     }
 
     .ai-markdown code {
