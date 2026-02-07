@@ -1071,5 +1071,8 @@
     "enable": "Abilita",
     "dismiss": "No grazie",
     "enable_error": "Impossibile abilitare la telemetria. Riprova dalle Impostazioni."
+  },
+  "pwa": {
+    "update_available": "Aggiornamento disponibile. Ricarica per applicare."
   }
 }

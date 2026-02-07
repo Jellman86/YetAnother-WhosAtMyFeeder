@@ -1071,5 +1071,8 @@
     "enable": "Activer",
     "dismiss": "Non merci",
     "enable_error": "Impossible d’activer la télémétrie. Veuillez réessayer depuis les paramètres."
+  },
+  "pwa": {
+    "update_available": "Mise à jour disponible. Actualisez pour appliquer."
   }
 }

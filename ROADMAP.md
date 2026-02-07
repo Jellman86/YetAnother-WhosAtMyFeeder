@@ -106,7 +106,7 @@ These are the highest-impact features planned for the next major release.
 ## Phase 1: User Experience & Enhancements
 
 ### 1.1 Conversation History for AI Analysis 💬
-**Priority:** P2 | **Effort:** M (4-5 days)
+**Priority:** P2 | **Effort:** M (4-5 days) | **Status:** ✅ Completed (v2.7.7)
 
 Allow users to have follow-up conversations about specific detections with the AI.
 
@@ -182,7 +182,7 @@ Enhance the detection search interface with an intuitive filter panel.
 - Testing: 1 day
 
 ### 2.3 Progressive Web App (PWA) Support 📱
-**Priority:** P1 | **Effort:** M (4-5 days)
+**Priority:** P1 | **Effort:** M (4-5 days) | **Status:** ✅ Completed (v2.7.7)
 
 > **Note:** UI is already responsive! This adds PWA capabilities.
 

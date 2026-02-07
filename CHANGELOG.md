@@ -8,6 +8,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 - **Added:** AI conversation threads per detection with persisted history.
 - **Added:** PWA service worker for offline caching and installability.
+- **Added:** PWA update notifications and refresh prompt.
 - **Changed:** EventProcessor notification flow decomposed into a dedicated orchestrator.
 - **Added:** Composite index on detections (`camera_name`, `detection_time`) for faster queries.
 

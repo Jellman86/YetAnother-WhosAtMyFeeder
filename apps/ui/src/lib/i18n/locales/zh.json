@@ -1071,5 +1071,8 @@
     "enable": "启用",
     "dismiss": "不用了",
     "enable_error": "无法启用遥测。请在设置中重试。"
+  },
+  "pwa": {
+    "update_available": "有更新可用。刷新以应用。"
   }
 }

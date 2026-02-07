@@ -1071,5 +1071,8 @@
     "enable": "Aktivieren",
     "dismiss": "Nein danke",
     "enable_error": "Telemetrie konnte nicht aktiviert werden. Bitte versuchen Sie es in den Einstellungen erneut."
+  },
+  "pwa": {
+    "update_available": "Update verfügbar. Zum Anwenden aktualisieren."
   }
 }

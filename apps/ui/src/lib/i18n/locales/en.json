@@ -1071,5 +1071,8 @@
     "enable": "Enable",
     "dismiss": "No Thanks",
     "enable_error": "Failed to enable telemetry. Please try again from Settings."
+  },
+  "pwa": {
+    "update_available": "Update available. Refresh to apply."
   }
 }
