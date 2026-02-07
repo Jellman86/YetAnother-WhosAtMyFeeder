@@ -100,6 +100,19 @@
         }
     });
 
+    const syncDarkMode = () => {
+        if (typeof document === 'undefined') return;
+        isDarkMode = document.documentElement.classList.contains('dark');
+    };
+
+    onMount(() => {
+        syncDarkMode();
+        if (typeof document === 'undefined') return;
+        const observer = new MutationObserver(syncDarkMode);
+        observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+        return () => observer.disconnect();
+    });
+
     const hasMarkdownHeadings = (value: string | null) => {
         if (!value) return false;
         return /(^|\n)#{1,6}\s+/.test(value) || /(^|\n)[A-Z][A-Za-z0-9\s/&()\-]+:\s*$/.test(value);
@@ -110,24 +123,87 @@
         return value.replace(/\s+/g, ' ').trim().slice(0, 240);
     };
 
+    const describeElement = (element: Element | null) => {
+        if (!element || typeof window === 'undefined') return null;
+        const style = getComputedStyle(element as HTMLElement);
+        return {
+            tag: element.tagName.toLowerCase(),
+            color: style.color,
+            backgroundColor: style.backgroundColor,
+            fontSize: style.fontSize,
+            fontWeight: style.fontWeight,
+            lineHeight: style.lineHeight,
+            marginTop: style.marginTop,
+            marginBottom: style.marginBottom,
+            textTransform: style.textTransform,
+            letterSpacing: style.letterSpacing,
+            textDecorationLine: style.textDecorationLine
+        };
+    };
+
+    const countMarkdownNodes = (container: HTMLElement | null) => {
+        if (!container) return { headings: 0, paragraphs: 0, listItems: 0, blockquotes: 0, code: 0, pre: 0, links: 0 };
+        return {
+            headings: container.querySelectorAll('h1,h2,h3,h4,h5,h6').length,
+            paragraphs: container.querySelectorAll('p').length,
+            listItems: container.querySelectorAll('li').length,
+            blockquotes: container.querySelectorAll('blockquote').length,
+            code: container.querySelectorAll('code').length,
+            pre: container.querySelectorAll('pre').length,
+            links: container.querySelectorAll('a').length
+        };
+    };
+
+    const sampleMarkdownStyles = (container: HTMLElement | null) => {
+        if (!container) return {};
+        return {
+            heading: describeElement(container.querySelector('h1, h2, h3, h4, h5, h6')),
+            paragraph: describeElement(container.querySelector('p')),
+            listItem: describeElement(container.querySelector('li')),
+            blockquote: describeElement(container.querySelector('blockquote')),
+            code: describeElement(container.querySelector('code')),
+            pre: describeElement(container.querySelector('pre')),
+            link: describeElement(container.querySelector('a'))
+        };
+    };
+
     const collectAiDiagnostics = () => {
         if (!modalElement || typeof window === 'undefined') return;
+        const latestAssistant = [...conversationTurns].reverse().find((turn) => turn.role === 'assistant')?.content ?? null;
         const panelContent = modalElement.querySelector('.ai-panel__content.ai-markdown') as HTMLElement | null;
         const panelHeading = panelContent?.querySelector('h1, h2, h3, h4, h5, h6') as HTMLElement | null;
+        const panelSurface = modalElement.querySelector('.ai-panel.ai-surface') as HTMLElement | null;
         const bubbleContent = modalElement.querySelector('.ai-bubble--assistant .ai-bubble__content.ai-markdown') as HTMLElement | null;
         const bubbleHeading = bubbleContent?.querySelector('h1, h2, h3, h4, h5, h6') as HTMLElement | null;
+        const bubbleSurface = modalElement.querySelector('.ai-bubble--assistant') as HTMLElement | null;
         const root = document.documentElement;
+        const body = document.body;
 
         aiDiagnostics = {
             theme: root.classList.contains('dark') ? 'dark' : 'light',
+            rootClasses: root.className,
+            bodyClasses: body?.className ?? '',
+            modalHasDarkAncestor: Boolean(modalElement.closest('.dark')),
+            modalClasses: modalElement.className,
+            modalDataTheme: modalElement.getAttribute('data-theme') ?? '',
             analysisTextColor: panelContent ? getComputedStyle(panelContent).color : 'n/a',
             analysisHeadingColor: panelHeading ? getComputedStyle(panelHeading).color : 'n/a',
+            analysisSurfaceColor: panelSurface ? getComputedStyle(panelSurface).color : 'n/a',
+            analysisSurfaceBackground: panelSurface ? getComputedStyle(panelSurface).backgroundImage || getComputedStyle(panelSurface).backgroundColor : 'n/a',
+            analysisSurfaceBorder: panelSurface ? getComputedStyle(panelSurface).borderColor : 'n/a',
             conversationTextColor: bubbleContent ? getComputedStyle(bubbleContent).color : 'n/a',
             conversationHeadingColor: bubbleHeading ? getComputedStyle(bubbleHeading).color : 'n/a',
+            conversationSurfaceColor: bubbleSurface ? getComputedStyle(bubbleSurface).color : 'n/a',
+            conversationSurfaceBackground: bubbleSurface ? getComputedStyle(bubbleSurface).backgroundImage || getComputedStyle(bubbleSurface).backgroundColor : 'n/a',
+            conversationSurfaceBorder: bubbleSurface ? getComputedStyle(bubbleSurface).borderColor : 'n/a',
+            analysisMarkdownCounts: countMarkdownNodes(panelContent),
+            conversationMarkdownCounts: countMarkdownNodes(bubbleContent),
+            analysisMarkdownSampleStyles: sampleMarkdownStyles(panelContent),
+            conversationMarkdownSampleStyles: sampleMarkdownStyles(bubbleContent),
             analysisHasHeadings: hasMarkdownHeadings(aiAnalysis),
-            conversationHasHeadings: hasMarkdownHeadings(conversationTurns[0]?.content ?? null),
+            conversationHasHeadings: hasMarkdownHeadings(latestAssistant),
             analysisSample: buildSample(aiAnalysis),
-            conversationSample: buildSample(conversationTurns[0]?.content ?? null)
+            conversationSample: buildSample(latestAssistant)
         };
     };
 
@@ -161,21 +237,37 @@
     let showTagDropdown = $state(false);
     let updatingTag = $state(false);
     let tagSearchQuery = $state('');
-let searchResults = $state<SearchResult[]>([]);
-let isSearching = $state(false);
-let aiDiagnostics = $state<{
+    let searchResults = $state<SearchResult[]>([]);
+    let isSearching = $state(false);
+    let aiDiagnostics = $state<{
         theme: string;
+        rootClasses: string;
+        bodyClasses: string;
+        modalHasDarkAncestor: boolean;
+        modalClasses: string;
+        modalDataTheme: string;
         analysisTextColor: string;
         analysisHeadingColor: string;
+        analysisSurfaceColor: string;
+        analysisSurfaceBackground: string;
+        analysisSurfaceBorder: string;
         conversationTextColor: string;
         conversationHeadingColor: string;
+        conversationSurfaceColor: string;
+        conversationSurfaceBackground: string;
+        conversationSurfaceBorder: string;
+        analysisMarkdownCounts: Record<string, number>;
+        conversationMarkdownCounts: Record<string, number>;
+        analysisMarkdownSampleStyles: Record<string, Record<string, string> | null>;
+        conversationMarkdownSampleStyles: Record<string, Record<string, string> | null>;
         analysisHasHeadings: boolean;
         conversationHasHeadings: boolean;
         analysisSample: string;
         conversationSample: string;
     } | null>(null);
-let aiDiagnosticsStatus = $state('');
-const debugUiEnabled = $derived(settingsStore.settings?.debug_ui_enabled ?? false);
+    let aiDiagnosticsStatus = $state('');
+    const debugUiEnabled = $derived(settingsStore.settings?.debug_ui_enabled ?? false);
+    let isDarkMode = $state(false);
 
     
 
@@ -670,6 +762,7 @@ const debugUiEnabled = $derived(settingsStore.settings?.debug_ui_enabled ?? fals
 
 <div
     class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+    data-theme={isDarkMode ? 'dark' : 'light'}
     onclick={(e) => {
         if (e.target === e.currentTarget) {
             onClose();
@@ -717,7 +810,8 @@ const debugUiEnabled = $derived(settingsStore.settings?.debug_ui_enabled ?? fals
         box-shadow: 0 12px 28px rgba(15, 118, 110, 0.15);
     }
 
-    :global(.dark) .ai-surface {
+    :global(.dark) .ai-surface,
+    :global([data-theme='dark']) .ai-surface {
         background: linear-gradient(145deg, rgba(15, 118, 110, 0.28), rgba(15, 23, 42, 0.85));
         border-color: rgba(45, 212, 191, 0.35);
         color: rgb(241 245 249);
@@ -737,11 +831,13 @@ const debugUiEnabled = $derived(settingsStore.settings?.debug_ui_enabled ?? fals
         margin-bottom: 0.75rem;
     }
 
-    :global(.dark) .ai-panel__label {
+    :global(.dark) .ai-panel__label,
+    :global([data-theme='dark']) .ai-panel__label {
         color: rgb(94 234 212);
     }
 
-    :global(.dark) .ai-panel__content {
+    :global(.dark) .ai-panel__content,
+    :global([data-theme='dark']) .ai-panel__content {
         color: inherit;
     }
 
@@ -758,7 +854,8 @@ const debugUiEnabled = $derived(settingsStore.settings?.debug_ui_enabled ?? fals
         color: rgb(13 148 136);
     }
 
-    :global(.dark .ai-markdown h1) {
+    :global(.dark .ai-markdown h1),
+    :global([data-theme='dark'] .ai-markdown h1) {
         color: rgb(94 234 212);
     }
 
@@ -771,7 +868,8 @@ const debugUiEnabled = $derived(settingsStore.settings?.debug_ui_enabled ?? fals
         color: rgb(13 148 136);
     }
 
-    :global(.dark .ai-markdown h2) {
+    :global(.dark .ai-markdown h2),
+    :global([data-theme='dark'] .ai-markdown h2) {
         color: rgb(94 234 212);
     }
 
@@ -784,7 +882,8 @@ const debugUiEnabled = $derived(settingsStore.settings?.debug_ui_enabled ?? fals
         color: rgb(13 148 136);
     }
 
-    :global(.dark .ai-markdown h3) {
+    :global(.dark .ai-markdown h3),
+    :global([data-theme='dark'] .ai-markdown h3) {
         color: rgb(94 234 212);
     }
 
@@ -797,7 +896,8 @@ const debugUiEnabled = $derived(settingsStore.settings?.debug_ui_enabled ?? fals
         color: rgb(13 148 136);
     }
 
-    :global(.dark .ai-markdown h4) {
+    :global(.dark .ai-markdown h4),
+    :global([data-theme='dark'] .ai-markdown h4) {
         color: rgb(94 234 212);
     }
 
@@ -812,7 +912,9 @@ const debugUiEnabled = $derived(settingsStore.settings?.debug_ui_enabled ?? fals
     }
 
     :global(.dark .ai-markdown h5),
-    :global(.dark .ai-markdown h6) {
+    :global(.dark .ai-markdown h6),
+    :global([data-theme='dark'] .ai-markdown h5),
+    :global([data-theme='dark'] .ai-markdown h6) {
         color: rgb(94 234 212);
     }
 
@@ -823,7 +925,8 @@ const debugUiEnabled = $derived(settingsStore.settings?.debug_ui_enabled ?? fals
         color: inherit;
     }
 
-    :global(.dark .ai-markdown p) {
+    :global(.dark .ai-markdown p),
+    :global([data-theme='dark'] .ai-markdown p) {
         color: inherit;
     }
 
@@ -854,7 +957,8 @@ const debugUiEnabled = $derived(settingsStore.settings?.debug_ui_enabled ?? fals
         color: inherit;
     }
 
-    :global(.dark .ai-markdown li) {
+    :global(.dark .ai-markdown li),
+    :global([data-theme='dark'] .ai-markdown li) {
         color: inherit;
     }
 
@@ -863,7 +967,8 @@ const debugUiEnabled = $derived(settingsStore.settings?.debug_ui_enabled ?? fals
         color: rgb(15 118 110);
     }
 
-    :global(.dark .ai-markdown strong) {
+    :global(.dark .ai-markdown strong),
+    :global([data-theme='dark'] .ai-markdown strong) {
         color: rgb(153 246 228);
     }
 
@@ -871,7 +976,8 @@ const debugUiEnabled = $derived(settingsStore.settings?.debug_ui_enabled ?? fals
         color: rgba(30, 41, 59, 0.8);
     }
 
-    :global(.dark .ai-markdown em) {
+    :global(.dark .ai-markdown em),
+    :global([data-theme='dark'] .ai-markdown em) {
         color: rgba(226, 232, 240, 0.82);
     }
 
@@ -884,7 +990,8 @@ const debugUiEnabled = $derived(settingsStore.settings?.debug_ui_enabled ?? fals
         color: rgb(15 118 110);
     }
 
-    :global(.dark .ai-markdown code) {
+    :global(.dark .ai-markdown code),
+    :global([data-theme='dark'] .ai-markdown code) {
         background: rgba(45, 212, 191, 0.25);
         color: rgb(153 246 228);
     }
@@ -898,7 +1005,8 @@ const debugUiEnabled = $derived(settingsStore.settings?.debug_ui_enabled ?? fals
         overflow-x: auto;
     }
 
-    :global(.dark .ai-markdown pre) {
+    :global(.dark .ai-markdown pre),
+    :global([data-theme='dark'] .ai-markdown pre) {
         background: rgba(15, 23, 42, 0.6);
         border-color: rgba(45, 212, 191, 0.2);
     }
@@ -921,7 +1029,8 @@ const debugUiEnabled = $derived(settingsStore.settings?.debug_ui_enabled ?? fals
         color: inherit;
     }
 
-    :global(.dark .ai-markdown blockquote) {
+    :global(.dark .ai-markdown blockquote),
+    :global([data-theme='dark'] .ai-markdown blockquote) {
         background: rgba(20, 184, 166, 0.18);
         color: inherit;
         border-left-color: rgba(94, 234, 212, 0.7);
@@ -934,7 +1043,8 @@ const debugUiEnabled = $derived(settingsStore.settings?.debug_ui_enabled ?? fals
         text-underline-offset: 2px;
     }
 
-    :global(.dark .ai-markdown a) {
+    :global(.dark .ai-markdown a),
+    :global([data-theme='dark'] .ai-markdown a) {
         color: rgb(94 234 212);
     }
 
@@ -945,7 +1055,8 @@ const debugUiEnabled = $derived(settingsStore.settings?.debug_ui_enabled ?? fals
         background: rgba(148, 163, 184, 0.35);
     }
 
-    :global(.dark .ai-markdown hr) {
+    :global(.dark .ai-markdown hr),
+    :global([data-theme='dark'] .ai-markdown hr) {
         background: rgba(71, 85, 105, 0.5);
     }
 
@@ -964,7 +1075,9 @@ const debugUiEnabled = $derived(settingsStore.settings?.debug_ui_enabled ?? fals
     }
 
     :global(.dark .ai-markdown th),
-    :global(.dark .ai-markdown td) {
+    :global(.dark .ai-markdown td),
+    :global([data-theme='dark'] .ai-markdown th),
+    :global([data-theme='dark'] .ai-markdown td) {
         border-bottom-color: rgba(71, 85, 105, 0.45);
     }
 
@@ -976,7 +1089,8 @@ const debugUiEnabled = $derived(settingsStore.settings?.debug_ui_enabled ?? fals
         font-size: 0.7rem;
     }
 
-    :global(.dark .ai-markdown th) {
+    :global(.dark .ai-markdown th),
+    :global([data-theme='dark'] .ai-markdown th) {
         color: rgb(153 246 228);
     }
 
@@ -998,7 +1112,8 @@ const debugUiEnabled = $derived(settingsStore.settings?.debug_ui_enabled ?? fals
         box-shadow: 0 8px 16px rgba(15, 23, 42, 0.08);
     }
 
-    :global(.dark) .ai-bubble {
+    :global(.dark) .ai-bubble,
+    :global([data-theme='dark']) .ai-bubble {
         background: rgba(15, 23, 42, 0.72);
         color: rgb(241 245 249);
     }
@@ -1010,7 +1125,8 @@ const debugUiEnabled = $derived(settingsStore.settings?.debug_ui_enabled ?? fals
         box-shadow: 0 12px 28px rgba(15, 118, 110, 0.15);
     }
 
-    :global(.dark) .ai-bubble.ai-surface {
+    :global(.dark) .ai-bubble.ai-surface,
+    :global([data-theme='dark']) .ai-bubble.ai-surface {
         background: linear-gradient(145deg, rgba(15, 118, 110, 0.28), rgba(15, 23, 42, 0.85));
         border-color: rgba(45, 212, 191, 0.35);
         color: rgb(226 232 240);
@@ -1026,7 +1142,8 @@ const debugUiEnabled = $derived(settingsStore.settings?.debug_ui_enabled ?? fals
         background: rgba(226, 232, 240, 0.7);
     }
 
-    :global(.dark) .ai-bubble--user {
+    :global(.dark) .ai-bubble--user,
+    :global([data-theme='dark']) .ai-bubble--user {
         background: rgba(30, 41, 59, 0.8);
     }
 
@@ -1074,7 +1191,8 @@ const debugUiEnabled = $derived(settingsStore.settings?.debug_ui_enabled ?? fals
         color: inherit;
     }
 
-    :global(.dark) .ai-bubble__role {
+    :global(.dark) .ai-bubble__role,
+    :global([data-theme='dark']) .ai-bubble__role {
         color: rgb(148 163 184);
     }
 </style>
@@ -1784,11 +1902,21 @@ const debugUiEnabled = $derived(settingsStore.settings?.debug_ui_enabled ?? fals
                         </div>
                     {/if}
 
-                    {#if debugUiEnabled}
+                    {#if authStore.canModify || debugUiEnabled}
                         <div class="rounded-xl border border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/60 p-3 space-y-2">
                             <div class="flex flex-wrap items-center justify-between gap-2">
                                 <span class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-300">AI Diagnostics</span>
                                 <div class="flex gap-2">
+                                    <button
+                                        type="button"
+                                        onclick={() => {
+                                            showAiDiagnostics = !showAiDiagnostics;
+                                            if (showAiDiagnostics) collectAiDiagnostics();
+                                        }}
+                                        class="px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700"
+                                    >
+                                        {showAiDiagnostics ? 'Hide' : 'Show'}
+                                    </button>
                                     <button
                                         type="button"
                                         onclick={collectAiDiagnostics}
@@ -1805,14 +1933,16 @@ const debugUiEnabled = $derived(settingsStore.settings?.debug_ui_enabled ?? fals
                                     </button>
                                 </div>
                             </div>
-                            <textarea
-                                rows="5"
-                                readonly
-                                value={formatAiDiagnostics()}
-                                class="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-950/60 text-[11px] font-mono text-slate-700 dark:text-slate-200 p-2"
-                            ></textarea>
-                            {#if aiDiagnosticsStatus}
-                                <p class="text-[10px] font-bold text-slate-500 dark:text-slate-400">{aiDiagnosticsStatus}</p>
+                            {#if showAiDiagnostics}
+                                <textarea
+                                    rows="9"
+                                    readonly
+                                    value={formatAiDiagnostics()}
+                                    class="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-950/60 text-[11px] font-mono text-slate-700 dark:text-slate-200 p-2"
+                                ></textarea>
+                                {#if aiDiagnosticsStatus}
+                                    <p class="text-[10px] font-bold text-slate-500 dark:text-slate-400">{aiDiagnosticsStatus}</p>
+                                {/if}
                             {/if}
                         </div>
                     {/if}

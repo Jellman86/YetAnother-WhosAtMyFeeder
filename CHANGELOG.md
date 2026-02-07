@@ -33,6 +33,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Fixed:** AI conversation markdown now inherits panel colors correctly in dark mode and uses tighter heading/list spacing.
 - **Changed:** Security reporting now accepts public GitHub issues for vulnerability reports.
 - **Added:** Debug-only AI diagnostics panel in the detection modal for collecting markdown/theme contrast details.
+- **Fixed:** AI markdown dark-mode styles now apply even when the modal is outside the global `.dark` tree.
 
 ## [2.7.6] - 2026-02-06
 
