@@ -76,6 +76,34 @@ jobs:
           print(f"Alembic head OK: {heads[0]}")
           PY
 
+  test-frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: apps/ui/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          cd apps/ui
+          npm ci
+
+      - name: Svelte check
+        run: |
+          cd apps/ui
+          npm run check
+
+      - name: Build frontend
+        run: |
+          cd apps/ui
+          npm run build
+
   build-backend:
     needs: test-backend
     runs-on: ubuntu-latest
@@ -135,6 +163,7 @@ jobs:
             ghcr.io/${{ env.OWNER_LC }}/wamf-backend:${{ env.IMAGE_TAG }}
 
   build-frontend:
+    needs: test-frontend
     runs-on: ubuntu-latest
     permissions:
       contents: read
