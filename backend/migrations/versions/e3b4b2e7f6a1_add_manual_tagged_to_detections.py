@@ -16,12 +16,24 @@ branch_labels = None
 depends_on = None
 
 
+def _get_columns(conn, table: str) -> set[str]:
+    rows = conn.execute(sa.text(f"PRAGMA table_info({table})")).fetchall()
+    return {row[1] for row in rows}
+
+
 def upgrade() -> None:
-    op.add_column(
-        "detections",
-        sa.Column("manual_tagged", sa.Boolean(), server_default=sa.text("0"), nullable=False),
-    )
+    conn = op.get_bind()
+    cols = _get_columns(conn, "detections")
+    if "manual_tagged" not in cols:
+        op.add_column(
+            "detections",
+            sa.Column("manual_tagged", sa.Boolean(), server_default=sa.text("0"), nullable=False),
+        )
 
 
 def downgrade() -> None:
-    op.drop_column("detections", "manual_tagged")
+    conn = op.get_bind()
+    cols = _get_columns(conn, "detections")
+    with op.batch_alter_table("detections", schema=None) as batch_op:
+        if "manual_tagged" in cols:
+            batch_op.drop_column("manual_tagged")

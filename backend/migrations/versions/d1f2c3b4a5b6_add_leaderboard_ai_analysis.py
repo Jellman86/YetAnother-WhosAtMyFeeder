@@ -15,16 +15,21 @@ depends_on = None
 
 
 def upgrade():
-    op.create_table(
-        'leaderboard_analyses',
-        sa.Column('id', sa.Integer(), primary_key=True),
-        sa.Column('config_key', sa.String(), nullable=False, unique=True),
-        sa.Column('config_json', sa.Text(), nullable=False),
-        sa.Column('analysis', sa.Text(), nullable=False),
-        sa.Column('analysis_timestamp', sa.TIMESTAMP(), nullable=False),
-        sa.Column('created_at', sa.TIMESTAMP(), nullable=False)
-    )
+    conn = op.get_bind()
+    exists = conn.execute(
+        sa.text("SELECT 1 FROM sqlite_master WHERE type='table' AND name='leaderboard_analyses'")
+    ).fetchone()
+    if not exists:
+        op.create_table(
+            'leaderboard_analyses',
+            sa.Column('id', sa.Integer(), primary_key=True),
+            sa.Column('config_key', sa.String(), nullable=False, unique=True),
+            sa.Column('config_json', sa.Text(), nullable=False),
+            sa.Column('analysis', sa.Text(), nullable=False),
+            sa.Column('analysis_timestamp', sa.TIMESTAMP(), nullable=False),
+            sa.Column('created_at', sa.TIMESTAMP(), nullable=False)
+        )
 
 
 def downgrade():
-    op.drop_table('leaderboard_analyses')
+    op.execute("DROP TABLE IF EXISTS leaderboard_analyses")

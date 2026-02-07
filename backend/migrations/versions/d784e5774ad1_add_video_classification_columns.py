@@ -18,17 +18,37 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
+def _get_columns(conn, table: str) -> set[str]:
+    rows = conn.execute(sa.text(f"PRAGMA table_info({table})")).fetchall()
+    return {row[1] for row in rows}
+
+
 def upgrade() -> None:
-    op.add_column('detections', sa.Column('video_classification_score', sa.Float(), nullable=True))
-    op.add_column('detections', sa.Column('video_classification_label', sa.String(), nullable=True))
-    op.add_column('detections', sa.Column('video_classification_index', sa.Integer(), nullable=True))
-    op.add_column('detections', sa.Column('video_classification_timestamp', sa.TIMESTAMP(), nullable=True))
-    op.add_column('detections', sa.Column('video_classification_status', sa.String(), nullable=True))
+    conn = op.get_bind()
+    cols = _get_columns(conn, "detections")
+    if "video_classification_score" not in cols:
+        op.add_column('detections', sa.Column('video_classification_score', sa.Float(), nullable=True))
+    if "video_classification_label" not in cols:
+        op.add_column('detections', sa.Column('video_classification_label', sa.String(), nullable=True))
+    if "video_classification_index" not in cols:
+        op.add_column('detections', sa.Column('video_classification_index', sa.Integer(), nullable=True))
+    if "video_classification_timestamp" not in cols:
+        op.add_column('detections', sa.Column('video_classification_timestamp', sa.TIMESTAMP(), nullable=True))
+    if "video_classification_status" not in cols:
+        op.add_column('detections', sa.Column('video_classification_status', sa.String(), nullable=True))
 
 
 def downgrade() -> None:
-    op.drop_column('detections', 'video_classification_status')
-    op.drop_column('detections', 'video_classification_timestamp')
-    op.drop_column('detections', 'video_classification_index')
-    op.drop_column('detections', 'video_classification_label')
-    op.drop_column('detections', 'video_classification_score')
+    conn = op.get_bind()
+    cols = _get_columns(conn, "detections")
+    with op.batch_alter_table("detections", schema=None) as batch_op:
+        if "video_classification_status" in cols:
+            batch_op.drop_column('video_classification_status')
+        if "video_classification_timestamp" in cols:
+            batch_op.drop_column('video_classification_timestamp')
+        if "video_classification_index" in cols:
+            batch_op.drop_column('video_classification_index')
+        if "video_classification_label" in cols:
+            batch_op.drop_column('video_classification_label')
+        if "video_classification_score" in cols:
+            batch_op.drop_column('video_classification_score')

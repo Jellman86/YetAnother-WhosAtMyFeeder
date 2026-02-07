@@ -4,12 +4,17 @@ This document tracks unresolved issues discovered during AI-assisted development
 
 ---
 
-## 🔴 P0 - AI Analysis Formatting & Contrast (Detection Modal)
+## ✅ Resolved - AI Analysis Formatting & Contrast (Detection Modal)
 
-**Status:** Open (not fixed)
+**Status:** Resolved (2026-02-07)
 
 ### Summary
 The AI analysis panel and follow-up conversation bubbles in the Detection Modal are still inconsistent in formatting and contrast. The initial AI analysis often renders with uniform bright text (losing hierarchy), while the conversation reply bubble appears with darker text and inconsistent heading treatment. The result looks flat, hard to scan, and visually inconsistent between the analysis and conversation threads.
+
+### Resolution Notes
+- Unified AI markdown rendering surfaces and ensured dark-mode text color inheritance for injected markdown.
+- Added diagnostics clipboard tooling for contrast/style bundles.
+- Polished AI surfaces (analysis + conversation) for consistent typography, spacing, and dark-mode contrast.
 
 ### Evidence
 - Screenshot: `agents/Screenshot_20260207_121427.png`

@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog, and this project adheres to Semantic Versioning.
 
+## [2.7.8] - 2026-02-07
+
+- **Changed:** Default AI analysis and conversation prompt templates now prefer short paragraphs (instead of bullet-only formatting) for a more natural “field note” style.
+- **Fixed:** PWA service worker updates now auto-apply; the “Update available” toast no longer appears on every refresh.
+- **Fixed:** Backend tests no longer hang in this environment by replacing FastAPI `TestClient` usage with direct ASGI (`httpx.ASGITransport`) clients.
+- **Fixed:** Regenerating AI analysis now clears the persisted AI conversation history for that detection (and the UI warns about this behavior).
+- **Changed:** Hardened multiple Alembic migrations to be SQLite-safe and idempotent (guarded table/index/column operations and safer downgrades).
+- **Changed:** AI surfaces in Detection Details modal refined in dark mode for a less stark, more cohesive look.
+
 ## [2.7.7] - 2026-02-07
 
 - **Added:** AI conversation threads per detection with persisted history.

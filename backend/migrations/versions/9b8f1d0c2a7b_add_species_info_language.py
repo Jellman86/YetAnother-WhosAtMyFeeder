@@ -18,6 +18,16 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
+def _index_exists(conn, name: str) -> bool:
+    return (
+        conn.execute(
+            sa.text("SELECT 1 FROM sqlite_master WHERE type='index' AND name=:name"),
+            {"name": name},
+        ).fetchone()
+        is not None
+    )
+
+
 def upgrade() -> None:
     bind = op.get_bind()
     inspector = sa.inspect(bind)
@@ -67,8 +77,10 @@ def upgrade() -> None:
 
     op.drop_table('species_info_cache')
     op.rename_table('species_info_cache_new', 'species_info_cache')
-    op.create_index('idx_species_info_name', 'species_info_cache', ['species_name'])
-    op.create_index('idx_species_info_taxa_id', 'species_info_cache', ['taxa_id'])
+    if not _index_exists(bind, "idx_species_info_name"):
+        op.create_index('idx_species_info_name', 'species_info_cache', ['species_name'])
+    if not _index_exists(bind, "idx_species_info_taxa_id"):
+        op.create_index('idx_species_info_taxa_id', 'species_info_cache', ['taxa_id'])
 
 
 def downgrade() -> None:
@@ -78,6 +90,10 @@ def downgrade() -> None:
 
     if 'species_info_cache' not in tables:
         return
+
+    # Clean up any leftovers from partial downgrade attempts.
+    if 'species_info_cache_old' in tables:
+        op.drop_table('species_info_cache_old')
 
     op.create_table(
         'species_info_cache_old',
@@ -112,5 +128,7 @@ def downgrade() -> None:
 
     op.drop_table('species_info_cache')
     op.rename_table('species_info_cache_old', 'species_info_cache')
-    op.create_index('idx_species_info_name', 'species_info_cache', ['species_name'])
-    op.create_index('idx_species_info_taxa_id', 'species_info_cache', ['taxa_id'])
+    if not _index_exists(bind, "idx_species_info_name"):
+        op.create_index('idx_species_info_name', 'species_info_cache', ['species_name'])
+    if not _index_exists(bind, "idx_species_info_taxa_id"):
+        op.create_index('idx_species_info_taxa_id', 'species_info_cache', ['taxa_id'])

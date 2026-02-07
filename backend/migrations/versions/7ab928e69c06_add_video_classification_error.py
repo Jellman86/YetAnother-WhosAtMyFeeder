@@ -18,9 +18,21 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
+def _get_columns(conn, table: str) -> set[str]:
+    rows = conn.execute(sa.text(f"PRAGMA table_info({table})")).fetchall()
+    return {row[1] for row in rows}
+
+
 def upgrade() -> None:
-    op.add_column("detections", sa.Column("video_classification_error", sa.String(), nullable=True))
+    conn = op.get_bind()
+    cols = _get_columns(conn, "detections")
+    if "video_classification_error" not in cols:
+        op.add_column("detections", sa.Column("video_classification_error", sa.String(), nullable=True))
 
 
 def downgrade() -> None:
-    op.drop_column("detections", "video_classification_error")
+    conn = op.get_bind()
+    cols = _get_columns(conn, "detections")
+    with op.batch_alter_table("detections", schema=None) as batch_op:
+        if "video_classification_error" in cols:
+            batch_op.drop_column("video_classification_error")

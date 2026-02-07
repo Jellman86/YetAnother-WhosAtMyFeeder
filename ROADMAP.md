@@ -100,7 +100,7 @@ See [DEVELOPER.md](DEVELOPER.md) for architectural details.
 All unresolved issues listed in `agents/ISSUES.md` must be addressed **before** new feature work. This section is always the top priority.
 
 **Active Issues:**
-- 🔴 AI Analysis Formatting & Contrast (Detection Modal) — See `agents/ISSUES.md`
+- None (all tracked issues currently resolved). See `agents/ISSUES.md` for history.
 
 ---
 
@@ -127,17 +127,7 @@ These are the highest-impact features planned for the next major release.
 Allow users to have follow-up conversations about specific detections with the AI.
 
 **Implementation:**
-- Extend `ai_analyses` table to support conversation threads
-- Add `conversation_turns` table:
-  ```sql
-  CREATE TABLE conversation_turns (
-    id INTEGER PRIMARY KEY,
-    analysis_id INTEGER REFERENCES ai_analyses(id) ON DELETE CASCADE,
-    role VARCHAR(20), -- 'user' or 'assistant'
-    content TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-  );
-  ```
+- Persist per-detection threads via an `ai_conversation_turns` table keyed by `frigate_event` (detection ID)
 - Update AI service to maintain context across turns
 - Add chat interface in detection modal
 - Implement streaming responses for better UX
