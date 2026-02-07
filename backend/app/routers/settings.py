@@ -306,6 +306,9 @@ class SettingsUpdate(BaseModel):
     llm_provider: Optional[str] = Field("gemini", description="AI provider")
     llm_api_key: Optional[str] = Field(None, description="API key")
     llm_model: Optional[str] = Field("gemini-2.0-flash-exp", description="AI model")
+    llm_analysis_prompt_template: Optional[str] = Field(None, description="Prompt template for detection analysis")
+    llm_conversation_prompt_template: Optional[str] = Field(None, description="Prompt template for follow-up conversation")
+    llm_chart_prompt_template: Optional[str] = Field(None, description="Prompt template for chart analysis")
     
     # Telemetry
     telemetry_enabled: Optional[bool] = Field(False, description="Enable anonymous usage statistics")
@@ -547,6 +550,9 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         # SECURITY: Never expose API keys via API
         "llm_api_key": "***REDACTED***" if settings.llm.api_key else None,
         "llm_model": settings.llm.model,
+        "llm_analysis_prompt_template": settings.llm.analysis_prompt_template,
+        "llm_conversation_prompt_template": settings.llm.conversation_prompt_template,
+        "llm_chart_prompt_template": settings.llm.chart_prompt_template,
         # Telemetry
         "telemetry_enabled": settings.telemetry.enabled,
         "telemetry_installation_id": settings.telemetry.installation_id,
@@ -766,6 +772,18 @@ async def update_settings(
         settings.llm.api_key = update.llm_api_key
     if "llm_model" in fields_set and update.llm_model:
         settings.llm.model = update.llm_model
+    if "llm_analysis_prompt_template" in fields_set and update.llm_analysis_prompt_template is not None:
+        template = update.llm_analysis_prompt_template.strip()
+        if template:
+            settings.llm.analysis_prompt_template = template
+    if "llm_conversation_prompt_template" in fields_set and update.llm_conversation_prompt_template is not None:
+        template = update.llm_conversation_prompt_template.strip()
+        if template:
+            settings.llm.conversation_prompt_template = template
+    if "llm_chart_prompt_template" in fields_set and update.llm_chart_prompt_template is not None:
+        template = update.llm_chart_prompt_template.strip()
+        if template:
+            settings.llm.chart_prompt_template = template
     
     # Telemetry
     if "telemetry_enabled" in fields_set and update.telemetry_enabled is not None:

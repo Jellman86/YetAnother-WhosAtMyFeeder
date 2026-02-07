@@ -11,6 +11,13 @@ log = structlog.get_logger()
 
 class AIService:
     """Service to interact with LLMs for behavioral analysis."""
+    def _render_prompt(self, template: str, context: dict) -> str:
+        class _SafeDict(dict):
+            def __missing__(self, key: str) -> str:
+                return f"{{{key}}}"
+
+        return template.format_map(_SafeDict(context))
+
     async def test_connection(self, provider: str, model: str, api_key: str) -> tuple[bool, str]:
         """Test LLM connectivity with a lightweight text prompt."""
         if not provider or not model or not api_key:
@@ -377,33 +384,23 @@ class AIService:
         condition = metadata.get("weather_condition")
         time = metadata.get("time")
         frame_count = metadata.get("frame_count")
-        frame_note = ""
-        if frame_count:
-            frame_note = f"I am showing you {frame_count} sequential frames from a short video clip."
+        frame_note = (
+            f"I am showing you {frame_count} sequential frames from a short video clip."
+            if frame_count
+            else "I am showing you a snapshot of a bird detected at my feeder."
+        )
         
-        weather_str = ""
-        if temp is not None:
-            weather_str = f"The weather is currently {temp}°C and {condition or 'clear'}."
+        weather_str = f"The weather is currently {temp}°C and {condition or 'clear'}." if temp is not None else ""
 
         language_note = f"Respond in {language}." if language else ""
-
-        return f"""
-        You are an expert ornithologist and naturalist.
-        {frame_note if frame_note else "I am showing you a snapshot of a bird detected at my feeder."}
-
-        Species identified by system: {species}
-        Time of detection: {time or 'Unknown'}
-        {weather_str}
-
-        Respond in simple Markdown with these exact section headings and short bullet points:
-        ## Appearance
-        ## Behavior
-        ## Naturalist Note
-        ## Seasonal Context
-
-        Keep the response concise (under 200 words). No extra sections.
-        {language_note}
-        """
+        template = settings.llm.analysis_prompt_template
+        return self._render_prompt(template, {
+            "frame_note": frame_note,
+            "species": species,
+            "time": time or "Unknown",
+            "weather_str": weather_str,
+            "language_note": language_note,
+        })
 
     def build_conversation_prompt(
         self,
@@ -422,21 +419,14 @@ class AIService:
             history_lines.append(f"{role.title()}: {content}")
         history_block = "\n".join(history_lines) if history_lines else "No prior conversation."
         analysis_block = analysis or "No prior analysis available."
-
-        return f"""
-You are an expert ornithologist and naturalist. Continue a short Q&A about this detection.
-
-Species identified by system: {species}
-Previous analysis:
-{analysis_block}
-
-Conversation so far:
-{history_block}
-
-User question: {question}
-
-Answer concisely in Markdown. {language_note}
-"""
+        template = settings.llm.conversation_prompt_template
+        return self._render_prompt(template, {
+            "species": species,
+            "analysis": analysis_block,
+            "history": history_block,
+            "question": question,
+            "language_note": language_note,
+        })
 
     def _build_chart_prompt(self, metadata: dict, language: Optional[str] = None) -> str:
         """Construct a prompt for leaderboard trend analysis."""
@@ -451,27 +441,16 @@ Answer concisely in Markdown. {language_note}
             sun_notes = f"Sunrise range: {sunrise_range or 'unknown'}; Sunset range: {sunset_range or 'unknown'}."
         notes = metadata.get("notes", "")
         language_note = f"Respond in {language}." if language else ""
-        return f"""
-        You are a data analyst for bird feeder activity.
-        You are looking at a chart of detections over time.
-
-        Timeframe: {timeframe}
-        Total detections in range: {total_count}
-        Series shown: {series}
-        {weather_notes}
-        {sun_notes}
-
-        Respond in Markdown with these exact section headings and short bullet points:
-        ## Overview
-        ## Patterns
-        ## Weather Correlations
-        ## Notable Spikes/Dips
-        ## Caveats
-
-        Keep it concise (under 200 words). No extra sections.
-        {language_note}
-        {notes}
-        """
+        template = settings.llm.chart_prompt_template
+        return self._render_prompt(template, {
+            "timeframe": timeframe,
+            "total_count": total_count,
+            "series": series,
+            "weather_notes": weather_notes,
+            "sun_notes": sun_notes,
+            "language_note": language_note,
+            "notes": notes,
+        })
 
     def extract_frames_from_clip(self, clip_bytes: bytes, frame_count: int = 5) -> list[bytes]:
         """Extract a set of frames from a video clip, focused around the middle."""

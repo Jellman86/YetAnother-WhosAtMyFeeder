@@ -36,6 +36,7 @@
     import { trapFocus } from '../utils/focus-trap';
     import { formatDateTime } from '../utils/datetime';
     import { formatTemperature } from '../utils/temperature';
+    import { renderMarkdown } from '../utils/markdown';
 
     interface Props {
         detection: Detection;
@@ -112,125 +113,7 @@
     let searchResults = $state<SearchResult[]>([]);
     let isSearching = $state(false);
 
-    function escapeHtml(text: string) {
-        return text
-            .replaceAll('&', '&amp;')
-            .replaceAll('<', '&lt;')
-            .replaceAll('>', '&gt;')
-            .replaceAll('"', '&quot;')
-            .replaceAll("'", '&#039;');
-    }
-
-    function renderMarkdown(text: string) {
-        const lines = text.split(/\r?\n/);
-        let html = '';
-        let inList = false;
-        let pendingList: string[] = [];
-        const minListItems = 3;
-        let prevBlank = true;
-        let prevHeading = false;
-
-        const isHeadingLike = (value: string) => {
-            if (value.length < 3 || value.length > 40) return false;
-            const cleaned = value.replace(/[:.]+$/, '').trim();
-            if (!/[A-Z]/.test(cleaned)) return false;
-            return /^[A-Z0-9\s/&()\-]+$/.test(cleaned);
-        };
-
-        const closeList = () => {
-            if (inList) {
-                html += '</ul>';
-                inList = false;
-            }
-        };
-
-        const flushPendingAsList = () => {
-            if (!pendingList.length) return;
-            if (pendingList.length < minListItems) {
-                for (const item of pendingList) {
-                    html += `<p>${escapeHtml(item)}</p>`;
-                }
-                pendingList = [];
-                return;
-            }
-            html += '<ul>';
-            for (const item of pendingList) {
-                html += `<li>${escapeHtml(item)}</li>`;
-            }
-            html += '</ul>';
-            pendingList = [];
-        };
-
-        for (const rawLine of lines) {
-            const line = rawLine.trim();
-            if (!line) {
-                closeList();
-                flushPendingAsList();
-                prevBlank = true;
-                prevHeading = false;
-                continue;
-            }
-
-            const headingMatch = line.match(/^#{1,6}\s+(.*)$/);
-            if (headingMatch) {
-                closeList();
-                flushPendingAsList();
-                const content = escapeHtml(headingMatch[1]);
-                html += `<h4>${content}</h4>`;
-                prevBlank = false;
-                prevHeading = true;
-                continue;
-            }
-
-            if (isHeadingLike(line)) {
-                closeList();
-                flushPendingAsList();
-                const content = escapeHtml(line.replace(/[:.]+$/, '').trim());
-                html += `<h4>${content}</h4>`;
-                prevBlank = false;
-                prevHeading = true;
-                continue;
-            }
-
-            const listMatch = line.match(/^[-*•]\s+(.*)$/);
-            if (listMatch) {
-                if (prevBlank || prevHeading) {
-                    pendingList.push(listMatch[1]);
-                    prevBlank = false;
-                    prevHeading = false;
-                    continue;
-                }
-                // Treat stray bullet lines as paragraphs to avoid over-listing.
-                closeList();
-                flushPendingAsList();
-                html += `<p>${escapeHtml(listMatch[1])}</p>`;
-                prevBlank = false;
-                prevHeading = false;
-                continue;
-            }
-
-            if (pendingList.length) {
-                flushPendingAsList();
-            }
-            closeList();
-            const paragraph = escapeHtml(line);
-            html += `<p>${paragraph}</p>`;
-            prevBlank = false;
-            prevHeading = false;
-        }
-
-        if (pendingList.length) {
-            flushPendingAsList();
-        }
-        closeList();
-
-        html = html
-            .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-            .replace(/\*(.+?)\*/g, '<em>$1</em>')
-            .replace(/`(.+?)`/g, '<code>$1</code>');
-
-        return html;
-    }
+    
 
     // Reclassification progress
     let reclassifyProgress = $derived(
@@ -792,6 +675,32 @@
         color: rgb(226 232 240);
     }
 
+    :global(.ai-markdown h2) {
+        margin: 0.9rem 0 0.35rem;
+        font-size: 0.85rem;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+        font-weight: 900;
+        color: rgb(13 148 136);
+    }
+
+    :global(.dark .ai-markdown h2) {
+        color: rgb(94 234 212);
+    }
+
+    :global(.ai-markdown h3) {
+        margin: 0.85rem 0 0.3rem;
+        font-size: 0.8rem;
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+        font-weight: 800;
+        color: rgb(13 148 136);
+    }
+
+    :global(.dark .ai-markdown h3) {
+        color: rgb(94 234 212);
+    }
+
     :global(.ai-markdown h4) {
         margin: 0.75rem 0 0.25rem;
         font-size: 0.75rem;
@@ -831,6 +740,23 @@
 
     :global(.dark .ai-markdown li) {
         color: rgb(226 232 240);
+    }
+
+    :global(.ai-markdown strong) {
+        font-weight: 700;
+        color: rgb(15 118 110);
+    }
+
+    :global(.dark .ai-markdown strong) {
+        color: rgb(94 234 212);
+    }
+
+    :global(.ai-markdown em) {
+        color: rgb(71 85 105);
+    }
+
+    :global(.dark .ai-markdown em) {
+        color: rgb(148 163 184);
     }
 
     :global(.ai-markdown code) {

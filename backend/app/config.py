@@ -15,6 +15,63 @@ log = structlog.get_logger()
 # Allow override via environment variable for testing
 CONFIG_PATH = Path(os.getenv("CONFIG_FILE", "/config/config.json"))
 
+DEFAULT_AI_ANALYSIS_PROMPT = """
+You are an expert ornithologist and naturalist.
+{frame_note}
+
+Species identified by system: {species}
+Time of detection: {time}
+{weather_str}
+
+Respond in Markdown with these exact section headings and short bullet points:
+## Appearance
+## Behavior
+## Naturalist Note
+## Seasonal Context
+
+Keep the response concise (under 200 words). No extra sections.
+{language_note}
+""".strip()
+
+DEFAULT_AI_CONVERSATION_PROMPT = """
+You are an expert ornithologist and naturalist. Continue a short Q&A about this detection.
+
+Species identified by system: {species}
+Previous analysis:
+{analysis}
+
+Conversation so far:
+{history}
+
+User question: {question}
+
+Answer concisely in Markdown using the same headings as the analysis (## Appearance, ## Behavior, ## Naturalist Note, ## Seasonal Context).
+If a section is not relevant, include it with a short "Not observed" bullet.
+{language_note}
+""".strip()
+
+DEFAULT_AI_CHART_PROMPT = """
+You are a data analyst for bird feeder activity.
+You are looking at a chart of detections over time.
+
+Timeframe: {timeframe}
+Total detections in range: {total_count}
+Series shown: {series}
+{weather_notes}
+{sun_notes}
+
+Respond in Markdown with these exact section headings and short bullet points:
+## Overview
+## Patterns
+## Weather Correlations
+## Notable Spikes/Dips
+## Caveats
+
+Keep it concise (under 200 words). No extra sections.
+{language_note}
+{notes}
+""".strip()
+
 # Default trusted proxy hosts for common reverse-proxy setups.
 # These are only used when no env override or config value exists.
 DEFAULT_TRUSTED_PROXY_HOSTS = [
@@ -180,6 +237,9 @@ class LLMSettings(BaseModel):
     provider: str = Field(default="gemini", description="AI provider (gemini, openai, claude)")
     api_key: Optional[str] = Field(default=None, description="API Key for the provider")
     model: str = Field(default="gemini-3-flash-preview", description="Model name to use")
+    analysis_prompt_template: str = Field(default=DEFAULT_AI_ANALYSIS_PROMPT, description="Prompt template for detection analysis")
+    conversation_prompt_template: str = Field(default=DEFAULT_AI_CONVERSATION_PROMPT, description="Prompt template for follow-up conversation")
+    chart_prompt_template: str = Field(default=DEFAULT_AI_CHART_PROMPT, description="Prompt template for chart analysis")
 
 class TelemetrySettings(BaseModel):
     enabled: bool = Field(default=False, description="Enable anonymous usage statistics")
@@ -458,6 +518,9 @@ class Settings(BaseSettings):
             'provider': os.environ.get('LLM__PROVIDER', 'gemini'),
             'api_key': os.environ.get('LLM__API_KEY', None),
             'model': os.environ.get('LLM__MODEL', 'gemini-3-flash-preview'),
+            'analysis_prompt_template': os.environ.get('LLM__ANALYSIS_PROMPT_TEMPLATE', DEFAULT_AI_ANALYSIS_PROMPT),
+            'conversation_prompt_template': os.environ.get('LLM__CONVERSATION_PROMPT_TEMPLATE', DEFAULT_AI_CONVERSATION_PROMPT),
+            'chart_prompt_template': os.environ.get('LLM__CHART_PROMPT_TEMPLATE', DEFAULT_AI_CHART_PROMPT),
         }
         
         # Telemetry settings

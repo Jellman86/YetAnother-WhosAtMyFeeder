@@ -23,6 +23,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Fixed:** Integration and authentication settings cards now size per row instead of matching the tallest card on the page.
 - **Fixed:** AI analysis markdown now correctly applies dark-mode text colors for injected content.
 - **Changed:** AI analysis markdown now promotes uppercase section lines to headings and restores dark-mode input contrast for follow-up questions.
+- **Changed:** AI markdown now uses a unified Markdown parser, and prompt templates are configurable from Settings → Debug.
 
 ## [2.7.6] - 2026-02-06
 
