@@ -752,6 +752,12 @@
         box-shadow: 0 10px 25px rgba(15, 118, 110, 0.15);
     }
 
+    :global(.dark) .ai-panel {
+        background: linear-gradient(140deg, rgba(20, 184, 166, 0.18), rgba(14, 116, 144, 0.14));
+        border-color: rgba(45, 212, 191, 0.3);
+        box-shadow: 0 12px 28px rgba(8, 47, 73, 0.35);
+    }
+
     .ai-panel__label {
         font-size: 0.6rem;
         letter-spacing: 0.25em;
@@ -761,8 +767,12 @@
         margin-bottom: 0.75rem;
     }
 
+    :global(.dark) .ai-panel__label {
+        color: rgb(94 234 212);
+    }
+
     :global(.dark) .ai-panel__content {
-        color: rgb(248 250 252);
+        color: rgb(226 232 240);
     }
 
     .ai-markdown h4 {
@@ -774,6 +784,10 @@
         color: rgb(13 148 136);
     }
 
+    :global(.dark) .ai-markdown h4 {
+        color: rgb(94 234 212);
+    }
+
     .ai-markdown p {
         margin: 0.4rem 0;
         font-size: 0.85rem;
@@ -782,7 +796,7 @@
     }
 
     :global(.dark) .ai-markdown p {
-        color: rgb(248 250 252);
+        color: rgb(226 232 240);
     }
 
     .ai-markdown ul {
@@ -799,7 +813,7 @@
     }
 
     :global(.dark) .ai-markdown li {
-        color: rgb(248 250 252);
+        color: rgb(226 232 240);
     }
 
     .ai-markdown code {
@@ -809,6 +823,11 @@
         border-radius: 0.4rem;
         background: rgba(15, 118, 110, 0.1);
         color: rgb(15 118 110);
+    }
+
+    :global(.dark) .ai-markdown code {
+        background: rgba(20, 184, 166, 0.2);
+        color: rgb(94 234 212);
     }
 
     .ai-bubble {

@@ -18,6 +18,9 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Changed:** Settings tooltips and aria-labels are fully localized.
 - **Changed:** Default font theme is now Classic.
 - **Fixed:** AI analysis text now renders brighter in dark mode and avoids over-eager list formatting.
+- **Fixed:** Detection modal AI analysis panel now boosts dark-mode contrast for headings, body text, and code blocks.
+- **Fixed:** Notification settings cards now size per row instead of matching the tallest card on the page.
+- **Fixed:** Integration and authentication settings cards now size per row instead of matching the tallest card on the page.
 
 ## [2.7.6] - 2026-02-06
 

@@ -40,8 +40,8 @@
     } = $props();
 </script>
 
-<div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch auto-rows-fr">
-    <section class="card-base rounded-3xl p-8 backdrop-blur-md h-full flex flex-col">
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
+    <section class="card-base rounded-3xl p-8 backdrop-blur-md flex flex-col">
         <div class="flex items-center gap-3 mb-6">
             <div class="w-10 h-10 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
                 <span class="text-xl">🔐</span>
@@ -186,7 +186,7 @@
         </div>
     </section>
 
-    <section class="card-base rounded-3xl p-8 backdrop-blur-md h-full flex flex-col">
+    <section class="card-base rounded-3xl p-8 backdrop-blur-md flex flex-col">
         <div class="flex items-center gap-3 mb-6">
             <div class="w-10 h-10 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
                 <span class="text-xl">🌐</span>
