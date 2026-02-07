@@ -247,6 +247,65 @@
         }
     };
 
+    const copyAiRawContent = async () => {
+        const latestAssistant = [...conversationTurns].reverse().find((turn) => turn.role === 'assistant')?.content ?? null;
+        const payload = JSON.stringify(
+            {
+                analysis: aiAnalysis ?? '',
+                conversation_latest_assistant: latestAssistant ?? ''
+            },
+            null,
+            2
+        );
+        try {
+            await navigator.clipboard.writeText(payload);
+            aiDiagnosticsStatus = 'Raw AI content copied to clipboard.';
+        } catch (error) {
+            aiDiagnosticsStatus = 'Clipboard copy failed. Please copy manually.';
+        }
+    };
+
+    const copyAiPrompts = async () => {
+        const payload = JSON.stringify(
+            {
+                analysis_prompt_template: settingsStore.settings?.llm_analysis_prompt_template ?? '',
+                conversation_prompt_template: settingsStore.settings?.llm_conversation_prompt_template ?? ''
+            },
+            null,
+            2
+        );
+        try {
+            await navigator.clipboard.writeText(payload);
+            aiDiagnosticsStatus = 'AI prompt templates copied to clipboard.';
+        } catch (error) {
+            aiDiagnosticsStatus = 'Clipboard copy failed. Please copy manually.';
+        }
+    };
+
+    const copyAiFullBundle = async () => {
+        collectAiDiagnostics();
+        const latestAssistant = [...conversationTurns].reverse().find((turn) => turn.role === 'assistant')?.content ?? null;
+        const payload = JSON.stringify(
+            {
+                diagnostics: aiDiagnostics,
+                analysis: aiAnalysis ?? '',
+                conversation_latest_assistant: latestAssistant ?? '',
+                prompts: {
+                    analysis_prompt_template: settingsStore.settings?.llm_analysis_prompt_template ?? '',
+                    conversation_prompt_template: settingsStore.settings?.llm_conversation_prompt_template ?? ''
+                }
+            },
+            null,
+            2
+        );
+        try {
+            await navigator.clipboard.writeText(payload);
+            aiDiagnosticsStatus = 'Full AI diagnostics bundle copied to clipboard.';
+        } catch (error) {
+            aiDiagnosticsStatus = 'Clipboard copy failed. Please copy manually.';
+        }
+    };
+
     let aiAnalysis = $state<string | null>(null);
     let conversationTurns = $state<ConversationTurn[]>([]);
     let conversationInput = $state('');
@@ -1927,7 +1986,14 @@
                         <div class="rounded-xl border border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/60 p-3 space-y-2">
                             <div class="flex flex-wrap items-center justify-between gap-2">
                                 <span class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-300">AI Diagnostics</span>
-                                <div class="flex gap-2">
+                                <div class="flex flex-wrap gap-2">
+                                    <button
+                                        type="button"
+                                        onclick={copyAiFullBundle}
+                                        class="px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest bg-emerald-500/20 text-emerald-700 dark:text-emerald-200 hover:bg-emerald-500/30"
+                                    >
+                                        Copy All
+                                    </button>
                                     <button
                                         type="button"
                                         onclick={() => {
@@ -1951,6 +2017,20 @@
                                         class="px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest bg-teal-500/15 text-teal-700 dark:text-teal-200 hover:bg-teal-500/25"
                                     >
                                         Copy
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onclick={copyAiRawContent}
+                                        class="px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700"
+                                    >
+                                        Copy Raw
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onclick={copyAiPrompts}
+                                        class="px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700"
+                                    >
+                                        Copy Prompts
                                     </button>
                                 </div>
                             </div>

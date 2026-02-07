@@ -34,6 +34,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Changed:** Security reporting now accepts public GitHub issues for vulnerability reports.
 - **Added:** Debug-only AI diagnostics panel in the detection modal for collecting markdown/theme contrast details.
 - **Fixed:** AI markdown dark-mode styles now apply even when the modal is outside the global `.dark` tree.
+- **Added:** AI diagnostics panel now supports copying raw AI content and prompt templates.
+- **Added:** AI diagnostics panel can copy a full diagnostics bundle in one click.
 
 ## [2.7.6] - 2026-02-06
 
