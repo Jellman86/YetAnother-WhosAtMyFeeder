@@ -125,6 +125,7 @@
         const lines = text.split(/\r?\n/);
         let html = '';
         let inList = false;
+        let pendingList: string[] = [];
 
         const closeList = () => {
             if (inList) {
@@ -133,16 +134,36 @@
             }
         };
 
+        const flushPendingAsList = () => {
+            if (!pendingList.length) return;
+            html += '<ul>';
+            for (const item of pendingList) {
+                html += `<li>${escapeHtml(item)}</li>`;
+            }
+            html += '</ul>';
+            pendingList = [];
+        };
+
+        const flushPendingAsParagraph = () => {
+            if (!pendingList.length) return;
+            for (const item of pendingList) {
+                html += `<p>${escapeHtml(item)}</p>`;
+            }
+            pendingList = [];
+        };
+
         for (const rawLine of lines) {
             const line = rawLine.trim();
             if (!line) {
                 closeList();
+                flushPendingAsList();
                 continue;
             }
 
             const headingMatch = line.match(/^#{1,6}\s+(.*)$/);
             if (headingMatch) {
                 closeList();
+                flushPendingAsList();
                 const content = escapeHtml(headingMatch[1]);
                 html += `<h4>${content}</h4>`;
                 continue;
@@ -150,20 +171,29 @@
 
             const listMatch = line.match(/^[-*•]\s+(.*)$/);
             if (listMatch) {
-                if (!inList) {
-                    html += '<ul>';
-                    inList = true;
-                }
-                const content = escapeHtml(listMatch[1]);
-                html += `<li>${content}</li>`;
+                pendingList.push(listMatch[1]);
                 continue;
             }
 
+            if (pendingList.length) {
+                if (pendingList.length > 1) {
+                    flushPendingAsList();
+                } else {
+                    flushPendingAsParagraph();
+                }
+            }
             closeList();
             const paragraph = escapeHtml(line);
             html += `<p>${paragraph}</p>`;
         }
 
+        if (pendingList.length) {
+            if (pendingList.length > 1) {
+                flushPendingAsList();
+            } else {
+                flushPendingAsParagraph();
+            }
+        }
         closeList();
 
         html = html
@@ -727,7 +757,7 @@
     }
 
     :global(.dark) .ai-markdown p {
-        color: rgb(226 232 240);
+        color: rgb(241 245 249);
     }
 
     .ai-markdown ul {
@@ -743,7 +773,7 @@
     }
 
     :global(.dark) .ai-markdown li {
-        color: rgb(226 232 240);
+        color: rgb(241 245 249);
     }
 
     .ai-markdown code {
