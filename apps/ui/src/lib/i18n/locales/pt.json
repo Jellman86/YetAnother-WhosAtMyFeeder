@@ -182,7 +182,8 @@
         "sensor_id_placeholder": "ID do sensor",
         "sensor_id_label": "ID do sensor de áudio para {camera}",
         "sensor_mapping_empty": "Nenhuma câmera detectada. Verifique a conexão com o Frigate.",
-        "sensor_mapping_help": "Adicione suas câmeras do Frigate para mapeá-las para sensores de áudio. Use * para IDs de sensor aleatórios/dinâmicos."
+        "sensor_mapping_help": "Adicione suas câmeras do Frigate para mapeá-las para sensores de áudio. Use * para IDs de sensor aleatórios/dinâmicos.",
+        "mqtt_topic_placeholder": "birdnet/text"
       },
       "inaturalist": {
         "title": "iNaturalist",
@@ -319,12 +320,15 @@
       "mqtt_user": "Usuário",
       "mqtt_pass": "Senha",
       "fetch_clips": "Buscar Clipes de Vídeo",
-      "fetch_clips_desc": "Usar gravações do Frigate para reclassificação"
+      "fetch_clips_desc": "Usar gravações do Frigate para reclassificação",
+      "url_placeholder": "http://frigate:5000",
+      "mqtt_broker_placeholder": "mosquitto"
     },
     "cameras": {
       "title": "Câmeras Ativas",
       "none_found": "Nenhuma Câmera Encontrada",
-      "syncing": "Escaneando..."
+      "syncing": "Escaneando...",
+      "preview_close": "Close preview"
     },
     "telemetry": {
       "title": "Telemetry",
@@ -426,7 +430,10 @@
       "cooldown": "Resfriamento de notificações",
       "cooldown_desc": "Tempo mínimo entre notificações em minutos (0 para desativar).",
       "cooldown_unit": "minutos",
-      "enable_notify_hint": "Notifications are currently off. Enable \"Notify on new detections\" or \"Notify on updates\" to send any alerts."
+      "enable_notify_hint": "Notifications are currently off. Enable \"Notify on new detections\" or \"Notify on updates\" to send any alerts.",
+      "min_confidence_label": "Notification minimum confidence: {value}%",
+      "add_species_label": "Add species to whitelist",
+      "remove_species_label": "Remove {species} from whitelist"
     },
     "discord": {
       "title": "Notificações Discord",
@@ -434,7 +441,8 @@
       "webhook_placeholder": "https://discord.com/api/webhooks/...",
       "bot_username": "Nome do Bot",
       "test_notification": "Enviar notificação de teste",
-      "test_sending": "Enviando..."
+      "test_sending": "Enviando...",
+      "bot_placeholder": "YA-WAMF Bird Bot"
     },
     "pushover": {
       "title": "Notificações Pushover",
@@ -616,7 +624,10 @@
       "naming_scientific_sub": "Mostrar apenas nomes científicos. Oculta os nomes comuns.",
       "blocked_labels": "Etiquetas bloqueadas",
       "ignored_by_discovery": "Ignorado pela descoberta",
-      "no_blocked_labels": "Nenhuma etiqueta bloqueada ainda."
+      "no_blocked_labels": "Nenhuma etiqueta bloqueada ainda.",
+      "blocked_labels_placeholder": "e.g. background",
+      "blocked_label_remove": "Remove {label} from blocked list",
+      "naming_select_label": "Select {mode} naming style"
     }
   },
   "auth": {

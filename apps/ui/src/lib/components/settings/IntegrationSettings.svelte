@@ -146,7 +146,7 @@
                     id="audio-topic"
                     type="text"
                     bind:value={audioTopic}
-                    placeholder="birdnet/text"
+                    placeholder={$_('settings.integrations.birdnet.mqtt_topic_placeholder')}
                     aria-label={$_('settings.integrations.birdnet.mqtt_topic_label')}
                     class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-teal-500 outline-none"
                 />

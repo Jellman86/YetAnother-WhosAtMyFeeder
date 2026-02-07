@@ -157,7 +157,7 @@
                     id="frigate-url"
                     type="url"
                     bind:value={frigateUrl}
-                    placeholder="http://frigate:5000"
+                    placeholder={$_('settings.frigate.url_placeholder')}
                     aria-label="{$_('settings.frigate.url')}"
                     class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-teal-500 outline-none transition-all"
                 />
@@ -201,7 +201,7 @@
                                 id="mqtt-server"
                                 type="text"
                                 bind:value={mqttServer}
-                                placeholder="mosquitto"
+                                placeholder={$_('settings.frigate.mqtt_broker_placeholder')}
                                 aria-label="{$_('settings.frigate.mqtt_broker')}"
                                 class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-teal-500 outline-none"
                             />
@@ -354,7 +354,7 @@
                                             <button
                                                 type="button"
                                                 class="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
-                                                aria-label="Close preview"
+                                                aria-label={$_('settings.cameras.preview_close')}
                                                 onclick={() => stopPreview(camera)}
                                             >
                                                 <svg class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">

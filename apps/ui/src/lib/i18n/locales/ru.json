@@ -182,7 +182,8 @@
         "sensor_id_placeholder": "ID датчика",
         "sensor_id_label": "ID аудио-датчика для {camera}",
         "sensor_mapping_empty": "Камеры не обнаружены. Проверьте подключение к Frigate.",
-        "sensor_mapping_help": "Добавьте камеры Frigate, чтобы сопоставить их с аудио-датчиками. Используйте * для случайных/динамических ID датчиков."
+        "sensor_mapping_help": "Добавьте камеры Frigate, чтобы сопоставить их с аудио-датчиками. Используйте * для случайных/динамических ID датчиков.",
+        "mqtt_topic_placeholder": "birdnet/text"
       },
       "inaturalist": {
         "title": "iNaturalist",
@@ -319,12 +320,15 @@
       "mqtt_user": "Пользователь",
       "mqtt_pass": "Пароль",
       "fetch_clips": "Получать видеоклипы",
-      "fetch_clips_desc": "Использовать записи Frigate для реклассификации"
+      "fetch_clips_desc": "Использовать записи Frigate для реклассификации",
+      "url_placeholder": "http://frigate:5000",
+      "mqtt_broker_placeholder": "mosquitto"
     },
     "cameras": {
       "title": "Активные камеры",
       "none_found": "Камеры не найдены",
-      "syncing": "Сканирование..."
+      "syncing": "Сканирование...",
+      "preview_close": "Close preview"
     },
     "telemetry": {
       "title": "Telemetry",
@@ -426,7 +430,10 @@
       "cooldown": "Интервал уведомлений",
       "cooldown_desc": "Минимальное время между уведомлениями в минутах (0 — отключить).",
       "cooldown_unit": "минуты",
-      "enable_notify_hint": "Notifications are currently off. Enable \"Notify on new detections\" or \"Notify on updates\" to send any alerts."
+      "enable_notify_hint": "Notifications are currently off. Enable \"Notify on new detections\" or \"Notify on updates\" to send any alerts.",
+      "min_confidence_label": "Notification minimum confidence: {value}%",
+      "add_species_label": "Add species to whitelist",
+      "remove_species_label": "Remove {species} from whitelist"
     },
     "discord": {
       "title": "Уведомления Discord",
@@ -434,7 +441,8 @@
       "webhook_placeholder": "https://discord.com/api/webhooks/...",
       "bot_username": "Имя бота",
       "test_notification": "Отправить тестовое уведомление",
-      "test_sending": "Отправка..."
+      "test_sending": "Отправка...",
+      "bot_placeholder": "YA-WAMF Bird Bot"
     },
     "pushover": {
       "title": "Уведомления Pushover",
@@ -616,7 +624,10 @@
       "naming_scientific_sub": "Only show scientific names. Hides common names.",
       "blocked_labels": "Blocked Labels",
       "ignored_by_discovery": "Ignored by Discovery",
-      "no_blocked_labels": "No labels blocked yet."
+      "no_blocked_labels": "No labels blocked yet.",
+      "blocked_labels_placeholder": "e.g. background",
+      "blocked_label_remove": "Remove {label} from blocked list",
+      "naming_select_label": "Select {mode} naming style"
     }
   },
   "auth": {

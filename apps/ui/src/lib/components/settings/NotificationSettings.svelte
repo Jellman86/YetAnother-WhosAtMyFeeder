@@ -402,7 +402,7 @@
                     aria-valuemax="100"
                     aria-valuenow={Math.round(notifyMinConfidence * 100)}
                     aria-valuetext="{(notifyMinConfidence * 100).toFixed(0)} percent"
-                    aria-label="Notification minimum confidence: {(notifyMinConfidence * 100).toFixed(0)}%"
+                    aria-label={$_('settings.notifications.min_confidence_label', { values: { value: (notifyMinConfidence * 100).toFixed(0) } })}
                     class="w-full h-2 rounded-lg bg-slate-200 dark:bg-slate-700 appearance-none cursor-pointer accent-amber-500"
                 />
                 <div class="flex justify-between mt-2">
@@ -443,13 +443,13 @@
                         bind:value={newSpecies}
                         onkeydown={(e) => e.key === 'Enter' && addSpeciesToWhitelist()}
                         placeholder={$_('settings.notifications.species_placeholder')}
-                        aria-label="New species for whitelist"
+                        aria-label={$_('settings.notifications.species_placeholder')}
                         class="flex-1 px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"
                     />
                     <button
                         onclick={addSpeciesToWhitelist}
                         disabled={!newSpecies.trim()}
-                        aria-label="Add species to whitelist"
+                        aria-label={$_('settings.notifications.add_species_label')}
                         class="px-6 py-3 bg-amber-500 hover:bg-amber-600 text-white text-xs font-black uppercase tracking-widest rounded-2xl transition-all disabled:opacity-50"
                     >
                         {$_('common.add')}
@@ -461,7 +461,7 @@
                             {species}
                             <button
                                 onclick={() => removeSpeciesFromWhitelist(species)}
-                                aria-label="Remove {species} from whitelist"
+                                aria-label={$_('settings.notifications.remove_species_label', { values: { species } })}
                                 class="text-slate-400 hover:text-red-500 transition-colors"
                             >
                                 ✕
@@ -518,7 +518,7 @@
                         type="url"
                         bind:value={discordWebhook}
                         placeholder={$_('settings.discord.webhook_placeholder')}
-                        aria-label="Discord webhook URL"
+                        aria-label={$_('settings.discord.webhook_url')}
                         class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"
                     />
                 </div>
@@ -528,15 +528,15 @@
                         id="discord-botname"
                         type="text"
                         bind:value={discordBotName}
-                        placeholder="YA-WAMF Bird Bot"
-                        aria-label="Discord bot username"
+                        placeholder={$_('settings.discord.bot_placeholder')}
+                        aria-label={$_('settings.discord.bot_username')}
                         class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"
                     />
                 </div>
                 <button
                     onclick={sendTestDiscord}
                     disabled={testingNotification['discord'] || (!discordWebhook && !discordWebhookSaved)}
-                    aria-label="Send test Discord notification"
+                    aria-label={$_('settings.discord.test_notification')}
                     class="w-full px-4 py-3 text-xs font-black uppercase tracking-widest rounded-2xl bg-indigo-500 hover:bg-indigo-600 text-white transition-all shadow-lg shadow-indigo-500/20 disabled:opacity-50"
                 >
                     {testingNotification['discord'] ? $_('settings.discord.test_sending') : $_('settings.discord.test_notification')}
@@ -583,7 +583,7 @@
                         type="text"
                         bind:value={pushoverUserKey}
                         placeholder={$_('settings.pushover.user_key_placeholder')}
-                        aria-label="Pushover user key"
+                        aria-label={$_('settings.pushover.user_key')}
                         class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"
                     />
                 </div>
@@ -599,7 +599,7 @@
                         type="text"
                         bind:value={pushoverApiToken}
                         placeholder={$_('settings.pushover.api_token_placeholder')}
-                        aria-label="Pushover API token"
+                        aria-label={$_('settings.pushover.api_token')}
                         class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"
                     />
                 </div>
@@ -608,7 +608,7 @@
                     <select
                         id="pushover-priority"
                         bind:value={pushoverPriority}
-                        aria-label="Pushover priority"
+                        aria-label={$_('settings.pushover.priority')}
                         class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"
                     >
                         <option value={-2}>{$_('settings.pushover.priority_lowest')}</option>
@@ -621,7 +621,7 @@
                 <button
                     onclick={sendTestPushover}
                     disabled={testingNotification['pushover'] || (!pushoverUserKey && !pushoverUserSaved) || (!pushoverApiToken && !pushoverTokenSaved)}
-                    aria-label="Send test Pushover notification"
+                    aria-label={$_('settings.pushover.test_notification')}
                     class="w-full px-4 py-3 text-xs font-black uppercase tracking-widest rounded-2xl bg-blue-500 hover:bg-blue-600 text-white transition-all shadow-lg shadow-blue-500/20 disabled:opacity-50"
                 >
                     {testingNotification['pushover'] ? $_('settings.pushover.test_sending') : $_('settings.pushover.test_notification')}
@@ -670,7 +670,7 @@
                         type="password"
                         bind:value={telegramBotToken}
                         placeholder={$_('settings.telegram.bot_token_placeholder')}
-                        aria-label="Telegram bot token"
+                        aria-label={$_('settings.telegram.bot_token')}
                         class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"
                     />
                 </div>
@@ -686,14 +686,14 @@
                         type="text"
                         bind:value={telegramChatId}
                         placeholder={$_('settings.telegram.chat_id_placeholder')}
-                        aria-label="Telegram chat ID"
+                        aria-label={$_('settings.telegram.chat_id')}
                         class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"
                     />
                 </div>
                 <button
                     onclick={sendTestTelegram}
                     disabled={testingNotification['telegram'] || (!telegramBotToken && !telegramTokenSaved) || (!telegramChatId && !telegramChatIdSaved)}
-                    aria-label="Send test Telegram notification"
+                    aria-label={$_('settings.telegram.test_notification')}
                     class="w-full px-4 py-3 text-xs font-black uppercase tracking-widest rounded-2xl bg-sky-500 hover:bg-sky-600 text-white transition-all shadow-lg shadow-sky-500/20 disabled:opacity-50"
                 >
                     {testingNotification['telegram'] ? $_('settings.telegram.test_sending') : $_('settings.telegram.test_notification')}
@@ -736,7 +736,7 @@
                     <div class="flex gap-2" role="group" aria-labelledby="email-auth-mode-label">
                         <button
                             onclick={() => emailUseOAuth = true}
-                            aria-label="Use OAuth authentication"
+                            aria-label={$_('settings.email.oauth')}
                             aria-pressed={emailUseOAuth}
                             class="flex-1 px-4 py-2 rounded-xl text-sm font-bold transition-all {emailUseOAuth ? 'bg-indigo-500 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'}"
                         >
@@ -744,7 +744,7 @@
                         </button>
                         <button
                             onclick={() => emailUseOAuth = false}
-                            aria-label="Use SMTP authentication"
+                            aria-label={$_('settings.email.smtp')}
                             aria-pressed={!emailUseOAuth}
                             class="flex-1 px-4 py-2 rounded-xl text-sm font-bold transition-all {!emailUseOAuth ? 'bg-indigo-500 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'}"
                         >
@@ -767,7 +767,7 @@
                                         console.error('Gmail OAuth error:', error);
                                     }
                                 }}
-                                aria-label="Connect Gmail account"
+                                aria-label={$_('settings.email.connect_gmail')}
                                 class="flex-1 px-4 py-2 rounded-xl bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 hover:border-indigo-500 dark:hover:border-indigo-500 text-sm font-bold transition-all"
                             >
                                 {$_('settings.email.connect_gmail')}
@@ -781,7 +781,7 @@
                                         console.error('Outlook OAuth error:', error);
                                     }
                                 }}
-                                aria-label="Connect Outlook account"
+                                aria-label={$_('settings.email.connect_outlook')}
                                 class="flex-1 px-4 py-2 rounded-xl bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 hover:border-indigo-500 dark:hover:border-indigo-500 text-sm font-bold transition-all"
                             >
                                 {$_('settings.email.connect_outlook')}
@@ -800,7 +800,7 @@
                                             console.error('Disconnect error:', error);
                                         }
                                     }}
-                                    aria-label="Disconnect email account"
+                                    aria-label={$_('settings.email.disconnect')}
                                     class="text-xs text-red-600 dark:text-red-400 hover:underline"
                                 >
                                     {$_('settings.email.disconnect')}
@@ -818,7 +818,7 @@
                                 type="text"
                                 bind:value={emailSmtpHost}
                                 placeholder={$_('settings.email.smtp_host_placeholder')}
-                                aria-label="SMTP host"
+                                aria-label={$_('settings.email.smtp_host')}
                                 class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"
                             />
                         </div>
@@ -829,7 +829,7 @@
                                     id="smtp-port"
                                     type="number"
                                     bind:value={emailSmtpPort}
-                                    aria-label="SMTP port"
+                                    aria-label={$_('settings.email.smtp_port')}
                                     class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"
                                 />
                             </div>
@@ -851,7 +851,7 @@
                                 id="smtp-username"
                                 type="text"
                                 bind:value={emailSmtpUsername}
-                                aria-label="SMTP username"
+                                aria-label={$_('settings.email.smtp_username')}
                                 class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"
                             />
                         </div>
@@ -866,7 +866,7 @@
                                 id="smtp-password"
                                 type="password"
                                 bind:value={emailSmtpPassword}
-                                aria-label="SMTP password"
+                                aria-label={$_('settings.email.smtp_password')}
                                 class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"
                             />
                         </div>
@@ -882,7 +882,7 @@
                             type="email"
                             bind:value={emailFromEmail}
                             placeholder={$_('settings.email.from_email_placeholder')}
-                            aria-label="From email address"
+                            aria-label={$_('settings.email.from_email')}
                             class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"
                         />
                     </div>
@@ -893,7 +893,7 @@
                             type="email"
                             bind:value={emailToEmail}
                             placeholder={$_('settings.email.to_email_placeholder')}
-                            aria-label="To email address"
+                            aria-label={$_('settings.email.to_email')}
                             class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"
                         />
                     </div>
@@ -927,7 +927,7 @@
                             type="url"
                             bind:value={emailDashboardUrl}
                             placeholder={$_('settings.email.dashboard_url_placeholder')}
-                            aria-label="Dashboard URL for email links"
+                            aria-label={$_('settings.email.dashboard_url')}
                             aria-describedby="dashboard-url-hint"
                             class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"
                         />
@@ -950,7 +950,7 @@
                         }
                     }}
                     disabled={testingNotification['email'] || !emailToEmail}
-                    aria-label="Send test email notification"
+                    aria-label={$_('settings.email.test_email')}
                     class="w-full px-4 py-3 text-xs font-black uppercase tracking-widest rounded-2xl bg-indigo-500 hover:bg-indigo-600 text-white transition-all shadow-lg shadow-indigo-500/20 disabled:opacity-50"
                 >
                     {testingNotification['email'] ? $_('settings.email.test_email_sending') : $_('settings.email.test_email')}

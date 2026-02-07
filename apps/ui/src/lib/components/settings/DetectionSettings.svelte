@@ -212,7 +212,7 @@
                 ] as mode}
                     <button
                         onclick={mode.action}
-                        aria-label="{$_('common.refresh') === 'Refresh' ? 'Select' : 'Auswählen'} {mode.title} {$_('settings.detection.naming_title') === 'Bird Naming Style' ? 'naming style' : 'Benennungsstil'}"
+                        aria-label={$_('settings.detection.naming_select_label', { values: { mode: mode.title } })}
                         class="flex items-center gap-4 p-4 rounded-2xl border-2 text-left transition-all {mode.active ? 'border-teal-500 bg-teal-500/5' : 'border-slate-100 dark:border-slate-700/50 hover:border-teal-500/20'}"
                     >
                         <div class="w-5 h-5 rounded-full border-2 flex items-center justify-center {mode.active ? 'border-teal-500 bg-teal-500' : 'border-slate-300 dark:border-slate-600'}">
@@ -239,7 +239,7 @@
             <input
                 bind:value={newBlockedLabel}
                 onkeydown={(e) => e.key === 'Enter' && addBlockedLabel()}
-                placeholder="e.g. background"
+                placeholder={$_('settings.detection.blocked_labels_placeholder')}
                 aria-label={$_('settings.detection.blocked_labels')}
                 class="flex-1 px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"
             />
@@ -259,7 +259,7 @@
                     {label}
                     <button
                         onclick={() => removeBlockedLabel(label)}
-                        aria-label="Remove {label} from blocked list"
+                        aria-label={$_('settings.detection.blocked_label_remove', { values: { label } })}
                         class="text-slate-400 hover:text-red-500 transition-colors"
                     >
                         ✕

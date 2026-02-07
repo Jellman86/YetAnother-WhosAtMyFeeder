@@ -174,7 +174,8 @@
         "sensor_id_placeholder": "传感器ID",
         "sensor_id_label": "{camera} 的音频传感器ID",
         "sensor_mapping_empty": "未检测到摄像头。请检查 Frigate 连接。",
-        "sensor_mapping_help": "添加 Frigate 摄像头以映射到音频传感器。使用 * 作为随机/动态传感器ID。"
+        "sensor_mapping_help": "添加 Frigate 摄像头以映射到音频传感器。使用 * 作为随机/动态传感器ID。",
+        "mqtt_topic_placeholder": "birdnet/text"
       },
       "inaturalist": {
         "title": "iNaturalist",
@@ -311,12 +312,15 @@
       "mqtt_user": "用户",
       "mqtt_pass": "密码",
       "fetch_clips": "获取视频片段",
-      "fetch_clips_desc": "使用 Frigate 录像进行重新分类"
+      "fetch_clips_desc": "使用 Frigate 录像进行重新分类",
+      "url_placeholder": "http://frigate:5000",
+      "mqtt_broker_placeholder": "mosquitto"
     },
     "cameras": {
       "title": "活动摄像头",
       "none_found": "未发现摄像头",
-      "syncing": "扫描中..."
+      "syncing": "扫描中...",
+      "preview_close": "Close preview"
     },
     "telemetry": {
       "title": "Telemetry",
@@ -418,7 +422,10 @@
       "cooldown": "通知冷却",
       "cooldown_desc": "通知之间的最小间隔（分钟，0 为禁用）。",
       "cooldown_unit": "分钟",
-      "enable_notify_hint": "Notifications are currently off. Enable \"Notify on new detections\" or \"Notify on updates\" to send any alerts."
+      "enable_notify_hint": "Notifications are currently off. Enable \"Notify on new detections\" or \"Notify on updates\" to send any alerts.",
+      "min_confidence_label": "Notification minimum confidence: {value}%",
+      "add_species_label": "Add species to whitelist",
+      "remove_species_label": "Remove {species} from whitelist"
     },
     "discord": {
       "title": "Discord 通知",
@@ -426,7 +433,8 @@
       "webhook_placeholder": "https://discord.com/api/webhooks/...",
       "bot_username": "机器人名称",
       "test_notification": "发送测试通知",
-      "test_sending": "发送中..."
+      "test_sending": "发送中...",
+      "bot_placeholder": "YA-WAMF Bird Bot"
     },
     "pushover": {
       "title": "Pushover 通知",
@@ -608,7 +616,10 @@
       "naming_scientific_sub": "Only show scientific names. Hides common names.",
       "blocked_labels": "Blocked Labels",
       "ignored_by_discovery": "Ignored by Discovery",
-      "no_blocked_labels": "No labels blocked yet."
+      "no_blocked_labels": "No labels blocked yet.",
+      "blocked_labels_placeholder": "e.g. background",
+      "blocked_label_remove": "Remove {label} from blocked list",
+      "naming_select_label": "Select {mode} naming style"
     }
   },
   "auth": {

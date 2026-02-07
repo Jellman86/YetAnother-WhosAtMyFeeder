@@ -9,9 +9,13 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Added:** AI conversation threads per detection with persisted history.
 - **Added:** PWA service worker for offline caching and installability.
 - **Added:** PWA update notifications and refresh prompt.
+- **Added:** LLM connection test endpoint and Settings UI action for validating API keys.
+- **Added:** Telemetry transparency details in Settings (installation ID, platform, flags, frequency).
 - **Changed:** EventProcessor notification flow decomposed into a dedicated orchestrator.
 - **Added:** Composite index on detections (`camera_name`, `detection_time`) for faster queries.
 - **Changed:** AI analysis rendering now uses a cleaner markdown layout and improved dark-mode contrast.
+- **Changed:** Settings panels now align cards to consistent heights and widths.
+- **Changed:** Settings tooltips and aria-labels are fully localized.
 
 ## [2.7.6] - 2026-02-06
 

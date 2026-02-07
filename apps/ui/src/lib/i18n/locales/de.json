@@ -268,7 +268,8 @@
         "sensor_id_placeholder": "Sensor-ID",
         "sensor_id_label": "Audio-Sensor-ID für {camera}",
         "sensor_mapping_empty": "Keine Kameras erkannt. Frigate-Verbindung prüfen.",
-        "sensor_mapping_help": "Füge deine Frigate-Kameras hinzu, um sie Audio-Sensoren zuzuordnen. Verwende * für zufällige/dynamische Sensor-IDs."
+        "sensor_mapping_help": "Füge deine Frigate-Kameras hinzu, um sie Audio-Sensoren zuzuordnen. Verwende * für zufällige/dynamische Sensor-IDs.",
+        "mqtt_topic_placeholder": "birdnet/text"
       },
       "inaturalist": {
         "title": "iNaturalist",
@@ -420,12 +421,15 @@
       "mqtt_user": "Benutzer",
       "mqtt_pass": "Passwort",
       "fetch_clips": "Videoclips abrufen",
-      "fetch_clips_desc": "Frigate-Aufnahmen zur Reklassifizierung verwenden"
+      "fetch_clips_desc": "Frigate-Aufnahmen zur Reklassifizierung verwenden",
+      "url_placeholder": "http://frigate:5000",
+      "mqtt_broker_placeholder": "mosquitto"
     },
     "cameras": {
       "title": "Aktive Kameras",
       "none_found": "Keine Kameras gefunden",
-      "syncing": "Scannen..."
+      "syncing": "Scannen...",
+      "preview_close": "Close preview"
     },
     "telemetry": {
       "title": "Telemetry",
@@ -527,7 +531,10 @@
       "cooldown": "Benachrichtigungs‑Abkühlzeit",
       "cooldown_desc": "Mindestabstand zwischen Benachrichtigungen in Minuten (0 zum Deaktivieren).",
       "cooldown_unit": "Minuten",
-      "enable_notify_hint": "Benachrichtigungen sind derzeit deaktiviert. Aktivieren Sie \"Bei neuen Erkennungen benachrichtigen\" oder \"Bei Updates benachrichtigen\", um Warnungen zu senden."
+      "enable_notify_hint": "Benachrichtigungen sind derzeit deaktiviert. Aktivieren Sie \"Bei neuen Erkennungen benachrichtigen\" oder \"Bei Updates benachrichtigen\", um Warnungen zu senden.",
+      "min_confidence_label": "Notification minimum confidence: {value}%",
+      "add_species_label": "Add species to whitelist",
+      "remove_species_label": "Remove {species} from whitelist"
     },
     "discord": {
       "title": "Discord-Benachrichtigungen",
@@ -535,7 +542,8 @@
       "webhook_placeholder": "https://discord.com/api/webhooks/...",
       "bot_username": "Bot-Name",
       "test_notification": "Testbenachrichtigung senden",
-      "test_sending": "Senden..."
+      "test_sending": "Senden...",
+      "bot_placeholder": "YA-WAMF Bird Bot"
     },
     "pushover": {
       "title": "Pushover-Benachrichtigungen",
@@ -608,7 +616,10 @@
       "naming_scientific_sub": "Nur wissenschaftliche Namen anzeigen. Gebräuchliche Namen ausblenden.",
       "blocked_labels": "Blockierte Labels",
       "ignored_by_discovery": "Von Entdeckung ignoriert",
-      "no_blocked_labels": "Noch keine blockierten Labels."
+      "no_blocked_labels": "Noch keine blockierten Labels.",
+      "blocked_labels_placeholder": "e.g. background",
+      "blocked_label_remove": "Remove {label} from blocked list",
+      "naming_select_label": "Select {mode} naming style"
     }
   },
   "auth": {

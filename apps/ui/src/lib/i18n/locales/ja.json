@@ -174,7 +174,8 @@
         "sensor_id_placeholder": "センサーID",
         "sensor_id_label": "{camera} の音声センサーID",
         "sensor_mapping_empty": "カメラが検出されません。Frigate接続を確認してください。",
-        "sensor_mapping_help": "Frigateのカメラを追加して音声センサーに割り当てます。* を使用してランダム/動的センサーIDを指定できます。"
+        "sensor_mapping_help": "Frigateのカメラを追加して音声センサーに割り当てます。* を使用してランダム/動的センサーIDを指定できます。",
+        "mqtt_topic_placeholder": "birdnet/text"
       },
       "inaturalist": {
         "title": "iNaturalist",
@@ -311,12 +312,15 @@
       "mqtt_user": "ユーザー名",
       "mqtt_pass": "パスワード",
       "fetch_clips": "ビデオクリップを取得",
-      "fetch_clips_desc": "再分類にFrigateの録画を使用する"
+      "fetch_clips_desc": "再分類にFrigateの録画を使用する",
+      "url_placeholder": "http://frigate:5000",
+      "mqtt_broker_placeholder": "mosquitto"
     },
     "cameras": {
       "title": "アクティブなカメラ",
       "none_found": "カメラが見つかりません",
-      "syncing": "スキャン中..."
+      "syncing": "スキャン中...",
+      "preview_close": "Close preview"
     },
     "telemetry": {
       "title": "Telemetry",
@@ -418,7 +422,10 @@
       "cooldown": "通知クールダウン",
       "cooldown_desc": "通知間隔の最小時間（分、0で無効）。",
       "cooldown_unit": "分",
-      "enable_notify_hint": "Notifications are currently off. Enable \"Notify on new detections\" or \"Notify on updates\" to send any alerts."
+      "enable_notify_hint": "Notifications are currently off. Enable \"Notify on new detections\" or \"Notify on updates\" to send any alerts.",
+      "min_confidence_label": "Notification minimum confidence: {value}%",
+      "add_species_label": "Add species to whitelist",
+      "remove_species_label": "Remove {species} from whitelist"
     },
     "discord": {
       "title": "Discord通知",
@@ -426,7 +433,8 @@
       "webhook_placeholder": "https://discord.com/api/webhooks/...",
       "bot_username": "ボット名",
       "test_notification": "テスト通知を送信",
-      "test_sending": "送信中..."
+      "test_sending": "送信中...",
+      "bot_placeholder": "YA-WAMF Bird Bot"
     },
     "pushover": {
       "title": "Pushover通知",
@@ -608,7 +616,10 @@
       "naming_scientific_sub": "Only show scientific names. Hides common names.",
       "blocked_labels": "Blocked Labels",
       "ignored_by_discovery": "Ignored by Discovery",
-      "no_blocked_labels": "No labels blocked yet."
+      "no_blocked_labels": "No labels blocked yet.",
+      "blocked_labels_placeholder": "e.g. background",
+      "blocked_label_remove": "Remove {label} from blocked list",
+      "naming_select_label": "Select {mode} naming style"
     }
   },
   "auth": {
