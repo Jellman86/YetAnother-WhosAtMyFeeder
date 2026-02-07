@@ -11,6 +11,74 @@ log = structlog.get_logger()
 
 class AIService:
     """Service to interact with LLMs for behavioral analysis."""
+    async def test_connection(self, provider: str, model: str, api_key: str) -> tuple[bool, str]:
+        """Test LLM connectivity with a lightweight text prompt."""
+        if not provider or not model or not api_key:
+            return False, "AI provider, model, or API key is missing."
+
+        prompt = "Reply with the single word OK."
+        provider = provider.lower()
+
+        try:
+            if provider == "gemini":
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+                payload = {
+                    "contents": [{"parts": [{"text": prompt}]}],
+                    "generationConfig": {"temperature": 0.1, "maxOutputTokens": 16}
+                }
+                async with httpx.AsyncClient(timeout=15.0) as client:
+                    resp = await client.post(url, json=payload)
+                    resp.raise_for_status()
+                    candidates = resp.json().get("candidates", [])
+                    if candidates:
+                        content = candidates[0].get("content", {})
+                        parts = content.get("parts", [])
+                        if parts and parts[0].get("text"):
+                            return True, "AI test succeeded."
+                return False, "AI returned an empty response."
+
+            if provider == "openai":
+                url = "https://api.openai.com/v1/chat/completions"
+                headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+                payload = {"model": model, "messages": [{"role": "user", "content": prompt}], "max_tokens": 16}
+                async with httpx.AsyncClient(timeout=15.0) as client:
+                    resp = await client.post(url, headers=headers, json=payload)
+                    resp.raise_for_status()
+                    choices = resp.json().get("choices", [])
+                    if choices:
+                        content = choices[0].get("message", {}).get("content")
+                        if content:
+                            return True, "AI test succeeded."
+                return False, "AI returned an empty response."
+
+            if provider == "claude":
+                url = "https://api.anthropic.com/v1/messages"
+                headers = {
+                    "x-api-key": api_key,
+                    "anthropic-version": "2023-06-01",
+                    "Content-Type": "application/json"
+                }
+                payload = {
+                    "model": model,
+                    "max_tokens": 16,
+                    "messages": [{"role": "user", "content": [{"type": "text", "text": prompt}]}]
+                }
+                async with httpx.AsyncClient(timeout=15.0) as client:
+                    resp = await client.post(url, headers=headers, json=payload)
+                    resp.raise_for_status()
+                    content = resp.json().get("content", [])
+                    if content and content[0].get("text"):
+                        return True, "AI test succeeded."
+                return False, "AI returned an empty response."
+
+            return False, "Unsupported AI provider."
+        except httpx.HTTPStatusError as e:
+            detail = e.response.text if e.response is not None else str(e)
+            log.error("LLM test failed", status=e.response.status_code if e.response else None, error=detail)
+            return False, f"AI test failed: {detail}"
+        except Exception as e:
+            log.error("LLM test failed", error=str(e))
+            return False, f"AI test failed: {str(e)}"
 
     async def analyze_detection(
         self,

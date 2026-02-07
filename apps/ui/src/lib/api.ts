@@ -53,6 +53,7 @@ export interface AuthStatusResponse {
     is_authenticated: boolean;
     birdnet_enabled: boolean;
     llm_enabled: boolean;
+    llm_ready: boolean;
     ebird_enabled: boolean;
     inaturalist_enabled: boolean;
     enrichment_mode: string;
@@ -165,6 +166,7 @@ export interface Settings {
     enrichment_links_sources?: string[];
     // LLM settings
     llm_enabled: boolean;
+    llm_ready?: boolean;
     llm_provider?: string;
     llm_api_key?: string;
     llm_model?: string;
@@ -1172,6 +1174,20 @@ export async function testBirdWeather(token?: string): Promise<{ status: string;
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token })
+    });
+    return handleResponse<{ status: string; message: string }>(response);
+}
+
+export async function testLlm(config: {
+    llm_enabled?: boolean;
+    llm_provider?: string;
+    llm_model?: string;
+    llm_api_key?: string;
+}): Promise<{ status: string; message: string }> {
+    const response = await apiFetch(`${API_BASE}/settings/llm/test`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(config)
     });
     return handleResponse<{ status: string; message: string }>(response);
 }

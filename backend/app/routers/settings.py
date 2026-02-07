@@ -20,6 +20,7 @@ from app.services.birdweather_service import birdweather_service
 from app.services.inaturalist_service import inaturalist_service
 from app.services.frigate_client import frigate_client
 from app.services.media_cache import media_cache
+from app.services.ai_service import AIService
 from app.utils.enrichment import get_effective_enrichment_settings, is_ebird_active
 
 from fastapi import BackgroundTasks
@@ -208,6 +209,35 @@ async def test_birdweather(
     if success:
         return {"status": "ok", "message": "BirdWeather test succeeded"}
     return {"status": "error", "message": "BirdWeather test failed. Check token and station permissions."}
+
+class LlmTestRequest(BaseModel):
+    llm_enabled: Optional[bool] = None
+    llm_provider: Optional[str] = None
+    llm_model: Optional[str] = None
+    llm_api_key: Optional[str] = None
+
+@router.post("/settings/llm/test")
+async def test_llm(
+    request: LlmTestRequest,
+    auth: AuthContext = Depends(require_owner)
+):
+    """Test LLM connectivity with optional overrides. Owner only."""
+    enabled = request.llm_enabled if request.llm_enabled is not None else settings.llm.enabled
+    if not enabled:
+        return {"status": "error", "message": "AI insights are disabled."}
+
+    provider = request.llm_provider or settings.llm.provider
+    model = request.llm_model or settings.llm.model
+    api_key = request.llm_api_key
+    if not api_key or api_key == "***REDACTED***":
+        api_key = settings.llm.api_key
+
+    if not api_key:
+        return {"status": "error", "message": "AI API key is missing."}
+
+    service = AIService()
+    ok, message = await service.test_connection(provider, model, api_key)
+    return {"status": "ok" if ok else "error", "message": message}
 
 class SettingsUpdate(BaseModel):
     frigate_url: str = Field(..., min_length=1, description="Frigate instance URL")
@@ -512,6 +542,7 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "enrichment_links_sources": effective_enrichment["links_sources"],
         # LLM settings
         "llm_enabled": settings.llm.enabled,
+        "llm_ready": settings.llm.enabled and bool(settings.llm.api_key),
         "llm_provider": settings.llm.provider,
         # SECURITY: Never expose API keys via API
         "llm_api_key": "***REDACTED***" if settings.llm.api_key else None,

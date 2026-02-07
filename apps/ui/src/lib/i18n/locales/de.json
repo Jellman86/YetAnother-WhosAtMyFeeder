@@ -338,7 +338,12 @@
           "gemini": "Google Gemini",
           "openai": "OpenAI",
           "claude": "Anthropic Claude"
-        }
+        },
+        "test_button": "Test AI Connection",
+        "test_loading": "Testing…",
+        "test_label": "Test AI connection",
+        "test_hint": "Runs a quick prompt to verify your API key and model.",
+        "model_hint": "Choose a model that supports image input (vision). Text-only models will fail analysis."
       }
     },
     "enrichment": {

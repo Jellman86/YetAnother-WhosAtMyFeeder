@@ -30,6 +30,7 @@
     let leaderboardAnalysisError = $state<string | null>(null);
     let leaderboardConfigKey = $state<string | null>(null);
     let leaderboardAnalysisSubtitle = $state<string | null>(null);
+    let llmReady = $state(false);
 
     const enrichmentModeSetting = $derived(settingsStore.settings?.enrichment_mode ?? authStore.enrichmentMode ?? 'per_enrichment');
     const enrichmentSingleProviderSetting = $derived(settingsStore.settings?.enrichment_single_provider ?? authStore.enrichmentSingleProvider ?? 'wikipedia');
@@ -39,6 +40,15 @@
             : (settingsStore.settings?.enrichment_summary_source ?? authStore.enrichmentSummarySource ?? 'wikipedia')
     );
     const summaryEnabled = $derived(enrichmentSummaryProvider !== 'disabled');
+
+    $effect(() => {
+        llmReady = settingsStore.llmReady;
+        if (!llmReady) {
+            leaderboardAnalysis = null;
+            leaderboardAnalysisTimestamp = null;
+            leaderboardAnalysisError = null;
+        }
+    });
 
     // Derived processed species with naming logic
     let processedSpecies = $derived(() => {
@@ -507,7 +517,7 @@
     }
 
     async function refreshLeaderboardAnalysis() {
-        if (!timeline) return;
+        if (!timeline || !llmReady) return;
         leaderboardAnalysisError = null;
         const config = buildLeaderboardConfig(true);
         const key = await computeConfigKey(config);
@@ -530,6 +540,7 @@
     });
 
     async function runLeaderboardAnalysis(force = false) {
+        if (!llmReady) return;
         if (!chartEl) return;
         leaderboardAnalysisLoading = true;
         leaderboardAnalysisError = null;
@@ -925,18 +936,20 @@
                     </div>
                     <div class="flex flex-wrap items-center gap-3 text-sm font-semibold text-slate-500 dark:text-slate-400">
                         <span>{$_('leaderboard.detections_count', { values: { count: timeline?.total_count?.toLocaleString() || '0' } })}</span>
-                        <button
-                            type="button"
-                            class="px-3 py-1.5 rounded-full border border-emerald-200/70 dark:border-emerald-800/60 text-[10px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-300 bg-emerald-50/70 dark:bg-emerald-900/20 hover:bg-emerald-100/70 dark:hover:bg-emerald-900/40 disabled:opacity-60 disabled:cursor-not-allowed"
-                            disabled={!timeline?.daily?.length || leaderboardAnalysisLoading}
-                            onclick={() => runLeaderboardAnalysis(!!leaderboardAnalysis)}
-                        >
-                            {leaderboardAnalysisLoading
-                                ? $_('leaderboard.ai_analyzing', { default: 'Analyzing…' })
-                                : leaderboardAnalysis
-                                    ? $_('leaderboard.ai_rerun', { default: 'Rerun analysis' })
-                                    : $_('leaderboard.ai_analyze', { default: 'Analyze chart' })}
-                        </button>
+                        {#if llmReady}
+                            <button
+                                type="button"
+                                class="px-3 py-1.5 rounded-full border border-emerald-200/70 dark:border-emerald-800/60 text-[10px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-300 bg-emerald-50/70 dark:bg-emerald-900/20 hover:bg-emerald-100/70 dark:hover:bg-emerald-900/40 disabled:opacity-60 disabled:cursor-not-allowed"
+                                disabled={!timeline?.daily?.length || leaderboardAnalysisLoading}
+                                onclick={() => runLeaderboardAnalysis(!!leaderboardAnalysis)}
+                            >
+                                {leaderboardAnalysisLoading
+                                    ? $_('leaderboard.ai_analyzing', { default: 'Analyzing…' })
+                                    : leaderboardAnalysis
+                                        ? $_('leaderboard.ai_rerun', { default: 'Rerun analysis' })
+                                        : $_('leaderboard.ai_analyze', { default: 'Analyze chart' })}
+                            </button>
+                        {/if}
                     </div>
                 </div>
 
@@ -957,7 +970,7 @@
                     <span>•</span>
                     <span>Avg/day: {timeline?.daily?.length ? Math.round((timeline?.total_count || 0) / timeline.daily.length).toLocaleString() : '0'}</span>
                 </div>
-                {#if leaderboardAnalysisLoading || leaderboardAnalysisError || leaderboardAnalysis}
+                {#if llmReady && (leaderboardAnalysisLoading || leaderboardAnalysisError || leaderboardAnalysis)}
                     <div class="mt-4 rounded-2xl border border-slate-200/70 dark:border-slate-700/60 bg-white/70 dark:bg-slate-900/40 px-4 py-3 text-sm text-slate-600 dark:text-slate-300 shadow-sm">
                         <div class="flex flex-wrap items-center justify-between gap-2 text-[10px] uppercase tracking-widest font-black text-slate-400">
                             <span>{$_('leaderboard.ai_summary', { default: 'AI insight' })}</span>

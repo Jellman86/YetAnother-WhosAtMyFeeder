@@ -26,6 +26,7 @@
         analyzeUnknowns,
         fetchAnalysisStatus,
         testBirdWeather,
+        testLlm,
         testBirdNET,
         testMQTTPublish,
         testNotification,
@@ -128,30 +129,32 @@
     let llmEnabled = $state(false);
     let llmProvider = $state('gemini');
     let llmApiKey = $state('');
-    let llmModel = $state('gemini-3-flash-preview');
+    let llmModel = $state('gemini-2.5-flash');
 
-    // Available models per provider (Updated January 2026)
+    // Available models per provider (Updated February 2026)
     const modelsByProvider = {
         gemini: [
-            { value: 'gemini-3-pro-preview', label: 'Gemini 3 Pro (Latest, Most Capable)' },
-            { value: 'gemini-3-flash-preview', label: 'Gemini 3 Flash (Latest, Fast & Affordable)' },
-            { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
-            { value: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite (Lightweight)' },
-            { value: 'gemini-2.0-flash-exp', label: 'Gemini 2.0 Flash Exp (Legacy, retiring March 2026)' }
+            { value: 'gemini-3-pro-preview', label: 'Gemini 3 Pro Preview (Newest)' },
+            { value: 'gemini-3-flash-preview', label: 'Gemini 3 Flash Preview (Newest, Fast)' },
+            { value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro (Most capable)' },
+            { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash (Balanced)' },
+            { value: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite (Fastest)' },
+            { value: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash (Legacy)' },
+            { value: 'gemini-2.0-flash-lite', label: 'Gemini 2.0 Flash Lite (Deprecated Mar 31, 2026)' }
         ],
         openai: [
-            { value: 'gpt-5.2-pro', label: 'GPT-5.2 Pro (Latest, Most Advanced)' },
-            { value: 'gpt-5.2-thinking', label: 'GPT-5.2 Thinking (Advanced Reasoning)' },
-            { value: 'gpt-5.2-instant', label: 'GPT-5.2 Instant (Fast)' },
-            { value: 'gpt-4o', label: 'GPT-4o (Previous Generation)' },
-            { value: 'gpt-4o-mini', label: 'GPT-4o Mini (Lightweight)' }
+            { value: 'gpt-4.1', label: 'GPT-4.1 (Recommended)' },
+            { value: 'gpt-4.1-mini', label: 'GPT-4.1 mini (Faster)' },
+            { value: 'gpt-4.1-nano', label: 'GPT-4.1 nano (Cheapest)' },
+            { value: 'gpt-4o', label: 'GPT-4o (Legacy)' },
+            { value: 'gpt-4o-mini', label: 'GPT-4o mini (Legacy)' }
         ],
         claude: [
-            { value: 'claude-opus-4-5', label: 'Claude Opus 4.5 (Latest, Most Intelligent)' },
-            { value: 'claude-sonnet-4-5-20250929', label: 'Claude Sonnet 4.5 (Balanced)' },
-            { value: 'claude-haiku-4-5', label: 'Claude Haiku 4.5 (Fastest & Most Affordable)' },
-            { value: 'claude-3-5-sonnet-20241022', label: 'Claude 3.5 Sonnet (Legacy)' },
-            { value: 'claude-3-5-haiku-20241022', label: 'Claude 3.5 Haiku (Legacy)' }
+            { value: 'claude-opus-4-20250514', label: 'Claude Opus 4 (Most capable)' },
+            { value: 'claude-sonnet-4-20250514', label: 'Claude Sonnet 4 (Balanced)' },
+            { value: 'claude-3-7-sonnet-20250219', label: 'Claude Sonnet 3.7 (Legacy)' },
+            { value: 'claude-3-5-sonnet-20241022', label: 'Claude Sonnet 3.5 (Legacy)' },
+            { value: 'claude-3-5-haiku-20241022', label: 'Claude Haiku 3.5 (Legacy)' }
         ]
     };
 
@@ -357,6 +360,7 @@
     let saving = $state(false);
     let testing = $state(false);
     let testingBirdWeather = $state(false);
+    let testingLlm = $state(false);
     let testingBirdNET = $state(false);
     let message = $state<{ type: 'success' | 'error'; text: string } | null>(null);
     let currentTheme: Theme = $state('system');
@@ -428,7 +432,7 @@
             { key: 'llmEnabled', val: llmEnabled, store: s.llm_enabled ?? false },
             { key: 'llmProvider', val: llmProvider, store: s.llm_provider ?? 'gemini' },
             { key: 'llmApiKey', val: llmApiKey, store: s.llm_api_key || '' },
-            { key: 'llmModel', val: llmModel, store: s.llm_model ?? 'gemini-3-flash-preview' },
+            { key: 'llmModel', val: llmModel, store: s.llm_model ?? 'gemini-2.5-flash' },
             { key: 'cameraAudioMapping', val: JSON.stringify(cameraAudioMapping), store: JSON.stringify(s.camera_audio_mapping || {}) },
             { key: 'minConfidence', val: minConfidence, store: s.classification_min_confidence ?? 0.4 },
             { key: 'telemetryEnabled', val: telemetryEnabled, store: s.telemetry_enabled ?? true },
@@ -1032,7 +1036,7 @@
             llmEnabled = settings.llm_enabled ?? false;
             llmProvider = settings.llm_provider ?? 'gemini';
             llmApiKey = settings.llm_api_key ?? '';
-            llmModel = settings.llm_model ?? 'gemini-3-flash-preview';
+            llmModel = settings.llm_model ?? 'gemini-2.5-flash';
             // Telemetry
             telemetryEnabled = settings.telemetry_enabled ?? true;
             telemetryInstallationId = settings.telemetry_installation_id;
@@ -1375,6 +1379,28 @@
         }
     }
 
+    async function handleTestLlm() {
+        testingLlm = true;
+        message = null;
+        try {
+            const result = await testLlm({
+                llm_enabled: llmEnabled,
+                llm_provider: llmProvider,
+                llm_model: llmModel,
+                llm_api_key: llmApiKey
+            });
+            if (result.status === 'ok') {
+                message = { type: 'success', text: result.message };
+            } else {
+                message = { type: 'error', text: result.message };
+            }
+        } catch (e: any) {
+            message = { type: 'error', text: e.message || 'Failed to test AI integration' };
+        } finally {
+            testingLlm = false;
+        }
+    }
+
     function toggleCamera(camera: string) {
         if (selectedCameras.includes(camera)) {
             selectedCameras = selectedCameras.filter(c => c !== camera);
@@ -1653,8 +1679,10 @@
                     {availableCameras}
                     {availableModels}
                     {testingBirdWeather}
+                    {testingLlm}
                     {handleTestBirdNET}
                     {handleTestBirdWeather}
+                    {handleTestLlm}
                     {initiateInaturalistOAuth}
                     {disconnectInaturalistOAuth}
                     {exportEbirdCsv}

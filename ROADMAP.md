@@ -250,21 +250,26 @@ Refined AI analysis and follow-up conversation rendering with markdown-aware for
 ### 3.3 Video Timeline & Highlights 🎬
 **Priority:** P2 | **Effort:** L (1.5-2 weeks)
 
-Create automated highlight reels and timeline views.
+Create automated highlight reels and a time-based browsing experience that makes it easy to review activity over a day or week.
 
 **Features:**
-- Automatic daily/weekly highlight compilation
-- Timeline view showing all detections across clips
-- Multi-clip stitching for continuous viewing
-- Thumbnail preview scrubbing
-- Bookmark/favorite specific moments
-- Share clips with public links (optional)
+- Timeline view with grouped detections by time window (hour/day) and camera
+- Quick-skim mode: jump between detections with keyboard shortcuts
+- Highlight reels:
+  - Daily summary (top confidence, rare species, most active hour)
+  - Weekly recap (trend deltas, rarest sightings)
+- Auto-generated "story" segments (e.g. 30-90s stitched clip)
+- Clip stitching for continuous playback
+- Thumbnail preview scrubbing and hover previews
+- Bookmark/favorite moments with notes
+- Optional public share links with expiry + watermark
 
 **Breakdown:**
-- Video processing pipeline (FFmpeg): 4 days
-- Timeline UI component: 3 days
-- Clip stitching logic: 2 days
-- Sharing & permissions: 2 days
+- Video processing pipeline (FFmpeg + caching): 4 days
+- Timeline UI component + keyboard UX: 3 days
+- Highlight scoring logic (confidence, rarity, activity): 2 days
+- Clip stitching + preview thumbnails: 2 days
+- Sharing & permissions + rate limits: 2 days
 - Testing: 1 day
 
 ### 3.4 Local LLM Support (Ollama) 🏠

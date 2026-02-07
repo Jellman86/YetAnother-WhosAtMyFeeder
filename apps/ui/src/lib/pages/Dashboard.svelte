@@ -37,11 +37,11 @@
     let hiding = $state(false);
 
     // Settings state
-    let llmEnabled = $state(false);
+    let llmReady = $state(false);
     let showCommon = $state(true);
     let preferSci = $state(false);
     $effect(() => {
-        llmEnabled = settingsStore.llmEnabled;
+        llmReady = settingsStore.llmReady;
         showCommon = settingsStore.displayCommonNames;
         preferSci = settingsStore.scientificNamePrimary;
     });
@@ -348,7 +348,7 @@
     <DetectionModal
         detection={selectedEvent}
         {classifierLabels}
-        {llmEnabled}
+        llmReady={llmReady}
         showVideoButton={true}
         onClose={() => selectedEvent = null}
         onReclassify={handleReclassify}

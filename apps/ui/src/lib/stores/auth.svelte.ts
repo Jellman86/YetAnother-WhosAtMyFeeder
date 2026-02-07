@@ -19,6 +19,7 @@ class AuthStore {
     forceLogin = $state(false);
     birdnetEnabled = $state(false);
     llmEnabled = $state(false);
+    llmReady = $state(false);
     ebirdEnabled = $state(false);
     inaturalistEnabled = $state(false);
     enrichmentMode = $state("per_enrichment");
@@ -62,6 +63,7 @@ class AuthStore {
             this.httpsWarning = status.https_warning ?? false;
             this.birdnetEnabled = status.birdnet_enabled ?? false;
             this.llmEnabled = status.llm_enabled ?? false;
+            this.llmReady = status.llm_ready ?? false;
             this.ebirdEnabled = status.ebird_enabled ?? false;
             this.inaturalistEnabled = status.inaturalist_enabled ?? false;
             this.enrichmentMode = status.enrichment_mode ?? "per_enrichment";

@@ -4,9 +4,9 @@
 
 | Version | Supported          |
 | ------- | ------------------ |
+| 2.7.x   | :white_check_mark: |
 | 2.6.x   | :white_check_mark: |
-| 2.5.x   | :white_check_mark: |
-| < 2.5   | :x:                |
+| < 2.6   | :x:                |
 
 ## Reporting a Vulnerability
 
@@ -18,6 +18,10 @@ If you discover a security vulnerability in YA-WAMF, please report it privately 
 
 I will acknowledge your report within 48 hours.
 
+## Security Review Request
+
+If you can, please perform a code review or pentest of YA-WAMF and report any issues you find. Practical reports (repro steps, impacted routes, configs) are especially helpful.
+
 ## Security Features (v2.6.0+)
 
 YA-WAMF includes several built-in security features to protect your installation:
@@ -26,6 +30,7 @@ YA-WAMF includes several built-in security features to protect your installation
 - **JWT-based Auth:** Uses industry-standard JSON Web Tokens for session management.
 - **Bcrypt Hashing:** Passwords are hashed using bcrypt with a configurable work factor.
 - **Rate Limiting:** Login endpoints are strictly rate-limited (5 attempts/minute) to prevent brute-force attacks.
+- **Optional API Key:** Legacy API key support for non-UI integrations.
 
 ### 2. Network Security
 - **Security Headers:** The application automatically adds HSTS (if HTTPS), X-Frame-Options, CSP, and X-Content-Type-Options headers.
@@ -36,6 +41,14 @@ YA-WAMF includes several built-in security features to protect your installation
 - **Granular Permissions:** "Guest" mode allows read-only access to detections while blocking sensitive actions (delete, reclassify, settings).
 - **Data Filtering:** You can configure the number of historical days visible to guests.
 - **Camera Privacy:** Option to hide camera names from public view.
+
+### 4. Data Protection & Secrets
+- **Secret Redaction:** API responses never expose raw secrets (LLM keys, notification tokens, OAuth client secrets).
+- **Owner-only Settings:** Settings updates and test endpoints require owner permissions.
+
+### 5. Operational Safety
+- **Health & Metrics:** Health checks and metrics endpoints help detect anomalies early.
+- **Audit-Friendly Logs:** Structured logs include context without leaking secrets.
 
 ## Best Practices
 

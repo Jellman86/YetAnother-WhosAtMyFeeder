@@ -40,7 +40,7 @@
     interface Props {
         detection: Detection;
         classifierLabels: string[];
-        llmEnabled: boolean;
+        llmReady: boolean;
         showVideoButton?: boolean;
         onClose: () => void;
         onReclassify?: (detection: Detection) => void;
@@ -52,7 +52,7 @@
     let {
         detection,
         classifierLabels,
-        llmEnabled,
+        llmReady,
         showVideoButton = false,
         onClose,
         onReclassify,
@@ -288,7 +288,7 @@
         if (!detection?.frigate_event) return;
         if (detection.frigate_event !== lastEventId) {
             lastEventId = detection.frigate_event;
-            aiAnalysis = detection.ai_analysis || null;
+            aiAnalysis = llmReady ? (detection.ai_analysis || null) : null;
             inatPanelOpen = false;
             inatDraft = null;
             inatNotes = '';
@@ -298,9 +298,18 @@
             conversationTurns = [];
             conversationInput = '';
             conversationError = null;
-            if (aiAnalysis) {
+            if (aiAnalysis && llmReady) {
                 loadConversation();
             }
+        }
+    });
+
+    $effect(() => {
+        if (!llmReady) {
+            aiAnalysis = null;
+            conversationTurns = [];
+            conversationInput = '';
+            conversationError = null;
         }
     });
 
@@ -353,7 +362,7 @@
     }
 
     async function loadConversation() {
-        if (!llmEnabled || !aiAnalysis) return;
+        if (!llmReady || !aiAnalysis) return;
         conversationLoading = true;
         conversationError = null;
         try {
@@ -611,6 +620,7 @@
     async function handleAIAnalysis(force: boolean = false) {
         if (readOnly) return;
         if (!detection) return;
+        if (!llmReady) return;
         analyzingAI = true;
         if (force) {
             aiAnalysis = null; // Clear existing analysis when forcing regeneration
@@ -1448,7 +1458,7 @@
             {/if}
 
             <!-- AI Analysis -->
-            {#if aiAnalysis}
+            {#if llmReady && aiAnalysis}
                 <div class="space-y-3">
                     <div class="ai-panel">
                         <div class="ai-panel__label">{$_('detection.ai.insight')}</div>
@@ -1456,7 +1466,7 @@
                             {@html renderMarkdown(aiAnalysis)}
                         </div>
                     </div>
-                    {#if authStore.canModify && llmEnabled}
+                    {#if authStore.canModify && llmReady}
                         <button
                             onclick={() => handleAIAnalysis(true)}
                             disabled={analyzingAI}
@@ -1470,7 +1480,7 @@
                         </button>
                     {/if}
                 </div>
-            {:else if llmEnabled && !analyzingAI && authStore.canModify}
+            {:else if llmReady && !analyzingAI && authStore.canModify}
                 <button
                     onclick={() => handleAIAnalysis()}
                     class="w-full py-3 px-4 bg-teal-500/10 hover:bg-teal-500/20 text-teal-600 dark:text-teal-400 font-bold rounded-xl transition-all flex items-center justify-center gap-2 border border-teal-500/20"
@@ -1487,7 +1497,7 @@
                 </div>
             {/if}
 
-            {#if llmEnabled && aiAnalysis}
+            {#if llmReady && aiAnalysis}
                 <div class="space-y-3">
                     <p class="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">
                         {$_('detection.ai.conversation_title')}

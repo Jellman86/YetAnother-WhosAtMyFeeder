@@ -54,6 +54,7 @@ class AuthStatusResponse(BaseModel):
     is_authenticated: bool
     birdnet_enabled: bool = False
     llm_enabled: bool = False
+    llm_ready: bool = False
     ebird_enabled: bool = False
     inaturalist_enabled: bool = False
     enrichment_mode: str = "per_enrichment"
@@ -250,6 +251,7 @@ async def get_auth_status(request: Request):
         is_authenticated=auth_level == AuthLevel.OWNER,
         birdnet_enabled=settings.frigate.birdnet_enabled,
         llm_enabled=settings.llm.enabled,
+        llm_ready=settings.llm.enabled and bool(settings.llm.api_key),
         ebird_enabled=ebird_active,
         inaturalist_enabled=settings.inaturalist.enabled,
         enrichment_mode=effective_enrichment["mode"],

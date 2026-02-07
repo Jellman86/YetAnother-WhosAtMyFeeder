@@ -4,6 +4,8 @@ A bird classification system that integrates with [Frigate NVR](https://frigate.
 
 ![YA-WAMF Dashboard](dashboard-preview.png)
 
+> If you share your guest dashboard publicly, I would love to see it. Please open an issue or discussion and drop a link so I can take a look.
+
 ## Features at a Glance
 
 - **Advanced AI Classification** - MobileNetV2, ConvNeXt, or EVA-02 models (up to 91% accuracy)
@@ -23,6 +25,10 @@ A bird classification system that integrates with [Frigate NVR](https://frigate.
 A personal project built with AI-assisted coding, inspired by the original [WhosAtMyFeeder](https://github.com/mmcc-xx/WhosAtMyFeeder). When I noticed the original project wasn't being maintained, I saw an opportunity to learn and build something better.
 
 Built with help from AI coding assistants as an experiment in what's possible with modern development tools. Feedback and contributions are welcome!
+
+## Security
+
+Please see the [Security Policy](SECURITY.md) for supported versions, reporting guidelines, and a summary of security features.
 
 ## Live Instance
 

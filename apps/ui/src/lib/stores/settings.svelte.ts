@@ -52,6 +52,10 @@ class SettingsStore {
         return this.settings?.llm_enabled ?? authStore.llmEnabled ?? false;
     }
 
+    get llmReady() {
+        return this.settings?.llm_ready ?? authStore.llmReady ?? false;
+    }
+
     get birdnetEnabled() {
         return this.settings?.birdnet_enabled ?? authStore.birdnetEnabled ?? false;
     }

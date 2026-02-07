@@ -63,9 +63,9 @@
     let analyzingAI = $state(false);
     let aiAnalysis = $state<string | null>(null);
 
-    let llmEnabled = $state(false);
+    let llmReady = $state(false);
     $effect(() => {
-        llmEnabled = settingsStore.settings?.llm_enabled ?? authStore.llmEnabled ?? false;
+        llmReady = settingsStore.llmReady;
     });
 
     // Naming logic
@@ -286,7 +286,7 @@
     <DetectionModal
         detection={selectedEvent}
         {classifierLabels}
-        {llmEnabled}
+        llmReady={llmReady}
         showVideoButton={true}
         onClose={() => selectedEvent = null}
         onReclassify={handleReclassify}

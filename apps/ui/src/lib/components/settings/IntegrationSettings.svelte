@@ -13,6 +13,7 @@
         birdweatherEnabled = $bindable(false),
         birdweatherStationToken = $bindable(''),
         testingBirdWeather,
+        testingLlm,
         ebirdEnabled = $bindable(false),
         ebirdApiKey = $bindable(''),
         ebirdApiKeySaved = $bindable(false),
@@ -31,7 +32,7 @@
         inaturalistConnectedUser = $bindable<string | null>(null),
         llmEnabled = $bindable(false),
         llmProvider = $bindable('gemini'),
-        llmModel = $bindable('gemini-3-flash-preview'),
+        llmModel = $bindable('gemini-2.5-flash'),
         llmApiKey = $bindable(''),
         availableModels,
         locationAuto = $bindable(true),
@@ -40,6 +41,7 @@
         locationTemperatureUnit = $bindable<'celsius' | 'fahrenheit'>('celsius'),
         handleTestBirdNET,
         handleTestBirdWeather,
+        handleTestLlm,
         initiateInaturalistOAuth,
         disconnectInaturalistOAuth,
         refreshInaturalistStatus,
@@ -55,6 +57,7 @@
         birdweatherEnabled: boolean;
         birdweatherStationToken: string;
         testingBirdWeather: boolean;
+        testingLlm: boolean;
         ebirdEnabled: boolean;
         ebirdApiKey: string;
         ebirdApiKeySaved: boolean;
@@ -82,6 +85,7 @@
         locationTemperatureUnit: 'celsius' | 'fahrenheit';
         handleTestBirdNET: () => Promise<void>;
         handleTestBirdWeather: () => Promise<void>;
+        handleTestLlm: () => Promise<void>;
         initiateInaturalistOAuth: () => Promise<{ authorization_url: string }>;
         disconnectInaturalistOAuth: () => Promise<{ status: string }>;
         refreshInaturalistStatus: () => Promise<void>;
@@ -579,6 +583,7 @@
                             <option value={model.value}>{model.label}</option>
                         {/each}
                     </select>
+                    <p class="mt-2 text-[10px] text-slate-500 font-bold italic">{$_('settings.integrations.llm.model_hint')}</p>
                 </div>
             </div>
             <div>
@@ -591,6 +596,15 @@
                     class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"
                 />
             </div>
+            <button
+                onclick={handleTestLlm}
+                disabled={testingLlm || !llmEnabled || !llmApiKey}
+                aria-label={$_('settings.integrations.llm.test_label')}
+                class="w-full px-4 py-3 text-xs font-black uppercase tracking-widest rounded-2xl bg-brand-500 hover:bg-brand-600 text-white transition-all shadow-lg shadow-brand-500/20 disabled:opacity-50"
+            >
+                {testingLlm ? $_('settings.integrations.llm.test_loading') : $_('settings.integrations.llm.test_button')}
+            </button>
+            <p class="text-[10px] text-slate-500 font-bold italic">{$_('settings.integrations.llm.test_hint')}</p>
         </div>
     </section>
 

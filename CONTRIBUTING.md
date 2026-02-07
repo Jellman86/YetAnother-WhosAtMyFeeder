@@ -67,6 +67,10 @@ Bugs are tracked as GitHub issues. When filing an issue, please include:
 *   Logs from the backend (`docker compose logs backend`).
 *   Browser console errors (if UI related).
 
+## 🔐 Security Issues
+
+Please follow the [Security Policy](SECURITY.md) for responsible disclosure and supported versions.
+
 ## 🚀 Pull Requests
 
 1.  Fork the repo and create your branch from `main`.

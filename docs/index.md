@@ -38,6 +38,7 @@ Connect YA-WAMF to the rest of your smart home and community projects.
 ## Feature Deep Dives
 
 - [🔐 Authentication & Access](features/authentication.md) - Admin passwords, guest mode, and security
+- [🛡️ Security Policy](../SECURITY.md) - Supported versions, reporting, and security overview
 - [🧠 AI Models & Performance](features/ai-models.md) - Understanding MobileNet vs ConvNeXt vs EVA-02
 - [🗂 Taxonomy & Naming](features/taxonomy.md) - How scientific naming works
 - [🔔 Notifications](features/notifications.md) - Discord, Pushover, Telegram, Email + Notification Center
