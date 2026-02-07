@@ -162,7 +162,22 @@
       "apply_pending": "Ожидание — нажмите «Применить», чтобы активировать.",
       "apply_applied": "Применено.",
       "apply_button": "Применить",
-      "apply_notice": "Настройка предпросмотра обновлена."
+      "apply_notice": "Настройка предпросмотра обновлена.",
+      "llm_prompts_title": "Шаблоны промптов LLM",
+      "llm_prompts_subtitle": "Настройте структуру Markdown и тон для AI‑анализа и бесед.",
+      "llm_prompt_style_label": "Стиль промпта",
+      "llm_prompt_style_help": "Применяет локализованные значения по умолчанию для текущего языка.",
+      "llm_prompt_style_classic": "Классический",
+      "llm_prompt_style_field": "Полевые заметки",
+      "llm_prompt_apply_style": "Применить стиль",
+      "llm_prompt_reset_defaults": "Сбросить по умолчанию",
+      "llm_prompt_apply_notice": "Шаблоны промптов обновлены.",
+      "llm_prompt_analysis": "Промпт анализа детекции",
+      "llm_prompt_analysis_hint": "Токены: {species}, {time}, {weather_str}, {frame_note}, {language_note}",
+      "llm_prompt_conversation": "Промпт беседы",
+      "llm_prompt_conversation_hint": "Токены: {species}, {analysis}, {history}, {question}, {language_note}",
+      "llm_prompt_chart": "Промпт анализа графика",
+      "llm_prompt_chart_hint": "Токены: {timeframe}, {total_count}, {series}, {weather_notes}, {sun_notes}, {notes}, {language_note}"
     },
     "integrations": {
       "birdnet": {

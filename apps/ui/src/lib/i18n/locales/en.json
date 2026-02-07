@@ -256,7 +256,22 @@
       "apply_pending": "Pending — click Apply to activate.",
       "apply_applied": "Applied.",
       "apply_button": "Apply",
-      "apply_notice": "Preview setting updated."
+      "apply_notice": "Preview setting updated.",
+      "llm_prompts_title": "LLM Prompt Templates",
+      "llm_prompts_subtitle": "Customize the Markdown structure and tone for AI analysis and conversations.",
+      "llm_prompt_style_label": "Prompt Style",
+      "llm_prompt_style_help": "Applies localized defaults for your current language.",
+      "llm_prompt_style_classic": "Classic",
+      "llm_prompt_style_field": "Field Notes",
+      "llm_prompt_apply_style": "Apply Style",
+      "llm_prompt_reset_defaults": "Reset Defaults",
+      "llm_prompt_apply_notice": "Prompt templates updated.",
+      "llm_prompt_analysis": "Detection Analysis Prompt",
+      "llm_prompt_analysis_hint": "Tokens: {species}, {time}, {weather_str}, {frame_note}, {language_note}",
+      "llm_prompt_conversation": "Conversation Prompt",
+      "llm_prompt_conversation_hint": "Tokens: {species}, {analysis}, {history}, {question}, {language_note}",
+      "llm_prompt_chart": "Chart Analysis Prompt",
+      "llm_prompt_chart_hint": "Tokens: {timeframe}, {total_count}, {series}, {weather_notes}, {sun_notes}, {notes}, {language_note}"
     },
     "integrations": {
       "birdnet": {

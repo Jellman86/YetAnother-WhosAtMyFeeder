@@ -154,7 +154,22 @@
       "apply_pending": "待应用 — 点击“应用”以启用。",
       "apply_applied": "已应用。",
       "apply_button": "应用",
-      "apply_notice": "预览设置已更新。"
+      "apply_notice": "预览设置已更新。",
+      "llm_prompts_title": "LLM 提示模板",
+      "llm_prompts_subtitle": "自定义 AI 分析与对话的 Markdown 结构和语气。",
+      "llm_prompt_style_label": "提示风格",
+      "llm_prompt_style_help": "应用当前语言的本地化默认值。",
+      "llm_prompt_style_classic": "经典",
+      "llm_prompt_style_field": "野外笔记",
+      "llm_prompt_apply_style": "应用风格",
+      "llm_prompt_reset_defaults": "重置默认值",
+      "llm_prompt_apply_notice": "提示模板已更新。",
+      "llm_prompt_analysis": "检测分析提示",
+      "llm_prompt_analysis_hint": "标记: {species}, {time}, {weather_str}, {frame_note}, {language_note}",
+      "llm_prompt_conversation": "对话提示",
+      "llm_prompt_conversation_hint": "标记: {species}, {analysis}, {history}, {question}, {language_note}",
+      "llm_prompt_chart": "图表分析提示",
+      "llm_prompt_chart_hint": "标记: {timeframe}, {total_count}, {series}, {weather_notes}, {sun_notes}, {notes}, {language_note}"
     },
     "integrations": {
       "birdnet": {

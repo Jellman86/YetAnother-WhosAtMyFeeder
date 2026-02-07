@@ -248,7 +248,22 @@
       "apply_pending": "Ausstehend — zum Aktivieren auf Anwenden klicken.",
       "apply_applied": "Angewendet.",
       "apply_button": "Anwenden",
-      "apply_notice": "Vorschau-Einstellung aktualisiert."
+      "apply_notice": "Vorschau-Einstellung aktualisiert.",
+      "llm_prompts_title": "LLM-Promptvorlagen",
+      "llm_prompts_subtitle": "Passen Sie die Markdown-Struktur und den Ton für KI-Analysen und Gespräche an.",
+      "llm_prompt_style_label": "Prompt-Stil",
+      "llm_prompt_style_help": "Wendet lokalisierte Standardwerte für Ihre aktuelle Sprache an.",
+      "llm_prompt_style_classic": "Klassisch",
+      "llm_prompt_style_field": "Feldnotizen",
+      "llm_prompt_apply_style": "Stil anwenden",
+      "llm_prompt_reset_defaults": "Standardwerte zurücksetzen",
+      "llm_prompt_apply_notice": "Promptvorlagen aktualisiert.",
+      "llm_prompt_analysis": "Prompt für Erkennungsanalyse",
+      "llm_prompt_analysis_hint": "Platzhalter: {species}, {time}, {weather_str}, {frame_note}, {language_note}",
+      "llm_prompt_conversation": "Prompt für Unterhaltung",
+      "llm_prompt_conversation_hint": "Platzhalter: {species}, {analysis}, {history}, {question}, {language_note}",
+      "llm_prompt_chart": "Prompt für Diagrammanalyse",
+      "llm_prompt_chart_hint": "Platzhalter: {timeframe}, {total_count}, {series}, {weather_notes}, {sun_notes}, {notes}, {language_note}"
     },
     "integrations": {
       "birdnet": {

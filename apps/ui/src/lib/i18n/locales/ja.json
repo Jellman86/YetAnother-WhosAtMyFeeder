@@ -154,7 +154,22 @@
       "apply_pending": "保留中 — 有効化するには適用をクリック。",
       "apply_applied": "適用済み。",
       "apply_button": "適用",
-      "apply_notice": "プレビュー設定を更新しました。"
+      "apply_notice": "プレビュー設定を更新しました。",
+      "llm_prompts_title": "LLMプロンプトテンプレート",
+      "llm_prompts_subtitle": "AI解析と会話のMarkdown構成とトーンをカスタマイズします。",
+      "llm_prompt_style_label": "プロンプトスタイル",
+      "llm_prompt_style_help": "現在の言語に合わせた既定値を適用します。",
+      "llm_prompt_style_classic": "クラシック",
+      "llm_prompt_style_field": "フィールドノート",
+      "llm_prompt_apply_style": "スタイルを適用",
+      "llm_prompt_reset_defaults": "既定に戻す",
+      "llm_prompt_apply_notice": "プロンプトテンプレートを更新しました。",
+      "llm_prompt_analysis": "検出解析プロンプト",
+      "llm_prompt_analysis_hint": "トークン: {species}, {time}, {weather_str}, {frame_note}, {language_note}",
+      "llm_prompt_conversation": "会話プロンプト",
+      "llm_prompt_conversation_hint": "トークン: {species}, {analysis}, {history}, {question}, {language_note}",
+      "llm_prompt_chart": "グラフ解析プロンプト",
+      "llm_prompt_chart_hint": "トークン: {timeframe}, {total_count}, {series}, {weather_notes}, {sun_notes}, {notes}, {language_note}"
     },
     "integrations": {
       "birdnet": {

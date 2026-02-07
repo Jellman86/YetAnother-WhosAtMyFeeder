@@ -154,7 +154,22 @@
       "apply_pending": "Pendiente — haz clic en Aplicar para activar.",
       "apply_applied": "Aplicado.",
       "apply_button": "Aplicar",
-      "apply_notice": "Configuración de vista previa actualizada."
+      "apply_notice": "Configuración de vista previa actualizada.",
+      "llm_prompts_title": "Plantillas de prompts de LLM",
+      "llm_prompts_subtitle": "Personaliza la estructura Markdown y el tono para el análisis de IA y las conversaciones.",
+      "llm_prompt_style_label": "Estilo de prompt",
+      "llm_prompt_style_help": "Aplica los valores predeterminados localizados para tu idioma actual.",
+      "llm_prompt_style_classic": "Clásico",
+      "llm_prompt_style_field": "Notas de campo",
+      "llm_prompt_apply_style": "Aplicar estilo",
+      "llm_prompt_reset_defaults": "Restablecer predeterminados",
+      "llm_prompt_apply_notice": "Plantillas de prompt actualizadas.",
+      "llm_prompt_analysis": "Prompt de análisis de detección",
+      "llm_prompt_analysis_hint": "Tokens: {species}, {time}, {weather_str}, {frame_note}, {language_note}",
+      "llm_prompt_conversation": "Prompt de conversación",
+      "llm_prompt_conversation_hint": "Tokens: {species}, {analysis}, {history}, {question}, {language_note}",
+      "llm_prompt_chart": "Prompt de análisis de gráficos",
+      "llm_prompt_chart_hint": "Tokens: {timeframe}, {total_count}, {series}, {weather_notes}, {sun_notes}, {notes}, {language_note}"
     },
     "integrations": {
       "birdnet": {
