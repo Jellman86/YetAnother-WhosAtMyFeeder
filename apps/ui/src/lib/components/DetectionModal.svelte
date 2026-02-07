@@ -855,6 +855,7 @@
 >
     <div
         bind:this={modalElement}
+        data-theme={isDarkMode ? 'dark' : 'light'}
         class="relative bg-white dark:bg-slate-800 rounded-3xl shadow-2xl max-w-5xl w-full max-h-[90vh] flex flex-col border border-white/20 overflow-hidden"
         role="document"
         tabindex="-1"
@@ -921,11 +922,20 @@
         color: inherit;
     }
 
-    :global(.ai-markdown) {
+    :global(.ai-markdown-surface) {
         color: inherit;
     }
 
-    :global(.ai-markdown h1) {
+    :global(.ai-markdown-surface) {
+        color: rgb(30 41 59);
+    }
+
+    :global(.dark .ai-markdown-surface),
+    :global([data-theme='dark'] .ai-markdown-surface) {
+        color: rgb(241 245 249);
+    }
+
+    :global(.ai-markdown-surface h1) {
         margin: 0.75rem 0 0.4rem;
         font-size: 0.95rem;
         letter-spacing: 0.28em;
@@ -934,12 +944,12 @@
         color: rgb(13 148 136);
     }
 
-    :global(.dark .ai-markdown h1),
-    :global([data-theme='dark'] .ai-markdown h1) {
+    :global(.dark .ai-markdown-surface h1),
+    :global([data-theme='dark'] .ai-markdown-surface h1) {
         color: rgb(94 234 212);
     }
 
-    :global(.ai-markdown h2) {
+    :global(.ai-markdown-surface h2) {
         margin: 0.7rem 0 0.35rem;
         font-size: 0.9rem;
         letter-spacing: 0.26em;
@@ -948,12 +958,12 @@
         color: rgb(13 148 136);
     }
 
-    :global(.dark .ai-markdown h2),
-    :global([data-theme='dark'] .ai-markdown h2) {
+    :global(.dark .ai-markdown-surface h2),
+    :global([data-theme='dark'] .ai-markdown-surface h2) {
         color: rgb(94 234 212);
     }
 
-    :global(.ai-markdown h3) {
+    :global(.ai-markdown-surface h3) {
         margin: 0.65rem 0 0.3rem;
         font-size: 0.82rem;
         letter-spacing: 0.22em;
@@ -962,12 +972,12 @@
         color: rgb(13 148 136);
     }
 
-    :global(.dark .ai-markdown h3),
-    :global([data-theme='dark'] .ai-markdown h3) {
+    :global(.dark .ai-markdown-surface h3),
+    :global([data-theme='dark'] .ai-markdown-surface h3) {
         color: rgb(94 234 212);
     }
 
-    :global(.ai-markdown h4) {
+    :global(.ai-markdown-surface h4) {
         margin: 0.6rem 0 0.25rem;
         font-size: 0.78rem;
         letter-spacing: 0.22em;
@@ -976,13 +986,13 @@
         color: rgb(13 148 136);
     }
 
-    :global(.dark .ai-markdown h4),
-    :global([data-theme='dark'] .ai-markdown h4) {
+    :global(.dark .ai-markdown-surface h4),
+    :global([data-theme='dark'] .ai-markdown-surface h4) {
         color: rgb(94 234 212);
     }
 
-    :global(.ai-markdown h5),
-    :global(.ai-markdown h6) {
+    :global(.ai-markdown-surface h5),
+    :global(.ai-markdown-surface h6) {
         margin: 0.55rem 0 0.2rem;
         font-size: 0.72rem;
         letter-spacing: 0.2em;
@@ -991,77 +1001,77 @@
         color: rgb(13 148 136);
     }
 
-    :global(.dark .ai-markdown h5),
-    :global(.dark .ai-markdown h6),
-    :global([data-theme='dark'] .ai-markdown h5),
-    :global([data-theme='dark'] .ai-markdown h6) {
+    :global(.dark .ai-markdown-surface h5),
+    :global(.dark .ai-markdown-surface h6),
+    :global([data-theme='dark'] .ai-markdown-surface h5),
+    :global([data-theme='dark'] .ai-markdown-surface h6) {
         color: rgb(94 234 212);
     }
 
-    :global(.ai-markdown p) {
+    :global(.ai-markdown-surface p) {
         margin: 0.3rem 0;
         font-size: 0.88rem;
         line-height: 1.55;
         color: inherit;
     }
 
-    :global(.dark .ai-markdown p),
-    :global([data-theme='dark'] .ai-markdown p) {
+    :global(.dark .ai-markdown-surface p),
+    :global([data-theme='dark'] .ai-markdown-surface p) {
         color: inherit;
     }
 
-    :global(.ai-markdown ul) {
+    :global(.ai-markdown-surface ul) {
         margin: 0.35rem 0 0.65rem;
         padding-left: 1.2rem;
         list-style: disc;
         list-style-position: outside;
     }
 
-    :global(.ai-markdown ol) {
+    :global(.ai-markdown-surface ol) {
         margin: 0.35rem 0 0.65rem;
         padding-left: 1.3rem;
         list-style: decimal;
         list-style-position: outside;
     }
 
-    :global(.ai-markdown ul ul),
-    :global(.ai-markdown ol ol),
-    :global(.ai-markdown ul ol),
-    :global(.ai-markdown ol ul) {
+    :global(.ai-markdown-surface ul ul),
+    :global(.ai-markdown-surface ol ol),
+    :global(.ai-markdown-surface ul ol),
+    :global(.ai-markdown-surface ol ul) {
         margin: 0.2rem 0 0.4rem;
     }
 
-    :global(.ai-markdown li) {
+    :global(.ai-markdown-surface li) {
         margin: 0.25rem 0;
         font-size: 0.88rem;
         color: inherit;
     }
 
-    :global(.dark .ai-markdown li),
-    :global([data-theme='dark'] .ai-markdown li) {
+    :global(.dark .ai-markdown-surface li),
+    :global([data-theme='dark'] .ai-markdown-surface li) {
         color: inherit;
     }
 
-    :global(.ai-markdown strong) {
+    :global(.ai-markdown-surface strong) {
         font-weight: 700;
         color: rgb(15 118 110);
     }
 
-    :global(.dark .ai-markdown strong),
-    :global([data-theme='dark'] .ai-markdown strong) {
+    :global(.dark .ai-markdown-surface strong),
+    :global([data-theme='dark'] .ai-markdown-surface strong) {
         color: rgb(153 246 228);
     }
 
-    :global(.ai-markdown em) {
+    :global(.ai-markdown-surface em) {
         color: rgba(30, 41, 59, 0.8);
     }
 
-    :global(.dark .ai-markdown em),
-    :global([data-theme='dark'] .ai-markdown em) {
+    :global(.dark .ai-markdown-surface em),
+    :global([data-theme='dark'] .ai-markdown-surface em) {
         color: rgba(226, 232, 240, 0.82);
     }
 
-    :global(.ai-markdown code) {
+    :global(.ai-markdown-surface code) {
         font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
         font-size: 0.75rem;
         padding: 0.1rem 0.3rem;
@@ -1070,13 +1080,13 @@
         color: rgb(15 118 110);
     }
 
-    :global(.dark .ai-markdown code),
-    :global([data-theme='dark'] .ai-markdown code) {
+    :global(.dark .ai-markdown-surface code),
+    :global([data-theme='dark'] .ai-markdown-surface code) {
         background: rgba(45, 212, 191, 0.25);
         color: rgb(153 246 228);
     }
 
-    :global(.ai-markdown pre) {
+    :global(.ai-markdown-surface pre) {
         margin: 0.5rem 0 0.75rem;
         padding: 0.75rem 0.9rem;
         border-radius: 0.75rem;
@@ -1085,13 +1095,13 @@
         overflow-x: auto;
     }
 
-    :global(.dark .ai-markdown pre),
-    :global([data-theme='dark'] .ai-markdown pre) {
+    :global(.dark .ai-markdown-surface pre),
+    :global([data-theme='dark'] .ai-markdown-surface pre) {
         background: rgba(15, 23, 42, 0.6);
         border-color: rgba(45, 212, 191, 0.2);
     }
 
-    :global(.ai-markdown pre code) {
+    :global(.ai-markdown-surface pre code) {
         display: block;
         padding: 0;
         background: transparent;
@@ -1100,7 +1110,7 @@
         line-height: 1.55;
     }
 
-    :global(.ai-markdown blockquote) {
+    :global(.ai-markdown-surface blockquote) {
         margin: 0.5rem 0 0.75rem;
         padding: 0.5rem 0.9rem;
         border-left: 3px solid rgba(20, 184, 166, 0.5);
@@ -1109,59 +1119,59 @@
         color: inherit;
     }
 
-    :global(.dark .ai-markdown blockquote),
-    :global([data-theme='dark'] .ai-markdown blockquote) {
+    :global(.dark .ai-markdown-surface blockquote),
+    :global([data-theme='dark'] .ai-markdown-surface blockquote) {
         background: rgba(20, 184, 166, 0.18);
         color: inherit;
         border-left-color: rgba(94, 234, 212, 0.7);
     }
 
-    :global(.ai-markdown a) {
+    :global(.ai-markdown-surface a) {
         color: rgb(13 148 136);
         text-decoration: underline;
         text-decoration-thickness: 1px;
         text-underline-offset: 2px;
     }
 
-    :global(.dark .ai-markdown a),
-    :global([data-theme='dark'] .ai-markdown a) {
+    :global(.dark .ai-markdown-surface a),
+    :global([data-theme='dark'] .ai-markdown-surface a) {
         color: rgb(94 234 212);
     }
 
-    :global(.ai-markdown hr) {
+    :global(.ai-markdown-surface hr) {
         border: none;
         height: 1px;
         margin: 0.6rem 0 0.8rem;
         background: rgba(148, 163, 184, 0.35);
     }
 
-    :global(.dark .ai-markdown hr),
-    :global([data-theme='dark'] .ai-markdown hr) {
+    :global(.dark .ai-markdown-surface hr),
+    :global([data-theme='dark'] .ai-markdown-surface hr) {
         background: rgba(71, 85, 105, 0.5);
     }
 
-    :global(.ai-markdown table) {
+    :global(.ai-markdown-surface table) {
         width: 100%;
         border-collapse: collapse;
         margin: 0.5rem 0 0.75rem;
         font-size: 0.82rem;
     }
 
-    :global(.ai-markdown th),
-    :global(.ai-markdown td) {
+    :global(.ai-markdown-surface th),
+    :global(.ai-markdown-surface td) {
         padding: 0.35rem 0.5rem;
         border-bottom: 1px solid rgba(148, 163, 184, 0.25);
         text-align: left;
     }
 
-    :global(.dark .ai-markdown th),
-    :global(.dark .ai-markdown td),
-    :global([data-theme='dark'] .ai-markdown th),
-    :global([data-theme='dark'] .ai-markdown td) {
+    :global(.dark .ai-markdown-surface th),
+    :global(.dark .ai-markdown-surface td),
+    :global([data-theme='dark'] .ai-markdown-surface th),
+    :global([data-theme='dark'] .ai-markdown-surface td) {
         border-bottom-color: rgba(71, 85, 105, 0.45);
     }
 
-    :global(.ai-markdown th) {
+    :global(.ai-markdown-surface th) {
         font-weight: 700;
         color: rgb(15 118 110);
         text-transform: uppercase;
@@ -1169,16 +1179,16 @@
         font-size: 0.7rem;
     }
 
-    :global(.dark .ai-markdown th),
-    :global([data-theme='dark'] .ai-markdown th) {
+    :global(.dark .ai-markdown-surface th),
+    :global([data-theme='dark'] .ai-markdown-surface th) {
         color: rgb(153 246 228);
     }
 
-    :global(.ai-markdown > :first-child) {
+    :global(.ai-markdown-surface > :first-child) {
         margin-top: 0;
     }
 
-    :global(.ai-markdown > :last-child) {
+    :global(.ai-markdown-surface > :last-child) {
         margin-bottom: 0;
     }
 
@@ -1246,28 +1256,28 @@
         white-space: normal;
     }
 
-    :global(.ai-bubble--assistant .ai-markdown h1),
-    :global(.ai-bubble--assistant .ai-markdown h2),
-    :global(.ai-bubble--assistant .ai-markdown h3),
-    :global(.ai-bubble--assistant .ai-markdown h4),
-    :global(.ai-bubble--assistant .ai-markdown h5),
-    :global(.ai-bubble--assistant .ai-markdown h6) {
+    :global(.ai-bubble--assistant .ai-markdown-surface h1),
+    :global(.ai-bubble--assistant .ai-markdown-surface h2),
+    :global(.ai-bubble--assistant .ai-markdown-surface h3),
+    :global(.ai-bubble--assistant .ai-markdown-surface h4),
+    :global(.ai-bubble--assistant .ai-markdown-surface h5),
+    :global(.ai-bubble--assistant .ai-markdown-surface h6) {
         margin-top: 0.5rem;
         margin-bottom: 0.2rem;
         letter-spacing: 0.18em;
     }
 
-    :global(.ai-bubble--assistant .ai-markdown p) {
+    :global(.ai-bubble--assistant .ai-markdown-surface p) {
         margin: 0.2rem 0;
     }
 
-    :global(.ai-bubble--assistant .ai-markdown ul),
-    :global(.ai-bubble--assistant .ai-markdown ol) {
+    :global(.ai-bubble--assistant .ai-markdown-surface ul),
+    :global(.ai-bubble--assistant .ai-markdown-surface ol) {
         margin: 0.25rem 0 0.55rem;
     }
 
-    .ai-bubble--assistant :global(.ai-markdown p),
-    .ai-bubble--assistant :global(.ai-markdown li) {
+    .ai-bubble--assistant :global(.ai-markdown-surface p),
+    .ai-bubble--assistant :global(.ai-markdown-surface li) {
         color: inherit;
     }
 
@@ -1891,7 +1901,7 @@
                 <div class="space-y-3">
                     <div class="ai-panel ai-surface">
                         <div class="ai-panel__label">{$_('detection.ai.insight')}</div>
-                        <div class="ai-panel__content ai-markdown">
+                        <div class="ai-panel__content ai-markdown ai-markdown-surface">
                             {@html renderMarkdown(aiAnalysis)}
                         </div>
                     </div>
@@ -1952,7 +1962,7 @@
                                         {turn.role === 'assistant' ? $_('detection.ai.assistant') : $_('detection.ai.user')}
                                     </div>
                                     {#if turn.role === 'assistant'}
-                                        <div class="ai-bubble__content ai-markdown">
+                                        <div class="ai-bubble__content ai-markdown ai-markdown-surface">
                                             {@html renderMarkdown(turn.content)}
                                         </div>
                                     {:else}
