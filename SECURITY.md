@@ -10,11 +10,10 @@
 
 ## Reporting a Vulnerability
 
-If you discover a security vulnerability in YA-WAMF, please report it privately instead of opening a public issue.
+If you discover a security vulnerability in YA-WAMF, you may report it via a public GitHub issue.
 
 **How to report:**
-- Email: [security@ya-wamf.org](mailto:security@ya-wamf.org) (Replace with actual email or remove if not applicable)
-- OR: Open a GitHub draft security advisory (if enabled on the repo).
+- Open a GitHub issue with clear reproduction steps and affected versions.
 
 I will acknowledge your report within 48 hours.
 
