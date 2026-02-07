@@ -738,6 +738,13 @@
         list-style-position: outside;
     }
 
+    :global(.ai-markdown ol) {
+        margin: 0.35rem 0 0.65rem;
+        padding-left: 1.3rem;
+        list-style: decimal;
+        list-style-position: outside;
+    }
+
     :global(.ai-markdown li) {
         margin: 0.25rem 0;
         font-size: 0.88rem;
@@ -776,6 +783,97 @@
 
     :global(.dark .ai-markdown code) {
         background: rgba(45, 212, 191, 0.25);
+        color: rgb(153 246 228);
+    }
+
+    :global(.ai-markdown pre) {
+        margin: 0.5rem 0 0.75rem;
+        padding: 0.75rem 0.9rem;
+        border-radius: 0.75rem;
+        background: rgba(15, 118, 110, 0.08);
+        border: 1px solid rgba(15, 118, 110, 0.12);
+        overflow-x: auto;
+    }
+
+    :global(.dark .ai-markdown pre) {
+        background: rgba(15, 23, 42, 0.6);
+        border-color: rgba(45, 212, 191, 0.2);
+    }
+
+    :global(.ai-markdown pre code) {
+        display: block;
+        padding: 0;
+        background: transparent;
+        color: inherit;
+        font-size: 0.78rem;
+        line-height: 1.55;
+    }
+
+    :global(.ai-markdown blockquote) {
+        margin: 0.5rem 0 0.75rem;
+        padding: 0.5rem 0.9rem;
+        border-left: 3px solid rgba(20, 184, 166, 0.5);
+        background: rgba(20, 184, 166, 0.08);
+        border-radius: 0.6rem;
+        color: rgb(71 85 105);
+    }
+
+    :global(.dark .ai-markdown blockquote) {
+        background: rgba(20, 184, 166, 0.18);
+        color: rgb(226 232 240);
+        border-left-color: rgba(94, 234, 212, 0.7);
+    }
+
+    :global(.ai-markdown a) {
+        color: rgb(13 148 136);
+        text-decoration: underline;
+        text-decoration-thickness: 1px;
+        text-underline-offset: 2px;
+    }
+
+    :global(.dark .ai-markdown a) {
+        color: rgb(94 234 212);
+    }
+
+    :global(.ai-markdown hr) {
+        border: none;
+        height: 1px;
+        margin: 0.6rem 0 0.8rem;
+        background: rgba(148, 163, 184, 0.35);
+    }
+
+    :global(.dark .ai-markdown hr) {
+        background: rgba(71, 85, 105, 0.5);
+    }
+
+    :global(.ai-markdown table) {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 0.5rem 0 0.75rem;
+        font-size: 0.82rem;
+    }
+
+    :global(.ai-markdown th),
+    :global(.ai-markdown td) {
+        padding: 0.35rem 0.5rem;
+        border-bottom: 1px solid rgba(148, 163, 184, 0.25);
+        text-align: left;
+    }
+
+    :global(.dark .ai-markdown th),
+    :global(.dark .ai-markdown td) {
+        border-bottom-color: rgba(71, 85, 105, 0.45);
+    }
+
+    :global(.ai-markdown th) {
+        font-weight: 700;
+        color: rgb(15 118 110);
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        font-size: 0.7rem;
+    }
+
+    :global(.dark .ai-markdown th) {
         color: rgb(153 246 228);
     }
 

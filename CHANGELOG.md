@@ -29,6 +29,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Fixed:** Normalized AI markdown formatting for headings and bullet lists across analysis and conversation views.
 - **Changed:** Unified AI analysis and conversation surfaces for consistent typography and contrast in light/dark modes.
 - **Fixed:** Detection modal AI text now uses bright dark-mode colors and tighter heading/paragraph spacing.
+- **Changed:** Expanded AI markdown styling coverage (lists, quotes, code blocks, tables, links) for light/dark modes.
 
 ## [2.7.6] - 2026-02-06
 
