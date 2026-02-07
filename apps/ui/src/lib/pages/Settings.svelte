@@ -134,43 +134,23 @@
     // Available models per provider (Updated February 2026, see provider docs)
     const modelsByProvider = {
         gemini: [
-            { value: 'gemini-3-pro-preview', label: 'Gemini 3 Pro Preview (Newest)' },
-            { value: 'gemini-3-flash-preview', label: 'Gemini 3 Flash Preview (Newest, Fast)' },
+            { value: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite (Cheapest, Fastest)' },
+            { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash (Recommended, Balanced)' },
             { value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro (Most capable)' },
-            { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash (Balanced)' },
-            { value: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite (Fastest)' },
-            { value: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash (Legacy)' },
-            { value: 'gemini-2.0-flash-lite', label: 'Gemini 2.0 Flash Lite (Deprecated Mar 31, 2026)' }
+            { value: 'gemini-3-flash-preview', label: 'Gemini 3 Flash Preview (Experimental)' },
+            { value: 'gemini-3-pro-preview', label: 'Gemini 3 Pro Preview (Experimental)' }
         ],
         openai: [
-            { value: 'gpt-4.1', label: 'GPT-4.1 (Recommended)' },
-            { value: 'gpt-4.1-mini', label: 'GPT-4.1 mini (Faster)' },
             { value: 'gpt-4.1-nano', label: 'GPT-4.1 nano (Cheapest)' },
-            { value: 'gpt-4o', label: 'GPT-4o (Legacy)' },
-            { value: 'gpt-4o-mini', label: 'GPT-4o mini (Legacy)' }
+            { value: 'gpt-4.1-mini', label: 'GPT-4.1 mini (Fast)' },
+            { value: 'gpt-4.1', label: 'GPT-4.1 (Recommended)' }
         ],
         claude: [
-            { value: 'claude-sonnet-4-5', label: 'Claude Sonnet 4.5 (Alias, Recommended)' },
-            { value: 'claude-sonnet-4-5-20250929', label: 'Claude Sonnet 4.5 (Snapshot)' },
-            { value: 'claude-haiku-4-5', label: 'Claude Haiku 4.5 (Alias, Fast)' },
-            { value: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5 (Snapshot)' },
-            { value: 'claude-opus-4-5', label: 'Claude Opus 4.5 (Alias, Most capable)' },
-            { value: 'claude-opus-4-5-20251101', label: 'Claude Opus 4.5 (Snapshot)' },
-            { value: 'claude-opus-4-1', label: 'Claude Opus 4.1 (Alias)' },
-            { value: 'claude-opus-4-1-20250805', label: 'Claude Opus 4.1 (Snapshot)' },
-            { value: 'claude-opus-4-0', label: 'Claude Opus 4 (Alias)' },
-            { value: 'claude-opus-4-20250514', label: 'Claude Opus 4 (Snapshot)' },
-            { value: 'claude-sonnet-4-0', label: 'Claude Sonnet 4 (Alias)' },
-            { value: 'claude-sonnet-4-20250514', label: 'Claude Sonnet 4 (Snapshot)' },
-            { value: 'claude-3-7-sonnet-latest', label: 'Claude Sonnet 3.7 (Alias)' },
-            { value: 'claude-3-7-sonnet-20250219', label: 'Claude Sonnet 3.7 (Snapshot)' },
-            { value: 'claude-3-5-sonnet-latest', label: 'Claude Sonnet 3.5 (Alias, Deprecated)' },
-            { value: 'claude-3-5-sonnet-20241022', label: 'Claude Sonnet 3.5 (Snapshot, Deprecated)' },
-            { value: 'claude-3-5-haiku-latest', label: 'Claude Haiku 3.5 (Alias)' },
-            { value: 'claude-3-5-haiku-20241022', label: 'Claude Haiku 3.5 (Snapshot)' },
-            { value: 'claude-3-opus-latest', label: 'Claude Opus 3 (Alias, Deprecated)' },
-            { value: 'claude-3-opus-20240229', label: 'Claude Opus 3 (Snapshot, Deprecated)' },
-            { value: 'claude-3-haiku-20240307', label: 'Claude Haiku 3 (Snapshot, Legacy)' }
+            { value: 'claude-3-5-haiku-20241022', label: 'Claude Haiku 3.5 (Cheapest, Fast)' },
+            { value: 'claude-3-5-sonnet-20241022', label: 'Claude Sonnet 3.5 v2 (Recommended)' },
+            { value: 'claude-3-7-sonnet-20250219', label: 'Claude Sonnet 3.7 (Stronger Reasoning)' },
+            { value: 'claude-opus-4-20250514', label: 'Claude Opus 4 (Most capable)' },
+            { value: 'claude-opus-4-1-20250805', label: 'Claude Opus 4.1 (Most capable, Newer)' }
         ]
     };
 
