@@ -126,6 +126,7 @@
         let html = '';
         let inList = false;
         let pendingList: string[] = [];
+        const minListItems = 3;
         let prevBlank = true;
         let prevHeading = false;
 
@@ -138,19 +139,18 @@
 
         const flushPendingAsList = () => {
             if (!pendingList.length) return;
+            if (pendingList.length < minListItems) {
+                for (const item of pendingList) {
+                    html += `<p>${escapeHtml(item)}</p>`;
+                }
+                pendingList = [];
+                return;
+            }
             html += '<ul>';
             for (const item of pendingList) {
                 html += `<li>${escapeHtml(item)}</li>`;
             }
             html += '</ul>';
-            pendingList = [];
-        };
-
-        const flushPendingAsParagraph = () => {
-            if (!pendingList.length) return;
-            for (const item of pendingList) {
-                html += `<p>${escapeHtml(item)}</p>`;
-            }
             pendingList = [];
         };
 
@@ -193,11 +193,7 @@
             }
 
             if (pendingList.length) {
-                if (pendingList.length > 1) {
-                    flushPendingAsList();
-                } else {
-                    flushPendingAsParagraph();
-                }
+                flushPendingAsList();
             }
             closeList();
             const paragraph = escapeHtml(line);
@@ -207,11 +203,7 @@
         }
 
         if (pendingList.length) {
-            if (pendingList.length > 1) {
-                flushPendingAsList();
-            } else {
-                flushPendingAsParagraph();
-            }
+            flushPendingAsList();
         }
         closeList();
 
@@ -769,6 +761,10 @@
         margin-bottom: 0.75rem;
     }
 
+    :global(.dark) .ai-panel__content {
+        color: rgb(248 250 252);
+    }
+
     .ai-markdown h4 {
         margin: 0.75rem 0 0.25rem;
         font-size: 0.75rem;
@@ -793,6 +789,7 @@
         margin: 0.4rem 0 0.6rem;
         padding-left: 1.2rem;
         list-style: disc;
+        list-style-position: outside;
     }
 
     .ai-markdown li {
