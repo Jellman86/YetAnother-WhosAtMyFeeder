@@ -14,6 +14,8 @@ from app.services.detection_service import DetectionService
 from app.services.audio.audio_service import audio_service
 from app.services.weather_service import weather_service
 from app.services.notification_orchestrator import NotificationOrchestrator
+# Backward-compat for tests that patch event_processor.notification_service
+from app.services.notification_service import notification_service
 from app.database import get_db
 from app.repositories.detection_repository import DetectionRepository
 
