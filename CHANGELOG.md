@@ -27,6 +27,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Added:** Localized prompt templates with selectable styles and a reset option in Settings → Debug.
 - **Fixed:** CI errors by adding markdown-it typings and associating prompt editor labels with inputs.
 - **Fixed:** Normalized AI markdown formatting for headings and bullet lists across analysis and conversation views.
+- **Changed:** Unified AI analysis and conversation surfaces for consistent typography and contrast in light/dark modes.
 
 ## [2.7.6] - 2026-02-06
 

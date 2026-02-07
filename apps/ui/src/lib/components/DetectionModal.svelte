@@ -643,19 +643,25 @@
 </div>
 
 <style>
-    .ai-panel {
+    .ai-surface {
         position: relative;
         padding: 1.25rem;
         border-radius: 1.25rem;
-        background: linear-gradient(140deg, rgba(20, 184, 166, 0.08), rgba(14, 116, 144, 0.06));
-        border: 1px solid rgba(20, 184, 166, 0.2);
-        box-shadow: 0 10px 25px rgba(15, 118, 110, 0.15);
+        background: linear-gradient(145deg, rgba(20, 184, 166, 0.08), rgba(14, 116, 144, 0.06));
+        border: 1px solid rgba(20, 184, 166, 0.22);
+        color: rgb(51 65 85);
+        box-shadow: 0 12px 28px rgba(15, 118, 110, 0.15);
     }
 
-    :global(.dark) .ai-panel {
-        background: linear-gradient(140deg, rgba(20, 184, 166, 0.18), rgba(14, 116, 144, 0.14));
-        border-color: rgba(45, 212, 191, 0.3);
-        box-shadow: 0 12px 28px rgba(8, 47, 73, 0.35);
+    :global(.dark) .ai-surface {
+        background: linear-gradient(145deg, rgba(15, 118, 110, 0.28), rgba(15, 23, 42, 0.85));
+        border-color: rgba(45, 212, 191, 0.35);
+        color: rgb(226 232 240);
+        box-shadow: 0 16px 36px rgba(8, 47, 73, 0.45);
+    }
+
+    .ai-panel {
+        position: relative;
     }
 
     .ai-panel__label {
@@ -676,9 +682,9 @@
     }
 
     :global(.ai-markdown h2) {
-        margin: 0.9rem 0 0.35rem;
-        font-size: 0.85rem;
-        letter-spacing: 0.22em;
+        margin: 0.9rem 0 0.4rem;
+        font-size: 0.9rem;
+        letter-spacing: 0.26em;
         text-transform: uppercase;
         font-weight: 900;
         color: rgb(13 148 136);
@@ -689,9 +695,9 @@
     }
 
     :global(.ai-markdown h3) {
-        margin: 0.85rem 0 0.3rem;
-        font-size: 0.8rem;
-        letter-spacing: 0.2em;
+        margin: 0.85rem 0 0.35rem;
+        font-size: 0.82rem;
+        letter-spacing: 0.22em;
         text-transform: uppercase;
         font-weight: 800;
         color: rgb(13 148 136);
@@ -703,8 +709,8 @@
 
     :global(.ai-markdown h4) {
         margin: 0.75rem 0 0.25rem;
-        font-size: 0.75rem;
-        letter-spacing: 0.2em;
+        font-size: 0.78rem;
+        letter-spacing: 0.22em;
         text-transform: uppercase;
         font-weight: 800;
         color: rgb(13 148 136);
@@ -715,9 +721,9 @@
     }
 
     :global(.ai-markdown p) {
-        margin: 0.4rem 0;
-        font-size: 0.85rem;
-        line-height: 1.5;
+        margin: 0.45rem 0;
+        font-size: 0.88rem;
+        line-height: 1.55;
         color: rgb(51 65 85);
     }
 
@@ -726,15 +732,15 @@
     }
 
     :global(.ai-markdown ul) {
-        margin: 0.4rem 0 0.6rem;
+        margin: 0.45rem 0 0.75rem;
         padding-left: 1.2rem;
         list-style: disc;
         list-style-position: outside;
     }
 
     :global(.ai-markdown li) {
-        margin: 0.25rem 0;
-        font-size: 0.85rem;
+        margin: 0.3rem 0;
+        font-size: 0.88rem;
         color: rgb(51 65 85);
     }
 
@@ -788,14 +794,22 @@
         color: rgb(226 232 240);
     }
 
-    .ai-bubble--assistant {
-        border-color: rgba(20, 184, 166, 0.2);
-        background: rgba(20, 184, 166, 0.08);
+    .ai-bubble.ai-surface {
+        padding: 1.1rem 1.2rem;
+        border-color: rgba(20, 184, 166, 0.22);
+        background: linear-gradient(145deg, rgba(20, 184, 166, 0.08), rgba(14, 116, 144, 0.06));
+        box-shadow: 0 12px 28px rgba(15, 118, 110, 0.15);
     }
 
-    :global(.dark) .ai-bubble--assistant {
-        background: rgba(20, 184, 166, 0.22);
+    :global(.dark) .ai-bubble.ai-surface {
+        background: linear-gradient(145deg, rgba(15, 118, 110, 0.28), rgba(15, 23, 42, 0.85));
+        border-color: rgba(45, 212, 191, 0.35);
         color: rgb(226 232 240);
+        box-shadow: 0 16px 36px rgba(8, 47, 73, 0.45);
+    }
+
+    .ai-bubble--assistant {
+        border-color: rgba(20, 184, 166, 0.35);
     }
 
     .ai-bubble--user {
@@ -808,8 +822,8 @@
     }
 
     .ai-bubble__role {
-        font-size: 0.55rem;
-        letter-spacing: 0.2em;
+        font-size: 0.58rem;
+        letter-spacing: 0.26em;
         text-transform: uppercase;
         font-weight: 800;
         color: rgb(100 116 139);
@@ -817,8 +831,8 @@
     }
 
     .ai-bubble__content {
-        font-size: 0.8rem;
-        line-height: 1.45;
+        font-size: 0.88rem;
+        line-height: 1.55;
         white-space: pre-wrap;
     }
 
@@ -1444,7 +1458,7 @@
             <!-- AI Analysis -->
             {#if llmReady && aiAnalysis}
                 <div class="space-y-3">
-                    <div class="ai-panel">
+                    <div class="ai-panel ai-surface">
                         <div class="ai-panel__label">{$_('detection.ai.insight')}</div>
                         <div class="ai-panel__content ai-markdown">
                             {@html renderMarkdown(aiAnalysis)}
@@ -1502,7 +1516,7 @@
                     {:else}
                         <div class="space-y-2">
                             {#each conversationTurns as turn}
-                                <div class={`ai-bubble ${turn.role === 'assistant' ? 'ai-bubble--assistant' : 'ai-bubble--user'}`}>
+                                <div class={`ai-bubble ${turn.role === 'assistant' ? 'ai-bubble--assistant ai-surface' : 'ai-bubble--user'}`}>
                                     <div class="ai-bubble__role">
                                         {turn.role === 'assistant' ? $_('detection.ai.assistant') : $_('detection.ai.user')}
                                     </div>

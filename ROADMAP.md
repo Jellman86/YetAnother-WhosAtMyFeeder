@@ -58,9 +58,16 @@ See [DEVELOPER.md](DEVELOPER.md) for architectural details.
 
 ## Table of Contents
 
+- [🚨 Issues First](#-issues-first)
 - [🎯 Top Priority Features](#-top-priority-features)
-  - [1. Multiple Language Support (i18n)](#1-multiple-language-support-i18n-) - **2.5 weeks**
-  - [2. AI Integration Persistence](#2-ai-integration-persistence-) - **1.5 weeks**
+- [Phase 1: User Experience & Enhancements](#phase-1-user-experience--enhancements)
+- [Phase 2: User Experience Improvements](#phase-2-user-experience-improvements)
+- [Phase 3: Advanced Features](#phase-3-advanced-features)
+- [Phase 4: Data & Integration](#phase-4-data--integration)
+- [Phase 5: Performance & Reliability](#phase-5-performance--reliability)
+- [Phase 6: Ecosystem & Community](#phase-6-ecosystem--community)
+- [Technical Debt & Maintenance](#technical-debt--maintenance)
+- [Recommended Implementation Order](#recommended-implementation-order)
 - [Phase 1: User Experience & Enhancements](#phase-1-user-experience--enhancements)
 - [Phase 2: User Experience Improvements](#phase-2-user-experience-improvements)
 - [Phase 3: Advanced Features](#phase-3-advanced-features)
@@ -85,6 +92,15 @@ See [DEVELOPER.md](DEVELOPER.md) for architectural details.
   - **P1:** High - Important for user experience
   - **P2:** Medium - Nice to have, improves functionality
   - **P3:** Low - Future enhancement
+
+---
+
+## 🚨 Issues First
+
+All unresolved issues listed in `agents/ISSUES.md` must be addressed **before** new feature work. This section is always the top priority.
+
+**Active Issues:**
+- 🔴 AI Analysis Formatting & Contrast (Detection Modal) — See `agents/ISSUES.md`
 
 ---
 
