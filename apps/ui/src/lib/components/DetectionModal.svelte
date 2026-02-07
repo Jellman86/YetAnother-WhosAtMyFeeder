@@ -100,6 +100,57 @@
         }
     });
 
+    const hasMarkdownHeadings = (value: string | null) => {
+        if (!value) return false;
+        return /(^|\n)#{1,6}\s+/.test(value) || /(^|\n)[A-Z][A-Za-z0-9\s/&()\-]+:\s*$/.test(value);
+    };
+
+    const buildSample = (value: string | null) => {
+        if (!value) return '';
+        return value.replace(/\s+/g, ' ').trim().slice(0, 240);
+    };
+
+    const collectAiDiagnostics = () => {
+        if (!modalElement || typeof window === 'undefined') return;
+        const panelContent = modalElement.querySelector('.ai-panel__content.ai-markdown') as HTMLElement | null;
+        const panelHeading = panelContent?.querySelector('h1, h2, h3, h4, h5, h6') as HTMLElement | null;
+        const bubbleContent = modalElement.querySelector('.ai-bubble--assistant .ai-bubble__content.ai-markdown') as HTMLElement | null;
+        const bubbleHeading = bubbleContent?.querySelector('h1, h2, h3, h4, h5, h6') as HTMLElement | null;
+        const root = document.documentElement;
+
+        aiDiagnostics = {
+            theme: root.classList.contains('dark') ? 'dark' : 'light',
+            analysisTextColor: panelContent ? getComputedStyle(panelContent).color : 'n/a',
+            analysisHeadingColor: panelHeading ? getComputedStyle(panelHeading).color : 'n/a',
+            conversationTextColor: bubbleContent ? getComputedStyle(bubbleContent).color : 'n/a',
+            conversationHeadingColor: bubbleHeading ? getComputedStyle(bubbleHeading).color : 'n/a',
+            analysisHasHeadings: hasMarkdownHeadings(aiAnalysis),
+            conversationHasHeadings: hasMarkdownHeadings(conversationTurns[0]?.content ?? null),
+            analysisSample: buildSample(aiAnalysis),
+            conversationSample: buildSample(conversationTurns[0]?.content ?? null)
+        };
+    };
+
+    const formatAiDiagnostics = () => {
+        if (!aiDiagnostics) return '';
+        return JSON.stringify(aiDiagnostics, null, 2);
+    };
+
+    const copyAiDiagnostics = async () => {
+        collectAiDiagnostics();
+        const payload = formatAiDiagnostics();
+        if (!payload) {
+            aiDiagnosticsStatus = 'Diagnostics not available yet.';
+            return;
+        }
+        try {
+            await navigator.clipboard.writeText(payload);
+            aiDiagnosticsStatus = 'Diagnostics copied to clipboard.';
+        } catch (error) {
+            aiDiagnosticsStatus = 'Clipboard copy failed. Please copy manually.';
+        }
+    };
+
     let aiAnalysis = $state<string | null>(null);
     let conversationTurns = $state<ConversationTurn[]>([]);
     let conversationInput = $state('');
@@ -110,8 +161,21 @@
     let showTagDropdown = $state(false);
     let updatingTag = $state(false);
     let tagSearchQuery = $state('');
-    let searchResults = $state<SearchResult[]>([]);
-    let isSearching = $state(false);
+let searchResults = $state<SearchResult[]>([]);
+let isSearching = $state(false);
+let aiDiagnostics = $state<{
+        theme: string;
+        analysisTextColor: string;
+        analysisHeadingColor: string;
+        conversationTextColor: string;
+        conversationHeadingColor: string;
+        analysisHasHeadings: boolean;
+        conversationHasHeadings: boolean;
+        analysisSample: string;
+        conversationSample: string;
+    } | null>(null);
+let aiDiagnosticsStatus = $state('');
+const debugUiEnabled = $derived(settingsStore.settings?.debug_ui_enabled ?? false);
 
     
 
@@ -1717,6 +1781,39 @@
                             >
                                 {conversationSending ? $_('detection.ai.sending') : $_('detection.ai.send')}
                             </button>
+                        </div>
+                    {/if}
+
+                    {#if debugUiEnabled}
+                        <div class="rounded-xl border border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/60 p-3 space-y-2">
+                            <div class="flex flex-wrap items-center justify-between gap-2">
+                                <span class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-300">AI Diagnostics</span>
+                                <div class="flex gap-2">
+                                    <button
+                                        type="button"
+                                        onclick={collectAiDiagnostics}
+                                        class="px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700"
+                                    >
+                                        Refresh
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onclick={copyAiDiagnostics}
+                                        class="px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest bg-teal-500/15 text-teal-700 dark:text-teal-200 hover:bg-teal-500/25"
+                                    >
+                                        Copy
+                                    </button>
+                                </div>
+                            </div>
+                            <textarea
+                                rows="5"
+                                readonly
+                                value={formatAiDiagnostics()}
+                                class="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-950/60 text-[11px] font-mono text-slate-700 dark:text-slate-200 p-2"
+                            ></textarea>
+                            {#if aiDiagnosticsStatus}
+                                <p class="text-[10px] font-bold text-slate-500 dark:text-slate-400">{aiDiagnosticsStatus}</p>
+                            {/if}
                         </div>
                     {/if}
                 </div>
