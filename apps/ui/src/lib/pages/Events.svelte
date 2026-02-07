@@ -291,7 +291,7 @@
         onClose={() => selectedEvent = null}
         onReclassify={handleReclassify}
         onPlayVideo={() => showVideo = true}
-        onViewSpecies={(species) => { selectedSpecies = species; selectedEvent = null; }}
+        onViewSpecies={(species: string) => { selectedSpecies = species; selectedEvent = null; }}
     />
 {/if}
 {#if selectedSpecies}<SpeciesDetailModal speciesName={selectedSpecies} onclose={() => selectedSpecies = null} />{/if}

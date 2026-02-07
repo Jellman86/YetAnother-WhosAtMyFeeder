@@ -112,42 +112,67 @@
     let searchResults = $state<SearchResult[]>([]);
     let isSearching = $state(false);
 
-    type AiBlock =
-        | { type: 'heading'; text: string }
-        | { type: 'paragraph'; text: string };
+    function escapeHtml(text: string) {
+        return text
+            .replaceAll('&', '&amp;')
+            .replaceAll('<', '&lt;')
+            .replaceAll('>', '&gt;')
+            .replaceAll('"', '&quot;')
+            .replaceAll("'", '&#039;');
+    }
 
-    function parseAiAnalysis(text: string): AiBlock[] {
-        const lines = text
-            .split(/\r?\n/)
-            .map(line => line.trim())
-            .filter(Boolean);
+    function renderMarkdown(text: string) {
+        const lines = text.split(/\r?\n/);
+        let html = '';
+        let inList = false;
 
-        const blocks: AiBlock[] = [];
+        const closeList = () => {
+            if (inList) {
+                html += '</ul>';
+                inList = false;
+            }
+        };
 
-        for (const line of lines) {
+        for (const rawLine of lines) {
+            const line = rawLine.trim();
+            if (!line) {
+                closeList();
+                continue;
+            }
+
             const headingMatch = line.match(/^#{1,6}\s+(.*)$/);
             if (headingMatch) {
-                blocks.push({ type: 'heading', text: headingMatch[1] });
+                closeList();
+                const content = escapeHtml(headingMatch[1]);
+                html += `<h4>${content}</h4>`;
                 continue;
             }
 
             const listMatch = line.match(/^[-*•]\s+(.*)$/);
             if (listMatch) {
-                const last = blocks[blocks.length - 1];
-                if (last?.type === 'paragraph') {
-                    last.text = `${last.text} ${listMatch[1]}`.trim();
-                } else {
-                    blocks.push({ type: 'paragraph', text: listMatch[1] });
+                if (!inList) {
+                    html += '<ul>';
+                    inList = true;
                 }
+                const content = escapeHtml(listMatch[1]);
+                html += `<li>${content}</li>`;
                 continue;
             }
-            blocks.push({ type: 'paragraph', text: line });
+
+            closeList();
+            const paragraph = escapeHtml(line);
+            html += `<p>${paragraph}</p>`;
         }
 
-        return blocks;
-    }
+        closeList();
 
-    let aiBlocks = $derived(() => (aiAnalysis ? parseAiAnalysis(aiAnalysis) : []));
+        html = html
+            .replaceAll(/\\*\\*(.+?)\\*\\*/g, '<strong>$1</strong>')
+            .replaceAll(/\\*(.+?)\\*/g, '<em>$1</em>')
+            .replaceAll(/`(.+?)`/g, '<code>$1</code>');
+
+        return html;
+    }
 
     // Reclassification progress
     let reclassifyProgress = $derived(
@@ -243,7 +268,9 @@
             conversationTurns = [];
             conversationInput = '';
             conversationError = null;
-            loadConversation();
+            if (aiAnalysis) {
+                loadConversation();
+            }
         }
     });
 
@@ -296,7 +323,7 @@
     }
 
     async function loadConversation() {
-        if (!llmEnabled) return;
+        if (!llmEnabled || !aiAnalysis) return;
         conversationLoading = true;
         conversationError = null;
         try {
@@ -562,6 +589,7 @@
         try {
             const result = await analyzeDetection(detection.frigate_event, force);
             aiAnalysis = result.analysis;
+            await loadConversation();
         } catch (e: any) {
             aiAnalysis = $_('detection.ai.error', { values: { message: e.message || 'Analysis failed' } });
         } finally {
@@ -661,8 +689,124 @@
                     <p class="text-white/50 text-[10px] uppercase font-bold tracking-widest mt-2">
                         {formatDateTime(detection.detection_time)}
                     </p>
-                </div>
+</div>
 
+<style>
+    .ai-panel {
+        position: relative;
+        padding: 1.25rem;
+        border-radius: 1.25rem;
+        background: linear-gradient(140deg, rgba(20, 184, 166, 0.08), rgba(14, 116, 144, 0.06));
+        border: 1px solid rgba(20, 184, 166, 0.2);
+        box-shadow: 0 10px 25px rgba(15, 118, 110, 0.15);
+    }
+
+    .ai-panel__label {
+        font-size: 0.6rem;
+        letter-spacing: 0.25em;
+        text-transform: uppercase;
+        font-weight: 800;
+        color: rgb(13 148 136);
+        margin-bottom: 0.75rem;
+    }
+
+    .ai-markdown h4 {
+        margin: 0.75rem 0 0.25rem;
+        font-size: 0.75rem;
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+        font-weight: 800;
+        color: rgb(13 148 136);
+    }
+
+    .ai-markdown p {
+        margin: 0.4rem 0;
+        font-size: 0.85rem;
+        line-height: 1.5;
+        color: rgb(51 65 85);
+    }
+
+    :global(.dark) .ai-markdown p {
+        color: rgb(226 232 240);
+    }
+
+    .ai-markdown ul {
+        margin: 0.4rem 0 0.6rem;
+        padding-left: 1.2rem;
+        list-style: disc;
+    }
+
+    .ai-markdown li {
+        margin: 0.25rem 0;
+        font-size: 0.85rem;
+        color: rgb(51 65 85);
+    }
+
+    :global(.dark) .ai-markdown li {
+        color: rgb(226 232 240);
+    }
+
+    .ai-markdown code {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+        font-size: 0.75rem;
+        padding: 0.1rem 0.3rem;
+        border-radius: 0.4rem;
+        background: rgba(15, 118, 110, 0.1);
+        color: rgb(15 118 110);
+    }
+
+    .ai-bubble {
+        position: relative;
+        padding: 0.75rem 0.9rem;
+        border-radius: 1rem;
+        border: 1px solid transparent;
+        background: rgba(241, 245, 249, 0.9);
+        color: rgb(51 65 85);
+        box-shadow: 0 8px 16px rgba(15, 23, 42, 0.08);
+    }
+
+    :global(.dark) .ai-bubble {
+        background: rgba(15, 23, 42, 0.65);
+        color: rgb(226 232 240);
+    }
+
+    .ai-bubble--assistant {
+        border-color: rgba(20, 184, 166, 0.2);
+        background: rgba(20, 184, 166, 0.08);
+    }
+
+    :global(.dark) .ai-bubble--assistant {
+        background: rgba(20, 184, 166, 0.14);
+    }
+
+    .ai-bubble--user {
+        border-color: rgba(148, 163, 184, 0.3);
+        background: rgba(226, 232, 240, 0.7);
+    }
+
+    :global(.dark) .ai-bubble--user {
+        background: rgba(30, 41, 59, 0.8);
+    }
+
+    .ai-bubble__role {
+        font-size: 0.55rem;
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+        font-weight: 800;
+        color: rgb(100 116 139);
+        margin-bottom: 0.4rem;
+    }
+
+    .ai-bubble__content {
+        font-size: 0.8rem;
+        line-height: 1.45;
+        white-space: pre-wrap;
+    }
+
+    :global(.dark) .ai-bubble__role {
+        color: rgb(148 163 184);
+    }
+</style>
                 <!-- Video Play Button (optional) -->
                 {#if showVideoButton && detection.has_clip && onPlayVideo}
                     <button
@@ -1276,18 +1420,10 @@
             <!-- AI Analysis -->
             {#if aiAnalysis}
                 <div class="space-y-3">
-                    <div class="p-4 rounded-2xl bg-teal-500/5 border border-teal-500/10 animate-in fade-in slide-in-from-top-2">
-                        <p class="text-[10px] font-black text-teal-600 dark:text-teal-400 uppercase tracking-[0.2em] mb-2">
-                            {$_('detection.ai.insight')}
-                        </p>
-                        <div class="space-y-2">
-                            {#each aiBlocks() as block}
-                                {#if block.type === 'heading'}
-                                    <p class="text-[11px] font-black uppercase tracking-[0.2em] text-teal-700 dark:text-teal-300">{block.text}</p>
-                                {:else}
-                                    <p class="text-sm text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">{block.text}</p>
-                                {/if}
-                            {/each}
+                    <div class="ai-panel">
+                        <div class="ai-panel__label">{$_('detection.ai.insight')}</div>
+                        <div class="ai-panel__content ai-markdown">
+                            {@html renderMarkdown(aiAnalysis)}
                         </div>
                     </div>
                     {#if authStore.canModify && llmEnabled}
@@ -1321,7 +1457,7 @@
                 </div>
             {/if}
 
-            {#if llmEnabled}
+            {#if llmEnabled && aiAnalysis}
                 <div class="space-y-3">
                     <p class="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">
                         {$_('detection.ai.conversation_title')}
@@ -1342,11 +1478,17 @@
                     {:else}
                         <div class="space-y-2">
                             {#each conversationTurns as turn}
-                                <div class={`rounded-xl px-3 py-2 text-xs ${turn.role === 'assistant' ? 'bg-teal-500/10 text-slate-700 dark:text-slate-200' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'}`}>
-                                    <div class="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">
+                                <div class={`ai-bubble ${turn.role === 'assistant' ? 'ai-bubble--assistant' : 'ai-bubble--user'}`}>
+                                    <div class="ai-bubble__role">
                                         {turn.role === 'assistant' ? $_('detection.ai.assistant') : $_('detection.ai.user')}
                                     </div>
-                                    <div class="whitespace-pre-wrap">{turn.content}</div>
+                                    {#if turn.role === 'assistant'}
+                                        <div class="ai-bubble__content ai-markdown">
+                                            {@html renderMarkdown(turn.content)}
+                                        </div>
+                                    {:else}
+                                        <div class="ai-bubble__content">{turn.content}</div>
+                                    {/if}
                                 </div>
                             {/each}
                         </div>
