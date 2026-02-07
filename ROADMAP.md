@@ -184,6 +184,11 @@ Enhance the detection search interface with an intuitive filter panel.
 ### 2.3 Progressive Web App (PWA) Support 📱
 **Priority:** P1 | **Effort:** M (4-5 days) | **Status:** ✅ Completed (v2.7.7)
 
+### AI Analysis UX Polish ✨
+**Priority:** P2 | **Effort:** S (1-2 days) | **Status:** ✅ Completed (v2.7.7)
+
+Refined AI analysis and follow-up conversation rendering with markdown-aware formatting and improved dark-mode readability.
+
 > **Note:** UI is already responsive! This adds PWA capabilities.
 
 **Current State:**

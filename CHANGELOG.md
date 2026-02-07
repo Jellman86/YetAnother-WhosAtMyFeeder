@@ -11,6 +11,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Added:** PWA update notifications and refresh prompt.
 - **Changed:** EventProcessor notification flow decomposed into a dedicated orchestrator.
 - **Added:** Composite index on detections (`camera_name`, `detection_time`) for faster queries.
+- **Changed:** AI analysis rendering now uses a cleaner markdown layout and improved dark-mode contrast.
 
 ## [2.7.6] - 2026-02-06
 
