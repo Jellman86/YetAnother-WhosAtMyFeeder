@@ -130,6 +130,13 @@
         let prevBlank = true;
         let prevHeading = false;
 
+        const isHeadingLike = (value: string) => {
+            if (value.length < 3 || value.length > 40) return false;
+            const cleaned = value.replace(/[:.]+$/, '').trim();
+            if (!/[A-Z]/.test(cleaned)) return false;
+            return /^[A-Z0-9\s/&()\-]+$/.test(cleaned);
+        };
+
         const closeList = () => {
             if (inList) {
                 html += '</ul>';
@@ -169,6 +176,16 @@
                 closeList();
                 flushPendingAsList();
                 const content = escapeHtml(headingMatch[1]);
+                html += `<h4>${content}</h4>`;
+                prevBlank = false;
+                prevHeading = true;
+                continue;
+            }
+
+            if (isHeadingLike(line)) {
+                closeList();
+                flushPendingAsList();
+                const content = escapeHtml(line.replace(/[:.]+$/, '').trim());
                 html += `<h4>${content}</h4>`;
                 prevBlank = false;
                 prevHeading = true;
@@ -1575,7 +1592,7 @@
                                 rows="2"
                                 bind:value={conversationInput}
                                 placeholder={$_('detection.ai.conversation_placeholder')}
-                                class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-900/50 text-xs font-medium"
+                                class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-900/60 text-xs font-medium text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500"
                             ></textarea>
                             <button
                                 type="button"
