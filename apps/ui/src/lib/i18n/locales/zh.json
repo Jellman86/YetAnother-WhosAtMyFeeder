@@ -319,14 +319,20 @@
       "syncing": "扫描中..."
     },
     "telemetry": {
-      "title": "遥测",
-      "desc": "通过分享匿名使用统计数据帮助改进 YA-WAMF。",
-      "transparency": "透明度：我们发送的内容",
-      "install_id": "安装 ID",
-      "version": "应用版本",
-      "platform": "平台",
+      "title": "Telemetry",
+      "desc": "Optional, anonymous usage telemetry to help improve YA-WAMF. Disabled by default.",
+      "transparency": "Transparency: What we send",
+      "install_id": "Installation ID",
+      "version": "App Version",
+      "platform": "Platform",
       "features": "已启用功能",
-      "privacy_notice": "此数据安全发送，仅用于帮助我们了解应用使用情况。绝不会分享图像或个人检测数据。"
+      "privacy_notice": "No images, clips, audio, detection content, usernames, emails, or API keys are collected.",
+      "includes": "Includes",
+      "includes_value": "Model type, enabled integrations, notification channels, enrichment mode, access flags",
+      "geography": "Geography",
+      "geography_value": "Approx. country derived from request headers (IP not stored)",
+      "frequency": "Frequency",
+      "frequency_value": "Once every 24 hours while running"
     },
     "email": {
       "title": "电子邮件通知",

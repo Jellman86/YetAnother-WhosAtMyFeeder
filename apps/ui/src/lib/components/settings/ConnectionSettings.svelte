@@ -426,7 +426,9 @@
                     <div class="flex justify-between"><span>{$_('settings.telemetry.install_id')}:</span><span class="text-slate-900 dark:text-white select-all">{telemetryInstallationId || '...'}</span></div>
                     <div class="flex justify-between"><span>{$_('settings.telemetry.version')}:</span><span>{versionInfo.version}</span></div>
                     <div class="flex justify-between"><span>{$_('settings.telemetry.platform')}:</span><span>{telemetryPlatform || '...'}</span></div>
-                    <div class="flex justify-between"><span>{$_('settings.telemetry.features')}:</span><span>[Model, Integrations]</span></div>
+                    <div class="flex justify-between"><span>{$_('settings.telemetry.includes')}:</span><span>{$_('settings.telemetry.includes_value')}</span></div>
+                    <div class="flex justify-between"><span>{$_('settings.telemetry.geography')}:</span><span>{$_('settings.telemetry.geography_value')}</span></div>
+                    <div class="flex justify-between"><span>{$_('settings.telemetry.frequency')}:</span><span>{$_('settings.telemetry.frequency_value')}</span></div>
                 </div>
                 <p class="text-[9px] text-slate-400 mt-3 italic">{$_('settings.telemetry.privacy_notice')}</p>
             </div>

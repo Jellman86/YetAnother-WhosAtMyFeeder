@@ -319,14 +319,20 @@
       "syncing": "スキャン中..."
     },
     "telemetry": {
-      "title": "テレメトリ",
-      "desc": "匿名の使用統計を共有してYA-WAMFの改善にご協力ください。",
-      "transparency": "透明性：送信されるデータ",
-      "install_id": "インストールID",
-      "version": "アプリのバージョン",
-      "platform": "プラットフォーム",
+      "title": "Telemetry",
+      "desc": "Optional, anonymous usage telemetry to help improve YA-WAMF. Disabled by default.",
+      "transparency": "Transparency: What we send",
+      "install_id": "Installation ID",
+      "version": "App Version",
+      "platform": "Platform",
       "features": "有効な機能",
-      "privacy_notice": "このデータはアプリの使用状況を把握するために安全に送信されます。画像や個人の検出データが共有されることはありません。"
+      "privacy_notice": "No images, clips, audio, detection content, usernames, emails, or API keys are collected.",
+      "includes": "Includes",
+      "includes_value": "Model type, enabled integrations, notification channels, enrichment mode, access flags",
+      "geography": "Geography",
+      "geography_value": "Approx. country derived from request headers (IP not stored)",
+      "frequency": "Frequency",
+      "frequency_value": "Once every 24 hours while running"
     },
     "email": {
       "title": "メール通知",

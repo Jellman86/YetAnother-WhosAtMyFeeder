@@ -327,14 +327,20 @@
       "syncing": "Escaneando..."
     },
     "telemetry": {
-      "title": "Telemetria",
-      "desc": "Ajude a melhorar o YA-WAMF compartilhando estatísticas de uso anônimas.",
-      "transparency": "Transparência: O que enviamos",
-      "install_id": "ID de Instalação",
-      "version": "Versão do App",
-      "platform": "Plataforma",
+      "title": "Telemetry",
+      "desc": "Optional, anonymous usage telemetry to help improve YA-WAMF. Disabled by default.",
+      "transparency": "Transparency: What we send",
+      "install_id": "Installation ID",
+      "version": "App Version",
+      "platform": "Platform",
       "features": "Recursos Ativos",
-      "privacy_notice": "Estes dados são enviados de forma segura para nos ajudar a entender como o app é usado. Nenhuma imagem ou dado pessoal de detecção é compartilhado."
+      "privacy_notice": "No images, clips, audio, detection content, usernames, emails, or API keys are collected.",
+      "includes": "Includes",
+      "includes_value": "Model type, enabled integrations, notification channels, enrichment mode, access flags",
+      "geography": "Geography",
+      "geography_value": "Approx. country derived from request headers (IP not stored)",
+      "frequency": "Frequency",
+      "frequency_value": "Once every 24 hours while running"
     },
     "email": {
       "title": "Notificações por Email",
