@@ -476,9 +476,9 @@
         </div>
     </section>
 
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch auto-rows-fr">
         <!-- Discord -->
-        <section class="card-base rounded-3xl p-8 backdrop-blur-md">
+        <section class="card-base rounded-3xl p-8 backdrop-blur-md h-full flex flex-col">
             <div class="flex items-center justify-between mb-6">
                 <div class="flex items-center gap-3">
                     <div class="w-10 h-10 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
@@ -505,7 +505,7 @@
                 </button>
             </div>
 
-            <div class="space-y-4">
+            <div class="space-y-4 flex-1">
                 <div>
                     <div class="flex items-center justify-between mb-2">
                         <label for="discord-webhook" class="text-[10px] font-black uppercase tracking-widest text-slate-500">{$_('settings.discord.webhook_url')}</label>
@@ -545,7 +545,7 @@
         </section>
 
         <!-- Pushover -->
-        <section class="card-base rounded-3xl p-8 backdrop-blur-md">
+        <section class="card-base rounded-3xl p-8 backdrop-blur-md h-full flex flex-col">
             <div class="flex items-center justify-between mb-6">
                 <div class="flex items-center gap-3">
                     <div class="w-10 h-10 rounded-2xl bg-blue-500/10 flex items-center justify-center text-blue-600 dark:text-blue-400">
@@ -570,7 +570,7 @@
                 </button>
             </div>
 
-            <div class="space-y-4">
+            <div class="space-y-4 flex-1">
                 <div>
                     <div class="flex items-center justify-between mb-2">
                         <label for="pushover-userkey" class="text-[10px] font-black uppercase tracking-widest text-slate-500">{$_('settings.pushover.user_key')}</label>
@@ -630,7 +630,7 @@
         </section>
 
         <!-- Telegram -->
-        <section class="card-base rounded-3xl p-8 backdrop-blur-md">
+        <section class="card-base rounded-3xl p-8 backdrop-blur-md h-full flex flex-col">
             <div class="flex items-center justify-between mb-6">
                 <div class="flex items-center gap-3">
                     <div class="w-10 h-10 rounded-2xl bg-sky-500/10 flex items-center justify-center text-sky-600 dark:text-sky-400">
@@ -657,7 +657,7 @@
                 </button>
             </div>
 
-            <div class="space-y-4">
+            <div class="space-y-4 flex-1">
                 <div>
                     <div class="flex items-center justify-between mb-2">
                         <label for="telegram-bottoken" class="text-[10px] font-black uppercase tracking-widest text-slate-500">{$_('settings.telegram.bot_token')}</label>
@@ -702,7 +702,7 @@
         </section>
 
         <!-- Email -->
-        <section class="card-base rounded-3xl p-8 backdrop-blur-md">
+        <section class="card-base rounded-3xl p-8 backdrop-blur-md h-full flex flex-col">
             <div class="flex items-center justify-between mb-6">
                 <div class="flex items-center gap-3">
                     <div class="w-10 h-10 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
@@ -729,7 +729,7 @@
                 </button>
             </div>
 
-            <div class="space-y-4">
+            <div class="space-y-4 flex-1">
                 <!-- Auth Mode Selector -->
                 <div>
                     <div id="email-auth-mode-label" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.email.auth_mode')}</div>

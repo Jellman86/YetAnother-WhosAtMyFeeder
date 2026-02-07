@@ -390,14 +390,26 @@
     </section>
 
     <!-- Telemetry -->
-    <section class="card-base rounded-3xl p-8 backdrop-blur-md">
+    <section class="card-base rounded-3xl p-8 backdrop-blur-md md:col-span-2">
         <div class="flex items-center justify-between mb-2">
             <div class="flex items-center gap-3">
                 <div class="w-10 h-10 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
                 </div>
                 <div id="telemetry-label">
-                    <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">{$_('settings.telemetry.title')}</h3>
+                    <div class="flex items-center gap-2">
+                        <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">{$_('settings.telemetry.title')}</h3>
+                        <button
+                            type="button"
+                            class="text-slate-400 hover:text-indigo-500 dark:text-slate-500 dark:hover:text-indigo-300 transition"
+                            title={$_('settings.telemetry.appreciation_tooltip')}
+                            aria-label={$_('settings.telemetry.appreciation_tooltip')}
+                        >
+                            <svg class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                <path fill-rule="evenodd" d="M18 10A8 8 0 11 2 10a8 8 0 0116 0zm-8-3a1 1 0 00-.993.883L9 8v4a1 1 0 001.993.117L11 12V8a1 1 0 00-1-1zm0 8a1.25 1.25 0 100-2.5 1.25 1.25 0 000 2.5z" clip-rule="evenodd" />
+                            </svg>
+                        </button>
+                    </div>
                     <p class="text-[10px] font-bold text-slate-500 mt-0.5">{$_('settings.telemetry.desc')}</p>
                 </div>
             </div>

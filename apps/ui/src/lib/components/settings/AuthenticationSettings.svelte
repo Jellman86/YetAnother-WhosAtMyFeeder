@@ -40,8 +40,8 @@
     } = $props();
 </script>
 
-<div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-    <section class="card-base rounded-3xl p-8 backdrop-blur-md">
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch auto-rows-fr">
+    <section class="card-base rounded-3xl p-8 backdrop-blur-md h-full flex flex-col">
         <div class="flex items-center gap-3 mb-6">
             <div class="w-10 h-10 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
                 <span class="text-xl">🔐</span>
@@ -52,7 +52,7 @@
             </div>
         </div>
 
-        <div class="space-y-6">
+        <div class="space-y-6 flex-1">
             <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 flex items-center justify-between">
                 <div id="auth-enabled-label">
                     <span class="block text-sm font-bold text-slate-900 dark:text-white">{$_('settings.auth.enable')}</span>
@@ -186,7 +186,7 @@
         </div>
     </section>
 
-    <section class="card-base rounded-3xl p-8 backdrop-blur-md">
+    <section class="card-base rounded-3xl p-8 backdrop-blur-md h-full flex flex-col">
         <div class="flex items-center gap-3 mb-6">
             <div class="w-10 h-10 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
                 <span class="text-xl">🌐</span>
@@ -197,7 +197,7 @@
             </div>
         </div>
 
-        <div class="space-y-6">
+        <div class="space-y-6 flex-1">
             <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 flex items-center justify-between">
                 <div id="public-enabled-label">
                     <span class="block text-sm font-bold text-slate-900 dark:text-white">{$_('settings.public_access.enable')}</span>

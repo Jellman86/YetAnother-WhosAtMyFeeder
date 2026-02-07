@@ -111,9 +111,9 @@
     });
 </script>
 
-<div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch auto-rows-fr">
     <!-- BirdNET-Go -->
-    <section class="card-base rounded-3xl p-8 backdrop-blur-md">
+    <section class="card-base rounded-3xl p-8 backdrop-blur-md h-full flex flex-col">
         <div class="flex items-center justify-between mb-6">
             <div class="flex items-center gap-3">
                 <div class="w-10 h-10 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-600 dark:text-amber-400">
@@ -139,7 +139,7 @@
             </button>
         </div>
 
-        <div class="space-y-6">
+        <div class="space-y-6 flex-1">
             <div>
                 <label for="audio-topic" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.integrations.birdnet.mqtt_topic')}</label>
                 <input
@@ -216,7 +216,7 @@
     </section>
 
     <!-- iNaturalist -->
-    <section class="card-base rounded-3xl p-8 backdrop-blur-md">
+    <section class="card-base rounded-3xl p-8 backdrop-blur-md h-full flex flex-col">
         <div class="flex items-center justify-between mb-6">
             <div class="flex items-center gap-3">
                 <div class="w-10 h-10 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
@@ -366,7 +366,7 @@
     </section>
 
     <!-- eBird -->
-    <section class="card-base rounded-3xl p-8 backdrop-blur-md">
+    <section class="card-base rounded-3xl p-8 backdrop-blur-md h-full flex flex-col">
         <div class="flex items-center justify-between mb-6">
             <div class="flex items-center gap-3">
                 <div class="w-10 h-10 rounded-2xl bg-sky-500/10 flex items-center justify-center text-sky-600 dark:text-sky-400">
@@ -479,7 +479,7 @@
     </section>
 
     <!-- BirdWeather -->
-    <section class="card-base rounded-3xl p-8 backdrop-blur-md">
+    <section class="card-base rounded-3xl p-8 backdrop-blur-md h-full flex flex-col">
         <div class="flex items-center justify-between mb-6">
             <div class="flex items-center gap-3">
                 <div class="w-10 h-10 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
@@ -505,7 +505,7 @@
             </button>
         </div>
 
-        <div class="space-y-6">
+        <div class="space-y-6 flex-1">
             <div>
                 <label for="birdweather-token" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.integrations.birdweather.token')}</label>
                 <input
@@ -530,7 +530,7 @@
     </section>
 
     <!-- AI Intelligence -->
-    <section class="card-base rounded-3xl p-8 backdrop-blur-md">
+    <section class="card-base rounded-3xl p-8 backdrop-blur-md h-full flex flex-col">
         <div class="flex items-center justify-between mb-6">
             <div class="flex items-center gap-3">
                 <div class="w-10 h-10 rounded-2xl bg-brand-500/10 flex items-center justify-center text-brand-500">
@@ -556,7 +556,7 @@
             </button>
         </div>
 
-        <div class="space-y-6">
+        <div class="space-y-6 flex-1">
             <div class="grid grid-cols-2 gap-4">
                 <div>
                     <label for="llm-provider" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.integrations.llm.provider')}</label>
@@ -609,7 +609,7 @@
     </section>
 
     <!-- Location & Weather -->
-    <section class="card-base rounded-3xl p-8 backdrop-blur-md">
+    <section class="card-base rounded-3xl p-8 backdrop-blur-md h-full flex flex-col">
         <div class="flex items-center justify-between mb-6">
             <div class="flex items-center gap-3">
                 <div class="w-10 h-10 rounded-2xl bg-orange-500/10 flex items-center justify-center text-orange-600 dark:text-orange-400">
@@ -623,7 +623,7 @@
                 <button
                     role="switch"
                     aria-checked={locationAuto}
-                    aria-label="Toggle location auto-detect"
+                    aria-label={$_('settings.location.auto')}
                     onclick={() => locationAuto = !locationAuto}
                     onkeydown={(e) => {
                         if (e.key === 'Enter' || e.key === ' ') {
@@ -640,7 +640,7 @@
             </div>
         </div>
 
-        <div class="space-y-6">
+        <div class="space-y-6 flex-1">
             <p class="text-xs font-bold text-slate-500 leading-relaxed uppercase tracking-wider">{$_('settings.location.desc')}</p>
             {#if !locationAuto}
                 <div class="grid grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2">

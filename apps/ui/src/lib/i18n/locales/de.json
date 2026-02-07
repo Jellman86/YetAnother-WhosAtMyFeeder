@@ -441,7 +441,8 @@
       "geography": "Geography",
       "geography_value": "Approx. country derived from request headers (IP not stored)",
       "frequency": "Frequency",
-      "frequency_value": "Once every 24 hours while running"
+      "frequency_value": "Once every 24 hours while running",
+      "appreciation_tooltip": "If you can, please enable telemetry. It helps me understand how YA-WAMF is used and guides improvements."
     },
     "email": {
       "title": "E-Mail-Benachrichtigungen",
