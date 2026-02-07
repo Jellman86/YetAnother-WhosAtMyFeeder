@@ -84,6 +84,12 @@ async def analyze_event(
                 detail="Owner access required to generate AI analysis."
             )
 
+        # If regenerating analysis, clear any existing AI chat thread so the new
+        # analysis starts with a fresh conversation context.
+        if force:
+            convo_repo = AIConversationRepository(db)
+            await convo_repo.delete_turns(event_id)
+
         frames: list[bytes] = []
         frame_count = max(1, min(frame_count, 10))
         if use_clip and settings.frigate.clips_enabled:

@@ -18,6 +18,13 @@ class AIConversationRepository:
     def __init__(self, db: aiosqlite.Connection):
         self.db = db
 
+    async def delete_turns(self, frigate_event: str) -> None:
+        await self.db.execute(
+            "DELETE FROM ai_conversation_turns WHERE frigate_event = ?",
+            (frigate_event,),
+        )
+        await self.db.commit()
+
     async def list_turns(self, frigate_event: str) -> list[ConversationTurn]:
         query = (
             "SELECT id, frigate_event, role, content, created_at "

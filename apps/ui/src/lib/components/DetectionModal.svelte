@@ -721,6 +721,12 @@
         analyzingAI = true;
         if (force) {
             aiAnalysis = null; // Clear existing analysis when forcing regeneration
+            // Reset the conversation thread so the UI reflects the new analysis context.
+            conversationTurns = [];
+            conversationInput = '';
+            conversationError = null;
+            conversationLoading = false;
+            conversationSending = false;
         }
 
         try {
