@@ -118,6 +118,16 @@
         return /(^|\n)#{1,6}\s+/.test(value) || /(^|\n)[A-Z][A-Za-z0-9\s/&()\-]+:\s*$/.test(value);
     };
 
+    type MarkdownStyleSample = {
+        heading: Record<string, string> | null;
+        paragraph: Record<string, string> | null;
+        listItem: Record<string, string> | null;
+        blockquote: Record<string, string> | null;
+        code: Record<string, string> | null;
+        pre: Record<string, string> | null;
+        link: Record<string, string> | null;
+    };
+
     const buildSample = (value: string | null) => {
         if (!value) return '';
         return value.replace(/\s+/g, ' ').trim().slice(0, 240);
@@ -154,8 +164,18 @@
         };
     };
 
-    const sampleMarkdownStyles = (container: HTMLElement | null) => {
-        if (!container) return {};
+    const sampleMarkdownStyles = (container: HTMLElement | null): MarkdownStyleSample => {
+        if (!container) {
+            return {
+                heading: null,
+                paragraph: null,
+                listItem: null,
+                blockquote: null,
+                code: null,
+                pre: null,
+                link: null
+            };
+        }
         return {
             heading: describeElement(container.querySelector('h1, h2, h3, h4, h5, h6')),
             paragraph: describeElement(container.querySelector('p')),
@@ -258,8 +278,8 @@
         conversationSurfaceBorder: string;
         analysisMarkdownCounts: Record<string, number>;
         conversationMarkdownCounts: Record<string, number>;
-        analysisMarkdownSampleStyles: Record<string, Record<string, string> | null>;
-        conversationMarkdownSampleStyles: Record<string, Record<string, string> | null>;
+        analysisMarkdownSampleStyles: MarkdownStyleSample;
+        conversationMarkdownSampleStyles: MarkdownStyleSample;
         analysisHasHeadings: boolean;
         conversationHasHeadings: boolean;
         analysisSample: string;
@@ -268,6 +288,7 @@
     let aiDiagnosticsStatus = $state('');
     const debugUiEnabled = $derived(settingsStore.settings?.debug_ui_enabled ?? false);
     let isDarkMode = $state(false);
+    let showAiDiagnostics = $state(false);
 
     
 
