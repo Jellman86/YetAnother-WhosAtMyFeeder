@@ -21,8 +21,17 @@ if (import.meta.env.PROD && 'serviceWorker' in navigator) {
     try {
       const registration = await navigator.serviceWorker.register('/sw.js');
 
+      let refreshing = false;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (refreshing) return;
+        refreshing = true;
+        window.location.reload();
+      });
+
+      // If a new worker is already waiting, activate it now to avoid showing the
+      // "Update available" toast on every refresh.
       if (registration.waiting) {
-        toastStore.info(getLabel('pwa.update_available', 'Update available. Refresh to apply.'), 6000);
+        registration.waiting.postMessage({ type: 'SKIP_WAITING' });
       }
 
       registration.addEventListener('updatefound', () => {
@@ -30,7 +39,8 @@ if (import.meta.env.PROD && 'serviceWorker' in navigator) {
         if (!newWorker) return;
         newWorker.addEventListener('statechange', () => {
           if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-            toastStore.info(getLabel('pwa.update_available', 'Update available. Refresh to apply.'), 6000);
+            // Auto-activate so we don't nag on every refresh.
+            newWorker.postMessage({ type: 'SKIP_WAITING' });
           }
         });
       });

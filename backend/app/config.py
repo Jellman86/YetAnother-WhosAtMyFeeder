@@ -22,7 +22,7 @@ if "pytest" in sys.modules or os.getenv("YA_WAMF_TESTING") == "1":
 else:
     CONFIG_PATH = Path(os.getenv("CONFIG_FILE", "/config/config.json"))
 
-DEFAULT_AI_ANALYSIS_PROMPT = """
+LEGACY_DEFAULT_AI_ANALYSIS_PROMPT = """
 You are an expert ornithologist and naturalist.
 {frame_note}
 
@@ -40,7 +40,25 @@ Keep the response concise (under 200 words). No extra sections.
 {language_note}
 """.strip()
 
-DEFAULT_AI_CONVERSATION_PROMPT = """
+DEFAULT_AI_ANALYSIS_PROMPT = """
+You are an expert ornithologist and naturalist.
+{frame_note}
+
+Species identified by system: {species}
+Time of detection: {time}
+{weather_str}
+
+Respond in Markdown with these exact section headings. Under each heading, write 1 short paragraph (no bullet lists):
+## Appearance
+## Behavior
+## Naturalist Note
+## Seasonal Context
+
+Keep the response concise (under 200 words). No extra sections.
+{language_note}
+""".strip()
+
+LEGACY_DEFAULT_AI_CONVERSATION_PROMPT = """
 You are an expert ornithologist and naturalist. Continue a short Q&A about this detection.
 
 Species identified by system: {species}
@@ -54,6 +72,23 @@ User question: {question}
 
 Answer concisely in Markdown using the same headings as the analysis (## Appearance, ## Behavior, ## Naturalist Note, ## Seasonal Context).
 If a section is not relevant, include it with a short "Not observed" bullet.
+{language_note}
+""".strip()
+
+DEFAULT_AI_CONVERSATION_PROMPT = """
+You are an expert ornithologist and naturalist. Continue a short Q&A about this detection.
+
+Species identified by system: {species}
+Previous analysis:
+{analysis}
+
+Conversation so far:
+{history}
+
+User question: {question}
+
+Answer concisely in Markdown using the same headings as the analysis (## Appearance, ## Behavior, ## Naturalist Note, ## Seasonal Context).
+Under each heading, write 1 short paragraph (no bullet lists). If a section is not relevant, write "Not observed."
 {language_note}
 """.strip()
 
@@ -720,6 +755,13 @@ class Settings(BaseSettings):
                         env_key = f'LLM__{key.upper()}'
                         if env_key not in os.environ:
                             llm_data[key] = value
+
+                # If the user never customized prompts and is still on our legacy defaults,
+                # upgrade them to the newer paragraph-based defaults.
+                if llm_data.get('analysis_prompt_template') == LEGACY_DEFAULT_AI_ANALYSIS_PROMPT:
+                    llm_data['analysis_prompt_template'] = DEFAULT_AI_ANALYSIS_PROMPT
+                if llm_data.get('conversation_prompt_template') == LEGACY_DEFAULT_AI_CONVERSATION_PROMPT:
+                    llm_data['conversation_prompt_template'] = DEFAULT_AI_CONVERSATION_PROMPT
                             
                 if 'telemetry' in file_data:
                     for key, value in file_data['telemetry'].items():
