@@ -131,7 +131,7 @@
     let llmApiKey = $state('');
     let llmModel = $state('gemini-2.5-flash');
 
-    // Available models per provider (Updated February 2026)
+    // Available models per provider (Updated February 2026, see provider docs)
     const modelsByProvider = {
         gemini: [
             { value: 'gemini-3-pro-preview', label: 'Gemini 3 Pro Preview (Newest)' },
@@ -150,11 +150,27 @@
             { value: 'gpt-4o-mini', label: 'GPT-4o mini (Legacy)' }
         ],
         claude: [
-            { value: 'claude-opus-4-20250514', label: 'Claude Opus 4 (Most capable)' },
-            { value: 'claude-sonnet-4-20250514', label: 'Claude Sonnet 4 (Balanced)' },
-            { value: 'claude-3-7-sonnet-20250219', label: 'Claude Sonnet 3.7 (Legacy)' },
-            { value: 'claude-3-5-sonnet-20241022', label: 'Claude Sonnet 3.5 (Legacy)' },
-            { value: 'claude-3-5-haiku-20241022', label: 'Claude Haiku 3.5 (Legacy)' }
+            { value: 'claude-sonnet-4-5', label: 'Claude Sonnet 4.5 (Alias, Recommended)' },
+            { value: 'claude-sonnet-4-5-20250929', label: 'Claude Sonnet 4.5 (Snapshot)' },
+            { value: 'claude-haiku-4-5', label: 'Claude Haiku 4.5 (Alias, Fast)' },
+            { value: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5 (Snapshot)' },
+            { value: 'claude-opus-4-5', label: 'Claude Opus 4.5 (Alias, Most capable)' },
+            { value: 'claude-opus-4-5-20251101', label: 'Claude Opus 4.5 (Snapshot)' },
+            { value: 'claude-opus-4-1', label: 'Claude Opus 4.1 (Alias)' },
+            { value: 'claude-opus-4-1-20250805', label: 'Claude Opus 4.1 (Snapshot)' },
+            { value: 'claude-opus-4-0', label: 'Claude Opus 4 (Alias)' },
+            { value: 'claude-opus-4-20250514', label: 'Claude Opus 4 (Snapshot)' },
+            { value: 'claude-sonnet-4-0', label: 'Claude Sonnet 4 (Alias)' },
+            { value: 'claude-sonnet-4-20250514', label: 'Claude Sonnet 4 (Snapshot)' },
+            { value: 'claude-3-7-sonnet-latest', label: 'Claude Sonnet 3.7 (Alias)' },
+            { value: 'claude-3-7-sonnet-20250219', label: 'Claude Sonnet 3.7 (Snapshot)' },
+            { value: 'claude-3-5-sonnet-latest', label: 'Claude Sonnet 3.5 (Alias, Deprecated)' },
+            { value: 'claude-3-5-sonnet-20241022', label: 'Claude Sonnet 3.5 (Snapshot, Deprecated)' },
+            { value: 'claude-3-5-haiku-latest', label: 'Claude Haiku 3.5 (Alias)' },
+            { value: 'claude-3-5-haiku-20241022', label: 'Claude Haiku 3.5 (Snapshot)' },
+            { value: 'claude-3-opus-latest', label: 'Claude Opus 3 (Alias, Deprecated)' },
+            { value: 'claude-3-opus-20240229', label: 'Claude Opus 3 (Snapshot, Deprecated)' },
+            { value: 'claude-3-haiku-20240307', label: 'Claude Haiku 3 (Snapshot, Legacy)' }
         ]
     };
 
