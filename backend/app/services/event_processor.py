@@ -13,8 +13,7 @@ from app.services.frigate_client import frigate_client
 from app.services.detection_service import DetectionService
 from app.services.audio.audio_service import audio_service
 from app.services.weather_service import weather_service
-from app.services.notification_service import notification_service
-from app.utils.tasks import create_background_task
+from app.services.notification_orchestrator import NotificationOrchestrator
 from app.database import get_db
 from app.repositories.detection_repository import DetectionRepository
 
@@ -45,6 +44,7 @@ class EventProcessor:
     def __init__(self, classifier: ClassifierService):
         self.classifier = classifier
         self.detection_service = DetectionService(classifier)
+        self.notification_orchestrator = NotificationOrchestrator()
 
     async def process_audio_message(self, payload: bytes):
         """Process audio detections from BirdNET-Go."""
@@ -286,54 +286,6 @@ class EventProcessor:
             "weather_snowfall": weather.get("snowfall"),
         }
 
-    def _should_notify(
-        self,
-        event_type: str,
-        notify_mode: str,
-        changed: bool,
-        was_inserted: bool,
-        already_notified: bool
-    ) -> tuple[bool, bool]:
-        """Determine notification behavior for an event."""
-        was_updated = changed and not was_inserted
-        if notify_mode == "silent":
-            return False, was_updated
-        if notify_mode == "final":
-            return event_type == "end" and not already_notified, was_updated
-        if notify_mode == "standard":
-            return event_type == "new" and not already_notified, was_updated
-        if notify_mode == "realtime":
-            if event_type == "new":
-                return not already_notified, was_updated
-            return was_updated, was_updated
-        if event_type == "new":
-            return settings.notifications.notify_on_insert and not already_notified, was_updated
-        return settings.notifications.notify_on_update and was_updated and not already_notified, was_updated
-
-    async def _mark_notified(self, event_id: str) -> None:
-        async with get_db() as db:
-            repo = DetectionRepository(db)
-            await repo.mark_notified(event_id)
-
-    async def _send_and_mark_notified(
-        self,
-        event: EventData,
-        classification: Dict[str, Any],
-        snapshot_data: Optional[bytes],
-        channels: Optional[list[str]] = None
-    ) -> None:
-        sent = await self._send_notification(
-            event,
-            label=classification['label'],
-            score=classification['score'],
-            audio_confirmed=classification['audio_confirmed'],
-            audio_species=classification['audio_species'],
-            snapshot_data=snapshot_data,
-            channels=channels
-        )
-        if sent:
-            await self._mark_notified(event.frigate_event)
-
     async def _handle_detection_save_and_notify(
         self,
         event: EventData,
@@ -390,188 +342,10 @@ class EventProcessor:
                 from app.services.auto_video_classifier_service import auto_video_classifier
                 await auto_video_classifier.trigger_classification(event.frigate_event, event.camera)
 
-        # Decide whether to notify (one-time per detection)
-        event_type = (event.type or "new").lower()
-        detection = await self.detection_service.get_detection_by_frigate_event(event.frigate_event)
-        already_notified = bool(detection and detection.notified_at)
-
-        notify_mode = (settings.notifications.mode or "standard").lower()
-        should_notify, was_updated = self._should_notify(
-            event_type=event_type,
-            notify_mode=notify_mode,
+        await self.notification_orchestrator.handle_notifications(
+            event=event,
+            classification=classification,
+            snapshot_data=snapshot_data,
             changed=changed,
-            was_inserted=was_inserted,
-            already_notified=already_notified
+            was_inserted=was_inserted
         )
-
-        email_only_on_end = (
-            notify_mode == "custom"
-            and settings.notifications.email.enabled
-            and settings.notifications.email.only_on_end
-            and event_type == "end"
-            and detection is not None
-            and not already_notified
-        )
-
-        if should_notify:
-            snapshot_confirmed = (
-                classification['score'] >= settings.classification.threshold
-                or classification['audio_confirmed']
-            )
-            delay_until_video = settings.notifications.delay_until_video
-            if notify_mode == "final":
-                delay_until_video = settings.classification.auto_video_classification
-
-            if delay_until_video and settings.classification.auto_video_classification:
-                create_background_task(self._notify_after_video(
-                    event,
-                    classification,
-                    audio_confirmed=classification['audio_confirmed'],
-                    audio_species=classification['audio_species']
-                ), name=f"notify_after_video:{event.frigate_event}")
-            else:
-                if snapshot_confirmed:
-                    await self._send_and_mark_notified(event, classification, snapshot_data)
-                else:
-                    log.info("Notification skipped: snapshot not confirmed",
-                             event_id=event.frigate_event,
-                             label=classification['label'],
-                             score=classification['score'])
-        elif email_only_on_end:
-            snapshot_confirmed = (
-                classification['score'] >= settings.classification.threshold
-                or classification['audio_confirmed']
-            )
-            if snapshot_confirmed:
-                await self._send_and_mark_notified(event, classification, snapshot_data, channels=["email"])
-            else:
-                log.info("Email notification skipped: snapshot not confirmed",
-                         event_id=event.frigate_event,
-                         label=classification['label'],
-                         score=classification['score'])
-
-    async def _send_notification(
-        self,
-        event: EventData,
-        label: str,
-        score: float,
-        audio_confirmed: bool,
-        audio_species: Optional[str],
-        snapshot_data: Optional[bytes],
-        channels: Optional[list[str]] = None
-    ) -> bool:
-        """Send detection notification via configured channels.
-
-        Args:
-            event: Parsed event data
-            classification: Classification result with audio correlation
-            snapshot_data: Snapshot image bytes (may be None)
-        """
-        snapshot_url = f"{settings.frigate.frigate_url}/api/events/{event.frigate_event}/snapshot.jpg"
-
-        # Fetch snapshot if needed for notifications
-        needs_snapshot = (
-            (settings.notifications.pushover.enabled and settings.notifications.pushover.include_snapshot) or
-            (settings.notifications.telegram.enabled and settings.notifications.telegram.include_snapshot) or
-            (settings.notifications.discord.enabled and settings.notifications.discord.include_snapshot) or
-            (settings.notifications.email.enabled and settings.notifications.email.include_snapshot)
-        )
-
-        if snapshot_data is None and needs_snapshot:
-            snapshot_data = await frigate_client.get_snapshot(event.frigate_event, crop=True, quality=85)
-
-        # Get taxonomy names for notification
-        from app.services.taxonomy.taxonomy_service import taxonomy_service
-        taxonomy = await taxonomy_service.get_names(label)
-
-        # Fire notification
-        return await notification_service.notify_detection(
-            frigate_event=event.frigate_event,
-            species=label,
-            scientific_name=taxonomy.get("scientific_name"),
-            common_name=taxonomy.get("common_name"),
-            confidence=score,
-            camera=event.camera,
-            timestamp=event.detection_dt,
-            snapshot_url=snapshot_url,
-            event_type=event.type,
-            channels=channels,
-            audio_confirmed=audio_confirmed,
-            audio_species=audio_species,
-            snapshot_data=snapshot_data
-        )
-
-    async def _notify_after_video(
-        self,
-        event: EventData,
-        classification: Dict[str, Any],
-        audio_confirmed: bool,
-        audio_species: Optional[str]
-    ):
-        """Delay notification until video analysis completes (with fallback)."""
-        timeout = settings.notifications.video_fallback_timeout
-        snapshot_confirmed = (
-            classification['score'] >= settings.classification.threshold
-            or classification['audio_confirmed']
-        )
-        if timeout <= 0:
-            if snapshot_confirmed:
-                sent = await self._send_notification(
-                    event,
-                    label=classification['label'],
-                    score=classification['score'],
-                    audio_confirmed=audio_confirmed,
-                    audio_species=audio_species,
-                    snapshot_data=None
-                )
-                if sent:
-                    async with get_db() as db:
-                        repo = DetectionRepository(db)
-                        await repo.mark_notified(event.frigate_event)
-            else:
-                log.info("Notification skipped: snapshot not confirmed",
-                         event_id=event.frigate_event,
-                         label=classification['label'],
-                         score=classification['score'])
-            return
-
-        deadline = asyncio.get_running_loop().time() + timeout
-        label = classification['label']
-        score = classification['score']
-        video_confirmed = False
-
-        while True:
-            async with get_db() as db:
-                repo = DetectionRepository(db)
-                det = await repo.get_by_frigate_event(event.frigate_event)
-
-            if det and det.video_classification_status == 'completed':
-                if det.video_classification_label and det.video_classification_score is not None:
-                    label = det.video_classification_label
-                    score = det.video_classification_score
-                    video_confirmed = det.video_classification_score >= settings.classification.threshold
-                break
-            if det and det.video_classification_status == 'failed':
-                break
-            if asyncio.get_running_loop().time() >= deadline:
-                break
-            await asyncio.sleep(2)
-
-        if video_confirmed or snapshot_confirmed:
-            sent = await self._send_notification(
-                event,
-                label=label,
-                score=score,
-                audio_confirmed=audio_confirmed,
-                audio_species=audio_species,
-                snapshot_data=None
-            )
-            if sent:
-                async with get_db() as db:
-                    repo = DetectionRepository(db)
-                    await repo.mark_notified(event.frigate_event)
-        else:
-            log.info("Notification skipped: video/snapshot not confirmed",
-                     event_id=event.frigate_event,
-                     label=label,
-                     score=score)

@@ -60,6 +60,23 @@ class AIService:
 
         return "Unsupported AI provider."
 
+    async def chat_detection(
+        self,
+        prompt: str
+    ) -> Optional[str]:
+        """Send a text-only prompt for follow-up conversation."""
+        if not settings.llm.enabled or not settings.llm.api_key:
+            return "AI Analysis is disabled or API key is missing."
+
+        if settings.llm.provider == "gemini":
+            return await self._generate_gemini_text(prompt)
+        elif settings.llm.provider == "openai":
+            return await self._generate_openai_text(prompt)
+        elif settings.llm.provider == "claude":
+            return await self._generate_claude_text(prompt)
+
+        return "Unsupported AI provider."
+
     async def _analyze_gemini_prompt(self, prompt: str, images: list[tuple[bytes, str]]) -> Optional[str]:
         """Analyze using Google Gemini API."""
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{settings.llm.model}:generateContent?key={settings.llm.api_key}"
@@ -107,6 +124,37 @@ class AIService:
             log.error("Gemini analysis failed", error=str(e))
             return f"Error during AI analysis: {str(e)}"
 
+    async def _generate_gemini_text(self, prompt: str) -> Optional[str]:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{settings.llm.model}:generateContent?key={settings.llm.api_key}"
+        payload = {
+            "contents": [
+                {
+                    "parts": [{"text": prompt}]
+                }
+            ],
+            "generationConfig": {
+                "temperature": 0.4,
+                "topK": 32,
+                "topP": 1,
+                "maxOutputTokens": 1024,
+            }
+        }
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                resp = await client.post(url, json=payload)
+                resp.raise_for_status()
+                candidates = resp.json().get("candidates", [])
+                if candidates:
+                    content = candidates[0].get("content", {})
+                    parts = content.get("parts", [])
+                    if parts:
+                        return parts[0].get("text")
+                log.warning("Gemini returned no candidates", response=resp.text)
+                return "AI returned an empty response."
+        except Exception as e:
+            log.error("Gemini text generation failed", error=str(e))
+            return f"Error during AI analysis: {str(e)}"
+
     async def _analyze_openai_prompt(self, prompt: str, images: list[tuple[bytes, str]]) -> Optional[str]:
         """Analyze using OpenAI API (GPT-4o)."""
         url = "https://api.openai.com/v1/chat/completions"
@@ -150,6 +198,30 @@ class AIService:
                 return "AI returned an empty response."
         except Exception as e:
             log.error("OpenAI analysis failed", error=str(e))
+            return f"Error during AI analysis: {str(e)}"
+
+    async def _generate_openai_text(self, prompt: str) -> Optional[str]:
+        url = "https://api.openai.com/v1/chat/completions"
+        headers = {
+            "Authorization": f"Bearer {settings.llm.api_key}",
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "model": settings.llm.model,
+            "messages": [{"role": "user", "content": prompt}],
+            "max_tokens": 500
+        }
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                resp = await client.post(url, headers=headers, json=payload)
+                resp.raise_for_status()
+                data = resp.json()
+                choices = data.get("choices", [])
+                if choices:
+                    return choices[0].get("message", {}).get("content")
+                return "AI returned an empty response."
+        except Exception as e:
+            log.error("OpenAI text generation failed", error=str(e))
             return f"Error during AI analysis: {str(e)}"
 
     async def _analyze_claude_prompt(self, prompt: str, images: list[tuple[bytes, str]]) -> Optional[str]:
@@ -204,6 +276,33 @@ class AIService:
             log.error("Claude analysis failed", error=str(e))
             return f"Error during AI analysis: {str(e)}"
 
+    async def _generate_claude_text(self, prompt: str) -> Optional[str]:
+        url = "https://api.anthropic.com/v1/messages"
+        headers = {
+            "x-api-key": settings.llm.api_key,
+            "anthropic-version": "2023-06-01",
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "model": settings.llm.model,
+            "max_tokens": 1024,
+            "messages": [
+                {"role": "user", "content": [{"type": "text", "text": prompt}]}
+            ]
+        }
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                resp = await client.post(url, headers=headers, json=payload)
+                resp.raise_for_status()
+                data = resp.json()
+                content = data.get("content", [])
+                if content and len(content) > 0:
+                    return content[0].get("text")
+                return "AI returned an empty response."
+        except Exception as e:
+            log.error("Claude text generation failed", error=str(e))
+            return f"Error during AI analysis: {str(e)}"
+
     def _build_prompt(self, species: str, metadata: dict, language: Optional[str] = None) -> str:
         """Construct the prompt for the LLM."""
         temp = metadata.get("temperature")
@@ -237,6 +336,39 @@ class AIService:
         Keep the response concise (under 200 words). No extra sections.
         {language_note}
         """
+
+    def build_conversation_prompt(
+        self,
+        species: str,
+        analysis: Optional[str],
+        history: list[dict],
+        question: str,
+        language: Optional[str] = None
+    ) -> str:
+        """Build a prompt for a follow-up conversation."""
+        language_note = f"Respond in {language}." if language else ""
+        history_lines = []
+        for turn in history[-8:]:
+            role = turn.get("role", "user")
+            content = turn.get("content", "")
+            history_lines.append(f"{role.title()}: {content}")
+        history_block = "\n".join(history_lines) if history_lines else "No prior conversation."
+        analysis_block = analysis or "No prior analysis available."
+
+        return f"""
+You are an expert ornithologist and naturalist. Continue a short Q&A about this detection.
+
+Species identified by system: {species}
+Previous analysis:
+{analysis_block}
+
+Conversation so far:
+{history_block}
+
+User question: {question}
+
+Answer concisely in Markdown. {language_note}
+"""
 
     def _build_chart_prompt(self, metadata: dict, language: Optional[str] = None) -> str:
         """Construct a prompt for leaderboard trend analysis."""

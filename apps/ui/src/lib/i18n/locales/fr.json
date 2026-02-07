@@ -732,7 +732,16 @@
       "analyzing": "Analyse du comportement...",
       "regenerating": "Régénération...",
       "regenerate": "Régénérer l'analyse",
-      "error": "Erreur : {message}"
+      "error": "Erreur : {message}",
+      "conversation_title": "Conversation",
+      "conversation_loading": "Loading conversation…",
+      "conversation_empty": "No conversation yet. Ask a follow-up question to the AI.",
+      "conversation_placeholder": "Ask a follow-up question…",
+      "conversation_error": "Conversation failed. Please try again.",
+      "assistant": "Assistant",
+      "user": "You",
+      "send": "Send",
+      "sending": "Sending…"
     },
     "tagging": {
       "search_placeholder": "Rechercher une espèce...",

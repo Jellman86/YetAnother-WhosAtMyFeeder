@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog, and this project adheres to Semantic Versioning.
 
+## [2.7.7] - 2026-02-07
+
+- **Added:** AI conversation threads per detection with persisted history.
+- **Added:** PWA service worker for offline caching and installability.
+- **Changed:** EventProcessor notification flow decomposed into a dedicated orchestrator.
+- **Added:** Composite index on detections (`camera_name`, `detection_time`) for faster queries.
+
 ## [2.7.6] - 2026-02-06
 
 - **Added:** First-run language picker with persisted preference.

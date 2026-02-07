@@ -1258,6 +1258,26 @@ export async function analyzeDetection(eventId: string, force: boolean = false):
     );
 }
 
+export interface ConversationTurn {
+    role: 'user' | 'assistant';
+    content: string;
+    created_at: string;
+}
+
+export async function fetchDetectionConversation(eventId: string): Promise<ConversationTurn[]> {
+    const response = await apiFetch(`${API_BASE}/events/${encodeURIComponent(eventId)}/conversation`);
+    return handleResponse<ConversationTurn[]>(response);
+}
+
+export async function sendDetectionConversationMessage(eventId: string, message: string): Promise<ConversationTurn[]> {
+    const response = await apiFetch(`${API_BASE}/events/${encodeURIComponent(eventId)}/conversation`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message })
+    });
+    return handleResponse<ConversationTurn[]>(response);
+}
+
 export interface LeaderboardAnalysisResponse {
     analysis: string;
     analysis_timestamp: string;

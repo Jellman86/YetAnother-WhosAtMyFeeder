@@ -50,6 +50,7 @@ Index("idx_detections_time", detections.c.detection_time)
 Index("idx_detections_species", detections.c.display_name)
 Index("idx_detections_hidden", detections.c.is_hidden)
 Index("idx_detections_camera", detections.c.camera_name)
+Index("idx_detections_camera_time", detections.c.camera_name, detections.c.detection_time)
 Index("idx_detections_scientific", detections.c.scientific_name)
 Index("idx_detections_common", detections.c.common_name)
 Index("idx_detections_taxa_id", detections.c.taxa_id)
@@ -82,6 +83,19 @@ leaderboard_analyses = Table(
     Column("analysis_timestamp", TIMESTAMP, nullable=False),
     Column("created_at", TIMESTAMP, server_default=func.now(), nullable=False),
 )
+
+ai_conversation_turns = Table(
+    "ai_conversation_turns",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("frigate_event", String, nullable=False),
+    Column("role", String, nullable=False),  # 'user' | 'assistant'
+    Column("content", String, nullable=False),
+    Column("created_at", TIMESTAMP, server_default=func.now(), nullable=False),
+)
+
+Index("idx_ai_conversation_event", ai_conversation_turns.c.frigate_event)
+Index("idx_ai_conversation_created", ai_conversation_turns.c.created_at)
 
 taxonomy_cache = Table(
     "taxonomy_cache",

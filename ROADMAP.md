@@ -469,7 +469,7 @@ Ensure fire-and-forget tasks always surface exceptions in structured logs.
 Add a top-level exception handler to capture unexpected 500s with structured context.
 
 ### Complete UI Localization (i18n Phase 2) 🌍
-**Priority:** P1 | **Effort:** M (4-7 days)
+**Priority:** P1 | **Effort:** M (4-7 days) | **Status:** ✅ Completed (v2.7.7)
 
 Audit all UI components and remove hardcoded strings. Move all labels, errors, and chart metadata to locale files, including modal content (e.g., FirstRunWizard, Telemetry banner, Species detail modal).
 

@@ -9,6 +9,7 @@ from app.services.ai_service import ai_service
 from app.services.frigate_client import frigate_client
 from app.repositories.detection_repository import DetectionRepository
 from app.repositories.leaderboard_analysis_repository import LeaderboardAnalysisRepository
+from app.repositories.ai_conversation_repository import AIConversationRepository
 from app.database import get_db
 from app.services.i18n_service import i18n_service
 from app.utils.language import get_user_language
@@ -31,6 +32,16 @@ class LeaderboardAnalysisRequest(BaseModel):
 class LeaderboardAnalysisResponse(BaseModel):
     analysis: str
     analysis_timestamp: str
+
+
+class ConversationTurnResponse(BaseModel):
+    role: str
+    content: str
+    created_at: str
+
+
+class ConversationRequest(BaseModel):
+    message: str
 
 def _compute_config_key(config: dict) -> str:
     payload = json.dumps(config, sort_keys=True).encode("utf-8")
@@ -180,3 +191,68 @@ async def analyze_leaderboard(
             analysis=analysis,
             analysis_timestamp=now.isoformat()
         )
+
+
+@router.get("/events/{event_id}/conversation", response_model=list[ConversationTurnResponse])
+async def get_event_conversation(
+    event_id: str,
+    auth: AuthContext = Depends(get_auth_context_with_legacy)
+):
+    async with get_db() as db:
+        repo = AIConversationRepository(db)
+        turns = await repo.list_turns(event_id)
+    return [
+        ConversationTurnResponse(
+            role=turn.role,
+            content=turn.content,
+            created_at=turn.created_at.isoformat()
+        )
+        for turn in turns
+    ]
+
+
+@router.post("/events/{event_id}/conversation", response_model=list[ConversationTurnResponse])
+async def post_event_conversation(
+    event_id: str,
+    request: Request,
+    body: ConversationRequest,
+    auth: AuthContext = Depends(get_auth_context_with_legacy)
+):
+    if not auth.is_owner:
+        raise HTTPException(status_code=403, detail="Owner access required to chat with AI.")
+
+    lang = get_user_language(request)
+    async with get_db() as db:
+        detection_repo = DetectionRepository(db)
+        detection = await detection_repo.get_by_frigate_event(event_id)
+        if not detection:
+            raise HTTPException(
+                status_code=404,
+                detail=i18n_service.translate("errors.detection_not_found", lang)
+            )
+
+        convo_repo = AIConversationRepository(db)
+        history = await convo_repo.list_turns(event_id)
+
+        await convo_repo.add_turn(event_id, "user", body.message)
+
+        prompt = ai_service.build_conversation_prompt(
+            species=detection.display_name,
+            analysis=detection.ai_analysis,
+            history=[{"role": t.role, "content": t.content} for t in history],
+            question=body.message,
+            language=lang
+        )
+        reply = await ai_service.chat_detection(prompt)
+        if reply:
+            await convo_repo.add_turn(event_id, "assistant", reply)
+
+        turns = await convo_repo.list_turns(event_id)
+        return [
+            ConversationTurnResponse(
+                role=turn.role,
+                content=turn.content,
+                created_at=turn.created_at.isoformat()
+            )
+            for turn in turns
+        ]

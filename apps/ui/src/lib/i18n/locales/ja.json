@@ -732,7 +732,16 @@
       "analyzing": "行動を分析中...",
       "regenerating": "再生成中...",
       "regenerate": "分析を再生成",
-      "error": "エラー: {message}"
+      "error": "エラー: {message}",
+      "conversation_title": "Conversation",
+      "conversation_loading": "Loading conversation…",
+      "conversation_empty": "No conversation yet. Ask a follow-up question to the AI.",
+      "conversation_placeholder": "Ask a follow-up question…",
+      "conversation_error": "Conversation failed. Please try again.",
+      "assistant": "Assistant",
+      "user": "You",
+      "send": "Send",
+      "sending": "Sending…"
     },
     "tagging": {
       "search_placeholder": "種を検索...",

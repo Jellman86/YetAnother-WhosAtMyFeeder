@@ -732,7 +732,16 @@
       "analyzing": "正在分析行为...",
       "regenerating": "重新生成中...",
       "regenerate": "重新生成分析",
-      "error": "错误：{message}"
+      "error": "错误：{message}",
+      "conversation_title": "Conversation",
+      "conversation_loading": "Loading conversation…",
+      "conversation_empty": "No conversation yet. Ask a follow-up question to the AI.",
+      "conversation_placeholder": "Ask a follow-up question…",
+      "conversation_error": "Conversation failed. Please try again.",
+      "assistant": "Assistant",
+      "user": "You",
+      "send": "Send",
+      "sending": "Sending…"
     },
     "tagging": {
       "search_placeholder": "搜索物种...",
