@@ -30,6 +30,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Changed:** Unified AI analysis and conversation surfaces for consistent typography and contrast in light/dark modes.
 - **Fixed:** Detection modal AI text now uses bright dark-mode colors and tighter heading/paragraph spacing.
 - **Changed:** Expanded AI markdown styling coverage (lists, quotes, code blocks, tables, links) for light/dark modes.
+- **Fixed:** AI conversation markdown now inherits panel colors correctly in dark mode and uses tighter heading/list spacing.
 
 ## [2.7.6] - 2026-02-06
 

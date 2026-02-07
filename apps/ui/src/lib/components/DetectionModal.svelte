@@ -649,14 +649,14 @@
         border-radius: 1.25rem;
         background: linear-gradient(145deg, rgba(20, 184, 166, 0.08), rgba(14, 116, 144, 0.06));
         border: 1px solid rgba(20, 184, 166, 0.22);
-        color: rgb(51 65 85);
+        color: rgb(30 41 59);
         box-shadow: 0 12px 28px rgba(15, 118, 110, 0.15);
     }
 
     :global(.dark) .ai-surface {
         background: linear-gradient(145deg, rgba(15, 118, 110, 0.28), rgba(15, 23, 42, 0.85));
         border-color: rgba(45, 212, 191, 0.35);
-        color: rgb(226 232 240);
+        color: rgb(241 245 249);
         box-shadow: 0 16px 36px rgba(8, 47, 73, 0.45);
     }
 
@@ -678,7 +678,24 @@
     }
 
     :global(.dark) .ai-panel__content {
-        color: rgb(226 232 240);
+        color: inherit;
+    }
+
+    :global(.ai-markdown) {
+        color: inherit;
+    }
+
+    :global(.ai-markdown h1) {
+        margin: 0.75rem 0 0.4rem;
+        font-size: 0.95rem;
+        letter-spacing: 0.28em;
+        text-transform: uppercase;
+        font-weight: 900;
+        color: rgb(13 148 136);
+    }
+
+    :global(.dark .ai-markdown h1) {
+        color: rgb(94 234 212);
     }
 
     :global(.ai-markdown h2) {
@@ -720,15 +737,30 @@
         color: rgb(94 234 212);
     }
 
+    :global(.ai-markdown h5),
+    :global(.ai-markdown h6) {
+        margin: 0.55rem 0 0.2rem;
+        font-size: 0.72rem;
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+        font-weight: 800;
+        color: rgb(13 148 136);
+    }
+
+    :global(.dark .ai-markdown h5),
+    :global(.dark .ai-markdown h6) {
+        color: rgb(94 234 212);
+    }
+
     :global(.ai-markdown p) {
         margin: 0.3rem 0;
         font-size: 0.88rem;
         line-height: 1.55;
-        color: rgb(51 65 85);
+        color: inherit;
     }
 
     :global(.dark .ai-markdown p) {
-        color: rgb(241 245 249);
+        color: inherit;
     }
 
     :global(.ai-markdown ul) {
@@ -745,14 +777,21 @@
         list-style-position: outside;
     }
 
+    :global(.ai-markdown ul ul),
+    :global(.ai-markdown ol ol),
+    :global(.ai-markdown ul ol),
+    :global(.ai-markdown ol ul) {
+        margin: 0.2rem 0 0.4rem;
+    }
+
     :global(.ai-markdown li) {
         margin: 0.25rem 0;
         font-size: 0.88rem;
-        color: rgb(51 65 85);
+        color: inherit;
     }
 
     :global(.dark .ai-markdown li) {
-        color: rgb(241 245 249);
+        color: inherit;
     }
 
     :global(.ai-markdown strong) {
@@ -765,11 +804,11 @@
     }
 
     :global(.ai-markdown em) {
-        color: rgb(71 85 105);
+        color: rgba(30, 41, 59, 0.8);
     }
 
     :global(.dark .ai-markdown em) {
-        color: rgb(203 213 225);
+        color: rgba(226, 232, 240, 0.82);
     }
 
     :global(.ai-markdown code) {
@@ -815,12 +854,12 @@
         border-left: 3px solid rgba(20, 184, 166, 0.5);
         background: rgba(20, 184, 166, 0.08);
         border-radius: 0.6rem;
-        color: rgb(71 85 105);
+        color: inherit;
     }
 
     :global(.dark .ai-markdown blockquote) {
         background: rgba(20, 184, 166, 0.18);
-        color: rgb(226 232 240);
+        color: inherit;
         border-left-color: rgba(94, 234, 212, 0.7);
     }
 
@@ -891,7 +930,7 @@
         border-radius: 1rem;
         border: 1px solid transparent;
         background: rgba(241, 245, 249, 0.9);
-        color: rgb(51 65 85);
+        color: rgb(30 41 59);
         box-shadow: 0 8px 16px rgba(15, 23, 42, 0.08);
     }
 
@@ -940,6 +979,30 @@
         font-size: 0.88rem;
         line-height: 1.55;
         white-space: pre-wrap;
+    }
+
+    .ai-bubble--assistant .ai-bubble__content {
+        white-space: normal;
+    }
+
+    :global(.ai-bubble--assistant .ai-markdown h1),
+    :global(.ai-bubble--assistant .ai-markdown h2),
+    :global(.ai-bubble--assistant .ai-markdown h3),
+    :global(.ai-bubble--assistant .ai-markdown h4),
+    :global(.ai-bubble--assistant .ai-markdown h5),
+    :global(.ai-bubble--assistant .ai-markdown h6) {
+        margin-top: 0.5rem;
+        margin-bottom: 0.2rem;
+        letter-spacing: 0.18em;
+    }
+
+    :global(.ai-bubble--assistant .ai-markdown p) {
+        margin: 0.2rem 0;
+    }
+
+    :global(.ai-bubble--assistant .ai-markdown ul),
+    :global(.ai-bubble--assistant .ai-markdown ol) {
+        margin: 0.25rem 0 0.55rem;
     }
 
     .ai-bubble--assistant :global(.ai-markdown p),
