@@ -25,6 +25,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Changed:** AI analysis markdown now promotes uppercase section lines to headings and restores dark-mode input contrast for follow-up questions.
 - **Changed:** AI markdown now uses a unified Markdown parser, and prompt templates are configurable from Settings → Debug.
 - **Added:** Localized prompt templates with selectable styles and a reset option in Settings → Debug.
+- **Fixed:** CI errors by adding markdown-it typings and associating prompt editor labels with inputs.
 
 ## [2.7.6] - 2026-02-06
 

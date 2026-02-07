@@ -229,6 +229,7 @@ async def test_analyze_unsupported_provider(ai_service):
 async def test_build_prompt_includes_metadata(ai_service):
     """Prompt should include species and metadata."""
     with patch('app.services.ai_service.settings') as mock_settings:
+        mock_settings.llm.analysis_prompt_template = "Species identified by system: {species}\nTime: {time}"
         metadata = {
             "camera": "feeder_cam",
             "confidence": 0.92,

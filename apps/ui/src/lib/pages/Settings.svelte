@@ -2819,10 +2819,11 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                         <div class="space-y-6">
                             <div class="flex flex-col gap-4 md:flex-row md:items-end">
                                 <div class="flex-1">
-                                    <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">
+                                    <label for="llm-prompt-style" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">
                                         {$_('settings.debug.llm_prompt_style_label', { default: 'Prompt Style' })}
                                     </label>
                                     <select
+                                        id="llm-prompt-style"
                                         bind:value={llmPromptStyle}
                                         class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-900/60 text-xs font-semibold text-slate-900 dark:text-slate-100"
                                     >
@@ -2852,10 +2853,11 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                             </div>
 
                             <div>
-                                <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">
+                                <label for="llm-prompt-analysis" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">
                                     {$_('settings.debug.llm_prompt_analysis', { default: 'Detection Analysis Prompt' })}
                                 </label>
                                 <textarea
+                                    id="llm-prompt-analysis"
                                     rows="10"
                                     bind:value={llmAnalysisPromptTemplate}
                                     class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-900/60 text-xs font-mono text-slate-900 dark:text-slate-100 leading-relaxed"
@@ -2866,10 +2868,11 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                             </div>
 
                             <div>
-                                <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">
+                                <label for="llm-prompt-conversation" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">
                                     {$_('settings.debug.llm_prompt_conversation', { default: 'Conversation Prompt' })}
                                 </label>
                                 <textarea
+                                    id="llm-prompt-conversation"
                                     rows="10"
                                     bind:value={llmConversationPromptTemplate}
                                     class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-900/60 text-xs font-mono text-slate-900 dark:text-slate-100 leading-relaxed"
@@ -2880,10 +2883,11 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                             </div>
 
                             <div>
-                                <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">
+                                <label for="llm-prompt-chart" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">
                                     {$_('settings.debug.llm_prompt_chart', { default: 'Chart Analysis Prompt' })}
                                 </label>
                                 <textarea
+                                    id="llm-prompt-chart"
                                     rows="10"
                                     bind:value={llmChartPromptTemplate}
                                     class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-900/60 text-xs font-mono text-slate-900 dark:text-slate-100 leading-relaxed"
