@@ -4,6 +4,37 @@ This document tracks unresolved issues discovered during AI-assisted development
 
 ---
 
+## ⚠️ P1 - Untested Integrations (Need Community Testing)
+
+Some integrations are implemented but have not been validated end-to-end by the maintainer (no accounts/credentials available for real-world verification). These should be treated as P1 until verified by testers.
+
+### 1. Email Notifications via OAuth2 (Gmail/Outlook)
+**Scope:** OAuth connect flow + sending mail via XOAUTH2 SMTP.
+**Code areas:** `backend/app/routers/email.py`, `backend/app/services/smtp_service.py`, `backend/app/services/notification_service.py`
+**Needs testing:**
+- OAuth authorize + callback completes and stores token
+- Token refresh works when expired
+- Sending a test email succeeds (with and without snapshot attachment)
+
+### 2. Telegram Notifications (Real Bot API)
+**Scope:** Real bot token + chat ID, snapshot/no-snapshot paths, HTML escaping, error handling.
+**Code areas:** `backend/app/services/notification_service.py`, Settings test endpoint `backend/app/routers/settings.py`
+**Needs testing:**
+- Settings “Send Test Notification” succeeds against real Telegram Bot API
+- Snapshot attachment path works reliably
+- Special characters in species/camera names render correctly (no formatting injection)
+
+### 3. iNaturalist Submissions (OAuth + Draft/Submit Flow)
+**Scope:** OAuth connect flow + creating/submitting observations from a detection.
+**Code areas:** `backend/app/routers/inaturalist.py`, `backend/app/services/inaturalist_service.py`, UI panels in `apps/ui/src/lib/components/DetectionModal.svelte`
+**Needs testing:**
+- OAuth authorize + callback completes and stores token
+- “Draft” loads correctly for a detection
+- Submitting an observation succeeds (or fails with a clear UI error)
+
+**Notes**
+- If you test any of the above, please open a GitHub issue with: provider, config mode, redacted logs, and the exact error string (if any).
+
 ## ✅ Resolved - AI Analysis Formatting & Contrast (Detection Modal)
 
 **Status:** Resolved (2026-02-07)
