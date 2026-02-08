@@ -387,7 +387,8 @@
                 stops: [0, 90, 100]
             },
         },
-        markers: { size: [0, (hasWeather() && showTemperature) ? 3 : 0, (hasWeather() && showWind) ? 3 : 0, (hasWeather() && showPrecip) ? 3 : 0], hover: { size: 4 } },
+        // Remove point markers ("dots") for a cleaner chart.
+        markers: { size: 0, hover: { size: 0 } },
         grid: {
             borderColor: 'rgba(148,163,184,0.2)',
             strokeDashArray: 3,
