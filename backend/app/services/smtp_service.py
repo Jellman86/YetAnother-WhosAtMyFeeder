@@ -22,7 +22,7 @@ import json
 
 from google.oauth2.credentials import Credentials as GoogleCredentials
 from google.auth.transport.requests import Request as GoogleRequest
-from msal import ConfidentialClientApplication
+import httpx
 
 from app.database import get_db
 
@@ -34,6 +34,28 @@ class SMTPService:
 
     def __init__(self):
         self.logger = log.bind(service="smtp")
+
+    def _parse_expires_at(self, value: Any) -> Optional[datetime]:
+        if value is None:
+            return None
+        if isinstance(value, datetime):
+            return value
+        if isinstance(value, (int, float)):
+            try:
+                return datetime.utcfromtimestamp(value)
+            except Exception:
+                return None
+        if isinstance(value, str):
+            for fmt in ("%Y-%m-%d %H:%M:%S.%f", "%Y-%m-%d %H:%M:%S"):
+                try:
+                    return datetime.strptime(value, fmt)
+                except ValueError:
+                    continue
+            try:
+                return datetime.fromisoformat(value)
+            except ValueError:
+                return None
+        return None
 
     async def send_email_oauth(
         self,
@@ -149,12 +171,19 @@ class SMTPService:
                 image_data=image_data
             )
 
-            # Send via SMTP
+            # Send via SMTP.
+            # UI label is "TLS/STARTTLS" and most providers expect STARTTLS on 587.
+            implicit_tls = bool(use_tls and smtp_port == 465)
+            starttls = bool(use_tls and not implicit_tls)
+
             async with aiosmtplib.SMTP(
                 hostname=smtp_host,
                 port=smtp_port,
-                use_tls=use_tls
+                use_tls=implicit_tls
             ) as smtp:
+                await smtp.connect()
+                if starttls:
+                    await smtp.starttls()
                 if username and password:
                     await smtp.login(username, password)
                 await smtp.send_message(message)
@@ -327,7 +356,9 @@ class SMTPService:
         if not token_data.get("expires_at"):
             return False
 
-        expires_at = token_data["expires_at"]
+        expires_at = self._parse_expires_at(token_data["expires_at"])
+        if not expires_at:
+            return False
         # Add 5 minute buffer
         return datetime.utcnow() + timedelta(minutes=5) >= expires_at
 
@@ -359,6 +390,9 @@ class SMTPService:
             if (not settings.notifications.email.gmail_client_id or
                 not settings.notifications.email.gmail_client_secret):
                 self.logger.error("gmail_oauth_credentials_missing")
+                return None
+            if not token_data.get("refresh_token"):
+                self.logger.error("gmail_oauth_refresh_token_missing")
                 return None
 
             creds = GoogleCredentials(
@@ -400,7 +434,7 @@ class SMTPService:
             return None
 
     async def _refresh_outlook_token(self, token_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        """Refresh Outlook OAuth token using MSAL"""
+        """Refresh Outlook OAuth token using the Microsoft identity platform v2.0 token endpoint."""
         try:
             from app.config import settings
 
@@ -409,37 +443,50 @@ class SMTPService:
                 self.logger.error("outlook_oauth_credentials_missing")
                 return None
 
-            app = ConfidentialClientApplication(
-                client_id=settings.notifications.email.outlook_client_id,
-                client_credential=settings.notifications.email.outlook_client_secret,
-                authority="https://login.microsoftonline.com/common"
-            )
+            refresh_token = token_data.get("refresh_token")
+            if not refresh_token:
+                self.logger.error("outlook_refresh_token_missing")
+                return None
 
-            # Try to refresh using refresh token
-            result = app.acquire_token_by_refresh_token(
-                refresh_token=token_data.get("refresh_token"),
-                scopes=["https://outlook.office365.com/SMTP.Send"]
-            )
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                resp = await client.post(
+                    "https://login.microsoftonline.com/common/oauth2/v2.0/token",
+                    data={
+                        "client_id": settings.notifications.email.outlook_client_id,
+                        "client_secret": settings.notifications.email.outlook_client_secret,
+                        "grant_type": "refresh_token",
+                        "refresh_token": refresh_token,
+                        # Include the SMTP delegated scope; offline_access is implied by the refresh token grant,
+                        # but keeping scopes consistent avoids surprises.
+                        "scope": "offline_access openid email https://outlook.office.com/SMTP.Send",
+                    }
+                )
+                resp.raise_for_status()
+                result = resp.json()
 
-            if "access_token" not in result:
+            access_token = result.get("access_token")
+            if not access_token:
                 self.logger.error("outlook_token_refresh_failed", error=result.get("error_description"))
                 return None
 
             # Update database
-            new_expires_at = datetime.utcnow() + timedelta(seconds=result.get("expires_in", 3600))
+            new_expires_at = datetime.utcnow() + timedelta(seconds=int(result.get("expires_in", 3600)))
+            new_refresh = result.get("refresh_token") or refresh_token
 
             async with get_db() as db:
                 await db.execute(
                     """UPDATE oauth_tokens SET access_token = ?, refresh_token = ?, expires_at = ?, updated_at = ?
                        WHERE provider = ?""",
-                    (result["access_token"], result.get("refresh_token", token_data.get("refresh_token")),
+                    (access_token, new_refresh,
                      new_expires_at, datetime.utcnow(), "outlook")
                 )
                 await db.commit()
 
             # Return updated token data
-            token_data["access_token"] = result["access_token"]
+            token_data["access_token"] = access_token
+            token_data["refresh_token"] = new_refresh
             token_data["expires_at"] = new_expires_at
+            token_data["scope"] = result.get("scope") or token_data.get("scope")
 
             self.logger.info("outlook_token_refreshed")
             return token_data

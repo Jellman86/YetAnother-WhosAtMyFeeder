@@ -269,6 +269,13 @@ class NotificationService:
         if not cfg.bot_token or not cfg.chat_id:
             return
 
+        def truncate(text: str, limit: int) -> str:
+            if text is None:
+                return ""
+            if len(text) <= limit:
+                return text
+            return text[: max(0, limit - 1)].rstrip() + "…"
+
         body = i18n_service.translate(
             "notification.detection_body", 
             lang=lang, 
@@ -276,15 +283,16 @@ class NotificationService:
             camera=camera, 
             confidence=int(confidence * 100)
         )
-        
-        safe_body = escape_html(body)
-        caption = f"🐦 <b>{safe_body}</b>"
         base_url = f"https://api.telegram.org/bot{cfg.bot_token}"
 
         try:
             if cfg.include_snapshot and snapshot_data:
                 # Send Photo
                 url = f"{base_url}/sendPhoto"
+                # Caption hard limit is 1024 chars. Truncate raw text before escaping to avoid breaking entities.
+                clipped_body = truncate(body, 900)
+                safe_body = escape_html(clipped_body)
+                caption = f"🐦 <b>{safe_body}</b>"
                 data = {
                     "chat_id": cfg.chat_id,
                     "caption": caption,
@@ -297,11 +305,14 @@ class NotificationService:
                 url = f"{base_url}/sendMessage"
                 # If no snapshot, maybe include link in text
                 safe_url = escape_html(snapshot_url)
-                caption += f"\n<a href=\"{safe_url}\">View Snapshot</a>"
+                clipped_body = truncate(body, 3600)
+                safe_body = escape_html(clipped_body)
+                caption = f"🐦 <b>{safe_body}</b>\n<a href=\"{safe_url}\">View Snapshot</a>"
                 data = {
                     "chat_id": cfg.chat_id,
                     "text": caption,
-                    "parse_mode": "HTML"
+                    "parse_mode": "HTML",
+                    "disable_web_page_preview": True
                 }
                 resp = await self.client.post(url, json=data)
             

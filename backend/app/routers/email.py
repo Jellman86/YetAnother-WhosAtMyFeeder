@@ -4,15 +4,18 @@ Email notification OAuth and management endpoints
 
 from datetime import datetime, timedelta
 from fastapi import APIRouter, HTTPException, Request, Query, Depends
-from fastapi.responses import RedirectResponse, HTMLResponse
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 import structlog
 import os
 from typing import Optional
 from urllib.parse import urlencode
+import secrets
+import json
+
+import httpx
 
 from google_auth_oauthlib.flow import Flow
-from msal import ConfidentialClientApplication
 
 from app.config import settings
 from app.services.smtp_service import smtp_service
@@ -26,6 +29,21 @@ router = APIRouter(prefix="/email", tags=["email"])
 log = structlog.get_logger()
 _oauth_state_cache: dict[str, datetime] = {}
 OAUTH_STATE_TTL = timedelta(minutes=10)
+
+def _decode_jwt_payload(token: str) -> dict:
+    """Best-effort decode of a JWT payload without verification (for display only)."""
+    try:
+        import base64
+        parts = token.split(".")
+        if len(parts) < 2:
+            return {}
+        payload = parts[1]
+        # Base64url padding
+        payload += "=" * (-len(payload) % 4)
+        raw = base64.urlsafe_b64decode(payload.encode("utf-8"))
+        return json.loads(raw.decode("utf-8"))
+    except Exception:
+        return {}
 
 
 class OAuthCallbackRequest(BaseModel):
@@ -64,7 +82,9 @@ async def gmail_oauth_authorize(
                     "redirect_uris": [f"{str(request.base_url)}api/email/oauth/gmail/callback"]
                 }
             },
-            scopes=["https://www.googleapis.com/auth/gmail.send"]
+            # NOTE: XOAUTH2 for SMTP requires the full mail scope; openid/email allows us to
+            # resolve the user's email address for UI display.
+            scopes=["openid", "email", "https://mail.google.com/"]
         )
 
         # Set redirect URI
@@ -116,7 +136,7 @@ async def gmail_oauth_callback(request: Request, code: str = Query(...), state: 
                     "redirect_uris": [f"{str(request.base_url)}api/email/oauth/gmail/callback"]
                 }
             },
-            scopes=["https://www.googleapis.com/auth/gmail.send"],
+            scopes=["openid", "email", "https://mail.google.com/"],
             state=state
         )
 
@@ -204,32 +224,25 @@ async def outlook_oauth_authorize(
         if not settings.notifications.email.outlook_client_id or not settings.notifications.email.outlook_client_secret:
             raise HTTPException(status_code=400, detail=i18n_service.translate("errors.email.outlook_oauth_not_configured", lang))
 
-        # Create MSAL application
-        app = ConfidentialClientApplication(
-            client_id=settings.notifications.email.outlook_client_id,
-            client_credential=settings.notifications.email.outlook_client_secret,
-            authority="https://login.microsoftonline.com/common"
-        )
-
-        # Generate authorization URL
+        # Generate authorization URL (Microsoft identity platform v2.0).
+        # We request offline_access so we can obtain refresh tokens for long-lived setups.
         redirect_uri = f"{str(request.base_url)}api/email/oauth/outlook/callback"
-
-        auth_url = app.get_authorization_request_url(
-            scopes=["https://outlook.office365.com/SMTP.Send"],
-            redirect_uri=redirect_uri
-        )
-        try:
-            from urllib.parse import urlparse, parse_qs
-            parsed = urlparse(auth_url)
-            state_value = parse_qs(parsed.query).get("state", [None])[0]
-            if state_value:
-                _oauth_state_cache[state_value] = datetime.utcnow() + OAUTH_STATE_TTL
-        except Exception:
-            log.warning("outlook_oauth_state_parse_failed")
+        state_value = secrets.token_urlsafe(32)
+        _oauth_state_cache[state_value] = datetime.utcnow() + OAUTH_STATE_TTL
+        params = {
+            "client_id": settings.notifications.email.outlook_client_id,
+            "response_type": "code",
+            "redirect_uri": redirect_uri,
+            # SMTP AUTH delegated permission scope per Microsoft docs.
+            "scope": "offline_access openid email https://outlook.office.com/SMTP.Send",
+            "state": state_value,
+            "response_mode": "query",
+        }
+        auth_url = f"https://login.microsoftonline.com/common/oauth2/v2.0/authorize?{urlencode(params)}"
 
         log.info("outlook_oauth_initiated", redirect_uri=redirect_uri)
 
-        return {"authorization_url": auth_url}
+        return {"authorization_url": auth_url, "state": state_value}
 
     except HTTPException:
         raise
@@ -254,28 +267,35 @@ async def outlook_oauth_callback(request: Request, code: str = Query(...), state
             raise HTTPException(status_code=400, detail=i18n_service.translate("errors.email.state_expired", lang))
         _oauth_state_cache.pop(state, None)
 
-        # Create MSAL application
-        app = ConfidentialClientApplication(
-            client_id=settings.notifications.email.outlook_client_id,
-            client_credential=settings.notifications.email.outlook_client_secret,
-            authority="https://login.microsoftonline.com/common"
-        )
-
         redirect_uri = f"{str(request.base_url)}api/email/oauth/outlook/callback"
 
-        # Exchange authorization code for tokens
-        result = app.acquire_token_by_authorization_code(
-            code=code,
-            scopes=["https://outlook.office365.com/SMTP.Send"],
-            redirect_uri=redirect_uri
-        )
+        # Exchange authorization code for tokens (store refresh token for long-lived setups).
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            token_resp = await client.post(
+                "https://login.microsoftonline.com/common/oauth2/v2.0/token",
+                data={
+                    "client_id": settings.notifications.email.outlook_client_id,
+                    "client_secret": settings.notifications.email.outlook_client_secret,
+                    "grant_type": "authorization_code",
+                    "code": code,
+                    "redirect_uri": redirect_uri,
+                    "scope": "offline_access openid email https://outlook.office.com/SMTP.Send",
+                },
+            )
+            token_resp.raise_for_status()
+            result = token_resp.json()
 
-        if "access_token" not in result:
+        access_token = result.get("access_token")
+        if not access_token:
             error_desc = result.get("error_description", i18n_service.translate("errors.email.access_token_failed", lang))
             raise HTTPException(status_code=400, detail=error_desc)
 
-        # Get user email from token
-        email = result.get("account", {}).get("username")
+        # Best-effort email extraction from id_token for display and SMTP user.
+        email = None
+        id_token = result.get("id_token")
+        if id_token:
+            claims = _decode_jwt_payload(id_token)
+            email = claims.get("preferred_username") or claims.get("upn") or claims.get("email")
         if not email:
             raise HTTPException(status_code=400, detail=i18n_service.translate("errors.email.email_missing", lang))
 
@@ -283,10 +303,10 @@ async def outlook_oauth_callback(request: Request, code: str = Query(...), state
         await smtp_service.store_oauth_token(
             provider="outlook",
             email=email,
-            access_token=result["access_token"],
+            access_token=access_token,
             refresh_token=result.get("refresh_token"),
             expires_in=result.get("expires_in", 3600),
-            scope=" ".join(result.get("scope", []))
+            scope=result.get("scope")
         )
 
         log.info("outlook_oauth_completed", email=email)
