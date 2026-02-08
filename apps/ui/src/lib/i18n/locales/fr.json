@@ -113,6 +113,9 @@
     "zoom_in": "Zoomer",
     "zoom_out": "Dézoomer",
     "source": "Source",
+    "source_inaturalist": "iNaturalist",
+    "unit_kmh": "km/h",
+    "unit_mm": "mm",
     "unknown_location": "Lieu inconnu",
     "unknown_species": "Espèce inconnue"
   },

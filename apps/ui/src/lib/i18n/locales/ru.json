@@ -113,6 +113,9 @@
     "zoom_in": "Увеличить",
     "zoom_out": "Уменьшить",
     "source": "Источник",
+    "source_inaturalist": "iNaturalist",
+    "unit_kmh": "км/ч",
+    "unit_mm": "мм",
     "unknown_location": "Неизвестное место",
     "unknown_species": "Неизвестный вид"
   },

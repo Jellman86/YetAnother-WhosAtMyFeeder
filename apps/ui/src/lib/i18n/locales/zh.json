@@ -113,6 +113,9 @@
     "zoom_in": "放大",
     "zoom_out": "缩小",
     "source": "来源",
+    "source_inaturalist": "iNaturalist",
+    "unit_kmh": "km/h",
+    "unit_mm": "mm",
     "unknown_location": "未知地点",
     "unknown_species": "未知物种"
   },

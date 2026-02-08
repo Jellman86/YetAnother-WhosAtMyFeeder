@@ -113,6 +113,9 @@
     "zoom_in": "拡大",
     "zoom_out": "縮小",
     "source": "出典",
+    "source_inaturalist": "iNaturalist",
+    "unit_kmh": "km/h",
+    "unit_mm": "mm",
     "unknown_location": "不明な場所",
     "unknown_species": "不明な種"
   },

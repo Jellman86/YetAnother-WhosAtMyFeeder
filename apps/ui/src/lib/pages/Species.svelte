@@ -255,11 +255,11 @@
         return `${trimmed.slice(0, 217)}...`;
     }
 
-    function getHeroSource(info: SpeciesInfo | null): { label: string; url: string } | null {
+    function getHeroSource(info: SpeciesInfo | null): { source: 'wikipedia' | 'inaturalist'; url: string } | null {
         if (!info) return null;
-        if (info.wikipedia_url) return { label: 'Wikipedia', url: info.wikipedia_url };
-        if (info.summary_source_url) return { label: 'iNaturalist', url: info.summary_source_url };
-        if (info.source_url) return { label: 'iNaturalist', url: info.source_url };
+        if (info.wikipedia_url) return { source: 'wikipedia', url: info.wikipedia_url };
+        if (info.summary_source_url) return { source: 'inaturalist', url: info.summary_source_url };
+        if (info.source_url) return { source: 'inaturalist', url: info.source_url };
         return null;
     }
 
@@ -419,7 +419,7 @@
                 show: hasWeather() && showWind,
                 labels: {
                     style: { fontSize: '10px', colors: '#0ea5e9' },
-                    formatter: (value: number) => `${Math.round(value)} km/h`
+                    formatter: (value: number) => `${Math.round(value)} ${$_('common.unit_kmh', { default: 'km/h' })}`
                 }
             },
             {
@@ -427,7 +427,7 @@
                 show: hasWeather() && showPrecip,
                 labels: {
                     style: { fontSize: '10px', colors: '#a855f7' },
-                    formatter: (value: number) => `${value.toFixed(1)} mm`
+                    formatter: (value: number) => `${value.toFixed(1)} ${$_('common.unit_mm', { default: 'mm' })}`
                 }
             }
         ],
@@ -441,8 +441,8 @@
             y: [
                 { formatter: (value: number) => `${Math.round(value)} detections` },
                 { formatter: (value: number) => formatTemperature(value, temperatureUnit as any) },
-                { formatter: (value: number) => `${Math.round(value)} km/h` },
-                { formatter: (value: number) => `${value.toFixed(1)} mm` }
+                { formatter: (value: number) => `${Math.round(value)} ${$_('common.unit_kmh', { default: 'km/h' })}` },
+                { formatter: (value: number) => `${value.toFixed(1)} ${$_('common.unit_mm', { default: 'mm' })}` }
             ]
         },
         legend: { show: false },
@@ -723,9 +723,9 @@
                                         rel="noopener noreferrer"
                                         class="inline-flex items-center gap-2 text-xs font-semibold text-emerald-700 dark:text-emerald-300 hover:text-emerald-600 dark:hover:text-emerald-200 mt-2"
                                     >
-                                        {heroSource.label === 'Wikipedia'
+                                        {heroSource.source === 'wikipedia'
                                             ? $_('actions.read_more_wikipedia')
-                                            : $_('actions.read_more_source', { values: { source: heroSource.label } })}
+                                            : $_('actions.read_more_source', { values: { source: $_('common.source_inaturalist', { default: 'iNaturalist' }) } })}
                                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 3h7v7m0-7L10 14m-1 7h11a2 2 0 002-2V9" />
                                         </svg>
