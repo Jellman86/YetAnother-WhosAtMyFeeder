@@ -146,7 +146,13 @@ async def test_notification(
             
             try:
                 await notification_service._send_pushover(
-                    species, common_name, confidence, camera, timestamp, snapshot_url, None
+                    common_name,
+                    confidence,
+                    camera,
+                    timestamp,
+                    snapshot_url,
+                    None,
+                    settings.notifications.notification_language
                 )
             finally:
                 if request.user_key and request.user_key != "***REDACTED***": 
@@ -165,7 +171,13 @@ async def test_notification(
             
             try:
                 await notification_service._send_telegram(
-                    species, common_name, confidence, camera, timestamp, snapshot_url, None
+                    common_name,
+                    confidence,
+                    camera,
+                    timestamp,
+                    snapshot_url,
+                    None,
+                    settings.notifications.notification_language
                 )
             finally:
                 if request.bot_token and request.bot_token != "***REDACTED***": 
