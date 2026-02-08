@@ -533,6 +533,9 @@ Backfill BirdNET-Go audio detections into `audio_detections` so historical detec
 | EventProcessor refactoring | M (3-4 days) | P1 | ✅ Partial refactor |
 | Memory leak in auto video classifier | M (2 days) | P1 | ✅ Mitigated |
 | Missing database connection pooling | M (2 days) | P1 | ✅ Implemented |
+| Persist UI font theme to backend (used by emails) | S (1 day) | P2 | ✅ Implemented |
+| Leaderboard span chart weather overlays | S (1 day) | P2 | ✅ Implemented |
+| Remove legacy theme/layout subscribe wrappers from Settings | S (0.5 day) | P2 | ✅ Implemented |
 
 **Total Effort for High Priority Fixes:** ~2 weeks (Completed)
 

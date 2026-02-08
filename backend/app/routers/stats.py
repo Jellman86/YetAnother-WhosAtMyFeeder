@@ -73,6 +73,16 @@ class DetectionsTimelinePoint(BaseModel):
     count: int
 
 
+class DetectionsTimelineWeatherPoint(BaseModel):
+    bucket_start: str
+    temp_avg: Optional[float] = None
+    wind_avg: Optional[float] = None
+    precip_total: Optional[float] = None
+    rain_total: Optional[float] = None
+    snow_total: Optional[float] = None
+    condition_text: Optional[str] = None
+
+
 class DetectionsTimelineSpanResponse(BaseModel):
     span: str
     bucket: str
@@ -80,6 +90,9 @@ class DetectionsTimelineSpanResponse(BaseModel):
     window_end: str
     total_count: int
     points: List[DetectionsTimelinePoint]
+    weather: Optional[list[DetectionsTimelineWeatherPoint]] = None
+    sunrise_range: Optional[str] = None
+    sunset_range: Optional[str] = None
 
 @router.get("/stats/daily-summary", response_model=DailySummaryResponse)
 @guest_rate_limit()
@@ -332,6 +345,7 @@ async def get_detection_timeline(request: Request, days: int = 30):
 async def get_detection_timeline_span(
     request: Request,
     span: Literal["all", "day", "week", "month"] = Query("week", description="Time span for the timeline"),
+    include_weather: bool = Query(False, description="Include weather overlays (best-effort)"),
 ):
     """Get detections over time for a rolling span aligned to the current time.
 
@@ -470,6 +484,121 @@ async def get_detection_timeline_span(
                     else:
                         cursor = date(cursor.year, cursor.month + 1, 1)
 
+        weather_points = None
+        sunrise_range = None
+        sunset_range = None
+
+        if include_weather:
+            # Don't hammer the weather archive for very large windows.
+            window_days = max(0.0, (window_end - window_start).total_seconds() / 86400.0)
+            if window_days <= 31 and bucket in ("hour", "halfday", "day"):
+                try:
+                    hourly_weather = await weather_service.get_hourly_weather(window_start, window_end)
+                    sun = await weather_service.get_daily_sun_times(window_start, window_end)
+
+                    def _hour_key(dt: datetime) -> str:
+                        return dt.replace(tzinfo=timezone.utc).strftime("%Y-%m-%dT%H:00:00Z")
+
+                    def _weather_at_hour(dt: datetime) -> dict:
+                        raw = hourly_weather.get(dt.strftime("%Y-%m-%dT%H:00")) or hourly_weather.get(dt.strftime("%Y-%m-%dT%H:00Z"))
+                        if raw is None:
+                            # Try parsing the keys if the API format differs.
+                            return {}
+                        return raw or {}
+
+                    def _agg_bucket(start_dt: datetime, hours: int) -> dict:
+                        temps = []
+                        winds = []
+                        precip = 0.0
+                        rain = 0.0
+                        snow = 0.0
+                        precip_seen = False
+                        rain_seen = False
+                        snow_seen = False
+                        codes: list[int] = []
+                        for i in range(hours):
+                            hdt = start_dt + timedelta(hours=i)
+                            w = _weather_at_hour(hdt) or {}
+                            t = w.get("temperature")
+                            if t is not None:
+                                try:
+                                    temps.append(float(t))
+                                except Exception:
+                                    pass
+                            ws = w.get("wind_speed")
+                            if ws is not None:
+                                try:
+                                    winds.append(float(ws))
+                                except Exception:
+                                    pass
+                            p = w.get("precipitation")
+                            if p is not None:
+                                try:
+                                    precip += float(p)
+                                    precip_seen = True
+                                except Exception:
+                                    pass
+                            r = w.get("rain")
+                            if r is not None:
+                                try:
+                                    rain += float(r)
+                                    rain_seen = True
+                                except Exception:
+                                    pass
+                            s = w.get("snowfall")
+                            if s is not None:
+                                try:
+                                    snow += float(s)
+                                    snow_seen = True
+                                except Exception:
+                                    pass
+                            code = w.get("condition_code")
+                            if code is not None:
+                                try:
+                                    codes.append(int(code))
+                                except Exception:
+                                    pass
+
+                        mode_code = None
+                        if codes:
+                            mode_code = Counter(codes).most_common(1)[0][0]
+
+                        return {
+                            "bucket_start": _hour_key(start_dt),
+                            "temp_avg": (sum(temps) / len(temps)) if temps else None,
+                            "wind_avg": (sum(winds) / len(winds)) if winds else None,
+                            "precip_total": precip if precip_seen else None,
+                            "rain_total": rain if rain_seen else None,
+                            "snow_total": snow if snow_seen else None,
+                            "condition_text": weather_service._get_condition_text(mode_code) if mode_code is not None else None,
+                        }
+
+                    # Aggregate weather per timeline point.
+                    weather_points: list[DetectionsTimelineWeatherPoint] = []
+                    for p in points:
+                        start_dt = datetime.fromisoformat(p.bucket_start.replace("Z", "+00:00")).replace(tzinfo=None)
+                        if bucket == "hour":
+                            weather_points.append(DetectionsTimelineWeatherPoint(**_agg_bucket(start_dt, 1)))
+                        elif bucket == "halfday":
+                            weather_points.append(DetectionsTimelineWeatherPoint(**_agg_bucket(start_dt, 12)))
+                        else:
+                            weather_points.append(DetectionsTimelineWeatherPoint(**_agg_bucket(start_dt, 24)))
+
+                    # Compute sunrise/sunset range over the window (daily)
+                    if sun:
+                        sunrise_times = [v.get("sunrise") for v in sun.values() if v and v.get("sunrise")]
+                        sunset_times = [v.get("sunset") for v in sun.values() if v and v.get("sunset")]
+                        if sunrise_times:
+                            sunrise_times = sorted(sunrise_times)
+                            sunrise_range = sunrise_times[0][-5:] if len(sunrise_times) == 1 else f"{sunrise_times[0][-5:]}–{sunrise_times[-1][-5:]}"
+                        if sunset_times:
+                            sunset_times = sorted(sunset_times)
+                            sunset_range = sunset_times[0][-5:] if len(sunset_times) == 1 else f"{sunset_times[0][-5:]}–{sunset_times[-1][-5:]}"
+                except Exception:
+                    weather_points = None
+                    sunrise_range = None
+                    sunset_range = None
+
         total_count = sum(p.count for p in points)
         return DetectionsTimelineSpanResponse(
             span=span,
@@ -478,4 +607,7 @@ async def get_detection_timeline_span(
             window_end=window_end.replace(tzinfo=timezone.utc).isoformat(),
             total_count=total_count,
             points=points,
+            weather=weather_points,
+            sunrise_range=sunrise_range,
+            sunset_range=sunset_range,
         )

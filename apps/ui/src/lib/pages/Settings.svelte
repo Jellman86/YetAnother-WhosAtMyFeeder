@@ -49,8 +49,8 @@
         type TaxonomySyncStatus,
         type VersionInfo
     } from '../api';
-    import { themeStore, theme, type Theme } from '../stores/theme.svelte';
-    import { layoutStore, layout, type Layout } from '../stores/layout.svelte';
+    import { themeStore, type Theme } from '../stores/theme.svelte';
+    import { layoutStore, type Layout } from '../stores/layout.svelte';
     import { settingsStore } from '../stores/settings.svelte';
     import { authStore } from '../stores/auth.svelte';
     import { toastStore } from '../stores/toast.svelte';
@@ -1475,8 +1475,10 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     // Tab navigation
     let activeTab = $state('connection');
 
-    theme.subscribe(t => currentTheme = t);
-    layout.subscribe(l => currentLayout = l);
+    $effect(() => {
+        currentTheme = themeStore.theme;
+        currentLayout = layoutStore.layout;
+    });
     $effect(() => {
         currentFontTheme = themeStore.fontTheme;
     });

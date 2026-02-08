@@ -142,10 +142,27 @@ export interface DetectionsTimelineSpanResponse {
     window_end: string;
     total_count: number;
     points: DetectionsTimelinePoint[];
+    weather?: {
+        bucket_start: string;
+        temp_avg?: number | null;
+        wind_avg?: number | null;
+        precip_total?: number | null;
+        rain_total?: number | null;
+        snow_total?: number | null;
+        condition_text?: string | null;
+    }[] | null;
+    sunrise_range?: string | null;
+    sunset_range?: string | null;
 }
 
-export async function fetchDetectionsTimelineSpan(span: LeaderboardSpan = 'week'): Promise<DetectionsTimelineSpanResponse> {
-    const response = await apiFetch(`${API_BASE}/stats/detections/timeline?span=${encodeURIComponent(span)}`);
+export async function fetchDetectionsTimelineSpan(
+    span: LeaderboardSpan = 'week',
+    opts: { includeWeather?: boolean } = {}
+): Promise<DetectionsTimelineSpanResponse> {
+    const params = new URLSearchParams();
+    params.set('span', span);
+    if (opts.includeWeather) params.set('include_weather', 'true');
+    const response = await apiFetch(`${API_BASE}/stats/detections/timeline?${params.toString()}`);
     return handleResponse<DetectionsTimelineSpanResponse>(response);
 }
 

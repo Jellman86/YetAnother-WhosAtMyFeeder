@@ -9,6 +9,9 @@ from typing import Optional
 
 log = structlog.get_logger()
 
+DEFAULT_DB_POOL_SIZE = int(os.environ.get("DB_POOL_SIZE", "5"))
+DEFAULT_DB_BUSY_TIMEOUT_MS = int(os.environ.get("DB_BUSY_TIMEOUT_MS", "30000"))
+
 def _is_testing() -> bool:
     # PYTEST_CURRENT_TEST is only set while a test is executing (not during collection/import).
     return (
@@ -99,7 +102,7 @@ class DatabasePool:
     WAL mode enabled for better concurrent read performance.
     """
 
-    def __init__(self, database_path: str, pool_size: int = 5):
+    def __init__(self, database_path: str, pool_size: int = DEFAULT_DB_POOL_SIZE):
         self.database_path = database_path
         self.pool_size = pool_size
         self._pool: asyncio.Queue = asyncio.Queue(maxsize=pool_size)
@@ -110,14 +113,17 @@ class DatabasePool:
         """Create a new database connection with optimal settings."""
         conn = await aiosqlite.connect(
             self.database_path,
-            timeout=30.0,  # 30 second timeout for lock waits
+            timeout=max(1.0, DEFAULT_DB_BUSY_TIMEOUT_MS / 1000.0),
             check_same_thread=False  # Required for connection pool
         )
         # Enable WAL mode for better concurrency
         await conn.execute("PRAGMA journal_mode=WAL;")
         await conn.execute("PRAGMA synchronous=NORMAL;")
+        await conn.execute("PRAGMA foreign_keys=ON;")
+        await conn.execute(f"PRAGMA busy_timeout={DEFAULT_DB_BUSY_TIMEOUT_MS};")
         # Optimize for read-heavy workloads
         await conn.execute("PRAGMA cache_size=-64000;")  # 64MB cache
+        await conn.execute("PRAGMA temp_store=MEMORY;")
         await conn.commit()
         return conn
 
@@ -245,7 +251,7 @@ async def init_db():
     log.info("Database schema verification completed")
 
     # Initialize connection pool
-    _db_pool = DatabasePool(db_path, pool_size=5)
+    _db_pool = DatabasePool(db_path, pool_size=DEFAULT_DB_POOL_SIZE)
     await _db_pool.initialize()
 
 
@@ -270,6 +276,10 @@ async def get_db():
         # Fallback: create connection if pool not initialized
         log.warning("Database pool not initialized, using direct connection")
         async with aiosqlite.connect(_get_db_path()) as db:
+            await db.execute("PRAGMA journal_mode=WAL;")
+            await db.execute("PRAGMA synchronous=NORMAL;")
+            await db.execute("PRAGMA foreign_keys=ON;")
+            await db.execute(f"PRAGMA busy_timeout={DEFAULT_DB_BUSY_TIMEOUT_MS};")
             yield db
         return
 

@@ -18,6 +18,7 @@
     import { authStore } from '../stores/auth.svelte';
     import { themeStore } from '../stores/theme.svelte';
     import { getBirdNames } from '../naming';
+    import { formatTemperature } from '../utils/temperature';
     import { formatDateTime } from '../utils/datetime';
     import { _ } from 'svelte-i18n';
 
@@ -52,6 +53,9 @@
     let leaderboardConfigKey = $state<string | null>(null);
     let leaderboardAnalysisSubtitle = $state<string | null>(null);
     let llmReady = $state(false);
+    let showTemperature = $state(false);
+    let showWind = $state(false);
+    let showPrecip = $state(false);
 
     const enrichmentModeSetting = $derived(settingsStore.settings?.enrichment_mode ?? authStore.enrichmentMode ?? 'per_enrichment');
     const enrichmentSingleProviderSetting = $derived(settingsStore.settings?.enrichment_single_provider ?? authStore.enrichmentSingleProvider ?? 'wikipedia');
@@ -167,7 +171,7 @@
                 span === 'all'
                     ? fetchSpecies().then(mapAllTimeSpecies)
                     : fetchLeaderboardSpecies(span).then(mapWindowSpecies),
-                fetchDetectionsTimelineSpan(span)
+                fetchDetectionsTimelineSpan(span, { includeWeather: true })
             ]);
             species = speciesRows;
             timeline = timelineResp;
@@ -292,6 +296,24 @@
     let timelineMax = $derived(timelineCounts.length ? Math.max(...timelineCounts) : 0);
     let timelineAvg = $derived(timelinePoints().length ? Math.round((timeline?.total_count || 0) / timelinePoints().length) : 0);
     let isDark = $derived(() => themeStore.isDark);
+    let temperatureUnit = $derived(settingsStore.settings?.location_temperature_unit ?? 'celsius');
+    let weatherByBucket = $derived(() => new Map((timeline?.weather ?? []).map((w) => [w.bucket_start, w] as const)));
+    let hasWeather = $derived(() => !!(timeline?.weather && timeline.weather.length));
+
+    function convertTemperature(value: number | null | undefined) {
+        if (value === null || value === undefined || Number.isNaN(value)) return null;
+        if (temperatureUnit === 'fahrenheit') {
+            return (value * 9) / 5 + 32;
+        }
+        return value;
+    }
+
+    function weatherValue(bucketStart: string, key: string): number | null {
+        const w: any = weatherByBucket().get(bucketStart);
+        const val = w?.[key];
+        if (val === undefined || val === null || Number.isNaN(val)) return null;
+        return Number(val);
+    }
 
     let chartSubtitle = $derived(() => {
         if (!timeline) return '';
@@ -317,24 +339,55 @@
                     x: Date.parse(p.bucket_start),
                     y: p.count
                 }))
+            },
+            {
+                name: $_('leaderboard.temperature'),
+                type: 'line',
+                data: (hasWeather() && showTemperature)
+                    ? timelinePoints().map((p) => ({
+                        x: Date.parse(p.bucket_start),
+                        y: convertTemperature(weatherValue(p.bucket_start, 'temp_avg'))
+                    }))
+                    : []
+            },
+            {
+                name: $_('leaderboard.wind_avg'),
+                type: 'line',
+                data: (hasWeather() && showWind)
+                    ? timelinePoints().map((p) => ({
+                        x: Date.parse(p.bucket_start),
+                        y: weatherValue(p.bucket_start, 'wind_avg')
+                    }))
+                    : []
+            },
+            {
+                name: $_('leaderboard.precip'),
+                type: 'line',
+                data: (hasWeather() && showPrecip)
+                    ? timelinePoints().map((p) => ({
+                        x: Date.parse(p.bucket_start),
+                        y: weatherValue(p.bucket_start, 'precip_total')
+                    }))
+                    : []
             }
         ],
         dataLabels: { enabled: false },
         stroke: {
             curve: 'smooth',
-            width: 2,
-            colors: ['#10b981']
+            width: [2, 2, 2, 2],
+            colors: ['#10b981', '#f97316', '#0ea5e9', '#a855f7'],
+            dashArray: [0, 4, 4, 6]
         },
         fill: {
-            type: ['gradient'],
+            type: ['gradient', 'solid', 'solid', 'solid'],
             gradient: {
                 shadeIntensity: 1,
                 opacityFrom: 0.35,
                 opacityTo: 0,
                 stops: [0, 90, 100]
-            }
+            },
         },
-        markers: { size: 0, hover: { size: 4 } },
+        markers: { size: [0, (hasWeather() && showTemperature) ? 3 : 0, (hasWeather() && showWind) ? 3 : 0, (hasWeather() && showPrecip) ? 3 : 0], hover: { size: 4 } },
         grid: {
             borderColor: 'rgba(148,163,184,0.2)',
             strokeDashArray: 3,
@@ -352,6 +405,30 @@
                     style: { fontSize: '10px', colors: '#94a3b8' },
                     formatter: (value: number) => Math.round(value).toString()
                 }
+            },
+            {
+                opposite: true,
+                show: hasWeather() && showTemperature,
+                labels: {
+                    style: { fontSize: '10px', colors: '#f59e0b' },
+                    formatter: (value: number) => formatTemperature(value, temperatureUnit as any)
+                }
+            },
+            {
+                opposite: true,
+                show: hasWeather() && showWind,
+                labels: {
+                    style: { fontSize: '10px', colors: '#0ea5e9' },
+                    formatter: (value: number) => `${Math.round(value)} km/h`
+                }
+            },
+            {
+                opposite: true,
+                show: hasWeather() && showPrecip,
+                labels: {
+                    style: { fontSize: '10px', colors: '#a855f7' },
+                    formatter: (value: number) => `${value.toFixed(1)} mm`
+                }
             }
         ],
         tooltip: {
@@ -361,7 +438,12 @@
                     ? 'MMM dd HH:mm'
                     : (timeline?.bucket === 'month' ? 'MMM yyyy' : 'MMM dd HH:mm')
             },
-            y: [{ formatter: (value: number) => `${Math.round(value)} detections` }]
+            y: [
+                { formatter: (value: number) => `${Math.round(value)} detections` },
+                { formatter: (value: number) => formatTemperature(value, temperatureUnit as any) },
+                { formatter: (value: number) => `${Math.round(value)} km/h` },
+                { formatter: (value: number) => `${value.toFixed(1)} mm` }
+            ]
         },
         legend: { show: false },
         subtitle: {
@@ -858,7 +940,54 @@
                         {/if}
                     </div>
                 {/if}
-                <!-- Weather overlays were removed from the span-based leaderboard chart. -->
+                {#if hasWeather()}
+                    <div class="mt-4 flex flex-wrap items-center gap-3 text-[10px] text-slate-400">
+                        <div class="flex items-center gap-2">
+                            <button
+                                type="button"
+                                onclick={() => showTemperature = !showTemperature}
+                                class="px-2 py-1 rounded-full border border-slate-200/70 dark:border-slate-700/60 text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400"
+                            >
+                                <span aria-hidden="true">🌡️</span>
+                                {showTemperature ? $_('leaderboard.hide_temperature') : $_('leaderboard.show_temperature')}
+                            </button>
+                            <button
+                                type="button"
+                                onclick={() => showWind = !showWind}
+                                class="px-2 py-1 rounded-full border border-slate-200/70 dark:border-slate-700/60 text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400"
+                            >
+                                <span aria-hidden="true">💨</span>
+                                {showWind ? $_('leaderboard.hide_wind') : $_('leaderboard.show_wind')}
+                            </button>
+                            <button
+                                type="button"
+                                onclick={() => showPrecip = !showPrecip}
+                                class="px-2 py-1 rounded-full border border-slate-200/70 dark:border-slate-700/60 text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400"
+                            >
+                                <span aria-hidden="true">🌧️</span>
+                                {showPrecip ? $_('leaderboard.hide_precip') : $_('leaderboard.show_precip')}
+                            </button>
+                        </div>
+                        <span class="text-slate-400/70">{$_('common.grouped_by', { default: 'Grouped by' })}: {bucketLabel(timeline?.bucket)}</span>
+                    </div>
+
+                    {#if timeline?.sunrise_range || timeline?.sunset_range}
+                        <div class="mt-2 flex flex-wrap items-center gap-2 text-[10px] text-slate-500">
+                            {#if timeline?.sunrise_range}
+                                <span class="inline-flex items-center gap-1 rounded-full border border-amber-200/60 dark:border-amber-700/50 bg-amber-50/60 dark:bg-amber-900/20 px-2 py-1 text-amber-700 dark:text-amber-300">
+                                    <span aria-hidden="true">🌅</span>
+                                    {$_('leaderboard.sunrise')}: {timeline.sunrise_range}
+                                </span>
+                            {/if}
+                            {#if timeline?.sunset_range}
+                                <span class="inline-flex items-center gap-1 rounded-full border border-orange-200/60 dark:border-orange-700/50 bg-orange-50/60 dark:bg-orange-900/20 px-2 py-1 text-orange-700 dark:text-orange-300">
+                                    <span aria-hidden="true">🌇</span>
+                                    {$_('leaderboard.sunset')}: {timeline.sunset_range}
+                                </span>
+                            {/if}
+                        </div>
+                    {/if}
+                {/if}
             </div>
         </div>
 

@@ -10,7 +10,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Fixed:** Settings “Send Test Notification” now calls Telegram and Pushover notification helpers with the correct argument order (prevents Telegram confidence parsing crash).
 - **Changed:** Email notifications now use the configured UI font theme for their HTML templates (email clients may fall back to system fonts).
 - **Fixed:** Leaderboard ranking now defaults to **Total** (all-time), and “Unknown Bird” can be toggled on/off from the leaderboard table.
-- **Fixed:** Leaderboard “Detections over time” chart now reacts to the Day/Week/Month selection (bucketed timeline), and shows an explicit range/grouping label (weather overlays are temporarily disabled in this view).
+- **Fixed:** Leaderboard “Detections over time” chart now reacts to the Day/Week/Month selection (bucketed timeline), and shows an explicit range/grouping label (with optional weather overlays when location data is available).
 - **Fixed:** Leaderboard “All Species” summary now shows explicit date ranges for the 7-day and 30-day totals.
 - **Fixed:** Traditional SMTP email now uses STARTTLS on port 587 when “TLS/STARTTLS” is enabled (and implicit TLS on 465).
 - **Fixed:** Telegram notifications now truncate long bodies to respect Telegram length limits, and disable link previews in the text-only path.
