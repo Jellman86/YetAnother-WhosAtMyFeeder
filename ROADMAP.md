@@ -97,10 +97,10 @@ See [DEVELOPER.md](DEVELOPER.md) for architectural details.
 
 ## 🚨 Issues First
 
-All unresolved issues listed in `agents/ISSUES.md` must be addressed **before** new feature work. This section is always the top priority.
+All unresolved issues listed in `ISSUES.md` must be addressed **before** new feature work. This section is always the top priority.
 
 **Active Issues:**
-- None (all tracked issues currently resolved). See `agents/ISSUES.md` for history.
+- None (all tracked issues currently resolved). See `ISSUES.md` for current testing gaps and known issues.
 
 ---
 

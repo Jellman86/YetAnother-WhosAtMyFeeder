@@ -71,6 +71,8 @@ When Frigate detects a bird at your feeder, YA-WAMF:
 
 For detailed guides on setup, integrations, and troubleshooting, please see the **[Full Documentation Suite](docs/index.md)**.
 
+- [Known Issues / Testing Gaps](ISSUES.md)
+- [Integration Testing Requests](INTEGRATION_TESTING.md)
 - [🚀 Getting Started](docs/setup/getting-started.md)
 - [📦 Full Docker Stack Example](docs/setup/docker-stack.md)
 - [📷 Recommended Frigate Config](docs/setup/frigate-config.md)

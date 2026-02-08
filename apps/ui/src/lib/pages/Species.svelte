@@ -360,6 +360,16 @@
         )
     );
 
+    let chartStartDate = $derived(() => chartTimeline().daily[0]?.date ?? null);
+    let chartEndDate = $derived(() => chartTimeline().daily[chartTimeline().daily.length - 1]?.date ?? null);
+
+    function chartBucketLabel(): string {
+        // Reuse existing i18n keys (these are also used for the sort tabs).
+        if (chartBucket() === 'week') return $_('leaderboard.sort_by_week');
+        if (chartBucket() === 'month') return $_('leaderboard.sort_by_month');
+        return $_('leaderboard.sort_by_day');
+    }
+
     let timelineCounts = $derived(chartTimeline().daily.map((d) => d.count) || []);
     let timelineMax = $derived(timelineCounts.length ? Math.max(...timelineCounts) : 0);
     let isDark = $derived(() => themeStore.isDark);
@@ -1098,6 +1108,10 @@
                     <div>
                         <p class="text-[10px] uppercase tracking-[0.3em] font-black text-slate-500 dark:text-slate-300">
                             {$_('leaderboard.last_n_days', { values: { days: timeline?.days || timelineDays } })}
+                        </p>
+                        <p class="mt-1 text-[10px] font-semibold text-slate-400">
+                            {$_('common.range', { default: 'Range' })}: {chartStartDate() ?? '—'} → {chartEndDate() ?? '—'} · {$_('common.grouped_by', { default: 'Grouped by' })}:{' '}
+                            {chartBucketLabel()}
                         </p>
                         <h3 class="text-xl md:text-2xl font-black text-slate-900 dark:text-white">{$_('leaderboard.detections_over_time')}</h3>
                     </div>
