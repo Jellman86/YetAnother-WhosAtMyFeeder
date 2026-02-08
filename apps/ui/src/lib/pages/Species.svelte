@@ -227,7 +227,140 @@
     let risingInfo = $derived(summaryEnabled && topByTrend ? speciesInfoCache[topByTrend.species] : null);
     let recentInfo = $derived(summaryEnabled && mostRecent ? speciesInfoCache[mostRecent.species] : null);
 
-    let timelineCounts = $derived(timeline?.daily?.map((d) => d.count) || []);
+    // Leaderboard rank selection also controls the chart bucket size.
+    // Day/Total => daily points, Week => weekly points, Month => monthly points.
+    let chartBucket = $derived(() => {
+        if (rankBy === 'week') return 'week' as const;
+        if (rankBy === 'month') return 'month' as const;
+        return 'day' as const;
+    });
+
+    function parseUtcDay(dateStr: string): Date {
+        // dateStr is YYYY-MM-DD from backend
+        return new Date(`${dateStr}T00:00:00Z`);
+    }
+
+    function toIsoDay(d: Date): string {
+        return d.toISOString().slice(0, 10);
+    }
+
+    function startOfIsoWeek(dateStr: string): string {
+        // ISO week start: Monday (UTC)
+        const d = parseUtcDay(dateStr);
+        const dow = d.getUTCDay(); // 0..6, Sunday=0
+        const delta = (dow + 6) % 7; // Monday => 0, Sunday => 6
+        d.setUTCDate(d.getUTCDate() - delta);
+        return toIsoDay(d);
+    }
+
+    function startOfMonth(dateStr: string): string {
+        return `${dateStr.slice(0, 7)}-01`;
+    }
+
+    type WeatherSummary = {
+        date: string;
+        am_rain?: number | null;
+        pm_rain?: number | null;
+        am_snow?: number | null;
+        pm_snow?: number | null;
+        am_temp?: number | null;
+        pm_temp?: number | null;
+        temp_avg?: number | null;
+        wind_avg?: number | null;
+        precip_total?: number | null;
+        sunrise?: string | null;
+        sunset?: string | null;
+    };
+
+    type TimelinePoint = { date: string; count: number };
+
+    function bucketTimeline(
+        daily: TimelinePoint[],
+        weather: WeatherSummary[],
+        bucket: 'day' | 'week' | 'month'
+    ): { daily: TimelinePoint[]; weather: WeatherSummary[] } {
+        if (bucket === 'day') {
+            return { daily, weather };
+        }
+
+        const weatherByDay = new Map(weather.map((w) => [w.date, w]));
+        const buckets = new Map<string, { count: number; days: string[] }>();
+
+        for (const day of daily) {
+            const key = bucket === 'week' ? startOfIsoWeek(day.date) : startOfMonth(day.date);
+            const existing = buckets.get(key);
+            if (existing) {
+                existing.count += day.count || 0;
+                existing.days.push(day.date);
+            } else {
+                buckets.set(key, { count: day.count || 0, days: [day.date] });
+            }
+        }
+
+        const bucketedDaily = [...buckets.entries()]
+            .sort(([a], [b]) => a.localeCompare(b))
+            .map(([date, entry]) => ({ date, count: entry.count }));
+
+        const bucketedWeather: WeatherSummary[] = bucketedDaily.map(({ date }) => {
+            const entry = buckets.get(date);
+            const days = entry?.days || [];
+
+            const temps: number[] = [];
+            const winds: number[] = [];
+            let precipSum = 0;
+            let precipSeen = false;
+            const sunriseTimes: string[] = [];
+            const sunsetTimes: string[] = [];
+
+            for (const dayKey of days) {
+                const w = weatherByDay.get(dayKey);
+                if (!w) continue;
+
+                const temp =
+                    w.temp_avg ??
+                    ((w.am_temp != null && w.pm_temp != null) ? (w.am_temp + w.pm_temp) / 2 : (w.am_temp ?? w.pm_temp ?? null));
+                if (temp != null && !Number.isNaN(temp)) temps.push(temp);
+
+                if (w.wind_avg != null && !Number.isNaN(w.wind_avg)) winds.push(w.wind_avg);
+
+                if (w.precip_total != null && !Number.isNaN(w.precip_total)) {
+                    precipSum += w.precip_total;
+                    precipSeen = true;
+                }
+
+                if (w.sunrise) sunriseTimes.push(w.sunrise);
+                if (w.sunset) sunsetTimes.push(w.sunset);
+            }
+
+            const tempAvg = temps.length ? temps.reduce((a, b) => a + b, 0) / temps.length : null;
+            const windAvg = winds.length ? winds.reduce((a, b) => a + b, 0) / winds.length : null;
+            const precipTotal = precipSeen ? precipSum : null;
+
+            const sunriseSorted = sunriseTimes.sort();
+            const sunsetSorted = sunsetTimes.sort();
+
+            return {
+                date,
+                temp_avg: tempAvg,
+                wind_avg: windAvg,
+                precip_total: precipTotal,
+                sunrise: sunriseSorted[0] ?? null,
+                sunset: sunsetSorted[sunsetSorted.length - 1] ?? null
+            };
+        });
+
+        return { daily: bucketedDaily, weather: bucketedWeather };
+    }
+
+    let chartTimeline = $derived(() =>
+        bucketTimeline(
+            (timeline?.daily || []) as TimelinePoint[],
+            (timeline?.weather || []) as WeatherSummary[],
+            chartBucket()
+        )
+    );
+
+    let timelineCounts = $derived(chartTimeline().daily.map((d) => d.count) || []);
     let timelineMax = $derived(timelineCounts.length ? Math.max(...timelineCounts) : 0);
     let isDark = $derived(() => themeStore.isDark);
     let temperatureUnit = $derived(settingsStore.settings?.location_temperature_unit ?? 'celsius');
@@ -262,11 +395,14 @@
     let sunriseRange = $derived(getSunRange('sunrise'));
     let sunsetRange = $derived(getSunRange('sunset'));
     let weatherAnnotations = $derived(() => {
-        const daily = timeline?.daily || [];
-        const weather = timeline?.weather || [];
+        // AM/PM weather band annotations only make sense for daily points.
+        if (chartBucket() !== 'day') return { xaxis: [] };
+
+        const daily = chartTimeline().daily || [];
+        const weather = chartTimeline().weather || [];
         if (!showWeatherBands || !daily.length || !weather.length) return { xaxis: [] };
 
-        const weatherMap = new Map(weather.map((w) => [w.date, w]));
+        const weatherMap = new Map<string, WeatherSummary>(weather.map((w) => [w.date, w] as const));
         const xaxis = [];
 
         for (const day of daily) {
@@ -331,17 +467,17 @@
             {
                 name: 'Detections',
                 type: 'area',
-                data: timeline?.daily?.map((d) => ({
+                data: chartTimeline().daily.map((d) => ({
                     x: Date.parse(`${d.date}T00:00:00Z`),
                     y: d.count
-                })) || []
+                }))
             },
             {
                 name: $_('leaderboard.temperature'),
                 type: 'line',
                 data: showTemperature
-                    ? (timeline?.daily || []).map((d) => {
-                        const summary = (timeline?.weather || []).find((w) => w.date === d.date);
+                    ? chartTimeline().daily.map((d) => {
+                        const summary = (chartTimeline().weather || []).find((w) => w.date === d.date);
                         const tempAvg = summary?.temp_avg ?? null;
                         const fallback = (summary?.am_temp != null && summary?.pm_temp != null)
                             ? (summary.am_temp + summary.pm_temp) / 2
@@ -358,8 +494,8 @@
                 name: $_('leaderboard.wind_avg'),
                 type: 'line',
                 data: showWind
-                    ? (timeline?.daily || []).map((d) => {
-                        const summary = (timeline?.weather || []).find((w) => w.date === d.date);
+                    ? chartTimeline().daily.map((d) => {
+                        const summary = (chartTimeline().weather || []).find((w) => w.date === d.date);
                         return {
                             x: Date.parse(`${d.date}T00:00:00Z`),
                             y: summary?.wind_avg ?? null
@@ -371,8 +507,8 @@
                 name: $_('leaderboard.precip'),
                 type: 'line',
                 data: showPrecip
-                    ? (timeline?.daily || []).map((d) => {
-                        const summary = (timeline?.weather || []).find((w) => w.date === d.date);
+                    ? chartTimeline().daily.map((d) => {
+                        const summary = (chartTimeline().weather || []).find((w) => w.date === d.date);
                         return {
                             x: Date.parse(`${d.date}T00:00:00Z`),
                             y: summary?.precip_total ?? null
@@ -405,7 +541,7 @@
         },
         xaxis: {
             type: 'datetime',
-            tickAmount: Math.min(6, (timeline?.daily?.length || 0)),
+            tickAmount: Math.min(6, chartTimeline().daily.length || 0),
             labels: { rotate: 0, style: { fontSize: '10px', colors: '#94a3b8' } }
         },
         yaxis: [
@@ -443,7 +579,7 @@
         ],
         tooltip: {
             theme: isDark() ? 'dark' : 'light',
-            x: { format: 'MMM dd' },
+            x: { format: chartBucket() === 'month' ? 'MMM yyyy' : 'MMM dd' },
             y: [
                 { formatter: (value: number) => `${Math.round(value)} detections` },
                 { formatter: (value: number) => formatTemperature(value, temperatureUnit as any) },
@@ -499,7 +635,7 @@
 
     function buildLeaderboardConfig(includeAll = false) {
         const days = timeline?.days ?? timelineDays;
-        const daily = timeline?.daily ?? [];
+        const daily = chartTimeline().daily ?? [];
         const startDate = daily[0]?.date ?? null;
         const endDate = daily[daily.length - 1]?.date ?? null;
         const series = ['Detections'];
@@ -511,6 +647,7 @@
         if (includePrecip) series.push($_('leaderboard.precip'));
         return {
             rankBy,
+            chartBucket: chartBucket(),
             days,
             startDate,
             endDate,
@@ -985,7 +1122,7 @@
 
                 <div class="mt-6 w-full flex-1 min-h-[140px] max-h-[240px]">
                     {#if timeline?.daily?.length}
-                        {#key timeline.total_count}
+                        {#key `${timeline.total_count}-${chartBucket()}`}
                             <div use:chart={chartOptions() as any} bind:this={chartEl} class="w-full h-[240px]"></div>
                         {/key}
                     {:else}
@@ -996,9 +1133,9 @@
                 <div class="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
                     <span>{timeline?.days || timelineDays}-day total: {timeline?.total_count?.toLocaleString() || '0'}</span>
                     <span>•</span>
-                    <span>Peak day: {timelineMax.toLocaleString()}</span>
+                    <span>Peak {chartBucket()}: {timelineMax.toLocaleString()}</span>
                     <span>•</span>
-                    <span>Avg/day: {timeline?.daily?.length ? Math.round((timeline?.total_count || 0) / timeline.daily.length).toLocaleString() : '0'}</span>
+                    <span>Avg/{chartBucket()}: {chartTimeline().daily.length ? Math.round((timeline?.total_count || 0) / chartTimeline().daily.length).toLocaleString() : '0'}</span>
                 </div>
                 {#if llmReady && (leaderboardAnalysisLoading || leaderboardAnalysisError || leaderboardAnalysis)}
                     <div class="mt-4 rounded-2xl border border-slate-200/70 dark:border-slate-700/60 bg-white/70 dark:bg-slate-900/40 px-4 py-3 text-sm text-slate-600 dark:text-slate-300 shadow-sm">
