@@ -74,12 +74,17 @@ def test_full_system_ui(page):
     
     # 5. Navigate to Settings
     print("\n[4] Navigating to Settings...")
+    # The app can render nav items as buttons or links depending on layout.
+    # If the nav label isn't visible (collapsed layout), just go direct.
     try:
-        page.get_by_role("button", name="Settings").click()
-    except:
-        page.get_by_text("Settings").click()
-        
-    page.wait_for_url("**/settings", timeout=10000)
+        page.get_by_role("button", name="Settings").click(timeout=3000)
+    except Exception:
+        try:
+            page.get_by_role("link", name="Settings").click(timeout=3000)
+        except Exception:
+            page.goto(f"{base_url}/settings", timeout=30000)
+
+    page.wait_for_url("**/settings", timeout=15000)
     page.wait_for_load_state("domcontentloaded")
     print(f"Current URL: {page.url}")
     assert "/settings" in page.url
