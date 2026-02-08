@@ -421,6 +421,9 @@
       "show_ai_conversation": "Show AI conversation threads",
       "show_ai_conversation_desc": "Allow guests to view AI chat threads on detections",
       "history_days": "History window (days)",
+      "window_retention": "Same as retention policy",
+      "window_live_only": "Live only (today)",
+      "window_effective": "Effective: {days} days",
       "media_days": "Media window (days)",
       "rate_limit": "Rate limit (per minute)"
     },

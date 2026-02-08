@@ -413,6 +413,9 @@
       "show_ai_conversation": "KI-Konversationen anzeigen",
       "show_ai_conversation_desc": "Gästen erlauben, KI-Chatverläufe zu Erkennungen zu sehen",
       "history_days": "Historie (Tage)",
+      "window_retention": "Wie Aufbewahrungsrichtlinie",
+      "window_live_only": "Nur live (heute)",
+      "window_effective": "Effektiv: {days} Tage",
       "media_days": "Medienfenster (Tage)",
       "rate_limit": "Rate-Limit (pro Minute)"
     },

@@ -304,6 +304,9 @@
       "show_ai_conversation": "AI会話を表示",
       "show_ai_conversation_desc": "ゲストが検出のAIチャット履歴を表示できるようにします",
       "history_days": "履歴（日）",
+      "window_retention": "保持ポリシーと同じ",
+      "window_live_only": "ライブのみ（本日）",
+      "window_effective": "有効: {days} 日",
       "media_days": "メディア期間（日）",
       "rate_limit": "レート制限（分あたり）"
     },

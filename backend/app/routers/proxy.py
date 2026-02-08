@@ -15,6 +15,7 @@ from app.auth_legacy import get_auth_context_with_legacy
 from app.ratelimit import guest_rate_limit
 from app.database import get_db
 from app.repositories.detection_repository import DetectionRepository
+from app.utils.public_access import effective_public_media_days
 
 router = APIRouter()
 
@@ -59,7 +60,7 @@ async def require_event_access(event_id: str, auth: AuthContext, lang: str) -> N
         )
 
     if settings.public_access.enabled:
-        max_days = settings.public_access.media_historical_days
+        max_days = effective_public_media_days()
         detection_date = detection.detection_time.date()
         if max_days > 0:
             cutoff = date.today() - timedelta(days=max_days)

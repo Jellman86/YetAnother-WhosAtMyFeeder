@@ -1118,7 +1118,9 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     let publicAccessEnabled = $state(false);
     let publicAccessShowCameraNames = $state(true);
     let publicAccessShowAiConversation = $state(false);
+    let publicAccessHistoricalDaysMode = $state<'retention' | 'custom'>('retention');
     let publicAccessHistoricalDays = $state(7);
+    let publicAccessMediaDaysMode = $state<'retention' | 'custom'>('retention');
     let publicAccessMediaHistoricalDays = $state(7);
     let publicAccessRateLimitPerMinute = $state(30);
     let dateFormat = $state('dmy');
@@ -1376,7 +1378,9 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'publicAccessEnabled', val: publicAccessEnabled, store: s.public_access_enabled ?? false },
             { key: 'publicAccessShowCameraNames', val: publicAccessShowCameraNames, store: s.public_access_show_camera_names ?? true },
             { key: 'publicAccessShowAiConversation', val: publicAccessShowAiConversation, store: s.public_access_show_ai_conversation ?? false },
+            { key: 'publicAccessHistoricalDaysMode', val: publicAccessHistoricalDaysMode, store: (s.public_access_historical_days_mode as any) ?? 'retention' },
             { key: 'publicAccessHistoricalDays', val: publicAccessHistoricalDays, store: s.public_access_historical_days ?? 7 },
+            { key: 'publicAccessMediaDaysMode', val: publicAccessMediaDaysMode, store: (s.public_access_media_days_mode as any) ?? 'retention' },
             { key: 'publicAccessMediaHistoricalDays', val: publicAccessMediaHistoricalDays, store: s.public_access_media_historical_days ?? 7 },
             { key: 'publicAccessRateLimitPerMinute', val: publicAccessRateLimitPerMinute, store: s.public_access_rate_limit_per_minute ?? 30 },
 
@@ -2001,7 +2005,9 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             publicAccessEnabled = settings.public_access_enabled ?? false;
             publicAccessShowCameraNames = settings.public_access_show_camera_names ?? true;
             publicAccessShowAiConversation = settings.public_access_show_ai_conversation ?? false;
+            publicAccessHistoricalDaysMode = (settings.public_access_historical_days_mode === 'custom' ? 'custom' : 'retention') as any;
             publicAccessHistoricalDays = settings.public_access_historical_days ?? 7;
+            publicAccessMediaDaysMode = (settings.public_access_media_days_mode === 'custom' ? 'custom' : 'retention') as any;
             publicAccessMediaHistoricalDays = settings.public_access_media_historical_days ?? 7;
             publicAccessRateLimitPerMinute = settings.public_access_rate_limit_per_minute ?? 30;
             if (settings.date_format === 'mdy' || settings.date_format === 'dmy' || settings.date_format === 'ymd') {
@@ -2215,7 +2221,9 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 public_access_enabled: publicAccessEnabled,
                 public_access_show_camera_names: publicAccessShowCameraNames,
                 public_access_show_ai_conversation: publicAccessShowAiConversation,
+                public_access_historical_days_mode: publicAccessHistoricalDaysMode,
                 public_access_historical_days: publicAccessHistoricalDays,
+                public_access_media_days_mode: publicAccessMediaDaysMode,
                 public_access_media_historical_days: publicAccessMediaHistoricalDays,
                 public_access_rate_limit_per_minute: publicAccessRateLimitPerMinute,
                 date_format: dateFormat,
@@ -2694,9 +2702,12 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     bind:publicAccessEnabled
                     bind:publicAccessShowCameraNames
                     bind:publicAccessShowAiConversation
+                    bind:publicAccessHistoricalDaysMode
                     bind:publicAccessHistoricalDays
+                    bind:publicAccessMediaDaysMode
                     bind:publicAccessMediaHistoricalDays
                     bind:publicAccessRateLimitPerMinute
+                    retentionDays={retentionDays}
                     addTrustedProxyHost={addTrustedProxyHost}
                     removeTrustedProxyHost={removeTrustedProxyHost}
                     acceptTrustedProxySuggestions={acceptTrustedProxySuggestions}

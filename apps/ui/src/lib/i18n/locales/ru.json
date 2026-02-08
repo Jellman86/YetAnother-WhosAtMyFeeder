@@ -312,6 +312,9 @@
       "show_ai_conversation": "Показывать диалоги ИИ",
       "show_ai_conversation_desc": "Разрешить гостям просматривать чаты ИИ по обнаружениям",
       "history_days": "Окно истории (дни)",
+      "window_retention": "Как политика хранения",
+      "window_live_only": "Только в реальном времени (сегодня)",
+      "window_effective": "Эффективно: {days} дней",
       "media_days": "Окно медиа (дни)",
       "rate_limit": "Лимит запросов (в минуту)"
     },

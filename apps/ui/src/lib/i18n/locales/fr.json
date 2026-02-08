@@ -304,6 +304,9 @@
       "show_ai_conversation": "Afficher les conversations IA",
       "show_ai_conversation_desc": "Autoriser les invités à voir les discussions IA sur les détections",
       "history_days": "Historique (jours)",
+      "window_retention": "Identique à la politique de conservation",
+      "window_live_only": "En direct uniquement (aujourd’hui)",
+      "window_effective": "Effectif : {days} jours",
       "media_days": "Fenêtre média (jours)",
       "rate_limit": "Limite (par minute)"
     },

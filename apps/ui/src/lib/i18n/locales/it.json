@@ -312,6 +312,9 @@
       "show_ai_conversation": "Mostra conversazioni IA",
       "show_ai_conversation_desc": "Consenti agli ospiti di vedere le chat IA sulle rilevazioni",
       "history_days": "Finestra cronologia (giorni)",
+      "window_retention": "Come la politica di conservazione",
+      "window_live_only": "Solo live (oggi)",
+      "window_effective": "Effettivo: {days} giorni",
       "media_days": "Finestra media (giorni)",
       "rate_limit": "Limite frequenza (al minuto)"
     },

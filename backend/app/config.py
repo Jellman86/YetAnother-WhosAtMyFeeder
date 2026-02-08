@@ -411,11 +411,19 @@ class PublicAccessSettings(BaseModel):
         default=False,
         description="Allow public visitors to view AI conversation threads"
     )
+    historical_days_mode: str = Field(
+        default="retention",
+        description="History window mode: retention or custom"
+    )
     show_historical_days: int = Field(
         default=7,
         ge=0,
         le=365,
         description="Days of historical data visible to public (0 = live only)"
+    )
+    media_days_mode: str = Field(
+        default="retention",
+        description="Media window mode: retention or custom"
     )
     media_historical_days: int = Field(
         default=7,
@@ -677,7 +685,9 @@ class Settings(BaseSettings):
             'enabled': os.environ.get('PUBLIC_ACCESS__ENABLED', 'false').lower() == 'true',
             'show_camera_names': os.environ.get('PUBLIC_ACCESS__SHOW_CAMERA_NAMES', 'true').lower() == 'true',
             'show_ai_conversation': os.environ.get('PUBLIC_ACCESS__SHOW_AI_CONVERSATION', 'false').lower() == 'true',
+            'historical_days_mode': os.environ.get('PUBLIC_ACCESS__HISTORICAL_DAYS_MODE', 'retention'),
             'show_historical_days': int(os.environ.get('PUBLIC_ACCESS__SHOW_HISTORICAL_DAYS', '7')),
+            'media_days_mode': os.environ.get('PUBLIC_ACCESS__MEDIA_DAYS_MODE', 'retention'),
             'media_historical_days': int(os.environ.get('PUBLIC_ACCESS__MEDIA_HISTORICAL_DAYS', '7')),
             'rate_limit_per_minute': int(os.environ.get('PUBLIC_ACCESS__RATE_LIMIT_PER_MINUTE', '30')),
         }

@@ -163,6 +163,10 @@
     let error = $state<string | null>(null);
     let isUnknownBird = $state(false);
 
+    // Wikipedia thumbnails vary wildly in composition. Cropping a little from the top of
+    // the hero image tends to preserve more of the bird's body in the default view.
+    const HERO_IMAGE_CROP_TOP_PX = 75;
+
     // Enrichment (eBird)
     let ebirdNearby = $state<EbirdNearbyResult | null>(null);
     let ebirdNearbyLoading = $state(false);
@@ -627,7 +631,8 @@
                                 <img
                                     src={info.thumbnail_url}
                                     alt={primaryName}
-                                    class="w-full h-full object-cover object-top"
+                                    class="block w-full object-cover object-top"
+                                    style={`height: calc(100% + ${HERO_IMAGE_CROP_TOP_PX}px); transform: translateY(-${HERO_IMAGE_CROP_TOP_PX}px);`}
                                     onerror={(e) => {
                                         const target = e.target as HTMLImageElement;
                                         target.parentElement?.classList.add('hidden');

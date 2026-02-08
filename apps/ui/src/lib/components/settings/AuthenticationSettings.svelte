@@ -14,9 +14,12 @@
         publicAccessEnabled = $bindable(false),
         publicAccessShowCameraNames = $bindable(true),
         publicAccessShowAiConversation = $bindable(false),
+        publicAccessHistoricalDaysMode = $bindable<'retention' | 'custom'>('retention'),
         publicAccessHistoricalDays = $bindable(7),
+        publicAccessMediaDaysMode = $bindable<'retention' | 'custom'>('retention'),
         publicAccessMediaHistoricalDays = $bindable(7),
         publicAccessRateLimitPerMinute = $bindable(30),
+        retentionDays = 0,
         addTrustedProxyHost,
         removeTrustedProxyHost,
         acceptTrustedProxySuggestions
@@ -33,13 +36,27 @@
         publicAccessEnabled: boolean;
         publicAccessShowCameraNames: boolean;
         publicAccessShowAiConversation: boolean;
+        publicAccessHistoricalDaysMode: 'retention' | 'custom';
         publicAccessHistoricalDays: number;
+        publicAccessMediaDaysMode: 'retention' | 'custom';
         publicAccessMediaHistoricalDays: number;
         publicAccessRateLimitPerMinute: number;
+        retentionDays?: number;
         addTrustedProxyHost: () => void;
         removeTrustedProxyHost: (host: string) => void;
         acceptTrustedProxySuggestions: () => void;
     } = $props();
+
+    const capPublicDays = (n: number) => Math.max(0, Math.min(365, Math.floor(n)));
+    const effectiveRetentionDays = () => {
+        const r = Number(retentionDays ?? 0);
+        return capPublicDays(r > 0 ? r : 365);
+    };
+
+    const effectiveEventsDays = () =>
+        publicAccessHistoricalDaysMode === 'retention' ? effectiveRetentionDays() : capPublicDays(publicAccessHistoricalDays);
+    const effectiveMediaDays = () =>
+        publicAccessMediaDaysMode === 'retention' ? effectiveRetentionDays() : capPublicDays(publicAccessMediaHistoricalDays);
 </script>
 
 <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
@@ -271,26 +288,66 @@
 
             <div class="grid grid-cols-2 gap-4">
                 <div>
-                    <label for="public-days" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.public_access.history_days')}</label>
-                    <input
-                        id="public-days"
-                        type="number"
-                        min="0"
-                        max="365"
-                        bind:value={publicAccessHistoricalDays}
+                    <label for="public-days-mode" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">
+                        {$_('settings.public_access.history_days')}
+                    </label>
+                    <select
+                        id="public-days-mode"
                         class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-                    />
+                        value={publicAccessHistoricalDaysMode === 'retention' ? 'retention' : String(publicAccessHistoricalDays)}
+                        oninput={(e) => {
+                            const v = (e.currentTarget as HTMLSelectElement).value;
+                            if (v === 'retention') {
+                                publicAccessHistoricalDaysMode = 'retention';
+                                return;
+                            }
+                            publicAccessHistoricalDaysMode = 'custom';
+                            publicAccessHistoricalDays = capPublicDays(parseInt(v, 10));
+                        }}
+                    >
+                        <option value="retention">
+                            {$_('settings.public_access.window_retention', { default: 'Same as retention policy' })}
+                        </option>
+                        <option value="0">{$_('settings.public_access.window_live_only', { default: 'Live only (today)' })}</option>
+                        <option value="7">7</option>
+                        <option value="30">30</option>
+                        <option value="90">90</option>
+                        <option value="365">365</option>
+                    </select>
+                    <p class="mt-2 text-[10px] text-slate-500">
+                        {$_('settings.public_access.window_effective', { default: 'Effective: {days} days', values: { days: effectiveEventsDays() } })}
+                    </p>
                 </div>
                 <div>
-                    <label for="public-media-days" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.public_access.media_days')}</label>
-                    <input
-                        id="public-media-days"
-                        type="number"
-                        min="0"
-                        max="365"
-                        bind:value={publicAccessMediaHistoricalDays}
+                    <label for="public-media-days-mode" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">
+                        {$_('settings.public_access.media_days')}
+                    </label>
+                    <select
+                        id="public-media-days-mode"
                         class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-                    />
+                        value={publicAccessMediaDaysMode === 'retention' ? 'retention' : String(publicAccessMediaHistoricalDays)}
+                        oninput={(e) => {
+                            const v = (e.currentTarget as HTMLSelectElement).value;
+                            if (v === 'retention') {
+                                publicAccessMediaDaysMode = 'retention';
+                                return;
+                            }
+                            publicAccessMediaDaysMode = 'custom';
+                            publicAccessMediaHistoricalDays = capPublicDays(parseInt(v, 10));
+                        }}
+                    >
+                        <option value="retention">
+                            {$_('settings.public_access.window_retention', { default: 'Same as retention policy' })}
+                        </option>
+                        <option value="0">{$_('settings.public_access.window_live_only', { default: 'Live only (today)' })}</option>
+                        <option value="7">7</option>
+                        <option value="30">30</option>
+                        <option value="90">90</option>
+                        <option value="365">365</option>
+                    </select>
+                    <p class="mt-2 text-[10px] text-slate-500">
+                        {$_('settings.public_access.window_effective', { default: 'Effective: {days} days', values: { days: effectiveMediaDays() } })}
+                    </p>
                 </div>
                 <div>
                     <label for="public-rate" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.public_access.rate_limit')}</label>

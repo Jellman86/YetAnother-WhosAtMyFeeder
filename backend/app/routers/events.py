@@ -22,6 +22,7 @@ from app.utils.language import get_user_language
 from app.auth import require_owner, AuthContext
 from app.auth_legacy import get_auth_context_with_legacy
 from app.ratelimit import guest_rate_limit
+from app.utils.public_access import effective_public_events_days
 
 router = APIRouter()
 log = structlog.get_logger()
@@ -184,7 +185,7 @@ async def get_events(
     # Apply public access restrictions
     if not auth.is_owner and settings.public_access.enabled:
         # Restrict historical data for guests
-        max_days = settings.public_access.show_historical_days
+        max_days = effective_public_events_days()
         if max_days > 0:
             cutoff_date = date.today() - timedelta(days=max_days)
             if start_date is None or start_date < cutoff_date:
@@ -335,7 +336,7 @@ async def get_events_count(
     )
     # Apply public access restrictions
     if not auth.is_owner and settings.public_access.enabled:
-        max_days = settings.public_access.show_historical_days
+        max_days = effective_public_events_days()
         if max_days > 0:
             cutoff_date = date.today() - timedelta(days=max_days)
             if start_date is None or start_date < cutoff_date:

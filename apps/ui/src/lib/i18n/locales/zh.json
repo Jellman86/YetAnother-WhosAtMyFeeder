@@ -304,6 +304,9 @@
       "show_ai_conversation": "显示 AI 对话",
       "show_ai_conversation_desc": "允许访客查看检测记录中的 AI 聊天内容",
       "history_days": "历史范围（天）",
+      "window_retention": "与保留策略相同",
+      "window_live_only": "仅实时（今天）",
+      "window_effective": "有效：{days} 天",
       "media_days": "媒体范围（天）",
       "rate_limit": "速率限制（每分钟）"
     },

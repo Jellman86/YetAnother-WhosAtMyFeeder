@@ -304,6 +304,9 @@
       "show_ai_conversation": "Mostrar conversaciones de IA",
       "show_ai_conversation_desc": "Permitir que los visitantes vean chats de IA en las detecciones",
       "history_days": "Historial (días)",
+      "window_retention": "Igual que la política de retención",
+      "window_live_only": "Solo en vivo (hoy)",
+      "window_effective": "Efectivo: {days} días",
       "media_days": "Ventana de medios (días)",
       "rate_limit": "Límite (por minuto)"
     },

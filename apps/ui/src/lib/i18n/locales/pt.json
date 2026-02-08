@@ -312,6 +312,9 @@
       "show_ai_conversation": "Mostrar conversas de IA",
       "show_ai_conversation_desc": "Permitir que visitantes vejam conversas de IA nas detecções",
       "history_days": "Janela de histórico (dias)",
+      "window_retention": "Igual à política de retenção",
+      "window_live_only": "Somente ao vivo (hoje)",
+      "window_effective": "Efetivo: {days} dias",
       "media_days": "Janela de mídia (dias)",
       "rate_limit": "Limite de taxa (por minuto)"
     },

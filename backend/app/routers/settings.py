@@ -412,7 +412,9 @@ class SettingsUpdate(BaseModel):
     public_access_enabled: Optional[bool] = None
     public_access_show_camera_names: Optional[bool] = None
     public_access_show_ai_conversation: Optional[bool] = None
+    public_access_historical_days_mode: Optional[str] = None
     public_access_historical_days: Optional[int] = Field(None, ge=0, le=365)
+    public_access_media_days_mode: Optional[str] = None
     public_access_media_historical_days: Optional[int] = Field(None, ge=0, le=365)
     public_access_rate_limit_per_minute: Optional[int] = Field(None, ge=1, le=100)
 
@@ -635,7 +637,9 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "public_access_enabled": settings.public_access.enabled,
         "public_access_show_camera_names": settings.public_access.show_camera_names,
         "public_access_show_ai_conversation": settings.public_access.show_ai_conversation,
+        "public_access_historical_days_mode": settings.public_access.historical_days_mode,
         "public_access_historical_days": settings.public_access.show_historical_days,
+        "public_access_media_days_mode": settings.public_access.media_days_mode,
         "public_access_media_historical_days": settings.public_access.media_historical_days,
         "public_access_rate_limit_per_minute": settings.public_access.rate_limit_per_minute,
         "species_info_source": settings.species_info_source,
@@ -854,8 +858,12 @@ async def update_settings(
         settings.public_access.show_camera_names = update.public_access_show_camera_names
     if "public_access_show_ai_conversation" in fields_set and update.public_access_show_ai_conversation is not None:
         settings.public_access.show_ai_conversation = update.public_access_show_ai_conversation
+    if "public_access_historical_days_mode" in fields_set and update.public_access_historical_days_mode is not None:
+        settings.public_access.historical_days_mode = update.public_access_historical_days_mode
     if "public_access_historical_days" in fields_set and update.public_access_historical_days is not None:
         settings.public_access.show_historical_days = update.public_access_historical_days
+    if "public_access_media_days_mode" in fields_set and update.public_access_media_days_mode is not None:
+        settings.public_access.media_days_mode = update.public_access_media_days_mode
     if "public_access_media_historical_days" in fields_set and update.public_access_media_historical_days is not None:
         settings.public_access.media_historical_days = update.public_access_media_historical_days
     if "public_access_rate_limit_per_minute" in fields_set and update.public_access_rate_limit_per_minute is not None:
