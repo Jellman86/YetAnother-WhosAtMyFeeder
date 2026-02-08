@@ -21,6 +21,7 @@ from app.config import settings
 from app.services.smtp_service import smtp_service
 from app.services.i18n_service import i18n_service
 from app.utils.language import get_user_language
+from app.utils.font_theme import get_email_font_family
 from app.auth import require_owner, AuthContext
 from jinja2 import Template
 import aiofiles
@@ -407,6 +408,10 @@ async def send_test_email(
             "scientific_name": "Testus sparrowii",
             "weather": "Clear skies",
             "dashboard_url": email_config.dashboard_url,
+            "font_family": get_email_font_family(
+                getattr(settings, "appearance", None).font_theme if getattr(settings, "appearance", None) else "classic",
+                settings.accessibility.dyslexia_font
+            ),
         }
 
         html_body = html_template.render(**template_data)

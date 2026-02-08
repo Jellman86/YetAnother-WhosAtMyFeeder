@@ -356,6 +356,13 @@ class AccessibilitySettings(BaseModel):
     zen_mode: bool = Field(default=False, description="Enable simplified zen mode")
     live_announcements: bool = Field(default=True, description="Enable screen reader live announcements")
 
+class AppearanceSettings(BaseModel):
+    # Mirrors the frontend font themes. Email clients may fall back to system fonts.
+    font_theme: str = Field(
+        default="classic",
+        description="UI font theme: default, clean, studio, classic, compact"
+    )
+
 class SystemSettings(BaseModel):
     """System-level performance and resource settings"""
     broadcaster_max_queue_size: int = Field(default=100, ge=10, le=1000, description="Maximum SSE message queue size per subscriber")
@@ -434,6 +441,7 @@ class Settings(BaseSettings):
     telemetry: TelemetrySettings = TelemetrySettings()
     notifications: NotificationSettings = NotificationSettings()
     accessibility: AccessibilitySettings = AccessibilitySettings()
+    appearance: AppearanceSettings = AppearanceSettings()
     system: SystemSettings = SystemSettings()
     auth: AuthSettings = AuthSettings()
     public_access: PublicAccessSettings = PublicAccessSettings()
@@ -684,6 +692,11 @@ class Settings(BaseSettings):
             'debug_ui_enabled': os.environ.get('SYSTEM__DEBUG_UI_ENABLED', 'false').lower() == 'true',
         }
 
+        # Appearance settings
+        appearance_data = {
+            'font_theme': os.environ.get('APPEARANCE__FONT_THEME', 'classic'),
+        }
+
         species_info_source = os.environ.get('SPECIES_INFO__SOURCE', 'auto')
         date_format = os.environ.get('DISPLAY__DATE_FORMAT', 'locale')
 
@@ -855,10 +868,16 @@ class Settings(BaseSettings):
                             public_access_data[k] = v
 
                 if 'system' in file_data:
-                    for k, v in file_data['system'].items():
+                  for k, v in file_data['system'].items():
                         env_key = f'SYSTEM__{k.upper()}'
                         if env_key not in os.environ:
                             system_data[k] = v
+
+                if 'appearance' in file_data:
+                    for k, v in file_data['appearance'].items():
+                        env_key = f'APPEARANCE__{k.upper()}'
+                        if env_key not in os.environ:
+                            appearance_data[k] = v
 
                 if 'species_info_source' in file_data and 'SPECIES_INFO__SOURCE' not in os.environ:
                     species_info_source = file_data['species_info_source']
@@ -926,6 +945,7 @@ class Settings(BaseSettings):
             telemetry=TelemetrySettings(**telemetry_data),
             notifications=NotificationSettings(**notifications_data),
             accessibility=AccessibilitySettings(**accessibility_data),
+            appearance=AppearanceSettings(**appearance_data),
             system=SystemSettings(**system_data),
             auth=AuthSettings(**auth_data),
             public_access=PublicAccessSettings(**public_access_data),

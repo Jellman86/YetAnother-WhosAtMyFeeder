@@ -286,6 +286,9 @@ export interface Settings {
     accessibility_zen_mode: boolean;
     accessibility_live_announcements: boolean;
 
+    // Appearance
+    appearance_font_theme?: string;
+
     // Authentication
     auth_enabled: boolean;
     auth_username: string;

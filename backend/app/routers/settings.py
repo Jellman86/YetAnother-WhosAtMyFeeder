@@ -417,6 +417,7 @@ class SettingsUpdate(BaseModel):
 
     species_info_source: Optional[str] = "auto"
     date_format: Optional[str] = None
+    appearance_font_theme: Optional[str] = None
 
     @field_validator('location_temperature_unit')
     @classmethod
@@ -620,6 +621,8 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "accessibility_reduced_motion": settings.accessibility.reduced_motion,
         "accessibility_zen_mode": settings.accessibility.zen_mode,
         "accessibility_live_announcements": settings.accessibility.live_announcements,
+        # Appearance
+        "appearance_font_theme": settings.appearance.font_theme,
         # Authentication
         "auth_enabled": settings.auth.enabled,
         "auth_username": settings.auth.username,
@@ -959,6 +962,9 @@ async def update_settings(
         settings.accessibility.zen_mode = update.accessibility_zen_mode
     if "accessibility_live_announcements" in fields_set and update.accessibility_live_announcements is not None:
         settings.accessibility.live_announcements = update.accessibility_live_announcements
+
+    if "appearance_font_theme" in fields_set and update.appearance_font_theme is not None:
+        settings.appearance.font_theme = update.appearance_font_theme
 
     if update.species_info_source:
         settings.species_info_source = update.species_info_source

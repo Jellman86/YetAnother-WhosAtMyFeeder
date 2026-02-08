@@ -1321,6 +1321,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'trustFrigateSublabel', val: trustFrigateSublabel, store: s.trust_frigate_sublabel ?? true },
             { key: 'displayCommonNames', val: displayCommonNames, store: s.display_common_names ?? true },
             { key: 'scientificNamePrimary', val: scientificNamePrimary, store: s.scientific_name_primary ?? false },
+            { key: 'fontTheme', val: currentFontTheme, store: (s.appearance_font_theme ?? 'classic') as any },
             { key: 'autoVideoClassification', val: autoVideoClassification, store: s.auto_video_classification ?? false },
             { key: 'videoClassificationDelay', val: videoClassificationDelay, store: s.video_classification_delay ?? 30 },
             { key: 'videoClassificationMaxRetries', val: videoClassificationMaxRetries, store: s.video_classification_max_retries ?? 3 },
@@ -2088,6 +2089,11 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             highContrast = settings.accessibility_high_contrast ?? false;
             dyslexiaFont = settings.accessibility_dyslexia_font ?? false;
             liveAnnouncements = settings.accessibility_live_announcements ?? true;
+
+            // Appearance (persisted)
+            if (settings.appearance_font_theme) {
+                themeStore.setFontTheme(settings.appearance_font_theme as any);
+            }
         } catch (e) {
             message = { type: 'error', text: $_('notifications.settings_load_failed') };
         } finally {
@@ -2243,7 +2249,10 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 // Accessibility
                 accessibility_high_contrast: highContrast,
                 accessibility_dyslexia_font: dyslexiaFont,
-                accessibility_live_announcements: liveAnnouncements
+                accessibility_live_announcements: liveAnnouncements,
+
+                // Appearance
+                appearance_font_theme: currentFontTheme
             });
             // Update store
             await settingsStore.load();

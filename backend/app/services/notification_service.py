@@ -356,6 +356,11 @@ class NotificationService:
                 text_template = Template(await f.read())
 
             # Prepare template data
+            from app.utils.font_theme import get_email_font_family
+            font_family = get_email_font_family(
+                getattr(settings, "appearance", None).font_theme if getattr(settings, "appearance", None) else "classic",
+                settings.accessibility.dyslexia_font
+            )
             template_data = {
                 "species": species,
                 "scientific_name": scientific_name,
@@ -365,6 +370,7 @@ class NotificationService:
                 "audio_confirmed": audio_confirmed,
                 "has_image": snapshot_data is not None and cfg.include_snapshot,
                 "dashboard_url": cfg.dashboard_url,
+                "font_family": font_family,
                 "weather": None  # TODO: Add weather data if available
             }
 
