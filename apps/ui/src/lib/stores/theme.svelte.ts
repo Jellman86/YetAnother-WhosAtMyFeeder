@@ -7,10 +7,23 @@ function getIsDark(theme: Theme): boolean {
         (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
 }
 
+function syncThemeColorMeta() {
+    if (typeof document === 'undefined') return;
+    const meta = document.querySelector('meta[name="theme-color"]') as HTMLMetaElement | null;
+    if (!meta) return;
+
+    // Use the actual themed background so this also tracks high-contrast mode.
+    const bg = getComputedStyle(document.documentElement).backgroundColor;
+    if (bg) meta.content = bg;
+}
+
 function applyTheme(theme: Theme) {
     if (typeof document === 'undefined') return;
     const isDark = getIsDark(theme);
     document.documentElement.classList.toggle('dark', isDark);
+
+    // After class changes apply, sync the browser UI color (mobile/PWA).
+    requestAnimationFrame(syncThemeColorMeta);
 }
 
 function applyFontTheme(fontTheme: FontTheme) {

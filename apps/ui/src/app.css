@@ -16,6 +16,9 @@
   body {
     @apply text-slate-700 dark:text-slate-200;
     font-family: var(--font-body);
+    /* Ensure overscroll "rubber-band" areas match the themed page background. */
+    background-color: inherit;
+    background-image: inherit;
   }
 
   h1,
