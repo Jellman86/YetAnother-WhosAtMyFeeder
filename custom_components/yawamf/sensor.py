@@ -1,12 +1,15 @@
 """Sensor platform for Yet Another WhosAtMyFeeder."""
 from __future__ import annotations
 
+from typing import Any
+
 from homeassistant.components.sensor import (
     SensorEntity,
     SensorStateClass,
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -42,11 +45,12 @@ class YAWAMFLastBirdSensor(CoordinatorEntity[YAWAMFDataUpdateCoordinator], Senso
     _attr_name = "Last Bird Detected"
     _attr_unique_id = "last_bird_detected"
     _attr_icon = "mdi:bird"
+    _attr_has_entity_name = True
 
     def __init__(self, coordinator: YAWAMFDataUpdateCoordinator) -> None:
         """Initialize the sensor."""
         super().__init__(coordinator)
-        self._attr_unique_id = f"{coordinator.config_entry.entry_id}_last_bird"
+        self._attr_unique_id = f"{coordinator.entry_id}_last_bird"
 
     @property
     def native_value(self) -> str | None:
@@ -74,6 +78,15 @@ class YAWAMFLastBirdSensor(CoordinatorEntity[YAWAMFDataUpdateCoordinator], Senso
             ATTR_WEATHER: latest.get("weather_condition"),
         }
 
+    @property
+    def device_info(self) -> DeviceInfo:
+        return DeviceInfo(
+            identifiers={(DOMAIN, self.coordinator.entry_id)},
+            name="YA-WAMF",
+            manufacturer="YA-WAMF",
+            configuration_url=self.coordinator.url,
+        )
+
 class YAWAMFDailyCountSensor(CoordinatorEntity[YAWAMFDataUpdateCoordinator], SensorEntity):
     """Sensor showing total detections today."""
 
@@ -82,13 +95,23 @@ class YAWAMFDailyCountSensor(CoordinatorEntity[YAWAMFDataUpdateCoordinator], Sen
     _attr_icon = "mdi:counter"
     _attr_state_class = SensorStateClass.TOTAL_INCREASING
     _attr_native_unit_of_measurement = "birds"
+    _attr_has_entity_name = True
 
     def __init__(self, coordinator: YAWAMFDataUpdateCoordinator) -> None:
         """Initialize the sensor."""
         super().__init__(coordinator)
-        self._attr_unique_id = f"{coordinator.config_entry.entry_id}_daily_count"
+        self._attr_unique_id = f"{coordinator.entry_id}_daily_count"
 
     @property
     def native_value(self) -> int:
         """Return the state of the sensor."""
         return self.coordinator.data.get("total_today", 0)
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        return DeviceInfo(
+            identifiers={(DOMAIN, self.coordinator.entry_id)},
+            name="YA-WAMF",
+            manufacturer="YA-WAMF",
+            configuration_url=self.coordinator.url,
+        )

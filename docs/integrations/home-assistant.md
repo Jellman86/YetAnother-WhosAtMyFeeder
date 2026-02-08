@@ -19,6 +19,13 @@ Go to **Settings > Devices & Services > Add Integration** and search for "YA-WAM
 ### 4. Configure
 Enter the URL of your YA-WAMF instance (e.g., `http://192.168.1.50:9852` or `https://yoursite.example.com`).
 
+### Authentication Notes
+If YA-WAMF authentication is enabled and **Public Access** is disabled, Home Assistant must authenticate to the YA-WAMF API.
+
+Supported options in the integration config:
+- Username + password (recommended): the integration logs in and uses a short-lived JWT automatically.
+- Legacy API key (deprecated): only if you still use the old `X-API-Key` auth mode. YA-WAMF plans to remove API keys.
+
 ### Updating the URL
 If you change your server address (for example, moving from direct IP to a reverse proxy URL), use:
 **Settings → Devices & Services → YA-WAMF → Configure** and update the URL.

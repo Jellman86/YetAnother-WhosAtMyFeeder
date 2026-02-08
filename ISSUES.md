@@ -36,5 +36,5 @@ For a step-by-step checklist, see `INTEGRATION_TESTING.md`.
 
 ## Notes
 
-- Resolved/closed investigation notes live in `CHANGELOG.md` or under `agents/ARCHIVED/`.
+- Resolved/closed investigation notes live in `CHANGELOG.md`.
 

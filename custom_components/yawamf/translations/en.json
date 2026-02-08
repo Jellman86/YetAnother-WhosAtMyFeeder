@@ -1,0 +1,37 @@
+{
+  "title": "YA-WAMF",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to YA-WAMF",
+        "description": "Configure connection details for your YA-WAMF instance.",
+        "data": {
+          "url": "Base URL",
+          "username": "Username (optional)",
+          "password": "Password (optional)",
+          "api_key": "Legacy API key (optional)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to YA-WAMF.",
+      "invalid_auth": "Authentication failed. Provide credentials or enable Public Access in YA-WAMF.",
+      "unknown": "Unexpected error."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "YA-WAMF Options",
+        "data": {
+          "url": "Base URL",
+          "username": "Username (optional)",
+          "password": "Password (optional)",
+          "api_key": "Legacy API key (optional)",
+          "polling_interval": "Polling interval (seconds)"
+        }
+      }
+    }
+  }
+}
+
