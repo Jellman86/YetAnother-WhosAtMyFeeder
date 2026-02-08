@@ -1117,6 +1117,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     let newTrustedProxyHost = $state('');
     let publicAccessEnabled = $state(false);
     let publicAccessShowCameraNames = $state(true);
+    let publicAccessShowAiConversation = $state(false);
     let publicAccessHistoricalDays = $state(7);
     let publicAccessMediaHistoricalDays = $state(7);
     let publicAccessRateLimitPerMinute = $state(30);
@@ -1374,6 +1375,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'trustedProxyHosts', val: JSON.stringify(effectiveTrustedProxyHosts), store: JSON.stringify(s.trusted_proxy_hosts || []) },
             { key: 'publicAccessEnabled', val: publicAccessEnabled, store: s.public_access_enabled ?? false },
             { key: 'publicAccessShowCameraNames', val: publicAccessShowCameraNames, store: s.public_access_show_camera_names ?? true },
+            { key: 'publicAccessShowAiConversation', val: publicAccessShowAiConversation, store: s.public_access_show_ai_conversation ?? false },
             { key: 'publicAccessHistoricalDays', val: publicAccessHistoricalDays, store: s.public_access_historical_days ?? 7 },
             { key: 'publicAccessMediaHistoricalDays', val: publicAccessMediaHistoricalDays, store: s.public_access_media_historical_days ?? 7 },
             { key: 'publicAccessRateLimitPerMinute', val: publicAccessRateLimitPerMinute, store: s.public_access_rate_limit_per_minute ?? 30 },
@@ -1998,6 +2000,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             trustedProxyHosts = proxyHostsDefault ? ['nginx-rp', 'cloudflare-tunnel'] : proxyHosts;
             publicAccessEnabled = settings.public_access_enabled ?? false;
             publicAccessShowCameraNames = settings.public_access_show_camera_names ?? true;
+            publicAccessShowAiConversation = settings.public_access_show_ai_conversation ?? false;
             publicAccessHistoricalDays = settings.public_access_historical_days ?? 7;
             publicAccessMediaHistoricalDays = settings.public_access_media_historical_days ?? 7;
             publicAccessRateLimitPerMinute = settings.public_access_rate_limit_per_minute ?? 30;
@@ -2211,6 +2214,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 trusted_proxy_hosts: effectiveTrustedProxyHosts,
                 public_access_enabled: publicAccessEnabled,
                 public_access_show_camera_names: publicAccessShowCameraNames,
+                public_access_show_ai_conversation: publicAccessShowAiConversation,
                 public_access_historical_days: publicAccessHistoricalDays,
                 public_access_media_historical_days: publicAccessMediaHistoricalDays,
                 public_access_rate_limit_per_minute: publicAccessRateLimitPerMinute,
@@ -2264,6 +2268,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             });
             // Update store
             await settingsStore.load();
+            // Public access flags are also used outside Settings (guest gating, etc.)
+            await authStore.loadStatus();
             // Sync local state to handle server-side normalization (e.g. stripped slashes)
             await loadSettings(true);
             message = { type: 'success', text: $_('notifications.settings_saved') };
@@ -2687,6 +2693,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     bind:newTrustedProxyHost
                     bind:publicAccessEnabled
                     bind:publicAccessShowCameraNames
+                    bind:publicAccessShowAiConversation
                     bind:publicAccessHistoricalDays
                     bind:publicAccessMediaHistoricalDays
                     bind:publicAccessRateLimitPerMinute

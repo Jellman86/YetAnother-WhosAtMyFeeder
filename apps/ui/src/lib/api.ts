@@ -50,6 +50,7 @@ export interface VersionInfo {
 export interface AuthStatusResponse {
     auth_required: boolean;
     public_access_enabled: boolean;
+    public_access_show_ai_conversation?: boolean;
     is_authenticated: boolean;
     birdnet_enabled: boolean;
     llm_enabled: boolean;
@@ -318,6 +319,7 @@ export interface Settings {
     // Public access
     public_access_enabled: boolean;
     public_access_show_camera_names: boolean;
+    public_access_show_ai_conversation?: boolean;
     public_access_historical_days: number;
     public_access_media_historical_days: number;
     public_access_rate_limit_per_minute: number;

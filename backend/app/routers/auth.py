@@ -51,6 +51,7 @@ class AuthStatusResponse(BaseModel):
     """Current authentication status."""
     auth_required: bool
     public_access_enabled: bool
+    public_access_show_ai_conversation: bool = False
     is_authenticated: bool
     birdnet_enabled: bool = False
     llm_enabled: bool = False
@@ -248,6 +249,7 @@ async def get_auth_status(request: Request):
     return AuthStatusResponse(
         auth_required=settings.auth.enabled,
         public_access_enabled=settings.public_access.enabled,
+        public_access_show_ai_conversation=settings.public_access.show_ai_conversation,
         is_authenticated=auth_level == AuthLevel.OWNER,
         birdnet_enabled=settings.frigate.birdnet_enabled,
         llm_enabled=settings.llm.enabled,

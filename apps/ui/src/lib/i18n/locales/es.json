@@ -301,6 +301,8 @@
       "enable_desc": "Los invitados pueden ver detecciones",
       "show_camera_names": "Mostrar nombres de cámara",
       "show_camera_names_desc": "Ocultar cámaras para visitantes",
+      "show_ai_conversation": "Mostrar conversaciones de IA",
+      "show_ai_conversation_desc": "Permitir que los visitantes vean chats de IA en las detecciones",
       "history_days": "Historial (días)",
       "media_days": "Ventana de medios (días)",
       "rate_limit": "Límite (por minuto)"

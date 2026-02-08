@@ -418,6 +418,8 @@
       "enable_desc": "Guests can view detections without logging in",
       "show_camera_names": "Show camera names",
       "show_camera_names_desc": "Hide camera labels for public visitors",
+      "show_ai_conversation": "Show AI conversation threads",
+      "show_ai_conversation_desc": "Allow guests to view AI chat threads on detections",
       "history_days": "History window (days)",
       "media_days": "Media window (days)",
       "rate_limit": "Rate limit (per minute)"

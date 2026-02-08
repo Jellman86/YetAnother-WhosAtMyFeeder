@@ -301,6 +301,8 @@
       "enable_desc": "访客可查看检测结果",
       "show_camera_names": "显示摄像头名称",
       "show_camera_names_desc": "对公开访问隐藏摄像头名称",
+      "show_ai_conversation": "显示 AI 对话",
+      "show_ai_conversation_desc": "允许访客查看检测记录中的 AI 聊天内容",
       "history_days": "历史范围（天）",
       "media_days": "媒体范围（天）",
       "rate_limit": "速率限制（每分钟）"

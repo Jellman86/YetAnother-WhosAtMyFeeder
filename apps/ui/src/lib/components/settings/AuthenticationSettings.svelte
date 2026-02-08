@@ -13,6 +13,7 @@
         newTrustedProxyHost = $bindable(''),
         publicAccessEnabled = $bindable(false),
         publicAccessShowCameraNames = $bindable(true),
+        publicAccessShowAiConversation = $bindable(false),
         publicAccessHistoricalDays = $bindable(7),
         publicAccessMediaHistoricalDays = $bindable(7),
         publicAccessRateLimitPerMinute = $bindable(30),
@@ -31,6 +32,7 @@
         newTrustedProxyHost: string;
         publicAccessEnabled: boolean;
         publicAccessShowCameraNames: boolean;
+        publicAccessShowAiConversation: boolean;
         publicAccessHistoricalDays: number;
         publicAccessMediaHistoricalDays: number;
         publicAccessRateLimitPerMinute: number;
@@ -241,6 +243,29 @@
                 >
                     <span class="sr-only">{$_('settings.public_access.show_camera_names')}</span>
                     <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {publicAccessShowCameraNames ? 'translate-x-5' : 'translate-x-0'}"></span>
+                </button>
+            </div>
+
+            <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 flex items-center justify-between">
+                <div id="public-ai-convo-label">
+                    <span class="block text-sm font-bold text-slate-900 dark:text-white">{$_('settings.public_access.show_ai_conversation')}</span>
+                    <span class="block text-[10px] text-slate-500 font-medium">{$_('settings.public_access.show_ai_conversation_desc')}</span>
+                </div>
+                <button
+                    role="switch"
+                    aria-checked={publicAccessShowAiConversation}
+                    aria-labelledby="public-ai-convo-label"
+                    onclick={() => publicAccessShowAiConversation = !publicAccessShowAiConversation}
+                    onkeydown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            publicAccessShowAiConversation = !publicAccessShowAiConversation;
+                        }
+                    }}
+                    class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {publicAccessShowAiConversation ? 'bg-indigo-500' : 'bg-slate-300 dark:bg-slate-600'}"
+                >
+                    <span class="sr-only">{$_('settings.public_access.show_ai_conversation')}</span>
+                    <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {publicAccessShowAiConversation ? 'translate-x-5' : 'translate-x-0'}"></span>
                 </button>
             </div>
 

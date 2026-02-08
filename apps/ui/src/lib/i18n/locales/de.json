@@ -410,6 +410,8 @@
       "enable_desc": "Gäste können Erkennungen ohne Login sehen",
       "show_camera_names": "Kameranamen anzeigen",
       "show_camera_names_desc": "Kameranamen für Gäste ausblenden",
+      "show_ai_conversation": "KI-Konversationen anzeigen",
+      "show_ai_conversation_desc": "Gästen erlauben, KI-Chatverläufe zu Erkennungen zu sehen",
       "history_days": "Historie (Tage)",
       "media_days": "Medienfenster (Tage)",
       "rate_limit": "Rate-Limit (pro Minute)"

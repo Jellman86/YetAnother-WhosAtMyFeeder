@@ -395,7 +395,7 @@
             conversationTurns = [];
             conversationInput = '';
             conversationError = null;
-            if (aiAnalysis && llmReady) {
+            if (aiAnalysis && llmReady && authStore.canViewAiConversation) {
                 loadConversation();
             }
         }
@@ -459,7 +459,7 @@
     }
 
     async function loadConversation() {
-        if (!llmReady || !aiAnalysis) return;
+        if (!llmReady || !aiAnalysis || !authStore.canViewAiConversation) return;
         conversationLoading = true;
         conversationError = null;
         try {
@@ -1968,7 +1968,7 @@
                 </div>
             {/if}
 
-            {#if llmReady && aiAnalysis}
+            {#if llmReady && aiAnalysis && authStore.canViewAiConversation}
                 <div class="space-y-3">
                     <p class="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">
                         {$_('detection.ai.conversation_title')}

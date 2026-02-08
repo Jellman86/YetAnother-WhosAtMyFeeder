@@ -309,6 +309,8 @@
       "enable_desc": "Visitantes podem ver detecções sem fazer login",
       "show_camera_names": "Mostrar nomes das câmeras",
       "show_camera_names_desc": "Ocultar rótulos das câmeras para visitantes públicos",
+      "show_ai_conversation": "Mostrar conversas de IA",
+      "show_ai_conversation_desc": "Permitir que visitantes vejam conversas de IA nas detecções",
       "history_days": "Janela de histórico (dias)",
       "media_days": "Janela de mídia (dias)",
       "rate_limit": "Limite de taxa (por minuto)"

@@ -407,6 +407,10 @@ class PublicAccessSettings(BaseModel):
         default=True,
         description="Show camera names to public visitors"
     )
+    show_ai_conversation: bool = Field(
+        default=False,
+        description="Allow public visitors to view AI conversation threads"
+    )
     show_historical_days: int = Field(
         default=7,
         ge=0,
@@ -672,6 +676,7 @@ class Settings(BaseSettings):
         public_access_data = {
             'enabled': os.environ.get('PUBLIC_ACCESS__ENABLED', 'false').lower() == 'true',
             'show_camera_names': os.environ.get('PUBLIC_ACCESS__SHOW_CAMERA_NAMES', 'true').lower() == 'true',
+            'show_ai_conversation': os.environ.get('PUBLIC_ACCESS__SHOW_AI_CONVERSATION', 'false').lower() == 'true',
             'show_historical_days': int(os.environ.get('PUBLIC_ACCESS__SHOW_HISTORICAL_DAYS', '7')),
             'media_historical_days': int(os.environ.get('PUBLIC_ACCESS__MEDIA_HISTORICAL_DAYS', '7')),
             'rate_limit_per_minute': int(os.environ.get('PUBLIC_ACCESS__RATE_LIMIT_PER_MINUTE', '30')),
