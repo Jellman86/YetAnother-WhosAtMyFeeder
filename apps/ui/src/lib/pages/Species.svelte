@@ -360,6 +360,24 @@
         )
     );
 
+    function isoDateUtc(value: Date): string {
+        return value.toISOString().slice(0, 10);
+    }
+
+    let allSpeciesRanges = $derived(() => {
+        const end = new Date();
+        const endIso = isoDateUtc(end);
+        const start30 = new Date(end);
+        start30.setUTCDate(start30.getUTCDate() - 30);
+        const start7 = new Date(end);
+        start7.setUTCDate(start7.getUTCDate() - 7);
+        return {
+            end: endIso,
+            start_30: isoDateUtc(start30),
+            start_7: isoDateUtc(start7)
+        };
+    });
+
     let chartStartDate = $derived(() => chartTimeline().daily[0]?.date ?? null);
     let chartEndDate = $derived(() => chartTimeline().daily[chartTimeline().daily.length - 1]?.date ?? null);
 
@@ -1294,7 +1312,7 @@
             <div class="p-4 border-b border-slate-200/80 dark:border-slate-700/50 flex items-center justify-between">
                 <h3 class="font-semibold text-slate-900 dark:text-white">{$_('leaderboard.all_species')}</h3>
                 <div class="text-xs text-slate-500 dark:text-slate-400">
-                    {$_('leaderboard.last_30_days')}: {totalLast30.toLocaleString()} · {$_('leaderboard.last_7_days')}: {totalLast7.toLocaleString()}
+                    {$_('leaderboard.last_30_days')} ({allSpeciesRanges().start_30} -> {allSpeciesRanges().end}): {totalLast30.toLocaleString()} · {$_('leaderboard.last_7_days')} ({allSpeciesRanges().start_7} -> {allSpeciesRanges().end}): {totalLast7.toLocaleString()}
                 </div>
             </div>
 
