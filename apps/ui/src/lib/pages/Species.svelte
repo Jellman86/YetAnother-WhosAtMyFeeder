@@ -14,7 +14,8 @@
     let species: SpeciesCount[] = $state([]);
     let loading = $state(true);
     let error = $state<string | null>(null);
-    let sortBy = $state<'day' | 'week' | 'month'>('week');
+    let rankBy = $state<'total' | 'day' | 'week' | 'month'>('total');
+    let includeUnknownBird = $state(false);
     let timelineDays = $state(30);
     let selectedSpecies = $state<string | null>(null);
     let timeline = $state<DetectionsTimeline | null>(null);
@@ -50,12 +51,17 @@
         }
     });
 
+    let leaderboardSpecies = $derived(() => {
+        if (includeUnknownBird) return species;
+        return species.filter((s) => s.species !== "Unknown Bird");
+    });
+
     // Derived processed species with naming logic
     let processedSpecies = $derived(() => {
         const showCommon = settingsStore.displayCommonNames;
         const preferSci = settingsStore.scientificNamePrimary;
 
-        return species.map(item => {
+        return leaderboardSpecies().map(item => {
             const naming = getBirdNames(item as any, showCommon, preferSci);
             return {
                 ...item,
@@ -68,9 +74,11 @@
     // Derived sorted species
     let sortedSpecies = $derived(() => {
         const sorted = [...processedSpecies()];
-        if (sortBy === 'day') {
+        if (rankBy === 'total') {
+            sorted.sort((a, b) => (b.count || 0) - (a.count || 0));
+        } else if (rankBy === 'day') {
             sorted.sort((a, b) => (b.count_1d || 0) - (a.count_1d || 0));
-        } else if (sortBy === 'week') {
+        } else if (rankBy === 'week') {
             sorted.sort((a, b) => (b.count_7d || 0) - (a.count_7d || 0));
         } else {
             sorted.sort((a, b) => (b.count_30d || 0) - (a.count_30d || 0));
@@ -79,10 +87,10 @@
     });
 
     // Stats
-    let totalDetections = $derived(species.reduce((sum, s) => sum + s.count, 0));
-    let maxCount = $derived(Math.max(...species.map(s => s.count), 1));
-    let totalLast30 = $derived(species.reduce((sum, s) => sum + (s.count_30d || 0), 0));
-    let totalLast7 = $derived(species.reduce((sum, s) => sum + (s.count_7d || 0), 0));
+    let totalDetections = $derived(leaderboardSpecies().reduce((sum, s) => sum + s.count, 0));
+    let maxCount = $derived(Math.max(...leaderboardSpecies().map(s => s.count), 1));
+    let totalLast30 = $derived(leaderboardSpecies().reduce((sum, s) => sum + (s.count_30d || 0), 0));
+    let totalLast7 = $derived(leaderboardSpecies().reduce((sum, s) => sum + (s.count_7d || 0), 0));
 
     let topByCount = $derived(sortedSpecies()[0]);
     let topBy7d = $derived([...processedSpecies()].sort((a, b) => (b.count_7d || 0) - (a.count_7d || 0))[0]);
@@ -97,6 +105,12 @@
     onMount(async () => {
         await loadSpecies();
         await loadTimeline(timelineDays);
+    });
+
+    $effect(() => {
+        if (!includeUnknownBird && selectedSpecies === "Unknown Bird") {
+            selectedSpecies = null;
+        }
     });
 
     async function loadSpecies() {
@@ -150,11 +164,6 @@
         if (mostRecent?.species) {
             void loadSpeciesInfo(mostRecent.species);
         }
-    });
-
-    $effect(() => {
-        timelineDays = sortBy === 'day' ? 1 : sortBy === 'week' ? 7 : 30;
-        void loadTimeline(timelineDays);
     });
 
     function getBarColor(index: number): string {
@@ -501,7 +510,7 @@
         if (includeWind) series.push($_('leaderboard.wind_avg'));
         if (includePrecip) series.push($_('leaderboard.precip'));
         return {
-            sortBy,
+            rankBy,
             days,
             startDate,
             endDate,
@@ -535,7 +544,7 @@
 
     $effect(() => {
         if (!timeline) return;
-        const _deps = [sortBy, timelineDays, showWeatherBands, showTemperature, showWind, showPrecip];
+        const _deps = [rankBy, timelineDays, showWeatherBands, showTemperature, showWind, showPrecip];
         void refreshLeaderboardAnalysis();
     });
 
@@ -608,14 +617,16 @@
 
     function getWindowCount(item: SpeciesCount | undefined): number {
         if (!item) return 0;
-        if (sortBy === 'day') return item.count_1d || 0;
-        if (sortBy === 'week') return item.count_7d || 0;
+        if (rankBy === 'total') return item.count || 0;
+        if (rankBy === 'day') return item.count_1d || 0;
+        if (rankBy === 'week') return item.count_7d || 0;
         return item.count_30d || 0;
     }
 
     function getWindowLabel(): string {
-        if (sortBy === 'day') return $_('leaderboard.sort_by_day');
-        if (sortBy === 'week') return $_('leaderboard.sort_by_week');
+        if (rankBy === 'total') return $_('leaderboard.sort_by_total');
+        if (rankBy === 'day') return $_('leaderboard.sort_by_day');
+        if (rankBy === 'week') return $_('leaderboard.sort_by_week');
         return $_('leaderboard.sort_by_month');
     }
 
@@ -662,7 +673,7 @@
 
         <div class="flex items-center gap-4">
             <div class="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
-                <span>{$_('leaderboard.species_count', { values: { count: species.length } })}</span>
+                <span>{$_('leaderboard.species_count', { values: { count: leaderboardSpecies().length } })}</span>
                 <span class="text-slate-300 dark:text-slate-600">|</span>
                 <span>{$_('leaderboard.detections_count', { values: { count: totalDetections.toLocaleString() } })}</span>
             </div>
@@ -677,26 +688,43 @@
         </div>
     </div>
 
-    <!-- Sort Toggle -->
-    <div class="flex gap-2">
-        <button
-            onclick={() => sortBy = 'day'}
-            class="tab-button {sortBy === 'day' ? 'tab-button-active' : 'tab-button-inactive'}"
-        >
-            {$_('leaderboard.sort_by_day')}
-        </button>
-        <button
-            onclick={() => sortBy = 'week'}
-            class="tab-button {sortBy === 'week' ? 'tab-button-active' : 'tab-button-inactive'}"
-        >
-            {$_('leaderboard.sort_by_week')}
-        </button>
-        <button
-            onclick={() => sortBy = 'month'}
-            class="tab-button {sortBy === 'month' ? 'tab-button-active' : 'tab-button-inactive'}"
-        >
-            {$_('leaderboard.sort_by_month')}
-        </button>
+    <!-- Rank + Filters -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div class="flex gap-2">
+            <button
+                onclick={() => rankBy = 'total'}
+                class="tab-button {rankBy === 'total' ? 'tab-button-active' : 'tab-button-inactive'}"
+            >
+                {$_('leaderboard.sort_by_total')}
+            </button>
+            <button
+                onclick={() => rankBy = 'day'}
+                class="tab-button {rankBy === 'day' ? 'tab-button-active' : 'tab-button-inactive'}"
+            >
+                {$_('leaderboard.sort_by_day')}
+            </button>
+            <button
+                onclick={() => rankBy = 'week'}
+                class="tab-button {rankBy === 'week' ? 'tab-button-active' : 'tab-button-inactive'}"
+            >
+                {$_('leaderboard.sort_by_week')}
+            </button>
+            <button
+                onclick={() => rankBy = 'month'}
+                class="tab-button {rankBy === 'month' ? 'tab-button-active' : 'tab-button-inactive'}"
+            >
+                {$_('leaderboard.sort_by_month')}
+            </button>
+        </div>
+
+        <label class="inline-flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300 select-none">
+            <input
+                type="checkbox"
+                class="rounded border-slate-300 dark:border-slate-600 text-emerald-600 focus:ring-emerald-500"
+                bind:checked={includeUnknownBird}
+            />
+            {$_('leaderboard.include_unknown')}
+        </label>
     </div>
 
     {#if error}
@@ -706,18 +734,20 @@
         </div>
     {/if}
 
-    {#if loading && species.length === 0}
+    {#if loading && leaderboardSpecies().length === 0}
         <div class="space-y-3">
             {#each [1, 2, 3, 4, 5, 6] as _}
                 <div class="h-16 bg-slate-100 dark:bg-slate-800 rounded-xl animate-pulse"></div>
             {/each}
         </div>
-    {:else if species.length === 0}
+    {:else if leaderboardSpecies().length === 0}
         <div class="card-base rounded-3xl p-12 text-center">
             <span class="text-6xl mb-4 block">🐦</span>
             <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-2">{$_('leaderboard.no_species')}</h3>
             <p class="text-slate-500 dark:text-slate-400">
-                {$_('leaderboard.no_species_desc')}
+                {species.length > 0 && !includeUnknownBird
+                    ? $_('leaderboard.only_unknown_desc')
+                    : $_('leaderboard.no_species_desc')}
             </p>
         </div>
     {:else}

@@ -54,17 +54,19 @@ def test_leaderboard_inspect():
 
         initial_names = top_rows_snapshot()
 
-        for label in ["Day", "Week", "Month"]:
+        for label in ["Total", "Day", "Week", "Month"]:
             page.locator("button.tab-button", has_text=label).first.click()
             page.wait_for_timeout(300)
             names = top_rows_snapshot()
             print(f"Top rows after {label}: {names}")
             path = graph_card.locator(".apexcharts-series path").first.get_attribute("d")
             print(f"Graph path after {label}: {path[:80]}...")
+            # Rank toggles should not change the chart.
+            assert path == line_path
 
-        # Graph should not change with sort buttons (sort only affects table)
+        # Graph should not change with rank buttons (rank only affects table)
         line_path_after = graph_card.locator(".apexcharts-series path").first.get_attribute("d")
-        print(f"Graph path changed: {line_path != line_path_after}")
+        assert line_path == line_path_after
 
         # Screenshot for manual review
         page.screenshot(path="/config/workspace/YA-WAMF/tests/e2e/screenshots/leaderboard-inspect.png", full_page=True)
