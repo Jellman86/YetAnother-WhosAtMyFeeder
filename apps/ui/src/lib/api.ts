@@ -100,6 +100,55 @@ export interface SpeciesCount {
     trend_percent?: number;
 }
 
+export type LeaderboardSpan = 'all' | 'day' | 'week' | 'month';
+
+export interface LeaderboardSpeciesItem {
+    species: string;
+    scientific_name?: string | null;
+    common_name?: string | null;
+    taxa_id?: number | null;
+    window_count: number;
+    window_prev_count: number;
+    window_delta: number;
+    window_percent: number;
+    window_first_seen?: string | null;
+    window_last_seen?: string | null;
+    window_avg_confidence?: number;
+    window_camera_count?: number;
+}
+
+export interface LeaderboardSpeciesResponse {
+    span: LeaderboardSpan;
+    window_start: string;
+    window_end: string;
+    species: LeaderboardSpeciesItem[];
+}
+
+export async function fetchLeaderboardSpecies(span: LeaderboardSpan = 'week'): Promise<LeaderboardSpeciesResponse> {
+    const response = await apiFetch(`${API_BASE}/leaderboard/species?span=${encodeURIComponent(span)}`);
+    return handleResponse<LeaderboardSpeciesResponse>(response);
+}
+
+export interface DetectionsTimelinePoint {
+    bucket_start: string;
+    label: string;
+    count: number;
+}
+
+export interface DetectionsTimelineSpanResponse {
+    span: LeaderboardSpan;
+    bucket: 'hour' | 'halfday' | 'day' | 'month';
+    window_start: string;
+    window_end: string;
+    total_count: number;
+    points: DetectionsTimelinePoint[];
+}
+
+export async function fetchDetectionsTimelineSpan(span: LeaderboardSpan = 'week'): Promise<DetectionsTimelineSpanResponse> {
+    const response = await apiFetch(`${API_BASE}/stats/detections/timeline?span=${encodeURIComponent(span)}`);
+    return handleResponse<DetectionsTimelineSpanResponse>(response);
+}
+
 export interface Settings {
     frigate_url: string;
     mqtt_server: string;

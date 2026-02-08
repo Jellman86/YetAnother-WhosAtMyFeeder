@@ -669,6 +669,87 @@ class DetectionRepository:
                 return _parse_datetime(row[0])
             return None
 
+    async def get_detection_time_bounds(self) -> tuple[datetime | None, datetime | None]:
+        """Return (min_detection_time, max_detection_time) across all detections."""
+        async with self.db.execute(
+            "SELECT MIN(detection_time), MAX(detection_time) FROM detections WHERE (is_hidden = 0 OR is_hidden IS NULL)"
+        ) as cursor:
+            row = await cursor.fetchone()
+            if not row:
+                return (None, None)
+            return (_parse_datetime(row[0]) if row[0] else None, _parse_datetime(row[1]) if row[1] else None)
+
+    async def get_timebucket_counts_hourly(self, start: datetime, end: datetime) -> dict[str, int]:
+        """Counts grouped by UTC hour bucket within [start, end)."""
+        query = """
+            SELECT strftime('%Y-%m-%dT%H:00:00Z', detection_time) as bucket, COUNT(*) as c
+            FROM detections
+            WHERE detection_time >= ? AND detection_time < ?
+              AND (is_hidden = 0 OR is_hidden IS NULL)
+            GROUP BY bucket
+            ORDER BY bucket ASC
+        """
+        async with self.db.execute(query, (start, end)) as cursor:
+            rows = await cursor.fetchall()
+        return {row[0]: int(row[1] or 0) for row in rows if row and row[0]}
+
+    async def get_timebucket_counts_halfday(self, start: datetime, end: datetime) -> dict[str, int]:
+        """Counts grouped by half-day (AM/PM) within [start, end).
+
+        Bucket key is an ISO timestamp string for the bucket start in UTC:
+        - YYYY-MM-DDT00:00:00Z for AM
+        - YYYY-MM-DDT12:00:00Z for PM
+        """
+        query = """
+            SELECT
+                date(detection_time) as d,
+                CASE WHEN CAST(strftime('%H', detection_time) AS integer) < 12 THEN 0 ELSE 12 END as hour_start,
+                COUNT(*) as c
+            FROM detections
+            WHERE detection_time >= ? AND detection_time < ?
+              AND (is_hidden = 0 OR is_hidden IS NULL)
+            GROUP BY d, hour_start
+            ORDER BY d ASC, hour_start ASC
+        """
+        async with self.db.execute(query, (start, end)) as cursor:
+            rows = await cursor.fetchall()
+        out: dict[str, int] = {}
+        for d, hour_start, c in rows:
+            if not d:
+                continue
+            hh = "00" if int(hour_start or 0) == 0 else "12"
+            key = f"{d}T{hh}:00:00Z"
+            out[key] = int(c or 0)
+        return out
+
+    async def get_timebucket_counts_daily(self, start: datetime, end: datetime) -> dict[str, int]:
+        """Counts grouped by day within [start, end). Key is YYYY-MM-DD."""
+        query = """
+            SELECT date(detection_time) as d, COUNT(*) as c
+            FROM detections
+            WHERE detection_time >= ? AND detection_time < ?
+              AND (is_hidden = 0 OR is_hidden IS NULL)
+            GROUP BY d
+            ORDER BY d ASC
+        """
+        async with self.db.execute(query, (start, end)) as cursor:
+            rows = await cursor.fetchall()
+        return {row[0]: int(row[1] or 0) for row in rows if row and row[0]}
+
+    async def get_timebucket_counts_monthly(self, start: datetime, end: datetime) -> dict[str, int]:
+        """Counts grouped by month within [start, end). Key is YYYY-MM-01."""
+        query = """
+            SELECT strftime('%Y-%m-01', detection_time) as m, COUNT(*) as c
+            FROM detections
+            WHERE detection_time >= ? AND detection_time < ?
+              AND (is_hidden = 0 OR is_hidden IS NULL)
+            GROUP BY m
+            ORDER BY m ASC
+        """
+        async with self.db.execute(query, (start, end)) as cursor:
+            rows = await cursor.fetchall()
+        return {row[0]: int(row[1] or 0) for row in rows if row and row[0]}
+
     async def get_species_counts(self) -> list[dict]:
         """Get detection counts per species with taxonomic metadata."""
         query = """
@@ -742,6 +823,125 @@ class DetectionRepository:
                 }
                 for row in rows
             ]
+
+    async def get_species_leaderboard_window(
+        self,
+        window_start: datetime,
+        window_end: datetime,
+        prev_start: datetime,
+        prev_end: datetime,
+    ) -> list[dict]:
+        """Get leaderboard stats for a rolling window and the prior window.
+
+        Notes:
+        - Uses detection_time timestamps (not rollups) so it supports 24h windows.
+        - Returns rows for any species that appears in either window; caller can filter to window_count > 0.
+        """
+        query = """
+            SELECT
+                COALESCE(t.scientific_name, LOWER(d.display_name)) as unified_id,
+                MAX(COALESCE(d.scientific_name, t.scientific_name)) as scientific_name,
+                MAX(COALESCE(d.common_name, t.common_name)) as common_name,
+                MAX(d.display_name) as display_name,
+                MAX(COALESCE(d.taxa_id, t.taxa_id)) as taxa_id,
+
+                SUM(CASE WHEN d.detection_time >= ? AND d.detection_time < ? THEN 1 ELSE 0 END) as window_count,
+                SUM(CASE WHEN d.detection_time >= ? AND d.detection_time < ? THEN 1 ELSE 0 END) as prev_count,
+
+                MIN(CASE WHEN d.detection_time >= ? AND d.detection_time < ? THEN d.detection_time ELSE NULL END) as window_first_seen,
+                MAX(CASE WHEN d.detection_time >= ? AND d.detection_time < ? THEN d.detection_time ELSE NULL END) as window_last_seen,
+
+                AVG(CASE WHEN d.detection_time >= ? AND d.detection_time < ? THEN d.score ELSE NULL END) as window_avg_confidence,
+                COUNT(DISTINCT CASE WHEN d.detection_time >= ? AND d.detection_time < ? THEN d.camera_name ELSE NULL END) as window_camera_count
+            FROM detections d
+            LEFT JOIN taxonomy_cache t ON
+                LOWER(d.display_name) = LOWER(t.scientific_name) OR
+                LOWER(d.display_name) = LOWER(t.common_name)
+            WHERE (d.is_hidden = 0 OR d.is_hidden IS NULL)
+              AND d.detection_time >= ?
+              AND d.detection_time < ?
+            GROUP BY unified_id
+        """
+        params = (
+            window_start, window_end,
+            prev_start, prev_end,
+            window_start, window_end,
+            window_start, window_end,
+            window_start, window_end,
+            window_start, window_end,
+            prev_start, window_end,
+        )
+        async with self.db.execute(query, params) as cursor:
+            rows = await cursor.fetchall()
+
+        return [
+            {
+                "species": row[3],
+                "scientific_name": row[1],
+                "common_name": row[2],
+                "taxa_id": row[4],
+                "window_count": int(row[5] or 0),
+                "prev_count": int(row[6] or 0),
+                "window_first_seen": _parse_datetime(row[7]) if row[7] else None,
+                "window_last_seen": _parse_datetime(row[8]) if row[8] else None,
+                "window_avg_confidence": float(row[9] or 0.0),
+                "window_camera_count": int(row[10] or 0),
+            }
+            for row in rows
+        ]
+
+    async def get_species_leaderboard_window_for_labels(
+        self,
+        labels: list[str],
+        window_start: datetime,
+        window_end: datetime,
+        prev_start: datetime,
+        prev_end: datetime,
+    ) -> dict | None:
+        """Aggregate window stats across a list of labels (e.g. unknown-bird label set)."""
+        if not labels:
+            return None
+        placeholders = ",".join(["?"] * len(labels))
+        query = f"""
+            SELECT
+                SUM(CASE WHEN detection_time >= ? AND detection_time < ? THEN 1 ELSE 0 END) as window_count,
+                SUM(CASE WHEN detection_time >= ? AND detection_time < ? THEN 1 ELSE 0 END) as prev_count,
+                MIN(CASE WHEN detection_time >= ? AND detection_time < ? THEN detection_time ELSE NULL END) as window_first_seen,
+                MAX(CASE WHEN detection_time >= ? AND detection_time < ? THEN detection_time ELSE NULL END) as window_last_seen,
+                AVG(CASE WHEN detection_time >= ? AND detection_time < ? THEN score ELSE NULL END) as window_avg_confidence,
+                COUNT(DISTINCT CASE WHEN detection_time >= ? AND detection_time < ? THEN camera_name ELSE NULL END) as window_camera_count
+            FROM detections
+            WHERE (is_hidden = 0 OR is_hidden IS NULL)
+              AND display_name IN ({placeholders})
+              AND detection_time >= ?
+              AND detection_time < ?
+        """
+        params = (
+            window_start, window_end,
+            prev_start, prev_end,
+            window_start, window_end,
+            window_start, window_end,
+            window_start, window_end,
+            window_start, window_end,
+            *labels,
+            prev_start, window_end,
+        )
+        async with self.db.execute(query, params) as cursor:
+            row = await cursor.fetchone()
+            if not row:
+                return None
+            window_count = int(row[0] or 0)
+            prev_count = int(row[1] or 0)
+            if window_count == 0 and prev_count == 0:
+                return None
+            return {
+                "window_count": window_count,
+                "prev_count": prev_count,
+                "window_first_seen": _parse_datetime(row[2]) if row[2] else None,
+                "window_last_seen": _parse_datetime(row[3]) if row[3] else None,
+                "window_avg_confidence": float(row[4] or 0.0),
+                "window_camera_count": int(row[5] or 0),
+            }
 
     async def get_latest_rollup_date(self) -> date | None:
         async with self.db.execute(

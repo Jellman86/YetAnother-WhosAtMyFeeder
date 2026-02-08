@@ -1,6 +1,6 @@
-from fastapi import APIRouter, Request, Depends
-from datetime import datetime, time, date, timedelta
-from typing import List, Optional
+from fastapi import APIRouter, Request, Depends, Query
+from datetime import datetime, time, date, timedelta, timezone
+from typing import List, Optional, Literal
 from collections import Counter
 from pydantic import BaseModel
 
@@ -65,6 +65,21 @@ class DetectionsTimelineResponse(BaseModel):
     total_count: int
     daily: List[DailyCount]
     weather: Optional[List[DailyWeatherSummary]] = None
+
+
+class DetectionsTimelinePoint(BaseModel):
+    bucket_start: str
+    label: str
+    count: int
+
+
+class DetectionsTimelineSpanResponse(BaseModel):
+    span: str
+    bucket: str
+    window_start: str
+    window_end: str
+    total_count: int
+    points: List[DetectionsTimelinePoint]
 
 @router.get("/stats/daily-summary", response_model=DailySummaryResponse)
 @guest_rate_limit()
@@ -309,4 +324,158 @@ async def get_detection_timeline(request: Request, days: int = 30):
             total_count=total,
             daily=[DailyCount(**item) for item in daily],
             weather=weather_summary or None
+        )
+
+
+@router.get("/stats/detections/timeline", response_model=DetectionsTimelineSpanResponse)
+@guest_rate_limit()
+async def get_detection_timeline_span(
+    request: Request,
+    span: Literal["all", "day", "week", "month"] = Query("week", description="Time span for the timeline"),
+):
+    """Get detections over time for a rolling span aligned to the current time.
+
+    Span definitions (UI semantics):
+    - day: last 24 hours, bucketed hourly
+    - week: last 7 days, bucketed AM/PM
+    - month: last 30 days, bucketed AM/PM
+    - all: bucketed dynamically based on available history
+    """
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+
+    async with get_db() as db:
+        repo = DetectionRepository(db)
+
+        if span == "day":
+            window_start = now - timedelta(hours=24)
+            window_end = now
+            bucket = "hour"
+            counts = await repo.get_timebucket_counts_hourly(window_start, window_end)
+
+            start_hour = window_start.replace(minute=0, second=0, microsecond=0)
+            end_hour = window_end.replace(minute=0, second=0, microsecond=0)
+            points: List[DetectionsTimelinePoint] = []
+            cursor = start_hour
+            while cursor <= end_hour:
+                key = cursor.replace(tzinfo=timezone.utc).strftime("%Y-%m-%dT%H:00:00Z")
+                points.append(DetectionsTimelinePoint(
+                    bucket_start=key,
+                    label=cursor.replace(tzinfo=timezone.utc).strftime("%H:00"),
+                    count=int(counts.get(key, 0)),
+                ))
+                cursor = cursor + timedelta(hours=1)
+
+        elif span in ("week", "month"):
+            days = 7 if span == "week" else 30
+            window_start = now - timedelta(days=days)
+            window_end = now
+            bucket = "halfday"
+            counts = await repo.get_timebucket_counts_halfday(window_start, window_end)
+
+            start_day = window_start.replace(hour=0, minute=0, second=0, microsecond=0)
+            start_half = start_day if window_start.hour < 12 else start_day.replace(hour=12)
+            if start_half > window_start:
+                start_half = start_half - timedelta(hours=12)
+
+            points = []
+            cursor = start_half
+            while cursor < window_end:
+                key = cursor.replace(tzinfo=timezone.utc).strftime("%Y-%m-%dT%H:00:00Z")
+                label = cursor.replace(tzinfo=timezone.utc).strftime("%b %d ") + ("AM" if cursor.hour < 12 else "PM")
+                points.append(DetectionsTimelinePoint(
+                    bucket_start=key,
+                    label=label,
+                    count=int(counts.get(key, 0)),
+                ))
+                cursor = cursor + timedelta(hours=12)
+
+        else:
+            oldest, newest = await repo.get_detection_time_bounds()
+            if not oldest:
+                return DetectionsTimelineSpanResponse(
+                    span="all",
+                    bucket="day",
+                    window_start=now.replace(tzinfo=timezone.utc).isoformat(),
+                    window_end=now.replace(tzinfo=timezone.utc).isoformat(),
+                    total_count=0,
+                    points=[],
+                )
+
+            window_start = oldest.replace(tzinfo=None)
+            window_end = now
+            total_days = max(0.0, (window_end - window_start).total_seconds() / 86400.0)
+
+            if total_days <= 2:
+                bucket = "hour"
+                counts = await repo.get_timebucket_counts_hourly(window_start, window_end)
+                start_hour = window_start.replace(minute=0, second=0, microsecond=0)
+                end_hour = window_end.replace(minute=0, second=0, microsecond=0)
+                points = []
+                cursor = start_hour
+                while cursor <= end_hour:
+                    key = cursor.replace(tzinfo=timezone.utc).strftime("%Y-%m-%dT%H:00:00Z")
+                    points.append(DetectionsTimelinePoint(
+                        bucket_start=key,
+                        label=cursor.replace(tzinfo=timezone.utc).strftime("%b %d %H:00"),
+                        count=int(counts.get(key, 0)),
+                    ))
+                    cursor = cursor + timedelta(hours=1)
+            elif total_days <= 31:
+                bucket = "halfday"
+                counts = await repo.get_timebucket_counts_halfday(window_start, window_end)
+                start_day = window_start.replace(hour=0, minute=0, second=0, microsecond=0)
+                start_half = start_day if window_start.hour < 12 else start_day.replace(hour=12)
+                if start_half > window_start:
+                    start_half = start_half - timedelta(hours=12)
+                points = []
+                cursor = start_half
+                while cursor < window_end:
+                    key = cursor.replace(tzinfo=timezone.utc).strftime("%Y-%m-%dT%H:00:00Z")
+                    label = cursor.replace(tzinfo=timezone.utc).strftime("%b %d ") + ("AM" if cursor.hour < 12 else "PM")
+                    points.append(DetectionsTimelinePoint(
+                        bucket_start=key,
+                        label=label,
+                        count=int(counts.get(key, 0)),
+                    ))
+                    cursor = cursor + timedelta(hours=12)
+            elif total_days <= 180:
+                bucket = "day"
+                counts = await repo.get_timebucket_counts_daily(window_start, window_end)
+                points = []
+                cursor = window_start.date()
+                end_date = window_end.date()
+                while cursor <= end_date:
+                    key = cursor.isoformat()
+                    points.append(DetectionsTimelinePoint(
+                        bucket_start=f"{key}T00:00:00Z",
+                        label=cursor.strftime("%b %d"),
+                        count=int(counts.get(key, 0)),
+                    ))
+                    cursor = cursor + timedelta(days=1)
+            else:
+                bucket = "month"
+                counts = await repo.get_timebucket_counts_monthly(window_start, window_end)
+                points = []
+                cursor = date(window_start.year, window_start.month, 1)
+                end_month = date(window_end.year, window_end.month, 1)
+                while cursor <= end_month:
+                    key = cursor.isoformat()
+                    points.append(DetectionsTimelinePoint(
+                        bucket_start=f"{key}T00:00:00Z",
+                        label=cursor.strftime("%b %Y"),
+                        count=int(counts.get(key, 0)),
+                    ))
+                    if cursor.month == 12:
+                        cursor = date(cursor.year + 1, 1, 1)
+                    else:
+                        cursor = date(cursor.year, cursor.month + 1, 1)
+
+        total_count = sum(p.count for p in points)
+        return DetectionsTimelineSpanResponse(
+            span=span,
+            bucket=bucket,
+            window_start=window_start.replace(tzinfo=timezone.utc).isoformat(),
+            window_end=window_end.replace(tzinfo=timezone.utc).isoformat(),
+            total_count=total_count,
+            points=points,
         )

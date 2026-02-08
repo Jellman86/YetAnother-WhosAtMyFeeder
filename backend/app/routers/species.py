@@ -1,8 +1,9 @@
-from fastapi import APIRouter, HTTPException, Request, Depends
-from datetime import datetime, timedelta
+from fastapi import APIRouter, HTTPException, Request, Depends, Query
+from datetime import datetime, timedelta, timezone
 from urllib.parse import quote
 import httpx
 import structlog
+from typing import Literal
 
 from app.database import get_db
 from app.repositories.detection_repository import DetectionRepository
@@ -585,6 +586,117 @@ async def get_species_list(request: Request):
             filtered_stats.sort(key=lambda x: x["count"], reverse=True)
 
         return filtered_stats
+
+
+@router.get("/leaderboard/species")
+@guest_rate_limit()
+async def get_leaderboard_species(
+    request: Request,
+    span: Literal["day", "week", "month"] = Query("week", description="Rolling window for leaderboard stats"),
+):
+    """Leaderboard species stats for a rolling window aligned to the current time.
+
+    Span definitions:
+    - day: last 24 hours
+    - week: last 7 days
+    - month: last 30 days
+    """
+    lang = get_user_language(request)
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    if span == "day":
+        window = timedelta(hours=24)
+    elif span == "week":
+        window = timedelta(days=7)
+    else:
+        window = timedelta(days=30)
+
+    window_start = now - window
+    window_end = now
+    prev_start = window_start - window
+    prev_end = window_start
+
+    unknown_labels = settings.classification.unknown_bird_labels
+
+    async with get_db() as db:
+        repo = DetectionRepository(db)
+        rows = await repo.get_species_leaderboard_window(
+            window_start=window_start,
+            window_end=window_end,
+            prev_start=prev_start,
+            prev_end=prev_end,
+        )
+
+        # Filter to species present in the selected window only.
+        filtered = []
+        for r in rows:
+            if r["species"] in unknown_labels:
+                continue
+            if r["window_count"] <= 0:
+                continue
+
+            common_name = r.get("common_name")
+            taxa_id = r.get("taxa_id")
+            if lang != "en" and taxa_id:
+                localized = await taxonomy_service.get_localized_common_name(taxa_id, lang, db=db)
+                if localized:
+                    common_name = localized
+
+            delta = r["window_count"] - r["prev_count"]
+            pct = 0.0
+            if r["prev_count"] > 0:
+                pct = (delta / r["prev_count"]) * 100.0
+
+            filtered.append({
+                "species": r["species"],
+                "scientific_name": r.get("scientific_name"),
+                "common_name": common_name,
+                "taxa_id": taxa_id,
+                "window_count": r["window_count"],
+                "window_prev_count": r["prev_count"],
+                "window_delta": delta,
+                "window_percent": pct,
+                "window_first_seen": r["window_first_seen"].isoformat() if r.get("window_first_seen") else None,
+                "window_last_seen": r["window_last_seen"].isoformat() if r.get("window_last_seen") else None,
+                "window_avg_confidence": r.get("window_avg_confidence", 0.0),
+                "window_camera_count": r.get("window_camera_count", 0),
+            })
+
+        unknown = await repo.get_species_leaderboard_window_for_labels(
+            labels=list(unknown_labels),
+            window_start=window_start,
+            window_end=window_end,
+            prev_start=prev_start,
+            prev_end=prev_end,
+        )
+        if unknown and unknown.get("window_count", 0) > 0:
+            delta = unknown["window_count"] - unknown["prev_count"]
+            pct = 0.0
+            if unknown["prev_count"] > 0:
+                pct = (delta / unknown["prev_count"]) * 100.0
+            filtered.append({
+                "species": "Unknown Bird",
+                "scientific_name": None,
+                "common_name": None,
+                "taxa_id": None,
+                "window_count": unknown["window_count"],
+                "window_prev_count": unknown["prev_count"],
+                "window_delta": delta,
+                "window_percent": pct,
+                "window_first_seen": unknown["window_first_seen"].isoformat() if unknown.get("window_first_seen") else None,
+                "window_last_seen": unknown["window_last_seen"].isoformat() if unknown.get("window_last_seen") else None,
+                "window_avg_confidence": unknown.get("window_avg_confidence", 0.0),
+                "window_camera_count": unknown.get("window_camera_count", 0),
+            })
+
+        # Sort by selected window count desc.
+        filtered.sort(key=lambda x: int(x.get("window_count") or 0), reverse=True)
+
+        return {
+            "span": span,
+            "window_start": window_start.replace(tzinfo=timezone.utc).isoformat(),
+            "window_end": window_end.replace(tzinfo=timezone.utc).isoformat(),
+            "species": filtered,
+        }
 
 @router.get("/species/{species_name}/stats", response_model=SpeciesStats)
 @guest_rate_limit()
