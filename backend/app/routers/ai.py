@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Request, Depends
+from fastapi import APIRouter, HTTPException, Request, Depends, Response
 from pydantic import BaseModel
 from datetime import datetime, timezone
 import base64
@@ -147,7 +147,9 @@ async def get_leaderboard_analysis(
         repo = LeaderboardAnalysisRepository(db)
         entry = await repo.get_by_config_key(config_key)
         if not entry:
-            raise HTTPException(status_code=404, detail="Analysis not found.")
+            # Treat this as a normal "not available yet" state so we don't spam
+            # console/network errors (e.g. first load before any analysis is generated).
+            return Response(status_code=204)
         return LeaderboardAnalysisResponse(
             analysis=entry.analysis,
             analysis_timestamp=entry.analysis_timestamp.isoformat()

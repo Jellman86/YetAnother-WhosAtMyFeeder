@@ -1377,6 +1377,9 @@ export interface LeaderboardAnalysisResponse {
 
 export async function fetchLeaderboardAnalysis(configKey: string): Promise<LeaderboardAnalysisResponse> {
     const response = await apiFetch(`${API_BASE}/leaderboard/analysis?config_key=${encodeURIComponent(configKey)}`);
+    if (response.status === 204) {
+        return { analysis: '', analysis_timestamp: '' };
+    }
     return handleResponse<LeaderboardAnalysisResponse>(response);
 }
 
