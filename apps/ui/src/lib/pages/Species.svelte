@@ -284,10 +284,10 @@
     }
 
     function bucketLabel(bucket?: DetectionsTimelineSpanResponse['bucket'] | null): string {
-        if (bucket === 'hour') return 'Hourly';
-        if (bucket === 'halfday') return 'AM/PM';
-        if (bucket === 'day') return 'Daily';
-        if (bucket === 'month') return 'Monthly';
+        if (bucket === 'hour') return $_('leaderboard.bucket_hour', { default: 'Hourly' });
+        if (bucket === 'halfday') return $_('leaderboard.bucket_halfday', { default: 'AM/PM' });
+        if (bucket === 'day') return $_('leaderboard.bucket_day', { default: 'Daily' });
+        if (bucket === 'month') return $_('leaderboard.bucket_month', { default: 'Monthly' });
         return '—';
     }
 
@@ -911,9 +911,9 @@
                 <div class="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
                     <span>{selectedCountLabel()}: {timeline?.total_count?.toLocaleString() || '0'}</span>
                     <span>•</span>
-                    <span>Peak {bucketLabel(timeline?.bucket)}: {timelineMax.toLocaleString()}</span>
+                    <span>{$_('leaderboard.metric_peak', { default: 'Peak' })} {bucketLabel(timeline?.bucket)}: {timelineMax.toLocaleString()}</span>
                     <span>•</span>
-                    <span>Avg/{bucketLabel(timeline?.bucket)}: {timelineAvg.toLocaleString()}</span>
+                    <span>{$_('leaderboard.metric_avg', { default: 'Avg' })}/{bucketLabel(timeline?.bucket)}: {timelineAvg.toLocaleString()}</span>
                 </div>
                 {#if llmReady && (leaderboardAnalysisLoading || leaderboardAnalysisError || leaderboardAnalysis)}
                     <div class="mt-4 rounded-2xl border border-slate-200/70 dark:border-slate-700/60 bg-white/70 dark:bg-slate-900/40 px-4 py-3 text-sm text-slate-600 dark:text-slate-300 shadow-sm">
