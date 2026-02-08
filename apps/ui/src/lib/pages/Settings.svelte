@@ -1484,6 +1484,12 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     });
 
     onMount(async () => {
+        // Guests should never load the Settings view or call /api/settings.
+        if (!authStore.showSettings) {
+            authStore.requestLogin();
+            return;
+        }
+
         // Handle deep linking to tabs
         const hash = window.location.hash.slice(1);
         if (hash && ['connection', 'detection', 'notifications', 'integrations', 'enrichment', 'security', 'data', 'appearance', 'accessibility', 'debug'].includes(hash)) {

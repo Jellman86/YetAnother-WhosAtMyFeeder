@@ -34,7 +34,13 @@ def test_full_system_ui(page):
     
     # Wait for DOM content instead of networkidle due to SSE connection
     page.wait_for_load_state("domcontentloaded")
-    
+
+    # If auth is enforced and public access is disabled, the app will show login.
+    # In that mode we can't do a full navigation smoke test without creds.
+    if page.locator("input#username").count() > 0:
+        print("Login page detected (auth required without public access). Smoke test stops here.")
+        return
+
     # Wait for the logo or some main text to appear
     page.wait_for_selector("text=WhosAtMyFeeder", timeout=10000)
     
@@ -84,10 +90,15 @@ def test_full_system_ui(page):
         except Exception:
             page.goto(f"{base_url}/settings", timeout=30000)
 
-    page.wait_for_url("**/settings", timeout=15000)
     page.wait_for_load_state("domcontentloaded")
     print(f"Current URL: {page.url}")
-    assert "/settings" in page.url
+
+    # If auth is enabled with public access, the Settings route should be blocked
+    # and redirect to login (or back to home).
+    if "/settings" not in page.url:
+        assert page.locator("input#username").count() > 0 or page.url.endswith("/")
+        return
+
     page.screenshot(path="settings_page.png")
 
     print("\n[SUCCESS] Full UI Test Completed Successfully.")

@@ -51,10 +51,24 @@
       }
   });
 
-  function navigate(path: string) {
+  function navigate(path: string, opts: { replace?: boolean } = {}) {
       currentRoute = path;
-      window.history.pushState(null, '', path);
+      if (opts.replace) window.history.replaceState(null, '', path);
+      else window.history.pushState(null, '', path);
   }
+
+  // Route guard: settings page should only be accessible when authenticated
+  // (or when auth is disabled entirely).
+  $effect(() => {
+      if (!authStore.statusLoaded) return;
+      if (authStore.needsInitialSetup) return;
+      if (!currentRoute.startsWith('/settings')) return;
+
+      if (!authStore.showSettings) {
+          authStore.requestLogin();
+          navigate('/', { replace: true });
+      }
+  });
 
   // SSE connection management
   let evtSource: EventSource | null = $state(null);
@@ -645,7 +659,12 @@
               {:else if currentRoute.startsWith('/species')}
                   <Species />
               {:else if currentRoute.startsWith('/settings')}
-                   <Settings />
+                   {#if authStore.showSettings}
+                       <Settings />
+                   {:else}
+                       <!-- Block settings view for guests; route guard will redirect + prompt login. -->
+                       <div class="h-24"></div>
+                   {/if}
               {:else if currentRoute.startsWith('/notifications')}
                   <Notifications />
               {:else if currentRoute.startsWith('/about')}
