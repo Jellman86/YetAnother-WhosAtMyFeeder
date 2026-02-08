@@ -9,6 +9,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Fixed:** Detection modal “Frame Grid” (reclassification/video analysis overlay) now scrolls so action buttons aren’t cut off on smaller viewports.
 - **Fixed:** Settings “Send Test Notification” now calls Telegram and Pushover notification helpers with the correct argument order (prevents Telegram confidence parsing crash).
 - **Changed:** Email notifications now use the configured UI font theme for their HTML templates (email clients may fall back to system fonts).
+- **Fixed:** Settings route now prompts for login and blocks rendering for unauthenticated users when Public Access is enabled (prevents guests directly navigating to `/settings` and generating noisy 403s).
 - **Fixed:** Leaderboard ranking now defaults to **Total** (all-time), and “Unknown Bird” can be toggled on/off from the leaderboard table.
 - **Fixed:** Leaderboard “Detections over time” chart now reacts to the Day/Week/Month selection (bucketed timeline), and shows an explicit range/grouping label (with optional weather overlays when location data is available).
 - **Fixed:** Leaderboard chart weather-unit labels and species summary source attribution labels are now localized.
@@ -19,6 +20,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Changed:** Renamed the font picker “Default” label to “Modern” (Classic remains the actual default).
 - **Changed:** Added `INTEGRATION_TESTING.md` and moved `ISSUES.md` to the repo root to make untested integrations and testing requests easier to find.
 - **Fixed:** Home Assistant integration options flow no longer crashes on newer Home Assistant versions (prevents “Config flow could not be loaded: 500”).
+- **Security:** Removed hardcoded MQTT credentials from a debugging script.
 - **Changed:** Marked Email OAuth (Gmail/Outlook), Telegram Bot API, and iNaturalist submission flows as “needs testing” in `ISSUES.md`.
 
 ## [2.7.8] - 2026-02-07

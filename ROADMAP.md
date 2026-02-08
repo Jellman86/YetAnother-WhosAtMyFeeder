@@ -536,6 +536,8 @@ Backfill BirdNET-Go audio detections into `audio_detections` so historical detec
 | Persist UI font theme to backend (used by emails) | S (1 day) | P2 | ✅ Implemented |
 | Leaderboard span chart weather overlays | S (1 day) | P2 | ✅ Implemented |
 | Remove legacy theme/layout subscribe wrappers from Settings | S (0.5 day) | P2 | ✅ Implemented |
+| Guard Settings route for guests (public access) | S (0.5 day) | P1 | ✅ Implemented |
+| Remove hardcoded credentials from debug scripts | S (0.5 day) | P1 | ✅ Implemented |
 
 **Total Effort for High Priority Fixes:** ~2 weeks (Completed)
 
@@ -572,5 +574,5 @@ Have a feature idea not on this list? Open an issue on [GitHub](https://github.c
 
 ---
 
-**Last Updated:** 2026-02-06
-**Version:** 2.7.5
+**Last Updated:** 2026-02-08
+**Version:** 2.7.9
