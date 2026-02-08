@@ -62,6 +62,15 @@ cameras:
       retain:
         days: 3
         mode: all # Ensure clips are available for YA-WAMF to scan
+      # Optional: Add context before/after motion so bird clips aren't "blink-and-you-miss-it".
+      # This affects Frigate review/detection recording segments (and therefore what YA-WAMF can analyze),
+      # but the raw Frigate event duration can still be short if the bird only appears briefly.
+      alerts:
+        pre_capture: 5
+        post_capture: 25
+      detections:
+        pre_capture: 5
+        post_capture: 25
 
     # --- TUNING FOR BIRDS ---
     objects:
@@ -85,3 +94,10 @@ While Frigate's detection model often runs at a low resolution (e.g., 320x320), 
 
 ### 🎥 Record Mode
 YA-WAMF's **Deep Video Analysis** requires access to the recording files. You must have `record: enabled: True` and I recommend `mode: all` for at least a few days to ensure the system can go back and re-analyze any event you click on.
+
+### ⏱️ “My clips are too short”
+This is usually expected for birds.
+
+Frigate “events” have a `start_time` and `end_time`. If the bird only triggers motion/detection for 1-3 seconds, the event is only 1-3 seconds long, and the event clip can be very short.
+
+If you want more context around each detection, configure `record.alerts.pre_capture` / `post_capture` and `record.detections.pre_capture` / `post_capture` (example above). A common setup is `pre_capture: 5` and `post_capture: 25` to target roughly 30 seconds total context.
