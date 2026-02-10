@@ -49,6 +49,55 @@ jobs:
           python -m alembic downgrade -1
           python -m alembic upgrade head
 
+      - name: SQLite schema sanity checks (FKs + integrity)
+        run: |
+          cd backend
+          export DB_PATH=/tmp/ci-speciesid.db
+          python - <<'PY'
+          import sqlite3
+          import sys
+          import os
+
+          db_path = os.environ["DB_PATH"]
+          conn = sqlite3.connect(db_path)
+          try:
+            conn.execute("PRAGMA foreign_keys=ON;")
+
+            # Basic health checks
+            fk_enabled = conn.execute("PRAGMA foreign_keys;").fetchone()[0]
+            if fk_enabled != 1:
+              print("foreign_keys pragma is not enabled")
+              sys.exit(1)
+
+            integrity = conn.execute("PRAGMA integrity_check;").fetchone()[0]
+            if integrity != "ok":
+              print("integrity_check failed:", integrity)
+              sys.exit(1)
+
+            # Detect FK violations (also catches many bad constraints)
+            fk_violations = conn.execute("PRAGMA foreign_key_check;").fetchall()
+            if fk_violations:
+              print("foreign_key_check violations:", fk_violations[:20])
+              sys.exit(1)
+
+            # Regression guard: taxonomy_translations must NOT have an FK to taxonomy_cache.taxa_id
+            # (it caused sqlite3.OperationalError: foreign key mismatch on upgraded DBs).
+            fk_list = conn.execute("PRAGMA foreign_key_list(taxonomy_translations);").fetchall()
+            if fk_list:
+              print("taxonomy_translations has unexpected foreign keys:", fk_list)
+              sys.exit(1)
+
+            # Smoke-write: this would have thrown OperationalError with the old FK mismatch.
+            conn.execute(
+              "INSERT OR REPLACE INTO taxonomy_translations (taxa_id, language_code, common_name) VALUES (?, ?, ?)",
+              (123456, "ru", "test-name"),
+            )
+            conn.commit()
+          finally:
+            conn.close()
+          print("SQLite sanity checks OK:", db_path)
+          PY
+
       - name: Run tests
         run: |
           cd backend
