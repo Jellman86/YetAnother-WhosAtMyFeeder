@@ -49,16 +49,33 @@ def _has_foreign_keys(conn, table: str) -> bool:
 def upgrade() -> None:
     conn = op.get_bind()
 
-    if not _table_exists(conn, "taxonomy_translations"):
-        return
-
-    # If there is no FK, nothing to do (keep data + indices stable).
-    if not _has_foreign_keys(conn, "taxonomy_translations"):
-        return
-
     # Rebuild without FK. Use PRAGMA foreign_keys=OFF to avoid mismatch errors mid-migration.
     op.execute("PRAGMA foreign_keys=OFF")
     try:
+        # Handle a previously interrupted run: if the old table is missing but the
+        # new temp table exists, finish the rename and recreate indices.
+        if not _table_exists(conn, "taxonomy_translations") and _table_exists(conn, "taxonomy_translations_new"):
+            op.execute("ALTER TABLE taxonomy_translations_new RENAME TO taxonomy_translations")
+            if not _index_exists(conn, "idx_taxonomy_trans_taxa"):
+                op.create_index("idx_taxonomy_trans_taxa", "taxonomy_translations", ["taxa_id"])
+            if not _index_exists(conn, "idx_taxonomy_trans_lang"):
+                op.create_index("idx_taxonomy_trans_lang", "taxonomy_translations", ["language_code"])
+            return
+
+        if not _table_exists(conn, "taxonomy_translations"):
+            return
+
+        # If there is no FK, nothing to do (keep data + indices stable).
+        if not _has_foreign_keys(conn, "taxonomy_translations"):
+            # Clean up any leftover temp table from a partial run.
+            if _table_exists(conn, "taxonomy_translations_new"):
+                op.execute("DROP TABLE taxonomy_translations_new")
+            return
+
+        # Clean up any leftover temp table from a partial run before recreating it.
+        if _table_exists(conn, "taxonomy_translations_new"):
+            op.execute("DROP TABLE taxonomy_translations_new")
+
         # Create replacement table.
         op.create_table(
             "taxonomy_translations_new",
@@ -96,4 +113,3 @@ def downgrade() -> None:
     # Downgrade is intentionally a no-op:
     # restoring the FK would reintroduce the upgrade failure mode on SQLite.
     pass
-
