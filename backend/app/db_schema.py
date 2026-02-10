@@ -161,7 +161,9 @@ taxonomy_translations = Table(
     "taxonomy_translations",
     metadata,
     Column("id", Integer, primary_key=True, autoincrement=True),
-    Column("taxa_id", Integer, ForeignKey("taxonomy_cache.taxa_id"), nullable=False),
+    # Note: no FK constraint here. taxa_id is sourced from external providers (e.g. iNaturalist/eBird)
+    # and the cache tables are intentionally allowed to exist independently to avoid upgrade breakage.
+    Column("taxa_id", Integer, nullable=False),
     Column("language_code", String(5), nullable=False),
     Column("common_name", String, nullable=False),
     UniqueConstraint("taxa_id", "language_code", name="uq_taxa_lang"),
