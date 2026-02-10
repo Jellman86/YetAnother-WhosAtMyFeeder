@@ -191,6 +191,8 @@ mkdir -p config data/models
 docker compose up -d
 ```
 
+> If you deploy via Portainer: create a Stack from `docker-compose.yml` and use "Pull and redeploy" for updates (after changing image tags or pulling the latest `:latest`/`:dev`).
+
 **5. Access the dashboard:**
 
 Open `http://localhost:9852` (or `http://YOUR_SERVER_IP:9852`)

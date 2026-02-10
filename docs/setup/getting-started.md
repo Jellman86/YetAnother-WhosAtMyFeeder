@@ -42,6 +42,10 @@ Start the containers in detached mode:
 docker compose up -d
 ```
 
+**Portainer Stacks (common deployment):**
+- Create a new Stack from the `docker-compose.yml` (and your `.env`).
+- To update later: use "Pull and redeploy" (or redeploy the stack) after bumping image tags (`:latest`, `:dev`, or a pinned `:vX.Y.Z` tag).
+
 ### 4. Verify
 Open your browser to `http://<your-ip>:9852`. You should see the dashboard! Once detections start flowing, they will appear in the Events list:
 
