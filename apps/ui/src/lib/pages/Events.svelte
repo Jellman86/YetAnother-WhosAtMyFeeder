@@ -103,6 +103,7 @@
 
     async function loadEvents() {
         loading = true;
+        error = null;
         try {
             const range = dateRange;
             const [newEvents, countRes] = await Promise.all([
@@ -111,7 +112,13 @@
             ]);
             events = newEvents;
             totalCount = countRes.count;
-        } catch (e) { error = $_('events.load_failed'); } finally { loading = false; }
+        } catch (e) {
+            // Events can look "empty" when the API is unreachable; surface a visible error instead.
+            error = $_('events.load_failed');
+            console.error('Failed to load events', e);
+        } finally {
+            loading = false;
+        }
     }
 
     onMount(async () => {
@@ -261,6 +268,13 @@
     </div>
 
     <Pagination {currentPage} {totalPages} totalItems={totalCount} itemsPerPage={pageSize} onPageChange={(p) => {currentPage=p; loadEvents()}} onPageSizeChange={(s) => {pageSize=s; currentPage=1; loadEvents()}} />
+
+    {#if error}
+        <div class="p-4 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-800">
+            {error}
+            <button onclick={loadEvents} class="ml-2 underline">{$_('common.retry')}</button>
+        </div>
+    {/if}
 
     {#if !loading && events.length === 0}
         <div class="card-base rounded-3xl p-10 text-center">

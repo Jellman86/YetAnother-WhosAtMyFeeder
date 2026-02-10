@@ -166,18 +166,23 @@
     async function loadLeaderboard() {
         loading = true;
         error = null;
+        // Fetch species and timeline independently so a chart/weather failure
+        // doesn't make the leaderboard table disappear.
         try {
-            const [speciesRows, timelineResp] = await Promise.all([
-                span === 'all'
-                    ? fetchSpecies().then(mapAllTimeSpecies)
-                    : fetchLeaderboardSpecies(span).then(mapWindowSpecies),
-                fetchDetectionsTimelineSpan(span, { includeWeather: true })
-            ]);
-            species = speciesRows;
-            timeline = timelineResp;
+            species = span === 'all'
+                ? await fetchSpecies().then(mapAllTimeSpecies)
+                : await fetchLeaderboardSpecies(span).then(mapWindowSpecies);
         } catch (e) {
             error = $_('leaderboard.load_failed');
+            species = [];
+            console.error('Failed to load leaderboard species', e);
+        }
+
+        try {
+            timeline = await fetchDetectionsTimelineSpan(span, { includeWeather: true });
+        } catch (e) {
             timeline = null;
+            console.error('Failed to load leaderboard timeline', e);
         } finally {
             loading = false;
         }
