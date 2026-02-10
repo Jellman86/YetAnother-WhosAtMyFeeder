@@ -11,7 +11,6 @@ YA-WAMF already has extensive functionality built-in:
 **Core Classification:**
 - ✅ Multiple ML model support (TFLite/ONNX: MobileNetV2, ConvNeXt, EVA-02)
 - ✅ Svelte 5 migration
-- ✅ Built-in Authentication system
 - ✅ Fast path mode (trust Frigate sublabels)
 - ✅ Manual reclassification with confidence override
 
@@ -68,14 +67,6 @@ See [DEVELOPER.md](DEVELOPER.md) for architectural details.
 - [Phase 6: Ecosystem & Community](#phase-6-ecosystem--community)
 - [Technical Debt & Maintenance](#technical-debt--maintenance)
 - [Recommended Implementation Order](#recommended-implementation-order)
-- [Phase 1: User Experience & Enhancements](#phase-1-user-experience--enhancements)
-- [Phase 2: User Experience Improvements](#phase-2-user-experience-improvements)
-- [Phase 3: Advanced Features](#phase-3-advanced-features)
-- [Phase 4: Data & Integration](#phase-4-data--integration)
-- [Phase 5: Performance & Reliability](#phase-5-performance--reliability)
-- [Phase 6: Ecosystem & Community](#phase-6-ecosystem--community)
-- [Technical Debt & Maintenance](#technical-debt--maintenance)
-- [Recommended Implementation Order](#recommended-implementation-order)
 
 ---
 
@@ -97,10 +88,9 @@ See [DEVELOPER.md](DEVELOPER.md) for architectural details.
 
 ## 🚨 Issues First
 
-All unresolved issues listed in `ISSUES.md` must be addressed **before** new feature work. This section is always the top priority.
+Prioritize fixes for anything listed in `ISSUES.md` (known issues, testing gaps) and any open GitHub Issues before new feature work.
 
-**Active Issues:**
-- None (all tracked issues currently resolved). See `ISSUES.md` for current testing gaps and known issues.
+If this section ever claims "none", treat it as stale: always check `ISSUES.md` and the GitHub issue tracker.
 
 ---
 

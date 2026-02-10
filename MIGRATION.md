@@ -1,22 +1,8 @@
 # Migration Guide
 
-## Upcoming (Unreleased)
+## Notes for Integrators (AI Output)
 
-### ⚡ Quick Summary
-
-- **Potential Breaking Change:** AI Naturalist responses are now standardized Markdown with fixed headings (`Appearance`, `Behavior`, `Naturalist Note`, `Seasonal Context`).
-- **New Capability:** AI analysis can prefer clip frames via `use_clip` and `frame_count` query params.
-
-### Who is affected?
-
-- **Only** users who parse or post‑process AI Naturalist text programmatically.
-
-### What you may need to do
-
-- If you parse the AI response, update your parser to handle the standardized Markdown headings.
-- No data migrations are required.
-
----
+If you parse or post-process AI Naturalist output programmatically, treat the content as Markdown and avoid depending on exact heading names/ordering. No database migrations are required for these UI/content changes.
 
 ## Upgrading to v2.6.0 (Authentication & Public Access)
 
@@ -48,7 +34,7 @@ If you are installing YA-WAMF for the first time:
 If you previously ran YA-WAMF without any authentication:
 
 1. Update your Docker image tag to `v2.6.0` (or `latest`).
-2. Recreate the container (`docker-compose up -d`).
+2. Recreate the container (`docker compose up -d`).
 3. The system will automatically migrate your `config.json` to include the new authentication settings (disabled by default).
 4. You will see a banner in the UI prompting you to secure your installation.
 5. Go to **Settings > Security** to enable authentication and set a password.
@@ -97,4 +83,4 @@ If you get locked out or forget your password, you can manually reset it:
 For more details, see the [Authentication Guide](docs/features/authentication.md).
 
 **Option B: Downgrade Docker Image**
-You can revert to the previous version by changing the image tag in `docker-compose.yml` to `v2.5.1`. The new configuration fields added to `config.json` will be ignored by the old version and are safe to keep.
+You can revert by changing the image tag in `docker-compose.yml` to a prior version tag (for example `v2.5.1`). Newer `config.json` fields are typically ignored by older versions, but always keep a backup before downgrading.

@@ -8,6 +8,7 @@ import structlog
 import asyncio
 import os
 import json
+import re
 from datetime import datetime, timedelta
 import sys
 from contextlib import asynccontextmanager
@@ -96,6 +97,10 @@ def get_app_branch() -> str:
 BASE_VERSION = get_base_version()
 GIT_HASH = get_git_hash()
 APP_BRANCH = get_app_branch()
+
+# Treat semver-like tags (e.g. v2.7.9.1) as releases, not branches.
+if re.fullmatch(r"v\\d+\\.\\d+\\.\\d+(?:\\.\\d+)?", APP_BRANCH or ""):
+    APP_BRANCH = "main"
 
 # Format: version-branch+hash (omit branch if main or unknown)
 if APP_BRANCH and APP_BRANCH not in ["main", "unknown"]:

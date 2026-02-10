@@ -64,7 +64,7 @@ The following is a set of guidelines for contributing to Yet Another WhosAtMyFee
 Bugs are tracked as GitHub issues. When filing an issue, please include:
 *   A clear title and description.
 *   Steps to reproduce.
-*   Logs from the backend (`docker compose logs backend`).
+*   Logs from the backend (`docker compose logs yawamf-backend`).
 *   Browser console errors (if UI related).
 
 ## 🔐 Security Issues

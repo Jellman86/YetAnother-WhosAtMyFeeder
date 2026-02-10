@@ -126,12 +126,23 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Get version
-        run: echo "APP_VERSION_BASE=$(cat VERSION)" >> $GITHUB_ENV
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            # Prefer tag version for releases (strip leading 'v')
+            echo "APP_VERSION_BASE=${GITHUB_REF_NAME#v}" >> $GITHUB_ENV
+          else
+            echo "APP_VERSION_BASE=$(cat VERSION)" >> $GITHUB_ENV
+          fi
 
       - name: Get branch and SHA
         run: |
           echo "SHORT_SHA=${GITHUB_SHA::7}" >> $GITHUB_ENV
-          echo "APP_BRANCH=${GITHUB_REF_NAME}" >> $GITHUB_ENV
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            # Avoid embedding tag name into APP_VERSION (it already encodes the version)
+            echo "APP_BRANCH=main" >> $GITHUB_ENV
+          else
+            echo "APP_BRANCH=${GITHUB_REF_NAME}" >> $GITHUB_ENV
+          fi
 
       - name: Determine image tag
         run: |
@@ -184,12 +195,23 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Get version
-        run: echo "APP_VERSION_BASE=$(cat VERSION)" >> $GITHUB_ENV
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            # Prefer tag version for releases (strip leading 'v')
+            echo "APP_VERSION_BASE=${GITHUB_REF_NAME#v}" >> $GITHUB_ENV
+          else
+            echo "APP_VERSION_BASE=$(cat VERSION)" >> $GITHUB_ENV
+          fi
 
       - name: Get branch and SHA
         run: |
           echo "SHORT_SHA=${GITHUB_SHA::7}" >> $GITHUB_ENV
-          echo "APP_BRANCH=${GITHUB_REF_NAME}" >> $GITHUB_ENV
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            # Avoid embedding tag name into APP_VERSION (it already encodes the version)
+            echo "APP_BRANCH=main" >> $GITHUB_ENV
+          else
+            echo "APP_BRANCH=${GITHUB_REF_NAME}" >> $GITHUB_ENV
+          fi
 
       - name: Determine image tag
         run: |

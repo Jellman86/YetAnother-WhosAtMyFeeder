@@ -65,10 +65,14 @@ git checkout main
 # Merge dev into main
 git merge dev
 
-# Push to main
+# Push main branch
 git push origin main
 
-# GitHub Actions will automatically build latest images
+# Ensure `VERSION` and `CHANGELOG.md` are correct, then create and push a release tag
+# (the tag should match VERSION; this triggers the production image build)
+git tag -a vX.Y.Z -m "vX.Y.Z"
+git push origin vX.Y.Z
+
 # Deploy production:
 docker compose -f docker-compose.prod.yml pull
 docker compose -f docker-compose.prod.yml up -d
@@ -86,13 +90,13 @@ docker compose -f docker-compose.prod.yml up -d
 
 The workflow automatically builds and pushes Docker images:
 
-- **Trigger:** Push to `main` or `dev` branch
+- **Trigger:** Push to `dev` branch, and release tags (`v*`)
 - **Backend:** `ghcr.io/jellman86/wamf-backend:{tag}`
 - **Frontend:** `ghcr.io/jellman86/wamf-frontend:{tag}`
 - **Tag Logic:**
-  - `main` → `:latest`
   - `dev` → `:dev`
-  - Both get additional SHA tag: `:{commit-sha}`
+  - tags (`vX.Y.Z`) → `:latest` and `:vX.Y.Z`
+  - all builds also get a SHA tag: `:{commit-sha}`
 
 ## Manual Build (Local Development)
 

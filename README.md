@@ -209,7 +209,7 @@ Check logs to confirm everything is working:
 
 ```bash
 docker compose ps                    # Check container status
-docker compose logs backend -f       # Follow backend logs
+docker compose logs yawamf-backend -f  # Follow backend logs
 
 # You should see:
 # MQTT config: auth=True port=1883 server=mosquitto
@@ -221,7 +221,7 @@ docker compose logs backend -f       # Follow backend logs
 | Issue | Solution |
 |-------|----------|
 | **MQTT connection failed** | Verify `DOCKER_NETWORK` matches Frigate's network<br>Check MQTT hostname and credentials |
-| **Frontend not loading** | Run `docker compose ps` to check health<br>View logs: `docker compose logs frontend` |
+| **Frontend not loading** | Run `docker compose ps` to check health<br>View logs: `docker compose logs yawamf-frontend` |
 | **No detections** | Confirm Frigate is detecting birds<br>Check backend logs for events<br>Verify model was downloaded in Settings |
 
 For detailed troubleshooting, see the [**Troubleshooting Guide**](docs/troubleshooting/diagnostics.md).

@@ -77,7 +77,7 @@ YA-WAMF is a full-stack application that integrates with [Frigate NVR](https://f
 | **Backend** | Python 3.12 + FastAPI | Async web API |
 | **ML Inference** | ONNX Runtime / TFLite | Bird species classification (EVA-02, ConvNeXt) |
 | **AI Naturalist** | Google Gemini / OpenAI | Behavioral analysis and insights |
-| **Database** | SQLite + SQLAlchemy | Persistent detection storage |
+| **Database** | SQLite (aiosqlite) | Persistent detection storage (migrations use Alembic + SQLAlchemy metadata) |
 | **Migrations** | Alembic | Database schema management |
 | **Message Queue** | MQTT (aiomqtt) | Frigate & BirdNET-Go event subscription |
 | **Frontend** | Svelte 5 + TypeScript | Reactive UI |
@@ -96,7 +96,7 @@ YA-WAMF/
 │   ├── app/
 │   │   ├── main.py              # Application entry, lifespan, routes
 │   │   ├── config.py            # Configuration management
-│   │   ├── database.py          # SQLite/SQLAlchemy initialization
+│   │   ├── database.py          # SQLite connection pool + Alembic migration runner
 │   │   ├── db_schema.py         # SQLAlchemy table definitions
 │   │   ├── models.py            # Pydantic response models
 │   │   ├── repositories/
@@ -152,20 +152,17 @@ YA-WAMF/
 │   ├── tailwind.config.js       # Tailwind configuration
 │   └── package.json             # Node dependencies
 │
-├── docker/                      # Additional Docker configs
-│   └── mosquitto/               # MQTT broker config
+├── apps/telemetry-worker/       # Optional Cloudflare Worker for anonymous telemetry
+├── custom_components/yawamf/    # Home Assistant integration
+├── docs/                        # Documentation (see docs/index.md)
+├── tests/                       # e2e/unit tests (Playwright + pytest)
 │
-├── config/                      # Runtime config (volume mount)
-│   └── config.json              # Persisted settings
-│
-├── data/                        # Persistent data (volume mount)
-│   ├── speciesid.db             # SQLite database
-    └── models/                  # Downloaded ML models
-        ├── model.tflite         # Bird classifier (Google AIY)
-        └── labels.txt           # Bird species labels
-
+├── ./config/                    # Runtime volume (created next to compose file; not committed)
+├── ./data/                      # Runtime volume (DB + models; not committed)
 │
 ├── docker-compose.yml           # Deployment configuration
+├── docker-compose.dev.yml       # Dev-channel images (`:dev`)
+├── docker-compose.prod.yml      # Production images (`:latest`)
 ├── .env.example                 # Environment template
 └── .github/workflows/           # CI/CD pipelines
 ```
@@ -276,10 +273,10 @@ cp .env.example .env
 # Edit .env with your Frigate URL and MQTT settings
 
 # Start services
-docker-compose up -d
+docker compose up -d
 
 # View logs
-docker-compose logs -f
+docker compose logs -f
 ```
 
 ### Local Backend Development
@@ -792,16 +789,18 @@ docker build -t wamf-backend:local ./backend
 docker build -t wamf-frontend:local ./apps/ui
 
 # Or use compose
-docker-compose build
+docker compose build
 ```
 
 ### CI/CD Pipeline
 
 GitHub Actions workflow (`.github/workflows/build-and-push.yml`):
-- Triggers on push to main
-- Builds both containers
-- Pushes to GitHub Container Registry
-- Tags: `latest` and full commit SHA
+- Triggers on push to `dev` and on release tags (`v*`)
+- Builds and pushes backend/frontend images to GHCR
+- Tags:
+  - `:dev` on `dev` pushes
+  - `:latest` on tag pushes (and the tag name itself, e.g. `:v2.7.9`)
+  - SHA tags for traceability
 
 ---
 
@@ -829,7 +828,7 @@ unknown_bird_labels: list[str] = Field(
 
 ```bash
 # Stop containers
-docker-compose stop
+docker compose stop
 
 # Backup database
 cp data/speciesid.db data/speciesid.db.$(date +%Y%m%d)
@@ -838,29 +837,29 @@ cp data/speciesid.db data/speciesid.db.$(date +%Y%m%d)
 cp config/config.json config/config.json.$(date +%Y%m%d)
 
 # Restart
-docker-compose start
+docker compose start
 ```
 
 ### Viewing Logs
 
 ```bash
 # All logs
-docker-compose logs -f
+docker compose logs -f
 
 # Backend only
-docker-compose logs -f yawamf-backend
+docker compose logs -f yawamf-backend
 
 # Last 100 lines
-docker-compose logs --tail=100 yawamf-backend
+docker compose logs --tail=100 yawamf-backend
 ```
 
 ### Clearing All Data
 
 ```bash
-docker-compose down
+docker compose down
 rm data/speciesid.db
 rm config/config.json
-docker-compose up -d
+docker compose up -d
 ```
 
 ---
@@ -869,7 +868,7 @@ docker-compose up -d
 
 ### Backend won't start
 
-1. Check logs: `docker-compose logs yawamf-backend`
+1. Check logs: `docker compose logs yawamf-backend`
 2. Verify MQTT connectivity: `docker exec -it yawamf-backend ping mqtt`
 3. Check Frigate URL: `curl http://frigate:5000/api/version`
 

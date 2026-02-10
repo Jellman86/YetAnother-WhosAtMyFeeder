@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog, and this project adheres to Semantic Versioning.
 
+## [Unreleased]
+
+- **Fixed:** Explorer and Leaderboard now surface backend load failures instead of silently rendering empty views, and leaderboard fetches the table and timeline independently (so one failing request does not blank the whole page).
+- **Changed:** Release builds now derive `APP_VERSION` from the git tag and avoid embedding tag names as “branch” identifiers, preventing malformed version strings in telemetry and `/api/version`.
+
 ## [2.7.9] - 2026-02-08
 
 - **Fixed:** Detection modal “Frame Grid” (reclassification/video analysis overlay) now scrolls so action buttons aren’t cut off on smaller viewports.

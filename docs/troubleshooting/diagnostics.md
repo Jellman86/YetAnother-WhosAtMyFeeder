@@ -48,8 +48,10 @@ If you see `PermissionError` in your backend logs or the container fails to star
 ## 🖥 UI Issues
 If the dashboard is blank or buttons don't work:
 1.  **Clear Browser Cache:** Svelte 5 updates sometimes require a hard refresh (`Ctrl + F5`).
-2.  **Check SSE Connection:** YA-WAMF uses Server-Sent Events for live updates. Look for a green "Live" badge in the header. If it says "Offline", check your reverse proxy (Nginx/Traefik) allows long-lived connections and keeps headers.
-3.  **Logs:** Check for 404 or 500 errors in the frontend console (`F12` in your browser).
+1.  **Check API Reachability:** Open `Settings` or hit `/api/version` directly. If `/api/*` calls fail (401/404/500/502), the UI can appear empty. This is commonly a reverse-proxy routing issue (make sure `/api` routes to the backend).
+1.  **Check SSE Connection:** YA-WAMF uses Server-Sent Events for live updates. Look for a green "Live" badge in the header. If it says "Offline", check your reverse proxy (Nginx/Traefik) allows long-lived connections and keeps headers.
+1.  **Logs:** Check for 404 or 500 errors in the frontend console (`F12` in your browser).
+1.  **PWA/Service Worker:** If you installed the PWA, stale cached assets can survive refreshes. Try a hard refresh, or clear site data for the domain.
 
 ## Missed Detections (Backfill)
 If the Backfill tool is skipping events you expected to see, check the **Skipped Breakdown** table in the settings page after a scan.
@@ -67,7 +69,7 @@ If the Backfill tool is skipping events you expected to see, check the **Skipped
 ## Logs
 For deep inspection, view the container logs:
 ```bash
-docker compose logs backend -f
+docker compose logs yawamf-backend -f
 ```
 Look for lines like:
 - `Processing MQTT event`: Backend saw a bird event.

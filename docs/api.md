@@ -4,11 +4,17 @@
 
 YA-WAMF provides a RESTful API for managing bird detections, classifications, and system settings. All API endpoints are prefixed with `/api` and are protected by either **JWT login** or a **legacy API key** (if configured).
 
-**Base URL**: `http://your-server:8000`
+**Base URL**:
+- Docker Compose default: `http://your-server:8946`
+- Local backend (running `uvicorn` directly): `http://your-server:8000`
 
-**OpenAPI/Swagger Docs**: `http://your-server:8000/docs` (Interactive documentation)
+**OpenAPI/Swagger Docs**:
+- Docker Compose default: `http://your-server:8946/docs`
+- Local backend: `http://your-server:8000/docs`
 
-**OpenAPI JSON**: `http://your-server:8000/openapi.json`
+**OpenAPI JSON**:
+- Docker Compose default: `http://your-server:8946/openapi.json`
+- Local backend: `http://your-server:8000/openapi.json`
 
 ## Authentication
 
@@ -32,7 +38,7 @@ POST /api/auth/login
 2. **Use the access token** on requests:
 
 ```bash
-curl -H "Authorization: Bearer YOUR_JWT" http://localhost:8000/api/events
+curl -H "Authorization: Bearer YOUR_JWT" http://localhost:8946/api/events
 ```
 
 ### API Key (Legacy)
@@ -47,7 +53,7 @@ If `API_KEY` is configured in your environment, requests can authenticate via:
 ### Example
 
 ```bash
-curl -H "Authorization: Bearer YOUR_JWT" http://localhost:8000/api/events
+curl -H "Authorization: Bearer YOUR_JWT" http://localhost:8946/api/events
 ```
 
 ---
@@ -789,7 +795,8 @@ Rate limiting is applied to login attempts and guest/public access endpoints. Co
 ```python
 import requests
 
-API_URL = "http://localhost:8000"
+# Docker Compose default is :8946. If running the backend directly, use :8000.
+API_URL = "http://localhost:8946"
 TOKEN = "your-jwt"
 
 headers = {"Authorization": f"Bearer {TOKEN}"}
@@ -803,7 +810,8 @@ print(f"Found {len(events)} events")
 ### JavaScript Example
 
 ```javascript
-const API_URL = "http://localhost:8000";
+// Docker Compose default is :8946. If running the backend directly, use :8000.
+const API_URL = "http://localhost:8946";
 const TOKEN = "your-jwt";
 
 async function getDetections() {

@@ -14,9 +14,12 @@ Create a directory for YA-WAMF and download the latest compose and example envir
 
 ```bash
 mkdir ya-wamf && cd ya-wamf
-curl -O https://raw.githubusercontent.com/Jellman86/YetAnother-WhosAtMyFeeder/dev/docker-compose.yml
-curl -O https://raw.githubusercontent.com/Jellman86/YetAnother-WhosAtMyFeeder/dev/.env.example
+curl -O https://raw.githubusercontent.com/Jellman86/YetAnother-WhosAtMyFeeder/main/docker-compose.yml
+curl -O https://raw.githubusercontent.com/Jellman86/YetAnother-WhosAtMyFeeder/main/.env.example
 ```
+
+> Note: If you want to run the bleeding-edge `:dev` images, download `docker-compose.dev.yml` and use:
+> `docker compose -f docker-compose.dev.yml up -d`. For production/stability, prefer `docker-compose.prod.yml` or pin a version tag.
 
 ### 2. Configure Environment
 Copy the example environment file and edit it with your details:
