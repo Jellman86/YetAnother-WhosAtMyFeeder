@@ -92,6 +92,13 @@ Prioritize fixes for anything listed in `ISSUES.md` (known issues, testing gaps)
 
 If this section ever claims "none", treat it as stale: always check `ISSUES.md` and the GitHub issue tracker.
 
+### Current Execution Focus (DB/Reliability First)
+- ✅ Startup hardening: phased lifecycle logging, startup diagnostics, degraded health surfacing.
+- ✅ Readiness endpoint added (`/ready`) and startup smoke checks in CI.
+- ✅ SQLite schema sanity checks expanded (FK/integrity + taxonomy regression guard).
+- ✅ Sampled Alembic upgrade-path matrix now tested in CI.
+- 🔄 Next: expand E2E coverage around upgrade/restart scenarios and permission-failure startup paths.
+
 ---
 
 ## 🎯 Top Priority Features
@@ -185,22 +192,7 @@ Enhance the detection search interface with an intuitive filter panel.
 
 Refined AI analysis and follow-up conversation rendering with markdown-aware formatting and improved dark-mode readability.
 
-> **Note:** UI is already responsive! This adds PWA capabilities.
-
-**Current State:**
-- ✅ Responsive design works on mobile
-- ✅ Dark mode support
-- ✅ Mobile scrollability fixes
-- ❌ PWA manifest, service worker, offline support
-
-**What to Add:**
-- PWA manifest for "Add to Home Screen"
-- Service worker for offline caching
-- Offline detection viewing (cached data)
-- Touch gesture improvements:
-  - Swipe left/right on detection cards
-  - Pull-to-refresh on dashboard
-- Reduced data mode toggle (thumbnails only, no video)
+> **Status note:** PWA baseline is shipped (manifest + service worker + update flow). Further mobile UX ideas should be tracked as separate enhancements, not PWA core.
 
 ---
 
@@ -386,6 +378,8 @@ Optimize system performance for large installations.
 - ✅ Integration tests for API endpoints and MQTT flow
 - ✅ CI/CD pipeline (GitHub Actions) with automated testing
 - ✅ Code coverage reporting
+- ✅ DB migration safety checks (fresh/idempotent/downgrade-upgrade + sampled historical upgrade paths)
+- ✅ Startup/readiness smoke checks in CI
 - ❌ E2E tests (Playwright coverage is currently minimal)
 
 ---
@@ -461,7 +455,7 @@ Create a repository for community-trained models.
 ## Technical Debt & Maintenance
 
 ### Harden Background Task Visibility 🔎
-**Priority:** P1 | **Effort:** S (1-2 days)
+**Priority:** P1 | **Effort:** S (1-2 days) | **Status:** ✅ Completed
 
 Ensure fire-and-forget tasks always surface exceptions in structured logs.
 
@@ -470,7 +464,7 @@ Ensure fire-and-forget tasks always surface exceptions in structured logs.
 - Add task naming for easier tracing.
 
 ### Global Exception Handler 🧯
-**Priority:** P1 | **Effort:** S (1 day)
+**Priority:** P1 | **Effort:** S (1 day) | **Status:** ✅ Completed
 
 Add a top-level exception handler to capture unexpected 500s with structured context.
 
@@ -545,7 +539,7 @@ Backfill BirdNET-Go audio detections into `audio_detections` so historical detec
 |-------|--------------|--------------------------|
 | **Top Priority** | **Completed** | Technical Debt + eBird + iNat |
 | Phase 1: UX Enhancements | ~1 week | Conversation history |
-| Phase 2: UX Improvements | ~2 weeks | PWA, Analytics |
+| Phase 2: UX Improvements | ~1-2 weeks | Saved filters, analytics expansion |
 | Phase 3: Advanced Features | ~8 weeks | Multi-user, Alerts, Video, Ollama |
 | Phase 4: Data & Integration | ~2 weeks | Audio viz, PostgreSQL |
 | Phase 5: Performance & Reliability | ~4 weeks | Optimization, HA, Testing |
@@ -564,5 +558,5 @@ Have a feature idea not on this list? Open an issue on [GitHub](https://github.c
 
 ---
 
-**Last Updated:** 2026-02-08
+**Last Updated:** 2026-02-11
 **Version:** 2.7.9
