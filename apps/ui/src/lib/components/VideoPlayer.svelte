@@ -46,7 +46,6 @@
     let mounted = false;
     let configureToken = 0;
     let initWatchdogTimer: ReturnType<typeof setTimeout> | null = null;
-    let controlsProbeTimer: ReturnType<typeof setTimeout> | null = null;
     let lastConfiguredKey = '';
     let useNativeControls = $state(false);
 
@@ -106,19 +105,8 @@
         }
     }
 
-    function hasVisiblePlyrControls(): boolean {
-        if (!modalElement) return false;
-        const controls = modalElement.querySelector('.plyr__controls') as HTMLElement | null;
-        if (!controls) return false;
-        return controls.offsetParent !== null;
-    }
-
     function switchToNativeFallback(reason: string): void {
         logger.warn('video_player_native_fallback', { frigateEvent, reason, clipUrl: sanitizedUrl(clipUrl) });
-        if (controlsProbeTimer) {
-            clearTimeout(controlsProbeTimer);
-            controlsProbeTimer = null;
-        }
         destroyPlayer();
         useNativeControls = true;
         previewState = 'unavailable';
@@ -283,15 +271,9 @@
                 return;
             }
 
-            // Only enable preview thumbnails after controls are visible and player is stable.
-            if (hasVisiblePlyrControls()) {
-                const previewAttached = createPlyr(previewSrc);
-                if (!previewAttached) {
-                    switchToNativeFallback('preview_attach_failed');
-                }
-            } else {
-                previewState = 'unavailable';
-                logger.warn('video_player_preview_skipped_controls_unavailable', { frigateEvent });
+            const previewAttached = createPlyr(previewSrc);
+            if (!previewAttached) {
+                switchToNativeFallback('preview_attach_failed');
             }
         }
     }
@@ -335,17 +317,6 @@
             switchToNativeFallback('initial_plyr_create_failed');
             return;
         }
-
-        if (controlsProbeTimer) {
-            clearTimeout(controlsProbeTimer);
-            controlsProbeTimer = null;
-        }
-        controlsProbeTimer = setTimeout(() => {
-            if (token !== configureToken || videoError || useNativeControls) return;
-            if (!hasVisiblePlyrControls()) {
-                switchToNativeFallback('controls_not_visible');
-            }
-        }, 2500);
 
         void applyPreviewWhenAvailable(token);
         logger.info('video_player_configure_complete', {
@@ -398,10 +369,6 @@
         if (initWatchdogTimer) {
             clearTimeout(initWatchdogTimer);
             initWatchdogTimer = null;
-        }
-        if (controlsProbeTimer) {
-            clearTimeout(controlsProbeTimer);
-            controlsProbeTimer = null;
         }
         destroyPlayer();
         logger.info('video_player_modal_close', { frigateEvent });
