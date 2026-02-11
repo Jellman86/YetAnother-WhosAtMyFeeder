@@ -107,6 +107,8 @@ jobs:
           import tempfile
           from pathlib import Path
 
+          import httpx
+
           temp_dir = tempfile.mkdtemp(prefix="yawamf_ci_startup_")
           os.environ["MEDIA_CACHE_DIR"] = str(Path(temp_dir) / "media_cache")
           os.environ["DATA_DIR"] = str(Path(temp_dir) / "data")
@@ -124,6 +126,14 @@ jobs:
               async with lifespan(app):
                   assert hasattr(app.state, "startup_warnings")
                   assert isinstance(app.state.startup_warnings, list)
+                  transport = httpx.ASGITransport(app=app)
+                  async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+                      health = await client.get("/health")
+                      assert health.status_code == 200, health.text
+                      ready = await client.get("/ready")
+                      assert ready.status_code == 200, ready.text
+                      body = ready.json()
+                      assert body.get("ready") is True, body
 
           asyncio.run(smoke())
           print("Startup/shutdown smoke test OK")
