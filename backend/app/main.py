@@ -11,10 +11,12 @@ import json
 import re
 from datetime import datetime, timedelta
 import sys
+from time import monotonic
 from contextlib import asynccontextmanager
+from typing import Awaitable, Callable
 from prometheus_client import generate_latest, CONTENT_TYPE_LATEST, Counter
 
-from app.database import init_db, close_db, get_db
+from app.database import init_db, close_db, get_db, get_db_path_diagnostics
 from app.services.mqtt_service import mqtt_service
 from app.services.classifier_service import get_classifier
 from app.services.event_processor import EventProcessor
@@ -199,6 +201,65 @@ async def cleanup_scheduler():
             log.critical("Cleanup task critical failure", error=str(e))
             await asyncio.sleep(3600)
 
+
+def _record_startup_warning(app: FastAPI, phase: str, error: str) -> None:
+    warnings = getattr(app.state, "startup_warnings", [])
+    warnings.append({"phase": phase, "error": error})
+    app.state.startup_warnings = warnings
+
+
+async def _run_lifecycle_phase(
+    app: FastAPI,
+    phase: str,
+    action: Callable[[], Awaitable[None]],
+    fatal: bool,
+) -> None:
+    """Run startup/shutdown phase with explicit timing and failure context."""
+    started_at = monotonic()
+    log.info("Lifecycle phase starting", phase=phase, fatal=fatal)
+    try:
+        await action()
+    except Exception as e:
+        duration_ms = round((monotonic() - started_at) * 1000, 2)
+        log.error(
+            "Lifecycle phase failed",
+            phase=phase,
+            fatal=fatal,
+            duration_ms=duration_ms,
+            error=str(e),
+            exc_info=True,
+        )
+        if fatal:
+            raise RuntimeError(f"Lifecycle phase failed: {phase}") from e
+        _record_startup_warning(app, phase, str(e))
+    else:
+        duration_ms = round((monotonic() - started_at) * 1000, 2)
+        log.info("Lifecycle phase completed", phase=phase, duration_ms=duration_ms)
+
+
+def _log_startup_diagnostics(test_mode: bool) -> None:
+    """Emit startup diagnostics once so permission/config issues are obvious."""
+    log.info(
+        "Startup diagnostics",
+        test_mode=test_mode,
+        app_version=APP_VERSION,
+        db=get_db_path_diagnostics(),
+        media_cache=media_cache.get_status(),
+        mqtt_server=settings.frigate.mqtt_server,
+        telemetry_enabled=settings.telemetry.enabled,
+        auto_video_classification=settings.classification.auto_video_classification,
+    )
+
+
+async def _start_mqtt_service_task() -> None:
+    create_background_task(mqtt_service.start(event_processor), name="mqtt_service_start")
+
+
+async def _start_cleanup_scheduler_task() -> None:
+    global cleanup_task
+    cleanup_task = create_background_task(cleanup_scheduler(), name="cleanup_scheduler")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global cleanup_task, cleanup_running
@@ -207,19 +268,23 @@ async def lifespan(app: FastAPI):
     # Startup
     cleanup_running = True
     cleanup_task = None
+    app.state.startup_warnings = []
+    _log_startup_diagnostics(test_mode)
     if test_mode:
         # Keep tests fast and deterministic: skip migrations + external/background services.
         log.info("Test mode enabled: skipping DB init and background services startup")
     else:
-        await init_db()
-        create_background_task(mqtt_service.start(event_processor), name="mqtt_service_start")
-        await telemetry_service.start()
-        await auto_video_classifier.start()
-        cleanup_task = create_background_task(cleanup_scheduler(), name="cleanup_scheduler")
-        log.info("Background cleanup scheduler started",
-                 interval_hours=CLEANUP_INTERVAL_HOURS,
-                 retention_days=settings.maintenance.retention_days,
-                 enabled=settings.maintenance.cleanup_enabled)
+        await _run_lifecycle_phase(app, "db_init", init_db, fatal=True)
+        await _run_lifecycle_phase(app, "mqtt_service_task_start", _start_mqtt_service_task, fatal=False)
+        await _run_lifecycle_phase(app, "telemetry_start", telemetry_service.start, fatal=False)
+        await _run_lifecycle_phase(app, "auto_video_classifier_start", auto_video_classifier.start, fatal=False)
+        await _run_lifecycle_phase(app, "cleanup_scheduler_task_start", _start_cleanup_scheduler_task, fatal=False)
+        log.info(
+            "Background cleanup scheduler started",
+            interval_hours=CLEANUP_INTERVAL_HOURS,
+            retention_days=settings.maintenance.retention_days,
+            enabled=settings.maintenance.cleanup_enabled,
+        )
     yield
 
     # Shutdown
@@ -231,10 +296,10 @@ async def lifespan(app: FastAPI):
         except asyncio.CancelledError:
             pass
     if not test_mode:
-        await auto_video_classifier.stop()
-        await telemetry_service.stop()
-        await mqtt_service.stop()
-        await frigate_client.close()
+        await _run_lifecycle_phase(app, "auto_video_classifier_stop", auto_video_classifier.stop, fatal=False)
+        await _run_lifecycle_phase(app, "telemetry_stop", telemetry_service.stop, fatal=False)
+        await _run_lifecycle_phase(app, "mqtt_service_stop", mqtt_service.stop, fatal=False)
+        await _run_lifecycle_phase(app, "frigate_client_close", frigate_client.close, fatal=False)
     await close_db()  # Close database connection pool
 
 app = FastAPI(title="Yet Another WhosAtMyFeeder API", version=APP_VERSION, lifespan=lifespan)
@@ -408,15 +473,17 @@ async def count_requests(request, call_next):
 
 @app.get("/health")
 async def health_check():
+    startup_warnings = getattr(app.state, "startup_warnings", [])
     health = {
         "status": "ok", 
         "service": "ya-wamf-backend", 
         "version": APP_VERSION,
-        "ml": classifier_service.check_health()
+        "ml": classifier_service.check_health(),
+        "startup_warnings": startup_warnings,
     }
     
-    # If ML is in error state, top-level status should reflect it
-    if health["ml"]["status"] != "ok":
+    # If startup had degraded phases or ML is unhealthy, top-level status should reflect it
+    if health["ml"]["status"] != "ok" or startup_warnings:
         health["status"] = "degraded"
         
     return health

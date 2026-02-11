@@ -503,6 +503,26 @@ class MediaCacheService:
             "newest_file": newest_file.isoformat() if newest_file else None,
         }
 
+    def get_status(self) -> dict:
+        """Return cache availability and path diagnostics for startup logging."""
+        base_exists = CACHE_BASE_DIR.exists()
+        snapshots_exists = SNAPSHOTS_DIR.exists()
+        clips_exists = CLIPS_DIR.exists()
+        return {
+            "available": self._available,
+            "init_error": self._init_error,
+            "base_dir": str(CACHE_BASE_DIR),
+            "base_exists": base_exists,
+            "base_writable": os.access(CACHE_BASE_DIR, os.W_OK | os.X_OK) if base_exists else False,
+            "snapshots_dir": str(SNAPSHOTS_DIR),
+            "snapshots_exists": snapshots_exists,
+            "snapshots_writable": os.access(SNAPSHOTS_DIR, os.W_OK | os.X_OK) if snapshots_exists else False,
+            "clips_dir": str(CLIPS_DIR),
+            "clips_exists": clips_exists,
+            "clips_writable": os.access(CLIPS_DIR, os.W_OK | os.X_OK) if clips_exists else False,
+            "process_uid_gid": f"{os.getuid()}:{os.getgid()}",
+        }
+
 
 # Global singleton
 media_cache = MediaCacheService()

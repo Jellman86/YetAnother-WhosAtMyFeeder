@@ -31,6 +31,21 @@ def _get_db_path() -> str:
     return "/data/speciesid.db"
 
 
+def get_db_path_diagnostics() -> dict:
+    """Return non-fatal DB path diagnostics for startup logging."""
+    db_path = _get_db_path()
+    parent = Path(db_path).expanduser().resolve().parent
+    exists = parent.exists()
+    writable = os.access(parent, os.W_OK | os.X_OK) if exists else False
+    return {
+        "db_path": db_path,
+        "parent": str(parent),
+        "parent_exists": exists,
+        "parent_writable": writable,
+        "process_uid_gid": f"{os.getuid()}:{os.getgid()}",
+    }
+
+
 def _assert_db_path_writable(db_path: str) -> None:
     """Fail fast with a clear error if DB directory is not writable."""
     parent = Path(db_path).expanduser().resolve().parent
