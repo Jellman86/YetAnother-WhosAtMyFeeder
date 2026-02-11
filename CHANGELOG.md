@@ -12,6 +12,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Added:** New readiness endpoint `GET /ready` for orchestration health checks; returns `503` with details when startup is not ready.
 - **Changed:** Health endpoint `GET /health` now includes `startup_warnings` and reports `degraded` when startup had non-fatal phase failures.
 - **Changed:** Classifier/event-processor initialization is now deferred to runtime startup (not module import), improving startup failure attribution and resilience.
+- **Fixed:** Leaderboard weather/temperature/wind/precip controls now remain visible even when overlay data is unavailable; controls are disabled with explicit hints (no weather data yet vs range limitation).
 
 ## [2.7.9] - 2026-02-08
 
