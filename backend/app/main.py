@@ -129,10 +129,8 @@ def _is_testing() -> bool:
         or os.getenv("YA_WAMF_TESTING") == "1"
     )
 
-# Use shared classifier instance
-classifier_service = get_classifier()
-event_processor = EventProcessor(classifier_service)
 log = structlog.get_logger()
+event_processor: EventProcessor | None = None
 
 # Cleanup task control
 cleanup_task = None
@@ -252,6 +250,9 @@ def _log_startup_diagnostics(test_mode: bool) -> None:
 
 
 async def _start_mqtt_service_task() -> None:
+    global event_processor
+    if event_processor is None:
+        event_processor = EventProcessor(get_classifier())
     create_background_task(mqtt_service.start(event_processor), name="mqtt_service_start")
 
 
@@ -474,11 +475,12 @@ async def count_requests(request, call_next):
 @app.get("/health")
 async def health_check():
     startup_warnings = getattr(app.state, "startup_warnings", [])
+    classifier_health = get_classifier().check_health()
     health = {
         "status": "ok", 
         "service": "ya-wamf-backend", 
         "version": APP_VERSION,
-        "ml": classifier_service.check_health(),
+        "ml": classifier_health,
         "startup_warnings": startup_warnings,
     }
     
