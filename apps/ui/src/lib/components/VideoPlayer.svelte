@@ -169,8 +169,8 @@
         return null;
     }
 
-    function createPlyr(previewSrc: string | null) {
-        if (!videoElement) return;
+    function createPlyr(previewSrc: string | null): boolean {
+        if (!videoElement) return false;
 
         destroyPlayer();
         logger.info('video_player_create_plyr', {
@@ -178,68 +178,74 @@
             clipUrl: sanitizedUrl(clipUrl),
             previewEnabled: !!previewSrc
         });
+        try {
+            player = new Plyr(videoElement, {
+                autoplay: true,
+                clickToPlay: true,
+                hideControls: false,
+                iconUrl: '/plyr.svg',
+                blankVideo: '/plyr-blank.mp4',
+                loadSprite: true,
+                keyboard: { focused: true, global: false },
+                seekTime: 5,
+                controls: [
+                    'play-large',
+                    'play',
+                    'progress',
+                    'current-time',
+                    'duration',
+                    'mute',
+                    'volume',
+                    'settings',
+                    'pip',
+                    'airplay',
+                    'fullscreen'
+                ],
+                settings: ['speed', 'loop'],
+                speed: {
+                    selected: 1,
+                    options: [0.5, 0.75, 1, 1.25, 1.5, 2]
+                },
+                tooltips: {
+                    controls: true,
+                    seek: true
+                },
+                previewThumbnails: previewSrc
+                    ? {
+                        enabled: true,
+                        src: previewSrc
+                    }
+                    : { enabled: false }
+            } as any);
 
-        player = new Plyr(videoElement, {
-            autoplay: true,
-            clickToPlay: true,
-            hideControls: false,
-            iconUrl: '/plyr.svg',
-            blankVideo: '/plyr-blank.mp4',
-            loadSprite: true,
-            keyboard: { focused: true, global: false },
-            seekTime: 5,
-            controls: [
-                'play-large',
-                'play',
-                'progress',
-                'current-time',
-                'duration',
-                'mute',
-                'volume',
-                'settings',
-                'pip',
-                'airplay',
-                'fullscreen'
-            ],
-            settings: ['speed', 'loop'],
-            speed: {
-                selected: 1,
-                options: [0.5, 0.75, 1, 1.25, 1.5, 2]
-            },
-            tooltips: {
-                controls: true,
-                seek: true
-            },
-            previewThumbnails: previewSrc
-                ? {
-                    enabled: true,
-                    src: previewSrc
-                }
-                : { enabled: false }
-        } as any);
-
-        player.on('ready', () => {
-            initializing = false;
-            logger.info('video_player_ready', { frigateEvent, clipUrl: sanitizedUrl(clipUrl) });
-        });
-
-        player.on('error', (event: unknown) => {
-            logger.error('video_player_runtime_error', event, { frigateEvent, clipUrl });
-            videoError = true;
-            initializing = false;
-        });
-
-        player.source = {
-            type: 'video',
-            title: 'Detection clip',
-            sources: [{ src: clipUrl, type: 'video/mp4' }]
-        };
-
-        const playResult = player.play();
-        if (playResult && typeof playResult.then === 'function') {
-            void playResult.catch((error) => {
-                logger.info('video_player_autoplay_blocked', { frigateEvent, error });
+            player.on('ready', () => {
+                initializing = false;
+                logger.info('video_player_ready', { frigateEvent, clipUrl: sanitizedUrl(clipUrl) });
             });
+
+            player.on('error', (event: unknown) => {
+                logger.error('video_player_runtime_error', event, { frigateEvent, clipUrl });
+                videoError = true;
+                initializing = false;
+            });
+
+            player.source = {
+                type: 'video',
+                title: 'Detection clip',
+                sources: [{ src: clipUrl, type: 'video/mp4' }]
+            };
+
+            const playResult = player.play();
+            if (playResult && typeof playResult.then === 'function') {
+                void playResult.catch((error) => {
+                    logger.info('video_player_autoplay_blocked', { frigateEvent, error });
+                });
+            }
+            return true;
+        } catch (error) {
+            logger.error('video_player_create_failed', error, { frigateEvent, clipUrl: sanitizedUrl(clipUrl) });
+            player = null;
+            return false;
         }
     }
 
@@ -285,7 +291,12 @@
         }
 
         // Do not block player UI on preview probing; render controls immediately.
-        createPlyr(null);
+        const initialized = createPlyr(null);
+        if (!initialized) {
+            videoError = true;
+            initializing = false;
+            return;
+        }
         void applyPreviewWhenAvailable(token);
         logger.info('video_player_configure_complete', {
             frigateEvent,
@@ -355,6 +366,11 @@
                     retryCount,
                     clipUrl: sanitizedUrl(clipUrl)
                 });
+                // Fail fast to avoid long-running UI lockups if player initialization deadlocks.
+                if (initializing) {
+                    videoError = true;
+                    initializing = false;
+                }
             }, 15000);
         }
     });
