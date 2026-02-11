@@ -44,8 +44,18 @@
 
     let mounted = false;
     let configureToken = 0;
+    let initWatchdogTimer = $state<ReturnType<typeof setTimeout> | null>(null);
 
     const maxRetries = 2;
+
+    function sanitizedUrl(url: string): string {
+        try {
+            const parsed = new URL(url, window.location.origin);
+            return `${parsed.pathname}${parsed.search ? '?...' : ''}`;
+        } catch {
+            return url;
+        }
+    }
 
     $effect(() => {
         if (retryCount > 0) {
@@ -102,17 +112,31 @@
             return cached.status;
         }
 
+        const started = performance.now();
         try {
             let response = await fetch(url, { method });
             // Some proxy endpoints only expose GET and return 405 for HEAD.
             // Fallback to GET to trigger preview generation and report real availability.
             if (response.status === 405 || response.status === 501) {
+                logger.warn('video_player_probe_method_not_allowed', {
+                    frigateEvent,
+                    url: sanitizedUrl(url),
+                    method,
+                    status: response.status
+                });
                 response = await fetch(url, { method: 'GET' });
             }
             cacheWrite(cache, url, response.status);
+            logger.info('video_player_probe_complete', {
+                frigateEvent,
+                url: sanitizedUrl(url),
+                method,
+                status: response.status,
+                duration_ms: Number((performance.now() - started).toFixed(2))
+            });
             return response.status;
         } catch (error) {
-            logger.warn('video_player_probe_failed', { url, error });
+            logger.warn('video_player_probe_failed', { url: sanitizedUrl(url), method, error });
             cacheWrite(cache, url, null);
             return null;
         }
@@ -126,6 +150,7 @@
         if (status && status >= 200 && status < 300) {
             thumbnailTrackUrl = trackUrl;
             previewState = 'enabled';
+            logger.info('video_player_preview_state', { frigateEvent: eventId, previewState, status });
             return trackUrl;
         }
         if (status === 503) {
@@ -134,6 +159,7 @@
             previewState = 'unavailable';
         }
         thumbnailTrackUrl = null;
+        logger.info('video_player_preview_state', { frigateEvent: eventId, previewState, status });
         return null;
     }
 
@@ -141,6 +167,11 @@
         if (!videoElement) return;
 
         destroyPlayer();
+        logger.info('video_player_create_plyr', {
+            frigateEvent,
+            clipUrl: sanitizedUrl(clipUrl),
+            previewEnabled: !!previewSrc
+        });
 
         player = new Plyr(videoElement, {
             autoplay: true,
@@ -183,6 +214,7 @@
 
         player.on('ready', () => {
             initializing = false;
+            logger.info('video_player_ready', { frigateEvent, clipUrl: sanitizedUrl(clipUrl) });
         });
 
         player.on('error', (event: unknown) => {
@@ -209,14 +241,26 @@
         if (!mounted || !videoElement || !clipUrl) return;
 
         const token = ++configureToken;
+        const started = performance.now();
         initializing = true;
         videoError = false;
         videoForbidden = false;
+        logger.info('video_player_configure_start', {
+            frigateEvent,
+            token,
+            retryCount,
+            clipUrl: sanitizedUrl(clipUrl)
+        });
 
         destroyPlayer();
 
         const clipStatus = await probeUrl(clipUrl, clipHeadCache);
         if (token !== configureToken) return;
+        logger.info('video_player_clip_probe', {
+            frigateEvent,
+            token,
+            clipStatus
+        });
         if (clipStatus === 403) {
             videoForbidden = true;
             videoError = true;
@@ -229,6 +273,12 @@
         if (token !== configureToken) return;
 
         createPlyr(previewSrc);
+        logger.info('video_player_configure_complete', {
+            frigateEvent,
+            token,
+            duration_ms: Number((performance.now() - started).toFixed(2)),
+            previewState
+        });
     }
 
     function retryLoad() {
@@ -247,6 +297,7 @@
 
     onMount(() => {
         mounted = true;
+        logger.info('video_player_modal_open', { frigateEvent });
         restoreFocusElement = (document.activeElement as HTMLElement | null) ?? null;
         queueMicrotask(() => {
             closeButton?.focus();
@@ -263,8 +314,30 @@
 
     onDestroy(() => {
         configureToken += 1;
+        if (initWatchdogTimer) {
+            clearTimeout(initWatchdogTimer);
+            initWatchdogTimer = null;
+        }
         destroyPlayer();
+        logger.info('video_player_modal_close', { frigateEvent });
         restoreFocusElement?.focus?.();
+    });
+
+    $effect(() => {
+        if (initWatchdogTimer) {
+            clearTimeout(initWatchdogTimer);
+            initWatchdogTimer = null;
+        }
+        if (initializing) {
+            initWatchdogTimer = setTimeout(() => {
+                logger.warn('video_player_initialization_still_pending', {
+                    frigateEvent,
+                    previewState,
+                    retryCount,
+                    clipUrl: sanitizedUrl(clipUrl)
+                });
+            }, 15000);
+        }
     });
 </script>
 

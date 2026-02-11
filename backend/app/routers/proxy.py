@@ -485,6 +485,8 @@ async def proxy_clip(
 
     lang = get_user_language(request)
     download_requested = request.query_params.get("download") == "1"
+    request_started = perf_counter()
+    log = structlog.get_logger()
 
     if not settings.frigate.clips_enabled:
         raise HTTPException(
@@ -510,6 +512,12 @@ async def proxy_clip(
     if settings.media_cache.enabled and settings.media_cache.cache_clips:
         cached_path = media_cache.get_clip_path(event_id)
         if cached_path:
+            log.info(
+                "proxy_clip_cache_hit",
+                event_id=event_id,
+                download=download_requested,
+                duration_ms=round((perf_counter() - request_started) * 1000, 2),
+            )
             # Serve from cache - FileResponse handles Range requests automatically
             return FileResponse(
                 path=cached_path,
@@ -546,6 +554,13 @@ async def proxy_clip(
     # Forward Range header if present (only when not caching)
     range_header = request.headers.get("range")
     should_cache = settings.media_cache.enabled and settings.media_cache.cache_clips
+    log.debug(
+        "proxy_clip_start",
+        event_id=event_id,
+        download=download_requested,
+        has_range=bool(range_header),
+        should_cache=should_cache,
+    )
     
     if range_header and not should_cache:
         headers["Range"] = range_header
@@ -573,6 +588,12 @@ async def proxy_clip(
             await client.aclose()
 
             if cached_path:
+                log.info(
+                    "proxy_clip_cached_from_frigate",
+                    event_id=event_id,
+                    download=download_requested,
+                    duration_ms=round((perf_counter() - request_started) * 1000, 2),
+                )
                 return FileResponse(
                     path=cached_path,
                     media_type="video/mp4",
@@ -628,6 +649,16 @@ async def proxy_clip(
     else:
         response_headers["Content-Type"] = "video/mp4"
 
+    log.info(
+        "proxy_clip_streaming_from_frigate",
+        event_id=event_id,
+        download=download_requested,
+        status_code=r.status_code,
+        has_range=bool(range_header),
+        content_length=r.headers.get("content-length"),
+        duration_ms=round((perf_counter() - request_started) * 1000, 2),
+    )
+
     async def cleanup():
         await r.aclose()
         await client.aclose()
@@ -652,6 +683,8 @@ async def proxy_clip_thumbnails_vtt(
 
     lang = get_user_language(request)
     endpoint_name = "vtt"
+    request_started = perf_counter()
+    log = structlog.get_logger()
 
     if not settings.frigate.clips_enabled:
         VIDEO_PREVIEW_REQUESTS.labels(endpoint=endpoint_name, outcome="http_403").inc()
@@ -729,6 +762,13 @@ async def proxy_clip_thumbnails_vtt(
         lines.append("")
 
     VIDEO_PREVIEW_REQUESTS.labels(endpoint=endpoint_name, outcome=f"ok_{generation_outcome}").inc()
+    log.info(
+        "proxy_clip_thumbnails_vtt_served",
+        event_id=event_id,
+        generation_outcome=generation_outcome,
+        cue_count=len(cues),
+        duration_ms=round((perf_counter() - request_started) * 1000, 2),
+    )
     return Response(
         content="\n".join(lines),
         media_type="text/vtt; charset=utf-8",
@@ -748,6 +788,8 @@ async def proxy_clip_thumbnails_sprite(
 
     lang = get_user_language(request)
     endpoint_name = "sprite"
+    request_started = perf_counter()
+    log = structlog.get_logger()
 
     if not settings.frigate.clips_enabled:
         VIDEO_PREVIEW_REQUESTS.labels(endpoint=endpoint_name, outcome="http_403").inc()
@@ -779,6 +821,12 @@ async def proxy_clip_thumbnails_sprite(
         )
 
     VIDEO_PREVIEW_REQUESTS.labels(endpoint=endpoint_name, outcome=f"ok_{generation_outcome}").inc()
+    log.info(
+        "proxy_clip_thumbnails_sprite_served",
+        event_id=event_id,
+        generation_outcome=generation_outcome,
+        duration_ms=round((perf_counter() - request_started) * 1000, 2),
+    )
     return FileResponse(
         path=sprite_path,
         media_type="image/jpeg",
