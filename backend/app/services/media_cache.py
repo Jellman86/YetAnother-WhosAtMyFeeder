@@ -25,7 +25,24 @@ class MediaCacheService:
     """
 
     def __init__(self):
-        self._ensure_dirs()
+        self._available = True
+        self._init_error: Optional[str] = None
+        try:
+            self._ensure_dirs()
+        except Exception as e:
+            # Do not crash app startup if cache dirs are not writable.
+            # Caching will be a no-op with explicit warnings until permissions are fixed.
+            self._available = False
+            self._init_error = str(e)
+            log.error(
+                "Media cache disabled: failed to initialize cache directories",
+                cache_base=str(CACHE_BASE_DIR),
+                snapshots=str(SNAPSHOTS_DIR),
+                clips=str(CLIPS_DIR),
+                uid=os.getuid(),
+                gid=os.getgid(),
+                error=str(e),
+            )
 
     def _ensure_dirs(self):
         """Ensure cache directories exist."""
@@ -106,6 +123,9 @@ class MediaCacheService:
         Returns:
             Path to cached file, or None if caching failed
         """
+        if not self._available:
+            log.warning("Media cache unavailable; skipping snapshot cache write", error=self._init_error)
+            return None
         try:
             path = self._snapshot_path(event_id)
             async with aiofiles.open(path, 'wb') as f:
@@ -156,6 +176,9 @@ class MediaCacheService:
         Returns:
             Path to cached file, or None if caching failed
         """
+        if not self._available:
+            log.warning("Media cache unavailable; skipping clip cache write", error=self._init_error)
+            return None
         try:
             path = self._clip_path(event_id)
             async with aiofiles.open(path, 'wb') as f:
@@ -183,6 +206,9 @@ class MediaCacheService:
         Returns:
             Path to cached file, or None if caching failed or file is empty
         """
+        if not self._available:
+            log.warning("Media cache unavailable; skipping clip cache write", error=self._init_error)
+            return None
         try:
             path = self._clip_path(event_id)
             total_size = 0

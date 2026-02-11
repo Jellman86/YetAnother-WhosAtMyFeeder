@@ -30,6 +30,43 @@ def _get_db_path() -> str:
         return "/tmp/yawamf-test.db"
     return "/data/speciesid.db"
 
+
+def _assert_db_path_writable(db_path: str) -> None:
+    """Fail fast with a clear error if DB directory is not writable."""
+    parent = Path(db_path).expanduser().resolve().parent
+    if not parent.exists():
+        raise RuntimeError(
+            f"DB_PATH directory does not exist: {parent}. "
+            f"Set DB_PATH to a writable location (current: {db_path})."
+        )
+
+    # Explicitly check directory access before sqlite connect so errors are actionable.
+    if not os.access(parent, os.W_OK | os.X_OK):
+        try:
+            st = parent.stat()
+            mode = oct(st.st_mode & 0o777)
+            owner = f"{st.st_uid}:{st.st_gid}"
+        except Exception:
+            mode = "unknown"
+            owner = "unknown"
+        raise RuntimeError(
+            "DB_PATH directory is not writable by current process: "
+            f"path={parent} owner={owner} mode={mode} process_uid_gid={os.getuid()}:{os.getgid()}. "
+            f"Set DB_PATH to a writable location (current: {db_path})."
+        )
+
+    # Probe write permission with a temporary file to catch FS/userns edge cases.
+    probe = parent / ".yawamf_write_probe.tmp"
+    try:
+        probe.write_text("ok", encoding="utf-8")
+        probe.unlink(missing_ok=True)
+    except Exception as e:
+        raise RuntimeError(
+            "DB_PATH directory exists but write probe failed: "
+            f"path={parent} process_uid_gid={os.getuid()}:{os.getgid()} error={e}. "
+            f"Set DB_PATH to a writable location (current: {db_path})."
+        ) from e
+
 REQUIRED_COLUMNS = {
     "detections": {
         "video_classification_error",
@@ -197,14 +234,7 @@ async def init_db():
     """Initialize database and connection pool."""
     global _db_pool
     db_path = _get_db_path()
-
-    # Fail fast with a clear message if configured to use a non-existent directory.
-    parent = Path(db_path).expanduser().resolve().parent
-    if not parent.exists():
-        raise RuntimeError(
-            f"DB_PATH directory does not exist: {parent}. "
-            f"Set DB_PATH to a writable location (current: {db_path})."
-        )
+    _assert_db_path_writable(db_path)
 
     # Initialize WAL mode and run migrations using a temporary connection
     async with aiosqlite.connect(db_path) as db:
