@@ -6,6 +6,15 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- **Changed:** Video playback UI migrated to Plyr for a more compact, familiar control surface with robust keyboard support and cleaner modal behavior.
+- **Added:** Server-generated timeline preview thumbnails (sprite + WebVTT) via new media proxy endpoints:
+  - `GET /api/frigate/{event_id}/clip-thumbnails.vtt`
+  - `GET /api/frigate/{event_id}/clip-thumbnails.jpg`
+- **Changed:** Timeline preview generation now uses the backend media-cache lifecycle (retention, orphan cleanup, empty-file cleanup, and cache stats integration).
+- **Changed:** Timeline previews are now explicitly disabled when media cache is disabled (backend returns `503`; UI shows a clear disabled state).
+- **Added:** Video modal now shows an indeterminate progress-bar notification while timeline previews are being checked/generated.
+- **Added:** Prometheus metrics for timeline preview request outcomes and generation duration.
+- **Changed:** Video player E2E coverage now validates Plyr controls, close button visibility, explicit preview-state messaging, and hover-preview rendering when preview tracks are available.
 - **Fixed:** Explorer and Leaderboard now surface backend load failures instead of silently rendering empty views, and leaderboard fetches the table and timeline independently (so one failing request does not blank the whole page).
 - **Changed:** Release builds now derive `APP_VERSION` from the git tag and avoid embedding tag names as “branch” identifiers, preventing malformed version strings in telemetry and `/api/version`.
 - **Changed:** Backend startup now logs explicit lifecycle phases with timing and marks non-fatal startup failures as `startup_warnings`.

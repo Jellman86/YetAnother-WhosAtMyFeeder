@@ -97,6 +97,7 @@ If this section ever claims "none", treat it as stale: always check `ISSUES.md` 
 - ✅ Readiness endpoint added (`/ready`) and startup smoke checks in CI.
 - ✅ SQLite schema sanity checks expanded (FK/integrity + taxonomy regression guard).
 - ✅ Sampled Alembic upgrade-path matrix now tested in CI.
+- ✅ Video player hardening delivered: Plyr migration, server-generated timeline previews, preview-state UX, and backend metrics.
 - 🔄 Next: expand E2E coverage around upgrade/restart scenarios and permission-failure startup paths.
 
 ---
@@ -238,23 +239,25 @@ Refined AI analysis and follow-up conversation rendering with markdown-aware for
 ### 3.3 Video Timeline & Highlights 🎬
 **Priority:** P2 | **Effort:** L (1.5-2 weeks)
 
+**Status:** 🔄 In Progress (core player and timeline preview foundation shipped)
+
 Create automated highlight reels and a time-based browsing experience that makes it easy to review activity over a day or week.
 
 **Features:**
-- Timeline view with grouped detections by time window (hour/day) and camera
-- Quick-skim mode: jump between detections with keyboard shortcuts
+- ❌ Timeline view with grouped detections by time window (hour/day) and camera
+- ✅ Quick-skim mode foundations in player (keyboard seek/play controls)
 - Highlight reels:
   - Daily summary (top confidence, rare species, most active hour)
   - Weekly recap (trend deltas, rarest sightings)
-- Auto-generated "story" segments (e.g. 30-90s stitched clip)
-- Clip stitching for continuous playback
-- Thumbnail preview scrubbing and hover previews
-- Bookmark/favorite moments with notes
-- Optional public share links with expiry + watermark
+- ❌ Auto-generated "story" segments (e.g. 30-90s stitched clip)
+- ❌ Clip stitching for continuous playback
+- ✅ Thumbnail preview scrubbing and hover previews (server-generated sprite/VTT + Plyr integration)
+- ❌ Bookmark/favorite moments with notes
+- ❌ Optional public share links with expiry + watermark
 
 **Breakdown:**
-- Video processing pipeline (FFmpeg + caching): 4 days
-- Timeline UI component + keyboard UX: 3 days
+- 🔄 Video preview processing pipeline + caching: mostly complete (sprite/VTT generation, retention integration, metrics)
+- ❌ Timeline UI component (grouped browsing) + advanced keyboard UX: 3 days
 - Highlight scoring logic (confidence, rarity, activity): 2 days
 - Clip stitching + preview thumbnails: 2 days
 - Sharing & permissions + rate limits: 2 days
