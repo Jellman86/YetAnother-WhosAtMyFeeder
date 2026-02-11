@@ -68,6 +68,11 @@ class NotificationCenterStore {
         this.persist();
     }
 
+    remove(id: string) {
+        this.items = this.items.filter((item) => item.id !== id);
+        this.persist();
+    }
+
     clear() {
         this.items = [];
         this.persist();

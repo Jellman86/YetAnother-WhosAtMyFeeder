@@ -241,6 +241,10 @@
       });
   }
 
+  function clearReclassifyProgressNotification() {
+      notificationCenter.remove('reclassify:progress');
+  }
+
   function updateBackfillNotification(payload: any) {
       if (!shouldNotify()) return;
       if (!payload || typeof payload !== 'object') return;
@@ -488,6 +492,7 @@
                              console.error("SSE Invalid reclassification_completed data:", payload);
                              return;
                          }
+                         clearReclassifyProgressNotification();
                          detectionsStore.completeReclassification(
                              payload.data.event_id,
                              payload.data.results

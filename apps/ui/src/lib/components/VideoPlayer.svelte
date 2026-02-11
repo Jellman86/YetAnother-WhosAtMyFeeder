@@ -16,7 +16,7 @@
         status: number | null;
         expiresAt: number;
     };
-    type PreviewState = 'checking' | 'enabled' | 'disabled' | 'unavailable';
+    type PreviewState = 'checking' | 'enabled' | 'disabled' | 'unavailable' | 'deferred';
 
     const HEAD_CACHE_TTL_MS = 5 * 60 * 1000;
     const PROBE_TIMEOUT_MS = 5000;
@@ -278,7 +278,7 @@
             // Never restart active playback just to add preview thumbnails.
             // Recreating Plyr can interrupt playback and look like buffering stalls.
             if (videoElement && (!videoElement.paused || videoElement.currentTime > 0.25)) {
-                previewState = 'unavailable';
+                previewState = 'deferred';
                 logger.warn('video_player_preview_skipped_active_playback', { frigateEvent });
                 return;
             }
@@ -514,6 +514,8 @@
                         {$_('video_player.previews_disabled', { default: 'Timeline previews disabled (media cache off)' })}
                     {:else if previewState === 'checking'}
                         {$_('video_player.previews_generating', { default: 'Generating timeline previews...' })}
+                    {:else if previewState === 'deferred'}
+                        {$_('video_player.previews_deferred', { default: 'Timeline previews deferred while video is playing' })}
                     {:else}
                         {$_('video_player.previews_unavailable', { default: 'Timeline previews unavailable for this clip' })}
                     {/if}</span>
