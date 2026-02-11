@@ -111,9 +111,30 @@ def test_video_player_ui_and_console_health(page: Page, console_capture):
     after = page.evaluate("() => document.querySelector('video')?.currentTime ?? 0")
     assert after >= before, f"Expected seek forward, got before={before} after={after}"
 
+    # Wait until preview status leaves temporary generation state.
+    page.wait_for_function(
+        """() => {
+            const el = document.querySelector('[aria-label="Video player"]');
+            if (!el) return false;
+            const text = el.textContent || '';
+            return text.includes('Timeline previews enabled')
+                || text.includes('Timeline previews unavailable for this clip')
+                || text.includes('Timeline previews disabled (media cache off)');
+        }""",
+        timeout=12000,
+    )
     preview_enabled = page.get_by_text("Timeline previews enabled").count() > 0
     preview_unavailable = page.get_by_text("Timeline previews unavailable for this clip").count() > 0
-    assert preview_enabled or preview_unavailable, "Expected explicit timeline preview availability state"
+    preview_disabled = page.get_by_text("Timeline previews disabled (media cache off)").count() > 0
+    assert preview_enabled or preview_unavailable or preview_disabled, "Expected explicit timeline preview availability state"
+    if preview_enabled:
+        progress = page.locator(".plyr__progress input[type='range']").first
+        progress.wait_for(state="visible", timeout=5000)
+        box = progress.bounding_box()
+        assert box is not None
+        page.mouse.move(box["x"] + (box["width"] * 0.65), box["y"] + (box["height"] * 0.5))
+        page.wait_for_timeout(300)
+        page.locator(".plyr__preview-thumb--is-shown").first.wait_for(state="visible", timeout=5000)
 
     severe = _serious_console_errors(console_capture)
     assert not severe, "Serious browser console errors:\n" + "\n".join(severe[:20])

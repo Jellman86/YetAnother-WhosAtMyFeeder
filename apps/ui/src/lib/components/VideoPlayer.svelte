@@ -15,6 +15,7 @@
         status: number | null;
         expiresAt: number;
     };
+    type PreviewState = 'checking' | 'enabled' | 'disabled' | 'unavailable';
 
     const HEAD_CACHE_TTL_MS = 5 * 60 * 1000;
     const clipHeadCache = new Map<string, HeadProbe>();
@@ -33,6 +34,7 @@
     let videoForbidden = $state(false);
     let retryCount = $state(0);
     let thumbnailTrackUrl = $state<string | null>(null);
+    let previewState = $state<PreviewState>('checking');
 
     let clipUrlBase = $derived(getClipUrl(frigateEvent));
     let clipUrl = $state('');
@@ -105,11 +107,18 @@
     }
 
     async function resolveThumbnailTrackUrl(eventId: string): Promise<string | null> {
+        previewState = 'checking';
         const trackUrl = getClipPreviewTrackUrl(eventId);
         const status = await probeHead(trackUrl, previewHeadCache);
         if (status && status >= 200 && status < 300) {
             thumbnailTrackUrl = trackUrl;
+            previewState = 'enabled';
             return trackUrl;
+        }
+        if (status === 503) {
+            previewState = 'disabled';
+        } else {
+            previewState = 'unavailable';
         }
         thumbnailTrackUrl = null;
         return null;
@@ -213,6 +222,7 @@
             videoError = false;
             videoForbidden = false;
             initializing = true;
+            previewState = 'checking';
             clipHeadCache.delete(clipUrl);
             if (thumbnailTrackUrl) {
                 previewHeadCache.delete(thumbnailTrackUrl);
@@ -319,10 +329,21 @@
         {#if !videoError}
             <div class="mt-2 text-[11px] text-slate-300 px-1 flex items-center justify-between gap-2">
                 <span>{$_('video_player.shortcuts', { default: 'Shortcuts: space/K play/pause, arrows seek' })}</span>
-                <span>{thumbnailTrackUrl
-                    ? $_('video_player.previews_enabled', { default: 'Timeline previews enabled' })
-                    : $_('video_player.previews_unavailable', { default: 'Timeline previews unavailable for this clip' })}</span>
+                <span>{#if previewState === 'enabled'}
+                    {$_('video_player.previews_enabled', { default: 'Timeline previews enabled' })}
+                {:else if previewState === 'disabled'}
+                    {$_('video_player.previews_disabled', { default: 'Timeline previews disabled (media cache off)' })}
+                {:else if previewState === 'checking'}
+                    {$_('video_player.previews_generating', { default: 'Generating timeline previews...' })}
+                {:else}
+                    {$_('video_player.previews_unavailable', { default: 'Timeline previews unavailable for this clip' })}
+                {/if}</span>
             </div>
+            {#if previewState === 'checking'}
+                <div class="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-slate-700/70" aria-label="Generating timeline previews">
+                    <div class="h-full w-1/3 bg-emerald-400/90 animate-[previewLoad_1.15s_ease-in-out_infinite]"></div>
+                </div>
+            {/if}
         {/if}
     </div>
 </div>
@@ -345,5 +366,10 @@
 
     :global(.plyr--full-ui input[type='range']) {
         color: #14b8a6;
+    }
+
+    @keyframes previewLoad {
+        0% { transform: translateX(-130%); }
+        100% { transform: translateX(330%); }
     }
 </style>

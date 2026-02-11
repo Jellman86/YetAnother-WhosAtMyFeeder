@@ -218,3 +218,21 @@ async def test_proxy_clip_thumbnails_sprite_success(client: httpx.AsyncClient):
         finally:
             settings.frigate.clips_enabled = original_setting
             sprite_path.unlink(missing_ok=True)
+
+
+@pytest.mark.asyncio
+async def test_proxy_clip_thumbnails_vtt_disabled_when_media_cache_off(client: httpx.AsyncClient):
+    """Preview generation should be disabled when media cache is disabled."""
+    original_clips = settings.frigate.clips_enabled
+    original_cache = settings.media_cache.enabled
+    settings.frigate.clips_enabled = True
+    settings.media_cache.enabled = False
+
+    with patch("app.routers.proxy.frigate_client") as mock_frigate:
+        mock_frigate.get_event = AsyncMock(return_value={"has_clip": True})
+        try:
+            response = await client.get("/api/frigate/test_event_id/clip-thumbnails.vtt")
+            assert response.status_code == 503
+        finally:
+            settings.frigate.clips_enabled = original_clips
+            settings.media_cache.enabled = original_cache

@@ -145,6 +145,7 @@ def test_proxy_error_structure():
         "errors.proxy.invalid_event_id",
         "errors.proxy.preview_not_found",
         "errors.proxy.preview_generation_failed",
+        "errors.proxy.preview_disabled",
     ]
     for key in proxy_keys:
         result = i18n_service.translate(key, "en")

@@ -2,6 +2,7 @@ import asyncio
 import json
 import re
 from pathlib import Path as FilePath
+from time import perf_counter
 from tempfile import NamedTemporaryFile
 from urllib.parse import quote_plus
 from datetime import date, timedelta
@@ -11,6 +12,7 @@ from starlette.background import BackgroundTask
 import httpx
 import sqlite3
 import structlog
+from prometheus_client import Counter, Histogram
 from app.config import settings
 from app.services.frigate_client import frigate_client
 from app.services.i18n_service import i18n_service
@@ -27,6 +29,22 @@ router = APIRouter()
 # Shared HTTP client for better connection pooling
 _http_client: httpx.AsyncClient | None = None
 _preview_locks: dict[str, asyncio.Lock] = {}
+
+VIDEO_PREVIEW_REQUESTS = Counter(
+    "video_preview_requests_total",
+    "Total timeline preview endpoint requests",
+    ["endpoint", "outcome"],
+)
+VIDEO_PREVIEW_GENERATION = Counter(
+    "video_preview_generation_total",
+    "Total timeline preview generation attempts",
+    ["outcome"],
+)
+VIDEO_PREVIEW_GENERATION_SECONDS = Histogram(
+    "video_preview_generation_seconds",
+    "Duration of timeline preview generation",
+    ["outcome"],
+)
 
 
 def get_http_client() -> httpx.AsyncClient:
@@ -108,19 +126,25 @@ async def require_event_access(event_id: str, auth: AuthContext, lang: str) -> N
                 )
 
 
-async def _ensure_preview_assets(event_id: str, lang: str) -> None:
+async def _ensure_preview_assets(event_id: str, lang: str) -> str:
     """Ensure preview sprite + manifest exist in media cache."""
     from app.services.media_cache import media_cache
     from app.services.video_preview_service import video_preview_service
 
+    if not settings.media_cache.enabled:
+        raise HTTPException(
+            status_code=503,
+            detail=i18n_service.translate("errors.proxy.preview_disabled", lang)
+        )
+
     if media_cache.get_preview_sprite_path(event_id) and await media_cache.get_preview_manifest(event_id):
-        return
+        return "cache_hit"
 
     lock = _preview_lock(event_id)
     async with lock:
         # Another request may have generated assets while waiting.
         if media_cache.get_preview_sprite_path(event_id) and await media_cache.get_preview_manifest(event_id):
-            return
+            return "cache_hit"
 
         clip_path = media_cache.get_clip_path(event_id)
         temp_clip: FilePath | None = None
@@ -165,6 +189,7 @@ async def _ensure_preview_assets(event_id: str, lang: str) -> None:
                 )
 
         try:
+            started = perf_counter()
             sprite_bytes, cues = video_preview_service.generate(clip_path)
             manifest_json = json.dumps({
                 "version": 1,
@@ -175,13 +200,19 @@ async def _ensure_preview_assets(event_id: str, lang: str) -> None:
             })
             cached = await media_cache.cache_preview_assets(event_id, sprite_bytes, manifest_json)
             if not cached:
+                VIDEO_PREVIEW_GENERATION.labels(outcome="cache_write_failed").inc()
+                VIDEO_PREVIEW_GENERATION_SECONDS.labels(outcome="cache_write_failed").observe(perf_counter() - started)
                 raise HTTPException(
                     status_code=500,
                     detail=i18n_service.translate("errors.proxy.preview_generation_failed", lang)
                 )
+            VIDEO_PREVIEW_GENERATION.labels(outcome="generated").inc()
+            VIDEO_PREVIEW_GENERATION_SECONDS.labels(outcome="generated").observe(perf_counter() - started)
+            return "generated"
         except HTTPException:
             raise
         except Exception:
+            VIDEO_PREVIEW_GENERATION.labels(outcome="error").inc()
             raise HTTPException(
                 status_code=500,
                 detail=i18n_service.translate("errors.proxy.preview_generation_failed", lang)
@@ -607,14 +638,17 @@ async def proxy_clip_thumbnails_vtt(
     from app.services.media_cache import media_cache
 
     lang = get_user_language(request)
+    endpoint_name = "vtt"
 
     if not settings.frigate.clips_enabled:
+        VIDEO_PREVIEW_REQUESTS.labels(endpoint=endpoint_name, outcome="http_403").inc()
         raise HTTPException(
             status_code=403,
             detail=i18n_service.translate("errors.clip_disabled", lang)
         )
 
     if not validate_event_id(event_id):
+        VIDEO_PREVIEW_REQUESTS.labels(endpoint=endpoint_name, outcome="http_400").inc()
         raise HTTPException(
             status_code=400,
             detail=i18n_service.translate("errors.proxy.invalid_event_id", lang)
@@ -625,11 +659,13 @@ async def proxy_clip_thumbnails_vtt(
     try:
         event_data = await frigate_client.get_event(event_id)
         if not event_data:
+            VIDEO_PREVIEW_REQUESTS.labels(endpoint=endpoint_name, outcome="http_404").inc()
             raise HTTPException(
                 status_code=404,
                 detail=i18n_service.translate("errors.proxy.event_not_found", lang)
             )
         if not event_data.get("has_clip", False):
+            VIDEO_PREVIEW_REQUESTS.labels(endpoint=endpoint_name, outcome="http_404").inc()
             raise HTTPException(
                 status_code=404,
                 detail=i18n_service.translate("errors.proxy.clip_not_available", lang)
@@ -637,14 +673,20 @@ async def proxy_clip_thumbnails_vtt(
     except HTTPException:
         raise
     except Exception:
+        VIDEO_PREVIEW_REQUESTS.labels(endpoint=endpoint_name, outcome="http_502").inc()
         raise HTTPException(
             status_code=502,
             detail=i18n_service.translate("errors.proxy.media_fetch_failed", lang)
         )
 
-    await _ensure_preview_assets(event_id, lang)
+    try:
+        generation_outcome = await _ensure_preview_assets(event_id, lang)
+    except HTTPException as exc:
+        VIDEO_PREVIEW_REQUESTS.labels(endpoint=endpoint_name, outcome=f"http_{exc.status_code}").inc()
+        raise
     manifest_json = await media_cache.get_preview_manifest(event_id)
     if not manifest_json:
+        VIDEO_PREVIEW_REQUESTS.labels(endpoint=endpoint_name, outcome="http_404").inc()
         raise HTTPException(
             status_code=404,
             detail=i18n_service.translate("errors.proxy.preview_not_found", lang)
@@ -654,6 +696,7 @@ async def proxy_clip_thumbnails_vtt(
         manifest = json.loads(manifest_json)
         cues = manifest.get("cues", [])
     except Exception:
+        VIDEO_PREVIEW_REQUESTS.labels(endpoint=endpoint_name, outcome="http_500").inc()
         raise HTTPException(
             status_code=500,
             detail=i18n_service.translate("errors.proxy.preview_generation_failed", lang)
@@ -672,6 +715,7 @@ async def proxy_clip_thumbnails_vtt(
         lines.append(f"{sprite_url}#xywh={x},{y},{w},{h}")
         lines.append("")
 
+    VIDEO_PREVIEW_REQUESTS.labels(endpoint=endpoint_name, outcome=f"ok_{generation_outcome}").inc()
     return Response(
         content="\n".join(lines),
         media_type="text/vtt; charset=utf-8",
@@ -690,29 +734,38 @@ async def proxy_clip_thumbnails_sprite(
     from app.services.media_cache import media_cache
 
     lang = get_user_language(request)
+    endpoint_name = "sprite"
 
     if not settings.frigate.clips_enabled:
+        VIDEO_PREVIEW_REQUESTS.labels(endpoint=endpoint_name, outcome="http_403").inc()
         raise HTTPException(
             status_code=403,
             detail=i18n_service.translate("errors.clip_disabled", lang)
         )
 
     if not validate_event_id(event_id):
+        VIDEO_PREVIEW_REQUESTS.labels(endpoint=endpoint_name, outcome="http_400").inc()
         raise HTTPException(
             status_code=400,
             detail=i18n_service.translate("errors.proxy.invalid_event_id", lang)
         )
 
     await require_event_access(event_id, auth, lang)
-    await _ensure_preview_assets(event_id, lang)
+    try:
+        generation_outcome = await _ensure_preview_assets(event_id, lang)
+    except HTTPException as exc:
+        VIDEO_PREVIEW_REQUESTS.labels(endpoint=endpoint_name, outcome=f"http_{exc.status_code}").inc()
+        raise
 
     sprite_path = media_cache.get_preview_sprite_path(event_id)
     if not sprite_path:
+        VIDEO_PREVIEW_REQUESTS.labels(endpoint=endpoint_name, outcome="http_404").inc()
         raise HTTPException(
             status_code=404,
             detail=i18n_service.translate("errors.proxy.preview_not_found", lang)
         )
 
+    VIDEO_PREVIEW_REQUESTS.labels(endpoint=endpoint_name, outcome=f"ok_{generation_outcome}").inc()
     return FileResponse(
         path=sprite_path,
         media_type="image/jpeg",

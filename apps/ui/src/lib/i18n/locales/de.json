@@ -1138,6 +1138,8 @@
     "preparing": "Preparing player...",
     "shortcuts": "Shortcuts: space/K play/pause, arrows seek",
     "previews_enabled": "Timeline previews enabled",
-    "previews_unavailable": "Timeline previews unavailable for this clip"
+    "previews_unavailable": "Timeline previews unavailable for this clip",
+    "previews_disabled": "Timeline previews disabled (media cache off)",
+    "previews_generating": "Generating timeline previews..."
   }
 }
