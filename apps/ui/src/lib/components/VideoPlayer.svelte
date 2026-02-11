@@ -46,6 +46,7 @@
     let mounted = false;
     let configureToken = 0;
     let initWatchdogTimer: ReturnType<typeof setTimeout> | null = null;
+    let lastConfiguredKey = '';
 
     const maxRetries = 2;
 
@@ -323,14 +324,15 @@
             logger.debug('video_player_waiting_for_video_element', { frigateEvent });
             return;
         }
-        videoElement;
-        clipUrl;
-        frigateEvent;
+        const configureKey = `${frigateEvent}|${clipUrl}`;
+        if (configureKey === lastConfiguredKey) return;
+        lastConfiguredKey = configureKey;
         void configurePlayer();
     });
 
     onDestroy(() => {
         configureToken += 1;
+        lastConfiguredKey = '';
         if (initWatchdogTimer) {
             clearTimeout(initWatchdogTimer);
             initWatchdogTimer = null;
