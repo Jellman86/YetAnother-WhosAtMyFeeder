@@ -80,6 +80,20 @@
     let modalPrimaryName = $derived(naming.primary);
     let modalSubName = $derived(naming.secondary);
 
+    function detectionSyncSignature(d: Detection): string {
+        return [
+            d.frigate_event,
+            d.display_name,
+            d.score,
+            d.manual_tagged,
+            d.is_hidden,
+            d.video_classification_status,
+            d.video_classification_label,
+            d.video_classification_score,
+            d.has_clip
+        ].join('|');
+    }
+
     function formatSpeciesLabel(item: EventFilterSpecies) {
         const showCommon = settingsStore.displayCommonNames;
         const preferSci = settingsStore.scientificNamePrimary;
@@ -165,7 +179,8 @@
         const updated = detectionsStore.detections.find(
             (d) => d.frigate_event === selectedEvent?.frigate_event
         );
-        if (updated && updated !== selectedEvent) {
+        // Avoid proxy-identity churn causing a self-triggering effect loop.
+        if (updated && detectionSyncSignature(updated) !== detectionSyncSignature(selectedEvent)) {
             selectedEvent = updated;
         }
     });

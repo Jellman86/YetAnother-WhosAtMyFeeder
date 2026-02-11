@@ -88,6 +88,20 @@
     let modalPrimaryName = $derived(modalNaming.primary);
     let modalSubName = $derived(modalNaming.secondary);
 
+    function detectionSyncSignature(d: Detection): string {
+        return [
+            d.frigate_event,
+            d.display_name,
+            d.score,
+            d.manual_tagged,
+            d.is_hidden,
+            d.video_classification_status,
+            d.video_classification_label,
+            d.video_classification_score,
+            d.has_clip
+        ].join('|');
+    }
+
     let last24hCount = $derived(summary?.total_count ?? detectionsStore.totalToday);
     let last24hSpecies = $derived(summary?.top_species.length ?? 0);
     let audioConfirmations = $derived(summary?.audio_confirmations ?? 0);
@@ -156,7 +170,8 @@
         const updated = detectionsStore.detections.find(
             (d) => d.frigate_event === selectedEvent?.frigate_event
         );
-        if (updated && updated !== selectedEvent) {
+        // Avoid proxy-identity churn causing a self-triggering effect loop.
+        if (updated && detectionSyncSignature(updated) !== detectionSyncSignature(selectedEvent)) {
             selectedEvent = updated;
         }
     });
