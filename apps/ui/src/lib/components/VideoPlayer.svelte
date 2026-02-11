@@ -92,14 +92,18 @@
         }
     }
 
-    async function probeUrl(url: string, cache: Map<string, ProbeCache>): Promise<number | null> {
+    async function probeUrl(
+        url: string,
+        cache: Map<string, ProbeCache>,
+        method: 'HEAD' | 'GET' = 'HEAD'
+    ): Promise<number | null> {
         const cached = cacheRead(cache, url);
         if (cached) {
             return cached.status;
         }
 
         try {
-            let response = await fetch(url, { method: 'HEAD' });
+            let response = await fetch(url, { method });
             // Some proxy endpoints only expose GET and return 405 for HEAD.
             // Fallback to GET to trigger preview generation and report real availability.
             if (response.status === 405 || response.status === 501) {
@@ -117,7 +121,8 @@
     async function resolveThumbnailTrackUrl(eventId: string): Promise<string | null> {
         previewState = 'checking';
         const trackUrl = getClipPreviewTrackUrl(eventId);
-        const status = await probeUrl(trackUrl, previewHeadCache);
+        // Use GET directly for preview track probes to avoid noisy HEAD 405 logs.
+        const status = await probeUrl(trackUrl, previewHeadCache, 'GET');
         if (status && status >= 200 && status < 300) {
             thumbnailTrackUrl = trackUrl;
             previewState = 'enabled';
