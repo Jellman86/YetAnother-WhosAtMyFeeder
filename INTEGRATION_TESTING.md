@@ -6,7 +6,7 @@ If you can test any of the items below, please open a GitHub issue with results.
 
 ## What To Include In A Test Report
 
-- Which integration you tested (Gmail OAuth, Outlook OAuth, Telegram, iNaturalist)
+- Which integration you tested (Gmail OAuth, Outlook OAuth, Telegram, Pushover, iNaturalist)
 - Whether you were on `dev` images or a tagged release
 - The exact error message shown in the UI (if any)
 - Redacted backend logs around the failure (remove tokens, emails, chat IDs)
@@ -66,6 +66,21 @@ Checklist:
 Notes:
 - Telegram has message length limits (caption vs message body). If you hit truncation, please report what content caused it.
 
+## Pushover Notifications
+
+Goal: send a Pushover notification (with and without a snapshot).
+
+Checklist:
+1. Configure Pushover User Key and API Token in Settings.
+2. Click Send Test Notification (Pushover).
+3. Trigger a real detection notification if possible (snapshot and no-snapshot paths).
+4. Confirm message title/body fields render as expected in the Pushover app.
+
+If it fails, include:
+- Whether test send failed immediately or timed out
+- Redacted response/error from backend logs
+- Whether snapshot attachments were enabled
+
 ## iNaturalist Submissions
 
 Goal: connect OAuth and submit a detection as an observation, including photo upload.
@@ -79,4 +94,3 @@ Checklist:
 
 Notes:
 - iNaturalist requires "App Owner" approval before you can create OAuth apps, which is why this has been hard to test without community help.
-

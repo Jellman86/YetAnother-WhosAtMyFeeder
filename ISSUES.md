@@ -26,6 +26,14 @@ For a step-by-step checklist, see `INTEGRATION_TESTING.md`.
   - Snapshot attachment path works reliably
   - Special characters in species/camera names render correctly (no formatting injection)
 
+### Pushover Notifications (Real API)
+- Scope: Real user key + API token, snapshot/no-snapshot paths, error handling.
+- Code: `backend/app/services/notification_service.py`, Settings test endpoint `backend/app/routers/settings.py`
+- Needs testing:
+  - Settings "Send Test Notification" succeeds against the real Pushover API
+  - Snapshot attachment path works reliably
+  - Invalid credentials or rate-limit responses surface clear UI/backend errors
+
 ### iNaturalist Submissions (OAuth + Draft/Submit Flow)
 - Scope: OAuth connect flow + creating/submitting observations from a detection.
 - Code: `backend/app/routers/inaturalist.py`, `backend/app/services/inaturalist_service.py`, UI panel: `apps/ui/src/lib/components/DetectionModal.svelte`
@@ -37,4 +45,3 @@ For a step-by-step checklist, see `INTEGRATION_TESTING.md`.
 ## Notes
 
 - Resolved/closed investigation notes live in `CHANGELOG.md`.
-
