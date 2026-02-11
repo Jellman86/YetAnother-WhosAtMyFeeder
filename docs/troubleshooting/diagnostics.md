@@ -35,15 +35,41 @@ If these fail, verify that all services are on the same `DOCKER_NETWORK` in your
 ## 🔒 Permission Issues
 If you see `PermissionError` in your backend logs or the container fails to start after an update:
 
-1.  **Check Ownership:** Ensure the `config` and `data` directories on your host are owned by the user running the containers (default UID 1000).
+1.  **Get exact UID/GID values to use:**
     ```bash
-    sudo chown -R 1000:1000 config data
+    id -u
+    id -g
     ```
-2.  **Verify .env:** Ensure `PUID` and `PGID` are set correctly in your `.env` file to match your host user.
-3.  **Docker Logs:** Check for explicit permission denied messages:
+2.  **Set `.env` values to match those exact numbers:**
+    ```env
+    PUID=1000
+    PGID=1000
+    ```
+3.  **Fix host directory ownership/permissions:**
     ```bash
-    docker logs yawamf-backend | grep "Permission denied"
+    mkdir -p config data
+    sudo chown -R "${PUID}:${PGID}" config data
+    sudo chmod -R u+rwX,g+rwX config data
     ```
+4.  **Verify your compose/stack mounts and user are correct:**
+    ```yaml
+    services:
+      backend:
+        user: "${PUID}:${PGID}"
+        volumes:
+          - ./config:/config
+          - ./data:/data
+    ```
+5.  **Test write access from inside the running container:**
+    ```bash
+    docker compose exec backend sh -lc 'id && ls -ld /config /data && touch /data/.perm_test && rm -f /data/.perm_test'
+    ```
+6.  **Check logs for remaining denials:**
+    ```bash
+    docker compose logs backend | rg -n "Permission denied|EACCES"
+    ```
+
+If step 5 fails, the most common cause is editing one path but mounting a different host path in Portainer. Fix ownership on the actual mounted source path shown in the stack volume mapping.
 
 ### Startup Health Signals
 Use these endpoints and lifecycle logs to quickly pinpoint startup failures:

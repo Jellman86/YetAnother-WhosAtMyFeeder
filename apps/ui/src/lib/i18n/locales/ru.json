@@ -316,7 +316,9 @@
       "window_live_only": "Только в реальном времени (сегодня)",
       "window_effective": "Эффективно: {days} дней",
       "media_days": "Окно медиа (дни)",
-      "rate_limit": "Лимит запросов (в минуту)"
+      "rate_limit": "Лимит запросов (в минуту)",
+      "allow_clip_downloads": "Разрешить скачивание клипов",
+      "allow_clip_downloads_desc": "Разрешить гостям скачивать полные видеоклипы"
     },
     "accessibility": {
       "title": "Параметры доступности",
@@ -1140,6 +1142,7 @@
     "previews_enabled": "Timeline previews enabled",
     "previews_unavailable": "Timeline previews unavailable for this clip",
     "previews_disabled": "Timeline previews disabled (media cache off)",
-    "previews_generating": "Generating timeline previews..."
+    "previews_generating": "Generating timeline previews...",
+    "download": "Скачать клип"
   }
 }

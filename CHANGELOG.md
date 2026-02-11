@@ -6,6 +6,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- **Added:** Video modal clip download action (`download=1`) with backend enforcement that allows owners always and guests only when explicitly enabled.
+- **Added:** New public-access setting to control guest clip downloads (UI + API + auth status propagation): `public_access_allow_clip_downloads` / `PUBLIC_ACCESS__ALLOW_CLIP_DOWNLOADS`.
+- **Changed:** Public-access settings now include an explicit “Allow clip downloads” toggle for guest users.
+- **Changed:** Troubleshooting and setup docs now include step-by-step non-root permission remediation with exact `PUID`/`PGID`, compose snippets, and verification commands.
 - **Changed:** Video playback UI migrated to Plyr for a more compact, familiar control surface with robust keyboard support and cleaner modal behavior.
 - **Added:** Server-generated timeline preview thumbnails (sprite + WebVTT) via new media proxy endpoints:
   - `GET /api/frigate/{event_id}/clip-thumbnails.vtt`

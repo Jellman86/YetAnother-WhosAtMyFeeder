@@ -29,7 +29,8 @@
       "invalid_event_id": "事件 ID 格式无效",
       "preview_not_found": "Clip timeline previews are not available",
       "preview_generation_failed": "Failed to generate clip timeline previews",
-      "preview_disabled": "Clip timeline previews are disabled because media cache is disabled"
+      "preview_disabled": "Clip timeline previews are disabled because media cache is disabled",
+      "download_forbidden": "公共用户不允许下载视频片段"
     },
     "events": {
       "snapshot_fetch_failed": "从 Frigate 获取快照失败",

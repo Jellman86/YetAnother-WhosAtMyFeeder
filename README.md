@@ -191,6 +191,21 @@ mkdir -p config data/models
 docker compose up -d
 ```
 
+**4.1 Non-root permissions (required):**
+
+YA-WAMF containers run as non-root. Before first boot, set `PUID`/`PGID` and fix ownership:
+
+```bash
+PUID=$(id -u)
+PGID=$(id -g)
+echo "PUID=$PUID" >> .env
+echo "PGID=$PGID" >> .env
+sudo chown -R "$PUID:$PGID" config data
+sudo chmod -R u+rwX,g+rwX config data
+```
+
+If you use Portainer stacks, set the same `PUID`/`PGID` values in stack environment variables.
+
 > If you deploy via Portainer: create a Stack from `docker-compose.yml` and use "Pull and redeploy" for updates (after changing image tags or pulling the latest `:latest`/`:dev`).
 
 **5. Access the dashboard:**

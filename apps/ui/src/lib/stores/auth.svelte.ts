@@ -11,6 +11,7 @@ class AuthStore {
     authRequired = $state(false);
     publicAccessEnabled = $state(false);
     publicAccessShowAiConversation = $state(false);
+    publicAccessAllowClipDownloads = $state(false);
     needsInitialSetup = $state(false);
     isAuthenticated = $state(false);
     username = $state<string | null>(null);
@@ -60,6 +61,7 @@ class AuthStore {
             this.authRequired = status.auth_required;
             this.publicAccessEnabled = status.public_access_enabled;
             this.publicAccessShowAiConversation = status.public_access_show_ai_conversation ?? false;
+            this.publicAccessAllowClipDownloads = status.public_access_allow_clip_downloads ?? false;
             this.needsInitialSetup = status.needs_initial_setup;
             this.isAuthenticated = status.is_authenticated;
             this.username = status.username ?? null;

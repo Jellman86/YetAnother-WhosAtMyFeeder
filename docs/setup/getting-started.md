@@ -35,6 +35,50 @@ nano .env
 - `MQTT_SERVER`: Your broker's hostname or IP.
 - `PUID` & `PGID`: Your host user's UID and GID (run `id` to find them). This ensures the container has permission to write to your `config/` and `data/` folders.
 
+### 2.1 Non-root permissions (required) 🔐
+YA-WAMF runs as non-root. If host directory ownership is wrong, startup fails or data/model writes fail.
+
+Use these exact commands from your stack directory:
+
+```bash
+mkdir -p config data
+PUID=$(id -u)
+PGID=$(id -g)
+echo "PUID=$PUID"
+echo "PGID=$PGID"
+sudo chown -R "$PUID:$PGID" config data
+sudo chmod -R u+rwX,g+rwX config data
+```
+
+Put these values in `.env`:
+
+```env
+PUID=1000
+PGID=1000
+```
+
+Compose/Portainer stack values should match:
+
+```yaml
+services:
+  backend:
+    user: "${PUID}:${PGID}"
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+    volumes:
+      - ./config:/config
+      - ./data:/data
+```
+
+Quick verify:
+
+```bash
+docker compose exec backend sh -lc 'id && ls -ld /config /data && touch /data/.perm_test && rm -f /data/.perm_test'
+```
+
+If this fails with `Permission denied`, re-run `chown` on the host path that is actually mounted in your stack.
+
 ### 3. Launch
 Start the containers in detached mode:
 
@@ -77,4 +121,4 @@ YA-WAMF uses two volumes for data:
 
 Ensure these are mapped to persistent storage in your `docker-compose.yml` to avoid data loss during updates.
 
-> 🔒 **Permissions Note:** From v2.5.0+, containers run as non-root (UID 1000). Ensure your host `config` and `data` directories are owned by this user, or use the `PUID`/`PGID` variables in your `.env` to match your host user. See [MIGRATION.md](../../MIGRATION.md) for details.
+> 🔒 **Permissions Note:** From v2.5.0+, containers run as non-root. Always set `PUID`/`PGID` and fix host ownership before first boot. See [MIGRATION.md](../../MIGRATION.md) for background context.

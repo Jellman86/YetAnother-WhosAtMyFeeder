@@ -51,6 +51,7 @@ export interface AuthStatusResponse {
     auth_required: boolean;
     public_access_enabled: boolean;
     public_access_show_ai_conversation?: boolean;
+    public_access_allow_clip_downloads?: boolean;
     is_authenticated: boolean;
     birdnet_enabled: boolean;
     llm_enabled: boolean;
@@ -320,6 +321,7 @@ export interface Settings {
     public_access_enabled: boolean;
     public_access_show_camera_names: boolean;
     public_access_show_ai_conversation?: boolean;
+    public_access_allow_clip_downloads?: boolean;
     public_access_historical_days_mode?: string;
     public_access_historical_days: number;
     public_access_media_days_mode?: string;

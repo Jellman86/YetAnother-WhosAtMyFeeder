@@ -1118,6 +1118,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     let publicAccessEnabled = $state(false);
     let publicAccessShowCameraNames = $state(true);
     let publicAccessShowAiConversation = $state(false);
+    let publicAccessAllowClipDownloads = $state(false);
     let publicAccessHistoricalDaysMode = $state<'retention' | 'custom'>('retention');
     let publicAccessHistoricalDays = $state(7);
     let publicAccessMediaDaysMode = $state<'retention' | 'custom'>('retention');
@@ -1378,6 +1379,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'publicAccessEnabled', val: publicAccessEnabled, store: s.public_access_enabled ?? false },
             { key: 'publicAccessShowCameraNames', val: publicAccessShowCameraNames, store: s.public_access_show_camera_names ?? true },
             { key: 'publicAccessShowAiConversation', val: publicAccessShowAiConversation, store: s.public_access_show_ai_conversation ?? false },
+            { key: 'publicAccessAllowClipDownloads', val: publicAccessAllowClipDownloads, store: s.public_access_allow_clip_downloads ?? false },
             { key: 'publicAccessHistoricalDaysMode', val: publicAccessHistoricalDaysMode, store: (s.public_access_historical_days_mode as any) ?? 'retention' },
             { key: 'publicAccessHistoricalDays', val: publicAccessHistoricalDays, store: s.public_access_historical_days ?? 7 },
             { key: 'publicAccessMediaDaysMode', val: publicAccessMediaDaysMode, store: (s.public_access_media_days_mode as any) ?? 'retention' },
@@ -2005,6 +2007,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             publicAccessEnabled = settings.public_access_enabled ?? false;
             publicAccessShowCameraNames = settings.public_access_show_camera_names ?? true;
             publicAccessShowAiConversation = settings.public_access_show_ai_conversation ?? false;
+            publicAccessAllowClipDownloads = settings.public_access_allow_clip_downloads ?? false;
             publicAccessHistoricalDaysMode = (settings.public_access_historical_days_mode === 'custom' ? 'custom' : 'retention') as any;
             publicAccessHistoricalDays = settings.public_access_historical_days ?? 7;
             publicAccessMediaDaysMode = (settings.public_access_media_days_mode === 'custom' ? 'custom' : 'retention') as any;
@@ -2221,6 +2224,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 public_access_enabled: publicAccessEnabled,
                 public_access_show_camera_names: publicAccessShowCameraNames,
                 public_access_show_ai_conversation: publicAccessShowAiConversation,
+                public_access_allow_clip_downloads: publicAccessAllowClipDownloads,
                 public_access_historical_days_mode: publicAccessHistoricalDaysMode,
                 public_access_historical_days: publicAccessHistoricalDays,
                 public_access_media_days_mode: publicAccessMediaDaysMode,
@@ -2702,6 +2706,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     bind:publicAccessEnabled
                     bind:publicAccessShowCameraNames
                     bind:publicAccessShowAiConversation
+                    bind:publicAccessAllowClipDownloads
                     bind:publicAccessHistoricalDaysMode
                     bind:publicAccessHistoricalDays
                     bind:publicAccessMediaDaysMode

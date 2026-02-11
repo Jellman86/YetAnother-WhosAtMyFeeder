@@ -4,6 +4,7 @@
     import { _ } from 'svelte-i18n';
     import 'plyr/dist/plyr.css';
     import { getClipPreviewTrackUrl, getClipUrl } from '../api';
+    import { authStore } from '../stores/auth.svelte';
     import { logger } from '../utils/logger';
 
     interface Props {
@@ -38,6 +39,8 @@
 
     let clipUrlBase = $derived(getClipUrl(frigateEvent));
     let clipUrl = $state('');
+    let clipDownloadUrl = $derived(clipUrl ? `${clipUrl}${clipUrl.includes('?') ? '&' : '?'}download=1` : '');
+    let canDownloadClip = $derived(!authStore.isGuest || authStore.publicAccessAllowClipDownloads);
 
     let mounted = false;
     let configureToken = 0;
@@ -329,15 +332,26 @@
         {#if !videoError}
             <div class="mt-2 text-[11px] text-slate-300 px-1 flex items-center justify-between gap-2">
                 <span>{$_('video_player.shortcuts', { default: 'Shortcuts: space/K play/pause, arrows seek' })}</span>
-                <span>{#if previewState === 'enabled'}
-                    {$_('video_player.previews_enabled', { default: 'Timeline previews enabled' })}
-                {:else if previewState === 'disabled'}
-                    {$_('video_player.previews_disabled', { default: 'Timeline previews disabled (media cache off)' })}
-                {:else if previewState === 'checking'}
-                    {$_('video_player.previews_generating', { default: 'Generating timeline previews...' })}
-                {:else}
-                    {$_('video_player.previews_unavailable', { default: 'Timeline previews unavailable for this clip' })}
-                {/if}</span>
+                <div class="flex items-center gap-2">
+                    <span>{#if previewState === 'enabled'}
+                        {$_('video_player.previews_enabled', { default: 'Timeline previews enabled' })}
+                    {:else if previewState === 'disabled'}
+                        {$_('video_player.previews_disabled', { default: 'Timeline previews disabled (media cache off)' })}
+                    {:else if previewState === 'checking'}
+                        {$_('video_player.previews_generating', { default: 'Generating timeline previews...' })}
+                    {:else}
+                        {$_('video_player.previews_unavailable', { default: 'Timeline previews unavailable for this clip' })}
+                    {/if}</span>
+                    {#if canDownloadClip}
+                        <a
+                            href={clipDownloadUrl}
+                            download={`${frigateEvent}.mp4`}
+                            class="inline-flex items-center rounded-md bg-slate-700/80 px-2 py-1 text-[11px] font-semibold text-slate-100 hover:bg-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-400/60"
+                        >
+                            {$_('video_player.download', { default: 'Download clip' })}
+                        </a>
+                    {/if}
+                </div>
             </div>
             {#if previewState === 'checking'}
                 <div class="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-slate-700/70" aria-label="Generating timeline previews">

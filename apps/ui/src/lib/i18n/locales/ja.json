@@ -308,7 +308,9 @@
       "window_live_only": "ライブのみ（本日）",
       "window_effective": "有効: {days} 日",
       "media_days": "メディア期間（日）",
-      "rate_limit": "レート制限（分あたり）"
+      "rate_limit": "レート制限（分あたり）",
+      "allow_clip_downloads": "クリップのダウンロードを許可",
+      "allow_clip_downloads_desc": "ゲストに動画クリップ全体のダウンロードを許可"
     },
     "accessibility": {
       "title": "アクセシビリティオプション",
@@ -1140,6 +1142,7 @@
     "previews_enabled": "Timeline previews enabled",
     "previews_unavailable": "Timeline previews unavailable for this clip",
     "previews_disabled": "Timeline previews disabled (media cache off)",
-    "previews_generating": "Generating timeline previews..."
+    "previews_generating": "Generating timeline previews...",
+    "download": "クリップをダウンロード"
   }
 }

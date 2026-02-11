@@ -308,7 +308,9 @@
       "window_live_only": "仅实时（今天）",
       "window_effective": "有效：{days} 天",
       "media_days": "媒体范围（天）",
-      "rate_limit": "速率限制（每分钟）"
+      "rate_limit": "速率限制（每分钟）",
+      "allow_clip_downloads": "允许下载片段",
+      "allow_clip_downloads_desc": "允许访客下载完整视频片段"
     },
     "accessibility": {
       "title": "辅助功能选项",
@@ -1140,6 +1142,7 @@
     "previews_enabled": "Timeline previews enabled",
     "previews_unavailable": "Timeline previews unavailable for this clip",
     "previews_disabled": "Timeline previews disabled (media cache off)",
-    "previews_generating": "Generating timeline previews..."
+    "previews_generating": "Generating timeline previews...",
+    "download": "下载片段"
   }
 }

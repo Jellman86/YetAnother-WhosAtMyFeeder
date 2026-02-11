@@ -69,15 +69,17 @@ When Public Access is enabled, guests can see:
 - **Detection details** including timestamps, species labels, and confidence.
 - **AI Naturalist analysis** if it already exists (guests cannot generate new analysis).
 - **Camera names** *only if* "Show camera names to public users" is enabled.
+- **Clip downloads** *only if* "Allow clip downloads" is enabled.
 
 ### Guest Mode: Recommended Safety Checklist
 
 1. **Limit the history window** (e.g., 7–30 days) to reduce exposure.
 2. **Hide camera names** unless you explicitly want them public.
-3. **Enable authentication** even if you allow public access.
-4. **Set Trusted Proxy Hosts** to avoid spoofed `X-Forwarded-*` headers.
-5. **Keep the instance behind a single reverse proxy** with HTTPS.
-6. **Review AI text output** if you share the site publicly.
+3. **Disable guest clip downloads** unless required.
+4. **Enable authentication** even if you allow public access.
+5. **Set Trusted Proxy Hosts** to avoid spoofed `X-Forwarded-*` headers.
+6. **Keep the instance behind a single reverse proxy** with HTTPS.
+7. **Review AI text output** if you share the site publicly.
 
 ### Guest Mode: Troubleshooting
 

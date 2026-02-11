@@ -29,7 +29,8 @@
       "invalid_event_id": "Formato de ID de evento inválido",
       "preview_not_found": "Clip timeline previews are not available",
       "preview_generation_failed": "Failed to generate clip timeline previews",
-      "preview_disabled": "Clip timeline previews are disabled because media cache is disabled"
+      "preview_disabled": "Clip timeline previews are disabled because media cache is disabled",
+      "download_forbidden": "O download de clipes nao e permitido para usuarios publicos"
     },
     "events": {
       "snapshot_fetch_failed": "Falha ao buscar snapshot do Frigate",

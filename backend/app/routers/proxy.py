@@ -484,6 +484,7 @@ async def proxy_clip(
     from app.services.media_cache import media_cache
 
     lang = get_user_language(request)
+    download_requested = request.query_params.get("download") == "1"
 
     if not settings.frigate.clips_enabled:
         raise HTTPException(
@@ -499,6 +500,12 @@ async def proxy_clip(
 
     await require_event_access(event_id, auth, lang)
 
+    if download_requested and (not auth.is_owner) and (not settings.public_access.allow_clip_downloads):
+        raise HTTPException(
+            status_code=403,
+            detail=i18n_service.translate("errors.proxy.download_forbidden", lang)
+        )
+
     # Check cache first
     if settings.media_cache.enabled and settings.media_cache.cache_clips:
         cached_path = media_cache.get_clip_path(event_id)
@@ -507,7 +514,10 @@ async def proxy_clip(
             return FileResponse(
                 path=cached_path,
                 media_type="video/mp4",
-                filename=f"{event_id}.mp4"
+                filename=f"{event_id}.mp4",
+                headers={
+                    "Content-Disposition": f"{'attachment' if download_requested else 'inline'}; filename={event_id}.mp4"
+                }
             )
 
     # Verify clip exists in Frigate before attempting download
@@ -566,7 +576,10 @@ async def proxy_clip(
                 return FileResponse(
                     path=cached_path,
                     media_type="video/mp4",
-                    filename=f"{event_id}.mp4"
+                    filename=f"{event_id}.mp4",
+                    headers={
+                        "Content-Disposition": f"{'attachment' if download_requested else 'inline'}; filename={event_id}.mp4"
+                    }
                 )
             
             # If caching returned None, it means the file was empty (0 bytes) or failed.
@@ -592,7 +605,7 @@ async def proxy_clip(
     # Stream directly from Frigate
     response_headers = {
         "Accept-Ranges": "bytes",
-        "Content-Disposition": f"inline; filename={event_id}.mp4",
+        "Content-Disposition": f"{'attachment' if download_requested else 'inline'}; filename={event_id}.mp4",
     }
 
     # If we are here, we are proxying directly.

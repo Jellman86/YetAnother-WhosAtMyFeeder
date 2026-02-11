@@ -236,3 +236,28 @@ async def test_proxy_clip_thumbnails_vtt_disabled_when_media_cache_off(client: h
         finally:
             settings.frigate.clips_enabled = original_clips
             settings.media_cache.enabled = original_cache
+
+
+@pytest.mark.asyncio
+async def test_proxy_clip_download_forbidden_for_guest_when_disabled(client: httpx.AsyncClient):
+    """Guest downloads should be blocked when public clip downloads are disabled."""
+    original_clips = settings.frigate.clips_enabled
+    original_auth = settings.auth.enabled
+    original_public = settings.public_access.enabled
+    original_allow_downloads = settings.public_access.allow_clip_downloads
+
+    settings.frigate.clips_enabled = True
+    settings.auth.enabled = True
+    settings.public_access.enabled = True
+    settings.public_access.allow_clip_downloads = False
+
+    with patch("app.routers.proxy.require_event_access", new_callable=AsyncMock) as mock_access:
+        mock_access.return_value = None
+        try:
+            response = await client.get("/api/frigate/test_event_id/clip.mp4?download=1")
+            assert response.status_code == 403
+        finally:
+            settings.frigate.clips_enabled = original_clips
+            settings.auth.enabled = original_auth
+            settings.public_access.enabled = original_public
+            settings.public_access.allow_clip_downloads = original_allow_downloads

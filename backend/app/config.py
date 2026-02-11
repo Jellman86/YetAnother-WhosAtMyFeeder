@@ -411,6 +411,10 @@ class PublicAccessSettings(BaseModel):
         default=False,
         description="Allow public visitors to view AI conversation threads"
     )
+    allow_clip_downloads: bool = Field(
+        default=False,
+        description="Allow public visitors to download clip files"
+    )
     historical_days_mode: str = Field(
         default="retention",
         description="History window mode: retention or custom"
@@ -685,6 +689,7 @@ class Settings(BaseSettings):
             'enabled': os.environ.get('PUBLIC_ACCESS__ENABLED', 'false').lower() == 'true',
             'show_camera_names': os.environ.get('PUBLIC_ACCESS__SHOW_CAMERA_NAMES', 'true').lower() == 'true',
             'show_ai_conversation': os.environ.get('PUBLIC_ACCESS__SHOW_AI_CONVERSATION', 'false').lower() == 'true',
+            'allow_clip_downloads': os.environ.get('PUBLIC_ACCESS__ALLOW_CLIP_DOWNLOADS', 'false').lower() == 'true',
             'historical_days_mode': os.environ.get('PUBLIC_ACCESS__HISTORICAL_DAYS_MODE', 'retention'),
             'show_historical_days': int(os.environ.get('PUBLIC_ACCESS__SHOW_HISTORICAL_DAYS', '7')),
             'media_days_mode': os.environ.get('PUBLIC_ACCESS__MEDIA_DAYS_MODE', 'retention'),

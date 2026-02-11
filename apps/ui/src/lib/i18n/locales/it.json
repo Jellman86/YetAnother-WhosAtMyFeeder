@@ -316,7 +316,9 @@
       "window_live_only": "Solo live (oggi)",
       "window_effective": "Effettivo: {days} giorni",
       "media_days": "Finestra media (giorni)",
-      "rate_limit": "Limite frequenza (al minuto)"
+      "rate_limit": "Limite frequenza (al minuto)",
+      "allow_clip_downloads": "Consenti il download dei clip",
+      "allow_clip_downloads_desc": "Consenti agli ospiti di scaricare clip video completi"
     },
     "accessibility": {
       "title": "Opzioni Accessibilità",
@@ -1140,6 +1142,7 @@
     "previews_enabled": "Timeline previews enabled",
     "previews_unavailable": "Timeline previews unavailable for this clip",
     "previews_disabled": "Timeline previews disabled (media cache off)",
-    "previews_generating": "Generating timeline previews..."
+    "previews_generating": "Generating timeline previews...",
+    "download": "Scarica clip"
   }
 }
