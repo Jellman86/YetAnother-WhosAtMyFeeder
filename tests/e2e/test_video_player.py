@@ -68,6 +68,18 @@ def _open_detection_with_video_button(page: Page) -> bool:
     return False
 
 
+def _click_play_button_in_open_detection_modal(page: Page) -> None:
+    # When the detection modal is open, the full-image overlay button is the actionable element.
+    # Global role matching can resolve to card-level buttons behind the modal.
+    overlay_play = page.locator("div[role='dialog'] button.absolute.inset-0").first
+    if overlay_play.count() > 0 and overlay_play.is_visible():
+        overlay_play.click(timeout=8000)
+        return
+
+    # Fallback for markup changes.
+    page.get_by_role("button", name=re.compile(r"^Play video")).first.click(force=True, timeout=8000)
+
+
 def test_video_player_ui_and_console_health(page: Page, console_capture):
     page.goto("http://yawamf-frontend/events", timeout=30000)
     page.wait_for_load_state("domcontentloaded")
@@ -85,7 +97,7 @@ def test_video_player_ui_and_console_health(page: Page, console_capture):
         pytest.skip("No detection with a visible video play button in current data set")
 
     # Open VideoPlayer modal.
-    page.get_by_role("button", name=re.compile(r"^Play video")).first.click()
+    _click_play_button_in_open_detection_modal(page)
     player = page.get_by_label("Video player")
     player.wait_for(state="visible", timeout=8000)
     page.get_by_label("Close video").wait_for(state="visible", timeout=4000)

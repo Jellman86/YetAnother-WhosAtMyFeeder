@@ -44,7 +44,7 @@
 
     let mounted = false;
     let configureToken = 0;
-    let initWatchdogTimer = $state<ReturnType<typeof setTimeout> | null>(null);
+    let initWatchdogTimer: ReturnType<typeof setTimeout> | null = null;
 
     const maxRetries = 2;
 
