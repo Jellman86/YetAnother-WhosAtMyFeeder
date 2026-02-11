@@ -60,8 +60,8 @@ def _open_detection_with_video_button(page: Page) -> bool:
     for i in range(min(count, 12)):
         cards.nth(i).click()
         page.wait_for_selector("div[role='dialog']", timeout=3000)
-        play_icon = page.locator("button svg path[d='M8 5v14l11-7z']")
-        if play_icon.count() > 0 and play_icon.first.is_visible():
+        play_button = page.get_by_role("button", name=re.compile(r"^Play video"))
+        if play_button.count() > 0 and play_button.first.is_visible():
             return True
         page.keyboard.press("Escape")
         page.wait_for_timeout(150)
@@ -85,7 +85,7 @@ def test_video_player_ui_and_console_health(page: Page, console_capture):
         pytest.skip("No detection with a visible video play button in current data set")
 
     # Open VideoPlayer modal.
-    page.locator("button svg path[d='M8 5v14l11-7z']").first.click()
+    page.get_by_role("button", name=re.compile(r"^Play video")).first.click()
     player = page.get_by_label("Video player")
     player.wait_for(state="visible", timeout=8000)
     page.get_by_label("Close video").wait_for(state="visible", timeout=4000)

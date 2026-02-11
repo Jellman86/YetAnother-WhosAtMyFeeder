@@ -12,15 +12,15 @@
         onClose: () => void;
     }
 
-    type HeadProbe = {
+    type ProbeCache = {
         status: number | null;
         expiresAt: number;
     };
     type PreviewState = 'checking' | 'enabled' | 'disabled' | 'unavailable';
 
     const HEAD_CACHE_TTL_MS = 5 * 60 * 1000;
-    const clipHeadCache = new Map<string, HeadProbe>();
-    const previewHeadCache = new Map<string, HeadProbe>();
+    const clipHeadCache = new Map<string, ProbeCache>();
+    const previewHeadCache = new Map<string, ProbeCache>();
 
     let { frigateEvent, onClose }: Props = $props();
 
@@ -56,7 +56,7 @@
         }
     });
 
-    function cacheRead(cache: Map<string, HeadProbe>, key: string): HeadProbe | null {
+    function cacheRead(cache: Map<string, ProbeCache>, key: string): ProbeCache | null {
         const hit = cache.get(key);
         if (!hit) return null;
         if (Date.now() >= hit.expiresAt) {
@@ -66,7 +66,7 @@
         return hit;
     }
 
-    function cacheWrite(cache: Map<string, HeadProbe>, key: string, status: number | null): void {
+    function cacheWrite(cache: Map<string, ProbeCache>, key: string, status: number | null): void {
         cache.set(key, {
             status,
             expiresAt: Date.now() + HEAD_CACHE_TTL_MS,
@@ -92,18 +92,23 @@
         }
     }
 
-    async function probeHead(url: string, cache: Map<string, HeadProbe>): Promise<number | null> {
+    async function probeUrl(url: string, cache: Map<string, ProbeCache>): Promise<number | null> {
         const cached = cacheRead(cache, url);
         if (cached) {
             return cached.status;
         }
 
         try {
-            const response = await fetch(url, { method: 'HEAD' });
+            let response = await fetch(url, { method: 'HEAD' });
+            // Some proxy endpoints only expose GET and return 405 for HEAD.
+            // Fallback to GET to trigger preview generation and report real availability.
+            if (response.status === 405 || response.status === 501) {
+                response = await fetch(url, { method: 'GET' });
+            }
             cacheWrite(cache, url, response.status);
             return response.status;
         } catch (error) {
-            logger.warn('video_player_head_probe_failed', { url, error });
+            logger.warn('video_player_probe_failed', { url, error });
             cacheWrite(cache, url, null);
             return null;
         }
@@ -112,7 +117,7 @@
     async function resolveThumbnailTrackUrl(eventId: string): Promise<string | null> {
         previewState = 'checking';
         const trackUrl = getClipPreviewTrackUrl(eventId);
-        const status = await probeHead(trackUrl, previewHeadCache);
+        const status = await probeUrl(trackUrl, previewHeadCache);
         if (status && status >= 200 && status < 300) {
             thumbnailTrackUrl = trackUrl;
             previewState = 'enabled';
@@ -136,6 +141,9 @@
             autoplay: true,
             clickToPlay: true,
             hideControls: false,
+            iconUrl: '/plyr.svg',
+            blankVideo: '/plyr-blank.mp4',
+            loadSprite: true,
             keyboard: { focused: true, global: false },
             seekTime: 5,
             controls: [
@@ -202,7 +210,7 @@
 
         destroyPlayer();
 
-        const clipStatus = await probeHead(clipUrl, clipHeadCache);
+        const clipStatus = await probeUrl(clipUrl, clipHeadCache);
         if (token !== configureToken) return;
         if (clipStatus === 403) {
             videoForbidden = true;
