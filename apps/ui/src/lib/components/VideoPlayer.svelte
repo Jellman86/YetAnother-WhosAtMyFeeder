@@ -17,6 +17,9 @@
     let currentTime = $state(0);
     let timelineTime = $state(0);
     let userScrubbing = $state(false);
+    let previewVisible = $state(false);
+    let previewTime = $state(0);
+    let previewX = $state(0);
     let generatingFrames = $state(false);
     let timelineFrameError = $state<string | null>(null);
     let timelineFrames = $state<Array<{ time: number; dataUrl: string }>>([]);
@@ -34,10 +37,59 @@
     });
 
     const maxRetries = 2;
+    const SKIP_SMALL = 5;
+    const SKIP_LARGE = 10;
 
     function handleKeydown(event: KeyboardEvent) {
+        const target = event.target as HTMLElement | null;
+        const isEditable = !!target && (
+            target.tagName === 'INPUT' ||
+            target.tagName === 'TEXTAREA' ||
+            target.tagName === 'SELECT' ||
+            target.isContentEditable
+        );
+
         if (event.key === 'Escape') {
             onClose();
+            return;
+        }
+        if (isEditable || !videoElement || videoError) {
+            return;
+        }
+
+        if (event.key === ' ') {
+            event.preventDefault();
+            if (videoElement.paused) {
+                void videoElement.play().catch(() => {});
+            } else {
+                videoElement.pause();
+            }
+            return;
+        }
+        if (event.key.toLowerCase() === 'k') {
+            if (videoElement.paused) {
+                void videoElement.play().catch(() => {});
+            } else {
+                videoElement.pause();
+            }
+            return;
+        }
+        if (event.key === 'ArrowLeft') {
+            event.preventDefault();
+            seekTo(videoElement.currentTime - SKIP_SMALL);
+            return;
+        }
+        if (event.key === 'ArrowRight') {
+            event.preventDefault();
+            seekTo(videoElement.currentTime + SKIP_SMALL);
+            return;
+        }
+        if (event.key.toLowerCase() === 'j') {
+            seekTo(videoElement.currentTime - SKIP_LARGE);
+            return;
+        }
+        if (event.key.toLowerCase() === 'l') {
+            seekTo(videoElement.currentTime + SKIP_LARGE);
         }
     }
 
@@ -67,6 +119,22 @@
         duration = Number.isFinite(event.currentTarget.duration) ? event.currentTarget.duration : 0;
         currentTime = 0;
         timelineTime = 0;
+        previewTime = 0;
+    }
+
+    function getNearestFrame(seconds: number): { time: number; dataUrl: string } | null {
+        if (!timelineFrames.length) return null;
+        let best = timelineFrames[0];
+        let bestDelta = Math.abs(best.time - seconds);
+        for (let i = 1; i < timelineFrames.length; i++) {
+            const frame = timelineFrames[i];
+            const delta = Math.abs(frame.time - seconds);
+            if (delta < bestDelta) {
+                best = frame;
+                bestDelta = delta;
+            }
+        }
+        return best;
     }
 
     function handleTimeUpdate(event: Event & { currentTarget: EventTarget & HTMLVideoElement }) {
@@ -87,12 +155,40 @@
     function handleTimelineInput(event: Event & { currentTarget: EventTarget & HTMLInputElement }) {
         userScrubbing = true;
         timelineTime = Number(event.currentTarget.value);
+        previewTime = timelineTime;
+        previewVisible = true;
     }
 
     function handleTimelineCommit(event: Event & { currentTarget: EventTarget & HTMLInputElement }) {
         const next = Number(event.currentTarget.value);
         seekTo(next);
         userScrubbing = false;
+        previewTime = next;
+        previewVisible = false;
+    }
+
+    function updatePreviewFromPointer(event: PointerEvent | MouseEvent, input: HTMLInputElement) {
+        if (!duration) return;
+        const rect = input.getBoundingClientRect();
+        if (rect.width <= 0) return;
+        const ratio = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
+        previewX = ratio;
+        previewTime = ratio * duration;
+        previewVisible = true;
+    }
+
+    function handleTimelinePointerMove(event: PointerEvent & { currentTarget: EventTarget & HTMLInputElement }) {
+        updatePreviewFromPointer(event, event.currentTarget);
+    }
+
+    function handleTimelinePointerEnter(event: PointerEvent & { currentTarget: EventTarget & HTMLInputElement }) {
+        updatePreviewFromPointer(event, event.currentTarget);
+    }
+
+    function handleTimelinePointerLeave() {
+        if (!userScrubbing) {
+            previewVisible = false;
+        }
     }
 
     async function generateTimelineFrames(url: string, token: number) {
@@ -211,6 +307,8 @@
     onDestroy(() => {
         frameGenerationToken += 1;
     });
+
+    let previewFrame = $derived(() => getNearestFrame(previewTime));
 </script>
 
 <svelte:window onkeydown={handleKeydown} />
@@ -302,18 +400,35 @@
                     <span>{formatTime(userScrubbing ? timelineTime : currentTime)}</span>
                     <span>{formatTime(duration)}</span>
                 </div>
-                <input
-                    type="range"
-                    min="0"
-                    max={duration || 0}
-                    step="0.1"
-                    value={userScrubbing ? timelineTime : currentTime}
-                    oninput={(e) => handleTimelineInput(e as any)}
-                    onchange={(e) => handleTimelineCommit(e as any)}
-                    class="w-full accent-emerald-500"
-                    aria-label="Video timeline scrubber"
-                    disabled={!duration}
-                />
+                <div class="relative">
+                    {#if previewVisible && previewFrame()}
+                        <div
+                            class="absolute -top-14 z-10 -translate-x-1/2 rounded-md border border-white/20 bg-black/85 px-1.5 py-1 shadow-lg"
+                            style={`left: ${previewX * 100}%`}
+                        >
+                            <img src={previewFrame()?.dataUrl} alt={`Preview at ${formatTime(previewTime)}`} class="h-9 w-16 rounded object-cover" />
+                            <div class="mt-1 text-center text-[9px] text-white/90">{formatTime(previewTime)}</div>
+                        </div>
+                    {/if}
+                    <input
+                        type="range"
+                        min="0"
+                        max={duration || 0}
+                        step="0.1"
+                        value={userScrubbing ? timelineTime : currentTime}
+                        oninput={(e) => handleTimelineInput(e as any)}
+                        onchange={(e) => handleTimelineCommit(e as any)}
+                        onpointermove={(e) => handleTimelinePointerMove(e as any)}
+                        onpointerenter={(e) => handleTimelinePointerEnter(e as any)}
+                        onpointerleave={handleTimelinePointerLeave}
+                        class="w-full accent-emerald-500 h-2.5"
+                        aria-label="Video timeline scrubber"
+                        disabled={!duration}
+                    />
+                </div>
+                <div class="mt-2 text-[10px] text-slate-400">
+                    Shortcuts: `J` -10s, `K` play/pause, `L` +10s, arrows ±5s
+                </div>
 
                 <div class="mt-3 min-h-[68px]">
                     {#if generatingFrames}
@@ -321,20 +436,22 @@
                     {:else if timelineFrameError}
                         <div class="text-xs text-slate-400">{timelineFrameError}</div>
                     {:else if timelineFrames.length}
-                        <div class="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-10 gap-1.5">
+                        <div class="overflow-x-auto pb-1">
+                            <div class="flex items-center gap-1.5 min-w-max">
                             {#each timelineFrames as frame}
                                 <button
                                     type="button"
                                     onclick={() => seekTo(frame.time)}
-                                    class="relative group overflow-hidden rounded-md border border-white/10 hover:border-emerald-400/70 transition"
+                                    class="relative group overflow-hidden rounded-md border border-white/10 hover:border-emerald-400/70 transition shrink-0 w-[78px]"
                                     title={`Jump to ${formatTime(frame.time)}`}
                                 >
-                                    <img src={frame.dataUrl} alt={`Frame at ${formatTime(frame.time)}`} class="w-full h-10 object-cover opacity-90 group-hover:opacity-100" />
+                                    <img src={frame.dataUrl} alt={`Frame at ${formatTime(frame.time)}`} class="w-full h-11 object-cover opacity-90 group-hover:opacity-100" />
                                     <span class="absolute bottom-0 right-0 px-1 py-0.5 text-[9px] leading-none bg-black/70 text-white rounded-tl">
                                         {formatTime(frame.time)}
                                     </span>
                                 </button>
                             {/each}
+                            </div>
                         </div>
                     {/if}
                 </div>
