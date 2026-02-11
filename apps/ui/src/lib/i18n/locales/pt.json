@@ -1133,16 +1133,16 @@
     "update_available": "Atualização disponível. Recarregue para aplicar."
   },
   "video_player": {
-    "clip_fetching_disabled": "Clip Fetching Disabled",
-    "clip_fetching_disabled_hint": "Enable \"Fetch Video Clips\" in Settings to view this recording.",
-    "video_unavailable": "Video Unavailable",
-    "video_unavailable_hint": "The recording could not be loaded from Frigate. It may have been deleted or is not yet available.",
-    "preparing": "Preparing player...",
-    "shortcuts": "Shortcuts: space/K play/pause, arrows seek",
-    "previews_enabled": "Timeline previews enabled",
-    "previews_unavailable": "Timeline previews unavailable for this clip",
-    "previews_disabled": "Timeline previews disabled (media cache off)",
-    "previews_generating": "Generating timeline previews...",
+    "clip_fetching_disabled": "Captura de clipe desativada",
+    "clip_fetching_disabled_hint": "Ative \"Buscar clipes de video\" nas Configuracoes para ver esta gravacao.",
+    "video_unavailable": "Video indisponivel",
+    "video_unavailable_hint": "A gravacao nao pode ser carregada do Frigate. Ela pode ter sido removida ou ainda nao estar disponivel.",
+    "preparing": "Preparando player...",
+    "shortcuts": "Atalhos: espaco/K reproduzir-pausar, setas para buscar",
+    "previews_enabled": "Previas da linha do tempo ativadas",
+    "previews_unavailable": "Previas da linha do tempo indisponiveis para este clipe",
+    "previews_disabled": "Previas da linha do tempo desativadas (cache de midia desligado)",
+    "previews_generating": "Gerando previas da linha do tempo...",
     "download": "Baixar clipe"
   }
 }

@@ -1133,16 +1133,16 @@
     "update_available": "有更新可用。刷新以应用。"
   },
   "video_player": {
-    "clip_fetching_disabled": "Clip Fetching Disabled",
-    "clip_fetching_disabled_hint": "Enable \"Fetch Video Clips\" in Settings to view this recording.",
-    "video_unavailable": "Video Unavailable",
-    "video_unavailable_hint": "The recording could not be loaded from Frigate. It may have been deleted or is not yet available.",
-    "preparing": "Preparing player...",
-    "shortcuts": "Shortcuts: space/K play/pause, arrows seek",
-    "previews_enabled": "Timeline previews enabled",
-    "previews_unavailable": "Timeline previews unavailable for this clip",
-    "previews_disabled": "Timeline previews disabled (media cache off)",
-    "previews_generating": "Generating timeline previews...",
+    "clip_fetching_disabled": "片段抓取已禁用",
+    "clip_fetching_disabled_hint": "请在设置中启用“抓取视频片段”以查看此录像。",
+    "video_unavailable": "视频不可用",
+    "video_unavailable_hint": "无法从 Frigate 加载该录像。它可能已被删除或尚未可用。",
+    "preparing": "正在准备播放器...",
+    "shortcuts": "快捷键：空格/K 播放或暂停，方向键快进/后退",
+    "previews_enabled": "时间线预览已启用",
+    "previews_unavailable": "此片段的时间线预览不可用",
+    "previews_disabled": "时间线预览已禁用（媒体缓存关闭）",
+    "previews_generating": "正在生成时间线预览...",
     "download": "下载片段"
   }
 }

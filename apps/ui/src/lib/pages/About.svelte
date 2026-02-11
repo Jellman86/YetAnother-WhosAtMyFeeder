@@ -1,5 +1,4 @@
 <script lang="ts">
-    import { onMount } from 'svelte';
     import { fetchVersion, type VersionInfo } from '../api';
     import { _ } from 'svelte-i18n';
 
@@ -100,6 +99,11 @@
         { category: $_('about.tech.deployment'), items: ['Docker', 'Docker Compose', 'Nginx'] }
     ]);
 
+    const repoUrl = 'https://github.com/Jellman86/YetAnother-WhosAtMyFeeder';
+    let docsRefBranch = $derived(
+        versionInfo.branch && versionInfo.branch !== 'unknown' ? versionInfo.branch : 'main'
+    );
+
     const steps = [1, 2, 3, 4, 5, 6, 7, 8];
 </script>
 
@@ -117,7 +121,7 @@
         </p>
         <div class="flex items-center justify-center gap-4 text-sm text-slate-500 dark:text-slate-400">
             <a
-                href="https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/blob/dev/CHANGELOG.md"
+                href={`${repoUrl}/blob/${docsRefBranch}/CHANGELOG.md`}
                 target="_blank"
                 rel="noopener noreferrer"
                 class="px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-800 font-mono hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
@@ -236,7 +240,7 @@
     <div class="card-base p-6 space-y-4">
         <h2 class="text-2xl font-bold text-slate-900 dark:text-white">{$_('about.docs_resources')}</h2>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <a href="https://github.com/Jellman86/YetAnother-WhosAtMyFeeder" target="_blank" rel="noopener noreferrer"
+            <a href={repoUrl} target="_blank" rel="noopener noreferrer"
                class="flex items-center gap-3 p-3 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-brand-500 dark:hover:border-brand-500 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all group">
                 <span class="text-2xl">📚</span>
                 <div>
@@ -244,7 +248,7 @@
                     <div class="text-xs text-slate-500 dark:text-slate-400">{$_('about.links.repo_desc')}</div>
                 </div>
             </a>
-            <a href="https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/tree/main/docs" target="_blank" rel="noopener noreferrer"
+            <a href={`${repoUrl}/tree/${docsRefBranch}/docs`} target="_blank" rel="noopener noreferrer"
                class="flex items-center gap-3 p-3 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-brand-500 dark:hover:border-brand-500 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all group">
                 <span class="text-2xl">📖</span>
                 <div>

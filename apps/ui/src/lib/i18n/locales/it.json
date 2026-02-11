@@ -1133,16 +1133,16 @@
     "update_available": "Aggiornamento disponibile. Ricarica per applicare."
   },
   "video_player": {
-    "clip_fetching_disabled": "Clip Fetching Disabled",
-    "clip_fetching_disabled_hint": "Enable \"Fetch Video Clips\" in Settings to view this recording.",
-    "video_unavailable": "Video Unavailable",
-    "video_unavailable_hint": "The recording could not be loaded from Frigate. It may have been deleted or is not yet available.",
-    "preparing": "Preparing player...",
-    "shortcuts": "Shortcuts: space/K play/pause, arrows seek",
-    "previews_enabled": "Timeline previews enabled",
-    "previews_unavailable": "Timeline previews unavailable for this clip",
-    "previews_disabled": "Timeline previews disabled (media cache off)",
-    "previews_generating": "Generating timeline previews...",
+    "clip_fetching_disabled": "Recupero clip disabilitato",
+    "clip_fetching_disabled_hint": "Abilita \"Recupera clip video\" nelle impostazioni per visualizzare questa registrazione.",
+    "video_unavailable": "Video non disponibile",
+    "video_unavailable_hint": "La registrazione non puo essere caricata da Frigate. Potrebbe essere stata eliminata o non ancora disponibile.",
+    "preparing": "Preparazione del player...",
+    "shortcuts": "Scorciatoie: spazio/K play-pausa, frecce per avanzare o tornare",
+    "previews_enabled": "Anteprime timeline abilitate",
+    "previews_unavailable": "Anteprime timeline non disponibili per questo clip",
+    "previews_disabled": "Anteprime timeline disabilitate (cache media disattivata)",
+    "previews_generating": "Generazione anteprime timeline...",
     "download": "Scarica clip"
   }
 }

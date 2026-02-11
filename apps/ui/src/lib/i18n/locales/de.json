@@ -1133,16 +1133,16 @@
     "update_available": "Update verfügbar. Zum Anwenden aktualisieren."
   },
   "video_player": {
-    "clip_fetching_disabled": "Clip Fetching Disabled",
-    "clip_fetching_disabled_hint": "Enable \"Fetch Video Clips\" in Settings to view this recording.",
-    "video_unavailable": "Video Unavailable",
-    "video_unavailable_hint": "The recording could not be loaded from Frigate. It may have been deleted or is not yet available.",
-    "preparing": "Preparing player...",
-    "shortcuts": "Shortcuts: space/K play/pause, arrows seek",
-    "previews_enabled": "Timeline previews enabled",
-    "previews_unavailable": "Timeline previews unavailable for this clip",
-    "previews_disabled": "Timeline previews disabled (media cache off)",
-    "previews_generating": "Generating timeline previews...",
+    "clip_fetching_disabled": "Clip-Abruf deaktiviert",
+    "clip_fetching_disabled_hint": "Aktiviere \"Videoclips abrufen\" in den Einstellungen, um diese Aufnahme anzusehen.",
+    "video_unavailable": "Video nicht verfuegbar",
+    "video_unavailable_hint": "Die Aufnahme konnte nicht von Frigate geladen werden. Sie wurde moeglicherweise geloescht oder ist noch nicht verfuegbar.",
+    "preparing": "Player wird vorbereitet...",
+    "shortcuts": "Kurzbefehle: Leertaste/K Wiedergabe/Pause, Pfeile springen",
+    "previews_enabled": "Timeline-Vorschau aktiviert",
+    "previews_unavailable": "Timeline-Vorschau fuer diesen Clip nicht verfuegbar",
+    "previews_disabled": "Timeline-Vorschau deaktiviert (Media-Cache aus)",
+    "previews_generating": "Timeline-Vorschau wird erstellt...",
     "download": "Clip herunterladen"
   }
 }

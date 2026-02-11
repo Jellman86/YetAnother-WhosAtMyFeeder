@@ -146,13 +146,12 @@
                 'duration',
                 'mute',
                 'volume',
-                'captions',
                 'settings',
                 'pip',
                 'airplay',
                 'fullscreen'
             ],
-            settings: ['captions', 'quality', 'speed', 'loop'],
+            settings: ['speed', 'loop'],
             speed: {
                 selected: 1,
                 options: [0.5, 0.75, 1, 1.25, 1.5, 2]
@@ -316,7 +315,6 @@
                         class="w-full h-full"
                     >
                         <source src={clipUrl} type="video/mp4" />
-                        <track kind="captions" />
                         Your browser does not support video playback.
                     </video>
 

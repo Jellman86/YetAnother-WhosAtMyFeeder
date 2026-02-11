@@ -1133,16 +1133,16 @@
     "update_available": "Доступно обновление. Обновите страницу для применения."
   },
   "video_player": {
-    "clip_fetching_disabled": "Clip Fetching Disabled",
-    "clip_fetching_disabled_hint": "Enable \"Fetch Video Clips\" in Settings to view this recording.",
-    "video_unavailable": "Video Unavailable",
-    "video_unavailable_hint": "The recording could not be loaded from Frigate. It may have been deleted or is not yet available.",
-    "preparing": "Preparing player...",
-    "shortcuts": "Shortcuts: space/K play/pause, arrows seek",
-    "previews_enabled": "Timeline previews enabled",
-    "previews_unavailable": "Timeline previews unavailable for this clip",
-    "previews_disabled": "Timeline previews disabled (media cache off)",
-    "previews_generating": "Generating timeline previews...",
+    "clip_fetching_disabled": "Загрузка клипов отключена",
+    "clip_fetching_disabled_hint": "Включите «Загружать видеоклипы» в настройках, чтобы просмотреть эту запись.",
+    "video_unavailable": "Видео недоступно",
+    "video_unavailable_hint": "Не удалось загрузить запись из Frigate. Возможно, она удалена или пока недоступна.",
+    "preparing": "Подготовка плеера...",
+    "shortcuts": "Горячие клавиши: пробел/K воспроизведение-пауза, стрелки для перемотки",
+    "previews_enabled": "Превью таймлайна включены",
+    "previews_unavailable": "Превью таймлайна недоступны для этого клипа",
+    "previews_disabled": "Превью таймлайна отключены (кэш медиа отключен)",
+    "previews_generating": "Генерация превью таймлайна...",
     "download": "Скачать клип"
   }
 }

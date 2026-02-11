@@ -1133,16 +1133,16 @@
     "update_available": "更新があります。再読み込みして適用してください。"
   },
   "video_player": {
-    "clip_fetching_disabled": "Clip Fetching Disabled",
-    "clip_fetching_disabled_hint": "Enable \"Fetch Video Clips\" in Settings to view this recording.",
-    "video_unavailable": "Video Unavailable",
-    "video_unavailable_hint": "The recording could not be loaded from Frigate. It may have been deleted or is not yet available.",
-    "preparing": "Preparing player...",
-    "shortcuts": "Shortcuts: space/K play/pause, arrows seek",
-    "previews_enabled": "Timeline previews enabled",
-    "previews_unavailable": "Timeline previews unavailable for this clip",
-    "previews_disabled": "Timeline previews disabled (media cache off)",
-    "previews_generating": "Generating timeline previews...",
+    "clip_fetching_disabled": "クリップ取得は無効です",
+    "clip_fetching_disabled_hint": "この録画を表示するには、設定で「動画クリップ取得」を有効にしてください。",
+    "video_unavailable": "動画を利用できません",
+    "video_unavailable_hint": "この録画は Frigate から読み込めませんでした。削除されたか、まだ利用可能になっていない可能性があります。",
+    "preparing": "プレーヤーを準備中...",
+    "shortcuts": "ショートカット: Space/K 再生・一時停止、矢印キーでシーク",
+    "previews_enabled": "タイムラインプレビュー有効",
+    "previews_unavailable": "このクリップではタイムラインプレビューを利用できません",
+    "previews_disabled": "タイムラインプレビュー無効（メディアキャッシュOFF）",
+    "previews_generating": "タイムラインプレビューを生成中...",
     "download": "クリップをダウンロード"
   }
 }

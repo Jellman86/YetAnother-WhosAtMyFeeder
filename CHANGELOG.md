@@ -26,8 +26,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Changed:** Health endpoint `GET /health` now includes `startup_warnings` and reports `degraded` when startup had non-fatal phase failures.
 - **Changed:** Classifier/event-processor initialization is now deferred to runtime startup (not module import), improving startup failure attribution and resilience.
 - **Fixed:** Leaderboard weather/temperature/wind/precip controls now remain visible even when overlay data is unavailable; controls are disabled with explicit hints (no weather data yet vs range limitation).
-- **Added:** Video modal now includes a frame-based timeline strip with click-to-seek and a scrubber, improving clip review speed.
-- **Changed:** Video modal now supports keyboard controls (`J/K/L`, arrow seek, space play/pause), hover/scrub frame preview, and improved mobile timeline scrolling.
+- **Added:** Video modal now includes hover timeline previews (sprite + WebVTT) when preview assets are available.
+- **Changed:** Video modal now supports compact Plyr controls, keyboard seek/play shortcuts, and clearer preview-state messaging.
 - **Changed:** Backend startup/shutdown CI smoke test now verifies `/health` and `/ready` responses under real lifespan startup.
 - **Changed:** CI now runs a sampled Alembic upgrade-path matrix (multiple historical revisions → head), with SQLite integrity/FK checks and app-level `init_db()` validation on each path.
 

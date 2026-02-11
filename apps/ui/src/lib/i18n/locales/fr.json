@@ -1133,16 +1133,16 @@
     "update_available": "Mise à jour disponible. Actualisez pour appliquer."
   },
   "video_player": {
-    "clip_fetching_disabled": "Clip Fetching Disabled",
-    "clip_fetching_disabled_hint": "Enable \"Fetch Video Clips\" in Settings to view this recording.",
-    "video_unavailable": "Video Unavailable",
-    "video_unavailable_hint": "The recording could not be loaded from Frigate. It may have been deleted or is not yet available.",
-    "preparing": "Preparing player...",
-    "shortcuts": "Shortcuts: space/K play/pause, arrows seek",
-    "previews_enabled": "Timeline previews enabled",
-    "previews_unavailable": "Timeline previews unavailable for this clip",
-    "previews_disabled": "Timeline previews disabled (media cache off)",
-    "previews_generating": "Generating timeline previews...",
+    "clip_fetching_disabled": "Recuperation des clips desactivee",
+    "clip_fetching_disabled_hint": "Activez \"Recuperer les clips video\" dans les parametres pour voir cet enregistrement.",
+    "video_unavailable": "Video indisponible",
+    "video_unavailable_hint": "L'enregistrement n'a pas pu etre charge depuis Frigate. Il a peut-etre ete supprime ou n'est pas encore disponible.",
+    "preparing": "Preparation du lecteur...",
+    "shortcuts": "Raccourcis : espace/K lecture/pause, fleches pour chercher",
+    "previews_enabled": "Apercus de la timeline actives",
+    "previews_unavailable": "Apercus de la timeline indisponibles pour ce clip",
+    "previews_disabled": "Apercus de la timeline desactives (cache media desactive)",
+    "previews_generating": "Generation des apercus de la timeline...",
     "download": "Telecharger le clip"
   }
 }
