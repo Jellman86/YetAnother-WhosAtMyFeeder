@@ -26,7 +26,9 @@
       "event_not_found": "Frigateでイベントが見つかりません",
       "empty_clip": "Frigateが空のビデオクリップを返しました",
       "media_fetch_failed": "Frigateからのメディア取得に失敗しました",
-      "invalid_event_id": "イベントIDの形式が無効です"
+      "invalid_event_id": "イベントIDの形式が無効です",
+      "preview_not_found": "Clip timeline previews are not available",
+      "preview_generation_failed": "Failed to generate clip timeline previews"
     },
     "events": {
       "snapshot_fetch_failed": "Frigateからのスナップショット取得に失敗しました",

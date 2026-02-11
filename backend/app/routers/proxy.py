@@ -1,7 +1,12 @@
+import asyncio
+import json
 import re
+from pathlib import Path as FilePath
+from tempfile import NamedTemporaryFile
+from urllib.parse import quote_plus
 from datetime import date, timedelta
 from fastapi import APIRouter, HTTPException, Response, Path, Request, Depends
-from fastapi.responses import StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from starlette.background import BackgroundTask
 import httpx
 import sqlite3
@@ -21,6 +26,7 @@ router = APIRouter()
 
 # Shared HTTP client for better connection pooling
 _http_client: httpx.AsyncClient | None = None
+_preview_locks: dict[str, asyncio.Lock] = {}
 
 
 def get_http_client() -> httpx.AsyncClient:
@@ -38,6 +44,31 @@ def validate_event_id(event_id: str) -> bool:
 
 def validate_camera_name(camera: str) -> bool:
     return bool(CAMERA_NAME_PATTERN.match(camera)) and len(camera) <= 64
+
+
+def _preview_lock(event_id: str) -> asyncio.Lock:
+    lock = _preview_locks.get(event_id)
+    if lock is None:
+        lock = asyncio.Lock()
+        _preview_locks[event_id] = lock
+    return lock
+
+
+def _format_vtt_timestamp(seconds: float) -> str:
+    whole_ms = max(0, int(round(seconds * 1000)))
+    hours = whole_ms // 3_600_000
+    minutes = (whole_ms % 3_600_000) // 60_000
+    secs = (whole_ms % 60_000) // 1000
+    millis = whole_ms % 1000
+    return f"{hours:02d}:{minutes:02d}:{secs:02d}.{millis:03d}"
+
+
+def _build_sprite_url(request: Request, event_id: str) -> str:
+    sprite_url = str(request.url_for("proxy_clip_thumbnails_sprite", event_id=event_id))
+    token = request.query_params.get("token")
+    if token:
+        sprite_url = f"{sprite_url}?token={quote_plus(token)}"
+    return sprite_url
 
 async def require_event_access(event_id: str, auth: AuthContext, lang: str) -> None:
     """Ensure guests can only access visible, recent events."""
@@ -75,6 +106,92 @@ async def require_event_access(event_id: str, auth: AuthContext, lang: str) -> N
                     status_code=404,
                     detail=i18n_service.translate("errors.proxy.event_not_found", lang)
                 )
+
+
+async def _ensure_preview_assets(event_id: str, lang: str) -> None:
+    """Ensure preview sprite + manifest exist in media cache."""
+    from app.services.media_cache import media_cache
+    from app.services.video_preview_service import video_preview_service
+
+    if media_cache.get_preview_sprite_path(event_id) and await media_cache.get_preview_manifest(event_id):
+        return
+
+    lock = _preview_lock(event_id)
+    async with lock:
+        # Another request may have generated assets while waiting.
+        if media_cache.get_preview_sprite_path(event_id) and await media_cache.get_preview_manifest(event_id):
+            return
+
+        clip_path = media_cache.get_clip_path(event_id)
+        temp_clip: FilePath | None = None
+
+        if clip_path is None:
+            clip_url = f"{settings.frigate.frigate_url}/api/events/{event_id}/clip.mp4"
+            headers = frigate_client._get_headers()
+            client = get_http_client()
+            try:
+                resp = await client.get(clip_url, headers=headers, timeout=60.0)
+                if resp.status_code == 404:
+                    raise HTTPException(
+                        status_code=404,
+                        detail=i18n_service.translate("errors.proxy.clip_not_found", lang)
+                    )
+                resp.raise_for_status()
+                if not resp.content:
+                    raise HTTPException(
+                        status_code=502,
+                        detail=i18n_service.translate("errors.proxy.empty_clip", lang)
+                    )
+                with NamedTemporaryFile(delete=False, suffix=".mp4") as tmp:
+                    tmp.write(resp.content)
+                    temp_clip = FilePath(tmp.name)
+                clip_path = temp_clip
+            except HTTPException:
+                raise
+            except httpx.TimeoutException:
+                raise HTTPException(
+                    status_code=504,
+                    detail=i18n_service.translate("errors.proxy.frigate_timeout", lang)
+                )
+            except httpx.HTTPStatusError as e:
+                raise HTTPException(
+                    status_code=e.response.status_code,
+                    detail=i18n_service.translate("errors.proxy.frigate_error", lang, status_code=e.response.status_code)
+                )
+            except httpx.RequestError:
+                raise HTTPException(
+                    status_code=502,
+                    detail=i18n_service.translate("errors.proxy.connection_failed", lang, url=settings.frigate.frigate_url)
+                )
+
+        try:
+            sprite_bytes, cues = video_preview_service.generate(clip_path)
+            manifest_json = json.dumps({
+                "version": 1,
+                "event_id": event_id,
+                "tile_width": video_preview_service.tile_width,
+                "tile_height": video_preview_service.tile_height,
+                "cues": [c.__dict__ for c in cues],
+            })
+            cached = await media_cache.cache_preview_assets(event_id, sprite_bytes, manifest_json)
+            if not cached:
+                raise HTTPException(
+                    status_code=500,
+                    detail=i18n_service.translate("errors.proxy.preview_generation_failed", lang)
+                )
+        except HTTPException:
+            raise
+        except Exception:
+            raise HTTPException(
+                status_code=500,
+                detail=i18n_service.translate("errors.proxy.preview_generation_failed", lang)
+            )
+        finally:
+            if temp_clip is not None:
+                try:
+                    temp_clip.unlink(missing_ok=True)
+                except Exception:
+                    pass
 
 @router.get("/frigate/test")
 async def test_frigate_connection(
@@ -333,7 +450,6 @@ async def proxy_clip(
     auth: AuthContext = Depends(get_auth_context_with_legacy)
 ):
     """Proxy video clip from Frigate with Range support and streaming."""
-    from fastapi.responses import FileResponse
     from app.services.media_cache import media_cache
 
     lang = get_user_language(request)
@@ -477,6 +593,131 @@ async def proxy_clip(
         status_code=r.status_code,
         headers=response_headers,
         background=BackgroundTask(cleanup)
+    )
+
+
+@router.get("/frigate/{event_id}/clip-thumbnails.vtt")
+@guest_rate_limit()
+async def proxy_clip_thumbnails_vtt(
+    request: Request,
+    event_id: str = Path(..., min_length=1, max_length=64),
+    auth: AuthContext = Depends(get_auth_context_with_legacy),
+):
+    """Return WebVTT timeline preview metadata for a clip."""
+    from app.services.media_cache import media_cache
+
+    lang = get_user_language(request)
+
+    if not settings.frigate.clips_enabled:
+        raise HTTPException(
+            status_code=403,
+            detail=i18n_service.translate("errors.clip_disabled", lang)
+        )
+
+    if not validate_event_id(event_id):
+        raise HTTPException(
+            status_code=400,
+            detail=i18n_service.translate("errors.proxy.invalid_event_id", lang)
+        )
+
+    await require_event_access(event_id, auth, lang)
+
+    try:
+        event_data = await frigate_client.get_event(event_id)
+        if not event_data:
+            raise HTTPException(
+                status_code=404,
+                detail=i18n_service.translate("errors.proxy.event_not_found", lang)
+            )
+        if not event_data.get("has_clip", False):
+            raise HTTPException(
+                status_code=404,
+                detail=i18n_service.translate("errors.proxy.clip_not_available", lang)
+            )
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(
+            status_code=502,
+            detail=i18n_service.translate("errors.proxy.media_fetch_failed", lang)
+        )
+
+    await _ensure_preview_assets(event_id, lang)
+    manifest_json = await media_cache.get_preview_manifest(event_id)
+    if not manifest_json:
+        raise HTTPException(
+            status_code=404,
+            detail=i18n_service.translate("errors.proxy.preview_not_found", lang)
+        )
+
+    try:
+        manifest = json.loads(manifest_json)
+        cues = manifest.get("cues", [])
+    except Exception:
+        raise HTTPException(
+            status_code=500,
+            detail=i18n_service.translate("errors.proxy.preview_generation_failed", lang)
+        )
+
+    sprite_url = _build_sprite_url(request, event_id)
+    lines = ["WEBVTT", ""]
+    for cue in cues:
+        start = _format_vtt_timestamp(float(cue["start"]))
+        end = _format_vtt_timestamp(float(cue["end"]))
+        x = int(cue["x"])
+        y = int(cue["y"])
+        w = int(cue["w"])
+        h = int(cue["h"])
+        lines.append(f"{start} --> {end}")
+        lines.append(f"{sprite_url}#xywh={x},{y},{w},{h}")
+        lines.append("")
+
+    return Response(
+        content="\n".join(lines),
+        media_type="text/vtt; charset=utf-8",
+        headers={"Cache-Control": "private, max-age=300"},
+    )
+
+
+@router.get("/frigate/{event_id}/clip-thumbnails.jpg")
+@guest_rate_limit()
+async def proxy_clip_thumbnails_sprite(
+    request: Request,
+    event_id: str = Path(..., min_length=1, max_length=64),
+    auth: AuthContext = Depends(get_auth_context_with_legacy),
+):
+    """Return generated sprite image for clip timeline previews."""
+    from app.services.media_cache import media_cache
+
+    lang = get_user_language(request)
+
+    if not settings.frigate.clips_enabled:
+        raise HTTPException(
+            status_code=403,
+            detail=i18n_service.translate("errors.clip_disabled", lang)
+        )
+
+    if not validate_event_id(event_id):
+        raise HTTPException(
+            status_code=400,
+            detail=i18n_service.translate("errors.proxy.invalid_event_id", lang)
+        )
+
+    await require_event_access(event_id, auth, lang)
+    await _ensure_preview_assets(event_id, lang)
+
+    sprite_path = media_cache.get_preview_sprite_path(event_id)
+    if not sprite_path:
+        raise HTTPException(
+            status_code=404,
+            detail=i18n_service.translate("errors.proxy.preview_not_found", lang)
+        )
+
+    return FileResponse(
+        path=sprite_path,
+        media_type="image/jpeg",
+        filename=f"{event_id}-thumbnails.jpg",
+        headers={"Cache-Control": "private, max-age=300"},
     )
 
 @router.get("/frigate/{event_id}/thumbnail.jpg")

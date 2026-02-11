@@ -1129,5 +1129,15 @@
   },
   "pwa": {
     "update_available": "Update available. Refresh to apply."
+  },
+  "video_player": {
+    "clip_fetching_disabled": "Clip Fetching Disabled",
+    "clip_fetching_disabled_hint": "Enable \"Fetch Video Clips\" in Settings to view this recording.",
+    "video_unavailable": "Video Unavailable",
+    "video_unavailable_hint": "The recording could not be loaded from Frigate. It may have been deleted or is not yet available.",
+    "preparing": "Preparing player...",
+    "shortcuts": "Shortcuts: space/K play/pause, arrows seek",
+    "previews_enabled": "Timeline previews enabled",
+    "previews_unavailable": "Timeline previews unavailable for this clip"
   }
 }

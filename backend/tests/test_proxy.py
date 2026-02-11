@@ -1,3 +1,5 @@
+from pathlib import Path
+from tempfile import NamedTemporaryFile
 from unittest.mock import patch, MagicMock, AsyncMock
 from app.main import app
 from app.config import settings
@@ -164,3 +166,55 @@ async def test_proxy_clip_404_from_frigate(client: httpx.AsyncClient):
             assert "Event not found in Frigate" in response.json()["detail"]
         finally:
             settings.frigate.clips_enabled = original_setting
+
+
+@pytest.mark.asyncio
+async def test_proxy_clip_thumbnails_vtt_success(client: httpx.AsyncClient):
+    """VTT endpoint should return WebVTT with sprite cue URLs."""
+    original_setting = settings.frigate.clips_enabled
+    settings.frigate.clips_enabled = True
+
+    manifest_json = (
+        '{"version":1,"event_id":"test_event_id","tile_width":160,"tile_height":90,'
+        '"cues":[{"start":0.0,"end":2.0,"x":0,"y":0,"w":160,"h":90}]}'
+    )
+
+    with patch("app.routers.proxy.frigate_client") as mock_frigate, \
+         patch("app.routers.proxy._ensure_preview_assets", new_callable=AsyncMock) as mock_ensure, \
+         patch("app.services.media_cache.media_cache.get_preview_manifest", new_callable=AsyncMock) as mock_manifest:
+        mock_frigate.get_event = AsyncMock(return_value={"has_clip": True})
+        mock_manifest.return_value = manifest_json
+        mock_ensure.return_value = None
+
+        try:
+            response = await client.get("/api/frigate/test_event_id/clip-thumbnails.vtt?token=abc123")
+            assert response.status_code == 200
+            assert response.headers["content-type"].startswith("text/vtt")
+            assert "WEBVTT" in response.text
+            assert "clip-thumbnails.jpg?token=abc123#xywh=0,0,160,90" in response.text
+        finally:
+            settings.frigate.clips_enabled = original_setting
+
+
+@pytest.mark.asyncio
+async def test_proxy_clip_thumbnails_sprite_success(client: httpx.AsyncClient):
+    """Sprite endpoint should serve generated sprite file."""
+    original_setting = settings.frigate.clips_enabled
+    settings.frigate.clips_enabled = True
+
+    with NamedTemporaryFile(suffix=".jpg", delete=False) as tmp:
+        tmp.write(b"fake-jpeg")
+        sprite_path = Path(tmp.name)
+
+    with patch("app.routers.proxy._ensure_preview_assets", new_callable=AsyncMock) as mock_ensure, \
+         patch("app.services.media_cache.media_cache.get_preview_sprite_path") as mock_sprite:
+        mock_ensure.return_value = None
+        mock_sprite.return_value = sprite_path
+
+        try:
+            response = await client.get("/api/frigate/test_event_id/clip-thumbnails.jpg")
+            assert response.status_code == 200
+            assert response.headers["content-type"].startswith("image/jpeg")
+        finally:
+            settings.frigate.clips_enabled = original_setting
+            sprite_path.unlink(missing_ok=True)

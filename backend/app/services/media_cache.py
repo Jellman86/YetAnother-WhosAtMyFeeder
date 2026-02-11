@@ -15,6 +15,7 @@ log = structlog.get_logger()
 CACHE_BASE_DIR = Path(os.getenv("MEDIA_CACHE_DIR", "/config/media_cache"))
 SNAPSHOTS_DIR = CACHE_BASE_DIR / "snapshots"
 CLIPS_DIR = CACHE_BASE_DIR / "clips"
+PREVIEWS_DIR = CACHE_BASE_DIR / "previews"
 
 
 class MediaCacheService:
@@ -48,6 +49,7 @@ class MediaCacheService:
         """Ensure cache directories exist."""
         SNAPSHOTS_DIR.mkdir(parents=True, exist_ok=True)
         CLIPS_DIR.mkdir(parents=True, exist_ok=True)
+        PREVIEWS_DIR.mkdir(parents=True, exist_ok=True)
 
     def _sanitize_event_id(self, event_id: str) -> str:
         """Sanitize event_id to prevent path traversal attacks.
@@ -111,6 +113,30 @@ class MediaCacheService:
         except (ValueError, OSError):
             raise ValueError(f"Invalid clip path for event: {event_id}")
 
+        return path
+
+    def _preview_sprite_path(self, event_id: str) -> Path:
+        """Get the path for a cached preview sprite image."""
+        safe_id = self._sanitize_event_id(event_id)
+        path = PREVIEWS_DIR / f"{safe_id}.jpg"
+        try:
+            resolved = path.resolve()
+            if not resolved.is_relative_to(PREVIEWS_DIR):
+                raise ValueError(f"Path traversal detected: {event_id}")
+        except (ValueError, OSError):
+            raise ValueError(f"Invalid preview sprite path for event: {event_id}")
+        return path
+
+    def _preview_manifest_path(self, event_id: str) -> Path:
+        """Get the path for a cached preview cue manifest."""
+        safe_id = self._sanitize_event_id(event_id)
+        path = PREVIEWS_DIR / f"{safe_id}.json"
+        try:
+            resolved = path.resolve()
+            if not resolved.is_relative_to(PREVIEWS_DIR):
+                raise ValueError(f"Path traversal detected: {event_id}")
+        except (ValueError, OSError):
+            raise ValueError(f"Invalid preview manifest path for event: {event_id}")
         return path
 
     async def cache_snapshot(self, event_id: str, image_bytes: bytes) -> Optional[Path]:
@@ -274,6 +300,63 @@ class MediaCacheService:
         except ValueError:
             # Invalid event_id
             return False
+
+    async def cache_preview_assets(self, event_id: str, sprite_bytes: bytes, manifest_json: str) -> bool:
+        """Cache generated timeline preview assets for an event."""
+        if not self._available:
+            log.warning("Media cache unavailable; skipping preview cache write", error=self._init_error)
+            return False
+        try:
+            sprite_path = self._preview_sprite_path(event_id)
+            manifest_path = self._preview_manifest_path(event_id)
+            async with aiofiles.open(sprite_path, "wb") as f:
+                await f.write(sprite_bytes)
+            async with aiofiles.open(manifest_path, "w", encoding="utf-8") as f:
+                await f.write(manifest_json)
+            log.debug("Cached preview assets", event_id=event_id, sprite_bytes=len(sprite_bytes))
+            return True
+        except Exception as e:
+            log.error("Failed to cache preview assets", event_id=event_id, error=str(e))
+            try:
+                sprite_path = self._preview_sprite_path(event_id)
+                if sprite_path.exists():
+                    sprite_path.unlink()
+                manifest_path = self._preview_manifest_path(event_id)
+                if manifest_path.exists():
+                    manifest_path.unlink()
+            except Exception:
+                pass
+            return False
+
+    async def get_preview_manifest(self, event_id: str) -> Optional[str]:
+        """Read cached preview manifest JSON text."""
+        try:
+            path = self._preview_manifest_path(event_id)
+            if await aiofiles.os.path.exists(path):
+                async with aiofiles.open(path, "r", encoding="utf-8") as f:
+                    data = await f.read()
+                os.utime(path, None)
+                return data
+            return None
+        except Exception as e:
+            log.error("Failed to read cached preview manifest", event_id=event_id, error=str(e))
+            return None
+
+    def get_preview_sprite_path(self, event_id: str) -> Optional[Path]:
+        """Get path to a cached preview sprite if it exists and has content."""
+        try:
+            path = self._preview_sprite_path(event_id)
+            if path.exists() and path.stat().st_size > 0:
+                os.utime(path, None)
+                return path
+            if path.exists() and path.stat().st_size == 0:
+                try:
+                    path.unlink()
+                except Exception:
+                    pass
+            return None
+        except Exception:
+            return None
         except Exception:
             # File access error
             return False
@@ -293,6 +376,14 @@ class MediaCacheService:
             if await aiofiles.os.path.exists(clip_path):
                 await aiofiles.os.remove(clip_path)
 
+            preview_sprite_path = self._preview_sprite_path(event_id)
+            if await aiofiles.os.path.exists(preview_sprite_path):
+                await aiofiles.os.remove(preview_sprite_path)
+
+            preview_manifest_path = self._preview_manifest_path(event_id)
+            if await aiofiles.os.path.exists(preview_manifest_path):
+                await aiofiles.os.remove(preview_manifest_path)
+
             log.debug("Deleted cached media", event_id=event_id)
         except Exception as e:
             log.error("Failed to delete cached media", event_id=event_id, error=str(e))
@@ -303,7 +394,7 @@ class MediaCacheService:
         Returns:
             Dict with cleanup stats
         """
-        stats = {"snapshots_deleted": 0, "clips_deleted": 0}
+        stats = {"snapshots_deleted": 0, "clips_deleted": 0, "previews_deleted": 0}
 
         # Clean empty snapshots
         for path in SNAPSHOTS_DIR.glob("*.jpg"):
@@ -329,7 +420,19 @@ class MediaCacheService:
             except Exception as e:
                 log.warning("Failed to delete empty clip", path=str(path), error=str(e))
 
-        if stats["snapshots_deleted"] > 0 or stats["clips_deleted"] > 0:
+        # Clean empty preview artifacts
+        for path in PREVIEWS_DIR.glob("*"):
+            try:
+                if path.is_file() and path.stat().st_size == 0:
+                    path.unlink()
+                    stats["previews_deleted"] += 1
+                    log.debug("Removed empty preview artifact", path=str(path))
+            except FileNotFoundError:
+                pass
+            except Exception as e:
+                log.warning("Failed to delete empty preview artifact", path=str(path), error=str(e))
+
+        if stats["snapshots_deleted"] > 0 or stats["clips_deleted"] > 0 or stats["previews_deleted"] > 0:
             log.info("Empty file cleanup complete", **stats)
         return stats
 
@@ -349,6 +452,7 @@ class MediaCacheService:
             return {
                 "snapshots_deleted": empty_stats["snapshots_deleted"],
                 "clips_deleted": empty_stats["clips_deleted"],
+                "previews_deleted": empty_stats["previews_deleted"],
                 "bytes_freed": 0
             }
 
@@ -358,6 +462,7 @@ class MediaCacheService:
         stats = {
             "snapshots_deleted": empty_stats["snapshots_deleted"],
             "clips_deleted": empty_stats["clips_deleted"],
+            "previews_deleted": empty_stats["previews_deleted"],
             "bytes_freed": 0
         }
 
@@ -383,6 +488,17 @@ class MediaCacheService:
             except Exception as e:
                 log.warning("Failed to delete old clip", path=str(path), error=str(e))
 
+        # Clean old preview assets
+        for path in PREVIEWS_DIR.glob("*"):
+            try:
+                if path.is_file() and path.stat().st_mtime < cutoff_timestamp:
+                    size = path.stat().st_size
+                    path.unlink()
+                    stats["previews_deleted"] += 1
+                    stats["bytes_freed"] += size
+            except Exception as e:
+                log.warning("Failed to delete old preview asset", path=str(path), error=str(e))
+
         log.info("Media cache cleanup complete", **stats)
         return stats
 
@@ -395,7 +511,7 @@ class MediaCacheService:
         Returns:
             Dict with cleanup stats
         """
-        stats = {"snapshots_deleted": 0, "clips_deleted": 0, "bytes_freed": 0}
+        stats = {"snapshots_deleted": 0, "clips_deleted": 0, "previews_deleted": 0, "bytes_freed": 0}
 
         # Clean orphaned snapshots
         for path in SNAPSHOTS_DIR.glob("*.jpg"):
@@ -421,12 +537,26 @@ class MediaCacheService:
                 except Exception as e:
                     log.warning("Failed to delete orphaned clip", path=str(path), error=str(e))
 
+        # Clean orphaned preview artifacts
+        for path in PREVIEWS_DIR.glob("*"):
+            if path.suffix not in (".jpg", ".json"):
+                continue
+            event_id = path.stem
+            if event_id not in valid_event_ids:
+                try:
+                    size = path.stat().st_size
+                    path.unlink()
+                    stats["previews_deleted"] += 1
+                    stats["bytes_freed"] += size
+                except Exception as e:
+                    log.warning("Failed to delete orphaned preview asset", path=str(path), error=str(e))
+
         log.info("Orphaned media cleanup complete", **stats)
         return stats
 
     async def clear_all(self) -> dict:
         """Delete ALL cached media files."""
-        stats = {"snapshots_deleted": 0, "clips_deleted": 0, "bytes_freed": 0}
+        stats = {"snapshots_deleted": 0, "clips_deleted": 0, "previews_deleted": 0, "bytes_freed": 0}
         
         # Clean all snapshots
         for path in SNAPSHOTS_DIR.glob("*.jpg"):
@@ -447,6 +577,17 @@ class MediaCacheService:
                 stats["bytes_freed"] += size
             except Exception as e:
                 log.warning("Failed to delete clip", path=str(path), error=str(e))
+
+        # Clean all previews
+        for path in PREVIEWS_DIR.glob("*"):
+            try:
+                if path.is_file():
+                    size = path.stat().st_size
+                    path.unlink()
+                    stats["previews_deleted"] += 1
+                    stats["bytes_freed"] += size
+            except Exception as e:
+                log.warning("Failed to delete preview asset", path=str(path), error=str(e))
         
         log.info("Cleared all media cache", **stats)
         return stats
@@ -461,6 +602,8 @@ class MediaCacheService:
         snapshot_size = 0
         clip_count = 0
         clip_size = 0
+        preview_count = 0
+        preview_size = 0
         oldest_file = None
         newest_file = None
 
@@ -490,6 +633,21 @@ class MediaCacheService:
             except Exception:
                 pass
 
+        for path in PREVIEWS_DIR.glob("*"):
+            if not path.is_file():
+                continue
+            try:
+                stat = path.stat()
+                preview_count += 1
+                preview_size += stat.st_size
+                mtime = datetime.fromtimestamp(stat.st_mtime)
+                if oldest_file is None or mtime < oldest_file:
+                    oldest_file = mtime
+                if newest_file is None or mtime > newest_file:
+                    newest_file = mtime
+            except Exception:
+                pass
+
         return {
             "snapshot_count": snapshot_count,
             "snapshot_size_bytes": snapshot_size,
@@ -497,8 +655,11 @@ class MediaCacheService:
             "clip_count": clip_count,
             "clip_size_bytes": clip_size,
             "clip_size_mb": round(clip_size / (1024 * 1024), 2),
-            "total_size_bytes": snapshot_size + clip_size,
-            "total_size_mb": round((snapshot_size + clip_size) / (1024 * 1024), 2),
+            "preview_count": preview_count,
+            "preview_size_bytes": preview_size,
+            "preview_size_mb": round(preview_size / (1024 * 1024), 2),
+            "total_size_bytes": snapshot_size + clip_size + preview_size,
+            "total_size_mb": round((snapshot_size + clip_size + preview_size) / (1024 * 1024), 2),
             "oldest_file": oldest_file.isoformat() if oldest_file else None,
             "newest_file": newest_file.isoformat() if newest_file else None,
         }
@@ -508,6 +669,7 @@ class MediaCacheService:
         base_exists = CACHE_BASE_DIR.exists()
         snapshots_exists = SNAPSHOTS_DIR.exists()
         clips_exists = CLIPS_DIR.exists()
+        previews_exists = PREVIEWS_DIR.exists()
         return {
             "available": self._available,
             "init_error": self._init_error,
@@ -520,6 +682,9 @@ class MediaCacheService:
             "clips_dir": str(CLIPS_DIR),
             "clips_exists": clips_exists,
             "clips_writable": os.access(CLIPS_DIR, os.W_OK | os.X_OK) if clips_exists else False,
+            "previews_dir": str(PREVIEWS_DIR),
+            "previews_exists": previews_exists,
+            "previews_writable": os.access(PREVIEWS_DIR, os.W_OK | os.X_OK) if previews_exists else False,
             "process_uid_gid": f"{os.getuid()}:{os.getgid()}",
         }
 

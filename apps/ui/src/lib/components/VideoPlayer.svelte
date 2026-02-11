@@ -1,24 +1,38 @@
 <script lang="ts">
     import { onDestroy, onMount } from 'svelte';
     import Plyr from 'plyr';
+    import { _ } from 'svelte-i18n';
     import 'plyr/dist/plyr.css';
-    import { getClipPreviewTrackCandidates, getClipUrl } from '../api';
+    import { getClipPreviewTrackUrl, getClipUrl } from '../api';
+    import { logger } from '../utils/logger';
 
     interface Props {
         frigateEvent: string;
         onClose: () => void;
     }
 
+    type HeadProbe = {
+        status: number | null;
+        expiresAt: number;
+    };
+
+    const HEAD_CACHE_TTL_MS = 5 * 60 * 1000;
+    const clipHeadCache = new Map<string, HeadProbe>();
+    const previewHeadCache = new Map<string, HeadProbe>();
+
     let { frigateEvent, onClose }: Props = $props();
 
     let videoElement = $state<HTMLVideoElement | null>(null);
+    let modalElement = $state<HTMLDivElement | null>(null);
+    let closeButton = $state<HTMLButtonElement | null>(null);
+    let restoreFocusElement = $state<HTMLElement | null>(null);
+
     let player = $state<Plyr | null>(null);
     let initializing = $state(false);
     let videoError = $state(false);
     let videoForbidden = $state(false);
     let retryCount = $state(0);
     let thumbnailTrackUrl = $state<string | null>(null);
-    let thumbnailTrackCheckedFor = $state<string | null>(null);
 
     let clipUrlBase = $derived(getClipUrl(frigateEvent));
     let clipUrl = $state('');
@@ -36,6 +50,23 @@
             clipUrl = clipUrlBase;
         }
     });
+
+    function cacheRead(cache: Map<string, HeadProbe>, key: string): HeadProbe | null {
+        const hit = cache.get(key);
+        if (!hit) return null;
+        if (Date.now() >= hit.expiresAt) {
+            cache.delete(key);
+            return null;
+        }
+        return hit;
+    }
+
+    function cacheWrite(cache: Map<string, HeadProbe>, key: string, status: number | null): void {
+        cache.set(key, {
+            status,
+            expiresAt: Date.now() + HEAD_CACHE_TTL_MS,
+        });
+    }
 
     function handleBackdropClick(event: MouseEvent) {
         if (event.target === event.currentTarget) {
@@ -56,27 +87,31 @@
         }
     }
 
+    async function probeHead(url: string, cache: Map<string, HeadProbe>): Promise<number | null> {
+        const cached = cacheRead(cache, url);
+        if (cached) {
+            return cached.status;
+        }
+
+        try {
+            const response = await fetch(url, { method: 'HEAD' });
+            cacheWrite(cache, url, response.status);
+            return response.status;
+        } catch (error) {
+            logger.warn('video_player_head_probe_failed', { url, error });
+            cacheWrite(cache, url, null);
+            return null;
+        }
+    }
+
     async function resolveThumbnailTrackUrl(eventId: string): Promise<string | null> {
-        if (thumbnailTrackCheckedFor === eventId) {
-            return thumbnailTrackUrl;
+        const trackUrl = getClipPreviewTrackUrl(eventId);
+        const status = await probeHead(trackUrl, previewHeadCache);
+        if (status && status >= 200 && status < 300) {
+            thumbnailTrackUrl = trackUrl;
+            return trackUrl;
         }
-
-        thumbnailTrackCheckedFor = eventId;
         thumbnailTrackUrl = null;
-
-        const candidates = getClipPreviewTrackCandidates(eventId);
-        for (const candidate of candidates) {
-            try {
-                const response = await fetch(candidate, { method: 'HEAD' });
-                if (response.ok) {
-                    thumbnailTrackUrl = candidate;
-                    return candidate;
-                }
-            } catch {
-                // Ignore and try next candidate.
-            }
-        }
-
         return null;
     }
 
@@ -126,7 +161,8 @@
             initializing = false;
         });
 
-        player.on('error', () => {
+        player.on('error', (event: unknown) => {
+            logger.error('video_player_runtime_error', event, { frigateEvent, clipUrl });
             videoError = true;
             initializing = false;
         });
@@ -139,8 +175,8 @@
 
         const playResult = player.play();
         if (playResult && typeof playResult.then === 'function') {
-            void playResult.catch(() => {
-                // Browser autoplay policies can block this; controls stay usable.
+            void playResult.catch((error) => {
+                logger.info('video_player_autoplay_blocked', { frigateEvent, error });
             });
         }
     }
@@ -155,17 +191,14 @@
 
         destroyPlayer();
 
-        try {
-            const response = await fetch(clipUrl, { method: 'HEAD' });
-            if (token !== configureToken) return;
-            if (response.status === 403) {
-                videoForbidden = true;
-                videoError = true;
-                initializing = false;
-                return;
-            }
-        } catch {
-            // Continue and let Plyr/video element emit a concrete error if unavailable.
+        const clipStatus = await probeHead(clipUrl, clipHeadCache);
+        if (token !== configureToken) return;
+        if (clipStatus === 403) {
+            videoForbidden = true;
+            videoError = true;
+            initializing = false;
+            logger.warn('video_player_clip_forbidden', { frigateEvent });
+            return;
         }
 
         const previewSrc = await resolveThumbnailTrackUrl(frigateEvent);
@@ -180,11 +213,19 @@
             videoError = false;
             videoForbidden = false;
             initializing = true;
+            clipHeadCache.delete(clipUrl);
+            if (thumbnailTrackUrl) {
+                previewHeadCache.delete(thumbnailTrackUrl);
+            }
         }
     }
 
     onMount(() => {
         mounted = true;
+        restoreFocusElement = (document.activeElement as HTMLElement | null) ?? null;
+        queueMicrotask(() => {
+            closeButton?.focus();
+        });
         void configurePlayer();
     });
 
@@ -198,12 +239,14 @@
     onDestroy(() => {
         configureToken += 1;
         destroyPlayer();
+        restoreFocusElement?.focus?.();
     });
 </script>
 
 <svelte:window onkeydown={handleWindowKeydown} />
 
 <div
+    bind:this={modalElement}
     class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/90 backdrop-blur-md p-4 sm:p-6"
     onclick={handleBackdropClick}
     onkeydown={(event) => event.key === 'Escape' && onClose()}
@@ -214,6 +257,7 @@
 >
     <div class="relative w-full max-w-4xl mx-auto animate-in fade-in zoom-in-95 duration-200">
         <button
+            bind:this={closeButton}
             type="button"
             onclick={onClose}
             class="absolute top-3 right-3 z-20 p-2 text-white/80 hover:text-white transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-white/40 rounded-full bg-black/35 hover:bg-black/50"
@@ -228,14 +272,14 @@
             {#if videoError}
                 <div class="aspect-video bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex flex-col items-center justify-center text-center p-8">
                     {#if videoForbidden}
-                        <h3 class="text-xl font-semibold text-white mb-2">Clip Fetching Disabled</h3>
+                        <h3 class="text-xl font-semibold text-white mb-2">{$_('video_player.clip_fetching_disabled', { default: 'Clip Fetching Disabled' })}</h3>
                         <p class="text-slate-400 max-w-sm">
-                            Enable "Fetch Video Clips" in Settings to view this recording.
+                            {$_('video_player.clip_fetching_disabled_hint', { default: 'Enable "Fetch Video Clips" in Settings to view this recording.' })}
                         </p>
                     {:else}
-                        <h3 class="text-xl font-semibold text-white mb-2">Video Unavailable</h3>
+                        <h3 class="text-xl font-semibold text-white mb-2">{$_('video_player.video_unavailable', { default: 'Video Unavailable' })}</h3>
                         <p class="text-slate-400 max-w-sm mb-6">
-                            The recording could not be loaded from Frigate. It may have been deleted or is not yet available.
+                            {$_('video_player.video_unavailable_hint', { default: 'The recording could not be loaded from Frigate. It may have been deleted or is not yet available.' })}
                         </p>
                         {#if retryCount < maxRetries}
                             <button
@@ -243,7 +287,7 @@
                                 onclick={retryLoad}
                                 class="px-6 py-2.5 bg-white/10 hover:bg-white/20 text-white rounded-full transition-all duration-200"
                             >
-                                Try Again
+                                {$_('common.retry', { default: 'Retry' })}
                             </button>
                         {/if}
                     {/if}
@@ -265,7 +309,7 @@
 
                     {#if initializing}
                         <div class="absolute inset-0 grid place-items-center bg-black/45 text-slate-200 text-sm">
-                            Preparing player...
+                            {$_('video_player.preparing', { default: 'Preparing player...' })}
                         </div>
                     {/if}
                 </div>
@@ -274,8 +318,10 @@
 
         {#if !videoError}
             <div class="mt-2 text-[11px] text-slate-300 px-1 flex items-center justify-between gap-2">
-                <span>Shortcuts: space/K play/pause, arrows seek</span>
-                <span>{thumbnailTrackUrl ? 'Timeline previews enabled' : 'Timeline previews unavailable for this clip'}</span>
+                <span>{$_('video_player.shortcuts', { default: 'Shortcuts: space/K play/pause, arrows seek' })}</span>
+                <span>{thumbnailTrackUrl
+                    ? $_('video_player.previews_enabled', { default: 'Timeline previews enabled' })
+                    : $_('video_player.previews_unavailable', { default: 'Timeline previews unavailable for this clip' })}</span>
             </div>
         {/if}
     </div>

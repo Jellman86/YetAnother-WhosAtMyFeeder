@@ -26,7 +26,9 @@
       "event_not_found": "Evento non trovato in Frigate",
       "empty_clip": "Frigate ha restituito una clip video vuota",
       "media_fetch_failed": "Impossibile recuperare media da Frigate",
-      "invalid_event_id": "Formato ID evento non valido"
+      "invalid_event_id": "Formato ID evento non valido",
+      "preview_not_found": "Clip timeline previews are not available",
+      "preview_generation_failed": "Failed to generate clip timeline previews"
     },
     "events": {
       "snapshot_fetch_failed": "Impossibile recuperare snapshot da Frigate",

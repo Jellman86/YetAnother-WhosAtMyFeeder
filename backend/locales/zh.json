@@ -26,7 +26,9 @@
       "event_not_found": "在 Frigate 中未找到事件",
       "empty_clip": "Frigate 返回了空的视频片段",
       "media_fetch_failed": "从 Frigate 获取媒体失败",
-      "invalid_event_id": "事件 ID 格式无效"
+      "invalid_event_id": "事件 ID 格式无效",
+      "preview_not_found": "Clip timeline previews are not available",
+      "preview_generation_failed": "Failed to generate clip timeline previews"
     },
     "events": {
       "snapshot_fetch_failed": "从 Frigate 获取快照失败",
