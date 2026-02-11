@@ -49,6 +49,11 @@ jobs:
           python -m alembic downgrade -1
           python -m alembic upgrade head
 
+      - name: Migration upgrade path matrix (sampled revisions)
+        run: |
+          cd backend
+          python scripts/ci_migration_path_check.py
+
       - name: SQLite schema sanity checks (FKs + integrity)
         run: |
           cd backend
