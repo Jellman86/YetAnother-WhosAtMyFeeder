@@ -275,6 +275,14 @@
         const previewSrc = await resolveThumbnailTrackUrl(frigateEvent);
         if (token !== configureToken || videoError || useNativeControls) return;
         if (previewSrc) {
+            // Never restart active playback just to add preview thumbnails.
+            // Recreating Plyr can interrupt playback and look like buffering stalls.
+            if (videoElement && (!videoElement.paused || videoElement.currentTime > 0.25)) {
+                previewState = 'unavailable';
+                logger.warn('video_player_preview_skipped_active_playback', { frigateEvent });
+                return;
+            }
+
             // Only enable preview thumbnails after controls are visible and player is stable.
             if (hasVisiblePlyrControls()) {
                 const previewAttached = createPlyr(previewSrc);
@@ -478,7 +486,7 @@
                         controls
                         autoplay
                         playsinline
-                        preload="metadata"
+                        preload="auto"
                         class="w-full h-full"
                     >
                         <source src={clipUrl} type="video/mp4" />
