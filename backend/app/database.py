@@ -245,6 +245,11 @@ class DatabasePool:
 _db_pool: Optional[DatabasePool] = None
 
 
+def is_db_pool_initialized() -> bool:
+    """Return True when the global DB pool has been initialized."""
+    return _db_pool is not None and _db_pool._initialized
+
+
 async def init_db():
     """Initialize database and connection pool."""
     global _db_pool

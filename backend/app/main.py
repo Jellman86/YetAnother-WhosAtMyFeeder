@@ -16,7 +16,7 @@ from contextlib import asynccontextmanager
 from typing import Awaitable, Callable
 from prometheus_client import generate_latest, CONTENT_TYPE_LATEST, Counter
 
-from app.database import init_db, close_db, get_db, get_db_path_diagnostics
+from app.database import init_db, close_db, get_db, get_db_path_diagnostics, is_db_pool_initialized
 from app.services.mqtt_service import mqtt_service
 from app.services.classifier_service import get_classifier
 from app.services.event_processor import EventProcessor
@@ -29,10 +29,9 @@ from app.repositories.detection_repository import DetectionRepository
 from app.routers import events, proxy, settings as settings_router, species, backfill, classifier, models, ai, stats, debug, audio, email, inaturalist, ebird, auth as auth_router
 from app.config import settings, _expand_trusted_hosts
 from app.middleware.language import LanguageMiddleware
-from app.services.i18n_service import i18n_service
 from app.utils.tasks import create_background_task
 from app.ratelimit import limiter
-from app.auth import get_auth_context, AuthContext, AuthLevel
+from app.auth import AuthContext
 from app.auth_legacy import get_auth_context_with_legacy
 
 # Version management
@@ -490,6 +489,28 @@ async def health_check():
         
     return health
 
+
+@app.get("/ready")
+async def readiness_check():
+    """Kubernetes/Compose readiness probe endpoint.
+
+    Ready requires:
+    - DB pool initialized (or test mode)
+    - no non-fatal startup warnings recorded
+    """
+    startup_warnings = getattr(app.state, "startup_warnings", [])
+    db_ready = is_db_pool_initialized() or _is_testing()
+    ready = db_ready and not startup_warnings
+
+    payload = {
+        "ready": ready,
+        "db_pool_initialized": db_ready,
+        "startup_warnings": startup_warnings,
+    }
+    if ready:
+        return payload
+    return JSONResponse(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, content=payload)
+
 @app.get("/api/sse")
 async def sse_endpoint(
     request: Request,
@@ -503,7 +524,6 @@ async def sse_endpoint(
     - Public access if enabled
     """
     from app.auth import verify_token
-    from fastapi.security import HTTPAuthorizationCredentials
 
     # Get auth context with token support
     auth: AuthContext = None

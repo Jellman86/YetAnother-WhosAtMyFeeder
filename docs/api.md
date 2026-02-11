@@ -74,6 +74,7 @@ Check the health status of the backend service and ML models.
   "status": "ok",
   "service": "ya-wamf-backend",
   "version": "2.6.3+abc1234",
+  "startup_warnings": [],
   "ml": {
     "status": "ok",
     "runtimes": {
@@ -84,6 +85,37 @@ Check the health status of the backend service and ML models.
       "bird": {"loaded": true, "runtime": "tflite", "error": null}
     }
   }
+}
+```
+
+### Readiness Check
+
+**`GET /ready`**
+
+Readiness probe for orchestrators (Portainer/Docker health checks).
+
+- Returns `200` when startup is ready for traffic.
+- Returns `503` if DB startup is incomplete or non-fatal startup warnings were recorded.
+
+**No authentication required**
+
+**Response (ready):**
+```json
+{
+  "ready": true,
+  "db_pool_initialized": true,
+  "startup_warnings": []
+}
+```
+
+**Response (not ready):**
+```json
+{
+  "ready": false,
+  "db_pool_initialized": false,
+  "startup_warnings": [
+    {"phase": "telemetry_start", "error": "example failure"}
+  ]
 }
 ```
 

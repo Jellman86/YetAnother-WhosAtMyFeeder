@@ -45,6 +45,18 @@ If you see `PermissionError` in your backend logs or the container fails to star
     docker logs yawamf-backend | grep "Permission denied"
     ```
 
+### Startup Health Signals
+Use these endpoints and lifecycle logs to quickly pinpoint startup failures:
+
+- `GET /health`: includes `startup_warnings` and sets `status=degraded` if a non-fatal startup phase failed.
+- `GET /ready`: returns `200` only when backend startup is ready for traffic; returns `503` with details when DB or startup phases are not ready.
+- Backend logs now emit per-phase lifecycle events:
+  - `Lifecycle phase starting`
+  - `Lifecycle phase completed`
+  - `Lifecycle phase failed`
+
+If startup fails, search logs for `phase=` to identify the exact failing step (`db_init`, `telemetry_start`, `auto_video_classifier_start`, etc.).
+
 ## 🖥 UI Issues
 If the dashboard is blank or buttons don't work:
 1.  **Clear Browser Cache:** Svelte 5 updates sometimes require a hard refresh (`Ctrl + F5`).
