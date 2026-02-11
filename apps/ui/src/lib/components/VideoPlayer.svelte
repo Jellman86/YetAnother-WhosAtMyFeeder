@@ -1,6 +1,8 @@
 <script lang="ts">
-    import { onDestroy } from 'svelte';
-    import { getClipUrl } from '../api';
+    import { onDestroy, onMount } from 'svelte';
+    import Plyr from 'plyr';
+    import 'plyr/dist/plyr.css';
+    import { getClipPreviewTrackCandidates, getClipUrl } from '../api';
 
     interface Props {
         frigateEvent: string;
@@ -9,24 +11,23 @@
 
     let { frigateEvent, onClose }: Props = $props();
 
+    let videoElement = $state<HTMLVideoElement | null>(null);
+    let player = $state<Plyr | null>(null);
+    let initializing = $state(false);
     let videoError = $state(false);
     let videoForbidden = $state(false);
     let retryCount = $state(0);
-    let videoElement = $state<HTMLVideoElement | null>(null);
-    let duration = $state(0);
-    let currentTime = $state(0);
-    let timelineTime = $state(0);
-    let userScrubbing = $state(false);
-    let previewVisible = $state(false);
-    let previewTime = $state(0);
-    let previewX = $state(0);
-    let generatingFrames = $state(false);
-    let timelineFrameError = $state<string | null>(null);
-    let timelineFrames = $state<Array<{ time: number; dataUrl: string }>>([]);
-    let frameGenerationToken = 0;
+    let thumbnailTrackUrl = $state<string | null>(null);
+    let thumbnailTrackCheckedFor = $state<string | null>(null);
+
     let clipUrlBase = $derived(getClipUrl(frigateEvent));
-    let clipUrl = $state("");
-    
+    let clipUrl = $state('');
+
+    let mounted = false;
+    let configureToken = 0;
+
+    const maxRetries = 2;
+
     $effect(() => {
         if (retryCount > 0) {
             const separator = clipUrlBase.includes('?') ? '&' : '?';
@@ -36,426 +37,267 @@
         }
     });
 
-    const maxRetries = 2;
-    const SKIP_SMALL = 5;
-    const SKIP_LARGE = 10;
-
-    function handleKeydown(event: KeyboardEvent) {
-        const target = event.target as HTMLElement | null;
-        const isEditable = !!target && (
-            target.tagName === 'INPUT' ||
-            target.tagName === 'TEXTAREA' ||
-            target.tagName === 'SELECT' ||
-            target.isContentEditable
-        );
-
-        if (event.key === 'Escape') {
-            onClose();
-            return;
-        }
-        if (isEditable || !videoElement || videoError) {
-            return;
-        }
-
-        if (event.key === ' ') {
-            event.preventDefault();
-            if (videoElement.paused) {
-                void videoElement.play().catch(() => {});
-            } else {
-                videoElement.pause();
-            }
-            return;
-        }
-        if (event.key.toLowerCase() === 'k') {
-            if (videoElement.paused) {
-                void videoElement.play().catch(() => {});
-            } else {
-                videoElement.pause();
-            }
-            return;
-        }
-        if (event.key === 'ArrowLeft') {
-            event.preventDefault();
-            seekTo(videoElement.currentTime - SKIP_SMALL);
-            return;
-        }
-        if (event.key === 'ArrowRight') {
-            event.preventDefault();
-            seekTo(videoElement.currentTime + SKIP_SMALL);
-            return;
-        }
-        if (event.key.toLowerCase() === 'j') {
-            seekTo(videoElement.currentTime - SKIP_LARGE);
-            return;
-        }
-        if (event.key.toLowerCase() === 'l') {
-            seekTo(videoElement.currentTime + SKIP_LARGE);
-        }
-    }
-
     function handleBackdropClick(event: MouseEvent) {
         if (event.target === event.currentTarget) {
             onClose();
         }
     }
 
-    function handleError(e: Event & { currentTarget: EventTarget & HTMLVideoElement }) {
-        // Check if the error is due to 403 (we can't check status code directly on video error event easily, 
-        // but if we fail immediately it's likely. 
-        // For a more robust check we would do a HEAD request first, but for now we'll rely on the 
-        // fact that 403s usually trigger a quick error).
-        // Actually, let's keep it simple: if it errors, we show the error.
-        videoError = true;
+    function handleWindowKeydown(event: KeyboardEvent) {
+        if (event.key === 'Escape') {
+            onClose();
+        }
     }
 
-    function formatTime(seconds: number): string {
-        if (!Number.isFinite(seconds) || seconds <= 0) return '0:00';
-        const mins = Math.floor(seconds / 60);
-        const secs = Math.floor(seconds % 60);
-        return `${mins}:${secs.toString().padStart(2, '0')}`;
+    function destroyPlayer() {
+        if (player) {
+            player.destroy();
+            player = null;
+        }
     }
 
-    function handleLoadedMetadata(event: Event & { currentTarget: EventTarget & HTMLVideoElement }) {
-        duration = Number.isFinite(event.currentTarget.duration) ? event.currentTarget.duration : 0;
-        currentTime = 0;
-        timelineTime = 0;
-        previewTime = 0;
-    }
+    async function resolveThumbnailTrackUrl(eventId: string): Promise<string | null> {
+        if (thumbnailTrackCheckedFor === eventId) {
+            return thumbnailTrackUrl;
+        }
 
-    function getNearestFrame(seconds: number): { time: number; dataUrl: string } | null {
-        if (!timelineFrames.length) return null;
-        let best = timelineFrames[0];
-        let bestDelta = Math.abs(best.time - seconds);
-        for (let i = 1; i < timelineFrames.length; i++) {
-            const frame = timelineFrames[i];
-            const delta = Math.abs(frame.time - seconds);
-            if (delta < bestDelta) {
-                best = frame;
-                bestDelta = delta;
+        thumbnailTrackCheckedFor = eventId;
+        thumbnailTrackUrl = null;
+
+        const candidates = getClipPreviewTrackCandidates(eventId);
+        for (const candidate of candidates) {
+            try {
+                const response = await fetch(candidate, { method: 'HEAD' });
+                if (response.ok) {
+                    thumbnailTrackUrl = candidate;
+                    return candidate;
+                }
+            } catch {
+                // Ignore and try next candidate.
             }
         }
-        return best;
+
+        return null;
     }
 
-    function handleTimeUpdate(event: Event & { currentTarget: EventTarget & HTMLVideoElement }) {
-        currentTime = event.currentTarget.currentTime || 0;
-        if (!userScrubbing) {
-            timelineTime = currentTime;
-        }
-    }
-
-    function seekTo(value: number) {
+    function createPlyr(previewSrc: string | null) {
         if (!videoElement) return;
-        const next = Math.max(0, Math.min(duration || 0, value));
-        videoElement.currentTime = next;
-        currentTime = next;
-        timelineTime = next;
-    }
 
-    function handleTimelineInput(event: Event & { currentTarget: EventTarget & HTMLInputElement }) {
-        userScrubbing = true;
-        timelineTime = Number(event.currentTarget.value);
-        previewTime = timelineTime;
-        previewVisible = true;
-    }
+        destroyPlayer();
 
-    function handleTimelineCommit(event: Event & { currentTarget: EventTarget & HTMLInputElement }) {
-        const next = Number(event.currentTarget.value);
-        seekTo(next);
-        userScrubbing = false;
-        previewTime = next;
-        previewVisible = false;
-    }
+        player = new Plyr(videoElement, {
+            autoplay: true,
+            clickToPlay: true,
+            hideControls: false,
+            keyboard: { focused: true, global: false },
+            seekTime: 5,
+            controls: [
+                'play-large',
+                'play',
+                'progress',
+                'current-time',
+                'duration',
+                'mute',
+                'volume',
+                'captions',
+                'settings',
+                'pip',
+                'airplay',
+                'fullscreen'
+            ],
+            settings: ['captions', 'quality', 'speed', 'loop'],
+            speed: {
+                selected: 1,
+                options: [0.5, 0.75, 1, 1.25, 1.5, 2]
+            },
+            tooltips: {
+                controls: true,
+                seek: true
+            },
+            previewThumbnails: previewSrc
+                ? {
+                    enabled: true,
+                    src: previewSrc
+                }
+                : { enabled: false }
+        } as any);
 
-    function updatePreviewFromPointer(event: PointerEvent | MouseEvent, input: HTMLInputElement) {
-        if (!duration) return;
-        const rect = input.getBoundingClientRect();
-        if (rect.width <= 0) return;
-        const ratio = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
-        previewX = ratio;
-        previewTime = ratio * duration;
-        previewVisible = true;
-    }
+        player.on('ready', () => {
+            initializing = false;
+        });
 
-    function handleTimelinePointerMove(event: PointerEvent & { currentTarget: EventTarget & HTMLInputElement }) {
-        updatePreviewFromPointer(event, event.currentTarget);
-    }
+        player.on('error', () => {
+            videoError = true;
+            initializing = false;
+        });
 
-    function handleTimelinePointerEnter(event: PointerEvent & { currentTarget: EventTarget & HTMLInputElement }) {
-        updatePreviewFromPointer(event, event.currentTarget);
-    }
+        player.source = {
+            type: 'video',
+            title: 'Detection clip',
+            sources: [{ src: clipUrl, type: 'video/mp4' }]
+        };
 
-    function handleTimelinePointerLeave() {
-        if (!userScrubbing) {
-            previewVisible = false;
+        const playResult = player.play();
+        if (playResult && typeof playResult.then === 'function') {
+            void playResult.catch(() => {
+                // Browser autoplay policies can block this; controls stay usable.
+            });
         }
     }
 
-    async function generateTimelineFrames(url: string, token: number) {
-        if (!url) return;
-        generatingFrames = true;
-        timelineFrameError = null;
-        timelineFrames = [];
+    async function configurePlayer() {
+        if (!mounted || !videoElement || !clipUrl) return;
 
-        const sampleVideo = document.createElement('video');
-        sampleVideo.preload = 'auto';
-        sampleVideo.muted = true;
-        sampleVideo.playsInline = true;
-        sampleVideo.crossOrigin = 'anonymous';
-        sampleVideo.src = url;
+        const token = ++configureToken;
+        initializing = true;
+        videoError = false;
+        videoForbidden = false;
 
-        const waitForEvent = (target: EventTarget, eventName: string, timeoutMs = 8000) =>
-            new Promise<void>((resolve, reject) => {
-                let timer: number | null = null;
-                const onDone = () => {
-                    target.removeEventListener(eventName, onDone as EventListener);
-                    target.removeEventListener('error', onError as EventListener);
-                    if (timer) window.clearTimeout(timer);
-                    resolve();
-                };
-                const onError = () => {
-                    target.removeEventListener(eventName, onDone as EventListener);
-                    target.removeEventListener('error', onError as EventListener);
-                    if (timer) window.clearTimeout(timer);
-                    reject(new Error(`Failed waiting for ${eventName}`));
-                };
-                target.addEventListener(eventName, onDone as EventListener, { once: true });
-                target.addEventListener('error', onError as EventListener, { once: true });
-                timer = window.setTimeout(() => {
-                    target.removeEventListener(eventName, onDone as EventListener);
-                    target.removeEventListener('error', onError as EventListener);
-                    reject(new Error(`Timed out waiting for ${eventName}`));
-                }, timeoutMs);
-            });
+        destroyPlayer();
 
         try {
-            await waitForEvent(sampleVideo, 'loadedmetadata');
-            const localDuration = Number.isFinite(sampleVideo.duration) ? sampleVideo.duration : 0;
-            if (!localDuration) {
-                timelineFrameError = 'No clip metadata';
+            const response = await fetch(clipUrl, { method: 'HEAD' });
+            if (token !== configureToken) return;
+            if (response.status === 403) {
+                videoForbidden = true;
+                videoError = true;
+                initializing = false;
                 return;
             }
-
-            const targetFrames = Math.max(6, Math.min(14, Math.floor(localDuration / 3)));
-            const canvas = document.createElement('canvas');
-            canvas.width = 160;
-            canvas.height = 90;
-            const ctx = canvas.getContext('2d');
-            if (!ctx) {
-                timelineFrameError = 'Canvas unavailable';
-                return;
-            }
-
-            const results: Array<{ time: number; dataUrl: string }> = [];
-            for (let i = 0; i < targetFrames; i++) {
-                if (token !== frameGenerationToken) return; // stale generation
-                const t = targetFrames === 1 ? 0 : (localDuration * i) / (targetFrames - 1);
-                sampleVideo.currentTime = Math.max(0, Math.min(localDuration, t));
-                await waitForEvent(sampleVideo, 'seeked');
-                ctx.drawImage(sampleVideo, 0, 0, canvas.width, canvas.height);
-                results.push({
-                    time: t,
-                    dataUrl: canvas.toDataURL('image/jpeg', 0.7)
-                });
-            }
-
-            if (token === frameGenerationToken) {
-                timelineFrames = results;
-            }
-        } catch (e) {
-            if (token === frameGenerationToken) {
-                timelineFrameError = 'Frame preview unavailable';
-            }
-        } finally {
-            if (token === frameGenerationToken) {
-                generatingFrames = false;
-            }
-            sampleVideo.removeAttribute('src');
-            sampleVideo.load();
+        } catch {
+            // Continue and let Plyr/video element emit a concrete error if unavailable.
         }
+
+        const previewSrc = await resolveThumbnailTrackUrl(frigateEvent);
+        if (token !== configureToken) return;
+
+        createPlyr(previewSrc);
     }
 
     function retryLoad() {
         if (retryCount < maxRetries) {
-            retryCount++;
+            retryCount += 1;
             videoError = false;
             videoForbidden = false;
-            currentTime = 0;
-            timelineTime = 0;
-            duration = 0;
+            initializing = true;
         }
     }
-    
-    // Check if clip is allowed/exists when mounting
-    $effect(() => {
-        fetch(clipUrl, { method: 'HEAD' })
-            .then(res => {
-                if (res.status === 403) {
-                    videoForbidden = true;
-                    videoError = true;
-                }
-            })
-            .catch(() => { /* ignore, let video tag handle it */ });
+
+    onMount(() => {
+        mounted = true;
+        void configurePlayer();
     });
 
     $effect(() => {
-        if (!clipUrl || videoError) return;
-        frameGenerationToken += 1;
-        void generateTimelineFrames(clipUrl, frameGenerationToken);
+        if (!mounted) return;
+        clipUrl;
+        frigateEvent;
+        void configurePlayer();
     });
 
     onDestroy(() => {
-        frameGenerationToken += 1;
+        configureToken += 1;
+        destroyPlayer();
     });
-
-    let previewFrame = $derived(() => getNearestFrame(previewTime));
 </script>
 
-<svelte:window onkeydown={handleKeydown} />
+<svelte:window onkeydown={handleWindowKeydown} />
 
-<!-- Modal Backdrop -->
 <div
     class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/90 backdrop-blur-md p-4 sm:p-6"
     onclick={handleBackdropClick}
-    onkeydown={(e) => e.key === 'Escape' && onClose()}
+    onkeydown={(event) => event.key === 'Escape' && onClose()}
     role="dialog"
     aria-modal="true"
     aria-label="Video player"
     tabindex="-1"
 >
-    <div class="relative w-full max-w-5xl mx-auto flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-200">
-        <!-- Close Button (Mobile Friendly) -->
+    <div class="relative w-full max-w-4xl mx-auto animate-in fade-in zoom-in-95 duration-200">
         <button
             type="button"
             onclick={onClose}
-            class="absolute -top-12 right-0 sm:-right-12 p-2 text-white/70 hover:text-white
-                   transition-colors duration-200 focus:outline-none focus:ring-2
-                   focus:ring-white/30 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm"
+            class="absolute top-3 right-3 z-20 p-2 text-white/80 hover:text-white transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-white/40 rounded-full bg-black/35 hover:bg-black/50"
             aria-label="Close video"
         >
-            <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" />
             </svg>
         </button>
 
-        <!-- Video Container -->
-        <div class="relative bg-black rounded-2xl overflow-hidden shadow-2xl ring-1 ring-white/10 aspect-video flex items-center justify-center">
+        <div class="rounded-2xl overflow-hidden ring-1 ring-white/10 bg-black shadow-2xl">
             {#if videoError}
-                <div class="absolute inset-0 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex flex-col items-center justify-center text-center p-8">
+                <div class="aspect-video bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex flex-col items-center justify-center text-center p-8">
                     {#if videoForbidden}
-                        <div class="w-20 h-20 bg-amber-500/10 rounded-full flex items-center justify-center mb-6">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="w-10 h-10 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
-                            </svg>
-                        </div>
                         <h3 class="text-xl font-semibold text-white mb-2">Clip Fetching Disabled</h3>
                         <p class="text-slate-400 max-w-sm">
-                            Enable "Fetch Video Clips" in the Settings menu to view this recording.
+                            Enable "Fetch Video Clips" in Settings to view this recording.
                         </p>
                     {:else}
-                        <div class="w-20 h-20 bg-red-500/10 rounded-full flex items-center justify-center mb-6">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="w-10 h-10 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                            </svg>
-                        </div>
                         <h3 class="text-xl font-semibold text-white mb-2">Video Unavailable</h3>
                         <p class="text-slate-400 max-w-sm mb-6">
                             The recording could not be loaded from Frigate. It may have been deleted or is not yet available.
                         </p>
                         {#if retryCount < maxRetries}
                             <button
+                                type="button"
                                 onclick={retryLoad}
-                                class="px-6 py-2.5 bg-white/10 hover:bg-white/20 text-white rounded-full
-                                    transition-all duration-200 flex items-center gap-2 font-medium group"
+                                class="px-6 py-2.5 bg-white/10 hover:bg-white/20 text-white rounded-full transition-all duration-200"
                             >
-                                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 transition-transform group-hover:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                                </svg>
                                 Try Again
                             </button>
                         {/if}
                     {/if}
                 </div>
             {:else}
-                <video
-                    controls
-                    autoplay
-                    playsinline
-                    class="w-full h-full object-contain"
-                    bind:this={videoElement}
-                    onloadedmetadata={(e) => handleLoadedMetadata(e as any)}
-                    ontimeupdate={(e) => handleTimeUpdate(e as any)}
-                    onerror={(e) => handleError(e as any)}
-                >
-                    <source src={clipUrl} type="video/mp4" />
-                    <track kind="captions" />
-                    Your browser does not support video playback.
-                </video>
+                <div class="relative aspect-video bg-black">
+                    <video
+                        bind:this={videoElement}
+                        controls
+                        autoplay
+                        playsinline
+                        preload="metadata"
+                        class="w-full h-full"
+                    >
+                        <source src={clipUrl} type="video/mp4" />
+                        <track kind="captions" />
+                        Your browser does not support video playback.
+                    </video>
+
+                    {#if initializing}
+                        <div class="absolute inset-0 grid place-items-center bg-black/45 text-slate-200 text-sm">
+                            Preparing player...
+                        </div>
+                    {/if}
+                </div>
             {/if}
         </div>
 
         {#if !videoError}
-            <div class="rounded-2xl bg-slate-900/70 ring-1 ring-white/10 p-3 sm:p-4">
-                <div class="flex items-center justify-between text-[11px] text-slate-300 mb-2">
-                    <span>{formatTime(userScrubbing ? timelineTime : currentTime)}</span>
-                    <span>{formatTime(duration)}</span>
-                </div>
-                <div class="relative">
-                    {#if previewVisible && previewFrame()}
-                        <div
-                            class="absolute -top-14 z-10 -translate-x-1/2 rounded-md border border-white/20 bg-black/85 px-1.5 py-1 shadow-lg"
-                            style={`left: ${previewX * 100}%`}
-                        >
-                            <img src={previewFrame()?.dataUrl} alt={`Preview at ${formatTime(previewTime)}`} class="h-9 w-16 rounded object-cover" />
-                            <div class="mt-1 text-center text-[9px] text-white/90">{formatTime(previewTime)}</div>
-                        </div>
-                    {/if}
-                    <input
-                        type="range"
-                        min="0"
-                        max={duration || 0}
-                        step="0.1"
-                        value={userScrubbing ? timelineTime : currentTime}
-                        oninput={(e) => handleTimelineInput(e as any)}
-                        onchange={(e) => handleTimelineCommit(e as any)}
-                        onpointermove={(e) => handleTimelinePointerMove(e as any)}
-                        onpointerenter={(e) => handleTimelinePointerEnter(e as any)}
-                        onpointerleave={handleTimelinePointerLeave}
-                        class="w-full accent-emerald-500 h-2.5"
-                        aria-label="Video timeline scrubber"
-                        disabled={!duration}
-                    />
-                </div>
-                <div class="mt-2 text-[10px] text-slate-400">
-                    Shortcuts: `J` -10s, `K` play/pause, `L` +10s, arrows ±5s
-                </div>
-
-                <div class="mt-3 min-h-[68px]">
-                    {#if generatingFrames}
-                        <div class="text-xs text-slate-400">Generating frame timeline…</div>
-                    {:else if timelineFrameError}
-                        <div class="text-xs text-slate-400">{timelineFrameError}</div>
-                    {:else if timelineFrames.length}
-                        <div class="overflow-x-auto pb-1">
-                            <div class="flex items-center gap-1.5 min-w-max">
-                            {#each timelineFrames as frame}
-                                <button
-                                    type="button"
-                                    onclick={() => seekTo(frame.time)}
-                                    class="relative group overflow-hidden rounded-md border border-white/10 hover:border-emerald-400/70 transition shrink-0 w-[78px]"
-                                    title={`Jump to ${formatTime(frame.time)}`}
-                                >
-                                    <img src={frame.dataUrl} alt={`Frame at ${formatTime(frame.time)}`} class="w-full h-11 object-cover opacity-90 group-hover:opacity-100" />
-                                    <span class="absolute bottom-0 right-0 px-1 py-0.5 text-[9px] leading-none bg-black/70 text-white rounded-tl">
-                                        {formatTime(frame.time)}
-                                    </span>
-                                </button>
-                            {/each}
-                            </div>
-                        </div>
-                    {/if}
-                </div>
+            <div class="mt-2 text-[11px] text-slate-300 px-1 flex items-center justify-between gap-2">
+                <span>Shortcuts: space/K play/pause, arrows seek</span>
+                <span>{thumbnailTrackUrl ? 'Timeline previews enabled' : 'Timeline previews unavailable for this clip'}</span>
             </div>
         {/if}
     </div>
 </div>
+
+<style>
+    :global(.plyr) {
+        --plyr-color-main: #14b8a6;
+        --plyr-control-radius: 10px;
+        --plyr-control-icon-size: 14px;
+        --plyr-tooltip-background: rgba(15, 23, 42, 0.95);
+        --plyr-tooltip-color: #f8fafc;
+        --plyr-video-control-color: #e2e8f0;
+        --plyr-video-controls-background: linear-gradient(to top, rgba(2, 6, 23, 0.9), rgba(2, 6, 23, 0.35));
+    }
+
+    :global(.plyr--video .plyr__controls) {
+        padding: 8px;
+        gap: 4px;
+    }
+
+    :global(.plyr--full-ui input[type='range']) {
+        color: #14b8a6;
+    }
+</style>

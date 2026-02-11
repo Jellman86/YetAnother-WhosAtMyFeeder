@@ -858,6 +858,15 @@ export function getClipUrl(frigateEvent: string): string {
     return withAuthParams(`${API_BASE}/frigate/${frigateEvent}/clip.mp4`);
 }
 
+export function getClipPreviewTrackCandidates(frigateEvent: string): string[] {
+    // Keep this ordered from most explicit to legacy/fallback route guesses.
+    return [
+        withAuthParams(`${API_BASE}/frigate/${frigateEvent}/clip-thumbnails.vtt`),
+        withAuthParams(`${API_BASE}/frigate/${frigateEvent}/thumbnails.vtt`),
+        withAuthParams(`${API_BASE}/frigate/${frigateEvent}/timeline.vtt`)
+    ];
+}
+
 export async function checkClipAvailable(frigateEvent: string): Promise<boolean> {
     try {
         const response = await apiFetch(`${API_BASE}/frigate/${frigateEvent}/clip.mp4`, {
