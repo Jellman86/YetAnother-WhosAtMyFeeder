@@ -304,6 +304,14 @@
     let temperatureUnit = $derived(settingsStore.settings?.location_temperature_unit ?? 'celsius');
     let weatherByBucket = $derived(() => new Map((timeline?.weather ?? []).map((w) => [w.bucket_start, w] as const)));
     let hasWeather = $derived(() => !!(timeline?.weather && timeline.weather.length));
+    let weatherOverlayEligible = $derived(() => {
+        if (!timeline) return false;
+        const startMs = Date.parse(timeline.window_start);
+        const endMs = Date.parse(timeline.window_end);
+        if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) return false;
+        const windowDays = Math.max(0, (endMs - startMs) / 86_400_000);
+        return windowDays <= 31 && ['hour', 'halfday', 'day'].includes(timeline.bucket);
+    });
 
     function convertTemperature(value: number | null | undefined) {
         if (value === null || value === undefined || Number.isNaN(value)) return null;
@@ -946,53 +954,61 @@
                         {/if}
                     </div>
                 {/if}
-                {#if hasWeather()}
-                    <div class="mt-4 flex flex-wrap items-center gap-3 text-[10px] text-slate-400">
-                        <div class="flex items-center gap-2">
-                            <button
-                                type="button"
-                                onclick={() => showTemperature = !showTemperature}
-                                class="px-2 py-1 rounded-full border border-slate-200/70 dark:border-slate-700/60 text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400"
-                            >
-                                <span aria-hidden="true">🌡️</span>
-                                {showTemperature ? $_('leaderboard.hide_temperature') : $_('leaderboard.show_temperature')}
-                            </button>
-                            <button
-                                type="button"
-                                onclick={() => showWind = !showWind}
-                                class="px-2 py-1 rounded-full border border-slate-200/70 dark:border-slate-700/60 text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400"
-                            >
-                                <span aria-hidden="true">💨</span>
-                                {showWind ? $_('leaderboard.hide_wind') : $_('leaderboard.show_wind')}
-                            </button>
-                            <button
-                                type="button"
-                                onclick={() => showPrecip = !showPrecip}
-                                class="px-2 py-1 rounded-full border border-slate-200/70 dark:border-slate-700/60 text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400"
-                            >
-                                <span aria-hidden="true">🌧️</span>
-                                {showPrecip ? $_('leaderboard.hide_precip') : $_('leaderboard.show_precip')}
-                            </button>
-                        </div>
-                        <span class="text-slate-400/70">{$_('common.grouped_by', { default: 'Grouped by' })}: {bucketLabel(timeline?.bucket)}</span>
+                <div class="mt-4 flex flex-wrap items-center gap-3 text-[10px] text-slate-400">
+                    <div class="flex items-center gap-2">
+                        <button
+                            type="button"
+                            onclick={() => showTemperature = !showTemperature}
+                            disabled={!hasWeather()}
+                            class="px-2 py-1 rounded-full border border-slate-200/70 dark:border-slate-700/60 text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 disabled:opacity-45 disabled:cursor-not-allowed"
+                        >
+                            <span aria-hidden="true">🌡️</span>
+                            {showTemperature ? $_('leaderboard.hide_temperature') : $_('leaderboard.show_temperature')}
+                        </button>
+                        <button
+                            type="button"
+                            onclick={() => showWind = !showWind}
+                            disabled={!hasWeather()}
+                            class="px-2 py-1 rounded-full border border-slate-200/70 dark:border-slate-700/60 text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 disabled:opacity-45 disabled:cursor-not-allowed"
+                        >
+                            <span aria-hidden="true">💨</span>
+                            {showWind ? $_('leaderboard.hide_wind') : $_('leaderboard.show_wind')}
+                        </button>
+                        <button
+                            type="button"
+                            onclick={() => showPrecip = !showPrecip}
+                            disabled={!hasWeather()}
+                            class="px-2 py-1 rounded-full border border-slate-200/70 dark:border-slate-700/60 text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 disabled:opacity-45 disabled:cursor-not-allowed"
+                        >
+                            <span aria-hidden="true">🌧️</span>
+                            {showPrecip ? $_('leaderboard.hide_precip') : $_('leaderboard.show_precip')}
+                        </button>
                     </div>
-
-                    {#if timeline?.sunrise_range || timeline?.sunset_range}
-                        <div class="mt-2 flex flex-wrap items-center gap-2 text-[10px] text-slate-500">
-                            {#if timeline?.sunrise_range}
-                                <span class="inline-flex items-center gap-1 rounded-full border border-amber-200/60 dark:border-amber-700/50 bg-amber-50/60 dark:bg-amber-900/20 px-2 py-1 text-amber-700 dark:text-amber-300">
-                                    <span aria-hidden="true">🌅</span>
-                                    {$_('leaderboard.sunrise')}: {timeline.sunrise_range}
-                                </span>
-                            {/if}
-                            {#if timeline?.sunset_range}
-                                <span class="inline-flex items-center gap-1 rounded-full border border-orange-200/60 dark:border-orange-700/50 bg-orange-50/60 dark:bg-orange-900/20 px-2 py-1 text-orange-700 dark:text-orange-300">
-                                    <span aria-hidden="true">🌇</span>
-                                    {$_('leaderboard.sunset')}: {timeline.sunset_range}
-                                </span>
-                            {/if}
-                        </div>
+                    <span class="text-slate-400/70">{$_('common.grouped_by', { default: 'Grouped by' })}: {bucketLabel(timeline?.bucket)}</span>
+                    {#if !hasWeather()}
+                        <span class="text-slate-500 dark:text-slate-400">
+                            {weatherOverlayEligible()
+                                ? $_('leaderboard.weather_overlay_no_data', { default: 'No weather data in this range yet. Run Weather Backfill in Settings > Data.' })
+                                : $_('leaderboard.weather_overlay_range_limited', { default: 'Weather overlays are available on Day/Week/Month ranges up to ~31 days.' })}
+                        </span>
                     {/if}
+                </div>
+
+                {#if timeline?.sunrise_range || timeline?.sunset_range}
+                    <div class="mt-2 flex flex-wrap items-center gap-2 text-[10px] text-slate-500">
+                        {#if timeline?.sunrise_range}
+                            <span class="inline-flex items-center gap-1 rounded-full border border-amber-200/60 dark:border-amber-700/50 bg-amber-50/60 dark:bg-amber-900/20 px-2 py-1 text-amber-700 dark:text-amber-300">
+                                <span aria-hidden="true">🌅</span>
+                                {$_('leaderboard.sunrise')}: {timeline.sunrise_range}
+                            </span>
+                        {/if}
+                        {#if timeline?.sunset_range}
+                            <span class="inline-flex items-center gap-1 rounded-full border border-orange-200/60 dark:border-orange-700/50 bg-orange-50/60 dark:bg-orange-900/20 px-2 py-1 text-orange-700 dark:text-orange-300">
+                                <span aria-hidden="true">🌇</span>
+                                {$_('leaderboard.sunset')}: {timeline.sunset_range}
+                            </span>
+                        {/if}
+                    </div>
                 {/if}
             </div>
         </div>
