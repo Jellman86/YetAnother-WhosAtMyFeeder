@@ -19,6 +19,7 @@
     type PreviewState = 'checking' | 'enabled' | 'disabled' | 'unavailable';
 
     const HEAD_CACHE_TTL_MS = 5 * 60 * 1000;
+    const PROBE_TIMEOUT_MS = 5000;
     const clipHeadCache = new Map<string, ProbeCache>();
     const previewHeadCache = new Map<string, ProbeCache>();
 
@@ -113,8 +114,10 @@
         }
 
         const started = performance.now();
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), PROBE_TIMEOUT_MS);
         try {
-            let response = await fetch(url, { method });
+            let response = await fetch(url, { method, signal: controller.signal });
             // Some proxy endpoints only expose GET and return 405 for HEAD.
             // Fallback to GET to trigger preview generation and report real availability.
             if (response.status === 405 || response.status === 501) {
@@ -124,7 +127,7 @@
                     method,
                     status: response.status
                 });
-                response = await fetch(url, { method: 'GET' });
+                response = await fetch(url, { method: 'GET', signal: controller.signal });
             }
             cacheWrite(cache, url, response.status);
             logger.info('video_player_probe_complete', {
@@ -139,6 +142,8 @@
             logger.warn('video_player_probe_failed', { url: sanitizedUrl(url), method, error });
             cacheWrite(cache, url, null);
             return null;
+        } finally {
+            clearTimeout(timeoutId);
         }
     }
 
@@ -302,11 +307,11 @@
         queueMicrotask(() => {
             closeButton?.focus();
         });
-        void configurePlayer();
     });
 
     $effect(() => {
-        if (!mounted) return;
+        if (!mounted || !videoElement || !clipUrl) return;
+        videoElement;
         clipUrl;
         frigateEvent;
         void configurePlayer();
