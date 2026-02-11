@@ -242,6 +242,15 @@
         }
     }
 
+    async function applyPreviewWhenAvailable(token: number): Promise<void> {
+        const previewSrc = await resolveThumbnailTrackUrl(frigateEvent);
+        if (token !== configureToken || videoError) return;
+        if (previewSrc) {
+            // Recreate once when preview track is confirmed so Plyr can enable hover thumbnails.
+            createPlyr(previewSrc);
+        }
+    }
+
     async function configurePlayer() {
         if (!mounted || !videoElement || !clipUrl) return;
 
@@ -274,10 +283,9 @@
             return;
         }
 
-        const previewSrc = await resolveThumbnailTrackUrl(frigateEvent);
-        if (token !== configureToken) return;
-
-        createPlyr(previewSrc);
+        // Do not block player UI on preview probing; render controls immediately.
+        createPlyr(null);
+        void applyPreviewWhenAvailable(token);
         logger.info('video_player_configure_complete', {
             frigateEvent,
             token,
@@ -310,7 +318,11 @@
     });
 
     $effect(() => {
-        if (!mounted || !videoElement || !clipUrl) return;
+        if (!mounted || !clipUrl) return;
+        if (!videoElement) {
+            logger.debug('video_player_waiting_for_video_element', { frigateEvent });
+            return;
+        }
         videoElement;
         clipUrl;
         frigateEvent;

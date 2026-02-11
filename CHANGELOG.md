@@ -21,6 +21,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Changed:** Video player E2E coverage now validates Plyr controls, close button visibility, explicit preview-state messaging, and hover-preview rendering when preview tracks are available.
 - **Fixed:** Video modal initialization watchdog no longer uses reactive timer state, preventing Svelte `effect_update_depth_exceeded` loops and full-UI hangs when opening playback.
 - **Fixed:** Video player initialization now waits for the bound `<video>` element and uses bounded probe timeouts so modal startup cannot stall indefinitely on media probe requests.
+- **Fixed:** Video player now initializes Plyr immediately after clip availability checks and probes preview thumbnails asynchronously, preventing controls from stalling while preview assets are generated.
 - **Fixed:** Explorer and Leaderboard now surface backend load failures instead of silently rendering empty views, and leaderboard fetches the table and timeline independently (so one failing request does not blank the whole page).
 - **Changed:** Release builds now derive `APP_VERSION` from the git tag and avoid embedding tag names as “branch” identifiers, preventing malformed version strings in telemetry and `/api/version`.
 - **Changed:** Backend startup now logs explicit lifecycle phases with timing and marks non-fatal startup failures as `startup_warnings`.
