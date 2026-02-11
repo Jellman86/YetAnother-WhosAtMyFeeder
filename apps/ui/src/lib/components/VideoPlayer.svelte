@@ -46,7 +46,9 @@
     let mounted = false;
     let configureToken = 0;
     let initWatchdogTimer: ReturnType<typeof setTimeout> | null = null;
+    let controlsProbeTimer: ReturnType<typeof setTimeout> | null = null;
     let lastConfiguredKey = '';
+    let useNativeControls = $state(false);
 
     const maxRetries = 2;
 
@@ -102,6 +104,25 @@
             player.destroy();
             player = null;
         }
+    }
+
+    function hasVisiblePlyrControls(): boolean {
+        if (!modalElement) return false;
+        const controls = modalElement.querySelector('.plyr__controls') as HTMLElement | null;
+        if (!controls) return false;
+        return controls.offsetParent !== null;
+    }
+
+    function switchToNativeFallback(reason: string): void {
+        logger.warn('video_player_native_fallback', { frigateEvent, reason, clipUrl: sanitizedUrl(clipUrl) });
+        if (controlsProbeTimer) {
+            clearTimeout(controlsProbeTimer);
+            controlsProbeTimer = null;
+        }
+        destroyPlayer();
+        useNativeControls = true;
+        previewState = 'unavailable';
+        initializing = false;
     }
 
     async function probeUrl(
@@ -250,11 +271,20 @@
     }
 
     async function applyPreviewWhenAvailable(token: number): Promise<void> {
+        if (useNativeControls) return;
         const previewSrc = await resolveThumbnailTrackUrl(frigateEvent);
-        if (token !== configureToken || videoError) return;
+        if (token !== configureToken || videoError || useNativeControls) return;
         if (previewSrc) {
-            // Recreate once when preview track is confirmed so Plyr can enable hover thumbnails.
-            createPlyr(previewSrc);
+            // Only enable preview thumbnails after controls are visible and player is stable.
+            if (hasVisiblePlyrControls()) {
+                const previewAttached = createPlyr(previewSrc);
+                if (!previewAttached) {
+                    switchToNativeFallback('preview_attach_failed');
+                }
+            } else {
+                previewState = 'unavailable';
+                logger.warn('video_player_preview_skipped_controls_unavailable', { frigateEvent });
+            }
         }
     }
 
@@ -266,6 +296,7 @@
         initializing = true;
         videoError = false;
         videoForbidden = false;
+        useNativeControls = false;
         logger.info('video_player_configure_start', {
             frigateEvent,
             token,
@@ -293,10 +324,21 @@
         // Do not block player UI on preview probing; render controls immediately.
         const initialized = createPlyr(null);
         if (!initialized) {
-            videoError = true;
-            initializing = false;
+            switchToNativeFallback('initial_plyr_create_failed');
             return;
         }
+
+        if (controlsProbeTimer) {
+            clearTimeout(controlsProbeTimer);
+            controlsProbeTimer = null;
+        }
+        controlsProbeTimer = setTimeout(() => {
+            if (token !== configureToken || videoError || useNativeControls) return;
+            if (!hasVisiblePlyrControls()) {
+                switchToNativeFallback('controls_not_visible');
+            }
+        }, 2500);
+
         void applyPreviewWhenAvailable(token);
         logger.info('video_player_configure_complete', {
             frigateEvent,
@@ -312,6 +354,7 @@
             videoError = false;
             videoForbidden = false;
             initializing = true;
+            useNativeControls = false;
             previewState = 'checking';
             clipHeadCache.delete(clipUrl);
             if (thumbnailTrackUrl) {
@@ -348,6 +391,10 @@
             clearTimeout(initWatchdogTimer);
             initWatchdogTimer = null;
         }
+        if (controlsProbeTimer) {
+            clearTimeout(controlsProbeTimer);
+            controlsProbeTimer = null;
+        }
         destroyPlayer();
         logger.info('video_player_modal_close', { frigateEvent });
         restoreFocusElement?.focus?.();
@@ -368,8 +415,7 @@
                 });
                 // Fail fast to avoid long-running UI lockups if player initialization deadlocks.
                 if (initializing) {
-                    videoError = true;
-                    initializing = false;
+                    switchToNativeFallback('initialization_watchdog_timeout');
                 }
             }, 15000);
         }
@@ -452,7 +498,9 @@
             <div class="mt-2 text-[11px] text-slate-300 px-1 flex items-center justify-between gap-2">
                 <span>{$_('video_player.shortcuts', { default: 'Shortcuts: space/K play/pause, arrows seek' })}</span>
                 <div class="flex items-center gap-2">
-                    <span>{#if previewState === 'enabled'}
+                    <span>{#if useNativeControls}
+                        {$_('video_player.previews_unavailable', { default: 'Timeline previews unavailable for this clip' })}
+                    {:else if previewState === 'enabled'}
                         {$_('video_player.previews_enabled', { default: 'Timeline previews enabled' })}
                     {:else if previewState === 'disabled'}
                         {$_('video_player.previews_disabled', { default: 'Timeline previews disabled (media cache off)' })}
@@ -472,7 +520,7 @@
                     {/if}
                 </div>
             </div>
-            {#if previewState === 'checking'}
+            {#if previewState === 'checking' && !useNativeControls}
                 <div class="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-slate-700/70" aria-label="Generating timeline previews">
                     <div class="h-full w-1/3 bg-emerald-400/90 animate-[previewLoad_1.15s_ease-in-out_infinite]"></div>
                 </div>

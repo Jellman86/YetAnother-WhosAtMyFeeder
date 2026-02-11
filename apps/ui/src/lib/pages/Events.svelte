@@ -127,6 +127,10 @@
             events = newEvents;
             totalCount = countRes.count;
         } catch (e) {
+            if (e instanceof Error && e.name === 'AbortError') {
+                // Request cancellation is expected when filter changes trigger a newer fetch.
+                return;
+            }
             // Events can look "empty" when the API is unreachable; surface a visible error instead.
             error = $_('events.load_failed');
             console.error('Failed to load events', e);
