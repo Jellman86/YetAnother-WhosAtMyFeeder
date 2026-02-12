@@ -72,6 +72,7 @@
     let lastConfiguredKey = '';
     let useNativeControls = $state(false);
     let isCoarsePointer = $state(false);
+    let autoplayMuted = $state(false);
     let coarsePointerMql: MediaQueryList | null = null;
     let coarsePointerListener: ((event: MediaQueryListEvent) => void) | null = null;
 
@@ -178,6 +179,31 @@
     function handleVideoEnded() {
         playbackState = 'ended';
         void attachDeferredPreviewIfReady('ended');
+    }
+
+    async function ensureAutoplay(playerInstance: Plyr | null): Promise<void> {
+        try {
+            const maybe = playerInstance?.play();
+            if (maybe && typeof (maybe as Promise<void>).then === 'function') {
+                await maybe;
+            }
+            return;
+        } catch (error) {
+            logger.info('video_player_autoplay_blocked', { frigateEvent, error });
+        }
+
+        if (!videoElement) return;
+        try {
+            autoplayMuted = true;
+            videoElement.muted = true;
+            const mutedResult = playerInstance?.play();
+            if (mutedResult && typeof (mutedResult as Promise<void>).then === 'function') {
+                await mutedResult;
+            }
+            logger.info('video_player_autoplay_muted_fallback_success', { frigateEvent });
+        } catch (error) {
+            logger.warn('video_player_autoplay_muted_fallback_failed', { frigateEvent, error });
+        }
     }
 
     async function probeUrl(
@@ -313,12 +339,7 @@
             };
 
             if (options.autoplay ?? true) {
-                const playResult = player.play();
-                if (playResult && typeof playResult.then === 'function') {
-                    void playResult.catch((error) => {
-                        logger.info('video_player_autoplay_blocked', { frigateEvent, error });
-                    });
-                }
+                void ensureAutoplay(player);
             }
             return true;
         } catch (error) {
@@ -380,6 +401,7 @@
         const started = performance.now();
         initializing = true;
         playbackState = 'idle';
+        autoplayMuted = false;
         videoError = false;
         videoForbidden = false;
         useNativeControls = false;
@@ -630,6 +652,7 @@
                         bind:this={videoElement}
                         controls
                         autoplay
+                        muted={autoplayMuted}
                         playsinline
                         preload="auto"
                         class="w-full h-full"

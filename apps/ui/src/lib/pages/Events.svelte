@@ -275,6 +275,7 @@
     }
 
     let showVideo = $state(false);
+    let videoEventId = $state<string | null>(null);
 </script>
 
 <div class="space-y-6">
@@ -319,7 +320,11 @@
                 <DetectionCard 
                     detection={event} 
                     onclick={() => selectedEvent = event} 
-                    onPlay={() => { selectedEvent = event; showVideo = true; }}
+                    onPlay={() => {
+                        videoEventId = event.frigate_event;
+                        showVideo = true;
+                        selectedEvent = null;
+                    }}
                     hideProgress={selectedEvent?.frigate_event === event.frigate_event}
                 />
             {/each}
@@ -335,9 +340,21 @@
         showVideoButton={true}
         onClose={() => selectedEvent = null}
         onReclassify={handleReclassify}
-        onPlayVideo={() => showVideo = true}
+        onPlayVideo={(frigateEvent: string) => {
+            videoEventId = frigateEvent;
+            showVideo = true;
+            selectedEvent = null;
+        }}
         onViewSpecies={(species: string) => { selectedSpecies = species; selectedEvent = null; }}
     />
 {/if}
 {#if selectedSpecies}<SpeciesDetailModal speciesName={selectedSpecies} onclose={() => selectedSpecies = null} />{/if}
-{#if showVideo && selectedEvent}<VideoPlayer frigateEvent={selectedEvent.frigate_event} onClose={() => showVideo = false} />{/if}
+{#if showVideo && videoEventId}
+    <VideoPlayer
+        frigateEvent={videoEventId}
+        onClose={() => {
+            showVideo = false;
+            videoEventId = null;
+        }}
+    />
+{/if}

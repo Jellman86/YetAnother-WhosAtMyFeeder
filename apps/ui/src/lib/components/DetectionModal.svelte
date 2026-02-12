@@ -45,7 +45,7 @@
         showVideoButton?: boolean;
         onClose: () => void;
         onReclassify?: (detection: Detection) => void;
-        onPlayVideo?: () => void;
+        onPlayVideo?: (frigateEvent: string) => void;
         onViewSpecies: (speciesName: string) => void;
         readOnly?: boolean;
     }
@@ -1301,18 +1301,30 @@
 
                 <!-- Video Play Button (optional) -->
                 {#if showVideoButton && detection.has_clip && onPlayVideo}
-                    <button
-                        type="button"
-                        onclick={onPlayVideo}
-                        aria-label={$_('detection.play_video', { values: { species: primaryName } })}
-                        class="absolute inset-0 flex items-center justify-center bg-black/0 hover:bg-black/20 transition-all group/play focus:outline-none"
-                    >
-                        <div class="w-16 h-16 rounded-full bg-white/90 dark:bg-slate-800/90 flex items-center justify-center shadow-lg opacity-70 group-hover/play:opacity-100 transform scale-90 group-hover/play:scale-100 transition-all duration-200">
+                    <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+                        <button
+                            type="button"
+                            onclick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                onPlayVideo?.(detection.frigate_event);
+                            }}
+                            onpointerdown={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                            }}
+                            ontouchstart={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                            }}
+                            aria-label={$_('detection.play_video', { values: { species: primaryName } })}
+                            class="pointer-events-auto relative z-30 w-16 h-16 rounded-full bg-white/92 dark:bg-slate-800/92 flex items-center justify-center shadow-xl text-teal-600 dark:text-teal-400 hover:scale-105 active:scale-95 transition-transform duration-150 focus:outline-none focus:ring-2 focus:ring-teal-400/70"
+                        >
                             <svg xmlns="http://www.w3.org/2000/svg" class="w-7 h-7 text-teal-600 dark:text-teal-400 ml-1" viewBox="0 0 24 24" fill="currentColor">
                                 <path d="M8 5v14l11-7z"/>
                             </svg>
-                        </div>
-                    </button>
+                        </button>
+                    </div>
                 {/if}
 
         <button
