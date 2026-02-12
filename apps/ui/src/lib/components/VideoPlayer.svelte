@@ -45,6 +45,14 @@
     let clipDownloadUrl = $derived(clipUrl ? `${clipUrl}${clipUrl.includes('?') ? '&' : '?'}download=1` : '');
     let canDownloadClip = $derived(!authStore.isGuest || authStore.publicAccessAllowClipDownloads);
     let shortEventId = $derived(frigateEvent.split('-').pop() ?? frigateEvent);
+    let previewStatusLabel = $derived.by(() => {
+        if (useNativeControls) return $_('video_player.previews_unavailable', { default: 'Timeline previews unavailable for this clip' });
+        if (previewState === 'enabled') return $_('video_player.previews_enabled', { default: 'Timeline previews enabled' });
+        if (previewState === 'disabled') return $_('video_player.previews_disabled', { default: 'Timeline previews disabled (media cache off)' });
+        if (previewState === 'checking') return $_('video_player.previews_generating', { default: 'Generating timeline previews...' });
+        if (previewState === 'deferred') return $_('video_player.previews_deferred', { default: 'Timeline previews deferred while video is playing' });
+        return $_('video_player.previews_unavailable', { default: 'Timeline previews unavailable for this clip' });
+    });
     let playbackLabel = $derived.by(() => {
         if (initializing) return $_('video_player.preparing', { default: 'Preparing player...' });
         if (playbackState === 'playing') return $_('video_player.playing', { default: 'Playing' });
@@ -547,26 +555,47 @@
             <div class="mt-2 px-1 flex items-center justify-between gap-2 text-[11px]">
                 <span class="text-slate-300">{$_('video_player.shortcuts', { default: 'Shortcuts: space/K play/pause, arrows seek' })}</span>
                 <div class="flex items-center gap-2">
-                    <span class="inline-flex items-center rounded-full border border-slate-700/70 bg-slate-800/60 px-2 py-1 text-slate-200">{#if useNativeControls}
-                        {$_('video_player.previews_unavailable', { default: 'Timeline previews unavailable for this clip' })}
-                    {:else if previewState === 'enabled'}
-                        {$_('video_player.previews_enabled', { default: 'Timeline previews enabled' })}
-                    {:else if previewState === 'disabled'}
-                        {$_('video_player.previews_disabled', { default: 'Timeline previews disabled (media cache off)' })}
-                    {:else if previewState === 'checking'}
-                        {$_('video_player.previews_generating', { default: 'Generating timeline previews...' })}
-                    {:else if previewState === 'deferred'}
-                        {$_('video_player.previews_deferred', { default: 'Timeline previews deferred while video is playing' })}
-                    {:else}
-                        {$_('video_player.previews_unavailable', { default: 'Timeline previews unavailable for this clip' })}
-                    {/if}</span>
+                    <span
+                        class="inline-flex h-8 w-8 items-center justify-center rounded-full border bg-slate-800/60 text-slate-200
+                            {(useNativeControls || previewState === 'disabled' || previewState === 'unavailable')
+                                ? 'border-slate-700/70 text-slate-300'
+                                : previewState === 'checking'
+                                    ? 'border-amber-400/40 text-amber-200'
+                                    : previewState === 'deferred'
+                                        ? 'border-cyan-400/35 text-cyan-200'
+                                        : 'border-emerald-400/35 text-emerald-200'}"
+                        aria-label={previewStatusLabel}
+                        title={previewStatusLabel}
+                    >
+                        {#if previewState === 'checking'}
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.5 12a7.5 7.5 0 0 1 11.78-6.15m3.22 6.15a7.5 7.5 0 0 1-11.78 6.15M16.5 3.75v2.1m3.75 3.75h-2.1M7.5 20.25v-2.1m-3.75-3.75h2.1" />
+                            </svg>
+                        {:else if previewState === 'enabled'}
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7.5h18M3 16.5h18M5.25 7.5v9m4.5-9v9m4.5-9v9m4.5-9v9" />
+                            </svg>
+                        {:else if previewState === 'deferred'}
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6l3.5 2M21 12a9 9 0 1 1-9-9" />
+                            </svg>
+                        {:else}
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7.5h18M3 16.5h18M5.25 7.5v9m4.5-9v9m4.5-9v9m4.5-9v9M4 4l16 16" />
+                            </svg>
+                        {/if}
+                    </span>
                     {#if canDownloadClip}
                         <a
                             href={clipDownloadUrl}
                             download={`${frigateEvent}.mp4`}
-                            class="inline-flex items-center rounded-full bg-emerald-500/15 border border-emerald-400/35 px-2.5 py-1 text-[11px] font-semibold text-emerald-100 hover:bg-emerald-500/25 focus:outline-none focus:ring-2 focus:ring-emerald-400/60"
+                            class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500/15 border border-emerald-400/35 text-emerald-100 hover:bg-emerald-500/25 focus:outline-none focus:ring-2 focus:ring-emerald-400/60"
+                            aria-label={$_('video_player.download', { default: 'Download clip' })}
+                            title={$_('video_player.download', { default: 'Download clip' })}
                         >
-                            {$_('video_player.download', { default: 'Download clip' })}
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v10.5m0 0l-4-4m4 4l4-4M5 15.75v1.5A1.75 1.75 0 0 0 6.75 19h10.5A1.75 1.75 0 0 0 19 17.25v-1.5" />
+                            </svg>
                         </a>
                     {/if}
                 </div>

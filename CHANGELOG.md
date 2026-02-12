@@ -31,6 +31,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Fixed:** Leaderboard weather/temperature/wind/precip controls now remain visible even when overlay data is unavailable; controls are disabled with explicit hints (no weather data yet vs range limitation).
 - **Added:** Video modal now includes hover timeline previews (sprite + WebVTT) when preview assets are available.
 - **Changed:** Video modal now supports compact Plyr controls, keyboard seek/play shortcuts, and clearer preview-state messaging.
+- **Changed:** Video modal bottom-bar now uses icon-only controls for preview status and clip download (with accessible labels/tooltips).
 - **Changed:** Backend startup/shutdown CI smoke test now verifies `/health` and `/ready` responses under real lifespan startup.
 - **Changed:** CI now runs a sampled Alembic upgrade-path matrix (multiple historical revisions → head), with SQLite integrity/FK checks and app-level `init_db()` validation on each path.
 
