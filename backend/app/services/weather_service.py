@@ -158,7 +158,7 @@ class WeatherService:
         return "Cloudy"
 
     async def get_daily_sun_times(self, start: datetime, end: datetime) -> dict:
-        """Fetch daily sunrise/sunset times for a time range (UTC)."""
+        """Fetch daily sunrise/sunset times for a time range in local timezone."""
         try:
             lat, lon = await self.get_location()
 
@@ -174,7 +174,8 @@ class WeatherService:
                 "start_date": start_date,
                 "end_date": end_date,
                 "daily": "sunrise,sunset",
-                "timezone": "UTC"
+                # Use local timezone for user-facing sunrise/sunset ranges.
+                "timezone": "auto"
             }
 
             async with httpx.AsyncClient(timeout=6.0) as client:

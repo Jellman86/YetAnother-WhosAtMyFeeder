@@ -658,12 +658,17 @@
         {#if !videoError}
             <div class="mt-2 px-1 flex flex-col gap-2 text-[11px] sm:flex-row sm:items-center sm:justify-between">
                 <p class="order-2 text-slate-300 sm:order-1">
-                    <span class="hidden sm:inline">{$_('video_player.shortcuts', { default: 'Shortcuts: space/K play/pause, arrows seek' })}</span>
+                    <span class="hidden sm:inline">
+                        <span class="inline-flex items-center rounded-md border border-slate-600/80 bg-slate-800/70 px-1.5 py-0.5 text-[10px] font-semibold text-slate-100">Space / K</span>
+                        <span class="mx-1 text-slate-400">play/pause</span>
+                        <span class="inline-flex items-center rounded-md border border-slate-600/80 bg-slate-800/70 px-1.5 py-0.5 text-[10px] font-semibold text-slate-100">Left / Right</span>
+                        <span class="mx-1 text-slate-400">seek +/-5s</span>
+                    </span>
                     <span class="sm:hidden">{$_('video_player.shortcuts_mobile_hint', { default: 'Keyboard shortcuts are available when using a hardware keyboard.' })}</span>
                 </p>
                 <div class="order-1 flex items-center justify-end gap-2 sm:order-2 sm:ml-auto">
                     <span
-                        class="inline-flex h-9 min-w-[2.25rem] items-center justify-center gap-1.5 rounded-full border bg-slate-800/60 px-3 text-slate-200
+                        class="inline-flex h-10 min-w-[2.5rem] items-center justify-center gap-1.5 rounded-xl border bg-slate-800/80 px-3 text-slate-100
                             {(useNativeControls || previewState === 'disabled' || previewState === 'unavailable')
                                 ? 'border-slate-700/70 text-slate-300'
                                 : previewState === 'checking'
@@ -691,20 +696,20 @@
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7.5h18M3 16.5h18M5.25 7.5v9m4.5-9v9m4.5-9v9m4.5-9v9M4 4l16 16" />
                             </svg>
                         {/if}
-                        <span class="font-semibold sm:hidden">{$_('video_player.preview_notification_title', { default: 'Previews' })}</span>
+                        <span class="font-semibold">{$_('video_player.preview_notification_title', { default: 'Previews' })}</span>
                     </span>
                     {#if canDownloadClip}
                         <a
                             href={clipDownloadUrl}
                             download={`${frigateEvent}.mp4`}
-                            class="inline-flex h-9 min-w-[2.25rem] items-center justify-center gap-1.5 rounded-full bg-emerald-500/15 border border-emerald-400/35 px-3 text-emerald-100 hover:bg-emerald-500/25 focus:outline-none focus:ring-2 focus:ring-emerald-400/60"
+                            class="inline-flex h-10 min-w-[2.5rem] items-center justify-center gap-1.5 rounded-xl bg-emerald-500/18 border border-emerald-400/45 px-3 text-emerald-100 hover:bg-emerald-500/25 focus:outline-none focus:ring-2 focus:ring-emerald-400/60"
                             aria-label={$_('video_player.download', { default: 'Download clip' })}
                             title={$_('video_player.download', { default: 'Download clip' })}
                         >
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v10.5m0 0l-4-4m4 4l4-4M5 15.75v1.5A1.75 1.75 0 0 0 6.75 19h10.5A1.75 1.75 0 0 0 19 17.25v-1.5" />
                             </svg>
-                            <span class="font-semibold sm:hidden">{$_('video_player.download', { default: 'Download clip' })}</span>
+                            <span class="font-semibold">{$_('video_player.download', { default: 'Download clip' })}</span>
                         </a>
                     {/if}
                 </div>
@@ -732,7 +737,7 @@
     :global(.plyr) {
         --plyr-color-main: #14b8a6;
         --plyr-control-radius: 10px;
-        --plyr-control-icon-size: 14px;
+        --plyr-control-icon-size: 16px;
         --plyr-tooltip-background: rgba(15, 23, 42, 0.95);
         --plyr-tooltip-color: #f8fafc;
         --plyr-video-control-color: #e2e8f0;
@@ -742,6 +747,27 @@
     :global(.plyr--video .plyr__controls) {
         padding: 8px;
         gap: 4px;
+    }
+
+    :global(.plyr--video .plyr__control) {
+        min-width: 36px;
+        min-height: 36px;
+    }
+
+    @media (max-width: 640px) {
+        :global(.plyr) {
+            --plyr-control-icon-size: 18px;
+        }
+
+        :global(.plyr--video .plyr__controls) {
+            padding: 10px 8px;
+            gap: 6px;
+        }
+
+        :global(.plyr--video .plyr__control) {
+            min-width: 40px;
+            min-height: 40px;
+        }
     }
 
     :global(.plyr--full-ui input[type='range']) {

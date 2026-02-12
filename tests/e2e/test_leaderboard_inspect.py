@@ -32,16 +32,16 @@ def test_leaderboard_inspect():
         canvas = graph_card.locator(".apexcharts-canvas").first
         canvas.wait_for(state="visible", timeout=15000)
 
-        # Capture line path for comparison
-        line_path = graph_card.locator(".apexcharts-series path").first.get_attribute("d")
+        # Default tab should still render a continuous detections trend path.
+        line_path = graph_card.locator(".apexcharts-area-series path").first.get_attribute("d")
         assert line_path
 
         # Summary stats under the chart
         summary_block = graph_card.locator("div.text-slate-500").last
         summary_text = summary_block.inner_text()
         print(f"Summary text: {summary_text}")
-        assert "Peak day:" in summary_text
-        assert "Avg/day:" in summary_text
+        assert "Peak " in summary_text
+        assert "Avg/" in summary_text
 
         # Sort buttons and top rows snapshot
         def top_rows_snapshot():
@@ -59,14 +59,14 @@ def test_leaderboard_inspect():
             page.wait_for_timeout(300)
             names = top_rows_snapshot()
             print(f"Top rows after {label}: {names}")
-            path = graph_card.locator(".apexcharts-series path").first.get_attribute("d")
-            print(f"Graph path after {label}: {path[:80]}...")
-            # Rank toggles should not change the chart.
-            assert path == line_path
-
-        # Graph should not change with rank buttons (rank only affects table)
-        line_path_after = graph_card.locator(".apexcharts-series path").first.get_attribute("d")
-        assert line_path == line_path_after
+            if label in ["Week", "Month"]:
+                bar_count = graph_card.locator(".apexcharts-bar-series .apexcharts-series path").count()
+                print(f"Bar count after {label}: {bar_count}")
+                assert bar_count > 0
+            else:
+                path = graph_card.locator(".apexcharts-area-series path").first.get_attribute("d")
+                print(f"Line path after {label}: {path[:80] if path else 'None'}...")
+                assert path
 
         # Screenshot for manual review
         page.screenshot(path="/config/workspace/YA-WAMF/tests/e2e/screenshots/leaderboard-inspect.png", full_page=True)

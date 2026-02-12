@@ -300,6 +300,7 @@
     let timelineCounts = $derived(timelinePoints().map((p) => p.count) || []);
     let timelineMax = $derived(timelineCounts.length ? Math.max(...timelineCounts) : 0);
     let timelineAvg = $derived(timelinePoints().length ? Math.round((timeline?.total_count || 0) / timelinePoints().length) : 0);
+    let detectionUsesBars = $derived(() => span === 'week' || span === 'month');
     let isDark = $derived(() => themeStore.isDark);
     let temperatureUnit = $derived(settingsStore.settings?.location_temperature_unit ?? 'celsius');
     let weatherByBucket = $derived(() => new Map((timeline?.weather ?? []).map((w) => [w.bucket_start, w] as const)));
@@ -337,7 +338,7 @@
 
     let chartOptions = $derived(() => ({
         chart: {
-            type: 'line',
+            type: detectionUsesBars() ? 'bar' : 'line',
             height: 260,
             width: '100%',
             toolbar: { show: false },
@@ -347,7 +348,7 @@
         series: [
             {
                 name: 'Detections',
-                type: 'area',
+                type: detectionUsesBars() ? 'bar' : 'area',
                 data: timelinePoints().map((p) => ({
                     x: Date.parse(p.bucket_start),
                     y: p.count
@@ -386,19 +387,25 @@
         ],
         dataLabels: { enabled: false },
         stroke: {
-            curve: 'smooth',
-            width: [2, 2, 2, 2],
+            curve: detectionUsesBars() ? 'straight' : 'smooth',
+            width: [detectionUsesBars() ? 0 : 2, 2, 2, 2],
             colors: ['#10b981', '#f97316', '#0ea5e9', '#a855f7'],
             dashArray: [0, 4, 4, 6]
         },
         fill: {
-            type: ['gradient', 'solid', 'solid', 'solid'],
+            type: [detectionUsesBars() ? 'solid' : 'gradient', 'solid', 'solid', 'solid'],
             gradient: {
                 shadeIntensity: 1,
                 opacityFrom: 0.35,
                 opacityTo: 0,
                 stops: [0, 90, 100]
             },
+        },
+        plotOptions: {
+            bar: {
+                borderRadius: 5,
+                columnWidth: timeline?.bucket === 'day' ? '62%' : '56%'
+            }
         },
         // Remove point markers ("dots") for a cleaner chart.
         markers: { size: 0, hover: { size: 0 } },

@@ -1,4 +1,5 @@
 import pytest
+from datetime import datetime
 from unittest.mock import AsyncMock, patch, MagicMock
 from app.services.weather_service import WeatherService
 
@@ -260,3 +261,39 @@ async def test_get_current_weather_includes_all_fields(weather_service):
             assert weather["condition_code"] == 61
             assert weather["is_day"] is False
             assert weather["condition_text"] == "Rain"
+
+
+@pytest.mark.asyncio
+async def test_get_daily_sun_times_uses_local_timezone(weather_service):
+    """Sun times should request local timezone from Open-Meteo."""
+    with patch('app.services.weather_service.settings') as mock_settings:
+        mock_settings.location.latitude = 40.7128
+        mock_settings.location.longitude = -74.0060
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.raise_for_status = MagicMock()
+        mock_response.json.return_value = {
+            "daily": {
+                "time": ["2026-02-01"],
+                "sunrise": ["2026-02-01T07:01"],
+                "sunset": ["2026-02-01T17:13"]
+            }
+        }
+
+        with patch('httpx.AsyncClient') as mock_client:
+            mock_instance = MagicMock()
+            mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
+            mock_instance.__aexit__ = AsyncMock()
+            mock_instance.get = AsyncMock(return_value=mock_response)
+            mock_client.return_value = mock_instance
+
+            result = await weather_service.get_daily_sun_times(
+                datetime(2026, 2, 1, 0, 0),
+                datetime(2026, 2, 3, 0, 0),
+            )
+
+            assert result["2026-02-01"]["sunrise"] == "2026-02-01T07:01"
+            assert result["2026-02-01"]["sunset"] == "2026-02-01T17:13"
+            _, kwargs = mock_instance.get.await_args
+            assert kwargs["params"]["timezone"] == "auto"

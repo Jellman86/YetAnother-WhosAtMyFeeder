@@ -44,14 +44,24 @@
         }
     }
 
-    const shortcuts = [
-        { key: '?', description: $_('shortcuts.open_panel', { default: 'Open shortcuts panel' }) },
-        { key: 'g d', description: $_('shortcuts.go_dashboard', { default: 'Go to Dashboard' }) },
-        { key: 'g e', description: $_('shortcuts.go_events', { default: 'Go to Events' }) },
-        { key: 'g l', description: $_('shortcuts.go_species', { default: 'Go to Leaderboard' }) },
-        { key: 'g t', description: $_('shortcuts.go_settings', { default: 'Go to Settings' }) },
-        { key: 'Escape', description: $_('shortcuts.close_modal', { default: 'Close modal' }) },
-        { key: 'r', description: $_('shortcuts.refresh', { default: 'Refresh page' }) }
+    const shortcutGroups = [
+        {
+            title: $_('shortcuts.navigation', { default: 'Navigation' }),
+            items: [
+                { key: 'g d', description: $_('shortcuts.go_dashboard', { default: 'Go to Dashboard' }) },
+                { key: 'g e', description: $_('shortcuts.go_events', { default: 'Go to Events' }) },
+                { key: 'g l', description: $_('shortcuts.go_species', { default: 'Go to Leaderboard' }) },
+                { key: 'g t', description: $_('shortcuts.go_settings', { default: 'Go to Settings' }) }
+            ]
+        },
+        {
+            title: $_('shortcuts.actions', { default: 'Actions' }),
+            items: [
+                { key: 'r', description: $_('shortcuts.refresh', { default: 'Refresh page' }) },
+                { key: '?', description: $_('shortcuts.open_panel', { default: 'Open shortcuts panel' }) },
+                { key: 'Escape', description: $_('shortcuts.close_modal', { default: 'Close modal' }) }
+            ]
+        }
     ];
 </script>
 
@@ -76,14 +86,23 @@
                 {$_('shortcuts.title', { default: 'Keyboard Shortcuts' })}
             </h2>
 
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-                {#each shortcuts as shortcut}
-                    <div class="flex items-center gap-3">
-                        <kbd class="px-3 py-2 bg-slate-100 dark:bg-slate-700 rounded-lg font-mono text-sm font-bold text-slate-700 dark:text-slate-300 min-w-[60px] text-center shadow-sm border border-slate-200 dark:border-slate-600">
-                            {shortcut.key}
-                        </kbd>
-                        <span class="text-sm text-slate-600 dark:text-slate-400">{shortcut.description}</span>
-                    </div>
+            <div class="grid grid-cols-1 gap-4 mb-6">
+                {#each shortcutGroups as group}
+                    <section class="rounded-2xl border border-slate-200/80 dark:border-slate-700/70 bg-slate-50/70 dark:bg-slate-900/45 p-4">
+                        <h3 class="text-[11px] font-black uppercase tracking-[0.2em] text-slate-500 dark:text-slate-300 mb-3">
+                            {group.title}
+                        </h3>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            {#each group.items as shortcut}
+                                <div class="flex items-center justify-between gap-3 rounded-xl border border-slate-200/80 dark:border-slate-700/60 bg-white/90 dark:bg-slate-800/70 px-3 py-2">
+                                    <span class="text-sm text-slate-700 dark:text-slate-300">{shortcut.description}</span>
+                                    <kbd class="inline-flex items-center justify-center px-2 py-1 bg-slate-100 dark:bg-slate-700 rounded-md font-mono text-xs font-bold text-slate-700 dark:text-slate-200 min-w-[64px] text-center shadow-sm border border-slate-200 dark:border-slate-600">
+                                        {shortcut.key}
+                                    </kbd>
+                                </div>
+                            {/each}
+                        </div>
+                    </section>
                 {/each}
             </div>
 

@@ -6,6 +6,13 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- **Fixed:** Leaderboard sunrise/sunset ranges now use local timezone data from weather APIs (instead of forced UTC), improving real-world day/week/month display accuracy.
+- **Fixed:** Leaderboard sunrise/sunset range formatting now parses and sorts by clock-time values for stable ascending ranges (for example `07:28–08:13`).
+- **Changed:** Leaderboard detections chart now defaults to histogram-style bars on Week/Month views while preserving line/area trend rendering for shorter ranges.
+- **Changed:** Video modal mobile controls now use stronger contrast, larger touch targets, and explicit labels on preview/download actions for clearer visibility.
+- **Changed:** Keyboard shortcuts modal is now grouped into clearer sections with improved key-description hierarchy.
+- **Added:** Backend regression tests for local-time sun fetch and sunrise/sunset range formatting behavior.
+
 - **Added:** Video modal clip download action (`download=1`) with backend enforcement that allows owners always and guests only when explicitly enabled.
 - **Added:** New public-access setting to control guest clip downloads (UI + API + auth status propagation): `public_access_allow_clip_downloads` / `PUBLIC_ACCESS__ALLOW_CLIP_DOWNLOADS`.
 - **Changed:** Public-access settings now include an explicit “Allow clip downloads” toggle for guest users.

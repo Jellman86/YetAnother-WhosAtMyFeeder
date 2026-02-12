@@ -94,6 +94,27 @@ class DetectionsTimelineSpanResponse(BaseModel):
     sunrise_range: Optional[str] = None
     sunset_range: Optional[str] = None
 
+
+def _parse_sun_datetime(value: Optional[str]) -> Optional[datetime]:
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except Exception:
+        return None
+
+
+def _format_clock_range(values: list[str]) -> Optional[str]:
+    parsed = [_parse_sun_datetime(v) for v in values if v]
+    parsed = [dt for dt in parsed if dt is not None]
+    if not parsed:
+        return None
+    parsed.sort(key=lambda dt: (dt.hour, dt.minute))
+    start = parsed[0].strftime("%H:%M")
+    end = parsed[-1].strftime("%H:%M")
+    return start if start == end else f"{start}–{end}"
+
+
 @router.get("/stats/daily-summary", response_model=DailySummaryResponse)
 @guest_rate_limit()
 async def get_daily_summary(
@@ -588,12 +609,8 @@ async def get_detection_timeline_span(
                     if sun:
                         sunrise_times = [v.get("sunrise") for v in sun.values() if v and v.get("sunrise")]
                         sunset_times = [v.get("sunset") for v in sun.values() if v and v.get("sunset")]
-                        if sunrise_times:
-                            sunrise_times = sorted(sunrise_times)
-                            sunrise_range = sunrise_times[0][-5:] if len(sunrise_times) == 1 else f"{sunrise_times[0][-5:]}–{sunrise_times[-1][-5:]}"
-                        if sunset_times:
-                            sunset_times = sorted(sunset_times)
-                            sunset_range = sunset_times[0][-5:] if len(sunset_times) == 1 else f"{sunset_times[0][-5:]}–{sunset_times[-1][-5:]}"
+                        sunrise_range = _format_clock_range(sunrise_times)
+                        sunset_range = _format_clock_range(sunset_times)
                 except Exception:
                     weather_points = None
                     sunrise_range = None
