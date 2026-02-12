@@ -97,7 +97,7 @@
         <button 
             class="fixed inset-0 z-[55] cursor-default bg-transparent w-full h-full border-none" 
             onclick={() => showDropdown = false}
-            aria-label="Close language selector"
+            aria-label={$_('nav.close_language_selector', { default: 'Close language selector' })}
         ></button>
     {/if}
 </div>

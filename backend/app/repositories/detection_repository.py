@@ -123,6 +123,13 @@ class DetectionRepository:
     def __init__(self, db: aiosqlite.Connection):
         self.db = db
 
+    async def _last_statement_changes(self) -> int:
+        """Return rows changed by the most recent write statement on this connection."""
+        cursor = await self.db.execute("SELECT changes()")
+        row = await cursor.fetchone()
+        await cursor.close()
+        return int(row[0]) if row and row[0] is not None else 0
+
     async def get_by_frigate_event(self, frigate_event: str) -> Optional[Detection]:
         async with self.db.execute(
             "SELECT id, detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label, audio_confirmed, audio_species, audio_score, temperature, weather_condition, weather_cloud_cover, weather_wind_speed, weather_wind_direction, weather_precipitation, weather_rain, weather_snowfall, scientific_name, common_name, taxa_id, video_classification_score, video_classification_label, video_classification_index, video_classification_timestamp, video_classification_status, video_classification_error, ai_analysis, ai_analysis_timestamp, manual_tagged, notified_at FROM detections WHERE frigate_event = ?",
@@ -172,10 +179,9 @@ class DetectionRepository:
               AND (video_classification_timestamp IS NULL
                    OR video_classification_timestamp < datetime('now', ?))
         """, (now, f'-{max_age_minutes} minutes'))
+        changed = await self._last_statement_changes()
         await self.db.commit()
-        cur = await self.db.execute("SELECT changes()")
-        row = await cur.fetchone()
-        return int(row[0]) if row else 0
+        return changed
 
     async def mark_notified(self, frigate_event: str, timestamp: Optional[datetime] = None):
         """Mark a detection as notified."""
@@ -223,14 +229,16 @@ class DetectionRepository:
     async def delete_by_id(self, detection_id: int) -> bool:
         """Delete a detection by ID. Returns True if deleted."""
         await self.db.execute("DELETE FROM detections WHERE id = ?", (detection_id,))
+        changed = await self._last_statement_changes()
         await self.db.commit()
-        return self.db.total_changes > 0
+        return changed > 0
 
     async def delete_by_frigate_event(self, frigate_event: str) -> bool:
         """Delete a detection by Frigate event ID. Returns True if deleted."""
         await self.db.execute("DELETE FROM detections WHERE frigate_event = ?", (frigate_event,))
+        changed = await self._last_statement_changes()
         await self.db.commit()
-        return self.db.total_changes > 0
+        return changed > 0
 
     async def create(self, detection: Detection):
         await self.db.execute("""
@@ -324,50 +332,12 @@ class DetectionRepository:
         await self.db.commit()
 
     async def upsert_if_higher_score(self, detection: Detection) -> tuple[bool, bool]:
-        """Atomically insert or update a detection, only updating if new score is higher.
-
-        Uses SQLite's ON CONFLICT clause to prevent race conditions.
-
-        Args:
-            detection: The detection to insert or update
+        """Insert if missing, otherwise update only when score/audio is better.
 
         Returns:
             Tuple of (was_inserted, was_updated)
         """
-        # First, check if the event already exists to distinguish insert vs update.
-        existing = await self.get_by_frigate_event(detection.frigate_event)
-        was_existing = existing is not None
-
-        # Then, try to insert. If conflict on frigate_event, update only if score is higher.
-        # SQLite's ON CONFLICT DO UPDATE with WHERE clause handles this atomically.
-        await self.db.execute("""
-            INSERT INTO detections (detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label, audio_confirmed, audio_species, audio_score, temperature, weather_condition, weather_cloud_cover, weather_wind_speed, weather_wind_direction, weather_precipitation, weather_rain, weather_snowfall, scientific_name, common_name, taxa_id, manual_tagged)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(frigate_event) DO UPDATE SET
-                detection_time = excluded.detection_time,
-                detection_index = excluded.detection_index,
-                score = excluded.score,
-                display_name = excluded.display_name,
-                category_name = excluded.category_name,
-                frigate_score = excluded.frigate_score,
-                sub_label = excluded.sub_label,
-                audio_confirmed = excluded.audio_confirmed,
-                audio_species = excluded.audio_species,
-                audio_score = excluded.audio_score,
-                temperature = excluded.temperature,
-                weather_condition = excluded.weather_condition,
-                weather_cloud_cover = excluded.weather_cloud_cover,
-                weather_wind_speed = excluded.weather_wind_speed,
-                weather_wind_direction = excluded.weather_wind_direction,
-                weather_precipitation = excluded.weather_precipitation,
-                weather_rain = excluded.weather_rain,
-                weather_snowfall = excluded.weather_snowfall,
-                scientific_name = excluded.scientific_name,
-                common_name = excluded.common_name,
-                taxa_id = excluded.taxa_id,
-                manual_tagged = detections.manual_tagged
-            WHERE excluded.score > detections.score OR (excluded.audio_confirmed = 1 AND detections.audio_confirmed = 0)
-        """, (
+        insert_params = (
             detection.detection_time,
             detection.detection_index,
             detection.score,
@@ -392,17 +362,76 @@ class DetectionRepository:
             getattr(detection, 'scientific_name', None),
             getattr(detection, 'common_name', None),
             getattr(detection, 'taxa_id', None),
-            1 if detection.manual_tagged else 0
+            1 if detection.manual_tagged else 0,
+        )
+
+        # Attempt insert first.
+        await self.db.execute("""
+            INSERT OR IGNORE INTO detections
+            (detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label, audio_confirmed, audio_species, audio_score, temperature, weather_condition, weather_cloud_cover, weather_wind_speed, weather_wind_direction, weather_precipitation, weather_rain, weather_snowfall, scientific_name, common_name, taxa_id, manual_tagged)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, insert_params)
+        inserted = await self._last_statement_changes() > 0
+        if inserted:
+            await self.db.commit()
+            return (True, False)
+
+        # Existing row: update only when it improves quality.
+        await self.db.execute("""
+            UPDATE detections
+            SET detection_time = ?,
+                detection_index = ?,
+                score = ?,
+                display_name = ?,
+                category_name = ?,
+                frigate_score = ?,
+                sub_label = ?,
+                audio_confirmed = ?,
+                audio_species = ?,
+                audio_score = ?,
+                temperature = ?,
+                weather_condition = ?,
+                weather_cloud_cover = ?,
+                weather_wind_speed = ?,
+                weather_wind_direction = ?,
+                weather_precipitation = ?,
+                weather_rain = ?,
+                weather_snowfall = ?,
+                scientific_name = ?,
+                common_name = ?,
+                taxa_id = ?,
+                manual_tagged = manual_tagged
+            WHERE frigate_event = ?
+              AND (? > score OR (? = 1 AND COALESCE(audio_confirmed, 0) = 0))
+        """, (
+            detection.detection_time,
+            detection.detection_index,
+            detection.score,
+            detection.display_name,
+            detection.category_name,
+            detection.frigate_score,
+            detection.sub_label,
+            1 if detection.audio_confirmed else 0,
+            detection.audio_species,
+            detection.audio_score,
+            detection.temperature,
+            detection.weather_condition,
+            detection.weather_cloud_cover,
+            detection.weather_wind_speed,
+            detection.weather_wind_direction,
+            detection.weather_precipitation,
+            detection.weather_rain,
+            detection.weather_snowfall,
+            getattr(detection, 'scientific_name', None),
+            getattr(detection, 'common_name', None),
+            getattr(detection, 'taxa_id', None),
+            detection.frigate_event,
+            detection.score,
+            1 if detection.audio_confirmed else 0
         ))
-
-        changes = self.db.total_changes
+        updated = await self._last_statement_changes() > 0
         await self.db.commit()
-
-        if changes == 0:
-            return (False, False)
-        if was_existing:
-            return (False, True)
-        return (True, False)
+        return (False, updated)
 
     async def insert_if_not_exists(self, detection: Detection) -> bool:
         """Atomically insert a detection only if it doesn't already exist.
@@ -447,8 +476,7 @@ class DetectionRepository:
             detection.taxa_id,
             1 if detection.manual_tagged else 0
         ))
-
-        changes = self.db.total_changes
+        changes = await self._last_statement_changes()
         await self.db.commit()
         return changes > 0
 

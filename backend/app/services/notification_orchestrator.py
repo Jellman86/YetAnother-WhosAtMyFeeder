@@ -1,5 +1,3 @@
-import asyncio
-from datetime import datetime, timezone
 from typing import Optional, Dict, Any
 
 import structlog
@@ -10,6 +8,7 @@ from app.repositories.detection_repository import DetectionRepository
 from app.services.frigate_client import frigate_client
 from app.services.notification_service import notification_service
 from app.services.taxonomy.taxonomy_service import taxonomy_service
+from app.services.video_classification_waiter import video_classification_waiter
 from app.utils.tasks import create_background_task
 
 log = structlog.get_logger()
@@ -46,6 +45,11 @@ class NotificationOrchestrator:
         async with get_db() as db:
             repo = DetectionRepository(db)
             await repo.mark_notified(event_id)
+
+    async def _get_detection(self, event_id: str):
+        async with get_db() as db:
+            repo = DetectionRepository(db)
+            return await repo.get_by_frigate_event(event_id)
 
     async def _send_notification(
         self,
@@ -137,27 +141,29 @@ class NotificationOrchestrator:
                          score=classification['score'])
             return
 
-        deadline = asyncio.get_running_loop().time() + timeout
         label = classification['label']
         score = classification['score']
         video_confirmed = False
+        final_status = None
 
-        while True:
-            async with get_db() as db:
-                repo = DetectionRepository(db)
-                det = await repo.get_by_frigate_event(event.frigate_event)
+        det = await self._get_detection(event.frigate_event)
+        if det and det.video_classification_status in {"completed", "failed"}:
+            final_status = det.video_classification_status
+        else:
+            waiter_state = await video_classification_waiter.wait_for_final_status(
+                event.frigate_event,
+                timeout=timeout
+            )
+            if waiter_state:
+                final_status = waiter_state.get("status")
+            det = await self._get_detection(event.frigate_event)
+            if det and det.video_classification_status in {"completed", "failed"}:
+                final_status = det.video_classification_status
 
-            if det and det.video_classification_status == 'completed':
-                if det.video_classification_label and det.video_classification_score is not None:
-                    label = det.video_classification_label
-                    score = det.video_classification_score
-                    video_confirmed = det.video_classification_score >= settings.classification.threshold
-                break
-            if det and det.video_classification_status == 'failed':
-                break
-            if asyncio.get_running_loop().time() >= deadline:
-                break
-            await asyncio.sleep(2)
+        if final_status == "completed" and det and det.video_classification_label and det.video_classification_score is not None:
+            label = det.video_classification_label
+            score = det.video_classification_score
+            video_confirmed = det.video_classification_score >= settings.classification.threshold
 
         if video_confirmed or snapshot_confirmed:
             sent = await self._send_notification(
@@ -185,9 +191,7 @@ class NotificationOrchestrator:
         was_inserted: bool
     ) -> None:
         event_type = (event.type or "new").lower()
-        async with get_db() as db:
-            repo = DetectionRepository(db)
-            detection = await repo.get_by_frigate_event(event.frigate_event)
+        detection = await self._get_detection(event.frigate_event)
         already_notified = bool(detection and detection.notified_at)
 
         notify_mode = (settings.notifications.mode or "standard").lower()

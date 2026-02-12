@@ -57,6 +57,7 @@
     // Video playback state
     let showVideo = $state(false);
     let videoEventId = $state<string | null>(null);
+    let videoPlayIntent = $state<'auto' | 'user'>('auto');
 
     // Manual Tag state
     let classifierLabels = $state<string[]>([]);
@@ -348,6 +349,7 @@
                             onclick={() => selectedEvent = detection} 
                             onPlay={() => {
                                 videoEventId = detection.frigate_event;
+                                videoPlayIntent = 'user';
                                 showVideo = true;
                                 selectedEvent = null;
                             }}
@@ -373,8 +375,9 @@
         showVideoButton={true}
         onClose={() => selectedEvent = null}
         onReclassify={handleReclassify}
-        onPlayVideo={(frigateEvent: string) => {
+        onPlayVideo={(frigateEvent: string, playIntent: 'auto' | 'user' = 'auto') => {
             videoEventId = frigateEvent;
+            videoPlayIntent = playIntent;
             showVideo = true;
             selectedEvent = null;
         }}
@@ -387,6 +390,7 @@
 {#if showVideo && videoEventId}
     <VideoPlayer
         frigateEvent={videoEventId}
+        playIntent={videoPlayIntent}
         onClose={() => {
             showVideo = false;
             videoEventId = null;

@@ -72,13 +72,13 @@
             <div class="flex items-center gap-2">
                 <!-- Public Mode Badge -->
                 {#if authStore.isGuest}
-                    <div class="hidden md:flex badge badge-info" title="Public viewing mode">
+                    <div class="hidden md:flex badge badge-info" title={$_('auth.public_viewing_mode', { default: 'Public viewing mode' })}>
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-indigo-600 dark:text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                             <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                         </svg>
                         <span class="text-xs font-bold text-indigo-700 dark:text-indigo-300 uppercase tracking-tight">
-                            Public View
+                            {$_('auth.public_view', { default: 'Public View' })}
                         </span>
                     </div>
                 {/if}

@@ -15,7 +15,7 @@ from app.services.audio.audio_service import audio_service
 from app.services.weather_service import weather_service
 from app.services.notification_orchestrator import NotificationOrchestrator
 # Backward-compat for tests that patch event_processor.notification_service
-from app.services.notification_service import notification_service
+from app.services.notification_service import notification_service  # noqa: F401
 from app.database import get_db
 from app.repositories.detection_repository import DetectionRepository
 
@@ -58,13 +58,17 @@ class EventProcessor:
 
     async def process_mqtt_message(self, payload: bytes):
         """Main entry point for processing Frigate MQTT events."""
+        event_id = "unknown"
         try:
             data = json.loads(payload)
+            if isinstance(data, dict):
+                after = data.get("after")
+                if isinstance(after, dict):
+                    event_id = str(after.get("id") or "unknown")
             await self._process_event_payload(data)
         except json.JSONDecodeError as e:
             log.error("Invalid JSON payload", error=str(e))
         except Exception as e:
-            event_id = locals().get('event', EventData({'after': {'id': 'unknown'}, 'type': 'unknown'})).frigate_event
             log.error("Error processing event", event_id=event_id, error=str(e), exc_info=True)
             return
 

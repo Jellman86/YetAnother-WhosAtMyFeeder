@@ -82,6 +82,10 @@ def _click_play_button_in_open_detection_modal(page: Page) -> None:
     page.get_by_role("button", name=re.compile(r"^Play video")).first.click(force=True, timeout=8000)
 
 
+def _playback_status_chip(page: Page):
+    return page.locator("div[role='dialog'] div.flex.items-center.gap-1\\.5.shrink-0 > span").first
+
+
 def test_video_player_ui_and_console_health(page: Page, console_capture):
     page.goto("http://yawamf-frontend/events", timeout=30000)
     page.wait_for_load_state("domcontentloaded")
@@ -121,6 +125,19 @@ def test_video_player_ui_and_console_health(page: Page, console_capture):
         "() => { const v = document.querySelector('video'); return !!v && Number.isFinite(v.duration) && v.duration > 0; }",
         timeout=12000,
     )
+
+    # Playback state chip should not stay stuck on "Paused" while media is actively playing.
+    page.evaluate("() => { const v = document.querySelector('video'); return v ? v.play() : null; }")
+    page.wait_for_timeout(250)
+    playback_snapshot = page.evaluate(
+        "() => { const v = document.querySelector('video'); return v ? { paused: v.paused, ended: v.ended, t: v.currentTime } : null; }"
+    )
+    if playback_snapshot and not playback_snapshot["paused"] and not playback_snapshot["ended"]:
+        chip_class = _playback_status_chip(page).get_attribute("class") or ""
+        assert "bg-cyan-400/15" not in chip_class, (
+            f"Playback status chip appears stuck in paused style while video is playing: "
+            f"state={playback_snapshot} class={chip_class}"
+        )
 
     before = page.evaluate("() => document.querySelector('video')?.currentTime ?? 0")
     page.keyboard.press("ArrowRight")

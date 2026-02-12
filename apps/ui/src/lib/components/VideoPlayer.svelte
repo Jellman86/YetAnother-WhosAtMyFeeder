@@ -11,6 +11,7 @@
     interface Props {
         frigateEvent: string;
         onClose: () => void;
+        playIntent?: 'auto' | 'user';
     }
 
     type ProbeCache = {
@@ -26,7 +27,7 @@
     const previewHeadCache = new Map<string, ProbeCache>();
     const previewStatusNotified = new Set<string>();
 
-    let { frigateEvent, onClose }: Props = $props();
+    let { frigateEvent, onClose, playIntent = 'auto' }: Props = $props();
 
     let videoElement = $state<HTMLVideoElement | null>(null);
     let modalElement = $state<HTMLDivElement | null>(null);
@@ -78,6 +79,8 @@
     let autoStartPending = $state(false);
     let coarsePointerMql: MediaQueryList | null = null;
     let coarsePointerListener: ((event: MediaQueryListEvent) => void) | null = null;
+    let activeMediaElement: HTMLVideoElement | null = null;
+    let detachMediaListeners: (() => void) | null = null;
 
     const maxRetries = 2;
 
@@ -135,9 +138,54 @@
         }
     }
 
+    function getCurrentMediaElement(): HTMLVideoElement | null {
+        const plyrMedia = (player as unknown as { media?: HTMLVideoElement } | null)?.media ?? null;
+        return plyrMedia ?? activeMediaElement ?? videoElement;
+    }
+
+    function bindMediaListeners(element: HTMLVideoElement | null): void {
+        if (activeMediaElement === element && detachMediaListeners) {
+            return;
+        }
+        if (detachMediaListeners) {
+            detachMediaListeners();
+            detachMediaListeners = null;
+        }
+
+        activeMediaElement = element;
+        if (!element) return;
+
+        const onPlay = () => handleVideoPlay();
+        const onPause = () => handleVideoPause();
+        const onWaiting = () => handleVideoWaiting();
+        const onCanPlay = () => handleVideoCanPlay();
+        const onEnded = () => handleVideoEnded();
+
+        element.addEventListener('play', onPlay);
+        element.addEventListener('pause', onPause);
+        element.addEventListener('waiting', onWaiting);
+        element.addEventListener('stalled', onWaiting);
+        element.addEventListener('seeking', onWaiting);
+        element.addEventListener('canplay', onCanPlay);
+        element.addEventListener('playing', onCanPlay);
+        element.addEventListener('ended', onEnded);
+
+        detachMediaListeners = () => {
+            element.removeEventListener('play', onPlay);
+            element.removeEventListener('pause', onPause);
+            element.removeEventListener('waiting', onWaiting);
+            element.removeEventListener('stalled', onWaiting);
+            element.removeEventListener('seeking', onWaiting);
+            element.removeEventListener('canplay', onCanPlay);
+            element.removeEventListener('playing', onCanPlay);
+            element.removeEventListener('ended', onEnded);
+        };
+    }
+
     function switchToNativeFallback(reason: string): void {
         logger.warn('video_player_native_fallback', { frigateEvent, reason, clipUrl: sanitizedUrl(clipUrl) });
         destroyPlayer();
+        bindMediaListeners(videoElement);
         deferredPreviewSrc = null;
         deferredPreviewToken = 0;
         useNativeControls = true;
@@ -155,7 +203,8 @@
     }
 
     function handleVideoPause() {
-        if (videoElement?.ended) {
+        const media = getCurrentMediaElement();
+        if (media?.ended) {
             playbackState = 'ended';
             return;
         }
@@ -166,18 +215,22 @@
     }
 
     function handleVideoWaiting() {
-        if (!videoElement?.paused) {
+        const media = getCurrentMediaElement();
+        if (!media?.paused) {
             playbackState = 'buffering';
         }
     }
 
     function handleVideoCanPlay() {
-        if (autoStartPending && videoElement?.paused && !autoplayInFlight) {
-            void ensureAutoplay(player);
+        const media = getCurrentMediaElement();
+        if (!media) return;
+
+        if (autoStartPending && media.paused && !autoplayInFlight) {
+            void ensureAutoplay(player, { preferUnmuted: playIntent === 'user' });
         }
-        if (videoElement?.ended) {
+        if (media.ended) {
             playbackState = 'ended';
-        } else if (videoElement?.paused) {
+        } else if (media.paused) {
             playbackState = 'paused';
         } else {
             playbackState = 'playing';
@@ -189,32 +242,51 @@
         void attachDeferredPreviewIfReady('ended');
     }
 
-    async function ensureAutoplay(playerInstance: Plyr | null): Promise<void> {
+    async function ensureAutoplay(
+        playerInstance: Plyr | null,
+        options: { preferUnmuted?: boolean } = {}
+    ): Promise<void> {
+        const preferUnmuted = options.preferUnmuted ?? false;
         autoplayInFlight = true;
-        try {
-            const maybe = playerInstance?.play();
-            if (maybe && typeof (maybe as Promise<void>).then === 'function') {
-                await maybe;
-            }
+
+        const media = getCurrentMediaElement();
+        if (!media) {
+            autoplayInFlight = false;
             return;
-        } catch (error) {
-            logger.info('video_player_autoplay_blocked', { frigateEvent, error });
         }
 
-        if (!videoElement) return;
         try {
-            autoplayMuted = true;
-            videoElement.muted = true;
-            const mutedResult = playerInstance?.play();
-            if (mutedResult && typeof (mutedResult as Promise<void>).then === 'function') {
-                await mutedResult;
+            if (!preferUnmuted) {
+                autoplayMuted = true;
+                media.muted = true;
             }
-            logger.info('video_player_autoplay_muted_fallback_success', { frigateEvent });
+            const playResult = playerInstance?.play();
+            if (playResult && typeof (playResult as Promise<void>).then === 'function') {
+                await playResult;
+            }
+            if (!preferUnmuted) {
+                logger.info('video_player_autoplay_muted_start_success', { frigateEvent });
+            }
         } catch (error) {
-            logger.warn('video_player_autoplay_muted_fallback_failed', { frigateEvent, error });
+            logger.info('video_player_autoplay_blocked', { frigateEvent, error, preferUnmuted });
+            if (!preferUnmuted) {
+                return;
+            }
+
+            try {
+                autoplayMuted = true;
+                media.muted = true;
+                const mutedResult = playerInstance?.play();
+                if (mutedResult && typeof (mutedResult as Promise<void>).then === 'function') {
+                    await mutedResult;
+                }
+                logger.info('video_player_autoplay_muted_fallback_success', { frigateEvent });
+            } catch (mutedError) {
+                logger.warn('video_player_autoplay_muted_fallback_failed', { frigateEvent, error: mutedError });
+            }
         } finally {
             autoplayInFlight = false;
-            if (!videoElement?.paused) {
+            if (!getCurrentMediaElement()?.paused) {
                 autoStartPending = false;
             }
             void attachDeferredPreviewIfReady('pause');
@@ -335,10 +407,18 @@
                     : { enabled: false }
             } as any);
 
+            const media = getCurrentMediaElement();
+            bindMediaListeners(media ?? videoElement);
+
             player.on('ready', () => {
+                bindMediaListeners(getCurrentMediaElement());
                 initializing = false;
-                playbackState = videoElement?.paused ? 'paused' : 'playing';
+                const activeMedia = getCurrentMediaElement();
+                playbackState = activeMedia?.ended ? 'ended' : activeMedia?.paused ? 'paused' : 'playing';
                 logger.info('video_player_ready', { frigateEvent, clipUrl: sanitizedUrl(clipUrl) });
+                if ((options.autoplay ?? true) && autoStartPending && !autoplayInFlight) {
+                    void ensureAutoplay(player, { preferUnmuted: playIntent === 'user' });
+                }
             });
 
             player.on('error', (event: unknown) => {
@@ -349,13 +429,9 @@
 
             player.source = {
                 type: 'video',
-                title: 'Detection clip',
+                title: $_('video_player.detection_clip_title', { default: 'Detection clip' }),
                 sources: [{ src: clipUrl, type: 'video/mp4' }]
             };
-
-            if (options.autoplay ?? true) {
-                void ensureAutoplay(player);
-            }
             return true;
         } catch (error) {
             logger.error('video_player_create_failed', error, { frigateEvent, clipUrl: sanitizedUrl(clipUrl) });
@@ -378,7 +454,7 @@
                 frigateEvent,
                 autoplayInFlight,
                 initializing,
-                paused: videoElement?.paused ?? null,
+                paused: getCurrentMediaElement()?.paused ?? null,
             });
             void attachDeferredPreviewIfReady('pause');
         }
@@ -392,19 +468,21 @@
             }
             return;
         }
-        if (useNativeControls || videoError || initializing || !videoElement || !videoElement.paused) return;
+        const media = getCurrentMediaElement();
+        if (useNativeControls || videoError || initializing || !media || !media.paused) return;
 
         const previewSrc = deferredPreviewSrc;
         deferredPreviewSrc = null;
         deferredPreviewToken = 0;
-        previewState = 'enabled';
         logger.info('video_player_attach_deferred_preview', { frigateEvent, trigger });
         const previewAttached = createPlyr(previewSrc, { autoplay: false });
         if (!previewAttached) {
             switchToNativeFallback('deferred_preview_attach_failed');
             return;
         }
-        playbackState = 'paused';
+        previewState = 'enabled';
+        const activeMedia = getCurrentMediaElement();
+        playbackState = activeMedia?.ended ? 'ended' : activeMedia?.paused ? 'paused' : 'playing';
     }
 
     async function configurePlayer() {
@@ -492,6 +570,13 @@
     });
 
     $effect(() => {
+        if (!mounted || !videoElement) return;
+        if (!player || useNativeControls) {
+            bindMediaListeners(videoElement);
+        }
+    });
+
+    $effect(() => {
         if (!mounted || !clipUrl) return;
         if (!videoElement) {
             logger.debug('video_player_waiting_for_video_element', { frigateEvent });
@@ -520,6 +605,11 @@
         }
         coarsePointerMql = null;
         coarsePointerListener = null;
+        if (detachMediaListeners) {
+            detachMediaListeners();
+            detachMediaListeners = null;
+        }
+        activeMediaElement = null;
         destroyPlayer();
         logger.info('video_player_modal_close', { frigateEvent });
         restoreFocusElement?.focus?.();
@@ -599,7 +689,7 @@
     onkeydown={(event) => event.key === 'Escape' && onClose()}
     role="dialog"
     aria-modal="true"
-    aria-label="Video player"
+    aria-label={$_('video_player.aria_label', { default: 'Video player' })}
     tabindex="-1"
 >
     <div class="relative w-full max-w-4xl mx-auto animate-in fade-in zoom-in-95 duration-200">
@@ -607,7 +697,7 @@
             <div class="flex items-center justify-between gap-2 px-3 py-2 bg-slate-900/75 border-b border-slate-700/60">
                 <div class="flex items-center gap-2 min-w-0">
                     <span class="inline-flex items-center rounded-full border border-slate-600 bg-slate-800/80 px-2 py-0.5 text-[10px] uppercase tracking-wider text-slate-200 font-semibold">
-                        Clip
+                        {$_('video_player.clip_badge', { default: 'Clip' })}
                     </span>
                     <span class="text-xs text-slate-300 truncate font-mono">{shortEventId}</span>
                 </div>
@@ -625,7 +715,7 @@
                         type="button"
                         onclick={onClose}
                         class="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-500/60 bg-black/40 text-white/80 hover:text-white hover:bg-black/60 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-white/40"
-                        aria-label="Close video"
+                        aria-label={$_('video_player.close', { default: 'Close video' })}
                     >
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" />
@@ -666,17 +756,9 @@
                         playsinline
                         preload="auto"
                         class="w-full h-full"
-                        onplay={handleVideoPlay}
-                        onpause={handleVideoPause}
-                        onwaiting={handleVideoWaiting}
-                        onstalled={handleVideoWaiting}
-                        onseeking={handleVideoWaiting}
-                        oncanplay={handleVideoCanPlay}
-                        onplaying={handleVideoCanPlay}
-                        onended={handleVideoEnded}
                     >
                         <source src={clipUrl} type="video/mp4" />
-                        Your browser does not support video playback.
+                        {$_('video_player.no_video_support', { default: 'Your browser does not support video playback.' })}
                     </video>
 
                     {#if initializing}
@@ -753,7 +835,10 @@
                 </div>
             {/if}
             {#if previewState === 'checking' && !useNativeControls}
-                <div class="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-slate-700/70" aria-label="Generating timeline previews">
+                <div
+                    class="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-slate-700/70"
+                    aria-label={$_('video_player.previews_generating', { default: 'Generating timeline previews...' })}
+                >
                     <div class="h-full w-1/3 bg-emerald-400/90 animate-[previewLoad_1.15s_ease-in-out_infinite]"></div>
                 </div>
             {/if}

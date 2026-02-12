@@ -397,12 +397,14 @@ async def add_security_headers(request: Request, call_next):
     # Adjust as needed for your specific requirements
     csp_policy = (
         "default-src 'self'; "
-        "script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com; "
+        "script-src 'self' https://static.cloudflareinsights.com; "
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
         "style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com; "
         "img-src 'self' data: https:; "
         "font-src 'self' data: https://fonts.gstatic.com; "
         "connect-src 'self' https://cloudflareinsights.com https://static.cloudflareinsights.com; "
+        "object-src 'none'; "
+        "base-uri 'self'; "
         "frame-ancestors 'none';"
     )
     response.headers["Content-Security-Policy"] = csp_policy

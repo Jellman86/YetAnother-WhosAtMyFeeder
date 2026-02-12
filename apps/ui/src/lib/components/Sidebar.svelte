@@ -45,7 +45,7 @@
         class="fixed inset-0 bg-black/50 z-40 md:hidden transition-opacity duration-300"
         onclick={onMobileClose}
         onkeydown={(e) => e.key === 'Enter' || e.key === 'Escape' ? onMobileClose?.() : null}
-        aria-label="Close menu"
+        aria-label={$_('nav.close_menu', { default: 'Close menu' })}
     ></div>
 {/if}
 

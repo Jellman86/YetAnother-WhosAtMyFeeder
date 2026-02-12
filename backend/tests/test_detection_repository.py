@@ -3,49 +3,54 @@ import aiosqlite
 from datetime import datetime
 from app.repositories.detection_repository import DetectionRepository, Detection
 
+
+async def _create_detections_table(db: aiosqlite.Connection) -> None:
+    await db.execute("""
+        CREATE TABLE detections (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            detection_time TIMESTAMP NOT NULL,
+            detection_index INTEGER NOT NULL,
+            score FLOAT NOT NULL,
+            display_name TEXT NOT NULL,
+            category_name TEXT NOT NULL,
+            frigate_event TEXT UNIQUE NOT NULL,
+            camera_name TEXT NOT NULL,
+            is_hidden BOOLEAN DEFAULT 0,
+            frigate_score FLOAT,
+            sub_label TEXT,
+            manual_tagged BOOLEAN DEFAULT 0,
+            audio_confirmed BOOLEAN DEFAULT 0,
+            audio_species TEXT,
+            audio_score FLOAT,
+            temperature FLOAT,
+            weather_condition TEXT,
+            weather_cloud_cover FLOAT,
+            weather_wind_speed FLOAT,
+            weather_wind_direction FLOAT,
+            weather_precipitation FLOAT,
+            weather_rain FLOAT,
+            weather_snowfall FLOAT,
+            scientific_name TEXT,
+            common_name TEXT,
+            taxa_id INTEGER,
+            video_classification_score FLOAT,
+            video_classification_label TEXT,
+            video_classification_index INTEGER,
+            video_classification_timestamp TIMESTAMP,
+            video_classification_status TEXT,
+            video_classification_error TEXT,
+            ai_analysis TEXT,
+            ai_analysis_timestamp TIMESTAMP,
+            notified_at TIMESTAMP
+        )
+    """)
+
+
 @pytest.mark.asyncio
 async def test_detection_repository():
     async with aiosqlite.connect(":memory:") as db:
         # Init schema matches backend/app/database.py
-        await db.execute("""
-            CREATE TABLE detections (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                detection_time TIMESTAMP NOT NULL,
-                detection_index INTEGER NOT NULL,
-                score FLOAT NOT NULL,
-                display_name TEXT NOT NULL,
-                category_name TEXT NOT NULL,
-                frigate_event TEXT UNIQUE NOT NULL,
-                camera_name TEXT NOT NULL,
-                is_hidden BOOLEAN DEFAULT 0,
-                frigate_score FLOAT,
-                sub_label TEXT,
-                manual_tagged BOOLEAN DEFAULT 0,
-                audio_confirmed BOOLEAN DEFAULT 0,
-                audio_species TEXT,
-                audio_score FLOAT,
-                temperature FLOAT,
-                weather_condition TEXT,
-                weather_cloud_cover FLOAT,
-                weather_wind_speed FLOAT,
-                weather_wind_direction FLOAT,
-                weather_precipitation FLOAT,
-                weather_rain FLOAT,
-                weather_snowfall FLOAT,
-                scientific_name TEXT,
-                common_name TEXT,
-                taxa_id INTEGER,
-                video_classification_score FLOAT,
-                video_classification_label TEXT,
-                video_classification_index INTEGER,
-                video_classification_timestamp TIMESTAMP,
-                video_classification_status TEXT,
-                video_classification_error TEXT,
-                ai_analysis TEXT,
-                ai_analysis_timestamp TIMESTAMP,
-                notified_at TIMESTAMP
-            )
-        """)
+        await _create_detections_table(db)
         await db.commit()
 
         repo = DetectionRepository(db)
@@ -82,45 +87,7 @@ async def test_detection_repository():
 @pytest.mark.asyncio
 async def test_species_rollup_metrics():
     async with aiosqlite.connect(":memory:") as db:
-        await db.execute("""
-            CREATE TABLE detections (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                detection_time TIMESTAMP NOT NULL,
-                detection_index INTEGER NOT NULL,
-                score FLOAT NOT NULL,
-                display_name TEXT NOT NULL,
-                category_name TEXT NOT NULL,
-                frigate_event TEXT UNIQUE NOT NULL,
-                camera_name TEXT NOT NULL,
-                is_hidden BOOLEAN DEFAULT 0,
-                frigate_score FLOAT,
-                sub_label TEXT,
-                manual_tagged BOOLEAN DEFAULT 0,
-                audio_confirmed BOOLEAN DEFAULT 0,
-                audio_species TEXT,
-                audio_score FLOAT,
-                temperature FLOAT,
-                weather_condition TEXT,
-                weather_cloud_cover FLOAT,
-                weather_wind_speed FLOAT,
-                weather_wind_direction FLOAT,
-                weather_precipitation FLOAT,
-                weather_rain FLOAT,
-                weather_snowfall FLOAT,
-                scientific_name TEXT,
-                common_name TEXT,
-                taxa_id INTEGER,
-                video_classification_score FLOAT,
-                video_classification_label TEXT,
-                video_classification_index INTEGER,
-                video_classification_timestamp TIMESTAMP,
-                video_classification_status TEXT,
-                video_classification_error TEXT,
-                ai_analysis TEXT,
-                ai_analysis_timestamp TIMESTAMP,
-                notified_at TIMESTAMP
-            )
-        """)
+        await _create_detections_table(db)
         await db.execute("""
             CREATE TABLE species_daily_rollup (
                 rollup_date DATE NOT NULL,
@@ -162,3 +129,86 @@ async def test_species_rollup_metrics():
 
         assert metrics["Robin"]["count_7d"] >= 1
         assert metrics["Sparrow"]["count_7d"] >= 1
+
+
+@pytest.mark.asyncio
+async def test_delete_methods_report_exact_row_changes():
+    async with aiosqlite.connect(":memory:") as db:
+        await _create_detections_table(db)
+        await db.commit()
+        repo = DetectionRepository(db)
+
+        now = datetime.utcnow()
+        await repo.create(Detection(
+            detection_time=now,
+            detection_index=1,
+            score=0.9,
+            display_name="Robin",
+            category_name="Bird",
+            frigate_event="evt_delete",
+            camera_name="cam_1"
+        ))
+
+        row = await repo.get_by_frigate_event("evt_delete")
+        assert row is not None
+
+        assert await repo.delete_by_id(row.id) is True
+        assert await repo.delete_by_id(row.id) is False
+        assert await repo.delete_by_frigate_event("evt_delete") is False
+
+
+@pytest.mark.asyncio
+async def test_insert_if_not_exists_reports_conflicts_correctly():
+    async with aiosqlite.connect(":memory:") as db:
+        await _create_detections_table(db)
+        await db.commit()
+        repo = DetectionRepository(db)
+
+        detection = Detection(
+            detection_time=datetime.utcnow(),
+            detection_index=1,
+            score=0.8,
+            display_name="Sparrow",
+            category_name="Bird",
+            frigate_event="evt_insert_once",
+            camera_name="cam_2"
+        )
+        assert await repo.insert_if_not_exists(detection) is True
+        assert await repo.insert_if_not_exists(detection) is False
+
+
+@pytest.mark.asyncio
+async def test_upsert_if_higher_score_returns_no_change_for_lower_score():
+    async with aiosqlite.connect(":memory:") as db:
+        await _create_detections_table(db)
+        await db.commit()
+        repo = DetectionRepository(db)
+
+        base = Detection(
+            detection_time=datetime.utcnow(),
+            detection_index=1,
+            score=0.92,
+            display_name="Blue Jay",
+            category_name="Bird",
+            frigate_event="evt_upsert",
+            camera_name="cam_3",
+            audio_confirmed=False
+        )
+        assert await repo.upsert_if_higher_score(base) == (True, False)
+
+        lower = Detection(
+            detection_time=datetime.utcnow(),
+            detection_index=2,
+            score=0.50,
+            display_name="Unknown Bird",
+            category_name="Bird",
+            frigate_event="evt_upsert",
+            camera_name="cam_3",
+            audio_confirmed=False
+        )
+        assert await repo.upsert_if_higher_score(lower) == (False, False)
+
+        existing = await repo.get_by_frigate_event("evt_upsert")
+        assert existing is not None
+        assert existing.score == pytest.approx(0.92)
+        assert existing.display_name == "Blue Jay"

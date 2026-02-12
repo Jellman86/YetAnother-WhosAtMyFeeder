@@ -1,5 +1,6 @@
 <script lang="ts">
     import { fade, fly } from 'svelte/transition';
+    import { _ } from 'svelte-i18n';
     import { toastStore, type Toast } from '../stores/toast.svelte';
 
     // Get toasts from store
@@ -56,7 +57,7 @@
                 <button
                     onclick={() => toastStore.remove(toast.id)}
                     class="flex-shrink-0 w-6 h-6 rounded-full hover:bg-white/20 flex items-center justify-center transition-colors"
-                    aria-label="Close notification"
+                    aria-label={$_('notifications.close_toast', { default: 'Close notification' })}
                 >
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />

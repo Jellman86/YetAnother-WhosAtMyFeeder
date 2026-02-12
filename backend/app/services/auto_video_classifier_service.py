@@ -12,6 +12,7 @@ from app.services.frigate_client import frigate_client
 from app.services.classifier_service import get_classifier
 from app.services.broadcaster import broadcaster
 from app.services.media_cache import media_cache
+from app.services.video_classification_waiter import video_classification_waiter
 from app.database import get_db
 from app.repositories.detection_repository import DetectionRepository
 from app.utils.tasks import create_background_task
@@ -517,6 +518,11 @@ class AutoVideoClassifierService:
         async with get_db() as db:
             repo = DetectionRepository(db)
             await repo.update_video_status(frigate_event, status, error=error)
+            await video_classification_waiter.publish(
+                frigate_event,
+                status,
+                error=error
+            )
             if broadcast:
                 det = await repo.get_by_frigate_event(frigate_event)
                 if det:
@@ -564,6 +570,13 @@ class AutoVideoClassifierService:
             video_label=result['label'],
             video_score=result['score'],
             video_index=result['index']
+        )
+        await video_classification_waiter.publish(
+            frigate_event,
+            "completed",
+            label=result.get("label"),
+            score=result.get("score"),
+            error=None
         )
         # _record_success is already called on completion in _process_event.
 

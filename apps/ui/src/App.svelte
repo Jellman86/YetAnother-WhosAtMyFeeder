@@ -673,12 +673,14 @@
   <div class="min-h-screen flex flex-col bg-surface-light dark:bg-surface-dark text-slate-900 dark:text-white font-sans transition-colors duration-300">
   <!-- Skip to content for accessibility -->
   <a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:z-[100] focus:bg-brand-500 focus:text-white focus:px-4 focus:py-2 focus:rounded-b-lg focus:left-4 focus:top-0 focus:font-bold">
-    Skip to content
+    {$_('common.skip_to_content', { default: 'Skip to content' })}
   </a>
 
   {#if !authStore.statusLoaded}
       <div class="min-h-screen flex items-center justify-center bg-surface-50 dark:bg-surface-900 px-4">
-          <div class="text-sm font-semibold text-slate-600 dark:text-slate-300">Loading authentication status...</div>
+          <div class="text-sm font-semibold text-slate-600 dark:text-slate-300">
+              {$_('auth.loading_status', { default: 'Loading authentication status...' })}
+          </div>
       </div>
   {:else if authStore.needsInitialSetup}
       <FirstRunWizard />
@@ -691,7 +693,7 @@
               <button 
                   class="p-2 -ml-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors" 
                   onclick={() => mobileSidebarOpen = !mobileSidebarOpen}
-                  aria-label="Toggle menu"
+                  aria-label={$_('nav.toggle_menu', { default: 'Toggle menu' })}
               >
                   <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
@@ -699,9 +701,9 @@
               </button>
               <div class="flex items-center gap-2">
                   <div class="w-7 h-7 rounded-lg bg-transparent border border-slate-200/70 dark:border-slate-700/60 shadow-sm flex items-center justify-center overflow-hidden p-0.5">
-                      <img src="/pwa-192x192.png" alt="YA-WAMF" class="w-full h-full object-contain bg-transparent" />
+                      <img src="/pwa-192x192.png" alt={$_('app.title')} class="w-full h-full object-contain bg-transparent" />
                   </div>
-                  <span class="text-sm font-bold text-gradient">YA-WAMF</span>
+                  <span class="text-sm font-bold text-gradient">{$_('app.title')}</span>
               </div>
               <!-- Theme toggle for mobile -->
               <button

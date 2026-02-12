@@ -45,7 +45,7 @@
         showVideoButton?: boolean;
         onClose: () => void;
         onReclassify?: (detection: Detection) => void;
-        onPlayVideo?: (frigateEvent: string) => void;
+        onPlayVideo?: (frigateEvent: string, playIntent?: 'auto' | 'user') => void;
         onViewSpecies: (speciesName: string) => void;
         readOnly?: boolean;
     }
@@ -1307,7 +1307,7 @@
                             onclick={(e) => {
                                 e.preventDefault();
                                 e.stopPropagation();
-                                onPlayVideo?.(detection.frigate_event);
+                                onPlayVideo?.(detection.frigate_event, 'user');
                             }}
                             onpointerdown={(e) => {
                                 e.preventDefault();
@@ -1342,8 +1342,8 @@
                 type="button"
                 onclick={copyAiFullBundle}
                 class="absolute top-4 right-14 w-8 h-8 rounded-full bg-emerald-500/20 text-emerald-100 flex items-center justify-center hover:bg-emerald-500/35 transition-colors"
-                title="Copy AI diagnostics bundle"
-                aria-label="Copy AI diagnostics bundle"
+                title={$_('detection.ai.copy_diagnostics_bundle', { default: 'Copy AI diagnostics bundle' })}
+                aria-label={$_('detection.ai.copy_diagnostics_bundle', { default: 'Copy AI diagnostics bundle' })}
             >
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H6a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2v-2M8 7a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2" />
@@ -1760,7 +1760,10 @@
                                                 <div class="flex items-center gap-2 mt-0.5">
                                                     <p class="text-[10px] font-medium text-slate-400">{formatEbirdDate(obs.observed_at)}</p>
                                                     {#if obs.obs_valid}
-                                                        <span class="w-1 h-1 rounded-full bg-emerald-400" title="Valid Observation"></span>
+                                                        <span
+                                                            class="w-1 h-1 rounded-full bg-emerald-400"
+                                                            title={$_('detection.ebird.valid_observation', { default: 'Valid observation' })}
+                                                        ></span>
                                                     {/if}
                                                 </div>
                                             </div>

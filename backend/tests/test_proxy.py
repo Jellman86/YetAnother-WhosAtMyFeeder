@@ -192,6 +192,8 @@ async def test_proxy_clip_thumbnails_vtt_success(client: httpx.AsyncClient):
             assert response.headers["content-type"].startswith("text/vtt")
             assert "WEBVTT" in response.text
             assert "clip-thumbnails.jpg?token=abc123#xywh=0,0,160,90" in response.text
+            assert "http://" not in response.text
+            assert "https://" not in response.text
         finally:
             settings.frigate.clips_enabled = original_setting
 

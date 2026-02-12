@@ -98,6 +98,7 @@ If this section ever claims "none", treat it as stale: always check `ISSUES.md` 
 - ✅ SQLite schema sanity checks expanded (FK/integrity + taxonomy regression guard).
 - ✅ Sampled Alembic upgrade-path matrix now tested in CI.
 - ✅ Video player hardening delivered: Plyr migration, server-generated timeline previews, preview-state UX, and backend metrics.
+- ✅ Video player reliability patch delivered: playback-status chip now follows real media state and preview sprite URLs are reverse-proxy-safe (path-based VTT cues).
 - 🔄 Next: expand E2E coverage around upgrade/restart scenarios and permission-failure startup paths.
 
 ---
@@ -244,15 +245,7 @@ Refined AI analysis and follow-up conversation rendering with markdown-aware for
 Create automated highlight reels and a time-based browsing experience that makes it easy to review activity over a day or week.
 
 **Features:**
-- ❌ Timeline view with grouped detections by time window (hour/day) and camera
 - ✅ Quick-skim mode foundations in player (keyboard seek/play controls)
-- Highlight reels:
-  - Daily summary (top confidence, rare species, most active hour)
-  - Weekly recap (trend deltas, rarest sightings)
-- ❌ Auto-generated "story" segments (e.g. 30-90s stitched clip)
-- ❌ Clip stitching for continuous playback
-- ✅ Thumbnail preview scrubbing and hover previews (server-generated sprite/VTT + Plyr integration)
-- ❌ Bookmark/favorite moments with notes
 - ❌ Optional public share links with expiry + watermark
 
 **Breakdown:**
@@ -357,7 +350,6 @@ Optimize system performance for large installations.
 **Current State:**
 - ✅ `/health` endpoint
 - ✅ `/metrics` Prometheus endpoint
-- ❌ Load balancing config, multi-replica support, K8s manifests
 
 **What to Add:**
 - Nginx load balancer configuration example
@@ -384,74 +376,6 @@ Optimize system performance for large installations.
 - ✅ DB migration safety checks (fresh/idempotent/downgrade-upgrade + sampled historical upgrade paths)
 - ✅ Startup/readiness smoke checks in CI
 - ❌ E2E tests (Playwright coverage is currently minimal)
-
----
-
-## Phase 6: Ecosystem & Community
-
-### 6.1 Plugin System 🔌
-**Priority:** P3 | **Effort:** XL (3-4 weeks)
-
-Allow community-developed extensions.
-
-**Features:**
-- Plugin API specification
-- Plugin discovery & installation UI
-- Sandboxed execution environment
-- Example plugins:
-  - Custom notification channels
-  - Alternative ML models
-  - Data visualization widgets
-  - Third-party API integrations
-- Plugin marketplace (community repository)
-
-**Breakdown:**
-- Plugin architecture design: 4 days
-- Core plugin API: 5 days
-- Plugin manager UI: 3 days
-- Example plugins: 3 days
-- Documentation & SDK: 3 days
-- Security review: 2 days
-
-### 6.2 Community Features 🌐
-**Priority:** P3 | **Effort:** L (2 weeks)
-
-Build community engagement features.
-
-**Features:**
-- Public detection sharing (opt-in)
-- Leaderboard (species diversity, rarest sighting)
-- Community identification verification
-- Discussion forum integration (Discourse)
-- Monthly challenge events
-- Species identification quiz
-
-**Breakdown:**
-- Sharing infrastructure: 3 days
-- Leaderboard system: 2 days
-- Verification workflow: 3 days
-- Forum integration: 3 days
-- Quiz/challenge features: 3 days
-
-### 6.3 AI Model Marketplace 🤖
-**Priority:** P3 | **Effort:** L (2 weeks)
-
-Create a repository for community-trained models.
-
-**Features:**
-- Model upload & version control
-- Performance benchmarking reports
-- Regional model variants (e.g., North America, Europe)
-- Automated model testing pipeline
-- Model licensing & attribution
-- Model recommendation engine
-
-**Breakdown:**
-- Model storage & metadata: 3 days
-- Upload & versioning system: 3 days
-- Benchmarking pipeline: 3 days
-- Frontend model browser: 2 days
-- Documentation: 1 day
 
 ---
 
@@ -561,5 +485,5 @@ Have a feature idea not on this list? Open an issue on [GitHub](https://github.c
 
 ---
 
-**Last Updated:** 2026-02-11
+**Last Updated:** 2026-02-12
 **Version:** 2.7.9

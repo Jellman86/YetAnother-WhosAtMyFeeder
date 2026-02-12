@@ -153,9 +153,13 @@ class InaturalistService:
     async def delete_token(self) -> bool:
         async with get_db() as db:
             await db.execute("DELETE FROM oauth_tokens WHERE provider = ?", ("inaturalist",))
+            cursor = await db.execute("SELECT changes()")
+            row = await cursor.fetchone()
+            await cursor.close()
+            deleted = int(row[0]) if row and row[0] is not None else 0
             await db.commit()
             self._connected_user = None
-            return db.total_changes > 0
+            return deleted > 0
 
     def get_connected_user(self) -> Optional[str]:
         return self._connected_user

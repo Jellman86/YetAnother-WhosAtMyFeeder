@@ -24,6 +24,16 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Fixed:** Events/Dashboard video open flow now uses an explicit `videoEventId` handoff, closing detection details before opening the video modal to prevent modal-stacking race conditions.
 - **Fixed:** Video autoplay startup no longer gets interrupted by timeline-preview attachment; preview activation is deferred until player startup settles.
 - **Changed:** Timeline preview notifications now suppress transient `checking/deferred` noise and dedupe final state updates to avoid per-open notification spam.
+- **Fixed:** Detection repository write-result checks now use per-statement SQLite `changes()` semantics (not cumulative `total_changes`), preventing false positives on pooled DB connections.
+- **Fixed:** iNaturalist token deletion now returns accurate success/failure based on the last DELETE statement instead of cumulative connection write history.
+- **Changed:** Notification delay-until-video flow now waits on an in-process video-classification completion signal, removing DB polling loops while preserving timeout fallback behavior.
+- **Changed:** Video autoplay startup now accepts explicit user play intent and coordinates first playback with player readiness, with safer muted-first fallback for non-user-initiated starts.
+- **Fixed:** Video modal playback-status chip no longer sticks on `Paused`; state now tracks the active media element even when player internals swap the underlying `<video>` node.
+- **Fixed:** Timeline preview WebVTT cues now emit path-based sprite URLs instead of host-bound absolute URLs, so previews remain functional behind reverse proxies and non-default host headers.
+- **Added:** E2E guard in `tests/e2e/test_video_player.py` to fail if playback is active while the status chip still renders the paused style.
+- **Fixed:** Event processor error logging now captures event ID deterministically without `locals()` fallback hacks.
+- **Changed:** CSP policy now removes `script-src 'unsafe-inline'` and adds `object-src 'none'`/`base-uri 'self'` hardening.
+- **Changed:** Remaining hardcoded UI copy in key components (header/sidebar/video modal/toasts/top visitors/mobile shell) has been routed through i18n keys/defaults.
 
 - **Added:** Video modal clip download action (`download=1`) with backend enforcement that allows owners always and guests only when explicitly enabled.
 - **Added:** New public-access setting to control guest clip downloads (UI + API + auth status propagation): `public_access_allow_clip_downloads` / `PUBLIC_ACCESS__ALLOW_CLIP_DOWNLOADS`.

@@ -82,7 +82,9 @@ def _format_vtt_timestamp(seconds: float) -> str:
 
 
 def _build_sprite_url(request: Request, event_id: str) -> str:
-    sprite_url = str(request.url_for("proxy_clip_thumbnails_sprite", event_id=event_id))
+    # Return a path-only URL so WebVTT cues remain valid regardless of
+    # reverse-proxy Host header rewriting.
+    sprite_url = request.url_for("proxy_clip_thumbnails_sprite", event_id=event_id).path
     token = request.query_params.get("token")
     if token:
         sprite_url = f"{sprite_url}?token={quote_plus(token)}"

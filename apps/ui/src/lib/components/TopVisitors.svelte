@@ -34,7 +34,7 @@
 <div class="space-y-4">
     <div class="flex items-center gap-3">
         <h3 class="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-            Top Visitors
+            {$_('dashboard.top_visitors_title', { default: 'Top Visitors' })}
         </h3>
         <span class="text-[10px] font-medium text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full">
             {$_('dashboard.histogram.last_24h')}
@@ -68,14 +68,16 @@
                     {/if}
                 </div>
                 <p class="text-[10px] text-slate-400 dark:text-slate-500 mt-2 pt-2 border-t border-slate-100 dark:border-slate-700/50">
-                    {item.count} visits
+                    {$_('dashboard.top_visitors_count', { values: { count: item.count }, default: '{count} visits' })}
                 </p>
             </button>
         {/each}
 
         {#if species.length === 0}
             <div class="col-span-full card-base py-8 text-center border-dashed">
-                <p class="text-xs text-slate-400">No visitors recorded yet today.</p>
+                <p class="text-xs text-slate-400">
+                    {$_('dashboard.top_visitors_empty', { default: 'No visitors recorded yet today.' })}
+                </p>
             </div>
         {/if}
     </div>
