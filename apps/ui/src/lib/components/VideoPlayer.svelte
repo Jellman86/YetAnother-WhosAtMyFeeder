@@ -24,6 +24,7 @@
     const PROBE_TIMEOUT_MS = 5000;
     const clipHeadCache = new Map<string, ProbeCache>();
     const previewHeadCache = new Map<string, ProbeCache>();
+    const previewStatusNotified = new Set<string>();
 
     let { frigateEvent, onClose }: Props = $props();
 
@@ -73,6 +74,8 @@
     let useNativeControls = $state(false);
     let isCoarsePointer = $state(false);
     let autoplayMuted = $state(false);
+    let autoplayInFlight = $state(false);
+    let autoStartPending = $state(false);
     let coarsePointerMql: MediaQueryList | null = null;
     let coarsePointerListener: ((event: MediaQueryListEvent) => void) | null = null;
 
@@ -140,10 +143,12 @@
         useNativeControls = true;
         previewState = 'unavailable';
         initializing = false;
+        autoStartPending = false;
         playbackState = 'paused';
     }
 
     function handleVideoPlay() {
+        autoStartPending = false;
         if (playbackState !== 'buffering') {
             playbackState = 'playing';
         }
@@ -167,6 +172,9 @@
     }
 
     function handleVideoCanPlay() {
+        if (autoStartPending && videoElement?.paused && !autoplayInFlight) {
+            void ensureAutoplay(player);
+        }
         if (videoElement?.ended) {
             playbackState = 'ended';
         } else if (videoElement?.paused) {
@@ -182,6 +190,7 @@
     }
 
     async function ensureAutoplay(playerInstance: Plyr | null): Promise<void> {
+        autoplayInFlight = true;
         try {
             const maybe = playerInstance?.play();
             if (maybe && typeof (maybe as Promise<void>).then === 'function') {
@@ -203,6 +212,12 @@
             logger.info('video_player_autoplay_muted_fallback_success', { frigateEvent });
         } catch (error) {
             logger.warn('video_player_autoplay_muted_fallback_failed', { frigateEvent, error });
+        } finally {
+            autoplayInFlight = false;
+            if (!videoElement?.paused) {
+                autoStartPending = false;
+            }
+            void attachDeferredPreviewIfReady('pause');
         }
     }
 
@@ -354,20 +369,18 @@
         const previewSrc = await resolveThumbnailTrackUrl(frigateEvent);
         if (token !== configureToken || videoError || useNativeControls) return;
         if (previewSrc) {
-            // Never restart active playback just to add preview thumbnails.
-            // Recreating Plyr can interrupt playback and look like buffering stalls.
-            if (videoElement && !videoElement.paused) {
-                previewState = 'deferred';
-                deferredPreviewSrc = previewSrc;
-                deferredPreviewToken = token;
-                logger.warn('video_player_preview_skipped_active_playback', { frigateEvent });
-                return;
-            }
-
-            const previewAttached = createPlyr(previewSrc, { autoplay: true });
-            if (!previewAttached) {
-                switchToNativeFallback('preview_attach_failed');
-            }
+            // Always defer preview attachment until startup settles to avoid
+            // interrupting active play() promises during modal open.
+            previewState = 'deferred';
+            deferredPreviewSrc = previewSrc;
+            deferredPreviewToken = token;
+            logger.info('video_player_preview_deferred_until_settled', {
+                frigateEvent,
+                autoplayInFlight,
+                initializing,
+                paused: videoElement?.paused ?? null,
+            });
+            void attachDeferredPreviewIfReady('pause');
         }
     }
 
@@ -402,6 +415,7 @@
         initializing = true;
         playbackState = 'idle';
         autoplayMuted = false;
+        autoStartPending = true;
         videoError = false;
         videoForbidden = false;
         useNativeControls = false;
@@ -540,23 +554,19 @@
         if (signature === previewNotificationSig) return;
         previewNotificationSig = signature;
 
+        // Avoid noisy per-open process notifications for transient states.
+        if (previewState === 'checking' || previewState === 'deferred') {
+            return;
+        }
+
+        const notifyKey = `${id}:${previewState}:${useNativeControls ? 'native' : 'plyr'}:${videoError ? 'error' : 'ok'}`;
+        if (previewStatusNotified.has(notifyKey)) return;
+        previewStatusNotified.add(notifyKey);
+
         if (videoError || useNativeControls || previewState === 'disabled' || previewState === 'unavailable') {
             notificationCenter.upsert({
                 id,
                 type: 'update',
-                title,
-                message: previewStatusLabel,
-                timestamp: Date.now(),
-                read: false,
-                meta: { event_id: frigateEvent }
-            });
-            return;
-        }
-
-        if (previewState === 'checking' || previewState === 'deferred') {
-            notificationCenter.upsert({
-                id,
-                type: 'process',
                 title,
                 message: previewStatusLabel,
                 timestamp: Date.now(),

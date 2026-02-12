@@ -71,11 +71,11 @@ def _open_detection_with_video_button(page: Page) -> bool:
 
 
 def _click_play_button_in_open_detection_modal(page: Page) -> None:
-    # When the detection modal is open, the full-image overlay button is the actionable element.
-    # Global role matching can resolve to card-level buttons behind the modal.
-    overlay_play = page.locator("div[role='dialog'] button.absolute.inset-0").first
-    if overlay_play.count() > 0 and overlay_play.is_visible():
-        overlay_play.click(timeout=8000)
+    # Scope lookup to the currently open detection modal so we never hit
+    # background card play buttons.
+    modal_play = page.locator("div[role='dialog'] button[aria-label^='Play video']").first
+    if modal_play.count() > 0 and modal_play.is_visible():
+        modal_play.click(force=True, timeout=8000)
         return
 
     # Fallback for markup changes.
@@ -113,7 +113,8 @@ def test_video_player_ui_and_console_health(page: Page, console_capture):
     plyr_visible = page.locator(".plyr").first.is_visible() if page.locator(".plyr").count() > 0 else False
     controls_visible = page.locator(".plyr__controls").first.is_visible() if page.locator(".plyr__controls").count() > 0 else False
     assert plyr_visible or controls_visible or page.locator("video").count() > 0, "Expected video UI (Plyr or native fallback) to be visible"
-    page.get_by_text("Shortcuts:").wait_for(state="visible", timeout=4000)
+    shortcuts_hint = page.locator("span", has_text=re.compile(r"play/pause|Keyboard shortcuts", re.IGNORECASE)).first
+    shortcuts_hint.wait_for(state="visible", timeout=4000)
 
     # Wait for metadata duration to become available.
     page.wait_for_function(
@@ -130,18 +131,23 @@ def test_video_player_ui_and_console_health(page: Page, console_capture):
     # Wait until preview status leaves temporary generation state.
     page.wait_for_function(
         """() => {
-            const el = document.querySelector('[aria-label="Video player"]');
+            const el = document.querySelector('[aria-label*="Timeline previews"]');
             if (!el) return false;
-            const text = el.textContent || '';
-            return text.includes('Timeline previews enabled')
-                || text.includes('Timeline previews unavailable for this clip')
-                || text.includes('Timeline previews disabled (media cache off)');
+            const label = el.getAttribute('aria-label') || '';
+            return label.includes('Timeline previews enabled')
+                || label.includes('Timeline previews unavailable for this clip')
+                || label.includes('Timeline previews disabled (media cache off)');
         }""",
         timeout=12000,
     )
-    preview_enabled = page.get_by_text("Timeline previews enabled").count() > 0
-    preview_unavailable = page.get_by_text("Timeline previews unavailable for this clip").count() > 0
-    preview_disabled = page.get_by_text("Timeline previews disabled (media cache off)").count() > 0
+    labels = page.locator('[aria-label*="Timeline previews"]').all_inner_texts()
+    aria_labels = [
+        page.locator('[aria-label*="Timeline previews"]').nth(i).get_attribute("aria-label") or ""
+        for i in range(page.locator('[aria-label*="Timeline previews"]').count())
+    ]
+    preview_enabled = any("Timeline previews enabled" in v for v in aria_labels + labels)
+    preview_unavailable = any("Timeline previews unavailable for this clip" in v for v in aria_labels + labels)
+    preview_disabled = any("Timeline previews disabled (media cache off)" in v for v in aria_labels + labels)
     assert preview_enabled or preview_unavailable or preview_disabled, "Expected explicit timeline preview availability state"
     if preview_enabled:
         progress = page.locator(".plyr__progress input[type='range']").first
