@@ -1166,6 +1166,12 @@
     "shortcuts_mobile_hint": "Keyboard shortcuts are available when using a hardware keyboard.",
     "buffering_hint": "Buffering video stream...",
     "previews_touch_hint": "Timeline previews are available. Drag or tap along the seek bar to inspect frames.",
-    "download": "Download clip"
+    "download": "Download clip",
+    "share": "Share clip link",
+    "share_link": "Share link",
+    "share_copied": "Video link copied to clipboard",
+    "share_failed": "Could not copy video link",
+    "share_title": "YA-WAMF clip",
+    "share_text": "Bird detection clip: {eventId}"
   }
 }

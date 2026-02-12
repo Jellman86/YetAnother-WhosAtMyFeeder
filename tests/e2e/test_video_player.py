@@ -1,5 +1,6 @@
 import os
 import re
+from urllib.parse import quote
 
 import pytest
 from playwright.sync_api import Page, sync_playwright
@@ -80,6 +81,18 @@ def _click_play_button_in_open_detection_modal(page: Page) -> None:
 
     # Fallback for markup changes.
     page.get_by_role("button", name=re.compile(r"^Play video")).first.click(force=True, timeout=8000)
+
+
+def _find_video_event_id(page: Page) -> str | None:
+    return page.evaluate(
+        """async () => {
+            const response = await fetch('/api/events?limit=30');
+            if (!response.ok) return null;
+            const events = await response.json();
+            const hit = Array.isArray(events) ? events.find((e) => !!e?.has_clip && typeof e?.frigate_event === 'string') : null;
+            return hit?.frigate_event ?? null;
+        }"""
+    )
 
 
 def _playback_status_chip(page: Page):
@@ -179,3 +192,20 @@ def test_video_player_ui_and_console_health(page: Page, console_capture):
 
     severe = _serious_console_errors(console_capture)
     assert not severe, "Serious browser console errors:\n" + "\n".join(severe[:20])
+
+
+def test_video_deep_link_opens_player_modal(page: Page):
+    page.goto("http://yawamf-frontend/events", timeout=30000)
+    page.wait_for_load_state("domcontentloaded")
+
+    if page.locator("input#username").count() > 0:
+        pytest.skip("Auth required without public access; no automated login in this test")
+
+    event_id = _find_video_event_id(page)
+    if not event_id:
+        pytest.skip("No event with clip available to validate video deep link")
+
+    page.goto(f"http://yawamf-frontend/events?event={quote(event_id)}&video=1", timeout=30000)
+    page.wait_for_load_state("domcontentloaded")
+    page.get_by_label("Video player").wait_for(state="visible", timeout=8000)
+    page.get_by_label("Close video").wait_for(state="visible", timeout=4000)

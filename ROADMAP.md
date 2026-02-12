@@ -246,7 +246,8 @@ Create automated highlight reels and a time-based browsing experience that makes
 
 **Features:**
 - ✅ Quick-skim mode foundations in player (keyboard seek/play controls)
-- ❌ Optional public share links with expiry + watermark
+- 🔄 Video share links (copy/share deep link to event clip) implemented in player modal.
+- ❌ Expiry-limited public links + watermark enforcement still pending.
 
 **Breakdown:**
 - 🔄 Video preview processing pipeline + caching: mostly complete (sprite/VTT generation, retention integration, metrics)

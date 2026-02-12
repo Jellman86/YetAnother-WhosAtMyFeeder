@@ -132,9 +132,7 @@
                 if (target) {
                     selectedEvent = target;
                     pendingEventId = null;
-                    const url = new URL(window.location.href);
-                    url.searchParams.delete('event');
-                    window.history.replaceState(null, '', `${url.pathname}${url.search}`);
+                    clearEventVideoDeepLinkParams();
                 }
             }
         } catch (e) {
@@ -154,7 +152,17 @@
         const params = new URLSearchParams(window.location.search);
         if (params.get('species')) speciesFilter = params.get('species')!;
         if (params.get('date')) datePreset = params.get('date') as any;
-        if (params.get('event')) pendingEventId = params.get('event');
+        const deepLinkedEvent = params.get('event');
+        const videoParam = params.get('video');
+        const deepLinkWantsVideo = videoParam === '1' || videoParam === 'true';
+        if (deepLinkedEvent && deepLinkWantsVideo) {
+            videoEventId = deepLinkedEvent;
+            videoPlayIntent = 'auto';
+            showVideo = true;
+            clearEventVideoDeepLinkParams();
+        } else if (deepLinkedEvent) {
+            pendingEventId = deepLinkedEvent;
+        }
         try {
             const [filters, labels, hidden] = await Promise.all([
                 fetchEventFilters(), 
@@ -277,6 +285,22 @@
     let showVideo = $state(false);
     let videoEventId = $state<string | null>(null);
     let videoPlayIntent = $state<'auto' | 'user'>('auto');
+
+    function clearEventVideoDeepLinkParams() {
+        const url = new URL(window.location.href);
+        let changed = false;
+        if (url.searchParams.has('event')) {
+            url.searchParams.delete('event');
+            changed = true;
+        }
+        if (url.searchParams.has('video')) {
+            url.searchParams.delete('video');
+            changed = true;
+        }
+        if (changed) {
+            window.history.replaceState(null, '', `${url.pathname}${url.search}`);
+        }
+    }
 </script>
 
 <div class="space-y-6">
