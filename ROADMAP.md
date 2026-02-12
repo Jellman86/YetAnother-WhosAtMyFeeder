@@ -254,7 +254,7 @@ Create automated highlight reels and a time-based browsing experience that makes
 - 🔄 Timeline UI component (grouped browsing) + advanced keyboard UX: initial day-bucket timeline strip + `[ ] / 0` navigation shipped; further expansion pending.
 - Highlight scoring logic (confidence, rarity, activity): 2 days
 - Clip stitching + preview thumbnails: 2 days
-- ✅ Sharing & permissions: owner-issued expiring tokens implemented; broader public-link policy/rate-limit tuning remains.
+- ✅ Sharing & permissions: owner-issued expiring tokens, owner management controls (list/update/revoke), create-rate limiting, and scheduled stale-link cleanup are implemented.
 - Testing: 1 day
 
 ### 3.4 Local LLM Support (Ollama) 🏠

@@ -361,3 +361,100 @@ async def test_proxy_clip_thumbnails_vtt_preserves_share_query(client: httpx.Asy
             settings.frigate.clips_enabled = original_clips
             settings.auth.enabled = original_auth
             settings.public_access.enabled = original_public
+
+
+@pytest.mark.asyncio
+async def test_video_share_create_returns_link_id(client: httpx.AsyncClient):
+    """Create endpoint should return link_id alongside share token metadata."""
+    with patch("app.routers.proxy.frigate_client") as mock_frigate,          patch("app.routers.proxy._create_video_share_token", new_callable=AsyncMock) as mock_create:
+        mock_frigate.get_event = AsyncMock(return_value={"has_clip": True})
+        mock_create.return_value = (42, "share_token_abcdefghijklmnopqrstuvwxyz", datetime.utcnow() + timedelta(hours=1))
+
+        response = await client.post(
+            "/api/video-share",
+            json={
+                "event_id": "test_event_id",
+                "expires_in_minutes": 60,
+                "watermark_label": "Tester",
+            },
+        )
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["link_id"] == 42
+        assert body["event_id"] == "test_event_id"
+        assert body["token"] == "share_token_abcdefghijklmnopqrstuvwxyz"
+
+
+@pytest.mark.asyncio
+async def test_video_share_list_links_returns_payload(client: httpx.AsyncClient):
+    """List endpoint should return active share links for an event."""
+    from app.routers import proxy
+
+    with patch("app.routers.proxy._list_active_video_share_links", new_callable=AsyncMock) as mock_list:
+        mock_list.return_value = [
+            proxy.VideoShareLinkItemResponse(
+                id=1,
+                event_id="test_event_id",
+                created_by="owner",
+                watermark_label="owner",
+                created_at=datetime.utcnow().isoformat(),
+                expires_at=(datetime.utcnow() + timedelta(hours=1)).isoformat(),
+                is_active=True,
+                remaining_seconds=3600,
+            )
+        ]
+
+        response = await client.get("/api/video-share/test_event_id/links")
+        assert response.status_code == 200
+        body = response.json()
+        assert body["event_id"] == "test_event_id"
+        assert len(body["links"]) == 1
+        assert body["links"][0]["id"] == 1
+
+
+@pytest.mark.asyncio
+async def test_video_share_update_link_requires_payload_fields(client: httpx.AsyncClient):
+    """Update endpoint should reject empty payloads."""
+    response = await client.patch("/api/video-share/test_event_id/links/5", json={})
+    assert response.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_video_share_update_link_success(client: httpx.AsyncClient):
+    """Update endpoint should return updated share-link metadata."""
+    from app.routers import proxy
+
+    with patch("app.routers.proxy._update_video_share_link", new_callable=AsyncMock) as mock_update:
+        mock_update.return_value = proxy.VideoShareLinkItemResponse(
+            id=5,
+            event_id="test_event_id",
+            created_by="owner",
+            watermark_label="Updated Label",
+            created_at=datetime.utcnow().isoformat(),
+            expires_at=(datetime.utcnow() + timedelta(hours=2)).isoformat(),
+            is_active=True,
+            remaining_seconds=7200,
+        )
+
+        response = await client.patch(
+            "/api/video-share/test_event_id/links/5",
+            json={"expires_in_minutes": 120, "watermark_label": "Updated Label"},
+        )
+        assert response.status_code == 200
+        body = response.json()
+        assert body["id"] == 5
+        assert body["watermark_label"] == "Updated Label"
+
+
+@pytest.mark.asyncio
+async def test_video_share_revoke_link_success(client: httpx.AsyncClient):
+    """Revoke endpoint should mark active links as revoked."""
+    with patch("app.routers.proxy._revoke_video_share_link", new_callable=AsyncMock) as mock_revoke:
+        mock_revoke.return_value = True
+
+        response = await client.post("/api/video-share/test_event_id/links/9/revoke")
+        assert response.status_code == 200
+        body = response.json()
+        assert body["status"] == "revoked"
+        assert body["link_id"] == 9

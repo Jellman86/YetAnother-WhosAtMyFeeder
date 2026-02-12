@@ -104,3 +104,7 @@ def login_rate_limit() -> Callable:
     Uses get_real_client_ip to work correctly behind proxies/load balancers.
     """
     return limiter.limit("5/minute;20/hour", key_func=get_real_client_ip)
+
+def share_create_rate_limit() -> Callable:
+    """Rate limit video share-link creation to reduce abuse/noise."""
+    return limiter.limit("10/minute;60/hour", key_func=get_real_client_ip)

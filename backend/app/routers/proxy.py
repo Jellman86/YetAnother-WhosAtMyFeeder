@@ -23,7 +23,7 @@ from app.services.i18n_service import i18n_service
 from app.utils.language import get_user_language
 from app.auth import AuthContext, AuthLevel, require_owner, verify_token, security
 from app.auth_legacy import get_auth_context_with_legacy, api_key_header, api_key_query
-from app.ratelimit import guest_rate_limit
+from app.ratelimit import guest_rate_limit, share_create_rate_limit
 from app.database import get_db
 from app.repositories.detection_repository import DetectionRepository
 from app.utils.public_access import effective_public_media_days
@@ -111,6 +111,7 @@ class VideoShareCreateRequest(BaseModel):
 
 
 class VideoShareCreateResponse(BaseModel):
+    link_id: int
     event_id: str
     token: str
     share_url: str
@@ -123,6 +124,61 @@ class VideoShareInfoResponse(BaseModel):
     event_id: str
     expires_at: str
     watermark_label: str | None = None
+
+
+class VideoShareLinkItemResponse(BaseModel):
+    id: int
+    event_id: str
+    created_by: str | None = None
+    watermark_label: str | None = None
+    created_at: str
+    expires_at: str
+    is_active: bool
+    remaining_seconds: int
+
+
+class VideoShareLinkListResponse(BaseModel):
+    event_id: str
+    links: list[VideoShareLinkItemResponse]
+
+
+class VideoShareLinkUpdateRequest(BaseModel):
+    expires_in_minutes: int | None = Field(default=None, ge=5, le=7 * 24 * 60)
+    watermark_label: str | None = Field(default=None, max_length=64)
+
+
+class VideoShareRevokeResponse(BaseModel):
+    status: str
+    event_id: str
+    link_id: int
+
+
+def _iso_or_now(value: datetime | None) -> str:
+    return (value or datetime.utcnow()).isoformat()
+
+
+def _build_video_share_link_item(row: tuple[object, ...], now: datetime | None = None) -> VideoShareLinkItemResponse:
+    current = now or datetime.utcnow()
+    link_id, event_id, created_by, watermark_label, created_raw, expires_raw, revoked = row
+    created_at = _parse_db_timestamp(created_raw)
+    expires_at = _parse_db_timestamp(expires_raw)
+
+    if not expires_at:
+        expires_at = current
+
+    remaining_seconds = max(0, int((expires_at - current).total_seconds()))
+    is_active = (not bool(revoked)) and remaining_seconds > 0
+
+    return VideoShareLinkItemResponse(
+        id=int(link_id),
+        event_id=str(event_id),
+        created_by=str(created_by) if created_by is not None else None,
+        watermark_label=str(watermark_label) if watermark_label is not None else None,
+        created_at=_iso_or_now(created_at),
+        expires_at=_iso_or_now(expires_at),
+        is_active=is_active,
+        remaining_seconds=remaining_seconds,
+    )
 
 
 def _hash_share_token(token: str) -> str:
@@ -194,7 +250,7 @@ async def _create_video_share_token(
     expires_in_minutes: int,
     created_by: str | None,
     watermark_label: str | None,
-) -> tuple[str, datetime]:
+) -> tuple[int, str, datetime]:
     expires_at = datetime.utcnow() + timedelta(minutes=expires_in_minutes)
 
     async with get_db() as db:
@@ -202,7 +258,7 @@ async def _create_video_share_token(
             token = secrets.token_urlsafe(24)
             token_hash = _hash_share_token(token)
             try:
-                await db.execute(
+                cursor = await db.execute(
                     """
                     INSERT INTO video_share_links
                     (token_hash, frigate_event, created_by, watermark_label, expires_at, revoked)
@@ -211,12 +267,134 @@ async def _create_video_share_token(
                     (token_hash, event_id, created_by, watermark_label, expires_at),
                 )
                 await db.commit()
-                return token, expires_at
+                link_id = int(cursor.lastrowid or 0)
+                return link_id, token, expires_at
             except sqlite3.IntegrityError:
                 # Extremely unlikely hash collision/token replay; retry with a fresh token.
                 continue
 
     raise RuntimeError("Failed to create a unique video share token")
+
+
+async def _list_active_video_share_links(event_id: str) -> list[VideoShareLinkItemResponse]:
+    now = datetime.utcnow()
+    async with get_db() as db:
+        async with db.execute(
+            """
+            SELECT id, frigate_event, created_by, watermark_label, created_at, expires_at, revoked
+            FROM video_share_links
+            WHERE frigate_event = ?
+              AND revoked = 0
+              AND expires_at > ?
+            ORDER BY created_at DESC, id DESC
+            """,
+            (event_id, now),
+        ) as cursor:
+            rows = await cursor.fetchall()
+
+    return [_build_video_share_link_item(row, now=now) for row in rows]
+
+
+async def _update_video_share_link(
+    event_id: str,
+    link_id: int,
+    *,
+    expires_in_minutes: int | None,
+    watermark_provided: bool,
+    watermark_label: str | None,
+) -> VideoShareLinkItemResponse | None:
+    now = datetime.utcnow()
+    updates: list[str] = []
+    params: list[object] = []
+
+    if expires_in_minutes is not None:
+        updates.append("expires_at = ?")
+        params.append(now + timedelta(minutes=expires_in_minutes))
+    if watermark_provided:
+        updates.append("watermark_label = ?")
+        params.append(watermark_label)
+
+    if not updates:
+        return None
+
+    async with get_db() as db:
+        async with db.execute(
+            """
+            SELECT id, frigate_event, created_by, watermark_label, created_at, expires_at, revoked
+            FROM video_share_links
+            WHERE frigate_event = ?
+              AND id = ?
+              AND revoked = 0
+              AND expires_at > ?
+            LIMIT 1
+            """,
+            (event_id, link_id, now),
+        ) as cursor:
+            existing = await cursor.fetchone()
+
+        if not existing:
+            return None
+
+        update_sql = f"UPDATE video_share_links SET {', '.join(updates)} WHERE frigate_event = ? AND id = ?"
+        await db.execute(update_sql, (*params, event_id, link_id))
+        await db.commit()
+
+        async with db.execute(
+            """
+            SELECT id, frigate_event, created_by, watermark_label, created_at, expires_at, revoked
+            FROM video_share_links
+            WHERE frigate_event = ?
+              AND id = ?
+            LIMIT 1
+            """,
+            (event_id, link_id),
+        ) as cursor:
+            updated = await cursor.fetchone()
+
+    if not updated:
+        return None
+
+    return _build_video_share_link_item(updated, now=datetime.utcnow())
+
+
+async def _revoke_video_share_link(event_id: str, link_id: int) -> bool:
+    now = datetime.utcnow()
+    async with get_db() as db:
+        await db.execute(
+            """
+            UPDATE video_share_links
+            SET revoked = 1
+            WHERE frigate_event = ?
+              AND id = ?
+              AND revoked = 0
+              AND expires_at > ?
+            """,
+            (event_id, link_id, now),
+        )
+        async with db.execute("SELECT changes()") as cursor:
+            row = await cursor.fetchone()
+            changed = int(row[0]) if row else 0
+        await db.commit()
+    return changed > 0
+
+
+async def cleanup_expired_video_share_links() -> int:
+    """Delete stale share links (expired and revoked) to keep table size bounded."""
+    now = datetime.utcnow()
+    async with get_db() as db:
+        await db.execute(
+            """
+            DELETE FROM video_share_links
+            WHERE expires_at <= ?
+               OR revoked = 1
+            """,
+            (now,),
+        )
+        async with db.execute("SELECT changes()") as cursor:
+            row = await cursor.fetchone()
+            deleted = int(row[0]) if row else 0
+        await db.commit()
+    return deleted
 
 
 def _has_valid_share_context(request: Request, event_id: str) -> bool:
@@ -378,6 +556,7 @@ async def _ensure_preview_assets(event_id: str, lang: str) -> str:
                     pass
 
 @router.post("/video-share", response_model=VideoShareCreateResponse)
+@share_create_rate_limit()
 async def create_video_share_link(
     request: Request,
     payload: VideoShareCreateRequest,
@@ -418,7 +597,7 @@ async def create_video_share_link(
     if watermark is None:
         watermark = auth.username or "Shared"
 
-    token, expires_at = await _create_video_share_token(
+    link_id, token, expires_at = await _create_video_share_token(
         event_id=event_id,
         expires_in_minutes=payload.expires_in_minutes,
         created_by=auth.username,
@@ -430,7 +609,18 @@ async def create_video_share_link(
         f"{base}/events?event={quote_plus(event_id)}&video=1&share={quote_plus(token)}"
     )
 
+    structlog.get_logger().info(
+        "VIDEO_SHARE_AUDIT: Share link created",
+        event_type="video_share_link_created",
+        event_id=event_id,
+        link_id=link_id,
+        created_by=auth.username,
+        expires_in_minutes=payload.expires_in_minutes,
+        watermark_label=watermark,
+    )
+
     return VideoShareCreateResponse(
+        link_id=link_id,
         event_id=event_id,
         token=token,
         share_url=share_url,
@@ -477,6 +667,117 @@ async def get_video_share_info(
         expires_at=expires_at.isoformat(),
         watermark_label=share.get("watermark_label"),
     )
+
+
+@router.get("/video-share/{event_id}/links", response_model=VideoShareLinkListResponse)
+async def list_video_share_links(
+    request: Request,
+    event_id: str = Path(..., min_length=1, max_length=64),
+    auth: AuthContext = Depends(get_proxy_auth_context),
+):
+    lang = get_user_language(request)
+    if not auth.is_owner:
+        raise HTTPException(status_code=403, detail="Owner privileges required for this operation")
+
+    if not validate_event_id(event_id):
+        raise HTTPException(
+            status_code=400,
+            detail=i18n_service.translate("errors.proxy.invalid_event_id", lang)
+        )
+
+    links = await _list_active_video_share_links(event_id)
+    return VideoShareLinkListResponse(event_id=event_id, links=links)
+
+
+@router.patch("/video-share/{event_id}/links/{link_id}", response_model=VideoShareLinkItemResponse)
+async def update_video_share_link(
+    request: Request,
+    payload: VideoShareLinkUpdateRequest,
+    event_id: str = Path(..., min_length=1, max_length=64),
+    link_id: int = Path(..., ge=1),
+    auth: AuthContext = Depends(get_proxy_auth_context),
+):
+    lang = get_user_language(request)
+    if not auth.is_owner:
+        raise HTTPException(status_code=403, detail="Owner privileges required for this operation")
+
+    if not validate_event_id(event_id):
+        raise HTTPException(
+            status_code=400,
+            detail=i18n_service.translate("errors.proxy.invalid_event_id", lang)
+        )
+
+    fields_set = set(payload.model_fields_set)
+    has_expiry_update = "expires_in_minutes" in fields_set
+    has_watermark_update = "watermark_label" in fields_set
+    if not has_expiry_update and not has_watermark_update:
+        raise HTTPException(status_code=400, detail="At least one update field must be provided")
+
+    watermark: str | None = None
+    if has_watermark_update:
+        raw_watermark = payload.watermark_label
+        if raw_watermark is not None:
+            raw_watermark = raw_watermark.strip()
+        watermark = raw_watermark or None
+
+    updated = await _update_video_share_link(
+        event_id=event_id,
+        link_id=link_id,
+        expires_in_minutes=payload.expires_in_minutes if has_expiry_update else None,
+        watermark_provided=has_watermark_update,
+        watermark_label=watermark,
+    )
+
+    if not updated:
+        raise HTTPException(
+            status_code=404,
+            detail=i18n_service.translate("errors.proxy.event_not_found", lang)
+        )
+
+    structlog.get_logger().info(
+        "VIDEO_SHARE_AUDIT: Share link updated",
+        event_type="video_share_link_updated",
+        event_id=event_id,
+        link_id=link_id,
+        updated_by=auth.username,
+        expires_in_minutes=payload.expires_in_minutes if has_expiry_update else None,
+        watermark_updated=has_watermark_update,
+    )
+    return updated
+
+
+@router.post("/video-share/{event_id}/links/{link_id}/revoke", response_model=VideoShareRevokeResponse)
+async def revoke_video_share_link(
+    request: Request,
+    event_id: str = Path(..., min_length=1, max_length=64),
+    link_id: int = Path(..., ge=1),
+    auth: AuthContext = Depends(get_proxy_auth_context),
+):
+    lang = get_user_language(request)
+    if not auth.is_owner:
+        raise HTTPException(status_code=403, detail="Owner privileges required for this operation")
+
+    if not validate_event_id(event_id):
+        raise HTTPException(
+            status_code=400,
+            detail=i18n_service.translate("errors.proxy.invalid_event_id", lang)
+        )
+
+    revoked = await _revoke_video_share_link(event_id=event_id, link_id=link_id)
+    if not revoked:
+        raise HTTPException(
+            status_code=404,
+            detail=i18n_service.translate("errors.proxy.event_not_found", lang)
+        )
+
+    structlog.get_logger().info(
+        "VIDEO_SHARE_AUDIT: Share link revoked",
+        event_type="video_share_link_revoked",
+        event_id=event_id,
+        link_id=link_id,
+        revoked_by=auth.username,
+    )
+    return VideoShareRevokeResponse(status="revoked", event_id=event_id, link_id=link_id)
 
 
 @router.get("/frigate/test")

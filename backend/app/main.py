@@ -163,6 +163,11 @@ async def run_cleanup():
                 cache_stats = await media_cache.cleanup_old_media(cache_retention)
                 if cache_stats["snapshots_deleted"] > 0 or cache_stats["clips_deleted"] > 0:
                     log.info("Media cache cleanup completed", **cache_stats)
+
+        # Video share-link cleanup
+        deleted_share_links = await proxy.cleanup_expired_video_share_links()
+        if deleted_share_links > 0:
+            log.info("Video share-link cleanup completed", deleted_count=deleted_share_links)
     except Exception as e:
         log.error("Error during cleanup execution", error=str(e))
 

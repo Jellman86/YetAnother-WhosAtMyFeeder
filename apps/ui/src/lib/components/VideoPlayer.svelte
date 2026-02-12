@@ -3,7 +3,16 @@
     import Plyr from 'plyr';
     import { _ } from 'svelte-i18n';
     import 'plyr/dist/plyr.css';
-    import { createVideoShareLink, fetchVideoShareInfo, getClipPreviewTrackUrl, getClipUrl } from '../api';
+    import {
+        createVideoShareLink,
+        fetchVideoShareInfo,
+        getClipPreviewTrackUrl,
+        getClipUrl,
+        listVideoShareLinks,
+        revokeVideoShareLink,
+        updateVideoShareLink,
+        type VideoShareLinkItem
+    } from '../api';
     import { authStore } from '../stores/auth.svelte';
     import { toastStore } from '../stores/toast.svelte';
     import { logger } from '../utils/logger';
@@ -59,9 +68,20 @@
     let clipDownloadUrl = $derived(clipUrl ? `${clipUrl}${clipUrl.includes('?') ? '&' : '?'}download=1` : '');
     let canDownloadClip = $derived(!shareToken && (!authStore.isGuest || authStore.publicAccessAllowClipDownloads));
     let canShareClip = $derived(!!shareToken || !authStore.isGuest);
+    let canManageShareLinks = $derived(!shareToken && !authStore.isGuest);
     let shortEventId = $derived(frigateEvent.split('-').pop() ?? frigateEvent);
     let shareExpiresAt = $state<string | null>(null);
     let shareWatermarkLabel = $state<string | null>(null);
+    let shareManagerOpen = $state(false);
+    let shareManagerLoading = $state(false);
+    let shareManagerCreating = $state(false);
+    let shareManagerBusyLinkId = $state<number | null>(null);
+    let shareManagerError = $state<string | null>(null);
+    let activeShareLinks = $state<VideoShareLinkItem[]>([]);
+    let managerWatermark = $state('');
+    let managerExpiresMinutes = $state(24 * 60);
+    let linkWatermarkDraft = $state<Record<number, string>>({});
+    let linkExpiresMinutesDraft = $state<Record<number, number>>({});
     let previewStatusLabel = $derived.by(() => {
         if (useNativeControls) return $_('video_player.previews_unavailable', { default: 'Timeline previews unavailable for this clip' });
         if (previewState === 'enabled') return $_('video_player.previews_enabled', { default: 'Timeline previews enabled' });
@@ -89,11 +109,43 @@
     let autoplayInFlight = $state(false);
     let autoStartPending = $state(false);
     let coarsePointerMql: MediaQueryList | null = null;
+
+    $effect(() => {
+        if (!authStore.username) return;
+        if (!managerWatermark) {
+            managerWatermark = authStore.username;
+        }
+    });
     let coarsePointerListener: ((event: MediaQueryListEvent) => void) | null = null;
     let activeMediaElement: HTMLVideoElement | null = null;
     let detachMediaListeners: (() => void) | null = null;
 
     const maxRetries = 2;
+    const SHARE_EXPIRY_PRESETS = [
+        { minutes: 60, label: '1h' },
+        { minutes: 6 * 60, label: '6h' },
+        { minutes: 24 * 60, label: '24h' },
+        { minutes: 3 * 24 * 60, label: '3d' },
+        { minutes: 7 * 24 * 60, label: '7d' }
+    ];
+
+    function parseMinutes(value: string, fallback: number): number {
+        const parsed = Number.parseInt(value, 10);
+        if (!Number.isFinite(parsed) || parsed < 5) {
+            return fallback;
+        }
+        return parsed;
+    }
+
+    function formatRemaining(seconds: number): string {
+        if (seconds <= 0) return $_('video_player.share_expired', { default: 'Expired' });
+        const minutes = Math.floor(seconds / 60);
+        if (minutes < 60) return `${minutes}m`;
+        const hours = Math.floor(minutes / 60);
+        if (hours < 24) return `${hours}h ${minutes % 60}m`;
+        const days = Math.floor(hours / 24);
+        return `${days}d ${hours % 24}h`;
+    }
 
     function sanitizedUrl(url: string): string {
         try {
@@ -126,6 +178,9 @@
         });
         shareExpiresAt = payload.expires_at;
         shareWatermarkLabel = payload.watermark_label ?? watermarkLabel;
+        if (canManageShareLinks && shareManagerOpen) {
+            void refreshShareLinks();
+        }
         return payload.share_url;
     }
 
@@ -160,6 +215,111 @@
         } catch (error) {
             logger.warn('video_player_share_copy_failed', { frigateEvent, error });
             toastStore.error($_('video_player.share_failed', { default: 'Could not copy video link' }));
+        }
+    }
+
+
+    async function refreshShareLinks(): Promise<void> {
+        if (!canManageShareLinks) return;
+        shareManagerLoading = true;
+        shareManagerError = null;
+        try {
+            const payload = await listVideoShareLinks(frigateEvent);
+            activeShareLinks = payload.links ?? [];
+
+            const nextWatermarkDraft: Record<number, string> = {};
+            const nextExpiryDraft: Record<number, number> = {};
+            for (const link of activeShareLinks) {
+                nextWatermarkDraft[link.id] = link.watermark_label ?? '';
+                nextExpiryDraft[link.id] = Math.max(5, Math.min(7 * 24 * 60, Math.ceil(link.remaining_seconds / 60)));
+            }
+            linkWatermarkDraft = nextWatermarkDraft;
+            linkExpiresMinutesDraft = nextExpiryDraft;
+        } catch (error) {
+            logger.warn('video_player_share_links_load_failed', { frigateEvent, error });
+            shareManagerError = $_('video_player.share_manage_load_failed', { default: 'Could not load active share links' });
+        } finally {
+            shareManagerLoading = false;
+        }
+    }
+
+    async function toggleShareManager(): Promise<void> {
+        shareManagerOpen = !shareManagerOpen;
+        if (shareManagerOpen) {
+            await refreshShareLinks();
+        }
+    }
+
+    async function createManagedShareLink(): Promise<void> {
+        if (!canManageShareLinks || shareManagerCreating) return;
+
+        shareManagerCreating = true;
+        shareManagerError = null;
+
+        const watermarkLabel = managerWatermark.trim() || authStore.username || 'Shared';
+        try {
+            const payload = await createVideoShareLink(frigateEvent, {
+                expiresInMinutes: managerExpiresMinutes,
+                watermarkLabel,
+            });
+            shareExpiresAt = payload.expires_at;
+            shareWatermarkLabel = payload.watermark_label ?? watermarkLabel;
+
+            if (typeof navigator !== 'undefined' && navigator.clipboard) {
+                try {
+                    await navigator.clipboard.writeText(payload.share_url);
+                    toastStore.success($_('video_player.share_copied', { default: 'Video link copied to clipboard' }));
+                } catch {
+                    toastStore.success($_('video_player.share_created', { default: 'Share link created' }));
+                }
+            } else {
+                toastStore.success($_('video_player.share_created', { default: 'Share link created' }));
+            }
+
+            await refreshShareLinks();
+        } catch (error) {
+            logger.warn('video_player_share_link_create_failed', { frigateEvent, error });
+            toastStore.error($_('video_player.share_failed', { default: 'Could not copy video link' }));
+        } finally {
+            shareManagerCreating = false;
+        }
+    }
+
+    async function updateManagedShareLink(linkId: number): Promise<void> {
+        if (!canManageShareLinks || shareManagerBusyLinkId !== null) return;
+
+        shareManagerBusyLinkId = linkId;
+        shareManagerError = null;
+
+        try {
+            const expiresInMinutes = linkExpiresMinutesDraft[linkId] ?? (24 * 60);
+            const watermarkLabel = (linkWatermarkDraft[linkId] ?? '').trim() || null;
+            await updateVideoShareLink(frigateEvent, linkId, { expiresInMinutes, watermarkLabel });
+            toastStore.success($_('video_player.share_updated', { default: 'Share link updated' }));
+            await refreshShareLinks();
+        } catch (error) {
+            logger.warn('video_player_share_link_update_failed', { frigateEvent, linkId, error });
+            toastStore.error($_('video_player.share_update_failed', { default: 'Could not update share link' }));
+        } finally {
+            shareManagerBusyLinkId = null;
+        }
+    }
+
+    async function revokeManagedShareLink(linkId: number): Promise<void> {
+        if (!canManageShareLinks || shareManagerBusyLinkId !== null) return;
+
+        shareManagerBusyLinkId = linkId;
+        shareManagerError = null;
+
+        try {
+            await revokeVideoShareLink(frigateEvent, linkId);
+            toastStore.success($_('video_player.share_revoked', { default: 'Share link revoked' }));
+            await refreshShareLinks();
+        } catch (error) {
+            logger.warn('video_player_share_link_revoke_failed', { frigateEvent, linkId, error });
+            toastStore.error($_('video_player.share_revoke_failed', { default: 'Could not revoke share link' }));
+        } finally {
+            shareManagerBusyLinkId = null;
         }
     }
 
@@ -900,6 +1060,20 @@
                         </svg>
                         <span class="font-semibold">{$_('video_player.share_link', { default: 'Share link' })}</span>
                     </button>
+                    {#if canManageShareLinks}
+                        <button
+                            type="button"
+                            onclick={() => void toggleShareManager()}
+                            class="inline-flex h-10 min-w-[2.5rem] items-center justify-center gap-1.5 rounded-xl border px-3 focus:outline-none focus:ring-2 focus:ring-indigo-400/60 bg-indigo-500/18 border-indigo-400/45 text-indigo-100 hover:bg-indigo-500/25"
+                            aria-label={$_('video_player.share_manage', { default: 'Manage share links' })}
+                            title={$_('video_player.share_manage', { default: 'Manage share links' })}
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                            </svg>
+                            <span class="font-semibold">{shareManagerOpen ? $_('video_player.share_manage_hide', { default: 'Hide links' }) : $_('video_player.share_manage_show', { default: 'Manage links' })}</span>
+                        </button>
+                    {/if}
                     {#if canDownloadClip}
                         <a
                             href={clipDownloadUrl}
@@ -932,6 +1106,113 @@
             {#if isCoarsePointer && previewState === 'enabled' && !useNativeControls}
                 <div class="mt-1 px-1 text-[11px] text-slate-300 sm:hidden">
                     {$_('video_player.previews_touch_hint', { default: 'Timeline previews are available. Drag or tap along the seek bar to inspect frames.' })}
+                </div>
+            {/if}
+
+            {#if canManageShareLinks && shareManagerOpen}
+                <div class="mt-2 rounded-xl border border-slate-700/70 bg-slate-900/55 p-3 text-xs text-slate-200">
+                    <div class="flex items-center justify-between gap-2 mb-2">
+                        <p class="font-semibold tracking-wide uppercase text-[11px] text-slate-300">{$_('video_player.share_manage_title', { default: 'Active share links' })}</p>
+                        <span class="text-[11px] text-slate-400">{activeShareLinks.length}</span>
+                    </div>
+
+                    <div class="grid gap-2 sm:grid-cols-2">
+                        <label class="flex flex-col gap-1">
+                            <span class="text-[11px] text-slate-400">{$_('video_player.share_manage_watermark', { default: 'Watermark label' })}</span>
+                            <input
+                                type="text"
+                                maxlength="64"
+                                bind:value={managerWatermark}
+                                class="h-9 rounded-lg border border-slate-600/70 bg-slate-800/80 px-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-400/50"
+                            />
+                        </label>
+                        <label class="flex flex-col gap-1">
+                            <span class="text-[11px] text-slate-400">{$_('video_player.share_manage_expiry', { default: 'Expires in' })}</span>
+                            <select
+                                bind:value={managerExpiresMinutes}
+                                class="h-9 rounded-lg border border-slate-600/70 bg-slate-800/80 px-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-400/50"
+                            >
+                                {#each SHARE_EXPIRY_PRESETS as preset}
+                                    <option value={preset.minutes}>{preset.label}</option>
+                                {/each}
+                            </select>
+                        </label>
+                    </div>
+
+                    <div class="mt-2">
+                        <button
+                            type="button"
+                            onclick={() => void createManagedShareLink()}
+                            disabled={shareManagerCreating || shareManagerBusyLinkId !== null}
+                            class="inline-flex h-9 items-center justify-center rounded-lg border border-sky-400/40 bg-sky-500/20 px-3 text-sm font-semibold text-sky-100 hover:bg-sky-500/30 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                            {shareManagerCreating ? $_('video_player.share_manage_creating', { default: 'Creating...' }) : $_('video_player.share_manage_create', { default: 'Create and copy link' })}
+                        </button>
+                    </div>
+
+                    {#if shareManagerError}
+                        <p class="mt-2 text-[11px] text-rose-300">{shareManagerError}</p>
+                    {/if}
+
+                    {#if shareManagerLoading}
+                        <p class="mt-2 text-[11px] text-slate-400">{$_('video_player.share_manage_loading', { default: 'Loading active links...' })}</p>
+                    {:else if activeShareLinks.length === 0}
+                        <p class="mt-2 text-[11px] text-slate-400">{$_('video_player.share_manage_empty', { default: 'No active links for this clip yet.' })}</p>
+                    {:else}
+                        <div class="mt-2 space-y-2">
+                            {#each activeShareLinks as link (link.id)}
+                                <div class="rounded-lg border border-slate-700/70 bg-slate-900/70 p-2">
+                                    <div class="flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-300">
+                                        <span class="font-mono">#{link.id}</span>
+                                        <span>{$_('video_player.share_expires', { values: { expiresAt: new Date(link.expires_at).toLocaleString() }, default: `Share expires: ${new Date(link.expires_at).toLocaleString()}` })}</span>
+                                        <span>{$_('video_player.share_manage_remaining', { values: { remaining: formatRemaining(link.remaining_seconds) }, default: `Remaining: ${formatRemaining(link.remaining_seconds)}` })}</span>
+                                    </div>
+                                    <div class="mt-2 grid gap-2 sm:grid-cols-[1fr_auto_auto]">
+                                        <input
+                                            type="text"
+                                            maxlength="64"
+                                            value={linkWatermarkDraft[link.id] ?? ''}
+                                            oninput={(event) => {
+                                                const value = (event.currentTarget as HTMLInputElement).value;
+                                                linkWatermarkDraft = { ...linkWatermarkDraft, [link.id]: value };
+                                            }}
+                                            class="h-9 rounded-lg border border-slate-600/70 bg-slate-800/80 px-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-400/50"
+                                        />
+                                        <select
+                                            value={String(linkExpiresMinutesDraft[link.id] ?? 60)}
+                                            onchange={(event) => {
+                                                const minutes = parseMinutes((event.currentTarget as HTMLSelectElement).value, 60);
+                                                linkExpiresMinutesDraft = { ...linkExpiresMinutesDraft, [link.id]: minutes };
+                                            }}
+                                            class="h-9 rounded-lg border border-slate-600/70 bg-slate-800/80 px-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-400/50"
+                                        >
+                                            {#each SHARE_EXPIRY_PRESETS as preset}
+                                                <option value={preset.minutes}>{preset.label}</option>
+                                            {/each}
+                                        </select>
+                                        <div class="flex items-center gap-2">
+                                            <button
+                                                type="button"
+                                                onclick={() => void updateManagedShareLink(link.id)}
+                                                disabled={shareManagerBusyLinkId !== null || shareManagerCreating}
+                                                class="inline-flex h-9 items-center justify-center rounded-lg border border-emerald-400/40 bg-emerald-500/20 px-3 text-sm font-semibold text-emerald-100 hover:bg-emerald-500/30 disabled:cursor-not-allowed disabled:opacity-60"
+                                            >
+                                                {$_('video_player.share_manage_save', { default: 'Save' })}
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onclick={() => void revokeManagedShareLink(link.id)}
+                                                disabled={shareManagerBusyLinkId !== null || shareManagerCreating}
+                                                class="inline-flex h-9 items-center justify-center rounded-lg border border-rose-400/40 bg-rose-500/20 px-3 text-sm font-semibold text-rose-100 hover:bg-rose-500/30 disabled:cursor-not-allowed disabled:opacity-60"
+                                            >
+                                                {$_('video_player.share_manage_revoke', { default: 'Revoke' })}
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            {/each}
+                        </div>
+                    {/if}
                 </div>
             {/if}
         {/if}

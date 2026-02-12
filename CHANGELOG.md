@@ -36,6 +36,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Fixed:** Deferred timeline-preview activation now updates the active Plyr instance in place instead of recreating the player, preventing interaction-triggered fallback to native controls.
 - **Added:** Events page now supports share-token deep links via `?event=<frigate_event>&video=1&share=<token>`, including direct modal open and token-aware playback URLs.
 - **Added:** Owner-only expiring video-share API endpoints (`POST /api/video-share`, `GET /api/video-share/{event_id}`) backed by hashed tokens and expiry checks.
+- **Added:** Owner share-link management APIs (`GET /api/video-share/{event_id}/links`, `PATCH /api/video-share/{event_id}/links/{link_id}`, `POST /api/video-share/{event_id}/links/{link_id}/revoke`) for active-link lifecycle control.
+- **Changed:** Video-share creation now has explicit anti-abuse rate limits (`10/minute;60/hour`) and emits structured share-audit logs for create/update/revoke actions.
+- **Changed:** Maintenance cleanup now purges expired/revoked video-share links on the scheduled cleanup cycle.
+- **Added:** Video modal now includes an owner share-management panel to create links with TTL/watermark presets, list active links, and revoke/update links in place.
+- **Added:** Backend proxy tests now cover share-link create/list/update/revoke endpoint behavior.
 - **Added:** Shared video playback now renders a watermark label/expiry context in the modal and disables direct clip downloads for shared-link sessions.
 - **Added:** Events now include a grouped day timeline strip with keyboard navigation (`[`, `]`, `0`) for faster time-based browsing.
 - **Fixed:** Notification Center no longer emits noisy per-video "Timeline previews enabled" updates when opening clips.

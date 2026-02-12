@@ -52,4 +52,5 @@ For a step-by-step checklist, see `INTEGRATION_TESTING.md`.
 - Resolved on February 12, 2026: video player modal stall/hang regression in `Events` flow.
 - Resolved on February 12, 2026: video playback-state badge now tracks active playback correctly and no longer sticks on `Paused`.
 - Resolved on February 12, 2026: timeline preview VTT cues now use path-based sprite URLs for reverse-proxy compatibility.
+- Resolved on February 12, 2026: owner share-link lifecycle tooling now supports in-app list/update/revoke management, create-rate limiting, and scheduled stale-link cleanup.
 - Verification evidence: `tests/e2e/test_video_player.py` passes in the current dev workspace.
