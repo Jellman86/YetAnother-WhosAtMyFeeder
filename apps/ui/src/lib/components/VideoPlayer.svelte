@@ -17,6 +17,7 @@
         expiresAt: number;
     };
     type PreviewState = 'checking' | 'enabled' | 'disabled' | 'unavailable' | 'deferred';
+    type PlaybackState = 'idle' | 'playing' | 'paused' | 'buffering' | 'ended';
 
     const HEAD_CACHE_TTL_MS = 5 * 60 * 1000;
     const PROBE_TIMEOUT_MS = 5000;
@@ -37,11 +38,21 @@
     let retryCount = $state(0);
     let thumbnailTrackUrl = $state<string | null>(null);
     let previewState = $state<PreviewState>('checking');
+    let playbackState = $state<PlaybackState>('idle');
 
     let clipUrlBase = $derived(getClipUrl(frigateEvent));
     let clipUrl = $state('');
     let clipDownloadUrl = $derived(clipUrl ? `${clipUrl}${clipUrl.includes('?') ? '&' : '?'}download=1` : '');
     let canDownloadClip = $derived(!authStore.isGuest || authStore.publicAccessAllowClipDownloads);
+    let shortEventId = $derived(frigateEvent.split('-').pop() ?? frigateEvent);
+    let playbackLabel = $derived.by(() => {
+        if (initializing) return $_('video_player.preparing', { default: 'Preparing player...' });
+        if (playbackState === 'playing') return $_('video_player.playing', { default: 'Playing' });
+        if (playbackState === 'buffering') return $_('video_player.buffering', { default: 'Buffering' });
+        if (playbackState === 'paused') return $_('video_player.paused', { default: 'Paused' });
+        if (playbackState === 'ended') return $_('video_player.ended', { default: 'Ended' });
+        return $_('video_player.ready', { default: 'Ready' });
+    });
 
     let mounted = false;
     let configureToken = 0;
@@ -111,6 +122,43 @@
         useNativeControls = true;
         previewState = 'unavailable';
         initializing = false;
+        playbackState = 'paused';
+    }
+
+    function handleVideoPlay() {
+        if (playbackState !== 'buffering') {
+            playbackState = 'playing';
+        }
+    }
+
+    function handleVideoPause() {
+        if (videoElement?.ended) {
+            playbackState = 'ended';
+            return;
+        }
+        if (playbackState !== 'buffering') {
+            playbackState = 'paused';
+        }
+    }
+
+    function handleVideoWaiting() {
+        if (!videoElement?.paused) {
+            playbackState = 'buffering';
+        }
+    }
+
+    function handleVideoCanPlay() {
+        if (videoElement?.ended) {
+            playbackState = 'ended';
+        } else if (videoElement?.paused) {
+            playbackState = 'paused';
+        } else {
+            playbackState = 'playing';
+        }
+    }
+
+    function handleVideoEnded() {
+        playbackState = 'ended';
     }
 
     async function probeUrl(
@@ -229,6 +277,7 @@
 
             player.on('ready', () => {
                 initializing = false;
+                playbackState = videoElement?.paused ? 'paused' : 'playing';
                 logger.info('video_player_ready', { frigateEvent, clipUrl: sanitizedUrl(clipUrl) });
             });
 
@@ -284,6 +333,7 @@
         const token = ++configureToken;
         const started = performance.now();
         initializing = true;
+        playbackState = 'idle';
         videoError = false;
         videoForbidden = false;
         useNativeControls = false;
@@ -423,6 +473,22 @@
         </button>
 
         <div class="rounded-2xl overflow-hidden ring-1 ring-white/10 bg-black shadow-2xl">
+            <div class="flex items-center justify-between gap-2 px-3 py-2 bg-slate-900/75 border-b border-slate-700/60">
+                <div class="flex items-center gap-2 min-w-0">
+                    <span class="inline-flex items-center rounded-full border border-slate-600 bg-slate-800/80 px-2 py-0.5 text-[10px] uppercase tracking-wider text-slate-200 font-semibold">
+                        Clip
+                    </span>
+                    <span class="text-xs text-slate-300 truncate font-mono">{shortEventId}</span>
+                </div>
+                <span class="inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-semibold border
+                    {playbackState === 'playing' ? 'bg-emerald-400/15 text-emerald-200 border-emerald-400/35' :
+                     playbackState === 'buffering' ? 'bg-amber-400/15 text-amber-200 border-amber-400/35' :
+                     playbackState === 'ended' ? 'bg-slate-400/15 text-slate-200 border-slate-400/35' :
+                     'bg-cyan-400/15 text-cyan-100 border-cyan-400/30'}"
+                >
+                    {playbackLabel}
+                </span>
+            </div>
             {#if videoError}
                 <div class="aspect-video bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex flex-col items-center justify-center text-center p-8">
                     {#if videoForbidden}
@@ -455,6 +521,14 @@
                         playsinline
                         preload="auto"
                         class="w-full h-full"
+                        onplay={handleVideoPlay}
+                        onpause={handleVideoPause}
+                        onwaiting={handleVideoWaiting}
+                        onstalled={handleVideoWaiting}
+                        onseeking={handleVideoWaiting}
+                        oncanplay={handleVideoCanPlay}
+                        onplaying={handleVideoCanPlay}
+                        onended={handleVideoEnded}
                     >
                         <source src={clipUrl} type="video/mp4" />
                         Your browser does not support video playback.
@@ -470,10 +544,10 @@
         </div>
 
         {#if !videoError}
-            <div class="mt-2 text-[11px] text-slate-300 px-1 flex items-center justify-between gap-2">
-                <span>{$_('video_player.shortcuts', { default: 'Shortcuts: space/K play/pause, arrows seek' })}</span>
+            <div class="mt-2 px-1 flex items-center justify-between gap-2 text-[11px]">
+                <span class="text-slate-300">{$_('video_player.shortcuts', { default: 'Shortcuts: space/K play/pause, arrows seek' })}</span>
                 <div class="flex items-center gap-2">
-                    <span>{#if useNativeControls}
+                    <span class="inline-flex items-center rounded-full border border-slate-700/70 bg-slate-800/60 px-2 py-1 text-slate-200">{#if useNativeControls}
                         {$_('video_player.previews_unavailable', { default: 'Timeline previews unavailable for this clip' })}
                     {:else if previewState === 'enabled'}
                         {$_('video_player.previews_enabled', { default: 'Timeline previews enabled' })}
@@ -490,13 +564,18 @@
                         <a
                             href={clipDownloadUrl}
                             download={`${frigateEvent}.mp4`}
-                            class="inline-flex items-center rounded-md bg-slate-700/80 px-2 py-1 text-[11px] font-semibold text-slate-100 hover:bg-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-400/60"
+                            class="inline-flex items-center rounded-full bg-emerald-500/15 border border-emerald-400/35 px-2.5 py-1 text-[11px] font-semibold text-emerald-100 hover:bg-emerald-500/25 focus:outline-none focus:ring-2 focus:ring-emerald-400/60"
                         >
                             {$_('video_player.download', { default: 'Download clip' })}
                         </a>
                     {/if}
                 </div>
             </div>
+            {#if playbackState === 'buffering'}
+                <div class="mt-1 text-[11px] text-amber-200/90 px-1">
+                    {$_('video_player.buffering_hint', { default: 'Buffering video stream...' })}
+                </div>
+            {/if}
             {#if previewState === 'checking' && !useNativeControls}
                 <div class="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-slate-700/70" aria-label="Generating timeline previews">
                     <div class="h-full w-1/3 bg-emerald-400/90 animate-[previewLoad_1.15s_ease-in-out_infinite]"></div>
