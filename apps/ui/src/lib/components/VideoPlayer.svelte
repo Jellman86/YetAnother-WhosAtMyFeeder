@@ -5,6 +5,7 @@
     import 'plyr/dist/plyr.css';
     import { getClipPreviewTrackUrl, getClipUrl } from '../api';
     import { authStore } from '../stores/auth.svelte';
+    import { notificationCenter } from '../stores/notification_center.svelte';
     import { logger } from '../utils/logger';
 
     interface Props {
@@ -37,8 +38,11 @@
     let videoForbidden = $state(false);
     let retryCount = $state(0);
     let thumbnailTrackUrl = $state<string | null>(null);
+    let deferredPreviewSrc = $state<string | null>(null);
+    let deferredPreviewToken = $state(0);
     let previewState = $state<PreviewState>('checking');
     let playbackState = $state<PlaybackState>('idle');
+    let previewNotificationSig = $state('');
 
     let clipUrlBase = $derived(getClipUrl(frigateEvent));
     let clipUrl = $state('');
@@ -127,6 +131,8 @@
     function switchToNativeFallback(reason: string): void {
         logger.warn('video_player_native_fallback', { frigateEvent, reason, clipUrl: sanitizedUrl(clipUrl) });
         destroyPlayer();
+        deferredPreviewSrc = null;
+        deferredPreviewToken = 0;
         useNativeControls = true;
         previewState = 'unavailable';
         initializing = false;
@@ -147,6 +153,7 @@
         if (playbackState !== 'buffering') {
             playbackState = 'paused';
         }
+        void attachDeferredPreviewIfReady('pause');
     }
 
     function handleVideoWaiting() {
@@ -167,6 +174,7 @@
 
     function handleVideoEnded() {
         playbackState = 'ended';
+        void attachDeferredPreviewIfReady('ended');
     }
 
     async function probeUrl(
@@ -234,7 +242,7 @@
         return null;
     }
 
-    function createPlyr(previewSrc: string | null): boolean {
+    function createPlyr(previewSrc: string | null, options: { autoplay?: boolean } = {}): boolean {
         if (!videoElement) return false;
 
         destroyPlayer();
@@ -245,7 +253,7 @@
         });
         try {
             player = new Plyr(videoElement, {
-                autoplay: true,
+                autoplay: options.autoplay ?? true,
                 clickToPlay: true,
                 hideControls: false,
                 iconUrl: '/plyr.svg',
@@ -301,11 +309,13 @@
                 sources: [{ src: clipUrl, type: 'video/mp4' }]
             };
 
-            const playResult = player.play();
-            if (playResult && typeof playResult.then === 'function') {
-                void playResult.catch((error) => {
-                    logger.info('video_player_autoplay_blocked', { frigateEvent, error });
-                });
+            if (options.autoplay ?? true) {
+                const playResult = player.play();
+                if (playResult && typeof playResult.then === 'function') {
+                    void playResult.catch((error) => {
+                        logger.info('video_player_autoplay_blocked', { frigateEvent, error });
+                    });
+                }
             }
             return true;
         } catch (error) {
@@ -322,17 +332,42 @@
         if (previewSrc) {
             // Never restart active playback just to add preview thumbnails.
             // Recreating Plyr can interrupt playback and look like buffering stalls.
-            if (videoElement && (!videoElement.paused || videoElement.currentTime > 0.25)) {
+            if (videoElement && !videoElement.paused) {
                 previewState = 'deferred';
+                deferredPreviewSrc = previewSrc;
+                deferredPreviewToken = token;
                 logger.warn('video_player_preview_skipped_active_playback', { frigateEvent });
                 return;
             }
 
-            const previewAttached = createPlyr(previewSrc);
+            const previewAttached = createPlyr(previewSrc, { autoplay: true });
             if (!previewAttached) {
                 switchToNativeFallback('preview_attach_failed');
             }
         }
+    }
+
+    async function attachDeferredPreviewIfReady(trigger: 'pause' | 'ended'): Promise<void> {
+        if (!deferredPreviewSrc || deferredPreviewToken !== configureToken) {
+            if (deferredPreviewToken !== configureToken) {
+                deferredPreviewSrc = null;
+                deferredPreviewToken = 0;
+            }
+            return;
+        }
+        if (useNativeControls || videoError || initializing || !videoElement || !videoElement.paused) return;
+
+        const previewSrc = deferredPreviewSrc;
+        deferredPreviewSrc = null;
+        deferredPreviewToken = 0;
+        previewState = 'enabled';
+        logger.info('video_player_attach_deferred_preview', { frigateEvent, trigger });
+        const previewAttached = createPlyr(previewSrc, { autoplay: false });
+        if (!previewAttached) {
+            switchToNativeFallback('deferred_preview_attach_failed');
+            return;
+        }
+        playbackState = 'paused';
     }
 
     async function configurePlayer() {
@@ -393,6 +428,8 @@
             initializing = true;
             useNativeControls = false;
             previewState = 'checking';
+            deferredPreviewSrc = null;
+            deferredPreviewToken = 0;
             clipHeadCache.delete(clipUrl);
             if (thumbnailTrackUrl) {
                 previewHeadCache.delete(thumbnailTrackUrl);
@@ -424,6 +461,11 @@
     onDestroy(() => {
         configureToken += 1;
         lastConfiguredKey = '';
+        deferredPreviewSrc = null;
+        deferredPreviewToken = 0;
+        if (previewState === 'checking' || previewState === 'deferred') {
+            notificationCenter.remove(`preview:${frigateEvent}`);
+        }
         if (initWatchdogTimer) {
             clearTimeout(initWatchdogTimer);
             initWatchdogTimer = null;
@@ -451,6 +493,53 @@
                     switchToNativeFallback('initialization_watchdog_timeout');
                 }
             }, 15000);
+        }
+    });
+
+    $effect(() => {
+        if (authStore.isGuest) return;
+        const id = `preview:${frigateEvent}`;
+        const title = $_('video_player.preview_notification_title', { default: 'Timeline previews' });
+        const signature = `${previewState}|${useNativeControls}|${videoError}|${id}`;
+        if (signature === previewNotificationSig) return;
+        previewNotificationSig = signature;
+
+        if (videoError || useNativeControls || previewState === 'disabled' || previewState === 'unavailable') {
+            notificationCenter.upsert({
+                id,
+                type: 'update',
+                title,
+                message: previewStatusLabel,
+                timestamp: Date.now(),
+                read: false,
+                meta: { event_id: frigateEvent }
+            });
+            return;
+        }
+
+        if (previewState === 'checking' || previewState === 'deferred') {
+            notificationCenter.upsert({
+                id,
+                type: 'process',
+                title,
+                message: previewStatusLabel,
+                timestamp: Date.now(),
+                read: false,
+                meta: { event_id: frigateEvent }
+            });
+            return;
+        }
+
+        if (previewState === 'enabled') {
+            notificationCenter.upsert({
+                id,
+                type: 'update',
+                title,
+                message: previewStatusLabel,
+                timestamp: Date.now(),
+                read: false,
+                meta: { event_id: frigateEvent }
+            });
         }
     });
 </script>
