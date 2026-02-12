@@ -316,9 +316,10 @@
         </div>
     {:else}
         <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {#each events as event (event.frigate_event)}
+            {#each events as event, index (event.frigate_event)}
                 <DetectionCard 
                     detection={event} 
+                    {index}
                     onclick={() => selectedEvent = event} 
                     onPlay={() => {
                         videoEventId = event.frigate_event;

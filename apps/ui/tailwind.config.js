@@ -20,8 +20,8 @@ export default {
                 },
                 // Nature-inspired background colors
                 surface: {
-                    light: '#f1f5f9', // Slate-100: slightly darker than white to make cards pop
-                    dark: '#020617',
+                    light: '#f8fafc', // Warm Stone/Parchment tint
+                    dark: '#030712',  // Deep Midnight
                 },
             },
             animation: {

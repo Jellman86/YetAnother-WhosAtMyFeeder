@@ -18,9 +18,10 @@
         onRetag?: (detection: Detection) => void;
         onPlay?: (detection: Detection) => void;
         hideProgress?: boolean;
+        index?: number;
     }
 
-    let { detection, onclick, onReclassify, onRetag, onPlay, hideProgress = false }: Props = $props();
+    let { detection, onclick, onReclassify, onRetag, onPlay, hideProgress = false, index = 0 }: Props = $props();
 
     // Check if this detection is being reclassified
     let reclassifyProgress = $derived(!hideProgress ? detectionsStore.getReclassificationProgress(detection.frigate_event) : null);
@@ -196,9 +197,10 @@
            hover:border-teal-500/30 dark:hover:border-teal-500/20
            overflow-hidden transition-all duration-500 ease-out
            hover:-translate-y-1.5 flex flex-col h-full
-           text-left w-full
+           text-left w-full animate-entrance
            {detection.is_hidden ? 'opacity-60 grayscale-[0.5]' : ''}
            {isVerified ? 'ring-2 ring-emerald-500/20 dark:ring-emerald-500/10' : ''}"
+    style="animation-delay: {index * 40}ms"
 >
     <button
         type="button"

@@ -1059,21 +1059,34 @@
             </div>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4">
             {#each sortedSpecies().slice(0, 3) as topSpecies, index}
                 <button
                     type="button"
                     onclick={() => selectedSpecies = topSpecies.species}
-                    class="card-base card-interactive text-left rounded-2xl p-5 transition-all duration-300 relative"
+                    class="card-base card-interactive text-left rounded-3xl p-5 pt-8 transition-all duration-300 relative group/card"
                     title={topSpecies.species === "Unknown Bird" ? $_('leaderboard.unidentified_desc') : ""}
                 >
+                    <!-- Overlapping Thumbnail -->
+                    <div class="absolute -top-6 left-6 w-16 h-16 rounded-2xl overflow-hidden border-4 border-white dark:border-slate-800 shadow-xl group-hover/card:-translate-y-1 transition-transform duration-300">
+                        {#if speciesInfoCache[topSpecies.species]?.thumbnail_url}
+                            <img 
+                                src={speciesInfoCache[topSpecies.species].thumbnail_url} 
+                                alt={topSpecies.displayName}
+                                class="w-full h-full object-cover"
+                            />
+                        {:else}
+                            <div class="w-full h-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-2xl">🐦</div>
+                        {/if}
+                    </div>
+
                     {#if topSpecies.species === "Unknown Bird"}
                         <div class="absolute top-2 right-2 bg-amber-500 text-white rounded-full w-7 h-7 flex items-center justify-center text-xs font-black shadow-md" title={$_('leaderboard.needs_review')}>
                             ?
                         </div>
                     {/if}
                     <div class="flex items-center gap-3">
-                        <span class="text-3xl">{getMedal(index)}</span>
+                        <span class="text-3xl ml-16">{getMedal(index)}</span>
                         <div class="flex-1 min-w-0">
                             <h4 class="font-semibold text-slate-900 dark:text-white truncate">
                                 {topSpecies.displayName}

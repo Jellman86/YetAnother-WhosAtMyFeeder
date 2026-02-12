@@ -6,6 +6,12 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- **Added:** New mobile Bottom Navigation bar for improved one-handed ergonomics on small screens.
+- **Changed:** Refined Leaderboard visual aesthetic with asymmetrical thumbnail overlaps for a bespoke "field journal" feel.
+- **Changed:** Refined global color palette: deeper "Midnight" dark mode and warmer "Parchment" light mode for improved atmosphere and character.
+- **Added:** Staggered entrance animations for Dashboard and Explorer cards to improve perceived performance and polish.
+- **Fixed:** Standardized badge and chip styles across the UI for better visual consistency.
+- **Fixed:** Video modal now includes a subtle zoom-in entrance transition and themed Plyr playback controls.
 - **Fixed:** Leaderboard sunrise/sunset ranges now use local timezone data from weather APIs (instead of forced UTC), improving real-world day/week/month display accuracy.
 - **Fixed:** Leaderboard sunrise/sunset range formatting now parses and sorts by clock-time values for stable ascending ranges (for example `07:28–08:13`).
 - **Changed:** Leaderboard detections chart now defaults to histogram-style bars on Week/Month views while preserving line/area trend rendering for shorter ranges.
