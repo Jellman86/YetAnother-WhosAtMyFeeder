@@ -642,7 +642,25 @@
 
         {#if !videoError}
             <div class="mt-2 px-1 flex items-center justify-between gap-2 text-[11px]">
-                <span class="text-slate-300">{$_('video_player.shortcuts', { default: 'Shortcuts: space/K play/pause, arrows seek' })}</span>
+                <span
+                    class="inline-flex items-center gap-1.5 text-slate-300"
+                    aria-label={$_('video_player.shortcuts', { default: 'Shortcuts: space/K play/pause, arrows seek' })}
+                    title={$_('video_player.shortcuts', { default: 'Shortcuts: space/K play/pause, arrows seek' })}
+                >
+                    <span class="inline-flex h-6 items-center rounded-md border border-slate-700/70 bg-slate-800/60 px-1.5 text-slate-200 font-mono">Space</span>
+                    <span class="inline-flex h-6 w-6 items-center justify-center rounded-md border border-slate-700/70 bg-slate-800/60 text-slate-200 font-mono">K</span>
+                    <span class="inline-flex h-6 w-6 items-center justify-center rounded-md border border-slate-700/70 bg-slate-800/60 text-slate-200">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5v14l11-7-11-7z" />
+                        </svg>
+                    </span>
+                    <span class="inline-flex h-6 w-6 items-center justify-center rounded-md border border-slate-700/70 bg-slate-800/60 text-slate-200">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 6l-6 6 6 6M15 6l6 6-6 6" />
+                        </svg>
+                    </span>
+                    <span class="sr-only">{$_('video_player.shortcuts', { default: 'Shortcuts: space/K play/pause, arrows seek' })}</span>
+                </span>
                 <div class="flex items-center gap-2">
                     <span
                         class="inline-flex h-8 w-8 items-center justify-center rounded-full border bg-slate-800/60 text-slate-200

@@ -34,6 +34,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Changed:** Video modal bottom-bar now uses icon-only controls for preview status and clip download (with accessible labels/tooltips).
 - **Fixed:** Video modal now attaches deferred timeline previews when playback pauses/ends instead of leaving preview state deferred indefinitely.
 - **Added:** Timeline preview generation/availability now appears in Notification Center as process/update events for owner sessions.
+- **Changed:** Video modal shortcut hint now uses compact keyboard/icon chips instead of plain text.
 - **Changed:** Backend startup/shutdown CI smoke test now verifies `/health` and `/ready` responses under real lifespan startup.
 - **Changed:** CI now runs a sampled Alembic upgrade-path matrix (multiple historical revisions → head), with SQLite integrity/FK checks and app-level `init_db()` validation on each path.
 
