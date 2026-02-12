@@ -106,7 +106,7 @@ jobs:
       - name: Backend startup/shutdown smoke test
         run: |
           cd backend
-          python - <<'PY'
+          timeout 180s python - <<'PY'
           import asyncio
           import os
           import tempfile
@@ -143,6 +143,12 @@ jobs:
           asyncio.run(smoke())
           print("Startup/shutdown smoke test OK")
           PY
+          rc=$?
+          if [ $rc -eq 124 ]; then
+            echo "Backend startup/shutdown smoke test timed out after 180s"
+            exit 1
+          fi
+          exit $rc
 
       - name: Run tests
         run: |
