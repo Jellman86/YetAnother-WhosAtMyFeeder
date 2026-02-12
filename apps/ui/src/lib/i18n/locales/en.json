@@ -850,7 +850,8 @@
     "empty_title": "No events yet",
     "empty_desc": "Backfill or wait for new detections to see them here.",
     "load_failed": "Failed to load events",
-    "classification_legend": "Classification sources: Manual, Video, Snapshot"
+    "classification_legend": "Classification sources: Manual, Video, Snapshot",
+    "timeline_keyboard_hint": "Timeline keyboard: [ previous day, ] next day, 0 reset"
   },
   "leaderboard": {
     "title": "Species Leaderboard",
@@ -1172,6 +1173,8 @@
     "share_copied": "Video link copied to clipboard",
     "share_failed": "Could not copy video link",
     "share_title": "YA-WAMF clip",
-    "share_text": "Bird detection clip: {eventId}"
+    "share_text": "Bird detection clip: {eventId}",
+    "share_expires": "Share expires: {expiresAt}",
+    "shared_watermark": "Shared clip"
   }
 }

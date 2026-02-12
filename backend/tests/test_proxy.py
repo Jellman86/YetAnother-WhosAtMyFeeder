@@ -1,5 +1,6 @@
 from pathlib import Path
 from tempfile import NamedTemporaryFile
+from datetime import datetime, timedelta
 from unittest.mock import patch, MagicMock, AsyncMock
 from app.main import app
 from app.config import settings
@@ -263,3 +264,100 @@ async def test_proxy_clip_download_forbidden_for_guest_when_disabled(client: htt
             settings.auth.enabled = original_auth
             settings.public_access.enabled = original_public
             settings.public_access.allow_clip_downloads = original_allow_downloads
+
+
+@pytest.mark.asyncio
+async def test_proxy_clip_allows_valid_share_token_without_auth(client: httpx.AsyncClient, mock_frigate_response):
+    """A valid share token should allow clip playback even when auth is otherwise required."""
+    original_clips = settings.frigate.clips_enabled
+    original_cache = settings.media_cache.enabled
+    original_auth = settings.auth.enabled
+    original_public = settings.public_access.enabled
+
+    settings.frigate.clips_enabled = True
+    settings.media_cache.enabled = False
+    settings.auth.enabled = True
+    settings.public_access.enabled = False
+
+    with patch("app.routers.proxy._resolve_video_share_token", new_callable=AsyncMock) as mock_share,          patch("app.routers.proxy.httpx.AsyncClient") as MockClient,          patch("app.routers.proxy.frigate_client") as mock_frigate:
+        mock_share.return_value = {
+            "frigate_event": "test_event_id",
+            "watermark_label": "Shared",
+            "expires_at": datetime.utcnow() + timedelta(hours=1),
+        }
+        mock_frigate.get_event = AsyncMock(return_value={"has_clip": True})
+        mock_frigate._get_headers = MagicMock(return_value={})
+
+        mock_client = MagicMock()
+        mock_client.build_request = MagicMock()
+        mock_client.send = AsyncMock(return_value=mock_frigate_response)
+        mock_client.aclose = AsyncMock()
+        MockClient.return_value = mock_client
+
+        try:
+            response = await client.get("/api/frigate/test_event_id/clip.mp4?share=valid_share_token_123456")
+            assert response.status_code == 200
+            assert response.headers.get("content-type") == "video/mp4"
+        finally:
+            settings.frigate.clips_enabled = original_clips
+            settings.media_cache.enabled = original_cache
+            settings.auth.enabled = original_auth
+            settings.public_access.enabled = original_public
+
+
+@pytest.mark.asyncio
+async def test_proxy_clip_rejects_invalid_share_token_when_auth_required(client: httpx.AsyncClient):
+    """Invalid share tokens must not bypass auth requirements."""
+    original_clips = settings.frigate.clips_enabled
+    original_auth = settings.auth.enabled
+    original_public = settings.public_access.enabled
+
+    settings.frigate.clips_enabled = True
+    settings.auth.enabled = True
+    settings.public_access.enabled = False
+
+    with patch("app.routers.proxy._resolve_video_share_token", new_callable=AsyncMock) as mock_share:
+        mock_share.return_value = None
+        try:
+            response = await client.get("/api/frigate/test_event_id/clip.mp4?share=invalid_share_token_123456")
+            assert response.status_code == 401
+        finally:
+            settings.frigate.clips_enabled = original_clips
+            settings.auth.enabled = original_auth
+            settings.public_access.enabled = original_public
+
+
+@pytest.mark.asyncio
+async def test_proxy_clip_thumbnails_vtt_preserves_share_query(client: httpx.AsyncClient):
+    """VTT cue sprite URLs should preserve share query tokens."""
+    original_clips = settings.frigate.clips_enabled
+    original_auth = settings.auth.enabled
+    original_public = settings.public_access.enabled
+
+    settings.frigate.clips_enabled = True
+    settings.auth.enabled = True
+    settings.public_access.enabled = False
+
+    manifest_json = (
+        '{"version":1,"event_id":"test_event_id","tile_width":160,"tile_height":90,'
+        '"cues":[{"start":0.0,"end":2.0,"x":0,"y":0,"w":160,"h":90}]}'
+    )
+
+    with patch("app.routers.proxy._resolve_video_share_token", new_callable=AsyncMock) as mock_share,          patch("app.routers.proxy.frigate_client") as mock_frigate,          patch("app.routers.proxy._ensure_preview_assets", new_callable=AsyncMock) as mock_ensure,          patch("app.services.media_cache.media_cache.get_preview_manifest", new_callable=AsyncMock) as mock_manifest:
+        mock_share.return_value = {
+            "frigate_event": "test_event_id",
+            "watermark_label": "Shared",
+            "expires_at": datetime.utcnow() + timedelta(hours=1),
+        }
+        mock_frigate.get_event = AsyncMock(return_value={"has_clip": True})
+        mock_manifest.return_value = manifest_json
+        mock_ensure.return_value = None
+
+        try:
+            response = await client.get("/api/frigate/test_event_id/clip-thumbnails.vtt?share=valid_share_token_123456")
+            assert response.status_code == 200
+            assert "clip-thumbnails.jpg?share=valid_share_token_123456#xywh=0,0,160,90" in response.text
+        finally:
+            settings.frigate.clips_enabled = original_clips
+            settings.auth.enabled = original_auth
+            settings.public_access.enabled = original_public

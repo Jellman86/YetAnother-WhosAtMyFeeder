@@ -153,16 +153,27 @@
         if (params.get('species')) speciesFilter = params.get('species')!;
         if (params.get('date')) datePreset = params.get('date') as any;
         const deepLinkedEvent = params.get('event');
+        const deepLinkedShare = params.get('share');
         const videoParam = params.get('video');
         const deepLinkWantsVideo = videoParam === '1' || videoParam === 'true';
         if (deepLinkedEvent && deepLinkWantsVideo) {
             videoEventId = deepLinkedEvent;
+            videoShareToken = deepLinkedShare;
             videoPlayIntent = 'auto';
             showVideo = true;
-            clearEventVideoDeepLinkParams();
+            if (!deepLinkedShare) {
+                clearEventVideoDeepLinkParams();
+            }
         } else if (deepLinkedEvent) {
             pendingEventId = deepLinkedEvent;
         }
+
+        const openedViaShare = !!(deepLinkedEvent && deepLinkWantsVideo && deepLinkedShare);
+        if (openedViaShare) {
+            loading = false;
+            return;
+        }
+
         try {
             const [filters, labels, hidden] = await Promise.all([
                 fetchEventFilters(), 
@@ -284,7 +295,74 @@
 
     let showVideo = $state(false);
     let videoEventId = $state<string | null>(null);
+    let videoShareToken = $state<string | null>(null);
     let videoPlayIntent = $state<'auto' | 'user'>('auto');
+
+    let selectedTimelineBucket = $state<string>('all');
+
+    function detectionDayKey(detection: Detection): string {
+        const date = new Date(detection.detection_time);
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+
+    function formatTimelineBucketLabel(bucket: string): string {
+        const date = new Date(`${bucket}T00:00:00`);
+        return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    }
+
+    let timelineBuckets = $derived.by(() => {
+        const counts = new Map<string, number>();
+        for (const event of events) {
+            const key = detectionDayKey(event);
+            counts.set(key, (counts.get(key) ?? 0) + 1);
+        }
+        return Array.from(counts.entries())
+            .sort((a, b) => b[0].localeCompare(a[0]))
+            .map(([key, count]) => ({ key, count, label: formatTimelineBucketLabel(key) }));
+    });
+
+    let visibleEvents = $derived.by(() => {
+        if (selectedTimelineBucket === 'all') return events;
+        return events.filter((event) => detectionDayKey(event) === selectedTimelineBucket);
+    });
+
+    $effect(() => {
+        if (selectedTimelineBucket === 'all') return;
+        if (!timelineBuckets.some((bucket) => bucket.key === selectedTimelineBucket)) {
+            selectedTimelineBucket = 'all';
+        }
+    });
+
+    function moveTimelineSelection(direction: 1 | -1): void {
+        const keys = ['all', ...timelineBuckets.map((bucket) => bucket.key)];
+        const current = Math.max(0, keys.indexOf(selectedTimelineBucket));
+        const next = Math.min(keys.length - 1, Math.max(0, current + direction));
+        selectedTimelineBucket = keys[next];
+    }
+
+    function handleTimelineKeydown(event: KeyboardEvent): void {
+        const target = event.target as HTMLElement | null;
+        const tag = target?.tagName?.toLowerCase();
+        if (tag === 'input' || tag === 'textarea' || target?.isContentEditable) return;
+        if (selectedEvent || showVideo) return;
+
+        if (event.key === '[' || (event.altKey && event.key === 'ArrowLeft')) {
+            event.preventDefault();
+            moveTimelineSelection(1);
+            return;
+        }
+        if (event.key === ']' || (event.altKey && event.key === 'ArrowRight')) {
+            event.preventDefault();
+            moveTimelineSelection(-1);
+            return;
+        }
+        if (event.key === '0') {
+            selectedTimelineBucket = 'all';
+        }
+    }
 
     function clearEventVideoDeepLinkParams() {
         const url = new URL(window.location.href);
@@ -302,6 +380,8 @@
         }
     }
 </script>
+
+<svelte:window onkeydown={handleTimelineKeydown} />
 
 <div class="space-y-6">
     <div class="flex flex-wrap items-center justify-between gap-3">
@@ -333,7 +413,39 @@
         </div>
     {/if}
 
-    {#if !loading && events.length === 0}
+    {#if !loading && timelineBuckets.length > 0}
+        <div class="card-base rounded-2xl p-3">
+            <div class="flex flex-wrap items-center gap-2">
+                <button
+                    type="button"
+                    class="px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors
+                        {selectedTimelineBucket === 'all'
+                            ? 'bg-cyan-500/20 border-cyan-400/60 text-cyan-100'
+                            : 'bg-slate-800/60 border-slate-600/70 text-slate-200 hover:bg-slate-700/70'}"
+                    onclick={() => selectedTimelineBucket = 'all'}
+                >
+                    {$_('common.all', { default: 'All' })} · {events.length}
+                </button>
+                {#each timelineBuckets as bucket}
+                    <button
+                        type="button"
+                        class="px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors
+                            {selectedTimelineBucket === bucket.key
+                                ? 'bg-cyan-500/20 border-cyan-400/60 text-cyan-100'
+                                : 'bg-slate-800/60 border-slate-600/70 text-slate-200 hover:bg-slate-700/70'}"
+                        onclick={() => selectedTimelineBucket = bucket.key}
+                    >
+                        {bucket.label} · {bucket.count}
+                    </button>
+                {/each}
+            </div>
+            <p class="mt-2 text-[11px] text-slate-400">
+                {$_('events.timeline_keyboard_hint', { default: 'Timeline keyboard: [ previous day, ] next day, 0 reset' })}
+            </p>
+        </div>
+    {/if}
+
+    {#if !loading && visibleEvents.length === 0}
         <div class="card-base rounded-3xl p-10 text-center">
             <div class="text-5xl mb-3">🪶</div>
             <h3 class="text-lg font-semibold text-slate-900 dark:text-white">{$_('events.empty_title')}</h3>
@@ -341,13 +453,14 @@
         </div>
     {:else}
         <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {#each events as event, index (event.frigate_event)}
+            {#each visibleEvents as event, index (event.frigate_event)}
                 <DetectionCard 
                     detection={event} 
                     {index}
                     onclick={() => selectedEvent = event} 
                     onPlay={() => {
                         videoEventId = event.frigate_event;
+                        videoShareToken = null;
                         videoPlayIntent = 'user';
                         showVideo = true;
                         selectedEvent = null;
@@ -369,6 +482,7 @@
         onReclassify={handleReclassify}
         onPlayVideo={(frigateEvent: string, playIntent: 'auto' | 'user' = 'auto') => {
             videoEventId = frigateEvent;
+            videoShareToken = null;
             videoPlayIntent = playIntent;
             showVideo = true;
             selectedEvent = null;
@@ -380,10 +494,12 @@
 {#if showVideo && videoEventId}
     <VideoPlayer
         frigateEvent={videoEventId}
+        shareToken={videoShareToken}
         playIntent={videoPlayIntent}
         onClose={() => {
             showVideo = false;
             videoEventId = null;
+            videoShareToken = null;
         }}
     />
 {/if}

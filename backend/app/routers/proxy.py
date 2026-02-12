@@ -1,14 +1,18 @@
 import asyncio
 import json
 import re
+import hashlib
+import secrets
 from pathlib import Path as FilePath
 from time import perf_counter
 from tempfile import NamedTemporaryFile
 from urllib.parse import quote_plus
-from datetime import date, timedelta
-from fastapi import APIRouter, HTTPException, Response, Path, Request, Depends
+from datetime import date, datetime, timedelta, timezone
+from fastapi import APIRouter, HTTPException, Response, Path, Request, Depends, Security
 from fastapi.responses import FileResponse, StreamingResponse
 from starlette.background import BackgroundTask
+from pydantic import BaseModel, Field
+from fastapi.security import HTTPAuthorizationCredentials
 import httpx
 import sqlite3
 import structlog
@@ -17,8 +21,8 @@ from app.config import settings
 from app.services.frigate_client import frigate_client
 from app.services.i18n_service import i18n_service
 from app.utils.language import get_user_language
-from app.auth import AuthContext, AuthLevel, require_owner, verify_token
-from app.auth_legacy import get_auth_context_with_legacy
+from app.auth import AuthContext, AuthLevel, require_owner, verify_token, security
+from app.auth_legacy import get_auth_context_with_legacy, api_key_header, api_key_query
 from app.ratelimit import guest_rate_limit
 from app.database import get_db
 from app.repositories.detection_repository import DetectionRepository
@@ -85,10 +89,157 @@ def _build_sprite_url(request: Request, event_id: str) -> str:
     # Return a path-only URL so WebVTT cues remain valid regardless of
     # reverse-proxy Host header rewriting.
     sprite_url = request.url_for("proxy_clip_thumbnails_sprite", event_id=event_id).path
+    params: list[str] = []
+    share_token = request.query_params.get("share")
+    if share_token:
+        params.append(f"share={quote_plus(share_token)}")
     token = request.query_params.get("token")
     if token:
-        sprite_url = f"{sprite_url}?token={quote_plus(token)}"
+        params.append(f"token={quote_plus(token)}")
+    if params:
+        sprite_url = f"{sprite_url}?{'&'.join(params)}"
     return sprite_url
+
+
+SHARE_TOKEN_PATTERN = re.compile(r'^[A-Za-z0-9_-]{16,256}$')
+
+
+class VideoShareCreateRequest(BaseModel):
+    event_id: str = Field(..., min_length=1, max_length=64)
+    expires_in_minutes: int = Field(default=24 * 60, ge=5, le=7 * 24 * 60)
+    watermark_label: str | None = Field(default=None, max_length=64)
+
+
+class VideoShareCreateResponse(BaseModel):
+    event_id: str
+    token: str
+    share_url: str
+    expires_at: str
+    expires_in_minutes: int
+    watermark_label: str | None = None
+
+
+class VideoShareInfoResponse(BaseModel):
+    event_id: str
+    expires_at: str
+    watermark_label: str | None = None
+
+
+def _hash_share_token(token: str) -> str:
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def _parse_db_timestamp(value: object) -> datetime | None:
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value
+    if isinstance(value, str):
+        normalized = value.replace("Z", "+00:00")
+        for fmt in (None, "%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M:%S.%f"):
+            try:
+                if fmt is None:
+                    dt = datetime.fromisoformat(normalized)
+                else:
+                    dt = datetime.strptime(value, fmt)
+                # Normalize any timezone-aware values to naive UTC for comparison/storage consistency.
+                if dt.tzinfo is not None:
+                    dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
+                return dt
+            except ValueError:
+                continue
+    return None
+
+
+async def _resolve_video_share_token(share_token: str, event_id: str | None = None) -> dict[str, object] | None:
+    if not SHARE_TOKEN_PATTERN.match(share_token):
+        return None
+
+    token_hash = _hash_share_token(share_token)
+    async with get_db() as db:
+        async with db.execute(
+            """
+            SELECT frigate_event, watermark_label, expires_at, revoked
+            FROM video_share_links
+            WHERE token_hash = ?
+            LIMIT 1
+            """,
+            (token_hash,),
+        ) as cursor:
+            row = await cursor.fetchone()
+
+    if not row:
+        return None
+
+    frigate_event, watermark_label, expires_raw, revoked = row
+    expires_at = _parse_db_timestamp(expires_raw)
+    if not expires_at:
+        return None
+    if bool(revoked):
+        return None
+    if expires_at <= datetime.utcnow():
+        return None
+    if event_id and frigate_event != event_id:
+        return None
+
+    return {
+        "frigate_event": frigate_event,
+        "watermark_label": watermark_label,
+        "expires_at": expires_at,
+    }
+
+
+async def _create_video_share_token(
+    event_id: str,
+    expires_in_minutes: int,
+    created_by: str | None,
+    watermark_label: str | None,
+) -> tuple[str, datetime]:
+    expires_at = datetime.utcnow() + timedelta(minutes=expires_in_minutes)
+
+    async with get_db() as db:
+        for _ in range(5):
+            token = secrets.token_urlsafe(24)
+            token_hash = _hash_share_token(token)
+            try:
+                await db.execute(
+                    """
+                    INSERT INTO video_share_links
+                    (token_hash, frigate_event, created_by, watermark_label, expires_at, revoked)
+                    VALUES (?, ?, ?, ?, ?, 0)
+                    """,
+                    (token_hash, event_id, created_by, watermark_label, expires_at),
+                )
+                await db.commit()
+                return token, expires_at
+            except sqlite3.IntegrityError:
+                # Extremely unlikely hash collision/token replay; retry with a fresh token.
+                continue
+
+    raise RuntimeError("Failed to create a unique video share token")
+
+
+def _has_valid_share_context(request: Request, event_id: str) -> bool:
+    share = getattr(request.state, "video_share", None)
+    return bool(share and share.get("frigate_event") == event_id)
+
+
+async def get_proxy_auth_context(
+    request: Request,
+    credentials: HTTPAuthorizationCredentials | None = Depends(security),
+    header_key: str = Security(api_key_header),
+    query_key: str = Security(api_key_query),
+) -> AuthContext:
+    share_token = request.query_params.get("share")
+    event_id = request.path_params.get("event_id")
+    if share_token and event_id and validate_event_id(event_id):
+        share = await _resolve_video_share_token(share_token, event_id)
+        if share:
+            request.state.video_share = share
+            return AuthContext(auth_level=AuthLevel.GUEST, username="video_share")
+
+    return await get_auth_context_with_legacy(request, credentials, header_key, query_key)
+
 
 async def require_event_access(event_id: str, auth: AuthContext, lang: str) -> None:
     """Ensure guests can only access visible, recent events."""
@@ -226,6 +377,108 @@ async def _ensure_preview_assets(event_id: str, lang: str) -> str:
                 except Exception:
                     pass
 
+@router.post("/video-share", response_model=VideoShareCreateResponse)
+async def create_video_share_link(
+    request: Request,
+    payload: VideoShareCreateRequest,
+    auth: AuthContext = Depends(get_proxy_auth_context),
+):
+    lang = get_user_language(request)
+    if not auth.is_owner:
+        raise HTTPException(status_code=403, detail="Owner privileges required for this operation")
+
+    event_id = payload.event_id.strip()
+    if not validate_event_id(event_id):
+        raise HTTPException(
+            status_code=400,
+            detail=i18n_service.translate("errors.proxy.invalid_event_id", lang)
+        )
+
+    if not settings.frigate.clips_enabled:
+        raise HTTPException(
+            status_code=403,
+            detail=i18n_service.translate("errors.clip_disabled", lang)
+        )
+
+    try:
+        event_data = await frigate_client.get_event(event_id)
+    except Exception:
+        event_data = None
+
+    if not event_data or not event_data.get("has_clip", False):
+        raise HTTPException(
+            status_code=404,
+            detail=i18n_service.translate("errors.proxy.clip_not_available", lang)
+        )
+
+    watermark = payload.watermark_label.strip() if payload.watermark_label else None
+    if watermark == "":
+        watermark = None
+
+    if watermark is None:
+        watermark = auth.username or "Shared"
+
+    token, expires_at = await _create_video_share_token(
+        event_id=event_id,
+        expires_in_minutes=payload.expires_in_minutes,
+        created_by=auth.username,
+        watermark_label=watermark,
+    )
+
+    base = str(request.base_url).rstrip("/")
+    share_url = (
+        f"{base}/events?event={quote_plus(event_id)}&video=1&share={quote_plus(token)}"
+    )
+
+    return VideoShareCreateResponse(
+        event_id=event_id,
+        token=token,
+        share_url=share_url,
+        expires_at=expires_at.isoformat(),
+        expires_in_minutes=payload.expires_in_minutes,
+        watermark_label=watermark,
+    )
+
+
+@router.get("/video-share/{event_id}", response_model=VideoShareInfoResponse)
+async def get_video_share_info(
+    request: Request,
+    event_id: str = Path(..., min_length=1, max_length=64),
+    auth: AuthContext = Depends(get_proxy_auth_context),
+):
+    lang = get_user_language(request)
+    if not validate_event_id(event_id):
+        raise HTTPException(
+            status_code=400,
+            detail=i18n_service.translate("errors.proxy.invalid_event_id", lang)
+        )
+
+    share = getattr(request.state, "video_share", None)
+    if not share or share.get("frigate_event") != event_id:
+        if auth.is_owner:
+            share_token = request.query_params.get("share")
+            if share_token:
+                share = await _resolve_video_share_token(share_token, event_id)
+        if not share:
+            raise HTTPException(
+                status_code=404,
+                detail=i18n_service.translate("errors.proxy.event_not_found", lang)
+            )
+
+    expires_at = share.get("expires_at")
+    if not isinstance(expires_at, datetime):
+        raise HTTPException(
+            status_code=404,
+            detail=i18n_service.translate("errors.proxy.event_not_found", lang)
+        )
+
+    return VideoShareInfoResponse(
+        event_id=event_id,
+        expires_at=expires_at.isoformat(),
+        watermark_label=share.get("watermark_label"),
+    )
+
+
 @router.get("/frigate/test")
 async def test_frigate_connection(
     request: Request,
@@ -305,7 +558,7 @@ async def proxy_config(
 async def proxy_snapshot(
     request: Request,
     event_id: str = Path(..., min_length=1, max_length=64),
-    auth: AuthContext = Depends(get_auth_context_with_legacy)
+    auth: AuthContext = Depends(get_proxy_auth_context)
 ):
     from app.services.media_cache import media_cache
 
@@ -317,7 +570,8 @@ async def proxy_snapshot(
             detail=i18n_service.translate("errors.proxy.invalid_event_id", lang)
         )
 
-    await require_event_access(event_id, auth, lang)
+    if not _has_valid_share_context(request, event_id):
+        await require_event_access(event_id, auth, lang)
 
     # Check cache first
     if settings.media_cache.enabled and settings.media_cache.cache_snapshots:
@@ -418,7 +672,7 @@ async def proxy_latest_camera_snapshot(
 async def check_clip_exists(
     request: Request,
     event_id: str = Path(..., min_length=1, max_length=64),
-    auth: AuthContext = Depends(get_auth_context_with_legacy)
+    auth: AuthContext = Depends(get_proxy_auth_context)
 ):
     """Check if a clip exists for an event by checking the event details."""
     lang = get_user_language(request)
@@ -435,7 +689,8 @@ async def check_clip_exists(
             detail=i18n_service.translate("errors.proxy.invalid_event_id", lang)
         )
 
-    await require_event_access(event_id, auth, lang)
+    if not _has_valid_share_context(request, event_id):
+        await require_event_access(event_id, auth, lang)
 
     # Frigate doesn't support HEAD for clips, so check event exists instead
     url = f"{settings.frigate.frigate_url}/api/events/{event_id}"
@@ -480,7 +735,7 @@ async def check_clip_exists(
 async def proxy_clip(
     request: Request,
     event_id: str = Path(..., min_length=1, max_length=64),
-    auth: AuthContext = Depends(get_auth_context_with_legacy)
+    auth: AuthContext = Depends(get_proxy_auth_context)
 ):
     """Proxy video clip from Frigate with Range support and streaming."""
     from app.services.media_cache import media_cache
@@ -502,7 +757,8 @@ async def proxy_clip(
             detail=i18n_service.translate("errors.proxy.invalid_event_id", lang)
         )
 
-    await require_event_access(event_id, auth, lang)
+    if not _has_valid_share_context(request, event_id):
+        await require_event_access(event_id, auth, lang)
 
     if download_requested and (not auth.is_owner) and (not settings.public_access.allow_clip_downloads):
         raise HTTPException(
@@ -678,7 +934,7 @@ async def proxy_clip(
 async def proxy_clip_thumbnails_vtt(
     request: Request,
     event_id: str = Path(..., min_length=1, max_length=64),
-    auth: AuthContext = Depends(get_auth_context_with_legacy),
+    auth: AuthContext = Depends(get_proxy_auth_context),
 ):
     """Return WebVTT timeline preview metadata for a clip."""
     from app.services.media_cache import media_cache
@@ -702,7 +958,8 @@ async def proxy_clip_thumbnails_vtt(
             detail=i18n_service.translate("errors.proxy.invalid_event_id", lang)
         )
 
-    await require_event_access(event_id, auth, lang)
+    if not _has_valid_share_context(request, event_id):
+        await require_event_access(event_id, auth, lang)
 
     try:
         event_data = await frigate_client.get_event(event_id)
@@ -783,7 +1040,7 @@ async def proxy_clip_thumbnails_vtt(
 async def proxy_clip_thumbnails_sprite(
     request: Request,
     event_id: str = Path(..., min_length=1, max_length=64),
-    auth: AuthContext = Depends(get_auth_context_with_legacy),
+    auth: AuthContext = Depends(get_proxy_auth_context),
 ):
     """Return generated sprite image for clip timeline previews."""
     from app.services.media_cache import media_cache
@@ -807,7 +1064,8 @@ async def proxy_clip_thumbnails_sprite(
             detail=i18n_service.translate("errors.proxy.invalid_event_id", lang)
         )
 
-    await require_event_access(event_id, auth, lang)
+    if not _has_valid_share_context(request, event_id):
+        await require_event_access(event_id, auth, lang)
     try:
         generation_outcome = await _ensure_preview_assets(event_id, lang)
     except HTTPException as exc:
@@ -841,7 +1099,7 @@ async def proxy_clip_thumbnails_sprite(
 async def proxy_thumb(
     request: Request,
     event_id: str = Path(..., min_length=1, max_length=64),
-    auth: AuthContext = Depends(get_auth_context_with_legacy)
+    auth: AuthContext = Depends(get_proxy_auth_context)
 ):
     from app.services.media_cache import media_cache
 
@@ -853,7 +1111,8 @@ async def proxy_thumb(
             detail=i18n_service.translate("errors.proxy.invalid_event_id", lang)
         )
 
-    await require_event_access(event_id, auth, lang)
+    if not _has_valid_share_context(request, event_id):
+        await require_event_access(event_id, auth, lang)
 
     # Thumbnails share cache with snapshots (they're the same image in Frigate)
     # Check cache first

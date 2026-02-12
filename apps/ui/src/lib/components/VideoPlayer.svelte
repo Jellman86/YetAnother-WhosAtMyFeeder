@@ -3,9 +3,8 @@
     import Plyr from 'plyr';
     import { _ } from 'svelte-i18n';
     import 'plyr/dist/plyr.css';
-    import { getClipPreviewTrackUrl, getClipUrl } from '../api';
+    import { createVideoShareLink, fetchVideoShareInfo, getClipPreviewTrackUrl, getClipUrl } from '../api';
     import { authStore } from '../stores/auth.svelte';
-    import { notificationCenter } from '../stores/notification_center.svelte';
     import { toastStore } from '../stores/toast.svelte';
     import { logger } from '../utils/logger';
 
@@ -13,6 +12,7 @@
         frigateEvent: string;
         onClose: () => void;
         playIntent?: 'auto' | 'user';
+        shareToken?: string | null;
     }
 
     type ProbeCache = {
@@ -27,9 +27,8 @@
     const PROBE_TIMEOUT_MS = 5000;
     const clipHeadCache = new Map<string, ProbeCache>();
     const previewHeadCache = new Map<string, ProbeCache>();
-    const previewStatusNotified = new Set<string>();
 
-    let { frigateEvent, onClose, playIntent = 'auto' }: Props = $props();
+    let { frigateEvent, onClose, playIntent = 'auto', shareToken = null }: Props = $props();
 
     let videoElement = $state<HTMLVideoElement | null>(null);
     let modalElement = $state<HTMLDivElement | null>(null);
@@ -46,13 +45,23 @@
     let deferredPreviewToken = $state(0);
     let previewState = $state<PreviewState>('checking');
     let playbackState = $state<PlaybackState>('idle');
-    let previewNotificationSig = $state('');
 
-    let clipUrlBase = $derived(getClipUrl(frigateEvent));
+    function appendQueryParam(url: string, key: string, value: string): string {
+        const separator = url.includes('?') ? '&' : '?';
+        return `${url}${separator}${encodeURIComponent(key)}=${encodeURIComponent(value)}`;
+    }
+
+    let clipUrlBase = $derived.by(() => {
+        const base = getClipUrl(frigateEvent);
+        return shareToken ? appendQueryParam(base, 'share', shareToken) : base;
+    });
     let clipUrl = $state('');
     let clipDownloadUrl = $derived(clipUrl ? `${clipUrl}${clipUrl.includes('?') ? '&' : '?'}download=1` : '');
-    let canDownloadClip = $derived(!authStore.isGuest || authStore.publicAccessAllowClipDownloads);
+    let canDownloadClip = $derived(!shareToken && (!authStore.isGuest || authStore.publicAccessAllowClipDownloads));
+    let canShareClip = $derived(!!shareToken || !authStore.isGuest);
     let shortEventId = $derived(frigateEvent.split('-').pop() ?? frigateEvent);
+    let shareExpiresAt = $state<string | null>(null);
+    let shareWatermarkLabel = $state<string | null>(null);
     let previewStatusLabel = $derived.by(() => {
         if (useNativeControls) return $_('video_player.previews_unavailable', { default: 'Timeline previews unavailable for this clip' });
         if (previewState === 'enabled') return $_('video_player.previews_enabled', { default: 'Timeline previews enabled' });
@@ -95,16 +104,41 @@
         }
     }
 
-    function buildShareUrl(): string {
+    function buildLegacyShareUrl(): string {
         if (typeof window === 'undefined') return '';
         const url = new URL('/events', window.location.origin);
         url.searchParams.set('event', frigateEvent);
         url.searchParams.set('video', '1');
+        if (shareToken) {
+            url.searchParams.set('share', shareToken);
+        }
         return url.toString();
     }
 
+    async function buildShareUrl(): Promise<string> {
+        if (shareToken) {
+            return buildLegacyShareUrl();
+        }
+        const watermarkLabel = authStore.username ?? 'Shared';
+        const payload = await createVideoShareLink(frigateEvent, {
+            expiresInMinutes: 24 * 60,
+            watermarkLabel,
+        });
+        shareExpiresAt = payload.expires_at;
+        shareWatermarkLabel = payload.watermark_label ?? watermarkLabel;
+        return payload.share_url;
+    }
+
     async function copyShareLink(): Promise<void> {
-        const shareUrl = buildShareUrl();
+        if (!canShareClip) return;
+        let shareUrl = '';
+        try {
+            shareUrl = await buildShareUrl();
+        } catch (error) {
+            logger.warn('video_player_share_link_create_failed', { frigateEvent, error });
+            toastStore.error($_('video_player.share_failed', { default: 'Could not copy video link' }));
+            return;
+        }
         if (!shareUrl) return;
         if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
             try {
@@ -375,7 +409,8 @@
 
     async function resolveThumbnailTrackUrl(eventId: string): Promise<string | null> {
         previewState = 'checking';
-        const trackUrl = getClipPreviewTrackUrl(eventId);
+        const baseTrackUrl = getClipPreviewTrackUrl(eventId);
+        const trackUrl = shareToken ? appendQueryParam(baseTrackUrl, 'share', shareToken) : baseTrackUrl;
         // Use GET directly for preview track probes to avoid noisy HEAD 405 logs.
         const status = await probeUrl(trackUrl, previewHeadCache, 'GET');
         if (status && status >= 200 && status < 300) {
@@ -618,6 +653,17 @@
     onMount(() => {
         mounted = true;
         logger.info('video_player_modal_open', { frigateEvent });
+        if (shareToken) {
+            void fetchVideoShareInfo(frigateEvent, shareToken)
+                .then((info) => {
+                    shareExpiresAt = info.expires_at;
+                    shareWatermarkLabel = info.watermark_label ?? 'Shared';
+                })
+                .catch((error) => {
+                    logger.warn('video_player_share_info_failed', { frigateEvent, error });
+                    shareWatermarkLabel = 'Shared';
+                });
+        }
         restoreFocusElement = (document.activeElement as HTMLElement | null) ?? null;
         coarsePointerMql = window.matchMedia('(pointer: coarse)');
         isCoarsePointer = coarsePointerMql.matches;
@@ -654,9 +700,6 @@
         lastConfiguredKey = '';
         deferredPreviewSrc = null;
         deferredPreviewToken = 0;
-        if (previewState === 'checking' || previewState === 'deferred') {
-            notificationCenter.remove(`preview:${frigateEvent}`);
-        }
         if (initWatchdogTimer) {
             clearTimeout(initWatchdogTimer);
             initWatchdogTimer = null;
@@ -697,48 +740,6 @@
         }
     });
 
-    $effect(() => {
-        if (authStore.isGuest) return;
-        const id = `preview:${frigateEvent}`;
-        const title = $_('video_player.preview_notification_title', { default: 'Timeline previews' });
-        const signature = `${previewState}|${useNativeControls}|${videoError}|${id}`;
-        if (signature === previewNotificationSig) return;
-        previewNotificationSig = signature;
-
-        // Avoid noisy per-open process notifications for transient states.
-        if (previewState === 'checking' || previewState === 'deferred') {
-            return;
-        }
-
-        const notifyKey = `${id}:${previewState}:${useNativeControls ? 'native' : 'plyr'}:${videoError ? 'error' : 'ok'}`;
-        if (previewStatusNotified.has(notifyKey)) return;
-        previewStatusNotified.add(notifyKey);
-
-        if (videoError || useNativeControls || previewState === 'disabled' || previewState === 'unavailable') {
-            notificationCenter.upsert({
-                id,
-                type: 'update',
-                title,
-                message: previewStatusLabel,
-                timestamp: Date.now(),
-                read: false,
-                meta: { event_id: frigateEvent }
-            });
-            return;
-        }
-
-        if (previewState === 'enabled') {
-            notificationCenter.upsert({
-                id,
-                type: 'update',
-                title,
-                message: previewStatusLabel,
-                timestamp: Date.now(),
-                read: false,
-                meta: { event_id: frigateEvent }
-            });
-        }
-    });
 </script>
 
 <svelte:window onkeydown={handleWindowKeydown} />
@@ -783,6 +784,11 @@
                         </svg>
                     </button>
                 </div>
+                {#if shareToken && shareExpiresAt}
+                    <div class="mt-1 text-[11px] text-slate-300/90 px-1">
+                        {$_('video_player.share_expires', { values: { expiresAt: new Date(shareExpiresAt).toLocaleString() }, default: `Share expires: ${new Date(shareExpiresAt).toLocaleString()}` })}
+                    </div>
+                {/if}
             </div>
             {#if videoError}
                 <div class="aspect-video bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex flex-col items-center justify-center text-center p-8">
@@ -825,6 +831,12 @@
                     {#if initializing}
                         <div class="absolute inset-0 grid place-items-center bg-black/45 text-slate-200 text-sm">
                             {$_('video_player.preparing', { default: 'Preparing player...' })}
+                        </div>
+                    {/if}
+
+                    {#if shareToken}
+                        <div class="pointer-events-none absolute left-3 bottom-3 rounded-md border border-white/25 bg-black/45 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-white/85">
+                            {shareWatermarkLabel ?? $_('video_player.shared_watermark', { default: 'Shared clip' })}
                         </div>
                     {/if}
                 </div>
@@ -877,9 +889,11 @@
                     <button
                         type="button"
                         onclick={copyShareLink}
-                        class="inline-flex h-10 min-w-[2.5rem] items-center justify-center gap-1.5 rounded-xl bg-sky-500/18 border border-sky-400/45 px-3 text-sky-100 hover:bg-sky-500/25 focus:outline-none focus:ring-2 focus:ring-sky-400/60"
+                        class="inline-flex h-10 min-w-[2.5rem] items-center justify-center gap-1.5 rounded-xl border px-3 focus:outline-none focus:ring-2 focus:ring-sky-400/60
+                            {canShareClip ? 'bg-sky-500/18 border-sky-400/45 text-sky-100 hover:bg-sky-500/25' : 'bg-slate-700/40 border-slate-600/60 text-slate-400 cursor-not-allowed'}"
                         aria-label={$_('video_player.share', { default: 'Share clip link' })}
                         title={$_('video_player.share', { default: 'Share clip link' })}
+                        disabled={!canShareClip}
                     >
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342A3 3 0 0 1 8 12a3 3 0 0 1 .684-1.902m0 3.244 6.632 3.79A3 3 0 1 0 17 15a2.99 2.99 0 0 0-.684.098l-6.632-3.79A3 3 0 0 0 10 9a2.99 2.99 0 0 0-.316-1.308l6.632-3.79A3 3 0 1 0 15 5a2.99 2.99 0 0 0 .316 1.308l-6.632 3.79A3 3 0 1 0 8.684 13.342Z" />

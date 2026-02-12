@@ -132,6 +132,23 @@ oauth_tokens = Table(
 Index("ix_oauth_tokens_provider", oauth_tokens.c.provider)
 Index("ix_oauth_tokens_email", oauth_tokens.c.email)
 
+video_share_links = Table(
+    "video_share_links",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("token_hash", String, nullable=False, unique=True),
+    Column("frigate_event", String, nullable=False),
+    Column("created_by", String, nullable=True),
+    Column("watermark_label", String, nullable=True),
+    Column("created_at", TIMESTAMP, server_default=func.now(), nullable=False),
+    Column("expires_at", TIMESTAMP, nullable=False),
+    Column("revoked", Boolean, server_default="0", nullable=False),
+)
+
+Index("ix_video_share_links_token_hash", video_share_links.c.token_hash)
+Index("ix_video_share_links_event", video_share_links.c.frigate_event)
+Index("ix_video_share_links_expires_at", video_share_links.c.expires_at)
+
 species_info_cache = Table(
     "species_info_cache",
     metadata,

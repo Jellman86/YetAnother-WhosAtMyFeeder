@@ -246,15 +246,15 @@ Create automated highlight reels and a time-based browsing experience that makes
 
 **Features:**
 - ✅ Quick-skim mode foundations in player (keyboard seek/play controls)
-- 🔄 Video share links (copy/share deep link to event clip) implemented in player modal.
-- ❌ Expiry-limited public links + watermark enforcement still pending.
+- ✅ Expiry-limited share links now supported (`/events?event=<id>&video=1&share=<token>`) with backend token validation.
+- ✅ Shared-link watermark overlay now enforced in player UI (label + expiry context).
 
 **Breakdown:**
-- 🔄 Video preview processing pipeline + caching: mostly complete (sprite/VTT generation, retention integration, metrics)
-- ❌ Timeline UI component (grouped browsing) + advanced keyboard UX: 3 days
+- ✅ Video preview processing pipeline + caching: shipped (sprite/VTT generation, retention integration, metrics)
+- 🔄 Timeline UI component (grouped browsing) + advanced keyboard UX: initial day-bucket timeline strip + `[ ] / 0` navigation shipped; further expansion pending.
 - Highlight scoring logic (confidence, rarity, activity): 2 days
 - Clip stitching + preview thumbnails: 2 days
-- Sharing & permissions + rate limits: 2 days
+- ✅ Sharing & permissions: owner-issued expiring tokens implemented; broader public-link policy/rate-limit tuning remains.
 - Testing: 1 day
 
 ### 3.4 Local LLM Support (Ollama) 🏠

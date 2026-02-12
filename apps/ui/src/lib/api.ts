@@ -864,6 +864,44 @@ export function getClipPreviewTrackUrl(frigateEvent: string): string {
     return withAuthParams(`${API_BASE}/frigate/${frigateEvent}/clip-thumbnails.vtt`);
 }
 
+export interface VideoShareCreateResponse {
+    event_id: string;
+    token: string;
+    share_url: string;
+    expires_at: string;
+    expires_in_minutes: number;
+    watermark_label?: string | null;
+}
+
+export interface VideoShareInfoResponse {
+    event_id: string;
+    expires_at: string;
+    watermark_label?: string | null;
+}
+
+export async function createVideoShareLink(
+    eventId: string,
+    options: { expiresInMinutes?: number; watermarkLabel?: string | null } = {}
+): Promise<VideoShareCreateResponse> {
+    const response = await apiFetch(`${API_BASE}/video-share`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            event_id: eventId,
+            expires_in_minutes: options.expiresInMinutes ?? 24 * 60,
+            watermark_label: options.watermarkLabel ?? null,
+        }),
+    });
+    return handleResponse<VideoShareCreateResponse>(response);
+}
+
+export async function fetchVideoShareInfo(eventId: string, shareToken: string): Promise<VideoShareInfoResponse> {
+    const response = await fetch(`${API_BASE}/video-share/${encodeURIComponent(eventId)}?share=${encodeURIComponent(shareToken)}`, {
+        headers: getHeaders(),
+    });
+    return handleResponse<VideoShareInfoResponse>(response);
+}
+
 export async function checkClipAvailable(frigateEvent: string): Promise<boolean> {
     try {
         const response = await apiFetch(`${API_BASE}/frigate/${frigateEvent}/clip.mp4`, {

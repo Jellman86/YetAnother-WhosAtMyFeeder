@@ -34,6 +34,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Added:** Video modal now includes a dedicated share action that uses native share sheets when available and falls back to copying a deep link (`/events?event=<id>&video=1`) to clipboard.
 - **Added:** Events page now supports video deep links via `?event=<frigate_event>&video=1`, opening the video modal directly.
 - **Fixed:** Deferred timeline-preview activation now updates the active Plyr instance in place instead of recreating the player, preventing interaction-triggered fallback to native controls.
+- **Added:** Events page now supports share-token deep links via `?event=<frigate_event>&video=1&share=<token>`, including direct modal open and token-aware playback URLs.
+- **Added:** Owner-only expiring video-share API endpoints (`POST /api/video-share`, `GET /api/video-share/{event_id}`) backed by hashed tokens and expiry checks.
+- **Added:** Shared video playback now renders a watermark label/expiry context in the modal and disables direct clip downloads for shared-link sessions.
+- **Added:** Events now include a grouped day timeline strip with keyboard navigation (`[`, `]`, `0`) for faster time-based browsing.
+- **Fixed:** Notification Center no longer emits noisy per-video "Timeline previews enabled" updates when opening clips.
 - **Fixed:** Event processor error logging now captures event ID deterministically without `locals()` fallback hacks.
 - **Changed:** CSP policy now removes `script-src 'unsafe-inline'` and adds `object-src 'none'`/`base-uri 'self'` hardening.
 - **Changed:** Remaining hardcoded UI copy in key components (header/sidebar/video modal/toasts/top visitors/mobile shell) has been routed through i18n keys/defaults.
