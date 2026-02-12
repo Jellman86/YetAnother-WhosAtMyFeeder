@@ -91,6 +91,23 @@
         return { percent, current, total };
     }
 
+    function sourceLabel(item: NotificationItem) {
+        const source = String((item.meta as Record<string, any> | undefined)?.source ?? 'system').toUpperCase();
+        return source;
+    }
+
+    function handleItemClick(item: NotificationItem) {
+        notificationCenter.markRead(item.id);
+        const route = (item.meta as Record<string, any> | undefined)?.route;
+        if (!route || typeof route !== 'string') return;
+        close();
+        if (onNavigate) {
+            onNavigate(route);
+            return;
+        }
+        window.location.assign(route);
+    }
+
     onMount(() => {
         const handler = (event: MouseEvent) => {
             if (!open) return;
@@ -169,6 +186,9 @@
                                         {#if item.message}
                                             <p class="text-[10px] font-medium text-slate-500 dark:text-slate-300 mt-1">{item.message}</p>
                                         {/if}
+                                        <div class="mt-1 text-[9px] font-semibold uppercase tracking-wider text-slate-400">
+                                            {sourceLabel(item)} • {formatTime(item.timestamp)}
+                                        </div>
                                         {#if progress}
                                             <div class="mt-2 h-2 rounded-full bg-emerald-100 dark:bg-emerald-950/60 overflow-hidden">
                                                 <div class="h-full bg-gradient-to-r from-emerald-500 via-teal-500 to-sky-500 transition-all duration-500" style={`width: ${progress.percent}%`}></div>
@@ -196,7 +216,7 @@
                             <button
                                 type="button"
                                 class="w-full text-left px-4 py-3 border-b border-slate-100 dark:border-slate-800/60 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition"
-                                onclick={() => notificationCenter.markRead(item.id)}
+                                onclick={() => handleItemClick(item)}
                             >
                                 <div class="flex items-start gap-3">
                                     <div class="text-lg">{getIcon(item.type)}</div>
@@ -210,6 +230,7 @@
                                         {#if item.message}
                                             <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">{item.message}</p>
                                         {/if}
+                                        <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mt-1">{sourceLabel(item)}</p>
                                     </div>
                                     {#if !item.read}
                                         <span class="mt-1 w-2 h-2 rounded-full bg-rose-500"></span>

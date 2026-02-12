@@ -17,7 +17,7 @@
   import Notifications from './lib/pages/Notifications.svelte';
   import Login from './lib/components/Login.svelte';
   import FirstRunWizard from './lib/pages/FirstRunWizard.svelte';
-  import { fetchEvents, fetchEventsCount, type Detection, setAuthErrorCallback } from './lib/api';
+  import { checkHealth, fetchCacheStats, fetchEvents, fetchEventsCount, type Detection, setAuthErrorCallback } from './lib/api';
   import { themeStore } from './lib/stores/theme.svelte';
   import { layoutStore } from './lib/stores/layout.svelte';
   import { settingsStore } from './lib/stores/settings.svelte';
@@ -74,6 +74,7 @@
   let evtSource: EventSource | null = $state(null);
   let reconnectAttempts = $state(0);
   let reconnectTimeout: number | null = $state(null);
+  let stalePruneInterval: number | null = $state(null);
   let isReconnecting = $state(false);
   let mobileSidebarOpen = $state(false);
 
@@ -101,6 +102,10 @@
       // console.log('Notifications Active:', active);
       return active;
   });
+
+  const STALE_PROCESS_MAX_AGE_MS = 45 * 60 * 1000;
+  const notificationThrottle = new Map<string, number>();
+  const notificationSignature = new Map<string, string>();
 
   // Handle back button and initial load
   onMount(() => {
@@ -131,6 +136,11 @@
 
           await authStore.loadStatus();
           notificationCenter.hydrate();
+          pruneStaleProcessNotifications();
+          await runOwnerSystemChecks();
+          stalePruneInterval = window.setInterval(() => {
+              pruneStaleProcessNotifications();
+          }, 60_000);
 
           // Handle page visibility changes - reconnect when tab becomes visible
           const handleVisibilityChange = () => {
@@ -172,6 +182,10 @@
                   clearTimeout(reconnectTimeout);
                   reconnectTimeout = null;
               }
+              if (stalePruneInterval) {
+                  clearInterval(stalePruneInterval);
+                  stalePruneInterval = null;
+              }
           };
       })();
 
@@ -188,52 +202,146 @@
       return !authStore.isGuest;
   }
 
+  function applyNotificationPolicy(id: string, signature: string, throttleMs = 0): boolean {
+      const now = Date.now();
+      const lastSig = notificationSignature.get(id);
+      const lastAt = notificationThrottle.get(id) ?? 0;
+      if (lastSig === signature && now - lastAt < throttleMs) {
+          return false;
+      }
+      notificationSignature.set(id, signature);
+      notificationThrottle.set(id, now);
+      return true;
+  }
+
+  function pruneStaleProcessNotifications() {
+      const now = Date.now();
+      for (const item of notificationCenter.items) {
+          if (item.type !== 'process' || item.read) continue;
+          if (now - item.timestamp <= STALE_PROCESS_MAX_AGE_MS) continue;
+          notificationCenter.upsert({
+              ...item,
+              type: 'update',
+              read: true,
+              timestamp: now,
+              message: item.message ? `${item.message} • stale` : 'Stale process notification',
+              meta: {
+                  ...(item.meta ?? {}),
+                  stale: true,
+                  source: (item.meta as Record<string, any> | undefined)?.source ?? 'system',
+              }
+          });
+      }
+  }
+
+  async function runOwnerSystemChecks() {
+      if (!shouldNotify()) return;
+
+      try {
+          const health: any = await checkHealth();
+          const status = String(health?.status ?? '').toLowerCase();
+          if (status && status !== 'healthy') {
+              notificationCenter.upsert({
+                  id: 'system:health',
+                  type: 'update',
+                  title: t('status.system_offline'),
+                  message: `Health status: ${health?.status ?? 'unknown'}`,
+                  timestamp: Date.now(),
+                  read: false,
+                  meta: { source: 'health', route: '/settings' }
+              });
+          }
+      } catch (error) {
+          logger.warn('health_check_failed', { error });
+      }
+
+      try {
+          const cache = await fetchCacheStats();
+          if (!cache.cache_enabled) {
+              notificationCenter.upsert({
+                  id: 'system:cache-disabled',
+                  type: 'update',
+                  title: 'Media cache disabled',
+                  message: 'Timeline previews and media caching are disabled in current settings.',
+                  timestamp: Date.now(),
+                  read: false,
+                  meta: { source: 'cache', route: '/settings' }
+              });
+          }
+      } catch (error) {
+          logger.warn('cache_stats_check_failed', { error });
+      }
+  }
+
   function addDetectionNotification(det: Detection) {
       if (!shouldNotify()) return;
+      const id = `detection:${det.frigate_event}`;
+      const signature = `${det.frigate_event}|${det.display_name}|${det.camera_name}|${det.detection_time}`;
+      if (!applyNotificationPolicy(id, signature, 4000)) return;
       const title = t('notifications.event_detection');
       const message = t('notifications.event_detection_desc', {
           species: det.display_name,
           camera: det.camera_name
       });
-      notificationCenter.add({
-          id: `detection:${det.frigate_event}:${det.detection_time}`,
+      notificationCenter.upsert({
+          id,
           type: 'detection',
           title,
-          message
+          message,
+          timestamp: Date.now(),
+          read: false,
+          meta: {
+              source: 'sse',
+              route: '/events',
+              event_id: det.frigate_event
+          }
       });
   }
 
   function addReclassifyNotification(eventId: string, label: string | null) {
       if (!shouldNotify()) return;
+      const id = `reclassify:${eventId}`;
+      const signature = `${eventId}|${label ?? 'unknown'}`;
+      if (!applyNotificationPolicy(id, signature, 1500)) return;
       const title = t('notifications.event_reclassify');
       const message = t('notifications.event_reclassify_desc', {
           species: label ?? 'Unknown'
       });
       notificationCenter.upsert({
-          id: `reclassify:${eventId}`,
+          id,
           type: 'update',
           title,
           message,
           timestamp: Date.now(),
-          read: false
+          read: false,
+          meta: {
+              source: 'sse',
+              route: '/events',
+              event_id: eventId
+          }
       });
   }
 
   function updateReclassifyProgress(eventId: string, current: number, total: number) {
       if (!shouldNotify()) return;
+      const id = `reclassify:progress:${eventId}`;
+      const signature = `${eventId}|${current}|${total}`;
+      if (!applyNotificationPolicy(id, signature, 1200)) return;
       const title = t('notifications.event_reclassify');
       const message = t('notifications.event_reclassify_progress', {
           current: current.toLocaleString(),
           total: total.toLocaleString()
       });
       notificationCenter.upsert({
-          id: 'reclassify:progress',
+          id,
           type: 'process',
           title,
           message,
           timestamp: Date.now(),
           read: false,
           meta: {
+              source: 'sse',
+              route: '/events',
               event_id: eventId,
               current,
               total
@@ -241,8 +349,8 @@
       });
   }
 
-  function clearReclassifyProgressNotification() {
-      notificationCenter.remove('reclassify:progress');
+  function clearReclassifyProgressNotification(eventId: string) {
+      notificationCenter.remove(`reclassify:progress:${eventId}`);
   }
 
   function updateBackfillNotification(payload: any) {
@@ -275,14 +383,21 @@
           message = data.message || t('notifications.event_backfill_failed');
       }
 
+      const id = `backfill:${jobId}`;
+      const signature = `${payload.type}|${jobId}|${processed}|${total}|${updated}|${skipped}|${errors}`;
+      const throttleMs = payload.type === 'backfill_progress' ? 1200 : 0;
+      if (!applyNotificationPolicy(id, signature, throttleMs)) return;
+
       notificationCenter.upsert({
-          id: `backfill:${jobId}`,
+          id,
           type: 'process',
           title,
           message,
           timestamp: Date.now(),
           read: payload.type === 'backfill_complete' || payload.type === 'backfill_failed',
           meta: {
+              source: 'sse',
+              route: '/settings',
               kind,
               processed,
               total
@@ -354,6 +469,7 @@
 
           evtSource.onopen = () => {
               logger.sseEvent("connection_opened");
+              notificationCenter.remove('system:sse-disconnected');
           };
 
           evtSource.onmessage = (event) => {
@@ -492,7 +608,7 @@
                              console.error("SSE Invalid reclassification_completed data:", payload);
                              return;
                          }
-                         clearReclassifyProgressNotification();
+                         clearReclassifyProgressNotification(payload.data.event_id);
                          detectionsStore.completeReclassification(
                              payload.data.event_id,
                              payload.data.results
@@ -503,6 +619,19 @@
                          addReclassifyNotification(payload.data.event_id, topLabel);
                      } else if (payload.type === 'backfill_started' || payload.type === 'backfill_progress' || payload.type === 'backfill_complete' || payload.type === 'backfill_failed') {
                          updateBackfillNotification(payload);
+                     } else if (payload.type === 'settings_updated') {
+                         const signature = `${payload.type}|${JSON.stringify(payload.data ?? {})}`;
+                         if (shouldNotify() && applyNotificationPolicy('settings:updated', signature, 3000)) {
+                             notificationCenter.upsert({
+                                 id: 'settings:updated',
+                                 type: 'update',
+                                 title: 'Settings updated',
+                                 message: 'Configuration changed successfully.',
+                                 timestamp: Date.now(),
+                                 read: false,
+                                 meta: { source: 'sse', route: '/settings' }
+                             });
+                         }
                      } else {
                          console.warn("SSE Unknown message type:", payload.type);
                      }
@@ -517,6 +646,21 @@
           evtSource.onerror = (err) => {
               console.error("SSE Connection Error", err);
               detectionsStore.setConnected(false);
+              if (shouldNotify()) {
+                  const id = 'system:sse-disconnected';
+                  const signature = `${String((err as any)?.type ?? 'error')}|${document.hidden ? 'hidden' : 'visible'}`;
+                  if (applyNotificationPolicy(id, signature, 120000)) {
+                      notificationCenter.upsert({
+                          id,
+                          type: 'update',
+                          title: 'Live updates disconnected',
+                          message: 'Realtime event stream is reconnecting in the background.',
+                          timestamp: Date.now(),
+                          read: false,
+                          meta: { source: 'sse', route: '/notifications' }
+                      });
+                  }
+              }
 
               if (evtSource) {
                   evtSource.close();

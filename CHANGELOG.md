@@ -40,6 +40,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Fixed:** Video modal mobile action buttons (preview/download) now remain clearly visible with explicit labels and consistent icon sizing.
 - **Changed:** Video modal keyboard shortcut hint now uses simpler text (mobile-friendly) instead of dense icon chips.
 - **Changed:** Video modal now shows a touch-device-only timeline preview hint when previews are enabled, clarifying scrub behavior on mobile.
+- **Changed:** Notification Center now includes source metadata, supports click-through deep links to relevant pages, and uses stronger dedupe/throttle logic for noisy SSE-driven updates.
+- **Added:** Notification lifecycle hardening for owner sessions: stale in-progress items are auto-settled, SSE disconnect warnings are surfaced, and startup health/media-cache checks can raise actionable system notifications.
 - **Changed:** Backend startup/shutdown CI smoke test now verifies `/health` and `/ready` responses under real lifespan startup.
 - **Changed:** CI now runs a sampled Alembic upgrade-path matrix (multiple historical revisions → head), with SQLite integrity/FK checks and app-level `init_db()` validation on each path.
 
