@@ -557,18 +557,6 @@
     tabindex="-1"
 >
     <div class="relative w-full max-w-4xl mx-auto animate-in fade-in zoom-in-95 duration-200">
-        <button
-            bind:this={closeButton}
-            type="button"
-            onclick={onClose}
-            class="absolute top-3 right-3 z-20 p-2 text-white/80 hover:text-white transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-white/40 rounded-full bg-black/35 hover:bg-black/50"
-            aria-label="Close video"
-        >
-            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-        </button>
-
         <div class="rounded-2xl overflow-hidden ring-1 ring-white/10 bg-black shadow-2xl">
             <div class="flex items-center justify-between gap-2 px-3 py-2 bg-slate-900/75 border-b border-slate-700/60">
                 <div class="flex items-center gap-2 min-w-0">
@@ -577,14 +565,27 @@
                     </span>
                     <span class="text-xs text-slate-300 truncate font-mono">{shortEventId}</span>
                 </div>
-                <span class="inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-semibold border
-                    {playbackState === 'playing' ? 'bg-emerald-400/15 text-emerald-200 border-emerald-400/35' :
-                     playbackState === 'buffering' ? 'bg-amber-400/15 text-amber-200 border-amber-400/35' :
-                     playbackState === 'ended' ? 'bg-slate-400/15 text-slate-200 border-slate-400/35' :
-                     'bg-cyan-400/15 text-cyan-100 border-cyan-400/30'}"
-                >
-                    {playbackLabel}
-                </span>
+                <div class="flex items-center gap-1.5 shrink-0">
+                    <span class="inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-semibold border
+                        {playbackState === 'playing' ? 'bg-emerald-400/15 text-emerald-200 border-emerald-400/35' :
+                         playbackState === 'buffering' ? 'bg-amber-400/15 text-amber-200 border-amber-400/35' :
+                         playbackState === 'ended' ? 'bg-slate-400/15 text-slate-200 border-slate-400/35' :
+                         'bg-cyan-400/15 text-cyan-100 border-cyan-400/30'}"
+                    >
+                        {playbackLabel}
+                    </span>
+                    <button
+                        bind:this={closeButton}
+                        type="button"
+                        onclick={onClose}
+                        class="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-500/60 bg-black/40 text-white/80 hover:text-white hover:bg-black/60 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-white/40"
+                        aria-label="Close video"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
             </div>
             {#if videoError}
                 <div class="aspect-video bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex flex-col items-center justify-center text-center p-8">
@@ -641,29 +642,29 @@
         </div>
 
         {#if !videoError}
-            <div class="mt-2 px-1 flex items-center justify-between gap-2 text-[11px]">
+            <div class="mt-2 px-1 flex items-center justify-between gap-2 text-[11px] flex-wrap sm:flex-nowrap">
                 <span
-                    class="inline-flex items-center gap-1.5 text-slate-300"
+                    class="inline-flex items-center gap-1.5 text-slate-300 shrink-0"
                     aria-label={$_('video_player.shortcuts', { default: 'Shortcuts: space/K play/pause, arrows seek' })}
                     title={$_('video_player.shortcuts', { default: 'Shortcuts: space/K play/pause, arrows seek' })}
                 >
-                    <span class="inline-flex h-6 items-center rounded-md border border-slate-700/70 bg-slate-800/60 px-1.5 text-slate-200 font-mono">Space</span>
-                    <span class="inline-flex h-6 w-6 items-center justify-center rounded-md border border-slate-700/70 bg-slate-800/60 text-slate-200 font-mono">K</span>
-                    <span class="inline-flex h-6 w-6 items-center justify-center rounded-md border border-slate-700/70 bg-slate-800/60 text-slate-200">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <span class="inline-flex h-7 items-center rounded-md border border-slate-700/70 bg-slate-800/60 px-2 text-slate-200 font-mono text-[11px]">Space</span>
+                    <span class="inline-flex h-7 w-7 items-center justify-center rounded-md border border-slate-700/70 bg-slate-800/60 text-slate-200 font-mono text-[11px]">K</span>
+                    <span class="inline-flex h-7 w-7 items-center justify-center rounded-md border border-slate-700/70 bg-slate-800/60 text-slate-200">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5v14l11-7-11-7z" />
                         </svg>
                     </span>
-                    <span class="inline-flex h-6 w-6 items-center justify-center rounded-md border border-slate-700/70 bg-slate-800/60 text-slate-200">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <span class="inline-flex h-7 w-7 items-center justify-center rounded-md border border-slate-700/70 bg-slate-800/60 text-slate-200">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 6l-6 6 6 6M15 6l6 6-6 6" />
                         </svg>
                     </span>
                     <span class="sr-only">{$_('video_player.shortcuts', { default: 'Shortcuts: space/K play/pause, arrows seek' })}</span>
                 </span>
-                <div class="flex items-center gap-2">
+                <div class="flex items-center gap-2 ml-auto">
                     <span
-                        class="inline-flex h-8 w-8 items-center justify-center rounded-full border bg-slate-800/60 text-slate-200
+                        class="inline-flex h-9 w-9 items-center justify-center rounded-full border bg-slate-800/60 text-slate-200
                             {(useNativeControls || previewState === 'disabled' || previewState === 'unavailable')
                                 ? 'border-slate-700/70 text-slate-300'
                                 : previewState === 'checking'
@@ -675,19 +676,19 @@
                         title={previewStatusLabel}
                     >
                         {#if previewState === 'checking'}
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4.5 w-4.5 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.5 12a7.5 7.5 0 0 1 11.78-6.15m3.22 6.15a7.5 7.5 0 0 1-11.78 6.15M16.5 3.75v2.1m3.75 3.75h-2.1M7.5 20.25v-2.1m-3.75-3.75h2.1" />
                             </svg>
                         {:else if previewState === 'enabled'}
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7.5h18M3 16.5h18M5.25 7.5v9m4.5-9v9m4.5-9v9m4.5-9v9" />
                             </svg>
                         {:else if previewState === 'deferred'}
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6l3.5 2M21 12a9 9 0 1 1-9-9" />
                             </svg>
                         {:else}
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7.5h18M3 16.5h18M5.25 7.5v9m4.5-9v9m4.5-9v9m4.5-9v9M4 4l16 16" />
                             </svg>
                         {/if}
@@ -696,11 +697,11 @@
                         <a
                             href={clipDownloadUrl}
                             download={`${frigateEvent}.mp4`}
-                            class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500/15 border border-emerald-400/35 text-emerald-100 hover:bg-emerald-500/25 focus:outline-none focus:ring-2 focus:ring-emerald-400/60"
+                            class="inline-flex h-9 w-9 items-center justify-center rounded-full bg-emerald-500/15 border border-emerald-400/35 text-emerald-100 hover:bg-emerald-500/25 focus:outline-none focus:ring-2 focus:ring-emerald-400/60"
                             aria-label={$_('video_player.download', { default: 'Download clip' })}
                             title={$_('video_player.download', { default: 'Download clip' })}
                         >
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v10.5m0 0l-4-4m4 4l4-4M5 15.75v1.5A1.75 1.75 0 0 0 6.75 19h10.5A1.75 1.75 0 0 0 19 17.25v-1.5" />
                             </svg>
                         </a>
