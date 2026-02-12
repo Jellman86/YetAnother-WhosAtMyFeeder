@@ -56,6 +56,7 @@
     let showTemperature = $state(false);
     let showWind = $state(false);
     let showPrecip = $state(false);
+    let chartViewMode = $state<'auto' | 'line' | 'bar'>('auto');
 
     const enrichmentModeSetting = $derived(settingsStore.settings?.enrichment_mode ?? authStore.enrichmentMode ?? 'per_enrichment');
     const enrichmentSingleProviderSetting = $derived(settingsStore.settings?.enrichment_single_provider ?? authStore.enrichmentSingleProvider ?? 'wikipedia');
@@ -300,7 +301,16 @@
     let timelineCounts = $derived(timelinePoints().map((p) => p.count) || []);
     let timelineMax = $derived(timelineCounts.length ? Math.max(...timelineCounts) : 0);
     let timelineAvg = $derived(timelinePoints().length ? Math.round((timeline?.total_count || 0) / timelinePoints().length) : 0);
-    let detectionUsesBars = $derived(() => span === 'week' || span === 'month');
+    let detectionUsesBars = $derived(() => {
+        if (chartViewMode === 'line') return false;
+        if (chartViewMode === 'bar') return true;
+        return span === 'week' || span === 'month';
+    });
+    let chartModeLabel = $derived(() => {
+        if (chartViewMode === 'line') return $_('leaderboard.chart_line', { default: 'Line' });
+        if (chartViewMode === 'bar') return $_('leaderboard.chart_bar', { default: 'Histogram' });
+        return $_('leaderboard.chart_auto', { default: 'Auto' });
+    });
     let isDark = $derived(() => themeStore.isDark);
     let temperatureUnit = $derived(settingsStore.settings?.location_temperature_unit ?? 'celsius');
     let weatherByBucket = $derived(() => new Map((timeline?.weather ?? []).map((w) => [w.bucket_start, w] as const)));
@@ -333,7 +343,8 @@
         if (!timeline) return '';
         const range = `${formatDateTime(timeline.window_start)} → ${formatDateTime(timeline.window_end)}`;
         const grouped = `${$_('common.grouped_by', { default: 'Grouped by' })}: ${bucketLabel(timeline.bucket)}`;
-        return [range, grouped, leaderboardAnalysisSubtitle].filter(Boolean).join(' • ');
+        const mode = `${$_('leaderboard.chart_mode', { default: 'Chart mode' })}: ${chartModeLabel()}`;
+        return [range, grouped, mode, leaderboardAnalysisSubtitle].filter(Boolean).join(' • ');
     });
 
     let chartOptions = $derived(() => ({
@@ -515,6 +526,8 @@
         return {
             span,
             includeUnknownBird,
+            chart_view_mode: chartViewMode,
+            chart_detection_type: detectionUsesBars() ? 'bar' : 'line',
             bucket: timeline?.bucket ?? null,
             window_start: timeline?.window_start ?? null,
             window_end: timeline?.window_end ?? null,
@@ -901,6 +914,32 @@
                         <h3 class="text-xl md:text-2xl font-black text-slate-900 dark:text-white">{$_('leaderboard.detections_over_time')}</h3>
                     </div>
                     <div class="flex flex-wrap items-center gap-3 text-sm font-semibold text-slate-500 dark:text-slate-400">
+                        <div class="inline-flex items-center rounded-full border border-slate-200/80 dark:border-slate-700/70 bg-white/80 dark:bg-slate-900/50 p-1">
+                            <button
+                                type="button"
+                                class="px-2 py-1 text-[10px] font-black uppercase tracking-widest rounded-full transition-colors {chartViewMode === 'auto' ? 'bg-emerald-500 text-white' : 'text-slate-500 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}"
+                                aria-pressed={chartViewMode === 'auto'}
+                                onclick={() => chartViewMode = 'auto'}
+                            >
+                                {$_('leaderboard.chart_auto', { default: 'Auto' })}
+                            </button>
+                            <button
+                                type="button"
+                                class="px-2 py-1 text-[10px] font-black uppercase tracking-widest rounded-full transition-colors {chartViewMode === 'line' ? 'bg-emerald-500 text-white' : 'text-slate-500 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}"
+                                aria-pressed={chartViewMode === 'line'}
+                                onclick={() => chartViewMode = 'line'}
+                            >
+                                {$_('leaderboard.chart_line', { default: 'Line' })}
+                            </button>
+                            <button
+                                type="button"
+                                class="px-2 py-1 text-[10px] font-black uppercase tracking-widest rounded-full transition-colors {chartViewMode === 'bar' ? 'bg-emerald-500 text-white' : 'text-slate-500 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}"
+                                aria-pressed={chartViewMode === 'bar'}
+                                onclick={() => chartViewMode = 'bar'}
+                            >
+                                {$_('leaderboard.chart_bar', { default: 'Histogram' })}
+                            </button>
+                        </div>
                         <span>{$_('leaderboard.detections_count', { values: { count: timeline?.total_count?.toLocaleString() || '0' } })}</span>
                         {#if llmReady}
                             <button
