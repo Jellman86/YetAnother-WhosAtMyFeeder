@@ -658,11 +658,11 @@
         {#if !videoError}
             <div class="mt-2 px-1 flex flex-col gap-2 text-[11px] sm:flex-row sm:items-center sm:justify-between">
                 <p class="order-2 text-slate-300 sm:order-1">
-                    <span class="hidden sm:inline">
-                        <span class="inline-flex items-center rounded-md border border-slate-600/80 bg-slate-800/70 px-1.5 py-0.5 text-[10px] font-semibold text-slate-100">Space / K</span>
-                        <span class="mx-1 text-slate-400">play/pause</span>
+                        <span class="hidden sm:inline">
+                            <span class="inline-flex items-center rounded-md border border-slate-600/80 bg-slate-800/70 px-1.5 py-0.5 text-[10px] font-semibold text-slate-100">Space / K</span>
+                        <span class="mx-1 text-slate-400">{$_('video_player.shortcut_play_pause', { default: 'play/pause' })}</span>
                         <span class="inline-flex items-center rounded-md border border-slate-600/80 bg-slate-800/70 px-1.5 py-0.5 text-[10px] font-semibold text-slate-100">Left / Right</span>
-                        <span class="mx-1 text-slate-400">seek +/-5s</span>
+                        <span class="mx-1 text-slate-400">{$_('video_player.shortcut_seek', { default: 'seek +/-5s' })}</span>
                     </span>
                     <span class="sm:hidden">{$_('video_player.shortcuts_mobile_hint', { default: 'Keyboard shortcuts are available when using a hardware keyboard.' })}</span>
                 </p>

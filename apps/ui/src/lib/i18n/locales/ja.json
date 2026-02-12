@@ -1062,6 +1062,8 @@
   "shortcuts": {
     "title": "キーボードショートカット",
     "hint": "キーボードショートカット (?)",
+    "navigation": "ナビゲーション",
+    "actions": "操作",
     "open_panel": "ショートカットパネルを開く",
     "go_dashboard": "ダッシュボードへ",
     "go_events": "イベントへ",
@@ -1143,6 +1145,18 @@
     "previews_unavailable": "このクリップではタイムラインプレビューを利用できません",
     "previews_disabled": "タイムラインプレビュー無効（メディアキャッシュOFF）",
     "previews_generating": "タイムラインプレビューを生成中...",
+    "previews_deferred": "動画再生中のためタイムラインプレビューを遅延しています",
+    "playing": "再生中",
+    "buffering": "バッファ中",
+    "paused": "一時停止",
+    "ended": "終了",
+    "ready": "準備完了",
+    "preview_notification_title": "タイムラインプレビュー",
+    "shortcut_play_pause": "再生/一時停止",
+    "shortcut_seek": "シーク +/-5秒",
+    "shortcuts_mobile_hint": "ハードウェアキーボード使用時にキーボードショートカットを利用できます。",
+    "buffering_hint": "動画ストリームをバッファ中...",
+    "previews_touch_hint": "タイムラインプレビューを利用できます。シークバーをドラッグまたはタップしてフレームを確認してください。",
     "download": "クリップをダウンロード"
   }
 }

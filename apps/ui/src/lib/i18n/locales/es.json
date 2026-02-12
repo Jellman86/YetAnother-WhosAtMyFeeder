@@ -1062,6 +1062,8 @@
   "shortcuts": {
     "title": "Atajos de Teclado",
     "hint": "Atajos de teclado (?)",
+    "navigation": "Navegacion",
+    "actions": "Acciones",
     "open_panel": "Abrir panel de atajos",
     "go_dashboard": "Ir al Tablero",
     "go_events": "Ir a Eventos",
@@ -1143,6 +1145,18 @@
     "previews_unavailable": "Vistas previas de la linea de tiempo no disponibles para este clip",
     "previews_disabled": "Vistas previas de la linea de tiempo deshabilitadas (cache de medios desactivada)",
     "previews_generating": "Generando vistas previas de la linea de tiempo...",
+    "previews_deferred": "Vistas previas de la linea de tiempo aplazadas mientras se reproduce el video",
+    "playing": "Reproduciendo",
+    "buffering": "Cargando",
+    "paused": "Pausado",
+    "ended": "Finalizado",
+    "ready": "Listo",
+    "preview_notification_title": "Vistas previas de linea de tiempo",
+    "shortcut_play_pause": "reproducir/pausar",
+    "shortcut_seek": "buscar +/-5s",
+    "shortcuts_mobile_hint": "Los atajos de teclado estan disponibles cuando se usa un teclado fisico.",
+    "buffering_hint": "Cargando el flujo de video...",
+    "previews_touch_hint": "Las vistas previas de la linea de tiempo estan disponibles. Arrastra o toca la barra de busqueda para inspeccionar fotogramas.",
     "download": "Descargar clip"
   }
 }

@@ -1070,6 +1070,8 @@
   "shortcuts": {
     "title": "Atalhos de Teclado",
     "hint": "Atalhos de teclado (?)",
+    "navigation": "Navegacao",
+    "actions": "Acoes",
     "open_panel": "Abrir painel de atalhos",
     "go_dashboard": "Ir para Painel",
     "go_events": "Ir para Eventos",
@@ -1143,6 +1145,18 @@
     "previews_unavailable": "Previas da linha do tempo indisponiveis para este clipe",
     "previews_disabled": "Previas da linha do tempo desativadas (cache de midia desligado)",
     "previews_generating": "Gerando previas da linha do tempo...",
+    "previews_deferred": "Previas da linha do tempo adiadas enquanto o video esta em reproducao",
+    "playing": "Reproduzindo",
+    "buffering": "Bufferizando",
+    "paused": "Pausado",
+    "ended": "Finalizado",
+    "ready": "Pronto",
+    "preview_notification_title": "Previas da linha do tempo",
+    "shortcut_play_pause": "reproduzir/pausar",
+    "shortcut_seek": "buscar +/-5s",
+    "shortcuts_mobile_hint": "Atalhos de teclado estao disponiveis ao usar um teclado fisico.",
+    "buffering_hint": "Bufferizando fluxo de video...",
+    "previews_touch_hint": "As previas da linha do tempo estao disponiveis. Arraste ou toque na barra de busca para inspecionar quadros.",
     "download": "Baixar clipe"
   }
 }

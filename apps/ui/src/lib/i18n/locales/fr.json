@@ -1062,6 +1062,8 @@
   "shortcuts": {
     "title": "Raccourcis Clavier",
     "hint": "Raccourcis clavier (?)",
+    "navigation": "Navigation",
+    "actions": "Actions",
     "open_panel": "Ouvrir le panneau des raccourcis",
     "go_dashboard": "Aller au Tableau de bord",
     "go_events": "Aller aux Événements",
@@ -1143,6 +1145,18 @@
     "previews_unavailable": "Apercus de la timeline indisponibles pour ce clip",
     "previews_disabled": "Apercus de la timeline desactives (cache media desactive)",
     "previews_generating": "Generation des apercus de la timeline...",
+    "previews_deferred": "Apercus de la timeline differees pendant la lecture de la video",
+    "playing": "Lecture",
+    "buffering": "Mise en memoire tampon",
+    "paused": "En pause",
+    "ended": "Termine",
+    "ready": "Pret",
+    "preview_notification_title": "Apercus de la timeline",
+    "shortcut_play_pause": "lecture/pause",
+    "shortcut_seek": "recherche +/-5s",
+    "shortcuts_mobile_hint": "Les raccourcis clavier sont disponibles avec un clavier physique.",
+    "buffering_hint": "Mise en memoire tampon du flux video...",
+    "previews_touch_hint": "Les apercus de la timeline sont disponibles. Glissez ou touchez la barre de recherche pour inspecter les images.",
     "download": "Telecharger le clip"
   }
 }

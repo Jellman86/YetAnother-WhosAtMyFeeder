@@ -1070,6 +1070,8 @@
   "shortcuts": {
     "title": "Scorciatoie Tastiera",
     "hint": "Scorciatoie tastiera (?)",
+    "navigation": "Navigazione",
+    "actions": "Azioni",
     "open_panel": "Apri pannello scorciatoie",
     "go_dashboard": "Vai a Dashboard",
     "go_events": "Vai a Eventi",
@@ -1143,6 +1145,18 @@
     "previews_unavailable": "Anteprime timeline non disponibili per questo clip",
     "previews_disabled": "Anteprime timeline disabilitate (cache media disattivata)",
     "previews_generating": "Generazione anteprime timeline...",
+    "previews_deferred": "Anteprime timeline rimandate mentre il video e in riproduzione",
+    "playing": "Riproduzione",
+    "buffering": "Buffering",
+    "paused": "In pausa",
+    "ended": "Terminato",
+    "ready": "Pronto",
+    "preview_notification_title": "Anteprime timeline",
+    "shortcut_play_pause": "riproduci/pausa",
+    "shortcut_seek": "cerca +/-5s",
+    "shortcuts_mobile_hint": "Le scorciatoie da tastiera sono disponibili quando si usa una tastiera hardware.",
+    "buffering_hint": "Buffering del flusso video...",
+    "previews_touch_hint": "Le anteprime timeline sono disponibili. Trascina o tocca la barra di ricerca per ispezionare i frame.",
     "download": "Scarica clip"
   }
 }

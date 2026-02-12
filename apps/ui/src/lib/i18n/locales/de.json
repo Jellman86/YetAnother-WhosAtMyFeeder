@@ -1062,6 +1062,8 @@
   "shortcuts": {
     "title": "Tastaturkürzel",
     "hint": "Tastaturkürzel (?)",
+    "navigation": "Navigation",
+    "actions": "Aktionen",
     "open_panel": "Tastaturkürzel-Panel öffnen",
     "go_dashboard": "Zum Dashboard",
     "go_events": "Zu Ereignissen",
@@ -1143,6 +1145,18 @@
     "previews_unavailable": "Timeline-Vorschau fuer diesen Clip nicht verfuegbar",
     "previews_disabled": "Timeline-Vorschau deaktiviert (Media-Cache aus)",
     "previews_generating": "Timeline-Vorschau wird erstellt...",
+    "previews_deferred": "Timeline-Vorschau verschoben, solange das Video abgespielt wird",
+    "playing": "Wiedergabe",
+    "buffering": "Pufferung",
+    "paused": "Pausiert",
+    "ended": "Beendet",
+    "ready": "Bereit",
+    "preview_notification_title": "Timeline-Vorschau",
+    "shortcut_play_pause": "Wiedergabe/Pause",
+    "shortcut_seek": "Suche +/-5s",
+    "shortcuts_mobile_hint": "Tastaturkürzel sind verfügbar, wenn eine Hardware-Tastatur verwendet wird.",
+    "buffering_hint": "Videostream wird gepuffert...",
+    "previews_touch_hint": "Timeline-Vorschauen sind verfügbar. Ziehe oder tippe auf die Suchleiste, um Frames anzusehen.",
     "download": "Clip herunterladen"
   }
 }
