@@ -11,7 +11,13 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Changed:** Leaderboard detections chart now defaults to histogram-style bars on Week/Month views while preserving line/area trend rendering for shorter ranges.
 - **Changed:** Video modal mobile controls now use stronger contrast, larger touch targets, and explicit labels on preview/download actions for clearer visibility.
 - **Changed:** Keyboard shortcuts modal is now grouped into clearer sections with improved key-description hierarchy.
+- **Added:** Leaderboard chart-mode toggle (`Auto`, `Line`, `Histogram`) so users can override the default visualization mode per preference.
+- **Changed:** Leaderboard chart subtitle/config metadata now include the active chart mode for clearer context and AI analysis consistency.
 - **Added:** Backend regression tests for local-time sun fetch and sunrise/sunset range formatting behavior.
+- **Fixed:** Detection modal mobile “Play video” interaction now uses a dedicated high-priority touch target and explicit event handling to avoid pointer interception.
+- **Fixed:** Events/Dashboard video open flow now uses an explicit `videoEventId` handoff, closing detection details before opening the video modal to prevent modal-stacking race conditions.
+- **Fixed:** Video autoplay startup no longer gets interrupted by timeline-preview attachment; preview activation is deferred until player startup settles.
+- **Changed:** Timeline preview notifications now suppress transient `checking/deferred` noise and dedupe final state updates to avoid per-open notification spam.
 
 - **Added:** Video modal clip download action (`download=1`) with backend enforcement that allows owners always and guests only when explicitly enabled.
 - **Added:** New public-access setting to control guest clip downloads (UI + API + auth status propagation): `public_access_allow_clip_downloads` / `PUBLIC_ACCESS__ALLOW_CLIP_DOWNLOADS`.
