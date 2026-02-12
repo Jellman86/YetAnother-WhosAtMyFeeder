@@ -71,6 +71,9 @@
     let initWatchdogTimer: ReturnType<typeof setTimeout> | null = null;
     let lastConfiguredKey = '';
     let useNativeControls = $state(false);
+    let isCoarsePointer = $state(false);
+    let coarsePointerMql: MediaQueryList | null = null;
+    let coarsePointerListener: ((event: MediaQueryListEvent) => void) | null = null;
 
     const maxRetries = 2;
 
@@ -441,6 +444,12 @@
         mounted = true;
         logger.info('video_player_modal_open', { frigateEvent });
         restoreFocusElement = (document.activeElement as HTMLElement | null) ?? null;
+        coarsePointerMql = window.matchMedia('(pointer: coarse)');
+        isCoarsePointer = coarsePointerMql.matches;
+        coarsePointerListener = (event: MediaQueryListEvent) => {
+            isCoarsePointer = event.matches;
+        };
+        coarsePointerMql.addEventListener('change', coarsePointerListener);
         queueMicrotask(() => {
             closeButton?.focus();
         });
@@ -470,6 +479,11 @@
             clearTimeout(initWatchdogTimer);
             initWatchdogTimer = null;
         }
+        if (coarsePointerMql && coarsePointerListener) {
+            coarsePointerMql.removeEventListener('change', coarsePointerListener);
+        }
+        coarsePointerMql = null;
+        coarsePointerListener = null;
         destroyPlayer();
         logger.info('video_player_modal_close', { frigateEvent });
         restoreFocusElement?.focus?.();
@@ -703,6 +717,11 @@
             {#if previewState === 'checking' && !useNativeControls}
                 <div class="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-slate-700/70" aria-label="Generating timeline previews">
                     <div class="h-full w-1/3 bg-emerald-400/90 animate-[previewLoad_1.15s_ease-in-out_infinite]"></div>
+                </div>
+            {/if}
+            {#if isCoarsePointer && previewState === 'enabled' && !useNativeControls}
+                <div class="mt-1 px-1 text-[11px] text-slate-300 sm:hidden">
+                    {$_('video_player.previews_touch_hint', { default: 'Timeline previews are available. Drag or tap along the seek bar to inspect frames.' })}
                 </div>
             {/if}
         {/if}
