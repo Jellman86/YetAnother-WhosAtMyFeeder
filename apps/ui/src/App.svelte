@@ -24,6 +24,7 @@
   import { detectionsStore } from './lib/stores/detections.svelte';
   import { authStore } from './lib/stores/auth.svelte';
   import { notificationCenter } from './lib/stores/notification_center.svelte';
+  import { notificationPolicy } from './lib/notifications/policy';
   import { announcer } from './lib/components/Announcer.svelte';
   import Announcer from './lib/components/Announcer.svelte';
   import { initKeyboardShortcuts } from './lib/utils/keyboard-shortcuts';
@@ -104,8 +105,6 @@
   });
 
   const STALE_PROCESS_MAX_AGE_MS = 45 * 60 * 1000;
-  const notificationThrottle = new Map<string, number>();
-  const notificationSignature = new Map<string, string>();
 
   // Handle back button and initial load
   onMount(() => {
@@ -203,34 +202,13 @@
   }
 
   function applyNotificationPolicy(id: string, signature: string, throttleMs = 0): boolean {
-      const now = Date.now();
-      const lastSig = notificationSignature.get(id);
-      const lastAt = notificationThrottle.get(id) ?? 0;
-      if (lastSig === signature && now - lastAt < throttleMs) {
-          return false;
-      }
-      notificationSignature.set(id, signature);
-      notificationThrottle.set(id, now);
-      return true;
+      return notificationPolicy.shouldEmit(id, signature, throttleMs);
   }
 
   function pruneStaleProcessNotifications() {
-      const now = Date.now();
-      for (const item of notificationCenter.items) {
-          if (item.type !== 'process' || item.read) continue;
-          if (now - item.timestamp <= STALE_PROCESS_MAX_AGE_MS) continue;
-          notificationCenter.upsert({
-              ...item,
-              type: 'update',
-              read: true,
-              timestamp: now,
-              message: item.message ? `${item.message} • stale` : 'Stale process notification',
-              meta: {
-                  ...(item.meta ?? {}),
-                  stale: true,
-                  source: (item.meta as Record<string, any> | undefined)?.source ?? 'system',
-              }
-          });
+      const stale = notificationPolicy.settleStale(notificationCenter.items, STALE_PROCESS_MAX_AGE_MS);
+      for (const item of stale) {
+          notificationCenter.upsert(item);
       }
   }
 
@@ -244,8 +222,8 @@
               notificationCenter.upsert({
                   id: 'system:health',
                   type: 'update',
-                  title: t('status.system_offline'),
-                  message: `Health status: ${health?.status ?? 'unknown'}`,
+                  title: t('notifications.system_health_title'),
+                  message: t('notifications.system_health_message', { status: String(health?.status ?? 'unknown') }),
                   timestamp: Date.now(),
                   read: false,
                   meta: { source: 'health', route: '/settings' }
@@ -261,8 +239,8 @@
               notificationCenter.upsert({
                   id: 'system:cache-disabled',
                   type: 'update',
-                  title: 'Media cache disabled',
-                  message: 'Timeline previews and media caching are disabled in current settings.',
+                  title: t('notifications.system_cache_disabled_title'),
+                  message: t('notifications.system_cache_disabled_message'),
                   timestamp: Date.now(),
                   read: false,
                   meta: { source: 'cache', route: '/settings' }
@@ -292,8 +270,9 @@
           read: false,
           meta: {
               source: 'sse',
-              route: '/events',
-              event_id: det.frigate_event
+              route: `/events?event=${encodeURIComponent(det.frigate_event)}`,
+              event_id: det.frigate_event,
+              open_label: t('notifications.open_action')
           }
       });
   }
@@ -316,8 +295,9 @@
           read: false,
           meta: {
               source: 'sse',
-              route: '/events',
-              event_id: eventId
+              route: `/events?event=${encodeURIComponent(eventId)}`,
+              event_id: eventId,
+              open_label: t('notifications.open_action')
           }
       });
   }
@@ -341,10 +321,11 @@
           read: false,
           meta: {
               source: 'sse',
-              route: '/events',
+              route: `/events?event=${encodeURIComponent(eventId)}`,
               event_id: eventId,
               current,
-              total
+              total,
+              open_label: t('notifications.open_action')
           }
       });
   }
@@ -625,8 +606,8 @@
                              notificationCenter.upsert({
                                  id: 'settings:updated',
                                  type: 'update',
-                                 title: 'Settings updated',
-                                 message: 'Configuration changed successfully.',
+                                 title: t('notifications.settings_updated_title'),
+                                 message: t('notifications.settings_updated_message'),
                                  timestamp: Date.now(),
                                  read: false,
                                  meta: { source: 'sse', route: '/settings' }
@@ -653,8 +634,8 @@
                       notificationCenter.upsert({
                           id,
                           type: 'update',
-                          title: 'Live updates disconnected',
-                          message: 'Realtime event stream is reconnecting in the background.',
+                          title: t('notifications.live_updates_disconnected_title'),
+                          message: t('notifications.live_updates_disconnected_message'),
                           timestamp: Date.now(),
                           read: false,
                           meta: { source: 'sse', route: '/notifications' }

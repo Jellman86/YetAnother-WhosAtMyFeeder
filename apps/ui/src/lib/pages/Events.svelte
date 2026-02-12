@@ -55,6 +55,7 @@
 
     let selectedEvent = $state<Detection | null>(null);
     let selectedSpecies = $state<string | null>(null);
+    let pendingEventId = $state<string | null>(null);
     let classifierLabels = $state<string[]>([]);
     let tagSearchQuery = $state('');
     let showTagDropdown = $state(false);
@@ -126,6 +127,16 @@
             ]);
             events = newEvents;
             totalCount = countRes.count;
+            if (pendingEventId) {
+                const target = newEvents.find((event) => event.frigate_event === pendingEventId);
+                if (target) {
+                    selectedEvent = target;
+                    pendingEventId = null;
+                    const url = new URL(window.location.href);
+                    url.searchParams.delete('event');
+                    window.history.replaceState(null, '', `${url.pathname}${url.search}`);
+                }
+            }
         } catch (e) {
             if (e instanceof Error && e.name === 'AbortError') {
                 // Request cancellation is expected when filter changes trigger a newer fetch.
@@ -143,6 +154,7 @@
         const params = new URLSearchParams(window.location.search);
         if (params.get('species')) speciesFilter = params.get('species')!;
         if (params.get('date')) datePreset = params.get('date') as any;
+        if (params.get('event')) pendingEventId = params.get('event');
         try {
             const [filters, labels, hidden] = await Promise.all([
                 fetchEventFilters(), 

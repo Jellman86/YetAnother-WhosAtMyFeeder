@@ -28,14 +28,18 @@
     }
 
     function sourceLabel(item: NotificationItem) {
-        return String((item.meta as Record<string, any> | undefined)?.source ?? 'system').toUpperCase();
+        return String(item.meta?.source ?? 'system').toUpperCase();
     }
 
     function handleItemClick(item: NotificationItem) {
         notificationCenter.markRead(item.id);
-        const route = (item.meta as Record<string, any> | undefined)?.route;
+        const route = item.meta?.route;
         if (!route || typeof route !== 'string') return;
         window.location.assign(route);
+    }
+
+    function canOpen(item: NotificationItem) {
+        return typeof item.meta?.route === 'string' && item.meta.route.length > 0;
     }
 </script>
 
@@ -86,6 +90,9 @@
                                     <p class="text-xs text-slate-500 dark:text-slate-300 mt-1">{item.message}</p>
                                 {/if}
                                 <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mt-1">{sourceLabel(item)} • {formatTime(item.timestamp)}</p>
+                                {#if canOpen(item)}
+                                    <p class="text-[10px] text-brand-600 dark:text-brand-400 mt-1 font-semibold">{$_('notifications.open_action')}</p>
+                                {/if}
                                 {#if progress}
                                     <div class="mt-3 h-2 rounded-full bg-emerald-100 dark:bg-emerald-950/60 overflow-hidden">
                                         <div class="h-full bg-gradient-to-r from-emerald-500 via-teal-500 to-sky-500 transition-all duration-500" style={`width: ${progress.percent}%`}></div>
@@ -129,6 +136,9 @@
                                             <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">{item.message}</p>
                                         {/if}
                                         <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mt-1">{sourceLabel(item)}</p>
+                                        {#if canOpen(item)}
+                                            <p class="text-[10px] text-brand-600 dark:text-brand-400 mt-1 font-semibold">{$_('notifications.open_action')}</p>
+                                        {/if}
                                     </div>
                                     {#if !item.read}
                                         <span class="mt-1 w-2 h-2 rounded-full bg-rose-500"></span>

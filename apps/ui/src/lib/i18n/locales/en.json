@@ -703,7 +703,16 @@
     "event_backfill_failed": "Detection backfill failed",
     "event_weather_backfill": "Weather backfill running",
     "event_weather_backfill_done": "Weather backfill complete",
-    "event_weather_backfill_failed": "Weather backfill failed"
+    "event_weather_backfill_failed": "Weather backfill failed",
+    "settings_updated_title": "Settings updated",
+    "settings_updated_message": "Configuration changed successfully.",
+    "live_updates_disconnected_title": "Live updates disconnected",
+    "live_updates_disconnected_message": "Realtime event stream is reconnecting in the background.",
+    "system_health_title": "System status warning",
+    "system_health_message": "Health status: {status}",
+    "system_cache_disabled_title": "Media cache disabled",
+    "system_cache_disabled_message": "Timeline previews and media caching are disabled in current settings.",
+    "open_action": "Open"
   },
   "actions": {
     "confirm_delete": "Delete this {species} detection?",

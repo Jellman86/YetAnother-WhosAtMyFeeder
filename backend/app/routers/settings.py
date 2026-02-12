@@ -989,6 +989,17 @@ async def update_settings(
         background_tasks.add_task(telemetry_service.force_heartbeat)
 
     await settings.save()
+    try:
+        from app.services.broadcaster import broadcaster
+        await broadcaster.broadcast({
+            "type": "settings_updated",
+            "data": {
+                "changed_fields": sorted(list(fields_set)),
+                "updated_by": auth.username,
+            }
+        })
+    except Exception as e:
+        log.warning("Failed to broadcast settings_updated event", error=str(e))
     return {"status": "updated"}
 
 @router.get("/maintenance/stats")

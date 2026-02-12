@@ -1,3 +1,17 @@
+export type NotificationSource = 'sse' | 'health' | 'cache' | 'system' | 'ui';
+
+export interface NotificationMeta {
+    source?: NotificationSource;
+    route?: string;
+    event_id?: string;
+    current?: number;
+    total?: number;
+    processed?: number;
+    kind?: string;
+    stale?: boolean;
+    open_label?: string;
+}
+
 export interface NotificationItem {
     id: string;
     type: 'detection' | 'update' | 'process' | 'system';
@@ -5,7 +19,7 @@ export interface NotificationItem {
     message?: string;
     timestamp: number;
     read: boolean;
-    meta?: Record<string, any>;
+    meta?: NotificationMeta;
 }
 
 const STORAGE_KEY = 'yawamf_notification_center';
