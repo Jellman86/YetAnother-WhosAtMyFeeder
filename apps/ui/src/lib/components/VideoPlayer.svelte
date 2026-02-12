@@ -642,29 +642,14 @@
         </div>
 
         {#if !videoError}
-            <div class="mt-2 px-1 flex items-center justify-between gap-2 text-[11px] flex-wrap sm:flex-nowrap">
-                <span
-                    class="inline-flex items-center gap-1.5 text-slate-300 shrink-0"
-                    aria-label={$_('video_player.shortcuts', { default: 'Shortcuts: space/K play/pause, arrows seek' })}
-                    title={$_('video_player.shortcuts', { default: 'Shortcuts: space/K play/pause, arrows seek' })}
-                >
-                    <span class="inline-flex h-7 items-center rounded-md border border-slate-700/70 bg-slate-800/60 px-2 text-slate-200 font-mono text-[11px]">Space</span>
-                    <span class="inline-flex h-7 w-7 items-center justify-center rounded-md border border-slate-700/70 bg-slate-800/60 text-slate-200 font-mono text-[11px]">K</span>
-                    <span class="inline-flex h-7 w-7 items-center justify-center rounded-md border border-slate-700/70 bg-slate-800/60 text-slate-200">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5v14l11-7-11-7z" />
-                        </svg>
-                    </span>
-                    <span class="inline-flex h-7 w-7 items-center justify-center rounded-md border border-slate-700/70 bg-slate-800/60 text-slate-200">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 6l-6 6 6 6M15 6l6 6-6 6" />
-                        </svg>
-                    </span>
-                    <span class="sr-only">{$_('video_player.shortcuts', { default: 'Shortcuts: space/K play/pause, arrows seek' })}</span>
-                </span>
-                <div class="flex items-center gap-2 ml-auto">
+            <div class="mt-2 px-1 flex flex-col gap-2 text-[11px] sm:flex-row sm:items-center sm:justify-between">
+                <p class="order-2 text-slate-300 sm:order-1">
+                    <span class="hidden sm:inline">{$_('video_player.shortcuts', { default: 'Shortcuts: space/K play/pause, arrows seek' })}</span>
+                    <span class="sm:hidden">{$_('video_player.shortcuts_mobile_hint', { default: 'Keyboard shortcuts are available when using a hardware keyboard.' })}</span>
+                </p>
+                <div class="order-1 flex items-center justify-end gap-2 sm:order-2 sm:ml-auto">
                     <span
-                        class="inline-flex h-9 w-9 items-center justify-center rounded-full border bg-slate-800/60 text-slate-200
+                        class="inline-flex h-9 min-w-[2.25rem] items-center justify-center gap-1.5 rounded-full border bg-slate-800/60 px-3 text-slate-200
                             {(useNativeControls || previewState === 'disabled' || previewState === 'unavailable')
                                 ? 'border-slate-700/70 text-slate-300'
                                 : previewState === 'checking'
@@ -676,34 +661,36 @@
                         title={previewStatusLabel}
                     >
                         {#if previewState === 'checking'}
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4.5 w-4.5 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 animate-spin shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.5 12a7.5 7.5 0 0 1 11.78-6.15m3.22 6.15a7.5 7.5 0 0 1-11.78 6.15M16.5 3.75v2.1m3.75 3.75h-2.1M7.5 20.25v-2.1m-3.75-3.75h2.1" />
                             </svg>
                         {:else if previewState === 'enabled'}
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7.5h18M3 16.5h18M5.25 7.5v9m4.5-9v9m4.5-9v9m4.5-9v9" />
                             </svg>
                         {:else if previewState === 'deferred'}
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6l3.5 2M21 12a9 9 0 1 1-9-9" />
                             </svg>
                         {:else}
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7.5h18M3 16.5h18M5.25 7.5v9m4.5-9v9m4.5-9v9m4.5-9v9M4 4l16 16" />
                             </svg>
                         {/if}
+                        <span class="font-semibold sm:hidden">{$_('video_player.preview_notification_title', { default: 'Previews' })}</span>
                     </span>
                     {#if canDownloadClip}
                         <a
                             href={clipDownloadUrl}
                             download={`${frigateEvent}.mp4`}
-                            class="inline-flex h-9 w-9 items-center justify-center rounded-full bg-emerald-500/15 border border-emerald-400/35 text-emerald-100 hover:bg-emerald-500/25 focus:outline-none focus:ring-2 focus:ring-emerald-400/60"
+                            class="inline-flex h-9 min-w-[2.25rem] items-center justify-center gap-1.5 rounded-full bg-emerald-500/15 border border-emerald-400/35 px-3 text-emerald-100 hover:bg-emerald-500/25 focus:outline-none focus:ring-2 focus:ring-emerald-400/60"
                             aria-label={$_('video_player.download', { default: 'Download clip' })}
                             title={$_('video_player.download', { default: 'Download clip' })}
                         >
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v10.5m0 0l-4-4m4 4l4-4M5 15.75v1.5A1.75 1.75 0 0 0 6.75 19h10.5A1.75 1.75 0 0 0 19 17.25v-1.5" />
                             </svg>
+                            <span class="font-semibold sm:hidden">{$_('video_player.download', { default: 'Download clip' })}</span>
                         </a>
                     {/if}
                 </div>
