@@ -418,28 +418,62 @@
             <div class="flex flex-wrap items-center gap-2">
                 <button
                     type="button"
-                    class="px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors
+                    class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[11px] font-black uppercase tracking-widest border transition-colors
                         {selectedTimelineBucket === 'all'
-                            ? 'bg-cyan-500/20 border-cyan-400/60 text-cyan-100'
-                            : 'bg-slate-800/60 border-slate-600/70 text-slate-200 hover:bg-slate-700/70'}"
+                            ? 'bg-cyan-100/90 dark:bg-cyan-500/20 border-cyan-300/80 dark:border-cyan-400/60 text-cyan-700 dark:text-cyan-100 shadow-sm'
+                            : 'bg-white/80 dark:bg-slate-800/60 border-slate-300/80 dark:border-slate-600/70 text-slate-600 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/70'}"
                     onclick={() => selectedTimelineBucket = 'all'}
                 >
-                    {$_('common.all', { default: 'All' })} · {events.length}
+                    <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+                        <circle cx="10" cy="10" r="6"></circle>
+                        <path d="M4.5 10h11"></path>
+                    </svg>
+                    <span>{$_('common.all', { default: 'All' })}</span>
+                    <span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-black normal-case tracking-normal
+                        {selectedTimelineBucket === 'all'
+                            ? 'bg-cyan-200/80 dark:bg-cyan-400/25 text-cyan-800 dark:text-cyan-100'
+                            : 'bg-slate-100 dark:bg-slate-700/60 text-slate-700 dark:text-slate-200'}"
+                    >
+                        <svg class="h-3 w-3" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+                            <path d="M4 14h12"></path>
+                            <path d="M7 14V9M10 14V6M13 14v-3"></path>
+                        </svg>
+                        {events.length} {$_('common.detections', { default: 'detections' }).toLowerCase()}
+                    </span>
                 </button>
                 {#each timelineBuckets as bucket}
                     <button
                         type="button"
-                        class="px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors
+                        class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[11px] font-black uppercase tracking-widest border transition-colors
                             {selectedTimelineBucket === bucket.key
-                                ? 'bg-cyan-500/20 border-cyan-400/60 text-cyan-100'
-                                : 'bg-slate-800/60 border-slate-600/70 text-slate-200 hover:bg-slate-700/70'}"
+                                ? 'bg-cyan-100/90 dark:bg-cyan-500/20 border-cyan-300/80 dark:border-cyan-400/60 text-cyan-700 dark:text-cyan-100 shadow-sm'
+                                : 'bg-white/80 dark:bg-slate-800/60 border-slate-300/80 dark:border-slate-600/70 text-slate-600 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/70'}"
                         onclick={() => selectedTimelineBucket = bucket.key}
                     >
-                        {bucket.label} · {bucket.count}
+                        <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+                            <rect x="3" y="4" width="14" height="13" rx="2"></rect>
+                            <path d="M3 8h14"></path>
+                        </svg>
+                        <span>{bucket.label}</span>
+                        <span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-black normal-case tracking-normal
+                            {selectedTimelineBucket === bucket.key
+                                ? 'bg-cyan-200/80 dark:bg-cyan-400/25 text-cyan-800 dark:text-cyan-100'
+                                : 'bg-slate-100 dark:bg-slate-700/60 text-slate-700 dark:text-slate-200'}"
+                        >
+                            <svg class="h-3 w-3" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+                                <path d="M4 14h12"></path>
+                                <path d="M7 14V9M10 14V6M13 14v-3"></path>
+                            </svg>
+                            {bucket.count} {$_('common.detections', { default: 'detections' }).toLowerCase()}
+                        </span>
                     </button>
                 {/each}
             </div>
-            <p class="mt-2 text-[11px] text-slate-400">
+            <p class="mt-2 inline-flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
+                <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+                    <path d="M6 7h8M6 10h8M6 13h5"></path>
+                    <rect x="3" y="4" width="14" height="12" rx="2"></rect>
+                </svg>
                 {$_('events.timeline_keyboard_hint', { default: 'Timeline keyboard: [ previous day, ] next day, 0 reset' })}
             </p>
         </div>
