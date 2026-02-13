@@ -119,6 +119,13 @@
     let coarsePointerListener: ((event: MediaQueryListEvent) => void) | null = null;
     let activeMediaElement: HTMLVideoElement | null = null;
     let detachMediaListeners: (() => void) | null = null;
+    let previousBodyPosition = '';
+    let previousBodyTop = '';
+    let previousBodyWidth = '';
+    let previousBodyOverflow = '';
+    let previousHtmlOverflow = '';
+    let scrollLockY = 0;
+    let scrollLocked = false;
 
     const maxRetries = 2;
     const SHARE_EXPIRY_PRESETS = [
@@ -135,6 +142,37 @@
             return fallback;
         }
         return parsed;
+    }
+
+    function lockDocumentScroll(): void {
+        if (scrollLocked || typeof document === 'undefined' || typeof window === 'undefined') return;
+        const body = document.body;
+        const html = document.documentElement;
+        scrollLockY = window.scrollY;
+        previousBodyPosition = body.style.position;
+        previousBodyTop = body.style.top;
+        previousBodyWidth = body.style.width;
+        previousBodyOverflow = body.style.overflow;
+        previousHtmlOverflow = html.style.overflow;
+        body.style.position = 'fixed';
+        body.style.top = `-${scrollLockY}px`;
+        body.style.width = '100%';
+        body.style.overflow = 'hidden';
+        html.style.overflow = 'hidden';
+        scrollLocked = true;
+    }
+
+    function unlockDocumentScroll(): void {
+        if (!scrollLocked || typeof document === 'undefined' || typeof window === 'undefined') return;
+        const body = document.body;
+        const html = document.documentElement;
+        body.style.position = previousBodyPosition;
+        body.style.top = previousBodyTop;
+        body.style.width = previousBodyWidth;
+        body.style.overflow = previousBodyOverflow;
+        html.style.overflow = previousHtmlOverflow;
+        window.scrollTo(0, scrollLockY);
+        scrollLocked = false;
     }
 
     function formatRemaining(seconds: number): string {
@@ -812,6 +850,7 @@
 
     onMount(() => {
         mounted = true;
+        lockDocumentScroll();
         logger.info('video_player_modal_open', { frigateEvent });
         if (shareToken) {
             void fetchVideoShareInfo(frigateEvent, shareToken)
@@ -875,6 +914,7 @@
         }
         activeMediaElement = null;
         destroyPlayer();
+        unlockDocumentScroll();
         logger.info('video_player_modal_close', { frigateEvent });
         restoreFocusElement?.focus?.();
     });
@@ -906,7 +946,7 @@
 
 <div
     bind:this={modalElement}
-    class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/90 backdrop-blur-md p-4 sm:p-6"
+    class="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-slate-900/90 backdrop-blur-md p-4 sm:p-6 overflow-y-auto overscroll-contain"
     onclick={handleBackdropClick}
     onkeydown={(event) => event.key === 'Escape' && onClose()}
     role="dialog"
@@ -914,7 +954,7 @@
     aria-label={$_('video_player.aria_label', { default: 'Video player' })}
     tabindex="-1"
 >
-    <div class="relative w-full max-w-4xl mx-auto animate-in fade-in zoom-in-95 duration-200">
+    <div class="relative w-full max-w-4xl mx-auto animate-in fade-in zoom-in-95 duration-200 max-h-[calc(100dvh-2rem)] sm:max-h-[calc(100dvh-3rem)] overflow-y-auto overscroll-contain">
         <div class="rounded-2xl overflow-hidden ring-1 ring-white/10 bg-black shadow-2xl">
             <div class="flex items-center justify-between gap-2 px-3 py-2 bg-slate-900/75 border-b border-slate-700/60">
                 <div class="flex items-center gap-2 min-w-0">
@@ -1159,7 +1199,7 @@
                     {:else if activeShareLinks.length === 0}
                         <p class="mt-2 text-[11px] text-slate-400">{$_('video_player.share_manage_empty', { default: 'No active links for this clip yet.' })}</p>
                     {:else}
-                        <div class="mt-2 space-y-2">
+                        <div class="mt-2 space-y-2 max-h-72 overflow-y-auto overscroll-contain pr-1">
                             {#each activeShareLinks as link (link.id)}
                                 <div class="rounded-lg border border-slate-700/70 bg-slate-900/70 p-2">
                                     <div class="flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-300">
