@@ -6,6 +6,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- **Fixed:** Owner system health notifications no longer reappear on every browser refresh when backend `/health` reports `status: ok`; stale health/cache system notices are now cleared when status is healthy.
+- **Fixed:** Video player share-link manager now prevents mobile scroll bleed (background page scrolling behind the modal) and keeps long active-link lists scrollable within the overlay.
+- **Changed:** About page was refactored for stronger accessibility and maintainability (semantic sections, in-page jump links, safer link rendering without `{@html}`, and translated About metadata keys across all supported locales).
+- **Changed:** Documentation polish pass completed: README redundancy reduced, docs links standardized with icons, and docs index navigation made visually consistent.
 - **Changed:** AI diagnostics clipboard controls now default to disabled (`localStorage` opt-in) and are only rendered when backend debug UI mode is enabled.
 - **Added:** Public Access settings now include an optional "Share link base URL" used for generated video-share links in reverse-proxy/multi-domain deployments.
 - **Changed:** Video share-link creation now uses the configured public share base URL when valid, with safe fallback to request host when unset/invalid.
