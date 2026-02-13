@@ -67,7 +67,7 @@
     let clipUrl = $state('');
     let clipDownloadUrl = $derived(clipUrl ? `${clipUrl}${clipUrl.includes('?') ? '&' : '?'}download=1` : '');
     let canDownloadClip = $derived(!shareToken && (!authStore.isGuest || authStore.publicAccessAllowClipDownloads));
-    let canShareClip = $derived(!!shareToken || !authStore.isGuest);
+    let canShareClip = $derived(!authStore.isGuest);
     let canManageShareLinks = $derived(!shareToken && !authStore.isGuest);
     let shortEventId = $derived(frigateEvent.split('-').pop() ?? frigateEvent);
     let shareExpiresAt = $state<string | null>(null);
@@ -1046,20 +1046,20 @@
                         {/if}
                         <span class="font-semibold">{$_('video_player.preview_notification_title', { default: 'Previews' })}</span>
                     </span>
-                    <button
-                        type="button"
-                        onclick={copyShareLink}
-                        class="inline-flex h-10 min-w-[2.5rem] items-center justify-center gap-1.5 rounded-xl border px-3 focus:outline-none focus:ring-2 focus:ring-sky-400/60
-                            {canShareClip ? 'bg-sky-500/18 border-sky-400/45 text-sky-100 hover:bg-sky-500/25' : 'bg-slate-700/40 border-slate-600/60 text-slate-400 cursor-not-allowed'}"
-                        aria-label={$_('video_player.share', { default: 'Share clip link' })}
-                        title={$_('video_player.share', { default: 'Share clip link' })}
-                        disabled={!canShareClip}
-                    >
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342A3 3 0 0 1 8 12a3 3 0 0 1 .684-1.902m0 3.244 6.632 3.79A3 3 0 1 0 17 15a2.99 2.99 0 0 0-.684.098l-6.632-3.79A3 3 0 0 0 10 9a2.99 2.99 0 0 0-.316-1.308l6.632-3.79A3 3 0 1 0 15 5a2.99 2.99 0 0 0 .316 1.308l-6.632 3.79A3 3 0 1 0 8.684 13.342Z" />
-                        </svg>
-                        <span class="font-semibold">{$_('video_player.share_link', { default: 'Share link' })}</span>
-                    </button>
+                    {#if canShareClip}
+                        <button
+                            type="button"
+                            onclick={copyShareLink}
+                            class="inline-flex h-10 min-w-[2.5rem] items-center justify-center gap-1.5 rounded-xl border px-3 focus:outline-none focus:ring-2 focus:ring-sky-400/60 bg-sky-500/18 border-sky-400/45 text-sky-100 hover:bg-sky-500/25"
+                            aria-label={$_('video_player.share', { default: 'Share clip link' })}
+                            title={$_('video_player.share', { default: 'Share clip link' })}
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342A3 3 0 0 1 8 12a3 3 0 0 1 .684-1.902m0 3.244 6.632 3.79A3 3 0 1 0 17 15a2.99 2.99 0 0 0-.684.098l-6.632-3.79A3 3 0 0 0 10 9a2.99 2.99 0 0 0-.316-1.308l6.632-3.79A3 3 0 1 0 15 5a2.99 2.99 0 0 0 .316 1.308l-6.632 3.79A3 3 0 1 0 8.684 13.342Z" />
+                            </svg>
+                            <span class="font-semibold">{$_('video_player.share_link', { default: 'Share link' })}</span>
+                        </button>
+                    {/if}
                     {#if canManageShareLinks}
                         <button
                             type="button"

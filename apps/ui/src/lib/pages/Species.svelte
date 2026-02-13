@@ -1279,10 +1279,27 @@
                         >
                             <span aria-hidden="true">🌧️</span>
                             {showPrecip
-                                ? $_('leaderboard.hide_rain_bands', { default: 'Hide rain bands' })
-                                : $_('leaderboard.show_rain_bands', { default: 'Show rain bands' })}
+                                ? $_('leaderboard.hide_weather_bands', { default: 'Hide weather bands' })
+                                : $_('leaderboard.show_weather_bands', { default: 'Show weather bands' })}
                         </button>
                     </div>
+                    {#if showPrecip && hasWeather()}
+                        <span class="inline-flex items-center gap-2 text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">
+                            <span>{$_('leaderboard.band_intensity', { default: 'Band intensity' })}</span>
+                            <span class="inline-flex items-center gap-1">
+                                <span class="h-2 w-2 rounded-sm bg-sky-300/45 border border-sky-300/60"></span>
+                                {$_('leaderboard.band_low', { default: 'Low' })}
+                            </span>
+                            <span class="inline-flex items-center gap-1">
+                                <span class="h-2 w-2 rounded-sm bg-sky-300/65 border border-sky-300/75"></span>
+                                {$_('leaderboard.band_medium', { default: 'Med' })}
+                            </span>
+                            <span class="inline-flex items-center gap-1">
+                                <span class="h-2 w-2 rounded-sm bg-sky-300/85 border border-sky-300/90"></span>
+                                {$_('leaderboard.band_high', { default: 'High' })}
+                            </span>
+                        </span>
+                    {/if}
                     <span class="text-slate-400/70">{$_('common.grouped_by', { default: 'Grouped by' })}: {bucketLabel(timeline?.bucket)}</span>
                     {#if !hasWeather()}
                         <span class="text-slate-500 dark:text-slate-400">
