@@ -36,11 +36,14 @@
         avg_confidence?: number | null;
         camera_count?: number | null;
     };
+    type ChartMetric = 'detections' | 'unique_species' | 'avg_confidence';
+    type TrendMode = 'off' | 'smooth' | 'both';
+    const MAX_COMPARE_SPECIES = 3;
 
     let species: LeaderboardRow[] = $state([]);
     let loading = $state(true);
     let error = $state<string | null>(null);
-    let span = $state<LeaderboardSpan>('all');
+    let span = $state<LeaderboardSpan>('month');
     let includeUnknownBird = $state(false);
     let selectedSpecies = $state<string | null>(null);
     let timeline = $state<DetectionsTimelineSpanResponse | null>(null);
@@ -57,6 +60,9 @@
     let showWind = $state(false);
     let showPrecip = $state(false);
     let chartViewMode = $state<'auto' | 'line' | 'bar'>('auto');
+    let chartMetric = $state<ChartMetric>('detections');
+    let trendMode = $state<TrendMode>('smooth');
+    let compareSpecies = $state<string[]>([]);
 
     const enrichmentModeSetting = $derived(settingsStore.settings?.enrichment_mode ?? authStore.enrichmentMode ?? 'per_enrichment');
     const enrichmentSingleProviderSetting = $derived(settingsStore.settings?.enrichment_single_provider ?? authStore.enrichmentSingleProvider ?? 'wikipedia');
@@ -120,13 +126,26 @@
     })[0]);
 
     $effect(() => {
-        const _deps = [span];
+        const _deps = [span, compareSpecies.join('|')];
         void loadLeaderboard();
     });
 
     $effect(() => {
         if (!includeUnknownBird && selectedSpecies === "Unknown Bird") {
             selectedSpecies = null;
+        }
+    });
+
+    $effect(() => {
+        const available = new Set(leaderboardSpecies().map((item) => item.species));
+        const filtered = compareSpecies
+            .filter((name) => available.has(name))
+            .slice(0, MAX_COMPARE_SPECIES);
+        if (
+            filtered.length !== compareSpecies.length ||
+            filtered.some((name, idx) => name !== compareSpecies[idx])
+        ) {
+            compareSpecies = filtered;
         }
     });
 
@@ -180,7 +199,10 @@
         }
 
         try {
-            timeline = await fetchDetectionsTimelineSpan(span, { includeWeather: true });
+            timeline = await fetchDetectionsTimelineSpan(span, {
+                includeWeather: true,
+                compareSpecies: compareSpecies.length ? compareSpecies : undefined
+            });
         } catch (e) {
             timeline = null;
             console.error('Failed to load leaderboard timeline', e);
@@ -297,11 +319,90 @@
         return '—';
     }
 
+    function formatShortDate(value?: string | null): string {
+        if (!value) return '—';
+        const dt = new Date(value);
+        if (Number.isNaN(dt.getTime())) return '—';
+        return dt.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    }
+
+    function formatRangeCompact(start?: string | null, end?: string | null): string {
+        if (!start || !end) return '—';
+        return `${formatShortDate(start)}-${formatShortDate(end)}`;
+    }
+
+    function metricLabel(metric: ChartMetric): string {
+        if (metric === 'unique_species') return $_('leaderboard.metric_unique_species', { default: 'Unique species' });
+        if (metric === 'avg_confidence') return $_('leaderboard.metric_avg_confidence', { default: 'Avg confidence' });
+        return $_('leaderboard.metric_detections', { default: 'Detections' });
+    }
+
+    function metricValueFromPoint(point: DetectionsTimelineSpanResponse['points'][number], metric: ChartMetric): number {
+        if (metric === 'unique_species') return Math.max(0, Number(point.unique_species ?? 0));
+        if (metric === 'avg_confidence') return Math.max(0, Number((point.avg_confidence ?? 0) * 100));
+        return Math.max(0, Number(point.count ?? 0));
+    }
+
+    function formatMetricValue(value: number, metric: ChartMetric): string {
+        if (!Number.isFinite(value)) return '—';
+        if (metric === 'avg_confidence') return `${value.toFixed(1)}%`;
+        return Math.round(value).toLocaleString();
+    }
+
+    function movingAverage(values: number[], windowSize: number): Array<number | null> {
+        if (!values.length) return [];
+        const out: Array<number | null> = [];
+        for (let i = 0; i < values.length; i += 1) {
+            const start = Math.max(0, i - windowSize + 1);
+            const slice = values.slice(start, i + 1);
+            if (!slice.length) {
+                out.push(null);
+                continue;
+            }
+            out.push(slice.reduce((sum, n) => sum + n, 0) / slice.length);
+        }
+        return out;
+    }
+
+    function detectAnomalyIndexes(values: number[]): Set<number> {
+        if (values.length < 8) return new Set();
+        const mean = values.reduce((sum, n) => sum + n, 0) / values.length;
+        const variance = values.reduce((sum, n) => sum + ((n - mean) ** 2), 0) / values.length;
+        const std = Math.sqrt(variance);
+        if (!Number.isFinite(std) || std <= 0) return new Set();
+        const threshold = mean + (1.6 * std);
+        const out = new Set<number>();
+        values.forEach((value, idx) => {
+            if (value >= threshold && value >= (mean * 1.25)) out.add(idx);
+        });
+        return out;
+    }
+
+    function toggleCompareSpecies(speciesName: string) {
+        if (!speciesName) return;
+        if (compareSpecies.includes(speciesName)) {
+            compareSpecies = compareSpecies.filter((name) => name !== speciesName);
+            return;
+        }
+        if (compareSpecies.length >= MAX_COMPARE_SPECIES) return;
+        compareSpecies = [...compareSpecies, speciesName];
+    }
+
     let timelinePoints = $derived(() => timeline?.points || []);
-    let timelineCounts = $derived(timelinePoints().map((p) => p.count) || []);
-    let timelineMax = $derived(timelineCounts.length ? Math.max(...timelineCounts) : 0);
-    let timelineAvg = $derived(timelinePoints().length ? Math.round((timeline?.total_count || 0) / timelinePoints().length) : 0);
+    let metricValues = $derived(() => timelinePoints().map((p) => metricValueFromPoint(p, chartMetric)));
+    let metricPeak = $derived(() => metricValues().length ? Math.max(...metricValues()) : 0);
+    let metricAvg = $derived(() => metricValues().length
+        ? metricValues().reduce((sum, n) => sum + n, 0) / metricValues().length
+        : 0);
+    let compareCandidates = $derived(() => sortedSpecies().slice(0, 8));
+    let compareSeries = $derived(() => timeline?.compare_series || []);
+    let showRawSeries = $derived(trendMode !== 'smooth');
+    let showSmoothSeries = $derived(trendMode !== 'off');
+    let smoothedMetricValues = $derived(() => movingAverage(metricValues(), 7));
+    let anomalyIndexes = $derived(() => detectAnomalyIndexes(metricValues()));
     let detectionUsesBars = $derived(() => {
+        if (!showRawSeries) return false;
+        if (chartMetric === 'avg_confidence') return false;
         if (chartViewMode === 'line') return false;
         if (chartViewMode === 'bar') return true;
         return span === 'week' || span === 'month';
@@ -341,155 +442,243 @@
 
     let chartSubtitle = $derived(() => {
         if (!timeline) return '';
-        const range = `${formatDateTime(timeline.window_start)} → ${formatDateTime(timeline.window_end)}`;
-        const grouped = `${$_('common.grouped_by', { default: 'Grouped by' })}: ${bucketLabel(timeline.bucket)}`;
-        const mode = `${$_('leaderboard.chart_mode', { default: 'Chart mode' })}: ${chartModeLabel()}`;
-        return [range, grouped, mode, leaderboardAnalysisSubtitle].filter(Boolean).join(' • ');
+        return [
+            metricLabel(chartMetric),
+            bucketLabel(timeline.bucket),
+            chartModeLabel(),
+            leaderboardAnalysisSubtitle
+        ].filter(Boolean).join(' • ');
     });
 
-    let chartOptions = $derived(() => ({
-        chart: {
-            type: detectionUsesBars() ? 'bar' : 'line',
-            height: 260,
-            width: '100%',
-            toolbar: { show: false },
-            zoom: { enabled: false },
-            animations: { enabled: true, easing: 'easeinout', speed: 500 }
-        },
-        series: [
-            {
-                name: 'Detections',
+    let chartOptions = $derived(() => {
+        const series: any[] = [];
+        const primaryColor = chartMetric === 'avg_confidence' ? '#0ea5e9' : '#10b981';
+        const primaryName = metricLabel(chartMetric);
+        const smoothName = $_('leaderboard.metric_smooth', { default: 'Smoothed' });
+        const comparePalette = ['#2563eb', '#7c3aed', '#ea580c'];
+        const anomalyPoints = Array.from(anomalyIndexes()).map((idx) => ({
+            x: Date.parse(timelinePoints()[idx]?.bucket_start || ''),
+            y: metricValues()[idx],
+            marker: {
+                size: 4,
+                fillColor: '#ef4444',
+                strokeColor: '#ffffff',
+                strokeWidth: 1
+            },
+            label: {
+                borderColor: '#ef4444',
+                offsetY: -6,
+                text: '!',
+                style: {
+                    color: '#fff',
+                    background: '#ef4444',
+                    fontSize: '8px',
+                    fontWeight: 700
+                }
+            }
+        }));
+
+        if (showRawSeries) {
+            series.push({
+                name: primaryName,
                 type: detectionUsesBars() ? 'bar' : 'area',
                 data: timelinePoints().map((p) => ({
                     x: Date.parse(p.bucket_start),
-                    y: p.count
+                    y: metricValueFromPoint(p, chartMetric)
                 }))
-            },
-            {
-                name: $_('leaderboard.temperature'),
-                type: 'line',
-                data: (hasWeather() && showTemperature)
-                    ? timelinePoints().map((p) => ({
-                        x: Date.parse(p.bucket_start),
-                        y: convertTemperature(weatherValue(p.bucket_start, 'temp_avg'))
-                    }))
-                    : []
-            },
-            {
-                name: $_('leaderboard.wind_avg'),
-                type: 'line',
-                data: (hasWeather() && showWind)
-                    ? timelinePoints().map((p) => ({
-                        x: Date.parse(p.bucket_start),
-                        y: weatherValue(p.bucket_start, 'wind_avg')
-                    }))
-                    : []
-            },
-            {
-                name: $_('leaderboard.precip'),
-                type: 'line',
-                data: (hasWeather() && showPrecip)
-                    ? timelinePoints().map((p) => ({
-                        x: Date.parse(p.bucket_start),
-                        y: weatherValue(p.bucket_start, 'precip_total')
-                    }))
-                    : []
-            }
-        ],
-        dataLabels: { enabled: false },
-        stroke: {
-            curve: detectionUsesBars() ? 'straight' : 'smooth',
-            width: [detectionUsesBars() ? 0 : 2, 2, 2, 2],
-            colors: ['#10b981', '#f97316', '#0ea5e9', '#a855f7'],
-            dashArray: [0, 4, 4, 6]
-        },
-        fill: {
-            type: [detectionUsesBars() ? 'solid' : 'gradient', 'solid', 'solid', 'solid'],
-            gradient: {
-                shadeIntensity: 1,
-                opacityFrom: 0.35,
-                opacityTo: 0,
-                stops: [0, 90, 100]
-            },
-        },
-        plotOptions: {
-            bar: {
-                borderRadius: 5,
-                columnWidth: timeline?.bucket === 'day' ? '62%' : '56%'
-            }
-        },
-        // Remove point markers ("dots") for a cleaner chart.
-        markers: { size: 0, hover: { size: 0 } },
-        grid: {
-            borderColor: 'rgba(148,163,184,0.2)',
-            strokeDashArray: 3,
-            padding: { left: 12, right: 12, top: 8, bottom: 4 }
-        },
-        xaxis: {
-            type: 'datetime',
-            tickAmount: Math.min(6, timelinePoints().length || 0),
-            labels: { rotate: 0, style: { fontSize: '10px', colors: '#94a3b8' } }
-        },
-        yaxis: [
-            {
-                min: 0,
-                labels: {
-                    style: { fontSize: '10px', colors: '#94a3b8' },
-                    formatter: (value: number) => Math.round(value).toString()
-                }
-            },
-            {
-                opposite: true,
-                show: hasWeather() && showTemperature,
-                labels: {
-                    style: { fontSize: '10px', colors: '#f59e0b' },
-                    formatter: (value: number) => formatTemperature(value, temperatureUnit as any)
-                }
-            },
-            {
-                opposite: true,
-                show: hasWeather() && showWind,
-                labels: {
-                    style: { fontSize: '10px', colors: '#0ea5e9' },
-                    formatter: (value: number) => `${Math.round(value)} ${$_('common.unit_kmh', { default: 'km/h' })}`
-                }
-            },
-            {
-                opposite: true,
-                show: hasWeather() && showPrecip,
-                labels: {
-                    style: { fontSize: '10px', colors: '#a855f7' },
-                    formatter: (value: number) => `${value.toFixed(1)} ${$_('common.unit_mm', { default: 'mm' })}`
-                }
-            }
-        ],
-        tooltip: {
-            theme: isDark() ? 'dark' : 'light',
-            x: {
-                format: timeline?.bucket === 'hour'
-                    ? 'MMM dd HH:mm'
-                    : (timeline?.bucket === 'month' ? 'MMM yyyy' : 'MMM dd HH:mm')
-            },
-            y: [
-                { formatter: (value: number) => `${Math.round(value)} detections` },
-                { formatter: (value: number) => formatTemperature(value, temperatureUnit as any) },
-                { formatter: (value: number) => `${Math.round(value)} ${$_('common.unit_kmh', { default: 'km/h' })}` },
-                { formatter: (value: number) => `${value.toFixed(1)} ${$_('common.unit_mm', { default: 'mm' })}` }
-            ]
-        },
-        legend: { show: false },
-        subtitle: {
-            text: chartSubtitle() ?? '',
-            align: 'left',
-            offsetX: 0,
-            offsetY: 0,
-            style: {
-                fontSize: '10px',
-                fontWeight: 600,
-                color: isDark() ? '#94a3b8' : '#64748b'
-            }
+            });
         }
-    }));
+
+        if (showSmoothSeries) {
+            series.push({
+                name: smoothName,
+                type: 'line',
+                data: timelinePoints().map((p, idx) => ({
+                    x: Date.parse(p.bucket_start),
+                    y: smoothedMetricValues()[idx]
+                }))
+            });
+        }
+
+        if (chartMetric === 'detections') {
+            compareSeries().slice(0, MAX_COMPARE_SPECIES).forEach((item) => {
+                series.push({
+                    name: item.species,
+                    type: 'line',
+                    data: timelinePoints().map((p, idx) => ({
+                        x: Date.parse(p.bucket_start),
+                        y: Number(item.points?.[idx]?.count ?? 0)
+                    }))
+                });
+            });
+        }
+
+        const temperatureName = $_('leaderboard.temperature');
+        const windName = $_('leaderboard.wind_avg');
+        const precipName = $_('leaderboard.precip');
+
+        if (hasWeather() && showTemperature) {
+            series.push({
+                name: temperatureName,
+                type: 'line',
+                data: timelinePoints().map((p) => ({
+                    x: Date.parse(p.bucket_start),
+                    y: convertTemperature(weatherValue(p.bucket_start, 'temp_avg'))
+                }))
+            });
+        }
+
+        if (hasWeather() && showWind) {
+            series.push({
+                name: windName,
+                type: 'line',
+                data: timelinePoints().map((p) => ({
+                    x: Date.parse(p.bucket_start),
+                    y: weatherValue(p.bucket_start, 'wind_avg')
+                }))
+            });
+        }
+
+        if (hasWeather() && showPrecip) {
+            series.push({
+                name: precipName,
+                type: 'line',
+                data: timelinePoints().map((p) => ({
+                    x: Date.parse(p.bucket_start),
+                    y: weatherValue(p.bucket_start, 'precip_total')
+                }))
+            });
+        }
+
+        return {
+            chart: {
+                type: detectionUsesBars() ? 'bar' : 'line',
+                height: 260,
+                width: '100%',
+                toolbar: { show: false },
+                zoom: { enabled: false },
+                animations: { enabled: true, easing: 'easeinout', speed: 500 }
+            },
+            colors: [
+                primaryColor,
+                '#0f766e',
+                ...comparePalette,
+                '#f97316',
+                '#0ea5e9',
+                '#a855f7'
+            ],
+            series,
+            annotations: { points: anomalyPoints },
+            dataLabels: { enabled: false },
+            stroke: {
+                curve: 'smooth',
+                width: series.map((s) => (s.type === 'bar' ? 0 : 2)),
+                dashArray: series.map((s) => (
+                    s.name === smoothName ? 5
+                        : (s.name === windName || s.name === precipName ? 4 : 0)
+                ))
+            },
+            fill: {
+                type: series.map((s) => (s.type === 'area' ? 'gradient' : 'solid')),
+                gradient: {
+                    shadeIntensity: 1,
+                    opacityFrom: 0.35,
+                    opacityTo: 0.05,
+                    stops: [0, 90, 100]
+                },
+            },
+            plotOptions: {
+                bar: {
+                    borderRadius: 5,
+                    columnWidth: timeline?.bucket === 'day' ? '62%' : '56%'
+                }
+            },
+            markers: { size: 0, hover: { size: 0 } },
+            grid: {
+                borderColor: 'rgba(148,163,184,0.2)',
+                strokeDashArray: 3,
+                padding: { left: 12, right: 12, top: 8, bottom: 4 }
+            },
+            xaxis: {
+                type: 'datetime',
+                tickAmount: Math.min(6, timelinePoints().length || 0),
+                labels: { rotate: 0, style: { fontSize: '10px', colors: '#94a3b8' } }
+            },
+            yaxis: [
+                {
+                    min: 0,
+                    max: chartMetric === 'avg_confidence' ? 100 : undefined,
+                    labels: {
+                        style: { fontSize: '10px', colors: '#94a3b8' },
+                        formatter: (value: number) => formatMetricValue(value, chartMetric)
+                    }
+                },
+                {
+                    seriesName: temperatureName,
+                    opposite: true,
+                    show: hasWeather() && showTemperature,
+                    labels: {
+                        style: { fontSize: '10px', colors: '#f59e0b' },
+                        formatter: (value: number) => formatTemperature(value, temperatureUnit as any)
+                    }
+                },
+                {
+                    seriesName: windName,
+                    opposite: true,
+                    show: hasWeather() && showWind,
+                    labels: {
+                        style: { fontSize: '10px', colors: '#0ea5e9' },
+                        formatter: (value: number) => `${Math.round(value)} ${$_('common.unit_kmh', { default: 'km/h' })}`
+                    }
+                },
+                {
+                    seriesName: precipName,
+                    opposite: true,
+                    show: hasWeather() && showPrecip,
+                    labels: {
+                        style: { fontSize: '10px', colors: '#a855f7' },
+                        formatter: (value: number) => `${value.toFixed(1)} ${$_('common.unit_mm', { default: 'mm' })}`
+                    }
+                }
+            ],
+            tooltip: {
+                theme: isDark() ? 'dark' : 'light',
+                x: {
+                    format: timeline?.bucket === 'hour'
+                        ? 'MMM dd HH:mm'
+                        : (timeline?.bucket === 'month' ? 'MMM yyyy' : 'MMM dd HH:mm')
+                },
+                y: {
+                    formatter: (value: number, opts: any) => {
+                        const seriesName = opts?.w?.globals?.seriesNames?.[opts.seriesIndex] ?? '';
+                        if (seriesName === temperatureName) return formatTemperature(value, temperatureUnit as any);
+                        if (seriesName === windName) return `${Math.round(value)} ${$_('common.unit_kmh', { default: 'km/h' })}`;
+                        if (seriesName === precipName) return `${value.toFixed(1)} ${$_('common.unit_mm', { default: 'mm' })}`;
+                        if (seriesName === smoothName || seriesName === primaryName) return formatMetricValue(value, chartMetric);
+                        return `${Math.round(value)} ${$_('leaderboard.metric_detections', { default: 'detections' }).toLowerCase()}`;
+                    }
+                }
+            },
+            legend: {
+                show: series.length > 1,
+                position: 'top',
+                horizontalAlign: 'right',
+                fontSize: '10px',
+                labels: { colors: isDark() ? '#94a3b8' : '#64748b' }
+            },
+            subtitle: {
+                text: chartSubtitle() ?? '',
+                align: 'left',
+                offsetX: 0,
+                offsetY: 0,
+                style: {
+                    fontSize: '10px',
+                    fontWeight: 600,
+                    color: isDark() ? '#94a3b8' : '#64748b'
+                }
+            }
+        };
+    });
 
     function stableStringify(value: any): string {
         if (value === null || typeof value !== 'object') {
@@ -526,7 +715,10 @@
         return {
             span,
             includeUnknownBird,
+            chart_metric: chartMetric,
+            trend_mode: trendMode,
             chart_view_mode: chartViewMode,
+            compare_species: compareSpecies,
             chart_detection_type: detectionUsesBars() ? 'bar' : 'line',
             bucket: timeline?.bucket ?? null,
             window_start: timeline?.window_start ?? null,
@@ -555,7 +747,18 @@
 
     $effect(() => {
         if (!timeline) return;
-        const _deps = [span, includeUnknownBird, timeline.bucket, timeline.window_start, timeline.window_end, timeline.total_count];
+        const _deps = [
+            span,
+            includeUnknownBird,
+            chartMetric,
+            chartViewMode,
+            trendMode,
+            compareSpecies.join('|'),
+            timeline.bucket,
+            timeline.window_start,
+            timeline.window_end,
+            timeline.total_count
+        ];
         void refreshLeaderboardAnalysis();
     });
 
@@ -581,10 +784,13 @@
             }
             const result = await analyzeLeaderboardGraph({
                 config: {
-                    timeframe: `${spanLabel()} (${formatDateTime(timeline.window_start)} → ${formatDateTime(timeline.window_end)})`,
+                    timeframe: `${spanLabel()} (${formatRangeCompact(timeline.window_start, timeline.window_end)})`,
                     total_count: timeline.total_count,
-                    series: ['Detections'],
-                    notes: `Detections are grouped by ${bucketLabel(timeline.bucket)} buckets.`
+                    series: [
+                        metricLabel(chartMetric),
+                        ...(chartMetric === 'detections' ? compareSpecies : []),
+                    ],
+                    notes: `Metric: ${metricLabel(chartMetric)}. Grouped by ${bucketLabel(timeline.bucket)}. Trend mode: ${trendMode}.`
                 },
                 image_base64: imageBase64,
                 force,
@@ -662,30 +868,44 @@
 
     <!-- Rank + Filters -->
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div class="flex gap-2">
+        <div class="flex flex-wrap gap-2">
             <button
-                onclick={() => span = 'all'}
-                class="tab-button {span === 'all' ? 'tab-button-active' : 'tab-button-inactive'}"
+                onclick={() => span = 'month'}
+                class="tab-button {span === 'month' ? 'tab-button-active' : 'tab-button-inactive'}"
             >
-                {$_('leaderboard.sort_by_total')}
-            </button>
-            <button
-                onclick={() => span = 'day'}
-                class="tab-button {span === 'day' ? 'tab-button-active' : 'tab-button-inactive'}"
-            >
-                {$_('leaderboard.sort_by_day')}
+                <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+                    <rect x="3" y="4" width="14" height="13" rx="2"></rect>
+                    <path d="M3 8h14"></path>
+                </svg>
+                {$_('leaderboard.sort_by_month')}
             </button>
             <button
                 onclick={() => span = 'week'}
                 class="tab-button {span === 'week' ? 'tab-button-active' : 'tab-button-inactive'}"
             >
+                <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+                    <path d="M4 6h12M4 10h12M4 14h8"></path>
+                </svg>
                 {$_('leaderboard.sort_by_week')}
             </button>
             <button
-                onclick={() => span = 'month'}
-                class="tab-button {span === 'month' ? 'tab-button-active' : 'tab-button-inactive'}"
+                onclick={() => span = 'day'}
+                class="tab-button {span === 'day' ? 'tab-button-active' : 'tab-button-inactive'}"
             >
-                {$_('leaderboard.sort_by_month')}
+                <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+                    <circle cx="10" cy="10" r="4.2"></circle>
+                    <path d="M10 2.8v2.1M10 15.1v2.1M2.8 10h2.1M15.1 10h2.1"></path>
+                </svg>
+                {$_('leaderboard.sort_by_day')}
+            </button>
+            <button
+                onclick={() => span = 'all'}
+                class="tab-button {span === 'all' ? 'tab-button-active' : 'tab-button-inactive'}"
+            >
+                <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+                    <path d="M4 10c0-2.8 2.2-5 5-5h2c2.8 0 5 2.2 5 5s-2.2 5-5 5H9c-2.8 0-5-2.2-5-5z"></path>
+                </svg>
+                {$_('leaderboard.sort_by_total')}
             </button>
         </div>
 
@@ -902,22 +1122,113 @@
             {/if}
             <div class="absolute inset-0 bg-gradient-to-br from-slate-50 via-transparent to-emerald-50 dark:from-slate-900/50 dark:to-emerald-900/20 pointer-events-none"></div>
             <div class="relative flex flex-col flex-1">
-                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div>
-                        <p class="text-[10px] uppercase tracking-[0.3em] font-black text-slate-500 dark:text-slate-300">
-                            {spanLabel()}
-                        </p>
-                        <p class="mt-1 text-[10px] font-semibold text-slate-400">
-                            {$_('common.range', { default: 'Range' })}: {timeline ? `${formatDateTime(timeline.window_start)} → ${formatDateTime(timeline.window_end)}` : '—'} · {$_('common.grouped_by', { default: 'Grouped by' })}:{' '}
-                            {bucketLabel(timeline?.bucket)}
-                        </p>
-                        <h3 class="text-xl md:text-2xl font-black text-slate-900 dark:text-white">{$_('leaderboard.detections_over_time')}</h3>
+                <div class="flex flex-col gap-4">
+                    <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                        <div>
+                            <p class="text-[10px] uppercase tracking-[0.3em] font-black text-slate-500 dark:text-slate-300">
+                                {spanLabel()}
+                            </p>
+                            <h3 class="text-xl md:text-2xl font-black text-slate-900 dark:text-white">{$_('leaderboard.detections_over_time')}</h3>
+                            <div class="mt-2 flex flex-wrap items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-300">
+                                <span class="inline-flex items-center gap-1 rounded-full border border-slate-200/80 dark:border-slate-700/70 bg-white/80 dark:bg-slate-900/40 px-2 py-1">
+                                    <svg class="h-3 w-3" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+                                        <rect x="3" y="4" width="14" height="13" rx="2"></rect>
+                                        <path d="M3 8h14"></path>
+                                    </svg>
+                                    {formatRangeCompact(timeline?.window_start, timeline?.window_end)}
+                                </span>
+                                <span class="inline-flex items-center gap-1 rounded-full border border-slate-200/80 dark:border-slate-700/70 bg-white/80 dark:bg-slate-900/40 px-2 py-1">
+                                    <svg class="h-3 w-3" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+                                        <path d="M4 10h12M4 6h12M4 14h7"></path>
+                                    </svg>
+                                    {bucketLabel(timeline?.bucket)}
+                                </span>
+                                <span class="inline-flex items-center gap-1 rounded-full border border-slate-200/80 dark:border-slate-700/70 bg-white/80 dark:bg-slate-900/40 px-2 py-1">
+                                    <svg class="h-3 w-3" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+                                        <path d="M4 14l4-4 3 2 5-6"></path>
+                                    </svg>
+                                    {metricLabel(chartMetric)}
+                                </span>
+                            </div>
+                        </div>
+                        <div class="flex flex-wrap items-center gap-3 text-sm font-semibold text-slate-500 dark:text-slate-400">
+                            <span class="text-[11px] font-black text-slate-500 dark:text-slate-300">
+                                {$_('leaderboard.detections_count', { values: { count: timeline?.total_count?.toLocaleString() || '0' } })}
+                            </span>
+                            {#if llmReady}
+                                <button
+                                    type="button"
+                                    class="px-3 py-1.5 rounded-full border border-emerald-200/70 dark:border-emerald-800/60 text-[10px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-300 bg-emerald-50/70 dark:bg-emerald-900/20 hover:bg-emerald-100/70 dark:hover:bg-emerald-900/40 disabled:opacity-60 disabled:cursor-not-allowed"
+                                    disabled={!timeline?.points?.length || leaderboardAnalysisLoading}
+                                    onclick={() => runLeaderboardAnalysis(!!leaderboardAnalysis)}
+                                >
+                                    {leaderboardAnalysisLoading
+                                        ? $_('leaderboard.ai_analyzing', { default: 'Analyzing…' })
+                                        : leaderboardAnalysis
+                                            ? $_('leaderboard.ai_rerun', { default: 'Rerun analysis' })
+                                            : $_('leaderboard.ai_analyze', { default: 'Analyze chart' })}
+                                </button>
+                            {/if}
+                        </div>
                     </div>
-                    <div class="flex flex-wrap items-center gap-3 text-sm font-semibold text-slate-500 dark:text-slate-400">
+
+                    <div class="flex flex-wrap items-center gap-2 text-[10px]">
                         <div class="inline-flex items-center rounded-full border border-slate-200/80 dark:border-slate-700/70 bg-white/80 dark:bg-slate-900/50 p-1">
                             <button
                                 type="button"
-                                class="px-2 py-1 text-[10px] font-black uppercase tracking-widest rounded-full transition-colors {chartViewMode === 'auto' ? 'bg-emerald-500 text-white' : 'text-slate-500 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}"
+                                class="px-2 py-1 font-black uppercase tracking-widest rounded-full transition-colors {chartMetric === 'detections' ? 'bg-emerald-500 text-white' : 'text-slate-500 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}"
+                                aria-pressed={chartMetric === 'detections'}
+                                onclick={() => chartMetric = 'detections'}
+                            >
+                                📈 {$_('leaderboard.metric_detections', { default: 'Detections' })}
+                            </button>
+                            <button
+                                type="button"
+                                class="px-2 py-1 font-black uppercase tracking-widest rounded-full transition-colors {chartMetric === 'unique_species' ? 'bg-emerald-500 text-white' : 'text-slate-500 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}"
+                                aria-pressed={chartMetric === 'unique_species'}
+                                onclick={() => chartMetric = 'unique_species'}
+                            >
+                                🐦 {$_('leaderboard.metric_unique_species', { default: 'Unique' })}
+                            </button>
+                            <button
+                                type="button"
+                                class="px-2 py-1 font-black uppercase tracking-widest rounded-full transition-colors {chartMetric === 'avg_confidence' ? 'bg-emerald-500 text-white' : 'text-slate-500 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}"
+                                aria-pressed={chartMetric === 'avg_confidence'}
+                                onclick={() => chartMetric = 'avg_confidence'}
+                            >
+                                🎯 {$_('leaderboard.metric_avg_confidence', { default: 'Confidence' })}
+                            </button>
+                        </div>
+                        <div class="inline-flex items-center rounded-full border border-slate-200/80 dark:border-slate-700/70 bg-white/80 dark:bg-slate-900/50 p-1">
+                            <button
+                                type="button"
+                                class="px-2 py-1 font-black uppercase tracking-widest rounded-full transition-colors {trendMode === 'off' ? 'bg-emerald-500 text-white' : 'text-slate-500 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}"
+                                aria-pressed={trendMode === 'off'}
+                                onclick={() => trendMode = 'off'}
+                            >
+                                {$_('leaderboard.trend_off', { default: 'Raw' })}
+                            </button>
+                            <button
+                                type="button"
+                                class="px-2 py-1 font-black uppercase tracking-widest rounded-full transition-colors {trendMode === 'smooth' ? 'bg-emerald-500 text-white' : 'text-slate-500 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}"
+                                aria-pressed={trendMode === 'smooth'}
+                                onclick={() => trendMode = 'smooth'}
+                            >
+                                {$_('leaderboard.trend_smooth', { default: 'Smooth' })}
+                            </button>
+                            <button
+                                type="button"
+                                class="px-2 py-1 font-black uppercase tracking-widest rounded-full transition-colors {trendMode === 'both' ? 'bg-emerald-500 text-white' : 'text-slate-500 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}"
+                                aria-pressed={trendMode === 'both'}
+                                onclick={() => trendMode = 'both'}
+                            >
+                                {$_('leaderboard.trend_both', { default: 'Both' })}
+                            </button>
+                        </div>
+                        <div class="inline-flex items-center rounded-full border border-slate-200/80 dark:border-slate-700/70 bg-white/80 dark:bg-slate-900/50 p-1">
+                            <button
+                                type="button"
+                                class="px-2 py-1 font-black uppercase tracking-widest rounded-full transition-colors {chartViewMode === 'auto' ? 'bg-emerald-500 text-white' : 'text-slate-500 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}"
                                 aria-pressed={chartViewMode === 'auto'}
                                 onclick={() => chartViewMode = 'auto'}
                             >
@@ -925,7 +1236,7 @@
                             </button>
                             <button
                                 type="button"
-                                class="px-2 py-1 text-[10px] font-black uppercase tracking-widest rounded-full transition-colors {chartViewMode === 'line' ? 'bg-emerald-500 text-white' : 'text-slate-500 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}"
+                                class="px-2 py-1 font-black uppercase tracking-widest rounded-full transition-colors {chartViewMode === 'line' ? 'bg-emerald-500 text-white' : 'text-slate-500 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}"
                                 aria-pressed={chartViewMode === 'line'}
                                 onclick={() => chartViewMode = 'line'}
                             >
@@ -933,34 +1244,38 @@
                             </button>
                             <button
                                 type="button"
-                                class="px-2 py-1 text-[10px] font-black uppercase tracking-widest rounded-full transition-colors {chartViewMode === 'bar' ? 'bg-emerald-500 text-white' : 'text-slate-500 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}"
+                                disabled={chartMetric === 'avg_confidence'}
+                                class="px-2 py-1 font-black uppercase tracking-widest rounded-full transition-colors disabled:opacity-40 disabled:cursor-not-allowed {chartViewMode === 'bar' ? 'bg-emerald-500 text-white' : 'text-slate-500 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}"
                                 aria-pressed={chartViewMode === 'bar'}
                                 onclick={() => chartViewMode = 'bar'}
                             >
                                 {$_('leaderboard.chart_bar', { default: 'Histogram' })}
                             </button>
                         </div>
-                        <span>{$_('leaderboard.detections_count', { values: { count: timeline?.total_count?.toLocaleString() || '0' } })}</span>
-                        {#if llmReady}
-                            <button
-                                type="button"
-                                class="px-3 py-1.5 rounded-full border border-emerald-200/70 dark:border-emerald-800/60 text-[10px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-300 bg-emerald-50/70 dark:bg-emerald-900/20 hover:bg-emerald-100/70 dark:hover:bg-emerald-900/40 disabled:opacity-60 disabled:cursor-not-allowed"
-                                disabled={!timeline?.points?.length || leaderboardAnalysisLoading}
-                                onclick={() => runLeaderboardAnalysis(!!leaderboardAnalysis)}
-                            >
-                                {leaderboardAnalysisLoading
-                                    ? $_('leaderboard.ai_analyzing', { default: 'Analyzing…' })
-                                    : leaderboardAnalysis
-                                        ? $_('leaderboard.ai_rerun', { default: 'Rerun analysis' })
-                                        : $_('leaderboard.ai_analyze', { default: 'Analyze chart' })}
-                            </button>
-                        {/if}
                     </div>
+
+                    {#if chartMetric === 'detections'}
+                        <div class="flex flex-wrap items-center gap-2 text-[10px]">
+                            <span class="font-black uppercase tracking-widest text-slate-400">
+                                {$_('leaderboard.compare_species', { default: 'Compare' })}
+                            </span>
+                            {#each compareCandidates() as candidate}
+                                <button
+                                    type="button"
+                                    onclick={() => toggleCompareSpecies(candidate.species)}
+                                    disabled={!compareSpecies.includes(candidate.species) && compareSpecies.length >= MAX_COMPARE_SPECIES}
+                                    class="px-2 py-1 rounded-full border text-[10px] font-black uppercase tracking-widest transition-colors disabled:opacity-40 disabled:cursor-not-allowed {compareSpecies.includes(candidate.species) ? 'border-emerald-400/70 bg-emerald-100 text-emerald-700 dark:border-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' : 'border-slate-200/80 dark:border-slate-700/70 bg-white/80 dark:bg-slate-900/50 text-slate-500 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}"
+                                >
+                                    {candidate.displayName}
+                                </button>
+                            {/each}
+                        </div>
+                    {/if}
                 </div>
 
                 <div class="mt-6 w-full flex-1 min-h-[140px] max-h-[240px]">
                     {#if timeline?.points?.length}
-                        {#key `${span}-${timeline.total_count}-${timeline.bucket}`}
+                        {#key `${span}-${timeline.total_count}-${timeline.bucket}-${chartMetric}-${trendMode}-${chartViewMode}-${compareSpecies.join('|')}-${showTemperature}-${showWind}-${showPrecip}`}
                             <div use:chart={chartOptions() as any} bind:this={chartEl} class="w-full h-[240px]"></div>
                         {/key}
                     {:else}
@@ -969,11 +1284,11 @@
                 </div>
 
                 <div class="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
-                    <span>{selectedCountLabel()}: {timeline?.total_count?.toLocaleString() || '0'}</span>
+                    <span>{$_('leaderboard.total', { default: 'Total' })}: {timeline?.total_count?.toLocaleString() || '0'}</span>
                     <span>•</span>
-                    <span>{$_('leaderboard.metric_peak', { default: 'Peak' })} {bucketLabel(timeline?.bucket)}: {timelineMax.toLocaleString()}</span>
+                    <span>{$_('leaderboard.metric_peak', { default: 'Peak' })}: {formatMetricValue(metricPeak(), chartMetric)}</span>
                     <span>•</span>
-                    <span>{$_('leaderboard.metric_avg', { default: 'Avg' })}/{bucketLabel(timeline?.bucket)}: {timelineAvg.toLocaleString()}</span>
+                    <span>{$_('leaderboard.metric_avg', { default: 'Avg' })}: {formatMetricValue(metricAvg(), chartMetric)}</span>
                 </div>
                 {#if llmReady && (leaderboardAnalysisLoading || leaderboardAnalysisError || leaderboardAnalysis)}
                     <div class="mt-4 rounded-2xl border border-slate-200/70 dark:border-slate-700/60 bg-white/70 dark:bg-slate-900/40 px-4 py-3 text-sm text-slate-600 dark:text-slate-300 shadow-sm">
@@ -1115,7 +1430,7 @@
             <div class="p-4 border-b border-slate-200/80 dark:border-slate-700/50 flex items-center justify-between">
                 <h3 class="font-semibold text-slate-900 dark:text-white">{$_('leaderboard.all_species')}</h3>
                 <div class="text-xs text-slate-500 dark:text-slate-400">
-                    {spanLabel()} ({timeline ? `${formatDateTime(timeline.window_start)} → ${formatDateTime(timeline.window_end)}` : '—'}): {totalDetections.toLocaleString()} · {$_('common.grouped_by', { default: 'Grouped by' })}: {bucketLabel(timeline?.bucket)}
+                    {spanLabel()} ({formatRangeCompact(timeline?.window_start, timeline?.window_end)}) · {totalDetections.toLocaleString()} · {bucketLabel(timeline?.bucket)}
                 </div>
             </div>
 

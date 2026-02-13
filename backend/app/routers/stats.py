@@ -71,6 +71,8 @@ class DetectionsTimelinePoint(BaseModel):
     bucket_start: str
     label: str
     count: int
+    unique_species: int = 0
+    avg_confidence: Optional[float] = None
 
 
 class DetectionsTimelineWeatherPoint(BaseModel):
@@ -83,6 +85,16 @@ class DetectionsTimelineWeatherPoint(BaseModel):
     condition_text: Optional[str] = None
 
 
+class DetectionsTimelineComparePoint(BaseModel):
+    bucket_start: str
+    count: int
+
+
+class DetectionsTimelineCompareSeries(BaseModel):
+    species: str
+    points: List[DetectionsTimelineComparePoint]
+
+
 class DetectionsTimelineSpanResponse(BaseModel):
     span: str
     bucket: str
@@ -90,6 +102,7 @@ class DetectionsTimelineSpanResponse(BaseModel):
     window_end: str
     total_count: int
     points: List[DetectionsTimelinePoint]
+    compare_series: Optional[List[DetectionsTimelineCompareSeries]] = None
     weather: Optional[list[DetectionsTimelineWeatherPoint]] = None
     sunrise_range: Optional[str] = None
     sunset_range: Optional[str] = None
@@ -367,6 +380,7 @@ async def get_detection_timeline_span(
     request: Request,
     span: Literal["all", "day", "week", "month"] = Query("week", description="Time span for the timeline"),
     include_weather: bool = Query(False, description="Include weather overlays (best-effort)"),
+    compare_species: Optional[List[str]] = Query(None, description="Optional species names to include as compare lines"),
 ):
     """Get detections over time for a rolling span aligned to the current time.
 
@@ -505,6 +519,54 @@ async def get_detection_timeline_span(
                     else:
                         cursor = date(cursor.year, cursor.month + 1, 1)
 
+        metrics_by_bucket = await repo.get_timebucket_metrics(window_start, window_end, bucket)
+        for point in points:
+            metrics = metrics_by_bucket.get(point.bucket_start, {})
+            point.unique_species = int(metrics.get("unique_species") or 0)
+            avg_confidence = metrics.get("avg_confidence")
+            point.avg_confidence = float(avg_confidence) if avg_confidence is not None else None
+
+        compare_series = None
+        if compare_species:
+            sanitized_compare: list[str] = []
+            for raw in compare_species:
+                name = (raw or "").strip()
+                if not name or name in sanitized_compare:
+                    continue
+                sanitized_compare.append(name)
+                if len(sanitized_compare) >= 3:
+                    break
+
+            if sanitized_compare:
+                unknown_labels = list(settings.classification.unknown_bird_labels)
+                species_map: dict[str, list[str]] = {}
+                for selected in sanitized_compare:
+                    if selected == "Unknown Bird":
+                        species_map[selected] = unknown_labels
+                    else:
+                        species_map[selected] = [selected]
+
+                compare_counts = await repo.get_timebucket_species_counts(
+                    start=window_start,
+                    end=window_end,
+                    bucket=bucket,
+                    species_map=species_map,
+                )
+                compare_series = []
+                for selected in sanitized_compare:
+                    compare_series.append(
+                        DetectionsTimelineCompareSeries(
+                            species=selected,
+                            points=[
+                                DetectionsTimelineComparePoint(
+                                    bucket_start=point.bucket_start,
+                                    count=int(compare_counts.get(point.bucket_start, {}).get(selected, 0)),
+                                )
+                                for point in points
+                            ],
+                        )
+                    )
+
         weather_points = None
         sunrise_range = None
         sunset_range = None
@@ -624,6 +686,7 @@ async def get_detection_timeline_span(
             window_end=window_end.replace(tzinfo=timezone.utc).isoformat(),
             total_count=total_count,
             points=points,
+            compare_series=compare_series,
             weather=weather_points,
             sunrise_range=sunrise_range,
             sunset_range=sunset_range,

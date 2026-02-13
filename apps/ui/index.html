@@ -9,6 +9,24 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#14b8a6" />
     <meta name="description" content="Bird detection and classification for your backyard feeder" />
+    <script>
+      (() => {
+        try {
+          const storedTheme = localStorage.getItem('theme');
+          const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+          const isDark = storedTheme === 'dark' || ((storedTheme === 'system' || !storedTheme) && prefersDark);
+          if (isDark) {
+            document.documentElement.classList.add('dark');
+          }
+          const themeMeta = document.querySelector('meta[name="theme-color"]');
+          if (themeMeta) {
+            themeMeta.setAttribute('content', isDark ? '#030712' : '#f8fafc');
+          }
+        } catch {
+          // Ignore startup theme-read failures and continue with defaults.
+        }
+      })();
+    </script>
     <title>Yet Another WhosAtMyFeeder</title>
   </head>
   <body>

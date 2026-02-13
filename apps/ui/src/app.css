@@ -7,18 +7,34 @@
 :root {
   --font-body: 'Instrument Sans', 'Segoe UI', system-ui, -apple-system, sans-serif;
   --font-display: 'Bricolage Grotesque', 'Instrument Sans', sans-serif;
+  --app-bg: #f8fafc;
+  --app-fg: #334155;
+  --noise-svg: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.06'/%3E%3C/svg%3E");
   font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
+html.dark,
+html[data-theme='dark'] {
+  --app-bg: #030712;
+  --app-fg: #e2e8f0;
+  --noise-svg: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+}
+
 @layer base {
+  html,
   body {
     @apply text-slate-700 dark:text-slate-200;
     font-family: var(--font-body);
-    /* Ensure overscroll "rubber-band" areas match the themed page background. */
-    background-color: inherit;
-    background-image: inherit;
+    min-height: 100%;
+    /* Safari/iOS overscroll uses the root/body paint, so keep this explicit. */
+    background-color: var(--app-bg);
+    color: var(--app-fg);
+  }
+
+  body {
+    background-image: var(--noise-svg);
   }
 
   h1,
@@ -38,18 +54,14 @@
 /* Smooth theme transitions */
 html {
   transition: background-color 0.3s ease, color 0.3s ease;
-  /* Stack color and noise. Noise SVG is now transparent. */
-  @apply bg-surface-light dark:bg-surface-dark;
-  background-image: var(--noise-svg);
+  background-color: var(--app-bg);
+  color: var(--app-fg);
+  color-scheme: light;
 }
 
-:root {
-  --noise-svg: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.06'/%3E%3C/svg%3E");
-}
-
-:global(.dark) :root,
-:global([data-theme='dark']) :root {
-  --noise-svg: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+html.dark,
+html[data-theme='dark'] {
+  color-scheme: dark;
 }
 
 /* Custom selection */
@@ -303,6 +315,7 @@ html {
   /* Yellow for visibility */
   --highlight-color: #00ffff;
   /* Cyan for focus/active */
+  color-scheme: dark;
 }
 
 .high-contrast body,

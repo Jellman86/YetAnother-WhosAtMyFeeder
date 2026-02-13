@@ -8,6 +8,12 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 - **Changed:** Removed the mobile-only Bottom Navigation bar to avoid duplicate navigation patterns with the existing mobile sidebar/menu.
 - **Fixed:** Owner "system status" startup notifications are now emitted once per backend startup instance (using a startup instance marker), instead of being re-created on every page refresh.
+- **Changed:** Leaderboard range controls now default to **Month** and are ordered **Month → Week → Day → All Time** for a more useful first view.
+- **Changed:** Leaderboard chart header metadata was compacted into icon chips (range/grouping/metric) to reduce visual noise and long range strings.
+- **Added:** Leaderboard chart now supports metric modes (`Detections`, `Unique species`, `Avg confidence`) plus trend modes (`Raw`, `Smooth`, `Both`).
+- **Added:** Leaderboard chart now supports multi-species compare overlays (up to 3 species) and anomaly spike markers.
+- **Added:** Timeline API now returns per-bucket `unique_species`, `avg_confidence`, and optional `compare_series` for selected species.
+- **Fixed:** Safari dark-mode overscroll/root paint now consistently matches the active theme (including startup theme bootstrap) instead of flashing/lightening to white.
 - **Changed:** Refined Leaderboard visual aesthetic with asymmetrical thumbnail overlaps for a bespoke "field journal" feel.
 - **Changed:** Refined global color palette: deeper "Midnight" dark mode and warmer "Parchment" light mode for improved atmosphere and character.
 - **Added:** Staggered entrance animations for Dashboard and Explorer cards to improve perceived performance and polish.

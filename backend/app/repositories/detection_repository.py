@@ -778,6 +778,242 @@ class DetectionRepository:
             rows = await cursor.fetchall()
         return {row[0]: int(row[1] or 0) for row in rows if row and row[0]}
 
+    async def get_timebucket_metrics(self, start: datetime, end: datetime, bucket: str) -> dict[str, dict]:
+        """Bucketed aggregate metrics for timeline charts.
+
+        Returns per-bucket totals:
+        - count
+        - unique_species
+        - avg_confidence
+        """
+        if bucket == "hour":
+            query = """
+                SELECT
+                    strftime('%Y-%m-%dT%H:00:00Z', detection_time) as bucket,
+                    COUNT(*) as c,
+                    COUNT(DISTINCT LOWER(display_name)) as unique_species,
+                    AVG(score) as avg_confidence
+                FROM detections
+                WHERE detection_time >= ? AND detection_time < ?
+                  AND (is_hidden = 0 OR is_hidden IS NULL)
+                GROUP BY bucket
+                ORDER BY bucket ASC
+            """
+            params = (start, end)
+        elif bucket == "halfday":
+            query = """
+                SELECT
+                    date(detection_time) as d,
+                    CASE WHEN CAST(strftime('%H', detection_time) AS integer) < 12 THEN 0 ELSE 12 END as hour_start,
+                    COUNT(*) as c,
+                    COUNT(DISTINCT LOWER(display_name)) as unique_species,
+                    AVG(score) as avg_confidence
+                FROM detections
+                WHERE detection_time >= ? AND detection_time < ?
+                  AND (is_hidden = 0 OR is_hidden IS NULL)
+                GROUP BY d, hour_start
+                ORDER BY d ASC, hour_start ASC
+            """
+            params = (start, end)
+        elif bucket == "day":
+            query = """
+                SELECT
+                    date(detection_time) as d,
+                    COUNT(*) as c,
+                    COUNT(DISTINCT LOWER(display_name)) as unique_species,
+                    AVG(score) as avg_confidence
+                FROM detections
+                WHERE detection_time >= ? AND detection_time < ?
+                  AND (is_hidden = 0 OR is_hidden IS NULL)
+                GROUP BY d
+                ORDER BY d ASC
+            """
+            params = (start, end)
+        else:
+            query = """
+                SELECT
+                    strftime('%Y-%m-01', detection_time) as m,
+                    COUNT(*) as c,
+                    COUNT(DISTINCT LOWER(display_name)) as unique_species,
+                    AVG(score) as avg_confidence
+                FROM detections
+                WHERE detection_time >= ? AND detection_time < ?
+                  AND (is_hidden = 0 OR is_hidden IS NULL)
+                GROUP BY m
+                ORDER BY m ASC
+            """
+            params = (start, end)
+
+        async with self.db.execute(query, params) as cursor:
+            rows = await cursor.fetchall()
+
+        out: dict[str, dict] = {}
+        for row in rows:
+            if bucket == "halfday":
+                d = row[0]
+                hour_start = int(row[1] or 0)
+                if not d:
+                    continue
+                hh = "00" if hour_start == 0 else "12"
+                key = f"{d}T{hh}:00:00Z"
+                c = row[2]
+                unique_species = row[3]
+                avg_confidence = row[4]
+            elif bucket == "day":
+                d = row[0]
+                if not d:
+                    continue
+                key = f"{d}T00:00:00Z"
+                c = row[1]
+                unique_species = row[2]
+                avg_confidence = row[3]
+            elif bucket == "month":
+                m = row[0]
+                if not m:
+                    continue
+                key = f"{m}T00:00:00Z"
+                c = row[1]
+                unique_species = row[2]
+                avg_confidence = row[3]
+            else:
+                key = row[0]
+                if not key:
+                    continue
+                c = row[1]
+                unique_species = row[2]
+                avg_confidence = row[3]
+
+            out[key] = {
+                "count": int(c or 0),
+                "unique_species": int(unique_species or 0),
+                "avg_confidence": float(avg_confidence) if avg_confidence is not None else None,
+            }
+        return out
+
+    async def get_timebucket_species_counts(
+        self,
+        start: datetime,
+        end: datetime,
+        bucket: str,
+        species_map: dict[str, list[str]],
+    ) -> dict[str, dict[str, int]]:
+        """Counts by timeline bucket for selected species labels.
+
+        species_map maps output species names to one or more display_name labels.
+        """
+        if not species_map:
+            return {}
+
+        selected_labels: set[str] = set()
+        reverse_map: dict[str, list[str]] = {}
+        for output_species, labels in species_map.items():
+            for label in labels:
+                selected_labels.add(label)
+                reverse_map.setdefault(label, []).append(output_species)
+        if not selected_labels:
+            return {}
+
+        placeholders = ",".join(["?"] * len(selected_labels))
+        labels_params = tuple(selected_labels)
+
+        if bucket == "hour":
+            query = f"""
+                SELECT
+                    strftime('%Y-%m-%dT%H:00:00Z', detection_time) as bucket_key,
+                    display_name,
+                    COUNT(*) as c
+                FROM detections
+                WHERE detection_time >= ? AND detection_time < ?
+                  AND (is_hidden = 0 OR is_hidden IS NULL)
+                  AND display_name IN ({placeholders})
+                GROUP BY bucket_key, display_name
+                ORDER BY bucket_key ASC
+            """
+            params = (start, end, *labels_params)
+        elif bucket == "halfday":
+            query = f"""
+                SELECT
+                    date(detection_time) as d,
+                    CASE WHEN CAST(strftime('%H', detection_time) AS integer) < 12 THEN 0 ELSE 12 END as hour_start,
+                    display_name,
+                    COUNT(*) as c
+                FROM detections
+                WHERE detection_time >= ? AND detection_time < ?
+                  AND (is_hidden = 0 OR is_hidden IS NULL)
+                  AND display_name IN ({placeholders})
+                GROUP BY d, hour_start, display_name
+                ORDER BY d ASC, hour_start ASC
+            """
+            params = (start, end, *labels_params)
+        elif bucket == "day":
+            query = f"""
+                SELECT
+                    date(detection_time) as d,
+                    display_name,
+                    COUNT(*) as c
+                FROM detections
+                WHERE detection_time >= ? AND detection_time < ?
+                  AND (is_hidden = 0 OR is_hidden IS NULL)
+                  AND display_name IN ({placeholders})
+                GROUP BY d, display_name
+                ORDER BY d ASC
+            """
+            params = (start, end, *labels_params)
+        else:
+            query = f"""
+                SELECT
+                    strftime('%Y-%m-01', detection_time) as m,
+                    display_name,
+                    COUNT(*) as c
+                FROM detections
+                WHERE detection_time >= ? AND detection_time < ?
+                  AND (is_hidden = 0 OR is_hidden IS NULL)
+                  AND display_name IN ({placeholders})
+                GROUP BY m, display_name
+                ORDER BY m ASC
+            """
+            params = (start, end, *labels_params)
+
+        async with self.db.execute(query, params) as cursor:
+            rows = await cursor.fetchall()
+
+        out: dict[str, dict[str, int]] = {}
+        for row in rows:
+            if bucket == "halfday":
+                d = row[0]
+                hour_start = int(row[1] or 0)
+                label = row[2]
+                count = int(row[3] or 0)
+                if not d or not label:
+                    continue
+                hh = "00" if hour_start == 0 else "12"
+                bucket_key = f"{d}T{hh}:00:00Z"
+            elif bucket == "day":
+                d = row[0]
+                label = row[1]
+                count = int(row[2] or 0)
+                if not d or not label:
+                    continue
+                bucket_key = f"{d}T00:00:00Z"
+            elif bucket == "month":
+                m = row[0]
+                label = row[1]
+                count = int(row[2] or 0)
+                if not m or not label:
+                    continue
+                bucket_key = f"{m}T00:00:00Z"
+            else:
+                bucket_key = row[0]
+                label = row[1]
+                count = int(row[2] or 0)
+                if not bucket_key or not label:
+                    continue
+
+            for output_species in reverse_map.get(label, []):
+                out.setdefault(bucket_key, {})
+                out[bucket_key][output_species] = out[bucket_key].get(output_species, 0) + count
+        return out
+
     async def get_species_counts(self) -> list[dict]:
         """Get detection counts per species with taxonomic metadata."""
         query = """

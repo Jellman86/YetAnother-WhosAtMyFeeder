@@ -135,6 +135,18 @@ export interface DetectionsTimelinePoint {
     bucket_start: string;
     label: string;
     count: number;
+    unique_species?: number;
+    avg_confidence?: number | null;
+}
+
+export interface DetectionsTimelineComparePoint {
+    bucket_start: string;
+    count: number;
+}
+
+export interface DetectionsTimelineCompareSeries {
+    species: string;
+    points: DetectionsTimelineComparePoint[];
 }
 
 export interface DetectionsTimelineSpanResponse {
@@ -144,6 +156,7 @@ export interface DetectionsTimelineSpanResponse {
     window_end: string;
     total_count: number;
     points: DetectionsTimelinePoint[];
+    compare_series?: DetectionsTimelineCompareSeries[] | null;
     weather?: {
         bucket_start: string;
         temp_avg?: number | null;
@@ -159,11 +172,14 @@ export interface DetectionsTimelineSpanResponse {
 
 export async function fetchDetectionsTimelineSpan(
     span: LeaderboardSpan = 'week',
-    opts: { includeWeather?: boolean } = {}
+    opts: { includeWeather?: boolean; compareSpecies?: string[] } = {}
 ): Promise<DetectionsTimelineSpanResponse> {
     const params = new URLSearchParams();
     params.set('span', span);
     if (opts.includeWeather) params.set('include_weather', 'true');
+    for (const species of opts.compareSpecies ?? []) {
+        if (species) params.append('compare_species', species);
+    }
     const response = await apiFetch(`${API_BASE}/stats/detections/timeline?${params.toString()}`);
     return handleResponse<DetectionsTimelineSpanResponse>(response);
 }
