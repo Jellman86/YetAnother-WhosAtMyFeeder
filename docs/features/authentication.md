@@ -12,7 +12,7 @@ YA-WAMF provides a secure authentication system to protect your settings and dat
 
 By default, authentication is **disabled** to allow easy first-time setup. To enable it:
 
-1.  Navigate to **Settings** > **Authentication**.
+1.  Navigate to **Settings** > **Security**.
 2.  Set a strong password.
 3.  Enable **"Require Authentication"**.
 4.  (Optional) Enable **"Public Access"** if you want to share your dashboard.
@@ -54,7 +54,7 @@ Currently, there is no email-based "Forgot Password" flow. If you lose your pass
 
 You can allow unauthenticated users to view your detections while keeping settings secure.
 
-- **Enable:** In **Settings** > **Public Access**, toggle "Enable Public Access".
+- **Enable:** In **Settings** > **Security**, toggle "Enable Public Access".
 - **Restrictions:**
     - Guests cannot change settings.
     - Guests cannot delete or reclassify detections.
@@ -89,7 +89,7 @@ When Public Access is enabled, guests can see:
 
 ## Reverse Proxy & Trusted Hosts
 
-If you run YA-WAMF behind a reverse proxy (e.g., Nginx or Cloudflare Tunnel), you should **explicitly set Trusted Proxy Hosts** in **Settings > Authentication**.
+If you run YA-WAMF behind a reverse proxy (e.g., Nginx or Cloudflare Tunnel), you should **explicitly set Trusted Proxy Hosts** in **Settings > Security**.
 
 - This tells YA-WAMF which proxy IPs, CIDR ranges, or hostnames/container names are allowed to set `X-Forwarded-*` headers.
 - The default is permissive (trusts all proxies) for compatibility with existing installs.
@@ -187,4 +187,4 @@ Trusted Proxy Hosts:
 - **Token Storage:** Authentication uses JWT (JSON Web Tokens) stored in your browser's Local Storage.
 - **Session Expiry:** Sessions are valid for 7 days by default (configurable).
 - **Rate Limiting:** Login attempts are strictly rate-limited (5 per minute) to prevent brute-force attacks.
- - **Legacy API Key:** Older `API_KEY` authentication still works but is deprecated.
+- **Legacy API Key:** Older `YA_WAMF_API_KEY` authentication still works but is deprecated.

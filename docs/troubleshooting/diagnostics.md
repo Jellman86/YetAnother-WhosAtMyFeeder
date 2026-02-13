@@ -17,7 +17,7 @@ If Birds are appearing on the dashboard but never have the **"Verified"** audio 
 
 1.  **Check Sensor ID:** Verify that the Sensor ID in the **Recent Audio** widget matches your mapping in Settings.
 2.  **Verify Timezone (TZ):** Run `docker exec -it yawamf-backend date` and compare it to the time on your host. If they differ, audio correlation will fail because events won't align. Ensure all containers (Frigate, BirdNET, YA-WAMF) have the same `TZ` environment variable.
-3.  **Buffer Window:** Correlation only works for events within ±30 seconds of each other.
+3.  **Buffer Window:** Correlation only works for events within your configured `audio_correlation_window_seconds` (default ±300 seconds).
 
 ## 🌐 Network Connectivity
 Since YA-WAMF runs in a Docker network, it must be able to reach your other services. You can test this from inside the backend container:
@@ -62,11 +62,11 @@ If you see `PermissionError` in your backend logs or the container fails to star
     ```
 5.  **Test write access from inside the running container:**
     ```bash
-    docker compose exec backend sh -lc 'id && ls -ld /config /data && touch /data/.perm_test && rm -f /data/.perm_test'
+    docker compose exec yawamf-backend sh -lc 'id && ls -ld /config /data && touch /data/.perm_test && rm -f /data/.perm_test'
     ```
 6.  **Check logs for remaining denials:**
     ```bash
-    docker compose logs backend | rg -n "Permission denied|EACCES"
+    docker compose logs yawamf-backend | rg -n "Permission denied|EACCES"
     ```
 
 If step 5 fails, the most common cause is editing one path but mounting a different host path in Portainer. Fix ownership on the actual mounted source path shown in the stack volume mapping.

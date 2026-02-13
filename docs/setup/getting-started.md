@@ -74,7 +74,7 @@ services:
 Quick verify:
 
 ```bash
-docker compose exec backend sh -lc 'id && ls -ld /config /data && touch /data/.perm_test && rm -f /data/.perm_test'
+docker compose exec yawamf-backend sh -lc 'id && ls -ld /config /data && touch /data/.perm_test && rm -f /data/.perm_test'
 ```
 
 If this fails with `Permission denied`, re-run `chown` on the host path that is actually mounted in your stack.
@@ -98,7 +98,7 @@ Open your browser to `http://<your-ip>:9852`. You should see the dashboard! Once
 ### 5. (Optional) Enable Guest Mode
 If you want to share a read‑only public view:
 
-1. Go to **Settings > Authentication** and set a password.
+1. Go to **Settings > Security** and set a password.
 2. Enable **Public Access**.
 3. Configure rate limits and whether camera names are visible.
 

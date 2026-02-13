@@ -11,6 +11,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Changed:** Video share-link creation now uses the configured public share base URL when valid, with safe fallback to request host when unset/invalid.
 - **Changed:** Locale key coverage pass completed across `de/es/fr/it/ja/pt/ru/zh` so frontend locale files now match English key coverage.
 - **Fixed:** Hardened multiple Alembic migrations for SQLite-safe idempotency and downgrade reliability (guarded index/table drops, resilient recreation of missing indexes, and deterministic rollback of multilingual species cache rows).
+- **Changed:** Documentation accuracy pass completed: API reference now reflects current route structure, setup/troubleshooting commands now use canonical compose service names, and Security-tab navigation wording is consistent across README/docs.
+- **Added:** Docs CI guardrail (`backend/scripts/docs_consistency_check.py` + `docs-quality` workflow) to validate markdown links, detect stale doc terminology, and catch API endpoint drift in `docs/api.md`.
 
 - **Fixed:** Leaderboard weather/toggle overlay updates now harden Apex options normalization (annotation bucket defaults + resilient y-axis series mapping) to prevent `Cannot read properties of undefined (reading 'push')` runtime crashes.
 - **Fixed:** Apex chart update handling now catches both synchronous and async `updateOptions` failures and recreates the chart instance safely to avoid unhandled promise rejections.

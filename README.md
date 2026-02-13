@@ -218,7 +218,7 @@ In the web UI, go to **Settings** and click the model download button. The model
 
 ### Public View (Guest Mode) at a Glance
 
-Guest mode is read-only and rate-limited. Guests can view detections and any existing AI Naturalist analysis, but cannot change settings, delete items, or run new AI analysis. You can hide camera names and limit the public history window in **Settings > Public Access**.
+Guest mode is read-only and rate-limited. Guests can view detections and any existing AI Naturalist analysis, but cannot change settings, delete items, or run new AI analysis. You can hide camera names and limit the public history window in **Settings > Security**.
 
 ### Verification
 
@@ -273,7 +273,7 @@ YA-WAMF v2.6.0 introduces a robust built-in authentication system.
 👉 **[Read the Full Authentication & Access Control Guide](docs/features/authentication.md)**
 
 ### 🔑 Legacy API Key (Deprecated)
-If you are upgrading from an older version using `YA_WAMF_API_KEY`, your setup will continue to work. However, this method is **deprecated** and will be removed in v2.9.0. I recommend migrating to the new password-based system via **Settings > Security**.
+If you are upgrading from an older version using `YA_WAMF_API_KEY`, your setup will continue to work. However, this method is **deprecated** and scheduled for removal in a future release. I recommend migrating to the password-based system via **Settings > Security**.
 
 For detailed upgrade instructions, see the [Migration Guide](MIGRATION.md).
 

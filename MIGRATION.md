@@ -13,7 +13,7 @@ Version 2.6.0 introduces a major security upgrade with a new authentication syst
 - **Zero Breaking Changes:** Your existing installation will continue to work.
 - **New Feature:** You can now set a password for the admin interface.
 - **New Feature:** You can enable a "Public View" to share your bird detections without giving admin access.
-- **Deprecated:** The `YA_WAMF_API_KEY` environment variable is deprecated and will be removed in v2.9.0.
+- **Deprecated:** The `YA_WAMF_API_KEY` environment variable is deprecated and scheduled for removal in a future release.
 
 ---
 

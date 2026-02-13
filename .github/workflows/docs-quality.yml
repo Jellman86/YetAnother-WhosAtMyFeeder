@@ -1,0 +1,33 @@
+name: Docs Quality
+
+on:
+  push:
+    branches: [dev, main]
+    paths:
+      - "README.md"
+      - "MIGRATION.md"
+      - "docs/**"
+      - "backend/app/main.py"
+      - "backend/app/routers/**"
+      - "backend/scripts/docs_consistency_check.py"
+      - ".github/workflows/docs-quality.yml"
+  pull_request:
+    paths:
+      - "README.md"
+      - "MIGRATION.md"
+      - "docs/**"
+      - "backend/app/main.py"
+      - "backend/app/routers/**"
+      - "backend/scripts/docs_consistency_check.py"
+      - ".github/workflows/docs-quality.yml"
+
+jobs:
+  docs-quality:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run documentation consistency checks
+        run: |
+          python3 backend/scripts/docs_consistency_check.py
