@@ -36,7 +36,6 @@
         avg_confidence?: number | null;
         camera_count?: number | null;
     };
-    type ChartMetric = 'detections' | 'unique_species' | 'avg_confidence';
     type TrendMode = 'off' | 'smooth' | 'both';
     const MAX_COMPARE_SPECIES = 3;
 
@@ -60,7 +59,6 @@
     let showWind = $state(false);
     let showPrecip = $state(false);
     let chartViewMode = $state<'auto' | 'line' | 'bar'>('auto');
-    let chartMetric = $state<ChartMetric>('detections');
     let trendMode = $state<TrendMode>('smooth');
     let compareSpecies = $state<string[]>([]);
 
@@ -331,21 +329,16 @@
         return `${formatShortDate(start)}-${formatShortDate(end)}`;
     }
 
-    function metricLabel(metric: ChartMetric): string {
-        if (metric === 'unique_species') return $_('leaderboard.metric_unique_species', { default: 'Unique species' });
-        if (metric === 'avg_confidence') return $_('leaderboard.metric_avg_confidence', { default: 'Avg confidence' });
+    function metricLabel(): string {
         return $_('leaderboard.metric_detections', { default: 'Detections' });
     }
 
-    function metricValueFromPoint(point: DetectionsTimelineSpanResponse['points'][number], metric: ChartMetric): number {
-        if (metric === 'unique_species') return Math.max(0, Number(point.unique_species ?? 0));
-        if (metric === 'avg_confidence') return Math.max(0, Number((point.avg_confidence ?? 0) * 100));
+    function metricValueFromPoint(point: DetectionsTimelineSpanResponse['points'][number]): number {
         return Math.max(0, Number(point.count ?? 0));
     }
 
-    function formatMetricValue(value: number, metric: ChartMetric): string {
+    function formatMetricValue(value: number): string {
         if (!Number.isFinite(value)) return '—';
-        if (metric === 'avg_confidence') return `${value.toFixed(1)}%`;
         return Math.round(value).toLocaleString();
     }
 
@@ -364,20 +357,6 @@
         return out;
     }
 
-    function detectAnomalyIndexes(values: number[]): Set<number> {
-        if (values.length < 8) return new Set();
-        const mean = values.reduce((sum, n) => sum + n, 0) / values.length;
-        const variance = values.reduce((sum, n) => sum + ((n - mean) ** 2), 0) / values.length;
-        const std = Math.sqrt(variance);
-        if (!Number.isFinite(std) || std <= 0) return new Set();
-        const threshold = mean + (1.6 * std);
-        const out = new Set<number>();
-        values.forEach((value, idx) => {
-            if (value >= threshold && value >= (mean * 1.25)) out.add(idx);
-        });
-        return out;
-    }
-
     function toggleCompareSpecies(speciesName: string) {
         if (!speciesName) return;
         if (compareSpecies.includes(speciesName)) {
@@ -389,7 +368,7 @@
     }
 
     let timelinePoints = $derived(() => timeline?.points || []);
-    let metricValues = $derived(() => timelinePoints().map((p) => metricValueFromPoint(p, chartMetric)));
+    let metricValues = $derived(() => timelinePoints().map((p) => metricValueFromPoint(p)));
     let metricPeak = $derived(() => metricValues().length ? Math.max(...metricValues()) : 0);
     let metricAvg = $derived(() => metricValues().length
         ? metricValues().reduce((sum, n) => sum + n, 0) / metricValues().length
@@ -399,10 +378,8 @@
     let showRawSeries = $derived(trendMode !== 'smooth');
     let showSmoothSeries = $derived(trendMode !== 'off');
     let smoothedMetricValues = $derived(() => movingAverage(metricValues(), 7));
-    let anomalyIndexes = $derived(() => detectAnomalyIndexes(metricValues()));
     let detectionUsesBars = $derived(() => {
         if (!showRawSeries) return false;
-        if (chartMetric === 'avg_confidence') return false;
         if (chartViewMode === 'line') return false;
         if (chartViewMode === 'bar') return true;
         return span === 'week' || span === 'month';
@@ -440,10 +417,47 @@
         return Number(val);
     }
 
+    function bucketDurationMs(bucket?: DetectionsTimelineSpanResponse['bucket'] | null): number {
+        if (bucket === 'hour') return 60 * 60 * 1000;
+        if (bucket === 'halfday') return 12 * 60 * 60 * 1000;
+        if (bucket === 'day') return 24 * 60 * 60 * 1000;
+        // Monthly buckets vary; use a safe 30-day approximation for annotation width.
+        return 30 * 24 * 60 * 60 * 1000;
+    }
+
+    let rainBandAnnotations = $derived(() => {
+        if (!showPrecip || !hasWeather()) return [];
+        const points = timelinePoints();
+        if (!points.length) return [];
+        const duration = bucketDurationMs(timeline?.bucket);
+        const annotations: Array<{ x: number; x2: number; fillColor: string; opacity: number; borderColor: string }> = [];
+        for (let i = 0; i < points.length; i += 1) {
+            const bucketStart = points[i].bucket_start;
+            const start = Date.parse(bucketStart);
+            if (!Number.isFinite(start)) continue;
+            const next = points[i + 1]?.bucket_start ? Date.parse(points[i + 1].bucket_start) : NaN;
+            const end = Number.isFinite(next) ? next : (start + duration);
+            const rain = Math.max(0, weatherValue(bucketStart, 'rain_total') ?? 0);
+            const snow = Math.max(0, weatherValue(bucketStart, 'snow_total') ?? 0);
+            const precip = Math.max(0, weatherValue(bucketStart, 'precip_total') ?? 0);
+            const intensity = Math.max(rain + snow, precip);
+            if (intensity <= 0) continue;
+            const alpha = Math.min(0.28, 0.08 + (intensity * 0.12));
+            annotations.push({
+                x: start,
+                x2: end,
+                fillColor: `rgba(56, 189, 248, ${alpha.toFixed(3)})`,
+                opacity: 0.85,
+                borderColor: 'rgba(56, 189, 248, 0.12)'
+            });
+        }
+        return annotations;
+    });
+
     let chartSubtitle = $derived(() => {
         if (!timeline) return '';
         return [
-            metricLabel(chartMetric),
+            metricLabel(),
             bucketLabel(timeline.bucket),
             chartModeLabel(),
             leaderboardAnalysisSubtitle
@@ -452,31 +466,10 @@
 
     let chartOptions = $derived(() => {
         const series: any[] = [];
-        const primaryColor = chartMetric === 'avg_confidence' ? '#0ea5e9' : '#10b981';
-        const primaryName = metricLabel(chartMetric);
+        const primaryColor = '#10b981';
+        const primaryName = metricLabel();
         const smoothName = $_('leaderboard.metric_smooth', { default: 'Smoothed' });
         const comparePalette = ['#2563eb', '#7c3aed', '#ea580c'];
-        const anomalyPoints = Array.from(anomalyIndexes()).map((idx) => ({
-            x: Date.parse(timelinePoints()[idx]?.bucket_start || ''),
-            y: metricValues()[idx],
-            marker: {
-                size: 4,
-                fillColor: '#ef4444',
-                strokeColor: '#ffffff',
-                strokeWidth: 1
-            },
-            label: {
-                borderColor: '#ef4444',
-                offsetY: -6,
-                text: '!',
-                style: {
-                    color: '#fff',
-                    background: '#ef4444',
-                    fontSize: '8px',
-                    fontWeight: 700
-                }
-            }
-        }));
 
         if (showRawSeries) {
             series.push({
@@ -484,7 +477,7 @@
                 type: detectionUsesBars() ? 'bar' : 'area',
                 data: timelinePoints().map((p) => ({
                     x: Date.parse(p.bucket_start),
-                    y: metricValueFromPoint(p, chartMetric)
+                    y: metricValueFromPoint(p)
                 }))
             });
         }
@@ -500,22 +493,19 @@
             });
         }
 
-        if (chartMetric === 'detections') {
-            compareSeries().slice(0, MAX_COMPARE_SPECIES).forEach((item) => {
-                series.push({
-                    name: item.species,
-                    type: 'line',
-                    data: timelinePoints().map((p, idx) => ({
-                        x: Date.parse(p.bucket_start),
-                        y: Number(item.points?.[idx]?.count ?? 0)
-                    }))
-                });
+        compareSeries().slice(0, MAX_COMPARE_SPECIES).forEach((item) => {
+            series.push({
+                name: item.species,
+                type: 'line',
+                data: timelinePoints().map((p, idx) => ({
+                    x: Date.parse(p.bucket_start),
+                    y: Number(item.points?.[idx]?.count ?? 0)
+                }))
             });
-        }
+        });
 
         const temperatureName = $_('leaderboard.temperature');
         const windName = $_('leaderboard.wind_avg');
-        const precipName = $_('leaderboard.precip');
 
         if (hasWeather() && showTemperature) {
             series.push({
@@ -539,17 +529,6 @@
             });
         }
 
-        if (hasWeather() && showPrecip) {
-            series.push({
-                name: precipName,
-                type: 'line',
-                data: timelinePoints().map((p) => ({
-                    x: Date.parse(p.bucket_start),
-                    y: weatherValue(p.bucket_start, 'precip_total')
-                }))
-            });
-        }
-
         return {
             chart: {
                 type: detectionUsesBars() ? 'bar' : 'line',
@@ -564,18 +543,17 @@
                 '#0f766e',
                 ...comparePalette,
                 '#f97316',
-                '#0ea5e9',
-                '#a855f7'
+                '#0ea5e9'
             ],
             series,
-            annotations: { points: anomalyPoints },
+            annotations: { xaxis: rainBandAnnotations() },
             dataLabels: { enabled: false },
             stroke: {
                 curve: 'smooth',
                 width: series.map((s) => (s.type === 'bar' ? 0 : 2)),
                 dashArray: series.map((s) => (
                     s.name === smoothName ? 5
-                        : (s.name === windName || s.name === precipName ? 4 : 0)
+                        : (s.name === windName ? 4 : 0)
                 ))
             },
             fill: {
@@ -607,10 +585,9 @@
             yaxis: [
                 {
                     min: 0,
-                    max: chartMetric === 'avg_confidence' ? 100 : undefined,
                     labels: {
                         style: { fontSize: '10px', colors: '#94a3b8' },
-                        formatter: (value: number) => formatMetricValue(value, chartMetric)
+                        formatter: (value: number) => formatMetricValue(value)
                     }
                 },
                 {
@@ -630,15 +607,6 @@
                         style: { fontSize: '10px', colors: '#0ea5e9' },
                         formatter: (value: number) => `${Math.round(value)} ${$_('common.unit_kmh', { default: 'km/h' })}`
                     }
-                },
-                {
-                    seriesName: precipName,
-                    opposite: true,
-                    show: hasWeather() && showPrecip,
-                    labels: {
-                        style: { fontSize: '10px', colors: '#a855f7' },
-                        formatter: (value: number) => `${value.toFixed(1)} ${$_('common.unit_mm', { default: 'mm' })}`
-                    }
                 }
             ],
             tooltip: {
@@ -653,8 +621,7 @@
                         const seriesName = opts?.w?.globals?.seriesNames?.[opts.seriesIndex] ?? '';
                         if (seriesName === temperatureName) return formatTemperature(value, temperatureUnit as any);
                         if (seriesName === windName) return `${Math.round(value)} ${$_('common.unit_kmh', { default: 'km/h' })}`;
-                        if (seriesName === precipName) return `${value.toFixed(1)} ${$_('common.unit_mm', { default: 'mm' })}`;
-                        if (seriesName === smoothName || seriesName === primaryName) return formatMetricValue(value, chartMetric);
+                        if (seriesName === smoothName || seriesName === primaryName) return formatMetricValue(value);
                         return `${Math.round(value)} ${$_('leaderboard.metric_detections', { default: 'detections' }).toLowerCase()}`;
                     }
                 }
@@ -715,7 +682,6 @@
         return {
             span,
             includeUnknownBird,
-            chart_metric: chartMetric,
             trend_mode: trendMode,
             chart_view_mode: chartViewMode,
             compare_species: compareSpecies,
@@ -750,7 +716,6 @@
         const _deps = [
             span,
             includeUnknownBird,
-            chartMetric,
             chartViewMode,
             trendMode,
             compareSpecies.join('|'),
@@ -787,10 +752,10 @@
                     timeframe: `${spanLabel()} (${formatRangeCompact(timeline.window_start, timeline.window_end)})`,
                     total_count: timeline.total_count,
                     series: [
-                        metricLabel(chartMetric),
-                        ...(chartMetric === 'detections' ? compareSpecies : []),
+                        metricLabel(),
+                        ...compareSpecies,
                     ],
-                    notes: `Metric: ${metricLabel(chartMetric)}. Grouped by ${bucketLabel(timeline.bucket)}. Trend mode: ${trendMode}.`
+                    notes: `Metric: ${metricLabel()}. Grouped by ${bucketLabel(timeline.bucket)}. Trend mode: ${trendMode}.`
                 },
                 image_base64: imageBase64,
                 force,
@@ -1147,7 +1112,7 @@
                                     <svg class="h-3 w-3" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
                                         <path d="M4 14l4-4 3 2 5-6"></path>
                                     </svg>
-                                    {metricLabel(chartMetric)}
+                                    {metricLabel()}
                                 </span>
                             </div>
                         </div>
@@ -1173,32 +1138,6 @@
                     </div>
 
                     <div class="flex flex-wrap items-center gap-2 text-[10px]">
-                        <div class="inline-flex items-center rounded-full border border-slate-200/80 dark:border-slate-700/70 bg-white/80 dark:bg-slate-900/50 p-1">
-                            <button
-                                type="button"
-                                class="px-2 py-1 font-black uppercase tracking-widest rounded-full transition-colors {chartMetric === 'detections' ? 'bg-emerald-500 text-white' : 'text-slate-500 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}"
-                                aria-pressed={chartMetric === 'detections'}
-                                onclick={() => chartMetric = 'detections'}
-                            >
-                                📈 {$_('leaderboard.metric_detections', { default: 'Detections' })}
-                            </button>
-                            <button
-                                type="button"
-                                class="px-2 py-1 font-black uppercase tracking-widest rounded-full transition-colors {chartMetric === 'unique_species' ? 'bg-emerald-500 text-white' : 'text-slate-500 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}"
-                                aria-pressed={chartMetric === 'unique_species'}
-                                onclick={() => chartMetric = 'unique_species'}
-                            >
-                                🐦 {$_('leaderboard.metric_unique_species', { default: 'Unique' })}
-                            </button>
-                            <button
-                                type="button"
-                                class="px-2 py-1 font-black uppercase tracking-widest rounded-full transition-colors {chartMetric === 'avg_confidence' ? 'bg-emerald-500 text-white' : 'text-slate-500 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}"
-                                aria-pressed={chartMetric === 'avg_confidence'}
-                                onclick={() => chartMetric = 'avg_confidence'}
-                            >
-                                🎯 {$_('leaderboard.metric_avg_confidence', { default: 'Confidence' })}
-                            </button>
-                        </div>
                         <div class="inline-flex items-center rounded-full border border-slate-200/80 dark:border-slate-700/70 bg-white/80 dark:bg-slate-900/50 p-1">
                             <button
                                 type="button"
@@ -1244,8 +1183,7 @@
                             </button>
                             <button
                                 type="button"
-                                disabled={chartMetric === 'avg_confidence'}
-                                class="px-2 py-1 font-black uppercase tracking-widest rounded-full transition-colors disabled:opacity-40 disabled:cursor-not-allowed {chartViewMode === 'bar' ? 'bg-emerald-500 text-white' : 'text-slate-500 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}"
+                                class="px-2 py-1 font-black uppercase tracking-widest rounded-full transition-colors {chartViewMode === 'bar' ? 'bg-emerald-500 text-white' : 'text-slate-500 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}"
                                 aria-pressed={chartViewMode === 'bar'}
                                 onclick={() => chartViewMode = 'bar'}
                             >
@@ -1254,28 +1192,26 @@
                         </div>
                     </div>
 
-                    {#if chartMetric === 'detections'}
-                        <div class="flex flex-wrap items-center gap-2 text-[10px]">
-                            <span class="font-black uppercase tracking-widest text-slate-400">
-                                {$_('leaderboard.compare_species', { default: 'Compare' })}
-                            </span>
-                            {#each compareCandidates() as candidate}
-                                <button
-                                    type="button"
-                                    onclick={() => toggleCompareSpecies(candidate.species)}
-                                    disabled={!compareSpecies.includes(candidate.species) && compareSpecies.length >= MAX_COMPARE_SPECIES}
-                                    class="px-2 py-1 rounded-full border text-[10px] font-black uppercase tracking-widest transition-colors disabled:opacity-40 disabled:cursor-not-allowed {compareSpecies.includes(candidate.species) ? 'border-emerald-400/70 bg-emerald-100 text-emerald-700 dark:border-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' : 'border-slate-200/80 dark:border-slate-700/70 bg-white/80 dark:bg-slate-900/50 text-slate-500 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}"
-                                >
-                                    {candidate.displayName}
-                                </button>
-                            {/each}
-                        </div>
-                    {/if}
+                    <div class="flex flex-wrap items-center gap-2 text-[10px]">
+                        <span class="font-black uppercase tracking-widest text-slate-400">
+                            {$_('leaderboard.compare_species', { default: 'Compare' })}
+                        </span>
+                        {#each compareCandidates() as candidate}
+                            <button
+                                type="button"
+                                onclick={() => toggleCompareSpecies(candidate.species)}
+                                disabled={!compareSpecies.includes(candidate.species) && compareSpecies.length >= MAX_COMPARE_SPECIES}
+                                class="px-2 py-1 rounded-full border text-[10px] font-black uppercase tracking-widest transition-colors disabled:opacity-40 disabled:cursor-not-allowed {compareSpecies.includes(candidate.species) ? 'border-emerald-400/70 bg-emerald-100 text-emerald-700 dark:border-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' : 'border-slate-200/80 dark:border-slate-700/70 bg-white/80 dark:bg-slate-900/50 text-slate-500 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}"
+                            >
+                                {candidate.displayName}
+                            </button>
+                        {/each}
+                    </div>
                 </div>
 
                 <div class="mt-6 w-full flex-1 min-h-[140px] max-h-[240px]">
                     {#if timeline?.points?.length}
-                        {#key `${span}-${timeline.total_count}-${timeline.bucket}-${chartMetric}-${trendMode}-${chartViewMode}-${compareSpecies.join('|')}-${showTemperature}-${showWind}-${showPrecip}`}
+                        {#key `${span}-${timeline.total_count}-${timeline.bucket}-${trendMode}-${chartViewMode}-${compareSpecies.join('|')}-${showTemperature}-${showWind}-${showPrecip}`}
                             <div use:chart={chartOptions() as any} bind:this={chartEl} class="w-full h-[240px]"></div>
                         {/key}
                     {:else}
@@ -1286,9 +1222,9 @@
                 <div class="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
                     <span>{$_('leaderboard.total', { default: 'Total' })}: {timeline?.total_count?.toLocaleString() || '0'}</span>
                     <span>•</span>
-                    <span>{$_('leaderboard.metric_peak', { default: 'Peak' })}: {formatMetricValue(metricPeak(), chartMetric)}</span>
+                    <span>{$_('leaderboard.metric_peak', { default: 'Peak' })}: {formatMetricValue(metricPeak())}</span>
                     <span>•</span>
-                    <span>{$_('leaderboard.metric_avg', { default: 'Avg' })}: {formatMetricValue(metricAvg(), chartMetric)}</span>
+                    <span>{$_('leaderboard.metric_avg', { default: 'Avg' })}: {formatMetricValue(metricAvg())}</span>
                 </div>
                 {#if llmReady && (leaderboardAnalysisLoading || leaderboardAnalysisError || leaderboardAnalysis)}
                     <div class="mt-4 rounded-2xl border border-slate-200/70 dark:border-slate-700/60 bg-white/70 dark:bg-slate-900/40 px-4 py-3 text-sm text-slate-600 dark:text-slate-300 shadow-sm">
@@ -1342,7 +1278,9 @@
                             class="px-2 py-1 rounded-full border border-slate-200/70 dark:border-slate-700/60 text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 disabled:opacity-45 disabled:cursor-not-allowed"
                         >
                             <span aria-hidden="true">🌧️</span>
-                            {showPrecip ? $_('leaderboard.hide_precip') : $_('leaderboard.show_precip')}
+                            {showPrecip
+                                ? $_('leaderboard.hide_rain_bands', { default: 'Hide rain bands' })
+                                : $_('leaderboard.show_rain_bands', { default: 'Show rain bands' })}
                         </button>
                     </div>
                     <span class="text-slate-400/70">{$_('common.grouped_by', { default: 'Grouped by' })}: {bucketLabel(timeline?.bucket)}</span>

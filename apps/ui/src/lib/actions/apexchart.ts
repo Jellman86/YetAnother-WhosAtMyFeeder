@@ -5,6 +5,7 @@ type ApexModule = typeof import('apexcharts');
 
 export const chart: Action<HTMLElement, ApexOptions> = (node, options) => {
     let chartInstance: any = null;
+    let ApexChartsCtor: any = null;
     let pendingOptions = options;
     let destroyed = false;
     let initPromise: Promise<void> | null = null;
@@ -15,6 +16,7 @@ export const chart: Action<HTMLElement, ApexOptions> = (node, options) => {
             const mod = await import('apexcharts');
             if (destroyed) return;
             const ApexCharts = (mod as any).default ?? mod;
+            ApexChartsCtor = ApexCharts;
             chartInstance = new ApexCharts(node, pendingOptions);
             await chartInstance.render();
             (node as any).__apexchart = chartInstance;
@@ -28,7 +30,20 @@ export const chart: Action<HTMLElement, ApexOptions> = (node, options) => {
         update(newOptions) {
             pendingOptions = newOptions;
             if (chartInstance) {
-                chartInstance.updateOptions(newOptions, true, true);
+                Promise
+                    .resolve(chartInstance.updateOptions(newOptions, true, true))
+                    .catch(async (error: unknown) => {
+                        console.error('Apex updateOptions failed, recreating chart instance', error);
+                        if (destroyed || !ApexChartsCtor) return;
+                        try {
+                            await chartInstance.destroy();
+                        } catch {
+                            // best effort cleanup
+                        }
+                        chartInstance = new ApexChartsCtor(node, pendingOptions);
+                        await chartInstance.render();
+                        (node as any).__apexchart = chartInstance;
+                    });
             }
         },
         destroy() {
