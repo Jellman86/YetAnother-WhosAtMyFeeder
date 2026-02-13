@@ -39,49 +39,29 @@ A public instance of YA-WAMF is available here (*always on dev branch, may be br
 ## What It Does
 
 When Frigate detects a bird at your feeder, YA-WAMF:
-1. Grabs the snapshot image
-2. Runs it through an advanced AI model (MobileNetV2, ConvNeXt, or EVA-02)
-3. Cross-references with audio detections from **BirdNET-Go** for multi-sensor confirmation
-4. **Automatically analyzes the video clip** (optional) using a temporal ensemble of 15+ frames for higher accuracy
-5. Sends **rich notifications** to Discord, Pushover, Telegram, or Email (OAuth/SMTP)
-6. Enriches detections with local weather data and behavior analysis via **LLMs (Gemini/OpenAI/Claude)**
-7. Keeps track of all your visitors in a nice dashboard with taxonomic normalization
-8. Proxies video clips from Frigate with full streaming and seeking support
-9. Reports detections to **BirdWeather** (optional) for community science contribution
+1. Captures the snapshot and classifies it with local AI (or trusted Frigate sublabels).
+2. Optionally correlates with BirdNET-Go audio detections.
+3. Stores the detection, pushes notifications, and updates the live UI.
+4. Optionally performs deeper clip analysis (15+ frames) for better accuracy.
+5. Adds optional enrichments like weather, BirdWeather reporting, and AI naturalist insights.
 
-**Advanced Features:**
-- **Auto Video Analysis:** Automatically downloads and scans 15+ frames from the event clip to verify snapshot detections.
-- **Multi-Platform Notifications:** Native support for Discord, Pushover, Telegram, and Email with customizable filters (species, confidence, audio-only).
-- **Accessibility & i18n:** Screen-reader friendly UI, live announcements toggle, and multilingual interface/notifications.
-- **Multi-Sensor Correlation:** Matches visual detections with audio identifications from BirdNET-Go (now with live dashboard widget!).
-- **Backfill Tool:** Missed some events? Scan your Frigate history to import and classify past detections.
-- **AI Naturalist Insight:** One-click behavioral analysis of your visitors using state-of-the-art LLMs.
-- **Elite Accuracy:** Support for state-of-the-art **EVA-02 Large** models (~91% accuracy).
-- **Taxonomy Normalization:** Automatic Scientific ↔ Common name mapping using iNaturalist data.
-- **iNaturalist Submissions (Beta):** Owner-reviewed submissions are implemented but currently untested due to App Owner approval limits. Testers welcome.
-- **Camera Preview:** Expand a camera in Settings → Connection to see a live snapshot preview.
-
-> Note: To preview the iNaturalist submission UI without OAuth, enable Debug UI (`DEBUG_UI_ENABLED=true`) and toggle **Settings → Debug → iNaturalist preview UI**.
-- **Fast Path Efficiency:** Skip local AI and use Frigate's sublabels directly to save CPU.
-- **Home Assistant Integration:** Full support for tracking the last detected bird and daily counts in HA.
-- **Observability:** Built-in Prometheus metrics, Telemetry (opt-in), and real-time MQTT diagnostics.
-- **Public View (Guest Mode):** Optional read-only sharing with rate limits and privacy controls.
+Detailed feature behavior, edge cases, and integration notes are documented in the links below.
 
 ## Documentation
 
-For detailed guides on setup, integrations, and troubleshooting, please see the **[Full Documentation Suite](docs/index.md)**.
-
-- [Known Issues / Testing Gaps](ISSUES.md)
-- [Integration Testing Requests](INTEGRATION_TESTING.md)
+Use the full docs hub for setup, integrations, and troubleshooting:
+- [📚 Full Documentation Suite](docs/index.md)
 - [🚀 Getting Started](docs/setup/getting-started.md)
 - [📦 Full Docker Stack Example](docs/setup/docker-stack.md)
 - [📷 Recommended Frigate Config](docs/setup/frigate-config.md)
-- [🌐 Reverse Proxy Guide](docs/setup/reverse-proxy.md) - Cloudflare Tunnel, Nginx, Caddy configs
-- [🔌 API Reference](docs/api.md) - Complete REST API documentation
+- [🌐 Reverse Proxy Guide](docs/setup/reverse-proxy.md)
+- [🔌 API Reference](docs/api.md)
 - [🔗 BirdNET-Go Integration](docs/integrations/birdnet-go.md)
 - [🏠 Home Assistant Setup](docs/integrations/home-assistant.md)
 - [🧠 AI Models & Performance](docs/features/ai-models.md)
 - [🛠 Troubleshooting Guide](docs/troubleshooting/diagnostics.md)
+- [🧪 Known Issues / Testing Gaps](ISSUES.md)
+- [✅ Integration Testing Requests](INTEGRATION_TESTING.md)
 
 ## How It Works
 
@@ -120,17 +100,7 @@ Here's the flow from bird to identification:
                                     └──────────────┘
 ```
 
-**Step by step:**
-
-1. **Frigate spots a bird** - Your camera picks up movement, Frigate's object detection identifies it as a bird
-2. **MQTT message sent** - Frigate publishes an event to `frigate/events` on your MQTT broker
-3. **YA-WAMF receives the event** - The backend is subscribed to that MQTT topic and picks up the message
-4. **Efficiency Check** - If "Trust Frigate Sublabels" is enabled and Frigate already has a label, I use it instantly.
-5. **Classification runs** - Otherwise, the image goes through a local model (TFLite or ONNX) trained on bird species.
-6. **Results stored & Notified** - The detection is saved, and notifications (Discord/Telegram/Pushover) are fired immediately.
-7. **Deep Analysis** - If enabled, a background task waits for the video clip to finalize, then scans it frame-by-frame to refine the ID.
-   ![Event Details with Deep Analysis](docs/images/event_details_modal.png)
-8. **Dashboard updates** - The frontend gets real-time updates via Server-Sent Events (SSE).
+For the full event lifecycle and architecture details, see the documentation links above.
 
 ## Quick Start
 
@@ -184,24 +154,17 @@ Ensure the network specified in `.env` exists and matches your Frigate setup:
 docker network ls
 ```
 
-**4. Create directories and start:**
-
-```bash
-mkdir -p config data/models
-docker compose up -d
-```
-
-**4.1 Non-root permissions (required):**
-
-YA-WAMF containers run as non-root. Before first boot, set `PUID`/`PGID` and fix ownership:
+**4. Set permissions, create directories, and start:**
 
 ```bash
 PUID=$(id -u)
 PGID=$(id -g)
 echo "PUID=$PUID" >> .env
 echo "PGID=$PGID" >> .env
+mkdir -p config data/models
 sudo chown -R "$PUID:$PGID" config data
 sudo chmod -R u+rwX,g+rwX config data
+docker compose up -d
 ```
 
 If you use Portainer stacks, set the same `PUID`/`PGID` values in stack environment variables.
@@ -263,8 +226,6 @@ All settings are managed through the web UI under **Settings**. Configuration is
 
 ## Security & Authentication
 
-YA-WAMF v2.6.0 introduces a robust built-in authentication system.
-
 ### 🔐 Built-in Authentication
 - **Setup Wizard:** On first run, you'll be prompted to set an admin username and password.
 - **Guest Mode:** Optionally enable a "Public View" to share your bird detections with friends (read-only) while keeping settings and admin tools secure.
@@ -273,7 +234,7 @@ YA-WAMF v2.6.0 introduces a robust built-in authentication system.
 👉 **[Read the Full Authentication & Access Control Guide](docs/features/authentication.md)**
 
 ### 🔑 Legacy API Key (Deprecated)
-If you are upgrading from an older version using `YA_WAMF_API_KEY`, your setup will continue to work. However, this method is **deprecated** and scheduled for removal in a future release. I recommend migrating to the password-based system via **Settings > Security**.
+If you are upgrading from an older version using `YA_WAMF_API_KEY`, your setup will continue to work, but this method is deprecated and will be removed in a future release.
 
 For detailed upgrade instructions, see the [Migration Guide](MIGRATION.md).
 

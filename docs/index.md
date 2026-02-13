@@ -9,15 +9,15 @@ Welcome to the documentation for **Yet Another WhosAtMyFeeder (YA-WAMF)**. This 
 
 ## 🚀 Setup & Installation
 Everything you need to get the containers running and configured correctly.
-- **[Getting Started](setup/getting-started.md)** - Fast-track installation using Docker Compose.
-- **[Full Docker Stack](setup/docker-stack.md)** - A complete example including Frigate and MQTT.
-- **[Recommended Frigate Config](setup/frigate-config.md)** - Optimized settings for bird snapshots.
-- **[Reverse Proxy Guide](setup/reverse-proxy.md)** - Configs for Cloudflare Tunnel, Nginx, Caddy.
-- **[Configuration Guide](setup/configuration.md)** - Deep dive into all web UI settings.
+- **[🚀 Getting Started](setup/getting-started.md)** - Fast-track installation using Docker Compose.
+- **[📦 Full Docker Stack](setup/docker-stack.md)** - A complete example including Frigate and MQTT.
+- **[📷 Recommended Frigate Config](setup/frigate-config.md)** - Optimized settings for bird snapshots.
+- **[🌐 Reverse Proxy Guide](setup/reverse-proxy.md)** - Configs for Cloudflare Tunnel, Nginx, Caddy.
+- **[⚙️ Configuration Guide](setup/configuration.md)** - Deep dive into all web UI settings.
 
 ## 🔌 API & Development
 Build integrations and custom tools with YA-WAMF.
-- **[API Reference](api.md)** - Complete REST API documentation with examples
+- **[🔌 API Reference](api.md)** - Complete REST API documentation with examples
 - **OpenAPI/Swagger** - Interactive API docs when running:
   - Docker Compose default: `http://localhost:8946/docs`
   - Local backend (`uvicorn ... --port 8000`): `http://localhost:8000/docs`
@@ -31,11 +31,11 @@ YA-WAMF is fully responsive and works great on phones and tablets.
 
 ## 🔗 Integrations
 Connect YA-WAMF to the rest of your smart home and community projects.
-- **[Frigate NVR](integrations/frigate.md)** - Connecting to your camera system.
-- **[BirdNET-Go](integrations/birdnet-go.md)** - Multi-sensor audio correlation.
-- **[BirdWeather](integrations/birdweather.md)** - Uploading to community science stations.
-- **[iNaturalist](integrations/inaturalist.md)** - Owner-reviewed submissions to iNaturalist.
-- **[Home Assistant](integrations/home-assistant.md)** - Sensors, cards, and automations.
+- **[📹 Frigate NVR](integrations/frigate.md)** - Connecting to your camera system.
+- **[🎵 BirdNET-Go](integrations/birdnet-go.md)** - Multi-sensor audio correlation.
+- **[🌦️ BirdWeather](integrations/birdweather.md)** - Uploading to community science stations.
+- **[🌿 iNaturalist](integrations/inaturalist.md)** - Owner-reviewed submissions to iNaturalist.
+- **[🏠 Home Assistant](integrations/home-assistant.md)** - Sensors, cards, and automations.
 
 ## Feature Deep Dives
 
@@ -48,4 +48,4 @@ Connect YA-WAMF to the rest of your smart home and community projects.
 
 ## Troubleshooting
 Solving common issues and using diagnostic tools.
-- **[Diagnostics & Logs](troubleshooting/diagnostics.md)** - Using MQTT tests and Backfill reports.
+- **[🛠 Diagnostics & Logs](troubleshooting/diagnostics.md)** - Using MQTT tests and Backfill reports.
