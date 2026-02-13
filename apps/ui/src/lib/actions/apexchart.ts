@@ -11,8 +11,16 @@ function normalizeSeriesPoint(point: any): any {
     if (typeof point !== 'object') return null;
     const x = (point as any).x;
     const y = (point as any).y;
-    if (x !== undefined && x !== null && !Number.isFinite(Number(x))) {
-        return null;
+    if (x !== undefined && x !== null) {
+        if (typeof x === 'number') {
+            if (!Number.isFinite(x)) return null;
+        } else if (typeof x === 'string') {
+            // Allow categorical axes (e.g. heatmaps with "00:00" labels).
+            if (!x.length) return null;
+        } else {
+            // Keep Date/typed values that Apex can consume, drop unsupported primitives.
+            if (typeof x !== 'object') return null;
+        }
     }
     if (y !== undefined && y !== null && !Number.isFinite(Number(y))) {
         return { ...(point as Record<string, any>), y: null };
