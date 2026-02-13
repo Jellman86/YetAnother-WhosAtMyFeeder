@@ -401,8 +401,8 @@ async def get_detection_timeline_span(
 
     Span definitions (UI semantics):
     - day: last 24 hours, bucketed hourly
-    - week: last 7 days, bucketed AM/PM
-    - month: last 30 days, bucketed AM/PM
+    - week: last 7 days, bucketed daily
+    - month: last 30 days, bucketed daily
     - all: bucketed dynamically based on available history
     """
     now = datetime.now(timezone.utc).replace(tzinfo=None)
@@ -433,25 +433,19 @@ async def get_detection_timeline_span(
             days = 7 if span == "week" else 30
             window_start = now - timedelta(days=days)
             window_end = now
-            bucket = "halfday"
-            counts = await repo.get_timebucket_counts_halfday(window_start, window_end)
-
-            start_day = window_start.replace(hour=0, minute=0, second=0, microsecond=0)
-            start_half = start_day if window_start.hour < 12 else start_day.replace(hour=12)
-            if start_half > window_start:
-                start_half = start_half - timedelta(hours=12)
-
+            bucket = "day"
+            counts = await repo.get_timebucket_counts_daily(window_start, window_end)
             points = []
-            cursor = start_half
-            while cursor < window_end:
-                key = cursor.replace(tzinfo=timezone.utc).strftime("%Y-%m-%dT%H:00:00Z")
-                label = cursor.replace(tzinfo=timezone.utc).strftime("%b %d ") + ("AM" if cursor.hour < 12 else "PM")
+            cursor = window_start.date()
+            end_date = window_end.date()
+            while cursor <= end_date:
+                key = cursor.isoformat()
                 points.append(DetectionsTimelinePoint(
-                    bucket_start=key,
-                    label=label,
-                    count=int(counts.get(key, 0)),
+                    bucket_start=f"{key}T00:00:00Z",
+                    label=cursor.strftime("%b %d"),
+                    count=int(counts.get(key, 0))
                 ))
-                cursor = cursor + timedelta(hours=12)
+                cursor = cursor + timedelta(days=1)
 
         else:
             oldest, newest = await repo.get_detection_time_bounds()
@@ -484,24 +478,6 @@ async def get_detection_timeline_span(
                         count=int(counts.get(key, 0)),
                     ))
                     cursor = cursor + timedelta(hours=1)
-            elif total_days <= 31:
-                bucket = "halfday"
-                counts = await repo.get_timebucket_counts_halfday(window_start, window_end)
-                start_day = window_start.replace(hour=0, minute=0, second=0, microsecond=0)
-                start_half = start_day if window_start.hour < 12 else start_day.replace(hour=12)
-                if start_half > window_start:
-                    start_half = start_half - timedelta(hours=12)
-                points = []
-                cursor = start_half
-                while cursor < window_end:
-                    key = cursor.replace(tzinfo=timezone.utc).strftime("%Y-%m-%dT%H:00:00Z")
-                    label = cursor.replace(tzinfo=timezone.utc).strftime("%b %d ") + ("AM" if cursor.hour < 12 else "PM")
-                    points.append(DetectionsTimelinePoint(
-                        bucket_start=key,
-                        label=label,
-                        count=int(counts.get(key, 0)),
-                    ))
-                    cursor = cursor + timedelta(hours=12)
             elif total_days <= 180:
                 bucket = "day"
                 counts = await repo.get_timebucket_counts_daily(window_start, window_end)

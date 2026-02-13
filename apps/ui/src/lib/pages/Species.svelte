@@ -464,7 +464,10 @@
 
     let chartOptions = $derived(() => {
         const series: any[] = [];
-        const primaryColor = '#10b981';
+        const primaryColor = '#16a34a';
+        const smoothColor = '#0f766e';
+        const temperatureColor = '#f97316';
+        const windColor = '#38bdf8';
         const primaryName = metricLabel();
         const smoothName = $_('leaderboard.metric_smooth', { default: 'Smoothed' });
 
@@ -484,7 +487,7 @@
             series.push({
                 name: smoothName,
                 type: 'line',
-                color: '#0f766e',
+                color: smoothColor,
                 data: timelinePoints().map((p, idx) => ({
                     x: Date.parse(p.bucket_start),
                     y: smoothedMetricValues()[idx]
@@ -499,7 +502,7 @@
             series.push({
                 name: temperatureName,
                 type: 'line',
-                color: '#f97316',
+                color: temperatureColor,
                 data: timelinePoints().map((p) => ({
                     x: Date.parse(p.bucket_start),
                     y: convertTemperature(weatherValue(p.bucket_start, 'temp_avg'))
@@ -511,13 +514,15 @@
             series.push({
                 name: windName,
                 type: 'line',
-                color: '#0ea5e9',
+                color: windColor,
                 data: timelinePoints().map((p) => ({
                     x: Date.parse(p.bucket_start),
                     y: weatherValue(p.bucket_start, 'wind_avg')
                 }))
             });
         }
+
+        const seriesColors = series.map((s) => s.color || primaryColor);
 
         return {
             chart: {
@@ -528,12 +533,7 @@
                 zoom: { enabled: false },
                 animations: { enabled: true, easing: 'easeinout', speed: 500 }
             },
-            colors: [
-                primaryColor,
-                '#0f766e',
-                '#f97316',
-                '#0ea5e9'
-            ],
+            colors: seriesColors,
             series,
             annotations: { xaxis: rainBandAnnotations() },
             dataLabels: { enabled: false },
@@ -620,6 +620,7 @@
                 position: 'top',
                 horizontalAlign: 'right',
                 fontSize: '10px',
+                markers: { fillColors: seriesColors },
                 labels: { colors: isDark() ? '#94a3b8' : '#64748b' }
             },
             subtitle: {
