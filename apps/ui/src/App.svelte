@@ -204,6 +204,19 @@
       return notificationPolicy.shouldEmit(id, signature, throttleMs);
   }
 
+  function removeNotificationsByPrefix(prefix: string) {
+      const ids = notificationCenter.items
+          .filter((item) => item.id === prefix || item.id.startsWith(`${prefix}:`))
+          .map((item) => item.id);
+      for (const id of ids) {
+          notificationCenter.remove(id);
+      }
+  }
+
+  function isSystemHealthyStatus(status: string): boolean {
+      return status === 'healthy' || status === 'ok';
+  }
+
   function pruneStaleProcessNotifications() {
       const stale = notificationPolicy.settleStale(notificationCenter.items, STALE_PROCESS_MAX_AGE_MS);
       for (const item of stale) {
@@ -218,11 +231,11 @@
       try {
           const health: any = await checkHealth();
           startupInstanceId = String(health?.startup_instance_id ?? 'unknown');
-          const status = String(health?.status ?? '').toLowerCase();
-          if (status && status !== 'healthy') {
+          const status = String(health?.status ?? '').trim().toLowerCase();
+          if (status && !isSystemHealthyStatus(status)) {
               const id = `system:health:${startupInstanceId}`;
               // Backward cleanup for earlier builds that used a static ID.
-              notificationCenter.remove('system:health');
+              removeNotificationsByPrefix('system:health');
               if (!notificationCenter.items.some((item) => item.id === id)) {
                   notificationCenter.add({
                       id,
@@ -232,6 +245,9 @@
                       meta: { source: 'health', route: '/settings' }
                   });
               }
+          } else {
+              // Health is OK; clear stale warning notifications from previous runs/versions.
+              removeNotificationsByPrefix('system:health');
           }
       } catch (error) {
           logger.warn('health_check_failed', { error });
@@ -242,7 +258,7 @@
           if (!cache.cache_enabled) {
               const id = `system:cache-disabled:${startupInstanceId}`;
               // Backward cleanup for earlier builds that used a static ID.
-              notificationCenter.remove('system:cache-disabled');
+              removeNotificationsByPrefix('system:cache-disabled');
               if (!notificationCenter.items.some((item) => item.id === id)) {
                   notificationCenter.add({
                       id,
@@ -252,6 +268,9 @@
                       meta: { source: 'cache', route: '/settings' }
                   });
               }
+          } else {
+              // Cache is enabled; remove stale cache-disabled notices.
+              removeNotificationsByPrefix('system:cache-disabled');
           }
       } catch (error) {
           logger.warn('cache_stats_check_failed', { error });
