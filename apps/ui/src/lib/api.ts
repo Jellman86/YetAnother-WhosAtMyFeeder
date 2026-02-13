@@ -802,9 +802,18 @@ export async function updateSettings(settings: SettingsUpdate): Promise<{ status
     return handleResponse<{ status: string }>(response);
 }
 
-export async function checkHealth(): Promise<{ status: string; service: string }> {
+export interface HealthStatus {
+    status: string;
+    service: string;
+    version?: string;
+    startup_warnings?: { phase: string; error: string }[];
+    startup_instance_id?: string;
+    startup_started_at?: string;
+}
+
+export async function checkHealth(): Promise<HealthStatus> {
     const response = await apiFetch('/health');
-    return handleResponse<{ status: string; service: string }>(response);
+    return handleResponse<HealthStatus>(response);
 }
 
 export interface FrigateTestResult {

@@ -9,7 +9,7 @@ import asyncio
 import os
 import json
 import re
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import sys
 from time import monotonic
 from contextlib import asynccontextmanager
@@ -274,6 +274,9 @@ async def lifespan(app: FastAPI):
     cleanup_running = True
     cleanup_task = None
     app.state.startup_warnings = []
+    startup_started_at = datetime.now(timezone.utc)
+    app.state.startup_started_at = startup_started_at.isoformat()
+    app.state.startup_instance_id = f"{startup_started_at.strftime('%Y%m%dT%H%M%S.%fZ')}-{os.getpid()}"
     _log_startup_diagnostics(test_mode)
     if test_mode:
         # Keep tests fast and deterministic: skip migrations + external/background services.
@@ -481,6 +484,8 @@ async def count_requests(request, call_next):
 @app.get("/health")
 async def health_check():
     startup_warnings = getattr(app.state, "startup_warnings", [])
+    startup_instance_id = getattr(app.state, "startup_instance_id", "unknown")
+    startup_started_at = getattr(app.state, "startup_started_at", None)
     classifier_health = get_classifier().check_health()
     health = {
         "status": "ok", 
@@ -488,6 +493,8 @@ async def health_check():
         "version": APP_VERSION,
         "ml": classifier_health,
         "startup_warnings": startup_warnings,
+        "startup_instance_id": startup_instance_id,
+        "startup_started_at": startup_started_at,
     }
     
     # If startup had degraded phases or ML is unhealthy, top-level status should reflect it
@@ -513,6 +520,8 @@ async def readiness_check():
         "ready": ready,
         "db_pool_initialized": db_ready,
         "startup_warnings": startup_warnings,
+        "startup_instance_id": getattr(app.state, "startup_instance_id", "unknown"),
+        "startup_started_at": getattr(app.state, "startup_started_at", None),
     }
     if ready:
         return payload
