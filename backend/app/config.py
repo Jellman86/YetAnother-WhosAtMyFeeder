@@ -441,6 +441,10 @@ class PublicAccessSettings(BaseModel):
         le=100,
         description="API calls per minute for public users"
     )
+    external_base_url: Optional[str] = Field(
+        default=None,
+        description="Public-facing base URL used when generating share links"
+    )
 
 
 class Settings(BaseSettings):
@@ -695,6 +699,7 @@ class Settings(BaseSettings):
             'media_days_mode': os.environ.get('PUBLIC_ACCESS__MEDIA_DAYS_MODE', 'retention'),
             'media_historical_days': int(os.environ.get('PUBLIC_ACCESS__MEDIA_HISTORICAL_DAYS', '7')),
             'rate_limit_per_minute': int(os.environ.get('PUBLIC_ACCESS__RATE_LIMIT_PER_MINUTE', '30')),
+            'external_base_url': os.environ.get('PUBLIC_ACCESS__EXTERNAL_BASE_URL', None),
         }
 
         # System settings (existing but need to initialize)
@@ -949,7 +954,8 @@ class Settings(BaseSettings):
         log.info("Public access config",
                  enabled=public_access_data['enabled'],
                  historical_days=public_access_data['show_historical_days'],
-                 media_historical_days=public_access_data['media_historical_days'])
+                 media_historical_days=public_access_data['media_historical_days'],
+                 external_base_url=bool(public_access_data.get('external_base_url')))
 
         return cls(
             frigate=FrigateSettings(**frigate_data),

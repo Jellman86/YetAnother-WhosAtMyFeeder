@@ -18,12 +18,17 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
+def _table_exists(bind, table_name: str) -> bool:
+    return table_name in sa.inspect(bind).get_table_names()
+
+
+def _index_exists(bind, table_name: str, index_name: str) -> bool:
+    return any(idx.get("name") == index_name for idx in sa.inspect(bind).get_indexes(table_name))
+
+
 def upgrade() -> None:
     bind = op.get_bind()
-    inspector = sa.inspect(bind)
-    tables = inspector.get_table_names()
-
-    if 'species_info_cache' not in tables:
+    if not _table_exists(bind, "species_info_cache"):
         op.create_table(
             'species_info_cache',
             sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
@@ -41,11 +46,16 @@ def upgrade() -> None:
             sa.PrimaryKeyConstraint('id'),
             sa.UniqueConstraint('species_name')
         )
+    if _table_exists(bind, "species_info_cache") and not _index_exists(bind, "species_info_cache", "idx_species_info_name"):
         with op.batch_alter_table('species_info_cache', schema=None) as batch_op:
             batch_op.create_index('idx_species_info_name', ['species_name'], unique=False)
 
 
 def downgrade() -> None:
-    with op.batch_alter_table('species_info_cache', schema=None) as batch_op:
-        batch_op.drop_index('idx_species_info_name')
+    bind = op.get_bind()
+    if not _table_exists(bind, "species_info_cache"):
+        return
+    if _index_exists(bind, "species_info_cache", "idx_species_info_name"):
+        with op.batch_alter_table('species_info_cache', schema=None) as batch_op:
+            batch_op.drop_index('idx_species_info_name')
     op.drop_table('species_info_cache')

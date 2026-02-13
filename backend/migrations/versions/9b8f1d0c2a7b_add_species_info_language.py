@@ -28,6 +28,16 @@ def _index_exists(conn, name: str) -> bool:
     )
 
 
+def _table_exists(conn, name: str) -> bool:
+    return (
+        conn.execute(
+            sa.text("SELECT 1 FROM sqlite_master WHERE type='table' AND name=:name"),
+            {"name": name},
+        ).fetchone()
+        is not None
+    )
+
+
 def upgrade() -> None:
     bind = op.get_bind()
     inspector = sa.inspect(bind)
@@ -115,18 +125,31 @@ def downgrade() -> None:
         sa.PrimaryKeyConstraint('id'),
         sa.UniqueConstraint('species_name')
     )
+    # During downgrade we collapse language variants back to a unique species_name row.
+    # Prefer English rows, then most recently cached, then highest id as tie-breaker.
     op.execute(
         """
         INSERT INTO species_info_cache_old
         (id, species_name, title, taxa_id, source, source_url, summary_source, summary_source_url,
          description, extract, thumbnail_url, wikipedia_url, scientific_name, conservation_status, cached_at)
-        SELECT id, species_name, title, taxa_id, source, source_url, summary_source, summary_source_url,
-               description, extract, thumbnail_url, wikipedia_url, scientific_name, conservation_status, cached_at
-        FROM species_info_cache
+        SELECT s.id, s.species_name, s.title, s.taxa_id, s.source, s.source_url, s.summary_source, s.summary_source_url,
+               s.description, s.extract, s.thumbnail_url, s.wikipedia_url, s.scientific_name, s.conservation_status, s.cached_at
+        FROM species_info_cache s
+        WHERE s.id = (
+            SELECT s2.id
+            FROM species_info_cache s2
+            WHERE s2.species_name = s.species_name
+            ORDER BY
+                CASE WHEN COALESCE(s2.language, 'en') = 'en' THEN 0 ELSE 1 END,
+                COALESCE(s2.cached_at, '') DESC,
+                s2.id DESC
+            LIMIT 1
+        )
         """
     )
 
-    op.drop_table('species_info_cache')
+    if _table_exists(bind, 'species_info_cache'):
+        op.drop_table('species_info_cache')
     op.rename_table('species_info_cache_old', 'species_info_cache')
     if not _index_exists(bind, "idx_species_info_name"):
         op.create_index('idx_species_info_name', 'species_info_cache', ['species_name'])

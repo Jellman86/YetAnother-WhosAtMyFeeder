@@ -15,10 +15,22 @@ branch_labels = None
 depends_on = None
 
 
+def _table_exists(conn, name: str) -> bool:
+    rows = conn.execute(
+        sa.text("SELECT name FROM sqlite_master WHERE type='table' AND name=:name"),
+        {"name": name},
+    ).fetchall()
+    return bool(rows)
+
+
+def _index_exists(conn, table: str, name: str) -> bool:
+    rows = conn.execute(sa.text(f"PRAGMA index_list({table})")).fetchall()
+    return any(row[1] == name for row in rows)
+
+
 def upgrade() -> None:
     conn = op.get_bind()
-    rows = conn.execute(sa.text("SELECT name FROM sqlite_master WHERE type='table' AND name='ai_conversation_turns'")).fetchall()
-    if not rows:
+    if not _table_exists(conn, "ai_conversation_turns"):
         op.create_table(
             "ai_conversation_turns",
             sa.Column("id", sa.Integer(), primary_key=True, autoincrement=True),
@@ -27,14 +39,18 @@ def upgrade() -> None:
             sa.Column("content", sa.String(), nullable=False),
             sa.Column("created_at", sa.TIMESTAMP(), server_default=sa.text("CURRENT_TIMESTAMP"), nullable=False),
         )
+
+    if _table_exists(conn, "ai_conversation_turns") and not _index_exists(conn, "ai_conversation_turns", "idx_ai_conversation_event"):
         op.create_index("idx_ai_conversation_event", "ai_conversation_turns", ["frigate_event"])
+    if _table_exists(conn, "ai_conversation_turns") and not _index_exists(conn, "ai_conversation_turns", "idx_ai_conversation_created"):
         op.create_index("idx_ai_conversation_created", "ai_conversation_turns", ["created_at"])
 
 
 def downgrade() -> None:
     conn = op.get_bind()
-    rows = conn.execute(sa.text("SELECT name FROM sqlite_master WHERE type='table' AND name='ai_conversation_turns'")).fetchall()
-    if rows:
-        op.drop_index("idx_ai_conversation_created", table_name="ai_conversation_turns")
-        op.drop_index("idx_ai_conversation_event", table_name="ai_conversation_turns")
+    if _table_exists(conn, "ai_conversation_turns"):
+        if _index_exists(conn, "ai_conversation_turns", "idx_ai_conversation_created"):
+            op.drop_index("idx_ai_conversation_created", table_name="ai_conversation_turns")
+        if _index_exists(conn, "ai_conversation_turns", "idx_ai_conversation_event"):
+            op.drop_index("idx_ai_conversation_event", table_name="ai_conversation_turns")
         op.drop_table("ai_conversation_turns")

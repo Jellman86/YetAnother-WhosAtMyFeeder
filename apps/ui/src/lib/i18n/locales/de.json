@@ -419,7 +419,10 @@
       "media_days": "Medienfenster (Tage)",
       "rate_limit": "Rate-Limit (pro Minute)",
       "allow_clip_downloads": "Clip-Downloads erlauben",
-      "allow_clip_downloads_desc": "Gaesten erlauben, vollstaendige Videoclips herunterzuladen"
+      "allow_clip_downloads_desc": "Gaesten erlauben, vollstaendige Videoclips herunterzuladen",
+      "share_base_url": "Share link base URL (optional)",
+      "share_base_url_placeholder": "https://your-public-domain.example",
+      "share_base_url_desc": "If set, new share links use this public base URL instead of the detected request host."
     },
     "accessibility": {
       "title": "Barrierefreiheit-Optionen",
@@ -695,7 +698,16 @@
     "event_backfill_failed": "Erkennungs-Backfill fehlgeschlagen",
     "event_weather_backfill": "Wetter-Backfill läuft",
     "event_weather_backfill_done": "Wetter-Backfill abgeschlossen",
-    "event_weather_backfill_failed": "Wetter-Backfill fehlgeschlagen"
+    "event_weather_backfill_failed": "Wetter-Backfill fehlgeschlagen",
+    "settings_updated_title": "Settings updated",
+    "settings_updated_message": "Configuration changed successfully.",
+    "live_updates_disconnected_title": "Live updates disconnected",
+    "live_updates_disconnected_message": "Realtime event stream is reconnecting in the background.",
+    "system_health_title": "System status warning",
+    "system_health_message": "Health status: {status}",
+    "system_cache_disabled_title": "Media cache disabled",
+    "system_cache_disabled_message": "Timeline previews and media caching are disabled in current settings.",
+    "open_action": "Open"
   },
   "actions": {
     "confirm_delete": "Diese {species} Erkennung löschen?",
@@ -833,7 +845,8 @@
     "empty_title": "Noch keine Ereignisse",
     "empty_desc": "Starte ein Backfill oder warte auf neue Erkennungen.",
     "load_failed": "Ereignisse konnten nicht geladen werden",
-    "classification_legend": "Klassifizierungsquellen: Manuell, Video, Schnappschuss"
+    "classification_legend": "Klassifizierungsquellen: Manuell, Video, Schnappschuss",
+    "timeline_keyboard_hint": "Timeline keyboard: [ previous day, ] next day, 0 reset"
   },
   "leaderboard": {
     "title": "Spezies-Bestenliste",
@@ -1175,6 +1188,34 @@
     "shortcuts_mobile_hint": "Tastaturkürzel sind verfügbar, wenn eine Hardware-Tastatur verwendet wird.",
     "buffering_hint": "Videostream wird gepuffert...",
     "previews_touch_hint": "Timeline-Vorschauen sind verfügbar. Ziehe oder tippe auf die Suchleiste, um Frames anzusehen.",
-    "download": "Clip herunterladen"
+    "download": "Clip herunterladen",
+    "share": "Share clip link",
+    "share_link": "Share link",
+    "share_copied": "Video link copied to clipboard",
+    "share_failed": "Could not copy video link",
+    "share_created": "Share link created",
+    "share_updated": "Share link updated",
+    "share_update_failed": "Could not update share link",
+    "share_revoked": "Share link revoked",
+    "share_revoke_failed": "Could not revoke share link",
+    "share_title": "YA-WAMF clip",
+    "share_text": "Bird detection clip: {eventId}",
+    "share_expires": "Share expires: {expiresAt}",
+    "share_expired": "Expired",
+    "share_manage": "Manage share links",
+    "share_manage_show": "Manage links",
+    "share_manage_hide": "Hide links",
+    "share_manage_title": "Active share links",
+    "share_manage_watermark": "Watermark label",
+    "share_manage_expiry": "Expires in",
+    "share_manage_create": "Create and copy link",
+    "share_manage_creating": "Creating...",
+    "share_manage_loading": "Loading active links...",
+    "share_manage_empty": "No active links for this clip yet.",
+    "share_manage_remaining": "Remaining: {remaining}",
+    "share_manage_save": "Save",
+    "share_manage_revoke": "Revoke",
+    "share_manage_load_failed": "Could not load active share links",
+    "shared_watermark": "Shared clip"
   }
 }

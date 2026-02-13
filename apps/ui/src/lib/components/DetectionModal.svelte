@@ -112,7 +112,7 @@
         observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
         const syncDiagnosticsToggle = () => {
             if (typeof window === 'undefined') return;
-            aiDiagnosticsEnabled = window.localStorage.getItem('ai_diagnostics_enabled') !== '0';
+            aiDiagnosticsEnabled = window.localStorage.getItem('ai_diagnostics_enabled') === '1';
         };
         syncDiagnosticsToggle();
         const onToggleChanged = () => syncDiagnosticsToggle();
@@ -1337,7 +1337,7 @@
             </svg>
         </button>
 
-        {#if aiDiagnosticsEnabled}
+        {#if debugUiEnabled && aiDiagnosticsEnabled}
             <button
                 type="button"
                 onclick={copyAiFullBundle}

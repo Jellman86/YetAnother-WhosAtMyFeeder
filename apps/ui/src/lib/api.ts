@@ -367,6 +367,7 @@ export interface Settings {
     public_access_media_days_mode?: string;
     public_access_media_historical_days: number;
     public_access_rate_limit_per_minute: number;
+    public_access_external_base_url?: string | null;
 
     species_info_source?: string;
     date_format?: string;

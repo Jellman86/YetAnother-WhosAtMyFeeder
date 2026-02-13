@@ -387,6 +387,68 @@ async def test_video_share_create_returns_link_id(client: httpx.AsyncClient):
 
 
 @pytest.mark.asyncio
+async def test_video_share_create_uses_configured_external_base_url(client: httpx.AsyncClient):
+    """Share links should honor PUBLIC_ACCESS external base URL when configured."""
+    original_base_url = settings.public_access.external_base_url
+    settings.public_access.external_base_url = "https://public.example.com/app/"
+    try:
+        with patch("app.routers.proxy.frigate_client") as mock_frigate, \
+             patch("app.routers.proxy._create_video_share_token", new_callable=AsyncMock) as mock_create:
+            mock_frigate.get_event = AsyncMock(return_value={"has_clip": True})
+            mock_create.return_value = (
+                77,
+                "share_token_abcdefghijklmnopqrstuvwxyz",
+                datetime.utcnow() + timedelta(hours=1),
+            )
+
+            response = await client.post(
+                "/api/video-share",
+                json={
+                    "event_id": "test_event_id",
+                    "expires_in_minutes": 60,
+                    "watermark_label": "Tester",
+                },
+            )
+
+            assert response.status_code == 200
+            body = response.json()
+            assert body["share_url"].startswith("https://public.example.com/app/events?")
+    finally:
+        settings.public_access.external_base_url = original_base_url
+
+
+@pytest.mark.asyncio
+async def test_video_share_create_falls_back_on_invalid_external_base_url(client: httpx.AsyncClient):
+    """Invalid configured base URLs should fall back to request base URL."""
+    original_base_url = settings.public_access.external_base_url
+    settings.public_access.external_base_url = "not-a-valid-url"
+    try:
+        with patch("app.routers.proxy.frigate_client") as mock_frigate, \
+             patch("app.routers.proxy._create_video_share_token", new_callable=AsyncMock) as mock_create:
+            mock_frigate.get_event = AsyncMock(return_value={"has_clip": True})
+            mock_create.return_value = (
+                78,
+                "share_token_abcdefghijklmnopqrstuvwxyz",
+                datetime.utcnow() + timedelta(hours=1),
+            )
+
+            response = await client.post(
+                "/api/video-share",
+                json={
+                    "event_id": "test_event_id",
+                    "expires_in_minutes": 60,
+                    "watermark_label": "Tester",
+                },
+            )
+
+            assert response.status_code == 200
+            body = response.json()
+            assert body["share_url"].startswith("http://test/events?")
+    finally:
+        settings.public_access.external_base_url = original_base_url
+
+
+@pytest.mark.asyncio
 async def test_video_share_list_links_returns_payload(client: httpx.AsyncClient):
     """List endpoint should return active share links for an event."""
     from app.routers import proxy

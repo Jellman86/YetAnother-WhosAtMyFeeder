@@ -62,6 +62,7 @@
     let modalElement = $state<HTMLElement | null>(null);
     let stats = $state<SpeciesStats | null>(null);
     let aiDiagnosticsEnabled = $state(false);
+    const debugUiEnabled = $derived(settingsStore.settings?.debug_ui_enabled ?? false);
 
     const buildSample = (value: string | null | undefined) => {
         if (!value) return '';
@@ -357,7 +358,7 @@
     onMount(() => {
         const syncDiagnosticsToggle = () => {
             if (typeof window === 'undefined') return;
-            aiDiagnosticsEnabled = window.localStorage.getItem('ai_diagnostics_enabled') !== '0';
+            aiDiagnosticsEnabled = window.localStorage.getItem('ai_diagnostics_enabled') === '1';
         };
         syncDiagnosticsToggle();
         const onToggleChanged = () => syncDiagnosticsToggle();
@@ -502,7 +503,7 @@
                 {/if}
             </div>
             <div class="flex items-center gap-2">
-                {#if aiDiagnosticsEnabled}
+                {#if debugUiEnabled && aiDiagnosticsEnabled}
                     <button
                         type="button"
                         onclick={copySpeciesDiagnosticsBundle}

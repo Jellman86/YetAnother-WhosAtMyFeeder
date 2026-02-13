@@ -1124,6 +1124,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     let publicAccessMediaDaysMode = $state<'retention' | 'custom'>('retention');
     let publicAccessMediaHistoricalDays = $state(7);
     let publicAccessRateLimitPerMinute = $state(30);
+    let publicAccessExternalBaseUrl = $state('');
     let dateFormat = $state('dmy');
     let debugUiEnabled = $state(false);
     let inatPreviewEnabled = $state(false);
@@ -1181,7 +1182,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     let highContrast = $state(false);
     let dyslexiaFont = $state(false);
     let liveAnnouncements = $state(true);
-    let aiDiagnosticsEnabled = $state(true);
+    let aiDiagnosticsEnabled = $state(false);
 
     // eBird
     let ebirdEnabled = $state(false);
@@ -1385,6 +1386,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'publicAccessMediaDaysMode', val: publicAccessMediaDaysMode, store: (s.public_access_media_days_mode as any) ?? 'retention' },
             { key: 'publicAccessMediaHistoricalDays', val: publicAccessMediaHistoricalDays, store: s.public_access_media_historical_days ?? 7 },
             { key: 'publicAccessRateLimitPerMinute', val: publicAccessRateLimitPerMinute, store: s.public_access_rate_limit_per_minute ?? 30 },
+            { key: 'publicAccessExternalBaseUrl', val: publicAccessExternalBaseUrl, store: s.public_access_external_base_url ?? '' },
 
             // Notifications
             { key: 'discordEnabled', val: discordEnabled, store: s.notifications_discord_enabled ?? false },
@@ -1521,7 +1523,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             ]);
             inatPreviewEnabled = window.localStorage.getItem('inat_preview') === '1';
             inatPreviewDirty = false;
-            aiDiagnosticsEnabled = window.localStorage.getItem('ai_diagnostics_enabled') !== '0';
+            aiDiagnosticsEnabled = window.localStorage.getItem('ai_diagnostics_enabled') === '1';
 
         taxonomyPollInterval = setInterval(loadTaxonomyStatus, 3000);
         
@@ -2013,6 +2015,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             publicAccessMediaDaysMode = (settings.public_access_media_days_mode === 'custom' ? 'custom' : 'retention') as any;
             publicAccessMediaHistoricalDays = settings.public_access_media_historical_days ?? 7;
             publicAccessRateLimitPerMinute = settings.public_access_rate_limit_per_minute ?? 30;
+            publicAccessExternalBaseUrl = settings.public_access_external_base_url ?? '';
             if (settings.date_format === 'mdy' || settings.date_format === 'dmy' || settings.date_format === 'ymd') {
                 dateFormat = settings.date_format;
             } else {
@@ -2230,6 +2233,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 public_access_media_days_mode: publicAccessMediaDaysMode,
                 public_access_media_historical_days: publicAccessMediaHistoricalDays,
                 public_access_rate_limit_per_minute: publicAccessRateLimitPerMinute,
+                public_access_external_base_url: publicAccessExternalBaseUrl.trim() || null,
                 date_format: dateFormat,
 
                 // Notifications
@@ -2712,6 +2716,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     bind:publicAccessMediaDaysMode
                     bind:publicAccessMediaHistoricalDays
                     bind:publicAccessRateLimitPerMinute
+                    bind:publicAccessExternalBaseUrl
                     retentionDays={retentionDays}
                     addTrustedProxyHost={addTrustedProxyHost}
                     removeTrustedProxyHost={removeTrustedProxyHost}

@@ -6,7 +6,7 @@ import secrets
 from pathlib import Path as FilePath
 from time import perf_counter
 from tempfile import NamedTemporaryFile
-from urllib.parse import quote_plus
+from urllib.parse import quote_plus, urlsplit
 from datetime import date, datetime, timedelta, timezone
 from fastapi import APIRouter, HTTPException, Response, Path, Request, Depends, Security
 from fastapi.responses import FileResponse, StreamingResponse
@@ -99,6 +99,20 @@ def _build_sprite_url(request: Request, event_id: str) -> str:
     if params:
         sprite_url = f"{sprite_url}?{'&'.join(params)}"
     return sprite_url
+
+
+def _share_base_url(request: Request) -> str:
+    """Resolve the base URL used for externally shared links."""
+    configured = (settings.public_access.external_base_url or "").strip()
+    if configured:
+        parsed = urlsplit(configured)
+        if parsed.scheme in {"http", "https"} and parsed.netloc:
+            return configured.rstrip("/")
+        structlog.get_logger().warning(
+            "Invalid PUBLIC_ACCESS__EXTERNAL_BASE_URL; falling back to request base",
+            configured_value=configured,
+        )
+    return str(request.base_url).rstrip("/")
 
 
 SHARE_TOKEN_PATTERN = re.compile(r'^[A-Za-z0-9_-]{16,256}$')
@@ -604,7 +618,7 @@ async def create_video_share_link(
         watermark_label=watermark,
     )
 
-    base = str(request.base_url).rstrip("/")
+    base = _share_base_url(request)
     share_url = (
         f"{base}/events?event={quote_plus(event_id)}&video=1&share={quote_plus(token)}"
     )

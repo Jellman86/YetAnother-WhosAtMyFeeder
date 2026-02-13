@@ -427,7 +427,10 @@
       "media_days": "Media window (days)",
       "rate_limit": "Rate limit (per minute)",
       "allow_clip_downloads": "Allow clip downloads",
-      "allow_clip_downloads_desc": "Allow guests to download full video clips"
+      "allow_clip_downloads_desc": "Allow guests to download full video clips",
+      "share_base_url": "Share link base URL (optional)",
+      "share_base_url_placeholder": "https://your-public-domain.example",
+      "share_base_url_desc": "If set, new share links use this public base URL instead of the detected request host."
     },
     "accessibility": {
       "title": "Accessibility Options",

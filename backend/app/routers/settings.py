@@ -418,6 +418,7 @@ class SettingsUpdate(BaseModel):
     public_access_media_days_mode: Optional[str] = None
     public_access_media_historical_days: Optional[int] = Field(None, ge=0, le=365)
     public_access_rate_limit_per_minute: Optional[int] = Field(None, ge=1, le=100)
+    public_access_external_base_url: Optional[str] = Field(None, max_length=512)
 
     species_info_source: Optional[str] = "auto"
     date_format: Optional[str] = None
@@ -644,6 +645,7 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "public_access_media_days_mode": settings.public_access.media_days_mode,
         "public_access_media_historical_days": settings.public_access.media_historical_days,
         "public_access_rate_limit_per_minute": settings.public_access.rate_limit_per_minute,
+        "public_access_external_base_url": settings.public_access.external_base_url,
         "species_info_source": settings.species_info_source,
         "date_format": settings.date_format,
     }
@@ -872,6 +874,9 @@ async def update_settings(
         settings.public_access.media_historical_days = update.public_access_media_historical_days
     if "public_access_rate_limit_per_minute" in fields_set and update.public_access_rate_limit_per_minute is not None:
         settings.public_access.rate_limit_per_minute = update.public_access_rate_limit_per_minute
+    if "public_access_external_base_url" in fields_set:
+        raw_url = (update.public_access_external_base_url or "").strip()
+        settings.public_access.external_base_url = raw_url or None
 
     if "date_format" in fields_set and update.date_format is not None:
         settings.date_format = update.date_format

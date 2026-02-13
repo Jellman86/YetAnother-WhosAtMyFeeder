@@ -20,6 +20,7 @@
         publicAccessMediaDaysMode = $bindable<'retention' | 'custom'>('retention'),
         publicAccessMediaHistoricalDays = $bindable(7),
         publicAccessRateLimitPerMinute = $bindable(30),
+        publicAccessExternalBaseUrl = $bindable(''),
         retentionDays = 0,
         addTrustedProxyHost,
         removeTrustedProxyHost,
@@ -43,6 +44,7 @@
         publicAccessMediaDaysMode: 'retention' | 'custom';
         publicAccessMediaHistoricalDays: number;
         publicAccessRateLimitPerMinute: number;
+        publicAccessExternalBaseUrl: string;
         retentionDays?: number;
         addTrustedProxyHost: () => void;
         removeTrustedProxyHost: (host: string) => void;
@@ -384,6 +386,21 @@
                         bind:value={publicAccessRateLimitPerMinute}
                         class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
                     />
+                </div>
+                <div class="col-span-2">
+                    <label for="public-share-base-url" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">
+                        {$_('settings.public_access.share_base_url', { default: 'Share Link Base URL (optional)' })}
+                    </label>
+                    <input
+                        id="public-share-base-url"
+                        type="url"
+                        bind:value={publicAccessExternalBaseUrl}
+                        placeholder={$_('settings.public_access.share_base_url_placeholder', { default: 'https://your-public-domain.example' })}
+                        class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                    />
+                    <p class="mt-2 text-[10px] text-slate-500">
+                        {$_('settings.public_access.share_base_url_desc', { default: 'If set, new share links use this public base URL instead of the detected request host.' })}
+                    </p>
                 </div>
             </div>
         </div>

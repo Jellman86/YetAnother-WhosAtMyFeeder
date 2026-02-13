@@ -310,7 +310,10 @@
       "media_days": "媒体范围（天）",
       "rate_limit": "速率限制（每分钟）",
       "allow_clip_downloads": "允许下载片段",
-      "allow_clip_downloads_desc": "允许访客下载完整视频片段"
+      "allow_clip_downloads_desc": "允许访客下载完整视频片段",
+      "share_base_url": "Share link base URL (optional)",
+      "share_base_url_placeholder": "https://your-public-domain.example",
+      "share_base_url_desc": "If set, new share links use this public base URL instead of the detected request host."
     },
     "accessibility": {
       "title": "辅助功能选项",
@@ -695,7 +698,16 @@
     "event_backfill_failed": "检测回填失败",
     "event_weather_backfill": "天气回填进行中",
     "event_weather_backfill_done": "天气回填完成",
-    "event_weather_backfill_failed": "天气回填失败"
+    "event_weather_backfill_failed": "天气回填失败",
+    "settings_updated_title": "Settings updated",
+    "settings_updated_message": "Configuration changed successfully.",
+    "live_updates_disconnected_title": "Live updates disconnected",
+    "live_updates_disconnected_message": "Realtime event stream is reconnecting in the background.",
+    "system_health_title": "System status warning",
+    "system_health_message": "Health status: {status}",
+    "system_cache_disabled_title": "Media cache disabled",
+    "system_cache_disabled_message": "Timeline previews and media caching are disabled in current settings.",
+    "open_action": "Open"
   },
   "actions": {
     "confirm_delete": "删除此 {species} 检测记录？",
@@ -833,7 +845,8 @@
     "empty_title": "暂无事件",
     "empty_desc": "运行回填或等待新的检测。",
     "load_failed": "加载事件失败",
-    "classification_legend": "分类来源：手动、视频、快照"
+    "classification_legend": "分类来源：手动、视频、快照",
+    "timeline_keyboard_hint": "Timeline keyboard: [ previous day, ] next day, 0 reset"
   },
   "leaderboard": {
     "title": "物种排行榜",
@@ -1175,6 +1188,34 @@
     "shortcuts_mobile_hint": "使用外接键盘时可使用键盘快捷键。",
     "buffering_hint": "正在缓冲视频流...",
     "previews_touch_hint": "时间线预览可用。沿进度条拖动或点击可查看帧。",
-    "download": "下载片段"
+    "download": "下载片段",
+    "share": "Share clip link",
+    "share_link": "Share link",
+    "share_copied": "Video link copied to clipboard",
+    "share_failed": "Could not copy video link",
+    "share_created": "Share link created",
+    "share_updated": "Share link updated",
+    "share_update_failed": "Could not update share link",
+    "share_revoked": "Share link revoked",
+    "share_revoke_failed": "Could not revoke share link",
+    "share_title": "YA-WAMF clip",
+    "share_text": "Bird detection clip: {eventId}",
+    "share_expires": "Share expires: {expiresAt}",
+    "share_expired": "Expired",
+    "share_manage": "Manage share links",
+    "share_manage_show": "Manage links",
+    "share_manage_hide": "Hide links",
+    "share_manage_title": "Active share links",
+    "share_manage_watermark": "Watermark label",
+    "share_manage_expiry": "Expires in",
+    "share_manage_create": "Create and copy link",
+    "share_manage_creating": "Creating...",
+    "share_manage_loading": "Loading active links...",
+    "share_manage_empty": "No active links for this clip yet.",
+    "share_manage_remaining": "Remaining: {remaining}",
+    "share_manage_save": "Save",
+    "share_manage_revoke": "Revoke",
+    "share_manage_load_failed": "Could not load active share links",
+    "shared_watermark": "Shared clip"
   }
 }
