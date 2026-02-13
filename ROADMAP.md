@@ -172,11 +172,10 @@ Enhance the detection search interface with an intuitive filter panel.
 - ✅ Daily histogram
 - ✅ Recent audio detections widget
 - ✅ Seasonality histogram (local/global via iNaturalist)
-- ❌ Hourly heatmap, weekly/monthly trends, insights panel
+- ✅ Leaderboard analytics expansion shipped (detections trend modes, species compare trend chart, hour x weekday activity heatmap, weather overlays)
+- ❌ Dedicated insights panel and camera-comparison analytics are still pending
 
 **What to Add:**
-- Hourly activity heatmap (24h x 7 days grid)
-- Weekly/monthly detection trends chart
 - Confidence score distribution histogram
 - Camera comparison chart
 - Insights panel:
@@ -185,9 +184,9 @@ Enhance the detection search interface with an intuitive filter panel.
   - Weather correlation (e.g., "50% more birds when sunny")
 
 **Breakdown:**
-- Heatmap component: 2 days
-- Trend charts: 2 days
-- Insights algorithms: 2 days
+- Confidence distribution chart: 1 day
+- Camera comparison chart: 1 day
+- Insights algorithms + UI: 2 days
 - Testing: 1 day
 
 ### 2.3 Progressive Web App (PWA) Support 📱
@@ -380,7 +379,7 @@ Optimize system performance for large installations.
 - ✅ Code coverage reporting
 - ✅ DB migration safety checks (fresh/idempotent/downgrade-upgrade + sampled historical upgrade paths)
 - ✅ Startup/readiness smoke checks in CI
-- ❌ E2E tests (Playwright coverage is currently minimal)
+- ⚠️ Playwright E2E coverage is improving but still targeted; broader end-to-end regression coverage remains a priority
 
 ---
 
@@ -411,9 +410,9 @@ Audit all UI components and remove hardcoded strings. Move all labels, errors, a
 Split `_handle_detection_save_and_notify` into smaller services (persistence, notification policy, media cache, auto-video trigger) to reduce coupling and improve testability.
 
 ### Detection Query Composite Index 📇
-**Priority:** P2 | **Effort:** S (1-2 days)
+**Priority:** P2 | **Effort:** S (1-2 days) | **Status:** ✅ Completed (v2.8.0)
 
-Add a composite index for common event queries, e.g. `detections(camera_name, detection_time)` to speed up the Events page and exports.
+Composite index for common event queries (`detections(camera_name, detection_time)`) is in place to speed up Events and export queries.
 
 ### Optional Frontend Log Shipping 📡
 **Priority:** P3 | **Effort:** M (3-5 days)
@@ -491,4 +490,4 @@ Have a feature idea not on this list? Open an issue on [GitHub](https://github.c
 ---
 
 **Last Updated:** 2026-02-13
-**Version:** 2.7.9
+**Version:** 2.8.0
