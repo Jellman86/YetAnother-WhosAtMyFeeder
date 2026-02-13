@@ -438,7 +438,7 @@
                             <path d="M4 14h12"></path>
                             <path d="M7 14V9M10 14V6M13 14v-3"></path>
                         </svg>
-                        {events.length} {$_('common.detections', { default: 'detections' }).toLowerCase()}
+                        {events.length}
                     </span>
                 </button>
                 {#each timelineBuckets as bucket}
@@ -464,7 +464,7 @@
                                 <path d="M4 14h12"></path>
                                 <path d="M7 14V9M10 14V6M13 14v-3"></path>
                             </svg>
-                            {bucket.count} {$_('common.detections', { default: 'detections' }).toLowerCase()}
+                            {bucket.count}
                         </span>
                     </button>
                 {/each}
