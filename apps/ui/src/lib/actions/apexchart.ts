@@ -48,7 +48,13 @@ function normalizeOptions(options: ApexOptions): ApexOptions {
     if (Array.isArray(next.yaxis)) {
         const seriesNames = new Set(series.map((entry: any) => entry?.name).filter(Boolean));
         const normalizedYAxes = next.yaxis
-            .filter((axis: any) => !axis?.seriesName || seriesNames.has(axis.seriesName))
+            .filter((axis: any) => {
+                if (!axis?.seriesName) return true;
+                if (Array.isArray(axis.seriesName)) {
+                    return axis.seriesName.some((name: string) => seriesNames.has(name));
+                }
+                return seriesNames.has(axis.seriesName);
+            })
             .map((axis: any) => ({ ...axis }));
         if (normalizedYAxes.length > 0) {
             next.yaxis = normalizedYAxes;
@@ -57,15 +63,22 @@ function normalizeOptions(options: ApexOptions): ApexOptions {
         }
     }
 
-    if (next.annotations && Array.isArray(next.annotations.xaxis)) {
+    if (next.annotations) {
+        const annotations = next.annotations as any;
+        const xaxis = Array.isArray(annotations.xaxis) ? annotations.xaxis : [];
         next.annotations = {
-            ...next.annotations,
-            xaxis: next.annotations.xaxis.filter((ann: any) => {
+            ...annotations,
+            // Apex can crash on update cycles if any annotation buckets are missing.
+            xaxis: xaxis.filter((ann: any) => {
                 const x = Number(ann?.x);
                 if (!Number.isFinite(x)) return false;
                 if (ann?.x2 !== undefined && ann?.x2 !== null && !Number.isFinite(Number(ann.x2))) return false;
                 return true;
-            })
+            }),
+            yaxis: Array.isArray(annotations.yaxis) ? annotations.yaxis : [],
+            points: Array.isArray(annotations.points) ? annotations.points : [],
+            texts: Array.isArray(annotations.texts) ? annotations.texts : [],
+            images: Array.isArray(annotations.images) ? annotations.images : [],
         };
     }
 
@@ -123,8 +136,14 @@ export const chart: Action<HTMLElement, ApexOptions> = (node, options) => {
         update(newOptions) {
             pendingOptions = normalizeOptions(newOptions);
             if (chartInstance) {
-                void Promise
-                    .resolve(chartInstance.updateOptions(pendingOptions, true, true))
+                let updatePromise: Promise<unknown>;
+                try {
+                    // updateOptions may throw synchronously on malformed intermediate states.
+                    updatePromise = Promise.resolve(chartInstance.updateOptions(pendingOptions, true, true));
+                } catch (syncError) {
+                    updatePromise = Promise.reject(syncError);
+                }
+                void updatePromise
                     .catch(async (error: unknown) => {
                         console.error('Apex updateOptions failed, recreating chart instance', error);
                         if (destroyed || !ApexChartsCtor) return;

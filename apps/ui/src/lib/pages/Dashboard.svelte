@@ -18,7 +18,8 @@
     import { settingsStore } from '../stores/settings.svelte';
     import { authStore } from '../stores/auth.svelte';
     import { _ } from 'svelte-i18n';
-    import { getErrorMessage } from '../utils/error-handling';
+    import { getErrorMessage, isTransientRequestError } from '../utils/error-handling';
+    import { logger } from '../utils/logger';
 
     import { getBirdNames } from '../naming';
 
@@ -126,7 +127,13 @@
             summary = summaryRes;
             classifierLabels = labelsRes.labels;
         } catch (e) {
-            console.error('Failed to load summary', e);
+            if (isTransientRequestError(e)) {
+                logger.warn('Dashboard summary fetch failed (transient)', {
+                    message: getErrorMessage(e)
+                });
+            } else {
+                logger.error('Failed to load summary', e);
+            }
         } finally {
             summaryLoading = false;
         }
@@ -334,9 +341,9 @@
         <div class="flex items-center justify-between">
             <div class="flex items-center gap-3">
                 <h3 class="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400"> {$_('dashboard.discovery_feed')} </h3>
-                <span class="text-[10px] font-medium text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full">{$_('dashboard.showing_last_3_days')}</span>
+                <span class="text-[10px] font-semibold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full">{$_('dashboard.showing_last_3_days')}</span>
             </div>
-            <button onclick={() => onnavigate?.('/events')} class="text-xs font-medium text-teal-600 dark:text-teal-400 hover:underline"> {$_('dashboard.see_full_history')} </button>
+            <button onclick={() => onnavigate?.('/events')} class="text-xs font-semibold text-teal-700 dark:text-teal-300 hover:underline"> {$_('dashboard.see_full_history')} </button>
         </div>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">

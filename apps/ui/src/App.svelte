@@ -569,14 +569,14 @@
                          detectionsStore.removeDetection(payload.data.frigate_event, payload.data.timestamp);
                      } else if (payload.type === 'reclassification_started') {
                          if (!payload.data || !payload.data.event_id) {
-                             console.error("SSE Invalid reclassification_started data:", payload);
+                             logger.warn("SSE invalid reclassification_started payload", { payload });
                              return;
                          }
                          detectionsStore.startReclassification(payload.data.event_id);
                          updateReclassifyProgress(payload.data.event_id, 0, payload.data.total_frames ?? 0);
                      } else if (payload.type === 'reclassification_progress') {
                          if (!payload.data || !payload.data.event_id) {
-                             console.error("SSE Invalid reclassification_progress data:", payload);
+                             logger.warn("SSE invalid reclassification_progress payload", { payload });
                              return;
                          }
                          detectionsStore.updateReclassificationProgress(
@@ -593,7 +593,7 @@
                          updateReclassifyProgress(payload.data.event_id, payload.data.current_frame, payload.data.total_frames);
                      } else if (payload.type === 'reclassification_completed') {
                          if (!payload.data || !payload.data.event_id) {
-                             console.error("SSE Invalid reclassification_completed data:", payload);
+                             logger.warn("SSE invalid reclassification_completed payload", { payload });
                              return;
                          }
                          clearReclassifyProgressNotification(payload.data.event_id);
@@ -632,7 +632,10 @@
           };
 
           evtSource.onerror = (err) => {
-              console.error("SSE Connection Error", err);
+              logger.warn("SSE connection issue", {
+                  type: (err as any)?.type ?? 'error',
+                  attempt: reconnectAttempts + 1
+              });
               detectionsStore.setConnected(false);
               if (shouldNotify()) {
                   const id = 'system:sse-disconnected';
@@ -691,11 +694,12 @@
               <button 
                   class="p-2 -ml-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors" 
                   onclick={() => mobileSidebarOpen = !mobileSidebarOpen}
-                  aria-label={$_('nav.toggle_menu', { default: 'Toggle menu' })}
+                  aria-label={$_('nav.toggle_menu', { default: 'Toggle menu' }) || 'Toggle menu'}
               >
                   <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
                   </svg>
+                  <span class="sr-only">{$_('nav.toggle_menu', { default: 'Toggle menu' }) || 'Toggle menu'}</span>
               </button>
               <div class="flex items-center gap-2">
                   <div class="w-7 h-7 rounded-lg bg-transparent border border-slate-200/70 dark:border-slate-700/60 shadow-sm flex items-center justify-center overflow-hidden p-0.5">
@@ -707,6 +711,9 @@
               <button
                   class="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-colors"
                   onclick={() => themeStore.toggle()}
+                  aria-label={themeStore.theme === 'dark'
+                      ? ($_('theme.switch_light', { default: 'Switch to light mode' }) || 'Switch to light mode')
+                      : ($_('theme.switch_dark', { default: 'Switch to dark mode' }) || 'Switch to dark mode')}
               >
                   {#if themeStore.theme === 'dark'}
                       <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">

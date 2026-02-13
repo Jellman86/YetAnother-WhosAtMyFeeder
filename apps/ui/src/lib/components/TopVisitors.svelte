@@ -36,7 +36,7 @@
         <h3 class="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
             {$_('dashboard.top_visitors_title', { default: 'Top Visitors' })}
         </h3>
-        <span class="text-[10px] font-medium text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full">
+        <span class="text-[10px] font-semibold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full">
             {$_('dashboard.histogram.last_24h')}
         </span>
     </div>
@@ -62,12 +62,12 @@
                         {item.displayName}
                     </p>
                     {#if item.subName}
-                        <p class="text-[10px] italic text-slate-500 dark:text-slate-400 truncate opacity-80 mt-0.5" title={item.subName}>
+                        <p class="text-[10px] italic text-slate-600 dark:text-slate-300 truncate opacity-90 mt-0.5" title={item.subName}>
                             {item.subName}
                         </p>
                     {/if}
                 </div>
-                <p class="text-[10px] text-slate-400 dark:text-slate-500 mt-2 pt-2 border-t border-slate-100 dark:border-slate-700/50">
+                <p class="text-[10px] text-slate-600 dark:text-slate-300 mt-2 pt-2 border-t border-slate-100 dark:border-slate-700/50">
                     {$_('dashboard.top_visitors_count', { values: { count: item.count }, default: '{count} visits' })}
                 </p>
             </button>

@@ -1,4 +1,6 @@
 import { type Detection, fetchEvents, fetchEventsCount } from '../api';
+import { logger } from '../utils/logger';
+import { getErrorMessage, isTransientRequestError } from '../utils/error-handling';
 
 export interface FrameResult {
     score: number;
@@ -50,7 +52,13 @@ class DetectionsStore {
             this.detections = recent;
             this.totalToday = countResult.count;
         } catch (e) {
-            console.error('Failed to load initial detections', e);
+            if (isTransientRequestError(e)) {
+                logger.warn('Initial detections fetch failed (transient)', {
+                    message: getErrorMessage(e)
+                });
+            } else {
+                logger.error('Failed to load initial detections', e);
+            }
         } finally {
             this.isLoading = false;
         }

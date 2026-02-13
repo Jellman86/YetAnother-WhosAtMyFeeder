@@ -3,6 +3,8 @@
     import { _ } from 'svelte-i18n';
     import { fetchRecentAudio, type AudioDetection } from '../api';
     import { formatTime } from '../utils/datetime';
+    import { getErrorMessage, isTransientRequestError } from '../utils/error-handling';
+    import { logger } from '../utils/logger';
 
     let audioDetections = $state<AudioDetection[]>([]);
     let pollInterval: any;
@@ -12,7 +14,13 @@
         try {
             audioDetections = await fetchRecentAudio(5);
         } catch (e) {
-            console.error('Failed to fetch recent audio', e);
+            if (isTransientRequestError(e)) {
+                logger.warn('Recent audio fetch failed (transient)', {
+                    message: getErrorMessage(e)
+                });
+            } else {
+                logger.error('Failed to fetch recent audio', e);
+            }
         } finally {
             loading = false;
         }
@@ -46,7 +54,7 @@
             </div>
         </div>
         {#if !loading && audioDetections.length > 0}
-            <div class="flex items-center gap-1.5 px-2 py-1 rounded-full bg-emerald-500/10 text-emerald-600 animate-pulse">
+            <div class="flex items-center gap-1.5 px-2 py-1 rounded-full bg-emerald-100 dark:bg-emerald-500/20 text-emerald-800 dark:text-emerald-200">
                 <div class="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
                 <span class="text-[9px] font-black uppercase tracking-wider">{$_('dashboard.audio_feed.active')}</span>
             </div>
@@ -72,14 +80,14 @@
             {#each audioDetections as detection}
                 <div class="group p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-700/50 hover:border-teal-500/30 transition-all">
                     <div class="flex items-center justify-between gap-3 mb-1">
-                        <span class="text-[10px] font-black text-teal-600/70 dark:text-teal-400/70 uppercase tracking-tighter">{formatTimeWithSeconds(detection.timestamp)}</span>
-                        <span class="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">{detection.sensor_id || $_('dashboard.audio_feed.unknown_sensor')}</span>
+                        <span class="text-[10px] font-black text-teal-700 dark:text-teal-300 uppercase tracking-tighter">{formatTimeWithSeconds(detection.timestamp)}</span>
+                        <span class="text-[10px] font-black text-slate-600 dark:text-slate-400 uppercase tracking-widest">{detection.sensor_id || $_('dashboard.audio_feed.unknown_sensor')}</span>
                     </div>
                     <div class="flex items-center justify-between gap-4">
                         <p class="text-sm font-black text-slate-800 dark:text-slate-100 truncate">{detection.species}</p>
                         <div class="flex items-center gap-1.5 flex-shrink-0">
                             <div class="w-1.5 h-1.5 rounded-full {detection.confidence > 0.7 ? 'bg-emerald-500' : 'bg-amber-500'}"></div>
-                            <span class="text-xs font-black {detection.confidence > 0.7 ? 'text-emerald-600' : 'text-amber-600'}">{(detection.confidence * 100).toFixed(0)}%</span>
+                            <span class="text-xs font-black {detection.confidence > 0.7 ? 'text-emerald-700 dark:text-emerald-300' : 'text-amber-700 dark:text-amber-300'}">{(detection.confidence * 100).toFixed(0)}%</span>
                         </div>
                     </div>
                 </div>

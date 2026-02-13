@@ -19,6 +19,27 @@ export function getErrorMessage(error: unknown): string {
 }
 
 /**
+ * Detect network/request failures that are often transient in browser sessions.
+ */
+export function isTransientRequestError(error: unknown): boolean {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+        return true;
+    }
+    if (error instanceof Error && error.name === 'AbortError') {
+        return true;
+    }
+
+    const message = getErrorMessage(error).toLowerCase();
+    return (
+        message.includes('failed to fetch') ||
+        message.includes('networkerror') ||
+        message.includes('load failed') ||
+        message.includes('the operation was aborted') ||
+        message.includes('aborterror')
+    );
+}
+
+/**
  * Type guard to check if value is an Error
  */
 export function isError(error: unknown): error is Error {

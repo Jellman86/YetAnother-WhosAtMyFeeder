@@ -93,7 +93,7 @@
         <!-- Bird Facts Ticker -->
         <div class="mt-4 pt-4 border-t border-slate-200/60 dark:border-slate-700/40">
             <div class="flex items-center justify-center gap-2 text-xs text-slate-600 dark:text-slate-400">
-                <span class="text-amber-500 dark:text-amber-400 flex-shrink-0">{$_('footer.did_you_know', { default: 'Did you know?' })}</span>
+                <span class="text-amber-700 dark:text-amber-300 flex-shrink-0">{$_('footer.did_you_know', { default: 'Did you know?' })}</span>
                 <span
                     class="transition-opacity duration-300 text-center"
                     class:opacity-0={isTransitioning}

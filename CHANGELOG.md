@@ -6,6 +6,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- **Fixed:** Leaderboard weather/toggle overlay updates now harden Apex options normalization (annotation bucket defaults + resilient y-axis series mapping) to prevent `Cannot read properties of undefined (reading 'push')` runtime crashes.
+- **Fixed:** Apex chart update handling now catches both synchronous and async `updateOptions` failures and recreates the chart instance safely to avoid unhandled promise rejections.
+- **Changed:** Dashboard/Species/Detections fetch failure logging now classifies transient network/abort errors and records them as warnings instead of noisy hard errors.
+- **Fixed:** Mobile header action buttons now provide explicit/fallback accessible names, and key dashboard/list badges were adjusted for stronger light-mode contrast.
+
 - **Added:** Leaderboard now includes two additional analytics panels beneath the main detections chart:
   - Species comparison trend chart for the top species in the selected window.
   - Activity heatmap chart (hour x weekday) for the selected window.

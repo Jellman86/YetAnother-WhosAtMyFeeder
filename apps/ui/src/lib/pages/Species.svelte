@@ -22,6 +22,8 @@
     import { getBirdNames } from '../naming';
     import { formatTemperature } from '../utils/temperature';
     import { formatDateTime } from '../utils/datetime';
+    import { getErrorMessage, isTransientRequestError } from '../utils/error-handling';
+    import { logger } from '../utils/logger';
     import { _ } from 'svelte-i18n';
 
     type LeaderboardRow = {
@@ -194,7 +196,13 @@
         } catch (e) {
             error = $_('leaderboard.load_failed');
             species = [];
-            console.error('Failed to load leaderboard species', e);
+            if (isTransientRequestError(e)) {
+                logger.warn('Leaderboard species fetch failed (transient)', {
+                    message: getErrorMessage(e)
+                });
+            } else {
+                logger.error('Failed to load leaderboard species', e);
+            }
         }
 
         const compareSpecies = selectCompareSpecies(species);
@@ -207,14 +215,26 @@
             timeline = timelineResult.value;
         } else {
             timeline = null;
-            console.error('Failed to load leaderboard timeline', timelineResult.reason);
+            if (isTransientRequestError(timelineResult.reason)) {
+                logger.warn('Leaderboard timeline fetch failed (transient)', {
+                    message: getErrorMessage(timelineResult.reason)
+                });
+            } else {
+                logger.error('Failed to load leaderboard timeline', timelineResult.reason);
+            }
         }
 
         if (heatmapResult.status === 'fulfilled') {
             activityHeatmap = heatmapResult.value;
         } else {
             activityHeatmap = null;
-            console.error('Failed to load activity heatmap', heatmapResult.reason);
+            if (isTransientRequestError(heatmapResult.reason)) {
+                logger.warn('Leaderboard activity heatmap fetch failed (transient)', {
+                    message: getErrorMessage(heatmapResult.reason)
+                });
+            } else {
+                logger.error('Failed to load activity heatmap', heatmapResult.reason);
+            }
         }
 
         loading = false;

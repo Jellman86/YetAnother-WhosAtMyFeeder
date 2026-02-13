@@ -18,7 +18,7 @@
         <h3 class="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
             {$_('dashboard.title')}
         </h3>
-        <span class="text-[10px] font-medium text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full">
+        <span class="text-[10px] font-semibold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full">
             {$_('dashboard.histogram.last_24h')}
         </span>
     </div>
