@@ -49,6 +49,7 @@
     let timeline = $state<DetectionsTimelineSpanResponse | null>(null);
     let activityHeatmap = $state<DetectionsActivityHeatmapResponse | null>(null);
     let speciesInfoCache = $state<Record<string, SpeciesInfo>>({});
+    let speciesInfoPending = $state<Record<string, boolean>>({});
     let chartEl = $state<HTMLDivElement | null>(null);
     let leaderboardAnalysis = $state<string | null>(null);
     let leaderboardAnalysisTimestamp = $state<string | null>(null);
@@ -220,21 +221,27 @@
     }
 
     async function loadSpeciesInfo(speciesName: string) {
-        if (!summaryEnabled || !speciesName || speciesName === "Unknown Bird" || speciesInfoCache[speciesName]) {
+        if (
+            !speciesName ||
+            speciesName === "Unknown Bird" ||
+            speciesInfoCache[speciesName] ||
+            speciesInfoPending[speciesName]
+        ) {
             return;
         }
+        speciesInfoPending = { ...speciesInfoPending, [speciesName]: true };
         try {
             const info = await fetchSpeciesInfo(speciesName);
             speciesInfoCache = { ...speciesInfoCache, [speciesName]: info };
         } catch {
             // ignore fetch errors
+        } finally {
+            const { [speciesName]: _discarded, ...rest } = speciesInfoPending;
+            speciesInfoPending = rest;
         }
     }
 
     $effect(() => {
-        if (!summaryEnabled) {
-            return;
-        }
         if (topByCount?.species) {
             void loadSpeciesInfo(topByCount.species);
         }
@@ -243,6 +250,14 @@
         }
         if (mostRecent?.species) {
             void loadSpeciesInfo(mostRecent.species);
+        }
+    });
+
+    $effect(() => {
+        const topRows = sortedSpecies().slice(0, 20);
+        for (const row of topRows) {
+            if (!row?.species || row.species === "Unknown Bird") continue;
+            void loadSpeciesInfo(row.species);
         }
     });
 
@@ -463,6 +478,21 @@
     });
 
     let chartOptions = $derived(() => {
+        const points = timelinePoints();
+        const indexedPoints = points
+            .map((point, idx) => {
+                const x = Date.parse(point.bucket_start);
+                if (!Number.isFinite(x)) return null;
+                return { point, idx, x };
+            })
+            .filter(
+                (entry): entry is {
+                    point: DetectionsTimelineSpanResponse['points'][number];
+                    idx: number;
+                    x: number;
+                } => !!entry
+            );
+
         const series: any[] = [];
         const primaryColor = '#16a34a';
         const smoothColor = '#0f766e';
@@ -470,16 +500,35 @@
         const windColor = '#38bdf8';
         const primaryName = metricLabel();
         const smoothName = $_('leaderboard.metric_smooth', { default: 'Smoothed' });
+        const temperatureName = $_('leaderboard.temperature');
+        const windName = $_('leaderboard.wind_avg');
+
+        const rawData = indexedPoints.map(({ point, x }) => ({
+            x,
+            y: metricValueFromPoint(point)
+        }));
+        const smoothData = indexedPoints.map(({ idx, x }) => ({
+            x,
+            y: smoothedMetricValues()[idx] ?? null
+        }));
+        const temperatureData = indexedPoints.map(({ point, x }) => ({
+            x,
+            y: convertTemperature(weatherValue(point.bucket_start, 'temp_avg'))
+        }));
+        const windData = indexedPoints.map(({ point, x }) => ({
+            x,
+            y: weatherValue(point.bucket_start, 'wind_avg')
+        }));
+
+        const hasTemperatureSeries = hasWeather() && showTemperature && temperatureData.some((p) => p.y !== null);
+        const hasWindSeries = hasWeather() && showWind && windData.some((p) => p.y !== null);
 
         if (showRawSeries) {
             series.push({
                 name: primaryName,
                 type: detectionUsesBars() ? 'bar' : 'area',
                 color: primaryColor,
-                data: timelinePoints().map((p) => ({
-                    x: Date.parse(p.bucket_start),
-                    y: metricValueFromPoint(p)
-                }))
+                data: rawData
             });
         }
 
@@ -488,41 +537,70 @@
                 name: smoothName,
                 type: 'line',
                 color: smoothColor,
-                data: timelinePoints().map((p, idx) => ({
-                    x: Date.parse(p.bucket_start),
-                    y: smoothedMetricValues()[idx]
-                }))
+                data: smoothData
             });
         }
 
-        const temperatureName = $_('leaderboard.temperature');
-        const windName = $_('leaderboard.wind_avg');
-
-        if (hasWeather() && showTemperature) {
+        if (hasTemperatureSeries) {
             series.push({
                 name: temperatureName,
                 type: 'line',
                 color: temperatureColor,
-                data: timelinePoints().map((p) => ({
-                    x: Date.parse(p.bucket_start),
-                    y: convertTemperature(weatherValue(p.bucket_start, 'temp_avg'))
-                }))
+                data: temperatureData
             });
         }
 
-        if (hasWeather() && showWind) {
+        if (hasWindSeries) {
             series.push({
                 name: windName,
                 type: 'line',
                 color: windColor,
-                data: timelinePoints().map((p) => ({
-                    x: Date.parse(p.bucket_start),
-                    y: weatherValue(p.bucket_start, 'wind_avg')
-                }))
+                data: windData
+            });
+        }
+
+        if (!series.length) {
+            series.push({
+                name: primaryName,
+                type: 'line',
+                color: primaryColor,
+                data: rawData
             });
         }
 
         const seriesColors = series.map((s) => s.color || primaryColor);
+        const tickAmount = indexedPoints.length > 1 ? Math.min(6, indexedPoints.length) : undefined;
+        const yAxes: any[] = [
+            {
+                min: 0,
+                labels: {
+                    style: { fontSize: '10px', colors: '#94a3b8' },
+                    formatter: (value: number) => formatMetricValue(value)
+                }
+            }
+        ];
+        if (hasTemperatureSeries) {
+            yAxes.push({
+                // Apex handles dynamic remapping more reliably when seriesName is array form.
+                seriesName: [temperatureName],
+                opposite: true,
+                labels: {
+                    style: { fontSize: '10px', colors: '#f59e0b' },
+                    formatter: (value: number) => formatTemperature(value, temperatureUnit as any)
+                }
+            });
+        }
+        if (hasWindSeries) {
+            yAxes.push({
+                // Apex handles dynamic remapping more reliably when seriesName is array form.
+                seriesName: [windName],
+                opposite: true,
+                labels: {
+                    style: { fontSize: '10px', colors: '#0ea5e9' },
+                    formatter: (value: number) => `${Math.round(value)} ${$_('common.unit_kmh', { default: 'km/h' })}`
+                }
+            });
+        }
 
         return {
             chart: {
@@ -536,6 +614,9 @@
             colors: seriesColors,
             series,
             annotations: { xaxis: rainBandAnnotations() },
+            noData: {
+                text: $_('dashboard.no_detections')
+            },
             dataLabels: { enabled: false },
             stroke: {
                 curve: 'smooth',
@@ -552,7 +633,7 @@
                     opacityFrom: 0.35,
                     opacityTo: 0.05,
                     stops: [0, 90, 100]
-                },
+                }
             },
             plotOptions: {
                 bar: {
@@ -568,36 +649,10 @@
             },
             xaxis: {
                 type: 'datetime',
-                tickAmount: Math.min(6, timelinePoints().length || 0),
+                tickAmount,
                 labels: { rotate: 0, style: { fontSize: '10px', colors: '#94a3b8' } }
             },
-            yaxis: [
-                {
-                    min: 0,
-                    labels: {
-                        style: { fontSize: '10px', colors: '#94a3b8' },
-                        formatter: (value: number) => formatMetricValue(value)
-                    }
-                },
-                {
-                    seriesName: temperatureName,
-                    opposite: true,
-                    show: hasWeather() && showTemperature,
-                    labels: {
-                        style: { fontSize: '10px', colors: '#f59e0b' },
-                        formatter: (value: number) => formatTemperature(value, temperatureUnit as any)
-                    }
-                },
-                {
-                    seriesName: windName,
-                    opposite: true,
-                    show: hasWeather() && showWind,
-                    labels: {
-                        style: { fontSize: '10px', colors: '#0ea5e9' },
-                        formatter: (value: number) => `${Math.round(value)} ${$_('common.unit_kmh', { default: 'km/h' })}`
-                    }
-                }
-            ],
+            yaxis: yAxes,
             tooltip: {
                 theme: isDark() ? 'dark' : 'light',
                 x: {
@@ -1740,18 +1795,36 @@
                                 </td>
                                 <td class="px-4 py-3">
                                     <div class="flex items-center gap-2">
-                                        <span class="font-semibold text-slate-900 dark:text-white">
-                                            {item.displayName}
-                                        </span>
-                                        {#if item.species === "Unknown Bird"}
-                                            <span class="inline-flex items-center justify-center bg-amber-500 text-white rounded-full w-5 h-5 text-[10px] font-black" title={$_('leaderboard.needs_review')}>?</span>
-                                        {/if}
-                                    </div>
-                                    {#if item.subName}
-                                        <div class="text-[10px] italic text-slate-500 dark:text-slate-400">
-                                            {item.subName}
+                                        <div class="w-8 h-8 rounded-md overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 flex-shrink-0">
+                                            {#if speciesInfoCache[item.species]?.thumbnail_url}
+                                                <img
+                                                    src={speciesInfoCache[item.species].thumbnail_url}
+                                                    alt={item.displayName}
+                                                    class="w-full h-full object-cover"
+                                                    loading="lazy"
+                                                />
+                                            {:else}
+                                                <div class="w-full h-full flex items-center justify-center text-[11px] text-slate-500 dark:text-slate-300">
+                                                    🐦
+                                                </div>
+                                            {/if}
                                         </div>
-                                    {/if}
+                                        <div class="min-w-0">
+                                            <div class="flex items-center gap-2">
+                                                <span class="font-semibold text-slate-900 dark:text-white truncate">
+                                                    {item.displayName}
+                                                </span>
+                                                {#if item.species === "Unknown Bird"}
+                                                    <span class="inline-flex items-center justify-center bg-amber-500 text-white rounded-full w-5 h-5 text-[10px] font-black" title={$_('leaderboard.needs_review')}>?</span>
+                                                {/if}
+                                            </div>
+                                            {#if item.subName}
+                                                <div class="text-[10px] italic text-slate-500 dark:text-slate-400 truncate">
+                                                    {item.subName}
+                                                </div>
+                                            {/if}
+                                        </div>
+                                    </div>
                                 </td>
                                 <td class="px-4 py-3 text-right font-bold text-slate-700 dark:text-slate-300">
                                     {item.count.toLocaleString()}
