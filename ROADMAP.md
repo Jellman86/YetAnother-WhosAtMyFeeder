@@ -97,6 +97,10 @@ If this section ever claims "none", treat it as stale: always check `ISSUES.md` 
 - ✅ Readiness endpoint added (`/ready`) and startup smoke checks in CI.
 - ✅ SQLite schema sanity checks expanded (FK/integrity + taxonomy regression guard).
 - ✅ Sampled Alembic upgrade-path matrix now tested in CI.
+- ✅ Public share-link base URL override delivered end-to-end (settings + backend URL generation).
+- ✅ Frontend diagnostics controls now default off and only active in debug mode.
+- ✅ Migration resilience hardening completed (idempotent guards + deterministic multilingual downgrade path).
+- ✅ Locale key parity kept in sync; latest share-link/notification/timeline strings translated across supported locales.
 - ✅ Video player hardening delivered: Plyr migration, server-generated timeline previews, preview-state UX, and backend metrics.
 - ✅ Video player reliability patch delivered: playback-status chip now follows real media state and preview sprite URLs are reverse-proxy-safe (path-based VTT cues).
 - 🔄 Next: expand E2E coverage around upgrade/restart scenarios and permission-failure startup paths.
@@ -486,5 +490,5 @@ Have a feature idea not on this list? Open an issue on [GitHub](https://github.c
 
 ---
 
-**Last Updated:** 2026-02-12
+**Last Updated:** 2026-02-13
 **Version:** 2.7.9
