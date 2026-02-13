@@ -37,7 +37,6 @@
         camera_count?: number | null;
     };
     type TrendMode = 'off' | 'smooth' | 'both';
-    const MAX_COMPARE_SPECIES = 3;
 
     let species: LeaderboardRow[] = $state([]);
     let loading = $state(true);
@@ -60,7 +59,6 @@
     let showPrecip = $state(false);
     let chartViewMode = $state<'auto' | 'line' | 'bar'>('auto');
     let trendMode = $state<TrendMode>('smooth');
-    let compareSpecies = $state<string[]>([]);
 
     const enrichmentModeSetting = $derived(settingsStore.settings?.enrichment_mode ?? authStore.enrichmentMode ?? 'per_enrichment');
     const enrichmentSingleProviderSetting = $derived(settingsStore.settings?.enrichment_single_provider ?? authStore.enrichmentSingleProvider ?? 'wikipedia');
@@ -124,26 +122,13 @@
     })[0]);
 
     $effect(() => {
-        const _deps = [span, compareSpecies.join('|')];
+        const _deps = [span];
         void loadLeaderboard();
     });
 
     $effect(() => {
         if (!includeUnknownBird && selectedSpecies === "Unknown Bird") {
             selectedSpecies = null;
-        }
-    });
-
-    $effect(() => {
-        const available = new Set(leaderboardSpecies().map((item) => item.species));
-        const filtered = compareSpecies
-            .filter((name) => available.has(name))
-            .slice(0, MAX_COMPARE_SPECIES);
-        if (
-            filtered.length !== compareSpecies.length ||
-            filtered.some((name, idx) => name !== compareSpecies[idx])
-        ) {
-            compareSpecies = filtered;
         }
     });
 
@@ -197,10 +182,7 @@
         }
 
         try {
-            timeline = await fetchDetectionsTimelineSpan(span, {
-                includeWeather: true,
-                compareSpecies: compareSpecies.length ? compareSpecies : undefined
-            });
+            timeline = await fetchDetectionsTimelineSpan(span, { includeWeather: true });
         } catch (e) {
             timeline = null;
             console.error('Failed to load leaderboard timeline', e);
@@ -357,24 +339,12 @@
         return out;
     }
 
-    function toggleCompareSpecies(speciesName: string) {
-        if (!speciesName) return;
-        if (compareSpecies.includes(speciesName)) {
-            compareSpecies = compareSpecies.filter((name) => name !== speciesName);
-            return;
-        }
-        if (compareSpecies.length >= MAX_COMPARE_SPECIES) return;
-        compareSpecies = [...compareSpecies, speciesName];
-    }
-
     let timelinePoints = $derived(() => timeline?.points || []);
     let metricValues = $derived(() => timelinePoints().map((p) => metricValueFromPoint(p)));
     let metricPeak = $derived(() => metricValues().length ? Math.max(...metricValues()) : 0);
     let metricAvg = $derived(() => metricValues().length
         ? metricValues().reduce((sum, n) => sum + n, 0) / metricValues().length
         : 0);
-    let compareCandidates = $derived(() => sortedSpecies().slice(0, 8));
-    let compareSeries = $derived(() => timeline?.compare_series || []);
     let showRawSeries = $derived(trendMode !== 'smooth');
     let showSmoothSeries = $derived(trendMode !== 'off');
     let smoothedMetricValues = $derived(() => movingAverage(metricValues(), 7));
@@ -469,12 +439,12 @@
         const primaryColor = '#10b981';
         const primaryName = metricLabel();
         const smoothName = $_('leaderboard.metric_smooth', { default: 'Smoothed' });
-        const comparePalette = ['#2563eb', '#7c3aed', '#ea580c'];
 
         if (showRawSeries) {
             series.push({
                 name: primaryName,
                 type: detectionUsesBars() ? 'bar' : 'area',
+                color: primaryColor,
                 data: timelinePoints().map((p) => ({
                     x: Date.parse(p.bucket_start),
                     y: metricValueFromPoint(p)
@@ -486,23 +456,13 @@
             series.push({
                 name: smoothName,
                 type: 'line',
+                color: '#0f766e',
                 data: timelinePoints().map((p, idx) => ({
                     x: Date.parse(p.bucket_start),
                     y: smoothedMetricValues()[idx]
                 }))
             });
         }
-
-        compareSeries().slice(0, MAX_COMPARE_SPECIES).forEach((item) => {
-            series.push({
-                name: item.species,
-                type: 'line',
-                data: timelinePoints().map((p, idx) => ({
-                    x: Date.parse(p.bucket_start),
-                    y: Number(item.points?.[idx]?.count ?? 0)
-                }))
-            });
-        });
 
         const temperatureName = $_('leaderboard.temperature');
         const windName = $_('leaderboard.wind_avg');
@@ -511,6 +471,7 @@
             series.push({
                 name: temperatureName,
                 type: 'line',
+                color: '#f97316',
                 data: timelinePoints().map((p) => ({
                     x: Date.parse(p.bucket_start),
                     y: convertTemperature(weatherValue(p.bucket_start, 'temp_avg'))
@@ -522,6 +483,7 @@
             series.push({
                 name: windName,
                 type: 'line',
+                color: '#0ea5e9',
                 data: timelinePoints().map((p) => ({
                     x: Date.parse(p.bucket_start),
                     y: weatherValue(p.bucket_start, 'wind_avg')
@@ -541,7 +503,6 @@
             colors: [
                 primaryColor,
                 '#0f766e',
-                ...comparePalette,
                 '#f97316',
                 '#0ea5e9'
             ],
@@ -684,7 +645,6 @@
             includeUnknownBird,
             trend_mode: trendMode,
             chart_view_mode: chartViewMode,
-            compare_species: compareSpecies,
             chart_detection_type: detectionUsesBars() ? 'bar' : 'line',
             bucket: timeline?.bucket ?? null,
             window_start: timeline?.window_start ?? null,
@@ -718,7 +678,6 @@
             includeUnknownBird,
             chartViewMode,
             trendMode,
-            compareSpecies.join('|'),
             timeline.bucket,
             timeline.window_start,
             timeline.window_end,
@@ -751,10 +710,7 @@
                 config: {
                     timeframe: `${spanLabel()} (${formatRangeCompact(timeline.window_start, timeline.window_end)})`,
                     total_count: timeline.total_count,
-                    series: [
-                        metricLabel(),
-                        ...compareSpecies,
-                    ],
+                    series: [metricLabel()],
                     notes: `Metric: ${metricLabel()}. Grouped by ${bucketLabel(timeline.bucket)}. Trend mode: ${trendMode}.`
                 },
                 image_base64: imageBase64,
@@ -1192,26 +1148,11 @@
                         </div>
                     </div>
 
-                    <div class="flex flex-wrap items-center gap-2 text-[10px]">
-                        <span class="font-black uppercase tracking-widest text-slate-400">
-                            {$_('leaderboard.compare_species', { default: 'Compare' })}
-                        </span>
-                        {#each compareCandidates() as candidate}
-                            <button
-                                type="button"
-                                onclick={() => toggleCompareSpecies(candidate.species)}
-                                disabled={!compareSpecies.includes(candidate.species) && compareSpecies.length >= MAX_COMPARE_SPECIES}
-                                class="px-2 py-1 rounded-full border text-[10px] font-black uppercase tracking-widest transition-colors disabled:opacity-40 disabled:cursor-not-allowed {compareSpecies.includes(candidate.species) ? 'border-emerald-400/70 bg-emerald-100 text-emerald-700 dark:border-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' : 'border-slate-200/80 dark:border-slate-700/70 bg-white/80 dark:bg-slate-900/50 text-slate-500 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}"
-                            >
-                                {candidate.displayName}
-                            </button>
-                        {/each}
-                    </div>
                 </div>
 
                 <div class="mt-6 w-full flex-1 min-h-[140px] max-h-[240px]">
                     {#if timeline?.points?.length}
-                        {#key `${span}-${timeline.total_count}-${timeline.bucket}-${trendMode}-${chartViewMode}-${compareSpecies.join('|')}-${showTemperature}-${showWind}-${showPrecip}`}
+                        {#key `${span}-${timeline.total_count}-${timeline.bucket}-${trendMode}-${chartViewMode}-${showTemperature}-${showWind}-${showPrecip}`}
                             <div use:chart={chartOptions() as any} bind:this={chartEl} class="w-full h-[240px]"></div>
                         {/key}
                     {:else}
@@ -1279,8 +1220,8 @@
                         >
                             <span aria-hidden="true">🌧️</span>
                             {showPrecip
-                                ? $_('leaderboard.hide_weather_bands', { default: 'Hide weather bands' })
-                                : $_('leaderboard.show_weather_bands', { default: 'Show weather bands' })}
+                                ? $_('leaderboard.hide_precip', { default: 'Hide precipitation' })
+                                : $_('leaderboard.show_precip', { default: 'Show precipitation' })}
                         </button>
                     </div>
                     {#if showPrecip && hasWeather()}
