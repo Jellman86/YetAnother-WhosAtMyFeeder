@@ -24,13 +24,16 @@ export const chart: Action<HTMLElement, ApexOptions> = (node, options) => {
         return initPromise;
     }
 
-    void init();
+    void init().catch((error: unknown) => {
+        // Prevent unhandled promise rejections when Apex fails initial render.
+        console.error('Apex initial render failed', error);
+    });
 
     return {
         update(newOptions) {
             pendingOptions = newOptions;
             if (chartInstance) {
-                Promise
+                void Promise
                     .resolve(chartInstance.updateOptions(newOptions, true, true))
                     .catch(async (error: unknown) => {
                         console.error('Apex updateOptions failed, recreating chart instance', error);
@@ -40,9 +43,19 @@ export const chart: Action<HTMLElement, ApexOptions> = (node, options) => {
                         } catch {
                             // best effort cleanup
                         }
-                        chartInstance = new ApexChartsCtor(node, pendingOptions);
-                        await chartInstance.render();
-                        (node as any).__apexchart = chartInstance;
+                        try {
+                            chartInstance = new ApexChartsCtor(node, pendingOptions);
+                            await chartInstance.render();
+                            (node as any).__apexchart = chartInstance;
+                        } catch (recreateError) {
+                            chartInstance = null;
+                            (node as any).__apexchart = null;
+                            console.error('Apex chart recreation failed', recreateError);
+                        }
+                    })
+                    .catch((chainError: unknown) => {
+                        // Defensive final catch for any unexpected async chain rejection.
+                        console.error('Apex update chain failed', chainError);
                     });
             }
         },
