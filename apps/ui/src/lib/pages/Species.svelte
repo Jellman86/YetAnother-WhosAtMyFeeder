@@ -71,6 +71,7 @@
             : (settingsStore.settings?.enrichment_summary_source ?? authStore.enrichmentSummarySource ?? 'wikipedia')
     );
     const summaryEnabled = $derived(enrichmentSummaryProvider !== 'disabled');
+    const canUseLeaderboardAnalysis = $derived(llmReady && authStore.canModify);
 
     $effect(() => {
         llmReady = settingsStore.llmReady;
@@ -861,7 +862,7 @@
     }
 
     async function refreshLeaderboardAnalysis() {
-        if (!timeline || !llmReady) return;
+        if (!timeline || !canUseLeaderboardAnalysis) return;
         leaderboardAnalysisError = null;
         const config = buildLeaderboardConfig();
         const key = await computeConfigKey(config);
@@ -893,7 +894,7 @@
     });
 
     async function runLeaderboardAnalysis(force = false) {
-        if (!llmReady) return;
+        if (!canUseLeaderboardAnalysis) return;
         if (!chartEl) return;
         if (!timeline?.points?.length) return;
         leaderboardAnalysisLoading = true;
@@ -976,19 +977,32 @@
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <h2 class="text-2xl font-bold text-slate-900 dark:text-white">{$_('leaderboard.title')}</h2>
 
-        <div class="flex items-center gap-4">
-            <div class="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
-                <span>{$_('leaderboard.species_count', { values: { count: leaderboardSpecies().length } })}</span>
-                <span class="text-slate-300 dark:text-slate-600">|</span>
-                <span>{$_('leaderboard.detections_count', { values: { count: totalDetections.toLocaleString() } })}</span>
-            </div>
+        <div class="flex flex-wrap items-center gap-2">
+            <span class="inline-flex items-center gap-1.5 rounded-full border border-slate-200/80 dark:border-slate-700/70 bg-white/80 dark:bg-slate-900/50 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-300">
+                <svg class="h-3 w-3" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+                    <path d="M3.5 14.2c1.6-1.8 3.2-2.7 4.8-2.7 1.9 0 3.4 1.1 4.3 3.2"></path>
+                    <path d="M6.2 9.1a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"></path>
+                    <path d="M13.9 10.4a1.7 1.7 0 1 0 0-3.4 1.7 1.7 0 0 0 0 3.4z"></path>
+                </svg>
+                {$_('leaderboard.species_count', { values: { count: leaderboardSpecies().length } })}
+            </span>
+            <span class="inline-flex items-center gap-1.5 rounded-full border border-slate-200/80 dark:border-slate-700/70 bg-white/80 dark:bg-slate-900/50 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-300">
+                <svg class="h-3 w-3" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+                    <path d="M3 14l4-4 3 2 7-8"></path>
+                </svg>
+                {$_('leaderboard.detections_count', { values: { count: totalDetections.toLocaleString() } })}
+            </span>
 
             <button
                 onclick={loadLeaderboard}
                 disabled={loading}
-                class="text-sm text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 disabled:opacity-50"
+                class="inline-flex items-center gap-1.5 rounded-full border border-slate-200/80 dark:border-slate-700/70 bg-white/80 dark:bg-slate-900/50 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-300 hover:bg-slate-100/80 dark:hover:bg-slate-800/70 disabled:opacity-50"
             >
-                ↻ {$_('common.refresh')}
+                <svg class="h-3 w-3" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+                    <path d="M16 10a6 6 0 1 1-1.8-4.3"></path>
+                    <path d="M16 4v4h-4"></path>
+                </svg>
+                {$_('common.refresh')}
             </button>
         </div>
     </div>
@@ -1282,7 +1296,7 @@
                             <span class="text-[11px] font-black text-slate-500 dark:text-slate-300">
                                 {$_('leaderboard.detections_count', { values: { count: timeline?.total_count?.toLocaleString() || '0' } })}
                             </span>
-                            {#if llmReady}
+                            {#if canUseLeaderboardAnalysis}
                                 <button
                                     type="button"
                                     class="px-3 py-1.5 rounded-full border border-emerald-200/70 dark:border-emerald-800/60 text-[10px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-300 bg-emerald-50/70 dark:bg-emerald-900/20 hover:bg-emerald-100/70 dark:hover:bg-emerald-900/40 disabled:opacity-60 disabled:cursor-not-allowed"
@@ -1366,14 +1380,28 @@
                     {/if}
                 </div>
 
-                <div class="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
-                    <span>{$_('leaderboard.total', { default: 'Total' })}: {timeline?.total_count?.toLocaleString() || '0'}</span>
-                    <span>•</span>
-                    <span>{$_('leaderboard.metric_peak', { default: 'Peak' })}: {formatMetricValue(metricPeak())}</span>
-                    <span>•</span>
-                    <span>{$_('leaderboard.metric_avg', { default: 'Avg' })}: {formatMetricValue(metricAvg())}</span>
+                <div class="mt-3 flex flex-wrap items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-300">
+                    <span class="inline-flex items-center gap-1.5 rounded-full border border-slate-200/80 dark:border-slate-700/70 bg-white/80 dark:bg-slate-900/45 px-2 py-1">
+                        <svg class="h-3 w-3" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+                            <path d="M4 14h12"></path>
+                            <path d="M7 14V9M10 14V6M13 14v-3"></path>
+                        </svg>
+                        {$_('leaderboard.total', { default: 'Total' })}: {timeline?.total_count?.toLocaleString() || '0'}
+                    </span>
+                    <span class="inline-flex items-center gap-1.5 rounded-full border border-slate-200/80 dark:border-slate-700/70 bg-white/80 dark:bg-slate-900/45 px-2 py-1">
+                        <svg class="h-3 w-3" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+                            <path d="M4 14l4-4 3 2 5-6"></path>
+                        </svg>
+                        {$_('leaderboard.metric_peak', { default: 'Peak' })}: {formatMetricValue(metricPeak())}
+                    </span>
+                    <span class="inline-flex items-center gap-1.5 rounded-full border border-slate-200/80 dark:border-slate-700/70 bg-white/80 dark:bg-slate-900/45 px-2 py-1">
+                        <svg class="h-3 w-3" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+                            <path d="M4 10h12M4 6h12M4 14h12"></path>
+                        </svg>
+                        {$_('leaderboard.metric_avg', { default: 'Avg' })}: {formatMetricValue(metricAvg())}
+                    </span>
                 </div>
-                {#if llmReady && (leaderboardAnalysisLoading || leaderboardAnalysisError || leaderboardAnalysis)}
+                {#if canUseLeaderboardAnalysis && (leaderboardAnalysisLoading || leaderboardAnalysisError || leaderboardAnalysis)}
                     <div class="mt-4 rounded-2xl border border-slate-200/70 dark:border-slate-700/60 bg-white/70 dark:bg-slate-900/40 px-4 py-3 text-sm text-slate-600 dark:text-slate-300 shadow-sm">
                         <div class="flex flex-wrap items-center justify-between gap-2 text-[10px] uppercase tracking-widest font-black text-slate-400">
                             <span>{$_('leaderboard.ai_summary', { default: 'AI insight' })}</span>
@@ -1404,27 +1432,36 @@
                             type="button"
                             onclick={() => showTemperature = !showTemperature}
                             disabled={!hasWeather()}
-                            class="px-2 py-1 rounded-full border border-slate-200/70 dark:border-slate-700/60 text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 disabled:opacity-45 disabled:cursor-not-allowed"
+                            class="inline-flex items-center gap-1.5 px-2 py-1 rounded-full border border-slate-200/70 dark:border-slate-700/60 text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 disabled:opacity-45 disabled:cursor-not-allowed"
                         >
-                            <span aria-hidden="true">🌡️</span>
+                            <svg class="h-3 w-3" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+                                <path d="M10 4a2 2 0 0 0-4 0v6.4a3.5 3.5 0 1 0 4 0V4z"></path>
+                                <path d="M8 9.5V4"></path>
+                            </svg>
                             {showTemperature ? $_('leaderboard.hide_temperature') : $_('leaderboard.show_temperature')}
                         </button>
                         <button
                             type="button"
                             onclick={() => showWind = !showWind}
                             disabled={!hasWeather()}
-                            class="px-2 py-1 rounded-full border border-slate-200/70 dark:border-slate-700/60 text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 disabled:opacity-45 disabled:cursor-not-allowed"
+                            class="inline-flex items-center gap-1.5 px-2 py-1 rounded-full border border-slate-200/70 dark:border-slate-700/60 text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 disabled:opacity-45 disabled:cursor-not-allowed"
                         >
-                            <span aria-hidden="true">💨</span>
+                            <svg class="h-3 w-3" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+                                <path d="M3 8h9a2 2 0 1 0-2-2"></path>
+                                <path d="M3 12h12a2 2 0 1 1-2 2"></path>
+                            </svg>
                             {showWind ? $_('leaderboard.hide_wind') : $_('leaderboard.show_wind')}
                         </button>
                         <button
                             type="button"
                             onclick={() => showPrecip = !showPrecip}
                             disabled={!hasWeather()}
-                            class="px-2 py-1 rounded-full border border-slate-200/70 dark:border-slate-700/60 text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 disabled:opacity-45 disabled:cursor-not-allowed"
+                            class="inline-flex items-center gap-1.5 px-2 py-1 rounded-full border border-slate-200/70 dark:border-slate-700/60 text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 disabled:opacity-45 disabled:cursor-not-allowed"
                         >
-                            <span aria-hidden="true">🌧️</span>
+                            <svg class="h-3 w-3" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+                                <path d="M6 9a4 4 0 1 1 7.5-1.8A2.8 2.8 0 1 1 14 13H6.5"></path>
+                                <path d="M7 14.5v2M10 14.5v2M13 14.5v2"></path>
+                            </svg>
                             {showPrecip
                                 ? $_('leaderboard.hide_precip', { default: 'Hide precipitation' })
                                 : $_('leaderboard.show_precip', { default: 'Show precipitation' })}
@@ -1461,13 +1498,19 @@
                     <div class="mt-2 flex flex-wrap items-center gap-2 text-[10px] text-slate-500">
                         {#if timeline?.sunrise_range}
                             <span class="inline-flex items-center gap-1 rounded-full border border-amber-200/60 dark:border-amber-700/50 bg-amber-50/60 dark:bg-amber-900/20 px-2 py-1 text-amber-700 dark:text-amber-300">
-                                <span aria-hidden="true">🌅</span>
+                                <svg class="h-3 w-3" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+                                    <path d="M4 12a6 6 0 0 1 12 0"></path>
+                                    <path d="M3 14h14M10 4v3M6.5 6.5l1.4 1.4M13.5 6.5l-1.4 1.4"></path>
+                                </svg>
                                 {$_('leaderboard.sunrise')}: {timeline.sunrise_range}
                             </span>
                         {/if}
                         {#if timeline?.sunset_range}
                             <span class="inline-flex items-center gap-1 rounded-full border border-orange-200/60 dark:border-orange-700/50 bg-orange-50/60 dark:bg-orange-900/20 px-2 py-1 text-orange-700 dark:text-orange-300">
-                                <span aria-hidden="true">🌇</span>
+                                <svg class="h-3 w-3" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+                                    <path d="M4 12a6 6 0 0 1 12 0"></path>
+                                    <path d="M3 14h14M10 9v3M6.5 8.5l1.4 1.4M13.5 8.5l-1.4 1.4"></path>
+                                </svg>
                                 {$_('leaderboard.sunset')}: {timeline.sunset_range}
                             </span>
                         {/if}
@@ -1481,13 +1524,20 @@
                 <div class="absolute inset-0 bg-gradient-to-br from-sky-50 via-transparent to-indigo-50 dark:from-sky-950/25 dark:to-indigo-900/15 pointer-events-none"></div>
                 <div class="relative">
                     <div class="flex items-start justify-between gap-3">
-                        <div>
-                            <p class="text-[10px] uppercase tracking-[0.26em] font-black text-sky-600 dark:text-sky-300">
-                                {$_('leaderboard.species_compare_title', { default: 'Species Compare' })}
-                            </p>
-                            <h4 class="text-lg md:text-xl font-black text-slate-900 dark:text-white mt-1">
-                                {$_('leaderboard.species_compare_subtitle', { default: 'Top species over time' })}
-                            </h4>
+                        <div class="flex items-start gap-2.5">
+                            <div class="h-8 w-8 rounded-xl border border-sky-200/80 dark:border-sky-700/60 bg-sky-100/80 dark:bg-sky-900/30 flex items-center justify-center text-sky-700 dark:text-sky-300">
+                                <svg class="h-4 w-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                                    <path d="M3 14l4-4 3 2 7-8"></path>
+                                </svg>
+                            </div>
+                            <div>
+                                <p class="text-[10px] uppercase tracking-[0.26em] font-black text-sky-600 dark:text-sky-300">
+                                    {$_('leaderboard.species_compare_title', { default: 'Species Compare' })}
+                                </p>
+                                <h4 class="text-lg md:text-xl font-black text-slate-900 dark:text-white mt-1">
+                                    {$_('leaderboard.species_compare_subtitle', { default: 'Top species over time' })}
+                                </h4>
+                            </div>
                         </div>
                         <span class="inline-flex items-center gap-1 rounded-full border border-slate-200/80 dark:border-slate-700/70 bg-white/80 dark:bg-slate-900/40 px-2 py-1 text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-300">
                             <svg class="h-3 w-3" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
@@ -1498,10 +1548,16 @@
                     </div>
 
                     <div class="mt-3 flex flex-wrap items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-300">
-                        <span class="inline-flex items-center rounded-full border border-slate-200/80 dark:border-slate-700/70 bg-white/80 dark:bg-slate-900/40 px-2 py-1">
+                        <span class="inline-flex items-center gap-1 rounded-full border border-slate-200/80 dark:border-slate-700/70 bg-white/80 dark:bg-slate-900/40 px-2 py-1">
+                            <svg class="h-3 w-3" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+                                <path d="M4 10h12M4 6h12M4 14h7"></path>
+                            </svg>
                             {bucketLabel(timeline?.bucket)}
                         </span>
-                        <span class="inline-flex items-center rounded-full border border-slate-200/80 dark:border-slate-700/70 bg-white/80 dark:bg-slate-900/40 px-2 py-1">
+                        <span class="inline-flex items-center gap-1 rounded-full border border-slate-200/80 dark:border-slate-700/70 bg-white/80 dark:bg-slate-900/40 px-2 py-1">
+                            <svg class="h-3 w-3" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+                                <path d="M4 14l4-4 3 2 5-6"></path>
+                            </svg>
                             {$_('leaderboard.metric_peak', { default: 'Peak' })}: {formatMetricValue(comparePeak())}
                         </span>
                     </div>
@@ -1530,13 +1586,21 @@
                 <div class="absolute inset-0 bg-gradient-to-br from-cyan-50 via-transparent to-blue-50 dark:from-cyan-950/20 dark:to-blue-900/15 pointer-events-none"></div>
                 <div class="relative">
                     <div class="flex items-start justify-between gap-3">
-                        <div>
-                            <p class="text-[10px] uppercase tracking-[0.26em] font-black text-cyan-600 dark:text-cyan-300">
-                                {$_('leaderboard.activity_heatmap_title', { default: 'Activity Heatmap' })}
-                            </p>
-                            <h4 class="text-lg md:text-xl font-black text-slate-900 dark:text-white mt-1">
-                                {$_('leaderboard.activity_heatmap_subtitle', { default: 'Hour x weekday activity' })}
-                            </h4>
+                        <div class="flex items-start gap-2.5">
+                            <div class="h-8 w-8 rounded-xl border border-cyan-200/80 dark:border-cyan-700/60 bg-cyan-100/80 dark:bg-cyan-900/30 flex items-center justify-center text-cyan-700 dark:text-cyan-300">
+                                <svg class="h-4 w-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                                    <rect x="3" y="4" width="14" height="12" rx="2"></rect>
+                                    <path d="M3 9h14M8 4v12M13 4v12"></path>
+                                </svg>
+                            </div>
+                            <div>
+                                <p class="text-[10px] uppercase tracking-[0.26em] font-black text-cyan-600 dark:text-cyan-300">
+                                    {$_('leaderboard.activity_heatmap_title', { default: 'Activity Heatmap' })}
+                                </p>
+                                <h4 class="text-lg md:text-xl font-black text-slate-900 dark:text-white mt-1">
+                                    {$_('leaderboard.activity_heatmap_subtitle', { default: 'Hour x weekday activity' })}
+                                </h4>
+                            </div>
                         </div>
                         <span class="inline-flex items-center gap-1 rounded-full border border-slate-200/80 dark:border-slate-700/70 bg-white/80 dark:bg-slate-900/40 px-2 py-1 text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-300">
                             <svg class="h-3 w-3" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
@@ -1548,10 +1612,18 @@
                     </div>
 
                     <div class="mt-3 flex flex-wrap items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-300">
-                        <span class="inline-flex items-center rounded-full border border-slate-200/80 dark:border-slate-700/70 bg-white/80 dark:bg-slate-900/40 px-2 py-1">
+                        <span class="inline-flex items-center gap-1 rounded-full border border-slate-200/80 dark:border-slate-700/70 bg-white/80 dark:bg-slate-900/40 px-2 py-1">
+                            <svg class="h-3 w-3" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+                                <rect x="3" y="4" width="14" height="13" rx="2"></rect>
+                                <path d="M3 8h14"></path>
+                            </svg>
                             {formatRangeCompact(activityHeatmap?.window_start, activityHeatmap?.window_end)}
                         </span>
-                        <span class="inline-flex items-center rounded-full border border-slate-200/80 dark:border-slate-700/70 bg-white/80 dark:bg-slate-900/40 px-2 py-1">
+                        <span class="inline-flex items-center gap-1 rounded-full border border-slate-200/80 dark:border-slate-700/70 bg-white/80 dark:bg-slate-900/40 px-2 py-1">
+                            <svg class="h-3 w-3" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+                                <path d="M4 14h12"></path>
+                                <path d="M7 14V9M10 14V6M13 14v-3"></path>
+                            </svg>
                             {$_('leaderboard.total', { default: 'Total' })}: {formatMetricValue(activityHeatmap?.total_count ?? 0)}
                         </span>
                     </div>
