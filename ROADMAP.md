@@ -4,6 +4,55 @@ This roadmap outlines planned features and improvements for the YA-WAMF bird cla
 
 > **Important:** YA-WAMF is already feature-rich! This roadmap focuses on NEW features to be developed. See the [README](README.md) for comprehensive list of existing capabilities.
 
+## Raspberry Pi Compatibility (Best-Effort Plan)
+
+**Status:** Planned, not yet hardware-validated.
+
+YA-WAMF currently does **not** have verified Raspberry Pi support based on direct device testing.  
+At the moment, no physical Raspberry Pi test hardware is available in this project environment, so Pi compatibility is being treated as **best effort** until real-device validation is complete.
+
+### Current Reality
+
+- Published release images are currently focused on existing CI build targets and should not be treated as confirmed Raspberry Pi-ready.
+- Documentation language has been corrected to avoid claiming confirmed Pi support.
+- Objective remains to support **64-bit Raspberry Pi deployments** (Pi 4/Pi 5 class devices) for the Fast model profile.
+
+### Implementation Plan
+
+1. **Multi-Arch Image Publishing**
+- Update image build pipeline to publish `linux/amd64` and `linux/arm64` manifests.
+- Keep existing release flow (`dev` for `:dev`, `v*` tags for release tags/`latest`) unchanged.
+
+2. **ARM-Safe Dependency Strategy**
+- Review backend ML/runtime dependencies for `arm64` wheel availability and install stability.
+- Separate heavyweight optional runtimes from baseline runtime to reduce ARM installation failures.
+- Ensure default model/runtime path on ARM uses the lowest-friction inference stack.
+
+3. **Pi-Oriented Runtime Profile**
+- Provide a documented low-resource profile for Pi:
+  - Fast model default (MobileNet/TFLite path).
+  - Conservative defaults for expensive enrichments/features.
+  - Clear guidance on optional features that may be too heavy on Pi 4-class hardware.
+
+4. **CI Validation Without Physical Pi**
+- Add ARM64 container smoke tests in CI (emulated where needed):
+  - Container startup (`/health`, `/ready`).
+  - Fresh DB migration + idempotency.
+  - Basic inference path smoke check.
+- Treat these as compatibility guards, not performance certification.
+
+5. **Real Hardware Exit Validation (When Available)**
+- Run a final acceptance pass on a physical Raspberry Pi before claiming full support:
+  - Cold start time.
+  - Sustained inference behavior and thermal stability.
+  - End-to-end detection + UI responsiveness under realistic load.
+
+### Support Statement Until Hardware Validation Exists
+
+- Raspberry Pi support is **planned best effort**.
+- ARM64 compatibility improvements are in progress.
+- Official “supported” status will only be declared after successful real-device validation.
+
 ## Already Implemented ✅
 
 YA-WAMF already has extensive functionality built-in:
@@ -57,6 +106,7 @@ See [DEVELOPER.md](DEVELOPER.md) for architectural details.
 
 ## Table of Contents
 
+- [Raspberry Pi Compatibility (Best-Effort Plan)](#raspberry-pi-compatibility-best-effort-plan)
 - [🚨 Issues First](#-issues-first)
 - [🎯 Top Priority Features](#-top-priority-features)
 - [Phase 1: User Experience & Enhancements](#phase-1-user-experience--enhancements)

@@ -119,15 +119,18 @@ Ensure your host machine has enough space.
 
 ## 🖥 Hardware Requirements
 
-YA-WAMF can run on anything from a Raspberry Pi 4 to a high-end server, but your choice of **AI Model** will dictate your RAM needs:
+YA-WAMF currently has the most validation on x86_64 environments.  
+Raspberry Pi compatibility is being implemented as a **best-effort ARM64 target** and is not yet validated on physical Pi hardware in this project environment.
+
+Model choice still strongly affects RAM/CPU requirements:
 
 | Model Tier | CPU | RAM (Recommended) |
 |------------|-----|-------------------|
-| **Fast (MobileNet)** | Low | 512MB |
+| **Fast (MobileNet)** | Low | 512MB (baseline, may be higher in real deployments) |
 | **High (ConvNeXt)** | Medium | 2GB |
 | **Elite (EVA-02)** | High | 4GB+ |
 
-> 💡 **Pro Tip:** If you are running on a Raspberry Pi or low-power NAS, stick with the **MobileNet V2** model for the best experience.
+> 💡 **Pro Tip:** For low-power or ARM devices (including trial Pi deployments), start with **MobileNet V2** and only enable heavier features after stability checks.
 
 ## 🔄 Updating YA-WAMF
 

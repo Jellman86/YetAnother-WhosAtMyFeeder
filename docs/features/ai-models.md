@@ -5,13 +5,15 @@ YA-WAMF supports multiple AI models, allowing you to balance speed, memory usage
 ## The Model Market
 You can manage models directly from the **Settings > Detection** page. The system supports two runtimes: **TensorFlow Lite** (Fast) and **ONNX** (High Accuracy).
 
+> **Platform note:** Raspberry Pi compatibility is currently a best-effort ARM64 target and has not yet been validated on physical Pi hardware in this project environment.
+
 ### Available Tiers
 
 #### 1. Fast (MobileNet V2)
 - **Format:** TFLite
 - **Accuracy:** ~70-80%
 - **Speed:** Extremely Fast (~30ms)
-- **Best for:** Low-power devices like Raspberry Pi or when you want instant results.
+- **Best for:** Low-power devices, ARM trials, or when you want instant results.
 
 #### 2. High Accuracy (ConvNeXt Large)
 - **Format:** ONNX

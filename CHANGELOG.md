@@ -6,7 +6,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
-_No changes yet._
+- **Changed:** Clarified Raspberry Pi support messaging in documentation; Pi compatibility is now explicitly described as best-effort ARM64 work in progress until physical-device validation is completed.
+- **Added:** Roadmap now includes a detailed Raspberry Pi compatibility plan (multi-arch images, ARM dependency strategy, CI validation path, and real-hardware exit criteria).
 
 ## [2.8.0] - 2026-02-13
 
