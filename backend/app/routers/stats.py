@@ -108,6 +108,21 @@ class DetectionsTimelineSpanResponse(BaseModel):
     sunset_range: Optional[str] = None
 
 
+class DetectionsActivityHeatmapCell(BaseModel):
+    day_of_week: int  # 0=Sunday..6=Saturday
+    hour: int  # 0..23
+    count: int
+
+
+class DetectionsActivityHeatmapResponse(BaseModel):
+    span: str
+    window_start: str
+    window_end: str
+    total_count: int
+    max_cell_count: int
+    cells: List[DetectionsActivityHeatmapCell]
+
+
 def _parse_sun_datetime(value: Optional[str]) -> Optional[datetime]:
     if not value:
         return None
@@ -690,4 +705,63 @@ async def get_detection_timeline_span(
             weather=weather_points,
             sunrise_range=sunrise_range,
             sunset_range=sunset_range,
+        )
+
+
+@router.get("/stats/detections/activity-heatmap", response_model=DetectionsActivityHeatmapResponse)
+@guest_rate_limit()
+async def get_detection_activity_heatmap(
+    request: Request,
+    span: Literal["all", "day", "week", "month"] = Query("week", description="Time span for the heatmap"),
+):
+    """Get detection activity grouped by weekday and hour for a rolling span."""
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+
+    async with get_db() as db:
+        repo = DetectionRepository(db)
+
+        if span == "day":
+            window_start = now - timedelta(hours=24)
+            window_end = now
+        elif span == "week":
+            window_start = now - timedelta(days=7)
+            window_end = now
+        elif span == "month":
+            window_start = now - timedelta(days=30)
+            window_end = now
+        else:
+            oldest, _newest = await repo.get_detection_time_bounds()
+            if oldest:
+                window_start = oldest.replace(tzinfo=None)
+            else:
+                window_start = now
+            window_end = now
+
+        counts = await repo.get_activity_heatmap_counts(window_start, window_end)
+        cells: list[DetectionsActivityHeatmapCell] = []
+        total_count = 0
+        max_cell_count = 0
+
+        for day_of_week in range(7):
+            day_counts = counts.get(day_of_week, {})
+            for hour in range(24):
+                count = int(day_counts.get(hour, 0))
+                cells.append(
+                    DetectionsActivityHeatmapCell(
+                        day_of_week=day_of_week,
+                        hour=hour,
+                        count=count,
+                    )
+                )
+                total_count += count
+                if count > max_cell_count:
+                    max_cell_count = count
+
+        return DetectionsActivityHeatmapResponse(
+            span=span,
+            window_start=window_start.replace(tzinfo=timezone.utc).isoformat(),
+            window_end=window_end.replace(tzinfo=timezone.utc).isoformat(),
+            total_count=total_count,
+            max_cell_count=max_cell_count,
+            cells=cells,
         )

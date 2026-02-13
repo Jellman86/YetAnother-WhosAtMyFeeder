@@ -1014,6 +1014,37 @@ class DetectionRepository:
                 out[bucket_key][output_species] = out[bucket_key].get(output_species, 0) + count
         return out
 
+    async def get_activity_heatmap_counts(
+        self,
+        start: datetime,
+        end: datetime,
+    ) -> dict[int, dict[int, int]]:
+        """Return detection counts grouped by weekday (0=Sunday) and hour (0-23)."""
+        query = """
+            SELECT
+                CAST(strftime('%w', detection_time) AS integer) as dow,
+                CAST(strftime('%H', detection_time) AS integer) as hour_of_day,
+                COUNT(*) as c
+            FROM detections
+            WHERE detection_time >= ? AND detection_time < ?
+              AND (is_hidden = 0 OR is_hidden IS NULL)
+            GROUP BY dow, hour_of_day
+            ORDER BY dow ASC, hour_of_day ASC
+        """
+        async with self.db.execute(query, (start, end)) as cursor:
+            rows = await cursor.fetchall()
+
+        out: dict[int, dict[int, int]] = {}
+        for row in rows:
+            dow = int(row[0] or 0)
+            hour_of_day = int(row[1] or 0)
+            count = int(row[2] or 0)
+            if dow < 0 or dow > 6 or hour_of_day < 0 or hour_of_day > 23:
+                continue
+            out.setdefault(dow, {})
+            out[dow][hour_of_day] = count
+        return out
+
     async def get_species_counts(self) -> list[dict]:
         """Get detection counts per species with taxonomic metadata."""
         query = """

@@ -2,11 +2,13 @@
     import { tick } from 'svelte';
     import {
         analyzeLeaderboardGraph,
+        fetchDetectionsActivityHeatmapSpan,
         fetchDetectionsTimelineSpan,
         fetchLeaderboardAnalysis,
         fetchLeaderboardSpecies,
         fetchSpecies,
         fetchSpeciesInfo,
+        type DetectionsActivityHeatmapResponse,
         type DetectionsTimelineSpanResponse,
         type LeaderboardSpan,
         type SpeciesCount,
@@ -45,6 +47,7 @@
     let includeUnknownBird = $state(false);
     let selectedSpecies = $state<string | null>(null);
     let timeline = $state<DetectionsTimelineSpanResponse | null>(null);
+    let activityHeatmap = $state<DetectionsActivityHeatmapResponse | null>(null);
     let speciesInfoCache = $state<Record<string, SpeciesInfo>>({});
     let chartEl = $state<HTMLDivElement | null>(null);
     let leaderboardAnalysis = $state<string | null>(null);
@@ -166,6 +169,17 @@
         }));
     }
 
+    function selectCompareSpecies(rows: LeaderboardRow[]): string[] {
+        const source = includeUnknownBird
+            ? rows
+            : rows.filter((item) => item.species !== "Unknown Bird");
+        return [...source]
+            .sort((a, b) => (b.count || 0) - (a.count || 0))
+            .map((item) => item.species)
+            .filter(Boolean)
+            .slice(0, 3);
+    }
+
     async function loadLeaderboard() {
         loading = true;
         error = null;
@@ -181,14 +195,27 @@
             console.error('Failed to load leaderboard species', e);
         }
 
-        try {
-            timeline = await fetchDetectionsTimelineSpan(span, { includeWeather: true });
-        } catch (e) {
+        const compareSpecies = selectCompareSpecies(species);
+        const [timelineResult, heatmapResult] = await Promise.allSettled([
+            fetchDetectionsTimelineSpan(span, { includeWeather: true, compareSpecies }),
+            fetchDetectionsActivityHeatmapSpan(span),
+        ]);
+
+        if (timelineResult.status === 'fulfilled') {
+            timeline = timelineResult.value;
+        } else {
             timeline = null;
-            console.error('Failed to load leaderboard timeline', e);
-        } finally {
-            loading = false;
+            console.error('Failed to load leaderboard timeline', timelineResult.reason);
         }
+
+        if (heatmapResult.status === 'fulfilled') {
+            activityHeatmap = heatmapResult.value;
+        } else {
+            activityHeatmap = null;
+            console.error('Failed to load activity heatmap', heatmapResult.reason);
+        }
+
+        loading = false;
     }
 
     async function loadSpeciesInfo(speciesName: string) {
@@ -605,6 +632,185 @@
                     color: isDark() ? '#94a3b8' : '#64748b'
                 }
             }
+        };
+    });
+
+    const comparePalette = ['#10b981', '#0ea5e9', '#6366f1', '#f59e0b'];
+    const heatmapDayOrder = [1, 2, 3, 4, 5, 6, 0];
+
+    function weekdayLabel(dayOfWeek: number): string {
+        if (dayOfWeek === 1) return $_('leaderboard.weekday_mon', { default: 'Mon' });
+        if (dayOfWeek === 2) return $_('leaderboard.weekday_tue', { default: 'Tue' });
+        if (dayOfWeek === 3) return $_('leaderboard.weekday_wed', { default: 'Wed' });
+        if (dayOfWeek === 4) return $_('leaderboard.weekday_thu', { default: 'Thu' });
+        if (dayOfWeek === 5) return $_('leaderboard.weekday_fri', { default: 'Fri' });
+        if (dayOfWeek === 6) return $_('leaderboard.weekday_sat', { default: 'Sat' });
+        return $_('leaderboard.weekday_sun', { default: 'Sun' });
+    }
+
+    function hourLabel(hour: number): string {
+        return `${String(Math.max(0, Math.min(23, hour))).padStart(2, '0')}:00`;
+    }
+
+    let compareSeries = $derived(() => {
+        if (!timeline?.compare_series?.length) return [];
+        const points = timelinePoints();
+        if (!points.length) return [];
+        const displayNames = new Map(processedSpecies().map((item) => [item.species, item.displayName] as const));
+        return timeline.compare_series
+            .map((entry, index) => {
+                const valuesByBucket = new Map(
+                    (entry.points || []).map((point) => [point.bucket_start, Math.max(0, Number(point.count ?? 0))] as const)
+                );
+                const data = points
+                    .map((point) => {
+                        const x = Date.parse(point.bucket_start);
+                        if (!Number.isFinite(x)) return null;
+                        return {
+                            x,
+                            y: valuesByBucket.get(point.bucket_start) ?? 0
+                        };
+                    })
+                    .filter((point): point is { x: number; y: number } => !!point);
+
+                if (!data.length) return null;
+                return {
+                    name: displayNames.get(entry.species) ?? entry.species,
+                    type: 'line',
+                    color: comparePalette[index % comparePalette.length],
+                    data
+                };
+            })
+            .filter((series): series is { name: string; type: 'line'; color: string; data: Array<{ x: number; y: number }> } => !!series);
+    });
+
+    let compareHasData = $derived(() => compareSeries().some((series) => series.data.some((point) => point.y > 0)));
+    let comparePeak = $derived(() => compareSeries().reduce((peak, series) => {
+        const seriesPeak = series.data.reduce((max, point) => Math.max(max, point.y), 0);
+        return Math.max(peak, seriesPeak);
+    }, 0));
+    let compareChartOptions = $derived(() => ({
+        chart: {
+            type: 'line',
+            height: 220,
+            width: '100%',
+            toolbar: { show: false },
+            zoom: { enabled: false },
+            animations: { enabled: true, easing: 'easeinout', speed: 450 }
+        },
+        series: compareSeries(),
+        dataLabels: { enabled: false },
+        stroke: { curve: 'smooth', width: 2 },
+        markers: { size: 0, hover: { size: 4 } },
+        grid: {
+            borderColor: 'rgba(148,163,184,0.18)',
+            strokeDashArray: 3,
+            padding: { left: 8, right: 8, top: 8, bottom: 2 }
+        },
+        xaxis: {
+            type: 'datetime',
+            tickAmount: Math.min(6, timelinePoints().length || 0),
+            labels: { rotate: 0, style: { fontSize: '10px', colors: '#94a3b8' } }
+        },
+        yaxis: {
+            min: 0,
+            forceNiceScale: true,
+            labels: {
+                style: { fontSize: '10px', colors: '#94a3b8' },
+                formatter: (value: number) => formatMetricValue(value)
+            }
+        },
+        tooltip: {
+            theme: isDark() ? 'dark' : 'light',
+            x: {
+                format: timeline?.bucket === 'hour'
+                    ? 'MMM dd HH:mm'
+                    : (timeline?.bucket === 'month' ? 'MMM yyyy' : 'MMM dd HH:mm')
+            },
+            y: {
+                formatter: (value: number) => formatMetricValue(value)
+            }
+        },
+        legend: {
+            show: compareSeries().length > 0,
+            position: 'top',
+            horizontalAlign: 'right',
+            fontSize: '10px',
+            labels: { colors: isDark() ? '#94a3b8' : '#64748b' }
+        }
+    }));
+
+    let heatmapCellMap = $derived(() => {
+        const map = new Map<string, number>();
+        for (const cell of activityHeatmap?.cells ?? []) {
+            if (cell.day_of_week < 0 || cell.day_of_week > 6 || cell.hour < 0 || cell.hour > 23) continue;
+            map.set(`${cell.day_of_week}-${cell.hour}`, Math.max(0, Number(cell.count ?? 0)));
+        }
+        return map;
+    });
+
+    let heatmapSeries = $derived(() => heatmapDayOrder.map((dayOfWeek) => ({
+        name: weekdayLabel(dayOfWeek),
+        data: Array.from({ length: 24 }, (_, hour) => ({
+            x: hourLabel(hour),
+            y: heatmapCellMap().get(`${dayOfWeek}-${hour}`) ?? 0
+        }))
+    })));
+    let heatmapHasData = $derived(() => (activityHeatmap?.total_count ?? 0) > 0);
+    let heatmapChartOptions = $derived(() => {
+        const maxCellCount = Math.max(1, activityHeatmap?.max_cell_count ?? 0);
+        const midLow = Math.max(1, Math.ceil(maxCellCount * 0.2));
+        const mid = Math.max(midLow + 1, Math.ceil(maxCellCount * 0.45));
+        const high = Math.max(mid + 1, Math.ceil(maxCellCount * 0.7));
+        const ranges: Array<{ from: number; to: number; color: string; name: string }> = [
+            { from: 0, to: 0, color: isDark() ? 'rgba(51,65,85,0.22)' : 'rgba(226,232,240,0.8)', name: '0' }
+        ];
+        const pushRange = (from: number, to: number, color: string, name: string) => {
+            if (from <= to) {
+                ranges.push({ from, to, color, name });
+            }
+        };
+        pushRange(1, Math.min(midLow, maxCellCount), '#93c5fd', '1+');
+        pushRange(midLow + 1, Math.min(mid, maxCellCount), '#60a5fa', `${midLow + 1}+`);
+        pushRange(mid + 1, Math.min(high, maxCellCount), '#3b82f6', `${mid + 1}+`);
+        pushRange(high + 1, maxCellCount, '#1d4ed8', `${high + 1}+`);
+        return {
+            chart: {
+                type: 'heatmap',
+                height: 260,
+                width: '100%',
+                toolbar: { show: false },
+                animations: { enabled: true, easing: 'easeinout', speed: 350 }
+            },
+            series: heatmapSeries(),
+            dataLabels: { enabled: false },
+            stroke: {
+                width: 1,
+                colors: [isDark() ? 'rgba(15,23,42,0.45)' : 'rgba(148,163,184,0.2)']
+            },
+            plotOptions: {
+                heatmap: {
+                    radius: 2,
+                    shadeIntensity: 0.45,
+                    colorScale: {
+                        ranges
+                    }
+                }
+            },
+            xaxis: {
+                labels: { style: { fontSize: '10px', colors: '#94a3b8' } },
+                tickPlacement: 'on'
+            },
+            yaxis: {
+                labels: { style: { fontSize: '10px', colors: '#94a3b8' } }
+            },
+            tooltip: {
+                theme: isDark() ? 'dark' : 'light',
+                y: {
+                    formatter: (value: number) => `${formatMetricValue(value)}`
+                }
+            },
+            legend: { show: false }
         };
     });
 
@@ -1267,6 +1473,103 @@
                         {/if}
                     </div>
                 {/if}
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
+            <div class="card-base rounded-3xl p-6 md:p-7 relative overflow-hidden">
+                <div class="absolute inset-0 bg-gradient-to-br from-sky-50 via-transparent to-indigo-50 dark:from-sky-950/25 dark:to-indigo-900/15 pointer-events-none"></div>
+                <div class="relative">
+                    <div class="flex items-start justify-between gap-3">
+                        <div>
+                            <p class="text-[10px] uppercase tracking-[0.26em] font-black text-sky-600 dark:text-sky-300">
+                                {$_('leaderboard.species_compare_title', { default: 'Species Compare' })}
+                            </p>
+                            <h4 class="text-lg md:text-xl font-black text-slate-900 dark:text-white mt-1">
+                                {$_('leaderboard.species_compare_subtitle', { default: 'Top species over time' })}
+                            </h4>
+                        </div>
+                        <span class="inline-flex items-center gap-1 rounded-full border border-slate-200/80 dark:border-slate-700/70 bg-white/80 dark:bg-slate-900/40 px-2 py-1 text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-300">
+                            <svg class="h-3 w-3" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+                                <path d="M3 14l4-4 3 2 7-8"></path>
+                            </svg>
+                            {compareSeries().length}
+                        </span>
+                    </div>
+
+                    <div class="mt-3 flex flex-wrap items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-300">
+                        <span class="inline-flex items-center rounded-full border border-slate-200/80 dark:border-slate-700/70 bg-white/80 dark:bg-slate-900/40 px-2 py-1">
+                            {bucketLabel(timeline?.bucket)}
+                        </span>
+                        <span class="inline-flex items-center rounded-full border border-slate-200/80 dark:border-slate-700/70 bg-white/80 dark:bg-slate-900/40 px-2 py-1">
+                            {$_('leaderboard.metric_peak', { default: 'Peak' })}: {formatMetricValue(comparePeak())}
+                        </span>
+                    </div>
+
+                    <div class="mt-4 min-h-[220px]">
+                        {#if compareSeries().length}
+                            {#key `${span}-${timeline?.bucket}-${timeline?.total_count}-${compareSeries().length}-${isDark()}`}
+                                <div use:chart={compareChartOptions() as any} class="w-full h-[220px]"></div>
+                            {/key}
+                        {:else}
+                            <div class="h-[220px] w-full rounded-2xl border border-dashed border-slate-300/80 dark:border-slate-700/70 bg-slate-50/70 dark:bg-slate-900/35 flex items-center justify-center text-sm text-slate-500 dark:text-slate-400">
+                                {$_('leaderboard.no_compare_data', { default: 'Not enough data for comparison yet.' })}
+                            </div>
+                        {/if}
+                    </div>
+
+                    {#if compareSeries().length && !compareHasData()}
+                        <p class="mt-3 text-xs text-slate-500 dark:text-slate-400">
+                            {$_('leaderboard.compare_zero_activity', { default: 'Compared species are selected, but activity in this window is currently zero.' })}
+                        </p>
+                    {/if}
+                </div>
+            </div>
+
+            <div class="card-base rounded-3xl p-6 md:p-7 relative overflow-hidden">
+                <div class="absolute inset-0 bg-gradient-to-br from-cyan-50 via-transparent to-blue-50 dark:from-cyan-950/20 dark:to-blue-900/15 pointer-events-none"></div>
+                <div class="relative">
+                    <div class="flex items-start justify-between gap-3">
+                        <div>
+                            <p class="text-[10px] uppercase tracking-[0.26em] font-black text-cyan-600 dark:text-cyan-300">
+                                {$_('leaderboard.activity_heatmap_title', { default: 'Activity Heatmap' })}
+                            </p>
+                            <h4 class="text-lg md:text-xl font-black text-slate-900 dark:text-white mt-1">
+                                {$_('leaderboard.activity_heatmap_subtitle', { default: 'Hour x weekday activity' })}
+                            </h4>
+                        </div>
+                        <span class="inline-flex items-center gap-1 rounded-full border border-slate-200/80 dark:border-slate-700/70 bg-white/80 dark:bg-slate-900/40 px-2 py-1 text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-300">
+                            <svg class="h-3 w-3" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+                                <rect x="3" y="4" width="14" height="12" rx="2"></rect>
+                                <path d="M3 9h14M8 4v12M13 4v12"></path>
+                            </svg>
+                            {formatMetricValue(activityHeatmap?.max_cell_count ?? 0)}
+                        </span>
+                    </div>
+
+                    <div class="mt-3 flex flex-wrap items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-300">
+                        <span class="inline-flex items-center rounded-full border border-slate-200/80 dark:border-slate-700/70 bg-white/80 dark:bg-slate-900/40 px-2 py-1">
+                            {formatRangeCompact(activityHeatmap?.window_start, activityHeatmap?.window_end)}
+                        </span>
+                        <span class="inline-flex items-center rounded-full border border-slate-200/80 dark:border-slate-700/70 bg-white/80 dark:bg-slate-900/40 px-2 py-1">
+                            {$_('leaderboard.total', { default: 'Total' })}: {formatMetricValue(activityHeatmap?.total_count ?? 0)}
+                        </span>
+                    </div>
+
+                    <div class="mt-4 min-h-[260px]">
+                        {#if activityHeatmap && heatmapHasData()}
+                            {#key `${span}-${activityHeatmap.total_count}-${activityHeatmap.max_cell_count}-${isDark()}`}
+                                <div use:chart={heatmapChartOptions() as any} class="w-full h-[260px]"></div>
+                            {/key}
+                        {:else if activityHeatmap}
+                            <div class="h-[260px] w-full rounded-2xl border border-dashed border-slate-300/80 dark:border-slate-700/70 bg-slate-50/70 dark:bg-slate-900/35 flex items-center justify-center text-sm text-slate-500 dark:text-slate-400">
+                                {$_('leaderboard.no_activity_data', { default: 'No activity captured in this window yet.' })}
+                            </div>
+                        {:else}
+                            <div class="h-[260px] w-full rounded-2xl bg-slate-100 dark:bg-slate-800/60 animate-pulse"></div>
+                        {/if}
+                    </div>
+                </div>
             </div>
         </div>
 

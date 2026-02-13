@@ -170,6 +170,21 @@ export interface DetectionsTimelineSpanResponse {
     sunset_range?: string | null;
 }
 
+export interface DetectionsActivityHeatmapCell {
+    day_of_week: number; // 0=Sunday..6=Saturday
+    hour: number; // 0..23
+    count: number;
+}
+
+export interface DetectionsActivityHeatmapResponse {
+    span: LeaderboardSpan;
+    window_start: string;
+    window_end: string;
+    total_count: number;
+    max_cell_count: number;
+    cells: DetectionsActivityHeatmapCell[];
+}
+
 export async function fetchDetectionsTimelineSpan(
     span: LeaderboardSpan = 'week',
     opts: { includeWeather?: boolean; compareSpecies?: string[] } = {}
@@ -182,6 +197,15 @@ export async function fetchDetectionsTimelineSpan(
     }
     const response = await apiFetch(`${API_BASE}/stats/detections/timeline?${params.toString()}`);
     return handleResponse<DetectionsTimelineSpanResponse>(response);
+}
+
+export async function fetchDetectionsActivityHeatmapSpan(
+    span: LeaderboardSpan = 'week'
+): Promise<DetectionsActivityHeatmapResponse> {
+    const params = new URLSearchParams();
+    params.set('span', span);
+    const response = await apiFetch(`${API_BASE}/stats/detections/activity-heatmap?${params.toString()}`);
+    return handleResponse<DetectionsActivityHeatmapResponse>(response);
 }
 
 export interface Settings {

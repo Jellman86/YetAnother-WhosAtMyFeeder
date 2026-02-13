@@ -6,6 +6,13 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- **Added:** Leaderboard now includes two additional analytics panels beneath the main detections chart:
+  - Species comparison trend chart for the top species in the selected window.
+  - Activity heatmap chart (hour x weekday) for the selected window.
+- **Added:** New stats API endpoint `GET /api/stats/detections/activity-heatmap` for 7x24 detection activity aggregation by weekday/hour.
+- **Changed:** Leaderboard timeline loading now fetches compare-series data and heatmap data in parallel with graceful partial-failure handling.
+- **Changed:** Added i18n keys/translations for new leaderboard analytics cards and weekday labels across supported locales.
+
 - **Changed:** Removed the mobile-only Bottom Navigation bar to avoid duplicate navigation patterns with the existing mobile sidebar/menu.
 - **Fixed:** Owner "system status" startup notifications are now emitted once per backend startup instance (using a startup instance marker), instead of being re-created on every page refresh.
 - **Changed:** Leaderboard range controls now default to **Month** and are ordered **Month → Week → Day → All Time** for a more useful first view.
