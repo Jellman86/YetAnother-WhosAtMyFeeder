@@ -2,6 +2,25 @@
     import { fetchVersion, type VersionInfo } from '../api';
     import { _ } from 'svelte-i18n';
 
+    type FeatureDefinition = {
+        icon: string;
+        titleKey: string;
+        descriptionKey: string;
+        badgeKey?: string;
+    };
+
+    type ResourceLinkDefinition = {
+        href: string | '__docs__';
+        labelKey: string;
+        descriptionKey: string;
+        iconPath: string;
+    };
+
+    type LinkParts = {
+        before: string;
+        after: string;
+    };
+
     const appVersion = typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : 'unknown';
     const appVersionBase = appVersion.includes('+') ? appVersion.split('+')[0] : appVersion;
     let versionInfo = $state<VersionInfo>({
@@ -16,80 +35,94 @@
             try {
                 const info = await fetchVersion();
                 versionInfo = info;
-            } catch (e) {
-                console.error('Failed to fetch version info', e);
+            } catch {
+                // Fall back to build-time version info when runtime fetch fails.
             }
         })();
     });
 
-    let features = $derived([
+    const featureDefinitions: FeatureDefinition[] = [
         {
             icon: '🤖',
-            title: $_('about.feature_list.ai_models.title'),
-            description: $_('about.feature_list.ai_models.desc')
+            titleKey: 'about.feature_list.ai_models.title',
+            descriptionKey: 'about.feature_list.ai_models.desc'
         },
         {
             icon: '🎵',
-            title: $_('about.feature_list.multi_sensor.title'),
-            description: $_('about.feature_list.multi_sensor.desc')
+            titleKey: 'about.feature_list.multi_sensor.title',
+            descriptionKey: 'about.feature_list.multi_sensor.desc'
         },
         {
             icon: '🎬',
-            title: $_('about.feature_list.video_analysis.title'),
-            description: $_('about.feature_list.video_analysis.desc')
+            titleKey: 'about.feature_list.video_analysis.title',
+            descriptionKey: 'about.feature_list.video_analysis.desc'
         },
         {
             icon: '🔔',
-            title: $_('about.feature_list.notifications.title'),
-            description: $_('about.feature_list.notifications.desc')
+            titleKey: 'about.feature_list.notifications.title',
+            descriptionKey: 'about.feature_list.notifications.desc'
         },
         {
             icon: '🧠',
-            title: $_('about.feature_list.ai_insights.title'),
-            description: $_('about.feature_list.ai_insights.desc')
+            titleKey: 'about.feature_list.ai_insights.title',
+            descriptionKey: 'about.feature_list.ai_insights.desc'
         },
         {
             icon: '🏷️',
-            title: $_('about.feature_list.taxonomy.title'),
-            description: $_('about.feature_list.taxonomy.desc')
+            titleKey: 'about.feature_list.taxonomy.title',
+            descriptionKey: 'about.feature_list.taxonomy.desc'
         },
         {
             icon: '🌿',
-            title: $_('about.feature_list.inaturalist_submissions.title'),
-            description: $_('about.feature_list.inaturalist_submissions.desc'),
-            badge: $_('about.feature_list.inaturalist_submissions.badge')
+            titleKey: 'about.feature_list.inaturalist_submissions.title',
+            descriptionKey: 'about.feature_list.inaturalist_submissions.desc',
+            badgeKey: 'about.feature_list.inaturalist_submissions.badge'
         },
         {
             icon: '🌦️',
-            title: $_('about.feature_list.weather.title'),
-            description: $_('about.feature_list.weather.desc')
+            titleKey: 'about.feature_list.weather.title',
+            descriptionKey: 'about.feature_list.weather.desc'
         },
         {
             icon: '🏠',
-            title: $_('about.feature_list.home_assistant.title'),
-            description: $_('about.feature_list.home_assistant.desc')
+            titleKey: 'about.feature_list.home_assistant.title',
+            descriptionKey: 'about.feature_list.home_assistant.desc'
         },
         {
             icon: '🌍',
-            title: $_('about.feature_list.birdweather.title'),
-            description: $_('about.feature_list.birdweather.desc')
+            titleKey: 'about.feature_list.birdweather.title',
+            descriptionKey: 'about.feature_list.birdweather.desc'
         },
         {
             icon: '📊',
-            title: $_('about.feature_list.observability.title'),
-            description: $_('about.feature_list.observability.desc')
+            titleKey: 'about.feature_list.observability.title',
+            descriptionKey: 'about.feature_list.observability.desc'
+        },
+        {
+            icon: '🦝',
+            titleKey: 'about.feature_list.wildlife.title',
+            descriptionKey: 'about.feature_list.wildlife.desc'
         },
         {
             icon: '⚡',
-            title: $_('about.feature_list.fast_path.title'),
-            description: $_('about.feature_list.fast_path.desc')
+            titleKey: 'about.feature_list.fast_path.title',
+            descriptionKey: 'about.feature_list.fast_path.desc'
         },
         {
             icon: '🔓',
-            title: $_('about.feature_list.guest_mode.title'),
-            description: $_('about.feature_list.guest_mode.desc')
+            titleKey: 'about.feature_list.guest_mode.title',
+            descriptionKey: 'about.feature_list.guest_mode.desc'
         }
-    ]);
+    ];
+
+    let features = $derived(
+        featureDefinitions.map((feature) => ({
+            icon: feature.icon,
+            title: $_(feature.titleKey),
+            description: $_(feature.descriptionKey),
+            badge: feature.badgeKey ? $_(feature.badgeKey) : undefined
+        }))
+    );
 
     let techStack = $derived([
         { category: $_('about.tech.backend'), items: ['Python 3.12', 'FastAPI', 'SQLite', 'Alembic'] },
@@ -105,11 +138,108 @@
     );
 
     const steps = [1, 2, 3, 4, 5, 6, 7, 8];
+    const stepColumns = [steps.slice(0, Math.ceil(steps.length / 2)), steps.slice(Math.ceil(steps.length / 2))];
+
+    const linkToken = '{link}';
+    const splitLinkTemplate = (text: string): LinkParts => {
+        const splitAt = text.indexOf(linkToken);
+        if (splitAt === -1) {
+            return { before: text, after: '' };
+        }
+        return {
+            before: text.slice(0, splitAt),
+            after: text.slice(splitAt + linkToken.length)
+        };
+    };
+
+    let projectDescription = $derived(splitLinkTemplate($_('about.project_desc_1')));
+    let creditsLinks = $derived([
+        {
+            href: 'https://github.com/mmcc-xx/WhosAtMyFeeder',
+            label: 'WhosAtMyFeeder',
+            parts: splitLinkTemplate($_('about.credits_list.inspiration'))
+        },
+        {
+            href: 'https://frigate.video',
+            label: 'Frigate',
+            parts: splitLinkTemplate($_('about.credits_list.frigate'))
+        },
+        {
+            href: 'https://github.com/tphakala/birdnet-go',
+            label: 'BirdNET-Go',
+            parts: splitLinkTemplate($_('about.credits_list.birdnet'))
+        },
+        {
+            href: 'https://youtu.be/hCQCP-5g5bo',
+            label: 'Ben Jordan',
+            parts: splitLinkTemplate($_('about.credits_list.benjordan'))
+        }
+    ]);
+
+    let sectionLinks = $derived([
+        { id: 'about-project', label: $_('about.title') },
+        { id: 'about-workflow', label: $_('about.how_it_works') },
+        { id: 'about-features', label: $_('about.features') },
+        { id: 'about-stack', label: $_('about.tech_stack') },
+        { id: 'about-docs', label: $_('about.docs_resources') },
+        { id: 'about-credits', label: $_('about.credits') }
+    ]);
+
+    const resourceLinkDefinitions: ResourceLinkDefinition[] = [
+        {
+            href: repoUrl,
+            labelKey: 'about.links.repo',
+            descriptionKey: 'about.links.repo_desc',
+            iconPath: 'M10 3.5a6.5 6.5 0 0 1 2.157 12.633c-.157.028-.214-.067-.214-.149 0-.104.004-.445.004-.806 0-.282-.09-.463-.192-.556.63-.07 1.292-.311 1.292-1.403 0-.31-.11-.565-.291-.764.029-.071.126-.357-.028-.744 0 0-.238-.077-.78.292a2.664 2.664 0 0 0-1.422 0c-.542-.369-.78-.292-.78-.292-.154.387-.057.673-.028.744-.181.2-.291.454-.291.764 0 1.09.66 1.333 1.289 1.403a.752.752 0 0 0-.18.498c0 .36.004.702.004.806 0 .082-.057.179-.215.149A6.5 6.5 0 0 1 10 3.5Z'
+        },
+        {
+            href: '__docs__',
+            labelKey: 'about.links.docs',
+            descriptionKey: 'about.links.docs_desc',
+            iconPath: 'M4.75 3.25h7.25a2.5 2.5 0 0 1 2.5 2.5v10a.5.5 0 0 1-.757.429A3.25 3.25 0 0 0 12 15.75H5.5a.75.75 0 0 1-.75-.75v-9.25a2.5 2.5 0 0 1 2.5-2.5Zm7.25 11.25c.921 0 1.812.244 2.593.706a.5.5 0 0 0 .757-.429V6.5a2.25 2.25 0 0 1 2.25-2.25h.75a.5.5 0 0 1 .5.5V15a2.75 2.75 0 0 1-2.75 2.75H12a2.75 2.75 0 0 1-2.75-2.75V14.5H12Z'
+        },
+        {
+            href: 'https://frigate.video',
+            labelKey: 'about.links.frigate',
+            descriptionKey: 'about.links.frigate_desc',
+            iconPath: 'M3.5 5.75A2.25 2.25 0 0 1 5.75 3.5h8.5a2.25 2.25 0 0 1 2.25 2.25v8.5a2.25 2.25 0 0 1-2.25 2.25h-8.5A2.25 2.25 0 0 1 3.5 14.25v-8.5Zm5 2a.75.75 0 0 0-1.125.65v3.2a.75.75 0 0 0 1.125.65l2.8-1.6a.75.75 0 0 0 0-1.3l-2.8-1.6Z'
+        },
+        {
+            href: 'https://github.com/tphakala/birdnet-go',
+            labelKey: 'about.links.birdnet',
+            descriptionKey: 'about.links.birdnet_desc',
+            iconPath: 'M9.75 3.75a.75.75 0 0 1 1.5 0V8a.75.75 0 0 1-1.5 0V3.75Zm-3 2.5a.75.75 0 0 1 1.5 0V8a.75.75 0 0 1-1.5 0V6.25Zm6 0a.75.75 0 0 1 1.5 0V8a.75.75 0 0 1-1.5 0V6.25ZM4.5 10.5a5.5 5.5 0 1 1 11 0v2.25a3.25 3.25 0 0 1-3.25 3.25h-4.5A3.25 3.25 0 0 1 4.5 12.75V10.5Z'
+        }
+    ];
+
+    let resourceLinks = $derived(
+        resourceLinkDefinitions.map((resource) => ({
+            ...resource,
+            href: resource.href === '__docs__' ? `${repoUrl}/tree/${docsRefBranch}/docs` : resource.href,
+            label: $_(resource.labelKey),
+            description: $_(resource.descriptionKey)
+        }))
+    );
+
+    let quickActions = $derived([
+        {
+            href: `${repoUrl}/tree/${docsRefBranch}/docs`,
+            label: $_('about.links.docs')
+        },
+        {
+            href: `${repoUrl}/blob/${docsRefBranch}/CHANGELOG.md`,
+            label: $_('about.view_changelog')
+        },
+        {
+            href: `${repoUrl}/issues`,
+            label: $_('about.links.issues')
+        }
+    ]);
 </script>
 
 <div class="max-w-5xl mx-auto space-y-8">
     <!-- Header -->
-    <div class="text-center space-y-4">
+    <header class="text-center space-y-4">
         <div class="flex items-center justify-center gap-3">
             <div class="w-16 h-16 rounded-2xl bg-transparent border border-slate-200/70 dark:border-slate-700/60 shadow-sm flex items-center justify-center overflow-hidden p-2">
                 <img src="/pwa-192x192.png" alt={$_('app.title')} class="w-full h-full object-contain bg-transparent" />
@@ -125,7 +255,7 @@
                 target="_blank"
                 rel="noopener noreferrer"
                 class="px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-800 font-mono hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
-                title="View changelog"
+                title={$_('about.view_changelog')}
             >
                 v{versionInfo.base_version}
             </a>
@@ -143,62 +273,81 @@
             <span class="text-slate-300 dark:text-slate-600">|</span>
             <span>{$_('common.mit_license')}</span>
         </div>
-    </div>
+        <div class="flex flex-wrap items-center justify-center gap-2 pt-1">
+            {#each quickActions as action}
+                <a
+                    href={action.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="inline-flex items-center rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:border-brand-500 hover:text-brand-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-brand-500 dark:hover:text-brand-300"
+                >
+                    {action.label}
+                </a>
+            {/each}
+        </div>
+    </header>
+
+    <nav aria-label={$_('about.jump_to')} class="card-base p-4">
+        <div class="flex flex-wrap items-center justify-center gap-2">
+            <span class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                {$_('about.jump_to')}
+            </span>
+            {#each sectionLinks as section}
+                <a
+                    href={`#${section.id}`}
+                    class="rounded-full border border-slate-200 px-3 py-1 text-xs font-medium text-slate-700 transition-colors hover:border-brand-500 hover:text-brand-700 dark:border-slate-700 dark:text-slate-300 dark:hover:border-brand-500 dark:hover:text-brand-300"
+                >
+                    {section.label}
+                </a>
+            {/each}
+        </div>
+    </nav>
 
     <!-- About the Project -->
-    <div class="card-base p-6 space-y-4">
-        <h2 class="text-2xl font-bold text-slate-900 dark:text-white">{$_('about.title')}</h2>
+    <section id="about-project" aria-labelledby="about-project-heading" class="card-base p-6 space-y-4">
+        <h2 id="about-project-heading" class="text-2xl font-bold text-slate-900 dark:text-white">{$_('about.title')}</h2>
         <div class="space-y-3 text-slate-700 dark:text-slate-300">
             <p>
-                {@html $_('about.project_desc_1', { values: { 
-                    link: `<a href="https://github.com/mmcc-xx/WhosAtMyFeeder" target="_blank" rel="noopener noreferrer" class="text-brand-600 dark:text-brand-400 hover:underline">WhosAtMyFeeder</a>` 
-                } })}
+                {projectDescription.before}<a href="https://github.com/mmcc-xx/WhosAtMyFeeder" target="_blank" rel="noopener noreferrer" class="text-brand-600 dark:text-brand-400 hover:underline">WhosAtMyFeeder</a>{projectDescription.after}
             </p>
             <p>
                 {$_('about.project_desc_2')}
             </p>
         </div>
-    </div>
+    </section>
 
     <!-- How It Works -->
-    <div class="card-base p-6 space-y-4">
-        <h2 class="text-2xl font-bold text-slate-900 dark:text-white">{$_('about.how_it_works')}</h2>
+    <section id="about-workflow" aria-labelledby="about-workflow-heading" class="card-base p-6 space-y-4">
+        <h2 id="about-workflow-heading" class="text-2xl font-bold text-slate-900 dark:text-white">{$_('about.how_it_works')}</h2>
         <div class="space-y-4">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div class="space-y-3">
-                    {#each steps.slice(0, 4) as step}
-                        <div class="flex items-start gap-3">
-                            <div class="w-8 h-8 rounded-full bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center flex-shrink-0 text-brand-700 dark:text-brand-300 font-bold">{step}</div>
-                            <div>
-                                <h3 class="font-semibold text-slate-900 dark:text-white">{$_(`about.steps.${step}.title`)}</h3>
-                                <p class="text-sm text-slate-600 dark:text-slate-400">{$_(`about.steps.${step}.desc`)}</p>
+                {#each stepColumns as column}
+                    <div class="space-y-3">
+                        {#each column as step}
+                            <div class="flex items-start gap-3">
+                                <div class="w-8 h-8 rounded-full bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center flex-shrink-0 text-brand-700 dark:text-brand-300 font-bold">{step}</div>
+                                <div>
+                                    <h3 class="font-semibold text-slate-900 dark:text-white">{$_(`about.steps.${step}.title`)}</h3>
+                                    <p class="text-sm text-slate-600 dark:text-slate-400">{$_(`about.steps.${step}.desc`)}</p>
+                                </div>
                             </div>
-                        </div>
-                    {/each}
-                </div>
-                <div class="space-y-3">
-                    {#each steps.slice(4, 8) as step}
-                        <div class="flex items-start gap-3">
-                            <div class="w-8 h-8 rounded-full bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center flex-shrink-0 text-brand-700 dark:text-brand-300 font-bold">{step}</div>
-                            <div>
-                                <h3 class="font-semibold text-slate-900 dark:text-white">{$_(`about.steps.${step}.title`)}</h3>
-                                <p class="text-sm text-slate-600 dark:text-slate-400">{$_(`about.steps.${step}.desc`)}</p>
-                            </div>
-                        </div>
-                    {/each}
-                </div>
+                        {/each}
+                    </div>
+                {/each}
             </div>
         </div>
-    </div>
+    </section>
 
     <!-- Features Grid -->
-    <div class="space-y-4">
-        <h2 class="text-2xl font-bold text-slate-900 dark:text-white">{$_('about.features')}</h2>
+    <section id="about-features" aria-labelledby="about-features-heading" class="space-y-4">
+        <h2 id="about-features-heading" class="text-2xl font-bold text-slate-900 dark:text-white">{$_('about.features')}</h2>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {#each features as feature}
                 <div class="card-base p-4 hover:shadow-card-hover transition-shadow duration-200">
                     <div class="flex items-start gap-3">
-                        <span class="text-3xl flex-shrink-0">{feature.icon}</span>
+                        <span class="inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-brand-100/60 text-base dark:bg-brand-900/30">
+                            {feature.icon}
+                        </span>
                         <div class="space-y-1">
                             <div class="flex items-center gap-2">
                                 <h3 class="font-semibold text-slate-900 dark:text-white text-sm">{feature.title}</h3>
@@ -214,11 +363,11 @@
                 </div>
             {/each}
         </div>
-    </div>
+    </section>
 
     <!-- Tech Stack -->
-    <div class="card-base p-6 space-y-4">
-        <h2 class="text-2xl font-bold text-slate-900 dark:text-white">{$_('about.tech_stack')}</h2>
+    <section id="about-stack" aria-labelledby="about-stack-heading" class="card-base p-6 space-y-4">
+        <h2 id="about-stack-heading" class="text-2xl font-bold text-slate-900 dark:text-white">{$_('about.tech_stack')}</h2>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {#each techStack as stack}
                 <div class="space-y-2">
@@ -234,86 +383,57 @@
                 </div>
             {/each}
         </div>
-    </div>
+    </section>
 
     <!-- Documentation & Links -->
-    <div class="card-base p-6 space-y-4">
-        <h2 class="text-2xl font-bold text-slate-900 dark:text-white">{$_('about.docs_resources')}</h2>
+    <section id="about-docs" aria-labelledby="about-docs-heading" class="card-base p-6 space-y-4">
+        <h2 id="about-docs-heading" class="text-2xl font-bold text-slate-900 dark:text-white">{$_('about.docs_resources')}</h2>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <a href={repoUrl} target="_blank" rel="noopener noreferrer"
-               class="flex items-center gap-3 p-3 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-brand-500 dark:hover:border-brand-500 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all group">
-                <span class="text-2xl">📚</span>
-                <div>
-                    <div class="font-semibold text-slate-900 dark:text-white group-hover:text-brand-600 dark:group-hover:text-brand-400">{$_('about.links.repo')}</div>
-                    <div class="text-xs text-slate-500 dark:text-slate-400">{$_('about.links.repo_desc')}</div>
-                </div>
-            </a>
-            <a href={`${repoUrl}/tree/${docsRefBranch}/docs`} target="_blank" rel="noopener noreferrer"
-               class="flex items-center gap-3 p-3 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-brand-500 dark:hover:border-brand-500 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all group">
-                <span class="text-2xl">📖</span>
-                <div>
-                    <div class="font-semibold text-slate-900 dark:text-white group-hover:text-brand-600 dark:group-hover:text-brand-400">{$_('about.links.docs')}</div>
-                    <div class="text-xs text-slate-500 dark:text-slate-400">{$_('about.links.docs_desc')}</div>
-                </div>
-            </a>
-            <a href="https://frigate.video" target="_blank" rel="noopener noreferrer"
-               class="flex items-center gap-3 p-3 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-brand-500 dark:hover:border-brand-500 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all group">
-                <span class="text-2xl">📹</span>
-                <div>
-                    <div class="font-semibold text-slate-900 dark:text-white group-hover:text-brand-600 dark:group-hover:text-brand-400">{$_('about.links.frigate')}</div>
-                    <div class="text-xs text-slate-500 dark:text-slate-400">{$_('about.links.frigate_desc')}</div>
-                </div>
-            </a>
-            <a href="https://github.com/tphakala/birdnet-go" target="_blank" rel="noopener noreferrer"
-               class="flex items-center gap-3 p-3 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-brand-500 dark:hover:border-brand-500 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all group">
-                <span class="text-2xl">🎵</span>
-                <div>
-                    <div class="font-semibold text-slate-900 dark:text-white group-hover:text-brand-600 dark:group-hover:text-brand-400">{$_('about.links.birdnet')}</div>
-                    <div class="text-xs text-slate-500 dark:text-slate-400">{$_('about.links.birdnet_desc')}</div>
-                </div>
-            </a>
+            {#each resourceLinks as resource}
+                <a
+                    href={resource.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="flex items-center gap-3 p-3 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-brand-500 dark:hover:border-brand-500 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all group"
+                >
+                    <span class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                        <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                            <path d={resource.iconPath} />
+                        </svg>
+                    </span>
+                    <div>
+                        <div class="font-semibold text-slate-900 dark:text-white group-hover:text-brand-600 dark:group-hover:text-brand-400">{resource.label}</div>
+                        <div class="text-xs text-slate-500 dark:text-slate-400">{resource.description}</div>
+                    </div>
+                </a>
+            {/each}
         </div>
-    </div>
+    </section>
 
     <!-- Credits -->
-    <div class="card-base p-6 space-y-4">
-        <h2 class="text-2xl font-bold text-slate-900 dark:text-white">{$_('about.credits')}</h2>
+    <section id="about-credits" aria-labelledby="about-credits-heading" class="card-base p-6 space-y-4">
+        <h2 id="about-credits-heading" class="text-2xl font-bold text-slate-900 dark:text-white">{$_('about.credits')}</h2>
         <div class="space-y-2 text-sm text-slate-700 dark:text-slate-300">
             <p>{$_('about.credits_list.preamble')}</p>
             <ul class="list-disc list-inside space-y-1 ml-4">
-                <li>
-                    {@html $_('about.credits_list.inspiration', { values: { 
-                        link: `<a href="https://github.com/mmcc-xx/WhosAtMyFeeder" target="_blank" rel="noopener noreferrer" class="text-brand-600 dark:text-brand-400 hover:underline">WhosAtMyFeeder</a>` 
-                    } })}
-                </li>
-                <li>
-                    {@html $_('about.credits_list.frigate', { values: { 
-                        link: `<a href="https://frigate.video" target="_blank" rel="noopener noreferrer" class="text-brand-600 dark:text-brand-400 hover:underline">Frigate</a>` 
-                    } })}
-                </li>
-                <li>
-                    {@html $_('about.credits_list.birdnet', { values: { 
-                        link: `<a href="https://github.com/tphakala/birdnet-go" target="_blank" rel="noopener noreferrer" class="text-brand-600 dark:text-brand-400 hover:underline">BirdNET-Go</a>` 
-                    } })}
-                </li>
-                <li>
-                    {@html $_('about.credits_list.benjordan', { values: { 
-                        link: `<a href="https://youtu.be/hCQCP-5g5bo" target="_blank" rel="noopener noreferrer" class="text-brand-600 dark:text-brand-400 hover:underline">Ben Jordan</a>` 
-                    } })}
-                </li>
+                {#each creditsLinks as credit}
+                    <li>
+                        {credit.parts.before}<a href={credit.href} target="_blank" rel="noopener noreferrer" class="text-brand-600 dark:text-brand-400 hover:underline">{credit.label}</a>{credit.parts.after}
+                    </li>
+                {/each}
                 <li>{$_('about.credits_list.ai_assistants')}</li>
                 <li>
-                    <a href="https://www.flaticon.com/free-icons/bird" title="bird icons" target="_blank" rel="noopener noreferrer" class="text-brand-600 dark:text-brand-400 hover:underline">
-                        Bird icons created by Freepik - Flaticon
+                    <a href="https://www.flaticon.com/free-icons/bird" target="_blank" rel="noopener noreferrer" class="text-brand-600 dark:text-brand-400 hover:underline">
+                        {$_('about.flaticon_credit')}
                     </a>
                 </li>
             </ul>
         </div>
-    </div>
+    </section>
 
     <!-- License -->
-    <div class="text-center text-sm text-slate-500 dark:text-slate-400 py-4">
-        <p>© {new Date().getFullYear()} Jellman86 • Licensed under the {$_('common.mit_license')}</p>
+    <footer class="text-center text-sm text-slate-500 dark:text-slate-400 py-4">
+        <p>{$_('about.license_notice', { values: { year: new Date().getFullYear(), license: $_('common.mit_license') } })}</p>
         <p class="mt-1">{$_('about.built_with_ai')}</p>
-    </div>
+    </footer>
 </div>
