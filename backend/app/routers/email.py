@@ -2,6 +2,7 @@
 Email notification OAuth and management endpoints
 """
 
+import asyncio
 from datetime import datetime, timedelta
 from fastapi import APIRouter, HTTPException, Request, Query, Depends
 from fastapi.responses import HTMLResponse
@@ -419,29 +420,35 @@ async def send_test_email(
 
         # Send using OAuth or traditional SMTP
         if email_config.use_oauth and email_config.oauth_provider:
-            success = await smtp_service.send_email_oauth(
-                provider=email_config.oauth_provider,
-                to_email=email_config.to_email,
-                subject=test_request.test_subject,
-                html_body=html_body,
-                plain_body=plain_body
+            success = await asyncio.wait_for(
+                smtp_service.send_email_oauth(
+                    provider=email_config.oauth_provider,
+                    to_email=email_config.to_email,
+                    subject=test_request.test_subject,
+                    html_body=html_body,
+                    plain_body=plain_body
+                ),
+                timeout=30,
             )
         else:
             # Traditional SMTP
             if not email_config.smtp_host or not email_config.from_email:
                 raise HTTPException(status_code=400, detail=i18n_service.translate("errors.email.smtp_incomplete", lang))
 
-            success = await smtp_service.send_email_password(
-                smtp_host=email_config.smtp_host,
-                smtp_port=email_config.smtp_port,
-                username=email_config.smtp_username,
-                password=email_config.smtp_password,
-                from_email=email_config.from_email,
-                to_email=email_config.to_email,
-                subject=test_request.test_subject,
-                html_body=html_body,
-                plain_body=plain_body,
-                use_tls=email_config.smtp_use_tls
+            success = await asyncio.wait_for(
+                smtp_service.send_email_password(
+                    smtp_host=email_config.smtp_host,
+                    smtp_port=email_config.smtp_port,
+                    username=email_config.smtp_username,
+                    password=email_config.smtp_password,
+                    from_email=email_config.from_email,
+                    to_email=email_config.to_email,
+                    subject=test_request.test_subject,
+                    html_body=html_body,
+                    plain_body=plain_body,
+                    use_tls=email_config.smtp_use_tls
+                ),
+                timeout=30,
             )
 
         if success:
@@ -452,6 +459,12 @@ async def send_test_email(
 
     except HTTPException:
         raise
+    except asyncio.TimeoutError:
+        log.error("test_email_timeout", timeout_seconds=30)
+        raise HTTPException(
+            status_code=504,
+            detail=i18n_service.translate("errors.email.send_error", lang, error="request timed out"),
+        )
     except Exception as e:
         log.error("test_email_error", error=str(e))
         raise HTTPException(status_code=500, detail=i18n_service.translate("errors.email.send_error", lang, error=str(e)))

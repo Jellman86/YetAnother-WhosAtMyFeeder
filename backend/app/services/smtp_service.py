@@ -34,6 +34,7 @@ class SMTPService:
 
     def __init__(self):
         self.logger = log.bind(service="smtp")
+        self.smtp_timeout_seconds = 20
 
     def _parse_expires_at(self, value: Any) -> Optional[datetime]:
         if value is None:
@@ -179,7 +180,8 @@ class SMTPService:
             async with aiosmtplib.SMTP(
                 hostname=smtp_host,
                 port=smtp_port,
-                use_tls=implicit_tls
+                use_tls=implicit_tls,
+                timeout=self.smtp_timeout_seconds,
             ) as smtp:
                 await smtp.connect()
                 if starttls:
@@ -260,7 +262,8 @@ class SMTPService:
             async with aiosmtplib.SMTP(
                 hostname="smtp.gmail.com",
                 port=587,
-                use_tls=False  # We'll start TLS manually
+                use_tls=False,  # We'll start TLS manually
+                timeout=self.smtp_timeout_seconds,
             ) as smtp:
                 await smtp.connect()
                 await smtp.starttls()
@@ -294,7 +297,8 @@ class SMTPService:
             async with aiosmtplib.SMTP(
                 hostname="smtp.office365.com",
                 port=587,
-                use_tls=False
+                use_tls=False,
+                timeout=self.smtp_timeout_seconds,
             ) as smtp:
                 await smtp.connect()
                 await smtp.starttls()

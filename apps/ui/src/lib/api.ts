@@ -1689,15 +1689,29 @@ export async function disconnectEmailOAuth(provider: 'gmail' | 'outlook'): Promi
  * Send a test email to verify configuration
  */
 export async function sendTestEmail(request: TestEmailRequest = {}): Promise<TestEmailResponse> {
-    const response = await apiFetch(`${API_BASE}/email/test`, {
-        method: 'POST',
-        headers: getHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({
-            test_subject: request.test_subject || 'YA-WAMF Test Email',
-            test_message: request.test_message || 'This is a test email from YA-WAMF to verify your email configuration.'
-        })
-    });
-    return handleResponse<TestEmailResponse>(response);
+    const controller = new AbortController();
+    const timeoutMs = 35000;
+    const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+        const response = await apiFetch(`${API_BASE}/email/test`, {
+            method: 'POST',
+            headers: getHeaders({ 'Content-Type': 'application/json' }),
+            body: JSON.stringify({
+                test_subject: request.test_subject || 'YA-WAMF Test Email',
+                test_message: request.test_message || 'This is a test email from YA-WAMF to verify your email configuration.'
+            }),
+            signal: controller.signal,
+        });
+        return handleResponse<TestEmailResponse>(response);
+    } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') {
+            throw new Error('Test email request timed out. Check SMTP/OAuth settings and try again.');
+        }
+        throw error;
+    } finally {
+        window.clearTimeout(timeoutId);
+    }
 }
 
 // ============================================================================
