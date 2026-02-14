@@ -122,3 +122,29 @@ async def test_guest_cannot_modify_favorites(client: httpx.AsyncClient):
         assert response.status_code == 403
     finally:
         await _delete_detection(event_id)
+
+
+@pytest.mark.asyncio
+async def test_owner_can_clear_all_favorites(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+
+    event_a = f"fav-{uuid.uuid4().hex[:10]}"
+    event_b = f"fav-{uuid.uuid4().hex[:10]}"
+    await _insert_detection(event_a, "Clear Favorite A")
+    await _insert_detection(event_b, "Clear Favorite B")
+
+    try:
+        assert (await client.post(f"/api/events/{event_a}/favorite")).status_code == 200
+        assert (await client.post(f"/api/events/{event_b}/favorite")).status_code == 200
+
+        clear_resp = await client.post("/api/maintenance/favorites/clear")
+        assert clear_resp.status_code == 200
+        assert clear_resp.json()["deleted_count"] == 2
+
+        count_resp = await client.get("/api/events/count", params={"favorites": "true"})
+        assert count_resp.status_code == 200
+        assert count_resp.json()["count"] == 0
+    finally:
+        await _delete_detection(event_a)
+        await _delete_detection(event_b)

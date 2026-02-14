@@ -587,7 +587,13 @@
       "purge_missing_snapshots": "スナップショットのない検出を削除",
       "media_integrity_note": "Frigate のメディアが見つからない検出を削除します。",
       "purge_missing_clips_confirm": "クリップのない検出を削除しますか？元に戻せません。",
-      "purge_missing_snapshots_confirm": "スナップショットのない検出を削除しますか？元に戻せません。"
+      "purge_missing_snapshots_confirm": "スナップショットのない検出を削除しますか？元に戻せません。",
+      "clear_favorites_button": "お気に入りをすべて削除",
+      "clear_favorites_desc": "検出データやメディアは保持したまま、お気に入りの印だけをすべて削除します。",
+      "clear_favorites_confirm": "お気に入りの印をすべて削除しますか？この操作は元に戻せません。",
+      "clear_favorites_success": "お気に入りの印を {count} 件削除しました。",
+      "clear_favorites_none": "削除するお気に入りはありません。",
+      "clear_favorites_error": "お気に入りを削除できませんでした。"
     },
     "security": {
       "title": "Security",

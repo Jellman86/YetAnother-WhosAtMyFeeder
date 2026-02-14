@@ -595,7 +595,13 @@
       "purge_missing_snapshots": "Remover detecções sem instantâneos",
       "media_integrity_note": "Exclui detecções quando a mídia do Frigate está ausente.",
       "purge_missing_clips_confirm": "Remover detecções sem clipes? Esta ação não pode ser desfeita.",
-      "purge_missing_snapshots_confirm": "Remover detecções sem instantâneos? Esta ação não pode ser desfeita."
+      "purge_missing_snapshots_confirm": "Remover detecções sem instantâneos? Esta ação não pode ser desfeita.",
+      "clear_favorites_button": "Excluir todos os favoritos",
+      "clear_favorites_desc": "Remove todas as marcações de favorito, mantendo detecções e mídia.",
+      "clear_favorites_confirm": "Remover todas as marcações de favorito? Esta ação não pode ser desfeita.",
+      "clear_favorites_success": "{count} marcações de favorito removidas.",
+      "clear_favorites_none": "Não há favoritos para remover.",
+      "clear_favorites_error": "Falha ao remover favoritos."
     },
     "security": {
       "title": "Security",

@@ -587,7 +587,13 @@
       "purge_missing_snapshots": "删除没有快照的检测",
       "media_integrity_note": "当 Frigate 媒体缺失时删除检测记录。",
       "purge_missing_clips_confirm": "删除没有片段的检测？此操作无法撤销。",
-      "purge_missing_snapshots_confirm": "删除没有快照的检测？此操作无法撤销。"
+      "purge_missing_snapshots_confirm": "删除没有快照的检测？此操作无法撤销。",
+      "clear_favorites_button": "删除所有收藏",
+      "clear_favorites_desc": "删除全部收藏标记，同时保留检测记录和媒体文件。",
+      "clear_favorites_confirm": "删除所有收藏标记？此操作无法撤销。",
+      "clear_favorites_success": "已删除 {count} 个收藏标记。",
+      "clear_favorites_none": "没有可删除的收藏。",
+      "clear_favorites_error": "删除收藏失败"
     },
     "security": {
       "title": "Security",

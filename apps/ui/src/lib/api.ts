@@ -774,6 +774,11 @@ export async function runCleanup(): Promise<CleanupResult> {
     return handleResponse<CleanupResult>(response);
 }
 
+export async function clearAllFavorites(): Promise<CleanupResult> {
+    const response = await apiFetch(`${API_BASE}/maintenance/favorites/clear`, { method: 'POST' });
+    return handleResponse<CleanupResult>(response);
+}
+
 export interface PurgeMissingMediaResult {
     status: string;
     deleted_count: number;

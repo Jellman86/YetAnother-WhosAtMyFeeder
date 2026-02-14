@@ -1053,6 +1053,20 @@ async def run_cleanup(auth: AuthContext = Depends(require_owner)):
     }
 
 
+@router.post("/maintenance/favorites/clear")
+async def clear_favorites(auth: AuthContext = Depends(require_owner)):
+    """Remove all favorite markers from detections. Owner only."""
+    async with get_db() as db:
+        repo = DetectionRepository(db)
+        deleted_count = await repo.clear_all_favorites()
+
+    return {
+        "status": "completed",
+        "deleted_count": deleted_count,
+        "message": "All favorites removed" if deleted_count > 0 else "No favorites to remove",
+    }
+
+
 async def _purge_missing_media(kind: Literal["clip", "snapshot"]) -> dict:
     if kind == "clip" and not settings.frigate.clips_enabled:
         return {

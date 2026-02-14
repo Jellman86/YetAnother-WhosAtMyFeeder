@@ -258,6 +258,13 @@ class DetectionRepository:
         await self.db.commit()
         return True
 
+    async def clear_all_favorites(self) -> int:
+        """Remove all favorite markers and return number of removed rows."""
+        async with self.db.execute("DELETE FROM detection_favorites") as cursor:
+            deleted = cursor.rowcount or 0
+        await self.db.commit()
+        return deleted
+
     async def get_hidden_count(self) -> int:
         """Get count of hidden detections."""
         async with self.db.execute(

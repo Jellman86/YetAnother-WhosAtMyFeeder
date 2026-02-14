@@ -587,7 +587,13 @@
       "purge_missing_snapshots": "Supprimer les détections sans instantanés",
       "media_integrity_note": "Supprime les détections lorsque les médias Frigate sont manquants.",
       "purge_missing_clips_confirm": "Supprimer les détections sans clips ? Cette action est irréversible.",
-      "purge_missing_snapshots_confirm": "Supprimer les détections sans instantanés ? Cette action est irréversible."
+      "purge_missing_snapshots_confirm": "Supprimer les détections sans instantanés ? Cette action est irréversible.",
+      "clear_favorites_button": "Supprimer tous les favoris",
+      "clear_favorites_desc": "Supprime toutes les marques de favori tout en conservant les détections et les médias.",
+      "clear_favorites_confirm": "Supprimer toutes les marques de favori ? Cette action est irréversible.",
+      "clear_favorites_success": "{count} marque(s) de favori supprimée(s).",
+      "clear_favorites_none": "Aucun favori à supprimer.",
+      "clear_favorites_error": "Impossible de supprimer les favoris."
     },
     "security": {
       "title": "Security",

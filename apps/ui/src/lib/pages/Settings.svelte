@@ -11,6 +11,7 @@
         downloadWildlifeModel,
         fetchMaintenanceStats,
         runCleanup,
+        clearAllFavorites,
         purgeMissingClips,
         purgeMissingSnapshots,
         runBackfill,
@@ -1499,6 +1500,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
 
     let maintenanceStats = $state<MaintenanceStats | null>(null);
     let cleaningUp = $state(false);
+    let clearingFavorites = $state(false);
     let purgingMissingClips = $state(false);
     let purgingMissingSnapshots = $state(false);
 
@@ -1659,6 +1661,31 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             message = { type: 'error', text: e.message || $_('settings.data.cleanup_error') };
         } finally {
             cleaningUp = false;
+        }
+    }
+
+    async function handleClearFavorites() {
+        const confirmMsg = $_('settings.data.clear_favorites_confirm', {
+            default: 'Remove all favorite markers? This cannot be undone.'
+        });
+        if (!confirm(confirmMsg)) return;
+
+        clearingFavorites = true;
+        message = null;
+        try {
+            const result = await clearAllFavorites();
+            if ((result.deleted_count ?? 0) > 0) {
+                message = {
+                    type: 'success',
+                    text: $_('settings.data.clear_favorites_success', { values: { count: result.deleted_count } }),
+                };
+            } else {
+                message = { type: 'success', text: result.message || $_('settings.data.clear_favorites_none') };
+            }
+        } catch (e: any) {
+            message = { type: 'error', text: e.message || $_('settings.data.clear_favorites_error') };
+        } finally {
+            clearingFavorites = false;
         }
     }
 
@@ -2809,6 +2836,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     {maintenanceStats}
                     {cacheStats}
                     {cleaningUp}
+                    {clearingFavorites}
                     {purgingMissingClips}
                     {purgingMissingSnapshots}
                     {cleaningCache}
@@ -2825,6 +2853,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     {analysisStatus}
                     {analysisTotal}
                     {handleCleanup}
+                    {handleClearFavorites}
                     {handlePurgeMissingClips}
                     {handlePurgeMissingSnapshots}
                     {handleCacheCleanup}

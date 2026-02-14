@@ -595,7 +595,13 @@
       "purge_missing_snapshots": "Rimuovi rilevamenti senza istantanee",
       "media_integrity_note": "Elimina i rilevamenti quando i media di Frigate mancano.",
       "purge_missing_clips_confirm": "Rimuovere i rilevamenti senza clip? Questa azione non può essere annullata.",
-      "purge_missing_snapshots_confirm": "Rimuovere i rilevamenti senza istantanee? Questa azione non può essere annullata."
+      "purge_missing_snapshots_confirm": "Rimuovere i rilevamenti senza istantanee? Questa azione non può essere annullata.",
+      "clear_favorites_button": "Elimina tutti i preferiti",
+      "clear_favorites_desc": "Rimuove tutti i contrassegni preferiti mantenendo rilevamenti e media.",
+      "clear_favorites_confirm": "Rimuovere tutti i contrassegni preferiti? Questa azione non può essere annullata.",
+      "clear_favorites_success": "Rimossi {count} contrassegni preferiti.",
+      "clear_favorites_none": "Nessun preferito da rimuovere.",
+      "clear_favorites_error": "Impossibile rimuovere i preferiti."
     },
     "security": {
       "title": "Security",

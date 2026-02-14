@@ -222,7 +222,13 @@
       "purge_missing_snapshots": "Remove detections without snapshots",
       "media_integrity_note": "Deletes detections when Frigate media is missing.",
       "purge_missing_clips_confirm": "Remove detections without clips? This cannot be undone.",
-      "purge_missing_snapshots_confirm": "Remove detections without snapshots? This cannot be undone."
+      "purge_missing_snapshots_confirm": "Remove detections without snapshots? This cannot be undone.",
+      "clear_favorites_button": "Delete All Favorites",
+      "clear_favorites_desc": "Removes every favorite marker while keeping detections and media.",
+      "clear_favorites_confirm": "Remove all favorite markers? This cannot be undone.",
+      "clear_favorites_success": "Removed {count} favorite markers.",
+      "clear_favorites_none": "No favorites to remove.",
+      "clear_favorites_error": "Failed to remove favorites"
     },
     "security": {
       "title": "Security",

@@ -595,7 +595,13 @@
       "purge_missing_snapshots": "Удалить обнаружения без снимков",
       "media_integrity_note": "Удаляет обнаружения, когда медиа Frigate отсутствуют.",
       "purge_missing_clips_confirm": "Удалить обнаружения без клипов? Это действие нельзя отменить.",
-      "purge_missing_snapshots_confirm": "Удалить обнаружения без снимков? Это действие нельзя отменить."
+      "purge_missing_snapshots_confirm": "Удалить обнаружения без снимков? Это действие нельзя отменить.",
+      "clear_favorites_button": "Удалить все избранное",
+      "clear_favorites_desc": "Удаляет все отметки избранного, сохраняя обнаружения и медиа.",
+      "clear_favorites_confirm": "Удалить все отметки избранного? Это действие нельзя отменить.",
+      "clear_favorites_success": "Удалено отметок избранного: {count}.",
+      "clear_favorites_none": "Нет избранного для удаления.",
+      "clear_favorites_error": "Не удалось удалить избранное."
     },
     "security": {
       "title": "Security",

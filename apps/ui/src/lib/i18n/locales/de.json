@@ -214,7 +214,13 @@
       "purge_missing_snapshots": "Detektionen ohne Schnappschüsse entfernen",
       "media_integrity_note": "Löscht Detektionen, wenn Frigate-Medien fehlen.",
       "purge_missing_clips_confirm": "Detektionen ohne Clips entfernen? Dies kann nicht rückgängig gemacht werden.",
-      "purge_missing_snapshots_confirm": "Detektionen ohne Schnappschüsse entfernen? Dies kann nicht rückgängig gemacht werden."
+      "purge_missing_snapshots_confirm": "Detektionen ohne Schnappschüsse entfernen? Dies kann nicht rückgängig gemacht werden.",
+      "clear_favorites_button": "Alle Favoriten löschen",
+      "clear_favorites_desc": "Entfernt alle Favoriten-Markierungen, behält aber Detektionen und Medien.",
+      "clear_favorites_confirm": "Alle Favoriten-Markierungen entfernen? Dies kann nicht rückgängig gemacht werden.",
+      "clear_favorites_success": "{count} Favoriten-Markierungen entfernt.",
+      "clear_favorites_none": "Keine Favoriten zum Entfernen.",
+      "clear_favorites_error": "Favoriten konnten nicht entfernt werden."
     },
     "security": {
       "title": "Sicherheit",
