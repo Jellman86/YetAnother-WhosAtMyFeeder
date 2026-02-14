@@ -9,6 +9,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Added:** Owner-curated favorite detections with idempotent API endpoints (`POST/DELETE /api/events/{event_id}/favorite`) and guest-safe read behavior.
 - **Added:** Favorites filtering support on Events APIs (`favorites=true` on `/api/events` and `/api/events/count`) and Explorer UI toggle.
 - **Changed:** Detection payloads now include `is_favorite` across list responses and SSE update flows so Dashboard/Explorer/Modal stay in sync.
+- **Changed:** Retention cleanup now preserves favorited detections, and scheduled/manual media-cache cleanup now exempts favorite event media (snapshots, clips, previews).
 - **Added:** New `detection_favorites` migration with guarded DDL, FK cascade semantics, and downgrade safety checks.
 - **Fixed:** Resolved test-email template rendering error (`unexpected '\\'`) by correcting escaped quotes in the Jinja `font_family` default expression used by `POST /api/email/test`.
 - **Changed:** Settings action feedback is now consistent across tabs: test/connect/disconnect/export actions route through unified status handling and toast notifications instead of mixed banner-only, inline-only, and `alert()` paths.

@@ -1,6 +1,6 @@
 import pytest
 import aiosqlite
-from datetime import datetime
+from datetime import datetime, timedelta
 from app.repositories.detection_repository import DetectionRepository, Detection
 
 
@@ -286,3 +286,56 @@ async def test_favorite_detection_returns_none_when_missing():
 
         assert await repo.favorite_detection("evt_missing", created_by="owner") is None
         assert await repo.unfavorite_detection("evt_missing") is None
+
+
+@pytest.mark.asyncio
+async def test_delete_older_than_preserves_favorites_when_enabled():
+    async with aiosqlite.connect(":memory:") as db:
+        await _create_detections_table(db)
+        await db.commit()
+        repo = DetectionRepository(db)
+
+        old_time = datetime.utcnow() - timedelta(days=30)
+        recent_time = datetime.utcnow()
+
+        old_favorite_event = "evt_old_favorite"
+        old_regular_event = "evt_old_regular"
+        recent_event = "evt_recent"
+
+        await repo.create(Detection(
+            detection_time=old_time,
+            detection_index=1,
+            score=0.9,
+            display_name="Robin",
+            category_name="Bird",
+            frigate_event=old_favorite_event,
+            camera_name="cam_1",
+        ))
+        await repo.create(Detection(
+            detection_time=old_time,
+            detection_index=2,
+            score=0.85,
+            display_name="Robin",
+            category_name="Bird",
+            frigate_event=old_regular_event,
+            camera_name="cam_1",
+        ))
+        await repo.create(Detection(
+            detection_time=recent_time,
+            detection_index=3,
+            score=0.88,
+            display_name="Robin",
+            category_name="Bird",
+            frigate_event=recent_event,
+            camera_name="cam_1",
+        ))
+
+        assert await repo.favorite_detection(old_favorite_event, created_by="owner") is True
+
+        cutoff = datetime.utcnow() - timedelta(days=7)
+        deleted = await repo.delete_older_than(cutoff, preserve_favorites=True)
+        assert deleted == 1
+
+        assert await repo.get_by_frigate_event(old_favorite_event) is not None
+        assert await repo.get_by_frigate_event(old_regular_event) is None
+        assert await repo.get_by_frigate_event(recent_event) is not None

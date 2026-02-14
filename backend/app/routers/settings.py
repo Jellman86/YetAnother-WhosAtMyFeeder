@@ -1019,7 +1019,7 @@ async def get_maintenance_stats(auth: AuthContext = Depends(require_owner)):
         to_delete = 0
         if settings.maintenance.retention_days > 0:
             cutoff = datetime.now() - timedelta(days=settings.maintenance.retention_days)
-            to_delete = await repo.get_count(end_date=cutoff)
+            to_delete = await repo.get_count(end_date=cutoff, exclude_favorites=True)
 
         return {
             "total_detections": total_count,
@@ -1042,7 +1042,7 @@ async def run_cleanup(auth: AuthContext = Depends(require_owner)):
 
     async with get_db() as db:
         repo = DetectionRepository(db)
-        deleted_count = await repo.delete_older_than(cutoff)
+        deleted_count = await repo.delete_older_than(cutoff, preserve_favorites=True)
 
     log.info("Manual cleanup completed", deleted_count=deleted_count, cutoff=cutoff.isoformat())
 
@@ -1199,8 +1199,13 @@ async def run_cache_cleanup(auth: AuthContext = Depends(require_owner)):
     if retention == 0:
         retention = settings.maintenance.retention_days
 
+    # Favorites are exempt from retention cleanup and media cleanup.
+    async with get_db() as db:
+        repo = DetectionRepository(db)
+        protected_ids = await repo.get_favorite_frigate_event_ids()
+
     # Even if retention is 0, we still run cleanup to remove empty files
-    stats = await media_cache.cleanup_old_media(retention)
+    stats = await media_cache.cleanup_old_media(retention, protected_event_ids=protected_ids)
 
     # Also run orphaned media cleanup (files not in DB)
     async with get_db() as db:
@@ -1208,7 +1213,8 @@ async def run_cache_cleanup(auth: AuthContext = Depends(require_owner)):
         async with db.execute("SELECT frigate_event FROM detections") as cursor:
             rows = await cursor.fetchall()
             valid_ids = {row[0] for row in rows}
-                
+    valid_ids.update(protected_ids)
+
     orphan_stats = await media_cache.cleanup_orphaned_media(valid_ids)
         
     # Merge stats

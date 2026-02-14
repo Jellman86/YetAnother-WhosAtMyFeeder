@@ -436,15 +436,18 @@ class MediaCacheService:
             log.info("Empty file cleanup complete", **stats)
         return stats
 
-    async def cleanup_old_media(self, retention_days: int) -> dict:
+    async def cleanup_old_media(self, retention_days: int, protected_event_ids: Optional[set[str]] = None) -> dict:
         """Delete cached media older than retention period.
 
         Args:
             retention_days: Delete files older than this many days
+            protected_event_ids: Event IDs exempt from age-based media deletion
 
         Returns:
             Dict with cleanup stats
         """
+        protected_ids = protected_event_ids or set()
+
         # Always clean up empty/corrupt files first
         empty_stats = await self.cleanup_empty_files()
 
@@ -453,7 +456,8 @@ class MediaCacheService:
                 "snapshots_deleted": empty_stats["snapshots_deleted"],
                 "clips_deleted": empty_stats["clips_deleted"],
                 "previews_deleted": empty_stats["previews_deleted"],
-                "bytes_freed": 0
+                "bytes_freed": 0,
+                "protected_skipped": 0,
             }
 
         cutoff = datetime.now() - timedelta(days=retention_days)
@@ -463,12 +467,16 @@ class MediaCacheService:
             "snapshots_deleted": empty_stats["snapshots_deleted"],
             "clips_deleted": empty_stats["clips_deleted"],
             "previews_deleted": empty_stats["previews_deleted"],
-            "bytes_freed": 0
+            "bytes_freed": 0,
+            "protected_skipped": 0,
         }
 
         # Clean old snapshots
         for path in SNAPSHOTS_DIR.glob("*.jpg"):
             try:
+                if path.stem in protected_ids:
+                    stats["protected_skipped"] += 1
+                    continue
                 if path.stat().st_mtime < cutoff_timestamp:
                     size = path.stat().st_size
                     path.unlink()
@@ -480,6 +488,9 @@ class MediaCacheService:
         # Clean old clips
         for path in CLIPS_DIR.glob("*.mp4"):
             try:
+                if path.stem in protected_ids:
+                    stats["protected_skipped"] += 1
+                    continue
                 if path.stat().st_mtime < cutoff_timestamp:
                     size = path.stat().st_size
                     path.unlink()
@@ -491,6 +502,9 @@ class MediaCacheService:
         # Clean old preview assets
         for path in PREVIEWS_DIR.glob("*"):
             try:
+                if path.stem in protected_ids:
+                    stats["protected_skipped"] += 1
+                    continue
                 if path.is_file() and path.stat().st_mtime < cutoff_timestamp:
                     size = path.stat().st_size
                     path.unlink()

@@ -141,13 +141,15 @@ async def run_cleanup():
     """Execute cleanup of old detections and media cache."""
     try:
         now = datetime.now()
+        favorite_event_ids: set[str] = set()
 
         # Detection cleanup
         if settings.maintenance.retention_days > 0 and settings.maintenance.cleanup_enabled:
             cutoff = now - timedelta(days=settings.maintenance.retention_days)
             async with get_db() as db:
                 repo = DetectionRepository(db)
-                deleted_count = await repo.delete_older_than(cutoff)
+                favorite_event_ids = await repo.get_favorite_frigate_event_ids()
+                deleted_count = await repo.delete_older_than(cutoff, preserve_favorites=True)
             if deleted_count > 0:
                 log.info("Automatic cleanup completed",
                          deleted_count=deleted_count,
@@ -160,7 +162,14 @@ async def run_cleanup():
             if cache_retention == 0:
                 cache_retention = settings.maintenance.retention_days
             if cache_retention > 0:
-                cache_stats = await media_cache.cleanup_old_media(cache_retention)
+                if not favorite_event_ids:
+                    async with get_db() as db:
+                        repo = DetectionRepository(db)
+                        favorite_event_ids = await repo.get_favorite_frigate_event_ids()
+                cache_stats = await media_cache.cleanup_old_media(
+                    cache_retention,
+                    protected_event_ids=favorite_event_ids,
+                )
                 if cache_stats["snapshots_deleted"] > 0 or cache_stats["clips_deleted"] > 0:
                     log.info("Media cache cleanup completed", **cache_stats)
 

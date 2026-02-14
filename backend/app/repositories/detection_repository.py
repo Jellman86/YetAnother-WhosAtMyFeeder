@@ -596,7 +596,8 @@ class DetectionRepository:
         taxa_id: int | None = None,
         camera: str | None = None,
         include_hidden: bool = False,
-        favorite_only: bool = False
+        favorite_only: bool = False,
+        exclude_favorites: bool = False,
     ) -> int:
         """Get total count of detections, optionally filtered."""
         query = """
@@ -626,8 +627,12 @@ class DetectionRepository:
         if camera:
             conditions.append("d.camera_name = ?")
             params.append(camera)
-        if favorite_only:
+        if favorite_only and exclude_favorites:
+            conditions.append("1 = 0")
+        elif favorite_only:
             conditions.append("f.detection_id IS NOT NULL")
+        elif exclude_favorites:
+            conditions.append("f.detection_id IS NULL")
 
         if conditions:
             query += " WHERE " + " AND ".join(conditions)
@@ -667,6 +672,18 @@ class DetectionRepository:
             rows = await cursor.fetchall()
             return [row[0] for row in rows]
 
+    async def get_favorite_frigate_event_ids(self) -> set[str]:
+        """Get Frigate event IDs that are marked as favorites."""
+        async with self.db.execute(
+            """
+            SELECT d.frigate_event
+            FROM detections d
+            INNER JOIN detection_favorites f ON f.detection_id = d.id
+            """
+        ) as cursor:
+            rows = await cursor.fetchall()
+            return {row[0] for row in rows}
+
     async def delete_by_frigate_events(self, event_ids: list[str]) -> int:
         """Delete detections by a list of Frigate event IDs."""
         if not event_ids:
@@ -693,7 +710,12 @@ class DetectionRepository:
                 return {"scientific_name": row[0], "common_name": row[1], "taxa_id": row[2]}
         return {"scientific_name": None, "common_name": None, "taxa_id": None}
 
-    async def delete_older_than(self, cutoff_date: datetime, chunk_size: int = 1000) -> int:
+    async def delete_older_than(
+        self,
+        cutoff_date: datetime,
+        chunk_size: int = 1000,
+        preserve_favorites: bool = False,
+    ) -> int:
         """Delete detections older than the cutoff date in chunks to avoid locking."""
         total_deleted = 0
         cutoff_str = cutoff_date.isoformat(sep=' ')
@@ -703,14 +725,20 @@ class DetectionRepository:
             # We use the rowid (implicit or explicit) or limit if supported by the build
             # Standard SQLite DELETE LIMIT requires compilation option, so we use subquery
             query = """
-                DELETE FROM detections 
+                DELETE FROM detections
                 WHERE id IN (
-                    SELECT id FROM detections 
-                    WHERE detection_time < ? 
+                    SELECT d.id
+                    FROM detections d
+                    LEFT JOIN detection_favorites f ON f.detection_id = d.id
+                    WHERE d.detection_time < ?
+            """
+            if preserve_favorites:
+                query += " AND f.detection_id IS NULL"
+            query += """
                     LIMIT ?
                 )
             """
-            
+
             async with self.db.execute(query, (cutoff_str, chunk_size)) as cursor:
                 if cursor.rowcount == 0:
                     break
