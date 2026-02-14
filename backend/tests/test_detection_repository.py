@@ -44,6 +44,15 @@ async def _create_detections_table(db: aiosqlite.Connection) -> None:
             notified_at TIMESTAMP
         )
     """)
+    await db.execute("""
+        CREATE TABLE detection_favorites (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            detection_id INTEGER NOT NULL UNIQUE,
+            created_by TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (detection_id) REFERENCES detections(id) ON DELETE CASCADE
+        )
+    """)
 
 
 @pytest.mark.asyncio
@@ -212,3 +221,68 @@ async def test_upsert_if_higher_score_returns_no_change_for_lower_score():
         assert existing is not None
         assert existing.score == pytest.approx(0.92)
         assert existing.display_name == "Blue Jay"
+
+
+@pytest.mark.asyncio
+async def test_favorite_detection_idempotent_and_filterable():
+    async with aiosqlite.connect(":memory:") as db:
+        await _create_detections_table(db)
+        await db.commit()
+        repo = DetectionRepository(db)
+
+        now = datetime.utcnow()
+        await repo.create(Detection(
+            detection_time=now,
+            detection_index=1,
+            score=0.9,
+            display_name="Robin",
+            category_name="Bird",
+            frigate_event="evt_fav_1",
+            camera_name="cam_1"
+        ))
+        await repo.create(Detection(
+            detection_time=now,
+            detection_index=2,
+            score=0.8,
+            display_name="Sparrow",
+            category_name="Bird",
+            frigate_event="evt_fav_2",
+            camera_name="cam_1"
+        ))
+
+        assert await repo.favorite_detection("evt_fav_1", created_by="owner") is True
+        # idempotent second call should still succeed without duplicate
+        assert await repo.favorite_detection("evt_fav_1", created_by="owner") is True
+
+        row = await repo.get_by_frigate_event("evt_fav_1")
+        assert row is not None
+        assert row.is_favorite is True
+
+        all_rows = await repo.get_all(limit=10, favorite_only=False)
+        fav_rows = await repo.get_all(limit=10, favorite_only=True)
+        assert len(all_rows) == 2
+        assert len(fav_rows) == 1
+        assert fav_rows[0].frigate_event == "evt_fav_1"
+
+        assert await repo.get_count(favorite_only=False) == 2
+        assert await repo.get_count(favorite_only=True) == 1
+
+        assert await repo.unfavorite_detection("evt_fav_1") is True
+        # idempotent second call should still report success
+        assert await repo.unfavorite_detection("evt_fav_1") is True
+
+        row_after = await repo.get_by_frigate_event("evt_fav_1")
+        assert row_after is not None
+        assert row_after.is_favorite is False
+        assert await repo.get_count(favorite_only=True) == 0
+
+
+@pytest.mark.asyncio
+async def test_favorite_detection_returns_none_when_missing():
+    async with aiosqlite.connect(":memory:") as db:
+        await _create_detections_table(db)
+        await db.commit()
+        repo = DetectionRepository(db)
+
+        assert await repo.favorite_detection("evt_missing", created_by="owner") is None
+        assert await repo.unfavorite_detection("evt_missing") is None

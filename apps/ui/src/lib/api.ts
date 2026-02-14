@@ -9,6 +9,7 @@ export interface Detection {
     category_name?: string;
     has_clip?: boolean;  // Clip availability from backend
     is_hidden?: boolean; // Hidden/ignored status
+    is_favorite?: boolean; // Owner-curated favorite
     frigate_score?: number; // Frigate detection confidence
     sub_label?: string;     // Frigate sub-label
     manual_tagged?: boolean;
@@ -696,10 +697,11 @@ export interface FetchEventsOptions {
     camera?: string;
     sort?: 'newest' | 'oldest' | 'confidence';
     includeHidden?: boolean;  // Include hidden/ignored detections
+    favoritesOnly?: boolean;  // Include only favorites
 }
 
 export async function fetchEvents(options: FetchEventsOptions = {}): Promise<Detection[]> {
-    const { limit = 50, offset = 0, startDate, endDate, species, camera, sort, includeHidden } = options;
+    const { limit = 50, offset = 0, startDate, endDate, species, camera, sort, includeHidden, favoritesOnly } = options;
     const params = new URLSearchParams();
     params.set('limit', limit.toString());
     params.set('offset', offset.toString());
@@ -709,9 +711,10 @@ export async function fetchEvents(options: FetchEventsOptions = {}): Promise<Det
     if (camera) params.set('camera', camera);
     if (sort) params.set('sort', sort);
     if (includeHidden) params.set('include_hidden', 'true');
+    if (favoritesOnly) params.set('favorites', 'true');
 
     // Use abort key based on filters to cancel outdated requests
-    const filterKey = `events-${species || 'all'}-${camera || 'all'}-${sort || 'newest'}`;
+    const filterKey = `events-${species || 'all'}-${camera || 'all'}-${sort || 'newest'}-${includeHidden ? 'hidden' : 'visible'}-${favoritesOnly ? 'favorites' : 'all'}`;
     return fetchWithAbort<Detection[]>(filterKey, `${API_BASE}/events?${params.toString()}`);
 }
 
@@ -739,6 +742,7 @@ export interface EventsCountOptions {
     species?: string;
     camera?: string;
     includeHidden?: boolean;
+    favoritesOnly?: boolean;
 }
 
 export interface EventsCountResponse {
@@ -747,13 +751,14 @@ export interface EventsCountResponse {
 }
 
 export async function fetchEventsCount(options: EventsCountOptions = {}): Promise<EventsCountResponse> {
-    const { startDate, endDate, species, camera, includeHidden } = options;
+    const { startDate, endDate, species, camera, includeHidden, favoritesOnly } = options;
     const params = new URLSearchParams();
     if (startDate) params.set('start_date', startDate);
     if (endDate) params.set('end_date', endDate);
     if (species) params.set('species', species);
     if (camera) params.set('camera', camera);
     if (includeHidden) params.set('include_hidden', 'true');
+    if (favoritesOnly) params.set('favorites', 'true');
 
     const response = await apiFetch(`${API_BASE}/events/count?${params.toString()}`);
     return handleResponse<EventsCountResponse>(response);
@@ -810,11 +815,31 @@ export interface HideDetectionResult {
     is_hidden: boolean;
 }
 
+export interface FavoriteDetectionResult {
+    status: string;
+    event_id: string;
+    is_favorite: boolean;
+}
+
 export async function hideDetection(frigateEventId: string): Promise<HideDetectionResult> {
     const response = await apiFetch(`${API_BASE}/events/${encodeURIComponent(frigateEventId)}/hide`, {
         method: 'POST'
     });
     return handleResponse<HideDetectionResult>(response);
+}
+
+export async function favoriteDetection(frigateEventId: string): Promise<FavoriteDetectionResult> {
+    const response = await apiFetch(`${API_BASE}/events/${encodeURIComponent(frigateEventId)}/favorite`, {
+        method: 'POST'
+    });
+    return handleResponse<FavoriteDetectionResult>(response);
+}
+
+export async function unfavoriteDetection(frigateEventId: string): Promise<FavoriteDetectionResult> {
+    const response = await apiFetch(`${API_BASE}/events/${encodeURIComponent(frigateEventId)}/favorite`, {
+        method: 'DELETE'
+    });
+    return handleResponse<FavoriteDetectionResult>(response);
 }
 
 export async function fetchHiddenCount(): Promise<{ hidden_count: number }> {

@@ -11,6 +11,7 @@ class Detection(BaseModel):
     frigate_event: str
     camera_name: str
     is_hidden: bool = False
+    is_favorite: bool = False
     frigate_score: float | None = None
     sub_label: str | None = None
     manual_tagged: bool = False

@@ -168,6 +168,7 @@ class DetectionService:
             changed = was_inserted or was_updated
 
             if changed:
+                persisted = await repo.get_by_frigate_event(frigate_event)
                 log.info("Saved detection", 
                          event_id=frigate_event, 
                          species=display_name, 
@@ -189,9 +190,10 @@ class DetectionService:
                         "score": score,
                         "timestamp": timestamp.isoformat(),
                         "camera": camera,
+                        "is_favorite": persisted.is_favorite if persisted else detection.is_favorite,
                         "frigate_score": frigate_score,
                         "sub_label": sub_label,
-                        "manual_tagged": detection.manual_tagged,
+                        "manual_tagged": persisted.manual_tagged if persisted else detection.manual_tagged,
                         "audio_confirmed": audio_confirmed,
                         "audio_species": audio_species,
                         "audio_score": audio_score,
@@ -328,6 +330,7 @@ class DetectionService:
                             "timestamp": updated.detection_time.isoformat(),
                             "camera": updated.camera_name,
                             "is_hidden": updated.is_hidden,
+                            "is_favorite": updated.is_favorite,
                             "audio_confirmed": updated.audio_confirmed,
                             "audio_species": updated.audio_species,
                             "audio_score": updated.audio_score,

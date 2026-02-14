@@ -51,6 +51,7 @@
     let customEndDate = $state('');
     let speciesFilter = $state('');
     let cameraFilter = $state('');
+    let favoritesOnly = $state(false);
     let sortOrder = $state<'newest' | 'oldest' | 'confidence'>('newest');
 
     let selectedEvent = $state<Detection | null>(null);
@@ -88,6 +89,7 @@
             d.score,
             d.manual_tagged,
             d.is_hidden,
+            d.is_favorite,
             d.video_classification_status,
             d.video_classification_label,
             d.video_classification_score,
@@ -122,8 +124,25 @@
         try {
             const range = dateRange;
             const [newEvents, countRes] = await Promise.all([
-                fetchEvents({ limit: pageSize, offset: (currentPage - 1) * pageSize, startDate: range.start, endDate: range.end, species: speciesFilter || undefined, camera: cameraFilter || undefined, sort: sortOrder, includeHidden: showHidden }),
-                fetchEventsCount({ startDate: range.start, endDate: range.end, species: speciesFilter || undefined, camera: cameraFilter || undefined, includeHidden: showHidden })
+                fetchEvents({
+                    limit: pageSize,
+                    offset: (currentPage - 1) * pageSize,
+                    startDate: range.start,
+                    endDate: range.end,
+                    species: speciesFilter || undefined,
+                    camera: cameraFilter || undefined,
+                    sort: sortOrder,
+                    includeHidden: showHidden,
+                    favoritesOnly
+                }),
+                fetchEventsCount({
+                    startDate: range.start,
+                    endDate: range.end,
+                    species: speciesFilter || undefined,
+                    camera: cameraFilter || undefined,
+                    includeHidden: showHidden,
+                    favoritesOnly
+                })
             ]);
             events = newEvents;
             totalCount = countRes.count;
@@ -152,6 +171,7 @@
         const params = new URLSearchParams(window.location.search);
         if (params.get('species')) speciesFilter = params.get('species')!;
         if (params.get('date')) datePreset = params.get('date') as any;
+        if (params.get('favorites') === '1' || params.get('favorites') === 'true') favoritesOnly = true;
         const deepLinkedEvent = params.get('event');
         const deepLinkedShare = params.get('share');
         const videoParam = params.get('video');
@@ -402,6 +422,25 @@
         <select bind:value={cameraFilter} onchange={loadEvents} class="select-base min-w-[12rem]">
             <option value="">{$_('events.filters.all_cameras')}</option>{#each availableCameras as c}<option value={c}>{c}</option>{/each}
         </select>
+        <button
+            type="button"
+            class="inline-flex items-center gap-2 px-4 py-2 rounded-xl border text-xs font-black uppercase tracking-widest transition-colors
+                {favoritesOnly
+                    ? 'bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-500/20 dark:text-amber-200 dark:border-amber-500/50'
+                    : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50 dark:bg-slate-900/60 dark:text-slate-200 dark:border-slate-700 dark:hover:bg-slate-800'}"
+            onclick={() => {
+                favoritesOnly = !favoritesOnly;
+                currentPage = 1;
+                void loadEvents();
+            }}
+            aria-pressed={favoritesOnly}
+            title={$_('events.filters.favorites', { default: 'Favorites only' })}
+        >
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill={favoritesOnly ? 'currentColor' : 'none'} stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M11.05 2.927c.3-.921 1.603-.921 1.902 0l2.02 6.217a1 1 0 00.95.69h6.54c.969 0 1.371 1.24.588 1.81l-5.29 3.844a1 1 0 00-.364 1.118l2.02 6.217c.3.921-.755 1.688-1.539 1.118l-5.29-3.844a1 1 0 00-1.175 0l-5.29 3.844c-.783.57-1.838-.197-1.539-1.118l2.02-6.217a1 1 0 00-.364-1.118L.98 11.644c-.783-.57-.38-1.81.588-1.81h6.54a1 1 0 00.95-.69l2.02-6.217z" />
+            </svg>
+            <span>{$_('events.filters.favorites', { default: 'Favorites' })}</span>
+        </button>
     </div>
 
     <Pagination {currentPage} {totalPages} totalItems={totalCount} itemsPerPage={pageSize} onPageChange={(p) => {currentPage=p; loadEvents()}} onPageSizeChange={(s) => {pageSize=s; currentPage=1; loadEvents()}} />

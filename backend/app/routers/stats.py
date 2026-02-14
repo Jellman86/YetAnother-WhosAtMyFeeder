@@ -231,6 +231,7 @@ async def get_daily_summary(
                 frigate_event=d.frigate_event,
                 camera_name="Hidden" if hide_camera_names else d.camera_name,
                 is_hidden=d.is_hidden,
+                is_favorite=d.is_favorite,
                 frigate_score=d.frigate_score,
                 sub_label=d.sub_label,
                 manual_tagged=d.manual_tagged,

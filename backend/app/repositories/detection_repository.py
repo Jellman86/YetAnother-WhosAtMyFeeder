@@ -16,6 +16,7 @@ class Detection:
     camera_name: str
     id: Optional[int] = None
     is_hidden: bool = False
+    is_favorite: bool = False
     frigate_score: Optional[float] = None
     sub_label: Optional[str] = None
     manual_tagged: bool = False
@@ -116,6 +117,9 @@ def _row_to_detection(row) -> Detection:
     if len(row) > 34:
         d.notified_at = _parse_datetime(row[34]) if row[34] else None
 
+    if len(row) > 35:
+        d.is_favorite = bool(row[35])
+
     return d
 
 
@@ -132,7 +136,17 @@ class DetectionRepository:
 
     async def get_by_frigate_event(self, frigate_event: str) -> Optional[Detection]:
         async with self.db.execute(
-            "SELECT id, detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label, audio_confirmed, audio_species, audio_score, temperature, weather_condition, weather_cloud_cover, weather_wind_speed, weather_wind_direction, weather_precipitation, weather_rain, weather_snowfall, scientific_name, common_name, taxa_id, video_classification_score, video_classification_label, video_classification_index, video_classification_timestamp, video_classification_status, video_classification_error, ai_analysis, ai_analysis_timestamp, manual_tagged, notified_at FROM detections WHERE frigate_event = ?",
+            """SELECT d.id, d.detection_time, d.detection_index, d.score, d.display_name, d.category_name, d.frigate_event, d.camera_name,
+                      d.is_hidden, d.frigate_score, d.sub_label, d.audio_confirmed, d.audio_species, d.audio_score,
+                      d.temperature, d.weather_condition, d.weather_cloud_cover, d.weather_wind_speed, d.weather_wind_direction,
+                      d.weather_precipitation, d.weather_rain, d.weather_snowfall, d.scientific_name, d.common_name, d.taxa_id,
+                      d.video_classification_score, d.video_classification_label, d.video_classification_index,
+                      d.video_classification_timestamp, d.video_classification_status, d.video_classification_error,
+                      d.ai_analysis, d.ai_analysis_timestamp, d.manual_tagged, d.notified_at,
+                      CASE WHEN f.detection_id IS NULL THEN 0 ELSE 1 END AS is_favorite
+               FROM detections d
+               LEFT JOIN detection_favorites f ON f.detection_id = d.id
+               WHERE d.frigate_event = ?""",
             (frigate_event,)
         ) as cursor:
             row = await cursor.fetchone()
@@ -217,6 +231,32 @@ class DetectionRepository:
         )
         await self.db.commit()
         return new_status
+
+    async def favorite_detection(self, frigate_event: str, created_by: Optional[str] = None) -> Optional[bool]:
+        """Mark detection as favorite. Returns True if detection exists, None if not found."""
+        detection = await self.get_by_frigate_event(frigate_event)
+        if not detection or detection.id is None:
+            return None
+
+        await self.db.execute(
+            "INSERT OR IGNORE INTO detection_favorites (detection_id, created_by) VALUES (?, ?)",
+            (detection.id, created_by)
+        )
+        await self.db.commit()
+        return True
+
+    async def unfavorite_detection(self, frigate_event: str) -> Optional[bool]:
+        """Remove favorite marker. Returns True if detection exists, None if not found."""
+        detection = await self.get_by_frigate_event(frigate_event)
+        if not detection or detection.id is None:
+            return None
+
+        await self.db.execute(
+            "DELETE FROM detection_favorites WHERE detection_id = ?",
+            (detection.id,)
+        )
+        await self.db.commit()
+        return True
 
     async def get_hidden_count(self) -> int:
         """Get count of hidden detections."""
@@ -490,42 +530,56 @@ class DetectionRepository:
         taxa_id: int | None = None,
         camera: str | None = None,
         sort: str = "newest",
-        include_hidden: bool = False
+        include_hidden: bool = False,
+        favorite_only: bool = False
     ) -> list[Detection]:
-        query = "SELECT id, detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label, audio_confirmed, audio_species, audio_score, temperature, weather_condition, weather_cloud_cover, weather_wind_speed, weather_wind_direction, weather_precipitation, weather_rain, weather_snowfall, scientific_name, common_name, taxa_id, video_classification_score, video_classification_label, video_classification_index, video_classification_timestamp, video_classification_status, video_classification_error, ai_analysis, ai_analysis_timestamp, manual_tagged, notified_at FROM detections"
+        query = """
+            SELECT d.id, d.detection_time, d.detection_index, d.score, d.display_name, d.category_name, d.frigate_event, d.camera_name,
+                   d.is_hidden, d.frigate_score, d.sub_label, d.audio_confirmed, d.audio_species, d.audio_score,
+                   d.temperature, d.weather_condition, d.weather_cloud_cover, d.weather_wind_speed, d.weather_wind_direction,
+                   d.weather_precipitation, d.weather_rain, d.weather_snowfall, d.scientific_name, d.common_name, d.taxa_id,
+                   d.video_classification_score, d.video_classification_label, d.video_classification_index,
+                   d.video_classification_timestamp, d.video_classification_status, d.video_classification_error,
+                   d.ai_analysis, d.ai_analysis_timestamp, d.manual_tagged, d.notified_at,
+                   CASE WHEN f.detection_id IS NULL THEN 0 ELSE 1 END AS is_favorite
+            FROM detections d
+            LEFT JOIN detection_favorites f ON f.detection_id = d.id
+        """
         params: list = []
         conditions = []
 
         # By default, exclude hidden detections
         if not include_hidden:
-            conditions.append("(is_hidden = 0 OR is_hidden IS NULL)")
+            conditions.append("(d.is_hidden = 0 OR d.is_hidden IS NULL)")
 
         if start_date:
-            conditions.append("detection_time >= ?")
+            conditions.append("d.detection_time >= ?")
             params.append(start_date.isoformat(sep=' '))
         if end_date:
-            conditions.append("detection_time <= ?")
+            conditions.append("d.detection_time <= ?")
             params.append(end_date.isoformat(sep=' '))
         if species:
-            conditions.append("display_name = ?")
+            conditions.append("d.display_name = ?")
             params.append(species)
         if taxa_id is not None:
-            conditions.append("taxa_id = ?")
+            conditions.append("d.taxa_id = ?")
             params.append(taxa_id)
         if camera:
-            conditions.append("camera_name = ?")
+            conditions.append("d.camera_name = ?")
             params.append(camera)
+        if favorite_only:
+            conditions.append("f.detection_id IS NOT NULL")
 
         if conditions:
             query += " WHERE " + " AND ".join(conditions)
 
         # Apply sort order
         if sort == "oldest":
-            query += " ORDER BY detection_time ASC"
+            query += " ORDER BY d.detection_time ASC"
         elif sort == "confidence":
-            query += " ORDER BY score DESC, detection_time DESC"
+            query += " ORDER BY d.score DESC, d.detection_time DESC"
         else:  # newest (default)
-            query += " ORDER BY detection_time DESC"
+            query += " ORDER BY d.detection_time DESC"
 
         query += " LIMIT ? OFFSET ?"
         params.extend([limit, offset])
@@ -541,32 +595,39 @@ class DetectionRepository:
         species: str | None = None,
         taxa_id: int | None = None,
         camera: str | None = None,
-        include_hidden: bool = False
+        include_hidden: bool = False,
+        favorite_only: bool = False
     ) -> int:
         """Get total count of detections, optionally filtered."""
-        query = "SELECT COUNT(*) FROM detections"
+        query = """
+            SELECT COUNT(*)
+            FROM detections d
+            LEFT JOIN detection_favorites f ON f.detection_id = d.id
+        """
         params: list = []
         conditions = []
 
         # By default, exclude hidden detections
         if not include_hidden:
-            conditions.append("(is_hidden = 0 OR is_hidden IS NULL)")
+            conditions.append("(d.is_hidden = 0 OR d.is_hidden IS NULL)")
 
         if start_date:
-            conditions.append("detection_time >= ?")
+            conditions.append("d.detection_time >= ?")
             params.append(start_date.isoformat(sep=' '))
         if end_date:
-            conditions.append("detection_time <= ?")
+            conditions.append("d.detection_time <= ?")
             params.append(end_date.isoformat(sep=' '))
         if species:
-            conditions.append("display_name = ?")
+            conditions.append("d.display_name = ?")
             params.append(species)
         if taxa_id is not None:
-            conditions.append("taxa_id = ?")
+            conditions.append("d.taxa_id = ?")
             params.append(taxa_id)
         if camera:
-            conditions.append("camera_name = ?")
+            conditions.append("d.camera_name = ?")
             params.append(camera)
+        if favorite_only:
+            conditions.append("f.detection_id IS NOT NULL")
 
         if conditions:
             query += " WHERE " + " AND ".join(conditions)
@@ -670,18 +731,20 @@ class DetectionRepository:
     async def get_unknown_detections(self) -> list[Detection]:
         """Get all detections labeled as 'Unknown Bird'."""
         query = """
-            SELECT id, detection_time, detection_index, score, display_name, category_name, 
-                   frigate_event, camera_name, is_hidden, frigate_score, sub_label, 
-                   audio_confirmed, audio_species, audio_score, temperature, weather_condition,
-                   weather_cloud_cover, weather_wind_speed, weather_wind_direction,
-                   weather_precipitation, weather_rain, weather_snowfall,
-                   scientific_name, common_name, taxa_id, video_classification_score, 
-                   video_classification_label, video_classification_index, 
-                   video_classification_timestamp, video_classification_status, 
-                   video_classification_error, ai_analysis, ai_analysis_timestamp, 
-                   manual_tagged, notified_at
-            FROM detections 
-            WHERE display_name = 'Unknown Bird'
+            SELECT d.id, d.detection_time, d.detection_index, d.score, d.display_name, d.category_name,
+                   d.frigate_event, d.camera_name, d.is_hidden, d.frigate_score, d.sub_label,
+                   d.audio_confirmed, d.audio_species, d.audio_score, d.temperature, d.weather_condition,
+                   d.weather_cloud_cover, d.weather_wind_speed, d.weather_wind_direction,
+                   d.weather_precipitation, d.weather_rain, d.weather_snowfall,
+                   d.scientific_name, d.common_name, d.taxa_id, d.video_classification_score,
+                   d.video_classification_label, d.video_classification_index,
+                   d.video_classification_timestamp, d.video_classification_status,
+                   d.video_classification_error, d.ai_analysis, d.ai_analysis_timestamp,
+                   d.manual_tagged, d.notified_at,
+                   CASE WHEN f.detection_id IS NULL THEN 0 ELSE 1 END AS is_favorite
+            FROM detections d
+            LEFT JOIN detection_favorites f ON f.detection_id = d.id
+            WHERE d.display_name = 'Unknown Bird'
         """
         async with self.db.execute(query) as cursor:
             rows = await cursor.fetchall()
@@ -1630,28 +1693,34 @@ class DetectionRepository:
     async def get_recent_by_species(self, species_name: str, limit: int = 5, include_hidden: bool = False) -> list[Detection]:
         """Get most recent detections for a species."""
         if include_hidden:
-            query = """SELECT id, detection_time, detection_index, score, display_name,
-                          category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label,
-                          audio_confirmed, audio_species, audio_score, temperature, weather_condition,
-                          weather_cloud_cover, weather_wind_speed, weather_wind_direction,
-                          weather_precipitation, weather_rain, weather_snowfall,
-                          scientific_name, common_name, taxa_id, video_classification_score, video_classification_label,
-                          video_classification_index, video_classification_timestamp, video_classification_status,
-                          video_classification_error, ai_analysis, ai_analysis_timestamp
-                   FROM detections WHERE display_name = ?
-                   ORDER BY detection_time DESC LIMIT ?"""
+            query = """SELECT d.id, d.detection_time, d.detection_index, d.score, d.display_name,
+                          d.category_name, d.frigate_event, d.camera_name, d.is_hidden, d.frigate_score, d.sub_label,
+                          d.audio_confirmed, d.audio_species, d.audio_score, d.temperature, d.weather_condition,
+                          d.weather_cloud_cover, d.weather_wind_speed, d.weather_wind_direction,
+                          d.weather_precipitation, d.weather_rain, d.weather_snowfall,
+                          d.scientific_name, d.common_name, d.taxa_id, d.video_classification_score, d.video_classification_label,
+                          d.video_classification_index, d.video_classification_timestamp, d.video_classification_status,
+                          d.video_classification_error, d.ai_analysis, d.ai_analysis_timestamp, d.manual_tagged, d.notified_at,
+                          CASE WHEN f.detection_id IS NULL THEN 0 ELSE 1 END AS is_favorite
+                   FROM detections d
+                   LEFT JOIN detection_favorites f ON f.detection_id = d.id
+                   WHERE d.display_name = ?
+                   ORDER BY d.detection_time DESC LIMIT ?"""
             params = (species_name, limit)
         else:
-            query = """SELECT id, detection_time, detection_index, score, display_name,
-                          category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label,
-                          audio_confirmed, audio_species, audio_score, temperature, weather_condition,
-                          weather_cloud_cover, weather_wind_speed, weather_wind_direction,
-                          weather_precipitation, weather_rain, weather_snowfall,
-                          scientific_name, common_name, taxa_id, video_classification_score, video_classification_label,
-                          video_classification_index, video_classification_timestamp, video_classification_status,
-                          video_classification_error, ai_analysis, ai_analysis_timestamp
-                   FROM detections WHERE display_name = ? AND (is_hidden = 0 OR is_hidden IS NULL)
-                   ORDER BY detection_time DESC LIMIT ?"""
+            query = """SELECT d.id, d.detection_time, d.detection_index, d.score, d.display_name,
+                          d.category_name, d.frigate_event, d.camera_name, d.is_hidden, d.frigate_score, d.sub_label,
+                          d.audio_confirmed, d.audio_species, d.audio_score, d.temperature, d.weather_condition,
+                          d.weather_cloud_cover, d.weather_wind_speed, d.weather_wind_direction,
+                          d.weather_precipitation, d.weather_rain, d.weather_snowfall,
+                          d.scientific_name, d.common_name, d.taxa_id, d.video_classification_score, d.video_classification_label,
+                          d.video_classification_index, d.video_classification_timestamp, d.video_classification_status,
+                          d.video_classification_error, d.ai_analysis, d.ai_analysis_timestamp, d.manual_tagged, d.notified_at,
+                          CASE WHEN f.detection_id IS NULL THEN 0 ELSE 1 END AS is_favorite
+                   FROM detections d
+                   LEFT JOIN detection_favorites f ON f.detection_id = d.id
+                   WHERE d.display_name = ? AND (d.is_hidden = 0 OR d.is_hidden IS NULL)
+                   ORDER BY d.detection_time DESC LIMIT ?"""
             params = (species_name, limit)
 
         async with self.db.execute(query, params) as cursor:

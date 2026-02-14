@@ -4,6 +4,61 @@ This roadmap outlines planned features and improvements for the YA-WAMF bird cla
 
 > **Important:** YA-WAMF is already feature-rich! This roadmap focuses on NEW features to be developed. See the [README](README.md) for comprehensive list of existing capabilities.
 
+## Maintenance Mode: Next Up
+
+These are the top maintenance-mode improvements to prioritize before broader feature expansion.
+
+### 1. Favourite Detections (Owner Curation) ⭐
+**Priority:** P1 | **Effort:** M (4-6 days) | **Status:** ✅ Completed (Unreleased)
+
+Add a first-class way to pin standout detections so users can build a curated set of highlights.
+
+**Design Direction (project-aligned):**
+- Use an owner-curated favorites model first (single curated set), with schema choices that can later support per-user favorites.
+- Keep guest access read-only: guests can view favorites, but only owner/admin can toggle.
+- Preserve existing event flow and avoid heavy rewrites to detection pipelines.
+
+**Implementation Plan:**
+1. **Database + API contract**
+- Add a favorites table (or equivalent relation) keyed by detection/event id with timestamps and creator metadata.
+- Add idempotent toggle endpoints (`POST` favorite, `DELETE` favorite) and a filtered list/query mode (`favorites=true`).
+- Ensure migration is safe, reversible, and consistent with existing migration standards.
+
+2. **Backend integration**
+- Join favorite metadata into detection responses used by dashboard/explorer/video contexts.
+- Keep performance predictable with indexes and lightweight joins.
+- Enforce permissions at API level (owner/admin write, guest read).
+
+3. **Frontend UX**
+- Add a consistent “star/favorite” action in detection cards, modal, and relevant tables.
+- Add “Favorites” filter/preset in Explorer and optional “Highlights” section on Dashboard.
+- Reuse existing toast/feedback patterns for toggle success/failure.
+
+4. **Operations + quality**
+- Add unit/API tests for toggle idempotency, auth boundaries, and filter behavior.
+- Add E2E coverage for mark/unmark flows and guest-mode visibility.
+- Add changelog/docs updates with behavior and permissions.
+
+**Future-safe extension path:**
+- If multi-user ownership expands later, evolve uniqueness from `(detection_id)` to `(user_id, detection_id)` with minimal API change.
+
+### 2. Settings Architecture Refactor (Stability + Maintainability) 🧱
+**Priority:** P1 | **Effort:** M (3-5 days) | **Status:** Planned
+
+Consolidate the large settings implementation into reusable modules to reduce regression risk and improve PR velocity.
+
+**Scope:**
+- Extract Settings page logic into domain-focused modules (`dirty-check`, `secret-state`, `action-feedback`).
+- Standardize async button state/feedback helpers across settings panels.
+- Keep current UI/behavior stable while reducing duplication.
+
+**Acceptance Criteria:**
+- No behavior regressions in save/dirty/secret indicators/feedback.
+- Reduced repeated logic in component files.
+- Existing `npm run check`, unit tests, and settings E2E flows remain green.
+
+---
+
 ## Raspberry Pi Compatibility (Best-Effort Plan)
 
 **Status:** Planned, not yet hardware-validated.
@@ -106,6 +161,7 @@ See [DEVELOPER.md](DEVELOPER.md) for architectural details.
 
 ## Table of Contents
 
+- [Maintenance Mode: Next Up](#maintenance-mode-next-up)
 - [Raspberry Pi Compatibility (Best-Effort Plan)](#raspberry-pi-compatibility-best-effort-plan)
 - [🚨 Issues First](#-issues-first)
 - [🎯 Top Priority Features](#-top-priority-features)

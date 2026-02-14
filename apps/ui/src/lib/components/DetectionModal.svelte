@@ -7,6 +7,8 @@
         updateDetectionSpecies,
         hideDetection,
         deleteDetection,
+        favoriteDetection,
+        unfavoriteDetection,
         searchSpecies,
         fetchAudioContext,
         createInaturalistDraft,
@@ -29,6 +31,7 @@
     import { detectionsStore, type ReclassificationProgress } from '../stores/detections.svelte';
     import { settingsStore } from '../stores/settings.svelte';
     import { authStore } from '../stores/auth.svelte';
+    import { toastStore } from '../stores/toast.svelte';
     import { getBirdNames } from '../naming';
     import { _ } from 'svelte-i18n';
     import { get } from 'svelte/store';
@@ -266,6 +269,7 @@
     let lastEventId = $state<string | null>(null);
     let showTagDropdown = $state(false);
     let updatingTag = $state(false);
+    let favoritePending = $state(false);
     let tagSearchQuery = $state('');
     let searchResults = $state<SearchResult[]>([]);
     let isSearching = $state(false);
@@ -782,6 +786,29 @@
             onClose();
         } catch (e: any) {
             alert($_('notifications.reclassify_failed', { values: { message: e.message } }));
+        }
+    }
+
+    async function handleFavoriteToggle() {
+        if (readOnly) return;
+        if (!detection) return;
+        favoritePending = true;
+        try {
+            if (detection.is_favorite) {
+                await unfavoriteDetection(detection.frigate_event);
+                detection.is_favorite = false;
+                detectionsStore.updateDetection({ ...detection, is_favorite: false });
+                toastStore.success($_('detection.favorite_removed', { default: 'Removed from favorites' }));
+            } else {
+                await favoriteDetection(detection.frigate_event);
+                detection.is_favorite = true;
+                detectionsStore.updateDetection({ ...detection, is_favorite: true });
+                toastStore.success($_('detection.favorite_added', { default: 'Added to favorites' }));
+            }
+        } catch (e: any) {
+            toastStore.error(e?.message || $_('common.error', { default: 'Action failed' }));
+        } finally {
+            favoritePending = false;
         }
     }
 
@@ -2070,6 +2097,16 @@
             <!-- Bottom Actions -->
             <div class="flex gap-2 pt-2">
                 {#if authStore.canModify}
+                    <button
+                        onclick={handleFavoriteToggle}
+                        disabled={favoritePending}
+                        class="p-3 rounded-xl transition-colors disabled:opacity-60 {detection.is_favorite ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-900/40' : 'bg-slate-100 dark:bg-slate-700 text-slate-600 hover:bg-slate-200'}"
+                        title={detection.is_favorite ? $_('detection.favorite_remove', { default: 'Remove favorite' }) : $_('detection.favorite_add', { default: 'Add favorite' })}
+                    >
+                        <svg class="w-5 h-5" viewBox="0 0 24 24" fill={detection.is_favorite ? 'currentColor' : 'none'} stroke="currentColor" stroke-width="1.8">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M11.05 2.927c.3-.921 1.603-.921 1.902 0l2.02 6.217a1 1 0 00.95.69h6.54c.969 0 1.371 1.24.588 1.81l-5.29 3.844a1 1 0 00-.364 1.118l2.02 6.217c.3.921-.755 1.688-1.539 1.118l-5.29-3.844a1 1 0 00-1.175 0l-5.29 3.844c-.783.57-1.838-.197-1.539-1.118l2.02-6.217a1 1 0 00-.364-1.118L.98 11.644c-.783-.57-.38-1.81.588-1.81h6.54a1 1 0 00.95-.69l2.02-6.217z" />
+                        </svg>
+                    </button>
                     <button
                         onclick={handleDelete}
                         class="p-3 rounded-xl bg-red-50 dark:bg-red-900/20 text-red-600 hover:bg-red-100 transition-colors"

@@ -98,6 +98,7 @@
             d.score,
             d.manual_tagged,
             d.is_hidden,
+            d.is_favorite,
             d.video_classification_status,
             d.video_classification_label,
             d.video_classification_score,

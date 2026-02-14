@@ -535,6 +535,7 @@ class AutoVideoClassifierService:
                             "timestamp": det.detection_time.isoformat(),
                             "camera": det.camera_name,
                             "is_hidden": det.is_hidden,
+                            "is_favorite": det.is_favorite,
                             "frigate_score": det.frigate_score,
                             "sub_label": det.sub_label,
                             "manual_tagged": det.manual_tagged,

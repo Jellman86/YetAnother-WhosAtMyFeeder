@@ -206,3 +206,16 @@ species_daily_rollup = Table(
 
 Index("idx_species_rollup_date", species_daily_rollup.c.rollup_date)
 Index("idx_species_rollup_display", species_daily_rollup.c.display_name)
+
+
+detection_favorites = Table(
+    "detection_favorites",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("detection_id", Integer, ForeignKey("detections.id", ondelete="CASCADE"), nullable=False, unique=True),
+    Column("created_by", String, nullable=True),
+    Column("created_at", TIMESTAMP, server_default=func.now(), nullable=False),
+)
+
+Index("idx_detection_favorites_detection_id", detection_favorites.c.detection_id)
+Index("idx_detection_favorites_created_at", detection_favorites.c.created_at)

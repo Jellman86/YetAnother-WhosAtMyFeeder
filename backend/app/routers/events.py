@@ -65,6 +65,43 @@ async def batch_check_clips(event_ids: list[str]) -> dict[str, bool]:
     results = await asyncio.gather(*(check(event_id) for event_id in event_ids))
     return dict(results)
 
+
+def _detection_updated_payload(detection, overrides: dict | None = None) -> dict:
+    payload = {
+        "frigate_event": detection.frigate_event,
+        "display_name": detection.display_name,
+        "score": detection.score,
+        "timestamp": detection.detection_time.isoformat(),
+        "camera": detection.camera_name,
+        "is_hidden": detection.is_hidden,
+        "is_favorite": detection.is_favorite,
+        "frigate_score": detection.frigate_score,
+        "sub_label": detection.sub_label,
+        "manual_tagged": detection.manual_tagged,
+        "audio_confirmed": detection.audio_confirmed,
+        "audio_species": detection.audio_species,
+        "audio_score": detection.audio_score,
+        "temperature": detection.temperature,
+        "weather_condition": detection.weather_condition,
+        "weather_cloud_cover": detection.weather_cloud_cover,
+        "weather_wind_speed": detection.weather_wind_speed,
+        "weather_wind_direction": detection.weather_wind_direction,
+        "weather_precipitation": detection.weather_precipitation,
+        "weather_rain": detection.weather_rain,
+        "weather_snowfall": detection.weather_snowfall,
+        "scientific_name": detection.scientific_name,
+        "common_name": detection.common_name,
+        "taxa_id": detection.taxa_id,
+        "video_classification_score": detection.video_classification_score,
+        "video_classification_label": detection.video_classification_label,
+        "video_classification_status": detection.video_classification_status,
+        "video_classification_error": detection.video_classification_error,
+        "video_classification_timestamp": detection.video_classification_timestamp.isoformat() if detection.video_classification_timestamp else None,
+    }
+    if overrides:
+        payload.update(overrides)
+    return payload
+
 # get_classifier is now imported from classifier_service
 
 
@@ -167,6 +204,7 @@ async def get_events(
     end_date: Optional[date] = Query(default=None, description="Filter events until this date (inclusive)"),
     species: Optional[str] = Query(default=None, description="Filter by species name"),
     camera: Optional[str] = Query(default=None, description="Filter by camera name"),
+    favorites: bool = Query(default=False, description="Only return favorited detections"),
     sort: Literal["newest", "oldest", "confidence"] = Query(default="newest", description="Sort order"),
     include_hidden: bool = Query(default=False, description="Include hidden/ignored detections"),
     auth: AuthContext = Depends(get_auth_context_with_legacy)
@@ -222,7 +260,8 @@ async def get_events(
             taxa_id=taxa_id,
             camera=camera,
             sort=sort,
-            include_hidden=include_hidden
+            include_hidden=include_hidden,
+            favorite_only=favorites
         )
 
         # Batch fetch clip availability from Frigate (eliminates N individual HEAD requests)
@@ -273,6 +312,7 @@ async def get_events(
                 camera_name="Hidden" if hide_camera_names else event.camera_name,
                 has_clip=clip_availability.get(event.frigate_event, False),
                 is_hidden=event.is_hidden,
+                is_favorite=event.is_favorite,
                 frigate_score=event.frigate_score,
                 sub_label=event.sub_label,
                 manual_tagged=event.manual_tagged,
@@ -325,6 +365,7 @@ async def get_events_count(
     end_date: Optional[date] = Query(default=None, description="Filter events until this date (inclusive)"),
     species: Optional[str] = Query(default=None, description="Filter by species name"),
     camera: Optional[str] = Query(default=None, description="Filter by camera name"),
+    favorites: bool = Query(default=False, description="Only count favorited detections"),
     include_hidden: bool = Query(default=False, description="Include hidden/ignored detections"),
     auth: AuthContext = Depends(get_auth_context_with_legacy)
 ):
@@ -361,11 +402,12 @@ async def get_events_count(
             species=species_name,
             taxa_id=taxa_id,
             camera=camera,
-            include_hidden=include_hidden
+            include_hidden=include_hidden,
+            favorite_only=favorites
         )
 
         # Determine if any filters are applied
-        filtered = any([start_date, end_date, species, camera])
+        filtered = any([start_date, end_date, species, camera, favorites])
 
         return EventsCountResponse(count=count, filtered=filtered)
 
@@ -409,6 +451,13 @@ class HideResponse(BaseModel):
     is_hidden: bool
 
 
+class FavoriteResponse(BaseModel):
+    """Response for favorite/unfavorite action."""
+    status: str
+    event_id: str
+    is_favorite: bool
+
+
 @router.post("/events/{event_id}/hide", response_model=HideResponse)
 async def toggle_hide_event(
     event_id: str,
@@ -431,31 +480,7 @@ async def toggle_hide_event(
         if detection:
             await broadcaster.broadcast({
                 "type": "detection_updated",
-                "data": {
-                    "frigate_event": event_id,
-                    "display_name": detection.display_name,
-                    "score": detection.score,
-                    "timestamp": detection.detection_time.isoformat(),
-                    "camera": detection.camera_name,
-                    "is_hidden": detection.is_hidden,
-                    "frigate_score": detection.frigate_score,
-                    "sub_label": detection.sub_label,
-                    "manual_tagged": detection.manual_tagged,
-                    "audio_confirmed": detection.audio_confirmed,
-                    "audio_species": detection.audio_species,
-                    "audio_score": detection.audio_score,
-                    "temperature": detection.temperature,
-                    "weather_condition": detection.weather_condition,
-                    "weather_cloud_cover": detection.weather_cloud_cover,
-                    "weather_wind_speed": detection.weather_wind_speed,
-                    "weather_wind_direction": detection.weather_wind_direction,
-                    "weather_precipitation": detection.weather_precipitation,
-                    "weather_rain": detection.weather_rain,
-                    "weather_snowfall": detection.weather_snowfall,
-                    "scientific_name": detection.scientific_name,
-                    "common_name": detection.common_name,
-                    "taxa_id": detection.taxa_id
-                }
+                "data": _detection_updated_payload(detection)
             })
 
         action = "hidden" if new_status else "unhidden"
@@ -466,6 +491,60 @@ async def toggle_hide_event(
             event_id=event_id,
             is_hidden=new_status
         )
+
+
+@router.post("/events/{event_id}/favorite", response_model=FavoriteResponse)
+async def favorite_event(
+    event_id: str,
+    request: Request,
+    auth: AuthContext = Depends(require_owner)
+):
+    """Mark a detection as favorite. Owner only."""
+    lang = get_user_language(request)
+    async with get_db() as db:
+        repo = DetectionRepository(db)
+        result = await repo.favorite_detection(event_id, created_by=auth.username)
+        if result is None:
+            raise HTTPException(
+                status_code=404,
+                detail=i18n_service.translate("errors.detection_not_found", lang=lang)
+            )
+
+        detection = await repo.get_by_frigate_event(event_id)
+        if detection:
+            await broadcaster.broadcast({
+                "type": "detection_updated",
+                "data": _detection_updated_payload(detection)
+            })
+
+        return FavoriteResponse(status="updated", event_id=event_id, is_favorite=True)
+
+
+@router.delete("/events/{event_id}/favorite", response_model=FavoriteResponse)
+async def unfavorite_event(
+    event_id: str,
+    request: Request,
+    auth: AuthContext = Depends(require_owner)
+):
+    """Remove favorite marker from a detection. Owner only."""
+    lang = get_user_language(request)
+    async with get_db() as db:
+        repo = DetectionRepository(db)
+        result = await repo.unfavorite_detection(event_id)
+        if result is None:
+            raise HTTPException(
+                status_code=404,
+                detail=i18n_service.translate("errors.detection_not_found", lang=lang)
+            )
+
+        detection = await repo.get_by_frigate_event(event_id)
+        if detection:
+            await broadcaster.broadcast({
+                "type": "detection_updated",
+                "data": _detection_updated_payload(detection)
+            })
+
+        return FavoriteResponse(status="updated", event_id=event_id, is_favorite=False)
 
 
 class UpdateDetectionRequest(BaseModel):
@@ -548,38 +627,17 @@ async def reclassify_event(
 
         async def broadcast_video_status(status: str, error: str | None = None):
             await repo.update_video_status(event_id, status, error=error)
+            refreshed = await repo.get_by_frigate_event(event_id)
+            payload_source = refreshed or detection
             await broadcaster.broadcast({
                 "type": "detection_updated",
-                "data": {
-                    "frigate_event": event_id,
-                    "display_name": detection.display_name,
-                    "score": detection.score,
-                    "timestamp": detection.detection_time.isoformat(),
-                    "camera": detection.camera_name,
-                    "is_hidden": detection.is_hidden,
-                    "frigate_score": detection.frigate_score,
-                    "sub_label": detection.sub_label,
-                    "manual_tagged": detection.manual_tagged,
-                    "audio_confirmed": detection.audio_confirmed,
-                    "audio_species": detection.audio_species,
-                    "audio_score": detection.audio_score,
-                    "temperature": detection.temperature,
-                    "weather_condition": detection.weather_condition,
-                    "weather_cloud_cover": detection.weather_cloud_cover,
-                    "weather_wind_speed": detection.weather_wind_speed,
-                    "weather_wind_direction": detection.weather_wind_direction,
-                    "weather_precipitation": detection.weather_precipitation,
-                    "weather_rain": detection.weather_rain,
-                    "weather_snowfall": detection.weather_snowfall,
-                    "scientific_name": detection.scientific_name,
-                    "common_name": detection.common_name,
-                    "taxa_id": detection.taxa_id,
-                    "video_classification_score": detection.video_classification_score,
-                    "video_classification_label": detection.video_classification_label,
-                    "video_classification_status": status,
-                    "video_classification_error": error,
-                    "video_classification_timestamp": detection.video_classification_timestamp.isoformat() if detection.video_classification_timestamp else None
-                }
+                "data": _detection_updated_payload(
+                    payload_source,
+                    overrides={
+                        "video_classification_status": status,
+                        "video_classification_error": error,
+                    }
+                )
             })
         
         # Determine effective strategy
@@ -821,35 +879,26 @@ async def reclassify_event(
                  db_updated=updated)
 
         if updated:
+            refreshed_detection = await repo.get_by_frigate_event(event_id)
+            payload_source = refreshed_detection or detection
 
             # 4. Broadcast full updated metadata with re-correlated audio
             await broadcaster.broadcast({
                 "type": "detection_updated",
-                "data": {
-                    "frigate_event": event_id,
-                    "display_name": new_species,
-                    "score": new_score,
-                    "timestamp": detection.detection_time.isoformat(),
-                    "camera": detection.camera_name,
-                    "is_hidden": detection.is_hidden,
-                    "frigate_score": detection.frigate_score,
-                    "sub_label": detection.sub_label,
-                    "manual_tagged": True,
-                    "audio_confirmed": audio_confirmed,  # NEW: Re-correlated audio data
-                    "audio_species": audio_species,       # NEW: Re-correlated audio data
-                    "audio_score": audio_score,           # NEW: Re-correlated audio data
-                    "temperature": detection.temperature,
-                    "weather_condition": detection.weather_condition,
-                    "weather_cloud_cover": detection.weather_cloud_cover,
-                    "weather_wind_speed": detection.weather_wind_speed,
-                    "weather_wind_direction": detection.weather_wind_direction,
-                    "weather_precipitation": detection.weather_precipitation,
-                    "weather_rain": detection.weather_rain,
-                    "weather_snowfall": detection.weather_snowfall,
-                    "scientific_name": sci_name,
-                    "common_name": com_name,
-                    "taxa_id": t_id
-                }
+                "data": _detection_updated_payload(
+                    payload_source,
+                    overrides={
+                        "display_name": new_species,
+                        "score": new_score,
+                        "manual_tagged": True,
+                        "audio_confirmed": audio_confirmed,
+                        "audio_species": audio_species,
+                        "audio_score": audio_score,
+                        "scientific_name": sci_name,
+                        "common_name": com_name,
+                        "taxa_id": t_id,
+                    }
+                )
             })
 
         return ReclassifyResponse(
@@ -944,33 +993,23 @@ async def update_event(
                  audio_species=audio_species)
 
         # Broadcast update with re-correlated audio
+        refreshed_detection = await repo.get_by_frigate_event(event_id)
+        payload_source = refreshed_detection or detection
         await broadcaster.broadcast({
             "type": "detection_updated",
-            "data": {
-                "frigate_event": event_id,
-                "display_name": new_species,
-                "score": detection.score,
-                "timestamp": detection.detection_time.isoformat(),
-                "camera": detection.camera_name,
-                "is_hidden": detection.is_hidden,
-                "frigate_score": detection.frigate_score,
-                "sub_label": detection.sub_label,
-                "manual_tagged": True,
-                "audio_confirmed": audio_confirmed,  # NEW: Re-correlated audio data
-                "audio_species": audio_species,       # NEW: Re-correlated audio data
-                "audio_score": audio_score,           # NEW: Re-correlated audio data
-                "temperature": detection.temperature,
-                "weather_condition": detection.weather_condition,
-                "weather_cloud_cover": detection.weather_cloud_cover,
-                "weather_wind_speed": detection.weather_wind_speed,
-                "weather_wind_direction": detection.weather_wind_direction,
-                "weather_precipitation": detection.weather_precipitation,
-                "weather_rain": detection.weather_rain,
-                "weather_snowfall": detection.weather_snowfall,
-                "scientific_name": sci_name,
-                "common_name": com_name,
-                "taxa_id": t_id
-            }
+            "data": _detection_updated_payload(
+                payload_source,
+                overrides={
+                    "display_name": new_species,
+                    "manual_tagged": True,
+                    "audio_confirmed": audio_confirmed,
+                    "audio_species": audio_species,
+                    "audio_score": audio_score,
+                    "scientific_name": sci_name,
+                    "common_name": com_name,
+                    "taxa_id": t_id,
+                }
+            )
         })
 
         return {
