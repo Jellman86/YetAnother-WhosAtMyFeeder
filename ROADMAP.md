@@ -9,7 +9,7 @@ This roadmap outlines planned features and improvements for the YA-WAMF bird cla
 These are the top maintenance-mode improvements to prioritize before broader feature expansion.
 
 ### 1. Favourite Detections (Owner Curation) ⭐
-**Priority:** P1 | **Effort:** M (4-6 days) | **Status:** ✅ Completed (Unreleased)
+**Priority:** P1 | **Effort:** M (4-6 days) | **Status:** ✅ Completed (v2.8.1)
 
 Add a first-class way to pin standout detections so users can build a curated set of highlights.
 
@@ -595,5 +595,5 @@ Have a feature idea not on this list? Open an issue on [GitHub](https://github.c
 
 ---
 
-**Last Updated:** 2026-02-13
-**Version:** 2.8.0
+**Last Updated:** 2026-02-14
+**Version:** 2.8.1

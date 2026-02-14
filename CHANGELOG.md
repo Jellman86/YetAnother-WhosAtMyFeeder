@@ -6,6 +6,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- _No changes yet._
+
+## [2.8.1] - 2026-02-14
+
 - **Added:** Owner-curated favorite detections with idempotent API endpoints (`POST/DELETE /api/events/{event_id}/favorite`) and guest-safe read behavior.
 - **Added:** Favorites filtering support on Events APIs (`favorites=true` on `/api/events` and `/api/events/count`) and Explorer UI toggle.
 - **Changed:** Detection payloads now include `is_favorite` across list responses and SSE update flows so Dashboard/Explorer/Modal stay in sync.
