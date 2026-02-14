@@ -1,6 +1,7 @@
 <script lang="ts">
     import { _ } from 'svelte-i18n';
     import type { TestEmailRequest, TestEmailResponse, OAuthAuthorizeResponse } from '../../api';
+    import SecretSavedBadge from './SecretSavedBadge.svelte';
 
     function extractErrorMessage(error: any, fallback: string) {
         const message = error?.message || fallback;
@@ -15,8 +16,9 @@
         return message;
     }
 
-    let emailTestError = $state<string | null>(null);
-    let emailTestSuccess = $state<string | null>(null);
+    let connectingGmail = $state(false);
+    let connectingOutlook = $state(false);
+    let disconnectingEmailOAuth = $state(false);
 
     // Props
     let {
@@ -82,7 +84,8 @@
         sendTestEmail,
         initiateGmailOAuth,
         initiateOutlookOAuth,
-        disconnectEmailOAuth
+        disconnectEmailOAuth,
+        onActionFeedback = (_type: 'success' | 'error', _text: string) => {}
     }: {
         notifyMinConfidence: number;
         notifyAudioOnly: boolean;
@@ -134,6 +137,7 @@
         initiateGmailOAuth: () => Promise<OAuthAuthorizeResponse>;
         initiateOutlookOAuth: () => Promise<OAuthAuthorizeResponse>;
         disconnectEmailOAuth: (provider: 'gmail' | 'outlook') => Promise<{ message: string }>;
+        onActionFeedback: (type: 'success' | 'error', text: string) => void;
     } = $props();
 
     let showAdvanced = $state(false);
@@ -510,7 +514,7 @@
                     <div class="flex items-center justify-between mb-2">
                         <label for="discord-webhook" class="text-[10px] font-black uppercase tracking-widest text-slate-500">{$_('settings.discord.webhook_url')}</label>
                         {#if discordWebhookSaved}
-                            <span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[9px] font-black uppercase tracking-widest">{$_('common.saved')}</span>
+                            <SecretSavedBadge />
                         {/if}
                     </div>
                     <input
@@ -575,7 +579,7 @@
                     <div class="flex items-center justify-between mb-2">
                         <label for="pushover-userkey" class="text-[10px] font-black uppercase tracking-widest text-slate-500">{$_('settings.pushover.user_key')}</label>
                         {#if pushoverUserSaved}
-                            <span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[9px] font-black uppercase tracking-widest">{$_('common.saved')}</span>
+                            <SecretSavedBadge />
                         {/if}
                     </div>
                     <input
@@ -591,7 +595,7 @@
                     <div class="flex items-center justify-between mb-2">
                         <label for="pushover-apitoken" class="text-[10px] font-black uppercase tracking-widest text-slate-500">{$_('settings.pushover.api_token')}</label>
                         {#if pushoverTokenSaved}
-                            <span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[9px] font-black uppercase tracking-widest">{$_('common.saved')}</span>
+                            <SecretSavedBadge />
                         {/if}
                     </div>
                     <input
@@ -662,7 +666,7 @@
                     <div class="flex items-center justify-between mb-2">
                         <label for="telegram-bottoken" class="text-[10px] font-black uppercase tracking-widest text-slate-500">{$_('settings.telegram.bot_token')}</label>
                         {#if telegramTokenSaved}
-                            <span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[9px] font-black uppercase tracking-widest">{$_('common.saved')}</span>
+                            <SecretSavedBadge />
                         {/if}
                     </div>
                     <input
@@ -678,7 +682,7 @@
                     <div class="flex items-center justify-between mb-2">
                         <label for="telegram-chatid" class="text-[10px] font-black uppercase tracking-widest text-slate-500">{$_('settings.telegram.chat_id')}</label>
                         {#if telegramChatIdSaved}
-                            <span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[9px] font-black uppercase tracking-widest">{$_('common.saved')}</span>
+                            <SecretSavedBadge />
                         {/if}
                     </div>
                     <input
@@ -761,30 +765,40 @@
                             <button
                                 onclick={async () => {
                                     try {
+                                        connectingGmail = true;
                                         const response = await initiateGmailOAuth();
                                         window.open(response.authorization_url, '_blank', 'width=600,height=700');
+                                        onActionFeedback('success', $_('settings.email.connect_gmail'));
                                     } catch (error) {
-                                        console.error('Gmail OAuth error:', error);
+                                        onActionFeedback('error', extractErrorMessage(error, $_('settings.email.test_email_error_generic')));
+                                    } finally {
+                                        connectingGmail = false;
                                     }
                                 }}
                                 aria-label={$_('settings.email.connect_gmail')}
+                                disabled={connectingGmail || connectingOutlook || disconnectingEmailOAuth}
                                 class="flex-1 px-4 py-2 rounded-xl bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 hover:border-indigo-500 dark:hover:border-indigo-500 text-sm font-bold transition-all"
                             >
-                                {$_('settings.email.connect_gmail')}
+                                {connectingGmail ? $_('common.testing') : $_('settings.email.connect_gmail')}
                             </button>
                             <button
                                 onclick={async () => {
                                     try {
+                                        connectingOutlook = true;
                                         const response = await initiateOutlookOAuth();
                                         window.open(response.authorization_url, '_blank', 'width=600,height=700');
+                                        onActionFeedback('success', $_('settings.email.connect_outlook'));
                                     } catch (error) {
-                                        console.error('Outlook OAuth error:', error);
+                                        onActionFeedback('error', extractErrorMessage(error, $_('settings.email.test_email_error_generic')));
+                                    } finally {
+                                        connectingOutlook = false;
                                     }
                                 }}
                                 aria-label={$_('settings.email.connect_outlook')}
+                                disabled={connectingOutlook || connectingGmail || disconnectingEmailOAuth}
                                 class="flex-1 px-4 py-2 rounded-xl bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 hover:border-indigo-500 dark:hover:border-indigo-500 text-sm font-bold transition-all"
                             >
-                                {$_('settings.email.connect_outlook')}
+                                {connectingOutlook ? $_('common.testing') : $_('settings.email.connect_outlook')}
                             </button>
                         </div>
                         {#if emailConnectedEmail}
@@ -793,17 +807,22 @@
                                 <button
                                     onclick={async () => {
                                         try {
+                                            disconnectingEmailOAuth = true;
                                             await disconnectEmailOAuth((emailOAuthProvider as 'gmail' | 'outlook') || 'gmail');
                                             emailConnectedEmail = null;
                                             emailOAuthProvider = null;
+                                            onActionFeedback('success', $_('settings.email.disconnect'));
                                         } catch (error) {
-                                            console.error('Disconnect error:', error);
+                                            onActionFeedback('error', extractErrorMessage(error, $_('settings.email.test_email_error_generic')));
+                                        } finally {
+                                            disconnectingEmailOAuth = false;
                                         }
                                     }}
                                     aria-label={$_('settings.email.disconnect')}
+                                    disabled={disconnectingEmailOAuth}
                                     class="text-xs text-red-600 dark:text-red-400 hover:underline"
                                 >
-                                    {$_('settings.email.disconnect')}
+                                    {disconnectingEmailOAuth ? $_('common.testing') : $_('settings.email.disconnect')}
                                 </button>
                             </div>
                         {/if}
@@ -859,7 +878,7 @@
                             <div class="flex items-center justify-between mb-2">
                                 <label for="smtp-password" class="text-[10px] font-black uppercase tracking-widest text-slate-500">{$_('settings.email.smtp_password')}</label>
                                 {#if emailSmtpPasswordSaved}
-                                    <span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[9px] font-black uppercase tracking-widest">{$_('common.saved')}</span>
+                                    <SecretSavedBadge />
                                 {/if}
                             </div>
                             <input
@@ -938,13 +957,11 @@
                 <button
                     onclick={async () => {
                         try {
-                            emailTestError = null;
-                            emailTestSuccess = null;
                             testingNotification['email'] = true;
                             const result = await sendTestEmail();
-                            emailTestSuccess = result.message || $_('settings.email.test_email_sent');
+                            onActionFeedback('success', result.message || $_('settings.email.test_email_sent'));
                         } catch (e: any) {
-                            emailTestError = extractErrorMessage(e, $_('settings.email.test_email_error_generic'));
+                            onActionFeedback('error', extractErrorMessage(e, $_('settings.email.test_email_error_generic')));
                         } finally {
                             testingNotification['email'] = false;
                         }
@@ -955,11 +972,6 @@
                 >
                     {testingNotification['email'] ? $_('settings.email.test_email_sending') : $_('settings.email.test_email')}
                 </button>
-                {#if emailTestError}
-                    <p class="mt-2 text-xs font-semibold text-rose-600">{emailTestError}</p>
-                {:else if emailTestSuccess}
-                    <p class="mt-2 text-xs font-semibold text-emerald-600">{emailTestSuccess}</p>
-                {/if}
             </div>
         </section>
     </div>

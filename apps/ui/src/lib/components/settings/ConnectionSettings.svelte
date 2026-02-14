@@ -3,6 +3,7 @@
     import { _ } from 'svelte-i18n';
     import type { VersionInfo } from '../../api';
     import { authStore } from '../../stores/auth.svelte';
+    import SecretSavedBadge from './SecretSavedBadge.svelte';
 
     // Props
     let {
@@ -12,6 +13,7 @@
         mqttAuth = $bindable(false),
         mqttUsername = $bindable(''),
         mqttPassword = $bindable(''),
+        mqttPasswordSaved = $bindable(false),
         clipsEnabled = $bindable(true),
         selectedCameras = $bindable<string[]>([]),
         telemetryEnabled = $bindable(false),
@@ -33,6 +35,7 @@
         mqttAuth: boolean;
         mqttUsername: string;
         mqttPassword: string;
+        mqttPasswordSaved: boolean;
         clipsEnabled: boolean;
         selectedCameras: string[];
         telemetryEnabled: boolean;
@@ -251,7 +254,12 @@
                                 />
                             </div>
                             <div>
-                                <label for="mqtt-password" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.frigate.mqtt_pass')}</label>
+                                <div class="mb-2 flex items-center justify-between">
+                                    <label for="mqtt-password" class="block text-[10px] font-black uppercase tracking-widest text-slate-500">{$_('settings.frigate.mqtt_pass')}</label>
+                                    {#if mqttPasswordSaved}
+                                        <SecretSavedBadge />
+                                    {/if}
+                                </div>
                                 <input
                                     id="mqtt-password"
                                     type="password"

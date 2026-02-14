@@ -1,5 +1,6 @@
 <script lang="ts">
     import { _ } from 'svelte-i18n';
+    import SecretSavedBadge from './SecretSavedBadge.svelte';
 
     // Props
     let {
@@ -34,6 +35,7 @@
         llmProvider = $bindable('gemini'),
         llmModel = $bindable('gemini-2.5-flash'),
         llmApiKey = $bindable(''),
+        llmApiKeySaved = $bindable(false),
         availableModels,
         locationAuto = $bindable(true),
         locationLat = $bindable<number | null>(null),
@@ -45,7 +47,9 @@
         initiateInaturalistOAuth,
         disconnectInaturalistOAuth,
         refreshInaturalistStatus,
-        exportEbirdCsv
+        exportEbirdCsv,
+        birdweatherStationTokenSaved = $bindable(false),
+        onActionFeedback = (_type: 'success' | 'error', _text: string) => {}
     }: {
         birdnetEnabled: boolean;
         audioTopic: string;
@@ -78,6 +82,7 @@
         llmProvider: string;
         llmModel: string;
         llmApiKey: string;
+        llmApiKeySaved: boolean;
         availableModels: Array<{ value: string; label: string }>;
         locationAuto: boolean;
         locationLat: number | null;
@@ -90,9 +95,22 @@
         disconnectInaturalistOAuth: () => Promise<{ status: string }>;
         refreshInaturalistStatus: () => Promise<void>;
         exportEbirdCsv: () => Promise<void>;
+        birdweatherStationTokenSaved: boolean;
+        onActionFeedback: (type: 'success' | 'error', text: string) => void;
     } = $props();
 
     let inatDefaultsTouched = $state(false);
+    let inatConnecting = $state(false);
+    let inatRefreshing = $state(false);
+    let inatDisconnecting = $state(false);
+    let exportingEbirdCsv = $state(false);
+
+    function actionErrorMessage(error: unknown) {
+        if (error instanceof Error && error.message.trim().length > 0) {
+            return error.message;
+        }
+        return 'Action failed';
+    }
 
     $effect(() => {
         if (inatDefaultsTouched) return;
@@ -107,6 +125,18 @@
     $effect(() => {
         if (ebirdApiKeySaved && ebirdApiKey) {
             ebirdApiKeySaved = false;
+        }
+    });
+
+    $effect(() => {
+        if (birdweatherStationTokenSaved && birdweatherStationToken) {
+            birdweatherStationTokenSaved = false;
+        }
+    });
+
+    $effect(() => {
+        if (llmApiKeySaved && llmApiKey) {
+            llmApiKeySaved = false;
         }
     });
 </script>
@@ -243,28 +273,38 @@
         </div>
 
         <div class="space-y-5">
-            <div class="grid grid-cols-1 gap-3">
-                <div>
-                    <label for="inat-client-id" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.integrations.inaturalist.client_id')}</label>
-                    <input
-                        id="inat-client-id"
-                        type="text"
-                        bind:value={inaturalistClientId}
-                        placeholder={inaturalistClientIdSaved ? $_('settings.integrations.inaturalist.saved_placeholder') : $_('settings.integrations.inaturalist.client_id_placeholder')}
-                        aria-label={$_('settings.integrations.inaturalist.client_id_label')}
-                        class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"
-                    />
-                </div>
-                <div>
-                    <label for="inat-client-secret" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.integrations.inaturalist.client_secret')}</label>
-                    <input
-                        id="inat-client-secret"
-                        type="password"
-                        bind:value={inaturalistClientSecret}
-                        placeholder={inaturalistClientSecretSaved ? $_('settings.integrations.inaturalist.saved_placeholder') : $_('settings.integrations.inaturalist.client_secret_placeholder')}
-                        aria-label={$_('settings.integrations.inaturalist.client_secret_label')}
-                        class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"
-                    />
+                <div class="grid grid-cols-1 gap-3">
+                    <div>
+                        <div class="mb-2 flex items-center justify-between">
+                            <label for="inat-client-id" class="block text-[10px] font-black uppercase tracking-widest text-slate-500">{$_('settings.integrations.inaturalist.client_id')}</label>
+                            {#if inaturalistClientIdSaved}
+                                <SecretSavedBadge />
+                            {/if}
+                        </div>
+                        <input
+                            id="inat-client-id"
+                            type="text"
+                            bind:value={inaturalistClientId}
+                            placeholder={$_('settings.integrations.inaturalist.client_id_placeholder')}
+                            aria-label={$_('settings.integrations.inaturalist.client_id_label')}
+                            class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"
+                        />
+                    </div>
+                    <div>
+                        <div class="mb-2 flex items-center justify-between">
+                            <label for="inat-client-secret" class="block text-[10px] font-black uppercase tracking-widest text-slate-500">{$_('settings.integrations.inaturalist.client_secret')}</label>
+                            {#if inaturalistClientSecretSaved}
+                                <SecretSavedBadge />
+                            {/if}
+                        </div>
+                        <input
+                            id="inat-client-secret"
+                            type="password"
+                            bind:value={inaturalistClientSecret}
+                            placeholder={$_('settings.integrations.inaturalist.client_secret_placeholder')}
+                            aria-label={$_('settings.integrations.inaturalist.client_secret_label')}
+                            class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"
+                        />
                 </div>
             </div>
 
@@ -317,29 +357,39 @@
                     <button
                         onclick={async () => {
                             try {
+                                inatConnecting = true;
                                 const response = await initiateInaturalistOAuth();
                                 window.open(response.authorization_url, '_blank', 'width=600,height=700');
+                                onActionFeedback('success', $_('settings.integrations.inaturalist.connect'));
                             } catch (error) {
-                                console.error('iNaturalist OAuth error:', error);
+                                onActionFeedback('error', actionErrorMessage(error));
+                            } finally {
+                                inatConnecting = false;
                             }
                         }}
                         aria-label={$_('settings.integrations.inaturalist.connect_label')}
+                        disabled={inatConnecting || inatRefreshing || inatDisconnecting}
                         class="flex-1 min-w-[150px] px-4 py-2 rounded-xl bg-white dark:bg-slate-800 border-2 border-emerald-200 dark:border-emerald-700 hover:border-emerald-500 dark:hover:border-emerald-500 text-sm font-bold transition-all"
                     >
-                        {$_('settings.integrations.inaturalist.connect')}
+                        {inatConnecting ? $_('common.testing') : $_('settings.integrations.inaturalist.connect')}
                     </button>
                     <button
                         onclick={async () => {
                             try {
+                                inatRefreshing = true;
                                 await refreshInaturalistStatus();
+                                onActionFeedback('success', $_('settings.integrations.inaturalist.refresh'));
                             } catch (error) {
-                                console.error('iNaturalist refresh error:', error);
+                                onActionFeedback('error', actionErrorMessage(error));
+                            } finally {
+                                inatRefreshing = false;
                             }
                         }}
                         aria-label={$_('settings.integrations.inaturalist.refresh_label')}
+                        disabled={inatRefreshing || inatConnecting || inatDisconnecting}
                         class="flex-1 min-w-[150px] px-4 py-2 rounded-xl bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 hover:border-emerald-500 dark:hover:border-emerald-500 text-sm font-bold transition-all"
                     >
-                        {$_('settings.integrations.inaturalist.refresh')}
+                        {inatRefreshing ? $_('common.testing') : $_('settings.integrations.inaturalist.refresh')}
                     </button>
                 </div>
                 {#if inaturalistConnectedUser}
@@ -348,16 +398,21 @@
                         <button
                             onclick={async () => {
                                 try {
+                                    inatDisconnecting = true;
                                     await disconnectInaturalistOAuth();
                                     await refreshInaturalistStatus();
+                                    onActionFeedback('success', $_('settings.integrations.inaturalist.disconnect'));
                                 } catch (error) {
-                                    console.error('iNaturalist disconnect error:', error);
+                                    onActionFeedback('error', actionErrorMessage(error));
+                                } finally {
+                                    inatDisconnecting = false;
                                 }
                             }}
                             aria-label={$_('settings.integrations.inaturalist.disconnect_label')}
+                            disabled={inatDisconnecting}
                             class="text-xs text-rose-600 dark:text-rose-400 hover:underline"
                         >
-                            {$_('settings.integrations.inaturalist.disconnect')}
+                            {inatDisconnecting ? $_('common.testing') : $_('settings.integrations.inaturalist.disconnect')}
                         </button>
                     </div>
                 {/if}
@@ -403,10 +458,15 @@
                     id="ebird-api-key"
                     type="password"
                     bind:value={ebirdApiKey}
-                    placeholder={ebirdApiKeySaved ? $_('settings.integrations.ebird.saved_placeholder') : $_('settings.integrations.ebird.api_key_placeholder')}
+                    placeholder={$_('settings.integrations.ebird.api_key_placeholder')}
                     aria-label={$_('settings.integrations.ebird.api_key_label')}
                     class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-teal-500 outline-none"
                 />
+                {#if ebirdApiKeySaved}
+                    <div class="mt-2">
+                        <SecretSavedBadge />
+                    </div>
+                {/if}
                 <p class="text-xs text-slate-500 mt-2">{$_('settings.integrations.ebird.api_key_desc')}</p>
             </div>
 
@@ -462,16 +522,20 @@
                 <button
                     onclick={async () => {
                         try {
+                            exportingEbirdCsv = true;
                             await exportEbirdCsv();
+                            onActionFeedback('success', $_('settings.integrations.ebird.export_csv'));
                         } catch (e) {
-                            console.error('Failed to export CSV', e);
-                            alert($_('settings.integrations.ebird.export_csv_error'));
+                            onActionFeedback('error', $_('settings.integrations.ebird.export_csv_error'));
+                        } finally {
+                            exportingEbirdCsv = false;
                         }
                     }}
+                    disabled={exportingEbirdCsv}
                     class="flex items-center gap-2 px-4 py-3 rounded-2xl bg-sky-50 dark:bg-sky-900/20 text-sky-600 dark:text-sky-400 font-bold text-xs uppercase tracking-widest hover:bg-sky-100 dark:hover:bg-sky-900/40 transition-colors w-full justify-center"
                 >
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-                    {$_('settings.integrations.ebird.export_csv')}
+                    {exportingEbirdCsv ? $_('common.testing') : $_('settings.integrations.ebird.export_csv')}
                 </button>
                 <p class="mt-2 text-[10px] text-slate-400 font-bold italic text-center">{$_('settings.integrations.ebird.export_csv_desc')}</p>
             </div>
@@ -507,7 +571,12 @@
 
         <div class="space-y-6 flex-1">
             <div>
-                <label for="birdweather-token" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.integrations.birdweather.token')}</label>
+                <div class="mb-2 flex items-center justify-between">
+                    <label for="birdweather-token" class="block text-[10px] font-black uppercase tracking-widest text-slate-500">{$_('settings.integrations.birdweather.token')}</label>
+                    {#if birdweatherStationTokenSaved}
+                        <SecretSavedBadge />
+                    {/if}
+                </div>
                 <input
                     id="birdweather-token"
                     type="password"
@@ -587,7 +656,12 @@
                 </div>
             </div>
             <div>
-                <label for="llm-api-key" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.integrations.llm.api_key')}</label>
+                <div class="mb-2 flex items-center justify-between">
+                    <label for="llm-api-key" class="block text-[10px] font-black uppercase tracking-widest text-slate-500">{$_('settings.integrations.llm.api_key')}</label>
+                    {#if llmApiKeySaved}
+                        <SecretSavedBadge />
+                    {/if}
+                </div>
                 <input
                     id="llm-api-key"
                     type="password"

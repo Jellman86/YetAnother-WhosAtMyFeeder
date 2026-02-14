@@ -6,6 +6,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- **Fixed:** Resolved test-email template rendering error (`unexpected '\\'`) by correcting escaped quotes in the Jinja `font_family` default expression used by `POST /api/email/test`.
+- **Changed:** Settings action feedback is now consistent across tabs: test/connect/disconnect/export actions route through unified status handling and toast notifications instead of mixed banner-only, inline-only, and `alert()` paths.
+- **Fixed:** Settings dirty-state detection now includes `notifications_email_only_on_end` and `notifications_notification_cooldown_minutes`, so the unsaved-changes bar reliably appears for those edits.
+- **Changed:** Secret handling in Settings is now consistent for redacted values (MQTT password, BirdWeather token, eBird key, iNaturalist credentials, LLM API key, and notification secrets) with unified “Saved” indicators and stable dirty-state behavior.
 - **Changed:** Clarified Raspberry Pi support messaging in documentation; Pi compatibility is now explicitly described as best-effort ARM64 work in progress until physical-device validation is completed.
 - **Added:** Roadmap now includes a detailed Raspberry Pi compatibility plan (multi-arch images, ARM dependency strategy, CI validation path, and real-hardware exit criteria).
 

@@ -75,6 +75,7 @@
     let mqttAuth = $state(false);
     let mqttUsername = $state('');
     let mqttPassword = $state('');
+    let mqttPasswordSaved = $state(false);
     let audioTopic = $state('birdnet/text');
     let cameraAudioMapping = $state<Record<string, string>>({});
     let audioBufferHours = $state(24);
@@ -113,6 +114,7 @@
     // BirdWeather Settings
     let birdweatherEnabled = $state(false);
     let birdweatherStationToken = $state('');
+    let birdweatherStationTokenSaved = $state(false);
 
     // iNaturalist Settings
     let inaturalistEnabled = $state(false);
@@ -129,6 +131,7 @@
     let llmEnabled = $state(false);
     let llmProvider = $state('gemini');
     let llmApiKey = $state('');
+    let llmApiKeySaved = $state(false);
     let llmModel = $state('gemini-2.5-flash');
     let llmAnalysisPromptTemplate = $state('');
     let llmConversationPromptTemplate = $state('');
@@ -1241,6 +1244,36 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     });
 
     $effect(() => {
+        if (mqttPasswordSaved && mqttPassword) {
+            mqttPasswordSaved = false;
+        }
+    });
+
+    $effect(() => {
+        if (birdweatherStationTokenSaved && birdweatherStationToken) {
+            birdweatherStationTokenSaved = false;
+        }
+    });
+
+    $effect(() => {
+        if (inaturalistClientIdSaved && inaturalistClientId) {
+            inaturalistClientIdSaved = false;
+        }
+    });
+
+    $effect(() => {
+        if (inaturalistClientSecretSaved && inaturalistClientSecret) {
+            inaturalistClientSecretSaved = false;
+        }
+    });
+
+    $effect(() => {
+        if (llmApiKeySaved && llmApiKey) {
+            llmApiKeySaved = false;
+        }
+    });
+
+    $effect(() => {
         if (discordWebhookSaved && discordWebhook) {
             discordWebhookSaved = false;
         }
@@ -1299,14 +1332,32 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     let currentTheme: Theme = $state('system');
     let currentLayout: Layout = $state('horizontal');
     let currentFontTheme = $state<import('../stores/theme.svelte').FontTheme>('default');
+    let lastFeedbackKey = $state('');
+    let lastFeedbackAt = $state(0);
 
     const normalizeSecret = (value?: string | null) => value === '***REDACTED***' ? '' : (value || '');
 
-    // Dirty state check
+    function handleActionFeedback(type: 'success' | 'error', text: string) {
+        message = { type, text };
+    }
+
+    $effect(() => {
+        if (!message?.text) return;
+        const key = `${message.type}:${message.text}`;
+        const now = Date.now();
+        if (key === lastFeedbackKey && (now - lastFeedbackAt) < 1200) return;
+        lastFeedbackKey = key;
+        lastFeedbackAt = now;
+        if (message.type === 'success') {
+            toastStore.success(message.text);
+        } else {
+            toastStore.error(message.text);
+        }
+    });
+
     let isDirty = $derived.by(() => {
         const s = settingsStore.settings;
         if (!s) {
-            console.log('isDirty: settingsStore.settings is null');
             return false;
         }
 
@@ -1316,7 +1367,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'mqttPort', val: mqttPort, store: s.mqtt_port },
             { key: 'mqttAuth', val: mqttAuth, store: s.mqtt_auth },
             { key: 'mqttUsername', val: mqttUsername, store: s.mqtt_username || '' },
-            { key: 'mqttPassword', val: mqttPassword, store: s.mqtt_password || '' },
+            { key: 'mqttPassword', val: mqttPassword, store: normalizeSecret(s.mqtt_password) },
             { key: 'audioTopic', val: audioTopic, store: s.audio_topic || 'birdnet/text' },
             { key: 'audioBufferHours', val: audioBufferHours, store: s.audio_buffer_hours ?? 24 },
             { key: 'audioCorrelationWindowSeconds', val: audioCorrelationWindowSeconds, store: s.audio_correlation_window_seconds ?? 300 },
@@ -1342,7 +1393,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'locationAuto', val: locationAuto, store: s.location_automatic ?? true },
             { key: 'locationTemperatureUnit', val: locationTemperatureUnit, store: s.location_temperature_unit ?? 'celsius' },
             { key: 'birdweatherEnabled', val: birdweatherEnabled, store: s.birdweather_enabled ?? false },
-            { key: 'birdweatherStationToken', val: birdweatherStationToken, store: s.birdweather_station_token || '' },
+            { key: 'birdweatherStationToken', val: birdweatherStationToken, store: normalizeSecret(s.birdweather_station_token) },
             { key: 'ebirdEnabled', val: ebirdEnabled, store: s.ebird_enabled ?? false },
             { key: 'ebirdApiKey', val: ebirdApiKey, store: normalizeSecret(s.ebird_api_key) },
             { key: 'ebirdDefaultRadiusKm', val: ebirdDefaultRadiusKm, store: s.ebird_default_radius_km ?? 25 },
@@ -1365,7 +1416,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'enrichmentLinksSources', val: JSON.stringify(enrichmentLinksSources), store: JSON.stringify(s.enrichment_links_sources || ['wikipedia', 'inaturalist']) },
             { key: 'llmEnabled', val: llmEnabled, store: s.llm_enabled ?? false },
             { key: 'llmProvider', val: llmProvider, store: s.llm_provider ?? 'gemini' },
-            { key: 'llmApiKey', val: llmApiKey, store: s.llm_api_key || '' },
+            { key: 'llmApiKey', val: llmApiKey, store: normalizeSecret(s.llm_api_key) },
             { key: 'llmModel', val: llmModel, store: s.llm_model ?? 'gemini-2.5-flash' },
             { key: 'llmAnalysisPromptTemplate', val: llmAnalysisPromptTemplate, store: s.llm_analysis_prompt_template || '' },
             { key: 'llmConversationPromptTemplate', val: llmConversationPromptTemplate, store: s.llm_conversation_prompt_template || '' },
@@ -1387,6 +1438,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'publicAccessMediaHistoricalDays', val: publicAccessMediaHistoricalDays, store: s.public_access_media_historical_days ?? 7 },
             { key: 'publicAccessRateLimitPerMinute', val: publicAccessRateLimitPerMinute, store: s.public_access_rate_limit_per_minute ?? 30 },
             { key: 'publicAccessExternalBaseUrl', val: publicAccessExternalBaseUrl, store: s.public_access_external_base_url ?? '' },
+            { key: 'dateFormat', val: dateFormat, store: s.date_format ?? 'dmy' },
 
             // Notifications
             { key: 'discordEnabled', val: discordEnabled, store: s.notifications_discord_enabled ?? false },
@@ -1405,6 +1457,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'emailEnabled', val: emailEnabled, store: s.notifications_email_enabled ?? false },
             { key: 'emailUseOAuth', val: emailUseOAuth, store: s.notifications_email_use_oauth ?? false },
             { key: 'emailOAuthProvider', val: emailOAuthProvider || '', store: s.notifications_email_oauth_provider || '' },
+            { key: 'emailOnlyOnEnd', val: emailOnlyOnEnd, store: s.notifications_email_only_on_end ?? false },
             { key: 'emailSmtpHost', val: emailSmtpHost, store: s.notifications_email_smtp_host || '' },
             { key: 'emailSmtpPort', val: emailSmtpPort, store: s.notifications_email_smtp_port ?? 587 },
             { key: 'emailSmtpUsername', val: emailSmtpUsername, store: s.notifications_email_smtp_username || '' },
@@ -1423,6 +1476,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'notifyOnUpdate', val: notifyOnUpdate, store: s.notifications_notify_on_update ?? false },
             { key: 'notifyDelayUntilVideo', val: notifyDelayUntilVideo, store: s.notifications_delay_until_video ?? false },
             { key: 'notifyVideoFallbackTimeout', val: notifyVideoFallbackTimeout, store: s.notifications_video_fallback_timeout ?? 45 },
+            { key: 'notifyCooldownMinutes', val: notifyCooldownMinutes, store: s.notifications_notification_cooldown_minutes ?? 0 },
 
             // Accessibility
             { key: 'highContrast', val: highContrast, store: s.accessibility_high_contrast ?? false },
@@ -1434,14 +1488,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             return true;
         }
 
-        const dirtyItem = checks.find(c => c.val !== c.store);
-        if (dirtyItem) {
-            console.log(`Dirty Setting: ${dirtyItem.key}`, { current: dirtyItem.val, saved: dirtyItem.store });
-            return true;
-        } else {
-            // console.log('isDirty: No changes detected');
-        }
-        return false;
+        return checks.some(c => c.val !== c.store);
     });
 
     let classifierStatus = $state<ClassifierStatus | null>(null);
@@ -1581,8 +1628,9 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
         try {
             await startTaxonomySync();
             await loadTaxonomyStatus();
+            message = { type: 'success', text: $_('settings.data.taxonomy_syncing') };
         } catch (e: any) {
-            alert('Failed to start taxonomy sync: ' + e.message);
+            message = { type: 'error', text: $_('settings.data.taxonomy_sync_error', { values: { error: e?.message || 'Unknown error' } }) };
         } finally {
             syncingTaxonomy = false;
         }
@@ -1904,7 +1952,13 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             mqttPort = settings.mqtt_port;
             mqttAuth = settings.mqtt_auth;
             mqttUsername = settings.mqtt_username || '';
-            mqttPassword = settings.mqtt_password || '';
+            if (settings.mqtt_password === '***REDACTED***') {
+                mqttPasswordSaved = true;
+                mqttPassword = '';
+            } else {
+                mqttPasswordSaved = false;
+                mqttPassword = settings.mqtt_password || '';
+            }
             birdnetEnabled = settings.birdnet_enabled ?? true;
             audioTopic = settings.audio_topic || 'birdnet/text';
             cameraAudioMapping = settings.camera_audio_mapping || {};
@@ -1940,7 +1994,13 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             locationTemperatureUnit = (settings.location_temperature_unit as 'celsius' | 'fahrenheit') ?? 'celsius';
             // BirdWeather settings
             birdweatherEnabled = settings.birdweather_enabled ?? false;
-            birdweatherStationToken = settings.birdweather_station_token ?? '';
+            if (settings.birdweather_station_token === '***REDACTED***') {
+                birdweatherStationTokenSaved = true;
+                birdweatherStationToken = '';
+            } else {
+                birdweatherStationTokenSaved = false;
+                birdweatherStationToken = settings.birdweather_station_token ?? '';
+            }
             // eBird settings
             ebirdEnabled = settings.ebird_enabled ?? false;
             if (settings.ebird_api_key === '***REDACTED***') {
@@ -1986,7 +2046,13 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             // LLM settings
             llmEnabled = settings.llm_enabled ?? false;
             llmProvider = settings.llm_provider ?? 'gemini';
-            llmApiKey = settings.llm_api_key ?? '';
+            if (settings.llm_api_key === '***REDACTED***') {
+                llmApiKeySaved = true;
+                llmApiKey = '';
+            } else {
+                llmApiKeySaved = false;
+                llmApiKey = settings.llm_api_key ?? '';
+            }
             llmModel = settings.llm_model ?? 'gemini-2.5-flash';
             llmAnalysisPromptTemplate = settings.llm_analysis_prompt_template ?? '';
             llmConversationPromptTemplate = settings.llm_conversation_prompt_template ?? '';
@@ -2525,6 +2591,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     bind:mqttAuth
                     bind:mqttUsername
                     bind:mqttPassword
+                    bind:mqttPasswordSaved
                     bind:selectedCameras
                     bind:clipsEnabled
                     bind:telemetryEnabled
@@ -2616,6 +2683,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     {initiateGmailOAuth}
                     {initiateOutlookOAuth}
                     {disconnectEmailOAuth}
+                    onActionFeedback={handleActionFeedback}
                 />
             {/if}
 
@@ -2648,7 +2716,9 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     bind:llmEnabled
                     bind:llmProvider
                     bind:llmApiKey
+                    bind:llmApiKeySaved
                     bind:llmModel
+                    bind:birdweatherStationTokenSaved
                     bind:locationLat
                     bind:locationLon
                     bind:locationAuto
@@ -2663,6 +2733,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     {initiateInaturalistOAuth}
                     {disconnectInaturalistOAuth}
                     {exportEbirdCsv}
+                    onActionFeedback={handleActionFeedback}
                     refreshInaturalistStatus={async () => {
                         await settingsStore.load();
                         await loadSettings(true);
