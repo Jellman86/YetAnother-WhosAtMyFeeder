@@ -381,8 +381,22 @@ async def send_test_email(
     Send a test email to verify configuration. Owner only.
     """
     lang = get_user_language(request)
+    send_mode = "unknown"
     try:
         email_config = settings.notifications.email
+        send_mode = "oauth" if (email_config.use_oauth and email_config.oauth_provider) else "smtp"
+        log.info(
+            "test_email_requested",
+            mode=send_mode,
+            oauth_provider=email_config.oauth_provider,
+            smtp_host=email_config.smtp_host,
+            smtp_port=email_config.smtp_port,
+            smtp_use_tls=email_config.smtp_use_tls,
+            smtp_username_set=bool(email_config.smtp_username),
+            smtp_password_set=bool(email_config.smtp_password),
+            from_email_set=bool(email_config.from_email),
+            to_email_set=bool(email_config.to_email),
+        )
 
         if not email_config.enabled:
             raise HTTPException(status_code=400, detail=i18n_service.translate("errors.email.not_enabled", lang))
@@ -460,11 +474,11 @@ async def send_test_email(
     except HTTPException:
         raise
     except asyncio.TimeoutError:
-        log.error("test_email_timeout", timeout_seconds=30)
+        log.error("test_email_timeout", timeout_seconds=30, mode=send_mode)
         raise HTTPException(
             status_code=504,
             detail=i18n_service.translate("errors.email.send_error", lang, error="request timed out"),
         )
     except Exception as e:
-        log.error("test_email_error", error=str(e))
+        log.error("test_email_error", error=str(e), error_type=type(e).__name__, mode=send_mode)
         raise HTTPException(status_code=500, detail=i18n_service.translate("errors.email.send_error", lang, error=str(e)))

@@ -11,6 +11,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Changed:** Detection payloads now include `is_favorite` across list responses and SSE update flows so Dashboard/Explorer/Modal stay in sync.
 - **Changed:** Retention cleanup now preserves favorited detections, and scheduled/manual media-cache cleanup now exempts favorite event media (snapshots, clips, previews).
 - **Added:** Settings Data tab now includes an owner-only "Delete All Favorites" action with confirmation, API support, and localized UI copy across all supported languages.
+- **Changed:** Email test-send flow now emits structured step-level SMTP/OAuth diagnostics (connect, STARTTLS, auth, send, timeout mode) to make delivery failures and timeouts debuggable from container logs.
 - **Added:** New `detection_favorites` migration with guarded DDL, FK cascade semantics, and downgrade safety checks.
 - **Fixed:** Resolved test-email template rendering error (`unexpected '\\'`) by correcting escaped quotes in the Jinja `font_family` default expression used by `POST /api/email/test`.
 - **Changed:** Settings action feedback is now consistent across tabs: test/connect/disconnect/export actions route through unified status handling and toast notifications instead of mixed banner-only, inline-only, and `alert()` paths.

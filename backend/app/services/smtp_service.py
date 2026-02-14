@@ -12,6 +12,7 @@ Supports:
 import aiosmtplib
 import structlog
 from datetime import datetime, timedelta, timezone
+from time import monotonic
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.mime.image import MIMEImage
@@ -162,6 +163,15 @@ class SMTPService:
             bool: True if sent successfully, False otherwise
         """
         try:
+            self.logger.info(
+                "smtp_send_password_start",
+                smtp_host=smtp_host,
+                smtp_port=smtp_port,
+                use_tls=use_tls,
+                username_set=bool(username),
+                password_set=bool(password),
+                timeout_seconds=self.smtp_timeout_seconds,
+            )
             # Build email message
             message = await self._build_email_message(
                 to_email=to_email,
@@ -176,25 +186,67 @@ class SMTPService:
             # UI label is "TLS/STARTTLS" and most providers expect STARTTLS on 587.
             implicit_tls = bool(use_tls and smtp_port == 465)
             starttls = bool(use_tls and not implicit_tls)
-
-            async with aiosmtplib.SMTP(
+            smtp = aiosmtplib.SMTP(
                 hostname=smtp_host,
                 port=smtp_port,
                 use_tls=implicit_tls,
                 timeout=self.smtp_timeout_seconds,
-            ) as smtp:
+            )
+
+            connect_started = monotonic()
+            try:
                 await smtp.connect()
+                self.logger.info(
+                    "smtp_connect_ok",
+                    smtp_host=smtp_host,
+                    smtp_port=smtp_port,
+                    implicit_tls=implicit_tls,
+                    elapsed_ms=int((monotonic() - connect_started) * 1000),
+                )
                 if starttls:
+                    tls_started = monotonic()
                     await smtp.starttls()
+                    self.logger.info(
+                        "smtp_starttls_ok",
+                        smtp_host=smtp_host,
+                        smtp_port=smtp_port,
+                        elapsed_ms=int((monotonic() - tls_started) * 1000),
+                    )
                 if username and password:
+                    auth_started = monotonic()
                     await smtp.login(username, password)
+                    self.logger.info(
+                        "smtp_login_ok",
+                        smtp_host=smtp_host,
+                        smtp_port=smtp_port,
+                        elapsed_ms=int((monotonic() - auth_started) * 1000),
+                    )
+                send_started = monotonic()
                 await smtp.send_message(message)
+                self.logger.info(
+                    "smtp_send_message_ok",
+                    smtp_host=smtp_host,
+                    smtp_port=smtp_port,
+                    elapsed_ms=int((monotonic() - send_started) * 1000),
+                )
+            finally:
+                try:
+                    await smtp.quit()
+                except Exception:
+                    pass
 
             self.logger.info("email_sent_password", smtp_host=smtp_host, to=to_email)
             return True
 
         except Exception as e:
-            self.logger.error("send_email_password_error", error=str(e), smtp_host=smtp_host)
+            self.logger.error(
+                "send_email_password_error",
+                error=str(e),
+                error_type=type(e).__name__,
+                smtp_host=smtp_host,
+                smtp_port=smtp_port,
+                use_tls=use_tls,
+            )
             return False
 
     async def _build_email_message(
@@ -253,31 +305,47 @@ class SMTPService:
     ) -> bool:
         """Send email via Gmail using OAuth2"""
         try:
+            self.logger.info("smtp_send_gmail_oauth_start", timeout_seconds=self.smtp_timeout_seconds)
             # Create XOAUTH2 string
             auth_string = f"user={token_data['email']}\1auth=Bearer {token_data['access_token']}\1\1"
             auth_bytes = auth_string.encode('utf-8')
             auth_b64 = base64.b64encode(auth_bytes).decode('utf-8')
 
             # Connect to Gmail SMTP
-            async with aiosmtplib.SMTP(
+            smtp = aiosmtplib.SMTP(
                 hostname="smtp.gmail.com",
                 port=587,
                 use_tls=False,  # We'll start TLS manually
                 timeout=self.smtp_timeout_seconds,
-            ) as smtp:
+            )
+
+            connect_started = monotonic()
+            try:
                 await smtp.connect()
+                self.logger.info("smtp_gmail_connect_ok", elapsed_ms=int((monotonic() - connect_started) * 1000))
+                tls_started = monotonic()
                 await smtp.starttls()
+                self.logger.info("smtp_gmail_starttls_ok", elapsed_ms=int((monotonic() - tls_started) * 1000))
 
                 # Authenticate with OAuth2
+                auth_started = monotonic()
                 await smtp.execute_command(b"AUTH", b"XOAUTH2", auth_b64.encode())
+                self.logger.info("smtp_gmail_oauth_auth_ok", elapsed_ms=int((monotonic() - auth_started) * 1000))
 
                 # Send message
+                send_started = monotonic()
                 await smtp.send_message(message)
+                self.logger.info("smtp_gmail_send_ok", elapsed_ms=int((monotonic() - send_started) * 1000))
+            finally:
+                try:
+                    await smtp.quit()
+                except Exception:
+                    pass
 
             return True
 
         except Exception as e:
-            self.logger.error("gmail_oauth_send_error", error=str(e))
+            self.logger.error("gmail_oauth_send_error", error=str(e), error_type=type(e).__name__)
             return False
 
     async def _send_via_outlook_oauth(
@@ -288,31 +356,47 @@ class SMTPService:
     ) -> bool:
         """Send email via Outlook/Office 365 using OAuth2"""
         try:
+            self.logger.info("smtp_send_outlook_oauth_start", timeout_seconds=self.smtp_timeout_seconds)
             # Create XOAUTH2 string
             auth_string = f"user={token_data['email']}\1auth=Bearer {token_data['access_token']}\1\1"
             auth_bytes = auth_string.encode('utf-8')
             auth_b64 = base64.b64encode(auth_bytes).decode('utf-8')
 
             # Connect to Outlook SMTP
-            async with aiosmtplib.SMTP(
+            smtp = aiosmtplib.SMTP(
                 hostname="smtp.office365.com",
                 port=587,
                 use_tls=False,
                 timeout=self.smtp_timeout_seconds,
-            ) as smtp:
+            )
+
+            connect_started = monotonic()
+            try:
                 await smtp.connect()
+                self.logger.info("smtp_outlook_connect_ok", elapsed_ms=int((monotonic() - connect_started) * 1000))
+                tls_started = monotonic()
                 await smtp.starttls()
+                self.logger.info("smtp_outlook_starttls_ok", elapsed_ms=int((monotonic() - tls_started) * 1000))
 
                 # Authenticate with OAuth2
+                auth_started = monotonic()
                 await smtp.execute_command(b"AUTH", b"XOAUTH2", auth_b64.encode())
+                self.logger.info("smtp_outlook_oauth_auth_ok", elapsed_ms=int((monotonic() - auth_started) * 1000))
 
                 # Send message
+                send_started = monotonic()
                 await smtp.send_message(message)
+                self.logger.info("smtp_outlook_send_ok", elapsed_ms=int((monotonic() - send_started) * 1000))
+            finally:
+                try:
+                    await smtp.quit()
+                except Exception:
+                    pass
 
             return True
 
         except Exception as e:
-            self.logger.error("outlook_oauth_send_error", error=str(e))
+            self.logger.error("outlook_oauth_send_error", error=str(e), error_type=type(e).__name__)
             return False
 
     async def _get_oauth_token(self, provider: str) -> Optional[Dict[str, Any]]:
