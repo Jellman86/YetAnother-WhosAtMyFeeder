@@ -1152,7 +1152,9 @@ async def purge_missing_snapshots(auth: AuthContext = Depends(require_owner)):
 @router.post("/maintenance/analyze-unknowns")
 async def analyze_unknowns(auth: AuthContext = Depends(require_owner)):
     """Queue video analysis for all 'Unknown Bird' detections. Owner only."""
-    count = 0
+    accepted = 0
+    skipped_duplicate = 0
+    dropped_full = 0
     async with get_db() as db:
         repo = DetectionRepository(db)
         unknowns = await repo.get_unknown_detections()
@@ -1161,13 +1163,27 @@ async def analyze_unknowns(auth: AuthContext = Depends(require_owner)):
         
         for d in unknowns:
             # The service itself will check for clip availability during processing
-            await auto_video_classifier.queue_classification(d.frigate_event, d.camera_name)
-            count += 1
+            result = await auto_video_classifier.queue_classification(d.frigate_event, d.camera_name)
+            if result == "queued":
+                accepted += 1
+            elif result == "duplicate":
+                skipped_duplicate += 1
+            elif result == "full":
+                dropped_full += 1
             
+    count = accepted  # Backward-compatible field expected by current UI.
+    msg = (
+        f"Queued {accepted} unknown detections for video analysis. "
+        f"Skipped duplicates: {skipped_duplicate}. Queue full drops: {dropped_full}."
+    )
     return {
-        "status": "queued", 
-        "count": count, 
-        "message": f"Queued {count} unknown detections for video analysis. Processing will respect concurrency limits."
+        "status": "queued",
+        "count": count,
+        "accepted": accepted,
+        "skipped_duplicate": skipped_duplicate,
+        "dropped_full": dropped_full,
+        "total_candidates": len(unknowns),
+        "message": msg
     }
 
 

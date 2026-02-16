@@ -5,7 +5,7 @@ import structlog
 import time
 from collections import deque
 from datetime import datetime
-from typing import Optional, Dict
+from typing import Optional, Dict, Literal
 
 from app.config import settings
 from app.services.frigate_client import frigate_client
@@ -35,6 +35,7 @@ class AutoVideoClassifierService:
         self._failure_event_ids: set[str] = set()
         self._circuit_open_until: float | None = None
         self._pending_queue: asyncio.Queue[tuple[str, str]] = asyncio.Queue()
+        self._pending_ids: set[str] = set()
         self._processor_task: Optional[asyncio.Task] = None
         self._stale_task: Optional[asyncio.Task] = None
         self._running = False
@@ -67,6 +68,7 @@ class AutoVideoClassifierService:
         for task in self._active_tasks.values():
             task.cancel()
         self._active_tasks.clear()
+        self._pending_ids.clear()
         log.info("AutoVideoClassifierService stopped")
 
     async def reset_state(self):
@@ -89,6 +91,7 @@ class AutoVideoClassifierService:
                 self._pending_queue.task_done()
             except asyncio.QueueEmpty:
                 break
+        self._pending_ids.clear()
 
         # Reset circuit breaker state
         self._failure_events.clear()
@@ -116,6 +119,8 @@ class AutoVideoClassifierService:
                     frigate_event, camera = await asyncio.wait_for(self._pending_queue.get(), timeout=1.0)
                 except asyncio.TimeoutError:
                     continue
+                # Item left the pending queue: clear dedupe marker.
+                self._pending_ids.discard(frigate_event)
 
                 if frigate_event in self._active_tasks:
                     self._pending_queue.task_done()
@@ -209,17 +214,27 @@ class AutoVideoClassifierService:
 
     def get_status(self) -> dict:
         """Get current queue status."""
+        circuit = self.get_circuit_status()
+        pending = self._pending_queue.qsize()
         return {
-            "pending": self._pending_queue.qsize(),
+            "pending": pending,
             "active": len(self._active_tasks),
-            "circuit_open": self._is_circuit_open()
+            "circuit_open": circuit["open"],
+            "open_until": circuit["open_until"],
+            "failure_count": circuit["failure_count"],
+            "pending_capacity": MAX_PENDING_QUEUE,
+            "pending_available": max(0, MAX_PENDING_QUEUE - pending),
         }
 
-    async def queue_classification(self, frigate_event: str, camera: str):
+    async def queue_classification(self, frigate_event: str, camera: str) -> Literal["queued", "duplicate", "full"]:
         """
         Queue a video classification task.
         Use this for bulk operations or retries.
         """
+        self._cleanup_completed_tasks()
+        if frigate_event in self._active_tasks or frigate_event in self._pending_ids:
+            log.debug("Video classification already queued/active; skipping duplicate", event_id=frigate_event)
+            return "duplicate"
         if self._pending_queue.qsize() >= MAX_PENDING_QUEUE:
             log.warning(
                 "Video classification queue full; dropping task",
@@ -227,9 +242,11 @@ class AutoVideoClassifierService:
                 queue_size=self._pending_queue.qsize(),
                 max_pending=MAX_PENDING_QUEUE
             )
-            return
+            return "full"
         await self._pending_queue.put((frigate_event, camera))
+        self._pending_ids.add(frigate_event)
         log.debug("Queued video classification", event_id=frigate_event, queue_size=self._pending_queue.qsize())
+        return "queued"
 
     def _cleanup_task(self, frigate_event: str, task: asyncio.Task):
         """Safely cleanup a completed task from the active tasks dict."""

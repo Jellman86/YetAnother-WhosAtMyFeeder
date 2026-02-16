@@ -1,7 +1,7 @@
 <script lang="ts">
     import { _ } from 'svelte-i18n';
     import { formatDate } from '../../utils/datetime';
-    import type { MaintenanceStats, BackfillResult, WeatherBackfillResult, CacheStats, TaxonomySyncStatus } from '../../api';
+    import type { MaintenanceStats, BackfillResult, WeatherBackfillResult, CacheStats, TaxonomySyncStatus, AnalysisStatus } from '../../api';
 
     // Props
     let {
@@ -68,7 +68,7 @@
         weatherBackfillTotal: number;
         resettingDatabase: boolean;
         analyzingUnknowns: boolean;
-        analysisStatus: { pending: number; active: number; circuit_open: boolean } | null;
+        analysisStatus: AnalysisStatus | null;
         analysisTotal: number;
         handleCleanup: () => Promise<void>;
         handleClearFavorites: () => Promise<void>;
@@ -471,7 +471,17 @@
                         <div class="text-[10px] font-bold text-amber-500 flex items-center gap-1 bg-amber-500/10 p-2 rounded-lg border border-amber-500/20">
                             <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
                             {$_('settings.data.batch_analysis_circuit_open')}
+                            {#if analysisStatus.open_until}
+                                <span class="ml-auto text-[10px] font-bold text-amber-600 dark:text-amber-300">
+                                    {new Date(analysisStatus.open_until).toLocaleTimeString()}
+                                </span>
+                            {/if}
                         </div>
+                        {#if analysisStatus.failure_count !== undefined}
+                            <div class="text-[10px] font-bold text-amber-500/90">
+                                {$_('settings.data.batch_analysis_recent_failures', { default: 'Recent failures' })}: {analysisStatus.failure_count}
+                            </div>
+                        {/if}
                     {/if}
                 </div>
             {/if}

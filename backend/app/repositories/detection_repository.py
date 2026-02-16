@@ -764,7 +764,7 @@ class DetectionRepository:
             return count
 
     async def get_unknown_detections(self) -> list[Detection]:
-        """Get all detections labeled as 'Unknown Bird'."""
+        """Get unresolved detections labeled as 'Unknown Bird'."""
         query = """
             SELECT d.id, d.detection_time, d.detection_index, d.score, d.display_name, d.category_name,
                    d.frigate_event, d.camera_name, d.is_hidden, d.frigate_score, d.sub_label,
@@ -780,6 +780,7 @@ class DetectionRepository:
             FROM detections d
             LEFT JOIN detection_favorites f ON f.detection_id = d.id
             WHERE d.display_name = 'Unknown Bird'
+              AND COALESCE(d.video_classification_status, '') NOT IN ('pending', 'processing', 'completed')
         """
         async with self.db.execute(query) as cursor:
             rows = await cursor.fetchall()

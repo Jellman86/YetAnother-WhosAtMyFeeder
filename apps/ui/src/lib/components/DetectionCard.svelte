@@ -46,6 +46,39 @@
         }
         return { key: 'snapshot', label: $_('detection.tag_snapshot') };
     });
+    const UNKNOWN_SPECIES_LABELS = new Set(['unknown', 'unknown bird', 'background']);
+    let isUnknownSpecies = $derived(
+        UNKNOWN_SPECIES_LABELS.has((detection.display_name || '').trim().toLowerCase())
+    );
+    let processedUnknownStatus = $derived.by(() => {
+        if (!isUnknownSpecies) return null;
+        const videoStatus = detection.video_classification_status;
+        if (detection.manual_tagged) {
+            return {
+                label: $_('detection.tag_manual'),
+                classes: 'bg-amber-500 text-white shadow-lg shadow-amber-500/30'
+            };
+        }
+        if (videoStatus === 'completed') {
+            return {
+                label: $_('detection.processed', { default: 'Processed' }),
+                classes: 'bg-teal-500 text-white shadow-lg shadow-teal-500/30'
+            };
+        }
+        if (videoStatus === 'failed') {
+            return {
+                label: $_('detection.video_analysis.failed_title'),
+                classes: 'bg-rose-500 text-white shadow-lg shadow-rose-500/30'
+            };
+        }
+        if (videoStatus === 'pending' || videoStatus === 'processing') {
+            return {
+                label: $_('detection.video_analysis.in_progress'),
+                classes: 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/30'
+            };
+        }
+        return null;
+    });
     let hasWeather = $derived(
         detection.temperature !== undefined && detection.temperature !== null ||
         !!detection.weather_condition ||
@@ -281,6 +314,11 @@
                 {#if detection.is_hidden}
                     <div class="px-2 py-1 rounded-full bg-amber-500 text-white text-[10px] font-bold uppercase tracking-wider shadow-lg">
                         {$_('detection.hidden')}
+                    </div>
+                {/if}
+                {#if processedUnknownStatus}
+                    <div class="px-2 py-1 rounded-full text-[10px] font-black uppercase tracking-wider {processedUnknownStatus.classes}">
+                        {processedUnknownStatus.label}
                     </div>
                 {/if}
             </div>

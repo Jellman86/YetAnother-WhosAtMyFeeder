@@ -11,12 +11,23 @@
     }>();
 
     let latestFrame = $derived(progress.frameResults[progress.frameResults.length - 1]);
+    let finalTopResult = $derived(
+        Array.isArray(progress.results) && progress.results.length > 0 ? progress.results[0] : null
+    );
     let currentFrameThumb = $derived(latestFrame?.thumb || null);
     let isComplete = $derived(progress.status === 'completed' || progress.currentFrame >= progress.totalFrames);
     let progressPercent = $derived(Math.round((progress.currentFrame / progress.totalFrames) * 100));
     let displayFrameIndex = $derived(progress.frameIndex || progress.currentFrame);
     let displayClipTotal = $derived(progress.clipTotal || progress.totalFrames);
     let modelLabel = $derived(progress.modelName || null);
+    let displayLabel = $derived(
+        isComplete && finalTopResult?.label ? finalTopResult.label : latestFrame?.label
+    );
+    let displayScorePercent = $derived(
+        isComplete && typeof finalTopResult?.score === 'number'
+            ? Math.round(finalTopResult.score * 100)
+            : (typeof latestFrame?.score === 'number' ? Math.round(latestFrame.score * 100) : null)
+    );
 
     function handleDismiss() {
         detectionsStore.dismissReclassification(progress.eventId);
@@ -124,16 +135,26 @@
 
         <!-- Live Label Feedback -->
         <div class="flex flex-col items-center gap-1 {small ? 'min-h-0' : 'min-h-[64px]'}">
-            {#if latestFrame}
+            {#if displayLabel}
                 <div class="flex flex-col items-center" transition:fade>
-                    {#if !small}
+                    {#if !small && !isComplete}
                         <span class="px-2 py-0.5 rounded-md bg-teal-500/15 border border-teal-500/30 text-[9px] font-black text-teal-700 dark:text-teal-300 uppercase tracking-widest mb-1.5">
                             {$_('detection.reclassification.frame_progress', { values: { current: displayFrameIndex, total: displayClipTotal } })}
                         </span>
                     {/if}
+                    {#if !small && isComplete}
+                        <span class="px-2 py-0.5 rounded-md bg-emerald-500/15 border border-emerald-500/30 text-[9px] font-black text-emerald-700 dark:text-emerald-300 uppercase tracking-widest mb-1.5">
+                            {$_('detection.reclassification.final_result', { default: 'Final Result' })}
+                        </span>
+                    {/if}
                     <span class="{small ? 'text-[10px]' : 'text-base'} font-black text-slate-900 dark:text-white truncate max-w-[200px] drop-shadow-md">
-                        {latestFrame.label}
+                        {displayLabel}
                     </span>
+                    {#if !small && displayScorePercent !== null}
+                        <span class="text-[10px] font-black text-slate-500 dark:text-slate-300 uppercase tracking-widest mt-1">
+                            {displayScorePercent}%
+                        </span>
+                    {/if}
                 </div>
             {/if}
             {#if modelLabel && !small}

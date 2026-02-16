@@ -48,7 +48,8 @@
         type CacheStats,
         type CacheCleanupResult,
         type TaxonomySyncStatus,
-        type VersionInfo
+        type VersionInfo,
+        type AnalysisStatus
     } from '../api';
     import { themeStore, type Theme } from '../stores/theme.svelte';
     import { layoutStore, type Layout } from '../stores/layout.svelte';
@@ -1528,7 +1529,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     let resettingDatabase = $state(false);
     let analyzingUnknowns = $state(false);
     let analysisTotal = $state(0);
-    let analysisStatus = $state<{ pending: number; active: number; circuit_open: boolean } | null>(null);
+    let analysisStatus = $state<AnalysisStatus | null>(null);
     let analysisPollInterval: any;
 
     // Tab navigation
@@ -1580,8 +1581,9 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
         if (analysisStatus && (analysisStatus.pending > 0 || analysisStatus.active > 0)) {
              startAnalysisPolling();
              // We don't know total if we just reloaded, so maybe set total to pending+active
-             if (analysisTotal === 0) {
-                 analysisTotal = analysisStatus.pending + analysisStatus.active;
+             const remaining = analysisStatus.pending + analysisStatus.active;
+             if (analysisTotal === 0 || analysisTotal < remaining) {
+                 analysisTotal = remaining;
              }
         }
 
@@ -1903,8 +1905,12 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
         try {
             const result = await analyzeUnknowns();
             message = { type: 'success', text: result.message };
-            if (result.count > 0) {
-                analysisTotal = result.count;
+            if (result.count > 0 || (result.skipped_duplicate ?? 0) > 0 || (result.dropped_full ?? 0) > 0) {
+                await loadAnalysisStatus();
+                const remaining = (analysisStatus?.pending ?? 0) + (analysisStatus?.active ?? 0);
+                if (analysisTotal === 0 || analysisTotal < remaining) {
+                    analysisTotal = remaining;
+                }
                 startAnalysisPolling();
             }
         } catch (e: any) {
@@ -1924,11 +1930,16 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
         try {
             const status = await fetchAnalysisStatus();
             analysisStatus = status;
+            const remaining = status.pending + status.active;
+            if (remaining > 0 && (analysisTotal === 0 || analysisTotal < remaining)) {
+                analysisTotal = remaining;
+            }
             if (status.pending === 0 && status.active === 0) {
                 if (analysisPollInterval) {
                     clearInterval(analysisPollInterval);
                     analysisPollInterval = null;
                 }
+                analysisTotal = 0;
             }
         } catch (e) {
             console.error('Failed to load analysis status', e);

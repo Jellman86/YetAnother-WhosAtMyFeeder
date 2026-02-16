@@ -797,14 +797,34 @@ export async function purgeMissingSnapshots(): Promise<PurgeMissingMediaResult> 
     return handleResponse<PurgeMissingMediaResult>(response);
 }
 
-export async function analyzeUnknowns(): Promise<{ status: string; count: number; message: string }> {
-    const response = await apiFetch(`${API_BASE}/maintenance/analyze-unknowns`, { method: 'POST' });
-    return handleResponse<{ status: string; count: number; message: string }>(response);
+export interface AnalyzeUnknownsResult {
+    status: string;
+    count: number;
+    message: string;
+    accepted?: number;
+    skipped_duplicate?: number;
+    dropped_full?: number;
+    total_candidates?: number;
 }
 
-export async function fetchAnalysisStatus(): Promise<{ pending: number; active: number; circuit_open: boolean }> {
+export interface AnalysisStatus {
+    pending: number;
+    active: number;
+    circuit_open: boolean;
+    open_until?: string | null;
+    failure_count?: number;
+    pending_capacity?: number;
+    pending_available?: number;
+}
+
+export async function analyzeUnknowns(): Promise<AnalyzeUnknownsResult> {
+    const response = await apiFetch(`${API_BASE}/maintenance/analyze-unknowns`, { method: 'POST' });
+    return handleResponse<AnalyzeUnknownsResult>(response);
+}
+
+export async function fetchAnalysisStatus(): Promise<AnalysisStatus> {
     const response = await apiFetch(`${API_BASE}/maintenance/analysis/status`);
-    return handleResponse<{ pending: number; active: number; circuit_open: boolean }>(response);
+    return handleResponse<AnalysisStatus>(response);
 }
 
 export async function deleteDetection(frigateEventId: string): Promise<{ status: string }> {

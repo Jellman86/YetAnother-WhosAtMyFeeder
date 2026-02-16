@@ -240,6 +240,28 @@
         }
     });
 
+    $effect(() => {
+        if (!events.length) return;
+        if (!detectionsStore.detections.length) return;
+        const updatesById = new Map(detectionsStore.detections.map((d) => [d.frigate_event, d] as const));
+        let changed = false;
+        const nextEvents = events.map((event) => {
+            const updated = updatesById.get(event.frigate_event);
+            if (!updated) return event;
+            if (detectionSyncSignature(updated) !== detectionSyncSignature(event)) {
+                changed = true;
+                const definedPatch = Object.fromEntries(
+                    Object.entries(updated).filter(([, value]) => value !== undefined)
+                ) as Partial<Detection>;
+                return { ...event, ...definedPatch };
+            }
+            return event;
+        });
+        if (changed) {
+            events = nextEvents;
+        }
+    });
+
     async function handleAIAnalysis() {
         if (!selectedEvent) return;
         analyzingAI = true;
