@@ -425,19 +425,12 @@
       const normalizedCurrent = Math.min(normalizedTotal, parsedCurrent);
       reclassifyProgressByEvent.set(eventId, { current: normalizedCurrent, total: normalizedTotal });
 
-      let activeProgressCurrent = 0;
-      let activeProgressTotal = 0;
-      for (const progress of reclassifyProgressByEvent.values()) {
-          activeProgressCurrent += progress.current;
-          activeProgressTotal += progress.total > 0 ? progress.total : 1;
-      }
       const startedTotal = Math.max(reclassifyStartedCount, reclassifyCompletedCount + activeCount);
-      const activeFraction = activeProgressTotal > 0 ? (activeProgressCurrent / activeProgressTotal) : 0;
-      const batchCurrentUnits = reclassifyCompletedCount + Math.min(1, Math.max(0, activeFraction));
-      const batchCurrent = Math.round(batchCurrentUnits * 100);
-      const batchTotal = Math.max(100, startedTotal * 100);
+      // Use job-based progress (not frame totals) so the notification UI stays understandable.
+      const batchCurrent = Math.min(startedTotal, reclassifyCompletedCount + (activeCount > 0 ? 1 : 0));
+      const batchTotal = Math.max(1, startedTotal);
       const signature = isBatch
-          ? `batch|${reclassifyCompletedCount}|${startedTotal}|${activeProgressCurrent}|${activeProgressTotal}`
+          ? `batch|${reclassifyCompletedCount}|${startedTotal}|${activeCount}`
           : `single|${eventId}|${normalizedCurrent}|${normalizedTotal}`;
       if (!applyNotificationPolicy(RECLASSIFY_PROGRESS_ID, signature, 1200)) return;
       // Collapse any legacy per-event progress cards into a single active status card.
