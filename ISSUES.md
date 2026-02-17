@@ -6,7 +6,18 @@ If you find a bug, please open a GitHub issue with the steps to reproduce and an
 
 ## P0: Active Regressions
 
-- None currently tracked (last verified: February 12, 2026).
+- None currently confirmed as unresolved in current `dev`.
+
+## Pending Verification (Fixed in Dev, Awaiting Reporter Confirmation)
+
+### GitHub Issue #13: Wrong Wikipedia Reference (RU localization)
+- Issue: `https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/13`
+- Status (as of February 17, 2026): Open, waiting for user validation on latest `dev` images.
+- Implemented fix on `dev`: `e10afbf`
+- Scope of fix:
+  - Backend multilingual Wikipedia candidate scoring and scientific-name-aware matching to avoid incorrect similarly named species pages.
+  - Frontend locale-aware leaderboard species-info cache to prevent stale cross-language links after language switches.
+  - Added regression tests: `backend/tests/test_species_wikipedia_matching.py`.
 
 ## P1: Untested Integrations (Need Community Testing)
 
