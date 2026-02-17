@@ -16,7 +16,8 @@
     );
     let currentFrameThumb = $derived(latestFrame?.thumb || null);
     let isComplete = $derived(progress.status === 'completed' || progress.currentFrame >= progress.totalFrames);
-    let progressPercent = $derived(Math.round((progress.currentFrame / progress.totalFrames) * 100));
+    let safeTotalFrames = $derived(Math.max(1, progress.totalFrames));
+    let progressPercent = $derived(Math.round((progress.currentFrame / safeTotalFrames) * 100));
     let displayFrameIndex = $derived(progress.frameIndex || progress.currentFrame);
     let displayClipTotal = $derived(progress.clipTotal || progress.totalFrames);
     let modelLabel = $derived(progress.modelName || null);
@@ -33,12 +34,32 @@
         detectionsStore.dismissReclassification(progress.eventId);
     }
 
+    $effect(() => {
+        if (small || !isComplete || typeof window === 'undefined') return;
+        const timer = window.setTimeout(() => {
+            handleDismiss();
+        }, 15000);
+        return () => window.clearTimeout(timer);
+    });
+
 </script>
 
 <div 
-    class="absolute inset-0 z-20 flex flex-col items-center {small ? 'justify-center overflow-hidden p-3' : 'justify-start overflow-y-auto overflow-x-hidden p-6'} bg-white/50 dark:bg-slate-900/60 border border-slate-200/70 dark:border-slate-700/50 backdrop-blur-xl rounded-xl"
+    class="absolute inset-0 z-20 relative flex flex-col items-center {small ? 'justify-center overflow-hidden p-3' : 'justify-start overflow-y-auto overflow-x-hidden p-6'} bg-white/50 dark:bg-slate-900/60 border border-slate-200/70 dark:border-slate-700/50 backdrop-blur-xl rounded-xl"
     transition:fade={{ duration: 200 }}
 >
+    {#if !small}
+        <button
+            type="button"
+            onclick={handleDismiss}
+            class="absolute top-3 right-3 z-30 w-8 h-8 rounded-full bg-white/80 dark:bg-slate-800/80 text-slate-700 dark:text-slate-200 border border-slate-200/80 dark:border-slate-600/70 hover:bg-white dark:hover:bg-slate-800 transition-colors"
+            aria-label={$_('common.close', { default: 'Close' })}
+            title={$_('common.close', { default: 'Close' })}
+        >
+            <span aria-hidden="true">&times;</span>
+        </button>
+    {/if}
+
     <!-- Current frame backdrop -->
     {#if currentFrameThumb}
         <div

@@ -138,7 +138,8 @@
           await runOwnerSystemChecks();
           stalePruneInterval = window.setInterval(() => {
               pruneStaleProcessNotifications();
-          }, 60_000);
+              detectionsStore.pruneReclassifications();
+          }, 10_000);
 
           // Handle page visibility changes - reconnect when tab becomes visible
           const handleVisibilityChange = () => {
@@ -593,7 +594,10 @@
                              logger.warn("SSE invalid reclassification_started payload", { payload });
                              return;
                          }
-                         detectionsStore.startReclassification(payload.data.event_id);
+                         detectionsStore.startReclassification(
+                             payload.data.event_id,
+                             payload.data.total_frames ?? 15
+                         );
                          updateReclassifyProgress(payload.data.event_id, 0, payload.data.total_frames ?? 0);
                      } else if (payload.type === 'reclassification_progress') {
                          if (!payload.data || !payload.data.event_id) {

@@ -1447,7 +1447,7 @@
 
         <button
             onclick={onClose}
-            class="absolute top-4 right-4 w-8 h-8 rounded-full bg-black/40 text-white flex items-center justify-center hover:bg-black/60 transition-colors"
+            class="absolute top-4 right-4 z-40 w-8 h-8 rounded-full bg-black/40 text-white flex items-center justify-center hover:bg-black/60 transition-colors"
             aria-label={$_('common.close')}
         >
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1459,7 +1459,7 @@
             <button
                 type="button"
                 onclick={copyAiFullBundle}
-                class="absolute top-4 right-14 w-8 h-8 rounded-full bg-emerald-500/20 text-emerald-100 flex items-center justify-center hover:bg-emerald-500/35 transition-colors"
+                class="absolute top-4 right-14 z-40 w-8 h-8 rounded-full bg-emerald-500/20 text-emerald-100 flex items-center justify-center hover:bg-emerald-500/35 transition-colors"
                 title={$_('detection.ai.copy_diagnostics_bundle', { default: 'Copy AI diagnostics bundle' })}
                 aria-label={$_('detection.ai.copy_diagnostics_bundle', { default: 'Copy AI diagnostics bundle' })}
             >

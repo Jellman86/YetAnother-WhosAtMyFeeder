@@ -18,6 +18,9 @@ export interface ReclassificationProgress {
     modelName?: string | null;
     frameResults: FrameResult[];
     status: 'running' | 'completed';
+    startedAt: number;
+    lastUpdateAt: number;
+    completedAt?: number | null;
     results?: any; // Final results from backend
 }
 
@@ -106,14 +109,18 @@ class DetectionsStore {
         this.connected = status;
     }
 
-    startReclassification(eventId: string) {
+    startReclassification(eventId: string, totalFrames: number = 15) {
+        const now = Date.now();
         const newMap = new Map(this.progressMap);
         newMap.set(eventId, {
             eventId,
             currentFrame: 0,
-            totalFrames: 15,
+            totalFrames: Math.max(1, totalFrames),
             frameResults: [],
-            status: 'running'
+            status: 'running',
+            startedAt: now,
+            lastUpdateAt: now,
+            completedAt: null
         });
         this.progressMap = newMap;
     }
@@ -129,6 +136,7 @@ class DetectionsStore {
         clipTotal?: number | null,
         modelName?: string | null
     ) {
+        const now = Date.now();
         const newMap = new Map(this.progressMap);
         const existing = newMap.get(eventId);
         
@@ -154,23 +162,54 @@ class DetectionsStore {
                 clipTotal: clipTotal ?? existing.clipTotal ?? null,
                 modelName: modelName ?? existing.modelName ?? null,
                 frameResults,
-                status: 'running'
+                status: 'running',
+                lastUpdateAt: now
             });
             this.progressMap = newMap;
         }
     }
 
     completeReclassification(eventId: string, results: any) {
+        const now = Date.now();
         const newMap = new Map(this.progressMap);
         const existing = newMap.get(eventId);
         if (existing) {
             newMap.set(eventId, {
                 ...existing,
                 status: 'completed',
+                lastUpdateAt: now,
+                completedAt: now,
                 results
             });
             this.progressMap = newMap;
         }
+    }
+
+    pruneReclassifications(runningTimeoutMs: number = 90_000, completedRetentionMs: number = 15_000): boolean {
+        const now = Date.now();
+        const newMap = new Map(this.progressMap);
+        let changed = false;
+
+        for (const [eventId, progress] of newMap.entries()) {
+            if (progress.status === 'running') {
+                if (now - progress.lastUpdateAt > runningTimeoutMs) {
+                    newMap.delete(eventId);
+                    changed = true;
+                }
+                continue;
+            }
+
+            const completedAt = progress.completedAt ?? progress.lastUpdateAt;
+            if (now - completedAt > completedRetentionMs) {
+                newMap.delete(eventId);
+                changed = true;
+            }
+        }
+
+        if (changed) {
+            this.progressMap = newMap;
+        }
+        return changed;
     }
 
     dismissReclassification(eventId: string) {
