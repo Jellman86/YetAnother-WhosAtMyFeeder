@@ -9,6 +9,7 @@ from app.config import settings
 from app.services.classifier_service import ClassifierService
 from app.services.frigate_client import frigate_client
 from app.services.detection_service import DetectionService
+from app.utils.frigate import normalize_sub_label
 
 log = structlog.get_logger()
 
@@ -102,7 +103,7 @@ class BackfillService:
             if frigate_score is None and 'data' in event:
                 frigate_score = event['data'].get('top_score')
 
-            sub_label = event.get('sub_label')
+            sub_label = normalize_sub_label(event.get('sub_label'))
 
             # Use shared filtering and labeling logic (with Frigate sublabel for fallback)
             top, reason = self.detection_service.filter_and_label(results[0], frigate_event, sub_label)

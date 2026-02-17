@@ -6,6 +6,7 @@ from app.services.classifier_service import ClassifierService
 from app.services.broadcaster import broadcaster
 from app.services.taxonomy.taxonomy_service import taxonomy_service
 from app.services.birdweather_service import birdweather_service
+from app.utils.frigate import normalize_sub_label
 from app.utils.tasks import create_background_task
 from app.database import get_db
 
@@ -30,6 +31,7 @@ class DetectionService:
         Returns (result_dict, reason_code).
         reason_code is populated when result is None (skip reason) or informative when result exists.
         """
+        frigate_sub_label = normalize_sub_label(frigate_sub_label)
         top = classification
         score = top['score']
         label = top['label']
@@ -115,6 +117,8 @@ class DetectionService:
         Save or update a detection in the database and broadcast the event.
         Returns (changed, was_inserted).
         """
+        sub_label = normalize_sub_label(sub_label)
+
         # 1. Normalize names (Bidirectional Scientific <-> Common)
         label = classification['label']
         taxonomy = await taxonomy_service.get_names(label)

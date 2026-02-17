@@ -278,15 +278,17 @@
 
     async function handleReclassify() {
         if (!selectedEvent) return;
+        const eventId = selectedEvent.frigate_event;
         const requestedStrategy = selectedEvent.has_clip ? 'video' : 'snapshot';
         try {
-            const result = await reclassifyDetection(selectedEvent.frigate_event, requestedStrategy);
+            const result = await reclassifyDetection(eventId, requestedStrategy);
 
             // Check if backend used a different strategy (fallback occurred)
             if (result.actual_strategy && result.actual_strategy !== requestedStrategy) {
                 toastStore.warning($_('notifications.reclassify_fallback'));
             }
         } catch (e: any) {
+            detectionsStore.dismissReclassification(eventId);
             console.error('Failed to start reclassification', e.message);
             toastStore.error($_('notifications.reclassify_failed', { values: { message: e.message || 'Unknown error' } }));
         }

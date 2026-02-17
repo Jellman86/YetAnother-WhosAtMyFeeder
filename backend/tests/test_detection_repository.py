@@ -224,6 +224,30 @@ async def test_upsert_if_higher_score_returns_no_change_for_lower_score():
 
 
 @pytest.mark.asyncio
+async def test_upsert_if_higher_score_normalizes_list_sublabel():
+    async with aiosqlite.connect(":memory:") as db:
+        await _create_detections_table(db)
+        await db.commit()
+        repo = DetectionRepository(db)
+
+        detection = Detection(
+            detection_time=datetime.utcnow(),
+            detection_index=1,
+            score=0.91,
+            display_name="Great Tit",
+            category_name="Parus major",
+            frigate_event="evt_list_sublabel",
+            camera_name="cam_4",
+            sub_label=["Parus major", None]  # type: ignore[arg-type]
+        )
+
+        assert await repo.upsert_if_higher_score(detection) == (True, False)
+        saved = await repo.get_by_frigate_event("evt_list_sublabel")
+        assert saved is not None
+        assert saved.sub_label == "Parus major"
+
+
+@pytest.mark.asyncio
 async def test_favorite_detection_idempotent_and_filterable():
     async with aiosqlite.connect(":memory:") as db:
         await _create_detections_table(db)

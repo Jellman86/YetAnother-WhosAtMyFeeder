@@ -746,6 +746,8 @@
     "weather_snow": "雪",
     "weather_icy": "凍結",
     "id": "検出ID",
+    "favorite_label": "お気に入り",
+    "favorite_label_active": "お気に入り済み",
     "inat": {
       "title": "iNaturalist",
       "connected": "接続中: {user}",

@@ -18,6 +18,7 @@
     import { getBirdNames } from '../naming';
     import { settingsStore } from '../stores/settings.svelte';
     import { authStore } from '../stores/auth.svelte';
+    import { detectionsStore } from '../stores/detections.svelte';
     import { toastStore } from '../stores/toast.svelte';
     import SimpleBarChart from './SimpleBarChart.svelte';
     import VideoPlayer from './VideoPlayer.svelte';
@@ -441,10 +442,11 @@
         // Get the most recent sighting for reclassification
         const recentSighting = stats?.recent_sightings?.[0];
         if (!recentSighting || reclassifying) return;
+        const eventId = recentSighting.frigate_event;
 
         reclassifying = true;
         try {
-            const result = await reclassifyDetection(recentSighting.frigate_event, strategy);
+            const result = await reclassifyDetection(eventId, strategy);
 
             // Check if backend used a different strategy (fallback occurred)
             if (result.actual_strategy && result.actual_strategy !== strategy) {
@@ -458,6 +460,7 @@
                 onclose();
             }, 2000);
         } catch (e: any) {
+            detectionsStore.dismissReclassification(eventId);
             console.error('Failed to reclassify', e);
             toastStore.error(`Failed to reclassify: ${e.message || 'Unknown error'}`);
         } finally {

@@ -746,6 +746,8 @@
     "weather_snow": "雪",
     "weather_icy": "结冰",
     "id": "检测ID",
+    "favorite_label": "收藏",
+    "favorite_label_active": "已收藏",
     "inat": {
       "title": "iNaturalist",
       "connected": "已连接：{user}",

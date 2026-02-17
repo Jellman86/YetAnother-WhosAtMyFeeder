@@ -564,66 +564,55 @@ class ReclassifyResponse(BaseModel):
 
 
 @router.post("/events/{event_id}/reclassify", response_model=ReclassifyResponse)
-
-
 async def reclassify_event(
-
-
     event_id: str,
-
-
     request: Request,
-
-
     strategy: Literal["snapshot", "video"] = Query("snapshot", description="Classification strategy"),
-
-
     auth: AuthContext = Depends(require_owner)
-
-
 ):
-
-
     """
-
-
     Re-run the classifier on an existing detection.
 
-
     Can use either a single snapshot or a video clip (Temporal Ensemble).
-
-
     """
-
-
     lang = get_user_language(request)
 
-
     async with get_db() as db:
-
-
         repo = DetectionRepository(db)
-
-
         detection = await repo.get_by_frigate_event(event_id)
 
-
         if not detection:
-
-
             raise HTTPException(
-
-
-                status_code=404, 
-
-
+                status_code=404,
                 detail=i18n_service.translate("errors.detection_not_found", lang=lang)
-
-
             )
 
         old_species = detection.display_name
         classifier = get_classifier()
+        started_reclassification = False
+        completion_broadcasted = False
+
+        async def broadcast_reclassification_started(mode: Literal["snapshot", "video"]) -> None:
+            nonlocal started_reclassification
+            started_reclassification = True
+            await broadcaster.broadcast({
+                "type": "reclassification_started",
+                "data": {
+                    "event_id": event_id,
+                    "strategy": mode
+                }
+            })
+
+        async def broadcast_reclassification_completed(results_payload: list) -> None:
+            nonlocal completion_broadcasted
+            completion_broadcasted = True
+            await broadcaster.broadcast({
+                "type": "reclassification_completed",
+                "data": {
+                    "event_id": event_id,
+                    "results": results_payload
+                }
+            })
 
         async def broadcast_video_status(status: str, error: str | None = None):
             await repo.update_video_status(event_id, status, error=error)
@@ -639,277 +628,265 @@ async def reclassify_event(
                     }
                 )
             })
-        
-        # Determine effective strategy
-        # If video requested but no clip, fallback to snapshot
-        event_data, event_error = await frigate_client.get_event_with_error(event_id, timeout=8.0)
-        has_clip = event_data.get("has_clip", False) if event_data else False
-        
-        effective_strategy = strategy
-        if strategy == "video" and not has_clip:
-            log.warning("Video strategy requested but no clip available, falling back to snapshot", event_id=event_id)
-            await broadcast_video_status("failed", event_error or "clip_unavailable")
-            effective_strategy = "snapshot"
 
-        results = []
-        
-        if effective_strategy == "video":
-            await broadcast_video_status("processing", None)
-            # Fetch clip - check cache first
-            from app.services.media_cache import media_cache
-            clip_data = None
-            clip_error = None
-            clip_source = "frigate"
-            cached_path = media_cache.get_clip_path(event_id)
+        try:
+            # Determine effective strategy
+            # If video requested but no clip, fallback to snapshot
+            event_data, event_error = await frigate_client.get_event_with_error(event_id, timeout=8.0)
+            has_clip = event_data.get("has_clip", False) if event_data else False
 
-            if cached_path:
-                log.info("Using cached clip for reclassification", event_id=event_id)
-                with open(cached_path, 'rb') as f:
-                    clip_data = f.read()
-                clip_source = "cache"
-            else:
-                clip_data, clip_error = await frigate_client.get_clip_with_error(event_id, timeout=10.0)
-
-            if not clip_data:
-                log.warning("Failed to fetch clip data, falling back to snapshot", event_id=event_id)
-                await broadcast_video_status("failed", clip_error or "clip_fetch_failed")
+            effective_strategy = strategy
+            if strategy == "video" and not has_clip:
+                log.warning("Video strategy requested but no clip available, falling back to snapshot", event_id=event_id)
+                await broadcast_video_status("failed", event_error or "clip_unavailable")
                 effective_strategy = "snapshot"
-            else:
-                if not (clip_data.startswith(b'\x00\x00\x00\x18ftyp') or b'ftyp' in clip_data[:32]):
-                    log.warning("Clip data invalid, falling back to snapshot", event_id=event_id)
-                    await broadcast_video_status("failed", "clip_invalid")
+
+            results = []
+
+            if effective_strategy == "video":
+                await broadcast_video_status("processing", None)
+                # Fetch clip - check cache first
+                from app.services.media_cache import media_cache
+                clip_data = None
+                clip_error = None
+                clip_source = "frigate"
+                cached_path = media_cache.get_clip_path(event_id)
+
+                if cached_path:
+                    log.info("Using cached clip for reclassification", event_id=event_id)
+                    with open(cached_path, 'rb') as f:
+                        clip_data = f.read()
+                    clip_source = "cache"
+                else:
+                    clip_data, clip_error = await frigate_client.get_clip_with_error(event_id, timeout=10.0)
+
+                if not clip_data:
+                    log.warning("Failed to fetch clip data, falling back to snapshot", event_id=event_id)
+                    await broadcast_video_status("failed", clip_error or "clip_fetch_failed")
                     effective_strategy = "snapshot"
                 else:
-                    # Save to temp file for OpenCV
-                    import tempfile
-                    import os
-                    import cv2
-
-                    def _clip_decodes(path: str) -> bool:
-                        cap = cv2.VideoCapture(path)
-                        if not cap.isOpened():
-                            cap.release()
-                            return False
-                        ok, _frame = cap.read()
-                        cap.release()
-                        return ok
-
-                    with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tmp:
-                        tmp.write(clip_data)
-                        tmp_path = tmp.name
-
-                    valid_clip = _clip_decodes(tmp_path)
-                    if not valid_clip:
-                        if os.path.exists(tmp_path):
-                            os.remove(tmp_path)
-                        log.warning("Clip decode failed, falling back to snapshot", event_id=event_id, source=clip_source)
-                        await broadcast_video_status("failed", "clip_decode_failed")
-                        if clip_source == "cache":
-                            await media_cache.delete_cached_media(event_id)
-                            clip_data, clip_error = await frigate_client.get_clip_with_error(event_id, timeout=10.0)
-                            if clip_data and (clip_data.startswith(b'\x00\x00\x00\x18ftyp') or b'ftyp' in clip_data[:32]):
-                                with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tmp:
-                                    tmp.write(clip_data)
-                                    tmp_path = tmp.name
-                                valid_clip = _clip_decodes(tmp_path)
-                                if not valid_clip and os.path.exists(tmp_path):
-                                    os.remove(tmp_path)
-                            else:
-                                valid_clip = False
-                        if not valid_clip:
-                            effective_strategy = "snapshot"
-
-                    if effective_strategy != "snapshot" and valid_clip:
-                        try:
-                            # Broadcast start of video reclassification
-                            await broadcaster.broadcast({
-                                "type": "reclassification_started",
-                                "data": {
-                                    "event_id": event_id,
-                                    "strategy": "video"
-                                }
-                            })
-
-                            # Define progress callback to broadcast real-time progress via SSE
-                            async def progress_callback(current_frame, total_frames, frame_score, top_label, frame_thumb=None, frame_index=None, clip_total=None, model_name=None):
-                                await broadcaster.broadcast({
-                                    "type": "reclassification_progress",
-                                    "data": {
-                                        "event_id": event_id,
-                                        "current_frame": current_frame,
-                                        "total_frames": total_frames,
-                                        "frame_score": frame_score,
-                                        "top_label": top_label,
-                                        "frame_thumb": frame_thumb,
-                                        "frame_index": frame_index,
-                                        "clip_total": clip_total,
-                                        "model_name": model_name
-                                    }
-                                })
-
-                            results = await classifier.classify_video_async(tmp_path, progress_callback=progress_callback)
-
-                            # Broadcast completion
-                            await broadcaster.broadcast({
-                                "type": "reclassification_completed",
-                                "data": {
-                                    "event_id": event_id,
-                                    "results": results # Pass results to the UI for final display
-                                }
-                            })
-                        finally:
-                            if os.path.exists(tmp_path):
-                                os.remove(tmp_path)
-
-                    if not results:
-                        log.warning("Video classification yielded no results, falling back to snapshot", event_id=event_id)
-                        await broadcast_video_status("failed", "video_no_results")
+                    if not (clip_data.startswith(b'\x00\x00\x00\x18ftyp') or b'ftyp' in clip_data[:32]):
+                        log.warning("Clip data invalid, falling back to snapshot", event_id=event_id)
+                        await broadcast_video_status("failed", "clip_invalid")
                         effective_strategy = "snapshot"
                     else:
-                        top_result = results[0]
-                        await repo.update_video_classification(
-                            frigate_event=event_id,
-                            label=top_result["label"],
-                            score=top_result["score"],
-                            index=top_result["index"],
-                            status="completed"
-                        )
-                        await broadcast_video_status("completed", None)
+                        # Save to temp file for OpenCV
+                        import tempfile
+                        import os
+                        import cv2
 
-        # Snapshot strategy (Default or Fallback)
-        if effective_strategy == "snapshot":
-            # Broadcast start of reclassification
-            await broadcaster.broadcast({
-                "type": "reclassification_started",
-                "data": {
-                    "event_id": event_id,
-                    "strategy": "snapshot"
-                }
-            })
+                        def _clip_decodes(path: str) -> bool:
+                            cap = cv2.VideoCapture(path)
+                            if not cap.isOpened():
+                                cap.release()
+                                return False
+                            ok, _frame = cap.read()
+                            cap.release()
+                            return ok
 
-            snapshot_data = await frigate_client.get_snapshot(event_id, crop=True, quality=95)
-            if not snapshot_data:
-                # Still broadcast completion if it failed so UI can stop spinner
-                await broadcaster.broadcast({
-                    "type": "reclassification_completed",
-                    "data": {
-                        "event_id": event_id,
-                        "results": []
-                    }
-                })
+                        with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tmp:
+                            tmp.write(clip_data)
+                            tmp_path = tmp.name
+
+                        valid_clip = _clip_decodes(tmp_path)
+                        if not valid_clip:
+                            if os.path.exists(tmp_path):
+                                os.remove(tmp_path)
+                            log.warning("Clip decode failed, falling back to snapshot", event_id=event_id, source=clip_source)
+                            await broadcast_video_status("failed", "clip_decode_failed")
+                            if clip_source == "cache":
+                                await media_cache.delete_cached_media(event_id)
+                                clip_data, clip_error = await frigate_client.get_clip_with_error(event_id, timeout=10.0)
+                                if clip_data and (clip_data.startswith(b'\x00\x00\x00\x18ftyp') or b'ftyp' in clip_data[:32]):
+                                    with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tmp:
+                                        tmp.write(clip_data)
+                                        tmp_path = tmp.name
+                                    valid_clip = _clip_decodes(tmp_path)
+                                    if not valid_clip and os.path.exists(tmp_path):
+                                        os.remove(tmp_path)
+                                else:
+                                    valid_clip = False
+                            if not valid_clip:
+                                effective_strategy = "snapshot"
+
+                        if effective_strategy != "snapshot" and valid_clip:
+                            try:
+                                # Broadcast start of video reclassification
+                                await broadcast_reclassification_started("video")
+
+                                # Define progress callback to broadcast real-time progress via SSE
+                                async def progress_callback(current_frame, total_frames, frame_score, top_label, frame_thumb=None, frame_index=None, clip_total=None, model_name=None):
+                                    await broadcaster.broadcast({
+                                        "type": "reclassification_progress",
+                                        "data": {
+                                            "event_id": event_id,
+                                            "current_frame": current_frame,
+                                            "total_frames": total_frames,
+                                            "frame_score": frame_score,
+                                            "top_label": top_label,
+                                            "frame_thumb": frame_thumb,
+                                            "frame_index": frame_index,
+                                            "clip_total": clip_total,
+                                            "model_name": model_name
+                                        }
+                                    })
+
+                                results = await classifier.classify_video_async(tmp_path, progress_callback=progress_callback)
+
+                                # Broadcast completion
+                                await broadcast_reclassification_completed(results)
+                            finally:
+                                if os.path.exists(tmp_path):
+                                    os.remove(tmp_path)
+
+                        if not results:
+                            log.warning("Video classification yielded no results, falling back to snapshot", event_id=event_id)
+                            await broadcast_video_status("failed", "video_no_results")
+                            effective_strategy = "snapshot"
+                        else:
+                            top_result = results[0]
+                            await repo.update_video_classification(
+                                frigate_event=event_id,
+                                label=top_result["label"],
+                                score=top_result["score"],
+                                index=top_result["index"],
+                                status="completed"
+                            )
+                            await broadcast_video_status("completed", None)
+
+            # Snapshot strategy (Default or Fallback)
+            if effective_strategy == "snapshot":
+                await broadcast_reclassification_started("snapshot")
+
+                snapshot_data = await frigate_client.get_snapshot(event_id, crop=True, quality=95)
+                if not snapshot_data:
+                    # Still broadcast completion if it failed so UI can stop spinner
+                    await broadcast_reclassification_completed([])
+                    raise HTTPException(
+                        status_code=502,
+                        detail=i18n_service.translate("errors.events.snapshot_fetch_failed", lang)
+                    )
+
+                image = Image.open(BytesIO(snapshot_data))
+                results = await classifier.classify_async(image)
+
+                # Broadcast completion
+                await broadcast_reclassification_completed(results)
+
+            if not results:
                 raise HTTPException(
-                    status_code=502,
-                    detail=i18n_service.translate("errors.events.snapshot_fetch_failed", lang)
+                    status_code=500,
+                    detail=i18n_service.translate("errors.events.reclassification_failed", lang)
                 )
 
-            image = Image.open(BytesIO(snapshot_data))
-            results = await classifier.classify_async(image)
+            top = results[0]
+            new_species = top['label']
 
-            # Broadcast completion
-            await broadcaster.broadcast({
-                "type": "reclassification_completed",
-                "data": {
-                    "event_id": event_id,
-                    "results": results
-                }
-            })
+            # Relabel unknown birds consistently with EventProcessor
+            if new_species in settings.classification.unknown_bird_labels:
+                new_species = "Unknown Bird"
 
-        if not results:
+            new_score = top['score']
+
+            # 1. Re-normalize taxonomy for the new classification
+            taxonomy = await taxonomy_service.get_names(new_species)
+
+            sci_name = taxonomy.get("scientific_name") or new_species
+            com_name = taxonomy.get("common_name")
+            t_id = taxonomy.get("taxa_id")
+
+            # 2. ALWAYS re-correlate audio on reclassification (even if species unchanged)
+            # This fixes stale audio data from previous incorrect classifications
+            audio_confirmed, audio_species, audio_score = await audio_service.correlate_species(
+                target_time=detection.detection_time,
+                species_name=sci_name,  # Use scientific name for matching
+                camera_name=detection.camera_name
+            )
+
+            # Update if species changed OR if score improved significantly OR if audio changed
+            updated = False
+            audio_changed = (audio_confirmed != detection.audio_confirmed or
+                            audio_species != detection.audio_species)
+
+            if new_species != old_species or abs(new_score - detection.score) > 0.01 or audio_changed:
+                # 3. Update DB with new classification AND re-correlated audio data
+                await db.execute("""
+                    UPDATE detections
+                    SET display_name = ?, category_name = ?, score = ?, detection_index = ?,
+                        scientific_name = ?, common_name = ?, taxa_id = ?,
+                        audio_confirmed = ?, audio_species = ?, audio_score = ?,
+                        manual_tagged = 1
+                    WHERE frigate_event = ?
+                """, (new_species, new_species, new_score, top['index'],
+                      sci_name, com_name, t_id,
+                      1 if audio_confirmed else 0, audio_species, audio_score,
+                      event_id))
+                await db.commit()
+                updated = True
+
+            # Log reclassification result (even if not updated in DB)
+            log.info("Reclassified detection",
+                     event_id=event_id,
+                     old_species=old_species,
+                     new_species=new_species,
+                     scientific=sci_name,
+                     new_score=new_score,
+                     old_score=detection.score,
+                     strategy=effective_strategy,
+                     audio_confirmed=audio_confirmed,
+                     audio_species=audio_species,
+                     db_updated=updated)
+
+            if updated:
+                refreshed_detection = await repo.get_by_frigate_event(event_id)
+                payload_source = refreshed_detection or detection
+
+                # 4. Broadcast full updated metadata with re-correlated audio
+                await broadcaster.broadcast({
+                    "type": "detection_updated",
+                    "data": _detection_updated_payload(
+                        payload_source,
+                        overrides={
+                            "display_name": new_species,
+                            "score": new_score,
+                            "manual_tagged": True,
+                            "audio_confirmed": audio_confirmed,
+                            "audio_species": audio_species,
+                            "audio_score": audio_score,
+                            "scientific_name": sci_name,
+                            "common_name": com_name,
+                            "taxa_id": t_id,
+                        }
+                    )
+                })
+
+            return ReclassifyResponse(
+                status="success",
+                event_id=event_id,
+                old_species=old_species,
+                new_species=new_species,
+                new_score=new_score,
+                updated=updated,
+                actual_strategy=effective_strategy
+            )
+        except HTTPException:
+            if started_reclassification and not completion_broadcasted:
+                await broadcast_reclassification_completed([])
+            raise
+        except Exception as exc:
+            if started_reclassification and not completion_broadcasted:
+                await broadcast_reclassification_completed([])
+            log.error(
+                "Unexpected reclassification failure",
+                event_id=event_id,
+                strategy=strategy,
+                error=str(exc),
+                exc_info=True
+            )
             raise HTTPException(
                 status_code=500,
                 detail=i18n_service.translate("errors.events.reclassification_failed", lang)
-            )
-
-        top = results[0]
-        new_species = top['label']
-        
-        # Relabel unknown birds consistently with EventProcessor
-        if new_species in settings.classification.unknown_bird_labels:
-            new_species = "Unknown Bird"
-            
-        new_score = top['score']
-
-        # 1. Re-normalize taxonomy for the new classification
-        taxonomy = await taxonomy_service.get_names(new_species)
-
-        sci_name = taxonomy.get("scientific_name") or new_species
-        com_name = taxonomy.get("common_name")
-        t_id = taxonomy.get("taxa_id")
-
-        # 2. ALWAYS re-correlate audio on reclassification (even if species unchanged)
-        # This fixes stale audio data from previous incorrect classifications
-        audio_confirmed, audio_species, audio_score = await audio_service.correlate_species(
-            target_time=detection.detection_time,
-            species_name=sci_name,  # Use scientific name for matching
-            camera_name=detection.camera_name
-        )
-
-        # Update if species changed OR if score improved significantly OR if audio changed
-        updated = False
-        audio_changed = (audio_confirmed != detection.audio_confirmed or
-                        audio_species != detection.audio_species)
-
-        if new_species != old_species or abs(new_score - detection.score) > 0.01 or audio_changed:
-            # 3. Update DB with new classification AND re-correlated audio data
-            await db.execute("""
-                UPDATE detections
-                SET display_name = ?, category_name = ?, score = ?, detection_index = ?,
-                    scientific_name = ?, common_name = ?, taxa_id = ?,
-                    audio_confirmed = ?, audio_species = ?, audio_score = ?,
-                    manual_tagged = 1
-                WHERE frigate_event = ?
-            """, (new_species, new_species, new_score, top['index'],
-                  sci_name, com_name, t_id,
-                  1 if audio_confirmed else 0, audio_species, audio_score,
-                  event_id))
-            await db.commit()
-            updated = True
-
-        # Log reclassification result (even if not updated in DB)
-        log.info("Reclassified detection",
-                 event_id=event_id,
-                 old_species=old_species,
-                 new_species=new_species,
-                 scientific=sci_name,
-                 new_score=new_score,
-                 old_score=detection.score,
-                 strategy=effective_strategy,
-                 audio_confirmed=audio_confirmed,
-                 audio_species=audio_species,
-                 db_updated=updated)
-
-        if updated:
-            refreshed_detection = await repo.get_by_frigate_event(event_id)
-            payload_source = refreshed_detection or detection
-
-            # 4. Broadcast full updated metadata with re-correlated audio
-            await broadcaster.broadcast({
-                "type": "detection_updated",
-                "data": _detection_updated_payload(
-                    payload_source,
-                    overrides={
-                        "display_name": new_species,
-                        "score": new_score,
-                        "manual_tagged": True,
-                        "audio_confirmed": audio_confirmed,
-                        "audio_species": audio_species,
-                        "audio_score": audio_score,
-                        "scientific_name": sci_name,
-                        "common_name": com_name,
-                        "taxa_id": t_id,
-                    }
-                )
-            })
-
-        return ReclassifyResponse(
-            status="success",
-            event_id=event_id,
-            old_species=old_species,
-            new_species=new_species,
-            new_score=new_score,
-            updated=updated,
-            actual_strategy=effective_strategy
-        )
+            ) from exc
 
 
 @router.patch("/events/{event_id}")

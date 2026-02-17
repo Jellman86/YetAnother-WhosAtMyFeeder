@@ -1380,14 +1380,37 @@
         {/if}
 
         <div class="flex-1 overflow-hidden flex flex-col lg:grid lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
-            <div class="relative bg-slate-100 dark:bg-slate-700 aspect-video lg:aspect-auto lg:h-full lg:border-r lg:border-slate-200/70 dark:lg:border-slate-700/60">
-                <img src={getThumbnailUrl(detection.frigate_event)} alt={detection.display_name} class="w-full h-full object-cover" />
-                <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent"></div>
-                <div class="absolute bottom-0 left-0 right-0 p-6">
-                    <h3 class="text-2xl font-black text-white drop-shadow-lg leading-tight">{primaryName}</h3>
-                    {#if subName && subName !== primaryName}
-                        <p class="text-white/70 text-sm italic drop-shadow -mt-1 mb-1">{subName}</p>
-                    {/if}
+	            <div class="relative bg-slate-100 dark:bg-slate-700 aspect-video lg:aspect-auto lg:h-full lg:border-r lg:border-slate-200/70 dark:lg:border-slate-700/60">
+	                <img src={getThumbnailUrl(detection.frigate_event)} alt={detection.display_name} class="w-full h-full object-cover" />
+	                <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent"></div>
+	                {#if authStore.canModify && !readOnly}
+	                    <button
+	                        type="button"
+	                        onclick={handleFavoriteToggle}
+	                        disabled={favoritePending}
+	                        class="absolute top-4 left-4 z-30 inline-flex items-center gap-2 px-3 py-2 rounded-full border shadow-lg backdrop-blur-sm transition-all disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-amber-300/70 {detection.is_favorite ? 'bg-amber-500/90 border-amber-300 text-white hover:bg-amber-500' : 'bg-black/45 border-white/35 text-white hover:bg-black/60'}"
+	                        title={detection.is_favorite ? $_('detection.favorite_remove', { default: 'Remove favorite' }) : $_('detection.favorite_add', { default: 'Add favorite' })}
+	                        aria-label={detection.is_favorite ? $_('detection.favorite_remove', { default: 'Remove favorite' }) : $_('detection.favorite_add', { default: 'Add favorite' })}
+	                    >
+	                        {#if favoritePending}
+	                            <span class="inline-block h-3.5 w-3.5 rounded-full border-2 border-current border-t-transparent animate-spin"></span>
+	                        {:else}
+	                            <svg class="w-4 h-4" viewBox="0 0 24 24" fill={detection.is_favorite ? 'currentColor' : 'none'} stroke="currentColor" stroke-width="1.8">
+	                                <path stroke-linecap="round" stroke-linejoin="round" d="M11.05 2.927c.3-.921 1.603-.921 1.902 0l2.02 6.217a1 1 0 00.95.69h6.54c.969 0 1.371 1.24.588 1.81l-5.29 3.844a1 1 0 00-.364 1.118l2.02 6.217c.3.921-.755 1.688-1.539 1.118l-5.29-3.844a1 1 0 00-1.175 0l-5.29 3.844c-.783.57-1.838-.197-1.539-1.118l2.02-6.217a1 1 0 00-.364-1.118L.98 11.644c-.783-.57-.38-1.81.588-1.81h6.54a1 1 0 00.95-.69l2.02-6.217z" />
+	                            </svg>
+	                        {/if}
+	                        <span class="text-[11px] font-black uppercase tracking-wider">
+	                            {detection.is_favorite
+	                                ? $_('detection.favorite_label_active', { default: 'Favorited' })
+	                                : $_('detection.favorite_label', { default: 'Favorite' })}
+	                        </span>
+	                    </button>
+	                {/if}
+	                <div class="absolute bottom-0 left-0 right-0 p-6">
+	                    <h3 class="text-2xl font-black text-white drop-shadow-lg leading-tight">{primaryName}</h3>
+	                    {#if subName && subName !== primaryName}
+	                        <p class="text-white/70 text-sm italic drop-shadow -mt-1 mb-1">{subName}</p>
+	                    {/if}
                     <p class="text-white/50 text-[10px] uppercase font-bold tracking-widest mt-2">
                         {formatDateTime(detection.detection_time)}
                     </p>
@@ -2162,23 +2185,13 @@
                 </div>
             {/if}
 
-            <!-- Bottom Actions -->
-            <div class="flex gap-2 pt-2">
-                {#if authStore.canModify}
-                    <button
-                        onclick={handleFavoriteToggle}
-                        disabled={favoritePending}
-                        class="p-3 rounded-xl transition-colors disabled:opacity-60 {detection.is_favorite ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-900/40' : 'bg-slate-100 dark:bg-slate-700 text-slate-600 hover:bg-slate-200'}"
-                        title={detection.is_favorite ? $_('detection.favorite_remove', { default: 'Remove favorite' }) : $_('detection.favorite_add', { default: 'Add favorite' })}
-                    >
-                        <svg class="w-5 h-5" viewBox="0 0 24 24" fill={detection.is_favorite ? 'currentColor' : 'none'} stroke="currentColor" stroke-width="1.8">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M11.05 2.927c.3-.921 1.603-.921 1.902 0l2.02 6.217a1 1 0 00.95.69h6.54c.969 0 1.371 1.24.588 1.81l-5.29 3.844a1 1 0 00-.364 1.118l2.02 6.217c.3.921-.755 1.688-1.539 1.118l-5.29-3.844a1 1 0 00-1.175 0l-5.29 3.844c-.783.57-1.838-.197-1.539-1.118l2.02-6.217a1 1 0 00-.364-1.118L.98 11.644c-.783-.57-.38-1.81.588-1.81h6.54a1 1 0 00.95-.69l2.02-6.217z" />
-                        </svg>
-                    </button>
-                    <button
-                        onclick={handleDelete}
-                        class="p-3 rounded-xl bg-red-50 dark:bg-red-900/20 text-red-600 hover:bg-red-100 transition-colors"
-                        title={$_('actions.delete_detection')}
+	            <!-- Bottom Actions -->
+	            <div class="flex gap-2 pt-2">
+	                {#if authStore.canModify}
+	                    <button
+	                        onclick={handleDelete}
+	                        class="p-3 rounded-xl bg-red-50 dark:bg-red-900/20 text-red-600 hover:bg-red-100 transition-colors"
+	                        title={$_('actions.delete_detection')}
                     >
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />

@@ -754,6 +754,8 @@
     "weather_snow": "Neve",
     "weather_icy": "Ghiaccio",
     "id": "ID rilevamento",
+    "favorite_label": "Preferito",
+    "favorite_label_active": "Nei preferiti",
     "inat": {
       "title": "iNaturalist",
       "connected": "Connesso: {user}",

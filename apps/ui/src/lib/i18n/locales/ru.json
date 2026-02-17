@@ -754,6 +754,8 @@
     "weather_snow": "Снег",
     "weather_icy": "Лёд",
     "id": "ID обнаружения",
+    "favorite_label": "Избранное",
+    "favorite_label_active": "В избранном",
     "inat": {
       "title": "iNaturalist",
       "connected": "Подключено: {user}",

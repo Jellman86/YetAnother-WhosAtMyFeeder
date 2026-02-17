@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, date
 import aiosqlite
 import asyncio
 import json
+from app.utils.frigate import normalize_sub_label
 
 @dataclass
 class Detection:
@@ -80,7 +81,7 @@ def _row_to_detection(row) -> Detection:
         camera_name=row[7],
         is_hidden=bool(row[8]) if len(row) > 8 else False,
         frigate_score=row[9] if len(row) > 9 else None,
-        sub_label=row[10] if len(row) > 10 else None,
+        sub_label=normalize_sub_label(row[10]) if len(row) > 10 else None,
         audio_confirmed=bool(row[11]) if len(row) > 11 else False,
         audio_species=row[12] if len(row) > 12 else None,
         audio_score=row[13] if len(row) > 13 else None,
@@ -288,18 +289,20 @@ class DetectionRepository:
         return changed > 0
 
     async def create(self, detection: Detection):
+        sub_label = normalize_sub_label(detection.sub_label)
         await self.db.execute("""
             INSERT INTO detections (detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label, audio_confirmed, audio_species, audio_score, temperature, weather_condition, weather_cloud_cover, weather_wind_speed, weather_wind_direction, weather_precipitation, weather_rain, weather_snowfall, scientific_name, common_name, taxa_id, manual_tagged)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (detection.detection_time, detection.detection_index, detection.score, detection.display_name, detection.category_name, detection.frigate_event, detection.camera_name, 1 if detection.is_hidden else 0, detection.frigate_score, detection.sub_label, 1 if detection.audio_confirmed else 0, detection.audio_species, detection.audio_score, detection.temperature, detection.weather_condition, detection.weather_cloud_cover, detection.weather_wind_speed, detection.weather_wind_direction, detection.weather_precipitation, detection.weather_rain, detection.weather_snowfall, detection.scientific_name, detection.common_name, detection.taxa_id, 1 if detection.manual_tagged else 0))
+        """, (detection.detection_time, detection.detection_index, detection.score, detection.display_name, detection.category_name, detection.frigate_event, detection.camera_name, 1 if detection.is_hidden else 0, detection.frigate_score, sub_label, 1 if detection.audio_confirmed else 0, detection.audio_species, detection.audio_score, detection.temperature, detection.weather_condition, detection.weather_cloud_cover, detection.weather_wind_speed, detection.weather_wind_direction, detection.weather_precipitation, detection.weather_rain, detection.weather_snowfall, detection.scientific_name, detection.common_name, detection.taxa_id, 1 if detection.manual_tagged else 0))
         await self.db.commit()
 
     async def update(self, detection: Detection):
+        sub_label = normalize_sub_label(detection.sub_label)
         await self.db.execute("""
             UPDATE detections
             SET detection_time = ?, detection_index = ?, score = ?, display_name = ?, category_name = ?, frigate_score = ?, sub_label = ?, audio_confirmed = ?, audio_species = ?, audio_score = ?, temperature = ?, weather_condition = ?, weather_cloud_cover = ?, weather_wind_speed = ?, weather_wind_direction = ?, weather_precipitation = ?, weather_rain = ?, weather_snowfall = ?, scientific_name = ?, common_name = ?, taxa_id = ?, manual_tagged = ?
             WHERE frigate_event = ?
-        """, (detection.detection_time, detection.detection_index, detection.score, detection.display_name, detection.category_name, detection.frigate_score, detection.sub_label, detection.audio_confirmed, detection.audio_species, detection.audio_score, detection.temperature, detection.weather_condition, detection.weather_cloud_cover, detection.weather_wind_speed, detection.weather_wind_direction, detection.weather_precipitation, detection.weather_rain, detection.weather_snowfall, detection.scientific_name, detection.common_name, detection.taxa_id, 1 if detection.manual_tagged else 0, detection.frigate_event))
+        """, (detection.detection_time, detection.detection_index, detection.score, detection.display_name, detection.category_name, detection.frigate_score, sub_label, detection.audio_confirmed, detection.audio_species, detection.audio_score, detection.temperature, detection.weather_condition, detection.weather_cloud_cover, detection.weather_wind_speed, detection.weather_wind_direction, detection.weather_precipitation, detection.weather_rain, detection.weather_snowfall, detection.scientific_name, detection.common_name, detection.taxa_id, 1 if detection.manual_tagged else 0, detection.frigate_event))
         await self.db.commit()
 
     async def list_for_weather_backfill(self, start: str, end: str, only_missing: bool = True) -> list[dict]:
@@ -384,6 +387,7 @@ class DetectionRepository:
         Returns:
             Tuple of (was_inserted, was_updated)
         """
+        sub_label = normalize_sub_label(detection.sub_label)
         insert_params = (
             detection.detection_time,
             detection.detection_index,
@@ -394,7 +398,7 @@ class DetectionRepository:
             detection.camera_name,
             1 if detection.is_hidden else 0,
             detection.frigate_score,
-            detection.sub_label,
+            sub_label,
             1 if detection.audio_confirmed else 0,
             detection.audio_species,
             detection.audio_score,
@@ -457,7 +461,7 @@ class DetectionRepository:
             detection.display_name,
             detection.category_name,
             detection.frigate_score,
-            detection.sub_label,
+            sub_label,
             1 if detection.audio_confirmed else 0,
             detection.audio_species,
             detection.audio_score,
@@ -492,6 +496,7 @@ class DetectionRepository:
         Returns:
             True if inserted, False if already existed
         """
+        sub_label = normalize_sub_label(detection.sub_label)
         await self.db.execute("""
             INSERT OR IGNORE INTO detections
             (detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label, audio_confirmed, audio_species, audio_score, temperature, weather_condition, weather_cloud_cover, weather_wind_speed, weather_wind_direction, weather_precipitation, weather_rain, weather_snowfall, scientific_name, common_name, taxa_id, manual_tagged)
@@ -506,7 +511,7 @@ class DetectionRepository:
             detection.camera_name,
             1 if detection.is_hidden else 0,
             detection.frigate_score,
-            detection.sub_label,
+            sub_label,
             1 if detection.audio_confirmed else 0,
             detection.audio_species,
             detection.audio_score,

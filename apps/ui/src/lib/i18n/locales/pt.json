@@ -754,6 +754,8 @@
     "weather_snow": "Neve",
     "weather_icy": "Gelado",
     "id": "ID de detecção",
+    "favorite_label": "Favorito",
+    "favorite_label_active": "Favoritado",
     "inat": {
       "title": "iNaturalist",
       "connected": "Conectado: {user}",

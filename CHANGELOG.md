@@ -8,6 +8,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 - **Fixed:** Request middleware now handles client-disconnect cancellation paths gracefully, preventing noisy `RuntimeError: No response returned.` 500 traces during long-running calls such as event reclassification.
 - **Fixed:** Detection modal manual-tag flow now provides explicit success/error toast feedback, sets pending state while saving, and hardens mobile interaction/scroll-lock behavior so species selection completes reliably and the picker closes cleanly after update.
+- **Fixed:** Frigate `sub_label` values are now normalized when payloads arrive as arrays/objects, preventing SQLite binding crashes (`type 'list' is not supported`) during detection upserts/backfill/event processing.
+- **Fixed:** Reclassification UI progress overlays now recover cleanly after failed requests; the backend emits a completion event on unexpected reclassification failures so clients do not remain stuck in pointer-blocking "in progress" state.
 
 ## [2.8.1] - 2026-02-14
 

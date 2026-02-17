@@ -14,6 +14,7 @@ from app.services.detection_service import DetectionService
 from app.services.audio.audio_service import audio_service
 from app.services.weather_service import weather_service
 from app.services.notification_orchestrator import NotificationOrchestrator
+from app.utils.frigate import normalize_sub_label
 # Backward-compat for tests that patch event_processor.notification_service
 from app.services.notification_service import notification_service  # noqa: F401
 from app.database import get_db
@@ -32,7 +33,7 @@ class EventData:
         self.camera: str = after.get('camera')
         self.label: str = after.get('label')
         self.start_time_ts: float = after.get('start_time', 0.0)
-        self.sub_label: Optional[str] = after.get('sub_label')
+        self.sub_label: Optional[str] = normalize_sub_label(after.get('sub_label'))
         self.frigate_score: Optional[float] = after.get('top_score')
         self.is_false_positive: bool = after.get('false_positive', False)
         
