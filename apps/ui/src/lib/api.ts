@@ -713,8 +713,20 @@ export async function fetchEvents(options: FetchEventsOptions = {}): Promise<Det
     if (includeHidden) params.set('include_hidden', 'true');
     if (favoritesOnly) params.set('favorites', 'true');
 
-    // Use abort key based on filters to cancel outdated requests
-    const filterKey = `events-${species || 'all'}-${camera || 'all'}-${sort || 'newest'}-${includeHidden ? 'hidden' : 'visible'}-${favoritesOnly ? 'favorites' : 'all'}`;
+    // Include pagination/date arguments in the abort key so unrelated views
+    // (e.g. dashboard preload vs events page pagination) do not cancel each other.
+    const filterKey = [
+        'events',
+        species || 'all',
+        camera || 'all',
+        sort || 'newest',
+        includeHidden ? 'hidden' : 'visible',
+        favoritesOnly ? 'favorites' : 'all',
+        startDate || 'none',
+        endDate || 'none',
+        String(limit),
+        String(offset)
+    ].join('-');
     return fetchWithAbort<Detection[]>(filterKey, `${API_BASE}/events?${params.toString()}`);
 }
 

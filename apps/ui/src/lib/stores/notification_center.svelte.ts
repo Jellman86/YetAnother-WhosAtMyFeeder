@@ -28,6 +28,7 @@ const MAX_ITEMS = 50;
 class NotificationCenterStore {
     items = $state<NotificationItem[]>([]);
     private fallbackCounter = 0;
+    private persistTimer: number | null = null;
 
     private coerceType(value: unknown): NotificationItem['type'] {
         if (value === 'detection' || value === 'update' || value === 'process' || value === 'system') {
@@ -82,13 +83,16 @@ class NotificationCenterStore {
     }
 
     persist() {
-        try {
-            const normalized = this.normalize(this.items);
-            this.items = normalized;
-            window.localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
-        } catch {
-            // ignore storage errors
-        }
+        if (typeof window === 'undefined') return;
+        if (this.persistTimer !== null) return;
+        this.persistTimer = window.setTimeout(() => {
+            this.persistTimer = null;
+            try {
+                window.localStorage.setItem(STORAGE_KEY, JSON.stringify(this.items.slice(0, MAX_ITEMS)));
+            } catch {
+                // ignore storage errors
+            }
+        }, 150);
     }
 
     add(item: Omit<NotificationItem, 'timestamp' | 'read'> & { timestamp?: number; read?: boolean }) {
@@ -134,6 +138,10 @@ class NotificationCenterStore {
 
     clear() {
         this.items = [];
+        if (this.persistTimer !== null && typeof window !== 'undefined') {
+            window.clearTimeout(this.persistTimer);
+            this.persistTimer = null;
+        }
         this.persist();
     }
 }

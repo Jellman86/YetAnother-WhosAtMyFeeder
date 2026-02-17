@@ -10,10 +10,22 @@ export interface Toast {
 class ToastStore {
     toasts = $state<Toast[]>([]);
     private nextId = 0;
+    private lastSignature = '';
+    private lastShownAt = 0;
+    private duplicateWindowMs = 1500;
 
     show(message: string, type: Toast['type'] = 'info', duration: number = 5000) {
+        const normalizedMessage = String(message ?? '').trim();
+        const signature = `${type}:${normalizedMessage}`;
+        const now = Date.now();
+        if (signature === this.lastSignature && now - this.lastShownAt < this.duplicateWindowMs) {
+            return '';
+        }
+        this.lastSignature = signature;
+        this.lastShownAt = now;
+
         const id = `toast-${this.nextId++}`;
-        const toast: Toast = { id, message, type, duration };
+        const toast: Toast = { id, message: normalizedMessage || message, type, duration };
 
         this.toasts = [...this.toasts, toast];
 

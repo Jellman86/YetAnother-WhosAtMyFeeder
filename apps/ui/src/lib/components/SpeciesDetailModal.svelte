@@ -234,7 +234,9 @@
             ? [enrichmentSingleProviderSetting]
             : (settingsStore.settings?.enrichment_links_sources ?? authStore.enrichmentLinksSources ?? ['wikipedia', 'inaturalist'])
     );
-    const enrichmentLinksProvidersNormalized = $derived(enrichmentLinksProviders.map((provider) => provider.toLowerCase()));
+    const enrichmentLinksProvidersNormalized = $derived(
+        enrichmentLinksProviders.map((provider) => String(provider || '').toLowerCase())
+    );
     const summaryEnabled = $derived(enrichmentSummaryProvider !== 'disabled');
     const seasonalityEnabled = $derived(enrichmentSeasonalityProvider === 'inaturalist');
 

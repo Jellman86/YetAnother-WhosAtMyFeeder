@@ -33,6 +33,7 @@ class DetectionsStore {
     progressMap = $state<Map<string, ReclassificationProgress>>(new Map());
 
     private MAX_ITEMS = 50;
+    private MAX_RECLASSIFICATION_FRAMES = 240;
 
     async loadInitial() {
         this.isLoading = true;
@@ -68,6 +69,10 @@ class DetectionsStore {
     }
 
     addDetection(detection: Detection) {
+        if (!detection || typeof detection.frigate_event !== 'string' || detection.frigate_event.trim().length === 0) {
+            logger.warn('Skipping invalid detection payload without event id', { detection });
+            return;
+        }
         if (!this.detections.find(d => d.frigate_event === detection.frigate_event)) {
             this.detections = [detection, ...this.detections].slice(0, this.MAX_ITEMS);
             this.totalToday++;
@@ -123,8 +128,12 @@ class DetectionsStore {
     }
 
     startReclassification(eventId: string, totalFrames: number = 15) {
+        if (!eventId || typeof eventId !== 'string') return;
         const now = Date.now();
-        const normalizedTotal = this.toSafeInt(totalFrames, 1, 1);
+        const normalizedTotal = Math.min(
+            this.MAX_RECLASSIFICATION_FRAMES,
+            this.toSafeInt(totalFrames, 1, 1)
+        );
         const existing = this.progressMap.get(eventId);
         if (
             existing &&
@@ -159,6 +168,7 @@ class DetectionsStore {
         clipTotal?: number | null,
         modelName?: string | null
     ) {
+        if (!eventId || typeof eventId !== 'string') return;
         const now = Date.now();
         const newMap = new Map(this.progressMap);
         const existing = newMap.get(eventId);
@@ -166,14 +176,16 @@ class DetectionsStore {
         if (existing) {
             const safeCurrentFrame = this.toSafeInt(currentFrame, existing.currentFrame, 0);
             const safeTotalFrames = this.toSafeInt(totalFrames, existing.totalFrames, 1);
-            const nextTotalFrames = Math.max(1, existing.totalFrames, safeTotalFrames, safeCurrentFrame);
+            const boundedCurrentFrame = Math.min(this.MAX_RECLASSIFICATION_FRAMES, safeCurrentFrame);
+            const boundedTotalFrames = Math.min(this.MAX_RECLASSIFICATION_FRAMES, safeTotalFrames);
+            const nextTotalFrames = Math.max(1, existing.totalFrames, boundedTotalFrames, boundedCurrentFrame);
             const nextCurrentFrame = Math.min(
                 nextTotalFrames,
-                Math.max(existing.currentFrame, safeCurrentFrame)
+                Math.max(existing.currentFrame, boundedCurrentFrame)
             );
             const slot = Math.min(
                 nextTotalFrames - 1,
-                Math.max(0, (safeCurrentFrame > 0 ? safeCurrentFrame : nextCurrentFrame) - 1)
+                Math.max(0, (boundedCurrentFrame > 0 ? boundedCurrentFrame : nextCurrentFrame) - 1)
             );
             const nextFrameIndex = frameIndex ?? existing.frameIndex ?? null;
             const nextClipTotal = clipTotal ?? existing.clipTotal ?? null;

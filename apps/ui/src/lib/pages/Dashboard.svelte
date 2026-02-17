@@ -68,7 +68,7 @@
 
     let filteredLabels = $derived(
         classifierLabels.filter(l => 
-            l.toLowerCase().includes(tagSearchQuery.toLowerCase())
+            String(l).toLowerCase().includes(tagSearchQuery.toLowerCase())
         ).slice(0, 50)
     );
 

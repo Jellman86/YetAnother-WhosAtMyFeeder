@@ -207,9 +207,9 @@
             if (speciesFilter && !speciesFilter.startsWith('taxa:')) {
                 const normalized = speciesFilter.toLowerCase();
                 const match = availableSpecies.find((s) => {
-                    const display = (s.display_name || '').toLowerCase();
-                    const sci = (s.scientific_name || '').toLowerCase();
-                    const common = (s.common_name || '').toLowerCase();
+                    const display = String(s.display_name || '').toLowerCase();
+                    const sci = String(s.scientific_name || '').toLowerCase();
+                    const common = String(s.common_name || '').toLowerCase();
                     return display === normalized || sci === normalized || common === normalized;
                 });
                 if (match) speciesFilter = match.value;

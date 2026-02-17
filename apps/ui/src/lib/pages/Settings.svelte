@@ -1363,16 +1363,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
         const jobId = status.id || 'unknown';
         const terminalState = status.status === 'completed' ? 'completed' : 'failed';
         const key = `settings:backfill-toast:${kind}:${jobId}:${terminalState}`;
-        const signature = [
-            terminalState,
-            status.message || '',
-            safeCount(status.processed),
-            safeCount(status.total),
-            safeCount(status.new_detections),
-            safeCount(status.updated),
-            safeCount(status.skipped),
-            safeCount(status.errors)
-        ].join('|');
+        // Terminal toasts should be one-shot per job + terminal state.
+        const signature = `${kind}|${jobId}|${terminalState}`;
         if (!notificationPolicy.shouldEmit(key, signature, BACKFILL_TOAST_THROTTLE_MS)) {
             return false;
         }
@@ -1617,7 +1609,9 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             inatPreviewDirty = false;
             aiDiagnosticsEnabled = window.localStorage.getItem('ai_diagnostics_enabled') === '1';
 
-        taxonomyPollInterval = setInterval(loadTaxonomyStatus, 3000);
+        if (activeTab === 'data') {
+            startTaxonomyPolling();
+        }
         
         // If there are pending/active items on load, start polling
         if (analysisStatus && (analysisStatus.pending > 0 || analysisStatus.active > 0)) {
@@ -1635,9 +1629,13 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     });
 
     function handleTabChange(tab: string) {
-        console.log('Tab changed to:', tab);
         activeTab = tab;
         window.location.hash = tab;
+        if (tab === 'data') {
+            startTaxonomyPolling();
+        } else {
+            stopTaxonomyPolling();
+        }
     }
 
     function applyInatPreview() {
@@ -1647,10 +1645,21 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     }
 
     onDestroy(() => {
-        if (taxonomyPollInterval) clearInterval(taxonomyPollInterval);
+        stopTaxonomyPolling();
         if (analysisPollInterval) clearInterval(analysisPollInterval);
         if (backfillPollInterval) clearInterval(backfillPollInterval);
     });
+
+    function startTaxonomyPolling() {
+        if (taxonomyPollInterval) return;
+        taxonomyPollInterval = setInterval(loadTaxonomyStatus, 3000);
+    }
+
+    function stopTaxonomyPolling() {
+        if (!taxonomyPollInterval) return;
+        clearInterval(taxonomyPollInterval);
+        taxonomyPollInterval = null;
+    }
 
     async function loadTaxonomyStatus() {
         try {
@@ -1776,7 +1785,6 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     }
 
     async function handleResetDatabase() {
-        console.log('Reset database requested');
         let confirmMsg = 'DANGER: This will delete ALL detections and clear the media cache. This action cannot be undone. Are you sure?';
         try {
             confirmMsg = $_('settings.danger.confirm');
@@ -1785,11 +1793,9 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
         }
 
         if (!confirm(confirmMsg)) {
-            console.log('Reset cancelled by user');
             return;
         }
-        
-        console.log('Reset confirmed, proceeding...');
+
         resettingDatabase = true;
         message = null;
         toastStore.show($_('settings.danger.resetting'), 'info');

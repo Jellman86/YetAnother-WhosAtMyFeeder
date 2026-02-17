@@ -35,7 +35,7 @@
     import { getBirdNames } from '../naming';
     import { _ } from 'svelte-i18n';
     import { get } from 'svelte/store';
-    import { onMount } from 'svelte';
+    import { onDestroy, onMount } from 'svelte';
     import { trapFocus } from '../utils/focus-trap';
     import { formatDateTime } from '../utils/datetime';
     import { formatTemperature } from '../utils/temperature';
@@ -406,7 +406,9 @@
             ? [enrichmentSingleProviderSetting]
             : (settingsStore.settings?.enrichment_links_sources ?? authStore.enrichmentLinksSources ?? ['wikipedia', 'inaturalist'])
     );
-    const enrichmentLinksProvidersNormalized = $derived(enrichmentLinksProviders.map((provider) => provider.toLowerCase()));
+    const enrichmentLinksProvidersNormalized = $derived(
+        enrichmentLinksProviders.map((provider) => String(provider || '').toLowerCase())
+    );
     const ebirdEnabled = $derived(settingsStore.settings?.ebird_enabled ?? authStore.ebirdEnabled ?? false);
     const ebirdRadius = $derived(settingsStore.settings?.ebird_default_radius_km ?? 25);
     const ebirdDaysBack = $derived(settingsStore.settings?.ebird_default_days_back ?? 14);
@@ -665,12 +667,19 @@
                 console.error("Search failed", e);
                 // Fallback to local filtering
                 searchResults = classifierLabels
-                    .filter(l => l.toLowerCase().includes(query.toLowerCase()))
-                    .map(l => ({ id: l, display_name: l, common_name: null, scientific_name: null }));
+                    .filter(l => String(l).toLowerCase().includes(query.toLowerCase()))
+                    .map(l => ({ id: String(l), display_name: String(l), common_name: null, scientific_name: null }));
             } finally {
                 isSearching = false;
             }
         }, 300);
+    });
+
+    onDestroy(() => {
+        if (searchTimeout) {
+            clearTimeout(searchTimeout);
+            searchTimeout = null;
+        }
     });
 
     function getResultNames(result: SearchResult) {

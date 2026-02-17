@@ -87,6 +87,12 @@
         return Number.isFinite(parsed) ? Math.max(0, Math.floor(parsed)) : 0;
     };
     const fmtCount = (value: unknown): string => safeCount(value).toLocaleString();
+    const formatSafeTime = (value: unknown): string => {
+        if (!value) return '';
+        const date = new Date(String(value));
+        if (Number.isNaN(date.getTime())) return '';
+        return date.toLocaleTimeString();
+    };
 </script>
 
 <div class="space-y-6">
@@ -501,7 +507,7 @@
                             {$_('settings.data.batch_analysis_circuit_open')}
                             {#if analysisStatus.open_until}
                                 <span class="ml-auto text-[10px] font-bold text-amber-600 dark:text-amber-300">
-                                    {new Date(analysisStatus.open_until).toLocaleTimeString()}
+                                    {formatSafeTime(analysisStatus.open_until)}
                                 </span>
                             {/if}
                         </div>

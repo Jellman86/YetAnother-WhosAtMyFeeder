@@ -106,8 +106,10 @@
   const STALE_PROCESS_MAX_AGE_MS = 45 * 60 * 1000;
   const RECLASSIFY_PROGRESS_ID = 'reclassify:progress';
   const LEGACY_RECLASSIFY_PROGRESS_PREFIX = 'reclassify:progress:';
+  const RECLASSIFY_STATE_MAX_IDLE_MS = 5 * 60 * 1000;
   const activeReclassifyEvents = new Set<string>();
   const reclassifyProgressByEvent = new Map<string, { current: number; total: number }>();
+  const reclassifyLastUpdateByEvent = new Map<string, number>();
   let reclassifyStartedCount = 0;
   let reclassifyCompletedCount = 0;
 
@@ -250,6 +252,28 @@
       for (const item of stale) {
           notificationCenter.upsert(item);
       }
+      pruneStaleReclassifyState();
+  }
+
+  function pruneStaleReclassifyState() {
+      const now = Date.now();
+      let removedAny = false;
+      for (const eventId of activeReclassifyEvents) {
+          const lastUpdate = reclassifyLastUpdateByEvent.get(eventId) ?? 0;
+          if (lastUpdate > 0 && now - lastUpdate <= RECLASSIFY_STATE_MAX_IDLE_MS) continue;
+          activeReclassifyEvents.delete(eventId);
+          reclassifyProgressByEvent.delete(eventId);
+          reclassifyLastUpdateByEvent.delete(eventId);
+          removedAny = true;
+      }
+      if (!removedAny) return;
+      if (activeReclassifyEvents.size <= 0) {
+          removeNotificationsByPrefix(RECLASSIFY_PROGRESS_ID);
+          reclassifyStartedCount = 0;
+          reclassifyCompletedCount = 0;
+          reclassifyProgressByEvent.clear();
+          reclassifyLastUpdateByEvent.clear();
+      }
   }
 
   async function runOwnerSystemChecks() {
@@ -357,6 +381,7 @@
   }
 
   function markReclassifyStarted(eventId: string, totalFrames: number = 0) {
+      if (!eventId) return;
       const normalizedTotal = Number.isFinite(totalFrames) ? Math.max(0, Math.floor(totalFrames)) : 0;
       if (!activeReclassifyEvents.has(eventId) && activeReclassifyEvents.size === 0) {
           reclassifyStartedCount = 0;
@@ -366,6 +391,7 @@
           reclassifyStartedCount += 1;
       }
       activeReclassifyEvents.add(eventId);
+      reclassifyLastUpdateByEvent.set(eventId, Date.now());
       if (!reclassifyProgressByEvent.has(eventId)) {
           reclassifyProgressByEvent.set(eventId, { current: 0, total: normalizedTotal });
       }
@@ -374,6 +400,7 @@
   function markReclassifyCompleted(eventId: string) {
       const wasActive = activeReclassifyEvents.delete(eventId);
       reclassifyProgressByEvent.delete(eventId);
+      reclassifyLastUpdateByEvent.delete(eventId);
       if (wasActive) {
           reclassifyCompletedCount = Math.min(reclassifyStartedCount, reclassifyCompletedCount + 1);
       }
@@ -381,11 +408,13 @@
 
   function updateReclassifyProgress(eventId: string, current: number, total: number) {
       if (!shouldNotify()) return;
+      if (!eventId) return;
       const parsedCurrent = Number.isFinite(current) ? Math.max(0, Math.floor(current)) : 0;
       const parsedTotal = Number.isFinite(total) ? Math.max(0, Math.floor(total)) : 0;
       if (!activeReclassifyEvents.has(eventId)) {
           markReclassifyStarted(eventId, parsedTotal);
       }
+      reclassifyLastUpdateByEvent.set(eventId, Date.now());
       const activeCount = activeReclassifyEvents.size;
       const isBatch = reclassifyStartedCount > 1 || activeCount > 1;
 
@@ -444,10 +473,11 @@
   function clearReclassifyProgressNotification(eventId: string) {
       markReclassifyCompleted(eventId);
       if (activeReclassifyEvents.size <= 0) {
-          removeNotificationsByPrefix('reclassify:progress');
+          removeNotificationsByPrefix(RECLASSIFY_PROGRESS_ID);
           reclassifyStartedCount = 0;
           reclassifyCompletedCount = 0;
           reclassifyProgressByEvent.clear();
+          reclassifyLastUpdateByEvent.clear();
       }
   }
 
@@ -485,7 +515,11 @@
           message = data.message || t('notifications.event_backfill_failed');
       }
 
-      const id = `backfill:${jobId}`;
+      const id = `backfill:${kind}:${jobId}`;
+      const legacyId = `backfill:${jobId}`;
+      if (legacyId !== id) {
+          notificationCenter.remove(legacyId);
+      }
       const signature = `${payload.type}|${jobId}|${processed}|${total}|${updated}|${skipped}|${errors}`;
       const throttleMs = payload.type === 'backfill_progress' ? 1200 : 0;
       if (!applyNotificationPolicy(id, signature, throttleMs)) return;

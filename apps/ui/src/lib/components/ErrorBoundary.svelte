@@ -22,7 +22,12 @@
         };
 
         const handleRejection = (event: PromiseRejectionEvent) => {
-            error = event.reason instanceof Error ? event.reason : new Error(String(event.reason));
+            const reason = event.reason instanceof Error ? event.reason : new Error(String(event.reason));
+            if (reason.name === 'AbortError') {
+                // Request cancellations are expected during rapid filter/navigation changes.
+                return;
+            }
+            error = reason;
             errorInfo = 'Unhandled Promise Rejection';
             event.preventDefault();
             console.error('Promise rejection caught by boundary:', error);
