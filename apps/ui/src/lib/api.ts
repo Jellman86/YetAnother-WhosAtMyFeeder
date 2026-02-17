@@ -804,6 +804,10 @@ export interface AnalyzeUnknownsResult {
     accepted?: number;
     skipped_duplicate?: number;
     dropped_full?: number;
+    skipped_no_clip?: number;
+    skipped_missing_event?: number;
+    skipped_outside_retention?: number;
+    precheck_errors?: number;
     total_candidates?: number;
 }
 

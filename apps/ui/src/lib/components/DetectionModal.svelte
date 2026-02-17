@@ -700,6 +700,9 @@
             case 'clip_unavailable':
             case 'clip_not_found':
                 return $_('detection.video_analysis.errors.clip_unavailable');
+            case 'clip_not_retained':
+            case 'frigate_retention_expired':
+                return $_('detection.video_analysis.errors.clip_not_retained');
             case 'clip_timeout':
             case 'event_timeout':
                 return $_('detection.video_analysis.errors.timeout');
