@@ -1530,6 +1530,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     let analyzingUnknowns = $state(false);
     let analysisTotal = $state(0);
     let analysisStatus = $state<AnalysisStatus | null>(null);
+    let analysisStatusSignature = $state('');
     let analysisPollInterval: any;
 
     // Tab navigation
@@ -1929,7 +1930,19 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     async function loadAnalysisStatus() {
         try {
             const status = await fetchAnalysisStatus();
-            analysisStatus = status;
+            const signature = [
+                status.pending,
+                status.active,
+                status.circuit_open ? 1 : 0,
+                status.open_until ?? '',
+                status.failure_count ?? '',
+                status.pending_capacity ?? '',
+                status.pending_available ?? ''
+            ].join('|');
+            if (signature !== analysisStatusSignature) {
+                analysisStatus = status;
+                analysisStatusSignature = signature;
+            }
             const remaining = status.pending + status.active;
             if (remaining > 0 && (analysisTotal === 0 || analysisTotal < remaining)) {
                 analysisTotal = remaining;

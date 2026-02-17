@@ -81,12 +81,15 @@ class DetectionsStore {
         }
 
         const index = this.detections.findIndex(d => d.frigate_event === updated.frigate_event);
-        const definedPatch = Object.fromEntries(
-            Object.entries(updated).filter(([, value]) => value !== undefined)
-        ) as Partial<Detection>;
+        const definedEntries = Object.entries(updated).filter(([, value]) => value !== undefined);
+        if (definedEntries.length === 0) return;
+        const definedPatch = Object.fromEntries(definedEntries) as Partial<Detection>;
         if (index !== -1) {
             // Preserve existing fields when SSE payloads omit optional values.
-            this.detections[index] = { ...this.detections[index], ...definedPatch };
+            const existing = this.detections[index];
+            const changed = definedEntries.some(([key, value]) => (existing as any)[key] !== value);
+            if (!changed) return;
+            this.detections[index] = { ...existing, ...definedPatch };
         } else if (!updated.is_hidden) {
             this.addDetection(definedPatch as Detection);
         }
@@ -115,11 +118,21 @@ class DetectionsStore {
 
     startReclassification(eventId: string, totalFrames: number = 15) {
         const now = Date.now();
+        const normalizedTotal = Math.max(1, totalFrames);
+        const existing = this.progressMap.get(eventId);
+        if (
+            existing &&
+            existing.status === 'running' &&
+            existing.currentFrame === 0 &&
+            existing.totalFrames === normalizedTotal
+        ) {
+            return;
+        }
         const newMap = new Map(this.progressMap);
         newMap.set(eventId, {
             eventId,
             currentFrame: 0,
-            totalFrames: Math.max(1, totalFrames),
+            totalFrames: normalizedTotal,
             frameResults: [],
             status: 'running',
             startedAt: now,
@@ -145,13 +158,36 @@ class DetectionsStore {
         const existing = newMap.get(eventId);
         
         if (existing) {
-            const targetTotal = Math.max(existing.totalFrames, totalFrames);
-            const frameResults = [...existing.frameResults];
-            if (frameResults.length < targetTotal) {
-                frameResults.length = targetTotal;
+            const slot = Math.max(1, currentFrame) - 1;
+            const nextCurrentFrame = Math.max(existing.currentFrame, currentFrame);
+            const nextTotalFrames = Math.max(existing.totalFrames, totalFrames);
+            const nextFrameIndex = frameIndex ?? existing.frameIndex ?? null;
+            const nextClipTotal = clipTotal ?? existing.clipTotal ?? null;
+            const nextModelName = modelName ?? existing.modelName ?? null;
+            const previousFrame = existing.frameResults[slot];
+            const sameFrameResult = Boolean(
+                previousFrame &&
+                previousFrame.score === frameScore &&
+                previousFrame.label === topLabel &&
+                previousFrame.thumb === frameThumb &&
+                previousFrame.frameIndex === frameIndex
+            );
+            if (
+                sameFrameResult &&
+                nextCurrentFrame === existing.currentFrame &&
+                nextTotalFrames === existing.totalFrames &&
+                nextFrameIndex === (existing.frameIndex ?? null) &&
+                nextClipTotal === (existing.clipTotal ?? null) &&
+                nextModelName === (existing.modelName ?? null)
+            ) {
+                return;
             }
 
-            const slot = Math.max(1, currentFrame) - 1;
+            const frameResults = [...existing.frameResults];
+            if (frameResults.length < nextTotalFrames) {
+                frameResults.length = nextTotalFrames;
+            }
+
             frameResults[slot] = {
                 score: frameScore,
                 label: topLabel,
@@ -160,11 +196,11 @@ class DetectionsStore {
             };
             newMap.set(eventId, {
                 ...existing,
-                currentFrame: Math.max(existing.currentFrame, currentFrame),
-                totalFrames: Math.max(existing.totalFrames, totalFrames),
-                frameIndex: frameIndex ?? existing.frameIndex ?? null,
-                clipTotal: clipTotal ?? existing.clipTotal ?? null,
-                modelName: modelName ?? existing.modelName ?? null,
+                currentFrame: nextCurrentFrame,
+                totalFrames: nextTotalFrames,
+                frameIndex: nextFrameIndex,
+                clipTotal: nextClipTotal,
+                modelName: nextModelName,
                 frameResults,
                 status: 'running',
                 lastUpdateAt: now
