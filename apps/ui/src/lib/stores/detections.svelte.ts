@@ -116,9 +116,15 @@ class DetectionsStore {
         this.connected = status;
     }
 
+    private toSafeInt(value: unknown, fallback: number, min = 0): number {
+        const parsed = Number(value);
+        if (!Number.isFinite(parsed)) return fallback;
+        return Math.max(min, Math.floor(parsed));
+    }
+
     startReclassification(eventId: string, totalFrames: number = 15) {
         const now = Date.now();
-        const normalizedTotal = Math.max(1, totalFrames);
+        const normalizedTotal = this.toSafeInt(totalFrames, 1, 1);
         const existing = this.progressMap.get(eventId);
         if (
             existing &&
@@ -158,17 +164,27 @@ class DetectionsStore {
         const existing = newMap.get(eventId);
         
         if (existing) {
-            const slot = Math.max(1, currentFrame) - 1;
-            const nextCurrentFrame = Math.max(existing.currentFrame, currentFrame);
-            const nextTotalFrames = Math.max(existing.totalFrames, totalFrames);
+            const safeCurrentFrame = this.toSafeInt(currentFrame, existing.currentFrame, 0);
+            const safeTotalFrames = this.toSafeInt(totalFrames, existing.totalFrames, 1);
+            const nextTotalFrames = Math.max(1, existing.totalFrames, safeTotalFrames, safeCurrentFrame);
+            const nextCurrentFrame = Math.min(
+                nextTotalFrames,
+                Math.max(existing.currentFrame, safeCurrentFrame)
+            );
+            const slot = Math.min(
+                nextTotalFrames - 1,
+                Math.max(0, (safeCurrentFrame > 0 ? safeCurrentFrame : nextCurrentFrame) - 1)
+            );
             const nextFrameIndex = frameIndex ?? existing.frameIndex ?? null;
             const nextClipTotal = clipTotal ?? existing.clipTotal ?? null;
             const nextModelName = modelName ?? existing.modelName ?? null;
             const previousFrame = existing.frameResults[slot];
+            const safeFrameScore = Number.isFinite(frameScore) ? frameScore : 0;
+            const safeTopLabel = typeof topLabel === 'string' ? topLabel : String(topLabel ?? '');
             const sameFrameResult = Boolean(
                 previousFrame &&
-                previousFrame.score === frameScore &&
-                previousFrame.label === topLabel &&
+                previousFrame.score === safeFrameScore &&
+                previousFrame.label === safeTopLabel &&
                 previousFrame.thumb === frameThumb &&
                 previousFrame.frameIndex === frameIndex
             );
@@ -189,8 +205,8 @@ class DetectionsStore {
             }
 
             frameResults[slot] = {
-                score: frameScore,
-                label: topLabel,
+                score: safeFrameScore,
+                label: safeTopLabel,
                 thumb: frameThumb,
                 frameIndex
             };

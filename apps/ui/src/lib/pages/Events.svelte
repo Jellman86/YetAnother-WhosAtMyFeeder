@@ -422,6 +422,13 @@
             window.history.replaceState(null, '', `${url.pathname}${url.search}`);
         }
     }
+
+    function eventKey(event: Detection): string {
+        const eventId = event?.frigate_event ?? 'unknown';
+        const eventIndex = event?.detection_index ?? 0;
+        const eventTime = event?.detection_time ?? '';
+        return `${eventId}:${eventIndex}:${eventTime}`;
+    }
 </script>
 
 <svelte:window onkeydown={handleTimelineKeydown} />
@@ -549,7 +556,7 @@
         </div>
     {:else}
         <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {#each visibleEvents as event, index (event.frigate_event)}
+            {#each visibleEvents as event, index (eventKey(event))}
                 <DetectionCard 
                     detection={event} 
                     {index}

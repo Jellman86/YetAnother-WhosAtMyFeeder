@@ -15,11 +15,16 @@
         Array.isArray(progress.results) && progress.results.length > 0 ? progress.results[0] : null
     );
     let currentFrameThumb = $derived(latestFrame?.thumb || null);
-    let isComplete = $derived(progress.status === 'completed' || progress.currentFrame >= progress.totalFrames);
-    let safeTotalFrames = $derived(Math.max(1, progress.totalFrames));
-    let progressPercent = $derived(Math.round((progress.currentFrame / safeTotalFrames) * 100));
-    let displayFrameIndex = $derived(progress.frameIndex || progress.currentFrame);
-    let displayClipTotal = $derived(progress.clipTotal || progress.totalFrames);
+    let safeCurrentFrame = $derived(Number.isFinite(progress.currentFrame) ? Math.max(0, Math.floor(progress.currentFrame)) : 0);
+    let safeTotalFrames = $derived(
+        Number.isFinite(progress.totalFrames)
+            ? Math.max(1, Math.floor(progress.totalFrames))
+            : 1
+    );
+    let isComplete = $derived(progress.status === 'completed' || safeCurrentFrame >= safeTotalFrames);
+    let progressPercent = $derived(Math.round((safeCurrentFrame / safeTotalFrames) * 100));
+    let displayFrameIndex = $derived(progress.frameIndex || safeCurrentFrame);
+    let displayClipTotal = $derived(progress.clipTotal || safeTotalFrames);
     let modelLabel = $derived(progress.modelName || null);
     let displayLabel = $derived(
         isComplete && finalTopResult?.label ? finalTopResult.label : latestFrame?.label
@@ -116,9 +121,9 @@
         <!-- Frame Grid -->
         <div class="w-full bg-white/45 dark:bg-black/40 rounded-2xl {small ? 'p-1.5' : 'p-4'} border border-slate-200/70 dark:border-white/10 backdrop-blur-md shadow-2xl">
             <div class="{small ? 'grid grid-cols-5 gap-1' : 'grid grid-cols-5 gap-2'}">
-                {#each Array(progress.totalFrames) as _, i}
+                {#each Array(safeTotalFrames) as _, i}
                     {@const frame = progress.frameResults[i]}
-                    {@const isCurrent = i + 1 === progress.currentFrame && !isComplete}
+                    {@const isCurrent = i + 1 === safeCurrentFrame && !isComplete}
                     <div class="flex flex-col gap-1">
                         <div
                             class="aspect-[4/3] rounded-lg border border-slate-200/70 dark:border-white/10 transition-all duration-300 overflow-hidden

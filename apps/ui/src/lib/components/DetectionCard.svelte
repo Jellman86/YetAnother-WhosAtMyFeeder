@@ -157,14 +157,19 @@
     const rainTotal = $derived(
         (detection.weather_rain ?? 0) + (detection.weather_precipitation ?? 0)
     );
+    const weatherConditionText = $derived(
+        typeof detection.weather_condition === 'string'
+            ? detection.weather_condition.toLowerCase()
+            : String(detection.weather_condition ?? '').toLowerCase()
+    );
     const hasRain = $derived(
-        rainTotal > 0 || (detection.weather_condition || '').toLowerCase().includes('rain')
+        rainTotal > 0 || weatherConditionText.includes('rain')
     );
     const snowTotal = $derived(
         detection.weather_snowfall ?? 0
     );
     const hasSnow = $derived(
-        snowTotal > 0 || (detection.weather_condition || '').toLowerCase().includes('snow')
+        snowTotal > 0 || weatherConditionText.includes('snow')
     );
     const hasCloud = $derived(
         detection.weather_cloud_cover !== undefined &&
