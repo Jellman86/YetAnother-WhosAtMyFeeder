@@ -6,6 +6,9 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- **Fixed:** Species Wikipedia link resolution is now more robust across non-English locales (including Russian), using scored multilingual candidate selection plus scientific-name hints to avoid selecting similarly named but incorrect species pages.
+- **Fixed:** Leaderboard species-info cache is now locale-aware, preventing stale cross-language external links/thumbnails after UI language switches.
+- **Added:** Backend regression tests for multilingual Wikipedia article scoring and short-token boundary matching (`backend/tests/test_species_wikipedia_matching.py`).
 - **Fixed:** Request middleware now handles client-disconnect cancellation paths gracefully, preventing noisy `RuntimeError: No response returned.` 500 traces during long-running calls such as event reclassification.
 - **Fixed:** Detection modal manual-tag flow now provides explicit success/error toast feedback, sets pending state while saving, and hardens mobile interaction/scroll-lock behavior so species selection completes reliably and the picker closes cleanly after update.
 - **Fixed:** Frigate `sub_label` values are now normalized when payloads arrive as arrays/objects, preventing SQLite binding crashes (`type 'list' is not supported`) during detection upserts/backfill/event processing.

@@ -24,7 +24,7 @@
     import { formatDateTime } from '../utils/datetime';
     import { getErrorMessage, isTransientRequestError } from '../utils/error-handling';
     import { logger } from '../utils/logger';
-    import { _ } from 'svelte-i18n';
+    import { _, locale } from 'svelte-i18n';
 
     type LeaderboardRow = {
         species: string;
@@ -65,6 +65,16 @@
     let showPrecip = $state(false);
     let chartViewMode = $state<'auto' | 'line' | 'bar'>('auto');
     let trendMode = $state<TrendMode>('smooth');
+    const speciesInfoLocale = $derived((($locale || 'en') as string).split(/[-_]/)[0].toLowerCase());
+
+    function getSpeciesInfoCacheKey(speciesName: string, language: string): string {
+        return `${language}:${speciesName}`;
+    }
+
+    function getCachedSpeciesInfo(speciesName?: string | null): SpeciesInfo | null {
+        if (!speciesName) return null;
+        return speciesInfoCache[getSpeciesInfoCacheKey(speciesName, speciesInfoLocale)] || null;
+    }
 
     const enrichmentModeSetting = $derived(settingsStore.settings?.enrichment_mode ?? authStore.enrichmentMode ?? 'per_enrichment');
     const enrichmentSingleProviderSetting = $derived(settingsStore.settings?.enrichment_single_provider ?? authStore.enrichmentSingleProvider ?? 'wikipedia');
@@ -241,22 +251,23 @@
     }
 
     async function loadSpeciesInfo(speciesName: string) {
+        const cacheKey = getSpeciesInfoCacheKey(speciesName, speciesInfoLocale);
         if (
             !speciesName ||
             speciesName === "Unknown Bird" ||
-            speciesInfoCache[speciesName] ||
-            speciesInfoPending[speciesName]
+            speciesInfoCache[cacheKey] ||
+            speciesInfoPending[cacheKey]
         ) {
             return;
         }
-        speciesInfoPending = { ...speciesInfoPending, [speciesName]: true };
+        speciesInfoPending = { ...speciesInfoPending, [cacheKey]: true };
         try {
             const info = await fetchSpeciesInfo(speciesName);
-            speciesInfoCache = { ...speciesInfoCache, [speciesName]: info };
+            speciesInfoCache = { ...speciesInfoCache, [cacheKey]: info };
         } catch {
             // ignore fetch errors
         } finally {
-            const { [speciesName]: _discarded, ...rest } = speciesInfoPending;
+            const { [cacheKey]: _discarded, ...rest } = speciesInfoPending;
             speciesInfoPending = rest;
         }
     }
@@ -334,11 +345,11 @@
         return null;
     }
 
-    let heroInfo = $derived(summaryEnabled && topByCount ? speciesInfoCache[topByCount.species] : null);
+    let heroInfo = $derived(summaryEnabled && topByCount ? getCachedSpeciesInfo(topByCount.species) : null);
     let heroBlurb = $derived(getHeroBlurb(heroInfo));
     let heroSource = $derived(getHeroSource(heroInfo));
-    let risingInfo = $derived(summaryEnabled && topByTrend ? speciesInfoCache[topByTrend.species] : null);
-    let recentInfo = $derived(summaryEnabled && mostRecent ? speciesInfoCache[mostRecent.species] : null);
+    let risingInfo = $derived(summaryEnabled && topByTrend ? getCachedSpeciesInfo(topByTrend.species) : null);
+    let recentInfo = $derived(summaryEnabled && mostRecent ? getCachedSpeciesInfo(mostRecent.species) : null);
 
     function spanLabel(): string {
         if (span === 'day') return $_('leaderboard.sort_by_day');
@@ -1731,9 +1742,9 @@
                 >
                     <!-- Overlapping Thumbnail -->
                     <div class="absolute -top-6 left-6 w-16 h-16 rounded-2xl overflow-hidden border-4 border-white dark:border-slate-800 shadow-xl group-hover/card:-translate-y-1 transition-transform duration-300">
-                        {#if speciesInfoCache[topSpecies.species]?.thumbnail_url}
+                        {#if getCachedSpeciesInfo(topSpecies.species)?.thumbnail_url}
                             <img 
-                                src={speciesInfoCache[topSpecies.species].thumbnail_url} 
+                                src={getCachedSpeciesInfo(topSpecies.species)?.thumbnail_url ?? undefined}
                                 alt={topSpecies.displayName}
                                 class="w-full h-full object-cover"
                             />
@@ -1816,9 +1827,9 @@
                                 <td class="px-4 py-3">
                                     <div class="flex items-center gap-2">
                                         <div class="w-8 h-8 rounded-md overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 flex-shrink-0">
-                                            {#if speciesInfoCache[item.species]?.thumbnail_url}
+                                            {#if getCachedSpeciesInfo(item.species)?.thumbnail_url}
                                                 <img
-                                                    src={speciesInfoCache[item.species].thumbnail_url}
+                                                    src={getCachedSpeciesInfo(item.species)?.thumbnail_url ?? undefined}
                                                     alt={item.displayName}
                                                     class="w-full h-full object-cover"
                                                     loading="lazy"

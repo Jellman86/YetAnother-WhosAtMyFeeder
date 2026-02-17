@@ -3,6 +3,8 @@ from datetime import datetime, timedelta, timezone
 from urllib.parse import quote
 import httpx
 import structlog
+import re
+import unicodedata
 from typing import Literal
 
 from app.database import get_db
@@ -380,126 +382,218 @@ async def search_species(
     return results
 
 def _is_bird_article(data: dict) -> bool:
-    """
-    Strictly validate that a Wikipedia article is about a bird species.
-    Uses the description field which is very reliable for bird articles.
-    """
-    description = data.get("description", "").lower()
-    extract = data.get("extract", "").lower()
+    return _bird_relevance_score(data) >= 2
 
-    # Strong indicators in description - Wikipedia bird articles almost always have these
-    # Examples: "species of bird", "species of passerine bird", "species of songbird"
-    bird_description_phrases = [
-        "species of bird",
-        "species of passerine",
-        "species of songbird",
-        "species of finch",
-        "species of sparrow",
-        "species of warbler",
-        "species of thrush",
-        "species of wren",
-        "species of crow",
-        "species of jay",
-        "species of tit",
-        "species of duck",
-        "species of goose",
-        "species of owl",
-        "species of hawk",
-        "species of eagle",
-        "species of heron",
-        "species of gull",
-        "species of woodpecker",
-        "species of hummingbird",
-        "genus of bird",
-        "genus of birds",
-        "family of bird",
-        "family of birds",
-        "order of bird",
-        "order of birds",
-        "class of bird",
-        "class of birds",
-        "subfamily of bird",
-        "subfamily of birds",
-        "subspecies of bird",
-        "subspecies of birds",
-        # German
-        "vogelart",
-        "art der vögel",
-        "familie der vögel",
-        "gattung der vögel",
-        # French
-        "espèce d'oiseau",
-        "famille d'oiseaux",
-        "genre d'oiseaux",
-        # Spanish
-        "especie de ave",
-        "especie de pájaro",
-        "familia de aves",
-        "género de aves",
-        # Italian
-        "specie di uccello",
-        "famiglia di uccelli",
-        "genere di uccelli",
-        # Dutch
-        "vogelsoort",
-        "familie van vogels",
-        # Portuguese
-        "espécie de ave",
-        "família de aves",
-        # Polish
-        "gatunek ptaka",
-        "rodzina ptaków",
-        # Russian
-        "вид птиц",
-        "семейство птиц",
-    ]
 
-    # Check description first - this is very reliable
-    for phrase in bird_description_phrases:
-        if phrase in description:
-            return True
+def _normalize_lookup_text(value: str | None) -> str:
+    if not value:
+        return ""
+    normalized = unicodedata.normalize("NFKC", value).casefold()
+    normalized = re.sub(r"[_\-]+", " ", normalized)
+    normalized = re.sub(r"[^\w\s]", " ", normalized, flags=re.UNICODE)
+    return re.sub(r"\s+", " ", normalized).strip()
 
-    # Standalone bird groups that often appear at the beginning of descriptions
-    # e.g., "Thrush native to Europe"
-    standalone_bird_groups = [
-        "thrush", "finch", "sparrow", "warbler", "wren", "tit", "duck", "goose",
-        "owl", "hawk", "eagle", "heron", "gull", "woodpecker", "hummingbird",
-        "corvid", "pigeon", "dove", "swift", "swallow", "falcon", "plover",
-        "sandpiper", "kingfisher", "starling", "nuthatch", "creeper", "bulbul",
-        "blackbird", "mockingbird", "thrasher", "waxwing", "tanager", "bunting",
-        "cardinal", "grosbeak", "oriole", "blackbird", "grackle", "cowbird"
-    ]
 
-    # Check for standalone groups in description
-    description_words = description.split()
-    if description_words and any(word.strip(",.;") in standalone_bird_groups for word in description_words):
-        return True
+def _tokenize_lookup_text(value: str | None) -> set[str]:
+    normalized = _normalize_lookup_text(value)
+    if not normalized:
+        return set()
+    return {token for token in normalized.split() if len(token) > 1}
 
-    # If description doesn't match, check for bird-specific terms in extract
-    # But be stricter - require multiple bird-related terms
-    bird_extract_keywords = [
-        "bird", "avian", "ornithology", "plumage", "wingspan", "migratory",
-        "nesting", "beak", "bill", "talon", "passerine", "songbird"
-    ]
-    taxonomy_keywords = [
-        "passeriformes", "aves", "passerine", "oscine", "corvidae", "paridae",
-        "fringillidae", "turdidae", "accipitridae", "anatidae", "picidae",
-        "strigidae", "columbidae", "hirundinidae", "emberizidae", "ictenidae"
-    ]
 
-    # Count how many bird-specific keywords are present
-    bird_keyword_count = sum(1 for kw in bird_extract_keywords if kw in extract)
-    taxonomy_count = sum(1 for kw in taxonomy_keywords if kw in extract)
+def _contains_lookup_term(text: str, term: str) -> bool:
+    # For short ASCII terms (e.g. "ave"), enforce word boundaries to avoid substring noise.
+    if term.isascii() and len(term) <= 3:
+        return re.search(rf"\b{re.escape(term)}\b", text) is not None
+    return term in text
 
-    # Higher ranks often mention "birds" in the plural
-    if "birds" in extract or "birds" in description:
-        return True
 
-    # Require at least 2 bird keywords OR 1 taxonomy term to be confident
-    if bird_keyword_count >= 2 or taxonomy_count >= 1:
-        return True
+BIRD_DESCRIPTION_PHRASES = {
+    # English
+    "species of bird",
+    "species of passerine",
+    "species of songbird",
+    "genus of bird",
+    "genus of birds",
+    "family of bird",
+    "family of birds",
+    "order of birds",
+    "class of birds",
+    # German
+    "vogelart",
+    "art der vögel",
+    "familie der vögel",
+    "gattung der vögel",
+    # French
+    "espèce d oiseau",
+    "famille d oiseaux",
+    "genre d oiseaux",
+    # Spanish
+    "especie de ave",
+    "especie de pájaro",
+    "familia de aves",
+    "género de aves",
+    # Italian
+    "specie di uccello",
+    "famiglia di uccelli",
+    "genere di uccelli",
+    # Portuguese
+    "espécie de ave",
+    "família de aves",
+    # Russian
+    "вид птиц",
+    "вид птицы",
+    "семейство птиц",
+    "род птиц",
+}
 
-    return False
+
+BIRD_TERMS = {
+    # English stems
+    "bird",
+    "avian",
+    "passerine",
+    "songbird",
+    # Romance/Germanic
+    "oiseau",
+    "uccell",
+    "vogel",
+    "ave",
+    "aves",
+    "pajaro",
+    "pájaro",
+    # Slavic / Cyrillic stems
+    "птиц",
+    "птица",
+    "птич",
+    "воробьинообраз",
+    "синиц",
+    # CJK
+    "鳥",
+    "鸟",
+}
+
+
+BIRD_TAXONOMY_TERMS = {
+    "aves",
+    "passeriformes",
+    "oscine",
+    "paridae",
+    "corvidae",
+    "fringillidae",
+    "turdidae",
+    "accipitridae",
+    "anatidae",
+    "picidae",
+    "strigidae",
+    "columbidae",
+    "hirundinidae",
+    "emberizidae",
+    "ictenidae",
+}
+
+
+def _bird_relevance_score(data: dict) -> int:
+    description = _normalize_lookup_text(data.get("description") or "")
+    extract = _normalize_lookup_text(data.get("extract") or "")
+    combined = f"{description} {extract}".strip()
+    if not combined:
+        return 0
+
+    score = 0
+
+    description_hits = sum(1 for phrase in BIRD_DESCRIPTION_PHRASES if phrase in description)
+    if description_hits:
+        score += 6 + min(2, description_hits - 1)
+
+    bird_term_hits = sum(1 for term in BIRD_TERMS if _contains_lookup_term(combined, term))
+    score += min(4, bird_term_hits)
+
+    taxonomy_hits = sum(1 for term in BIRD_TAXONOMY_TERMS if _contains_lookup_term(combined, term))
+    if taxonomy_hits:
+        score += 2 + min(2, taxonomy_hits - 1)
+
+    # Russian pages often use "вид рода ..." plus bird clues in extract.
+    if "вид рода" in description and any(term in combined for term in ("птиц", "птица", "воробьинообраз", "paridae", "aves")):
+        score += 2
+
+    return score
+
+
+def _name_match_score(article_title: str | None, requested_name: str) -> int:
+    title_norm = _normalize_lookup_text(article_title)
+    requested_norm = _normalize_lookup_text(requested_name)
+    if not title_norm or not requested_norm:
+        return 0
+
+    if title_norm == requested_norm:
+        return 12
+
+    score = 0
+    if requested_norm in title_norm or title_norm in requested_norm:
+        score = max(score, 8)
+
+    requested_tokens = _tokenize_lookup_text(requested_name)
+    title_tokens = _tokenize_lookup_text(article_title)
+    if requested_tokens and title_tokens:
+        overlap_ratio = len(requested_tokens & title_tokens) / max(1, len(requested_tokens))
+        if overlap_ratio >= 0.75:
+            score = max(score, 7)
+        elif overlap_ratio >= 0.5:
+            score = max(score, 5)
+        elif overlap_ratio >= 0.25:
+            score = max(score, 3)
+
+    return score
+
+
+def _scientific_name_match_score(data: dict, expected_scientific_name: str | None) -> int:
+    if not expected_scientific_name:
+        return 0
+
+    scientific_norm = _normalize_lookup_text(expected_scientific_name)
+    if not scientific_norm:
+        return 0
+
+    combined = _normalize_lookup_text(
+        " ".join(
+            [
+                data.get("title") or "",
+                data.get("description") or "",
+                data.get("extract") or "",
+            ]
+        )
+    )
+    if not combined:
+        return 0
+
+    if scientific_norm in combined:
+        return 10
+
+    parts = scientific_norm.split()
+    if len(parts) >= 2 and parts[0] in combined and parts[1] in combined:
+        return 7
+    if parts and parts[0] in combined:
+        return 3
+    return 0
+
+
+def _score_wikipedia_candidate(
+    data: dict,
+    requested_name: str,
+    expected_scientific_name: str | None = None,
+) -> int:
+    bird_score = _bird_relevance_score(data)
+    if bird_score <= 0:
+        return 0
+
+    name_score = _name_match_score(data.get("title"), requested_name)
+    scientific_score = _scientific_name_match_score(data, expected_scientific_name)
+    if name_score <= 0 and scientific_score <= 0:
+        return 0
+
+    # Keep name/scientific agreement dominant while still preferring stronger bird evidence.
+    return (name_score * 100) + (scientific_score * 100) + bird_score
 
 
 @router.get("/species")
@@ -958,10 +1052,18 @@ async def get_species_info(
         
         # Fallback to Wikipedia for text/images
         if not info.extract or not info.thumbnail_url:
-            wiki_info = await _fetch_wikipedia_info(search_name, lang)
+            wiki_info = await _fetch_wikipedia_info(
+                search_name,
+                lang,
+                expected_scientific_name=info.scientific_name,
+            )
             # If search by eBird name failed, try original name
             if not wiki_info.extract and search_name != species_name:
-                 wiki_info = await _fetch_wikipedia_info(species_name, lang)
+                wiki_info = await _fetch_wikipedia_info(
+                    species_name,
+                    lang,
+                    expected_scientific_name=info.scientific_name,
+                )
 
             if wiki_info.extract:
                 info.extract = wiki_info.extract
@@ -994,7 +1096,11 @@ async def get_species_info(
             if info.wikipedia_url:
                 wiki_info = await _fetch_wikipedia_info_from_url(info.wikipedia_url, species_name, lang)
             if not wiki_info:
-                wiki_info = await _fetch_wikipedia_info(species_name, lang)
+                wiki_info = await _fetch_wikipedia_info(
+                    species_name,
+                    lang,
+                    expected_scientific_name=info.scientific_name,
+                )
             if not info.extract and wiki_info.extract:
                 info.extract = wiki_info.extract
                 info.summary_source = wiki_info.source
@@ -1007,7 +1113,11 @@ async def get_species_info(
                 info.scientific_name = wiki_info.scientific_name
 
         if lang != "en" and not info.extract:
-            fallback = await _fetch_wikipedia_info(species_name, "en")
+            fallback = await _fetch_wikipedia_info(
+                species_name,
+                "en",
+                expected_scientific_name=info.scientific_name,
+            )
             if fallback.extract:
                 info.extract = fallback.extract
                 info.summary_source = fallback.source
@@ -1110,7 +1220,11 @@ async def _fetch_ebird_info(species_name: str, lang: str) -> SpeciesInfo:
     )
 
 
-async def _fetch_wikipedia_info(species_name: str, lang: str) -> SpeciesInfo:
+async def _fetch_wikipedia_info(
+    species_name: str,
+    lang: str,
+    expected_scientific_name: str | None = None,
+) -> SpeciesInfo:
     """Fetch species information from Wikipedia API."""
 
     headers = {
@@ -1125,7 +1239,12 @@ async def _fetch_wikipedia_info(species_name: str, lang: str) -> SpeciesInfo:
             headers=headers
         ) as client:
             # Try multiple strategies to find the Wikipedia article
-            article_title = await _find_wikipedia_article(client, species_name, lang)
+            article_title = await _find_wikipedia_article(
+                client,
+                species_name,
+                lang,
+                expected_scientific_name=expected_scientific_name,
+            )
 
             if article_title:
                 log.info("Found Wikipedia article", species=species_name, article=article_title)
@@ -1271,79 +1390,172 @@ async def _fetch_inaturalist_info(species_name: str, lang: str) -> SpeciesInfo:
     )
 
 
-async def _find_wikipedia_article(client: httpx.AsyncClient, species_name: str, lang: str) -> str | None:
-    """Try multiple strategies to find the correct Wikipedia article title."""
+async def _find_wikipedia_article(
+    client: httpx.AsyncClient,
+    species_name: str,
+    lang: str,
+    expected_scientific_name: str | None = None,
+) -> str | None:
+    """Try multiple strategies and select the best matching bird article."""
     base_url = f"https://{lang}.wikipedia.org/api/rest_v1/page/summary"
 
-    # Build list of title variations to try
-    titles_to_try = []
+    titles_to_try: list[str] = [species_name]
 
-    # Original name (with proper URL encoding)
-    titles_to_try.append(species_name)
-
-    # Try lowercase version (Wikipedia often uses sentence case)
     words = species_name.split()
     if len(words) >= 2:
-        # Sentence case: "Eurasian blue tit" instead of "Eurasian Blue Tit"
         sentence_case = words[0] + " " + " ".join(w.lower() for w in words[1:])
         if sentence_case != species_name:
             titles_to_try.append(sentence_case)
 
-        # Try without common regional prefixes (e.g., "Eurasian Blue Tit" -> "Blue Tit")
-        regional_prefixes = ["Eurasian", "European", "American", "African", "Asian",
-                            "Common", "Northern", "Southern", "Eastern", "Western",
-                            "Greater", "Lesser", "Little", "Great"]
+        regional_prefixes = [
+            "Eurasian",
+            "European",
+            "American",
+            "African",
+            "Asian",
+            "Common",
+            "Northern",
+            "Southern",
+            "Eastern",
+            "Western",
+            "Greater",
+            "Lesser",
+            "Little",
+            "Great",
+        ]
         if words[0] in regional_prefixes:
             short_name = " ".join(words[1:])
             titles_to_try.append(short_name)
-            # Also try sentence case of short name
             if len(words) > 2:
                 short_sentence = words[1] + " " + " ".join(w.lower() for w in words[2:])
                 titles_to_try.append(short_sentence)
 
-    # Add "(bird)" suffix variations
     base_titles = titles_to_try.copy()
     for title in base_titles:
         titles_to_try.append(f"{title} (bird)")
+    if expected_scientific_name:
+        titles_to_try.append(expected_scientific_name)
 
-    log.debug("Trying Wikipedia title variations", species=species_name, variations=titles_to_try)
-
-    # Strategy 1: Direct page summary lookup
+    # Preserve order while removing duplicate title attempts.
+    deduped_titles: list[str] = []
+    seen_title_keys: set[str] = set()
     for title in titles_to_try:
-        encoded = quote(title.replace(" ", "_"))
-        url = f"{base_url}/{encoded}"
+        key = _normalize_lookup_text(title)
+        if key and key not in seen_title_keys:
+            seen_title_keys.add(key)
+            deduped_titles.append(title)
+
+    log.debug(
+        "Trying Wikipedia title variations",
+        species=species_name,
+        language=lang,
+        variations=deduped_titles,
+    )
+
+    best_title: str | None = None
+    best_score = 0
+    checked_candidates: set[str] = set()
+
+    async def evaluate_candidate(title: str, strategy: str) -> None:
+        nonlocal best_title, best_score
+        normalized_title = _normalize_lookup_text(title)
+        if not normalized_title or normalized_title in checked_candidates:
+            return
+        checked_candidates.add(normalized_title)
+
+        url = f"{base_url}/{quote(title.replace(' ', '_'))}"
         try:
-            log.debug("Trying Wikipedia URL", url=url)
             response = await client.get(url)
-            log.debug("Wikipedia response", status=response.status_code, title=title)
-
-            if response.status_code == 200:
-                data = response.json()
-                # Verify it's about a bird using strict validation
-                if _is_bird_article(data):
-                    log.info("Found Wikipedia article via direct lookup",
-                            species=species_name, article=data.get("title"), tried=title)
-                    return data.get("title")
-                else:
-                    log.debug("Article found but doesn't appear to be about birds",
-                             title=title, description=data.get("description"))
-            elif response.status_code == 404:
-                log.debug("Wikipedia page not found", title=title)
-            else:
-                log.warning("Unexpected Wikipedia response", status=response.status_code, title=title)
-
         except Exception as e:
-            log.warning("Error checking Wikipedia title", title=title, error=str(e))
-            continue
+            log.warning("Error checking Wikipedia title", title=title, strategy=strategy, error=str(e))
+            return
 
-    # Strategy 2: Use Wikipedia search API as fallback
-    log.debug("Falling back to Wikipedia search API", species=species_name)
+        if response.status_code == 404:
+            return
+        if response.status_code != 200:
+            log.warning(
+                "Unexpected Wikipedia response",
+                status=response.status_code,
+                title=title,
+                strategy=strategy,
+            )
+            return
+
+        data = response.json()
+        candidate_title = data.get("title") or title
+        score = _score_wikipedia_candidate(
+            data,
+            requested_name=species_name,
+            expected_scientific_name=expected_scientific_name,
+        )
+        if expected_scientific_name and _normalize_lookup_text(title) == _normalize_lookup_text(expected_scientific_name):
+            # Explicit scientific-name lookup is a strong signal even on localized pages.
+            score = max(score, 1000 + _bird_relevance_score(data))
+        if score <= 0:
+            log.debug(
+                "Wikipedia candidate rejected",
+                species=species_name,
+                language=lang,
+                title=candidate_title,
+                strategy=strategy,
+                bird_score=_bird_relevance_score(data),
+            )
+            return
+
+        if score > best_score:
+            best_score = score
+            best_title = candidate_title
+            log.debug(
+                "Wikipedia candidate accepted",
+                species=species_name,
+                language=lang,
+                title=candidate_title,
+                strategy=strategy,
+                score=score,
+            )
+
+    for title in deduped_titles:
+        await evaluate_candidate(title, "direct")
+
+    if best_title:
+        log.info(
+            "Selected Wikipedia article via direct lookup",
+            species=species_name,
+            article=best_title,
+            score=best_score,
+        )
+        return best_title
+
+    log.debug("Falling back to Wikipedia search API", species=species_name, language=lang)
     search_url = f"https://{lang}.wikipedia.org/w/api.php"
-    search_queries = [
-        f"{species_name} bird",
-        f'"{species_name}"',  # Exact phrase search
+    localized_bird_term = {
+        "ru": "птица",
+        "de": "vogel",
+        "fr": "oiseau",
+        "es": "ave",
+        "it": "uccello",
+        "pt": "ave",
+        "ja": "鳥",
+        "zh": "鸟",
+    }.get(lang, "bird")
+
+    raw_queries = [
+        f"{species_name} {localized_bird_term}",
+        f'"{species_name}"',
         species_name,
     ]
+    if expected_scientific_name:
+        raw_queries.extend([expected_scientific_name, f'"{expected_scientific_name}"'])
+    if localized_bird_term != "bird":
+        raw_queries.append(f"{species_name} bird")
+
+    search_queries: list[str] = []
+    seen_queries: set[str] = set()
+    for query in raw_queries:
+        normalized = _normalize_lookup_text(query)
+        if normalized and normalized not in seen_queries:
+            seen_queries.add(normalized)
+            search_queries.append(query)
 
     for search_query in search_queries:
         search_params = {
@@ -1351,41 +1563,47 @@ async def _find_wikipedia_article(client: httpx.AsyncClient, species_name: str, 
             "list": "search",
             "srsearch": search_query,
             "format": "json",
-            "srlimit": 10
+            "srlimit": 10,
         }
-
         try:
             response = await client.get(search_url, params=search_params)
-            log.debug("Wikipedia search response", status=response.status_code, query=search_query)
-
-            if response.status_code == 200:
-                data = response.json()
-                results = data.get("query", {}).get("search", [])
-                log.debug("Wikipedia search results", count=len(results), query=search_query)
-
-                for result in results:
-                    title = result.get("title", "")
-                    snippet = result.get("snippet", "").lower()
-
-                    # Quick check on snippet before making another API call
-                    if any(word in snippet for word in ["bird", "species", "passerine", "avian"]):
-                        # Verify with a page summary lookup using strict validation
-                        verify_url = f"{base_url}/{quote(title.replace(' ', '_'))}"
-                        try:
-                            verify_response = await client.get(verify_url)
-                            if verify_response.status_code == 200:
-                                verify_data = verify_response.json()
-                                # Use strict validation
-                                if _is_bird_article(verify_data):
-                                    log.info("Found Wikipedia article via search",
-                                            species=species_name, article=title, query=search_query)
-                                    return title
-                        except Exception:
-                            pass
         except Exception as e:
             log.warning("Wikipedia search failed", error=str(e), species=species_name, query=search_query)
+            continue
 
-    log.warning("All Wikipedia search strategies exhausted", species=species_name)
+        if response.status_code != 200:
+            log.warning(
+                "Wikipedia search failed",
+                species=species_name,
+                query=search_query,
+                status=response.status_code,
+            )
+            continue
+
+        data = response.json()
+        results = data.get("query", {}).get("search", [])
+        log.debug(
+            "Wikipedia search results",
+            species=species_name,
+            language=lang,
+            query=search_query,
+            count=len(results),
+        )
+        for result in results:
+            title = result.get("title") or ""
+            if title:
+                await evaluate_candidate(title, f"search:{search_query}")
+
+    if best_title:
+        log.info(
+            "Selected Wikipedia article via search",
+            species=species_name,
+            article=best_title,
+            score=best_score,
+        )
+        return best_title
+
+    log.warning("All Wikipedia search strategies exhausted", species=species_name, language=lang)
     return None
 
 
