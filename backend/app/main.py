@@ -396,10 +396,32 @@ app.include_router(email.router, prefix="/api", tags=["email"], dependencies=[De
 app.include_router(inaturalist.router, prefix="/api", tags=["inaturalist"], dependencies=[Depends(get_auth_context_with_legacy)])
 app.include_router(ebird.router, prefix="/api", tags=["ebird"], dependencies=[Depends(get_auth_context_with_legacy)])
 
+
+async def _safe_call_next(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
+    """
+    Handle disconnect-related middleware errors without surfacing noisy 500s.
+
+    Starlette can raise RuntimeError("No response returned.") when the client disconnects
+    while middleware is still awaiting call_next(). Treat that as client-closed.
+    """
+    try:
+        return await call_next(request)
+    except asyncio.CancelledError:
+        if await request.is_disconnected():
+            log.info("Request cancelled after client disconnect", path=request.url.path, method=request.method)
+            return Response(status_code=499)
+        raise
+    except RuntimeError as exc:
+        if str(exc) == "No response returned." and await request.is_disconnected():
+            log.info("Client disconnected before response was returned", path=request.url.path, method=request.method)
+            return Response(status_code=499)
+        raise
+
+
 @app.middleware("http")
 async def add_security_headers(request: Request, call_next):
     """Add security headers to all responses."""
-    response = await call_next(request)
+    response = await _safe_call_next(request, call_next)
 
     # Only add HSTS if using HTTPS
     if request.url.scheme == "https":
@@ -481,13 +503,13 @@ async def check_https_warning(request: Request, call_next):
                             recommendation="Configure SYSTEM__TRUSTED_PROXY_HOSTS to restrict trusted proxies"
                         )
 
-    response = await call_next(request)
+    response = await _safe_call_next(request, call_next)
     return response
 
 @app.middleware("http")
 async def count_requests(request, call_next):
     API_REQUESTS.inc()
-    response = await call_next(request)
+    response = await _safe_call_next(request, call_next)
     return response
 
 @app.get("/health")
