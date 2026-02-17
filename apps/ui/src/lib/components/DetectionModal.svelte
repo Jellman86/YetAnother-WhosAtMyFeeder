@@ -1388,7 +1388,7 @@
 	                        type="button"
 	                        onclick={handleFavoriteToggle}
 	                        disabled={favoritePending}
-	                        class="absolute top-4 left-4 z-30 inline-flex items-center gap-2 px-3 py-2 rounded-full border shadow-lg backdrop-blur-sm transition-all disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-amber-300/70 {detection.is_favorite ? 'bg-amber-500/90 border-amber-300 text-white hover:bg-amber-500' : 'bg-black/45 border-white/35 text-white hover:bg-black/60'}"
+		                        class="absolute top-4 left-4 z-30 inline-flex items-center gap-2 px-3 py-2 rounded-full border shadow-lg backdrop-blur-sm transition-all disabled:opacity-60 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/70 {detection.is_favorite ? 'bg-amber-500/90 border-amber-300 text-white hover:bg-amber-500' : 'bg-black/45 border-white/35 text-white hover:bg-black/60'}"
 	                        title={detection.is_favorite ? $_('detection.favorite_remove', { default: 'Remove favorite' }) : $_('detection.favorite_add', { default: 'Add favorite' })}
 	                        aria-label={detection.is_favorite ? $_('detection.favorite_remove', { default: 'Remove favorite' }) : $_('detection.favorite_add', { default: 'Add favorite' })}
 	                    >
