@@ -7,8 +7,6 @@
         fetchFrigateConfig,
         fetchClassifierStatus,
         downloadDefaultModel,
-        fetchWildlifeModelStatus,
-        downloadWildlifeModel,
         fetchMaintenanceStats,
         runCleanup,
         clearAllFavorites,
@@ -40,7 +38,6 @@
         sendTestEmail,
         exportEbirdCsv,
         type ClassifierStatus,
-        type WildlifeModelStatus,
         type MaintenanceStats,
         type BackfillResult,
         type WeatherBackfillResult,
@@ -1529,9 +1526,6 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     let classifierStatus = $state<ClassifierStatus | null>(null);
     let downloadingModel = $state(false);
 
-    let wildlifeStatus = $state<WildlifeModelStatus | null>(null);
-    let downloadingWildlifeModel = $state(false);
-
     let maintenanceStats = $state<MaintenanceStats | null>(null);
     let cleaningUp = $state(false);
     let clearingFavorites = $state(false);
@@ -1597,7 +1591,6 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 loadSettings(),
                 loadCameras(),
                 loadClassifierStatus(),
-                loadWildlifeStatus(),
                 loadMaintenanceStats(),
                 loadCacheStats(),
                 loadTaxonomyStatus(),
@@ -2012,32 +2005,6 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             classifierStatus = await fetchClassifierStatus();
         } catch (e) {
             console.error('Failed to load classifier status', e);
-        }
-    }
-
-    async function loadWildlifeStatus() {
-        try {
-            wildlifeStatus = await fetchWildlifeModelStatus();
-        } catch (e) {
-            console.error('Failed to load wildlife status', e);
-        }
-    }
-
-    async function handleDownloadWildlifeModel() {
-        downloadingWildlifeModel = true;
-        message = null;
-        try {
-            const result = await downloadWildlifeModel();
-            if (result.status === 'ok') {
-                message = { type: 'success', text: result.message };
-                await loadWildlifeStatus();
-            } else {
-                message = { type: 'error', text: result.message };
-            }
-        } catch (e: any) {
-            message = { type: 'error', text: e.message || 'Failed to download wildlife model' };
-        } finally {
-            downloadingWildlifeModel = false;
         }
     }
 

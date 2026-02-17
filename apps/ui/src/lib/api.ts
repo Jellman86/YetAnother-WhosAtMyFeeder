@@ -1372,51 +1372,6 @@ export async function resetDatabase(): Promise<ResetDatabaseResult> {
     return handleResponse<ResetDatabaseResult>(response);
 }
 
-// Wildlife classification types and functions
-export interface WildlifeClassification {
-    label: string;
-    score: number;
-    index: number;
-}
-
-export interface WildlifeClassifyResult {
-    status: string;
-    event_id: string;
-    classifications: WildlifeClassification[];
-}
-
-export interface WildlifeModelStatus {
-    loaded: boolean;
-    error: string | null;
-    labels_count: number;
-    enabled: boolean;
-    model_path?: string;
-}
-
-export async function classifyWildlife(eventId: string): Promise<WildlifeClassifyResult> {
-    const response = await apiFetch(`${API_BASE}/events/${encodeURIComponent(eventId)}/classify-wildlife`, {
-        method: 'POST',
-    });
-    return handleResponse<WildlifeClassifyResult>(response);
-}
-
-export async function fetchWildlifeModelStatus(): Promise<WildlifeModelStatus> {
-    const response = await apiFetch(`${API_BASE}/classifier/wildlife/status`);
-    return handleResponse<WildlifeModelStatus>(response);
-}
-
-export async function fetchWildlifeLabels(): Promise<{ labels: string[] }> {
-    const response = await apiFetch(`${API_BASE}/classifier/wildlife/labels`);
-    return handleResponse<{ labels: string[] }>(response);
-}
-
-export async function downloadWildlifeModel(): Promise<{ status: string; message: string; labels_count?: number }> {
-    const response = await apiFetch(`${API_BASE}/classifier/wildlife/download`, {
-        method: 'POST',
-    });
-    return handleResponse<{ status: string; message: string; labels_count?: number }>(response);
-}
-
 // Media cache functions
 export async function fetchCacheStats(): Promise<CacheStats> {
     const response = await apiFetch(`${API_BASE}/cache/stats`);
