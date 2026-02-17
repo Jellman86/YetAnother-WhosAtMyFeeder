@@ -7,6 +7,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 ## [Unreleased]
 
 - **Fixed:** Request middleware now handles client-disconnect cancellation paths gracefully, preventing noisy `RuntimeError: No response returned.` 500 traces during long-running calls such as event reclassification.
+- **Fixed:** Detection modal manual-tag flow now provides explicit success/error toast feedback, sets pending state while saving, and hardens mobile interaction/scroll-lock behavior so species selection completes reliably and the picker closes cleanly after update.
 
 ## [2.8.1] - 2026-02-14
 

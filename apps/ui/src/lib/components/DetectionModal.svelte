@@ -67,6 +67,13 @@
 
     // State
     let modalElement = $state<HTMLElement | null>(null);
+    let previousBodyPosition = '';
+    let previousBodyTop = '';
+    let previousBodyWidth = '';
+    let previousBodyOverflow = '';
+    let previousHtmlOverflow = '';
+    let scrollLockY = 0;
+    let scrollLocked = false;
     let analyzingAI = $state(false);
     let audioContextOpen = $state(false);
     let audioContextLoading = $state(false);
@@ -103,6 +110,37 @@
         }
     });
 
+    function lockDocumentScroll() {
+        if (scrollLocked || typeof document === 'undefined' || typeof window === 'undefined') return;
+        const body = document.body;
+        const html = document.documentElement;
+        scrollLockY = window.scrollY;
+        previousBodyPosition = body.style.position;
+        previousBodyTop = body.style.top;
+        previousBodyWidth = body.style.width;
+        previousBodyOverflow = body.style.overflow;
+        previousHtmlOverflow = html.style.overflow;
+        body.style.position = 'fixed';
+        body.style.top = `-${scrollLockY}px`;
+        body.style.width = '100%';
+        body.style.overflow = 'hidden';
+        html.style.overflow = 'hidden';
+        scrollLocked = true;
+    }
+
+    function unlockDocumentScroll() {
+        if (!scrollLocked || typeof document === 'undefined' || typeof window === 'undefined') return;
+        const body = document.body;
+        const html = document.documentElement;
+        body.style.position = previousBodyPosition;
+        body.style.top = previousBodyTop;
+        body.style.width = previousBodyWidth;
+        body.style.overflow = previousBodyOverflow;
+        html.style.overflow = previousHtmlOverflow;
+        window.scrollTo(0, scrollLockY);
+        scrollLocked = false;
+    }
+
     const syncDarkMode = () => {
         if (typeof document === 'undefined') return;
         isDarkMode = document.documentElement.classList.contains('dark');
@@ -123,6 +161,13 @@
         return () => {
             observer.disconnect();
             window.removeEventListener('ai-diagnostics-enabled-changed', onToggleChanged as any);
+        };
+    });
+
+    onMount(() => {
+        lockDocumentScroll();
+        return () => {
+            unlockDocumentScroll();
         };
     });
 
@@ -269,6 +314,7 @@
     let lastEventId = $state<string | null>(null);
     let showTagDropdown = $state(false);
     let updatingTag = $state(false);
+    let pendingManualTagId = $state<string | null>(null);
     let favoritePending = $state(false);
     let tagSearchQuery = $state('');
     let searchResults = $state<SearchResult[]>([]);
@@ -744,19 +790,41 @@
         }
     }
 
-    async function handleManualTag(newSpecies: string) {
+    async function handleManualTag(selection: SearchResult) {
         if (readOnly) return;
         if (!detection) return;
+        if (updatingTag) return;
+
+        const requestedSpecies = selection.id;
         updatingTag = true;
+        pendingManualTagId = requestedSpecies;
         try {
-            await updateDetectionSpecies(detection.frigate_event, newSpecies);
-            detection.display_name = newSpecies;
-            detectionsStore.updateDetection({ ...detection, display_name: newSpecies });
+            const result = await updateDetectionSpecies(detection.frigate_event, requestedSpecies);
+            const appliedSpecies = result.new_species || result.species || requestedSpecies;
+            const nextDetection = {
+                ...detection,
+                display_name: appliedSpecies,
+                manual_tagged: true,
+                scientific_name: selection.scientific_name ?? detection.scientific_name,
+                common_name: selection.common_name ?? detection.common_name
+            };
+            detection.display_name = appliedSpecies;
+            detection.manual_tagged = true;
+            detection.scientific_name = nextDetection.scientific_name;
+            detection.common_name = nextDetection.common_name;
+            detectionsStore.updateDetection(nextDetection);
             showTagDropdown = false;
+            tagSearchQuery = '';
             aiAnalysis = null; // Reset AI analysis for new species
+            const names = getResultNames(selection);
+            const successLabel = names.primary || appliedSpecies;
+            toastStore.success(
+                `${$_('notifications.event_reclassify', { default: 'Reclassification complete' })}: ${successLabel}`
+            );
         } catch (e: any) {
-            alert($_('notifications.reclassify_failed', { values: { message: e.message } }));
+            toastStore.error($_('notifications.reclassify_failed', { values: { message: e?.message || 'Unknown error' } }));
         } finally {
+            pendingManualTagId = null;
             updatingTag = false;
         }
     }
@@ -1286,7 +1354,7 @@
 
 
 <div
-    class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+    class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm overflow-y-auto overscroll-contain"
     data-theme={isDarkMode ? 'dark' : 'light'}
     onclick={(e) => {
         if (e.target === e.currentTarget) {
@@ -2137,14 +2205,34 @@
         </div>
 
         {#if showTagDropdown}
-            <div class="absolute inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-                <div class="w-full max-w-md mx-6 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden animate-in fade-in zoom-in-95">
+            <div
+                class="absolute inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 overscroll-contain touch-none"
+                onclick={(e) => {
+                    if (e.target === e.currentTarget && !updatingTag) {
+                        showTagDropdown = false;
+                    }
+                }}
+                onkeydown={(e) => {
+                    if ((e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget && !updatingTag) {
+                        e.preventDefault();
+                        showTagDropdown = false;
+                    }
+                }}
+                role="button"
+                tabindex="0"
+            >
+                <div
+                    class="w-full max-w-md mx-2 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden animate-in fade-in zoom-in-95 touch-pan-y"
+                    aria-busy={updatingTag}
+                >
                     <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
                         <h4 class="text-sm font-black text-slate-800 dark:text-slate-100 uppercase tracking-widest">
                             {$_('actions.manual_tag')}
                         </h4>
                         <button
+                            type="button"
                             onclick={() => showTagDropdown = false}
+                            disabled={updatingTag}
                             class="text-xs font-bold text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
                         >
                             {$_('common.cancel')}
@@ -2154,18 +2242,30 @@
                         <input
                             type="text"
                             bind:value={tagSearchQuery}
+                            disabled={updatingTag}
                             placeholder={$_('detection.tagging.search_placeholder')}
                             class="w-full px-4 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none"
                         />
                     </div>
-                    <div class="max-h-72 overflow-y-auto p-1">
+                    <div class="max-h-72 overflow-y-auto overscroll-contain p-1">
                         {#each searchResults as result}
                             {@const names = getResultNames(result)}
+                            {@const isPending = updatingTag && pendingManualTagId === result.id}
                             <button
-                                onclick={() => handleManualTag(result.id)}
-                                class="w-full px-4 py-2.5 text-left text-sm font-medium rounded-lg transition-all hover:bg-teal-50 dark:hover:bg-teal-900/20 hover:text-teal-600 dark:hover:text-teal-400 {result.id === detection.display_name ? 'bg-teal-500/10 text-teal-600 font-bold' : 'text-slate-600 dark:text-slate-300'}"
+                                type="button"
+                                onclick={() => handleManualTag(result)}
+                                disabled={updatingTag}
+                                class="w-full px-4 py-2.5 text-left text-sm font-medium rounded-lg transition-all touch-manipulation hover:bg-teal-50 dark:hover:bg-teal-900/20 hover:text-teal-600 dark:hover:text-teal-400 disabled:opacity-60 disabled:cursor-wait {result.id === detection.display_name ? 'bg-teal-500/10 text-teal-600 font-bold' : 'text-slate-600 dark:text-slate-300'}"
                             >
-                                <span class="block text-sm leading-tight">{names.primary}</span>
+                                <span class="block text-sm leading-tight">
+                                    {names.primary}
+                                    {#if isPending}
+                                        <span class="ml-2 inline-flex items-center gap-1 text-[10px] uppercase tracking-wider text-teal-500">
+                                            <span class="inline-block h-2 w-2 rounded-full border border-current border-t-transparent animate-spin"></span>
+                                            {$_('common.saving')}
+                                        </span>
+                                    {/if}
+                                </span>
                                 {#if names.secondary}
                                     <span class="block text-[11px] text-slate-400 dark:text-slate-400 italic">{names.secondary}</span>
                                 {/if}
