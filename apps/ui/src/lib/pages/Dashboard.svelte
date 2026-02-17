@@ -92,16 +92,25 @@
     let modalSubName = $derived(modalNaming.secondary);
 
     function detectionSyncSignature(d: Detection): string {
+        const asText = (value: unknown) => {
+            if (value === null || value === undefined) return '';
+            return String(value);
+        };
+        const asNumber = (value: unknown) => {
+            const parsed = Number(value);
+            return Number.isFinite(parsed) ? String(parsed) : '';
+        };
+        const asFlag = (value: unknown) => (value ? '1' : '0');
         return [
-            d.frigate_event,
-            d.display_name,
-            d.score,
-            d.manual_tagged,
-            d.is_hidden,
-            d.is_favorite,
-            d.video_classification_status,
-            d.video_classification_label,
-            d.video_classification_score
+            asText(d.frigate_event),
+            asText(d.display_name),
+            asNumber(d.score),
+            asFlag(d.manual_tagged),
+            asFlag(d.is_hidden),
+            asFlag(d.is_favorite),
+            asText(d.video_classification_status),
+            asText(d.video_classification_label),
+            asNumber(d.video_classification_score)
         ].join('|');
     }
 
@@ -180,8 +189,14 @@
             (d) => d.frigate_event === selectedEvent?.frigate_event
         );
         // Avoid proxy-identity churn causing a self-triggering effect loop.
-        if (updated && detectionSyncSignature(updated) !== detectionSyncSignature(selectedEvent)) {
-            selectedEvent = updated;
+        if (updated) {
+            const definedPatch = Object.fromEntries(
+                Object.entries(updated).filter(([, value]) => value !== undefined)
+            ) as Partial<Detection>;
+            const merged = { ...selectedEvent, ...definedPatch } as Detection;
+            if (detectionSyncSignature(merged) !== detectionSyncSignature(selectedEvent)) {
+                selectedEvent = merged;
+            }
         }
     });
 
