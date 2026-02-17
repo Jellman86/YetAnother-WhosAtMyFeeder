@@ -92,8 +92,7 @@
             d.is_favorite,
             d.video_classification_status,
             d.video_classification_label,
-            d.video_classification_score,
-            d.has_clip
+            d.video_classification_score
         ].join('|');
     }
 

@@ -81,10 +81,14 @@ class DetectionsStore {
         }
 
         const index = this.detections.findIndex(d => d.frigate_event === updated.frigate_event);
+        const definedPatch = Object.fromEntries(
+            Object.entries(updated).filter(([, value]) => value !== undefined)
+        ) as Partial<Detection>;
         if (index !== -1) {
-            this.detections[index] = { ...this.detections[index], ...updated };
+            // Preserve existing fields when SSE payloads omit optional values.
+            this.detections[index] = { ...this.detections[index], ...definedPatch };
         } else if (!updated.is_hidden) {
-            this.addDetection(updated);
+            this.addDetection(definedPatch as Detection);
         }
     }
 
