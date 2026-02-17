@@ -59,6 +59,14 @@ The following is a set of guidelines for contributing to Yet Another WhosAtMyFee
 *   **TypeScript/Svelte:** Use standard Prettier formatting.
 *   **Commits:** Please write clear, concise commit messages.
 
+## 🔔 UI Notification Rules (Toast vs Notification Center)
+
+*   **Toasts (`toastStore`)** are for short-lived feedback from a direct user action in the current view.
+*   **Notifications (`notificationCenter`)** are for persistent/background/system events and progress users may revisit.
+*   Do not send high-frequency progress updates to toasts.
+*   For long-running jobs, update one stable notification id (`upsert`) instead of creating many cards.
+*   If a completion/error toast is shown for a background job, emit only one deduped terminal toast per job/state.
+
 ## 🐛 Reporting Bugs
 
 Bugs are tracked as GitHub issues. When filing an issue, please include:
