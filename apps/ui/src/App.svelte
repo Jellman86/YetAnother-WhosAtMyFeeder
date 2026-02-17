@@ -104,6 +104,8 @@
   });
 
   const STALE_PROCESS_MAX_AGE_MS = 45 * 60 * 1000;
+  const RECLASSIFY_PROGRESS_ID = 'reclassify:progress';
+  const activeReclassifyEvents = new Set<string>();
 
   // Handle back button and initial load
   onMount(() => {
@@ -329,18 +331,44 @@
       });
   }
 
+  function markReclassifyStarted(eventId: string) {
+      activeReclassifyEvents.add(eventId);
+  }
+
+  function markReclassifyCompleted(eventId: string) {
+      activeReclassifyEvents.delete(eventId);
+  }
+
   function updateReclassifyProgress(eventId: string, current: number, total: number) {
       if (!shouldNotify()) return;
-      const id = `reclassify:progress:${eventId}`;
-      const signature = `${eventId}|${current}|${total}`;
-      if (!applyNotificationPolicy(id, signature, 1200)) return;
-      const title = t('notifications.event_reclassify');
-      const message = t('notifications.event_reclassify_progress', {
-          current: current.toLocaleString(),
-          total: total.toLocaleString()
-      });
+      const parsedCurrent = Number.isFinite(current) ? Math.max(0, Math.floor(current)) : 0;
+      const parsedTotal = Number.isFinite(total) ? Math.max(0, Math.floor(total)) : 0;
+      const activeCount = activeReclassifyEvents.size;
+      const isBatch = activeCount > 1;
+
+      // Avoid creating noisy/stuck progress cards when SSE starts with unknown frame totals.
+      if (!isBatch && parsedCurrent <= 0 && parsedTotal <= 0) return;
+
+      const normalizedTotal = parsedTotal > 0 ? parsedTotal : Math.max(1, parsedCurrent);
+      const normalizedCurrent = Math.min(normalizedTotal, parsedCurrent);
+      const signature = isBatch
+          ? `batch|${activeCount}`
+          : `single|${eventId}|${normalizedCurrent}|${normalizedTotal}`;
+      if (!applyNotificationPolicy(RECLASSIFY_PROGRESS_ID, signature, 1200)) return;
+      // Collapse any legacy per-event progress cards into a single active status card.
+      removeNotificationsByPrefix('reclassify:progress');
+
+      const title = isBatch
+          ? t('settings.data.batch_analysis_title')
+          : t('actions.reclassify');
+      const message = isBatch
+          ? `${t('settings.data.batch_analysis_active')}: ${activeCount.toLocaleString()}`
+          : t('notifications.event_reclassify_progress', {
+              current: normalizedCurrent.toLocaleString(),
+              total: normalizedTotal.toLocaleString()
+          });
       notificationCenter.upsert({
-          id,
+          id: RECLASSIFY_PROGRESS_ID,
           type: 'process',
           title,
           message,
@@ -348,17 +376,20 @@
           read: false,
           meta: {
               source: 'sse',
-              route: `/events?event=${encodeURIComponent(eventId)}`,
-              event_id: eventId,
-              current,
-              total,
+              route: isBatch ? '/settings#data' : `/events?event=${encodeURIComponent(eventId)}`,
+              event_id: isBatch ? undefined : eventId,
+              current: isBatch ? undefined : normalizedCurrent,
+              total: isBatch ? undefined : normalizedTotal,
               open_label: t('notifications.open_action')
           }
       });
   }
 
   function clearReclassifyProgressNotification(eventId: string) {
-      notificationCenter.remove(`reclassify:progress:${eventId}`);
+      markReclassifyCompleted(eventId);
+      if (activeReclassifyEvents.size <= 0) {
+          removeNotificationsByPrefix('reclassify:progress');
+      }
   }
 
   function updateBackfillNotification(payload: any) {
@@ -596,6 +627,7 @@
                              logger.warn("SSE invalid reclassification_started payload", { payload });
                              return;
                          }
+                         markReclassifyStarted(payload.data.event_id);
                          detectionsStore.startReclassification(
                              payload.data.event_id,
                              payload.data.total_frames ?? 15
