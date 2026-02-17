@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { onMount } from 'svelte';
+    import { onDestroy, onMount } from 'svelte';
     import {
         fetchEvents,
         fetchEventFilters,
@@ -69,6 +69,8 @@
     $effect(() => {
         llmReady = settingsStore.llmReady;
     });
+
+    let eventsSyncFrame: number | null = null;
 
     // Naming logic
     let naming = $derived.by(() => {
@@ -175,6 +177,38 @@
         }
     }
 
+    async function loadEventMetadata(): Promise<boolean> {
+        let shouldReloadEvents = false;
+        try {
+            const [filters, labels, hidden] = await Promise.all([
+                fetchEventFilters(),
+                fetchClassifierLabels().catch(() => ({ labels: [] })),
+                fetchHiddenCount().catch(() => ({ hidden_count: 0 }))
+            ]);
+            availableSpecies = (filters as EventFilters).species;
+            availableCameras = (filters as EventFilters).cameras;
+            classifierLabels = labels.labels;
+            hiddenCount = hidden.hidden_count;
+
+            if (speciesFilter && !speciesFilter.startsWith('taxa:')) {
+                const normalized = speciesFilter.toLowerCase();
+                const match = availableSpecies.find((s) => {
+                    const display = String(s.display_name || '').toLowerCase();
+                    const sci = String(s.scientific_name || '').toLowerCase();
+                    const common = String(s.common_name || '').toLowerCase();
+                    return display === normalized || sci === normalized || common === normalized;
+                });
+                if (match && match.value !== speciesFilter) {
+                    speciesFilter = match.value;
+                    shouldReloadEvents = true;
+                }
+            }
+        } catch {
+            // Metadata failures should not block event rendering.
+        }
+        return shouldReloadEvents;
+    }
+
     onMount(async () => {
         const params = new URLSearchParams(window.location.search);
         if (params.get('species')) speciesFilter = params.get('species')!;
@@ -202,29 +236,14 @@
             return;
         }
 
-        try {
-            const [filters, labels, hidden] = await Promise.all([
-                fetchEventFilters(), 
-                fetchClassifierLabels().catch(() => ({labels:[]})), 
-                fetchHiddenCount().catch(() => ({hidden_count:0}))
-            ]);
-            availableSpecies = (filters as EventFilters).species;
-            availableCameras = (filters as EventFilters).cameras;
-            classifierLabels = labels.labels;
-            hiddenCount = hidden.hidden_count;
-
-            if (speciesFilter && !speciesFilter.startsWith('taxa:')) {
-                const normalized = speciesFilter.toLowerCase();
-                const match = availableSpecies.find((s) => {
-                    const display = String(s.display_name || '').toLowerCase();
-                    const sci = String(s.scientific_name || '').toLowerCase();
-                    const common = String(s.common_name || '').toLowerCase();
-                    return display === normalized || sci === normalized || common === normalized;
-                });
-                if (match) speciesFilter = match.value;
-            }
-        } catch {}
+        const metadataTask = loadEventMetadata();
         await loadEvents();
+
+        const shouldReloadEvents = await metadataTask;
+        if (shouldReloadEvents) {
+            currentPage = 1;
+            await loadEvents();
+        }
     });
 
     // Reset state when switching events
@@ -254,7 +273,7 @@
         }
     });
 
-    $effect(() => {
+    function applyStoreUpdatesToEventList() {
         if (!events.length) return;
         if (!detectionsStore.detections.length) return;
         const updatesById = new Map(detectionsStore.detections.map((d) => [d.frigate_event, d] as const));
@@ -274,6 +293,34 @@
         });
         if (changed) {
             events = nextEvents;
+        }
+    }
+
+    function scheduleEventListSync() {
+        if (typeof window === 'undefined') {
+            applyStoreUpdatesToEventList();
+            return;
+        }
+        if (eventsSyncFrame !== null) return;
+        eventsSyncFrame = window.requestAnimationFrame(() => {
+            eventsSyncFrame = null;
+            applyStoreUpdatesToEventList();
+        });
+    }
+
+    $effect(() => {
+        if (loading) return;
+        if (!events.length) return;
+        if (!detectionsStore.detections.length) return;
+        const _mutationVersion = detectionsStore.mutationVersion;
+        void _mutationVersion;
+        scheduleEventListSync();
+    });
+
+    onDestroy(() => {
+        if (eventsSyncFrame !== null && typeof window !== 'undefined') {
+            window.cancelAnimationFrame(eventsSyncFrame);
+            eventsSyncFrame = null;
         }
     });
 

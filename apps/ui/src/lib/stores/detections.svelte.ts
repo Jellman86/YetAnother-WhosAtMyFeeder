@@ -31,9 +31,14 @@ class DetectionsStore {
     isLoading = $state(false);
     connected = $state(false);
     progressMap = $state<Map<string, ReclassificationProgress>>(new Map());
+    mutationVersion = $state(0);
 
     private MAX_ITEMS = 50;
     private MAX_RECLASSIFICATION_FRAMES = 240;
+
+    private markMutated() {
+        this.mutationVersion += 1;
+    }
 
     async loadInitial() {
         this.isLoading = true;
@@ -55,6 +60,7 @@ class DetectionsStore {
             ]);
             this.detections = recent;
             this.totalToday = countResult.count;
+            this.markMutated();
         } catch (e) {
             if (isTransientRequestError(e)) {
                 logger.warn('Initial detections fetch failed (transient)', {
@@ -76,6 +82,7 @@ class DetectionsStore {
         if (!this.detections.find(d => d.frigate_event === detection.frigate_event)) {
             this.detections = [detection, ...this.detections].slice(0, this.MAX_ITEMS);
             this.totalToday++;
+            this.markMutated();
         }
     }
 
@@ -95,6 +102,7 @@ class DetectionsStore {
             const changed = definedEntries.some(([key, value]) => (existing as any)[key] !== value);
             if (!changed) return;
             this.detections[index] = { ...existing, ...definedPatch };
+            this.markMutated();
         } else if (!updated.is_hidden) {
             this.addDetection(definedPatch as Detection);
         }
@@ -104,6 +112,7 @@ class DetectionsStore {
         const wasInList = this.detections.find(d => d.frigate_event === eventId);
         if (wasInList) {
             this.detections = this.detections.filter(d => d.frigate_event !== eventId);
+            this.markMutated();
         }
 
         const today = new Date().toISOString().split('T')[0];
