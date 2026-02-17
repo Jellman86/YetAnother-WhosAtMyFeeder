@@ -1134,50 +1134,70 @@ async def _purge_missing_media(kind: Literal["clip", "snapshot"]) -> dict:
     }
 
 
-def _parse_positive_int(value: object) -> int | None:
+def _parse_positive_days(value: object) -> float | None:
     try:
-        parsed = int(value)
+        parsed = float(value)
     except (TypeError, ValueError):
         return None
     return parsed if parsed > 0 else None
 
 
-def _extract_record_retention_days(record_cfg: object) -> int | None:
+def _collect_retain_days(node: object) -> list[float]:
+    """Collect positive day values from retain-like Frigate config blocks."""
+    if not isinstance(node, dict):
+        return []
+    values: list[float] = []
+
+    for key in ("days", "default"):
+        parsed = _parse_positive_days(node.get(key))
+        if parsed is not None:
+            values.append(parsed)
+
+    # Handle object-level retention maps, e.g. retain.objects.bird: 7
+    objects_cfg = node.get("objects")
+    if isinstance(objects_cfg, dict):
+        for obj_val in objects_cfg.values():
+            parsed = _parse_positive_days(obj_val)
+            if parsed is not None:
+                values.append(parsed)
+
+    return values
+
+
+def _extract_record_retention_days(record_cfg: object) -> float | None:
     """Best-effort extraction of recording/event retention days from Frigate config."""
     if not isinstance(record_cfg, dict):
         return None
 
-    candidates: list[int] = []
-    direct_days = _parse_positive_int(record_cfg.get("days"))
+    candidates: list[float] = []
+    direct_days = _parse_positive_days(record_cfg.get("days"))
     if direct_days is not None:
         candidates.append(direct_days)
 
-    retain_cfg = record_cfg.get("retain")
-    if isinstance(retain_cfg, dict):
-        retain_days = _parse_positive_int(retain_cfg.get("days"))
-        if retain_days is not None:
-            candidates.append(retain_days)
+    candidates.extend(_collect_retain_days(record_cfg.get("retain")))
 
-    events_cfg = record_cfg.get("events")
-    if isinstance(events_cfg, dict):
-        events_retain = events_cfg.get("retain")
-        if isinstance(events_retain, dict):
-            # Frigate commonly uses events.retain.default for event clip retention.
-            default_days = _parse_positive_int(events_retain.get("default"))
-            if default_days is not None:
-                candidates.append(default_days)
-            events_days = _parse_positive_int(events_retain.get("days"))
-            if events_days is not None:
-                candidates.append(events_days)
+    # Frigate commonly stores clip retention under detections/alerts blocks.
+    for key in ("detections", "alerts", "events"):
+        section = record_cfg.get(key)
+        if isinstance(section, dict):
+            section_days = _parse_positive_days(section.get("days"))
+            if section_days is not None:
+                candidates.append(section_days)
+            candidates.extend(_collect_retain_days(section.get("retain")))
+
+    # Some configs expose export retention as well.
+    export_cfg = record_cfg.get("export")
+    if isinstance(export_cfg, dict):
+        candidates.extend(_collect_retain_days(export_cfg.get("retain")))
 
     return max(candidates) if candidates else None
 
 
-def _get_camera_retention_days(frigate_config: object, camera_name: str) -> int | None:
+def _get_camera_retention_days(frigate_config: object, camera_name: str) -> float | None:
     if not isinstance(frigate_config, dict):
         return None
 
-    candidates: list[int] = []
+    candidates: list[float] = []
     global_record = _extract_record_retention_days(frigate_config.get("record"))
     if global_record is not None:
         candidates.append(global_record)
