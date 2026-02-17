@@ -81,6 +81,12 @@
         handleAnalyzeUnknowns: () => Promise<void>;
         handleResetDatabase: () => Promise<void>;
     } = $props();
+
+    const safeCount = (value: unknown): number => {
+        const parsed = Number(value ?? 0);
+        return Number.isFinite(parsed) ? Math.max(0, Math.floor(parsed)) : 0;
+    };
+    const fmtCount = (value: unknown): string => safeCount(value).toLocaleString();
 </script>
 
 <div class="space-y-6">
@@ -88,10 +94,10 @@
     {#if maintenanceStats}
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
             {#each [
-                { label: $_('settings.data.records'), val: maintenanceStats.total_detections.toLocaleString(), color: 'text-teal-500' },
+                { label: $_('settings.data.records'), val: fmtCount(maintenanceStats.total_detections), color: 'text-teal-500' },
                 { label: $_('settings.data.oldest'), val: maintenanceStats.oldest_detection ? formatDate(maintenanceStats.oldest_detection) : 'N/A', color: 'text-blue-500' },
                 { label: $_('settings.data.retention'), val: retentionDays === 0 ? '∞' : `${retentionDays} ${$_('leaderboard.days')}`, color: 'text-indigo-500' },
-                { label: $_('settings.data.pending_gc'), val: maintenanceStats.detections_to_cleanup.toLocaleString(), color: maintenanceStats.detections_to_cleanup > 0 ? 'text-amber-500' : 'text-slate-400' }
+                { label: $_('settings.data.pending_gc'), val: fmtCount(maintenanceStats.detections_to_cleanup), color: safeCount(maintenanceStats.detections_to_cleanup) > 0 ? 'text-amber-500' : 'text-slate-400' }
             ] as stat}
                 <div class="card-base rounded-3xl p-6 text-center">
                     <p class="text-2xl font-black {stat.color} tracking-tight">{stat.val}</p>
@@ -330,22 +336,33 @@
 
             {#if backfillResult}
                 {#if backfillTotal > 0}
-                    {@const backfillProgress = Math.min(100, Math.round((backfillResult.processed / backfillTotal) * 100))}
+                    {@const backfillProcessed = safeCount(backfillResult.processed)}
+                    {@const backfillProgress = Math.min(100, Math.round((backfillProcessed / Math.max(1, backfillTotal)) * 100))}
                     <div class="mb-3">
                         <div class="flex items-center justify-between text-[10px] font-bold text-slate-500 mb-2">
-                            <span>{backfillResult.processed.toLocaleString()} / {backfillTotal.toLocaleString()}</span>
+                            <span>{fmtCount(backfillProcessed)} / {fmtCount(backfillTotal)}</span>
                             <span>{backfillProgress}%</span>
                         </div>
                         <div class="h-2 rounded-full bg-slate-200/80 dark:bg-slate-800/80 overflow-hidden">
                             <div class="h-full bg-teal-500 transition-all" style={`width: ${backfillProgress}%`}></div>
                         </div>
                     </div>
+                {:else if backfilling}
+                    <div class="mb-3">
+                        <div class="flex items-center justify-between text-[10px] font-bold text-slate-500 mb-2">
+                            <span>{fmtCount(backfillResult.processed)} / ?</span>
+                            <span>{$_('settings.data.backfill_scanning')}</span>
+                        </div>
+                        <div class="h-2 rounded-full bg-slate-200/80 dark:bg-slate-800/80 overflow-hidden">
+                            <div class="h-full w-1/3 bg-teal-500/80 animate-pulse"></div>
+                        </div>
+                    </div>
                 {/if}
                 <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 grid grid-cols-4 gap-2 text-center">
-                    <div><p class="text-sm font-black text-slate-900 dark:text-white">{backfillResult.processed}</p><p class="text-[8px] font-black uppercase text-slate-500 tracking-tighter">{$_('settings.data.backfill_total')}</p></div>
-                    <div><p class="text-sm font-black text-emerald-500">{backfillResult.new_detections}</p><p class="text-[8px] font-black uppercase text-slate-500 tracking-tighter">{$_('settings.data.backfill_new')}</p></div>
-                    <div><p class="text-sm font-black text-slate-400">{backfillResult.skipped}</p><p class="text-[8px] font-black uppercase text-slate-500 tracking-tighter">{$_('settings.data.backfill_skip')}</p></div>
-                    <div><p class="text-sm font-black text-red-500">{backfillResult.errors}</p><p class="text-[8px] font-black uppercase text-slate-500 tracking-tighter">{$_('settings.data.backfill_err')}</p></div>
+                    <div><p class="text-sm font-black text-slate-900 dark:text-white">{safeCount(backfillResult.processed)}</p><p class="text-[8px] font-black uppercase text-slate-500 tracking-tighter">{$_('settings.data.backfill_total')}</p></div>
+                    <div><p class="text-sm font-black text-emerald-500">{safeCount(backfillResult.new_detections)}</p><p class="text-[8px] font-black uppercase text-slate-500 tracking-tighter">{$_('settings.data.backfill_new')}</p></div>
+                    <div><p class="text-sm font-black text-slate-400">{safeCount(backfillResult.skipped)}</p><p class="text-[8px] font-black uppercase text-slate-500 tracking-tighter">{$_('settings.data.backfill_skip')}</p></div>
+                    <div><p class="text-sm font-black text-red-500">{safeCount(backfillResult.errors)}</p><p class="text-[8px] font-black uppercase text-slate-500 tracking-tighter">{$_('settings.data.backfill_err')}</p></div>
                 </div>
                 {#if backfillResult.skipped_reasons && Object.keys(backfillResult.skipped_reasons).length > 0}
                     <div class="mt-2 p-3 rounded-xl bg-slate-50/50 dark:bg-slate-900/30 border border-slate-100 dark:border-slate-700/30">
@@ -383,22 +400,33 @@
                 <p class="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-3">{$_('settings.data.weather_backfill_title')}</p>
                 {#if weatherBackfillResult}
                     {#if weatherBackfillTotal > 0}
-                        {@const weatherProgress = Math.min(100, Math.round((weatherBackfillResult.processed / weatherBackfillTotal) * 100))}
+                        {@const weatherProcessed = safeCount(weatherBackfillResult.processed)}
+                        {@const weatherProgress = Math.min(100, Math.round((weatherProcessed / Math.max(1, weatherBackfillTotal)) * 100))}
                         <div class="mb-3">
                             <div class="flex items-center justify-between text-[10px] font-bold text-slate-500 mb-2">
-                                <span>{weatherBackfillResult.processed.toLocaleString()} / {weatherBackfillTotal.toLocaleString()}</span>
+                                <span>{fmtCount(weatherProcessed)} / {fmtCount(weatherBackfillTotal)}</span>
                                 <span>{weatherProgress}%</span>
                             </div>
                             <div class="h-2 rounded-full bg-slate-200/80 dark:bg-slate-800/80 overflow-hidden">
                                 <div class="h-full bg-slate-700 transition-all" style={`width: ${weatherProgress}%`}></div>
                             </div>
                         </div>
+                    {:else if weatherBackfilling}
+                        <div class="mb-3">
+                            <div class="flex items-center justify-between text-[10px] font-bold text-slate-500 mb-2">
+                                <span>{fmtCount(weatherBackfillResult.processed)} / ?</span>
+                                <span>{$_('settings.data.weather_backfill_filling')}</span>
+                            </div>
+                            <div class="h-2 rounded-full bg-slate-200/80 dark:bg-slate-800/80 overflow-hidden">
+                                <div class="h-full w-1/3 bg-slate-700/80 animate-pulse"></div>
+                            </div>
+                        </div>
                     {/if}
                     <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 grid grid-cols-4 gap-2 text-center mb-3">
-                        <div><p class="text-sm font-black text-slate-900 dark:text-white">{weatherBackfillResult.processed}</p><p class="text-[8px] font-black uppercase text-slate-500 tracking-tighter">{$_('settings.data.backfill_total')}</p></div>
-                        <div><p class="text-sm font-black text-emerald-500">{weatherBackfillResult.updated}</p><p class="text-[8px] font-black uppercase text-slate-500 tracking-tighter">Upd</p></div>
-                        <div><p class="text-sm font-black text-slate-400">{weatherBackfillResult.skipped}</p><p class="text-[8px] font-black uppercase text-slate-500 tracking-tighter">{$_('settings.data.backfill_skip')}</p></div>
-                        <div><p class="text-sm font-black text-red-500">{weatherBackfillResult.errors}</p><p class="text-[8px] font-black uppercase text-slate-500 tracking-tighter">{$_('settings.data.backfill_err')}</p></div>
+                        <div><p class="text-sm font-black text-slate-900 dark:text-white">{safeCount(weatherBackfillResult.processed)}</p><p class="text-[8px] font-black uppercase text-slate-500 tracking-tighter">{$_('settings.data.backfill_total')}</p></div>
+                        <div><p class="text-sm font-black text-emerald-500">{safeCount(weatherBackfillResult.updated)}</p><p class="text-[8px] font-black uppercase text-slate-500 tracking-tighter">Upd</p></div>
+                        <div><p class="text-sm font-black text-slate-400">{safeCount(weatherBackfillResult.skipped)}</p><p class="text-[8px] font-black uppercase text-slate-500 tracking-tighter">{$_('settings.data.backfill_skip')}</p></div>
+                        <div><p class="text-sm font-black text-red-500">{safeCount(weatherBackfillResult.errors)}</p><p class="text-[8px] font-black uppercase text-slate-500 tracking-tighter">{$_('settings.data.backfill_err')}</p></div>
                     </div>
                 {/if}
                 <button

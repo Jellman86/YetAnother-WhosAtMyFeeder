@@ -105,7 +105,11 @@
 
   const STALE_PROCESS_MAX_AGE_MS = 45 * 60 * 1000;
   const RECLASSIFY_PROGRESS_ID = 'reclassify:progress';
+  const LEGACY_RECLASSIFY_PROGRESS_PREFIX = 'reclassify:progress:';
   const activeReclassifyEvents = new Set<string>();
+  const reclassifyProgressByEvent = new Map<string, { current: number; total: number }>();
+  let reclassifyStartedCount = 0;
+  let reclassifyCompletedCount = 0;
 
   // Handle back button and initial load
   onMount(() => {
@@ -331,38 +335,69 @@
       });
   }
 
-  function markReclassifyStarted(eventId: string) {
+  function markReclassifyStarted(eventId: string, totalFrames: number = 0) {
+      const normalizedTotal = Number.isFinite(totalFrames) ? Math.max(0, Math.floor(totalFrames)) : 0;
+      if (!activeReclassifyEvents.has(eventId) && activeReclassifyEvents.size === 0) {
+          reclassifyStartedCount = 0;
+          reclassifyCompletedCount = 0;
+      }
+      if (!activeReclassifyEvents.has(eventId)) {
+          reclassifyStartedCount += 1;
+      }
       activeReclassifyEvents.add(eventId);
+      if (!reclassifyProgressByEvent.has(eventId)) {
+          reclassifyProgressByEvent.set(eventId, { current: 0, total: normalizedTotal });
+      }
   }
 
   function markReclassifyCompleted(eventId: string) {
-      activeReclassifyEvents.delete(eventId);
+      const wasActive = activeReclassifyEvents.delete(eventId);
+      reclassifyProgressByEvent.delete(eventId);
+      if (wasActive) {
+          reclassifyCompletedCount = Math.min(reclassifyStartedCount, reclassifyCompletedCount + 1);
+      }
   }
 
   function updateReclassifyProgress(eventId: string, current: number, total: number) {
       if (!shouldNotify()) return;
       const parsedCurrent = Number.isFinite(current) ? Math.max(0, Math.floor(current)) : 0;
       const parsedTotal = Number.isFinite(total) ? Math.max(0, Math.floor(total)) : 0;
+      if (!activeReclassifyEvents.has(eventId)) {
+          markReclassifyStarted(eventId, parsedTotal);
+      }
       const activeCount = activeReclassifyEvents.size;
-      const isBatch = activeCount > 1;
+      const isBatch = reclassifyStartedCount > 1 || activeCount > 1;
 
       // Avoid creating noisy/stuck progress cards when SSE starts with unknown frame totals.
       if (!isBatch && parsedCurrent <= 0 && parsedTotal <= 0) return;
 
       const normalizedTotal = parsedTotal > 0 ? parsedTotal : Math.max(1, parsedCurrent);
       const normalizedCurrent = Math.min(normalizedTotal, parsedCurrent);
+      reclassifyProgressByEvent.set(eventId, { current: normalizedCurrent, total: normalizedTotal });
+
+      let activeProgressCurrent = 0;
+      let activeProgressTotal = 0;
+      for (const progress of reclassifyProgressByEvent.values()) {
+          activeProgressCurrent += progress.current;
+          activeProgressTotal += progress.total > 0 ? progress.total : 1;
+      }
+      const startedTotal = Math.max(reclassifyStartedCount, reclassifyCompletedCount + activeCount);
+      const activeFraction = activeProgressTotal > 0 ? (activeProgressCurrent / activeProgressTotal) : 0;
+      const batchCurrentUnits = reclassifyCompletedCount + Math.min(1, Math.max(0, activeFraction));
+      const batchCurrent = Math.round(batchCurrentUnits * 100);
+      const batchTotal = Math.max(100, startedTotal * 100);
       const signature = isBatch
-          ? `batch|${activeCount}`
+          ? `batch|${reclassifyCompletedCount}|${startedTotal}|${activeProgressCurrent}|${activeProgressTotal}`
           : `single|${eventId}|${normalizedCurrent}|${normalizedTotal}`;
       if (!applyNotificationPolicy(RECLASSIFY_PROGRESS_ID, signature, 1200)) return;
       // Collapse any legacy per-event progress cards into a single active status card.
-      removeNotificationsByPrefix('reclassify:progress');
+      removeNotificationsByPrefix(LEGACY_RECLASSIFY_PROGRESS_PREFIX);
 
       const title = isBatch
           ? t('settings.data.batch_analysis_title')
           : t('actions.reclassify');
       const message = isBatch
-          ? `${t('settings.data.batch_analysis_active')}: ${activeCount.toLocaleString()}`
+          ? `${t('settings.data.batch_analysis_active')}: ${activeCount.toLocaleString()} • ${reclassifyCompletedCount.toLocaleString()}/${startedTotal.toLocaleString()}`
           : t('notifications.event_reclassify_progress', {
               current: normalizedCurrent.toLocaleString(),
               total: normalizedTotal.toLocaleString()
@@ -378,8 +413,8 @@
               source: 'sse',
               route: isBatch ? '/settings#data' : `/events?event=${encodeURIComponent(eventId)}`,
               event_id: isBatch ? undefined : eventId,
-              current: isBatch ? undefined : normalizedCurrent,
-              total: isBatch ? undefined : normalizedTotal,
+              current: isBatch ? batchCurrent : normalizedCurrent,
+              total: isBatch ? batchTotal : normalizedTotal,
               open_label: t('notifications.open_action')
           }
       });
@@ -389,6 +424,9 @@
       markReclassifyCompleted(eventId);
       if (activeReclassifyEvents.size <= 0) {
           removeNotificationsByPrefix('reclassify:progress');
+          reclassifyStartedCount = 0;
+          reclassifyCompletedCount = 0;
+          reclassifyProgressByEvent.clear();
       }
   }
 
@@ -399,11 +437,15 @@
       const jobId = data.id ?? data.job_id ?? 'unknown';
       const kind = data.kind ?? 'detections';
       const isWeather = kind === 'weather';
-      const total = data.total ?? 0;
-      const processed = data.processed ?? 0;
-      const updated = data.updated ?? data.new_detections ?? 0;
-      const skipped = data.skipped ?? 0;
-      const errors = data.errors ?? 0;
+      const total = Number.isFinite(Number(data.total)) ? Math.max(0, Math.floor(Number(data.total))) : 0;
+      const processed = Number.isFinite(Number(data.processed)) ? Math.max(0, Math.floor(Number(data.processed))) : 0;
+      const updated = Number.isFinite(Number(data.updated ?? data.new_detections))
+          ? Math.max(0, Math.floor(Number(data.updated ?? data.new_detections)))
+          : 0;
+      const skipped = Number.isFinite(Number(data.skipped)) ? Math.max(0, Math.floor(Number(data.skipped))) : 0;
+      const errors = Number.isFinite(Number(data.errors)) ? Math.max(0, Math.floor(Number(data.errors))) : 0;
+      const hasOngoingState = payload.type === 'backfill_progress' || payload.type === 'backfill_started';
+      const normalizedTotal = total > 0 ? total : (hasOngoingState ? Math.max(1, processed) : 0);
 
       let title = isWeather ? t('notifications.event_weather_backfill') : t('notifications.event_backfill');
       if (payload.type === 'backfill_complete') {
@@ -415,7 +457,7 @@
 
       let message = '';
       if (payload.type === 'backfill_progress' || payload.type === 'backfill_started') {
-          message = `${processed.toLocaleString()}/${total.toLocaleString()} • ${updated.toLocaleString()} upd • ${skipped.toLocaleString()} skip • ${errors.toLocaleString()} err`;
+          message = `${processed.toLocaleString()}/${normalizedTotal.toLocaleString()} • ${updated.toLocaleString()} upd • ${skipped.toLocaleString()} skip • ${errors.toLocaleString()} err`;
       } else if (payload.type === 'backfill_complete') {
           message = data.message || `${updated.toLocaleString()} updated, ${skipped.toLocaleString()} skipped, ${errors.toLocaleString()} errors`;
       } else if (payload.type === 'backfill_failed') {
@@ -439,7 +481,7 @@
               route: '/settings',
               kind,
               processed,
-              total
+              total: normalizedTotal
           }
       });
   }
@@ -627,7 +669,7 @@
                              logger.warn("SSE invalid reclassification_started payload", { payload });
                              return;
                          }
-                         markReclassifyStarted(payload.data.event_id);
+                         markReclassifyStarted(payload.data.event_id, payload.data.total_frames ?? 0);
                          detectionsStore.startReclassification(
                              payload.data.event_id,
                              payload.data.total_frames ?? 15

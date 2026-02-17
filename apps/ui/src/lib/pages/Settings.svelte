@@ -56,6 +56,7 @@
     import { settingsStore } from '../stores/settings.svelte';
     import { authStore } from '../stores/auth.svelte';
     import { toastStore } from '../stores/toast.svelte';
+    import { notificationPolicy } from '../notifications/policy';
     import { _, locale } from 'svelte-i18n';
     import { get } from 'svelte/store';
     import SettingsTabs from '../components/settings/SettingsTabs.svelte';
@@ -1336,8 +1337,48 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     let currentFontTheme = $state<import('../stores/theme.svelte').FontTheme>('default');
     let lastFeedbackKey = $state('');
     let lastFeedbackAt = $state(0);
+    const BACKFILL_TOAST_THROTTLE_MS = 6 * 60 * 60 * 1000;
 
     const normalizeSecret = (value?: string | null) => value === '***REDACTED***' ? '' : (value || '');
+    const safeCount = (value: unknown): number => {
+        const parsed = Number(value ?? 0);
+        return Number.isFinite(parsed) ? Math.max(0, Math.floor(parsed)) : 0;
+    };
+    const mergeBackfillTotal = (previous: number, status: BackfillJobStatus | null): number => {
+        if (!status) return previous;
+        const total = safeCount(status.total);
+        const processed = safeCount(status.processed);
+        if (total > 0) return Math.max(previous, total);
+        if (processed > 0) return Math.max(previous, processed);
+        if (status.status === 'running') return Math.max(previous, 1);
+        return previous;
+    };
+
+    function emitTerminalBackfillToast(
+        kind: 'detections' | 'weather',
+        status: BackfillJobStatus,
+        type: 'success' | 'error',
+        fallbackText: string
+    ): boolean {
+        const jobId = status.id || 'unknown';
+        const terminalState = status.status === 'completed' ? 'completed' : 'failed';
+        const key = `settings:backfill-toast:${kind}:${jobId}:${terminalState}`;
+        const signature = [
+            terminalState,
+            status.message || '',
+            safeCount(status.processed),
+            safeCount(status.total),
+            safeCount(status.new_detections),
+            safeCount(status.updated),
+            safeCount(status.skipped),
+            safeCount(status.errors)
+        ].join('|');
+        if (!notificationPolicy.shouldEmit(key, signature, BACKFILL_TOAST_THROTTLE_MS)) {
+            return false;
+        }
+        message = { type, text: status.message || fallbackText };
+        return true;
+    }
 
     function handleActionFeedback(type: 'success' | 'error', text: string) {
         message = { type, text };
@@ -1807,7 +1848,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 end_date: backfillDateRange === 'custom' ? backfillEndDate : undefined
             });
             backfillJob = job;
-            backfillTotal = job.total || 0;
+            backfillTotal = mergeBackfillTotal(backfillTotal, job);
             startBackfillPolling();
         } catch (e: any) {
             message = { type: 'error', text: e.message || $_('settings.data.backfill_error') };
@@ -1828,7 +1869,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 only_missing: true
             });
             weatherBackfillJob = job;
-            weatherBackfillTotal = job.total || 0;
+            weatherBackfillTotal = mergeBackfillTotal(weatherBackfillTotal, job);
             startBackfillPolling();
         } catch (e: any) {
             message = { type: 'error', text: e.message || $_('settings.data.weather_backfill_error') };
@@ -1854,19 +1895,20 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 backfillJob = detections;
                 backfillResult = {
                     status: detections.status,
-                    processed: detections.processed,
-                    new_detections: detections.new_detections ?? 0,
-                    skipped: detections.skipped,
-                    errors: detections.errors,
+                    processed: safeCount(detections.processed),
+                    new_detections: safeCount(detections.new_detections),
+                    skipped: safeCount(detections.skipped),
+                    errors: safeCount(detections.errors),
                     message: detections.message || ''
                 };
-                backfillTotal = detections.total || 0;
+                backfillTotal = mergeBackfillTotal(backfillTotal, detections);
                 backfilling = detections.status === 'running';
                 if (detections.status === 'completed') {
-                    message = { type: 'success', text: detections.message || 'Backfill complete' };
-                    await loadMaintenanceStats();
+                    if (emitTerminalBackfillToast('detections', detections, 'success', 'Backfill complete')) {
+                        await loadMaintenanceStats();
+                    }
                 } else if (detections.status === 'failed') {
-                    message = { type: 'error', text: detections.message || 'Backfill failed' };
+                    emitTerminalBackfillToast('detections', detections, 'error', 'Backfill failed');
                 }
             }
 
@@ -1874,18 +1916,18 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 weatherBackfillJob = weather;
                 weatherBackfillResult = {
                     status: weather.status,
-                    processed: weather.processed,
-                    updated: weather.updated ?? 0,
-                    skipped: weather.skipped,
-                    errors: weather.errors,
+                    processed: safeCount(weather.processed),
+                    updated: safeCount(weather.updated),
+                    skipped: safeCount(weather.skipped),
+                    errors: safeCount(weather.errors),
                     message: weather.message || ''
                 };
-                weatherBackfillTotal = weather.total || 0;
+                weatherBackfillTotal = mergeBackfillTotal(weatherBackfillTotal, weather);
                 weatherBackfilling = weather.status === 'running';
                 if (weather.status === 'completed') {
-                    message = { type: 'success', text: weather.message || 'Weather backfill complete' };
+                    emitTerminalBackfillToast('weather', weather, 'success', 'Weather backfill complete');
                 } else if (weather.status === 'failed') {
-                    message = { type: 'error', text: weather.message || 'Weather backfill failed' };
+                    emitTerminalBackfillToast('weather', weather, 'error', 'Weather backfill failed');
                 }
             }
 
