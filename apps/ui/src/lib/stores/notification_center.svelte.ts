@@ -27,6 +27,46 @@ const MAX_ITEMS = 50;
 
 class NotificationCenterStore {
     items = $state<NotificationItem[]>([]);
+    private fallbackCounter = 0;
+
+    private coerceType(value: unknown): NotificationItem['type'] {
+        if (value === 'detection' || value === 'update' || value === 'process' || value === 'system') {
+            return value;
+        }
+        return 'system';
+    }
+
+    private normalize(items: unknown[]): NotificationItem[] {
+        const seen = new Set<string>();
+        const normalized: NotificationItem[] = [];
+        for (const raw of items) {
+            if (!raw || typeof raw !== 'object') continue;
+            const candidate = raw as Partial<NotificationItem>;
+            const rawId = typeof candidate.id === 'string' ? candidate.id.trim() : '';
+            const id = rawId || `notif:fallback:${Date.now()}:${this.fallbackCounter++}`;
+            if (seen.has(id)) continue;
+            seen.add(id);
+            normalized.push({
+                id,
+                type: this.coerceType(candidate.type),
+                title: typeof candidate.title === 'string' && candidate.title.trim().length > 0
+                    ? candidate.title
+                    : 'Notification',
+                message: candidate.message === undefined || candidate.message === null
+                    ? undefined
+                    : String(candidate.message),
+                timestamp: Number.isFinite(Number(candidate.timestamp))
+                    ? Number(candidate.timestamp)
+                    : Date.now(),
+                read: Boolean(candidate.read),
+                meta: candidate.meta && typeof candidate.meta === 'object'
+                    ? candidate.meta
+                    : undefined
+            });
+            if (normalized.length >= MAX_ITEMS) break;
+        }
+        return normalized;
+    }
 
     hydrate() {
         try {
@@ -34,7 +74,7 @@ class NotificationCenterStore {
             if (!raw) return;
             const parsed = JSON.parse(raw);
             if (Array.isArray(parsed)) {
-                this.items = parsed.slice(0, MAX_ITEMS);
+                this.items = this.normalize(parsed);
             }
         } catch {
             // ignore storage errors
@@ -43,31 +83,36 @@ class NotificationCenterStore {
 
     persist() {
         try {
-            window.localStorage.setItem(STORAGE_KEY, JSON.stringify(this.items.slice(0, MAX_ITEMS)));
+            const normalized = this.normalize(this.items);
+            this.items = normalized;
+            window.localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
         } catch {
             // ignore storage errors
         }
     }
 
     add(item: Omit<NotificationItem, 'timestamp' | 'read'> & { timestamp?: number; read?: boolean }) {
-        const entry: NotificationItem = {
+        const rawEntry: NotificationItem = {
             ...item,
             timestamp: item.timestamp ?? Date.now(),
             read: item.read ?? false
         };
-        this.items = [entry, ...this.items].slice(0, MAX_ITEMS);
+        const entry = this.normalize([rawEntry])[0];
+        if (!entry) return '';
+        this.items = this.normalize([entry, ...this.items]);
         this.persist();
         return entry.id;
     }
 
     upsert(item: NotificationItem) {
-        const idx = this.items.findIndex((existing) => existing.id === item.id);
+        const normalized = this.normalize([item])[0];
+        if (!normalized) return;
+        const idx = this.items.findIndex((existing) => existing.id === normalized.id);
+        const next = this.items.filter((existing) => existing.id !== normalized.id);
         if (idx >= 0) {
-            const updated = [...this.items];
-            updated[idx] = item;
-            this.items = updated;
+            this.items = this.normalize([normalized, ...next]);
         } else {
-            this.items = [item, ...this.items].slice(0, MAX_ITEMS);
+            this.items = this.normalize([normalized, ...this.items]);
         }
         this.persist();
     }

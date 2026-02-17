@@ -135,6 +135,25 @@
           };
           window.addEventListener('popstate', handlePopState);
 
+          // Surface actionable diagnostics for production-minified runtime exceptions.
+          const handleWindowError = (event: ErrorEvent) => {
+              const payload = event.error instanceof Error
+                  ? { message: event.error.message, stack: event.error.stack, name: event.error.name }
+                  : { message: event.message, error: event.error };
+              logger.error('window_runtime_error', payload);
+              console.error('window_runtime_error', payload);
+          };
+          const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+              const reason = event.reason;
+              const payload = reason instanceof Error
+                  ? { message: reason.message, stack: reason.stack, name: reason.name }
+                  : { reason };
+              logger.error('window_unhandled_rejection', payload);
+              console.error('window_unhandled_rejection', payload);
+          };
+          window.addEventListener('error', handleWindowError);
+          window.addEventListener('unhandledrejection', handleUnhandledRejection);
+
           const path = window.location.pathname;
           currentRoute = path === '' ? '/' : path;
 
@@ -174,6 +193,8 @@
           // Store cleanup function to return
           cleanupFn = () => {
               window.removeEventListener('popstate', handlePopState);
+              window.removeEventListener('error', handleWindowError);
+              window.removeEventListener('unhandledrejection', handleUnhandledRejection);
               document.removeEventListener('visibilitychange', handleVisibilityChange);
               cleanupShortcuts();
               if (mediaQuery) {
