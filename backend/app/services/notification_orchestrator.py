@@ -204,12 +204,11 @@ class NotificationOrchestrator:
         )
 
         email_only_on_end = (
-            notify_mode == "custom"
+            notify_mode != "silent"
             and settings.notifications.email.enabled
             and settings.notifications.email.only_on_end
             and event_type == "end"
             and detection is not None
-            and not already_notified
         )
 
         if should_notify:

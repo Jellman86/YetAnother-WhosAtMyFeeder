@@ -123,3 +123,73 @@ async def test_notify_after_video_does_not_wait_when_db_is_already_final(monkeyp
     kwargs = orchestrator._send_notification.call_args.kwargs
     assert kwargs["label"] == "Northern Cardinal"
     assert kwargs["score"] == pytest.approx(0.91)
+
+
+@pytest.mark.asyncio
+async def test_handle_notifications_sends_email_on_end_even_if_already_notified(monkeypatch):
+    orchestrator = NotificationOrchestrator()
+    event = _event("evt-email-end")
+    event.type = "end"
+    classification = {
+        "label": "Blue Tit",
+        "score": 0.95,
+        "audio_confirmed": False,
+        "audio_species": None,
+    }
+
+    detection = SimpleNamespace(notified_at=datetime.now(timezone.utc))
+    orchestrator._get_detection = AsyncMock(return_value=detection)  # type: ignore[method-assign]
+    orchestrator._send_notification = AsyncMock(return_value=True)  # type: ignore[method-assign]
+    orchestrator._mark_notified = AsyncMock()  # type: ignore[method-assign]
+
+    monkeypatch.setattr(settings.notifications, "mode", "standard")
+    monkeypatch.setattr(settings.notifications.email, "enabled", True)
+    monkeypatch.setattr(settings.notifications.email, "only_on_end", True)
+    monkeypatch.setattr(settings.classification, "threshold", 0.8)
+
+    await orchestrator.handle_notifications(
+        event=event,
+        classification=classification,
+        snapshot_data=None,
+        changed=False,
+        was_inserted=False,
+    )
+
+    orchestrator._send_notification.assert_awaited_once()
+    kwargs = orchestrator._send_notification.call_args.kwargs
+    assert kwargs["channels"] == ["email"]
+    orchestrator._mark_notified.assert_awaited_once_with(event.frigate_event)
+
+
+@pytest.mark.asyncio
+async def test_handle_notifications_does_not_send_email_on_end_in_silent_mode(monkeypatch):
+    orchestrator = NotificationOrchestrator()
+    event = _event("evt-email-silent")
+    event.type = "end"
+    classification = {
+        "label": "Blue Tit",
+        "score": 0.95,
+        "audio_confirmed": False,
+        "audio_species": None,
+    }
+
+    detection = SimpleNamespace(notified_at=datetime.now(timezone.utc))
+    orchestrator._get_detection = AsyncMock(return_value=detection)  # type: ignore[method-assign]
+    orchestrator._send_notification = AsyncMock(return_value=True)  # type: ignore[method-assign]
+    orchestrator._mark_notified = AsyncMock()  # type: ignore[method-assign]
+
+    monkeypatch.setattr(settings.notifications, "mode", "silent")
+    monkeypatch.setattr(settings.notifications.email, "enabled", True)
+    monkeypatch.setattr(settings.notifications.email, "only_on_end", True)
+    monkeypatch.setattr(settings.classification, "threshold", 0.8)
+
+    await orchestrator.handle_notifications(
+        event=event,
+        classification=classification,
+        snapshot_data=None,
+        changed=False,
+        was_inserted=False,
+    )
+
+    orchestrator._send_notification.assert_not_awaited()
+    orchestrator._mark_notified.assert_not_awaited()
