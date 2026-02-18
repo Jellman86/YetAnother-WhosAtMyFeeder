@@ -596,6 +596,131 @@ def _score_wikipedia_candidate(
     return (name_score * 100) + (scientific_score * 100) + bird_score
 
 
+def _inaturalist_name_match_score(taxon: dict, requested_name: str) -> int:
+    requested_norm = _normalize_lookup_text(requested_name)
+    if not requested_norm:
+        return 0
+
+    best_score = 0
+    requested_tokens = _tokenize_lookup_text(requested_name)
+
+    weighted_fields = [
+        (taxon.get("matched_term"), 16),
+        (taxon.get("preferred_common_name"), 14),
+        (taxon.get("name"), 13),
+        (taxon.get("english_common_name"), 10),
+    ]
+
+    for raw_value, exact_weight in weighted_fields:
+        normalized = _normalize_lookup_text(raw_value)
+        if not normalized:
+            continue
+
+        field_score = 0
+        if normalized == requested_norm:
+            field_score = max(field_score, exact_weight)
+        elif requested_norm in normalized or normalized in requested_norm:
+            field_score = max(field_score, 8)
+
+        field_tokens = _tokenize_lookup_text(raw_value)
+        if requested_tokens and field_tokens:
+            overlap = len(requested_tokens & field_tokens) / max(1, len(requested_tokens))
+            if overlap >= 0.75:
+                field_score = max(field_score, 7)
+            elif overlap >= 0.5:
+                field_score = max(field_score, 5)
+            elif overlap >= 0.25:
+                field_score = max(field_score, 3)
+
+        best_score = max(best_score, field_score)
+
+    return best_score
+
+
+def _score_inaturalist_candidate(
+    taxon: dict,
+    requested_name: str,
+    expected_scientific_name: str | None = None,
+) -> int:
+    iconic_taxon = _normalize_lookup_text(taxon.get("iconic_taxon_name"))
+    scientific_name = _normalize_lookup_text(taxon.get("name"))
+    expected_scientific = _normalize_lookup_text(expected_scientific_name)
+
+    scientific_score = 0
+    if expected_scientific:
+        if scientific_name == expected_scientific:
+            scientific_score = 16
+        elif scientific_name and expected_scientific in scientific_name:
+            scientific_score = 8
+
+    if iconic_taxon != "aves" and scientific_score <= 0:
+        return 0
+
+    name_score = _inaturalist_name_match_score(taxon, requested_name)
+    if name_score <= 0 and scientific_score <= 0:
+        return 0
+
+    rank_score = {
+        "species": 5,
+        "subspecies": 4,
+        "complex": 3,
+        "hybrid": 2,
+        "variety": 1,
+        "form": 1,
+    }.get(_normalize_lookup_text(taxon.get("rank")), 0)
+
+    active_score = 1 if taxon.get("is_active", True) else 0
+    iconic_score = 2 if iconic_taxon == "aves" else 0
+
+    return ((name_score + scientific_score) * 100) + (rank_score * 10) + (active_score * 2) + iconic_score
+
+
+def _select_inaturalist_candidate(
+    candidates: list[dict],
+    requested_name: str,
+    expected_scientific_name: str | None = None,
+) -> tuple[dict | None, int]:
+    best_taxon = None
+    best_score = 0
+    for taxon in candidates:
+        score = _score_inaturalist_candidate(
+            taxon,
+            requested_name=requested_name,
+            expected_scientific_name=expected_scientific_name,
+        )
+        if score > best_score:
+            best_score = score
+            best_taxon = taxon
+    return best_taxon, best_score
+
+
+def _dedupe_inaturalist_candidates(candidates: list[dict]) -> list[dict]:
+    deduped: list[dict] = []
+    seen_ids: set[int] = set()
+    seen_fallback: set[str] = set()
+
+    for candidate in candidates:
+        if not isinstance(candidate, dict):
+            continue
+
+        taxon_id = candidate.get("id")
+        if isinstance(taxon_id, int):
+            if taxon_id in seen_ids:
+                continue
+            seen_ids.add(taxon_id)
+            deduped.append(candidate)
+            continue
+
+        fallback_key = _normalize_lookup_text(
+            f"{candidate.get('name') or ''}|{candidate.get('preferred_common_name') or ''}"
+        )
+        if fallback_key and fallback_key not in seen_fallback:
+            seen_fallback.add(fallback_key)
+            deduped.append(candidate)
+
+    return deduped
+
+
 @router.get("/species")
 async def get_species_list(request: Request):
     """Get list of all species with counts."""
@@ -1032,7 +1157,11 @@ async def get_species_info(
             info.summary_source = info.source
             info.summary_source_url = info.source_url
         if not info.extract or not info.thumbnail_url:
-            inat_info = await _fetch_inaturalist_info(species_name, lang)
+            inat_info = await _fetch_inaturalist_info(
+                species_name,
+                lang,
+                expected_scientific_name=info.scientific_name,
+            )
             if not info.extract and inat_info.extract:
                 info.extract = inat_info.extract
                 info.summary_source = inat_info.source
@@ -1078,7 +1207,11 @@ async def get_species_info(
 
         # Fallback to iNaturalist if still missing
         if not info.extract or not info.thumbnail_url:
-            inat_info = await _fetch_inaturalist_info(search_name, lang)
+            inat_info = await _fetch_inaturalist_info(
+                search_name,
+                lang,
+                expected_scientific_name=info.scientific_name,
+            )
             if inat_info.extract:
                 info.extract = inat_info.extract
                 info.summary_source = inat_info.source
@@ -1090,7 +1223,11 @@ async def get_species_info(
             if inat_info.scientific_name and not info.scientific_name:
                 info.scientific_name = inat_info.scientific_name
     else:
-        info = await _fetch_inaturalist_info(species_name, lang)
+        info = await _fetch_inaturalist_info(
+            species_name,
+            lang,
+            expected_scientific_name=None,
+        )
         if not info.extract or not info.thumbnail_url:
             wiki_info = None
             if info.wikipedia_url:
@@ -1179,7 +1316,7 @@ async def _fetch_ebird_info(species_name: str, lang: str) -> SpeciesInfo:
     """Fetch species information from eBird API."""
     try:
         # Resolve name to code
-        code = await ebird_service.resolve_species_code(species_name)
+        code = await ebird_service.resolve_species_code(species_name, locale=lang)
         if code:
              # Find item in taxonomy (pass locale to get localized common name)
              # eBird locales use hyphens (e.g. pt-BR) but app might use underscores or just code
@@ -1316,18 +1453,87 @@ async def _fetch_wikipedia_info_from_url(wikipedia_url: str, species_name: str, 
     return None
 
 
-async def _fetch_inaturalist_info(species_name: str, lang: str) -> SpeciesInfo:
-    """Fetch species information from iNaturalist API."""
+async def _inaturalist_query_candidates(
+    client: httpx.AsyncClient,
+    species_name: str,
+    locale: str,
+) -> list[dict]:
+    params = {
+        "q": species_name,
+        "per_page": 30,
+        "locale": locale,
+        "is_active": "true",
+        "iconic_taxa": "Aves",
+        "all_names": "true",
+    }
+    endpoints = [
+        "https://api.inaturalist.org/v1/taxa/autocomplete",
+        "https://api.inaturalist.org/v1/taxa",
+    ]
+
+    merged: list[dict] = []
+    for url in endpoints:
+        try:
+            response = await client.get(url, params=params)
+            response.raise_for_status()
+            payload = response.json()
+            results = payload.get("results", []) if isinstance(payload, dict) else []
+            if isinstance(results, list):
+                merged.extend([r for r in results if isinstance(r, dict)])
+        except Exception as e:
+            log.warning("iNaturalist candidate query failed", species=species_name, locale=locale, url=url, error=str(e))
+
+    return _dedupe_inaturalist_candidates(merged)
+
+
+async def _inaturalist_fetch_taxon_details(
+    client: httpx.AsyncClient,
+    taxa_id: int,
+    locale: str,
+) -> dict | None:
+    try:
+        response = await client.get(
+            f"https://api.inaturalist.org/v1/taxa/{taxa_id}",
+            params={"locale": locale}
+        )
+        response.raise_for_status()
+        payload = response.json()
+        if not isinstance(payload, dict):
+            return None
+        results = payload.get("results", [])
+        if isinstance(results, list) and results and isinstance(results[0], dict):
+            return results[0]
+    except Exception as e:
+        log.warning("iNaturalist taxon detail fetch failed", taxa_id=taxa_id, locale=locale, error=str(e))
+    return None
+
+
+async def _fetch_inaturalist_info(
+    species_name: str,
+    lang: str,
+    expected_scientific_name: str | None = None,
+) -> SpeciesInfo:
+    """Fetch species information from iNaturalist API with scored candidate matching."""
+    requested_locale = (lang or "en").strip().replace("_", "-")
+    if not requested_locale:
+        requested_locale = "en"
+    locales_to_try = [requested_locale]
+    if requested_locale.lower() != "en":
+        locales_to_try.append("en")
+
     try:
         async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
-            response = await client.get(
-                "https://api.inaturalist.org/v1/taxa",
-                params={"q": species_name, "per_page": 1, "locale": lang}
+            candidates: list[dict] = []
+            for locale in locales_to_try:
+                candidates.extend(await _inaturalist_query_candidates(client, species_name, locale))
+
+            candidates = _dedupe_inaturalist_candidates(candidates)
+            taxon, score = _select_inaturalist_candidate(
+                candidates,
+                requested_name=species_name,
+                expected_scientific_name=expected_scientific_name,
             )
-            response.raise_for_status()
-            data = response.json()
-            results = data.get("results", [])
-            if not results:
+            if not taxon:
                 return SpeciesInfo(
                     title=species_name,
                     description=None,
@@ -1341,18 +1547,37 @@ async def _fetch_inaturalist_info(species_name: str, lang: str) -> SpeciesInfo:
                     cached_at=datetime.now()
                 )
 
-            taxon = results[0]
+            # Enrich with full taxon details when autocomplete payload is sparse.
             taxa_id = taxon.get("id")
+            if isinstance(taxa_id, int):
+                if not taxon.get("wikipedia_summary") or not taxon.get("default_photo"):
+                    details = await _inaturalist_fetch_taxon_details(client, taxa_id, requested_locale)
+                    if details:
+                        merged = details.copy()
+                        merged.update({k: v for k, v in taxon.items() if v is not None})
+                        taxon = merged
+
             scientific_name = taxon.get("name")
             preferred_common = taxon.get("preferred_common_name")
             title = preferred_common or scientific_name or species_name
             extract = taxon.get("wikipedia_summary")
             wikipedia_url = taxon.get("wikipedia_url")
-            source_url = taxon.get("uri") or (f"https://www.inaturalist.org/taxa/{taxa_id}" if taxa_id else None)
+            source_url = taxon.get("uri") or (
+                f"https://www.inaturalist.org/taxa/{taxa_id}" if isinstance(taxa_id, int) else None
+            )
             thumbnail_url = None
             default_photo = taxon.get("default_photo")
             if isinstance(default_photo, dict):
                 thumbnail_url = default_photo.get("medium_url") or default_photo.get("square_url") or default_photo.get("url")
+
+            log.info(
+                "Selected iNaturalist taxon",
+                species=species_name,
+                taxon_id=taxa_id,
+                scientific_name=scientific_name,
+                common_name=preferred_common,
+                score=score,
+            )
 
             return SpeciesInfo(
                 title=title,
@@ -1366,7 +1591,7 @@ async def _fetch_inaturalist_info(species_name: str, lang: str) -> SpeciesInfo:
                 summary_source_url=source_url if extract else None,
                 scientific_name=scientific_name,
                 conservation_status=None,
-                taxa_id=taxa_id,
+                taxa_id=taxa_id if isinstance(taxa_id, int) else None,
                 cached_at=datetime.now()
             )
     except httpx.TimeoutException:

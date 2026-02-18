@@ -1,4 +1,5 @@
 import re
+import unicodedata
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
@@ -11,16 +12,25 @@ log = structlog.get_logger()
 
 EBIRD_BASE_URL = "https://api.ebird.org/v2"
 TAXONOMY_CACHE_TTL = timedelta(hours=24)
+LOCALE_CACHE_TTL = timedelta(hours=24)
 
 
 def _normalize_name(value: str) -> str:
-    return re.sub(r"[^a-z0-9]+", " ", value.lower()).strip()
+    if not value:
+        return ""
+    normalized = unicodedata.normalize("NFKD", value).casefold()
+    normalized = "".join(ch for ch in normalized if not unicodedata.combining(ch))
+    normalized = re.sub(r"[_\-]+", " ", normalized)
+    normalized = re.sub(r"[^\w\s]", " ", normalized, flags=re.UNICODE)
+    return re.sub(r"\s+", " ", normalized).strip()
 
 
 class EbirdService:
     def __init__(self) -> None:
         # Cache results per locale: {locale: {"fetched_at": datetime, "items": [], "index": {}}}
         self._taxonomy_cache: Dict[str, Dict[str, Any]] = {}
+        # Cache locale codes: {"fetched_at": datetime, "codes": set[str], "map": dict[str, str]}
+        self._locale_cache: Dict[str, Any] = {}
 
     def _headers(self) -> dict:
         if not settings.ebird.api_key:
@@ -47,6 +57,68 @@ class EbirdService:
         except Exception as e:
             log.error("eBird connection error", error=str(e), url=url)
             raise
+
+    async def _get_supported_locales(self) -> set[str]:
+        now = datetime.utcnow()
+        fetched_at = self._locale_cache.get("fetched_at")
+        if fetched_at and now - fetched_at < LOCALE_CACHE_TTL:
+            cached_codes = self._locale_cache.get("codes") or set()
+            if cached_codes:
+                return set(cached_codes)
+
+        # If eBird is not configured yet, keep behavior deterministic.
+        if not self.is_configured():
+            return {"en"}
+
+        codes: set[str] = set()
+        try:
+            payload = await self._fetch_json("/ref/taxa-locales/ebird", {"fmt": "json"})
+            for entry in payload:
+                code = None
+                if isinstance(entry, dict):
+                    code = entry.get("code") or entry.get("locale")
+                elif isinstance(entry, str):
+                    code = entry
+                if not code:
+                    continue
+                clean = str(code).strip()
+                if clean:
+                    codes.add(clean)
+        except Exception as e:
+            log.warning("Failed to fetch eBird locale codes", error=str(e))
+
+        if not codes:
+            codes = {"en"}
+
+        self._locale_cache = {
+            "fetched_at": now,
+            "codes": codes,
+            "map": {c.lower(): c for c in codes},
+        }
+        return set(codes)
+
+    async def resolve_locale(self, locale: Optional[str] = None) -> str:
+        requested = (locale or settings.ebird.locale or "en").strip().replace("_", "-")
+        if not requested:
+            requested = "en"
+
+        supported = await self._get_supported_locales()
+        lower_map = {c.lower(): c for c in supported}
+
+        exact = lower_map.get(requested.lower())
+        if exact:
+            return exact
+
+        lang = requested.split("-")[0].lower()
+        bare_lang = lower_map.get(lang)
+        if bare_lang:
+            return bare_lang
+
+        regional_matches = sorted(c for c in supported if c.lower().startswith(f"{lang}-"))
+        if regional_matches:
+            return regional_matches[0]
+
+        return lower_map.get("en", "en")
 
     async def get_recent_observations(
         self,
@@ -79,7 +151,7 @@ class EbirdService:
         return await self._fetch_json(path, params)
 
     async def get_taxonomy(self, locale: Optional[str] = None) -> List[Dict[str, Any]]:
-        effective_locale = locale or settings.ebird.locale or "en"
+        effective_locale = await self.resolve_locale(locale)
         now = datetime.utcnow()
         
         cache = self._taxonomy_cache.get(effective_locale)
@@ -98,6 +170,14 @@ class EbirdService:
             items = await self._fetch_json("/ref/taxonomy/ebird", params)
         except Exception as e:
             log.error("Failed to fetch eBird taxonomy", locale=effective_locale, error=str(e))
+            # Fallback to English taxonomy if locale lookup fails.
+            if effective_locale.lower() != "en":
+                try:
+                    english_locale = await self.resolve_locale("en")
+                    if english_locale != effective_locale:
+                        return await self.get_taxonomy(locale=english_locale)
+                except Exception:
+                    pass
             return []
             
         index: Dict[str, str] = {}
@@ -108,9 +188,13 @@ class EbirdService:
             com = item.get("comName") or ""
             sci = item.get("sciName") or ""
             if com:
-                index[_normalize_name(com)] = code
+                normalized = _normalize_name(com)
+                if normalized:
+                    index[normalized] = code
             if sci:
-                index[_normalize_name(sci)] = code
+                normalized = _normalize_name(sci)
+                if normalized:
+                    index[normalized] = code
         
         self._taxonomy_cache[effective_locale] = {
             "fetched_at": now, 
@@ -119,17 +203,35 @@ class EbirdService:
         }
         return items
 
-    async def resolve_species_code(self, name: str) -> Optional[str]:
+    async def resolve_species_code(self, name: str, locale: Optional[str] = None) -> Optional[str]:
         if not name:
             return None
-        # Use default settings locale for code resolution
-        await self.get_taxonomy()
-        
-        # We need to search across ALL cached indices to find the code if possible,
-        # but usually it's in the default locale.
+        normalized_name = _normalize_name(name)
+        if not normalized_name:
+            return None
+
+        preferred_locales: list[str] = []
+        for candidate in (locale, settings.ebird.locale, "en"):
+            if not candidate:
+                continue
+            resolved = await self.resolve_locale(candidate)
+            if resolved not in preferred_locales:
+                preferred_locales.append(resolved)
+            await self.get_taxonomy(locale=resolved)
+
+        # Try preferred locale caches first.
+        for locale_code in preferred_locales:
+            cache = self._taxonomy_cache.get(locale_code)
+            if not cache:
+                continue
+            code = cache.get("index", {}).get(normalized_name)
+            if code:
+                return code
+
+        # Fallback to any cached locale.
         for cache in self._taxonomy_cache.values():
             index = cache.get("index", {})
-            code = index.get(_normalize_name(name))
+            code = index.get(normalized_name)
             if code:
                 return code
         

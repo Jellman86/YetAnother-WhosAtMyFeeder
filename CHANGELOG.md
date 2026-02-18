@@ -7,6 +7,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 ## [Unreleased]
 
 - **Fixed:** Email notifications with "Only send on event end" now trigger on Frigate `end` events even when other channels already notified earlier in `standard`/`realtime`/`custom` modes; `silent` mode still suppresses all notifications.
+- **Fixed:** Species enrichment matching is now more robust across languages for non-Wikipedia providers: iNaturalist taxon lookup now uses scored bird-only candidate selection (search + autocomplete + optional scientific-name hints), and eBird taxonomy matching now uses Unicode-safe normalization with locale resolution/fallback to avoid bad matches for localized names.
 - **Fixed:** Species Wikipedia link resolution is now more robust across non-English locales (including Russian), using scored multilingual candidate selection plus scientific-name hints to avoid selecting similarly named but incorrect species pages.
 - **Fixed:** Leaderboard species-info cache is now locale-aware, preventing stale cross-language external links/thumbnails after UI language switches.
 - **Added:** Backend regression tests for multilingual Wikipedia article scoring and short-token boundary matching (`backend/tests/test_species_wikipedia_matching.py`).
