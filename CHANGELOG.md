@@ -6,6 +6,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+## [2.8.2] - 2026-02-19
+
 - **Fixed:** Detection-time email notifications now send reliably alongside Discord: corrected invalid Jinja in `bird_detection.html`, fixed snapshot fallback fetch handling, and added channel-level dispatch result logging so email skip/failure reasons are visible in backend logs.
 - **Fixed:** Email notifications with "Only send on event end" now trigger on Frigate `end` events even when other channels already notified earlier in `standard`/`realtime`/`custom` modes; `silent` mode still suppresses all notifications.
 - **Fixed:** Species enrichment matching is now more robust across languages for non-Wikipedia providers: iNaturalist taxon lookup now uses scored bird-only candidate selection (search + autocomplete + optional scientific-name hints), and eBird taxonomy matching now uses Unicode-safe normalization with locale resolution/fallback to avoid bad matches for localized names.

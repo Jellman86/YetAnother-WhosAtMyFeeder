@@ -595,5 +595,5 @@ Have a feature idea not on this list? Open an issue on [GitHub](https://github.c
 
 ---
 
-**Last Updated:** 2026-02-14
-**Version:** 2.8.1
+**Last Updated:** 2026-02-19
+**Version:** 2.8.2
