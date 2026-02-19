@@ -89,45 +89,64 @@ class NotificationService:
 
         lang = settings.notifications.notification_language
         display_name = common_name or species
-        tasks = []
+        tasks: list[tuple[str, asyncio.Future]] = []
         channel_filter = set(channels) if channels else None
         allow_channel = (lambda name: channel_filter is None or name in channel_filter)
 
         # Discord
         if settings.notifications.discord.enabled and allow_channel("discord"):
-            tasks.append(self._send_discord(
+            tasks.append(("discord", self._send_discord(
                 display_name, confidence, camera, timestamp, snapshot_url, audio_confirmed, lang, snapshot_data
-            ))
+            )))
 
         # Pushover
         if settings.notifications.pushover.enabled and allow_channel("pushover"):
-            tasks.append(self._send_pushover(
+            tasks.append(("pushover", self._send_pushover(
                 display_name, confidence, camera, timestamp, snapshot_url, snapshot_data, lang
-            ))
+            )))
 
         # Telegram
         if settings.notifications.telegram.enabled and allow_channel("telegram"):
-            tasks.append(self._send_telegram(
+            tasks.append(("telegram", self._send_telegram(
                 display_name, confidence, camera, timestamp, snapshot_url, snapshot_data, lang
-            ))
+            )))
 
         # Email
         email_event_type = (event_type or "").lower()
         email_allowed = not settings.notifications.email.only_on_end or email_event_type == "end"
         if settings.notifications.email.enabled and email_allowed and allow_channel("email"):
-            tasks.append(self._send_email(
+            tasks.append(("email", self._send_email(
                 display_name, scientific_name, confidence, camera, timestamp, snapshot_url, snapshot_data, audio_confirmed, lang
-            ))
+            )))
+        elif settings.notifications.email.enabled and allow_channel("email"):
+            log.debug(
+                "Email notification skipped: event type not allowed",
+                event_type=email_event_type,
+                only_on_end=settings.notifications.email.only_on_end,
+                frigate_event=frigate_event,
+            )
 
         if tasks:
-            log.info("Sending notifications", species=species, platforms=len(tasks), lang=lang)
-            results = await asyncio.gather(*tasks, return_exceptions=True)
-            # Consider it sent if at least one platform succeeded
-            success = any(not isinstance(result, Exception) for result in results)
+            channel_names = [name for name, _ in tasks]
+            log.info("Sending notifications", species=species, channels=channel_names, lang=lang)
+            results = await asyncio.gather(*(task for _, task in tasks), return_exceptions=True)
+            channel_results = {}
+            success = False
+            for (name, _), result in zip(tasks, results):
+                if isinstance(result, Exception):
+                    channel_results[name] = "error"
+                    continue
+                # Backward-compat: treat legacy None returns from mocks as a sent signal.
+                sent = result is True or result is None
+                channel_results[name] = "sent" if sent else "skipped_or_failed"
+                success = success or sent
+
             if success:
                 self.last_notification_time = datetime.now(timezone.utc)
+            log.info("Notification dispatch complete", species=species, success=success, channel_results=channel_results)
             return success
 
+        log.debug("Notification skipped: no eligible channels", species=species, channels=channels)
         return False
 
     async def _send_discord(
@@ -140,10 +159,10 @@ class NotificationService:
         audio_confirmed: bool,
         lang: str,
         snapshot_data: Optional[bytes]
-    ):
+    ) -> bool:
         """Send Discord webhook notification."""
         if not settings.notifications.discord.webhook_url:
-            return
+            return False
 
         title = i18n_service.translate("notification.new_detection", lang=lang, species=species)
         description = i18n_service.translate(
@@ -193,6 +212,7 @@ class NotificationService:
             else:
                 resp = await self.client.post(settings.notifications.discord.webhook_url, json=payload)
             resp.raise_for_status()
+            return True
         except httpx.HTTPStatusError as e:
             # Log the response body for debugging
             log.error("Discord notification failed",
@@ -200,10 +220,10 @@ class NotificationService:
                      status_code=e.response.status_code,
                      response_body=e.response.text,
                      payload=payload)
-            raise
+            return False
         except Exception as e:
             log.error("Discord notification failed", error=str(e), payload=payload)
-            raise
+            return False
 
     async def _send_pushover(
         self,
@@ -214,11 +234,11 @@ class NotificationService:
         snapshot_url: str,
         snapshot_data: Optional[bytes],
         lang: str
-    ):
+    ) -> bool:
         """Send Pushover notification."""
         cfg = settings.notifications.pushover
         if not cfg.user_key or not cfg.api_token:
-            return
+            return False
 
         title = i18n_service.translate("notification.new_detection", lang=lang, species=species)
         message = i18n_service.translate(
@@ -250,9 +270,10 @@ class NotificationService:
             else:
                 resp = await self.client.post("https://api.pushover.net/1/messages.json", data=data)
             resp.raise_for_status()
+            return True
         except Exception as e:
             log.error("Pushover notification failed", error=str(e))
-            raise
+            return False
 
     async def _send_telegram(
         self,
@@ -263,11 +284,11 @@ class NotificationService:
         snapshot_url: str,
         snapshot_data: Optional[bytes],
         lang: str
-    ):
+    ) -> bool:
         """Send Telegram notification."""
         cfg = settings.notifications.telegram
         if not cfg.bot_token or not cfg.chat_id:
-            return
+            return False
 
         def truncate(text: str, limit: int) -> str:
             if text is None:
@@ -317,9 +338,10 @@ class NotificationService:
                 resp = await self.client.post(url, json=data)
             
             resp.raise_for_status()
+            return True
         except Exception as e:
             log.error("Telegram notification failed", error=str(e))
-            raise
+            return False
 
     async def _send_email(
         self,
@@ -332,7 +354,7 @@ class NotificationService:
         snapshot_data: Optional[bytes],
         audio_confirmed: bool,
         lang: str
-    ):
+    ) -> bool:
         """Send email notification"""
         try:
             from app.services.smtp_service import smtp_service
@@ -344,7 +366,7 @@ class NotificationService:
 
             if not cfg.to_email:
                 log.warning("Email notifications enabled but no recipient configured")
-                return
+                return False
 
             # Load email templates asynchronously
             template_dir = os.path.join(os.path.dirname(__file__), "..", "templates", "email")
@@ -379,7 +401,6 @@ class NotificationService:
             plain_body = text_template.render(**template_data)
 
             # Translate subject
-            from app.services.i18n_service import i18n_service
             subject = i18n_service.translate("notification.new_detection", lang, species=species)
 
             # Fetch snapshot if needed
@@ -388,11 +409,13 @@ class NotificationService:
                 image_data = snapshot_data
             elif cfg.include_snapshot and snapshot_url:
                 try:
-                    async with self.client.get(snapshot_url) as resp:
-                        if resp.status_code == 200:
-                            image_data = resp.content
-                except:
-                    log.warning("Failed to fetch snapshot for email")
+                    resp = await self.client.get(snapshot_url, timeout=10.0)
+                    if resp.status_code == 200:
+                        image_data = resp.content
+                    else:
+                        log.warning("Failed to fetch snapshot for email", status=resp.status_code)
+                except Exception as fetch_error:
+                    log.warning("Failed to fetch snapshot for email", error=str(fetch_error))
 
             # Send email
             if cfg.use_oauth and cfg.oauth_provider:
@@ -408,7 +431,7 @@ class NotificationService:
                 # Traditional SMTP
                 if not cfg.smtp_host or not cfg.from_email:
                     log.error("Email SMTP configuration incomplete")
-                    return
+                    return False
 
                 success = await smtp_service.send_email_password(
                     smtp_host=cfg.smtp_host,
@@ -426,11 +449,13 @@ class NotificationService:
 
             if success:
                 log.info("Email notification sent", to=cfg.to_email, species=species)
+                return True
             else:
                 log.error("Email notification failed")
+                return False
 
         except Exception as e:
             log.error("Email notification failed", error=str(e))
-            raise
+            return False
 
 notification_service = NotificationService()

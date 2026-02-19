@@ -345,7 +345,7 @@ async def test_notify_detection_handles_errors_gracefully(notification_service):
             # Discord fails
             mock_discord.side_effect = Exception("Discord API error")
             # Pushover succeeds
-            mock_pushover.return_value = None
+            mock_pushover.return_value = True
 
             # Should not raise exception
             await notification_service.notify_detection(
@@ -363,3 +363,46 @@ async def test_notify_detection_handles_errors_gracefully(notification_service):
             # Both should have been attempted
             assert mock_discord.called
             assert mock_pushover.called
+
+
+@pytest.mark.asyncio
+async def test_send_email_falls_back_to_http_get_snapshot(notification_service, monkeypatch):
+    """Email send should still succeed when snapshot bytes are fetched via URL."""
+    from app.config import settings as real_settings
+
+    monkeypatch.setattr(real_settings.notifications.email, "to_email", "to@example.com")
+    monkeypatch.setattr(real_settings.notifications.email, "use_oauth", False)
+    monkeypatch.setattr(real_settings.notifications.email, "oauth_provider", None)
+    monkeypatch.setattr(real_settings.notifications.email, "smtp_host", "smtp.example.com")
+    monkeypatch.setattr(real_settings.notifications.email, "smtp_port", 587)
+    monkeypatch.setattr(real_settings.notifications.email, "smtp_username", "user")
+    monkeypatch.setattr(real_settings.notifications.email, "smtp_password", "pass")
+    monkeypatch.setattr(real_settings.notifications.email, "from_email", "from@example.com")
+    monkeypatch.setattr(real_settings.notifications.email, "smtp_use_tls", True)
+    monkeypatch.setattr(real_settings.notifications.email, "include_snapshot", True)
+    monkeypatch.setattr(real_settings.notifications.email, "dashboard_url", "https://example.com")
+    monkeypatch.setattr(real_settings.appearance, "font_theme", "classic")
+    monkeypatch.setattr(real_settings.accessibility, "dyslexia_font", False)
+
+    fake_response = MagicMock()
+    fake_response.status_code = 200
+    fake_response.content = b"fake-image"
+
+    with patch.object(notification_service.client, "get", new_callable=AsyncMock, return_value=fake_response) as mock_get, \
+         patch('app.services.smtp_service.smtp_service.send_email_password', new_callable=AsyncMock, return_value=True) as mock_send:
+        sent = await notification_service._send_email(
+            species="Robin",
+            scientific_name="Erithacus rubecula",
+            confidence=0.92,
+            camera="front",
+            timestamp=datetime.now(timezone.utc),
+            snapshot_url="http://frigate/snapshot.jpg",
+            snapshot_data=None,
+            audio_confirmed=False,
+            lang="en",
+        )
+
+        assert sent is True
+        mock_get.assert_awaited_once()
+        assert mock_send.await_count == 1
+        assert mock_send.await_args.kwargs["image_data"] == b"fake-image"
