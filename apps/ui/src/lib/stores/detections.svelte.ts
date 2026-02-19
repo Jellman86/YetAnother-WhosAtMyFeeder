@@ -1,6 +1,7 @@
 import { type Detection, fetchEvents, fetchEventsCount } from '../api';
 import { logger } from '../utils/logger';
 import { getErrorMessage, isTransientRequestError } from '../utils/error-handling';
+import { toLocalYMD } from '../utils/date-only';
 
 export interface FrameResult {
     score: number;
@@ -46,7 +47,7 @@ class DetectionsStore {
             // Filter to last 3 days
             const d = new Date();
             d.setDate(d.getDate() - 3);
-            const startDate = d.toISOString().split('T')[0];
+            const startDate = toLocalYMD(d);
 
             const [recent, countResult] = await Promise.all([
                 fetchEvents({ 
@@ -54,8 +55,8 @@ class DetectionsStore {
                     startDate 
                 }),
                 fetchEventsCount({ 
-                    startDate: new Date().toISOString().split('T')[0],
-                    endDate: new Date().toISOString().split('T')[0]
+                    startDate: toLocalYMD(),
+                    endDate: toLocalYMD()
                 })
             ]);
             this.detections = recent;
@@ -115,7 +116,7 @@ class DetectionsStore {
             this.markMutated();
         }
 
-        const today = new Date().toISOString().split('T')[0];
+        const today = toLocalYMD();
         const isToday =
             detectionDate
                 ? detectionDate.startsWith(today)

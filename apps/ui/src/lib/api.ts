@@ -1,3 +1,5 @@
+import { toLocalYMD } from './utils/date-only';
+
 export interface Detection {
     id?: number;
     frigate_event: string;
@@ -1216,7 +1218,7 @@ export async function exportEbirdCsv(): Promise<void> {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `ebird_export_${new Date().toISOString().split('T')[0]}.csv`;
+    a.download = `ebird_export_${toLocalYMD()}.csv`;
     document.body.appendChild(a);
     a.click();
     window.URL.revokeObjectURL(url);
