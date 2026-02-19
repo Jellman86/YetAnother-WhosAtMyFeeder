@@ -110,7 +110,7 @@
 
     let dateRange = $derived.by(() => {
         const today = new Date();
-        const fmt = (d: Date) => d.toISOString().split('T')[0];
+        const fmt = (d: Date) => d.toLocaleDateString('en-CA');
         if (datePreset === 'today') return { start: fmt(today), end: fmt(today) };
         if (datePreset === 'week') { const d = new Date(today); d.setDate(d.getDate() - 7); return { start: fmt(d), end: fmt(today) }; }
         if (datePreset === 'month') { const d = new Date(today); d.setDate(d.getDate() - 30); return { start: fmt(d), end: fmt(today) }; }

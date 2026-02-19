@@ -37,16 +37,16 @@ class DetectionsStore {
             // Filter to last 3 days
             const d = new Date();
             d.setDate(d.getDate() - 3);
-            const startDate = d.toISOString().split('T')[0];
+            const startDate = d.toLocaleDateString('en-CA');
 
             const [recent, countResult] = await Promise.all([
                 fetchEvents({ 
                     limit: this.MAX_ITEMS,
                     startDate 
                 }),
-                fetchEventsCount({ 
-                    startDate: new Date().toISOString().split('T')[0],
-                    endDate: new Date().toISOString().split('T')[0]
+                fetchEventsCount({
+                    startDate: new Date().toLocaleDateString('en-CA'),
+                    endDate: new Date().toLocaleDateString('en-CA')
                 })
             ]);
             this.detections = recent;
@@ -91,7 +91,7 @@ class DetectionsStore {
             this.detections = this.detections.filter(d => d.frigate_event !== eventId);
         }
 
-        const today = new Date().toISOString().split('T')[0];
+        const today = new Date().toLocaleDateString('en-CA');
         const isToday =
             detectionDate
                 ? detectionDate.startsWith(today)
