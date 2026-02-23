@@ -187,7 +187,7 @@
         <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div class="space-y-6">
                 <div>
-                    <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.llm.provider')}</label>
+                    <span class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.llm.provider')}</span>
                     <div class="grid grid-cols-3 gap-2">
                         {#each ['gemini', 'openai', 'claude'] as provider}
                             <button
@@ -285,7 +285,7 @@
                 bind:value={aiPricingJson}
                 rows="8"
                 class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-mono text-xs focus:ring-2 focus:ring-teal-500 outline-none"
-                placeholder='[{"provider": "gemini", "model": "*", "inputPer1M": 0.3, "outputPer1M": 2.5}]'
+                placeholder={'[{"provider": "gemini", "model": "*", "inputPer1M": 0.3, "outputPer1M": 2.5}]'}
             ></textarea>
             <p class="text-[10px] font-bold text-slate-500 leading-relaxed">
                 {$_('settings.ai.pricing_help', { default: 'Override the default token pricing for cost estimation. Format: an array of objects with provider, model, inputPer1M, and outputPer1M.' })}
