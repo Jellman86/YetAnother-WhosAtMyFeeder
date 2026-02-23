@@ -6,6 +6,20 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+## [2.8.3] - 2026-02-23
+
+- **Added:** New **AI Usage Dashboard** in Settings, providing real-time tracking of token consumption and estimated API costs for Gemini, OpenAI, and Claude.
+- **Added:** Dynamic **AI Cost Estimation** with support for manual pricing overrides via a configurable JSON registry in the new AI tab.
+- **Added:** **CUDA Acceleration** support for ONNX-based high-accuracy models (ConvNeXt, EVA-02) with a configurable UI toggle and real-time environment detection.
+- **Added:** New **"AI" Settings Tab** to centralize LLM provider configuration, usage metrics, and prompt templates.
+- **Added:** Configurable **Video Classification Frames** setting, allowing users to control the number of frames sampled for temporal ensemble analysis.
+- **Added:** Refreshed **Application Icon Set** generated from a new high-quality source image.
+- **Fixed:** Resolved species statistics grouping issues by prioritizing scientific name aggregation, ensuring accurate counts across different localized labels (e.g., Russian vs. English names).
+- **Fixed:** Enhanced **Audio Correlation** to match against both scientific and common names, resolving "zero detection" issues when using localized BirdNet-Go instances.
+- **Fixed:** Unified manual and background **Reclassification Logic** to ensure consistent display name updates and robust audio re-correlation.
+- **Fixed:** Added `scientific_name` column to `audio_detections` table via a robust, idempotent migration following the Excellence Standard.
+- **Changed:** Fully localized all new UI elements and settings across all 9 supported languages.
+
 ## [2.8.2] - 2026-02-19
 
 - **Fixed:** Detection-time email notifications now send reliably alongside Discord: corrected invalid Jinja in `bird_detection.html`, fixed snapshot fallback fetch handling, and added channel-level dispatch result logging so email skip/failure reasons are visible in backend logs.

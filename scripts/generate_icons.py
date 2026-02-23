@@ -35,6 +35,6 @@ def generate_icons(source_path, target_dir):
     print(f"Generated favicon.ico")
 
 if __name__ == "__main__":
-    source = "/config/workspace/YA-WAMF/agents/ChatGPT Image Feb 23, 2026, 06_51_04 PM.png"
+    source = "/config/workspace/YA-WAMF/agents/ChatGPT Image Feb 23, 2026, 06_51_04 P-trimM.png"
     target = "/config/workspace/YA-WAMF/apps/ui/public"
     generate_icons(source, target)
