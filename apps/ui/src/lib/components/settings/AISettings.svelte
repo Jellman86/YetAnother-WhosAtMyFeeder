@@ -232,7 +232,7 @@
                         {/each}
                     </select>
                     <p class="mt-2 text-[9px] text-slate-400 font-bold italic">
-                        {llmProvider === 'gemini' ? 'Recommended: gemini-2.5-flash' : llmProvider === 'openai' ? 'Recommended: gpt-5.2' : 'Recommended: claude-sonnet-4-5'}
+                        {$_('settings.llm.recommended_model', { values: { model: llmProvider === 'gemini' ? 'gemini-2.5-flash' : llmProvider === 'openai' ? 'gpt-5.2' : 'claude-sonnet-4-5' }, default: `Recommended: ${llmProvider === 'gemini' ? 'gemini-2.5-flash' : llmProvider === 'openai' ? 'gpt-5.2' : 'claude-sonnet-4-5'}` })}
                     </p>
                 </div>
 
@@ -258,9 +258,9 @@
                             {$_('settings.ai.provider_info_desc', { default: 'YA-WAMF uses cloud LLMs for behavioral analysis and natural language interactions. You will need your own API key from the provider.' })}
                         </p>
                         <div class="mt-4 space-y-2">
-                            <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" class="block text-[10px] font-black text-teal-600 dark:text-teal-400 hover:underline uppercase tracking-widest">Get Google Gemini Key →</a>
-                            <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" class="block text-[10px] font-black text-teal-600 dark:text-teal-400 hover:underline uppercase tracking-widest">Get OpenAI Key →</a>
-                            <a href="https://console.anthropic.com/" target="_blank" rel="noopener noreferrer" class="block text-[10px] font-black text-teal-600 dark:text-teal-400 hover:underline uppercase tracking-widest">Get Anthropic Claude Key →</a>
+                            <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" class="block text-[10px] font-black text-teal-600 dark:text-teal-400 hover:underline uppercase tracking-widest">{$_('settings.llm.get_gemini_key', { default: 'Get Google Gemini Key →' })}</a>
+                            <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" class="block text-[10px] font-black text-teal-600 dark:text-teal-400 hover:underline uppercase tracking-widest">{$_('settings.llm.get_openai_key', { default: 'Get OpenAI Key →' })}</a>
+                            <a href="https://console.anthropic.com/" target="_blank" rel="noopener noreferrer" class="block text-[10px] font-black text-teal-600 dark:text-teal-400 hover:underline uppercase tracking-widest">{$_('settings.llm.get_claude_key', { default: 'Get Anthropic Claude Key →' })}</a>
                         </div>
                     </div>
                 </div>
@@ -283,7 +283,7 @@
         <div class="space-y-4">
             <div class="flex items-center justify-between">
                 <label for="ai-pricing-json" class="block text-[10px] font-black uppercase tracking-widest text-slate-500">{$_('settings.ai.pricing_json', { default: 'Pricing Registry (JSON)' })}</label>
-                <a href="https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/blob/main/docs/ai-pricing.json" target="_blank" class="text-[10px] font-black text-teal-600 dark:text-teal-400 hover:underline uppercase tracking-widest">View Reference Pricing →</a>
+                <a href="https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/blob/main/docs/ai-pricing.json" target="_blank" class="text-[10px] font-black text-teal-600 dark:text-teal-400 hover:underline uppercase tracking-widest">{$_('settings.ai.view_reference_pricing', { default: 'View Reference Pricing →' })}</a>
             </div>
             <textarea
                 id="ai-pricing-json"

@@ -277,7 +277,8 @@
       "table_feature": "Función",
       "table_calls": "Llamadas",
       "table_tokens": "Tokens",
-      "table_cost": "Coste"
+      "table_cost": "Coste",
+      "view_reference_pricing": "View Reference Pricing →"
     },
     "auth": {
       "title": "Autenticación",
@@ -690,7 +691,11 @@
       "test_hint": "Runs a quick prompt to verify your API key and model.",
       "model_hint": "Choose a model that supports image input (vision). Text-only models will fail analysis.",
       "enabled": "Alternar análisis de IA",
-      "test_connection": "Test AI Connection"
+      "test_connection": "Test AI Connection",
+      "recommended_model": "Recommended: {model}",
+      "get_gemini_key": "Get Google Gemini Key →",
+      "get_openai_key": "Get OpenAI Key →",
+      "get_claude_key": "Get Anthropic Claude Key →"
     }
   },
   "auth": {
