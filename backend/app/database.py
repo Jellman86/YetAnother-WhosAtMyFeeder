@@ -263,42 +263,46 @@ async def init_db():
         await db.execute("PRAGMA synchronous=NORMAL;")
         await db.commit()
 
-    # Run Alembic migrations
-    log.info("Running database migrations...")
     backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    try:
-        import subprocess
-        env = os.environ.copy()
-        env["DB_PATH"] = db_path
 
-        result = subprocess.run(
-            [sys.executable, "-m", "alembic", "upgrade", "head"],
-            cwd=backend_dir,
-            env=env,
-            capture_output=True,
-            text=True,
-            timeout=60  # 60 second timeout to prevent indefinite hangs
-        )
+    # Run Alembic migrations (unless already initialized by test runner)
+    if os.environ.get("YA_WAMF_TEST_DB_INITIALIZED") == "1":
+        log.info("Test DB already initialized, skipping migrations")
+    else:
+        log.info("Running database migrations...")
+        try:
+            import subprocess
+            env = os.environ.copy()
+            env["DB_PATH"] = db_path
 
-        if result.returncode == 0:
-            log.info("Database migrations completed successfully")
-        else:
-            log.error(
-                "Database migration failed",
-                error=result.stderr,
-                output=result.stdout
+            result = subprocess.run(
+                [sys.executable, "-m", "alembic", "upgrade", "head"],
+                cwd=backend_dir,
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=60  # 60 second timeout to prevent indefinite hangs
             )
-            raise RuntimeError("Database migration failed")
-    except subprocess.TimeoutExpired:
-        log.error("Database migration timed out after 60 seconds")
-        raise
-    except Exception as e:
-        log.error("Failed to run database migrations", error=str(e))
-        raise
 
-    log.info("Verifying database schema...")
-    await _verify_schema(backend_dir, db_path)
-    log.info("Database schema verification completed")
+            if result.returncode == 0:
+                log.info("Database migrations completed successfully")
+            else:
+                log.error(
+                    "Database migration failed",
+                    error=result.stderr,
+                    output=result.stdout
+                )
+                raise RuntimeError("Database migration failed")
+        except subprocess.TimeoutExpired:
+            log.error("Database migration timed out after 60 seconds")
+            raise
+        except Exception as e:
+            log.error("Failed to run database migrations", error=str(e))
+            raise
+
+        log.info("Verifying database schema...")
+        await _verify_schema(backend_dir, db_path)
+        log.info("Database schema verification completed")
 
     # Initialize connection pool
     _db_pool = DatabasePool(db_path, pool_size=DEFAULT_DB_POOL_SIZE)

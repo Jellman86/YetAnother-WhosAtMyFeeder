@@ -8,9 +8,12 @@ from app.config import settings
 @pytest.fixture
 def audio_service():
     # Mock settings to avoid reading from config file
-    with patch('app.services.audio.audio_service.settings') as mock_settings:
+    with patch('app.services.audio.audio_service.settings') as mock_settings, \
+         patch('app.services.taxonomy.taxonomy_service.taxonomy_service.get_names') as mock_get_names:
         mock_settings.frigate.audio_buffer_hours = 0.083  # ~5 minutes
         mock_settings.frigate.audio_correlation_window_seconds = 10
+        # Mock successful taxonomy lookup
+        mock_get_names.return_value = {"scientific_name": "Scientific Name", "common_name": "Common Name"}
         service = AudioService()
         yield service
 

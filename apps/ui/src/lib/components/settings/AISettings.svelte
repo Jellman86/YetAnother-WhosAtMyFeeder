@@ -8,7 +8,7 @@
         llmEnabled = $bindable(false),
         llmProvider = $bindable('gemini'),
         llmApiKey = $bindable(''),
-        llmApiKeySaved = false,
+        llmApiKeySaved = $bindable(false),
         llmModel = $bindable('gemini-2.5-flash'),
         llmAnalysisPromptTemplate = $bindable(''),
         llmConversationPromptTemplate = $bindable(''),

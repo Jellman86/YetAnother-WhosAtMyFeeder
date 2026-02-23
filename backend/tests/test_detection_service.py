@@ -9,7 +9,8 @@ def mock_deps():
     with patch("app.services.detection_service.get_db") as mock_get_db, \
          patch("app.services.detection_service.DetectionRepository") as MockRepo, \
          patch("app.services.detection_service.taxonomy_service") as mock_taxonomy, \
-         patch("app.services.detection_service.broadcaster") as mock_broadcaster:
+         patch("app.services.detection_service.broadcaster") as mock_broadcaster, \
+         patch("app.services.audio.audio_service.audio_service") as mock_audio:
         
         mock_db = AsyncMock()
         mock_db.commit = AsyncMock()
@@ -20,12 +21,14 @@ def mock_deps():
         mock_taxonomy.get_names = AsyncMock(return_value={"scientific_name": "New Sci", "common_name": "New Common", "taxa_id": 123})
         
         mock_broadcaster.broadcast = AsyncMock()
+        mock_audio.correlate_species = AsyncMock(return_value=(False, None, None))
         
         yield {
             "db": mock_db,
             "repo": mock_repo,
             "taxonomy": mock_taxonomy,
-            "broadcaster": mock_broadcaster
+            "broadcaster": mock_broadcaster,
+            "audio": mock_audio
         }
 
 @pytest.mark.asyncio
@@ -82,7 +85,13 @@ async def test_apply_video_result_re_evaluates_audio(mock_deps):
     
     mock_deps["repo"].get_by_frigate_event = AsyncMock(return_value=existing)
     
+    # Mock successful audio correlation
+    mock_deps["audio"].correlate_species = AsyncMock(return_value=(True, "Blue Jay", 0.9))
+    
     await service.apply_video_result("event1", "Blue Jay", 0.8, 10)
+    
+    # Verify audio correlation was called with the scientific name
+    mock_deps["audio"].correlate_species.assert_called_once()
     
     # Verify the update query set audio_confirmed to 1
     update_call = [call for call in mock_deps["db"].execute.call_args_list if "UPDATE detections" in call.args[0]]

@@ -235,6 +235,7 @@ export interface Settings {
     video_classification_max_retries: number;
     video_classification_frames: number;
     use_cuda: boolean;
+    ai_pricing_json: string;
     video_classification_circuit_open?: boolean;
     video_classification_circuit_until?: string | null;
     video_classification_circuit_failures?: number;

@@ -2,6 +2,8 @@
 import os
 import tempfile
 import pytest
+import sys
+import asyncio
 from pathlib import Path
 
 
@@ -26,7 +28,40 @@ def pytest_configure(config):
     Path(os.environ["CONFIG_DIR"]).mkdir(parents=True, exist_ok=True)
 
     # Set test database to use temp directory
-    os.environ["DB_PATH"] = os.path.join(temp_dir, "test_speciesid.db")
+    db_path = os.path.join(temp_dir, "test_speciesid.db")
+    os.environ["DB_PATH"] = db_path
+
+    # Initialize test database schema using Alembic
+    backend_dir = Path(__file__).parent.parent.resolve()
+    
+    # We must ensure the backend_dir is in sys.path so alembic's env.py can find 'app'
+    if str(backend_dir) not in sys.path:
+        sys.path.insert(0, str(backend_dir))
+
+    print(f"\nInitializing test database schema at {db_path}...")
+    
+    # Use synchronous subprocess to run alembic upgrade
+    import subprocess
+    env = os.environ.copy()
+    env["PYTHONPATH"] = str(backend_dir)
+    env["DB_PATH"] = db_path
+    
+    # Alembic usually looks for 'alembic.ini' in the current dir.
+    # We'll run it from backend_dir.
+    result = subprocess.run(
+        [sys.executable, "-m", "alembic", "upgrade", "head"],
+        cwd=str(backend_dir),
+        env=env,
+        capture_output=True,
+        text=True
+    )
+    if result.returncode != 0:
+        print(f"FAILED to initialize test database: {result.stderr}")
+    else:
+        print("Test database schema initialized successfully")
+
+    # Flag to tell app.database.init_db to skip migrations if already done
+    os.environ["YA_WAMF_TEST_DB_INITIALIZED"] = "1"
 
     # Cleanup is handled by tempfile when process exits
 

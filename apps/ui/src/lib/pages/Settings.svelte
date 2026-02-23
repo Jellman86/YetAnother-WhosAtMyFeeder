@@ -1568,7 +1568,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     let analysisPollInterval: any;
 
     // Tab navigation
-    let activeTab = $state<'connection' | 'detection' | 'notifications' | 'enrichment' | 'ai' | 'data' | 'appearance' | 'accessibility' | 'security' | 'debug'>('connection');
+    type SettingsTab = 'connection' | 'detection' | 'notifications' | 'enrichment' | 'ai' | 'data' | 'appearance' | 'accessibility' | 'security' | 'debug' | 'integrations';
+    let activeTab = $state<SettingsTab>('connection');
 
     $effect(() => {
         currentTheme = themeStore.theme;
@@ -1587,8 +1588,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
 
         // Handle deep linking to tabs
         const hash = window.location.hash.slice(1);
-        if (hash && ['connection', 'detection', 'notifications', 'integrations', 'enrichment', 'security', 'data', 'appearance', 'accessibility', 'debug'].includes(hash)) {
-            activeTab = hash;
+        if (hash && ['connection', 'detection', 'notifications', 'integrations', 'enrichment', 'ai', 'security', 'data', 'appearance', 'accessibility', 'debug'].includes(hash)) {
+            activeTab = hash as SettingsTab;
         }
 
         // Ensure settings store is loaded for dirty checking
@@ -2851,8 +2852,35 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     bind:llmPromptStyle
                     bind:aiPricingJson
                     onTestConnection={handleTestLlm}
-                    onApplyStyle={handleApplyLlmPromptStyle}
-                    onResetDefaults={handleResetLlmPromptDefaults}
+                    onApplyStyle={() => applyPromptTemplates(llmPromptStyle as any)}
+                    onResetDefaults={resetPromptTemplates}
+                />
+            {/if}
+
+            <!-- Integrations Tab -->
+            {#if activeTab === 'integrations'}
+                <IntegrationSettings
+                    bind:birdnetEnabled
+                    bind:birdweatherEnabled
+                    bind:birdweatherStationToken
+                    bind:birdweatherStationTokenSaved
+                    bind:ebirdEnabled
+                    bind:ebirdApiKey
+                    bind:ebirdDefaultRadiusKm
+                    bind:ebirdDefaultDaysBack
+                    bind:ebirdMaxResults
+                    bind:ebirdLocale
+                    bind:inaturalistEnabled
+                    bind:inaturalistClientId
+                    bind:inaturalistClientSecret
+                    bind:inaturalistClientIdSaved
+                    bind:inaturalistClientSecretSaved
+                    bind:inaturalistDefaultLat
+                    bind:inaturalistDefaultLon
+                    bind:inaturalistDefaultPlace
+                    bind:inaturalistConnectedUser
+                    handleTestBirdNET={handleTestBirdNET}
+                    {testingBirdNET}
                 />
             {/if}
 
