@@ -52,6 +52,10 @@ def _parse_pricing() -> Dict[str, Dict[str, float]]:
         rates = {}
         for entry in data:
             provider = entry.get("provider", "").lower()
+            if provider == "anthropic":
+                provider = "claude"
+            elif provider == "google":
+                provider = "gemini"
             model = entry.get("model", "").lower()
             if provider and model:
                 rates[f"{provider}|{model}"] = {

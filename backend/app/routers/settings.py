@@ -571,6 +571,7 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "llm_analysis_prompt_template": settings.llm.analysis_prompt_template,
         "llm_conversation_prompt_template": settings.llm.conversation_prompt_template,
         "llm_chart_prompt_template": settings.llm.chart_prompt_template,
+        "ai_pricing_json": settings.classification.ai_pricing_json,
         # Telemetry
         "telemetry_enabled": settings.telemetry.enabled,
         "telemetry_installation_id": settings.telemetry.installation_id,
