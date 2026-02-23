@@ -45,8 +45,8 @@
             
             <!-- Header -->
             <div class="text-center mb-8">
-                <div class="mx-auto w-20 h-20 bg-gradient-to-tr from-teal-400 to-emerald-500 rounded-2xl shadow-lg flex items-center justify-center mb-6 transform rotate-3">
-                    <img src="/pwa-192x192.png" alt="Logo" class="w-16 h-16 object-contain drop-shadow-md -rotate-3" />
+                <div class="mx-auto w-20 h-20 flex items-center justify-center mb-6">
+                    <img src="/pwa-192x192.png" alt="Logo" class="w-16 h-16 object-contain drop-shadow-md" />
                 </div>
                 <h2 class="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
                     {$_('auth.welcome_back')}

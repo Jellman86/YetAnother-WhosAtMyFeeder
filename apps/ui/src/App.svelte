@@ -851,7 +851,7 @@
                   <span class="sr-only">{$_('nav.toggle_menu', { default: 'Toggle menu' }) || 'Toggle menu'}</span>
               </button>
               <div class="flex items-center gap-2">
-                  <div class="w-7 h-7 rounded-lg bg-transparent border border-slate-200/70 dark:border-slate-700/60 shadow-sm flex items-center justify-center overflow-hidden p-0.5">
+                  <div class="w-7 h-7 flex items-center justify-center overflow-hidden">
                       <img src="/pwa-192x192.png" alt={$_('app.title')} class="w-full h-full object-contain bg-transparent" />
                   </div>
                   <span class="text-sm font-bold text-gradient">{$_('app.title')}</span>
