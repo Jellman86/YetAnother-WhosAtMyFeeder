@@ -385,26 +385,6 @@
         "test_loading": "Verifying...",
         "test_success": "BirdWeather connection verified!",
         "test_error": "BirdWeather connection failed"
-      },
-      "llm": {
-        "title": "AI Insights",
-        "toggle_label": "Toggle AI insights",
-        "provider": "Provider",
-        "provider_label": "LLM provider",
-        "model": "Model",
-        "model_label": "LLM model",
-        "api_key": "API Key",
-        "api_key_label": "LLM API key",
-        "providers": {
-          "gemini": "Google Gemini",
-          "openai": "OpenAI",
-          "claude": "Anthropic Claude"
-        },
-        "test_button": "Test AI Connection",
-        "test_loading": "Testing…",
-        "test_label": "Test AI connection",
-        "test_hint": "Runs a quick prompt to verify your API key and model.",
-        "model_hint": "Choose a model that supports image input (vision). Text-only models will fail analysis."
       }
     },
     "enrichment": {
@@ -697,6 +677,28 @@
       "blocked_labels_placeholder": "e.g. background",
       "blocked_label_remove": "Remove {label} from blocked list",
       "naming_select_label": "Select {mode} naming style"
+    },
+    "llm": {
+      "title": "AI Insights",
+      "toggle_label": "Toggle AI insights",
+      "provider": "Provider",
+      "provider_label": "LLM provider",
+      "model": "Model",
+      "model_label": "LLM model",
+      "api_key": "API Key",
+      "api_key_label": "LLM API key",
+      "providers": {
+        "gemini": "Google Gemini",
+        "openai": "OpenAI",
+        "claude": "Anthropic Claude"
+      },
+      "test_button": "Test AI Connection",
+      "test_loading": "Testing…",
+      "test_label": "Test AI connection",
+      "test_hint": "Runs a quick prompt to verify your API key and model.",
+      "model_hint": "Choose a model that supports image input (vision). Text-only models will fail analysis.",
+      "enabled": "Toggle AI insights",
+      "test_connection": "Test AI Connection"
     }
   },
   "auth": {
