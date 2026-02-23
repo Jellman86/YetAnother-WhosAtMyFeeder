@@ -3,7 +3,7 @@
 
     interface Props {
         activeTab: string;
-        ontabchange: (tab: string) => void;
+        ontabchange: (tab: any) => void;
         debugUiEnabled?: boolean;
     }
 

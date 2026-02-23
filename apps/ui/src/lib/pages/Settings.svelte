@@ -1,3 +1,7 @@
+<script lang="ts" module>
+    export type SettingsTab = 'connection' | 'detection' | 'notifications' | 'enrichment' | 'ai' | 'data' | 'appearance' | 'accessibility' | 'security' | 'debug' | 'integrations';
+</script>
+
 <script lang="ts">
     import { onMount, onDestroy } from 'svelte';
     import {
@@ -1568,7 +1572,6 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     let analysisPollInterval: any;
 
     // Tab navigation
-    type SettingsTab = 'connection' | 'detection' | 'notifications' | 'enrichment' | 'ai' | 'data' | 'appearance' | 'accessibility' | 'security' | 'debug' | 'integrations';
     let activeTab = $state<SettingsTab>('connection');
 
     $effect(() => {
@@ -1629,7 +1632,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
         }
     });
 
-    function handleTabChange(tab: string) {
+    function handleTabChange(tab: SettingsTab) {
         activeTab = tab;
         window.location.hash = tab;
         if (tab === 'data') {
@@ -2777,8 +2780,11 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     bind:audioBufferHours
                     bind:audioCorrelationWindowSeconds
                     bind:cameraAudioMapping
+                    {availableCameras}
+                    bind:testingBirdNET
                     bind:birdweatherEnabled
                     bind:birdweatherStationToken
+                    bind:birdweatherStationTokenSaved
                     bind:ebirdEnabled
                     bind:ebirdApiKey
                     bind:ebirdApiKeySaved
@@ -2795,32 +2801,20 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     bind:inaturalistDefaultLon
                     bind:inaturalistDefaultPlace
                     bind:inaturalistConnectedUser
-                    bind:llmEnabled
-                    bind:llmProvider
-                    bind:llmApiKey
-                    bind:llmApiKeySaved
-                    bind:llmModel
-                    bind:birdweatherStationTokenSaved
+                    bind:locationAuto
                     bind:locationLat
                     bind:locationLon
-                    bind:locationAuto
                     bind:locationTemperatureUnit
-                    {availableCameras}
-                    {availableModels}
-                    {testingBirdWeather}
-                    {testingLlm}
-                    {handleTestBirdNET}
-                    {handleTestBirdWeather}
-                    {handleTestLlm}
-                    {initiateInaturalistOAuth}
-                    {disconnectInaturalistOAuth}
-                    {exportEbirdCsv}
-                    onActionFeedback={handleActionFeedback}
+                    handleTestBirdNET={handleTestBirdNET}
+                    handleTestBirdWeather={handleTestBirdWeather}
+                    initiateInaturalistOAuth={initiateInaturalistOAuth}
+                    disconnectInaturalistOAuth={disconnectInaturalistOAuth}
                     refreshInaturalistStatus={async () => {
                         await settingsStore.load();
                         await loadSettings(true);
                     }}
-                    bind:testingBirdNET
+                    exportEbirdCsv={exportEbirdCsv}
+                    onActionFeedback={(type, text) => type === 'success' ? toastStore.success(text) : toastStore.error(text)}
                 />
             {/if}
 
@@ -2854,33 +2848,6 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     onTestConnection={handleTestLlm}
                     onApplyStyle={() => applyPromptTemplates(llmPromptStyle as any)}
                     onResetDefaults={resetPromptTemplates}
-                />
-            {/if}
-
-            <!-- Integrations Tab -->
-            {#if activeTab === 'integrations'}
-                <IntegrationSettings
-                    bind:birdnetEnabled
-                    bind:birdweatherEnabled
-                    bind:birdweatherStationToken
-                    bind:birdweatherStationTokenSaved
-                    bind:ebirdEnabled
-                    bind:ebirdApiKey
-                    bind:ebirdDefaultRadiusKm
-                    bind:ebirdDefaultDaysBack
-                    bind:ebirdMaxResults
-                    bind:ebirdLocale
-                    bind:inaturalistEnabled
-                    bind:inaturalistClientId
-                    bind:inaturalistClientSecret
-                    bind:inaturalistClientIdSaved
-                    bind:inaturalistClientSecretSaved
-                    bind:inaturalistDefaultLat
-                    bind:inaturalistDefaultLon
-                    bind:inaturalistDefaultPlace
-                    bind:inaturalistConnectedUser
-                    handleTestBirdNET={handleTestBirdNET}
-                    {testingBirdNET}
                 />
             {/if}
 

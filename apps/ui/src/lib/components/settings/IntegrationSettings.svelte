@@ -9,12 +9,10 @@
         audioBufferHours = $bindable(24),
         audioCorrelationWindowSeconds = $bindable(300),
         cameraAudioMapping = $bindable<Record<string, string>>({}),
-        availableCameras,
+        availableCameras = [],
         testingBirdNET = $bindable(false),
         birdweatherEnabled = $bindable(false),
         birdweatherStationToken = $bindable(''),
-        testingBirdWeather,
-        testingLlm,
         ebirdEnabled = $bindable(false),
         ebirdApiKey = $bindable(''),
         ebirdApiKeySaved = $bindable(false),
@@ -30,20 +28,13 @@
         inaturalistDefaultLat = $bindable<number | null>(null),
         inaturalistDefaultLon = $bindable<number | null>(null),
         inaturalistDefaultPlace = $bindable(''),
-        inaturalistConnectedUser = $bindable<string | null>(null),
-        llmEnabled = $bindable(false),
-        llmProvider = $bindable('gemini'),
-        llmModel = $bindable('gemini-2.5-flash'),
-        llmApiKey = $bindable(''),
-        llmApiKeySaved = $bindable(false),
-        availableModels,
+        inaturalistConnectedUser = $bindable(null),
         locationAuto = $bindable(true),
         locationLat = $bindable<number | null>(null),
         locationLon = $bindable<number | null>(null),
         locationTemperatureUnit = $bindable<'celsius' | 'fahrenheit'>('celsius'),
         handleTestBirdNET,
         handleTestBirdWeather,
-        handleTestLlm,
         initiateInaturalistOAuth,
         disconnectInaturalistOAuth,
         refreshInaturalistStatus,
@@ -60,8 +51,6 @@
         testingBirdNET: boolean;
         birdweatherEnabled: boolean;
         birdweatherStationToken: string;
-        testingBirdWeather: boolean;
-        testingLlm: boolean;
         ebirdEnabled: boolean;
         ebirdApiKey: string;
         ebirdApiKeySaved: boolean;
@@ -78,19 +67,12 @@
         inaturalistDefaultLon: number | null;
         inaturalistDefaultPlace: string;
         inaturalistConnectedUser: string | null;
-        llmEnabled: boolean;
-        llmProvider: string;
-        llmModel: string;
-        llmApiKey: string;
-        llmApiKeySaved: boolean;
-        availableModels: Array<{ value: string; label: string }>;
         locationAuto: boolean;
         locationLat: number | null;
         locationLon: number | null;
         locationTemperatureUnit: 'celsius' | 'fahrenheit';
         handleTestBirdNET: () => Promise<void>;
         handleTestBirdWeather: () => Promise<void>;
-        handleTestLlm: () => Promise<void>;
         initiateInaturalistOAuth: () => Promise<{ authorization_url: string }>;
         disconnectInaturalistOAuth: () => Promise<{ status: string }>;
         refreshInaturalistStatus: () => Promise<void>;
@@ -104,6 +86,7 @@
     let inatRefreshing = $state(false);
     let inatDisconnecting = $state(false);
     let exportingEbirdCsv = $state(false);
+    let testingBirdWeather = $state(false);
 
     function actionErrorMessage(error: unknown) {
         if (error instanceof Error && error.message.trim().length > 0) {
@@ -131,12 +114,6 @@
     $effect(() => {
         if (birdweatherStationTokenSaved && birdweatherStationToken) {
             birdweatherStationTokenSaved = false;
-        }
-    });
-
-    $effect(() => {
-        if (llmApiKeySaved && llmApiKey) {
-            llmApiKeySaved = false;
         }
     });
 </script>
@@ -595,90 +572,6 @@
             >
                 {testingBirdWeather ? $_('settings.integrations.birdweather.test_loading') : $_('settings.integrations.birdweather.test_button')}
             </button>
-        </div>
-    </section>
-
-    <!-- AI Intelligence -->
-    <section class="card-base rounded-3xl p-8 backdrop-blur-md flex flex-col">
-        <div class="flex items-center justify-between mb-6">
-            <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-2xl bg-brand-500/10 flex items-center justify-center text-brand-500">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-                </div>
-                <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">{$_('settings.integrations.llm.title')}</h3>
-            </div>
-            <button
-                role="switch"
-                aria-checked={llmEnabled}
-                aria-label={$_('settings.integrations.llm.toggle_label')}
-                onclick={() => llmEnabled = !llmEnabled}
-                onkeydown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        llmEnabled = !llmEnabled;
-                    }
-                }}
-                class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {llmEnabled ? 'bg-teal-500' : 'bg-slate-300 dark:bg-slate-600'}"
-            >
-                <span class="sr-only">AI Insights</span>
-                <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {llmEnabled ? 'translate-x-5' : 'translate-x-0'}"></span>
-            </button>
-        </div>
-
-        <div class="space-y-6 flex-1">
-            <div class="grid grid-cols-2 gap-4">
-                <div>
-                    <label for="llm-provider" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.integrations.llm.provider')}</label>
-                    <select
-                        id="llm-provider"
-                        bind:value={llmProvider}
-                        aria-label={$_('settings.integrations.llm.provider_label')}
-                        class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"
-                    >
-                        <option value="gemini">{$_('settings.integrations.llm.providers.gemini')}</option>
-                        <option value="openai">{$_('settings.integrations.llm.providers.openai')}</option>
-                        <option value="claude">{$_('settings.integrations.llm.providers.claude')}</option>
-                    </select>
-                </div>
-                <div>
-                    <label for="llm-model" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.integrations.llm.model')}</label>
-                    <select
-                        id="llm-model"
-                        bind:value={llmModel}
-                        aria-label={$_('settings.integrations.llm.model_label')}
-                        class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"
-                    >
-                        {#each availableModels as model}
-                            <option value={model.value}>{model.label}</option>
-                        {/each}
-                    </select>
-                    <p class="mt-2 text-[10px] text-slate-500 font-bold italic">{$_('settings.integrations.llm.model_hint')}</p>
-                </div>
-            </div>
-            <div>
-                <div class="mb-2 flex items-center justify-between">
-                    <label for="llm-api-key" class="block text-[10px] font-black uppercase tracking-widest text-slate-500">{$_('settings.integrations.llm.api_key')}</label>
-                    {#if llmApiKeySaved}
-                        <SecretSavedBadge />
-                    {/if}
-                </div>
-                <input
-                    id="llm-api-key"
-                    type="password"
-                    bind:value={llmApiKey}
-                    aria-label={$_('settings.integrations.llm.api_key_label')}
-                    class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"
-                />
-            </div>
-            <button
-                onclick={handleTestLlm}
-                disabled={testingLlm || !llmEnabled || !llmApiKey}
-                aria-label={$_('settings.integrations.llm.test_label')}
-                class="w-full px-4 py-3 text-xs font-black uppercase tracking-widest rounded-2xl bg-brand-500 hover:bg-brand-600 text-white transition-all shadow-lg shadow-brand-500/20 disabled:opacity-50"
-            >
-                {testingLlm ? $_('settings.integrations.llm.test_loading') : $_('settings.integrations.llm.test_button')}
-            </button>
-            <p class="text-[10px] text-slate-500 font-bold italic">{$_('settings.integrations.llm.test_hint')}</p>
         </div>
     </section>
 
