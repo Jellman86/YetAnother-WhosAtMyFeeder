@@ -1078,21 +1078,19 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     // Available models per provider (Updated February 2026, see provider docs)
     const modelsByProvider = {
         gemini: [
-            { value: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite (Cheapest, Fastest)' },
-            { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash (Recommended, Balanced)' },
-            { value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro (Most capable)' }
+            { value: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite' },
+            { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
+            { value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro' }
         ],
         openai: [
-            { value: 'gpt-5-mini', label: 'GPT-5 mini (Cheapest, Fast)' },
-            { value: 'gpt-5.2', label: 'GPT-5.2 (Recommended)' },
-            { value: 'gpt-5.2-pro', label: 'GPT-5.2 Pro (Most capable)' }
+            { value: 'gpt-5-mini', label: 'GPT-5 mini' },
+            { value: 'gpt-5.2', label: 'GPT-5.2' },
+            { value: 'gpt-5.2-pro', label: 'GPT-5.2 Pro' }
         ],
         claude: [
-            { value: 'claude-3-5-haiku-latest', label: 'Claude Haiku 3.5 (Cheapest, Fast)' },
-            { value: 'claude-3-5-sonnet-latest', label: 'Claude Sonnet 3.5 (Recommended)' },
-            { value: 'claude-3-7-sonnet-latest', label: 'Claude Sonnet 3.7 (Stronger Reasoning)' },
-            { value: 'claude-sonnet-4-0', label: 'Claude Sonnet 4 (Most capable, Stable)' },
-            { value: 'claude-opus-4-0', label: 'Claude Opus 4 (Most capable, Stable)' }
+            { value: 'claude-haiku-4-5', label: 'Claude Haiku 4.5' },
+            { value: 'claude-sonnet-4-5', label: 'Claude Sonnet 4.5' },
+            { value: 'claude-opus-4-6', label: 'Claude Opus 4.6' }
         ]
     };
 
@@ -2845,6 +2843,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     bind:llmChartPromptTemplate
                     bind:llmPromptStyle
                     bind:aiPricingJson
+                    {availableModels}
                     onTestConnection={handleTestLlm}
                     onApplyStyle={() => applyPromptTemplates(llmPromptStyle as any)}
                     onResetDefaults={resetPromptTemplates}

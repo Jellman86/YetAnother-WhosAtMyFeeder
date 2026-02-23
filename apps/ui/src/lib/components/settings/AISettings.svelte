@@ -15,6 +15,7 @@
         llmChartPromptTemplate = $bindable(''),
         llmPromptStyle = $bindable('classic'),
         aiPricingJson = $bindable('[]'),
+        availableModels = [],
         onTestConnection,
         onApplyStyle,
         onResetDefaults
@@ -29,6 +30,7 @@
         llmChartPromptTemplate: string;
         llmPromptStyle: string;
         aiPricingJson: string;
+        availableModels: {value: string, label: string}[];
         onTestConnection: () => Promise<void>;
         onApplyStyle: () => void;
         onResetDefaults: () => void;
@@ -220,14 +222,17 @@
 
                 <div>
                     <label for="llm-model" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.llm.model')}</label>
-                    <input
+                    <select
                         id="llm-model"
-                        type="text"
                         bind:value={llmModel}
-                        class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-teal-500 outline-none"
-                    />
+                        class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-teal-500 outline-none appearance-none"
+                    >
+                        {#each availableModels as model}
+                            <option value={model.value}>{model.label}</option>
+                        {/each}
+                    </select>
                     <p class="mt-2 text-[9px] text-slate-400 font-bold italic">
-                        {llmProvider === 'gemini' ? 'Recommended: gemini-1.5-flash' : llmProvider === 'openai' ? 'Recommended: gpt-4o-mini' : 'Recommended: claude-3-haiku-20240307'}
+                        {llmProvider === 'gemini' ? 'Recommended: gemini-2.5-flash' : llmProvider === 'openai' ? 'Recommended: gpt-5.2' : 'Recommended: claude-sonnet-4-5'}
                     </p>
                 </div>
 
