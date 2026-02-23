@@ -3,7 +3,7 @@ import asyncio
 import httpx
 import html
 from datetime import datetime, timezone
-from typing import Optional, Any
+from typing import Optional
 import json
 
 from app.config import settings
@@ -91,7 +91,9 @@ class NotificationService:
         display_name = common_name or species
         tasks: list[tuple[str, asyncio.Future]] = []
         channel_filter = set(channels) if channels else None
-        allow_channel = (lambda name: channel_filter is None or name in channel_filter)
+        
+        def allow_channel(name: str) -> bool:
+            return channel_filter is None or name in channel_filter
 
         # Discord
         if settings.notifications.discord.enabled and allow_channel("discord"):

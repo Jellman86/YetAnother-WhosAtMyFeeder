@@ -1,9 +1,7 @@
 import pytest
-import asyncio
 from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 from app.services.audio.audio_service import AudioService, AudioDetection
-from app.config import settings
 
 @pytest.fixture
 def audio_service():

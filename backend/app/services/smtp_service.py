@@ -19,7 +19,6 @@ from email.mime.image import MIMEImage
 from email.utils import formataddr, formatdate, make_msgid, parseaddr
 from typing import Optional, Dict, Any
 import base64
-import json
 
 from google.oauth2.credentials import Credentials as GoogleCredentials
 from google.auth.transport.requests import Request as GoogleRequest

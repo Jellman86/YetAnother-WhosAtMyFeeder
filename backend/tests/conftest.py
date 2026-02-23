@@ -3,7 +3,6 @@ import os
 import tempfile
 import pytest
 import sys
-import asyncio
 from pathlib import Path
 
 

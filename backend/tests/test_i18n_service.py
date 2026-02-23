@@ -1,4 +1,3 @@
-import pytest
 from app.services.i18n_service import i18n_service
 
 

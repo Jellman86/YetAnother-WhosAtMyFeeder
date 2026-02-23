@@ -124,10 +124,10 @@ def verify_token(token: str) -> TokenData:
             detail="Token has expired. Please log in again.",
             headers={"WWW-Authenticate": "Bearer"}
         )
-    except jwt.InvalidTokenError as e:
+    except jwt.InvalidTokenError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Invalid authentication token",
+            detail="Invalid authentication token",
             headers={"WWW-Authenticate": "Bearer"}
         )
 

@@ -79,7 +79,7 @@ class TestLoginRateLimiting:
         # Should have https_warning field
         assert "https_warning" in data
         # In test environment (HTTP), should be True when auth enabled
-        assert data["https_warning"] == True
+        assert data["https_warning"]
 
 
 class TestInputValidation:
@@ -219,7 +219,7 @@ class TestSecurityHeaders:
     @pytest.mark.asyncio
     async def test_hsts_not_on_http(self, client: httpx.AsyncClient):
         """Test that HSTS header is not added for HTTP requests."""
-        response = await client.get("/health")
+        await client.get("/health")
 
         # HSTS should only be on HTTPS
         # In test client, scheme is HTTP, so HSTS should not be present

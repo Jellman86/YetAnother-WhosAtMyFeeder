@@ -1,6 +1,5 @@
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
-from datetime import datetime, timezone
 from app.services.event_processor import EventProcessor
 
 @pytest.fixture
@@ -12,7 +11,7 @@ def mock_dependencies():
          patch("app.services.event_processor.weather_service") as mock_weather, \
          patch("app.services.event_processor.notification_service") as mock_notif, \
          patch("app.services.taxonomy.taxonomy_service.taxonomy_service") as mock_taxonomy, \
-         patch("app.services.event_processor.Image.open") as mock_image_open:
+         patch("app.services.event_processor.Image.open"):
 
         mock_frigate.get_snapshot = AsyncMock(return_value=b"fakeimage")
         mock_frigate.set_sublabel = AsyncMock()

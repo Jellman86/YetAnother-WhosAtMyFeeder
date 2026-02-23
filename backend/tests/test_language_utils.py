@@ -1,4 +1,3 @@
-import pytest
 from unittest.mock import MagicMock
 from app.utils.language import get_user_language
 

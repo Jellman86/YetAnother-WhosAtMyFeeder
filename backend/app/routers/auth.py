@@ -1,6 +1,6 @@
 """Authentication endpoints for YA-WAMF."""
 
-from fastapi import APIRouter, HTTPException, status, Depends, Request
+from fastapi import APIRouter, HTTPException, status, Request
 from pydantic import BaseModel, Field, field_validator
 from typing import Optional
 from datetime import datetime

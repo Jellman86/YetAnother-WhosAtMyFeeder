@@ -72,7 +72,6 @@ async def test_birdnet(
 @router.post("/settings/mqtt/test-publish")
 async def test_mqtt_publish(auth: AuthContext = Depends(require_owner)):
     """Publish a test message to the MQTT broker to verify connectivity. Owner only."""
-    from app.services.broadcaster import broadcaster
     # Broadcaster uses the shared mqtt_service internally for non-SSE tasks if needed,
     # but here we should use the mqtt_service directly.
     from app.services.mqtt_service import mqtt_service
@@ -107,7 +106,6 @@ async def test_notification(
     """Test notification platform with optional credential overrides. Owner only."""
     
     # Create mock detection data
-    species = "Cyanistes caeruleus"
     common_name = "Eurasian Blue Tit (Test)"
     confidence = 0.95
     camera = "test_camera"
@@ -819,12 +817,8 @@ async def update_settings(
         settings.telemetry.enabled = update.telemetry_enabled
 
     # Authentication
-    auth_changed = False
-    password_changed = False
-
     if "auth_enabled" in fields_set and update.auth_enabled is not None:
         if settings.auth.enabled != update.auth_enabled:
-            auth_changed = True
             log.info(
                 "AUTH_AUDIT: Authentication toggled",
                 event_type="auth_toggled",
@@ -846,7 +840,6 @@ async def update_settings(
 
     if "auth_password" in fields_set and update.auth_password:
         settings.auth.password_hash = hash_password(update.auth_password)
-        password_changed = True
         log.info(
             "AUTH_AUDIT: Password changed",
             event_type="password_changed",

@@ -1,8 +1,7 @@
 import aiosqlite
 import structlog
 from datetime import datetime
-from typing import List, Dict, Optional
-from app.models.ai_models import AIUsageLog
+from typing import Dict, Optional
 
 log = structlog.get_logger()
 

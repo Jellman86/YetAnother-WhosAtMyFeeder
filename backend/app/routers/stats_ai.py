@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, Request, Query
-from datetime import datetime, timedelta, timezone
-from typing import Optional, List, Literal, Dict
+from datetime import datetime, timedelta
+from typing import List, Literal, Dict
 import json
 import structlog
 from pydantic import BaseModel

@@ -12,7 +12,7 @@ mock_mm.model_manager.active_model_id = "default"
 mock_mm.REMOTE_REGISTRY = []
 sys.modules["app.services.model_manager"] = mock_mm
 
-from app.services.classifier_service import ClassifierService, ModelInstance, ONNXModelInstance
+from app.services.classifier_service import ClassifierService, ModelInstance
 
 @pytest.fixture
 def mock_tflite():
