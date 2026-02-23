@@ -9,6 +9,7 @@ from app.config import settings
 
 from app.database import get_db
 from app.repositories.ai_usage_repository import AIUsageRepository
+from app.utils.tasks import create_background_task
 
 log = structlog.get_logger()
 
@@ -16,13 +17,16 @@ class AIService:
     """Service to interact with LLMs for behavioral analysis."""
     
     async def _record_usage(self, provider: str, model: str, feature: str, input_tokens: int, output_tokens: int):
-        """Record usage to database asynchronously."""
-        try:
-            async with get_db() as db:
-                repo = AIUsageRepository(db)
-                await repo.record_usage(provider, model, feature, input_tokens, output_tokens)
-        except Exception as e:
-            log.error("Failed to record AI usage", error=str(e))
+        """Record usage to database asynchronously via background task."""
+        async def _save():
+            try:
+                async with get_db() as db:
+                    repo = AIUsageRepository(db)
+                    await repo.record_usage(provider, model, feature, input_tokens, output_tokens)
+            except Exception as e:
+                log.error("Failed to record AI usage in background", error=str(e))
+        
+        create_background_task(_save(), name=f"ai_usage_log:{provider}")
 
     def _render_prompt(self, template: str, context: dict) -> str:
         class _SafeDict(dict):

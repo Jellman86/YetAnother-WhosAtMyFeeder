@@ -18,7 +18,14 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
+def _has_table(bind, table_name: str) -> bool:
+    inspector = sa.inspect(bind)
+    return table_name in inspector.get_table_names()
+
+
 def _has_index(bind, table_name: str, index_name: str) -> bool:
+    if not _has_table(bind, table_name):
+        return False
     inspector = sa.inspect(bind)
     indexes = inspector.get_indexes(table_name)
     return any(idx['name'] == index_name for idx in indexes)
