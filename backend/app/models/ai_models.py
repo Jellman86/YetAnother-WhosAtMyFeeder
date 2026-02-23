@@ -27,3 +27,13 @@ class DownloadProgress(BaseModel):
     progress: float # 0-100
     message: Optional[str] = None
     error: Optional[str] = None
+
+class AIUsageLog(BaseModel):
+    id: Optional[int] = None
+    timestamp: datetime
+    provider: str
+    model: str
+    feature: str
+    input_tokens: int
+    output_tokens: int
+    total_tokens: int

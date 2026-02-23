@@ -146,7 +146,8 @@
       "appearance": "外观",
       "accessibility": "辅助功能",
       "debug": "调试",
-      "enrichment": "增强信息"
+      "enrichment": "增强信息",
+      "ai": "人工智能"
     },
     "debug": {
       "title": "调试工具",
@@ -663,6 +664,33 @@
       "naming_select_label": "Select {mode} naming style"
     }
   },
+    "ai": {
+      "usage_title": "人工智能使用情况仪表板",
+      "usage_subtitle": "过去 30 天消耗",
+      "total_calls": "API 请求总数",
+      "total_tokens": "消耗代币总数",
+      "estimated_cost": "预估成本",
+      "pricing_not_configured": "请在下方配置价格以提高准确性",
+      "no_usage_data": "尚无人工智能使用记录。",
+      "clear_usage": "清除历史记录",
+      "clear_usage_confirm": "您确定要清除人工智能使用历史记录吗？此操作无法撤销。",
+      "clear_usage_success": "人工智能使用历史记录已清除。",
+      "clear_usage_error": "清除历史记录失败。",
+      "connection_title": "模型配置",
+      "provider_info_title": "云端人工智能提供商",
+      "provider_info_desc": "YA-WAMF 使用云端大语言模型 (LLM) 进行行为分析和自然语言交互。您需要从提供商处获取自己的 API 密钥。",
+      "prompts_title": "提示词模板",
+      "prompts_subtitle": "自定义人工智能功能行为",
+      "pricing_title": "成本预估",
+      "pricing_subtitle": "配置每 100 万代币的成本",
+      "pricing_json": "定价注册表 (JSON)",
+      "pricing_help": "覆盖用于成本预估的默认代币定价。格式：包含提供商 (provider)、模型 (model)、每百万输入代币价格 (inputPer1M) 和每百万输出代币价格 (outputPer1M) 对象的数组。",
+      "table_model": "模型",
+      "table_feature": "功能",
+      "table_calls": "请求数",
+      "table_tokens": "代币数",
+      "table_cost": "成本"
+    },
   "auth": {
     "login": "登录",
     "logout": "注销",

@@ -1809,3 +1809,52 @@ export async function fetchSpeciesRange(speciesName: string, scientificName?: st
     const response = await apiFetch(`${API_BASE}/species/${encodeURIComponent(speciesName)}/range${suffix}`);
     return handleResponse<SpeciesRangeMap>(response);
 }
+
+// ============================================================================
+// AI Usage API
+// ============================================================================
+
+export interface AIUsageBreakdown {
+    provider: string;
+    model: string;
+    feature: string;
+    calls: number;
+    input_tokens: number;
+    output_tokens: number;
+    total_tokens: number;
+    estimated_cost_usd: number;
+}
+
+export interface AIUsageDaily {
+    day: string;
+    calls: number;
+    input_tokens: number;
+    output_tokens: number;
+    total_tokens: number;
+}
+
+export interface AIUsageResponse {
+    span: string;
+    from_date: string;
+    to_date: string;
+    calls: number;
+    input_tokens: number;
+    output_tokens: number;
+    total_tokens: number;
+    estimated_cost_usd: number;
+    pricing_configured: boolean;
+    breakdown: AIUsageBreakdown[];
+    daily: AIUsageDaily[];
+}
+
+export async function fetchAiUsage(span: string = '30d'): Promise<AIUsageResponse> {
+    const response = await apiFetch(`${API_BASE}/stats/ai/usage?span=${span}`);
+    return handleResponse<AIUsageResponse>(response);
+}
+
+export async function clearAiUsage(): Promise<{ status: string; deleted_count: number }> {
+    const response = await apiFetch(`${API_BASE}/stats/ai/usage`, {
+        method: 'DELETE'
+    });
+    return handleResponse<{ status: string; deleted_count: number }>(response);
+}

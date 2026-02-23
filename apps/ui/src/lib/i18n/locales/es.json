@@ -146,7 +146,8 @@
       "appearance": "Apariencia",
       "accessibility": "Accesibilidad",
       "debug": "Debug",
-      "enrichment": "Enriquecimiento"
+      "enrichment": "Enriquecimiento",
+      "ai": "IA"
     },
     "debug": {
       "title": "Herramientas de depuración",
@@ -270,6 +271,33 @@
         "test_hint": "Runs a quick prompt to verify your API key and model.",
         "model_hint": "Choose a model that supports image input (vision). Text-only models will fail analysis."
       }
+    },
+    "ai": {
+      "usage_title": "Panel de Uso de IA",
+      "usage_subtitle": "Consumo de los últimos 30 días",
+      "total_calls": "Peticiones API",
+      "total_tokens": "Tokens Totales",
+      "estimated_cost": "Coste Estimado",
+      "pricing_not_configured": "Configura precios abajo para mayor precisión",
+      "no_usage_data": "No hay datos de uso de IA registrados.",
+      "clear_usage": "Borrar Historial",
+      "clear_usage_confirm": "¿Estás seguro de que quieres borrar el historial de uso de IA? Esta acción no se puede deshacer.",
+      "clear_usage_success": "Historial de uso de IA borrado.",
+      "clear_usage_error": "Error al borrar el historial de uso.",
+      "connection_title": "Configuración del Modelo",
+      "provider_info_title": "Proveedores de IA en la Nube",
+      "provider_info_desc": "YA-WAMF utiliza LLM en la nube para el análisis de comportamiento e interacciones en lenguaje natural. Necesitarás tu propia clave API del proveedor.",
+      "prompts_title": "Plantillas de Prompts",
+      "prompts_subtitle": "Personaliza el comportamiento de las funciones de IA",
+      "pricing_title": "Estimación de Costes",
+      "pricing_subtitle": "Configura los costes por cada 1M de tokens",
+      "pricing_json": "Registro de Precios (JSON)",
+      "pricing_help": "Sobrescribe los precios de tokens predeterminados para la estimación de costes. Formato: un array de objetos con provider, model, inputPer1M y outputPer1M.",
+      "table_model": "Modelo",
+      "table_feature": "Función",
+      "table_calls": "Llamadas",
+      "table_tokens": "Tokens",
+      "table_cost": "Coste"
     },
     "auth": {
       "title": "Autenticación",

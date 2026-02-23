@@ -7,10 +7,23 @@ import cv2
 import numpy as np
 from app.config import settings
 
+from app.database import get_db
+from app.repositories.ai_usage_repository import AIUsageRepository
+
 log = structlog.get_logger()
 
 class AIService:
     """Service to interact with LLMs for behavioral analysis."""
+    
+    async def _record_usage(self, provider: str, model: str, feature: str, input_tokens: int, output_tokens: int):
+        """Record usage to database asynchronously."""
+        try:
+            async with get_db() as db:
+                repo = AIUsageRepository(db)
+                await repo.record_usage(provider, model, feature, input_tokens, output_tokens)
+        except Exception as e:
+            log.error("Failed to record AI usage", error=str(e))
+
     def _render_prompt(self, template: str, context: dict) -> str:
         class _SafeDict(dict):
             def __missing__(self, key: str) -> str:
@@ -108,11 +121,11 @@ class AIService:
 
         prompt = self._build_prompt(species, metadata, language)
         if settings.llm.provider == "gemini":
-            return await self._analyze_gemini_prompt(prompt, images)
+            return await self._analyze_gemini_prompt(prompt, images, feature="analysis")
         elif settings.llm.provider == "openai":
-            return await self._analyze_openai_prompt(prompt, images)
+            return await self._analyze_openai_prompt(prompt, images, feature="analysis")
         elif settings.llm.provider == "claude":
-            return await self._analyze_claude_prompt(prompt, images)
+            return await self._analyze_claude_prompt(prompt, images, feature="analysis")
 
         return "Unsupported AI provider."
 
@@ -127,11 +140,11 @@ class AIService:
         images = [(image_data, mime_type)]
 
         if settings.llm.provider == "gemini":
-            return await self._analyze_gemini_prompt(prompt, images)
+            return await self._analyze_gemini_prompt(prompt, images, feature="chart")
         elif settings.llm.provider == "openai":
-            return await self._analyze_openai_prompt(prompt, images)
+            return await self._analyze_openai_prompt(prompt, images, feature="chart")
         elif settings.llm.provider == "claude":
-            return await self._analyze_claude_prompt(prompt, images)
+            return await self._analyze_claude_prompt(prompt, images, feature="chart")
 
         return "Unsupported AI provider."
 
@@ -144,15 +157,15 @@ class AIService:
             return "AI Analysis is disabled or API key is missing."
 
         if settings.llm.provider == "gemini":
-            return await self._generate_gemini_text(prompt)
+            return await self._generate_gemini_text(prompt, feature="chat")
         elif settings.llm.provider == "openai":
-            return await self._generate_openai_text(prompt)
+            return await self._generate_openai_text(prompt, feature="chat")
         elif settings.llm.provider == "claude":
-            return await self._generate_claude_text(prompt)
+            return await self._generate_claude_text(prompt, feature="chat")
 
         return "Unsupported AI provider."
 
-    async def _analyze_gemini_prompt(self, prompt: str, images: list[tuple[bytes, str]]) -> Optional[str]:
+    async def _analyze_gemini_prompt(self, prompt: str, images: list[tuple[bytes, str]], feature: str = "analysis") -> Optional[str]:
         """Analyze using Google Gemini API."""
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{settings.llm.model}:generateContent?key={settings.llm.api_key}"
         
@@ -185,9 +198,21 @@ class AIService:
                 resp = await client.post(url, json=payload)
                 resp.raise_for_status()
                 
+                data = resp.json()
                 # Extract text from response
-                candidates = resp.json().get("candidates", [])
+                candidates = data.get("candidates", [])
                 if candidates:
+                    # Log usage
+                    usage = data.get("usageMetadata", {})
+                    if usage:
+                        await self._record_usage(
+                            provider="gemini",
+                            model=settings.llm.model,
+                            feature=feature,
+                            input_tokens=usage.get("promptTokenCount", 0),
+                            output_tokens=usage.get("candidatesTokenCount", 0)
+                        )
+
                     content = candidates[0].get("content", {})
                     parts = content.get("parts", [])
                     if parts:
@@ -199,7 +224,7 @@ class AIService:
             log.error("Gemini analysis failed", error=str(e))
             return f"Error during AI analysis: {str(e)}"
 
-    async def _generate_gemini_text(self, prompt: str) -> Optional[str]:
+    async def _generate_gemini_text(self, prompt: str, feature: str = "chat") -> Optional[str]:
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{settings.llm.model}:generateContent?key={settings.llm.api_key}"
         payload = {
             "contents": [
@@ -218,8 +243,20 @@ class AIService:
             async with httpx.AsyncClient(timeout=30.0) as client:
                 resp = await client.post(url, json=payload)
                 resp.raise_for_status()
-                candidates = resp.json().get("candidates", [])
+                data = resp.json()
+                candidates = data.get("candidates", [])
                 if candidates:
+                    # Log usage
+                    usage = data.get("usageMetadata", {})
+                    if usage:
+                        await self._record_usage(
+                            provider="gemini",
+                            model=settings.llm.model,
+                            feature=feature,
+                            input_tokens=usage.get("promptTokenCount", 0),
+                            output_tokens=usage.get("candidatesTokenCount", 0)
+                        )
+
                     content = candidates[0].get("content", {})
                     parts = content.get("parts", [])
                     if parts:
@@ -230,7 +267,7 @@ class AIService:
             log.error("Gemini text generation failed", error=str(e))
             return f"Error during AI analysis: {str(e)}"
 
-    async def _analyze_openai_prompt(self, prompt: str, images: list[tuple[bytes, str]]) -> Optional[str]:
+    async def _analyze_openai_prompt(self, prompt: str, images: list[tuple[bytes, str]], feature: str = "analysis") -> Optional[str]:
         """Analyze using OpenAI API (GPT-4o)."""
         url = "https://api.openai.com/v1/chat/completions"
         
@@ -266,6 +303,17 @@ class AIService:
                 resp.raise_for_status()
                 data = resp.json()
                 
+                # Log usage
+                usage = data.get("usage", {})
+                if usage:
+                    await self._record_usage(
+                        provider="openai",
+                        model=settings.llm.model,
+                        feature=feature,
+                        input_tokens=usage.get("prompt_tokens", 0),
+                        output_tokens=usage.get("completion_tokens", 0)
+                    )
+
                 choices = data.get("choices", [])
                 if choices:
                     return choices[0].get("message", {}).get("content")
@@ -275,7 +323,7 @@ class AIService:
             log.error("OpenAI analysis failed", error=str(e))
             return f"Error during AI analysis: {str(e)}"
 
-    async def _generate_openai_text(self, prompt: str) -> Optional[str]:
+    async def _generate_openai_text(self, prompt: str, feature: str = "chat") -> Optional[str]:
         url = "https://api.openai.com/v1/chat/completions"
         headers = {
             "Authorization": f"Bearer {settings.llm.api_key}",
@@ -291,6 +339,18 @@ class AIService:
                 resp = await client.post(url, headers=headers, json=payload)
                 resp.raise_for_status()
                 data = resp.json()
+
+                # Log usage
+                usage = data.get("usage", {})
+                if usage:
+                    await self._record_usage(
+                        provider="openai",
+                        model=settings.llm.model,
+                        feature=feature,
+                        input_tokens=usage.get("prompt_tokens", 0),
+                        output_tokens=usage.get("completion_tokens", 0)
+                    )
+
                 choices = data.get("choices", [])
                 if choices:
                     return choices[0].get("message", {}).get("content")
@@ -299,7 +359,7 @@ class AIService:
             log.error("OpenAI text generation failed", error=str(e))
             return f"Error during AI analysis: {str(e)}"
 
-    async def _analyze_claude_prompt(self, prompt: str, images: list[tuple[bytes, str]]) -> Optional[str]:
+    async def _analyze_claude_prompt(self, prompt: str, images: list[tuple[bytes, str]], feature: str = "analysis") -> Optional[str]:
         """Analyze using Anthropic Claude API."""
         url = "https://api.anthropic.com/v1/messages"
 
@@ -342,6 +402,17 @@ class AIService:
                 resp.raise_for_status()
                 data = resp.json()
 
+                # Log usage
+                usage = data.get("usage", {})
+                if usage:
+                    await self._record_usage(
+                        provider="claude",
+                        model=settings.llm.model,
+                        feature=feature,
+                        input_tokens=usage.get("input_tokens", 0),
+                        output_tokens=usage.get("output_tokens", 0)
+                    )
+
                 content = data.get("content", [])
                 if content and len(content) > 0:
                     return content[0].get("text")
@@ -351,7 +422,7 @@ class AIService:
             log.error("Claude analysis failed", error=str(e))
             return f"Error during AI analysis: {str(e)}"
 
-    async def _generate_claude_text(self, prompt: str) -> Optional[str]:
+    async def _generate_claude_text(self, prompt: str, feature: str = "chat") -> Optional[str]:
         url = "https://api.anthropic.com/v1/messages"
         headers = {
             "x-api-key": settings.llm.api_key,
@@ -370,6 +441,18 @@ class AIService:
                 resp = await client.post(url, headers=headers, json=payload)
                 resp.raise_for_status()
                 data = resp.json()
+
+                # Log usage
+                usage = data.get("usage", {})
+                if usage:
+                    await self._record_usage(
+                        provider="claude",
+                        model=settings.llm.model,
+                        feature=feature,
+                        input_tokens=usage.get("input_tokens", 0),
+                        output_tokens=usage.get("output_tokens", 0)
+                    )
+
                 content = data.get("content", [])
                 if content and len(content) > 0:
                     return content[0].get("text")

@@ -146,7 +146,8 @@
       "appearance": "Apparence",
       "accessibility": "Accessibilité",
       "debug": "Debug",
-      "enrichment": "Enrichissement"
+      "enrichment": "Enrichissement",
+      "ai": "IA"
     },
     "debug": {
       "title": "Outils de débogage",
@@ -663,6 +664,33 @@
       "naming_select_label": "Select {mode} naming style"
     }
   },
+    "ai": {
+      "usage_title": "AI Usage Dashboard",
+      "usage_subtitle": "Last 30 days consumption",
+      "total_calls": "Total API Requests",
+      "total_tokens": "Total Tokens",
+      "estimated_cost": "Estimated Cost",
+      "pricing_not_configured": "Configure pricing below for accuracy",
+      "no_usage_data": "No AI usage recorded yet.",
+      "clear_usage": "Clear History",
+      "clear_usage_confirm": "Are you sure you want to clear AI usage history? This cannot be undone.",
+      "clear_usage_success": "AI usage history cleared.",
+      "clear_usage_error": "Failed to clear usage history.",
+      "connection_title": "Model Configuration",
+      "provider_info_title": "Cloud AI Providers",
+      "provider_info_desc": "YA-WAMF uses cloud LLMs for behavioral analysis and natural language interactions. You will need your own API key from the provider.",
+      "prompts_title": "Prompt Templates",
+      "prompts_subtitle": "Customize the behavior of AI features",
+      "pricing_title": "Cost Estimation",
+      "pricing_subtitle": "Configure costs per 1M tokens",
+      "pricing_json": "Pricing Registry (JSON)",
+      "pricing_help": "Override the default token pricing for cost estimation. Format: an array of objects with provider, model, inputPer1M, and outputPer1M.",
+      "table_model": "Model",
+      "table_feature": "Feature",
+      "table_calls": "Calls",
+      "table_tokens": "Tokens",
+      "table_cost": "Cost"
+    },
   "auth": {
     "login": "Connexion",
     "logout": "Déconnexion",

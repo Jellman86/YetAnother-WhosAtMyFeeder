@@ -26,7 +26,7 @@ from app.services.telemetry_service import telemetry_service
 from app.services.auto_video_classifier_service import auto_video_classifier
 from app.services.frigate_client import frigate_client
 from app.repositories.detection_repository import DetectionRepository
-from app.routers import events, proxy, settings as settings_router, species, backfill, classifier, models, ai, stats, debug, audio, email, inaturalist, ebird, auth as auth_router
+from app.routers import events, proxy, settings as settings_router, species, backfill, classifier, models, ai, stats, stats_ai, debug, audio, email, inaturalist, ebird, auth as auth_router
 from app.config import settings, _expand_trusted_hosts
 from app.middleware.language import LanguageMiddleware
 from app.utils.tasks import create_background_task
@@ -385,6 +385,7 @@ app.include_router(species.router, prefix="/api", dependencies=[Depends(get_auth
 app.include_router(classifier.router, prefix="/api", dependencies=[Depends(get_auth_context_with_legacy)])
 app.include_router(ai.router, prefix="/api", tags=["ai"], dependencies=[Depends(get_auth_context_with_legacy)])
 app.include_router(stats.router, prefix="/api", tags=["stats"], dependencies=[Depends(get_auth_context_with_legacy)])
+app.include_router(stats_ai.router, prefix="/api", tags=["stats"], dependencies=[Depends(get_auth_context_with_legacy)])
 app.include_router(audio.router, prefix="/api", tags=["audio"], dependencies=[Depends(get_auth_context_with_legacy)])
 
 # Owner-only routers - require authentication

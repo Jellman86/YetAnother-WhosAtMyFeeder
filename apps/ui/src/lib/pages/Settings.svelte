@@ -68,6 +68,7 @@
     import IntegrationSettings from '../components/settings/IntegrationSettings.svelte';
     import NotificationSettings from '../components/settings/NotificationSettings.svelte';
     import AuthenticationSettings from '../components/settings/AuthenticationSettings.svelte';
+    import AISettings from '../components/settings/AISettings.svelte';
 
     let frigateUrl = $state('');
     let mqttServer = $state('');
@@ -139,6 +140,7 @@
     let llmConversationPromptTemplate = $state('');
     let llmChartPromptTemplate = $state('');
     let llmPromptStyle = $state('classic');
+    let aiPricingJson = $state('[]');
 
     const promptTemplates = {
         classic: {
@@ -1457,6 +1459,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'llmAnalysisPromptTemplate', val: llmAnalysisPromptTemplate, store: s.llm_analysis_prompt_template || '' },
             { key: 'llmConversationPromptTemplate', val: llmConversationPromptTemplate, store: s.llm_conversation_prompt_template || '' },
             { key: 'llmChartPromptTemplate', val: llmChartPromptTemplate, store: s.llm_chart_prompt_template || '' },
+            { key: 'aiPricingJson', val: aiPricingJson, store: s.ai_pricing_json || '[]' },
             { key: 'cameraAudioMapping', val: JSON.stringify(cameraAudioMapping), store: JSON.stringify(s.camera_audio_mapping || {}) },
             { key: 'minConfidence', val: minConfidence, store: s.classification_min_confidence ?? 0.4 },
             { key: 'telemetryEnabled', val: telemetryEnabled, store: s.telemetry_enabled ?? true },
@@ -1565,7 +1568,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     let analysisPollInterval: any;
 
     // Tab navigation
-    let activeTab = $state('connection');
+    let activeTab = $state<'connection' | 'detection' | 'notifications' | 'enrichment' | 'ai' | 'data' | 'appearance' | 'accessibility' | 'security' | 'debug'>('connection');
 
     $effect(() => {
         currentTheme = themeStore.theme;
@@ -2129,6 +2132,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             llmAnalysisPromptTemplate = settings.llm_analysis_prompt_template ?? '';
             llmConversationPromptTemplate = settings.llm_conversation_prompt_template ?? '';
             llmChartPromptTemplate = settings.llm_chart_prompt_template ?? '';
+            aiPricingJson = settings.ai_pricing_json ?? '[]';
             // Telemetry
             telemetryEnabled = settings.telemetry_enabled ?? true;
             telemetryInstallationId = settings.telemetry_installation_id;
@@ -2358,6 +2362,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 llm_analysis_prompt_template: llmAnalysisPromptTemplate,
                 llm_conversation_prompt_template: llmConversationPromptTemplate,
                 llm_chart_prompt_template: llmChartPromptTemplate,
+                ai_pricing_json: aiPricingJson,
                 telemetry_enabled: telemetryEnabled,
                 auth_enabled: authEnabled,
                 auth_username: authUsername,
@@ -2832,6 +2837,25 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 />
             {/if}
 
+            <!-- AI Tab -->
+            {#if activeTab === 'ai'}
+                <AISettings
+                    bind:llmEnabled
+                    bind:llmProvider
+                    bind:llmApiKey
+                    bind:llmApiKeySaved
+                    bind:llmModel
+                    bind:llmAnalysisPromptTemplate
+                    bind:llmConversationPromptTemplate
+                    bind:llmChartPromptTemplate
+                    bind:llmPromptStyle
+                    bind:aiPricingJson
+                    onTestConnection={handleTestLlm}
+                    onApplyStyle={handleApplyLlmPromptStyle}
+                    onResetDefaults={handleResetLlmPromptDefaults}
+                />
+            {/if}
+
             <!-- Security Tab -->
             {#if activeTab === 'security'}
                 {#if authStore.httpsWarning}
@@ -3021,104 +3045,6 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                             </div>
                             <div class="text-[10px] font-bold text-slate-500">
                                 {$_('settings.debug.inat_preview_hint')}
-                            </div>
-                        </div>
-                    </section>
-
-                    <section class="card-base p-8">
-                        <div class="flex items-center gap-3 mb-6">
-                            <div class="w-10 h-10 rounded-2xl bg-teal-500/10 flex items-center justify-center text-teal-600 dark:text-teal-400">
-                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h6m-6 4h10M5 4h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/></svg>
-                            </div>
-                            <div>
-                                <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">
-                                    {$_('settings.debug.llm_prompts_title', { default: 'LLM Prompt Templates' })}
-                                </h3>
-                                <p class="text-xs text-slate-500">
-                                    {$_('settings.debug.llm_prompts_subtitle', { default: 'Customize the Markdown structure and tone for AI analysis and conversations.' })}
-                                </p>
-                            </div>
-                        </div>
-
-                        <div class="space-y-6">
-                            <div class="flex flex-col gap-4 md:flex-row md:items-end">
-                                <div class="flex-1">
-                                    <label for="llm-prompt-style" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">
-                                        {$_('settings.debug.llm_prompt_style_label', { default: 'Prompt Style' })}
-                                    </label>
-                                    <select
-                                        id="llm-prompt-style"
-                                        bind:value={llmPromptStyle}
-                                        class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-900/60 text-xs font-semibold text-slate-900 dark:text-slate-100"
-                                    >
-                                        <option value="classic">{$_('settings.debug.llm_prompt_style_classic', { default: 'Classic' })}</option>
-                                        <option value="field">{$_('settings.debug.llm_prompt_style_field', { default: 'Field Notes' })}</option>
-                                    </select>
-                                    <p class="mt-2 text-[10px] text-slate-500">
-                                        {$_('settings.debug.llm_prompt_style_help', { default: 'Applies localized defaults for your current language.' })}
-                                    </p>
-                                </div>
-                                <div class="flex flex-wrap gap-2">
-                                    <button
-                                        type="button"
-                                        onclick={() => applyPromptTemplates(llmPromptStyle as keyof typeof promptTemplates)}
-                                        class="px-4 py-2 rounded-full border border-teal-200/70 dark:border-teal-700/60 text-[10px] font-black uppercase tracking-widest text-teal-700 dark:text-teal-200 hover:bg-teal-50 dark:hover:bg-teal-900/20 transition"
-                                    >
-                                        {$_('settings.debug.llm_prompt_apply_style', { default: 'Apply Style' })}
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onclick={resetPromptTemplates}
-                                        class="px-4 py-2 rounded-full border border-slate-200/70 dark:border-slate-700/60 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
-                                    >
-                                        {$_('settings.debug.llm_prompt_reset_defaults', { default: 'Reset Defaults' })}
-                                    </button>
-                                </div>
-                            </div>
-
-                            <div>
-                                <label for="llm-prompt-analysis" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">
-                                    {$_('settings.debug.llm_prompt_analysis', { default: 'Detection Analysis Prompt' })}
-                                </label>
-                                <textarea
-                                    id="llm-prompt-analysis"
-                                    rows="10"
-                                    bind:value={llmAnalysisPromptTemplate}
-                                    class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-900/60 text-xs font-mono text-slate-900 dark:text-slate-100 leading-relaxed"
-                                ></textarea>
-                                <p class="mt-2 text-[10px] text-slate-500">
-                                    {$_('settings.debug.llm_prompt_analysis_hint', { default: 'Tokens: {species}, {time}, {weather_str}, {frame_note}, {language_note}' })}
-                                </p>
-                            </div>
-
-                            <div>
-                                <label for="llm-prompt-conversation" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">
-                                    {$_('settings.debug.llm_prompt_conversation', { default: 'Conversation Prompt' })}
-                                </label>
-                                <textarea
-                                    id="llm-prompt-conversation"
-                                    rows="10"
-                                    bind:value={llmConversationPromptTemplate}
-                                    class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-900/60 text-xs font-mono text-slate-900 dark:text-slate-100 leading-relaxed"
-                                ></textarea>
-                                <p class="mt-2 text-[10px] text-slate-500">
-                                    {$_('settings.debug.llm_prompt_conversation_hint', { default: 'Tokens: {species}, {analysis}, {history}, {question}, {language_note}' })}
-                                </p>
-                            </div>
-
-                            <div>
-                                <label for="llm-prompt-chart" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">
-                                    {$_('settings.debug.llm_prompt_chart', { default: 'Chart Analysis Prompt' })}
-                                </label>
-                                <textarea
-                                    id="llm-prompt-chart"
-                                    rows="10"
-                                    bind:value={llmChartPromptTemplate}
-                                    class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-900/60 text-xs font-mono text-slate-900 dark:text-slate-100 leading-relaxed"
-                                ></textarea>
-                                <p class="mt-2 text-[10px] text-slate-500">
-                                    {$_('settings.debug.llm_prompt_chart_hint', { default: 'Tokens: {timeframe}, {total_count}, {series}, {weather_notes}, {sun_notes}, {notes}, {language_note}' })}
-                                </p>
                             </div>
                         </div>
                     </section>

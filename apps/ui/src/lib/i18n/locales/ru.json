@@ -154,7 +154,8 @@
       "appearance": "Внешний вид",
       "accessibility": "Доступность",
       "debug": "Debug",
-      "enrichment": "Обогащение"
+      "enrichment": "Обогащение",
+      "ai": "ИИ"
     },
     "debug": {
       "title": "Инструменты отладки",
@@ -671,6 +672,33 @@
       "naming_select_label": "Выбрать стиль именования {mode}"
     }
   },
+    "ai": {
+      "usage_title": "Панель использования ИИ",
+      "usage_subtitle": "Потребление за последние 30 дней",
+      "total_calls": "Всего запросов API",
+      "total_tokens": "Всего токенов",
+      "estimated_cost": "Оценочная стоимость",
+      "pricing_not_configured": "Настройте цены ниже для точности",
+      "no_usage_data": "Данные об использовании ИИ пока отсутствуют.",
+      "clear_usage": "Очистить историю",
+      "clear_usage_confirm": "Вы уверены, что хотите очистить историю использования ИИ? Это действие нельзя отменить.",
+      "clear_usage_success": "История использования ИИ очищена.",
+      "clear_usage_error": "Не удалось очистить историю использования.",
+      "connection_title": "Конфигурация модели",
+      "provider_info_title": "Облачные провайдеры ИИ",
+      "provider_info_desc": "YA-WAMF использует облачные LLM для поведенческого анализа и взаимодействия на естественном языке. Вам понадобится собственный API-ключ от провайдера.",
+      "prompts_title": "Шаблоны промптов",
+      "prompts_subtitle": "Настройте поведение функций ИИ",
+      "pricing_title": "Оценка стоимости",
+      "pricing_subtitle": "Настройте стоимость за 1 млн токенов",
+      "pricing_json": "Реестр цен (JSON)",
+      "pricing_help": "Переопределите цены на токены по умолчанию для оценки стоимости. Формат: массив объектов с provider, model, inputPer1M и outputPer1M.",
+      "table_model": "Модель",
+      "table_feature": "Функция",
+      "table_calls": "Вызовы",
+      "table_tokens": "Токены",
+      "table_cost": "Стоимость"
+    },
   "auth": {
     "login": "Войти",
     "logout": "Выйти",

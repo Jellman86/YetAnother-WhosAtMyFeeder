@@ -23,6 +23,7 @@
             icon: "🔌",
         },
         { id: "enrichment", label: $_("settings.tabs.enrichment"), icon: "✨" },
+        { id: "ai", label: $_("settings.tabs.ai", { default: 'AI' }), icon: "🤖" },
         { id: "security", label: $_("settings.tabs.security"), icon: "🔐" },
         { id: "data", label: $_("settings.tabs.data"), icon: "💾" },
         { id: "appearance", label: $_("settings.tabs.appearance"), icon: "🎨" },
