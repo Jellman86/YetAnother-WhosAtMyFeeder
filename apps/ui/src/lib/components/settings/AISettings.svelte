@@ -278,7 +278,7 @@
         <div class="space-y-4">
             <div class="flex items-center justify-between">
                 <label for="ai-pricing-json" class="block text-[10px] font-black uppercase tracking-widest text-slate-500">{$_('settings.ai.pricing_json', { default: 'Pricing Registry (JSON)' })}</label>
-                <a href="/docs/ai-pricing.json" target="_blank" class="text-[10px] font-black text-teal-600 dark:text-teal-400 hover:underline uppercase tracking-widest">View Reference Pricing →</a>
+                <a href="https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/blob/main/docs/ai-pricing.json" target="_blank" class="text-[10px] font-black text-teal-600 dark:text-teal-400 hover:underline uppercase tracking-widest">View Reference Pricing →</a>
             </div>
             <textarea
                 id="ai-pricing-json"

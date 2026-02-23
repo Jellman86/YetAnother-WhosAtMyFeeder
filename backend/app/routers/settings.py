@@ -322,6 +322,7 @@ class SettingsUpdate(BaseModel):
     llm_analysis_prompt_template: Optional[str] = Field(None, description="Prompt template for detection analysis")
     llm_conversation_prompt_template: Optional[str] = Field(None, description="Prompt template for follow-up conversation")
     llm_chart_prompt_template: Optional[str] = Field(None, description="Prompt template for chart analysis")
+    ai_pricing_json: Optional[str] = Field(None, description="JSON string containing AI pricing overrides")
     
     # Telemetry
     telemetry_enabled: Optional[bool] = Field(False, description="Enable anonymous usage statistics")
@@ -810,6 +811,8 @@ async def update_settings(
         template = update.llm_chart_prompt_template.strip()
         if template:
             settings.llm.chart_prompt_template = template
+    if "ai_pricing_json" in fields_set and update.ai_pricing_json is not None:
+        settings.classification.ai_pricing_json = update.ai_pricing_json
     
     # Telemetry
     if "telemetry_enabled" in fields_set and update.telemetry_enabled is not None:
