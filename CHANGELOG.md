@@ -18,6 +18,9 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Fixed:** Enhanced **Audio Correlation** to match against both scientific and common names, resolving "zero detection" issues when using localized BirdNet-Go instances.
 - **Fixed:** Unified manual and background **Reclassification Logic** to ensure consistent display name updates and robust audio re-correlation.
 - **Fixed:** Added `scientific_name` column to `audio_detections` table via a robust, idempotent migration following the Excellence Standard.
+- **Fixed:** Resolved frontend build errors related to Svelte syntax in settings placeholders and missing interface properties.
+- **Fixed:** Corrected backend test environment initialization so that Alembic migrations run automatically on temporary test databases, ensuring all tables are present during CI runs.
+- **Changed:** Refactored AI usage logging to run as a non-blocking background task, improving API responsiveness.
 - **Changed:** Fully localized all new UI elements and settings across all 9 supported languages.
 
 ## [2.8.2] - 2026-02-19
