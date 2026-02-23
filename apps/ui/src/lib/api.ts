@@ -233,6 +233,8 @@ export interface Settings {
     auto_video_classification: boolean;
     video_classification_delay: number;
     video_classification_max_retries: number;
+    video_classification_frames: number;
+    use_cuda: boolean;
     video_classification_circuit_open?: boolean;
     video_classification_circuit_until?: string | null;
     video_classification_circuit_failures?: number;
@@ -946,6 +948,9 @@ export interface ClassifierStatus {
     error: string | null;
     labels_count: number;
     enabled: boolean;
+    onnx_available?: boolean;
+    cuda_available?: boolean;
+    cuda_enabled?: boolean;
 }
 
 export async function fetchClassifierStatus(): Promise<ClassifierStatus> {

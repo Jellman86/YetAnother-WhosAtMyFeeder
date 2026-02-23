@@ -215,6 +215,8 @@ class ClassificationSettings(BaseModel):
     video_classification_failure_cooldown_minutes: int = Field(default=15, ge=1, description="Cooldown minutes when circuit breaker is open")
     video_classification_timeout_seconds: int = Field(default=180, ge=30, description="Timeout for a single video classification run")
     video_classification_stale_minutes: int = Field(default=15, ge=1, description="Mark pending/processing as failed after this many minutes")
+    video_classification_frames: int = Field(default=15, ge=5, le=100, description="Number of frames to sample for video classification")
+    use_cuda: bool = Field(default=False, description="Enable CUDA acceleration for ONNX models if available")
 
     # Classification output settings
     max_classification_results: int = Field(default=5, ge=1, le=20, description="Maximum number of top results to return from classifier")
@@ -541,6 +543,8 @@ class Settings(BaseSettings):
             'video_classification_failure_threshold': int(os.environ.get('CLASSIFICATION__VIDEO_FAILURE_THRESHOLD', '5')),
             'video_classification_failure_window_minutes': int(os.environ.get('CLASSIFICATION__VIDEO_FAILURE_WINDOW_MINUTES', '10')),
             'video_classification_failure_cooldown_minutes': int(os.environ.get('CLASSIFICATION__VIDEO_FAILURE_COOLDOWN_MINUTES', '15')),
+            'video_classification_frames': int(os.environ.get('CLASSIFICATION__VIDEO_CLASSIFICATION_FRAMES', '15')),
+            'use_cuda': os.environ.get('CLASSIFICATION__USE_CUDA', 'false').lower() == 'true',
             'max_classification_results': int(os.environ.get('CLASSIFICATION__MAX_CLASSIFICATION_RESULTS', '5')),
         }
 

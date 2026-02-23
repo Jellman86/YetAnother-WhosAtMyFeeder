@@ -17,6 +17,7 @@ class AudioDetection:
     confidence: float
     sensor_id: Optional[str]
     raw_data: dict
+    scientific_name: Optional[str] = None
 
 class AudioService:
     def __init__(self):
@@ -49,6 +50,13 @@ class AudioService:
             if not sensor_id and "Source" in data:
                 sensor_id = data.get("Source", {}).get("id")
 
+            # Resolve scientific name for robust matching across languages
+            scientific_name = data.get("ScientificName")
+            if not scientific_name:
+                from app.services.taxonomy.taxonomy_service import taxonomy_service
+                taxonomy = await taxonomy_service.get_names(species)
+                scientific_name = taxonomy.get("scientific_name")
+
             # If timestamp provided in payload, use it
             ts_raw = data.get("timestamp") or data.get("ts")
             if ts_raw:
@@ -75,13 +83,14 @@ class AudioService:
                 species=species,
                 confidence=float(confidence),
                 sensor_id=sensor_id,
-                raw_data=data
+                raw_data=data,
+                scientific_name=scientific_name
             )
 
             async with self._lock:
                 self._buffer.append(detection)
                 buffer_len = len(self._buffer)
-                log.info("Audio detection added to buffer", species=species, confidence=confidence, sensor_id=sensor_id, ts=timestamp.isoformat(), buffer_len=buffer_len)
+                log.info("Audio detection added to buffer", species=species, scientific=scientific_name, confidence=confidence, sensor_id=sensor_id, ts=timestamp.isoformat(), buffer_len=buffer_len)
                 self._cleanup_buffer()
 
             try:
@@ -92,7 +101,8 @@ class AudioService:
                         species=species,
                         confidence=float(confidence),
                         sensor_id=sensor_id,
-                        raw_data=data
+                        raw_data=data,
+                        scientific_name=scientific_name
                     )
             except Exception as e:
                 log.warning("Failed to persist audio detection", error=str(e))
@@ -192,6 +202,14 @@ class AudioService:
         """
         if window_seconds is None:
             window_seconds = settings.frigate.audio_correlation_window_seconds
+        
+        # Get scientific name for the species we're looking for
+        from app.services.taxonomy.taxonomy_service import taxonomy_service
+        taxonomy = await taxonomy_service.get_names(species_name)
+        target_scientific = (taxonomy.get("scientific_name") or species_name).lower().strip()
+        target_common = (taxonomy.get("common_name") or species_name).lower().strip()
+        target_query = species_name.lower().strip()
+
         async with self._lock:
             self._cleanup_buffer()
 
@@ -203,9 +221,6 @@ class AudioService:
             # Ensure target_time is timezone-aware (assume UTC if naive)
             if target_time.tzinfo is None:
                 target_time = target_time.replace(tzinfo=timezone.utc)
-
-            # Normalize species name for matching (case-insensitive)
-            species_lower = species_name.lower().strip()
 
             best_match = None
             highest_score = 0.0
@@ -225,21 +240,34 @@ class AudioService:
                 if delta > window_seconds:
                     continue
 
-                # Check if species matches (case-insensitive)
-                audio_species_lower = detection.species.lower().strip()
-                if audio_species_lower == species_lower:
-                    # Direct match
+                # Match against multiple fields for cross-language robustness
+                audio_species = detection.species.lower().strip()
+                audio_scientific = (detection.scientific_name or "").lower().strip()
+                
+                matches = (
+                    audio_species == target_query or
+                    audio_species == target_scientific or
+                    audio_species == target_common or
+                    (audio_scientific and (
+                        audio_scientific == target_query or
+                        audio_scientific == target_scientific or
+                        audio_scientific == target_common
+                    ))
+                )
+
+                if matches:
                     if detection.confidence > highest_score:
                         highest_score = detection.confidence
                         best_match = detection
 
             if best_match:
                 log.info("Audio correlation match found",
-                         species=species_name,
+                         query=species_name,
+                         target_sci=target_scientific,
                          audio_species=best_match.species,
+                         audio_sci=best_match.scientific_name,
                          confidence=best_match.confidence,
-                         time_delta_sec=abs((best_match.timestamp - target_time).total_seconds()),
-                         window_seconds=window_seconds)
+                         time_delta_sec=abs((best_match.timestamp - target_time).total_seconds()))
                 return (True, best_match.species, best_match.confidence)
             else:
                 log.debug("No audio correlation found",

@@ -780,93 +780,30 @@ async def reclassify_event(
                 )
 
             top = results[0]
-            new_species = top['label']
-
-            # Relabel unknown birds consistently with EventProcessor
-            if new_species in settings.classification.unknown_bird_labels:
-                new_species = "Unknown Bird"
-
-            new_score = top['score']
-
-            # 1. Re-normalize taxonomy for the new classification
-            taxonomy = await taxonomy_service.get_names(new_species)
-
-            sci_name = taxonomy.get("scientific_name") or new_species
-            com_name = taxonomy.get("common_name")
-            t_id = taxonomy.get("taxa_id")
-
-            # 2. ALWAYS re-correlate audio on reclassification (even if species unchanged)
-            # This fixes stale audio data from previous incorrect classifications
-            audio_confirmed, audio_species, audio_score = await audio_service.correlate_species(
-                target_time=detection.detection_time,
-                species_name=sci_name,  # Use scientific name for matching
-                camera_name=detection.camera_name
+            
+            # Apply the result via DetectionService to ensure consistent logic (Unknown Bird relabeling, audio, etc)
+            from app.services.detection_service import DetectionService
+            svc = DetectionService(classifier)
+            await svc.apply_video_result(
+                frigate_event=event_id,
+                video_label=top['label'],
+                video_score=top['score'],
+                video_index=top['index'],
+                manual_tagged=True
             )
 
-            # Update if species changed OR if score improved significantly OR if audio changed
-            updated = False
-            audio_changed = (audio_confirmed != detection.audio_confirmed or
-                            audio_species != detection.audio_species)
-
-            if new_species != old_species or abs(new_score - detection.score) > 0.01 or audio_changed:
-                # 3. Update DB with new classification AND re-correlated audio data
-                await db.execute("""
-                    UPDATE detections
-                    SET display_name = ?, category_name = ?, score = ?, detection_index = ?,
-                        scientific_name = ?, common_name = ?, taxa_id = ?,
-                        audio_confirmed = ?, audio_species = ?, audio_score = ?,
-                        manual_tagged = 1
-                    WHERE frigate_event = ?
-                """, (new_species, new_species, new_score, top['index'],
-                      sci_name, com_name, t_id,
-                      1 if audio_confirmed else 0, audio_species, audio_score,
-                      event_id))
-                await db.commit()
-                updated = True
-
-            # Log reclassification result (even if not updated in DB)
-            log.info("Reclassified detection",
-                     event_id=event_id,
-                     old_species=old_species,
-                     new_species=new_species,
-                     scientific=sci_name,
-                     new_score=new_score,
-                     old_score=detection.score,
-                     strategy=effective_strategy,
-                     audio_confirmed=audio_confirmed,
-                     audio_species=audio_species,
-                     db_updated=updated)
-
-            if updated:
-                refreshed_detection = await repo.get_by_frigate_event(event_id)
-                payload_source = refreshed_detection or detection
-
-                # 4. Broadcast full updated metadata with re-correlated audio
-                await broadcaster.broadcast({
-                    "type": "detection_updated",
-                    "data": _detection_updated_payload(
-                        payload_source,
-                        overrides={
-                            "display_name": new_species,
-                            "score": new_score,
-                            "manual_tagged": True,
-                            "audio_confirmed": audio_confirmed,
-                            "audio_species": audio_species,
-                            "audio_score": audio_score,
-                            "scientific_name": sci_name,
-                            "common_name": com_name,
-                            "taxa_id": t_id,
-                        }
-                    )
-                })
+            # Re-fetch updated detection for the response
+            updated_detection = await repo.get_by_frigate_event(event_id)
+            if not updated_detection:
+                updated_detection = detection # Fallback
 
             return ReclassifyResponse(
                 status="success",
                 event_id=event_id,
                 old_species=old_species,
-                new_species=new_species,
-                new_score=new_score,
-                updated=updated,
+                new_species=updated_detection.display_name,
+                new_score=updated_detection.score,
+                updated=True,
                 actual_strategy=effective_strategy
             )
         except HTTPException:

@@ -89,6 +89,8 @@
     let autoVideoClassification = $state(false);
     let videoClassificationDelay = $state(30);
     let videoClassificationMaxRetries = $state(3);
+    let videoClassificationFrames = $state(15);
+    let useCuda = $state(false);
     let videoCircuitOpen = $state(false);
     let videoCircuitUntil = $state<string | null>(null);
     let videoCircuitFailures = $state(0);
@@ -1413,6 +1415,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'autoVideoClassification', val: autoVideoClassification, store: s.auto_video_classification ?? false },
             { key: 'videoClassificationDelay', val: videoClassificationDelay, store: s.video_classification_delay ?? 30 },
             { key: 'videoClassificationMaxRetries', val: videoClassificationMaxRetries, store: s.video_classification_max_retries ?? 3 },
+            { key: 'videoClassificationFrames', val: videoClassificationFrames, store: s.video_classification_frames ?? 15 },
+            { key: 'useCuda', val: useCuda, store: s.use_cuda ?? false },
             { key: 'selectedCameras', val: JSON.stringify(selectedCameras), store: JSON.stringify(s.cameras || []) },
             { key: 'retentionDays', val: retentionDays, store: s.retention_days || 0 },
             { key: 'blockedLabels', val: JSON.stringify(blockedLabels), store: JSON.stringify(s.blocked_labels || []) },
@@ -2042,6 +2046,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             autoVideoClassification = settings.auto_video_classification ?? false;
             videoClassificationDelay = settings.video_classification_delay ?? 30;
             videoClassificationMaxRetries = settings.video_classification_max_retries ?? 3;
+            videoClassificationFrames = settings.video_classification_frames ?? 15;
+            useCuda = settings.use_cuda ?? false;
             videoCircuitOpen = settings.video_classification_circuit_open ?? false;
             videoCircuitUntil = settings.video_classification_circuit_until ?? null;
             videoCircuitFailures = settings.video_classification_circuit_failures ?? 0;
@@ -2310,6 +2316,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 auto_video_classification: autoVideoClassification,
                 video_classification_delay: videoClassificationDelay,
                 video_classification_max_retries: videoClassificationMaxRetries,
+                video_classification_frames: videoClassificationFrames,
+                use_cuda: useCuda,
                 cameras: selectedCameras,
                 retention_days: retentionDays,
                 blocked_labels: blockedLabels,
@@ -2686,6 +2694,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     bind:autoVideoClassification
                     bind:videoClassificationDelay
                     bind:videoClassificationMaxRetries
+                    bind:videoClassificationFrames
+                    bind:useCuda
                     bind:blockedLabels
                     bind:newBlockedLabel
                     {videoCircuitOpen}

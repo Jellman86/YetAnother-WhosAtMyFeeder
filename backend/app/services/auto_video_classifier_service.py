@@ -376,7 +376,7 @@ class AutoVideoClassifierService:
                     results = await asyncio.wait_for(
                         self._classifier.classify_video_async(
                             tmp_path,
-                            max_frames=15,
+                            max_frames=settings.classification.video_classification_frames,
                             progress_callback=progress_callback
                         ),
                         timeout=timeout

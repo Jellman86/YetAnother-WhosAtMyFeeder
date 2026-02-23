@@ -1026,58 +1026,62 @@ class DetectionRepository:
                 SELECT
                     strftime('%Y-%m-%dT%H:00:00Z', detection_time) as bucket_key,
                     display_name,
+                    scientific_name,
                     COUNT(*) as c
                 FROM detections
                 WHERE detection_time >= ? AND detection_time < ?
                   AND (is_hidden = 0 OR is_hidden IS NULL)
-                  AND display_name IN ({placeholders})
-                GROUP BY bucket_key, display_name
+                  AND (display_name IN ({placeholders}) OR scientific_name IN ({placeholders}))
+                GROUP BY bucket_key, display_name, scientific_name
                 ORDER BY bucket_key ASC
             """
-            params = (start, end, *labels_params)
+            params = (start, end, *labels_params, *labels_params)
         elif bucket == "halfday":
             query = f"""
                 SELECT
                     date(detection_time) as d,
                     CASE WHEN CAST(strftime('%H', detection_time) AS integer) < 12 THEN 0 ELSE 12 END as hour_start,
                     display_name,
+                    scientific_name,
                     COUNT(*) as c
                 FROM detections
                 WHERE detection_time >= ? AND detection_time < ?
                   AND (is_hidden = 0 OR is_hidden IS NULL)
-                  AND display_name IN ({placeholders})
-                GROUP BY d, hour_start, display_name
+                  AND (display_name IN ({placeholders}) OR scientific_name IN ({placeholders}))
+                GROUP BY d, hour_start, display_name, scientific_name
                 ORDER BY d ASC, hour_start ASC
             """
-            params = (start, end, *labels_params)
+            params = (start, end, *labels_params, *labels_params)
         elif bucket == "day":
             query = f"""
                 SELECT
                     date(detection_time) as d,
                     display_name,
+                    scientific_name,
                     COUNT(*) as c
                 FROM detections
                 WHERE detection_time >= ? AND detection_time < ?
                   AND (is_hidden = 0 OR is_hidden IS NULL)
-                  AND display_name IN ({placeholders})
-                GROUP BY d, display_name
+                  AND (display_name IN ({placeholders}) OR scientific_name IN ({placeholders}))
+                GROUP BY d, display_name, scientific_name
                 ORDER BY d ASC
             """
-            params = (start, end, *labels_params)
+            params = (start, end, *labels_params, *labels_params)
         else:
             query = f"""
                 SELECT
                     strftime('%Y-%m-01', detection_time) as m,
                     display_name,
+                    scientific_name,
                     COUNT(*) as c
                 FROM detections
                 WHERE detection_time >= ? AND detection_time < ?
                   AND (is_hidden = 0 OR is_hidden IS NULL)
-                  AND display_name IN ({placeholders})
-                GROUP BY m, display_name
+                  AND (display_name IN ({placeholders}) OR scientific_name IN ({placeholders}))
+                GROUP BY m, display_name, scientific_name
                 ORDER BY m ASC
             """
-            params = (start, end, *labels_params)
+            params = (start, end, *labels_params, *labels_params)
 
         async with self.db.execute(query, params) as cursor:
             rows = await cursor.fetchall()
@@ -1088,33 +1092,45 @@ class DetectionRepository:
                 d = row[0]
                 hour_start = int(row[1] or 0)
                 label = row[2]
-                count = int(row[3] or 0)
-                if not d or not label:
+                sci_name = row[3]
+                count = int(row[4] or 0)
+                if not d:
                     continue
                 hh = "00" if hour_start == 0 else "12"
                 bucket_key = f"{d}T{hh}:00:00Z"
             elif bucket == "day":
                 d = row[0]
                 label = row[1]
-                count = int(row[2] or 0)
-                if not d or not label:
+                sci_name = row[2]
+                count = int(row[3] or 0)
+                if not d:
                     continue
                 bucket_key = f"{d}T00:00:00Z"
             elif bucket == "month":
                 m = row[0]
                 label = row[1]
-                count = int(row[2] or 0)
-                if not m or not label:
+                sci_name = row[2]
+                count = int(row[3] or 0)
+                if not m:
                     continue
                 bucket_key = f"{m}T00:00:00Z"
             else:
                 bucket_key = row[0]
                 label = row[1]
-                count = int(row[2] or 0)
-                if not bucket_key or not label:
+                sci_name = row[2]
+                count = int(row[3] or 0)
+                if not bucket_key:
                     continue
 
-            for output_species in reverse_map.get(label, []):
+            # We need to find which "output species" this row belongs to.
+            # It could match by display_name OR by scientific_name.
+            target_species_set: set[str] = set()
+            if label and label in reverse_map:
+                target_species_set.update(reverse_map[label])
+            if sci_name and sci_name in reverse_map:
+                target_species_set.update(reverse_map[sci_name])
+
+            for output_species in target_species_set:
                 out.setdefault(bucket_key, {})
                 out[bucket_key][output_species] = out[bucket_key].get(output_species, 0) + count
         return out
@@ -1154,7 +1170,7 @@ class DetectionRepository:
         """Get detection counts per species with taxonomic metadata."""
         query = """
             SELECT 
-                COALESCE(t.scientific_name, LOWER(d.display_name)) as unified_id,
+                COALESCE(t.scientific_name, LOWER(d.scientific_name), LOWER(d.display_name)) as unified_id,
                 COUNT(*) as count, 
                 MAX(COALESCE(d.scientific_name, t.scientific_name)) as scientific_name, 
                 MAX(COALESCE(d.common_name, t.common_name)) as common_name,
@@ -1163,7 +1179,8 @@ class DetectionRepository:
             FROM detections d
             LEFT JOIN taxonomy_cache t ON 
                 LOWER(d.display_name) = LOWER(t.scientific_name) OR 
-                LOWER(d.display_name) = LOWER(t.common_name)
+                LOWER(d.display_name) = LOWER(t.common_name) OR
+                LOWER(d.scientific_name) = LOWER(t.scientific_name)
             WHERE (d.is_hidden = 0 OR d.is_hidden IS NULL)
             GROUP BY unified_id
             ORDER BY count DESC
@@ -1185,7 +1202,7 @@ class DetectionRepository:
         """Get leaderboard base stats per species with taxonomy and time bounds."""
         query = """
             SELECT 
-                COALESCE(t.scientific_name, LOWER(d.display_name)) as unified_id,
+                COALESCE(t.scientific_name, LOWER(d.scientific_name), LOWER(d.display_name)) as unified_id,
                 COUNT(*) as total_count, 
                 MAX(COALESCE(d.scientific_name, t.scientific_name)) as scientific_name, 
                 MAX(COALESCE(d.common_name, t.common_name)) as common_name,
@@ -1200,7 +1217,8 @@ class DetectionRepository:
             FROM detections d
             LEFT JOIN taxonomy_cache t ON 
                 LOWER(d.display_name) = LOWER(t.scientific_name) OR 
-                LOWER(d.display_name) = LOWER(t.common_name)
+                LOWER(d.display_name) = LOWER(t.common_name) OR
+                LOWER(d.scientific_name) = LOWER(t.scientific_name)
             WHERE (d.is_hidden = 0 OR d.is_hidden IS NULL)
             GROUP BY unified_id
             ORDER BY total_count DESC
@@ -1239,7 +1257,7 @@ class DetectionRepository:
         """
         query = """
             SELECT
-                COALESCE(t.scientific_name, LOWER(d.display_name)) as unified_id,
+                COALESCE(t.scientific_name, LOWER(d.scientific_name), LOWER(d.display_name)) as unified_id,
                 MAX(COALESCE(d.scientific_name, t.scientific_name)) as scientific_name,
                 MAX(COALESCE(d.common_name, t.common_name)) as common_name,
                 MAX(d.display_name) as display_name,
@@ -1256,7 +1274,8 @@ class DetectionRepository:
             FROM detections d
             LEFT JOIN taxonomy_cache t ON
                 LOWER(d.display_name) = LOWER(t.scientific_name) OR
-                LOWER(d.display_name) = LOWER(t.common_name)
+                LOWER(d.display_name) = LOWER(t.common_name) OR
+                LOWER(d.scientific_name) = LOWER(t.scientific_name)
             WHERE (d.is_hidden = 0 OR d.is_hidden IS NULL)
               AND d.detection_time >= ?
               AND d.detection_time < ?
@@ -1637,7 +1656,7 @@ class DetectionRepository:
         """Get detection counts per species for a specific time range."""
         query = """
             SELECT 
-                COALESCE(t.scientific_name, LOWER(d.display_name)) as unified_id,
+                COALESCE(t.scientific_name, LOWER(d.scientific_name), LOWER(d.display_name)) as unified_id,
                 COUNT(*) as count, 
                 MAX(d.frigate_event) as latest_event,
                 MAX(COALESCE(d.scientific_name, t.scientific_name)) as scientific_name, 
@@ -1647,7 +1666,8 @@ class DetectionRepository:
             FROM detections d
             LEFT JOIN taxonomy_cache t ON 
                 LOWER(d.display_name) = LOWER(t.scientific_name) OR 
-                LOWER(d.display_name) = LOWER(t.common_name)
+                LOWER(d.display_name) = LOWER(t.common_name) OR
+                LOWER(d.scientific_name) = LOWER(t.scientific_name)
             WHERE d.detection_time >= ? AND d.detection_time <= ?
             AND (d.is_hidden = 0 OR d.is_hidden IS NULL)
             GROUP BY unified_id
@@ -1673,13 +1693,14 @@ class DetectionRepository:
         species: str,
         confidence: float,
         sensor_id: Optional[str],
-        raw_data: Optional[dict]
+        raw_data: Optional[dict],
+        scientific_name: Optional[str] = None
     ) -> None:
         payload = json.dumps(raw_data or {}, ensure_ascii=True)
         await self.db.execute(
-            """INSERT INTO audio_detections (timestamp, species, confidence, sensor_id, raw_data)
-               VALUES (?, ?, ?, ?, ?)""",
-            (timestamp.isoformat(sep=' '), species, confidence, sensor_id, payload)
+            """INSERT INTO audio_detections (timestamp, species, confidence, sensor_id, raw_data, scientific_name)
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            (timestamp.isoformat(sep=' '), species, confidence, sensor_id, payload, scientific_name)
         )
         await self.db.commit()
 
@@ -1692,7 +1713,7 @@ class DetectionRepository:
     ) -> list[dict]:
         start_dt = target_time - timedelta(seconds=window_seconds)
         end_dt = target_time + timedelta(seconds=window_seconds)
-        query = """SELECT timestamp, species, confidence, sensor_id
+        query = """SELECT timestamp, species, confidence, sensor_id, scientific_name
                    FROM audio_detections
                    WHERE timestamp >= ? AND timestamp <= ?"""
         params: list = [start_dt.isoformat(sep=' '), end_dt.isoformat(sep=' ')]
@@ -1713,6 +1734,7 @@ class DetectionRepository:
                 "species": row[1],
                 "confidence": row[2],
                 "sensor_id": row[3],
+                "scientific_name": row[4],
                 "offset_seconds": offset_seconds
             })
 

@@ -320,14 +320,24 @@ class ONNXModelInstance:
             sess_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
             sess_options.intra_op_num_threads = 4  # Use multiple threads
 
+            # Determine execution providers based on settings and availability
+            providers = ['CPUExecutionProvider']
+            if settings.classification.use_cuda:
+                available = ort.get_available_providers()
+                if 'CUDAExecutionProvider' in available:
+                    providers.insert(0, 'CUDAExecutionProvider')
+                    log.info(f"Enabling CUDA acceleration for {self.name}")
+                else:
+                    log.warning(f"CUDA requested for {self.name} but CUDAExecutionProvider is not available in the runtime")
+
             self.session = ort.InferenceSession(
                 self.model_path,
                 sess_options,
-                providers=['CPUExecutionProvider']
+                providers=providers
             )
             self.loaded = True
             self.error = None
-            log.info(f"{self.name} ONNX model loaded successfully", input_size=self.input_size)
+            log.info(f"{self.name} ONNX model loaded successfully", input_size=self.input_size, providers=providers)
             return True
         except Exception as e:
             self.error = f"Failed to load ONNX model: {str(e)}"
@@ -594,14 +604,26 @@ class ClassifierService:
 
     def get_status(self) -> dict:
         bird = self._models.get("bird")
+        
+        # Check for CUDA availability
+        cuda_available = False
+        if ONNX_AVAILABLE and ort:
+            cuda_available = 'CUDAExecutionProvider' in ort.get_available_providers()
+
         status = {
             "runtime": "tflite-runtime" if "tflite_runtime" in str(tflite) else "tensorflow",
             "runtime_installed": tflite is not None,
+            "onnx_available": ONNX_AVAILABLE,
+            "cuda_available": cuda_available,
+            "cuda_enabled": settings.classification.use_cuda,
             "models": {}
         }
         
         for name, model in self._models.items():
-            status["models"][name] = model.get_status()
+            model_status = model.get_status()
+            if name == "bird" and isinstance(model, ONNXModelInstance) and model.session:
+                model_status["active_providers"] = model.session.get_providers()
+            status["models"][name] = model_status
             
         if bird:
             # For backward compatibility
@@ -675,7 +697,7 @@ class ClassifierService:
         except Exception as e:
             log.error("Failed to reload wildlife model", error=str(e))
 
-    def classify_video(self, video_path: str, stride: int = 5, max_frames: int = 15, progress_callback=None) -> list[dict]:
+    def classify_video(self, video_path: str, stride: int = 5, max_frames: Optional[int] = None, progress_callback=None) -> list[dict]:
         """
         Classify a video clip using Temporal Ensemble (Soft Voting) with Normal Distribution sampling.
 
@@ -688,6 +710,9 @@ class ClassifierService:
         Returns:
             List of classifications with aggregated scores.
         """
+        if max_frames is None:
+            max_frames = settings.classification.video_classification_frames
+
         bird_model = self._models.get("bird")
         if not bird_model or not bird_model.loaded:
             log.error("Bird model not loaded for video classification")
@@ -831,8 +856,11 @@ class ClassifierService:
             if cap is not None:
                 cap.release()
 
-    async def classify_video_async(self, video_path: str, stride: int = 5, max_frames: int = 15, progress_callback=None) -> list[dict]:
+    async def classify_video_async(self, video_path: str, stride: int = 5, max_frames: Optional[int] = None, progress_callback=None) -> list[dict]:
         """Async wrapper for video classification."""
+        if max_frames is None:
+            max_frames = settings.classification.video_classification_frames
+
         loop = asyncio.get_running_loop()
 
         # Wrap the callback to make it thread-safe

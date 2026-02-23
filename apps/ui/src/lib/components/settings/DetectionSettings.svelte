@@ -2,6 +2,8 @@
     import { _ } from 'svelte-i18n';
     import { formatDateTime } from '../../utils/datetime';
     import ModelManager from '../../pages/models/ModelManager.svelte';
+    import { fetchClassifierStatus, type ClassifierStatus } from '../../api';
+    import { onMount } from 'svelte';
 
     // Props
     let {
@@ -13,6 +15,8 @@
         autoVideoClassification = $bindable(false),
         videoClassificationDelay = $bindable(30),
         videoClassificationMaxRetries = $bindable(3),
+        videoClassificationFrames = $bindable(15),
+        useCuda = $bindable(false),
         videoCircuitOpen = false,
         videoCircuitUntil = null,
         videoCircuitFailures = 0,
@@ -29,6 +33,8 @@
         autoVideoClassification: boolean;
         videoClassificationDelay: number;
         videoClassificationMaxRetries: number;
+        videoClassificationFrames: number;
+        useCuda: boolean;
         videoCircuitOpen: boolean;
         videoCircuitUntil: string | null;
         videoCircuitFailures: number;
@@ -39,6 +45,16 @@
     } = $props();
 
     const circuitUntil = $derived(videoCircuitUntil ? formatDateTime(videoCircuitUntil) : null);
+
+    let classifierStatus = $state<ClassifierStatus | null>(null);
+
+    onMount(async () => {
+        try {
+            classifierStatus = await fetchClassifierStatus();
+        } catch (e) {
+            console.error('Failed to fetch classifier status', e);
+        }
+    });
 </script>
 
 <div class="space-y-6">
@@ -170,7 +186,7 @@
                                 {/if}
                             </div>
                         {/if}
-                        <div class="grid grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2">
+                        <div class="grid grid-cols-3 gap-4 animate-in fade-in slide-in-from-top-2">
                             <div>
                                 <label for="video-delay" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.detection.video_delay')}</label>
                                 <input
@@ -193,8 +209,65 @@
                                     class="w-full px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
                                 />
                             </div>
+                            <div>
+                                <label for="video-frames" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.detection.video_frames', { default: 'Frames' })}</label>
+                                <input
+                                    id="video-frames"
+                                    type="number"
+                                    bind:value={videoClassificationFrames}
+                                    min="5"
+                                    max="100"
+                                    aria-label={$_('settings.detection.video_frames', { default: 'Video Frames' })}
+                                    class="w-full px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
+                                />
+                            </div>
                         </div>
                         <p class="text-[9px] text-slate-400 italic">{$_('settings.detection.video_retry_note')}</p>
+
+                        <div class="mt-6 pt-6 border-t border-slate-100 dark:border-slate-700/50">
+                            <div class="flex items-center justify-between">
+                                <div id="cuda-label">
+                                    <span class="block text-sm font-black text-slate-900 dark:text-white">{$_('settings.detection.cuda_acceleration')}</span>
+                                    <span class="block text-[10px] text-slate-500 font-bold leading-tight mt-1">{$_('settings.detection.cuda_desc')}</span>
+                                </div>
+                                <button
+                                    role="switch"
+                                    aria-checked={useCuda}
+                                    aria-labelledby="cuda-label"
+                                    onclick={() => useCuda = !useCuda}
+                                    onkeydown={(e) => {
+                                        if (e.key === 'Enter' || e.key === ' ') {
+                                            e.preventDefault();
+                                            useCuda = !useCuda;
+                                        }
+                                    }}
+                                    class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {useCuda ? 'bg-indigo-500' : 'bg-slate-300 dark:bg-slate-600'}"
+                                >
+                                    <span class="sr-only">{$_('settings.detection.cuda_acceleration')}</span>
+                                    <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {useCuda ? 'translate-x-5' : 'translate-x-0'}"></span>
+                                </button>
+                            </div>
+
+                            {#if classifierStatus}
+                                <div class="mt-3 flex items-center gap-2">
+                                    {#if classifierStatus.cuda_available}
+                                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-black bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                                            <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" /></svg>
+                                            {$_('settings.detection.cuda_available')}
+                                        </span>
+                                        {#if useCuda}
+                                            <span class="text-[10px] font-bold text-slate-500">{$_('settings.detection.cuda_enabled_desc')}</span>
+                                        {/if}
+                                    {:else}
+                                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-black bg-slate-500/10 text-slate-500">
+                                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                            {$_('settings.detection.cuda_unavailable')}
+                                        </span>
+                                        <span class="text-[10px] font-bold text-slate-400">{$_('settings.detection.cuda_not_supported')}</span>
+                                    {/if}
+                                </div>
+                            {/if}
+                        </div>
                     {/if}
                 </div>
             </div>

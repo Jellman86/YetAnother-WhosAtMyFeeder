@@ -189,7 +189,7 @@
             : rows.filter((item) => item.species !== "Unknown Bird");
         return [...source]
             .sort((a, b) => (b.count || 0) - (a.count || 0))
-            .map((item) => item.species)
+            .map((item) => item.scientific_name || item.species)
             .filter(Boolean)
             .slice(0, 3);
     }

@@ -202,3 +202,4 @@ backend/data/models/**/*.onnx
 # apps/telemetry-worker/ # Un-ignored to allow tracking source
 apps/telemetry-worker/.wrangler/
 
+backend/venv/
