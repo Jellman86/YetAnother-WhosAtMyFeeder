@@ -13,7 +13,64 @@ env:
   REGISTRY: ghcr.io
 
 jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.compute.outputs.backend }}
+      frontend: ${{ steps.compute.outputs.frontend }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine changed areas
+        id: compute
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Manual dispatch and tag builds should publish both images.
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" || "${{ github.ref }}" == refs/tags/* ]]; then
+            echo "backend=true" >> "$GITHUB_OUTPUT"
+            echo "frontend=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          BASE_SHA="${{ github.event.before }}"
+          HEAD_SHA="${{ github.sha }}"
+          ZERO_SHA="0000000000000000000000000000000000000000"
+
+          if [[ -z "$BASE_SHA" || "$BASE_SHA" == "$ZERO_SHA" ]]; then
+            # Conservative fallback for unusual push events.
+            echo "backend=true" >> "$GITHUB_OUTPUT"
+            echo "frontend=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          mapfile -t changed_files < <(git diff --name-only "$BASE_SHA" "$HEAD_SHA")
+
+          backend=false
+          frontend=false
+          for path in "${changed_files[@]}"; do
+            case "$path" in
+              backend/*|VERSION|.github/workflows/build-and-push.yml)
+                backend=true
+                ;;
+            esac
+            case "$path" in
+              apps/ui/*|VERSION|.github/workflows/build-and-push.yml)
+                frontend=true
+                ;;
+            esac
+          done
+
+          echo "backend=$backend" >> "$GITHUB_OUTPUT"
+          echo "frontend=$frontend" >> "$GITHUB_OUTPUT"
+
   test-backend:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -178,6 +235,8 @@ jobs:
           PY
 
   test-frontend:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -206,7 +265,8 @@ jobs:
           npm run build
 
   build-backend:
-    needs: test-backend
+    needs: [detect-changes, test-backend]
+    if: needs.detect-changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -275,7 +335,8 @@ jobs:
             ghcr.io/${{ env.OWNER_LC }}/wamf-backend:${{ env.IMAGE_TAG }}
 
   build-frontend:
-    needs: test-frontend
+    needs: [detect-changes, test-frontend]
+    if: needs.detect-changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
