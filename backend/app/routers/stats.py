@@ -13,6 +13,7 @@ from app.services.weather_service import weather_service
 from app.auth import AuthContext
 from app.auth_legacy import get_auth_context_with_legacy
 from app.ratelimit import guest_rate_limit
+from app.utils.language import get_user_language
 
 router = APIRouter()
 
@@ -407,6 +408,7 @@ async def get_detection_timeline_span(
     - all: bucketed dynamically based on available history
     """
     now = datetime.now(timezone.utc).replace(tzinfo=None)
+    lang = get_user_language(request)
 
     async with get_db() as db:
         repo = DetectionRepository(db)
@@ -536,7 +538,15 @@ async def get_detection_timeline_span(
                     if selected == "Unknown Bird":
                         species_map[selected] = unknown_labels
                     else:
-                        species_map[selected] = [selected]
+                        alias_info = await repo.resolve_species_aliases(selected, language=lang)
+                        labels: list[str] = []
+                        for candidate in (alias_info.get("display_labels") or []):
+                            if candidate and candidate not in labels:
+                                labels.append(candidate)
+                        for candidate in (alias_info.get("match_names") or []):
+                            if candidate and candidate not in labels:
+                                labels.append(candidate)
+                        species_map[selected] = labels or [selected]
 
                 compare_counts = await repo.get_timebucket_species_counts(
                     start=window_start,

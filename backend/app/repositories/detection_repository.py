@@ -127,6 +127,7 @@ def _row_to_detection(row) -> Detection:
 class DetectionRepository:
     def __init__(self, db: aiosqlite.Connection):
         self.db = db
+        self._table_exists_cache: dict[str, bool] = {}
 
     async def _last_statement_changes(self) -> int:
         """Return rows changed by the most recent write statement on this connection."""
@@ -134,6 +135,19 @@ class DetectionRepository:
         row = await cursor.fetchone()
         await cursor.close()
         return int(row[0]) if row and row[0] is not None else 0
+
+    async def _table_exists(self, table_name: str) -> bool:
+        cached = self._table_exists_cache.get(table_name)
+        if cached is not None:
+            return cached
+        async with self.db.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name = ? LIMIT 1",
+            (table_name,),
+        ) as cursor:
+            row = await cursor.fetchone()
+        exists = row is not None
+        self._table_exists_cache[table_name] = exists
+        return exists
 
     async def get_by_frigate_event(self, frigate_event: str) -> Optional[Detection]:
         async with self.db.execute(
@@ -711,16 +725,128 @@ class DetectionRepository:
                 await self.db.commit()
         return total_deleted
 
-    async def get_taxonomy_names(self, name: str) -> dict:
-        """Get scientific and common names for a given species name from cache."""
+    async def get_taxonomy_names(self, name: str, language: str | None = None) -> dict:
+        """Get scientific and common names for a species from cache.
+
+        Supports lookup by scientific/common names and localized common names (when
+        `taxonomy_translations` exists and `language` is provided).
+        """
+        result = {"scientific_name": None, "common_name": None, "taxa_id": None}
+
         async with self.db.execute(
             "SELECT scientific_name, common_name, taxa_id FROM taxonomy_cache WHERE LOWER(scientific_name) = LOWER(?) OR LOWER(common_name) = LOWER(?)",
             (name, name)
         ) as cursor:
             row = await cursor.fetchone()
             if row:
-                return {"scientific_name": row[0], "common_name": row[1], "taxa_id": row[2]}
-        return {"scientific_name": None, "common_name": None, "taxa_id": None}
+                result = {"scientific_name": row[0], "common_name": row[1], "taxa_id": row[2]}
+
+        if result["taxa_id"] is None and language and language != "en" and await self._table_exists("taxonomy_translations"):
+            async with self.db.execute(
+                """SELECT tc.scientific_name, tc.common_name, tc.taxa_id, tt.common_name
+                   FROM taxonomy_translations tt
+                   JOIN taxonomy_cache tc ON tc.taxa_id = tt.taxa_id
+                   WHERE tt.language_code = ?
+                     AND LOWER(tt.common_name) = LOWER(?)
+                   LIMIT 1""",
+                (language, name)
+            ) as cursor:
+                row = await cursor.fetchone()
+                if row:
+                    result = {"scientific_name": row[0], "common_name": row[3] or row[1], "taxa_id": row[2]}
+                    return result
+
+        if result["taxa_id"] is not None and language and language != "en" and await self._table_exists("taxonomy_translations"):
+            async with self.db.execute(
+                """SELECT common_name FROM taxonomy_translations
+                   WHERE taxa_id = ? AND language_code = ?
+                   LIMIT 1""",
+                (result["taxa_id"], language)
+            ) as cursor:
+                row = await cursor.fetchone()
+                if row and row[0]:
+                    result["common_name"] = row[0]
+
+        return result
+
+    async def resolve_species_aliases(self, species_name: str, language: str | None = None) -> dict:
+        """Resolve a species identifier into taxonomy metadata and matching display labels.
+
+        Returns a dict with:
+        - scientific_name / common_name / taxa_id
+        - display_labels: distinct `detections.display_name` values representing the species
+        - match_names: names suitable for matching across display/scientific columns
+        """
+        taxonomy = await self.get_taxonomy_names(species_name, language=language)
+        taxa_id = taxonomy.get("taxa_id")
+        scientific_name = taxonomy.get("scientific_name")
+        common_name = taxonomy.get("common_name")
+
+        match_names: list[str] = []
+        for candidate in [species_name, scientific_name, common_name]:
+            if not candidate:
+                continue
+            candidate = str(candidate).strip()
+            if candidate and candidate not in match_names:
+                match_names.append(candidate)
+
+        # If we have a taxa_id and a non-English request, also include the English common name
+        # so display-label queries can match historical rows when label style changes.
+        if taxa_id is not None:
+            async with self.db.execute(
+                "SELECT scientific_name, common_name FROM taxonomy_cache WHERE taxa_id = ? LIMIT 1",
+                (taxa_id,)
+            ) as cursor:
+                row = await cursor.fetchone()
+                if row:
+                    for candidate in [row[0], row[1]]:
+                        if candidate and candidate not in match_names:
+                            match_names.append(candidate)
+                    scientific_name = scientific_name or row[0]
+                    # Preserve localized common_name if already resolved
+                    if common_name is None:
+                        common_name = row[1]
+
+        display_labels: list[str] = []
+        if taxa_id is not None:
+            lowered_names = [n for n in match_names if n]
+            if lowered_names:
+                placeholders = ",".join(["?"] * len(lowered_names))
+                async with self.db.execute(
+                    f"""SELECT DISTINCT display_name
+                        FROM detections
+                        WHERE taxa_id = ?
+                           OR LOWER(display_name) IN ({placeholders})
+                           OR LOWER(scientific_name) IN ({placeholders})
+                           OR LOWER(common_name) IN ({placeholders})
+                        ORDER BY display_name ASC""",
+                    (taxa_id, *[n.lower() for n in lowered_names], *[n.lower() for n in lowered_names], *[n.lower() for n in lowered_names])
+                ) as cursor:
+                    display_labels = [row[0] for row in await cursor.fetchall() if row and row[0]]
+        elif match_names:
+            placeholders = ",".join(["?"] * len(match_names))
+            lowered = [n.lower() for n in match_names]
+            async with self.db.execute(
+                f"""SELECT DISTINCT display_name
+                    FROM detections
+                    WHERE LOWER(display_name) IN ({placeholders})
+                       OR LOWER(scientific_name) IN ({placeholders})
+                       OR LOWER(common_name) IN ({placeholders})
+                    ORDER BY display_name ASC""",
+                (*lowered, *lowered, *lowered)
+            ) as cursor:
+                display_labels = [row[0] for row in await cursor.fetchall() if row and row[0]]
+
+        if not display_labels and species_name:
+            display_labels = [species_name]
+
+        return {
+            "scientific_name": scientific_name,
+            "common_name": common_name,
+            "taxa_id": taxa_id,
+            "display_labels": display_labels,
+            "match_names": match_names,
+        }
 
     async def delete_older_than(
         self,
@@ -894,13 +1020,24 @@ class DetectionRepository:
         if bucket == "hour":
             query = """
                 SELECT
-                    strftime('%Y-%m-%dT%H:00:00Z', detection_time) as bucket,
+                    strftime('%Y-%m-%dT%H:00:00Z', d.detection_time) as bucket,
                     COUNT(*) as c,
-                    COUNT(DISTINCT LOWER(display_name)) as unique_species,
-                    AVG(score) as avg_confidence
-                FROM detections
-                WHERE detection_time >= ? AND detection_time < ?
-                  AND (is_hidden = 0 OR is_hidden IS NULL)
+                    COUNT(DISTINCT COALESCE(
+                        CAST(d.taxa_id AS TEXT),
+                        LOWER(d.scientific_name),
+                        (
+                            SELECT LOWER(tc.scientific_name)
+                            FROM taxonomy_cache tc
+                            WHERE LOWER(d.display_name) = LOWER(tc.scientific_name)
+                               OR LOWER(d.display_name) = LOWER(tc.common_name)
+                            LIMIT 1
+                        ),
+                        LOWER(d.display_name)
+                    )) as unique_species,
+                    AVG(d.score) as avg_confidence
+                FROM detections d
+                WHERE d.detection_time >= ? AND d.detection_time < ?
+                  AND (d.is_hidden = 0 OR d.is_hidden IS NULL)
                 GROUP BY bucket
                 ORDER BY bucket ASC
             """
@@ -908,14 +1045,25 @@ class DetectionRepository:
         elif bucket == "halfday":
             query = """
                 SELECT
-                    date(detection_time) as d,
-                    CASE WHEN CAST(strftime('%H', detection_time) AS integer) < 12 THEN 0 ELSE 12 END as hour_start,
+                    date(d.detection_time) as d,
+                    CASE WHEN CAST(strftime('%H', d.detection_time) AS integer) < 12 THEN 0 ELSE 12 END as hour_start,
                     COUNT(*) as c,
-                    COUNT(DISTINCT LOWER(display_name)) as unique_species,
-                    AVG(score) as avg_confidence
-                FROM detections
-                WHERE detection_time >= ? AND detection_time < ?
-                  AND (is_hidden = 0 OR is_hidden IS NULL)
+                    COUNT(DISTINCT COALESCE(
+                        CAST(d.taxa_id AS TEXT),
+                        LOWER(d.scientific_name),
+                        (
+                            SELECT LOWER(tc.scientific_name)
+                            FROM taxonomy_cache tc
+                            WHERE LOWER(d.display_name) = LOWER(tc.scientific_name)
+                               OR LOWER(d.display_name) = LOWER(tc.common_name)
+                            LIMIT 1
+                        ),
+                        LOWER(d.display_name)
+                    )) as unique_species,
+                    AVG(d.score) as avg_confidence
+                FROM detections d
+                WHERE d.detection_time >= ? AND d.detection_time < ?
+                  AND (d.is_hidden = 0 OR d.is_hidden IS NULL)
                 GROUP BY d, hour_start
                 ORDER BY d ASC, hour_start ASC
             """
@@ -923,13 +1071,24 @@ class DetectionRepository:
         elif bucket == "day":
             query = """
                 SELECT
-                    date(detection_time) as d,
+                    date(d.detection_time) as d,
                     COUNT(*) as c,
-                    COUNT(DISTINCT LOWER(display_name)) as unique_species,
-                    AVG(score) as avg_confidence
-                FROM detections
-                WHERE detection_time >= ? AND detection_time < ?
-                  AND (is_hidden = 0 OR is_hidden IS NULL)
+                    COUNT(DISTINCT COALESCE(
+                        CAST(d.taxa_id AS TEXT),
+                        LOWER(d.scientific_name),
+                        (
+                            SELECT LOWER(tc.scientific_name)
+                            FROM taxonomy_cache tc
+                            WHERE LOWER(d.display_name) = LOWER(tc.scientific_name)
+                               OR LOWER(d.display_name) = LOWER(tc.common_name)
+                            LIMIT 1
+                        ),
+                        LOWER(d.display_name)
+                    )) as unique_species,
+                    AVG(d.score) as avg_confidence
+                FROM detections d
+                WHERE d.detection_time >= ? AND d.detection_time < ?
+                  AND (d.is_hidden = 0 OR d.is_hidden IS NULL)
                 GROUP BY d
                 ORDER BY d ASC
             """
@@ -937,13 +1096,24 @@ class DetectionRepository:
         else:
             query = """
                 SELECT
-                    strftime('%Y-%m-01', detection_time) as m,
+                    strftime('%Y-%m-01', d.detection_time) as m,
                     COUNT(*) as c,
-                    COUNT(DISTINCT LOWER(display_name)) as unique_species,
-                    AVG(score) as avg_confidence
-                FROM detections
-                WHERE detection_time >= ? AND detection_time < ?
-                  AND (is_hidden = 0 OR is_hidden IS NULL)
+                    COUNT(DISTINCT COALESCE(
+                        CAST(d.taxa_id AS TEXT),
+                        LOWER(d.scientific_name),
+                        (
+                            SELECT LOWER(tc.scientific_name)
+                            FROM taxonomy_cache tc
+                            WHERE LOWER(d.display_name) = LOWER(tc.scientific_name)
+                               OR LOWER(d.display_name) = LOWER(tc.common_name)
+                            LIMIT 1
+                        ),
+                        LOWER(d.display_name)
+                    )) as unique_species,
+                    AVG(d.score) as avg_confidence
+                FROM detections d
+                WHERE d.detection_time >= ? AND d.detection_time < ?
+                  AND (d.is_hidden = 0 OR d.is_hidden IS NULL)
                 GROUP BY m
                 ORDER BY m ASC
             """
@@ -1481,6 +1651,58 @@ class DetectionRepository:
             key = day.strftime("%Y-%m-%d")
             results.append({"date": key, "count": counts_by_date.get(key, 0)})
         return results
+
+    async def get_unified_species_window_metrics(self, lookback_days: int = 30) -> dict[str, dict]:
+        """Aggregate recent per-species metrics using a stable unified key.
+
+        Key priority:
+        - taxa_id (stringified)
+        - scientific_name (lowercased)
+        - display_name (lowercased)
+        """
+        window = f"-{lookback_days} day"
+        query = """
+            SELECT
+                COALESCE(
+                    CAST(d.taxa_id AS TEXT),
+                    LOWER(d.scientific_name),
+                    (
+                        SELECT LOWER(tc.scientific_name)
+                        FROM taxonomy_cache tc
+                        WHERE LOWER(d.display_name) = LOWER(tc.scientific_name)
+                           OR LOWER(d.display_name) = LOWER(tc.common_name)
+                        LIMIT 1
+                    ),
+                    LOWER(d.display_name)
+                ) as unified_key,
+                SUM(CASE WHEN d.detection_time >= datetime('now','-1 day') THEN 1 ELSE 0 END) as count_1d,
+                SUM(CASE WHEN d.detection_time >= datetime('now','-7 day') THEN 1 ELSE 0 END) as count_7d,
+                SUM(CASE WHEN d.detection_time >= datetime('now','-30 day') THEN 1 ELSE 0 END) as count_30d,
+                SUM(CASE WHEN d.detection_time >= datetime('now','-14 day')
+                          AND d.detection_time < datetime('now','-7 day') THEN 1 ELSE 0 END) as count_prev_7d,
+                COUNT(DISTINCT CASE WHEN d.detection_time >= datetime('now','-14 day') THEN date(d.detection_time) END) as days_seen_14d,
+                COUNT(DISTINCT CASE WHEN d.detection_time >= datetime('now','-30 day') THEN date(d.detection_time) END) as days_seen_30d,
+                MAX(d.detection_time) as last_seen_recent
+            FROM detections d
+            WHERE d.detection_time >= datetime('now', ?)
+              AND (d.is_hidden = 0 OR d.is_hidden IS NULL)
+            GROUP BY unified_key
+        """
+        async with self.db.execute(query, (window,)) as cursor:
+            rows = await cursor.fetchall()
+
+        metrics: dict[str, dict] = {}
+        for row in rows:
+            metrics[row[0]] = {
+                "count_1d": row[1] or 0,
+                "count_7d": row[2] or 0,
+                "count_30d": row[3] or 0,
+                "count_prev_7d": row[4] or 0,
+                "days_seen_14d": row[5] or 0,
+                "days_seen_30d": row[6] or 0,
+                "last_seen_recent": _parse_datetime(row[7]) if row[7] else None,
+            }
+        return metrics
 
     async def get_rollup_metrics_for_species(self, species: list[str], lookback_days: int = 30) -> dict:
         """Aggregate rollup metrics for a set of species as a single group."""

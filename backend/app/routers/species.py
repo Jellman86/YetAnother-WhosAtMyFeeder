@@ -117,17 +117,25 @@ async def _get_gbif_taxon_key(name: str) -> int | None:
     _gbif_cache[normalized] = (key, datetime.now())
     return key
 
-async def _lookup_taxa_id(species_name: str) -> int | None:
+async def _lookup_taxa_id(species_name: str, language: str | None = None) -> int | None:
     async with get_db() as db:
-        cursor = await db.execute(
-            """SELECT taxa_id FROM taxonomy_cache
-               WHERE lower(scientific_name) = lower(?) OR lower(common_name) = lower(?)
-               LIMIT 1""",
-            (species_name, species_name)
-        )
-        row = await cursor.fetchone()
-    if row and row[0] is not None:
-        return int(row[0])
+        repo = DetectionRepository(db)
+        taxonomy = await repo.get_taxonomy_names(species_name, language=language)
+    if taxonomy.get("taxa_id") is not None:
+        return int(taxonomy["taxa_id"])
+    return None
+
+
+def _species_unified_metrics_key(row: dict) -> str | None:
+    taxa_id = row.get("taxa_id")
+    if taxa_id is not None:
+        return str(taxa_id)
+    scientific_name = row.get("scientific_name")
+    if scientific_name:
+        return str(scientific_name).lower()
+    species = row.get("species")
+    if species:
+        return str(species).lower()
     return None
 
 async def _get_cached_species_info(species_name: str, taxa_id: int | None, language: str, refresh: bool) -> SpeciesInfo | None:
@@ -729,7 +737,7 @@ async def get_species_list(request: Request):
         repo = DetectionRepository(db)
         await repo.ensure_recent_rollups(90)
         stats = await repo.get_species_leaderboard_base()
-        rollup_metrics = await repo.get_rollup_metrics()
+        unified_metrics = await repo.get_unified_species_window_metrics()
 
         # Transform unknown bird labels for display and aggregate counts
         unknown_labels = settings.classification.unknown_bird_labels
@@ -738,7 +746,8 @@ async def get_species_list(request: Request):
         for s in stats:
             if s["species"] in unknown_labels:
                 continue
-            metrics = rollup_metrics.get(s["species"], {})
+            metrics_key = _species_unified_metrics_key(s)
+            metrics = unified_metrics.get(metrics_key or "", {})
             trend_delta = metrics.get("count_7d", 0) - metrics.get("count_prev_7d", 0)
             trend_pct = 0.0
             prev = metrics.get("count_prev_7d", 0)
@@ -937,12 +946,14 @@ async def get_species_stats(
         # For "Unknown Bird" queries, we need to aggregate stats from all unknown labels
         unknown_labels = settings.classification.unknown_bird_labels
         is_unknown_query = species_name == "Unknown Bird"
+        alias_info = None
 
         if is_unknown_query:
             # Aggregate stats for all unknown bird labels
             query_labels = list(unknown_labels)
         else:
-            query_labels = [species_name]
+            alias_info = await repo.resolve_species_aliases(species_name, language=lang)
+            query_labels = list(alias_info.get("display_labels") or [species_name])
 
         # Get all stats - aggregate if multiple labels
         total_stats = {"total": 0, "first_seen": None, "last_seen": None,
@@ -1058,7 +1069,16 @@ async def get_species_stats(
             ))
 
         # Get taxonomy names for the main species
-        taxonomy = await repo.get_taxonomy_names(species_name)
+        if alias_info:
+            taxonomy = {
+                "scientific_name": alias_info.get("scientific_name"),
+                "common_name": alias_info.get("common_name"),
+                "taxa_id": alias_info.get("taxa_id"),
+            }
+            if taxonomy["scientific_name"] is None and taxonomy["taxa_id"] is None:
+                taxonomy = await repo.get_taxonomy_names(species_name, language=lang)
+        else:
+            taxonomy = await repo.get_taxonomy_names(species_name, language=lang)
         common_name = taxonomy["common_name"]
         taxa_id = taxonomy.get("taxa_id")
         if not taxa_id and recent:
@@ -1143,7 +1163,7 @@ async def get_species_info(
             cached_at=datetime.now()
         )
 
-    taxa_id = await _lookup_taxa_id(species_name)
+    taxa_id = await _lookup_taxa_id(species_name, language=lang)
     cached_info = await _get_cached_species_info(species_name, taxa_id, lang, refresh)
     if cached_info:
         return cached_info

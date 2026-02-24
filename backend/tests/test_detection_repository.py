@@ -55,6 +55,24 @@ async def _create_detections_table(db: aiosqlite.Connection) -> None:
     """)
 
 
+async def _create_taxonomy_tables(db: aiosqlite.Connection) -> None:
+    await db.execute("""
+        CREATE TABLE taxonomy_cache (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            scientific_name TEXT NOT NULL UNIQUE,
+            common_name TEXT,
+            taxa_id INTEGER UNIQUE
+        )
+    """)
+    await db.execute("""
+        CREATE TABLE taxonomy_translations (
+            taxa_id INTEGER NOT NULL,
+            language_code TEXT NOT NULL,
+            common_name TEXT NOT NULL
+        )
+    """)
+
+
 @pytest.mark.asyncio
 async def test_detection_repository():
     async with aiosqlite.connect(":memory:") as db:
@@ -138,6 +156,138 @@ async def test_species_rollup_metrics():
 
         assert metrics["Robin"]["count_7d"] >= 1
         assert metrics["Sparrow"]["count_7d"] >= 1
+
+
+@pytest.mark.asyncio
+async def test_timebucket_metrics_unifies_common_and_scientific_variants():
+    async with aiosqlite.connect(":memory:") as db:
+        await _create_detections_table(db)
+        await _create_taxonomy_tables(db)
+        await db.execute(
+            "INSERT INTO taxonomy_cache (scientific_name, common_name, taxa_id) VALUES (?, ?, ?)",
+            ("Cyanistes caeruleus", "Blue Tit", 1234),
+        )
+        await db.commit()
+
+        repo = DetectionRepository(db)
+        ts = datetime.utcnow().replace(minute=0, second=0, microsecond=0)
+        start = ts - timedelta(hours=1)
+        end = ts + timedelta(hours=1)
+
+        await repo.create(Detection(
+            detection_time=ts,
+            detection_index=1,
+            score=0.91,
+            display_name="Blue Tit",
+            category_name="Bird",
+            frigate_event="evt_bt_common",
+            camera_name="cam_1",
+            scientific_name="Cyanistes caeruleus",
+            common_name="Blue Tit",
+            taxa_id=1234,
+        ))
+        await repo.create(Detection(
+            detection_time=ts,
+            detection_index=2,
+            score=0.93,
+            display_name="Cyanistes caeruleus",
+            category_name="Bird",
+            frigate_event="evt_bt_sci",
+            camera_name="cam_2",
+            scientific_name="Cyanistes caeruleus",
+            common_name="Blue Tit",
+            taxa_id=1234,
+        ))
+
+        metrics = await repo.get_timebucket_metrics(start, end, "day")
+        key = ts.date().isoformat() + "T00:00:00Z"
+        assert key in metrics
+        assert metrics[key]["count"] == 2
+        assert metrics[key]["unique_species"] == 1
+
+
+@pytest.mark.asyncio
+async def test_taxonomy_lookup_and_alias_resolution_support_localized_common_names():
+    async with aiosqlite.connect(":memory:") as db:
+        await _create_detections_table(db)
+        await _create_taxonomy_tables(db)
+        await db.execute(
+            "INSERT INTO taxonomy_cache (scientific_name, common_name, taxa_id) VALUES (?, ?, ?)",
+            ("Cyanistes caeruleus", "Blue Tit", 1234),
+        )
+        await db.execute(
+            "INSERT INTO taxonomy_translations (taxa_id, language_code, common_name) VALUES (?, ?, ?)",
+            (1234, "es", "Herrerillo comun"),
+        )
+        await db.commit()
+
+        repo = DetectionRepository(db)
+        now = datetime.utcnow()
+        await repo.create(Detection(
+            detection_time=now,
+            detection_index=1,
+            score=0.9,
+            display_name="Blue Tit",
+            category_name="Bird",
+            frigate_event="evt_alias_1",
+            camera_name="cam_1",
+            scientific_name="Cyanistes caeruleus",
+            common_name="Blue Tit",
+            taxa_id=1234,
+        ))
+        await repo.create(Detection(
+            detection_time=now,
+            detection_index=2,
+            score=0.88,
+            display_name="Cyanistes caeruleus",
+            category_name="Bird",
+            frigate_event="evt_alias_2",
+            camera_name="cam_1",
+            scientific_name="Cyanistes caeruleus",
+            common_name="Blue Tit",
+            taxa_id=1234,
+        ))
+
+        taxonomy = await repo.get_taxonomy_names("Herrerillo comun", language="es")
+        assert taxonomy["taxa_id"] == 1234
+        assert taxonomy["scientific_name"] == "Cyanistes caeruleus"
+        assert taxonomy["common_name"] == "Herrerillo comun"
+
+        alias_info = await repo.resolve_species_aliases("Herrerillo comun", language="es")
+        assert alias_info["taxa_id"] == 1234
+        assert alias_info["scientific_name"] == "Cyanistes caeruleus"
+        assert set(alias_info["display_labels"]) == {"Blue Tit", "Cyanistes caeruleus"}
+
+
+@pytest.mark.asyncio
+async def test_unified_species_window_metrics_combines_alias_variants():
+    async with aiosqlite.connect(":memory:") as db:
+        await _create_detections_table(db)
+        await _create_taxonomy_tables(db)
+        await db.execute(
+            "INSERT INTO taxonomy_cache (scientific_name, common_name, taxa_id) VALUES (?, ?, ?)",
+            ("Cyanistes caeruleus", "Blue Tit", 1234),
+        )
+        await db.commit()
+
+        repo = DetectionRepository(db)
+        now = datetime.utcnow()
+        for i, display_name in enumerate(["Blue Tit", "Cyanistes caeruleus"], start=1):
+            await repo.create(Detection(
+                detection_time=now,
+                detection_index=i,
+                score=0.9,
+                display_name=display_name,
+                category_name="Bird",
+                frigate_event=f"evt_unified_{i}",
+                camera_name="cam_1",
+                scientific_name="Cyanistes caeruleus",
+                common_name="Blue Tit",
+                taxa_id=1234,
+            ))
+
+        metrics = await repo.get_unified_species_window_metrics()
+        assert metrics["1234"]["count_7d"] >= 2
 
 
 @pytest.mark.asyncio
