@@ -356,6 +356,7 @@
     let reclassifyProgress = $derived(
         detectionsStore.progressMap.get(detection.frigate_event) || null
     );
+    let awaitingReclassifyOverlay = $state(false);
     let videoAnalysisStatus = $derived(detection.video_classification_status ?? null);
     let videoAnalysisActive = $derived(videoAnalysisStatus === 'processing' || videoAnalysisStatus === 'pending');
     let placeholderVideoAnalysisProgress = $derived.by(() => ({
@@ -372,7 +373,7 @@
         results: []
     }));
     let modalVideoAnalysisProgress = $derived(reclassifyProgress ?? placeholderVideoAnalysisProgress);
-    let showMediaSlotVideoAnalysis = $derived(!reclassifyProgress && videoAnalysisActive);
+    let showMediaSlotVideoAnalysis = $derived(!reclassifyProgress && videoAnalysisActive && !awaitingReclassifyOverlay);
 
     // Naming logic
     const showCommon = $derived(settingsStore.settings?.display_common_names ?? authStore.displayCommonNames ?? true);
@@ -912,8 +913,19 @@
 
     function handleReclassifyClick() {
         if (readOnly || !onReclassify) return;
+        awaitingReclassifyOverlay = true;
         onReclassify(detection);
     }
+
+    $effect(() => {
+        if (reclassifyProgress) {
+            awaitingReclassifyOverlay = false;
+            return;
+        }
+        if (!videoAnalysisActive) {
+            awaitingReclassifyOverlay = false;
+        }
+    });
 
     function handleSpeciesInfo() {
         onViewSpecies(detection.display_name);
