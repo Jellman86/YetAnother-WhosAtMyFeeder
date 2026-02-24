@@ -52,15 +52,19 @@
             ? ((visibleStart - renderStart) / visibleIndices.length) * 100
             : 0
     );
-    let sprocketCount = $derived(Math.max(visibleIndices.length, 1));
     let frameCellClass = $derived.by(() => {
         if (variant === 'compact') return 'w-[52px]';
-        if (variant === 'detail') return 'w-[68px]';
-        return 'w-[74px]';
+        if (variant === 'detail') return 'w-[66px]';
+        return 'w-[70px]';
     });
     let frameGapClass = $derived(variant === 'compact' ? 'gap-1.5' : 'gap-2');
-    let framePadClass = $derived(variant === 'compact' ? 'p-2' : 'p-3');
+    let framePadClass = $derived(variant === 'compact' ? 'p-2' : (variant === 'overlay' ? 'p-2.5' : 'p-3'));
     let showFrameScores = $derived(variant !== 'compact');
+    let railGlowClass = $derived(
+        variant === 'overlay'
+            ? 'bg-white/10 dark:bg-black/35 border-white/15'
+            : 'bg-white/55 dark:bg-black/35 border-slate-200/70 dark:border-white/10'
+    );
 
     function frameTone(frame?: ReclassificationProgress['frameResults'][number]) {
         if (!frame) return 'bg-slate-200/70 dark:bg-white/10';
@@ -77,20 +81,8 @@
     }
 </script>
 
-<div class="w-full rounded-2xl bg-white/45 dark:bg-black/35 border border-slate-200/70 dark:border-white/10 backdrop-blur-md shadow-xl {framePadClass}">
-    <div class="rounded-xl overflow-hidden border border-slate-200/70 dark:border-white/10 bg-slate-950/90 dark:bg-slate-950/80">
-        <div class="px-2 py-1 border-b border-white/10 bg-black/30">
-            <div class="flex {frameGapClass}">
-                {#each Array(sprocketCount) as _, idx}
-                    <div
-                        class="h-1 w-2 rounded-full bg-white/30"
-                        style={visibleIndices[idx] === undefined ? 'opacity:0' : ''}
-                        aria-hidden="true"
-                    ></div>
-                {/each}
-            </div>
-        </div>
-
+<div class="w-full rounded-2xl border backdrop-blur-md shadow-xl {framePadClass} {railGlowClass}">
+    <div class="rounded-xl overflow-hidden border border-white/10 bg-black/55 dark:bg-black/55">
         <div class="overflow-hidden px-2 py-2">
             <div
                 class="flex {frameGapClass} transition-transform duration-300 ease-out motion-reduce:transition-none"
@@ -109,15 +101,15 @@
                                     class="absolute inset-0 bg-cover bg-center"
                                     style={`background-image: url(data:image/jpeg;base64,${frame.thumb})`}
                                 ></div>
-                                <div class="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent"></div>
+                                <div class="absolute inset-0 bg-gradient-to-t from-black/55 via-black/5 to-transparent"></div>
                             {:else}
-                                <div class="absolute inset-0 bg-gradient-to-br from-white/5 to-white/0"></div>
+                                <div class="absolute inset-0 bg-gradient-to-br from-white/10 to-white/0"></div>
                             {/if}
-                            <div class="absolute left-1 top-1 text-[9px] font-black uppercase tracking-wider px-1 py-0.5 rounded bg-black/55 text-white/90">
+                            <div class="absolute left-1 top-1 text-[9px] font-black uppercase tracking-wider px-1 py-0.5 rounded bg-black/60 text-white/90 border border-white/10">
                                 {frameIdx + 1}
                             </div>
                             {#if isCurrent}
-                                <div class="absolute right-1 top-1 h-2 w-2 rounded-full bg-teal-300 shadow shadow-teal-300/70"></div>
+                                <div class="absolute right-1 top-1 h-2 w-2 rounded-full bg-teal-300 shadow shadow-teal-300/70 motion-safe:animate-pulse"></div>
                             {/if}
                         </div>
                         {#if showFrameScores}
@@ -129,16 +121,12 @@
                 {/each}
             </div>
         </div>
-
-        <div class="px-2 py-1 border-t border-white/10 bg-black/30">
-            <div class="flex {frameGapClass}">
-                {#each Array(sprocketCount) as _, idx}
-                    <div
-                        class="h-1 w-2 rounded-full bg-white/30"
-                        style={visibleIndices[idx] === undefined ? 'opacity:0' : ''}
-                        aria-hidden="true"
-                    ></div>
-                {/each}
+        <div class="px-2 pb-2">
+            <div class="h-1.5 rounded-full bg-white/10 overflow-hidden">
+                <div
+                    class="h-full rounded-full bg-gradient-to-r from-teal-300 via-cyan-300 to-indigo-300 transition-all duration-300 ease-out motion-reduce:transition-none"
+                    style={`width: ${Math.max(2, Math.round((safeCurrentFrame / safeTotalFrames) * 100))}%`}
+                ></div>
             </div>
         </div>
     </div>

@@ -1,6 +1,7 @@
 <script lang="ts">
     import { fade, scale } from 'svelte/transition';
     import { _ } from 'svelte-i18n';
+    import { getThumbnailUrl } from '../api';
     import type { ReclassificationProgress } from '../stores/detections.svelte';
     import VideoAnalysisFilmReel from './VideoAnalysisFilmReel.svelte';
 
@@ -16,6 +17,11 @@
         Array.isArray(progress.results) && progress.results.length > 0 ? progress.results[0] : null
     );
     let currentFrameThumb = $derived(latestFrame?.thumb || null);
+    let backdropImageUrl = $derived.by(() => {
+        if (currentFrameThumb) return `data:image/jpeg;base64,${currentFrameThumb}`;
+        if (!small && progress.eventId) return getThumbnailUrl(progress.eventId);
+        return null;
+    });
     let safeCurrentFrame = $derived(Number.isFinite(progress.currentFrame) ? Math.max(0, Math.floor(progress.currentFrame)) : 0);
     let safeTotalFrames = $derived(
         Number.isFinite(progress.totalFrames)
@@ -51,7 +57,7 @@
 </script>
 
 <div 
-    class="absolute inset-0 z-20 flex flex-col items-center {small ? 'justify-center overflow-hidden p-3' : 'justify-start overflow-y-auto overflow-x-hidden p-6'} bg-white/50 dark:bg-slate-900/60 border border-slate-200/70 dark:border-slate-700/50 backdrop-blur-xl rounded-xl"
+    class="absolute inset-0 z-20 flex flex-col items-center {small ? 'justify-center overflow-hidden p-3' : 'justify-start overflow-y-auto overflow-x-hidden p-4 sm:p-6'} bg-white/35 dark:bg-slate-900/45 border border-slate-200/60 dark:border-slate-700/50 backdrop-blur-xl rounded-xl"
     transition:fade={{ duration: 200 }}
 >
     {#if !small}
@@ -67,19 +73,20 @@
     {/if}
 
     <!-- Current frame backdrop -->
-    {#if currentFrameThumb}
+    {#if backdropImageUrl}
         <div
-            class="absolute inset-0 bg-center bg-cover opacity-30 blur-sm scale-105"
-            style="background-image: url(data:image/jpeg;base64,{currentFrameThumb})"
+            class="absolute inset-0 bg-center bg-cover opacity-60 blur-2xl scale-110"
+            style="background-image: url({backdropImageUrl})"
         ></div>
     {/if}
-    <div class="absolute inset-0 bg-gradient-to-br from-white/50 via-slate-50/70 to-slate-100/70 dark:from-slate-900/60 dark:via-slate-900/70 dark:to-slate-900/80"></div>
+    <div class="absolute inset-0 bg-gradient-to-br from-white/55 via-white/35 to-slate-100/50 dark:from-slate-950/70 dark:via-slate-950/55 dark:to-slate-900/70"></div>
+    <div class="absolute inset-0 bg-gradient-to-t from-slate-950/45 via-transparent to-transparent dark:from-black/60"></div>
 
-    <div class="relative w-full {small ? '' : 'max-w-3xl'} flex flex-col items-center {small ? 'gap-2' : 'gap-6'}">
+    <div class="relative w-full {small ? '' : 'max-w-4xl h-full'} flex flex-col items-center {small ? 'gap-2' : 'gap-5'}">
         
         {#if !small}
             <!-- Circular Progress (Large mode) -->
-            <div class="relative flex items-center justify-center" in:scale>
+            <div class="relative flex items-center justify-center mt-1" in:scale>
                 <svg class="w-24 h-24 transform -rotate-90">
                     <circle
                         cx="48"
@@ -119,14 +126,8 @@
             </div>
         {/if}
 
-        <VideoAnalysisFilmReel
-            {progress}
-            variant={small ? 'compact' : 'overlay'}
-            showFooter={!small}
-        />
-
         <!-- Live Label Feedback -->
-        <div class="flex flex-col items-center gap-1 {small ? 'min-h-0' : 'min-h-[64px]'}">
+        <div class="flex flex-col items-center gap-1 {small ? 'min-h-0' : 'min-h-[64px]'} {small ? '' : 'px-4'}">
             {#if displayLabel}
                 <div class="flex flex-col items-center" transition:fade>
                     {#if !small && !isComplete}
@@ -165,5 +166,21 @@
                 </div>
             {/if}
         </div>
+
+        {#if !small}
+            <div class="mt-auto w-full pt-2">
+                <VideoAnalysisFilmReel
+                    {progress}
+                    variant="overlay"
+                    showFooter={false}
+                />
+            </div>
+        {:else}
+            <VideoAnalysisFilmReel
+                {progress}
+                variant="compact"
+                showFooter={false}
+            />
+        {/if}
     </div>
 </div>
