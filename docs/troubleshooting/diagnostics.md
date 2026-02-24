@@ -71,6 +71,73 @@ If you see `PermissionError` in your backend logs or the container fails to star
 
 If step 5 fails, the most common cause is editing one path but mounting a different host path in Portainer. Fix ownership on the actual mounted source path shown in the stack volume mapping.
 
+## ⚡ GPU Acceleration Diagnostics (CUDA / OpenVINO)
+
+YA-WAMF exposes acceleration diagnostics in **Settings > Detection** and `GET /api/classifier/status`.
+
+### What to check first (UI)
+
+In **Settings > Detection** look at:
+
+- `CUDA` badge
+- `OpenVINO` badge
+- `Intel GPU` badge
+- `Selected provider`
+- `Active provider`
+- `Fallback reason`
+- `OpenVINO diagnostics` block (shown when OpenVINO is unavailable, or when the GPU plugin fails)
+
+This usually tells you whether the problem is:
+
+- missing runtime/library support
+- device pass-through (`/dev/dri`)
+- group permissions
+- provider fallback at runtime
+
+### Quick API check
+
+```bash
+curl -sS http://yawamf-backend:8000/api/classifier/status
+```
+
+Key fields:
+
+- `cuda_provider_installed` vs `cuda_available`
+  - `true` / `false` means the CUDA-capable ONNX Runtime wheel is installed, but no usable NVIDIA GPU is available to the container
+- `openvino_available`
+- `openvino_devices`
+- `intel_gpu_available`
+- `fallback_reason`
+- `openvino_import_error`
+- `openvino_probe_error`
+- `openvino_gpu_probe_error`
+- `dev_dri_present`, `dev_dri_entries`, `process_groups`
+
+### Intel iGPU (OpenVINO) checklist
+
+1. **Confirm `/dev/dri` is mounted**
+   ```bash
+   docker exec yawamf-backend sh -lc 'ls -l /dev/dri'
+   ```
+2. **Confirm container user/group can access the device nodes**
+   ```bash
+   docker exec yawamf-backend sh -lc 'id && ls -ln /dev/dri'
+   ```
+   The backend user/group list must include the numeric GIDs shown on `/dev/dri/card0` and `/dev/dri/renderD128` (often `video`/`render`, but IDs vary by host).
+3. **Check OpenVINO GPU plugin errors**
+   - If `openvino_gpu_probe_error` mentions `libOpenCL.so.1`, the image is missing OpenCL runtime libraries.
+   - If it reports no supported devices, the Intel GPU userspace/driver stack is not available to the container.
+
+### NVIDIA CUDA checklist
+
+1. **Confirm CUDA status fields**
+   - `cuda_provider_installed: true`
+   - `cuda_available: true`
+2. **If `cuda_provider_installed=true` but `cuda_available=false`**
+   - The CUDA-capable ONNX Runtime wheel is present, but YA-WAMF could not access a real NVIDIA CUDA device.
+3. **If `cuda_available=true` but `Active provider` falls back to CPU**
+   - YA-WAMF now validates the actual ONNX Runtime session providers and will report a CPU fallback if the session initializes without `CUDAExecutionProvider`.
+
 ### Startup Health Signals
 Use these endpoints and lifecycle logs to quickly pinpoint startup failures:
 

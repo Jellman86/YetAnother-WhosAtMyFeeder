@@ -296,6 +296,32 @@ def _resolve_inference_selection(requested_provider: Optional[str], caps: dict) 
         }
     return _ort_cpu()
 
+
+def _reconcile_ort_active_provider(
+    requested_active_provider: str,
+    session_providers: list[str] | None,
+) -> tuple[str, Optional[str]]:
+    """Reconcile planned ORT provider with the session's actual enabled providers.
+
+    ONNX Runtime can initialize a session with CPU only even when CUDA was requested,
+    depending on runtime/library availability. Keep YA-WAMF status/fallback reporting honest.
+    """
+    actual = requested_active_provider
+    providers = list(session_providers or [])
+
+    if requested_active_provider == "cuda" and "CUDAExecutionProvider" not in providers:
+        if "CPUExecutionProvider" in providers:
+            return (
+                "cpu",
+                "CUDA requested but ONNX Runtime session initialized without CUDAExecutionProvider; using CPUExecutionProvider",
+            )
+        return (
+            "cpu",
+            "CUDA requested but ONNX Runtime session initialized without CUDAExecutionProvider",
+        )
+
+    return actual, None
+
 # Global singleton instance
 _classifier_instance: Optional['ClassifierService'] = None
 _classifier_lock = threading.Lock()
@@ -977,6 +1003,30 @@ class ClassifierService:
                     device_name=selection["openvino_device"] or "CPU",
                 )
                 if bird_model.load():
+                    session_providers = []
+                    if getattr(bird_model, "session", None):
+                        try:
+                            session_providers = list(bird_model.session.get_providers() or [])
+                        except Exception:
+                            session_providers = []
+                    reconciled_provider, session_fallback_reason = _reconcile_ort_active_provider(
+                        self._active_inference_provider,
+                        session_providers,
+                    )
+                    if session_fallback_reason:
+                        prev_reason = self._inference_fallback_reason
+                        self._active_inference_provider = reconciled_provider
+                        self._inference_fallback_reason = (
+                            f"{prev_reason}; {session_fallback_reason}" if prev_reason else session_fallback_reason
+                        )
+                        log.warning(
+                            "ONNX Runtime session provider mismatch; applying runtime fallback status",
+                            requested=self._selected_inference_provider,
+                            planned_active=selection.get("active_provider"),
+                            actual_active=self._active_inference_provider,
+                            session_providers=session_providers,
+                            reason=session_fallback_reason,
+                        )
                     self._models["bird"] = bird_model
                     if self._inference_fallback_reason:
                         log.warning(

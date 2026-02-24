@@ -18,6 +18,7 @@ from app.services.classifier_service import (
     ModelInstance,
     _detect_acceleration_capabilities,
     _normalize_inference_provider,
+    _reconcile_ort_active_provider,
     _resolve_inference_selection,
 )
 from app.services import classifier_service as classifier_service_module
@@ -180,3 +181,13 @@ def test_openvino_import_supports_top_level_core_when_runtime_module_missing():
     assert support["core_class"] is object
     assert support["version"] == "2026.0.0"
     assert support["import_path"] == "openvino.Core"
+
+
+def test_reconcile_ort_active_provider_downgrades_cuda_when_session_is_cpu_only():
+    active, reason = _reconcile_ort_active_provider(
+        requested_active_provider="cuda",
+        session_providers=["CPUExecutionProvider"],
+    )
+    assert active == "cpu"
+    assert reason is not None
+    assert "without CUDAExecutionProvider" in reason

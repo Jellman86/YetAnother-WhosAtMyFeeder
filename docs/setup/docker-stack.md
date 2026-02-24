@@ -19,6 +19,13 @@ services:
     volumes:
       - ./config:/config        # Stores config.json
       - ./data:/data            # Stores database and AI models
+    # Optional Intel iGPU (OpenVINO) pass-through for ONNX models:
+    # devices:
+    #   - /dev/dri:/dev/dri
+    # group_add:
+    #   # Use host /dev/dri numeric group IDs (check with: ls -ln /dev/dri)
+    #   - "44"   # example: card0 / video
+    #   - "107"  # example: renderD128 / render
     environment:
       - TZ=Europe/London
       - PUID=${PUID:-1000}
@@ -116,6 +123,25 @@ mqtt:
 Ensure your host machine has enough space. 
 - **YA-WAMF data:** ~2GB (mostly for large AI models).
 - **Frigate storage:** Depends on your recording settings (usually 100GB+ recommended).
+
+### 4. Optional GPU Acceleration (YA-WAMF ONNX models)
+
+YA-WAMF can accelerate **ConvNeXt / EVA-02** ONNX models with:
+
+- **NVIDIA CUDA** (ONNX Runtime CUDA)
+- **Intel OpenVINO** (Intel GPU or CPU)
+
+Recommended flow:
+
+1. Start with `Auto` provider in **Settings > Detection**
+2. Check `Selected provider` and `Active provider`
+3. If fallback occurs, use the diagnostics shown in the UI (and backend logs) before forcing a provider
+
+For Intel iGPU specifically:
+
+- `/dev/dri` must be mounted into the backend container
+- `group_add` must match your host's actual `/dev/dri` device GIDs
+- If OpenVINO imports but only shows `CPU`, the UI diagnostics now show the GPU plugin error (for example missing OpenCL runtime or driver/userspace mismatch)
 
 ## 🖥 Hardware Requirements
 

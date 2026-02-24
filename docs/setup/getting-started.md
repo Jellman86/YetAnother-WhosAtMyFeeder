@@ -6,6 +6,9 @@ This guide will walk you through the basic installation of YA-WAMF using Docker 
 - **Docker & Docker Compose** installed on your host.
 - **Frigate NVR** already running and accessible.
 - **MQTT Broker** (e.g., Mosquitto) configured and connected to Frigate.
+- **Optional GPU acceleration (ONNX models):**
+  - **NVIDIA CUDA:** NVIDIA driver on the host + GPU passed into the backend container.
+  - **Intel iGPU (OpenVINO):** `/dev/dri` passed into the backend container + correct `/dev/dri` numeric `group_add` values for your host.
 
 ## Quick Install
 
@@ -85,6 +88,24 @@ Start the containers in detached mode:
 ```bash
 docker compose up -d
 ```
+
+### 3.1 (Optional) Enable GPU acceleration for ONNX models
+
+If you want ConvNeXt/EVA-02 acceleration:
+
+- **Intel iGPU (OpenVINO):**
+  - Mount `/dev/dri` into `yawamf-backend`
+  - Add `group_add` entries for the host's `/dev/dri` GIDs (check with `ls -ln /dev/dri`)
+- **NVIDIA CUDA:**
+  - Pass through the NVIDIA GPU to the backend container (runtime varies by host setup)
+
+After startup, go to **Settings > Detection** and check the provider diagnostics:
+
+- `OpenVINO` / `CUDA` availability badges
+- `Selected provider` vs `Active provider`
+- `Fallback reason` (if acceleration is unavailable and YA-WAMF fell back)
+
+See [AI Models & Performance](../features/ai-models.md) for provider behavior and [Diagnostics & Logs](../troubleshooting/diagnostics.md) for troubleshooting steps.
 
 **Portainer Stacks (common deployment):**
 - Create a new Stack from the `docker-compose.yml` (and your `.env`).

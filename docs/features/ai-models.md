@@ -7,6 +7,41 @@ You can manage models directly from the **Settings > Detection** page. The syste
 
 > **Platform note:** Raspberry Pi compatibility is currently a best-effort ARM64 target and has not yet been validated on physical Pi hardware in this project environment.
 
+## Inference Providers (CPU / CUDA / Intel OpenVINO)
+
+For ONNX models (ConvNeXt / EVA-02), YA-WAMF supports a provider selector in **Settings > Detection**:
+
+- `Auto` (recommended): prefers **Intel GPU (OpenVINO)**, then **NVIDIA CUDA**, then CPU.
+- `CPU`: ONNX Runtime CPU execution.
+- `NVIDIA CUDA`: ONNX Runtime with CUDA (falls back to CPU if CUDA is not actually usable).
+- `Intel GPU (OpenVINO)`: OpenVINO GPU plugin (falls back to OpenVINO CPU if the Intel GPU is unavailable).
+- `Intel CPU (OpenVINO)`: OpenVINO CPU execution.
+
+### Important behavior (robust fallback)
+
+YA-WAMF intentionally fails soft when acceleration is misconfigured:
+
+- If a provider is selected but unavailable, the backend falls back to a working provider.
+- The UI shows:
+  - **Selected provider**
+  - **Active provider**
+  - **Backend** (`onnxruntime` or `openvino`)
+  - **Fallback reason**
+- CUDA and OpenVINO availability are probed separately from model loading, then validated again during runtime initialization.
+
+### What counts as "available"
+
+- **CUDA available** means:
+  - ONNX Runtime CUDA provider is present in the installed wheel, and
+  - an NVIDIA CUDA device is actually accessible (not just CUDA-enabled packages installed).
+- **OpenVINO available** means:
+  - OpenVINO imports successfully, and
+  - OpenVINO runtime can initialize.
+- **Intel GPU auto-detected** means:
+  - OpenVINO enumerated a GPU device (or `GPU.*`) and can expose it to YA-WAMF.
+
+If you only see `OpenVINO: Available` + `Intel GPU: Not detected`, YA-WAMF can still use **OpenVINO CPU**.
+
 ### Available Tiers
 
 #### 1. Fast (MobileNet V2)

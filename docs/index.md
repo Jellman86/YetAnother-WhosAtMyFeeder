@@ -14,6 +14,7 @@ Everything you need to get the containers running and configured correctly.
 - **[📷 Recommended Frigate Config](setup/frigate-config.md)** - Optimized settings for bird snapshots.
 - **[🌐 Reverse Proxy Guide](setup/reverse-proxy.md)** - Configs for Cloudflare Tunnel, Nginx, Caddy.
 - **[⚙️ Configuration Guide](setup/configuration.md)** - Deep dive into all web UI settings.
+- **[⚡ GPU Acceleration Setup & Diagnostics](troubleshooting/diagnostics.md#-gpu-acceleration-diagnostics-cuda--openvino)** - CUDA/OpenVINO requirements, provider badges, and troubleshooting.
 
 ## 🔌 API & Development
 Build integrations and custom tools with YA-WAMF.
@@ -41,7 +42,7 @@ Connect YA-WAMF to the rest of your smart home and community projects.
 
 - [🔐 Authentication & Access](features/authentication.md) - Admin passwords, guest mode, and security
 - [🛡️ Security Policy](../SECURITY.md) - Supported versions, reporting, and security overview
-- [🧠 AI Models & Performance](features/ai-models.md) - Understanding MobileNet vs ConvNeXt vs EVA-02
+- [🧠 AI Models & Performance](features/ai-models.md) - Understanding MobileNet vs ConvNeXt vs EVA-02, plus CPU/CUDA/OpenVINO provider behavior
 - [🗂 Taxonomy & Naming](features/taxonomy.md) - How scientific naming works
 - [🔔 Notifications](features/notifications.md) - Discord, Pushover, Telegram, Email + Notification Center
 - [📊 Telemetry](features/telemetry.md) - Transparency on anonymous usage metrics
