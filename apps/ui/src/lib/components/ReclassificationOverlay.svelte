@@ -41,6 +41,8 @@
             ? Math.round(finalTopResult.score * 100)
             : (typeof latestFrame?.score === 'number' ? Math.round(latestFrame.score * 100) : null)
     );
+    let autoDismissSecondsRemaining = $state<number | null>(null);
+    const AUTO_DISMISS_MS = 30_000;
 
     function handleDismiss() {
         detectionsStore.dismissReclassification(progress.eventId);
@@ -48,10 +50,25 @@
 
     $effect(() => {
         if (small || !isComplete || typeof window === 'undefined') return;
+        autoDismissSecondsRemaining = Math.ceil(AUTO_DISMISS_MS / 1000);
+        const deadline = Date.now() + AUTO_DISMISS_MS;
         const timer = window.setTimeout(() => {
+            autoDismissSecondsRemaining = 0;
             handleDismiss();
-        }, 15000);
-        return () => window.clearTimeout(timer);
+        }, AUTO_DISMISS_MS);
+        const interval = window.setInterval(() => {
+            autoDismissSecondsRemaining = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+        }, 1000);
+        return () => {
+            window.clearTimeout(timer);
+            window.clearInterval(interval);
+        };
+    });
+
+    $effect(() => {
+        if (!isComplete) {
+            autoDismissSecondsRemaining = null;
+        }
     });
 
 </script>
@@ -85,34 +102,93 @@
     <div class="relative w-full {small ? '' : 'max-w-4xl h-full'} flex flex-col items-center {small ? 'gap-2' : 'gap-5'}">
         
         {#if !small}
-            <!-- Circular Progress (Large mode) -->
-            <div class="relative flex items-center justify-center mt-1" in:scale>
-                <svg class="w-24 h-24 transform -rotate-90">
-                    <circle
-                        cx="48"
-                        cy="48"
-                        r="40"
-                        stroke="currentColor"
-                        stroke-width="6"
-                        fill="transparent"
-                        class="text-slate-900/10 dark:text-slate-200/10"
-                    />
-                    <circle
-                        cx="48"
-                        cy="48"
-                        r="40"
-                        stroke="currentColor"
-                        stroke-width="6"
-                        fill="transparent"
-                        stroke-dasharray={251.2}
-                        stroke-dashoffset={251.2 - (251.2 * progressPercent) / 100}
-                        stroke-linecap="round"
-                        class="text-teal-400 transition-all duration-500 ease-out"
-                    />
-                </svg>
-                <div class="absolute inset-0 flex flex-col items-center justify-center">
-                    <span class="text-2xl font-black text-slate-900 dark:text-white">{progressPercent}%</span>
-                    <span class="text-[10px] font-bold text-teal-600 dark:text-teal-300 uppercase tracking-widest leading-none">{$_('detection.reclassification.analysis')}</span>
+            <div class="flex-1 w-full flex items-center justify-center">
+                <div class="w-full max-w-xl flex flex-col items-center gap-4">
+                    <!-- Circular Progress (Large mode) -->
+                    <div class="relative flex items-center justify-center" in:scale>
+                        <svg class="w-24 h-24 transform -rotate-90">
+                            <circle
+                                cx="48"
+                                cy="48"
+                                r="40"
+                                stroke="currentColor"
+                                stroke-width="6"
+                                fill="transparent"
+                                class="text-slate-900/10 dark:text-slate-200/10"
+                            />
+                            <circle
+                                cx="48"
+                                cy="48"
+                                r="40"
+                                stroke="currentColor"
+                                stroke-width="6"
+                                fill="transparent"
+                                stroke-dasharray={251.2}
+                                stroke-dashoffset={251.2 - (251.2 * progressPercent) / 100}
+                                stroke-linecap="round"
+                                class="text-teal-400 transition-all duration-500 ease-out"
+                            />
+                        </svg>
+                        <div class="absolute inset-0 flex flex-col items-center justify-center">
+                            <span class="text-2xl font-black text-slate-900 dark:text-white">{progressPercent}%</span>
+                            <span class="text-[10px] font-bold text-teal-600 dark:text-teal-300 uppercase tracking-widest leading-none">{$_('detection.reclassification.analysis')}</span>
+                        </div>
+                    </div>
+
+                    <!-- Live Label Feedback -->
+                    <div class="flex flex-col items-center gap-1 min-h-[64px] px-4">
+                        {#if displayLabel}
+                            <div class="flex flex-col items-center" transition:fade>
+                                {#if !isComplete}
+                                    <span class="px-2 py-0.5 rounded-md bg-teal-500/15 border border-teal-500/30 text-[9px] font-black text-teal-700 dark:text-teal-300 uppercase tracking-widest mb-1.5">
+                                        {$_('detection.reclassification.frame_progress', { values: { current: displayFrameIndex, total: displayClipTotal } })}
+                                    </span>
+                                {/if}
+                                {#if isComplete}
+                                    <span class="px-2 py-0.5 rounded-md bg-emerald-500/15 border border-emerald-500/30 text-[9px] font-black text-emerald-700 dark:text-emerald-300 uppercase tracking-widest mb-1.5">
+                                        {$_('detection.reclassification.final_result', { default: 'Final Result' })}
+                                    </span>
+                                {/if}
+                                <span class="text-base font-black text-slate-900 dark:text-white truncate max-w-[260px] drop-shadow-md text-center">
+                                    {displayLabel}
+                                </span>
+                                {#if displayScorePercent !== null}
+                                    <span class="text-[10px] font-black text-slate-500 dark:text-slate-300 uppercase tracking-widest mt-1">
+                                        {displayScorePercent}%
+                                    </span>
+                                {/if}
+                            </div>
+                        {/if}
+                        {#if modelLabel}
+                            <span class="text-[9px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest mt-1">
+                                {$_('detection.reclassification.model', { values: { name: modelLabel } })}
+                            </span>
+                        {/if}
+                        {#if isComplete}
+                            <div in:scale={{ delay: 300 }} class="mt-4 w-full max-w-sm space-y-2">
+                                <button 
+                                    onclick={handleDismiss}
+                                    class="w-full py-2.5 bg-teal-500 hover:bg-teal-600 text-white font-black uppercase tracking-widest text-xs rounded-xl transition-all shadow-lg shadow-teal-500/40 border border-slate-200/70 dark:border-white/10"
+                                >
+                                    {$_('detection.reclassification.done')}
+                                </button>
+                                {#if autoDismissSecondsRemaining !== null}
+                                    <div class="rounded-xl border border-white/15 bg-black/20 dark:bg-black/25 px-3 py-2">
+                                        <div class="flex items-center justify-between gap-3 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300">
+                                            <span>{$_('common.close', { default: 'Close' })}</span>
+                                            <span>{$_('detection.reclassification.auto_close_in', { default: 'Auto closes in {seconds}s', values: { seconds: autoDismissSecondsRemaining } })}</span>
+                                        </div>
+                                        <div class="mt-2 h-1.5 rounded-full bg-white/10 overflow-hidden">
+                                            <div
+                                                class="h-full rounded-full bg-gradient-to-r from-emerald-300 via-teal-300 to-cyan-300 transition-all duration-500 ease-linear motion-reduce:transition-none"
+                                                style={`width: ${Math.max(0, Math.min(100, ((autoDismissSecondsRemaining ?? 0) / 30) * 100))}%`}
+                                            ></div>
+                                        </div>
+                                    </div>
+                                {/if}
+                            </div>
+                        {/if}
+                    </div>
                 </div>
             </div>
         {:else}
@@ -127,7 +203,7 @@
         {/if}
 
         <!-- Live Label Feedback -->
-        <div class="flex flex-col items-center gap-1 {small ? 'min-h-0' : 'min-h-[64px]'} {small ? '' : 'px-4'}">
+        <div class="flex flex-col items-center gap-1 {small ? 'min-h-0' : 'min-h-[64px]'} {small ? '' : 'px-4'} {small ? '' : 'hidden'}">
             {#if displayLabel}
                 <div class="flex flex-col items-center" transition:fade>
                     {#if !small && !isComplete}
@@ -168,7 +244,7 @@
         </div>
 
         {#if !small}
-            <div class="mt-auto w-full pt-2">
+            <div class="mt-auto w-full pt-3">
                 <VideoAnalysisFilmReel
                     {progress}
                     variant="overlay"

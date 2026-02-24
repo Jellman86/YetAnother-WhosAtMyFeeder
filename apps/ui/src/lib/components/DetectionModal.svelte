@@ -1492,7 +1492,7 @@
                     </div>
 
                     <!-- Video Play Button (optional) -->
-                    {#if showVideoButton && detection.has_clip && onPlayVideo}
+                    {#if showVideoButton && detection.has_clip && onPlayVideo && !reclassifyProgress}
                         <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
                             <button
                                 type="button"

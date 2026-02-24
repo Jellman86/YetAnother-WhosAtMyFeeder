@@ -31,7 +31,7 @@
             case 'detail':
                 return 9;
             default:
-                return 11;
+                return 9;
         }
     });
     let renderBuffer = $derived(2);
@@ -54,8 +54,8 @@
     );
     let frameCellClass = $derived.by(() => {
         if (variant === 'compact') return 'w-[52px]';
-        if (variant === 'detail') return 'w-[66px]';
-        return 'w-[70px]';
+        if (variant === 'detail') return 'w-[72px]';
+        return 'w-[90px]';
     });
     let frameGapClass = $derived(variant === 'compact' ? 'gap-1.5' : 'gap-2');
     let framePadClass = $derived(variant === 'compact' ? 'p-2' : (variant === 'overlay' ? 'p-2.5' : 'p-3'));
