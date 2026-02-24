@@ -51,7 +51,7 @@
 </script>
 
 <div 
-    class="absolute inset-0 z-20 relative flex flex-col items-center {small ? 'justify-center overflow-hidden p-3' : 'justify-start overflow-y-auto overflow-x-hidden p-6'} bg-white/50 dark:bg-slate-900/60 border border-slate-200/70 dark:border-slate-700/50 backdrop-blur-xl rounded-xl"
+    class="absolute inset-0 z-20 flex flex-col items-center {small ? 'justify-center overflow-hidden p-3' : 'justify-start overflow-y-auto overflow-x-hidden p-6'} bg-white/50 dark:bg-slate-900/60 border border-slate-200/70 dark:border-slate-700/50 backdrop-blur-xl rounded-xl"
     transition:fade={{ duration: 200 }}
 >
     {#if !small}
