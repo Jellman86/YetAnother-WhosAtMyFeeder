@@ -15,6 +15,7 @@ sys.modules["app.services.model_manager"] = mock_mm
 from app.services.classifier_service import (
     ClassifierService,
     ModelInstance,
+    _detect_acceleration_capabilities,
     _normalize_inference_provider,
     _resolve_inference_selection,
 )
@@ -145,3 +146,16 @@ def test_resolve_inference_selection_intel_gpu_falls_back_to_intel_cpu_when_poss
     assert sel["backend"] == "openvino"
     assert sel["openvino_device"] == "CPU"
     assert sel["fallback_reason"] is not None
+
+
+def test_detect_acceleration_capabilities_does_not_report_cuda_available_without_nvidia_device():
+    with patch("app.services.classifier_service.ONNX_AVAILABLE", True), \
+         patch("app.services.classifier_service.ort") as mock_ort, \
+         patch("app.services.classifier_service._detect_cuda_hardware_available", return_value=False):
+        mock_ort.get_available_providers.return_value = ["CUDAExecutionProvider", "CPUExecutionProvider"]
+
+        caps = _detect_acceleration_capabilities()
+
+    assert caps["ort_available"] is True
+    assert caps["cuda_provider_installed"] is True
+    assert caps["cuda_available"] is False

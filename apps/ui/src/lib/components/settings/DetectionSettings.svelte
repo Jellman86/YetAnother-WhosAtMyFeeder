@@ -240,8 +240,14 @@
 
                             {#if classifierStatus}
                                 <div class="mt-3 flex flex-wrap items-center gap-2">
-                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-black {classifierStatus.cuda_available ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-slate-500/10 text-slate-500'}">
-                                        {classifierStatus.cuda_available ? $_('settings.detection.cuda_available') : $_('settings.detection.cuda_unavailable')}
+                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-black {(classifierStatus.cuda_available ?? false) ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : ((classifierStatus.cuda_provider_installed ?? false) ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400' : 'bg-slate-500/10 text-slate-500')}">
+                                        {#if classifierStatus.cuda_available}
+                                            {$_('settings.detection.cuda_available')}
+                                        {:else if classifierStatus.cuda_provider_installed}
+                                            {$_('settings.detection.cuda_runtime_only', { default: 'CUDA runtime installed (no NVIDIA GPU detected)' })}
+                                        {:else}
+                                            {$_('settings.detection.cuda_unavailable')}
+                                        {/if}
                                     </span>
                                     <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-black {(classifierStatus.openvino_available ?? false) ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-slate-500/10 text-slate-500'}">
                                         {$_('settings.detection.openvino_status', { default: 'OpenVINO' })}: {(classifierStatus.openvino_available ?? false) ? $_('common.available', { default: 'Available' }) : $_('common.unavailable', { default: 'Unavailable' })}

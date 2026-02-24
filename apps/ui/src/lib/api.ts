@@ -951,6 +951,8 @@ export interface ClassifierStatus {
     enabled: boolean;
     onnx_available?: boolean;
     openvino_available?: boolean;
+    cuda_provider_installed?: boolean;
+    cuda_hardware_available?: boolean;
     cuda_available?: boolean;
     intel_cpu_available?: boolean;
     intel_gpu_available?: boolean;

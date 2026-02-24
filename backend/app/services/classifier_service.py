@@ -3,6 +3,7 @@ import numpy as np
 import os
 import cv2
 import asyncio
+import ctypes
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from PIL import Image
@@ -49,6 +50,8 @@ def _detect_acceleration_capabilities() -> dict:
     """Probe optional inference runtimes/providers without raising."""
     caps = {
         "ort_available": bool(ONNX_AVAILABLE and ort is not None),
+        "cuda_provider_installed": False,
+        "cuda_hardware_available": False,
         "cuda_available": False,
         "openvino_available": bool(OPENVINO_AVAILABLE and OpenVINOCore is not None),
         "intel_gpu_available": False,
@@ -58,7 +61,10 @@ def _detect_acceleration_capabilities() -> dict:
 
     if caps["ort_available"]:
         try:
-            caps["cuda_available"] = "CUDAExecutionProvider" in (ort.get_available_providers() or [])
+            caps["cuda_provider_installed"] = "CUDAExecutionProvider" in (ort.get_available_providers() or [])
+            if caps["cuda_provider_installed"]:
+                caps["cuda_hardware_available"] = _detect_cuda_hardware_available()
+            caps["cuda_available"] = bool(caps["cuda_provider_installed"] and caps["cuda_hardware_available"])
         except Exception as e:
             log.warning("Failed to inspect ONNX Runtime providers", error=str(e))
 
@@ -74,6 +80,42 @@ def _detect_acceleration_capabilities() -> dict:
             log.warning("Failed to inspect OpenVINO devices", error=str(e))
 
     return caps
+
+
+def _detect_cuda_hardware_available() -> bool:
+    """Detect whether an NVIDIA CUDA device is actually accessible in this runtime.
+
+    ORT can report CUDAExecutionProvider when the wheel supports CUDA even if no NVIDIA
+    GPU is passed through. Probe the CUDA driver API directly to avoid false positives.
+    """
+    for library_name in ("libcuda.so.1", "libcuda.so", "nvcuda.dll"):
+        try:
+            cuda = ctypes.CDLL(library_name)
+        except OSError:
+            continue
+
+        try:
+            cu_init = cuda.cuInit
+            cu_init.argtypes = [ctypes.c_uint]
+            cu_init.restype = ctypes.c_int
+
+            cu_device_get_count = cuda.cuDeviceGetCount
+            cu_device_get_count.argtypes = [ctypes.POINTER(ctypes.c_int)]
+            cu_device_get_count.restype = ctypes.c_int
+
+            if cu_init(0) != 0:
+                return False
+
+            count = ctypes.c_int(0)
+            if cu_device_get_count(ctypes.byref(count)) != 0:
+                return False
+
+            return count.value > 0
+        except Exception as e:
+            log.warning("CUDA driver probe failed", library=library_name, error=str(e))
+            return False
+
+    return False
 
 
 def _resolve_inference_selection(requested_provider: Optional[str], caps: dict) -> dict:
@@ -1023,6 +1065,8 @@ class ClassifierService:
             "runtime_installed": tflite is not None,
             "onnx_available": ONNX_AVAILABLE,
             "openvino_available": bool(self._accel_caps.get("openvino_available")),
+            "cuda_provider_installed": bool(self._accel_caps.get("cuda_provider_installed")),
+            "cuda_hardware_available": bool(self._accel_caps.get("cuda_hardware_available")),
             "cuda_available": bool(self._accel_caps.get("cuda_available")),
             "intel_gpu_available": bool(self._accel_caps.get("intel_gpu_available")),
             "intel_cpu_available": bool(self._accel_caps.get("intel_cpu_available")),
