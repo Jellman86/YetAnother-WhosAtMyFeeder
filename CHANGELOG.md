@@ -24,6 +24,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Changed:** Updated the application icon set (including PWA assets, Apple Touch icon, and favicon) across the UI with a newly generated high-quality source image.
 - **Fixed:** Explorer event-card weather summaries now use a two-tier layout with wrapping secondary metrics to prevent overflow in precipitation-heavy cases, and no longer duplicate temperature when freezing conditions are shown.
 - **Changed:** Explorer event-card weather summaries now visually separate the primary weather summary from secondary weather details with labeled sub-rows for clearer hierarchy.
+- **Changed:** Explorer event-card top weather row now shows only a generalized condition + temperature (with precipitation amounts/details kept in the Details row), and inner weather sub-panels use tighter horizontal padding.
 
 ## [2.8.3] - 2026-02-23
 

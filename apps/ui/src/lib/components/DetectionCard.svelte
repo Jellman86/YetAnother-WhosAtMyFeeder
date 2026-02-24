@@ -185,8 +185,9 @@
     const hasTemperature = $derived(
         detection.temperature !== undefined && detection.temperature !== null
     );
+    const weatherConditionSummary = $derived.by(() => summarizeWeatherCondition(detection.weather_condition));
     const hasWeatherCondition = $derived(
-        typeof detection.weather_condition === 'string' && detection.weather_condition.trim().length > 0
+        weatherConditionSummary.length > 0
     );
     const hasIcy = $derived(
         hasTemperature && (detection.temperature ?? 0) <= 0
@@ -227,6 +228,25 @@
         if (value < 0.1) return `${value.toFixed(2)}mm`;
         if (value < 1) return `${value.toFixed(1)}mm`;
         return `${value.toFixed(0)}mm`;
+    }
+
+    function summarizeWeatherCondition(value?: string | null): string {
+        if (typeof value !== 'string') return '';
+        const raw = value.trim();
+        if (!raw) return '';
+        const text = raw.toLowerCase();
+
+        if (text.includes('thunder') || text.includes('storm')) return 'Storm';
+        if (text.includes('sleet')) return 'Sleet';
+        if (text.includes('hail')) return 'Hail';
+        if (text.includes('snow')) return 'Snow';
+        if (text.includes('drizzle')) return 'Drizzle';
+        if (text.includes('rain') || text.includes('shower')) return 'Rain';
+        if (text.includes('fog') || text.includes('mist') || text.includes('haze')) return 'Fog';
+        if (text.includes('cloud')) return text.includes('partly') ? 'Partly Cloudy' : 'Cloudy';
+        if (text.includes('clear') || text.includes('sunny')) return 'Clear';
+
+        return raw;
     }
 </script>
 
@@ -453,7 +473,7 @@
             <div class="rounded-2xl bg-sky-50/80 dark:bg-slate-900/40 border border-sky-100/80 dark:border-slate-700/60 px-3 py-2">
                 <div class="space-y-2">
                 {#if hasWeatherCondition || hasTemperature}
-                    <div class="rounded-xl border border-white/70 dark:border-slate-700/70 bg-white/60 dark:bg-slate-950/35 px-2.5 py-2">
+                    <div class="rounded-xl border border-white/70 dark:border-slate-700/70 bg-white/60 dark:bg-slate-950/35 px-2 py-2">
                         <div class="mb-1 flex items-center gap-1.5 text-[9px] font-black uppercase tracking-wider text-sky-700/70 dark:text-sky-300/70">
                             <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a4 4 0 100-8h-1a5 5 0 10-9 4H7a4 4 0 00-4 4z" />
@@ -467,8 +487,8 @@
                                         <svg class="w-4 h-4 {cloudColor(detection.weather_cloud_cover)} shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-label={$_('detection.weather_title')}>
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a4 4 0 100-8h-1a5 5 0 10-9 4H7a4 4 0 00-4 4z" />
                                         </svg>
-                                        <span class="truncate capitalize" title={detection.weather_condition || ''}>
-                                            {detection.weather_condition}
+                                        <span class="truncate" title={detection.weather_condition || ''}>
+                                            {weatherConditionSummary}
                                         </span>
                                     </div>
                                 {/if}
@@ -490,7 +510,7 @@
                 {/if}
 
                 {#if hasRain || hasSnow || hasCloud || hasWind}
-                    <div class="rounded-xl border border-dashed border-sky-200/90 dark:border-slate-700/80 bg-white/35 dark:bg-slate-950/20 px-2.5 py-2">
+                    <div class="rounded-xl border border-dashed border-sky-200/90 dark:border-slate-700/80 bg-white/35 dark:bg-slate-950/20 px-2 py-2">
                         <div class="mb-1 flex items-center gap-1.5 text-[9px] font-black uppercase tracking-wider text-slate-500/80 dark:text-slate-400/90">
                             <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
