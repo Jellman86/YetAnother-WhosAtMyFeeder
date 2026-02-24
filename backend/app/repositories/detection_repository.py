@@ -566,6 +566,7 @@ class DetectionRepository:
         start_date: datetime | None = None,
         end_date: datetime | None = None,
         species: str | None = None,
+        species_any: list[str] | None = None,
         taxa_id: int | None = None,
         camera: str | None = None,
         sort: str = "newest",
@@ -600,6 +601,10 @@ class DetectionRepository:
         if species:
             conditions.append("d.display_name = ?")
             params.append(species)
+        if species_any:
+            placeholders = ",".join(["?"] * len(species_any))
+            conditions.append(f"d.display_name IN ({placeholders})")
+            params.extend(species_any)
         if taxa_id is not None:
             conditions.append("d.taxa_id = ?")
             params.append(taxa_id)
@@ -632,6 +637,7 @@ class DetectionRepository:
         start_date: datetime | None = None,
         end_date: datetime | None = None,
         species: str | None = None,
+        species_any: list[str] | None = None,
         taxa_id: int | None = None,
         camera: str | None = None,
         include_hidden: bool = False,
@@ -660,6 +666,10 @@ class DetectionRepository:
         if species:
             conditions.append("d.display_name = ?")
             params.append(species)
+        if species_any:
+            placeholders = ",".join(["?"] * len(species_any))
+            conditions.append(f"d.display_name IN ({placeholders})")
+            params.extend(species_any)
         if taxa_id is not None:
             conditions.append("d.taxa_id = ?")
             params.append(taxa_id)

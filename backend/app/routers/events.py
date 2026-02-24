@@ -32,6 +32,8 @@ log = structlog.get_logger()
 CLIP_CHECK_CONCURRENCY = 10
 LOCALIZED_NAME_CONCURRENCY = 5
 EVENT_FILTERS_CACHE_TTL_SECONDS = 60
+UNKNOWN_BIRD_FILTER_ALIAS = "alias:unknown_bird"
+UNKNOWN_BIRD_DISPLAY_LABEL = "Unknown Bird"
 
 
 def parse_species_filter(species: Optional[str]) -> tuple[Optional[str], Optional[int]]:
@@ -44,6 +46,37 @@ def parse_species_filter(species: Optional[str]) -> tuple[Optional[str], Optiona
         except ValueError:
             return species, None
     return species, None
+
+
+def resolve_species_display_filter_aliases(
+    species_name: Optional[str],
+    taxa_id: Optional[int],
+) -> tuple[Optional[str], Optional[list[str]]]:
+    """Map UI display aliases (e.g. 'Unknown Bird') to underlying stored labels."""
+    if taxa_id is not None or not species_name:
+        return species_name, None
+    normalized_species = _normalize_species_name(species_name)
+    if (
+        species_name != UNKNOWN_BIRD_FILTER_ALIAS
+        and normalized_species != _normalize_species_name(UNKNOWN_BIRD_DISPLAY_LABEL)
+    ):
+        return species_name, None
+
+    aliases: list[str] = []
+    seen: set[str] = set()
+    for candidate in [UNKNOWN_BIRD_DISPLAY_LABEL, *(settings.classification.unknown_bird_labels or [])]:
+        value = str(candidate or "").strip()
+        if not value:
+            continue
+        key = value.casefold()
+        if key in seen:
+            continue
+        seen.add(key)
+        aliases.append(value)
+
+    if not aliases:
+        aliases = [UNKNOWN_BIRD_DISPLAY_LABEL]
+    return None, aliases
 
 
 def _normalize_species_name(value: Optional[str]) -> Optional[str]:
@@ -203,12 +236,28 @@ async def get_event_filters(
         repo = DetectionRepository(db)
         species_rows = await repo.get_unique_species_with_taxonomy()
         cameras = [] if hide_camera_names else await repo.get_unique_cameras()
+        unknown_label_keys = {
+            key
+            for key in (
+                _normalize_species_name(UNKNOWN_BIRD_DISPLAY_LABEL),
+                *(_normalize_species_name(v) for v in (settings.classification.unknown_bird_labels or [])),
+            )
+            if key
+        }
 
         semaphore = asyncio.Semaphore(LOCALIZED_NAME_CONCURRENCY)
         species_options: list[EventFilterSpecies] = []
 
         async def resolve_species(row: tuple[str, Optional[str], Optional[str], Optional[int]]) -> EventFilterSpecies:
             display_name, scientific_name, common_name, taxa_id = row
+            if _normalize_species_name(display_name) in unknown_label_keys:
+                return EventFilterSpecies(
+                    value=UNKNOWN_BIRD_FILTER_ALIAS,
+                    display_name=UNKNOWN_BIRD_DISPLAY_LABEL,
+                    scientific_name=None,
+                    common_name=None,
+                    taxa_id=None,
+                )
             async with semaphore:
                 taxonomy = await taxonomy_service.get_names(display_name)
                 sci_name = scientific_name or taxonomy.get("scientific_name") or display_name
@@ -235,7 +284,7 @@ async def get_event_filters(
         # Deduplicate by taxa_id when available; fallback to display_name
         seen: set[str] = set()
         for item in resolved:
-            key = f"taxa:{item.taxa_id}" if item.taxa_id else item.display_name.lower()
+            key = f"taxa:{item.taxa_id}" if item.taxa_id else item.value.lower()
             if key in seen:
                 continue
             seen.add(key)
@@ -303,12 +352,14 @@ async def get_events(
         end_datetime = datetime.combine(end_date, datetime.max.time()) if end_date else None
 
         species_name, taxa_id = parse_species_filter(species)
+        species_name, species_aliases = resolve_species_display_filter_aliases(species_name, taxa_id)
         events = await repo.get_all(
             limit=limit,
             offset=offset,
             start_date=start_datetime,
             end_date=end_datetime,
             species=species_name,
+            species_any=species_aliases,
             taxa_id=taxa_id,
             camera=camera,
             sort=sort,
@@ -344,7 +395,7 @@ async def get_events(
             # Transform unknown bird labels for display
             display_name = event.display_name
             if display_name in unknown_labels:
-                display_name = "Unknown Bird"
+                display_name = UNKNOWN_BIRD_DISPLAY_LABEL
 
             common_name = event.common_name
             # Fetch localized common name if not in English and we have a taxa_id
@@ -447,11 +498,13 @@ async def get_events_count(
         start_datetime = datetime.combine(start_date, datetime.min.time()) if start_date else None
         end_datetime = datetime.combine(end_date, datetime.max.time()) if end_date else None
         species_name, taxa_id = parse_species_filter(species)
+        species_name, species_aliases = resolve_species_display_filter_aliases(species_name, taxa_id)
 
         count = await repo.get_count(
             start_date=start_datetime,
             end_date=end_datetime,
             species=species_name,
+            species_any=species_aliases,
             taxa_id=taxa_id,
             camera=camera,
             include_hidden=include_hidden,
