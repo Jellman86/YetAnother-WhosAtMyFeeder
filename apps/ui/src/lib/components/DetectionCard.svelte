@@ -473,13 +473,7 @@
             <div class="rounded-2xl bg-sky-50/80 dark:bg-slate-900/40 border border-sky-100/80 dark:border-slate-700/60 px-3 py-2">
                 <div class="space-y-2">
                 {#if hasWeatherCondition || hasTemperature}
-                    <div class="rounded-xl border border-white/70 dark:border-slate-700/70 bg-white/60 dark:bg-slate-950/35 px-2 py-2">
-                        <div class="mb-1 flex items-center gap-1.5 text-[9px] font-black uppercase tracking-wider text-sky-700/70 dark:text-sky-300/70">
-                            <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a4 4 0 100-8h-1a5 5 0 10-9 4H7a4 4 0 00-4 4z" />
-                            </svg>
-                            <span>{$_('detection.weather_title')}</span>
-                        </div>
+                    <div class="rounded-xl border border-white/70 dark:border-slate-700/70 bg-white/60 dark:bg-slate-950/35 px-2 py-1.5">
                         <div class="flex items-center justify-between gap-3">
                             <div class="min-w-0 flex items-center gap-2 text-[10px] font-semibold text-slate-500 dark:text-slate-300">
                                 {#if hasWeatherCondition}
