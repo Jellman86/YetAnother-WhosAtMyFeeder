@@ -393,7 +393,8 @@
       "table_calls": "Calls",
       "table_tokens": "Tokens",
       "table_cost": "Cost",
-      "view_reference_pricing": "View Reference Pricing →"
+      "view_reference_pricing": "View Reference Pricing →",
+      "usage_load_error": "Failed to load AI usage."
     },
     "auth": {
       "title": "Authentifizierung",
@@ -669,7 +670,21 @@
       "no_blocked_labels": "Noch keine blockierten Labels.",
       "blocked_labels_placeholder": "e.g. background",
       "blocked_label_remove": "Remove {label} from blocked list",
-      "naming_select_label": "Select {mode} naming style"
+      "naming_select_label": "Select {mode} naming style",
+      "provider_cuda": "NVIDIA CUDA",
+      "inference_backend_label": "Backend",
+      "provider_auto": "Auto",
+      "provider_intel_cpu": "Intel CPU (OpenVINO)",
+      "provider_cpu": "CPU (ONNX Runtime)",
+      "inference_provider_desc": "Select CPU, NVIDIA CUDA, or Intel OpenVINO acceleration for ONNX models. Auto prefers Intel GPU, then CUDA, then CPU.",
+      "inference_provider": "Inference Provider",
+      "auto_detected": "Auto-detected",
+      "active_provider_label": "Active",
+      "intel_gpu_status": "Intel GPU",
+      "provider_fallback_reason": "Fallback:",
+      "provider_intel_gpu": "Intel GPU (OpenVINO)",
+      "selected_provider_label": "Selected",
+      "openvino_status": "OpenVINO"
     },
     "llm": {
       "title": "KI-Einblicke",
