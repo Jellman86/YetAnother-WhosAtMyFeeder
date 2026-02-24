@@ -18,6 +18,7 @@ from app.services.classifier_service import (
     ModelInstance,
     _detect_acceleration_capabilities,
     _normalize_inference_provider,
+    _probe_openvino_devices_safe,
     _probe_openvino_gpu_plugin_error_safe,
     _reconcile_ort_active_provider,
     _resolve_inference_selection,
@@ -200,3 +201,24 @@ def test_probe_openvino_gpu_plugin_error_safe_reports_nonzero_subprocess_exit():
         err = _probe_openvino_gpu_plugin_error_safe()
     assert err is not None
     assert "exit code 139" in err
+
+
+def test_detect_acceleration_capabilities_uses_safe_openvino_device_probe():
+    with patch("app.services.classifier_service.ONNX_AVAILABLE", False), \
+         patch("app.services.classifier_service.OPENVINO_AVAILABLE", True), \
+         patch("app.services.classifier_service.OpenVINOCore", side_effect=AssertionError("must not instantiate OpenVINO Core in-process")), \
+         patch(
+             "app.services.classifier_service._probe_openvino_devices_safe",
+             return_value={
+                 "ok": True,
+                 "devices": ["CPU", "GPU"],
+                 "error": None,
+                 "gpu_probe_error": None,
+             },
+         ):
+        caps = _detect_acceleration_capabilities()
+
+    assert caps["openvino_available"] is True
+    assert caps["openvino_devices"] == ["CPU", "GPU"]
+    assert caps["intel_cpu_available"] is True
+    assert caps["intel_gpu_available"] is True

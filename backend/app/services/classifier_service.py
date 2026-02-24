@@ -5,6 +5,7 @@ import cv2
 import asyncio
 import ctypes
 import importlib
+import json
 import subprocess
 import sys
 import threading
@@ -140,20 +141,93 @@ def _detect_acceleration_capabilities() -> dict:
             log.warning("Failed to inspect ONNX Runtime providers", error=str(e))
 
     if caps["openvino_available"]:
-        try:
-            ov_core = OpenVINOCore()
-            devices = list(getattr(ov_core, "available_devices", []) or [])
+        probe = _probe_openvino_devices_safe()
+        if probe.get("ok"):
+            devices = list(probe.get("devices") or [])
             caps["openvino_devices"] = devices
             caps["intel_gpu_available"] = any(d == "GPU" or str(d).startswith("GPU.") for d in devices)
             caps["intel_cpu_available"] = any(d == "CPU" or str(d).startswith("CPU.") for d in devices)
-            if caps["openvino_available"] and caps.get("dev_dri_present") and not caps["intel_gpu_available"]:
-                caps["openvino_gpu_probe_error"] = _probe_openvino_gpu_plugin_error_safe()
-        except Exception as e:
-            caps["openvino_available"] = False
-            caps["openvino_probe_error"] = f"{type(e).__name__}: {e}"
-            log.warning("Failed to inspect OpenVINO devices", error=str(e))
+            caps["openvino_gpu_probe_error"] = probe.get("gpu_probe_error")
+        else:
+            caps["openvino_probe_error"] = probe.get("error") or "OpenVINO device probe failed"
+            caps["openvino_gpu_probe_error"] = probe.get("gpu_probe_error")
+            log.warning("Failed to inspect OpenVINO devices", error=caps["openvino_probe_error"])
 
     return caps
+
+
+def _probe_openvino_devices_safe() -> dict:
+    """Probe OpenVINO device availability in a subprocess so plugin crashes cannot kill the backend."""
+    script = (
+        "import json, sys\n"
+        "try:\n"
+        "    try:\n"
+        "        from openvino import Core\n"
+        "    except Exception:\n"
+        "        from openvino.runtime import Core\n"
+        "    core = Core()\n"
+        "    devices = list(getattr(core, 'available_devices', []) or [])\n"
+        "    gpu_probe_error = None\n"
+        "    has_gpu = any(d == 'GPU' or str(d).startswith('GPU.') for d in devices)\n"
+        "    if not has_gpu:\n"
+        "        try:\n"
+        "            core.get_property('GPU', 'FULL_DEVICE_NAME')\n"
+        "        except Exception as e:\n"
+        "            gpu_probe_error = f'{type(e).__name__}: {e}'\n"
+        "    print(json.dumps({'ok': True, 'devices': devices, 'gpu_probe_error': gpu_probe_error}))\n"
+        "except Exception as e:\n"
+        "    print(json.dumps({'ok': False, 'error': f'{type(e).__name__}: {e}'}))\n"
+        "    sys.exit(2)\n"
+    )
+    try:
+        proc = subprocess.run(
+            [sys.executable, "-c", script],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+    except subprocess.TimeoutExpired:
+        return {
+            "ok": False,
+            "devices": [],
+            "gpu_probe_error": None,
+            "error": "TimeoutExpired: OpenVINO device probe timed out",
+        }
+    except Exception as e:
+        return {
+            "ok": False,
+            "devices": [],
+            "gpu_probe_error": None,
+            "error": f"{type(e).__name__}: {e}",
+        }
+
+    stdout = (proc.stdout or "").strip()
+    stderr = (proc.stderr or "").strip()
+    if stdout:
+        try:
+            result = json.loads(stdout)
+            if isinstance(result, dict):
+                result.setdefault("devices", [])
+                result.setdefault("gpu_probe_error", None)
+                result.setdefault("error", None)
+                result.setdefault("ok", proc.returncode == 0)
+                if proc.returncode != 0 and not result.get("error"):
+                    result["error"] = f"OpenVINO device probe failed with exit code {proc.returncode}"
+                return result
+        except Exception:
+            pass
+
+    if stderr:
+        error = stderr
+    else:
+        error = f"OpenVINO device probe failed with exit code {proc.returncode}"
+
+    return {
+        "ok": False,
+        "devices": [],
+        "gpu_probe_error": None,
+        "error": error,
+    }
 
 
 def _probe_openvino_gpu_plugin_error_safe() -> Optional[str]:
