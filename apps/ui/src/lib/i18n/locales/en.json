@@ -681,6 +681,7 @@
       "naming_select_label": "Select {mode} naming style",
       "inference_provider": "Inference Provider",
       "inference_provider_desc": "Select CPU, NVIDIA CUDA, or Intel OpenVINO acceleration for ONNX models. Auto prefers Intel GPU, then CUDA, then CPU.",
+      "gpu_setup_docs": "GPU setup & diagnostics guide",
       "provider_auto": "Auto",
       "provider_cpu": "CPU (ONNX Runtime)",
       "provider_cuda": "NVIDIA CUDA",

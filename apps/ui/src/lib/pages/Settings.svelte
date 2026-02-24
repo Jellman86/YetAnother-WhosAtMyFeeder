@@ -2696,8 +2696,6 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     bind:threshold
                     bind:minConfidence
                     bind:trustFrigateSublabel
-                    bind:displayCommonNames
-                    bind:scientificNamePrimary
                     bind:autoVideoClassification
                     bind:videoClassificationDelay
                     bind:videoClassificationMaxRetries
@@ -2940,6 +2938,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     {currentLayout}
                     currentLocale={$locale || 'en'}
                     currentDateFormat={dateFormat}
+                    bind:displayCommonNames
+                    bind:scientificNamePrimary
                     {setTheme}
                     {currentFontTheme}
                     {setFontTheme}

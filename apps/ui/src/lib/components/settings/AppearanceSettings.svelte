@@ -14,7 +14,9 @@
         setLanguage,
         currentFontTheme,
         setFontTheme,
-        setDateFormat
+        setDateFormat,
+        displayCommonNames = $bindable(true),
+        scientificNamePrimary = $bindable(false)
     }: {
         currentTheme: Theme;
         currentLayout: Layout;
@@ -26,6 +28,8 @@
         currentFontTheme: FontTheme;
         setFontTheme: (font: FontTheme) => void;
         setDateFormat: (format: string) => void;
+        displayCommonNames: boolean;
+        scientificNamePrimary: boolean;
     } = $props();
 </script>
 
@@ -104,6 +108,39 @@
                 </select>
                 <p class="text-[9px] text-slate-400 font-bold italic mt-1">{$_('settings.date_format.desc')}</p>
             </div>
+        </div>
+    </div>
+
+    <div class="pt-8 mt-8 border-t border-slate-100 dark:border-slate-700/50">
+        <div class="flex items-center gap-3 mb-6">
+            <div class="w-8 h-8 rounded-xl bg-teal-500/10 flex items-center justify-center text-teal-600 dark:text-teal-400">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5h8M11 12h8M11 19h8M5 6h.01M5 12h.01M5 18h.01" /></svg>
+            </div>
+            <div>
+                <h4 class="text-lg font-black text-slate-900 dark:text-white tracking-tight">{$_('settings.detection.naming_title')}</h4>
+            </div>
+        </div>
+
+        <div class="flex flex-col gap-3">
+            {#each [
+                { id: 'standard', title: $_('settings.detection.naming_standard'), sub: $_('settings.detection.naming_standard_sub'), active: displayCommonNames && !scientificNamePrimary, action: () => { displayCommonNames = true; scientificNamePrimary = false; } },
+                { id: 'hobbyist', title: $_('settings.detection.naming_hobbyist'), sub: $_('settings.detection.naming_hobbyist_sub'), active: displayCommonNames && scientificNamePrimary, action: () => { displayCommonNames = true; scientificNamePrimary = true; } },
+                { id: 'scientific', title: $_('settings.detection.naming_scientific'), sub: $_('settings.detection.naming_scientific_sub'), active: !displayCommonNames, action: () => { displayCommonNames = false; } }
+            ] as mode}
+                <button
+                    onclick={mode.action}
+                    aria-label={$_('settings.detection.naming_select_label', { values: { mode: mode.title } })}
+                    class="flex items-center gap-4 p-4 rounded-2xl border-2 text-left transition-all {mode.active ? 'border-teal-500 bg-teal-500/5' : 'border-slate-100 dark:border-slate-700/50 hover:border-teal-500/20'}"
+                >
+                    <div class="w-5 h-5 rounded-full border-2 flex items-center justify-center {mode.active ? 'border-teal-500 bg-teal-500' : 'border-slate-300 dark:border-slate-600'}">
+                        {#if mode.active}<svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="4" d="M5 13l4 4L19 7" /></svg>{/if}
+                    </div>
+                    <div>
+                        <p class="text-sm font-black text-slate-900 dark:text-white leading-none">{mode.title}</p>
+                        <p class="text-[10px] font-bold text-slate-500 mt-1">{mode.sub}</p>
+                    </div>
+                </button>
+            {/each}
         </div>
     </div>
 

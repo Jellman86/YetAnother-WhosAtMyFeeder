@@ -656,6 +656,7 @@
       "provider_intel_cpu": "CPU Intel (OpenVINO)",
       "provider_cpu": "CPU (ONNX Runtime)",
       "inference_provider_desc": "Selecione CPU, NVIDIA CUDA ou aceleração Intel OpenVINO para modelos ONNX. Auto prioriza Intel GPU, depois CUDA e depois CPU.",
+      "gpu_setup_docs": "Guia de configuração e diagnóstico de GPU",
       "inference_provider": "Provedor de inferência",
       "auto_detected": "Detectado automaticamente",
       "active_provider_label": "Ativo",

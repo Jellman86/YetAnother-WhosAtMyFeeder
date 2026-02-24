@@ -3,14 +3,13 @@
     import { formatDateTime } from '../../utils/datetime';
     import ModelManager from '../../pages/models/ModelManager.svelte';
     import type { ClassifierStatus } from '../../api';
+    const GPU_DOCS_URL = 'https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/blob/dev/docs/troubleshooting/diagnostics.md#-gpu-acceleration-diagnostics-cuda--openvino';
 
     // Props
     let {
         threshold = $bindable(0.7),
         minConfidence = $bindable(0.4),
         trustFrigateSublabel = $bindable(true),
-        displayCommonNames = $bindable(true),
-        scientificNamePrimary = $bindable(false),
         autoVideoClassification = $bindable(false),
         videoClassificationDelay = $bindable(30),
         videoClassificationMaxRetries = $bindable(3),
@@ -28,8 +27,6 @@
         threshold: number;
         minConfidence: number;
         trustFrigateSublabel: boolean;
-        displayCommonNames: boolean;
-        scientificNamePrimary: boolean;
         autoVideoClassification: boolean;
         videoClassificationDelay: number;
         videoClassificationMaxRetries: number;
@@ -214,125 +211,126 @@
                             </div>
                         </div>
                         <p class="text-[9px] text-slate-400 italic">{$_('settings.detection.video_retry_note')}</p>
-
-                        <div class="mt-6 pt-6 border-t border-slate-100 dark:border-slate-700/50">
-                            <div class="flex items-start justify-between gap-4">
-                                <div id="inference-provider-label" class="flex-1">
-                                    <span class="block text-sm font-black text-slate-900 dark:text-white">
-                                        {$_('settings.detection.inference_provider', { default: 'Inference Provider' })}
-                                    </span>
-                                    <span class="block text-[10px] text-slate-500 font-bold leading-tight mt-1">
-                                        {$_('settings.detection.inference_provider_desc', { default: 'Select CPU, NVIDIA CUDA, or Intel OpenVINO acceleration for ONNX models. Auto prefers Intel GPU, then CUDA, then CPU.' })}
-                                    </span>
-                                </div>
-                                <select
-                                    bind:value={inferenceProvider}
-                                    aria-labelledby="inference-provider-label"
-                                    class="min-w-[10rem] px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
-                                >
-                                    <option value="auto">{$_('settings.detection.provider_auto', { default: 'Auto' })}</option>
-                                    <option value="cpu">{$_('settings.detection.provider_cpu', { default: 'CPU (ONNX Runtime)' })}</option>
-                                    <option value="cuda">{$_('settings.detection.provider_cuda', { default: 'NVIDIA CUDA' })}</option>
-                                    <option value="intel_gpu">{$_('settings.detection.provider_intel_gpu', { default: 'Intel GPU (OpenVINO)' })}</option>
-                                    <option value="intel_cpu">{$_('settings.detection.provider_intel_cpu', { default: 'Intel CPU (OpenVINO)' })}</option>
-                                </select>
-                            </div>
-
-                            {#if classifierStatus}
-                                <div class="mt-3 flex flex-wrap items-center gap-2">
-                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-black {(classifierStatus.cuda_available ?? false) ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : ((classifierStatus.cuda_provider_installed ?? false) ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400' : 'bg-slate-500/10 text-slate-500')}">
-                                        {#if classifierStatus.cuda_available}
-                                            {$_('settings.detection.cuda_available')}
-                                        {:else if classifierStatus.cuda_provider_installed}
-                                            {$_('settings.detection.cuda_runtime_only', { default: 'CUDA runtime installed (no NVIDIA GPU detected)' })}
-                                        {:else}
-                                            {$_('settings.detection.cuda_unavailable')}
-                                        {/if}
-                                    </span>
-                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-black {(classifierStatus.openvino_available ?? false) ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-slate-500/10 text-slate-500'}">
-                                        {$_('settings.detection.openvino_status', { default: 'OpenVINO' })}: {(classifierStatus.openvino_available ?? false) ? $_('common.available', { default: 'Available' }) : $_('common.unavailable', { default: 'Unavailable' })}
-                                    </span>
-                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-black {(classifierStatus.intel_gpu_available ?? false) ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-slate-500/10 text-slate-500'}">
-                                        {$_('settings.detection.intel_gpu_status', { default: 'Intel GPU' })}: {(classifierStatus.intel_gpu_available ?? false) ? $_('settings.detection.auto_detected', { default: 'Auto-detected' }) : $_('common.not_available', { default: 'Not detected' })}
-                                    </span>
-                                </div>
-                                <div class="mt-2 flex flex-wrap items-center gap-2 text-[10px] font-bold text-slate-500">
-                                    <span>
-                                        {$_('settings.detection.selected_provider_label', { default: 'Selected' })}: {classifierStatus.selected_provider ?? inferenceProvider}
-                                    </span>
-                                    <span>
-                                        {$_('settings.detection.active_provider_label', { default: 'Active' })}: {classifierStatus.active_provider ?? 'unknown'}
-                                    </span>
-                                    {#if classifierStatus.inference_backend}
-                                        <span>
-                                            {$_('settings.detection.inference_backend_label', { default: 'Backend' })}: {classifierStatus.inference_backend}
-                                        </span>
-                                    {/if}
-                                </div>
-                                {#if classifierStatus.fallback_reason}
-                                    <p class="mt-2 text-[10px] font-bold text-amber-600 dark:text-amber-400">
-                                        {$_('settings.detection.provider_fallback_reason', { default: 'Fallback:' })} {classifierStatus.fallback_reason}
-                                    </p>
-                                {/if}
-                                {#if ((classifierStatus.openvino_available === false) || classifierStatus.openvino_gpu_probe_error) && (classifierStatus.openvino_import_error || classifierStatus.openvino_probe_error || classifierStatus.openvino_gpu_probe_error || classifierStatus.dev_dri_present !== undefined)}
-                                    <div class="mt-3 rounded-2xl border border-amber-200/80 dark:border-amber-700/40 bg-amber-50/80 dark:bg-amber-950/20 p-3">
-                                        <div class="text-[10px] font-black uppercase tracking-[0.14em] text-amber-700 dark:text-amber-300">
-                                            {$_('settings.detection.openvino_diagnostics', { default: 'OpenVINO diagnostics' })}
-                                        </div>
-                                        <div class="mt-2 space-y-1 text-[10px] font-medium text-amber-900 dark:text-amber-100 break-all">
-                                            {#if classifierStatus.openvino_version}
-                                                <p><span class="font-black">Version:</span> {classifierStatus.openvino_version}</p>
-                                            {/if}
-                                            {#if classifierStatus.openvino_import_path}
-                                                <p><span class="font-black">Import:</span> <code>{classifierStatus.openvino_import_path}</code></p>
-                                            {/if}
-                                            <p><span class="font-black">/dev/dri:</span> {classifierStatus.dev_dri_present ? 'present' : 'missing'}{#if classifierStatus.dev_dri_entries?.length} (<code>{classifierStatus.dev_dri_entries.join(', ')}</code>){/if}</p>
-                                            {#if classifierStatus.process_uid != null}
-                                                <p><span class="font-black">UID/GID:</span> {classifierStatus.process_uid}:{classifierStatus.process_gid}{#if classifierStatus.process_groups?.length} groups <code>{classifierStatus.process_groups.join(', ')}</code>{/if}</p>
-                                            {/if}
-                                            {#if classifierStatus.openvino_import_error}
-                                                <p><span class="font-black">Import error:</span> {classifierStatus.openvino_import_error}</p>
-                                            {/if}
-                                            {#if classifierStatus.openvino_probe_error}
-                                                <p><span class="font-black">Probe error:</span> {classifierStatus.openvino_probe_error}</p>
-                                            {/if}
-                                            {#if classifierStatus.openvino_gpu_probe_error}
-                                                <p><span class="font-black">GPU plugin error:</span> {classifierStatus.openvino_gpu_probe_error}</p>
-                                            {/if}
-                                        </div>
-                                    </div>
-                                {/if}
-                            {/if}
-                        </div>
                     {/if}
                 </div>
             </div>
         </section>
 
-        <!-- Naming -->
+        <!-- Inference / Acceleration -->
         <section class="card-base rounded-3xl p-8">
-            <h4 class="text-xs font-black uppercase tracking-[0.2em] text-slate-400 mb-6">{$_('settings.detection.naming_title')}</h4>
+            <h4 class="text-xs font-black uppercase tracking-[0.2em] text-slate-400 mb-6">{$_('settings.detection.inference_provider', { default: 'Inference Provider' })}</h4>
 
-            <div class="flex flex-col gap-3">
-                {#each [
-                    { id: 'standard', title: $_('settings.detection.naming_standard'), sub: $_('settings.detection.naming_standard_sub'), active: displayCommonNames && !scientificNamePrimary, action: () => { displayCommonNames = true; scientificNamePrimary = false; } },
-                    { id: 'hobbyist', title: $_('settings.detection.naming_hobbyist'), sub: $_('settings.detection.naming_hobbyist_sub'), active: displayCommonNames && scientificNamePrimary, action: () => { displayCommonNames = true; scientificNamePrimary = true; } },
-                    { id: 'scientific', title: $_('settings.detection.naming_scientific'), sub: $_('settings.detection.naming_scientific_sub'), active: !displayCommonNames, action: () => { displayCommonNames = false; } }
-                ] as mode}
-                    <button
-                        onclick={mode.action}
-                        aria-label={$_('settings.detection.naming_select_label', { values: { mode: mode.title } })}
-                        class="flex items-center gap-4 p-4 rounded-2xl border-2 text-left transition-all {mode.active ? 'border-teal-500 bg-teal-500/5' : 'border-slate-100 dark:border-slate-700/50 hover:border-teal-500/20'}"
+            <div class="space-y-4">
+                <div class="flex items-start justify-between gap-4">
+                    <div id="inference-provider-label" class="flex-1">
+                        <span class="block text-sm font-black text-slate-900 dark:text-white">
+                            {$_('settings.detection.inference_provider', { default: 'Inference Provider' })}
+                        </span>
+                        <span class="block text-[10px] text-slate-500 font-bold leading-tight mt-1">
+                            {$_('settings.detection.inference_provider_desc', { default: 'Select CPU, NVIDIA CUDA, or Intel OpenVINO acceleration for ONNX models. Auto prefers Intel GPU, then CUDA, then CPU.' })}
+                        </span>
+                    </div>
+                    <select
+                        bind:value={inferenceProvider}
+                        aria-labelledby="inference-provider-label"
+                        class="min-w-[10rem] px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
                     >
-                        <div class="w-5 h-5 rounded-full border-2 flex items-center justify-center {mode.active ? 'border-teal-500 bg-teal-500' : 'border-slate-300 dark:border-slate-600'}">
-                            {#if mode.active}<svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="4" d="M5 13l4 4L19 7" /></svg>{/if}
+                        <option value="auto">{$_('settings.detection.provider_auto', { default: 'Auto' })}</option>
+                        <option value="cpu">{$_('settings.detection.provider_cpu', { default: 'CPU (ONNX Runtime)' })}</option>
+                        <option value="cuda">{$_('settings.detection.provider_cuda', { default: 'NVIDIA CUDA' })}</option>
+                        <option value="intel_gpu">{$_('settings.detection.provider_intel_gpu', { default: 'Intel GPU (OpenVINO)' })}</option>
+                        <option value="intel_cpu">{$_('settings.detection.provider_intel_cpu', { default: 'Intel CPU (OpenVINO)' })}</option>
+                    </select>
+                </div>
+
+                <a
+                    href={GPU_DOCS_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="group flex items-center justify-between gap-3 rounded-2xl border border-indigo-200/70 dark:border-indigo-700/40 bg-indigo-50/70 dark:bg-indigo-950/20 px-4 py-3 hover:bg-indigo-100/70 dark:hover:bg-indigo-950/30 transition-colors"
+                >
+                    <div class="min-w-0">
+                        <p class="text-[10px] font-black uppercase tracking-[0.16em] text-indigo-600 dark:text-indigo-300">
+                            {$_('common.github', { default: 'GitHub' })}
+                        </p>
+                        <p class="text-xs font-bold text-slate-700 dark:text-slate-200 leading-tight">
+                            {$_('settings.detection.gpu_setup_docs', { default: 'GPU setup & diagnostics guide' })}
+                        </p>
+                    </div>
+                    <span class="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-300 shrink-0">
+                        <span>{$_('common.show', { default: 'Show' })}</span>
+                        <svg class="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h4m0 0v4m0-4L10 14" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 9v10h10" />
+                        </svg>
+                    </span>
+                </a>
+
+                {#if classifierStatus}
+                    <div class="flex flex-wrap items-center gap-2">
+                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-black {(classifierStatus.cuda_available ?? false) ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : ((classifierStatus.cuda_provider_installed ?? false) ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400' : 'bg-slate-500/10 text-slate-500')}">
+                            {#if classifierStatus.cuda_available}
+                                {$_('settings.detection.cuda_available')}
+                            {:else if classifierStatus.cuda_provider_installed}
+                                {$_('settings.detection.cuda_runtime_only', { default: 'CUDA runtime installed (no NVIDIA GPU detected)' })}
+                            {:else}
+                                {$_('settings.detection.cuda_unavailable')}
+                            {/if}
+                        </span>
+                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-black {(classifierStatus.openvino_available ?? false) ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-slate-500/10 text-slate-500'}">
+                            {$_('settings.detection.openvino_status', { default: 'OpenVINO' })}: {(classifierStatus.openvino_available ?? false) ? $_('common.available', { default: 'Available' }) : $_('common.unavailable', { default: 'Unavailable' })}
+                        </span>
+                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-black {(classifierStatus.intel_gpu_available ?? false) ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-slate-500/10 text-slate-500'}">
+                            {$_('settings.detection.intel_gpu_status', { default: 'Intel GPU' })}: {(classifierStatus.intel_gpu_available ?? false) ? $_('settings.detection.auto_detected', { default: 'Auto-detected' }) : $_('common.not_available', { default: 'Not detected' })}
+                        </span>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-2 text-[10px] font-bold text-slate-500">
+                        <span>
+                            {$_('settings.detection.selected_provider_label', { default: 'Selected' })}: {classifierStatus.selected_provider ?? inferenceProvider}
+                        </span>
+                        <span>
+                            {$_('settings.detection.active_provider_label', { default: 'Active' })}: {classifierStatus.active_provider ?? 'unknown'}
+                        </span>
+                        {#if classifierStatus.inference_backend}
+                            <span>
+                                {$_('settings.detection.inference_backend_label', { default: 'Backend' })}: {classifierStatus.inference_backend}
+                            </span>
+                        {/if}
+                    </div>
+                    {#if classifierStatus.fallback_reason}
+                        <p class="text-[10px] font-bold text-amber-600 dark:text-amber-400">
+                            {$_('settings.detection.provider_fallback_reason', { default: 'Fallback:' })} {classifierStatus.fallback_reason}
+                        </p>
+                    {/if}
+                    {#if ((classifierStatus.openvino_available === false) || classifierStatus.openvino_gpu_probe_error) && (classifierStatus.openvino_import_error || classifierStatus.openvino_probe_error || classifierStatus.openvino_gpu_probe_error || classifierStatus.dev_dri_present !== undefined)}
+                        <div class="rounded-2xl border border-amber-200/80 dark:border-amber-700/40 bg-amber-50/80 dark:bg-amber-950/20 p-3">
+                            <div class="text-[10px] font-black uppercase tracking-[0.14em] text-amber-700 dark:text-amber-300">
+                                {$_('settings.detection.openvino_diagnostics', { default: 'OpenVINO diagnostics' })}
+                            </div>
+                            <div class="mt-2 space-y-1 text-[10px] font-medium text-amber-900 dark:text-amber-100 break-all">
+                                {#if classifierStatus.openvino_version}
+                                    <p><span class="font-black">Version:</span> {classifierStatus.openvino_version}</p>
+                                {/if}
+                                {#if classifierStatus.openvino_import_path}
+                                    <p><span class="font-black">Import:</span> <code>{classifierStatus.openvino_import_path}</code></p>
+                                {/if}
+                                <p><span class="font-black">/dev/dri:</span> {classifierStatus.dev_dri_present ? 'present' : 'missing'}{#if classifierStatus.dev_dri_entries?.length} (<code>{classifierStatus.dev_dri_entries.join(', ')}</code>){/if}</p>
+                                {#if classifierStatus.process_uid != null}
+                                    <p><span class="font-black">UID/GID:</span> {classifierStatus.process_uid}:{classifierStatus.process_gid}{#if classifierStatus.process_groups?.length} groups <code>{classifierStatus.process_groups.join(', ')}</code>{/if}</p>
+                                {/if}
+                                {#if classifierStatus.openvino_import_error}
+                                    <p><span class="font-black">Import error:</span> {classifierStatus.openvino_import_error}</p>
+                                {/if}
+                                {#if classifierStatus.openvino_probe_error}
+                                    <p><span class="font-black">Probe error:</span> {classifierStatus.openvino_probe_error}</p>
+                                {/if}
+                                {#if classifierStatus.openvino_gpu_probe_error}
+                                    <p><span class="font-black">GPU plugin error:</span> {classifierStatus.openvino_gpu_probe_error}</p>
+                                {/if}
+                            </div>
                         </div>
-                        <div>
-                            <p class="text-sm font-black text-slate-900 dark:text-white leading-none">{mode.title}</p>
-                            <p class="text-[10px] font-bold text-slate-500 mt-1">{mode.sub}</p>
-                        </div>
-                    </button>
-                {/each}
+                    {/if}
+                {/if}
             </div>
         </section>
     </div>

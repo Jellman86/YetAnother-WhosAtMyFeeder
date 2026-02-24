@@ -648,6 +648,7 @@
       "provider_intel_cpu": "Intel CPU（OpenVINO）",
       "provider_cpu": "CPU (ONNX Runtime)",
       "inference_provider_desc": "为 ONNX 模型选择 CPU、NVIDIA CUDA 或 Intel OpenVINO 加速。自动模式优先选择 Intel GPU，其次 CUDA，最后 CPU。",
+      "gpu_setup_docs": "GPU 设置与诊断指南",
       "inference_provider": "推理提供程序",
       "auto_detected": "已自动检测",
       "active_provider_label": "当前生效",
