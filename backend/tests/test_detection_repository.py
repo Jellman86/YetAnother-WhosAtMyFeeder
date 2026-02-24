@@ -258,6 +258,16 @@ async def test_taxonomy_lookup_and_alias_resolution_support_localized_common_nam
         assert alias_info["scientific_name"] == "Cyanistes caeruleus"
         assert set(alias_info["display_labels"]) == {"Blue Tit", "Cyanistes caeruleus"}
 
+        accented_taxonomy = await repo.get_taxonomy_names("Herrerillo com\u00fan", language="es")
+        assert accented_taxonomy["taxa_id"] == 1234
+        assert accented_taxonomy["scientific_name"] == "Cyanistes caeruleus"
+        assert accented_taxonomy["common_name"] == "Herrerillo comun"
+
+        accented_alias_info = await repo.resolve_species_aliases("Herrerillo com\u00fan", language="es")
+        assert accented_alias_info["taxa_id"] == 1234
+        assert accented_alias_info["scientific_name"] == "Cyanistes caeruleus"
+        assert set(accented_alias_info["display_labels"]) == {"Blue Tit", "Cyanistes caeruleus"}
+
 
 @pytest.mark.asyncio
 async def test_unified_species_window_metrics_combines_alias_variants():

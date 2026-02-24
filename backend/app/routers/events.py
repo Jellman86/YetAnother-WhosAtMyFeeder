@@ -1,5 +1,6 @@
 import asyncio
 import time
+import unicodedata
 from fastapi import APIRouter, HTTPException, Query, Request, Depends
 from typing import List, Optional, Literal
 from datetime import datetime, date, timedelta
@@ -48,7 +49,9 @@ def parse_species_filter(species: Optional[str]) -> tuple[Optional[str], Optiona
 def _normalize_species_name(value: Optional[str]) -> Optional[str]:
     if value is None:
         return None
-    normalized = str(value).strip().lower()
+    normalized = unicodedata.normalize("NFKD", str(value)).casefold()
+    normalized = "".join(ch for ch in normalized if not unicodedata.combining(ch))
+    normalized = " ".join(normalized.split())
     return normalized or None
 
 

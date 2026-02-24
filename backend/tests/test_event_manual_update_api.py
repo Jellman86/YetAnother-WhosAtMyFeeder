@@ -94,7 +94,7 @@ async def test_manual_update_treats_localized_alias_of_same_species_as_unchanged
              patch("app.routers.events.broadcaster.broadcast", new=AsyncMock()) as mock_broadcast:
             response = await client.patch(
                 f"/api/events/{event_id}",
-                json={"display_name": "Herrerillo comun"},
+                json={"display_name": "Herrerillo com\u00fan"},
                 headers={"Accept-Language": "es"},
             )
 

@@ -4,6 +4,8 @@ from datetime import datetime, timedelta, date
 import aiosqlite
 import asyncio
 import json
+import re
+import unicodedata
 from app.utils.frigate import normalize_sub_label
 
 @dataclass
@@ -66,6 +68,17 @@ def _parse_datetime(value) -> datetime:
                 continue
     # Return current time as fallback (shouldn't happen with valid data)
     return datetime.now()
+
+
+def _normalize_species_lookup_name(value: str | None) -> str:
+    """Normalize species names for accent-insensitive fallback matching."""
+    if not value:
+        return ""
+    normalized = unicodedata.normalize("NFKD", value).casefold()
+    normalized = "".join(ch for ch in normalized if not unicodedata.combining(ch))
+    normalized = re.sub(r"[_\-]+", " ", normalized)
+    normalized = re.sub(r"[^\w\s]", " ", normalized, flags=re.UNICODE)
+    return re.sub(r"\s+", " ", normalized).strip()
 
 
 def _row_to_detection(row) -> Detection:
@@ -732,6 +745,7 @@ class DetectionRepository:
         `taxonomy_translations` exists and `language` is provided).
         """
         result = {"scientific_name": None, "common_name": None, "taxa_id": None}
+        normalized_lookup = _normalize_species_lookup_name(name)
 
         async with self.db.execute(
             "SELECT scientific_name, common_name, taxa_id FROM taxonomy_cache WHERE LOWER(scientific_name) = LOWER(?) OR LOWER(common_name) = LOWER(?)",
@@ -755,6 +769,41 @@ class DetectionRepository:
                 if row:
                     result = {"scientific_name": row[0], "common_name": row[3] or row[1], "taxa_id": row[2]}
                     return result
+
+        # Accent-insensitive fallback for localized names (e.g. "comun" vs "común").
+        # This scans rows only after indexed/case-insensitive lookups miss.
+        if (
+            result["taxa_id"] is None
+            and normalized_lookup
+            and language
+            and language != "en"
+            and await self._table_exists("taxonomy_translations")
+        ):
+            async with self.db.execute(
+                """SELECT tc.scientific_name, tc.common_name, tc.taxa_id, tt.common_name
+                   FROM taxonomy_translations tt
+                   JOIN taxonomy_cache tc ON tc.taxa_id = tt.taxa_id
+                   WHERE tt.language_code = ?""",
+                (language,)
+            ) as cursor:
+                rows = await cursor.fetchall()
+            for row in rows:
+                if _normalize_species_lookup_name(row[3]) == normalized_lookup:
+                    result = {"scientific_name": row[0], "common_name": row[3] or row[1], "taxa_id": row[2]}
+                    return result
+
+        if result["taxa_id"] is None and normalized_lookup:
+            async with self.db.execute(
+                "SELECT scientific_name, common_name, taxa_id FROM taxonomy_cache"
+            ) as cursor:
+                rows = await cursor.fetchall()
+            for row in rows:
+                if (
+                    _normalize_species_lookup_name(row[0]) == normalized_lookup
+                    or _normalize_species_lookup_name(row[1]) == normalized_lookup
+                ):
+                    result = {"scientific_name": row[0], "common_name": row[1], "taxa_id": row[2]}
+                    break
 
         if result["taxa_id"] is not None and language and language != "en" and await self._table_exists("taxonomy_translations"):
             async with self.db.execute(
