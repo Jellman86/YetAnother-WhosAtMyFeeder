@@ -1485,6 +1485,8 @@ export interface ModelMetadata {
     weights_url?: string;
     labels_url: string;
     input_size: number;
+    runtime?: string;
+    supported_inference_providers?: string[];
 }
 
 export interface InstalledModel {

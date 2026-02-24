@@ -41,6 +41,8 @@
             ? Math.round(finalTopResult.score * 100)
             : (typeof latestFrame?.score === 'number' ? Math.round(latestFrame.score * 100) : null)
     );
+    let progressStrategy = $derived((progress.strategy || '').toLowerCase());
+    let isAutoVideoReclassification = $derived(progressStrategy === 'auto_video');
     let autoDismissSecondsRemaining = $state<number | null>(null);
     const AUTO_DISMISS_MS = 30_000;
 
@@ -137,13 +139,21 @@
 
                     <!-- Live Label Feedback -->
                     <div class="flex flex-col items-center gap-1 min-h-[64px] px-4">
+                        {#if !isComplete}
+                            <span class="px-2 py-0.5 rounded-md bg-teal-500/15 border border-teal-500/30 text-[9px] font-black text-teal-700 dark:text-teal-300 uppercase tracking-widest mb-1.5">
+                                {$_('detection.reclassification.frame_progress', { values: { current: displayFrameIndex, total: displayClipTotal } })}
+                            </span>
+                        {/if}
+                        {#if isAutoVideoReclassification}
+                            <span
+                                class="px-2 py-0.5 rounded-md bg-cyan-500/10 border border-cyan-500/25 text-[9px] font-black text-cyan-700 dark:text-cyan-300 uppercase tracking-widest mb-1.5"
+                                title={$_('detection.reclassification.auto_video_source_hint', { default: 'Automatic video reclassification queue (including Analyze Unknowns).' })}
+                            >
+                                {$_('detection.reclassification.auto_video_source', { default: 'Auto Video' })}
+                            </span>
+                        {/if}
                         {#if displayLabel}
                             <div class="flex flex-col items-center" transition:fade>
-                                {#if !isComplete}
-                                    <span class="px-2 py-0.5 rounded-md bg-teal-500/15 border border-teal-500/30 text-[9px] font-black text-teal-700 dark:text-teal-300 uppercase tracking-widest mb-1.5">
-                                        {$_('detection.reclassification.frame_progress', { values: { current: displayFrameIndex, total: displayClipTotal } })}
-                                    </span>
-                                {/if}
                                 {#if isComplete}
                                     <span class="px-2 py-0.5 rounded-md bg-emerald-500/15 border border-emerald-500/30 text-[9px] font-black text-emerald-700 dark:text-emerald-300 uppercase tracking-widest mb-1.5">
                                         {$_('detection.reclassification.final_result', { default: 'Final Result' })}
@@ -194,9 +204,17 @@
         {:else}
             <!-- Compact Progress (Small mode) -->
             <div class="flex items-center justify-between w-full mb-1">
-                <div class="flex items-center gap-1.5">
+                <div class="flex items-center gap-1.5 min-w-0">
                     <div class="w-1.5 h-1.5 rounded-full bg-teal-400 {isComplete ? '' : 'animate-ping'}"></div>
                     <span class="text-[10px] font-black text-slate-700 dark:text-white uppercase tracking-wider">{$_('detection.reclassification.ai_analysis')}</span>
+                    {#if isAutoVideoReclassification}
+                        <span
+                            class="px-1.5 py-0.5 rounded-md border border-cyan-400/30 bg-cyan-400/10 text-[8px] font-black uppercase tracking-widest text-cyan-700 dark:text-cyan-300"
+                            title={$_('detection.reclassification.auto_video_source_hint', { default: 'Automatic video reclassification queue (including Analyze Unknowns).' })}
+                        >
+                            {$_('detection.reclassification.auto_video_source', { default: 'Auto Video' })}
+                        </span>
+                    {/if}
                 </div>
                 <span class="text-xs font-black text-teal-600 dark:text-teal-300">{progressPercent}%</span>
             </div>

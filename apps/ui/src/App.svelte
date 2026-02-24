@@ -720,7 +720,8 @@
                          markReclassifyStarted(payload.data.event_id, payload.data.total_frames ?? 0);
                          detectionsStore.startReclassification(
                              payload.data.event_id,
-                             payload.data.total_frames ?? 15
+                             payload.data.total_frames ?? 15,
+                             payload.data.strategy ?? null
                          );
                          updateReclassifyProgress(payload.data.event_id, 0, payload.data.total_frames ?? 0);
                      } else if (payload.type === 'reclassification_progress') {

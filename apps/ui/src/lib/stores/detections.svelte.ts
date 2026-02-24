@@ -12,6 +12,7 @@ export interface FrameResult {
 
 export interface ReclassificationProgress {
     eventId: string;
+    strategy?: string | null;
     currentFrame: number;
     totalFrames: number;
     frameIndex?: number | null;
@@ -137,7 +138,7 @@ class DetectionsStore {
         return Math.max(min, Math.floor(parsed));
     }
 
-    startReclassification(eventId: string, totalFrames: number = 15) {
+    startReclassification(eventId: string, totalFrames: number = 15, strategy: string | null = null) {
         if (!eventId || typeof eventId !== 'string') return;
         const now = Date.now();
         const normalizedTotal = Math.min(
@@ -149,13 +150,15 @@ class DetectionsStore {
             existing &&
             existing.status === 'running' &&
             existing.currentFrame === 0 &&
-            existing.totalFrames === normalizedTotal
+            existing.totalFrames === normalizedTotal &&
+            (existing.strategy ?? null) === strategy
         ) {
             return;
         }
         const newMap = new Map(this.progressMap);
         newMap.set(eventId, {
             eventId,
+            strategy,
             currentFrame: 0,
             totalFrames: normalizedTotal,
             frameResults: [],

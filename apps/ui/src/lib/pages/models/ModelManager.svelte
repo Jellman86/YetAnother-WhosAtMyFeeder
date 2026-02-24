@@ -71,6 +71,43 @@
         return installedModels.some(m => m.id === modelId && m.is_active);
     }
 
+    function getProviderSupport(model: ModelMetadata): string[] {
+        if (Array.isArray(model.supported_inference_providers) && model.supported_inference_providers.length > 0) {
+            return model.supported_inference_providers;
+        }
+        if (model.runtime === 'onnx') return ['cpu', 'cuda', 'intel_cpu', 'intel_gpu'];
+        if (model.runtime === 'tflite') return ['cpu'];
+        return ['cpu'];
+    }
+
+    function providerLabel(provider: string): string {
+        switch (provider) {
+            case 'cpu':
+                return 'CPU';
+            case 'cuda':
+                return 'NVIDIA CUDA';
+            case 'intel_cpu':
+                return 'Intel CPU (OpenVINO)';
+            case 'intel_gpu':
+                return 'Intel GPU (OpenVINO)';
+            default:
+                return provider;
+        }
+    }
+
+    function providerChipClass(provider: string): string {
+        switch (provider) {
+            case 'cuda':
+                return 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/20';
+            case 'intel_gpu':
+                return 'bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 border-cyan-500/20';
+            case 'intel_cpu':
+                return 'bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-500/20';
+            default:
+                return 'bg-slate-500/10 text-slate-700 dark:text-slate-300 border-slate-500/20';
+        }
+    }
+
     async function handleDownload(model: ModelMetadata) {
         if (downloadStatuses[model.id]?.status === 'downloading') return;
         
@@ -182,6 +219,25 @@
                                 <span class="font-medium {model.inference_speed === 'Fast' ? 'text-emerald-600 dark:text-emerald-400' : ''}">
                                     {model.inference_speed}
                                 </span>
+                            </div>
+                        </div>
+
+                        <div class="mb-4 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-700/30 p-2.5">
+                            <div class="flex items-center justify-between gap-2 mb-2">
+                                <span class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Runtime</span>
+                                <span class="text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200">
+                                    {(model.runtime || 'cpu').toUpperCase()}
+                                </span>
+                            </div>
+                            <div class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-2">
+                                Inference Provider Support
+                            </div>
+                            <div class="flex flex-wrap gap-1.5">
+                                {#each getProviderSupport(model) as provider}
+                                    <span class={`px-2 py-1 rounded-full border text-[10px] font-black tracking-tight ${providerChipClass(provider)}`}>
+                                        {providerLabel(provider)}
+                                    </span>
+                                {/each}
                             </div>
                         </div>
 

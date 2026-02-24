@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime
 
 class ModelMetadata(BaseModel):
@@ -14,6 +14,8 @@ class ModelMetadata(BaseModel):
     weights_url: Optional[str] = None
     labels_url: str
     input_size: int = 224
+    runtime: Optional[str] = None
+    supported_inference_providers: Optional[List[str]] = None
     
 class InstalledModel(BaseModel):
     id: str
