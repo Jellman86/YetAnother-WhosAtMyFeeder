@@ -18,6 +18,7 @@ from app.services.classifier_service import (
     ModelInstance,
     _detect_acceleration_capabilities,
     _normalize_inference_provider,
+    _probe_openvino_gpu_plugin_error_safe,
     _reconcile_ort_active_provider,
     _resolve_inference_selection,
 )
@@ -191,3 +192,11 @@ def test_reconcile_ort_active_provider_downgrades_cuda_when_session_is_cpu_only(
     assert active == "cpu"
     assert reason is not None
     assert "without CUDAExecutionProvider" in reason
+
+
+def test_probe_openvino_gpu_plugin_error_safe_reports_nonzero_subprocess_exit():
+    completed = types.SimpleNamespace(returncode=139, stdout="", stderr="")
+    with patch("app.services.classifier_service.subprocess.run", return_value=completed):
+        err = _probe_openvino_gpu_plugin_error_safe()
+    assert err is not None
+    assert "exit code 139" in err

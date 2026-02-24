@@ -5,6 +5,8 @@ import cv2
 import asyncio
 import ctypes
 import importlib
+import subprocess
+import sys
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from PIL import Image
@@ -145,17 +147,52 @@ def _detect_acceleration_capabilities() -> dict:
             caps["intel_gpu_available"] = any(d == "GPU" or str(d).startswith("GPU.") for d in devices)
             caps["intel_cpu_available"] = any(d == "CPU" or str(d).startswith("CPU.") for d in devices)
             if caps["openvino_available"] and caps.get("dev_dri_present") and not caps["intel_gpu_available"]:
-                try:
-                    # Force-load the GPU plugin to surface a useful error (missing OpenCL/permissions/driver).
-                    ov_core.get_property("GPU", "FULL_DEVICE_NAME")
-                except Exception as e:
-                    caps["openvino_gpu_probe_error"] = f"{type(e).__name__}: {e}"
+                caps["openvino_gpu_probe_error"] = _probe_openvino_gpu_plugin_error_safe()
         except Exception as e:
             caps["openvino_available"] = False
             caps["openvino_probe_error"] = f"{type(e).__name__}: {e}"
             log.warning("Failed to inspect OpenVINO devices", error=str(e))
 
     return caps
+
+
+def _probe_openvino_gpu_plugin_error_safe() -> Optional[str]:
+    """Probe OpenVINO GPU plugin in a subprocess so plugin crashes cannot kill the backend."""
+    script = (
+        "import sys\n"
+        "try:\n"
+        "    from openvino import Core\n"
+        "except Exception:\n"
+        "    from openvino.runtime import Core\n"
+        "core = Core()\n"
+        "try:\n"
+        "    core.get_property('GPU', 'FULL_DEVICE_NAME')\n"
+        "    print('OK')\n"
+        "except Exception as e:\n"
+        "    print(f'{type(e).__name__}: {e}')\n"
+        "    sys.exit(2)\n"
+    )
+    try:
+        proc = subprocess.run(
+            [sys.executable, "-c", script],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+    except subprocess.TimeoutExpired:
+        return "TimeoutExpired: OpenVINO GPU plugin probe timed out"
+    except Exception as e:
+        return f"{type(e).__name__}: {e}"
+
+    stdout = (proc.stdout or "").strip()
+    stderr = (proc.stderr or "").strip()
+    if proc.returncode == 0:
+        return None
+    if stdout:
+        return stdout
+    if stderr:
+        return stderr
+    return f"OpenVINO GPU plugin probe failed with exit code {proc.returncode}"
 
 
 def _detect_cuda_hardware_available() -> bool:
