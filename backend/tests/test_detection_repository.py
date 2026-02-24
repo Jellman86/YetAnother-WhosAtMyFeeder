@@ -327,6 +327,50 @@ async def test_delete_methods_report_exact_row_changes():
 
 
 @pytest.mark.asyncio
+async def test_get_unknown_detections_includes_completed_unknowns_for_manual_batch_retry():
+    async with aiosqlite.connect(":memory:") as db:
+        await _create_detections_table(db)
+        await db.commit()
+        repo = DetectionRepository(db)
+
+        now = datetime.utcnow()
+        rows_to_insert = [
+            ("evt_unknown_completed", 1, 0.51, "completed", None),
+            ("evt_unknown_pending", 2, 0.52, "pending", None),
+            ("evt_unknown_retention_expired", 3, 0.53, "failed", "frigate_retention_expired"),
+        ]
+        for event_id, idx, score, status, error in rows_to_insert:
+            await db.execute(
+                """
+                INSERT INTO detections (
+                    detection_time, detection_index, score, display_name, category_name,
+                    frigate_event, camera_name, is_hidden, manual_tagged,
+                    video_classification_status, video_classification_error
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?)
+                """,
+                (
+                    now,
+                    idx,
+                    score,
+                    "Unknown Bird",
+                    "Bird",
+                    event_id,
+                    "cam_1",
+                    status,
+                    error,
+                ),
+            )
+        await db.commit()
+
+        rows = await repo.get_unknown_detections()
+        ids = {row.frigate_event for row in rows}
+
+        assert "evt_unknown_completed" in ids
+        assert "evt_unknown_pending" not in ids
+        assert "evt_unknown_retention_expired" not in ids
+
+
+@pytest.mark.asyncio
 async def test_insert_if_not_exists_reports_conflicts_correctly():
     async with aiosqlite.connect(":memory:") as db:
         await _create_detections_table(db)

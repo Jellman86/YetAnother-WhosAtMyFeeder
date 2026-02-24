@@ -970,7 +970,7 @@ class DetectionRepository:
             FROM detections d
             LEFT JOIN detection_favorites f ON f.detection_id = d.id
             WHERE d.display_name = 'Unknown Bird'
-              AND COALESCE(d.video_classification_status, '') NOT IN ('pending', 'processing', 'completed')
+              AND COALESCE(d.video_classification_status, '') NOT IN ('pending', 'processing')
               AND COALESCE(d.video_classification_error, '') NOT IN ('clip_not_retained', 'frigate_retention_expired')
         """
         async with self.db.execute(query) as cursor:
