@@ -26,6 +26,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Changed:** Explorer event-card weather summaries now visually separate the primary weather summary from secondary weather details with labeled sub-rows for clearer hierarchy.
 - **Changed:** Explorer event-card top weather row now shows only a generalized condition + temperature (with precipitation amounts/details kept in the Details row), and inner weather sub-panels use tighter horizontal padding.
 - **Changed:** Explorer event-card top weather summary row no longer repeats a "Weather" label/icon header, reducing visual noise while preserving the labeled Details row.
+- **Changed:** Explorer event-card weather sub-panels now use identical inner padding so summary/details cards align uniformly.
 
 ## [2.8.3] - 2026-02-23
 

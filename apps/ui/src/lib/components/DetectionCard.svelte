@@ -473,7 +473,7 @@
             <div class="rounded-2xl bg-sky-50/80 dark:bg-slate-900/40 border border-sky-100/80 dark:border-slate-700/60 px-3 py-2">
                 <div class="space-y-2">
                 {#if hasWeatherCondition || hasTemperature}
-                    <div class="rounded-xl border border-white/70 dark:border-slate-700/70 bg-white/60 dark:bg-slate-950/35 px-2 py-1.5">
+                    <div class="rounded-xl border border-white/70 dark:border-slate-700/70 bg-white/60 dark:bg-slate-950/35 p-2">
                         <div class="flex items-center justify-between gap-3">
                             <div class="min-w-0 flex items-center gap-2 text-[10px] font-semibold text-slate-500 dark:text-slate-300">
                                 {#if hasWeatherCondition}
@@ -504,7 +504,7 @@
                 {/if}
 
                 {#if hasRain || hasSnow || hasCloud || hasWind}
-                    <div class="rounded-xl border border-dashed border-sky-200/90 dark:border-slate-700/80 bg-white/35 dark:bg-slate-950/20 px-2 py-2">
+                    <div class="rounded-xl border border-dashed border-sky-200/90 dark:border-slate-700/80 bg-white/35 dark:bg-slate-950/20 p-2">
                         <div class="mb-1 flex items-center gap-1.5 text-[9px] font-black uppercase tracking-wider text-slate-500/80 dark:text-slate-400/90">
                             <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
