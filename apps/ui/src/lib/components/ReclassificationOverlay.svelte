@@ -2,6 +2,7 @@
     import { fade, scale } from 'svelte/transition';
     import { _ } from 'svelte-i18n';
     import type { ReclassificationProgress } from '../stores/detections.svelte';
+    import VideoAnalysisFilmReel from './VideoAnalysisFilmReel.svelte';
 
     import { detectionsStore } from '../stores/detections.svelte';
 
@@ -118,46 +119,11 @@
             </div>
         {/if}
 
-        <!-- Frame Grid -->
-        <div class="w-full bg-white/45 dark:bg-black/40 rounded-2xl {small ? 'p-1.5' : 'p-4'} border border-slate-200/70 dark:border-white/10 backdrop-blur-md shadow-2xl">
-            <div class="{small ? 'grid grid-cols-5 gap-1' : 'grid grid-cols-5 gap-2'}">
-                {#each Array(safeTotalFrames) as _, i}
-                    {@const frame = progress.frameResults[i]}
-                    {@const isCurrent = i + 1 === safeCurrentFrame && !isComplete}
-                    <div class="flex flex-col gap-1">
-                        <div
-                            class="aspect-[4/3] rounded-lg border border-slate-200/70 dark:border-white/10 transition-all duration-300 overflow-hidden
-                                   {frame ? (frame.score > 0.8 ? 'bg-emerald-400/80' : frame.score > 0.5 ? 'bg-teal-400/70' : 'bg-amber-400/70') : 'bg-slate-200/60 dark:bg-white/10'}
-                                   {isCurrent ? 'ring-2 ring-teal-500/70 dark:ring-teal-300/80 animate-pulse' : ''}"
-                            title={frame ? `${frame.label} • ${(frame.score * 100).toFixed(0)}%` : 'Pending'}
-                            style={frame?.thumb ? `background-image: url(data:image/jpeg;base64,${frame.thumb}); background-size: cover; background-position: center;` : ''}
-                        ></div>
-                        {#if !small}
-                            <span
-                                class="text-[10px] font-black uppercase tracking-widest text-center
-                                       {frame
-                                           ? frame.score > 0.8
-                                               ? 'text-emerald-600 dark:text-emerald-300'
-                                               : frame.score > 0.5
-                                                   ? 'text-amber-600 dark:text-amber-300'
-                                                   : 'text-rose-600 dark:text-rose-300'
-                                           : 'text-slate-500 dark:text-slate-400'}"
-                            >
-                                {frame ? `${(frame.score * 100).toFixed(0)}%` : '--'}
-                            </span>
-                        {/if}
-                    </div>
-                {/each}
-            </div>
-            {#if !small}
-                <div class="mt-3 flex justify-between items-center px-1">
-                    <span class="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">{$_('detection.reclassification.frame_grid')}</span>
-                    <span class="text-[10px] font-black text-teal-600 dark:text-teal-300 uppercase tracking-widest">
-                        {$_('detection.reclassification.frame_progress', { values: { current: displayFrameIndex, total: displayClipTotal } })}
-                    </span>
-                </div>
-            {/if}
-        </div>
+        <VideoAnalysisFilmReel
+            {progress}
+            variant={small ? 'compact' : 'overlay'}
+            showFooter={!small}
+        />
 
         <!-- Live Label Feedback -->
         <div class="flex flex-col items-center gap-1 {small ? 'min-h-0' : 'min-h-[64px]'}">

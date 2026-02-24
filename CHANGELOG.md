@@ -7,8 +7,15 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 ## [Unreleased]
 
 - **Added:** Single-image ONNX acceleration provider selector (`auto`, CPU, NVIDIA CUDA, Intel OpenVINO CPU/GPU) with runtime fallback reporting and Intel GPU auto-detection in the Settings UI.
+- **Added:** Expanded classifier/OpenVINO diagnostics in Detection Settings and `/api/classifier/status` (OpenVINO version/import path, `/dev/dri` visibility, process UID/GID/groups, device list, and GPU probe errors) to make Intel iGPU setup failures debuggable in-container.
+- **Added:** New non-interactive film-reel video-analysis progress visualization for reclassification overlays (frame-window reel that advances with real analysis progress and scales to configurable frame counts).
 - **Fixed:** Added missing `ai_pricing_json` field to the backend settings update schema, resolving an issue where custom AI pricing inputs were not saved and reset to `[]`.
 - **Fixed:** Corrected the AI Cost Estimation Reference link in the AI Settings UI to properly point to the reference documentation hosted on the project's GitHub repository.
+- **Fixed:** CUDA availability detection now requires both the ONNX Runtime CUDA provider and a real NVIDIA CUDA device, preventing false-positive "CUDA available" status on Intel-only hosts.
+- **Fixed:** OpenVINO runtime import compatibility now supports both legacy `openvino.runtime.Core` and OpenVINO 2026+ `openvino.Core`.
+- **Fixed:** OpenVINO capability probing no longer risks backend startup crashes on unstable GPU plugin/driver combinations; GPU and device probes now run in isolated subprocesses and report diagnostics instead of crashing the API process.
+- **Fixed:** Backend image now bundles Intel GPU userspace runtime dependencies (OpenCL + Level Zero via Intel graphics repo) for OpenVINO Intel iGPU support, and sets writable XDG cache/config paths to avoid OpenVINO telemetry/shader-cache warnings under non-root container users.
+- **Fixed:** Detection Details now replaces the left media/video slot with the video-analysis progress UI during active analysis (`pending`/`processing`) instead of rendering a duplicate progress banner above the details panel.
 - **Changed:** Updated the application icon set (including PWA assets, Apple Touch icon, and favicon) across the UI with a newly generated high-quality source image.
 
 ## [2.8.3] - 2026-02-23
