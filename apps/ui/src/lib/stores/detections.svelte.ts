@@ -263,7 +263,7 @@ class DetectionsStore {
         }
     }
 
-    pruneReclassifications(runningTimeoutMs: number = 90_000, completedRetentionMs: number = 15_000): boolean {
+    pruneReclassifications(runningTimeoutMs: number = 90_000, completedRetentionMs: number = 35_000): boolean {
         const now = Date.now();
         const newMap = new Map(this.progressMap);
         let changed = false;
