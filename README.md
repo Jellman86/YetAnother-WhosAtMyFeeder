@@ -117,7 +117,7 @@ For the full event lifecycle and architecture details, see the documentation lin
 - Frigate NVR running with MQTT enabled
 - MQTT broker accessible (typically Mosquitto running alongside Frigate)
 - Basic knowledge of Docker networking
-- For Intel iGPU acceleration (OpenVINO): pass `/dev/dri` into the container and grant `render`/`video` device access
+- For Intel iGPU acceleration (OpenVINO): pass `/dev/dri` into the container and grant the host's actual `/dev/dri` device GIDs (often `video`/`render`, but numeric IDs vary)
 
 ### Installation
 
@@ -161,6 +161,12 @@ Ensure the network specified in `.env` exists and matches your Frigate setup:
 ```bash
 docker network ls
 ```
+
+**Intel iGPU (OpenVINO) note (optional):**
+
+- Add `/dev/dri:/dev/dri` to the backend service
+- Add `group_add` entries matching your host's `/dev/dri` numeric group IDs (`ls -ln /dev/dri`)
+- YA-WAMF Settings -> Detection now shows OpenVINO diagnostics if the GPU plugin cannot initialize (for example missing OpenCL runtime in older images or container permission issues)
 
 **4. Set permissions, create directories, and start:**
 

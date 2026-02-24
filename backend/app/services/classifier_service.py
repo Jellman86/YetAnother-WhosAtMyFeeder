@@ -111,6 +111,7 @@ def _detect_acceleration_capabilities() -> dict:
         "openvino_import_path": _OPENVINO_SUPPORT.get("import_path"),
         "openvino_import_error": _OPENVINO_SUPPORT.get("import_error"),
         "openvino_probe_error": None,
+        "openvino_gpu_probe_error": None,
         "intel_gpu_available": False,
         "intel_cpu_available": False,
         "openvino_devices": [],
@@ -143,6 +144,12 @@ def _detect_acceleration_capabilities() -> dict:
             caps["openvino_devices"] = devices
             caps["intel_gpu_available"] = any(d == "GPU" or str(d).startswith("GPU.") for d in devices)
             caps["intel_cpu_available"] = any(d == "CPU" or str(d).startswith("CPU.") for d in devices)
+            if caps["openvino_available"] and caps.get("dev_dri_present") and not caps["intel_gpu_available"]:
+                try:
+                    # Force-load the GPU plugin to surface a useful error (missing OpenCL/permissions/driver).
+                    ov_core.get_property("GPU", "FULL_DEVICE_NAME")
+                except Exception as e:
+                    caps["openvino_gpu_probe_error"] = f"{type(e).__name__}: {e}"
         except Exception as e:
             caps["openvino_available"] = False
             caps["openvino_probe_error"] = f"{type(e).__name__}: {e}"
@@ -944,6 +951,14 @@ class ClassifierService:
                     dev_dri_entries=self._accel_caps.get("dev_dri_entries"),
                     process_groups=self._accel_caps.get("process_groups"),
                 )
+            elif self._accel_caps.get("openvino_gpu_probe_error"):
+                log.warning(
+                    "OpenVINO GPU plugin unavailable",
+                    error=self._accel_caps.get("openvino_gpu_probe_error"),
+                    dev_dri_present=self._accel_caps.get("dev_dri_present"),
+                    dev_dri_entries=self._accel_caps.get("dev_dri_entries"),
+                    process_groups=self._accel_caps.get("process_groups"),
+                )
 
         # Create appropriate model instance based on runtime
         if runtime == 'onnx':
@@ -1154,6 +1169,7 @@ class ClassifierService:
             "openvino_import_path": self._accel_caps.get("openvino_import_path"),
             "openvino_import_error": self._accel_caps.get("openvino_import_error"),
             "openvino_probe_error": self._accel_caps.get("openvino_probe_error"),
+            "openvino_gpu_probe_error": self._accel_caps.get("openvino_gpu_probe_error"),
             "openvino_devices": self._accel_caps.get("openvino_devices") or [],
             "cuda_provider_installed": bool(self._accel_caps.get("cuda_provider_installed")),
             "cuda_hardware_available": bool(self._accel_caps.get("cuda_hardware_available")),

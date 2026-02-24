@@ -955,6 +955,7 @@ export interface ClassifierStatus {
     openvino_import_path?: string | null;
     openvino_import_error?: string | null;
     openvino_probe_error?: string | null;
+    openvino_gpu_probe_error?: string | null;
     openvino_devices?: string[];
     cuda_provider_installed?: boolean;
     cuda_hardware_available?: boolean;

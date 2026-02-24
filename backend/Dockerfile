@@ -30,10 +30,15 @@ ENV GIT_HASH=${GIT_HASH}
 ENV APP_VERSION_BASE=${APP_VERSION_BASE}
 ENV APP_BRANCH=${APP_BRANCH}
 
-# Install runtime libs for opencv/tflite
+# Install runtime libs for opencv/tflite and optional Intel iGPU OpenVINO acceleration
+# (single-image approach). We install the OpenCL loader + a generic ICD from Debian main so the
+# OpenVINO Intel GPU plugin can load and emit useful diagnostics even when Intel-specific userspace
+# drivers are not available in the distro repo.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libgl1 \
     libglib2.0-0 \
+    ocl-icd-libopencl1 \
+    mesa-opencl-icd \
     curl \
     && rm -rf /var/lib/apt/lists/*
 

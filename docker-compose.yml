@@ -31,6 +31,13 @@ services:
     volumes:
       - ./config:/config        # Configuration files (config.json)
       - ./data:/data            # Persistent data (database, models)
+    # Intel iGPU (OpenVINO) example:
+    # devices:
+    #   - /dev/dri:/dev/dri
+    # group_add:
+    #   # Use the host's /dev/dri group IDs (check with: ls -ln /dev/dri)
+    #   - "44"   # video (example)
+    #   - "107"  # render (example)
     ports:
       - "8946:8000"
     environment:
