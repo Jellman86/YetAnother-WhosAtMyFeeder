@@ -133,9 +133,12 @@ Key fields:
 1. **Confirm CUDA status fields**
    - `cuda_provider_installed: true`
    - `cuda_available: true`
-2. **If `cuda_provider_installed=true` but `cuda_available=false`**
+2. **Confirm container GPU passthrough is configured**
+   - Docker host has **NVIDIA Container Toolkit** installed
+   - Backend container is started with NVIDIA GPU access (`gpus: all` or equivalent runtime settings)
+3. **If `cuda_provider_installed=true` but `cuda_available=false`**
    - The CUDA-capable ONNX Runtime wheel is present, but YA-WAMF could not access a real NVIDIA CUDA device.
-3. **If `cuda_available=true` but `Active provider` falls back to CPU**
+4. **If `cuda_available=true` but `Active provider` falls back to CPU**
    - YA-WAMF now validates the actual ONNX Runtime session providers and will report a CPU fallback if the session initializes without `CUDAExecutionProvider`.
 
 ### Startup Health Signals

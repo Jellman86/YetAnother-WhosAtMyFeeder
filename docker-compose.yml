@@ -38,6 +38,13 @@ services:
     #   # Use the host's /dev/dri group IDs (check with: ls -ln /dev/dri)
     #   - "44"   # video (example)
     #   - "107"  # render (example)
+    # NVIDIA CUDA example (Docker Compose v2.20+):
+    # gpus: all
+    # environment:
+    #   - NVIDIA_VISIBLE_DEVICES=all
+    #   - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+    # If `gpus: all` is not supported by your host/compose plugin, use the
+    # NVIDIA Container Toolkit runtime equivalent in your orchestrator.
     ports:
       - "8946:8000"
     environment:

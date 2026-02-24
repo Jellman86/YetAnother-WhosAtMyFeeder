@@ -2,9 +2,13 @@
 <p align="center">
   <img src="apps/ui/public/pwa-192x192.png" alt="YA-WAMF app icon" width="96">
 </p>
-
-# Yet Another WhosAtMyFeeder (YA-WAMF)
-
+<h1 align="center">Yet Another WhosAtMyFeeder (YA-WAMF)</h1>
+<p align="center"><strong>AI-powered bird feeder classification for Frigate NVR</strong></p>
+<p align="center">
+  <a href="#documentation">Docs</a> •
+  <a href="#quick-start">Quick Start</a> •
+  <a href="https://yetanotherwhosatmyfeeder.pownet.uk">Live Demo</a>
+</p>
 <p align="center">
   <a href="https://github.com/Jellman86/YetAnother-WhosAtMyFeeder" target="_blank" rel="noopener noreferrer">
     <img src="https://img.shields.io/badge/%E2%AD%90%20Enjoying%20YA--WAMF%3F-Star%20the%20project-F4C430?style=for-the-badge&labelColor=F4C430&color=D4A017&logo=github&logoColor=000000" alt="Star YA-WAMF on GitHub">
@@ -14,10 +18,13 @@
 
 A bird classification system that integrates with [Frigate NVR](https://frigate.video/) to automatically identify birds visiting your feeder using advanced AI models.
 
+<p align="center">
+  <img src="dashboard-preview.png" alt="YA-WAMF Dashboard" width="100%">
+</p>
 
-![YA-WAMF Dashboard](dashboard-preview.png)
-
-> If you share your guest dashboard publicly, I would love to see it. Please open an issue or discussion and drop a link so I can take a look.
+<p align="center">
+  <sub>If you share your guest dashboard publicly, I would love to see it. Please open an issue or discussion and drop a link so I can take a look.</sub>
+</p>
 
 ## Features at a Glance
 
