@@ -2,8 +2,7 @@
     import { _ } from 'svelte-i18n';
     import { formatDateTime } from '../../utils/datetime';
     import ModelManager from '../../pages/models/ModelManager.svelte';
-    import { fetchClassifierStatus, type ClassifierStatus } from '../../api';
-    import { onMount } from 'svelte';
+    import type { ClassifierStatus } from '../../api';
 
     // Props
     let {
@@ -16,7 +15,8 @@
         videoClassificationDelay = $bindable(30),
         videoClassificationMaxRetries = $bindable(3),
         videoClassificationFrames = $bindable(15),
-        useCuda = $bindable(false),
+        inferenceProvider = $bindable<'auto' | 'cpu' | 'cuda' | 'intel_gpu' | 'intel_cpu'>('auto'),
+        classifierStatus = null,
         videoCircuitOpen = false,
         videoCircuitUntil = null,
         videoCircuitFailures = 0,
@@ -34,7 +34,8 @@
         videoClassificationDelay: number;
         videoClassificationMaxRetries: number;
         videoClassificationFrames: number;
-        useCuda: boolean;
+        inferenceProvider: 'auto' | 'cpu' | 'cuda' | 'intel_gpu' | 'intel_cpu';
+        classifierStatus: ClassifierStatus | null;
         videoCircuitOpen: boolean;
         videoCircuitUntil: string | null;
         videoCircuitFailures: number;
@@ -45,16 +46,6 @@
     } = $props();
 
     const circuitUntil = $derived(videoCircuitUntil ? formatDateTime(videoCircuitUntil) : null);
-
-    let classifierStatus = $state<ClassifierStatus | null>(null);
-
-    onMount(async () => {
-        try {
-            classifierStatus = await fetchClassifierStatus();
-        } catch (e) {
-            console.error('Failed to fetch classifier status', e);
-        }
-    });
 </script>
 
 <div class="space-y-6">
@@ -225,47 +216,58 @@
                         <p class="text-[9px] text-slate-400 italic">{$_('settings.detection.video_retry_note')}</p>
 
                         <div class="mt-6 pt-6 border-t border-slate-100 dark:border-slate-700/50">
-                            <div class="flex items-center justify-between">
-                                <div id="cuda-label">
-                                    <span class="block text-sm font-black text-slate-900 dark:text-white">{$_('settings.detection.cuda_acceleration')}</span>
-                                    <span class="block text-[10px] text-slate-500 font-bold leading-tight mt-1">{$_('settings.detection.cuda_desc')}</span>
+                            <div class="flex items-start justify-between gap-4">
+                                <div id="inference-provider-label" class="flex-1">
+                                    <span class="block text-sm font-black text-slate-900 dark:text-white">
+                                        {$_('settings.detection.inference_provider', { default: 'Inference Provider' })}
+                                    </span>
+                                    <span class="block text-[10px] text-slate-500 font-bold leading-tight mt-1">
+                                        {$_('settings.detection.inference_provider_desc', { default: 'Select CPU, NVIDIA CUDA, or Intel OpenVINO acceleration for ONNX models. Auto prefers Intel GPU, then CUDA, then CPU.' })}
+                                    </span>
                                 </div>
-                                <button
-                                    role="switch"
-                                    aria-checked={useCuda}
-                                    aria-labelledby="cuda-label"
-                                    onclick={() => useCuda = !useCuda}
-                                    onkeydown={(e) => {
-                                        if (e.key === 'Enter' || e.key === ' ') {
-                                            e.preventDefault();
-                                            useCuda = !useCuda;
-                                        }
-                                    }}
-                                    class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {useCuda ? 'bg-indigo-500' : 'bg-slate-300 dark:bg-slate-600'}"
+                                <select
+                                    bind:value={inferenceProvider}
+                                    aria-labelledby="inference-provider-label"
+                                    class="min-w-[10rem] px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
                                 >
-                                    <span class="sr-only">{$_('settings.detection.cuda_acceleration')}</span>
-                                    <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {useCuda ? 'translate-x-5' : 'translate-x-0'}"></span>
-                                </button>
+                                    <option value="auto">{$_('settings.detection.provider_auto', { default: 'Auto' })}</option>
+                                    <option value="cpu">{$_('settings.detection.provider_cpu', { default: 'CPU (ONNX Runtime)' })}</option>
+                                    <option value="cuda">{$_('settings.detection.provider_cuda', { default: 'NVIDIA CUDA' })}</option>
+                                    <option value="intel_gpu">{$_('settings.detection.provider_intel_gpu', { default: 'Intel GPU (OpenVINO)' })}</option>
+                                    <option value="intel_cpu">{$_('settings.detection.provider_intel_cpu', { default: 'Intel CPU (OpenVINO)' })}</option>
+                                </select>
                             </div>
 
                             {#if classifierStatus}
-                                <div class="mt-3 flex items-center gap-2">
-                                    {#if classifierStatus.cuda_available}
-                                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-black bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-                                            <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" /></svg>
-                                            {$_('settings.detection.cuda_available')}
+                                <div class="mt-3 flex flex-wrap items-center gap-2">
+                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-black {classifierStatus.cuda_available ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-slate-500/10 text-slate-500'}">
+                                        {classifierStatus.cuda_available ? $_('settings.detection.cuda_available') : $_('settings.detection.cuda_unavailable')}
+                                    </span>
+                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-black {(classifierStatus.openvino_available ?? false) ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-slate-500/10 text-slate-500'}">
+                                        {$_('settings.detection.openvino_status', { default: 'OpenVINO' })}: {(classifierStatus.openvino_available ?? false) ? $_('common.available', { default: 'Available' }) : $_('common.unavailable', { default: 'Unavailable' })}
+                                    </span>
+                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-black {(classifierStatus.intel_gpu_available ?? false) ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-slate-500/10 text-slate-500'}">
+                                        {$_('settings.detection.intel_gpu_status', { default: 'Intel GPU' })}: {(classifierStatus.intel_gpu_available ?? false) ? $_('settings.detection.auto_detected', { default: 'Auto-detected' }) : $_('common.not_available', { default: 'Not detected' })}
+                                    </span>
+                                </div>
+                                <div class="mt-2 flex flex-wrap items-center gap-2 text-[10px] font-bold text-slate-500">
+                                    <span>
+                                        {$_('settings.detection.selected_provider_label', { default: 'Selected' })}: {classifierStatus.selected_provider ?? inferenceProvider}
+                                    </span>
+                                    <span>
+                                        {$_('settings.detection.active_provider_label', { default: 'Active' })}: {classifierStatus.active_provider ?? 'unknown'}
+                                    </span>
+                                    {#if classifierStatus.inference_backend}
+                                        <span>
+                                            {$_('settings.detection.inference_backend_label', { default: 'Backend' })}: {classifierStatus.inference_backend}
                                         </span>
-                                        {#if useCuda}
-                                            <span class="text-[10px] font-bold text-slate-500">{$_('settings.detection.cuda_enabled_desc')}</span>
-                                        {/if}
-                                    {:else}
-                                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-black bg-slate-500/10 text-slate-500">
-                                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                            {$_('settings.detection.cuda_unavailable')}
-                                        </span>
-                                        <span class="text-[10px] font-bold text-slate-400">{$_('settings.detection.cuda_not_supported')}</span>
                                     {/if}
                                 </div>
+                                {#if classifierStatus.fallback_reason}
+                                    <p class="mt-2 text-[10px] font-bold text-amber-600 dark:text-amber-400">
+                                        {$_('settings.detection.provider_fallback_reason', { default: 'Fallback:' })} {classifierStatus.fallback_reason}
+                                    </p>
+                                {/if}
                             {/if}
                         </div>
                     {/if}

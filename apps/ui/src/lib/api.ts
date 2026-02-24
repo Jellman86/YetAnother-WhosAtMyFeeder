@@ -234,7 +234,7 @@ export interface Settings {
     video_classification_delay: number;
     video_classification_max_retries: number;
     video_classification_frames: number;
-    use_cuda: boolean;
+    inference_provider: 'auto' | 'cpu' | 'cuda' | 'intel_gpu' | 'intel_cpu' | string;
     ai_pricing_json: string;
     video_classification_circuit_open?: boolean;
     video_classification_circuit_until?: string | null;
@@ -950,7 +950,15 @@ export interface ClassifierStatus {
     labels_count: number;
     enabled: boolean;
     onnx_available?: boolean;
+    openvino_available?: boolean;
     cuda_available?: boolean;
+    intel_cpu_available?: boolean;
+    intel_gpu_available?: boolean;
+    selected_provider?: string;
+    active_provider?: string;
+    inference_backend?: string;
+    fallback_reason?: string | null;
+    available_providers?: string[];
     cuda_enabled?: boolean;
 }
 

@@ -1,10 +1,12 @@
-# Yet Another WhosAtMyFeeder (YA-WAMF)
-
-A bird classification system that integrates with [Frigate NVR](https://frigate.video/) to automatically identify birds visiting your feeder using advanced AI models.
 
 <p align="center">
   <img src="apps/ui/public/pwa-192x192.png" alt="YA-WAMF app icon" width="96">
 </p>
+
+# Yet Another WhosAtMyFeeder (YA-WAMF)
+
+A bird classification system that integrates with [Frigate NVR](https://frigate.video/) to automatically identify birds visiting your feeder using advanced AI models.
+
 
 ![YA-WAMF Dashboard](dashboard-preview.png)
 
@@ -13,6 +15,7 @@ A bird classification system that integrates with [Frigate NVR](https://frigate.
 ## Features at a Glance
 
 - **Advanced AI Classification** - MobileNetV2, ConvNeXt, or EVA-02 models (up to 91% accuracy)
+- **Hardware Acceleration Selector** - Choose Auto/CPU/NVIDIA CUDA/Intel OpenVINO (single image, runtime fallback)
 - **Multi-Sensor Verification** - Correlates visual detections with BirdNET-Go audio
 - **Smart Notifications** - Discord, Telegram, Pushover, Email with customizable filters + Notification Center
 - **Video Analysis** - Automatic scanning of 15+ frames (temporal ensemble) for improved accuracy
@@ -114,6 +117,7 @@ For the full event lifecycle and architecture details, see the documentation lin
 - Frigate NVR running with MQTT enabled
 - MQTT broker accessible (typically Mosquitto running alongside Frigate)
 - Basic knowledge of Docker networking
+- For Intel iGPU acceleration (OpenVINO): pass `/dev/dri` into the container and grant `render`/`video` device access
 
 ### Installation
 

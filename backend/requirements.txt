@@ -16,8 +16,10 @@ numpy<2.0.0
 # For now, let's try tflite-support and see if it installs, or use a specific known compatible version.
 # tflite-support==0.4.4
 tensorflow-cpu; python_version >= '3.12'
-# ONNX Runtime for high-accuracy models (ConvNeXt, etc.)
-onnxruntime>=1.16.0
+# ONNX Runtime (GPU wheel includes CPU fallback and CUDA provider when host libs are present)
+onnxruntime-gpu>=1.16.0
+# OpenVINO runtime for Intel CPU/iGPU acceleration (optional at runtime; fail-soft fallback if unavailable)
+openvino>=2024.0.0
 aiomqtt==2.0.1
 alembic==1.13.1
 opencv-python-headless<4.11

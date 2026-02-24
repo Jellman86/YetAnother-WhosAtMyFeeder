@@ -95,7 +95,7 @@
     let videoClassificationDelay = $state(30);
     let videoClassificationMaxRetries = $state(3);
     let videoClassificationFrames = $state(15);
-    let useCuda = $state(false);
+    let inferenceProvider = $state<'auto' | 'cpu' | 'cuda' | 'intel_gpu' | 'intel_cpu'>('auto');
     let videoCircuitOpen = $state(false);
     let videoCircuitUntil = $state<string | null>(null);
     let videoCircuitFailures = $state(0);
@@ -1420,7 +1420,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'videoClassificationDelay', val: videoClassificationDelay, store: s.video_classification_delay ?? 30 },
             { key: 'videoClassificationMaxRetries', val: videoClassificationMaxRetries, store: s.video_classification_max_retries ?? 3 },
             { key: 'videoClassificationFrames', val: videoClassificationFrames, store: s.video_classification_frames ?? 15 },
-            { key: 'useCuda', val: useCuda, store: s.use_cuda ?? false },
+            { key: 'inferenceProvider', val: inferenceProvider, store: (s.inference_provider as any) ?? 'auto' },
             { key: 'selectedCameras', val: JSON.stringify(selectedCameras), store: JSON.stringify(s.cameras || []) },
             { key: 'retentionDays', val: retentionDays, store: s.retention_days || 0 },
             { key: 'blockedLabels', val: JSON.stringify(blockedLabels), store: JSON.stringify(s.blocked_labels || []) },
@@ -1805,7 +1805,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             const result = await resetDatabase();
             message = { type: 'success', text: result.message };
             toastStore.success(result.message || $_('settings.danger.reset_button'));
-            await Promise.all([loadMaintenanceStats(), loadCacheStats()]);
+            await Promise.all([loadMaintenanceStats(), loadCacheStats(), loadClassifierStatus()]);
         } catch (e: any) {
             message = { type: 'error', text: e.message || $_('settings.data.reset_error') };
             toastStore.error(e.message || $_('settings.data.reset_error'));
@@ -2052,7 +2052,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             videoClassificationDelay = settings.video_classification_delay ?? 30;
             videoClassificationMaxRetries = settings.video_classification_max_retries ?? 3;
             videoClassificationFrames = settings.video_classification_frames ?? 15;
-            useCuda = settings.use_cuda ?? false;
+            inferenceProvider = (settings.inference_provider as any) ?? 'auto';
             videoCircuitOpen = settings.video_classification_circuit_open ?? false;
             videoCircuitUntil = settings.video_classification_circuit_until ?? null;
             videoCircuitFailures = settings.video_classification_circuit_failures ?? 0;
@@ -2323,7 +2323,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 video_classification_delay: videoClassificationDelay,
                 video_classification_max_retries: videoClassificationMaxRetries,
                 video_classification_frames: videoClassificationFrames,
-                use_cuda: useCuda,
+                inference_provider: inferenceProvider,
                 cameras: selectedCameras,
                 retention_days: retentionDays,
                 blocked_labels: blockedLabels,
@@ -2702,7 +2702,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     bind:videoClassificationDelay
                     bind:videoClassificationMaxRetries
                     bind:videoClassificationFrames
-                    bind:useCuda
+                    bind:inferenceProvider
+                    {classifierStatus}
                     bind:blockedLabels
                     bind:newBlockedLabel
                     {videoCircuitOpen}

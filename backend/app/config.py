@@ -9,7 +9,7 @@ import sys
 import socket
 import ipaddress
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 log = structlog.get_logger()
 
@@ -216,7 +216,7 @@ class ClassificationSettings(BaseModel):
     video_classification_timeout_seconds: int = Field(default=180, ge=30, description="Timeout for a single video classification run")
     video_classification_stale_minutes: int = Field(default=15, ge=1, description="Mark pending/processing as failed after this many minutes")
     video_classification_frames: int = Field(default=15, ge=5, le=100, description="Number of frames to sample for video classification")
-    use_cuda: bool = Field(default=False, description="Enable CUDA acceleration for ONNX models if available")
+    inference_provider: str = Field(default="auto", description="Preferred inference provider: auto|cpu|cuda|intel_gpu|intel_cpu")
     ai_pricing_json: str = Field(default="[]", description="JSON string containing AI pricing overrides")
 
     # Classification output settings
@@ -225,6 +225,16 @@ class ClassificationSettings(BaseModel):
     # Wildlife/general animal model settings
     wildlife_model: str = Field(default="wildlife_model.tflite", description="Wildlife classification model file")
     wildlife_labels: str = Field(default="wildlife_labels.txt", description="Wildlife labels file")
+
+    @field_validator("inference_provider")
+    @classmethod
+    def validate_inference_provider(cls, v: str) -> str:
+        normalized = (v or "auto").strip().lower()
+        allowed = {"auto", "cpu", "cuda", "intel_gpu", "intel_cpu"}
+        if normalized not in allowed:
+            log.warning("Invalid inference_provider in config; falling back to auto", value=v)
+            return "auto"
+        return normalized
 
 class MaintenanceSettings(BaseModel):
     retention_days: int = Field(default=0, ge=0, description="Days to keep detections (0 = unlimited)")
@@ -527,6 +537,15 @@ class Settings(BaseSettings):
         }
 
         # Classification settings (loaded from file and selected env vars)
+        legacy_use_cuda_env = os.environ.get('CLASSIFICATION__USE_CUDA')
+        env_inference_provider = os.environ.get('CLASSIFICATION__INFERENCE_PROVIDER')
+        if env_inference_provider:
+            default_inference_provider = env_inference_provider
+        elif legacy_use_cuda_env is not None:
+            default_inference_provider = 'cuda' if legacy_use_cuda_env.lower() == 'true' else 'cpu'
+        else:
+            default_inference_provider = 'auto'
+
         classification_data = {
             'model': 'model.tflite',
             'threshold': 0.7,
@@ -545,7 +564,7 @@ class Settings(BaseSettings):
             'video_classification_failure_window_minutes': int(os.environ.get('CLASSIFICATION__VIDEO_FAILURE_WINDOW_MINUTES', '10')),
             'video_classification_failure_cooldown_minutes': int(os.environ.get('CLASSIFICATION__VIDEO_FAILURE_COOLDOWN_MINUTES', '15')),
             'video_classification_frames': int(os.environ.get('CLASSIFICATION__VIDEO_CLASSIFICATION_FRAMES', '15')),
-            'use_cuda': os.environ.get('CLASSIFICATION__USE_CUDA', 'false').lower() == 'true',
+            'inference_provider': default_inference_provider,
             'ai_pricing_json': os.environ.get('CLASSIFICATION__AI_PRICING_JSON', '[]'),
             'max_classification_results': int(os.environ.get('CLASSIFICATION__MAX_CLASSIFICATION_RESULTS', '5')),
         }
@@ -755,7 +774,15 @@ class Settings(BaseSettings):
                             maintenance_data[key] = value
 
                 if 'classification' in file_data:
-                    for key, value in file_data['classification'].items():
+                    cls_file = file_data['classification']
+                    if (
+                        'inference_provider' not in cls_file
+                        and 'use_cuda' in cls_file
+                    ):
+                        # Back-compat mapping for older configs (pre-provider selector).
+                        cls_file = dict(cls_file)
+                        cls_file['inference_provider'] = 'cuda' if bool(cls_file.get('use_cuda')) else 'cpu'
+                    for key, value in cls_file.items():
                         if value is not None:  # Guard against null values in config
                             classification_data[key] = value
 
@@ -937,7 +964,8 @@ class Settings(BaseSettings):
                  unknown_bird_labels=classification_data['unknown_bird_labels'],
                  trust_frigate_sublabel=classification_data['trust_frigate_sublabel'],
                  display_common_names=classification_data['display_common_names'],
-                 scientific_name_primary=classification_data['scientific_name_primary'])
+                 scientific_name_primary=classification_data['scientific_name_primary'],
+                 inference_provider=classification_data.get('inference_provider', 'auto'))
         log.info("Media cache config",
                  enabled=media_cache_data['enabled'],
                  cache_snapshots=media_cache_data['cache_snapshots'],

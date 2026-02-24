@@ -12,7 +12,12 @@ mock_mm.model_manager.active_model_id = "default"
 mock_mm.REMOTE_REGISTRY = []
 sys.modules["app.services.model_manager"] = mock_mm
 
-from app.services.classifier_service import ClassifierService, ModelInstance
+from app.services.classifier_service import (
+    ClassifierService,
+    ModelInstance,
+    _normalize_inference_provider,
+    _resolve_inference_selection,
+)
 
 @pytest.fixture
 def mock_tflite():
@@ -89,3 +94,54 @@ async def test_classifier_service_classify_async(mock_tflite, mock_os_path_exist
         
         assert results[0]["label"] == "Robin"
         mock_classify.assert_called_once()
+
+
+def test_normalize_inference_provider_defaults_to_auto_for_invalid_value():
+    assert _normalize_inference_provider(None) == "auto"
+    assert _normalize_inference_provider("") == "auto"
+    assert _normalize_inference_provider("not-real") == "auto"
+
+
+def test_resolve_inference_selection_auto_prefers_intel_gpu_then_cuda():
+    caps = {
+        "ort_available": True,
+        "cuda_available": True,
+        "openvino_available": True,
+        "intel_gpu_available": True,
+        "intel_cpu_available": True,
+    }
+    sel = _resolve_inference_selection("auto", caps)
+    assert sel["active_provider"] == "intel_gpu"
+    assert sel["backend"] == "openvino"
+    assert sel["openvino_device"] == "GPU"
+    assert sel["fallback_reason"] is None
+
+
+def test_resolve_inference_selection_cuda_falls_back_to_cpu_when_unavailable():
+    caps = {
+        "ort_available": True,
+        "cuda_available": False,
+        "openvino_available": False,
+        "intel_gpu_available": False,
+        "intel_cpu_available": False,
+    }
+    sel = _resolve_inference_selection("cuda", caps)
+    assert sel["active_provider"] == "cpu"
+    assert sel["backend"] == "onnxruntime"
+    assert sel["ort_providers"] == ["CPUExecutionProvider"]
+    assert sel["fallback_reason"] is not None
+
+
+def test_resolve_inference_selection_intel_gpu_falls_back_to_intel_cpu_when_possible():
+    caps = {
+        "ort_available": True,
+        "cuda_available": False,
+        "openvino_available": True,
+        "intel_gpu_available": False,
+        "intel_cpu_available": True,
+    }
+    sel = _resolve_inference_selection("intel_gpu", caps)
+    assert sel["active_provider"] == "intel_cpu"
+    assert sel["backend"] == "openvino"
+    assert sel["openvino_device"] == "CPU"
+    assert sel["fallback_reason"] is not None

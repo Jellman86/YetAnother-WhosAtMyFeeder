@@ -277,7 +277,7 @@ class SettingsUpdate(BaseModel):
     video_classification_delay: Optional[int] = Field(30, ge=0, description="Seconds to wait before checking for clip")
     video_classification_max_retries: Optional[int] = Field(3, ge=0, description="Max retries for clip availability")
     video_classification_frames: Optional[int] = Field(15, ge=5, le=100, description="Number of frames to sample for video classification")
-    use_cuda: Optional[bool] = Field(False, description="Enable CUDA acceleration for ONNX models if available")
+    inference_provider: Optional[str] = Field("auto", description="Preferred inference provider: auto|cpu|cuda|intel_gpu|intel_cpu")
     # Media cache settings
     media_cache_enabled: bool = Field(True, description="Enable local media caching")
     media_cache_snapshots: bool = Field(True, description="Cache snapshot images locally")
@@ -458,6 +458,17 @@ class SettingsUpdate(BaseModel):
             raise ValueError("enrichment_mode must be 'single' or 'per_enrichment'")
         return normalized
 
+    @field_validator('inference_provider')
+    @classmethod
+    def validate_inference_provider(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        normalized = v.strip().lower()
+        allowed = {"auto", "cpu", "cuda", "intel_gpu", "intel_cpu"}
+        if normalized not in allowed:
+            raise ValueError("inference_provider must be one of: auto, cpu, cuda, intel_gpu, intel_cpu")
+        return normalized
+
     @field_validator('frigate_url')
     @classmethod
     def validate_frigate_url(cls, v: str) -> str:
@@ -523,7 +534,7 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "video_classification_delay": settings.classification.video_classification_delay,
         "video_classification_max_retries": settings.classification.video_classification_max_retries,
         "video_classification_frames": settings.classification.video_classification_frames,
-        "use_cuda": settings.classification.use_cuda,
+        "inference_provider": settings.classification.inference_provider,
         "video_classification_circuit_open": circuit_status.get("open", False),
         "video_classification_circuit_until": circuit_status.get("open_until"),
         "video_classification_circuit_failures": circuit_status.get("failure_count", 0),
@@ -720,8 +731,8 @@ async def update_settings(
         settings.classification.video_classification_max_retries = update.video_classification_max_retries
     if "video_classification_frames" in fields_set and update.video_classification_frames is not None:
         settings.classification.video_classification_frames = update.video_classification_frames
-    if "use_cuda" in fields_set and update.use_cuda is not None:
-        settings.classification.use_cuda = update.use_cuda
+    if "inference_provider" in fields_set and update.inference_provider is not None:
+        settings.classification.inference_provider = update.inference_provider
 
     # Media cache settings
     if "media_cache_enabled" in fields_set:
@@ -1000,6 +1011,12 @@ async def update_settings(
         background_tasks.add_task(telemetry_service.force_heartbeat)
 
     await settings.save()
+    if "inference_provider" in fields_set:
+        try:
+            from app.services.classifier_service import get_classifier
+            get_classifier().reload_bird_model()
+        except Exception as e:
+            log.warning("Failed to reload bird model after inference provider change", error=str(e))
     try:
         from app.services.broadcaster import broadcaster
         await broadcaster.broadcast({

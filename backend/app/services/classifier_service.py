@@ -25,9 +25,158 @@ except ImportError:
     ort = None
     ONNX_AVAILABLE = False
 
+# OpenVINO runtime (optional; single-image Intel acceleration path)
+try:
+    from openvino.runtime import Core as OpenVINOCore
+    OPENVINO_AVAILABLE = True
+except ImportError:
+    OpenVINOCore = None
+    OPENVINO_AVAILABLE = False
+
 from app.config import settings
 
 log = structlog.get_logger()
+
+SUPPORTED_INFERENCE_PROVIDERS = {"auto", "cpu", "cuda", "intel_gpu", "intel_cpu"}
+
+
+def _normalize_inference_provider(value: Optional[str]) -> str:
+    normalized = (value or "auto").strip().lower()
+    return normalized if normalized in SUPPORTED_INFERENCE_PROVIDERS else "auto"
+
+
+def _detect_acceleration_capabilities() -> dict:
+    """Probe optional inference runtimes/providers without raising."""
+    caps = {
+        "ort_available": bool(ONNX_AVAILABLE and ort is not None),
+        "cuda_available": False,
+        "openvino_available": bool(OPENVINO_AVAILABLE and OpenVINOCore is not None),
+        "intel_gpu_available": False,
+        "intel_cpu_available": False,
+        "openvino_devices": [],
+    }
+
+    if caps["ort_available"]:
+        try:
+            caps["cuda_available"] = "CUDAExecutionProvider" in (ort.get_available_providers() or [])
+        except Exception as e:
+            log.warning("Failed to inspect ONNX Runtime providers", error=str(e))
+
+    if caps["openvino_available"]:
+        try:
+            ov_core = OpenVINOCore()
+            devices = list(getattr(ov_core, "available_devices", []) or [])
+            caps["openvino_devices"] = devices
+            caps["intel_gpu_available"] = any(d == "GPU" or str(d).startswith("GPU.") for d in devices)
+            caps["intel_cpu_available"] = any(d == "CPU" or str(d).startswith("CPU.") for d in devices)
+        except Exception as e:
+            caps["openvino_available"] = False
+            log.warning("Failed to inspect OpenVINO devices", error=str(e))
+
+    return caps
+
+
+def _resolve_inference_selection(requested_provider: Optional[str], caps: dict) -> dict:
+    """Resolve desired inference provider to a concrete backend/device with fallback."""
+    requested = _normalize_inference_provider(requested_provider)
+
+    def _ort_cpu(reason: Optional[str] = None) -> dict:
+        if caps.get("ort_available"):
+            return {
+                "requested_provider": requested,
+                "active_provider": "cpu",
+                "backend": "onnxruntime",
+                "ort_providers": ["CPUExecutionProvider"],
+                "openvino_device": None,
+                "fallback_reason": reason,
+            }
+        if caps.get("openvino_available") and caps.get("intel_cpu_available"):
+            fallback_reason = reason or "ONNX Runtime unavailable; using OpenVINO CPU"
+            return {
+                "requested_provider": requested,
+                "active_provider": "intel_cpu",
+                "backend": "openvino",
+                "ort_providers": [],
+                "openvino_device": "CPU",
+                "fallback_reason": fallback_reason,
+            }
+        return {
+            "requested_provider": requested,
+            "active_provider": "unavailable",
+            "backend": "unavailable",
+            "ort_providers": [],
+            "openvino_device": None,
+            "fallback_reason": reason or "No ONNX-capable runtime available (onnxruntime/OpenVINO)",
+        }
+
+    if requested == "cpu":
+        return _ort_cpu()
+
+    if requested == "cuda":
+        if caps.get("ort_available") and caps.get("cuda_available"):
+            return {
+                "requested_provider": requested,
+                "active_provider": "cuda",
+                "backend": "onnxruntime",
+                "ort_providers": ["CUDAExecutionProvider", "CPUExecutionProvider"],
+                "openvino_device": None,
+                "fallback_reason": None,
+            }
+        return _ort_cpu("CUDA requested but CUDAExecutionProvider is not available")
+
+    if requested == "intel_cpu":
+        if caps.get("openvino_available") and caps.get("intel_cpu_available"):
+            return {
+                "requested_provider": requested,
+                "active_provider": "intel_cpu",
+                "backend": "openvino",
+                "ort_providers": [],
+                "openvino_device": "CPU",
+                "fallback_reason": None,
+            }
+        return _ort_cpu("OpenVINO CPU requested but OpenVINO CPU device is not available")
+
+    if requested == "intel_gpu":
+        if caps.get("openvino_available") and caps.get("intel_gpu_available"):
+            return {
+                "requested_provider": requested,
+                "active_provider": "intel_gpu",
+                "backend": "openvino",
+                "ort_providers": [],
+                "openvino_device": "GPU",
+                "fallback_reason": None,
+            }
+        if caps.get("openvino_available") and caps.get("intel_cpu_available"):
+            return {
+                "requested_provider": requested,
+                "active_provider": "intel_cpu",
+                "backend": "openvino",
+                "ort_providers": [],
+                "openvino_device": "CPU",
+                "fallback_reason": "Intel GPU requested but not available; falling back to OpenVINO CPU",
+            }
+        return _ort_cpu("Intel GPU requested but OpenVINO GPU is not available")
+
+    # auto: prefer Intel GPU, then CUDA, then CPU
+    if caps.get("openvino_available") and caps.get("intel_gpu_available"):
+        return {
+            "requested_provider": requested,
+            "active_provider": "intel_gpu",
+            "backend": "openvino",
+            "ort_providers": [],
+            "openvino_device": "GPU",
+            "fallback_reason": None,
+        }
+    if caps.get("ort_available") and caps.get("cuda_available"):
+        return {
+            "requested_provider": requested,
+            "active_provider": "cuda",
+            "backend": "onnxruntime",
+            "ort_providers": ["CUDAExecutionProvider", "CPUExecutionProvider"],
+            "openvino_device": None,
+            "fallback_reason": None,
+        }
+    return _ort_cpu()
 
 # Global singleton instance
 _classifier_instance: Optional['ClassifierService'] = None
@@ -275,16 +424,26 @@ class ModelInstance:
 class ONNXModelInstance:
     """Represents a loaded ONNX model with its labels (for high-accuracy models)."""
 
-    def __init__(self, name: str, model_path: str, labels_path: str, preprocessing: Optional[dict] = None, input_size: int = 384):
+    def __init__(
+        self,
+        name: str,
+        model_path: str,
+        labels_path: str,
+        preprocessing: Optional[dict] = None,
+        input_size: int = 384,
+        ort_providers: Optional[list[str]] = None,
+    ):
         self.name = name
         self.model_path = model_path
         self.labels_path = labels_path
         self.preprocessing = preprocessing or {}
         self.input_size = input_size
+        self.ort_providers = list(ort_providers or ["CPUExecutionProvider"])
         self.session = None
         self.labels: list[str] = []
         self.loaded = False
         self.error: Optional[str] = None
+        self._lock = threading.Lock()
 
         # ImageNet normalization defaults (used by timm models)
         self.mean = np.array(self.preprocessing.get("mean", [0.485, 0.456, 0.406]))
@@ -320,21 +479,9 @@ class ONNXModelInstance:
             sess_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
             sess_options.intra_op_num_threads = 4  # Use multiple threads
 
-            # Determine execution providers based on settings and availability
-            providers = ['CPUExecutionProvider']
-            if settings.classification.use_cuda:
-                available = ort.get_available_providers()
-                if 'CUDAExecutionProvider' in available:
-                    providers.insert(0, 'CUDAExecutionProvider')
-                    log.info(f"Enabling CUDA acceleration for {self.name}")
-                else:
-                    log.warning(f"CUDA requested for {self.name} but CUDAExecutionProvider is not available in the runtime")
-
-            self.session = ort.InferenceSession(
-                self.model_path,
-                sess_options,
-                providers=providers
-            )
+            # Use providers resolved by ClassifierService (already validated/fallback-aware)
+            providers = list(self.ort_providers or ["CPUExecutionProvider"])
+            self.session = ort.InferenceSession(self.model_path, sess_options, providers=providers)
             self.loaded = True
             self.error = None
             log.info(f"{self.name} ONNX model loaded successfully", input_size=self.input_size, providers=providers)
@@ -388,7 +535,8 @@ class ONNXModelInstance:
             input_name = self.session.get_inputs()[0].name
 
             # Run inference
-            outputs = self.session.run(None, {input_name: input_tensor})
+            with self._lock:
+                outputs = self.session.run(None, {input_name: input_tensor})
             logits = outputs[0][0]
 
             # Apply softmax to get probabilities
@@ -420,7 +568,8 @@ class ONNXModelInstance:
         try:
             input_tensor = self._preprocess(image)
             input_name = self.session.get_inputs()[0].name
-            outputs = self.session.run(None, {input_name: input_tensor})
+            with self._lock:
+                outputs = self.session.run(None, {input_name: input_tensor})
             logits = outputs[0][0]
             return self._softmax(logits)
         except Exception as e:
@@ -449,17 +598,175 @@ class ONNXModelInstance:
         }
 
 
+class OpenVINOModelInstance:
+    """Represents a loaded ONNX model compiled with OpenVINO (Intel CPU/GPU)."""
+
+    def __init__(
+        self,
+        name: str,
+        model_path: str,
+        labels_path: str,
+        preprocessing: Optional[dict] = None,
+        input_size: int = 384,
+        device_name: str = "CPU",
+    ):
+        self.name = name
+        self.model_path = model_path
+        self.labels_path = labels_path
+        self.preprocessing = preprocessing or {}
+        self.input_size = input_size
+        self.device_name = device_name
+        self.core = None
+        self.compiled_model = None
+        self.input_name: Optional[str] = None
+        self.labels: list[str] = []
+        self.loaded = False
+        self.error: Optional[str] = None
+        self._lock = threading.Lock()
+
+        self.mean = np.array(self.preprocessing.get("mean", [0.485, 0.456, 0.406]))
+        self.std = np.array(self.preprocessing.get("std", [0.229, 0.224, 0.225]))
+
+    def load(self) -> bool:
+        if self.loaded:
+            return True
+
+        if not OPENVINO_AVAILABLE or OpenVINOCore is None:
+            self.error = "OpenVINO runtime not installed"
+            log.error("OpenVINO runtime not installed")
+            return False
+
+        if os.path.exists(self.labels_path):
+            try:
+                with open(self.labels_path, 'r', encoding='utf-8', errors='replace') as f:
+                    self.labels = [line.strip() for line in f.readlines() if line.strip()]
+                log.info(f"Loaded {len(self.labels)} labels for OpenVINO model {self.name}")
+            except Exception as e:
+                log.error(f"Failed to load labels for {self.name}", error=str(e))
+
+        if not os.path.exists(self.model_path):
+            self.error = f"ONNX model file not found: {self.model_path}"
+            log.warning(f"{self.name} OpenVINO model not found", path=self.model_path)
+            return False
+
+        try:
+            self.core = OpenVINOCore()
+            model = self.core.read_model(self.model_path)
+            self.compiled_model = self.core.compile_model(model, self.device_name)
+            self.input_name = self.compiled_model.inputs[0].get_any_name()
+            self.loaded = True
+            self.error = None
+            log.info("OpenVINO model loaded successfully", model=self.name, device=self.device_name, input_size=self.input_size)
+            return True
+        except Exception as e:
+            self.error = f"Failed to load OpenVINO model: {str(e)}"
+            log.error(f"Failed to load {self.name} OpenVINO model", error=str(e), device=self.device_name)
+            return False
+
+    def _resize_with_padding(self, image: Image.Image, target_size: int) -> Image.Image:
+        iw, ih = image.size
+        scale = min(target_size / iw, target_size / ih)
+        nw = int(iw * scale)
+        nh = int(ih * scale)
+        image = image.resize((nw, nh), Image.Resampling.BICUBIC)
+        new_image = Image.new('RGB', (target_size, target_size), (128, 128, 128))
+        new_image.paste(image, ((target_size - nw) // 2, (target_size - nh) // 2))
+        return new_image
+
+    def _preprocess(self, image: Image.Image) -> np.ndarray:
+        image = image.convert('RGB')
+        image = self._resize_with_padding(image, self.input_size)
+        arr = np.array(image).astype(np.float32) / 255.0
+        arr = (arr - self.mean) / self.std
+        arr = arr.transpose(2, 0, 1)  # NCHW
+        return arr[np.newaxis, ...].astype(np.float32)
+
+    def _softmax(self, x: np.ndarray) -> np.ndarray:
+        exp_x = np.exp(x - np.max(x))
+        return exp_x / np.sum(exp_x)
+
+    def _infer_logits(self, image: Image.Image) -> np.ndarray:
+        if not self.loaded or self.compiled_model is None or self.input_name is None:
+            return np.array([])
+
+        input_tensor = self._preprocess(image)
+        with self._lock:
+            infer_request = self.compiled_model.create_infer_request()
+            outputs = infer_request.infer({self.input_name: input_tensor})
+        raw = next(iter(outputs.values()))
+        return np.asarray(raw)[0]
+
+    def classify(self, image: Image.Image, top_k: int = 5) -> list[dict]:
+        if not self.loaded or self.compiled_model is None:
+            log.warning(f"{self.name} OpenVINO model not loaded, cannot classify")
+            return []
+        try:
+            logits = self._infer_logits(image)
+            if logits.size == 0:
+                return []
+            probs = self._softmax(logits)
+            top_indices = np.argsort(probs)[::-1][:top_k]
+            return [
+                {
+                    "index": int(i),
+                    "score": float(probs[i]),
+                    "label": self.labels[i] if i < len(self.labels) else f"Class {i}",
+                }
+                for i in top_indices
+            ]
+        except Exception as e:
+            log.error(f"OpenVINO inference failed for {self.name}", error=str(e), device=self.device_name)
+            return []
+
+    def classify_raw(self, image: Image.Image) -> np.ndarray:
+        if not self.loaded or self.compiled_model is None:
+            return np.array([])
+        try:
+            logits = self._infer_logits(image)
+            if logits.size == 0:
+                return np.array([])
+            return self._softmax(logits)
+        except Exception as e:
+            log.error("OpenVINO raw classification failed", error=str(e), device=self.device_name)
+            return np.array([])
+
+    def cleanup(self):
+        self.compiled_model = None
+        self.core = None
+        self.loaded = False
+        log.info(f"{self.name} OpenVINO model resources cleaned up", device=self.device_name)
+
+    def get_status(self) -> dict:
+        return {
+            "loaded": self.loaded,
+            "error": self.error,
+            "labels_count": len(self.labels),
+            "enabled": self.compiled_model is not None,
+            "model_path": self.model_path,
+            "runtime": "openvino",
+            "input_size": self.input_size,
+            "device": self.device_name,
+        }
+
+
 class ClassifierService:
     """Service for managing multiple classification models (TFLite and ONNX)."""
 
     # Union type for model instances
-    ModelType = ModelInstance | ONNXModelInstance
+    ModelType = ModelInstance | ONNXModelInstance | OpenVINOModelInstance
 
     def __init__(self):
-        self._models: dict[str, ModelInstance | ONNXModelInstance] = {}
+        self._models: dict[str, ClassifierService.ModelType] = {}
         self._models_lock = threading.Lock()
         # Dedicated executor for ML tasks to avoid blocking default executor
         self._executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="ml_worker")
+        self._selected_inference_provider = _normalize_inference_provider(
+            getattr(settings.classification, "inference_provider", "auto")
+        )
+        self._active_inference_provider = "tflite"
+        self._inference_backend = "tflite"
+        self._inference_fallback_reason: Optional[str] = None
+        self._accel_caps = _detect_acceleration_capabilities()
         self._init_bird_model()
 
     def _get_model_paths(self, model_file: str, labels_file: str) -> tuple[str, str]:
@@ -503,27 +810,124 @@ class ClassifierService:
                  runtime=runtime,
                  preprocessing=preprocessing)
 
+        self._selected_inference_provider = _normalize_inference_provider(
+            getattr(settings.classification, "inference_provider", "auto")
+        )
+        self._accel_caps = _detect_acceleration_capabilities()
+        self._inference_fallback_reason = None
+        self._inference_backend = "tflite"
+        self._active_inference_provider = "tflite"
+
         # Create appropriate model instance based on runtime
         if runtime == 'onnx':
-            if not ONNX_AVAILABLE:
-                log.error("ONNX model requested but onnxruntime not installed, falling back to TFLite")
+            selection = _resolve_inference_selection(self._selected_inference_provider, self._accel_caps)
+            self._inference_fallback_reason = selection.get("fallback_reason")
+            self._active_inference_provider = selection.get("active_provider", "unavailable")
+            self._inference_backend = selection.get("backend", "unavailable")
+
+            if selection["backend"] == "openvino":
+                bird_model = OpenVINOModelInstance(
+                    "bird",
+                    model_path,
+                    labels_path,
+                    preprocessing=preprocessing,
+                    input_size=input_size,
+                    device_name=selection["openvino_device"] or "CPU",
+                )
+                if bird_model.load():
+                    self._models["bird"] = bird_model
+                    if self._inference_fallback_reason:
+                        log.warning(
+                            "Inference provider fallback applied",
+                            requested=self._selected_inference_provider,
+                            active=self._active_inference_provider,
+                            backend=self._inference_backend,
+                            reason=self._inference_fallback_reason,
+                        )
+                    return
+                # Device/plugin can still fail even if detection said "available" (e.g. /dev/dri permissions)
+                if self._accel_caps.get("ort_available"):
+                    log.warning(
+                        "OpenVINO model load failed; retrying with ONNX Runtime CPU fallback",
+                        requested=self._selected_inference_provider,
+                        device=selection.get("openvino_device"),
+                        error=bird_model.error,
+                    )
+                    self._inference_backend = "onnxruntime"
+                    self._active_inference_provider = "cpu"
+                    prev_reason = self._inference_fallback_reason
+                    self._inference_fallback_reason = (
+                        f"{prev_reason}; OpenVINO load failed" if prev_reason else "OpenVINO load failed; using ONNX Runtime CPU"
+                    )
+                    fallback_model = ONNXModelInstance(
+                        "bird",
+                        model_path,
+                        labels_path,
+                        preprocessing=preprocessing,
+                        input_size=input_size,
+                        ort_providers=["CPUExecutionProvider"],
+                    )
+                    fallback_model.load()
+                    self._models["bird"] = fallback_model
+                    return
+                log.warning("OpenVINO model load failed and no ORT fallback available; falling back to TFLite", error=bird_model.error)
                 runtime = 'tflite'
-            else:
+
+            if selection["backend"] == "onnxruntime":
                 bird_model = ONNXModelInstance(
                     "bird",
                     model_path,
                     labels_path,
                     preprocessing=preprocessing,
-                    input_size=input_size
+                    input_size=input_size,
+                    ort_providers=selection.get("ort_providers") or ["CPUExecutionProvider"],
                 )
-                bird_model.load()
-                self._models["bird"] = bird_model
-                return
+                if bird_model.load():
+                    self._models["bird"] = bird_model
+                    if self._inference_fallback_reason:
+                        log.warning(
+                            "Inference provider fallback applied",
+                            requested=self._selected_inference_provider,
+                            active=self._active_inference_provider,
+                            backend=self._inference_backend,
+                            reason=self._inference_fallback_reason,
+                        )
+                    return
+                if self._accel_caps.get("openvino_available") and self._accel_caps.get("intel_cpu_available"):
+                    log.warning("ONNX Runtime model load failed; retrying with OpenVINO CPU fallback", error=bird_model.error)
+                    self._inference_backend = "openvino"
+                    self._active_inference_provider = "intel_cpu"
+                    prev_reason = self._inference_fallback_reason
+                    self._inference_fallback_reason = (
+                        f"{prev_reason}; ONNX Runtime load failed" if prev_reason else "ONNX Runtime load failed; using OpenVINO CPU"
+                    )
+                    fallback_model = OpenVINOModelInstance(
+                        "bird",
+                        model_path,
+                        labels_path,
+                        preprocessing=preprocessing,
+                        input_size=input_size,
+                        device_name="CPU",
+                    )
+                    fallback_model.load()
+                    self._models["bird"] = fallback_model
+                    return
+                log.warning("ONNX Runtime model load failed; falling back to TFLite", error=bird_model.error)
+                runtime = 'tflite'
+
+            log.error(
+                "ONNX model requested but no ONNX-capable runtime is available; falling back to TFLite",
+                requested_provider=self._selected_inference_provider,
+                reason=self._inference_fallback_reason,
+            )
+            runtime = 'tflite'
 
         # Default: TFLite model
         bird_model = ModelInstance("bird", model_path, labels_path, preprocessing=preprocessing)
         bird_model.load()
         self._models["bird"] = bird_model
+        self._inference_backend = "tflite"
+        self._active_inference_provider = "tflite"
 
     def reload_bird_model(self):
         """Reload the bird model (e.g., after switching models)."""
@@ -574,12 +978,16 @@ class ClassifierService:
                 "onnx": {
                     "installed": ONNX_AVAILABLE,
                     "available": ort is not None
+                },
+                "openvino": {
+                    "installed": OPENVINO_AVAILABLE,
+                    "available": OpenVINOCore is not None
                 }
             },
             "models": {
                 name: {
                     "loaded": model.loaded,
-                    "runtime": "onnx" if isinstance(model, ONNXModelInstance) else "tflite",
+                    "runtime": "onnx" if isinstance(model, ONNXModelInstance) else ("openvino" if isinstance(model, OpenVINOModelInstance) else "tflite"),
                     "error": model.error
                 } for name, model in self._models.items()
             }
@@ -588,34 +996,49 @@ class ClassifierService:
     # Legacy properties
     @property
     def interpreter(self):
-        return self._models.get("bird", ModelInstance("", "", "")).interpreter
+        bird = self._models.get("bird")
+        return getattr(bird, "interpreter", None)
 
     @property
     def labels(self) -> list[str]:
-        return self._models.get("bird", ModelInstance("", "", "")).labels
+        bird = self._models.get("bird")
+        return bird.labels if bird else []
 
     @property
     def model_loaded(self) -> bool:
-        return self._models.get("bird", ModelInstance("", "", "")).loaded
+        bird = self._models.get("bird")
+        return bool(getattr(bird, "loaded", False))
 
     @property
     def model_error(self) -> Optional[str]:
-        return self._models.get("bird", ModelInstance("", "", "")).error
+        bird = self._models.get("bird")
+        return getattr(bird, "error", None)
 
     def get_status(self) -> dict:
         bird = self._models.get("bird")
-        
-        # Check for CUDA availability
-        cuda_available = False
-        if ONNX_AVAILABLE and ort:
-            cuda_available = 'CUDAExecutionProvider' in ort.get_available_providers()
+        self._accel_caps = _detect_acceleration_capabilities()
 
         status = {
             "runtime": "tflite-runtime" if "tflite_runtime" in str(tflite) else "tensorflow",
             "runtime_installed": tflite is not None,
             "onnx_available": ONNX_AVAILABLE,
-            "cuda_available": cuda_available,
-            "cuda_enabled": settings.classification.use_cuda,
+            "openvino_available": bool(self._accel_caps.get("openvino_available")),
+            "cuda_available": bool(self._accel_caps.get("cuda_available")),
+            "intel_gpu_available": bool(self._accel_caps.get("intel_gpu_available")),
+            "intel_cpu_available": bool(self._accel_caps.get("intel_cpu_available")),
+            "selected_provider": _normalize_inference_provider(getattr(settings.classification, "inference_provider", "auto")),
+            "active_provider": self._active_inference_provider,
+            "inference_backend": self._inference_backend,
+            "fallback_reason": self._inference_fallback_reason,
+            "available_providers": [
+                p for p in ["cpu", "cuda", "intel_cpu", "intel_gpu"]
+                if p == "cpu"
+                or (p == "cuda" and self._accel_caps.get("cuda_available"))
+                or (p == "intel_cpu" and self._accel_caps.get("intel_cpu_available"))
+                or (p == "intel_gpu" and self._accel_caps.get("intel_gpu_available"))
+            ],
+            # legacy compatibility (can be removed later)
+            "cuda_enabled": _normalize_inference_provider(getattr(settings.classification, "inference_provider", "auto")) == "cuda",
             "models": {}
         }
         
