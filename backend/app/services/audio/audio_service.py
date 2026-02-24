@@ -53,9 +53,15 @@ class AudioService:
             # Resolve scientific name for robust matching across languages
             scientific_name = data.get("ScientificName")
             if not scientific_name:
-                from app.services.taxonomy.taxonomy_service import taxonomy_service
-                taxonomy = await taxonomy_service.get_names(species)
-                scientific_name = taxonomy.get("scientific_name")
+                try:
+                    from app.services.taxonomy.taxonomy_service import taxonomy_service
+                    taxonomy = await taxonomy_service.get_names(species)
+                    scientific_name = taxonomy.get("scientific_name")
+                except Exception as e:
+                    # Keep ingesting audio events even if taxonomy lookup is unavailable.
+                    scientific_name = None
+                    log.warning("Failed to resolve audio taxonomy; using raw species name",
+                                species=species, error=str(e))
 
             # If timestamp provided in payload, use it
             ts_raw = data.get("timestamp") or data.get("ts")
@@ -204,11 +210,17 @@ class AudioService:
             window_seconds = settings.frigate.audio_correlation_window_seconds
         
         # Get scientific name for the species we're looking for
-        from app.services.taxonomy.taxonomy_service import taxonomy_service
-        taxonomy = await taxonomy_service.get_names(species_name)
-        target_scientific = (taxonomy.get("scientific_name") or species_name).lower().strip()
-        target_common = (taxonomy.get("common_name") or species_name).lower().strip()
-        target_query = species_name.lower().strip()
+        taxonomy: dict = {}
+        try:
+            from app.services.taxonomy.taxonomy_service import taxonomy_service
+            taxonomy = await taxonomy_service.get_names(species_name)
+        except Exception as e:
+            log.warning("Audio correlation taxonomy lookup failed; falling back to raw names",
+                        species=species_name, error=str(e))
+
+        target_query = (species_name or "").lower().strip()
+        target_scientific = (taxonomy.get("scientific_name") or species_name or "").lower().strip()
+        target_common = (taxonomy.get("common_name") or species_name or "").lower().strip()
 
         async with self._lock:
             self._cleanup_buffer()

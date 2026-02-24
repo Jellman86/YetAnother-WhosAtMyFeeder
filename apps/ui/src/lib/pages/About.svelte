@@ -417,11 +417,6 @@
                     </li>
                 {/each}
                 <li>{$_('about.credits_list.ai_assistants')}</li>
-                <li>
-                    <a href="https://www.flaticon.com/free-icons/bird" target="_blank" rel="noopener noreferrer" class="text-brand-600 dark:text-brand-400 hover:underline">
-                        {$_('about.flaticon_credit')}
-                    </a>
-                </li>
             </ul>
         </div>
     </section>

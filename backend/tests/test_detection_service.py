@@ -100,3 +100,33 @@ async def test_apply_video_result_re_evaluates_audio(mock_deps):
     
     # Find the index of audio_confirmed in the query
     assert params[7] == 1 # audio_confirmed should be True (1)
+
+
+@pytest.mark.asyncio
+async def test_apply_video_result_does_not_override_known_species_with_lower_score(mock_deps):
+    classifier = MagicMock()
+    service = DetectionService(classifier)
+
+    existing = MagicMock(spec=Detection)
+    existing.score = 0.95
+    existing.display_name = "Great Tit"
+    existing.category_name = "Great Tit"
+    existing.detection_time = datetime.now()
+    existing.camera_name = "cam1"
+    existing.is_hidden = False
+    existing.audio_species = None
+    existing.audio_score = None
+    existing.audio_confirmed = False
+    existing.video_classification_label = None
+    existing.video_classification_score = None
+    existing.video_classification_status = "pending"
+
+    mock_deps["repo"].get_by_frigate_event = AsyncMock(return_value=existing)
+
+    await service.apply_video_result("event1", "Blue Jay", 0.40, 2)
+
+    mock_deps["repo"].update_video_classification.assert_called_once()
+    # No primary UPDATE should run when lower-confidence video result does not beat a known species
+    primary_updates = [call for call in mock_deps["db"].execute.call_args_list if "UPDATE detections" in call.args[0]]
+    assert primary_updates == []
+    mock_deps["audio"].correlate_species.assert_not_called()

@@ -236,7 +236,11 @@ class DetectionService:
     async def apply_video_result(self, frigate_event: str, video_label: str, video_score: float, video_index: int, manual_tagged: bool = False):
         """
         Process and save results from background video analysis.
-        If video confidence is higher than the current score, it overrides the primary ID.
+
+        Override the primary ID when:
+        - the action is an explicit/manual reclassification, or
+        - the existing primary ID is an unknown-bird label, or
+        - the video score is at least as strong as the current primary score.
         """
         async with get_db() as db:
             repo = DetectionRepository(db)
@@ -254,8 +258,19 @@ class DetectionService:
                 status='completed'
             )
 
-            # 2. Video detections should always be primary when available.
-            should_override = True
+            # 2. Only promote video results when they are trustworthy enough, but
+            # always allow explicit/manual reclassifications and unknown-bird upgrades.
+            unknown_labels = {
+                *(label.lower() for label in settings.classification.unknown_bird_labels),
+                "unknown bird",
+            }
+            existing_labels = {
+                str(getattr(existing, "display_name", "") or "").lower(),
+                str(getattr(existing, "category_name", "") or "").lower(),
+            }
+            existing_is_unknown = any(label in unknown_labels for label in existing_labels if label)
+            current_score = float(existing.score or 0.0)
+            should_override = bool(manual_tagged or existing_is_unknown or video_score >= current_score)
 
             if should_override:
                 new_species = video_label
@@ -350,5 +365,7 @@ class DetectionService:
             else:
                 log.debug("Video analysis completed but did not override primary ID", 
                           event_id=frigate_event, 
-                          current_score=existing.score, 
+                          current_score=current_score,
+                          existing_is_unknown=existing_is_unknown,
+                          manual_tagged=manual_tagged,
                           video_score=video_score)

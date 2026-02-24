@@ -9,7 +9,6 @@ from app.database import get_db
 from app.repositories.ai_usage_repository import AIUsageRepository
 from app.config import settings
 from app.auth import AuthContext, require_owner
-from app.auth_legacy import get_auth_context_with_legacy
 
 router = APIRouter()
 log = structlog.get_logger()
@@ -83,7 +82,7 @@ def _calculate_cost(input_tokens: int, output_tokens: int, provider: str, model:
 async def get_ai_usage(
     request: Request,
     span: Literal["24h", "7d", "30d", "90d"] = Query("30d"),
-    auth: AuthContext = Depends(get_auth_context_with_legacy)
+    auth: AuthContext = Depends(require_owner)
 ):
     """Get summarized AI API usage and estimated costs."""
     now = datetime.utcnow()

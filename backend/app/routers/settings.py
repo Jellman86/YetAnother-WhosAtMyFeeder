@@ -276,6 +276,8 @@ class SettingsUpdate(BaseModel):
     auto_video_classification: Optional[bool] = Field(False, description="Automatically classify video clips")
     video_classification_delay: Optional[int] = Field(30, ge=0, description="Seconds to wait before checking for clip")
     video_classification_max_retries: Optional[int] = Field(3, ge=0, description="Max retries for clip availability")
+    video_classification_frames: Optional[int] = Field(15, ge=5, le=100, description="Number of frames to sample for video classification")
+    use_cuda: Optional[bool] = Field(False, description="Enable CUDA acceleration for ONNX models if available")
     # Media cache settings
     media_cache_enabled: bool = Field(True, description="Enable local media caching")
     media_cache_snapshots: bool = Field(True, description="Cache snapshot images locally")
@@ -520,6 +522,8 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "auto_video_classification": settings.classification.auto_video_classification,
         "video_classification_delay": settings.classification.video_classification_delay,
         "video_classification_max_retries": settings.classification.video_classification_max_retries,
+        "video_classification_frames": settings.classification.video_classification_frames,
+        "use_cuda": settings.classification.use_cuda,
         "video_classification_circuit_open": circuit_status.get("open", False),
         "video_classification_circuit_until": circuit_status.get("open_until"),
         "video_classification_circuit_failures": circuit_status.get("failure_count", 0),
@@ -714,6 +718,10 @@ async def update_settings(
         settings.classification.video_classification_delay = update.video_classification_delay
     if "video_classification_max_retries" in fields_set and update.video_classification_max_retries is not None:
         settings.classification.video_classification_max_retries = update.video_classification_max_retries
+    if "video_classification_frames" in fields_set and update.video_classification_frames is not None:
+        settings.classification.video_classification_frames = update.video_classification_frames
+    if "use_cuda" in fields_set and update.use_cuda is not None:
+        settings.classification.use_cuda = update.use_cuda
 
     # Media cache settings
     if "media_cache_enabled" in fields_set:

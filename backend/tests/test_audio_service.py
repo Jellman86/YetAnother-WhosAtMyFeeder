@@ -1,6 +1,6 @@
 import pytest
 from datetime import datetime, timedelta, timezone
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 from app.services.audio.audio_service import AudioService, AudioDetection
 
 @pytest.fixture
@@ -133,3 +133,40 @@ async def test_find_match_wildcard(audio_service):
         match = await audio_service.find_match(now, camera_name="cam1")
         assert match is not None
         assert match.species == "Any Bird"
+
+
+@pytest.mark.asyncio
+async def test_add_detection_survives_taxonomy_lookup_failure(audio_service):
+    data = {
+        "species": "Localized Bird",
+        "confidence": 0.77,
+        "sensor_id": "mic1"
+    }
+    with patch("app.services.taxonomy.taxonomy_service.taxonomy_service.get_names", new=AsyncMock(side_effect=RuntimeError("taxonomy down"))):
+        await audio_service.add_detection(data)
+
+    assert len(audio_service._buffer) == 1
+    det = audio_service._buffer[0]
+    assert det.species == "Localized Bird"
+    assert det.scientific_name is None
+
+
+@pytest.mark.asyncio
+async def test_correlate_species_falls_back_to_raw_names_when_taxonomy_lookup_fails(audio_service):
+    now = datetime.now(timezone.utc)
+    audio_service._buffer.append(
+        AudioDetection(
+            timestamp=now,
+            species="Blue Jay",
+            confidence=0.91,
+            sensor_id="mic1",
+            raw_data={},
+            scientific_name=None
+        )
+    )
+    with patch("app.services.taxonomy.taxonomy_service.taxonomy_service.get_names", new=AsyncMock(side_effect=RuntimeError("taxonomy down"))):
+        matched, species, score = await audio_service.correlate_species(now, "Blue Jay")
+
+    assert matched is True
+    assert species == "Blue Jay"
+    assert score == pytest.approx(0.91)

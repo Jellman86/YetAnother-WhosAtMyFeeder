@@ -2,6 +2,10 @@
 
 A bird classification system that integrates with [Frigate NVR](https://frigate.video/) to automatically identify birds visiting your feeder using advanced AI models.
 
+<p align="center">
+  <img src="apps/ui/public/pwa-192x192.png" alt="YA-WAMF app icon" width="96">
+</p>
+
 ![YA-WAMF Dashboard](dashboard-preview.png)
 
 > If you share your guest dashboard publicly, I would love to see it. Please open an issue or discussion and drop a link so I can take a look.
