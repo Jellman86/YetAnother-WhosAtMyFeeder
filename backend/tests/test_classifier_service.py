@@ -1,6 +1,7 @@
 import pytest
 import numpy as np
 import sys
+import types
 from unittest.mock import MagicMock, patch, mock_open
 from PIL import Image
 
@@ -19,6 +20,7 @@ from app.services.classifier_service import (
     _normalize_inference_provider,
     _resolve_inference_selection,
 )
+from app.services import classifier_service as classifier_service_module
 
 @pytest.fixture
 def mock_tflite():
@@ -159,3 +161,22 @@ def test_detect_acceleration_capabilities_does_not_report_cuda_available_without
     assert caps["ort_available"] is True
     assert caps["cuda_provider_installed"] is True
     assert caps["cuda_available"] is False
+
+
+def test_openvino_import_supports_top_level_core_when_runtime_module_missing():
+    fake_openvino = types.SimpleNamespace(Core=object, __version__="2026.0.0")
+
+    def fake_import_module(name: str):
+        if name == "openvino.runtime":
+            raise ModuleNotFoundError("No module named 'openvino.runtime'")
+        if name == "openvino":
+            return fake_openvino
+        raise AssertionError(f"unexpected import: {name}")
+
+    with patch("importlib.import_module", side_effect=fake_import_module):
+        support = classifier_service_module._detect_openvino_support()
+
+    assert support["available"] is True
+    assert support["core_class"] is object
+    assert support["version"] == "2026.0.0"
+    assert support["import_path"] == "openvino.Core"

@@ -274,6 +274,31 @@
                                         {$_('settings.detection.provider_fallback_reason', { default: 'Fallback:' })} {classifierStatus.fallback_reason}
                                     </p>
                                 {/if}
+                                {#if (classifierStatus.openvino_available === false) && (classifierStatus.openvino_import_error || classifierStatus.openvino_probe_error || classifierStatus.dev_dri_present !== undefined)}
+                                    <div class="mt-3 rounded-2xl border border-amber-200/80 dark:border-amber-700/40 bg-amber-50/80 dark:bg-amber-950/20 p-3">
+                                        <div class="text-[10px] font-black uppercase tracking-[0.14em] text-amber-700 dark:text-amber-300">
+                                            {$_('settings.detection.openvino_diagnostics', { default: 'OpenVINO diagnostics' })}
+                                        </div>
+                                        <div class="mt-2 space-y-1 text-[10px] font-medium text-amber-900 dark:text-amber-100 break-all">
+                                            {#if classifierStatus.openvino_version}
+                                                <p><span class="font-black">Version:</span> {classifierStatus.openvino_version}</p>
+                                            {/if}
+                                            {#if classifierStatus.openvino_import_path}
+                                                <p><span class="font-black">Import:</span> <code>{classifierStatus.openvino_import_path}</code></p>
+                                            {/if}
+                                            <p><span class="font-black">/dev/dri:</span> {classifierStatus.dev_dri_present ? 'present' : 'missing'}{#if classifierStatus.dev_dri_entries?.length} (<code>{classifierStatus.dev_dri_entries.join(', ')}</code>){/if}</p>
+                                            {#if classifierStatus.process_uid != null}
+                                                <p><span class="font-black">UID/GID:</span> {classifierStatus.process_uid}:{classifierStatus.process_gid}{#if classifierStatus.process_groups?.length} groups <code>{classifierStatus.process_groups.join(', ')}</code>{/if}</p>
+                                            {/if}
+                                            {#if classifierStatus.openvino_import_error}
+                                                <p><span class="font-black">Import error:</span> {classifierStatus.openvino_import_error}</p>
+                                            {/if}
+                                            {#if classifierStatus.openvino_probe_error}
+                                                <p><span class="font-black">Probe error:</span> {classifierStatus.openvino_probe_error}</p>
+                                            {/if}
+                                        </div>
+                                    </div>
+                                {/if}
                             {/if}
                         </div>
                     {/if}

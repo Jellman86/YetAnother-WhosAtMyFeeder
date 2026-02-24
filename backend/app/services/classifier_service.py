@@ -4,6 +4,7 @@ import os
 import cv2
 import asyncio
 import ctypes
+import importlib
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from PIL import Image
@@ -26,13 +27,58 @@ except ImportError:
     ort = None
     ONNX_AVAILABLE = False
 
+def _detect_openvino_support() -> dict:
+    """Resolve OpenVINO Core import across package versions.
+
+    OpenVINO 2026+ exposes `openvino.Core`, while older versions commonly use
+    `openvino.runtime.Core`.
+    """
+    attempts: list[str] = []
+
+    for module_name, attr_name, import_path in (
+        ("openvino.runtime", "Core", "openvino.runtime.Core"),
+        ("openvino", "Core", "openvino.Core"),
+    ):
+        try:
+            module = importlib.import_module(module_name)
+        except Exception as exc:
+            attempts.append(f"{import_path}: {type(exc).__name__}: {exc}")
+            continue
+
+        core_class = getattr(module, attr_name, None)
+        if core_class is None:
+            attempts.append(f"{import_path}: missing attribute {attr_name}")
+            continue
+
+        version = getattr(module, "__version__", None)
+        if not version and module_name != "openvino":
+            try:
+                top_level = importlib.import_module("openvino")
+                version = getattr(top_level, "__version__", None)
+            except Exception:
+                version = None
+
+        return {
+            "available": True,
+            "core_class": core_class,
+            "version": version,
+            "import_path": import_path,
+            "import_error": None,
+        }
+
+    return {
+        "available": False,
+        "core_class": None,
+        "version": None,
+        "import_path": None,
+        "import_error": "; ".join(attempts) if attempts else "OpenVINO not installed",
+    }
+
+
 # OpenVINO runtime (optional; single-image Intel acceleration path)
-try:
-    from openvino.runtime import Core as OpenVINOCore
-    OPENVINO_AVAILABLE = True
-except ImportError:
-    OpenVINOCore = None
-    OPENVINO_AVAILABLE = False
+_OPENVINO_SUPPORT = _detect_openvino_support()
+OpenVINOCore = _OPENVINO_SUPPORT["core_class"]
+OPENVINO_AVAILABLE = bool(_OPENVINO_SUPPORT["available"])
 
 from app.config import settings
 
@@ -48,16 +94,38 @@ def _normalize_inference_provider(value: Optional[str]) -> str:
 
 def _detect_acceleration_capabilities() -> dict:
     """Probe optional inference runtimes/providers without raising."""
+    dev_dri_entries: list[str] = []
+    try:
+        if os.path.isdir("/dev/dri"):
+            dev_dri_entries = sorted(os.listdir("/dev/dri"))
+    except Exception:
+        dev_dri_entries = []
+
     caps = {
         "ort_available": bool(ONNX_AVAILABLE and ort is not None),
         "cuda_provider_installed": False,
         "cuda_hardware_available": False,
         "cuda_available": False,
         "openvino_available": bool(OPENVINO_AVAILABLE and OpenVINOCore is not None),
+        "openvino_version": _OPENVINO_SUPPORT.get("version"),
+        "openvino_import_path": _OPENVINO_SUPPORT.get("import_path"),
+        "openvino_import_error": _OPENVINO_SUPPORT.get("import_error"),
+        "openvino_probe_error": None,
         "intel_gpu_available": False,
         "intel_cpu_available": False,
         "openvino_devices": [],
+        "dev_dri_present": os.path.isdir("/dev/dri"),
+        "dev_dri_entries": dev_dri_entries,
+        "process_uid": None,
+        "process_gid": None,
+        "process_groups": [],
     }
+    try:
+        caps["process_uid"] = os.getuid()
+        caps["process_gid"] = os.getgid()
+        caps["process_groups"] = list(os.getgroups())
+    except Exception:
+        pass
 
     if caps["ort_available"]:
         try:
@@ -77,6 +145,7 @@ def _detect_acceleration_capabilities() -> dict:
             caps["intel_cpu_available"] = any(d == "CPU" or str(d).startswith("CPU.") for d in devices)
         except Exception as e:
             caps["openvino_available"] = False
+            caps["openvino_probe_error"] = f"{type(e).__name__}: {e}"
             log.warning("Failed to inspect OpenVINO devices", error=str(e))
 
     return caps
@@ -860,6 +929,22 @@ class ClassifierService:
         self._inference_backend = "tflite"
         self._active_inference_provider = "tflite"
 
+        if not self._accel_caps.get("openvino_available"):
+            if self._accel_caps.get("openvino_import_error"):
+                log.warning(
+                    "OpenVINO unavailable (import)",
+                    error=self._accel_caps.get("openvino_import_error"),
+                    version=self._accel_caps.get("openvino_version"),
+                )
+            elif self._accel_caps.get("openvino_probe_error"):
+                log.warning(
+                    "OpenVINO unavailable (probe)",
+                    error=self._accel_caps.get("openvino_probe_error"),
+                    dev_dri_present=self._accel_caps.get("dev_dri_present"),
+                    dev_dri_entries=self._accel_caps.get("dev_dri_entries"),
+                    process_groups=self._accel_caps.get("process_groups"),
+                )
+
         # Create appropriate model instance based on runtime
         if runtime == 'onnx':
             selection = _resolve_inference_selection(self._selected_inference_provider, self._accel_caps)
@@ -1065,11 +1150,21 @@ class ClassifierService:
             "runtime_installed": tflite is not None,
             "onnx_available": ONNX_AVAILABLE,
             "openvino_available": bool(self._accel_caps.get("openvino_available")),
+            "openvino_version": self._accel_caps.get("openvino_version"),
+            "openvino_import_path": self._accel_caps.get("openvino_import_path"),
+            "openvino_import_error": self._accel_caps.get("openvino_import_error"),
+            "openvino_probe_error": self._accel_caps.get("openvino_probe_error"),
+            "openvino_devices": self._accel_caps.get("openvino_devices") or [],
             "cuda_provider_installed": bool(self._accel_caps.get("cuda_provider_installed")),
             "cuda_hardware_available": bool(self._accel_caps.get("cuda_hardware_available")),
             "cuda_available": bool(self._accel_caps.get("cuda_available")),
             "intel_gpu_available": bool(self._accel_caps.get("intel_gpu_available")),
             "intel_cpu_available": bool(self._accel_caps.get("intel_cpu_available")),
+            "dev_dri_present": bool(self._accel_caps.get("dev_dri_present")),
+            "dev_dri_entries": self._accel_caps.get("dev_dri_entries") or [],
+            "process_uid": self._accel_caps.get("process_uid"),
+            "process_gid": self._accel_caps.get("process_gid"),
+            "process_groups": self._accel_caps.get("process_groups") or [],
             "selected_provider": _normalize_inference_provider(getattr(settings.classification, "inference_provider", "auto")),
             "active_provider": self._active_inference_provider,
             "inference_backend": self._inference_backend,
