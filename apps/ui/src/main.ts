@@ -1,6 +1,6 @@
 import './app.css'
 import './lib/i18n'
-import { mount } from 'svelte'
+import { mount } from 'svelte' // Trigger CI rebuild
 import App from './App.svelte'
 import { toastStore } from './lib/stores/toast.svelte';
 import { get } from 'svelte/store';
