@@ -1985,6 +1985,26 @@ class DetectionRepository:
         )
         await self.db.commit()
 
+    async def get_recent_audio_source_observations(self, limit: int = 200) -> list[dict]:
+        """Return recent raw audio rows for source discovery/deduping."""
+        async with self.db.execute(
+            """SELECT timestamp, sensor_id, raw_data
+               FROM audio_detections
+               ORDER BY timestamp DESC
+               LIMIT ?""",
+            (limit,),
+        ) as cursor:
+            rows = await cursor.fetchall()
+
+        return [
+            {
+                "timestamp": row[0],
+                "sensor_id": row[1],
+                "raw_data": row[2],
+            }
+            for row in rows
+        ]
+
     async def get_audio_context(
         self,
         target_time: datetime,

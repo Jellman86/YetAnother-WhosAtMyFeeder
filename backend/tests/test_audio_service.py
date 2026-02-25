@@ -52,6 +52,58 @@ async def test_add_detection_birdnet_go_format(audio_service):
     # Allow some precision difference in comparison
     assert abs((det.timestamp - (now - timedelta(seconds=10))).total_seconds()) < 1
 
+
+@pytest.mark.asyncio
+async def test_add_detection_prefers_birdnet_nm_for_mapping_key(audio_service):
+    now = datetime.now(timezone.utc)
+    ts = (now - timedelta(seconds=5)).isoformat().replace('+00:00', 'Z')
+    data = {
+        "src": "rtsp_deadbeef",
+        "nm": "BirdCam",
+        "CommonName": "Dunnock",
+        "Confidence": 0.8,
+        "BeginTime": ts,
+    }
+    await audio_service.add_detection(data)
+
+    assert len(audio_service._buffer) == 1
+    det = audio_service._buffer[0]
+    assert det.sensor_id == "BirdCam"
+
+
+@pytest.mark.asyncio
+async def test_add_detection_uses_source_display_name_when_nm_missing(audio_service):
+    now = datetime.now(timezone.utc)
+    ts = (now - timedelta(seconds=5)).isoformat().replace('+00:00', 'Z')
+    data = {
+        "Source": {"id": "rtsp_1234abcd", "displayName": "Garden Mic"},
+        "CommonName": "Dunnock",
+        "Confidence": 0.8,
+        "BeginTime": ts,
+    }
+    await audio_service.add_detection(data)
+
+    assert len(audio_service._buffer) == 1
+    det = audio_service._buffer[0]
+    assert det.sensor_id == "Garden Mic"
+
+
+@pytest.mark.asyncio
+async def test_add_detection_falls_back_to_id_when_name_fields_missing(audio_service):
+    now = datetime.now(timezone.utc)
+    ts = (now - timedelta(seconds=5)).isoformat().replace('+00:00', 'Z')
+    data = {
+        "id": "rtsp_fallbackid",
+        "CommonName": "Dunnock",
+        "Confidence": 0.8,
+        "BeginTime": ts,
+    }
+    await audio_service.add_detection(data)
+
+    assert len(audio_service._buffer) == 1
+    det = audio_service._buffer[0]
+    assert det.sensor_id == "rtsp_fallbackid"
+
 @pytest.mark.asyncio
 async def test_cleanup_buffer(audio_service):
     # Set buffer to 1 minute for test

@@ -28,6 +28,7 @@
         resetDatabase,
         analyzeUnknowns,
         fetchAnalysisStatus,
+        fetchAudioSources,
         testBirdWeather,
         testLlm,
         testBirdNET,
@@ -50,7 +51,8 @@
         type CacheCleanupResult,
         type TaxonomySyncStatus,
         type VersionInfo,
-        type AnalysisStatus
+        type AnalysisStatus,
+        type AudioSourceOption
     } from '../api';
     import { themeStore, type Theme } from '../stores/theme.svelte';
     import { layoutStore, type Layout } from '../stores/layout.svelte';
@@ -83,6 +85,9 @@
     let mqttPasswordSaved = $state(false);
     let audioTopic = $state('birdnet/text');
     let cameraAudioMapping = $state<Record<string, string>>({});
+    let birdnetSourceOptions = $state<AudioSourceOption[]>([]);
+    let loadingBirdnetSources = $state(false);
+    let birdnetSourcesError = $state<string | null>(null);
     let audioBufferHours = $state(24);
     let audioCorrelationWindowSeconds = $state(300);
     let clipsEnabled = $state(true);
@@ -2020,6 +2025,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     async function loadSettings(silent = false) {
         if (!silent) loading = true;
         if (!silent) message = null;
+        loadingBirdnetSources = true;
+        birdnetSourcesError = null;
         try {
             const settings = await fetchSettings();
             frigateUrl = settings.frigate_url;
@@ -2039,6 +2046,15 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             cameraAudioMapping = settings.camera_audio_mapping || {};
             if (typeof cameraAudioMapping !== 'object' || Array.isArray(cameraAudioMapping)) {
                 cameraAudioMapping = {};
+            }
+            try {
+                birdnetSourceOptions = await fetchAudioSources(20);
+            } catch (e) {
+                birdnetSourceOptions = [];
+                birdnetSourcesError = e instanceof Error ? e.message : 'Failed to load BirdNET sources';
+                console.error('Failed to load BirdNET source helper data', e);
+            } finally {
+                loadingBirdnetSources = false;
             }
             audioBufferHours = settings.audio_buffer_hours ?? 24;
             audioCorrelationWindowSeconds = settings.audio_correlation_window_seconds ?? 300;
@@ -2262,6 +2278,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 themeStore.setFontTheme(settings.appearance_font_theme as any);
             }
         } catch (e) {
+            loadingBirdnetSources = false;
             message = { type: 'error', text: $_('notifications.settings_load_failed') };
         } finally {
             if (!silent) loading = false;
@@ -2777,6 +2794,9 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     bind:audioBufferHours
                     bind:audioCorrelationWindowSeconds
                     bind:cameraAudioMapping
+                    {birdnetSourceOptions}
+                    {loadingBirdnetSources}
+                    {birdnetSourcesError}
                     {availableCameras}
                     bind:testingBirdNET
                     bind:birdweatherEnabled

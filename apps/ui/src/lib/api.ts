@@ -1609,6 +1609,13 @@ export interface AudioContextDetection extends AudioDetection {
     offset_seconds: number;
 }
 
+export interface AudioSourceOption {
+    source_name: string;
+    last_seen: string;
+    sample_source_id?: string | null;
+    seen_count?: number;
+}
+
 export async function fetchAudioContext(
     timestamp: string,
     camera?: string,
@@ -1624,6 +1631,11 @@ export async function fetchAudioContext(
     }
     const response = await apiFetch(`${API_BASE}/audio/context?${params.toString()}`);
     return handleResponse<AudioContextDetection[]>(response);
+}
+
+export async function fetchAudioSources(limit: number = 20): Promise<AudioSourceOption[]> {
+    const response = await apiFetch(`${API_BASE}/audio/sources?limit=${limit}`);
+    return handleResponse<AudioSourceOption[]>(response);
 }
 
 export interface SearchResult {

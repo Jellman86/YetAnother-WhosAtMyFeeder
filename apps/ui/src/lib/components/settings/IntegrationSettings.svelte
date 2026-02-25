@@ -9,6 +9,9 @@
         audioBufferHours = $bindable(24),
         audioCorrelationWindowSeconds = $bindable(300),
         cameraAudioMapping = $bindable<Record<string, string>>({}),
+        birdnetSourceOptions = [],
+        loadingBirdnetSources = false,
+        birdnetSourcesError = null,
         availableCameras = [],
         testingBirdNET = $bindable(false),
         birdweatherEnabled = $bindable(false),
@@ -47,6 +50,9 @@
         audioBufferHours: number;
         audioCorrelationWindowSeconds: number;
         cameraAudioMapping: Record<string, string>;
+        birdnetSourceOptions: Array<{ source_name: string; last_seen: string; sample_source_id?: string | null; seen_count?: number }>;
+        loadingBirdnetSources: boolean;
+        birdnetSourcesError: string | null;
         availableCameras: string[];
         testingBirdNET: boolean;
         birdweatherEnabled: boolean;
@@ -205,6 +211,7 @@
                             <span class="text-[10px] font-black text-slate-400 w-24 truncate uppercase">{camera}</span>
                             <input
                                 type="text"
+                                list="birdnet-source-options"
                                 bind:value={cameraAudioMapping[camera]}
                                 placeholder={$_('settings.integrations.birdnet.sensor_id_placeholder')}
                                 aria-label={$_('settings.integrations.birdnet.sensor_id_label', { values: { camera } })}
@@ -212,11 +219,59 @@
                             />
                         </div>
                     {/each}
+                    <datalist id="birdnet-source-options">
+                        {#each birdnetSourceOptions as source}
+                            <option value={source.source_name}></option>
+                        {/each}
+                    </datalist>
                     {#if availableCameras.length === 0}
                         <p class="text-[10px] text-slate-400 font-bold italic">{$_('settings.integrations.birdnet.sensor_mapping_empty')}</p>
                     {:else}
                         <p class="text-[10px] text-slate-400 font-bold italic">{$_('settings.integrations.birdnet.sensor_mapping_help')}</p>
                     {/if}
+                    <div class="mt-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-900/30 p-3">
+                        <div class="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">
+                            {$_('settings.integrations.birdnet.source_discovery_title')}
+                        </div>
+                        {#if loadingBirdnetSources}
+                            <p class="text-[10px] text-slate-400 font-bold italic">
+                                {$_('settings.integrations.birdnet.source_discovery_loading')}
+                            </p>
+                        {:else if birdnetSourcesError}
+                            <p class="text-[10px] text-rose-500 font-bold italic">
+                                {$_('settings.integrations.birdnet.source_discovery_error')}
+                            </p>
+                        {:else if birdnetSourceOptions.length === 0}
+                            <p class="text-[10px] text-slate-400 font-bold italic">
+                                {$_('settings.integrations.birdnet.source_discovery_empty')}
+                            </p>
+                        {:else}
+                            <p class="text-[10px] text-slate-400 font-bold italic mb-2">
+                                {$_('settings.integrations.birdnet.source_discovery_help')}
+                            </p>
+                            <div class="space-y-2">
+                                {#each birdnetSourceOptions as source}
+                                    <div class="flex items-center justify-between gap-3 rounded-lg bg-white/80 dark:bg-slate-950/40 border border-slate-200/70 dark:border-slate-700/70 px-2 py-1.5">
+                                        <div class="min-w-0">
+                                            <div class="text-xs font-black text-slate-800 dark:text-slate-100 truncate">{source.source_name}</div>
+                                            <div class="text-[10px] text-slate-500 truncate">
+                                                {#if source.sample_source_id}
+                                                    ID: {source.sample_source_id}
+                                                {/if}
+                                                {#if source.seen_count}
+                                                    {#if source.sample_source_id} · {/if}
+                                                    Seen: {source.seen_count}
+                                                {/if}
+                                            </div>
+                                        </div>
+                                        <div class="text-[10px] font-bold text-slate-500 whitespace-nowrap">
+                                            {source.last_seen}
+                                        </div>
+                                    </div>
+                                {/each}
+                            </div>
+                        {/if}
+                    </div>
                 </div>
             </div>
         </div>

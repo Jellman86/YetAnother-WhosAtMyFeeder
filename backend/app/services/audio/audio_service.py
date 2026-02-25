@@ -31,6 +31,31 @@ class AudioService:
                  buffer_duration_hours=settings.frigate.audio_buffer_hours,
                  correlation_window_seconds=settings.frigate.audio_correlation_window_seconds)
 
+    @staticmethod
+    def _extract_birdnet_mapping_key(data: dict) -> Optional[str]:
+        """Return the canonical BirdNET source key used for camera mapping.
+
+        Hard switch semantics:
+        - Prefer stable source names (`nm`, `Source.displayName`)
+        - Fall back to ID-style values for malformed/older payloads
+        """
+        source = data.get("Source")
+        source = source if isinstance(source, dict) else {}
+
+        candidates = (
+            data.get("nm"),
+            source.get("displayName"),
+            data.get("id"),
+            data.get("sensor_id"),
+            source.get("id"),
+        )
+        for value in candidates:
+            if isinstance(value, str):
+                value = value.strip()
+                if value:
+                    return value
+        return None
+
     async def add_detection(self, data: dict):
         """Ingest a detection from MQTT."""
         try:
@@ -45,10 +70,8 @@ class AudioService:
             if confidence is None:
                 confidence = data.get("Confidence", 0.0)
 
-            # Capture sensor/id for camera matching
-            sensor_id = data.get("id", data.get("sensor_id"))
-            if not sensor_id and "Source" in data:
-                sensor_id = data.get("Source", {}).get("id")
+            # Canonical BirdNET source key for camera mapping (prefer stable source names)
+            sensor_id = self._extract_birdnet_mapping_key(data)
 
             # Resolve scientific name for robust matching across languages
             scientific_name = data.get("ScientificName")
