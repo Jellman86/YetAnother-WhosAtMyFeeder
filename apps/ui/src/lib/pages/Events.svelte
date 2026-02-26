@@ -72,6 +72,8 @@
     });
 
     let eventsSyncFrame: number | null = null;
+    let reclassifyCompletionRefreshTimeout: number | null = null;
+    let handledVisibleReclassifyCompletions = $state<Record<string, number>>({});
 
     // Naming logic
     let naming = $derived.by(() => {
@@ -276,11 +278,9 @@
 
     function applyStoreUpdatesToEventList() {
         if (!events.length) return;
-        if (!detectionsStore.detections.length) return;
-        const updatesById = new Map(detectionsStore.detections.map((d) => [d.frigate_event, d] as const));
         let changed = false;
         const nextEvents = events.map((event) => {
-            const updated = updatesById.get(event.frigate_event);
+            const updated = detectionsStore.getDetectionPatch(event.frigate_event);
             if (!updated) return event;
             const definedPatch = Object.fromEntries(
                 Object.entries(updated).filter(([, value]) => value !== undefined)
@@ -309,19 +309,85 @@
         });
     }
 
+    function scheduleReclassifyCompletionRefresh() {
+        if (typeof window === 'undefined') {
+            void loadEvents();
+            return;
+        }
+        if (reclassifyCompletionRefreshTimeout !== null) return;
+        reclassifyCompletionRefreshTimeout = window.setTimeout(() => {
+            reclassifyCompletionRefreshTimeout = null;
+            void loadEvents();
+        }, 700);
+    }
+
     $effect(() => {
         if (loading) return;
         if (!events.length) return;
-        if (!detectionsStore.detections.length) return;
         const _mutationVersion = detectionsStore.mutationVersion;
         void _mutationVersion;
         scheduleEventListSync();
+    });
+
+    $effect(() => {
+        if (loading) return;
+        if (!events.length) return;
+        const _mutationVersion = detectionsStore.mutationVersion;
+        void _mutationVersion;
+        const _progressMap = detectionsStore.progressMap;
+        void _progressMap;
+
+        let nextHandled = handledVisibleReclassifyCompletions;
+        let handledChanged = false;
+        let shouldRefresh = false;
+
+        for (const event of events) {
+            const progress = detectionsStore.getReclassificationProgress(event.frigate_event);
+            if (!progress || progress.status !== 'completed') continue;
+            const completedAt = Number(progress.completedAt ?? progress.lastUpdateAt ?? 0);
+            if (!Number.isFinite(completedAt) || completedAt <= 0) continue;
+            if ((handledVisibleReclassifyCompletions[event.frigate_event] ?? 0) >= completedAt) continue;
+
+            if (!handledChanged) {
+                nextHandled = { ...handledVisibleReclassifyCompletions };
+                handledChanged = true;
+            }
+            nextHandled[event.frigate_event] = completedAt;
+            shouldRefresh = true;
+        }
+
+        const handledKeys = Object.keys(nextHandled);
+        if (handledKeys.length > 512) {
+            const activeProgressIds = new Set(detectionsStore.progressMap.keys());
+            const visibleIds = new Set(events.map((event) => event.frigate_event));
+            const pruned: Record<string, number> = {};
+            for (const id of handledKeys) {
+                if (activeProgressIds.has(id) || visibleIds.has(id)) {
+                    pruned[id] = nextHandled[id];
+                }
+            }
+            nextHandled = pruned;
+            handledChanged = true;
+        }
+
+        if (handledChanged) {
+            handledVisibleReclassifyCompletions = nextHandled;
+        }
+        if (shouldRefresh) {
+            // Batch completions can evict SSE update patches from the recent detections list.
+            // A debounced reload ensures Explorer cards converge to backend truth.
+            scheduleReclassifyCompletionRefresh();
+        }
     });
 
     onDestroy(() => {
         if (eventsSyncFrame !== null && typeof window !== 'undefined') {
             window.cancelAnimationFrame(eventsSyncFrame);
             eventsSyncFrame = null;
+        }
+        if (reclassifyCompletionRefreshTimeout !== null && typeof window !== 'undefined') {
+            window.clearTimeout(reclassifyCompletionRefreshTimeout);
+            reclassifyCompletionRefreshTimeout = null;
         }
     });
 

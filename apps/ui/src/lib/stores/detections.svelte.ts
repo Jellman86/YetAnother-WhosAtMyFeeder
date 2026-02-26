@@ -34,12 +34,37 @@ class DetectionsStore {
     connected = $state(false);
     progressMap = $state<Map<string, ReclassificationProgress>>(new Map());
     mutationVersion = $state(0);
+    patchMap = $state<Map<string, Partial<Detection>>>(new Map());
 
     private MAX_ITEMS = 50;
     private MAX_RECLASSIFICATION_FRAMES = 240;
+    private MAX_PATCH_ITEMS = 2000;
 
     private markMutated() {
         this.mutationVersion += 1;
+    }
+
+    private rememberPatch(updated: Partial<Detection>) {
+        const eventId = typeof updated?.frigate_event === 'string' ? updated.frigate_event.trim() : '';
+        if (!eventId) return;
+
+        const definedEntries = Object.entries(updated).filter(([, value]) => value !== undefined);
+        if (definedEntries.length === 0) return;
+
+        const patch = Object.fromEntries(definedEntries) as Partial<Detection>;
+        const next = new Map(this.patchMap);
+        const existing = next.get(eventId) ?? {};
+        // Refresh insertion order for LRU-style pruning.
+        next.delete(eventId);
+        next.set(eventId, { ...existing, ...patch });
+
+        while (next.size > this.MAX_PATCH_ITEMS) {
+            const oldestKey = next.keys().next().value;
+            if (!oldestKey) break;
+            next.delete(oldestKey);
+        }
+        this.patchMap = next;
+        this.markMutated();
     }
 
     async loadInitial() {
@@ -81,6 +106,7 @@ class DetectionsStore {
             logger.warn('Skipping invalid detection payload without event id', { detection });
             return;
         }
+        this.rememberPatch(detection);
         if (!this.detections.find(d => d.frigate_event === detection.frigate_event)) {
             this.detections = [detection, ...this.detections].slice(0, this.MAX_ITEMS);
             this.totalToday++;
@@ -89,6 +115,7 @@ class DetectionsStore {
     }
 
     updateDetection(updated: Detection) {
+        this.rememberPatch(updated);
         if (updated.is_hidden) {
             this.removeDetection(updated.frigate_event, updated.detection_time);
             return;
@@ -111,6 +138,11 @@ class DetectionsStore {
     }
 
     removeDetection(eventId: string, detectionDate?: string) {
+        if (eventId) {
+            const next = new Map(this.patchMap);
+            next.delete(eventId);
+            this.patchMap = next;
+        }
         const wasInList = this.detections.find(d => d.frigate_event === eventId);
         if (wasInList) {
             this.detections = this.detections.filter(d => d.frigate_event !== eventId);
@@ -301,6 +333,10 @@ class DetectionsStore {
 
     getReclassificationProgress(eventId: string): ReclassificationProgress | undefined {
         return this.progressMap.get(eventId);
+    }
+
+    getDetectionPatch(eventId: string): Partial<Detection> | undefined {
+        return this.patchMap.get(eventId);
     }
 }
 
