@@ -198,18 +198,13 @@ Prioritize fixes for anything listed in `ISSUES.md` (known issues, testing gaps)
 
 If this section ever claims "none", treat it as stale: always check `ISSUES.md` and the GitHub issue tracker.
 
-### Current Execution Focus (DB/Reliability First)
-- ✅ Startup hardening: phased lifecycle logging, startup diagnostics, degraded health surfacing.
-- ✅ Readiness endpoint added (`/ready`) and startup smoke checks in CI.
-- ✅ SQLite schema sanity checks expanded (FK/integrity + taxonomy regression guard).
-- ✅ Sampled Alembic upgrade-path matrix now tested in CI.
-- ✅ Public share-link base URL override delivered end-to-end (settings + backend URL generation).
-- ✅ Frontend diagnostics controls now default off and only active in debug mode.
-- ✅ Migration resilience hardening completed (idempotent guards + deterministic multilingual downgrade path).
-- ✅ Locale key parity kept in sync; latest share-link/notification/timeline strings translated across supported locales.
-- ✅ Video player hardening delivered: Plyr migration, server-generated timeline previews, preview-state UX, and backend metrics.
-- ✅ Video player reliability patch delivered: playback-status chip now follows real media state and preview sprite URLs are reverse-proxy-safe (path-based VTT cues).
-- 🔄 Next: expand E2E coverage around upgrade/restart scenarios and permission-failure startup paths.
+### Current Execution Focus (Issue Triage + Validation)
+- Snapshot as of **February 26, 2026**: prioritize open GitHub issues before new feature work (`#16`, `#19`).
+- ✅ `#17` (batch reclassify issue) closed after triage confirmed the remaining symptom belongs in `#19`.
+- ✅ `#20` (weather conditions panel text alignment) fixed and reporter-confirmed, then closed.
+- 🔄 `#19` follow-up fix shipped on `dev` (`76433eb`) to prevent stale Explorer `Unknown Bird` cards after batch reclassification; awaiting reporter retest.
+- 🔄 `#16` BirdNET-Go mapping improvements (source-name / `nm` mapping) are in `dev`; reporter sees audio figures again and is validating long-running stability.
+- 🔄 Continue reliability work in parallel: expand E2E coverage around upgrade/restart scenarios and permission-failure startup paths.
 
 ---
 

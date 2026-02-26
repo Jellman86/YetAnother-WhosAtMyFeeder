@@ -4,20 +4,41 @@ This document tracks known issues and testing gaps that have not been verified e
 
 If you find a bug, please open a GitHub issue with the steps to reproduce and any redacted logs.
 
+Last reviewed against the GitHub issue tracker on **February 26, 2026**.
+
 ## P0: Active Regressions
 
 - None currently confirmed as unresolved in current `dev`.
 
-## Pending Verification (Fixed in Dev, Awaiting Reporter Confirmation)
+## Pending Verification (Fixes in Dev, Awaiting Reporter Confirmation)
 
-### GitHub Issue #13: Wrong Wikipedia Reference (RU localization)
-- Issue: `https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/13`
-- Status (as of February 17, 2026): Open, waiting for user validation on latest `dev` images.
-- Implemented fix on `dev`: `e10afbf`
-- Scope of fix:
-  - Backend multilingual Wikipedia candidate scoring and scientific-name-aware matching to avoid incorrect similarly named species pages.
-  - Frontend locale-aware leaderboard species-info cache to prevent stale cross-language links after language switches.
-  - Added regression tests: `backend/tests/test_species_wikipedia_matching.py`.
+### GitHub Issue #19: Incorrect filter application
+- Issue: `https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/19`
+- Status (as of February 26, 2026): Open, follow-up `dev` fix shipped and awaiting reporter retest.
+- Implemented fixes on `dev`:
+  - `c7f707a` (unknown-label alias filter canonicalization / API filter handling)
+  - `76433eb` (Explorer stale-card sync fix after batch reclassification bursts)
+- Current understanding:
+  - The original unknown-label alias filter bug was fixed.
+  - The remaining reported symptom evolved into an Explorer UI consistency issue during batch reclassification (stale `Unknown Bird` cards after SSE patch bursts).
+  - The latest `dev` fix decouples Events patch sync from the capped recent-detections list and adds a debounced refresh fallback.
+
+### GitHub Issue #16: No audio detection mapped
+- Issue: `https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/16`
+- Status (as of February 26, 2026): Open, behavior improved on `dev` and awaiting longer-running user confirmation.
+- Current understanding:
+  - Initial multilingual/common-name correlation fixes improved audio correlation behavior.
+  - BirdNET-Go source ID drift (`src`) after restart caused mappings to break over time.
+  - `dev` now uses BirdNET source name (`nm`) mapping and exposes recent BirdNET source names in Settings to make mapping easier.
+- Reporter feedback so far:
+  - Dashboard audio figures are now appearing.
+  - Reporter still needs to confirm the count continues increasing reliably after restart/runtime.
+
+## Recently Closed (Context)
+
+- **#20** Weather conditions panel text alignment - reporter confirmed fix; closed on **February 26, 2026**.
+- **#17** Batch reclassify issue - remaining symptom moved to `#19`; closed on **February 26, 2026**.
+- **#13** Wrong Wikipedia reference (RU localization) - closed on **February 19, 2026** after validation.
 
 ## P1: Untested Integrations (Need Community Testing)
 
@@ -60,6 +81,7 @@ For a step-by-step checklist, see `INTEGRATION_TESTING.md`.
 ## Notes
 
 - Resolved/closed investigation notes live in `CHANGELOG.md`.
+- Open GitHub issues are the source of truth for active bug state; this file is a maintainer triage summary.
 - Resolved on February 12, 2026: video player modal stall/hang regression in `Events` flow.
 - Resolved on February 12, 2026: video playback-state badge now tracks active playback correctly and no longer sticks on `Paused`.
 - Resolved on February 12, 2026: timeline preview VTT cues now use path-based sprite URLs for reverse-proxy compatibility.
