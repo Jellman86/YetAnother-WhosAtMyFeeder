@@ -316,6 +316,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Thanks To
 
+- Everyone helping improve the project by reporting bugs, testing fixes, and sharing feedback (see [CONTRIBUTORS.md](CONTRIBUTORS.md))
 - The original [WhosAtMyFeeder](https://github.com/mmcc-xx/WhosAtMyFeeder) project for the idea
 - [Frigate](https://frigate.video/) for being such a great NVR
 - [BirdNET-Go](https://github.com/tbeceele/birdnet-go) for the excellent audio classification integration
