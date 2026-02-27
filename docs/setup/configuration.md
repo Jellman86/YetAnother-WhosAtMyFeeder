@@ -23,6 +23,7 @@ Fine-tune how AI identifications are handled. This is the most important section
 | **Confidence Threshold** | The "Species Gatekeeper". If the AI score is higher than this (e.g., 0.7), the bird is saved with its specific species name. |
 | **Min Confidence Floor** | The "Existence Gatekeeper". Anything below this score (e.g., 0.2) is discarded as a false positive (shadows, bugs, etc.). |
 | **Trust Frigate Sublabels** | The "Fast Path". If enabled and Frigate provides an identification, YA-WAMF trusts it instantly, bypassing both the local AI and the Confidence Floor. |
+| **Personalized Re-ranking** | Optional learning layer that uses your manual species corrections to re-rank future predictions for the same camera and active model. Activates after at least 20 manual tags for that camera/model pair. |
 
 ### 🛠 How Thresholds Work Together
 The logic follows a three-tier system:
@@ -39,6 +40,12 @@ The logic follows a three-tier system:
 
 ### 💡 Pro-Tip: The "Bypass"
 If you have **"Trust Frigate Sublabels"** enabled, and Frigate identifies a "Blue Jay", YA-WAMF will save it as a "Blue Jay" even if its own local model only got a 0.1 score. This is useful because Frigate has access to the full motion stream, whereas YA-WAMF's real-time pass only sees a single snapshot.
+
+### 🎯 Personalized Re-ranking Details
+- Scope: Feedback is isolated by **camera + active model ID**. Corrections from one camera/model do not affect others.
+- Activation threshold: Re-ranking remains inactive until there are at least **20** manual correction tags for that camera/model pair.
+- Time decay: Newer corrections are weighted more heavily than older ones, so stale patterns fade over time.
+- Safety: Score adjustments are bounded and fail-open; if feedback is unavailable or lookup fails, YA-WAMF uses the base classifier scores.
 
 ## Integration Settings
 Configure third-party services.
