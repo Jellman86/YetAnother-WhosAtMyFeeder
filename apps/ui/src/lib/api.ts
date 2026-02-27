@@ -231,6 +231,7 @@ export interface Settings {
     trust_frigate_sublabel: boolean;
     display_common_names: boolean;
     scientific_name_primary: boolean;
+    personalized_rerank_enabled: boolean;
     auto_video_classification: boolean;
     video_classification_delay: number;
     video_classification_max_retries: number;

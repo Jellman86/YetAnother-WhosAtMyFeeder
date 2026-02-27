@@ -96,6 +96,7 @@
     let trustFrigateSublabel = $state(true);
     let displayCommonNames = $state(true);
     let scientificNamePrimary = $state(false);
+    let personalizedRerankEnabled = $state(false);
     let autoVideoClassification = $state(false);
     let videoClassificationDelay = $state(30);
     let videoClassificationMaxRetries = $state(3);
@@ -1420,6 +1421,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'trustFrigateSublabel', val: trustFrigateSublabel, store: s.trust_frigate_sublabel ?? true },
             { key: 'displayCommonNames', val: displayCommonNames, store: s.display_common_names ?? true },
             { key: 'scientificNamePrimary', val: scientificNamePrimary, store: s.scientific_name_primary ?? false },
+            { key: 'personalizedRerankEnabled', val: personalizedRerankEnabled, store: s.personalized_rerank_enabled ?? false },
             { key: 'fontTheme', val: currentFontTheme, store: (s.appearance_font_theme ?? 'classic') as any },
             { key: 'autoVideoClassification', val: autoVideoClassification, store: s.auto_video_classification ?? false },
             { key: 'videoClassificationDelay', val: videoClassificationDelay, store: s.video_classification_delay ?? 30 },
@@ -2064,6 +2066,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             trustFrigateSublabel = settings.trust_frigate_sublabel ?? true;
             displayCommonNames = settings.display_common_names ?? true;
             scientificNamePrimary = settings.scientific_name_primary ?? false;
+            personalizedRerankEnabled = settings.personalized_rerank_enabled ?? false;
             autoVideoClassification = settings.auto_video_classification ?? false;
             videoClassificationDelay = settings.video_classification_delay ?? 30;
             videoClassificationMaxRetries = settings.video_classification_max_retries ?? 3;
@@ -2336,6 +2339,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 trust_frigate_sublabel: trustFrigateSublabel,
                 display_common_names: displayCommonNames,
                 scientific_name_primary: scientificNamePrimary,
+                personalized_rerank_enabled: personalizedRerankEnabled,
                 auto_video_classification: autoVideoClassification,
                 video_classification_delay: videoClassificationDelay,
                 video_classification_max_retries: videoClassificationMaxRetries,
@@ -2713,6 +2717,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     bind:threshold
                     bind:minConfidence
                     bind:trustFrigateSublabel
+                    bind:personalizedRerankEnabled
                     bind:autoVideoClassification
                     bind:videoClassificationDelay
                     bind:videoClassificationMaxRetries

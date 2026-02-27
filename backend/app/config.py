@@ -204,6 +204,10 @@ class ClassificationSettings(BaseModel):
         default=False,
         description="Show scientific name as the primary label in UI"
     )
+    personalized_rerank_enabled: bool = Field(
+        default=False,
+        description="Enable personalized camera/model-aware reranking from manual tags"
+    )
     # Auto Video Classification
     auto_video_classification: bool = Field(default=False, description="Automatically classify video clips when available")
     video_classification_delay: int = Field(default=30, description="Seconds to wait before checking for clip (allow Frigate to finalize)")
@@ -555,6 +559,7 @@ class Settings(BaseSettings):
             'trust_frigate_sublabel': True,
             'display_common_names': True,
             'scientific_name_primary': False,
+            'personalized_rerank_enabled': os.environ.get('CLASSIFICATION__PERSONALIZED_RERANK_ENABLED', 'false').lower() == 'true',
             'auto_video_classification': os.environ.get('CLASSIFICATION__AUTO_VIDEO_CLASSIFICATION', 'false').lower() == 'true',
             'video_classification_delay': int(os.environ.get('CLASSIFICATION__VIDEO_CLASSIFICATION_DELAY', '30')),
             'video_classification_max_retries': int(os.environ.get('CLASSIFICATION__VIDEO_CLASSIFICATION_MAX_RETRIES', '3')),
@@ -965,6 +970,7 @@ class Settings(BaseSettings):
                  trust_frigate_sublabel=classification_data['trust_frigate_sublabel'],
                  display_common_names=classification_data['display_common_names'],
                  scientific_name_primary=classification_data['scientific_name_primary'],
+                 personalized_rerank_enabled=classification_data.get('personalized_rerank_enabled', False),
                  inference_provider=classification_data.get('inference_provider', 'auto'))
         log.info("Media cache config",
                  enabled=media_cache_data['enabled'],

@@ -272,6 +272,7 @@ class SettingsUpdate(BaseModel):
     trust_frigate_sublabel: bool = Field(True, description="Trust Frigate sublabels when available")
     display_common_names: bool = Field(True, description="Display common names instead of scientific")
     scientific_name_primary: bool = Field(False, description="Show scientific name as the primary label in UI")
+    personalized_rerank_enabled: Optional[bool] = Field(False, description="Enable personalized reranking using manual tag feedback")
     # Auto Video Classification
     auto_video_classification: Optional[bool] = Field(False, description="Automatically classify video clips")
     video_classification_delay: Optional[int] = Field(30, ge=0, description="Seconds to wait before checking for clip")
@@ -530,6 +531,7 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "trust_frigate_sublabel": settings.classification.trust_frigate_sublabel,
         "display_common_names": settings.classification.display_common_names,
         "scientific_name_primary": settings.classification.scientific_name_primary,
+        "personalized_rerank_enabled": settings.classification.personalized_rerank_enabled,
         "auto_video_classification": settings.classification.auto_video_classification,
         "video_classification_delay": settings.classification.video_classification_delay,
         "video_classification_max_retries": settings.classification.video_classification_max_retries,
@@ -735,6 +737,8 @@ async def update_settings(
         settings.classification.display_common_names = update.display_common_names
     if "scientific_name_primary" in fields_set:
         settings.classification.scientific_name_primary = update.scientific_name_primary
+    if "personalized_rerank_enabled" in fields_set and update.personalized_rerank_enabled is not None:
+        settings.classification.personalized_rerank_enabled = update.personalized_rerank_enabled
     
     if "auto_video_classification" in fields_set and update.auto_video_classification is not None:
         settings.classification.auto_video_classification = update.auto_video_classification
