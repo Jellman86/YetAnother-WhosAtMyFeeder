@@ -9,6 +9,7 @@
         onPageChange: (page: number) => void;
         onPageSizeChange?: (size: number) => void;
         pageSizeOptions?: number[];
+        showPageSize?: boolean;
     }
 
     let {
@@ -18,7 +19,8 @@
         itemsPerPage,
         onPageChange,
         onPageSizeChange,
-        pageSizeOptions = [12, 24, 48]
+        pageSizeOptions = [12, 24, 48],
+        showPageSize = true
     }: Props = $props();
 
     // Calculate display range
@@ -77,7 +79,7 @@
                 of <span class="font-medium text-slate-900 dark:text-white">{totalItems.toLocaleString()}</span>
             </span>
 
-            {#if onPageSizeChange}
+            {#if onPageSizeChange && showPageSize}
                 <div class="flex items-center gap-2">
                     <label for="page-size-selector">{$_('pagination.page_size_label', { default: 'Show:' })}</label>
                     <select

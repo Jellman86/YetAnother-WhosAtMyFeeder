@@ -160,3 +160,38 @@ async def test_events_filters_canonicalize_unknown_aliases_to_single_option(clie
     finally:
         for event_id in event_ids:
             await _delete_detection(event_id)
+
+
+@pytest.mark.asyncio
+async def test_events_filters_force_refresh_bypasses_cache(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+
+    species_a = f"Refresh Species A {uuid.uuid4().hex[:6]}"
+    species_b = f"Refresh Species B {uuid.uuid4().hex[:6]}"
+    event_a = f"evt-{uuid.uuid4().hex[:8]}"
+    event_b = f"evt-{uuid.uuid4().hex[:8]}"
+
+    await _insert_detection(event_a, species_a, "cam-refresh")
+    try:
+        first_resp = await client.get("/api/events/filters")
+        assert first_resp.status_code == 200
+        first_species_values = {s["value"] for s in first_resp.json()["species"]}
+        assert species_a in first_species_values
+        assert species_b not in first_species_values
+
+        await _insert_detection(event_b, species_b, "cam-refresh")
+
+        cached_resp = await client.get("/api/events/filters")
+        assert cached_resp.status_code == 200
+        cached_species_values = {s["value"] for s in cached_resp.json()["species"]}
+        assert species_b not in cached_species_values
+
+        refreshed_resp = await client.get("/api/events/filters", params={"force_refresh": "true"})
+        assert refreshed_resp.status_code == 200
+        refreshed_species_values = {s["value"] for s in refreshed_resp.json()["species"]}
+        assert species_a in refreshed_species_values
+        assert species_b in refreshed_species_values
+    finally:
+        await _delete_detection(event_a)
+        await _delete_detection(event_b)

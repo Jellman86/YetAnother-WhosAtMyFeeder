@@ -29,6 +29,9 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Changed:** Explorer event-card weather sub-panels now use identical inner padding so summary/details cards align uniformly.
 - **Fixed:** "Process Unknown Birds" now includes detections that are still labeled `Unknown Bird` even if a previous video classification run completed, allowing manual batch retries after model/config changes.
 - **Fixed:** Explorer event cards now stay in sync more reliably during batch reclassification bursts; live updates no longer depend solely on the capped recent-detections list, and completed reclassifications trigger a debounced list refresh fallback to prevent stale `Unknown Bird` cards.
+- **Changed:** Explorer pagination controls are now available at both the top and bottom of the event list to reduce extra scrolling during page-by-page review.
+- **Changed:** Explorer now includes a manual "Refresh options" control for species/camera filters, and the page triggers a debounced metadata refresh after reclassification completions so newly introduced species appear in filter dropdowns without a full page reload.
+- **Added:** `/api/events/filters` now supports `force_refresh=true` to bypass the short-lived filter-options cache when clients need immediate freshness.
 
 ## [2.8.3] - 2026-02-23
 

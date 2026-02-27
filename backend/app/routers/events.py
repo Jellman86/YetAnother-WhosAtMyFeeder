@@ -218,6 +218,10 @@ class EventsCountResponse(BaseModel):
 @guest_rate_limit()
 async def get_event_filters(
     request: Request,
+    force_refresh: bool = Query(
+        default=False,
+        description="Bypass short-lived filter cache and fetch fresh species/camera options"
+    ),
     auth: AuthContext = Depends(get_auth_context_with_legacy)
 ):
     """Get available filter options (species and cameras) from the database."""
@@ -229,9 +233,10 @@ async def get_event_filters(
     lang = get_user_language(request)
     cache_key = (lang, hide_camera_names)
     now = time.monotonic()
-    cached = _event_filters_cache.get(cache_key)
-    if cached and (now - cached[0]) < EVENT_FILTERS_CACHE_TTL_SECONDS:
-        return cached[1]
+    if not force_refresh:
+        cached = _event_filters_cache.get(cache_key)
+        if cached and (now - cached[0]) < EVENT_FILTERS_CACHE_TTL_SECONDS:
+            return cached[1]
     async with get_db() as db:
         repo = DetectionRepository(db)
         species_rows = await repo.get_unique_species_with_taxonomy()

@@ -73,7 +73,9 @@
 
     let eventsSyncFrame: number | null = null;
     let reclassifyCompletionRefreshTimeout: number | null = null;
+    let eventMetadataRefreshTimeout: number | null = null;
     let handledVisibleReclassifyCompletions = $state<Record<string, number>>({});
+    let refreshingFilterOptions = $state(false);
 
     // Naming logic
     let naming = $derived.by(() => {
@@ -180,18 +182,20 @@
         }
     }
 
-    async function loadEventMetadata(): Promise<boolean> {
+    async function loadEventMetadata(forceRefresh = false, includeAuxiliary = true): Promise<boolean> {
         let shouldReloadEvents = false;
         try {
-            const [filters, labels, hidden] = await Promise.all([
-                fetchEventFilters(),
-                fetchClassifierLabels().catch(() => ({ labels: [] })),
-                fetchHiddenCount().catch(() => ({ hidden_count: 0 }))
-            ]);
+            const filters = await fetchEventFilters({ forceRefresh });
             availableSpecies = (filters as EventFilters).species;
             availableCameras = (filters as EventFilters).cameras;
-            classifierLabels = labels.labels;
-            hiddenCount = hidden.hidden_count;
+            if (includeAuxiliary) {
+                const [labels, hidden] = await Promise.all([
+                    fetchClassifierLabels().catch(() => ({ labels: [] })),
+                    fetchHiddenCount().catch(() => ({ hidden_count: 0 }))
+                ]);
+                classifierLabels = labels.labels;
+                hiddenCount = hidden.hidden_count;
+            }
 
             if (speciesFilter && !speciesFilter.startsWith('taxa:')) {
                 const normalized = speciesFilter.toLowerCase();
@@ -210,6 +214,43 @@
             // Metadata failures should not block event rendering.
         }
         return shouldReloadEvents;
+    }
+
+    async function refreshEventMetadata(forceRefresh = true, reloadEventsIfNeeded = false) {
+        if (refreshingFilterOptions) return;
+        refreshingFilterOptions = true;
+        try {
+            const shouldReloadEvents = await loadEventMetadata(forceRefresh, false);
+            if (reloadEventsIfNeeded && shouldReloadEvents) {
+                currentPage = 1;
+                await loadEvents();
+            }
+        } finally {
+            refreshingFilterOptions = false;
+        }
+    }
+
+    function scheduleEventMetadataRefresh() {
+        if (typeof window === 'undefined') {
+            void refreshEventMetadata(true, false);
+            return;
+        }
+        if (eventMetadataRefreshTimeout !== null) return;
+        eventMetadataRefreshTimeout = window.setTimeout(() => {
+            eventMetadataRefreshTimeout = null;
+            void refreshEventMetadata(true, false);
+        }, 900);
+    }
+
+    function handlePageChange(page: number) {
+        currentPage = page;
+        void loadEvents();
+    }
+
+    function handlePageSizeChange(size: number) {
+        pageSize = size;
+        currentPage = 1;
+        void loadEvents();
     }
 
     onMount(async () => {
@@ -239,7 +280,7 @@
             return;
         }
 
-        const metadataTask = loadEventMetadata();
+        const metadataTask = loadEventMetadata(false, true);
         await loadEvents();
 
         const shouldReloadEvents = await metadataTask;
@@ -377,6 +418,8 @@
             // Batch completions can evict SSE update patches from the recent detections list.
             // A debounced reload ensures Explorer cards converge to backend truth.
             scheduleReclassifyCompletionRefresh();
+            // Keep species/camera filter options in sync after batch/manual reclassification updates.
+            scheduleEventMetadataRefresh();
         }
     });
 
@@ -388,6 +431,10 @@
         if (reclassifyCompletionRefreshTimeout !== null && typeof window !== 'undefined') {
             window.clearTimeout(reclassifyCompletionRefreshTimeout);
             reclassifyCompletionRefreshTimeout = null;
+        }
+        if (eventMetadataRefreshTimeout !== null && typeof window !== 'undefined') {
+            window.clearTimeout(eventMetadataRefreshTimeout);
+            eventMetadataRefreshTimeout = null;
         }
     });
 
@@ -584,6 +631,29 @@
         </select>
         <button
             type="button"
+            class="inline-flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-black uppercase tracking-widest transition-colors
+                {refreshingFilterOptions
+                    ? 'bg-slate-100 text-slate-500 border-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'
+                    : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50 dark:bg-slate-900/60 dark:text-slate-200 dark:border-slate-700 dark:hover:bg-slate-800'}"
+            onclick={() => void refreshEventMetadata(true, true)}
+            disabled={refreshingFilterOptions}
+            title={$_('events.filters.refresh_options', { default: 'Refresh species and camera options' })}
+        >
+            {#if refreshingFilterOptions}
+                <svg class="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 12a8 8 0 018-8m8 8a8 8 0 01-8 8"></path>
+                </svg>
+                <span>{$_('events.filters.refreshing_options', { default: 'Refreshing' })}</span>
+            {:else}
+                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v6h6M20 20v-6h-6"></path>
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M20 9A8 8 0 005.4 5.4L4 6M4 15a8 8 0 0014.6 3.6L20 18"></path>
+                </svg>
+                <span>{$_('events.filters.refresh_options', { default: 'Refresh options' })}</span>
+            {/if}
+        </button>
+        <button
+            type="button"
             class="inline-flex items-center gap-2 px-4 py-2 rounded-xl border text-xs font-black uppercase tracking-widest transition-colors
                 {favoritesOnly
                     ? 'bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-500/20 dark:text-amber-200 dark:border-amber-500/50'
@@ -603,7 +673,7 @@
         </button>
     </div>
 
-    <Pagination {currentPage} {totalPages} totalItems={totalCount} itemsPerPage={pageSize} onPageChange={(p) => {currentPage=p; loadEvents()}} onPageSizeChange={(s) => {pageSize=s; currentPage=1; loadEvents()}} />
+    <Pagination {currentPage} {totalPages} totalItems={totalCount} itemsPerPage={pageSize} onPageChange={handlePageChange} onPageSizeChange={handlePageSizeChange} />
 
     {#if error}
         <div class="p-4 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-800">
@@ -703,6 +773,16 @@
             {/each}
         </div>
     {/if}
+
+    <Pagination
+        {currentPage}
+        {totalPages}
+        totalItems={totalCount}
+        itemsPerPage={pageSize}
+        onPageChange={handlePageChange}
+        onPageSizeChange={handlePageSizeChange}
+        showPageSize={false}
+    />
 </div>
 
 {#if selectedEvent}

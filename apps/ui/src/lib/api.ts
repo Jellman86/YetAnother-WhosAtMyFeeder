@@ -748,8 +748,15 @@ export interface EventFilterSpecies {
     taxa_id?: number | null;
 }
 
-export async function fetchEventFilters(): Promise<EventFilters> {
-    const response = await apiFetch(`${API_BASE}/events/filters`);
+export interface FetchEventFiltersOptions {
+    forceRefresh?: boolean;
+}
+
+export async function fetchEventFilters(options: FetchEventFiltersOptions = {}): Promise<EventFilters> {
+    const params = new URLSearchParams();
+    if (options.forceRefresh) params.set('force_refresh', 'true');
+    const query = params.toString();
+    const response = await apiFetch(`${API_BASE}/events/filters${query ? `?${query}` : ''}`);
     return handleResponse<EventFilters>(response);
 }
 
