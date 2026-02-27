@@ -188,6 +188,49 @@ async def test_find_match_wildcard(audio_service):
 
 
 @pytest.mark.asyncio
+async def test_find_match_supports_multi_source_mapping_list(audio_service):
+    now = datetime.now(timezone.utc)
+    det = AudioDetection(
+        timestamp=now,
+        species="Garden Bird",
+        confidence=0.9,
+        sensor_id="Garden Mic",
+        raw_data={}
+    )
+    audio_service._buffer.append(det)
+
+    with patch("app.services.audio.audio_service.settings") as mock_settings:
+        mock_settings.frigate.camera_audio_mapping = {"cam1": "BirdCam, Garden Mic"}
+        mock_settings.frigate.audio_correlation_window_seconds = 10
+        match = await audio_service.find_match(now, camera_name="cam1")
+        assert match is not None
+        assert match.species == "Garden Bird"
+
+
+@pytest.mark.asyncio
+async def test_correlate_species_supports_multi_source_mapping_list(audio_service):
+    now = datetime.now(timezone.utc)
+    audio_service._buffer.append(
+        AudioDetection(
+            timestamp=now,
+            species="Blue Jay",
+            confidence=0.91,
+            sensor_id="Garden Mic",
+            raw_data={},
+            scientific_name=None
+        )
+    )
+    with patch("app.services.audio.audio_service.settings") as mock_settings:
+        mock_settings.frigate.camera_audio_mapping = {"cam1": "BirdCam, Garden Mic"}
+        mock_settings.frigate.audio_correlation_window_seconds = 10
+        matched, species, score = await audio_service.correlate_species(now, "Blue Jay", camera_name="cam1")
+
+    assert matched is True
+    assert species == "Blue Jay"
+    assert score == pytest.approx(0.91)
+
+
+@pytest.mark.asyncio
 async def test_find_match_uses_legacy_source_id_from_raw_payload(audio_service):
     now = datetime.now(timezone.utc)
     det = AudioDetection(

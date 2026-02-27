@@ -85,18 +85,16 @@ async def get_audio_context(
     if target_time.tzinfo is None:
         target_time = target_time.replace(tzinfo=timezone.utc)
 
-    expected_sensor_id = None
+    mapping_value = None
     if camera and settings.frigate.camera_audio_mapping:
-        expected_sensor_id = settings.frigate.camera_audio_mapping.get(camera)
-        if expected_sensor_id == "*":
-            expected_sensor_id = None
+        mapping_value = settings.frigate.camera_audio_mapping.get(camera)
 
     async with get_db() as db:
         repo = DetectionRepository(db)
         detections = await repo.get_audio_context(
             target_time=target_time,
             window_seconds=window_seconds,
-            sensor_id=expected_sensor_id,
+            mapping_value=mapping_value,
             limit=limit
         )
     hide_sensor = (

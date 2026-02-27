@@ -33,6 +33,9 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Changed:** Explorer now includes a manual "Refresh options" control for species/camera filters, and the page triggers a debounced metadata refresh after reclassification completions so newly introduced species appear in filter dropdowns without a full page reload.
 - **Added:** `/api/events/filters` now supports `force_refresh=true` to bypass the short-lived filter-options cache when clients need immediate freshness.
 - **Fixed:** BirdNET camera-audio mapping matching is now more resilient in correlation paths: comparisons are normalized for whitespace/case and accept legacy source IDs from raw payload metadata, reducing false mismatches after `nm` migration or mixed payload formats.
+- **Added:** BirdNET camera-audio mappings now support multiple source names per camera (comma-separated), allowing multi-stream camera setups to correlate audio across multiple BirdNET sources.
+- **Changed:** Detection cards and detection modal audio badges now show `No Audio Match` when audio does not confirm the visual species, and display nearby heard species instead of the previous generic `Heard` wording.
+- **Added:** Events API now includes `audio_context_species` for unmatched-audio detections so cards can surface nearby BirdNET species without per-card fetches.
 
 ## [2.8.3] - 2026-02-23
 

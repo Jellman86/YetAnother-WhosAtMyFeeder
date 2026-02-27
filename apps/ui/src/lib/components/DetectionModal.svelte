@@ -381,7 +381,26 @@
     const naming = $derived(getBirdNames(detection, showCommon, preferSci));
     const primaryName = $derived(naming.primary);
     const subName = $derived(naming.secondary);
-    const hasAudioContext = $derived(!!detection.audio_species || detection.audio_confirmed);
+    const audioContextSpecies = $derived.by(() => {
+        const seen = new Set<string>();
+        const values: string[] = [];
+        const add = (candidate: unknown) => {
+            if (typeof candidate !== 'string') return;
+            const normalized = candidate.trim();
+            if (!normalized) return;
+            const key = normalized.toLowerCase();
+            if (seen.has(key)) return;
+            seen.add(key);
+            values.push(normalized);
+        };
+        add(detection.audio_species);
+        for (const species of detection.audio_context_species ?? []) {
+            add(species);
+        }
+        return values;
+    });
+    const hasAudioContext = $derived(detection.audio_confirmed || audioContextSpecies.length > 0);
+    const audioNearbySummary = $derived(audioContextSpecies.join(', '));
     const hasWeather = $derived(
         detection.temperature !== undefined && detection.temperature !== null ||
         !!detection.weather_condition ||
@@ -1635,13 +1654,17 @@
                         </div>
                         <div class="min-w-0">
                             <p class="text-[10px] font-black uppercase tracking-widest text-teal-600/70 dark:text-teal-400/70">
-                                {detection.audio_confirmed ? $_('detection.audio_match') : $_('detection.audio_detected')}
+                                {detection.audio_confirmed
+                                    ? $_('detection.audio_match')
+                                    : $_('detection.audio_no_match', { default: 'No Audio Match' })}
                             </p>
                             <p class="text-sm font-bold text-slate-700 dark:text-slate-200 truncate">
                                 {detection.audio_confirmed
                                     ? (detection.audio_species || $_('detection.birdnet_confirmed'))
-                                    : $_('detection.audio_heard', { values: { species: detection.audio_species || $_('detection.audio_detected') } })}
-                                {#if detection.audio_score}
+                                    : (audioNearbySummary
+                                        ? $_('detection.audio_nearby', { values: { species: audioNearbySummary }, default: 'Nearby audio: {species}' })
+                                        : $_('detection.audio_no_match_desc', { default: 'No nearby BirdNET species in the matching window' }))}
+                                {#if detection.audio_score && detection.audio_confirmed}
                                     <span class="ml-1 opacity-60">({(detection.audio_score * 100).toFixed(0)}%)</span>
                                 {/if}
                             </p>

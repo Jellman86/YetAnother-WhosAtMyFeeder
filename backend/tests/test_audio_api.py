@@ -31,10 +31,12 @@ def reset_auth_config():
     original_auth_enabled = settings.auth.enabled
     original_public_enabled = settings.public_access.enabled
     original_show_camera_names = settings.public_access.show_camera_names
+    original_camera_audio_mapping = dict(settings.frigate.camera_audio_mapping)
     yield
     settings.auth.enabled = original_auth_enabled
     settings.public_access.enabled = original_public_enabled
     settings.public_access.show_camera_names = original_show_camera_names
+    settings.frigate.camera_audio_mapping = original_camera_audio_mapping
 
 
 @pytest.mark.asyncio
@@ -90,3 +92,64 @@ async def test_audio_sources_returns_recent_distinct_source_names(client: httpx.
     assert birdcam["sample_source_id"] == "rtsp_new"
     assert birdcam["seen_count"] == 2
     assert birdcam["last_seen"].startswith(now.strftime("%Y-%m-%d"))
+
+
+@pytest.mark.asyncio
+async def test_audio_context_supports_multi_source_camera_mapping(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+    settings.frigate.camera_audio_mapping = {"front": "BirdCam, Garden Mic"}
+
+    target = datetime.now(timezone.utc).replace(microsecond=0)
+    rows = [
+        (
+            (target - timedelta(seconds=15)).isoformat(sep=" "),
+            "Dunnock",
+            0.81,
+            "BirdCam",
+            json.dumps({"nm": "BirdCam", "src": "rtsp_birdcam"}),
+            "Prunella modularis",
+        ),
+        (
+            (target + timedelta(seconds=12)).isoformat(sep=" "),
+            "Blue Tit",
+            0.74,
+            "Garden Mic",
+            json.dumps({"nm": "Garden Mic", "src": "rtsp_garden"}),
+            "Cyanistes caeruleus",
+        ),
+        (
+            (target + timedelta(seconds=8)).isoformat(sep=" "),
+            "Woodpigeon",
+            0.7,
+            "Other Mic",
+            json.dumps({"nm": "Other Mic", "src": "rtsp_other"}),
+            "Columba palumbus",
+        ),
+    ]
+
+    async with get_db() as db:
+        await db.execute("DELETE FROM audio_detections")
+        for row in rows:
+            await db.execute(
+                """INSERT INTO audio_detections (timestamp, species, confidence, sensor_id, raw_data, scientific_name)
+                   VALUES (?, ?, ?, ?, ?, ?)""",
+                row,
+            )
+        await db.commit()
+
+    response = await client.get(
+        "/api/audio/context",
+        params={
+            "timestamp": target.isoformat(),
+            "camera": "front",
+            "window_seconds": 60,
+            "limit": 10,
+        },
+    )
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    species = [item["species"] for item in payload]
+    assert "Dunnock" in species
+    assert "Blue Tit" in species
+    assert "Woodpigeon" not in species

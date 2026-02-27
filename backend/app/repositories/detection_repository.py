@@ -81,6 +81,59 @@ def _normalize_species_lookup_name(value: str | None) -> str:
     return re.sub(r"\s+", " ", normalized).strip()
 
 
+def _normalize_mapping_key(value: str | None) -> str:
+    if not value:
+        return ""
+    return str(value).strip().casefold()
+
+
+def _parse_mapping_filter_values(mapping_value: str | None) -> tuple[bool, set[str]]:
+    if not isinstance(mapping_value, str):
+        return True, set()
+    tokens = {
+        _normalize_mapping_key(token)
+        for token in re.split(r"[,\n;|]+", mapping_value)
+    }
+    tokens.discard("")
+    if not tokens or "*" in tokens:
+        return True, set()
+    return False, tokens
+
+
+def _extract_audio_mapping_keys(sensor_id: str | None, raw_data: str | None) -> set[str]:
+    keys: set[str] = set()
+    normalized_sensor = _normalize_mapping_key(sensor_id)
+    if normalized_sensor:
+        keys.add(normalized_sensor)
+
+    if not raw_data:
+        return keys
+
+    try:
+        payload = json.loads(raw_data)
+    except Exception:
+        return keys
+
+    if not isinstance(payload, dict):
+        return keys
+
+    source = payload.get("Source")
+    source = source if isinstance(source, dict) else {}
+    for candidate in (
+        payload.get("nm"),
+        source.get("displayName"),
+        payload.get("src"),
+        payload.get("sourceId"),
+        source.get("id"),
+        payload.get("id"),
+        payload.get("sensor_id"),
+    ):
+        normalized = _normalize_mapping_key(candidate)
+        if normalized:
+            keys.add(normalized)
+    return keys
+
+
 def _row_to_detection(row) -> Detection:
     """Convert a database row to a Detection object."""
     d = Detection(
@@ -2009,25 +2062,27 @@ class DetectionRepository:
         self,
         target_time: datetime,
         window_seconds: int,
-        sensor_id: Optional[str],
+        mapping_value: Optional[str],
         limit: int
     ) -> list[dict]:
         start_dt = target_time - timedelta(seconds=window_seconds)
         end_dt = target_time + timedelta(seconds=window_seconds)
-        query = """SELECT timestamp, species, confidence, sensor_id, scientific_name
+        query = """SELECT timestamp, species, confidence, sensor_id, scientific_name, raw_data
                    FROM audio_detections
                    WHERE timestamp >= ? AND timestamp <= ?"""
         params: list = [start_dt.isoformat(sep=' '), end_dt.isoformat(sep=' ')]
-        if sensor_id:
-            query += " AND sensor_id = ?"
-            params.append(sensor_id)
         query += " ORDER BY timestamp DESC"
 
         async with self.db.execute(query, params) as cursor:
             rows = await cursor.fetchall()
 
+        wildcard_mapping, mapping_keys = _parse_mapping_filter_values(mapping_value)
         results: list[dict] = []
         for row in rows:
+            if not wildcard_mapping:
+                row_keys = _extract_audio_mapping_keys(row[3], row[5])
+                if not row_keys.intersection(mapping_keys):
+                    continue
             det_time = _parse_datetime(row[0])
             offset_seconds = int((det_time - target_time).total_seconds())
             results.append({

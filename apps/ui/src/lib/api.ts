@@ -19,6 +19,7 @@ export interface Detection {
     audio_confirmed?: boolean;
     audio_species?: string;
     audio_score?: number;
+    audio_context_species?: string[] | null;
     // Weather fields
     temperature?: number;
     weather_condition?: string;

@@ -19,6 +19,7 @@ class Detection(BaseModel):
     audio_confirmed: bool = False
     audio_species: str | None = None
     audio_score: float | None = None
+    audio_context_species: list[str] | None = None
     # Weather fields
     temperature: float | None = None
     weather_condition: str | None = None

@@ -1,5 +1,6 @@
 import structlog
 import asyncio
+import re
 from datetime import datetime, timedelta, timezone
 from typing import Optional, Deque
 from dataclasses import dataclass
@@ -66,6 +67,20 @@ class AudioService:
         return normalized.casefold()
 
     @classmethod
+    def _parse_expected_mapping_keys(cls, expected_sensor_id: Optional[str]) -> tuple[bool, set[str]]:
+        if not isinstance(expected_sensor_id, str):
+            return True, set()
+
+        tokens = [
+            cls._normalize_mapping_key(token)
+            for token in re.split(r"[,\n;|]+", expected_sensor_id)
+        ]
+        normalized_keys = {token for token in tokens if token}
+        if not normalized_keys or "*" in normalized_keys:
+            return True, set()
+        return False, normalized_keys
+
+    @classmethod
     def _extract_birdnet_source_keys(cls, data: dict | None) -> set[str]:
         source = data.get("Source") if isinstance(data, dict) else None
         source = source if isinstance(source, dict) else {}
@@ -87,8 +102,8 @@ class AudioService:
 
     @classmethod
     def _camera_mapping_matches_detection(cls, expected_sensor_id: Optional[str], detection: AudioDetection) -> bool:
-        expected = cls._normalize_mapping_key(expected_sensor_id)
-        if not expected or expected == "*":
+        wildcard, expected_keys = cls._parse_expected_mapping_keys(expected_sensor_id)
+        if wildcard:
             return True
 
         detection_keys: set[str] = set()
@@ -96,7 +111,7 @@ class AudioService:
         if normalized_sensor:
             detection_keys.add(normalized_sensor)
         detection_keys.update(cls._extract_birdnet_source_keys(detection.raw_data))
-        return expected in detection_keys
+        return bool(expected_keys.intersection(detection_keys))
 
     async def add_detection(self, data: dict):
         """Ingest a detection from MQTT."""

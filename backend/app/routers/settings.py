@@ -696,7 +696,20 @@ async def update_settings(
     if "audio_topic" in fields_set:
         settings.frigate.audio_topic = update.audio_topic
     if "camera_audio_mapping" in fields_set:
-        settings.frigate.camera_audio_mapping = update.camera_audio_mapping
+        cleaned_mapping: dict[str, str] = {}
+        for camera_name, mapping_value in (update.camera_audio_mapping or {}).items():
+            if not isinstance(camera_name, str):
+                continue
+            normalized_camera = camera_name.strip()
+            if not normalized_camera:
+                continue
+            if not isinstance(mapping_value, str):
+                continue
+            tokens = [token.strip() for token in re.split(r"[,\n;|]+", mapping_value) if token and token.strip()]
+            if not tokens:
+                continue
+            cleaned_mapping[normalized_camera] = ", ".join(tokens)
+        settings.frigate.camera_audio_mapping = cleaned_mapping
     if "audio_buffer_hours" in fields_set:
         settings.frigate.audio_buffer_hours = update.audio_buffer_hours
     if "audio_correlation_window_seconds" in fields_set:

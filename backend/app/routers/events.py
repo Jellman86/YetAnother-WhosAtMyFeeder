@@ -394,6 +394,45 @@ async def get_events(
                 results = await asyncio.gather(*(lookup(taxa_id) for taxa_id in taxa_ids))
                 localized_names = {taxa_id: name for taxa_id, name in results if name}
 
+        audio_context_species_by_event: dict[str, list[str]] = {}
+        for event in events:
+            if event.audio_confirmed or not event.audio_species:
+                continue
+
+            mapping_value = None
+            if settings.frigate.camera_audio_mapping:
+                mapping_value = settings.frigate.camera_audio_mapping.get(event.camera_name)
+
+            nearby_audio = await repo.get_audio_context(
+                target_time=event.detection_time,
+                window_seconds=settings.frigate.audio_correlation_window_seconds,
+                mapping_value=mapping_value,
+                limit=8,
+            )
+
+            seen_species: set[str] = set()
+            ordered_species: list[str] = []
+
+            primary_heard = str(event.audio_species or "").strip()
+            if primary_heard:
+                ordered_species.append(primary_heard)
+                seen_species.add(primary_heard.casefold())
+
+            for item in nearby_audio:
+                species_name = str(item.get("species") or "").strip()
+                if not species_name:
+                    continue
+                species_key = species_name.casefold()
+                if species_key in seen_species:
+                    continue
+                seen_species.add(species_key)
+                ordered_species.append(species_name)
+                if len(ordered_species) >= 4:
+                    break
+
+            if ordered_species:
+                audio_context_species_by_event[event.frigate_event] = ordered_species
+
         # Convert to response models with clip info
         response_events = []
         for event in events:
@@ -427,6 +466,7 @@ async def get_events(
                 audio_confirmed=event.audio_confirmed,
                 audio_species=event.audio_species,
                 audio_score=event.audio_score,
+                audio_context_species=audio_context_species_by_event.get(event.frigate_event),
                 temperature=event.temperature,
                 weather_condition=event.weather_condition,
                 weather_cloud_cover=event.weather_cloud_cover,
