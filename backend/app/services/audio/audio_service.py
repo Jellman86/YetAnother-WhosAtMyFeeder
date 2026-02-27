@@ -56,6 +56,48 @@ class AudioService:
                     return value
         return None
 
+    @staticmethod
+    def _normalize_mapping_key(value: Optional[str]) -> Optional[str]:
+        if not isinstance(value, str):
+            return None
+        normalized = value.strip()
+        if not normalized:
+            return None
+        return normalized.casefold()
+
+    @classmethod
+    def _extract_birdnet_source_keys(cls, data: dict | None) -> set[str]:
+        source = data.get("Source") if isinstance(data, dict) else None
+        source = source if isinstance(source, dict) else {}
+
+        keys: set[str] = set()
+        for candidate in (
+            data.get("nm") if isinstance(data, dict) else None,
+            source.get("displayName"),
+            data.get("src") if isinstance(data, dict) else None,
+            data.get("sourceId") if isinstance(data, dict) else None,
+            source.get("id"),
+            data.get("id") if isinstance(data, dict) else None,
+            data.get("sensor_id") if isinstance(data, dict) else None,
+        ):
+            normalized = cls._normalize_mapping_key(candidate)
+            if normalized:
+                keys.add(normalized)
+        return keys
+
+    @classmethod
+    def _camera_mapping_matches_detection(cls, expected_sensor_id: Optional[str], detection: AudioDetection) -> bool:
+        expected = cls._normalize_mapping_key(expected_sensor_id)
+        if not expected or expected == "*":
+            return True
+
+        detection_keys: set[str] = set()
+        normalized_sensor = cls._normalize_mapping_key(detection.sensor_id)
+        if normalized_sensor:
+            detection_keys.add(normalized_sensor)
+        detection_keys.update(cls._extract_birdnet_source_keys(detection.raw_data))
+        return expected in detection_keys
+
     async def add_detection(self, data: dict):
         """Ingest a detection from MQTT."""
         try:
@@ -190,8 +232,8 @@ class AudioService:
                 target_time = target_time.replace(tzinfo=timezone.utc)
 
             for detection in self._buffer:
-                # If a mapping exists, only match if the sensor ID matches (unless wildcard used)
-                if expected_sensor_id and expected_sensor_id != "*" and detection.sensor_id != expected_sensor_id:
+                # Match against normalized sensor keys, with raw payload fallbacks for legacy IDs.
+                if not self._camera_mapping_matches_detection(expected_sensor_id, detection):
                     continue
 
                 # Ensure detection timestamp is timezone-aware (assume UTC if naive)
@@ -261,8 +303,8 @@ class AudioService:
             highest_score = 0.0
 
             for detection in self._buffer:
-                # If a mapping exists, only match if the sensor ID matches (unless wildcard used)
-                if expected_sensor_id and expected_sensor_id != "*" and detection.sensor_id != expected_sensor_id:
+                # Match against normalized sensor keys, with raw payload fallbacks for legacy IDs.
+                if not self._camera_mapping_matches_detection(expected_sensor_id, detection):
                     continue
 
                 # Ensure detection timestamp is timezone-aware (assume UTC if naive)
@@ -351,7 +393,7 @@ class AudioService:
 
             matches: list[tuple[float, AudioDetection]] = []
             for detection in self._buffer:
-                if expected_sensor_id and expected_sensor_id != "*" and detection.sensor_id != expected_sensor_id:
+                if not self._camera_mapping_matches_detection(expected_sensor_id, detection):
                     continue
 
                 det_ts = detection.timestamp

@@ -32,6 +32,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Changed:** Explorer pagination controls are now available at both the top and bottom of the event list to reduce extra scrolling during page-by-page review.
 - **Changed:** Explorer now includes a manual "Refresh options" control for species/camera filters, and the page triggers a debounced metadata refresh after reclassification completions so newly introduced species appear in filter dropdowns without a full page reload.
 - **Added:** `/api/events/filters` now supports `force_refresh=true` to bypass the short-lived filter-options cache when clients need immediate freshness.
+- **Fixed:** BirdNET camera-audio mapping matching is now more resilient in correlation paths: comparisons are normalized for whitespace/case and accept legacy source IDs from raw payload metadata, reducing false mismatches after `nm` migration or mixed payload formats.
 
 ## [2.8.3] - 2026-02-23
 
