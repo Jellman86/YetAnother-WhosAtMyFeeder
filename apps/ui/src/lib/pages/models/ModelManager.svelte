@@ -109,8 +109,8 @@
     }
 
     async function handleDownload(model: ModelMetadata) {
-        if (downloadStatuses[model.id]?.status === 'downloading') return;
-        
+        if (downloadStatuses[model.id]?.status === 'downloading' || downloadStatuses[model.id]?.status === 'pending') return;
+
         try {
             await downloadModel(model.id);
             // Initialize local status to trigger polling
@@ -181,6 +181,7 @@
                 {@const installed = isInstalled(model.id)}
                 {@const active = isActive(model.id)}
                 {@const download = downloadStatuses[model.id]}
+                {@const inProgress = download?.status === 'downloading' || download?.status === 'pending'}
                 
                 <div class="bg-white dark:bg-slate-800 rounded-xl border-2 transition-all duration-200 flex flex-col
                             {active ? 'border-teal-500 shadow-lg shadow-teal-500/10' : 'border-slate-200 dark:border-slate-700'}">
@@ -244,10 +245,12 @@
                             </p>
                         </div>
 
-                        {#if download && (download.status === 'downloading' || download.status === 'pending')}
+                        {#if inProgress}
                             <div class="mt-4">
                                 <div class="flex justify-between text-xs mb-1">
-                                    <span class="text-teal-600 dark:text-teal-400 font-medium">Downloading...</span>
+                                    <span class="text-teal-600 dark:text-teal-400 font-medium">
+                                        {installed ? 'Re-downloading...' : 'Downloading...'}
+                                    </span>
                                     <span class="text-slate-500">{download.progress.toFixed(0)}%</span>
                                 </div>
                                 <div class="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-1.5 overflow-hidden">
@@ -255,27 +258,15 @@
                                 </div>
                             </div>
                         {/if}
+                        {#if download?.status === 'error' && download.error}
+                            <div class="mt-4 p-2 rounded-lg border border-red-200 dark:border-red-800 bg-red-50/70 dark:bg-red-900/20 text-[11px] font-medium text-red-700 dark:text-red-300">
+                                {download.error}
+                            </div>
+                        {/if}
                     </div>
 
                     <div class="p-4 border-t border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 rounded-b-xl">
-                        {#if installed}
-                            {#if active}
-                                <button
-                                    disabled
-                                    class="w-full px-4 py-2 text-sm font-medium text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-900/20 rounded-lg opacity-75 cursor-default"
-                                >
-                                    Currently Active
-                                </button>
-                            {:else}
-                                <button
-                                    onclick={() => handleActivate(model.id)}
-                                    disabled={activating !== null}
-                                    class="w-full px-4 py-2 text-sm font-medium text-white bg-teal-500 hover:bg-teal-600 rounded-lg transition-colors disabled:opacity-50"
-                                >
-                                    {activating === model.id ? 'Activating...' : 'Activate'}
-                                </button>
-                            {/if}
-                        {:else if download?.status === 'downloading' || download?.status === 'pending'}
+                        {#if inProgress}
                             <button
                                 disabled
                                 class="w-full px-4 py-2 text-sm font-medium text-slate-400 bg-slate-100 dark:bg-slate-700 rounded-lg cursor-default flex items-center justify-center gap-2"
@@ -284,8 +275,36 @@
                                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                 </svg>
-                                Downloading...
+                                {installed ? 'Re-downloading...' : 'Downloading...'}
                             </button>
+                        {:else if installed}
+                            <div class="space-y-2">
+                                {#if active}
+                                    <button
+                                        disabled
+                                        class="w-full px-4 py-2 text-sm font-medium text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-900/20 rounded-lg opacity-75 cursor-default"
+                                    >
+                                        Currently Active
+                                    </button>
+                                {:else}
+                                    <button
+                                        onclick={() => handleActivate(model.id)}
+                                        disabled={activating !== null}
+                                        class="w-full px-4 py-2 text-sm font-medium text-white bg-teal-500 hover:bg-teal-600 rounded-lg transition-colors disabled:opacity-50"
+                                    >
+                                        {activating === model.id ? 'Activating...' : 'Activate'}
+                                    </button>
+                                {/if}
+                                <button
+                                    onclick={() => handleDownload(model)}
+                                    class="w-full px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-600 rounded-lg transition-colors flex items-center justify-center gap-2"
+                                >
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                    </svg>
+                                    Re-download
+                                </button>
+                            </div>
                         {:else}
                             <button
                                 onclick={() => handleDownload(model)}

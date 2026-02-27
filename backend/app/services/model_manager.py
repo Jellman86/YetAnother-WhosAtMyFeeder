@@ -4,7 +4,7 @@ import shutil
 import aiofiles
 import httpx
 import structlog
-from datetime import datetime
+from datetime import datetime, UTC
 from typing import List, Optional, Dict
 from app.models.ai_models import ModelMetadata, InstalledModel, DownloadProgress
 
@@ -199,11 +199,60 @@ class ModelManager:
         status_tuple = self.active_downloads.get(model_id)
         return status_tuple[0] if status_tuple else None
 
+    def _update_download_status(self, model_id: str, progress: DownloadProgress) -> None:
+        self.active_downloads[model_id] = (progress, datetime.now())
+
+    def _create_staging_dir(self, model_id: str) -> str:
+        stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S%fZ")
+        staged_dir = os.path.join(MODELS_DIR, f".{model_id}.download-{stamp}")
+        os.makedirs(staged_dir, exist_ok=False)
+        return staged_dir
+
+    def _validate_download_payload(self, model_meta: dict, staged_dir: str, model_filename: str) -> None:
+        required_files = [model_filename, "labels.txt"]
+        if model_meta.get("runtime") == "onnx" and model_meta.get("weights_url"):
+            required_files.append(f"{model_filename}.data")
+
+        missing = [name for name in required_files if not os.path.exists(os.path.join(staged_dir, name))]
+        if missing:
+            missing_csv = ", ".join(missing)
+            raise RuntimeError(f"Downloaded model payload is missing required files: {missing_csv}")
+
+    def _swap_model_dirs(self, staged_dir: str, target_dir: str) -> None:
+        had_existing = os.path.isdir(target_dir)
+        backup_dir = f"{target_dir}.backup-{datetime.now(UTC).strftime('%Y%m%dT%H%M%S%fZ')}"
+
+        if had_existing:
+            os.rename(target_dir, backup_dir)
+
+        try:
+            os.rename(staged_dir, target_dir)
+        except Exception:
+            if had_existing and os.path.isdir(backup_dir) and not os.path.exists(target_dir):
+                try:
+                    os.rename(backup_dir, target_dir)
+                except Exception as rollback_error:
+                    log.error(
+                        "Failed to rollback model directory after swap error",
+                        target_dir=target_dir,
+                        backup_dir=backup_dir,
+                        rollback_error=str(rollback_error),
+                    )
+            raise
+        else:
+            if had_existing and os.path.isdir(backup_dir):
+                shutil.rmtree(backup_dir, ignore_errors=True)
+
     async def download_model(self, model_id: str) -> bool:
         """Download a model from the registry (supports TFLite and ONNX)."""
         model_meta = next((m for m in REMOTE_REGISTRY if m['id'] == model_id), None)
         if not model_meta:
             log.error("Model ID not found in registry", model_id=model_id)
+            return False
+
+        existing_status = self.active_downloads.get(model_id)
+        if existing_status and existing_status[0].status in {"pending", "downloading"}:
+            log.warning("Model download already in progress", model_id=model_id)
             return False
 
         # Check if download URLs are configured
@@ -216,7 +265,7 @@ class ModelManager:
                 progress=0.0,
                 error="Model download URL not configured yet"
             )
-            self.active_downloads[model_id] = (progress, datetime.now())
+            self._update_download_status(model_id, progress)
             return False
 
         # Determine file extension based on runtime
@@ -230,10 +279,10 @@ class ModelManager:
             status="downloading",
             progress=0.0
         )
-        self.active_downloads[model_id] = (progress, datetime.now())
+        self._update_download_status(model_id, progress)
 
         target_dir = os.path.join(MODELS_DIR, model_id)
-        os.makedirs(target_dir, exist_ok=True)
+        staged_dir = self._create_staging_dir(model_id)
 
         try:
             # Use longer timeout for large ONNX models
@@ -247,13 +296,13 @@ class ModelManager:
                     total_header = response.headers.get("content-length")
                     total = int(total_header) if total_header else 0
                     downloaded = 0
-                    async with aiofiles.open(os.path.join(target_dir, model_filename), 'wb') as f:
+                    async with aiofiles.open(os.path.join(staged_dir, model_filename), 'wb') as f:
                         async for chunk in response.aiter_bytes():
                             await f.write(chunk)
                             downloaded += len(chunk)
                             if total > 0:
                                 progress.progress = (downloaded / total) * 90  # Model is 90% of total job
-                                self.active_downloads[model_id] = (progress, datetime.now())
+                                self._update_download_status(model_id, progress)
 
                 # 2. Download Weights (Optional, for large ONNX models)
                 if runtime == 'onnx' and model_meta.get('weights_url'):
@@ -264,25 +313,28 @@ class ModelManager:
                         total_header = response.headers.get("content-length")
                         total = int(total_header) if total_header else 0
                         downloaded = 0
-                        async with aiofiles.open(os.path.join(target_dir, weights_filename), 'wb') as f:
+                        async with aiofiles.open(os.path.join(staged_dir, weights_filename), 'wb') as f:
                             async for chunk in response.aiter_bytes():
                                 await f.write(chunk)
                                 downloaded += len(chunk)
                                 if total > 0:
                                     # Weights are usually the bulk of the download
                                     progress.progress = 10 + (downloaded / total) * 80 
-                                    self.active_downloads[model_id] = (progress, datetime.now())
+                                    self._update_download_status(model_id, progress)
 
                 # 3. Download Labels
                 log.info("Downloading labels", url=model_meta['labels_url'])
                 resp = await client.get(model_meta['labels_url'], follow_redirects=True)
                 resp.raise_for_status()
-                async with aiofiles.open(os.path.join(target_dir, "labels.txt"), 'wb') as f:
+                async with aiofiles.open(os.path.join(staged_dir, "labels.txt"), 'wb') as f:
                     await f.write(resp.content)
+
+                self._validate_download_payload(model_meta, staged_dir, model_filename)
+                self._swap_model_dirs(staged_dir, target_dir)
 
                 progress.progress = 100.0
                 progress.status = "completed"
-                self.active_downloads[model_id] = (progress, datetime.now())
+                self._update_download_status(model_id, progress)
 
             log.info("Model downloaded successfully", model_id=model_id, runtime=runtime)
             return True
@@ -291,8 +343,8 @@ class ModelManager:
             if model_id in self.active_downloads:
                 progress.status = "error"
                 progress.error = str(e)
-                self.active_downloads[model_id] = (progress, datetime.now())
-            shutil.rmtree(target_dir, ignore_errors=True)
+                self._update_download_status(model_id, progress)
+            shutil.rmtree(staged_dir, ignore_errors=True)
             return False
 
     async def activate_model(self, model_id: str) -> bool:
