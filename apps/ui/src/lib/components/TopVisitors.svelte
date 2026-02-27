@@ -9,7 +9,7 @@
 
     interface Props {
         species: DailySpeciesSummary[];
-        onSpeciesClick?: (species: string) => void;
+        onSpeciesClick?: (speciesFilter: string) => void;
     }
 
     let { species, onSpeciesClick }: Props = $props();
@@ -44,7 +44,7 @@
     <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
         {#each processedSpecies as item}
             <button 
-                onclick={() => onSpeciesClick?.(item.species)}
+                onclick={() => onSpeciesClick?.(item.taxa_id ? `taxa:${item.taxa_id}` : item.species)}
                 class="card-base card-interactive rounded-xl p-3 text-left transition-all group flex flex-col h-full"
             >
                 <div class="relative aspect-square rounded-lg overflow-hidden mb-3 bg-slate-100 dark:bg-slate-700">

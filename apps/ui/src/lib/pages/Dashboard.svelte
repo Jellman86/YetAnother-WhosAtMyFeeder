@@ -270,8 +270,10 @@
         }
     }
 
-    function handleSpeciesSummaryClick(species: string) {
-        onnavigate?.(`/events?species=${encodeURIComponent(species)}&date=today`);
+    function handleSpeciesSummaryClick(speciesFilter: string) {
+        // Top Visitors is last-24h data; avoid forcing "today" which can hide valid events
+        // around midnight boundaries. Filter by species/taxa only.
+        onnavigate?.(`/events?species=${encodeURIComponent(speciesFilter)}`);
     }
 
     async function handleAIAnalysis() {

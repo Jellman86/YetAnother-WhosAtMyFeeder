@@ -1683,6 +1683,7 @@ export interface DailySpeciesSummary {
     latest_event: string;
     scientific_name?: string | null;
     common_name?: string | null;
+    taxa_id?: number | null;
 }
 
 export interface DailySummary {
