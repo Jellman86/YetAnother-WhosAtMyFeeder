@@ -80,6 +80,15 @@ For a step-by-step checklist, see `INTEGRATION_TESTING.md`.
   - "Draft" loads correctly for a detection
   - Submitting an observation succeeds (or fails with a clear UI error)
 
+### NVIDIA CUDA Inference Provider (Real GPU Validation)
+- Scope: End-to-end CUDA provider behavior for ONNX models on real NVIDIA hardware.
+- Code: `backend/app/services/classifier.py`, `backend/app/services/model_manager.py`, `apps/ui/src/lib/components/settings/DetectionSettings.svelte`, `apps/ui/src/lib/pages/models/ModelManager.svelte`
+- Needs testing:
+  - CUDA host/runtime detection correctly reports availability only when an NVIDIA GPU is present
+  - ONNX model activation succeeds with `cuda` provider and remains stable across backend restart
+  - Live detections and manual/background reclassification flows execute on CUDA without unexpected fallback loops
+  - Failure paths surface clear diagnostics in Settings and backend logs
+
 ## Notes
 
 - Resolved/closed investigation notes live in `CHANGELOG.md`.

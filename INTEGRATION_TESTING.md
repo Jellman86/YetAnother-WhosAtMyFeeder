@@ -1,12 +1,12 @@
 # Integration Testing Requests
 
-Several third-party integrations are implemented in YA-WAMF but are not fully validated end-to-end by the maintainer (no accounts/credentials available for real-world verification).
+Several third-party integrations are implemented in YA-WAMF but are not fully validated end-to-end by the maintainer (no accounts/credentials available for real-world verification, and no NVIDIA GPU currently available for CUDA validation).
 
 If you can test any of the items below, please open a GitHub issue with results. Thank you.
 
 ## What To Include In A Test Report
 
-- Which integration you tested (Gmail OAuth, Outlook OAuth, Telegram, Pushover, iNaturalist)
+- Which integration you tested (Gmail OAuth, Outlook OAuth, Telegram, Pushover, iNaturalist, CUDA inference provider)
 - Whether you were on `dev` images or a tagged release
 - The exact error message shown in the UI (if any)
 - Redacted backend logs around the failure (remove tokens, emails, chat IDs)
@@ -94,3 +94,20 @@ Checklist:
 
 Notes:
 - iNaturalist requires "App Owner" approval before you can create OAuth apps, which is why this has been hard to test without community help.
+
+## NVIDIA CUDA Inference Provider
+
+Goal: validate end-to-end CUDA acceleration with ONNX models (ConvNeXt/EVA-02) on real NVIDIA hardware.
+
+Checklist:
+1. Ensure container runtime exposes your NVIDIA GPU (`nvidia-smi` works in the backend container).
+2. In Settings -> Detection, set ONNX inference provider to `cuda` (or `auto` if CUDA is the desired preferred path on your host).
+3. Activate an ONNX model (recommended: ConvNeXt Large or EVA-02 Large).
+4. Confirm `/api/classifier/status` reports CUDA available and active provider as CUDA during inference.
+5. Run at least one live detection and one manual reclassification; confirm both complete without fallback errors.
+6. If possible, restart containers and re-verify CUDA still initializes and remains selected.
+
+If it fails, include:
+- Output from `/api/classifier/status`
+- Backend logs around model initialization/provider fallback
+- `nvidia-smi` output from host and backend container (redacted if needed)

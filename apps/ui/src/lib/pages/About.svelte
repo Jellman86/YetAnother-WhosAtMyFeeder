@@ -45,7 +45,8 @@
         {
             icon: '🤖',
             titleKey: 'about.feature_list.ai_models.title',
-            descriptionKey: 'about.feature_list.ai_models.desc'
+            descriptionKey: 'about.feature_list.ai_models.desc',
+            badgeKey: 'about.feature_list.inaturalist_submissions.badge'
         },
         {
             icon: '🎵',
@@ -97,6 +98,11 @@
             icon: '📊',
             titleKey: 'about.feature_list.observability.title',
             descriptionKey: 'about.feature_list.observability.desc'
+        },
+        {
+            icon: '🦊',
+            titleKey: 'about.feature_list.wildlife.title',
+            descriptionKey: 'about.feature_list.wildlife.desc'
         },
         {
             icon: '⚡',
