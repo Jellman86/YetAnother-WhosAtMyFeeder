@@ -957,6 +957,7 @@ export interface ClassifierStatus {
     error: string | null;
     labels_count: number;
     enabled: boolean;
+    active_model_id?: string | null;
     onnx_available?: boolean;
     openvino_available?: boolean;
     openvino_version?: string | null;
@@ -964,6 +965,9 @@ export interface ClassifierStatus {
     openvino_import_error?: string | null;
     openvino_probe_error?: string | null;
     openvino_gpu_probe_error?: string | null;
+    openvino_model_compile_ok?: boolean | null;
+    openvino_model_compile_device?: string | null;
+    openvino_model_compile_error?: string | null;
     openvino_devices?: string[];
     cuda_provider_installed?: boolean;
     cuda_hardware_available?: boolean;

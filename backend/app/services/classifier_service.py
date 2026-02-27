@@ -6,6 +6,7 @@ import asyncio
 import ctypes
 import importlib
 import json
+import re
 import subprocess
 import sys
 import threading
@@ -432,6 +433,53 @@ def _reconcile_ort_active_provider(
         )
 
     return actual, None
+
+
+def _extract_openvino_unsupported_ops(error_text: Optional[str]) -> list[str]:
+    if not error_text:
+        return []
+    normalized = " ".join(str(error_text).split())
+    match = re.search(
+        r"OpenVINO does not support the following ONNX operations:\s*([^.;]+)",
+        normalized,
+        flags=re.IGNORECASE,
+    )
+    if not match:
+        return []
+    seen: set[str] = set()
+    out: list[str] = []
+    for raw in match.group(1).split(","):
+        op = raw.strip()
+        if not op:
+            continue
+        if op in seen:
+            continue
+        seen.add(op)
+        out.append(op)
+    return out
+
+
+def _summarize_openvino_load_error(
+    error_text: Optional[str],
+    device_name: Optional[str],
+    fallback_target: str = "ONNX Runtime CPU",
+) -> str:
+    device = (device_name or "device").strip() or "device"
+    prefix = f"OpenVINO {device} could not compile this model on this host"
+    unsupported_ops = _extract_openvino_unsupported_ops(error_text)
+    if unsupported_ops:
+        return (
+            f"{prefix} (unsupported ONNX ops: {', '.join(unsupported_ops)}); "
+            f"using {fallback_target}."
+        )
+
+    raw = (error_text or "").strip()
+    if raw.lower().startswith("failed to load openvino model:"):
+        raw = raw.split(":", 1)[1].strip()
+    snippet = " ".join(raw.split()) if raw else "unknown compile error"
+    if len(snippet) > 220:
+        snippet = snippet[:217] + "..."
+    return f"{prefix}: {snippet}; using {fallback_target}."
 
 # Global singleton instance
 _classifier_instance: Optional['ClassifierService'] = None
@@ -1021,6 +1069,9 @@ class ClassifierService:
         self._active_inference_provider = "tflite"
         self._inference_backend = "tflite"
         self._inference_fallback_reason: Optional[str] = None
+        self._openvino_model_compile_ok: Optional[bool] = None
+        self._openvino_model_compile_device: Optional[str] = None
+        self._openvino_model_compile_error: Optional[str] = None
         self._accel_caps = _detect_acceleration_capabilities()
         self._init_bird_model()
 
@@ -1072,6 +1123,9 @@ class ClassifierService:
         self._inference_fallback_reason = None
         self._inference_backend = "tflite"
         self._active_inference_provider = "tflite"
+        self._openvino_model_compile_ok = None
+        self._openvino_model_compile_device = None
+        self._openvino_model_compile_error = None
 
         if not self._accel_caps.get("openvino_available"):
             if self._accel_caps.get("openvino_import_error"):
@@ -1105,15 +1159,19 @@ class ClassifierService:
             self._inference_backend = selection.get("backend", "unavailable")
 
             if selection["backend"] == "openvino":
+                openvino_device = selection["openvino_device"] or "CPU"
+                self._openvino_model_compile_device = openvino_device
                 bird_model = OpenVINOModelInstance(
                     "bird",
                     model_path,
                     labels_path,
                     preprocessing=preprocessing,
                     input_size=input_size,
-                    device_name=selection["openvino_device"] or "CPU",
+                    device_name=openvino_device,
                 )
                 if bird_model.load():
+                    self._openvino_model_compile_ok = True
+                    self._openvino_model_compile_error = None
                     session_providers = []
                     if getattr(bird_model, "session", None):
                         try:
@@ -1148,6 +1206,8 @@ class ClassifierService:
                             reason=self._inference_fallback_reason,
                         )
                     return
+                self._openvino_model_compile_ok = False
+                self._openvino_model_compile_error = bird_model.error or "OpenVINO model load failed"
                 # Device/plugin can still fail even if detection said "available" (e.g. /dev/dri permissions)
                 if self._accel_caps.get("ort_available"):
                     log.warning(
@@ -1159,9 +1219,12 @@ class ClassifierService:
                     self._inference_backend = "onnxruntime"
                     self._active_inference_provider = "cpu"
                     prev_reason = self._inference_fallback_reason
-                    self._inference_fallback_reason = (
-                        f"{prev_reason}; OpenVINO load failed" if prev_reason else "OpenVINO load failed; using ONNX Runtime CPU"
+                    fallback_reason = _summarize_openvino_load_error(
+                        self._openvino_model_compile_error,
+                        self._openvino_model_compile_device,
+                        fallback_target="ONNX Runtime CPU",
                     )
+                    self._inference_fallback_reason = f"{prev_reason}; {fallback_reason}" if prev_reason else fallback_reason
                     fallback_model = ONNXModelInstance(
                         "bird",
                         model_path,
@@ -1173,6 +1236,13 @@ class ClassifierService:
                     fallback_model.load()
                     self._models["bird"] = fallback_model
                     return
+                prev_reason = self._inference_fallback_reason
+                fallback_reason = _summarize_openvino_load_error(
+                    self._openvino_model_compile_error,
+                    self._openvino_model_compile_device,
+                    fallback_target="TFLite",
+                )
+                self._inference_fallback_reason = f"{prev_reason}; {fallback_reason}" if prev_reason else fallback_reason
                 log.warning("OpenVINO model load failed and no ORT fallback available; falling back to TFLite", error=bird_model.error)
                 runtime = 'tflite'
 
@@ -1320,17 +1390,27 @@ class ClassifierService:
     def get_status(self) -> dict:
         bird = self._models.get("bird")
         self._accel_caps = _detect_acceleration_capabilities()
+        active_model_id = None
+        try:
+            from app.services.model_manager import model_manager
+            active_model_id = getattr(model_manager, "active_model_id", None)
+        except Exception:
+            active_model_id = None
 
         status = {
             "runtime": "tflite-runtime" if "tflite_runtime" in str(tflite) else "tensorflow",
             "runtime_installed": tflite is not None,
             "onnx_available": ONNX_AVAILABLE,
+            "active_model_id": active_model_id,
             "openvino_available": bool(self._accel_caps.get("openvino_available")),
             "openvino_version": self._accel_caps.get("openvino_version"),
             "openvino_import_path": self._accel_caps.get("openvino_import_path"),
             "openvino_import_error": self._accel_caps.get("openvino_import_error"),
             "openvino_probe_error": self._accel_caps.get("openvino_probe_error"),
             "openvino_gpu_probe_error": self._accel_caps.get("openvino_gpu_probe_error"),
+            "openvino_model_compile_ok": self._openvino_model_compile_ok,
+            "openvino_model_compile_device": self._openvino_model_compile_device,
+            "openvino_model_compile_error": self._openvino_model_compile_error,
             "openvino_devices": self._accel_caps.get("openvino_devices") or [],
             "cuda_provider_installed": bool(self._accel_caps.get("cuda_provider_installed")),
             "cuda_hardware_available": bool(self._accel_caps.get("cuda_hardware_available")),

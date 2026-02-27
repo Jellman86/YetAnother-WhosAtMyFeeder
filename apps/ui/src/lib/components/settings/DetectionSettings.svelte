@@ -302,6 +302,26 @@
                             {$_('settings.detection.provider_fallback_reason', { default: 'Fallback:' })} {classifierStatus.fallback_reason}
                         </p>
                     {/if}
+                    {#if classifierStatus.openvino_model_compile_ok === false}
+                        <div class="rounded-2xl border border-rose-200/80 dark:border-rose-700/40 bg-rose-50/80 dark:bg-rose-950/20 p-3 space-y-1">
+                            <p class="text-[10px] font-black uppercase tracking-[0.14em] text-rose-700 dark:text-rose-300">
+                                {$_('settings.detection.openvino_compile_failure', { default: 'OpenVINO model compile failure' })}
+                            </p>
+                            <p class="text-[10px] font-medium text-rose-900 dark:text-rose-100 break-all">
+                                {$_('settings.detection.openvino_compile_failure_detail', {
+                                    default: 'Active model'
+                                })}: <code>{classifierStatus.active_model_id || 'unknown'}</code>
+                                {#if classifierStatus.openvino_model_compile_device}
+                                    ({classifierStatus.openvino_model_compile_device})
+                                {/if}
+                            </p>
+                            {#if classifierStatus.openvino_model_compile_error}
+                                <p class="text-[10px] font-medium text-rose-900 dark:text-rose-100 break-all">
+                                    {classifierStatus.openvino_model_compile_error}
+                                </p>
+                            {/if}
+                        </div>
+                    {/if}
                     {#if ((classifierStatus.openvino_available === false) || classifierStatus.openvino_gpu_probe_error) && (classifierStatus.openvino_import_error || classifierStatus.openvino_probe_error || classifierStatus.openvino_gpu_probe_error || classifierStatus.dev_dri_present !== undefined)}
                         <div class="rounded-2xl border border-amber-200/80 dark:border-amber-700/40 bg-amber-50/80 dark:bg-amber-950/20 p-3">
                             <div class="text-[10px] font-black uppercase tracking-[0.14em] text-amber-700 dark:text-amber-300">

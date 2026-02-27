@@ -22,6 +22,7 @@ from app.services.classifier_service import (
     _probe_openvino_gpu_plugin_error_safe,
     _reconcile_ort_active_provider,
     _resolve_inference_selection,
+    _summarize_openvino_load_error,
 )
 from app.services import classifier_service as classifier_service_module
 
@@ -222,3 +223,61 @@ def test_detect_acceleration_capabilities_uses_safe_openvino_device_probe():
     assert caps["openvino_devices"] == ["CPU", "GPU"]
     assert caps["intel_cpu_available"] is True
     assert caps["intel_gpu_available"] is True
+
+
+def test_summarize_openvino_load_error_includes_unsupported_ops():
+    err = (
+        "Failed to load OpenVINO model: Exception from src/inference/src/cpp/core.cpp:93:\n"
+        "OpenVINO does not support the following ONNX operations: "
+        "SequenceEmpty, ConcatFromSequence, SequenceInsert"
+    )
+    msg = _summarize_openvino_load_error(err, "GPU")
+    assert "unsupported ONNX ops" in msg
+    assert "SequenceEmpty" in msg
+    assert "ConcatFromSequence" in msg
+    assert "SequenceInsert" in msg
+    assert "using ONNX Runtime CPU" in msg
+
+
+def test_summarize_openvino_load_error_truncates_long_error_text():
+    err = "Failed to load OpenVINO model: " + ("x" * 1000)
+    msg = _summarize_openvino_load_error(err, "CPU")
+    assert "OpenVINO CPU could not compile this model on this host" in msg
+    assert "using ONNX Runtime CPU" in msg
+    assert len(msg) < 420
+
+
+def test_classifier_status_exposes_openvino_model_compile_diagnostics():
+    caps = {
+        "ort_available": True,
+        "cuda_provider_installed": False,
+        "cuda_hardware_available": False,
+        "cuda_available": False,
+        "openvino_available": True,
+        "openvino_version": "2026.0.0",
+        "openvino_import_path": "openvino.Core",
+        "openvino_import_error": None,
+        "openvino_probe_error": None,
+        "openvino_gpu_probe_error": None,
+        "intel_gpu_available": True,
+        "intel_cpu_available": True,
+        "openvino_devices": ["CPU", "GPU"],
+        "dev_dri_present": True,
+        "dev_dri_entries": ["card0", "renderD128"],
+        "process_uid": 1000,
+        "process_gid": 1000,
+        "process_groups": [44, 992],
+    }
+
+    with patch.object(ClassifierService, "_init_bird_model", return_value=None), \
+         patch("app.services.classifier_service._detect_acceleration_capabilities", return_value=caps):
+        service = ClassifierService()
+
+    service._openvino_model_compile_ok = False
+    service._openvino_model_compile_device = "GPU"
+    service._openvino_model_compile_error = "unsupported ONNX ops: SequenceEmpty"
+    status = service.get_status()
+
+    assert status["openvino_model_compile_ok"] is False
+    assert status["openvino_model_compile_device"] == "GPU"
+    assert "SequenceEmpty" in (status["openvino_model_compile_error"] or "")
