@@ -73,9 +73,9 @@
 
     function getProviderSupport(model: ModelMetadata): string[] {
         if (Array.isArray(model.supported_inference_providers) && model.supported_inference_providers.length > 0) {
-            return model.supported_inference_providers;
+            return model.supported_inference_providers.filter((p) => p !== 'intel_cpu' && p !== 'intel_gpu');
         }
-        if (model.runtime === 'onnx') return ['cpu', 'cuda', 'intel_cpu', 'intel_gpu'];
+        if (model.runtime === 'onnx') return ['cpu', 'cuda'];
         if (model.runtime === 'tflite') return ['cpu'];
         return ['cpu'];
     }
@@ -230,7 +230,7 @@
                                 </span>
                             </div>
                             <div class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-2">
-                                Inference Provider Support
+                                Inference Provider Pills
                             </div>
                             <div class="flex flex-wrap gap-1.5">
                                 {#each getProviderSupport(model) as provider}
@@ -239,6 +239,9 @@
                                     </span>
                                 {/each}
                             </div>
+                            <p class="mt-2 text-[10px] font-bold text-slate-500 dark:text-slate-400">
+                                OpenVINO compatibility is host/runtime dependent and shown in Detection diagnostics.
+                            </p>
                         </div>
 
                         {#if download && (download.status === 'downloading' || download.status === 'pending')}
