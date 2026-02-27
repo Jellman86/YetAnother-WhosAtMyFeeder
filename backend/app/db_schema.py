@@ -97,6 +97,34 @@ ai_conversation_turns = Table(
 Index("idx_ai_conversation_event", ai_conversation_turns.c.frigate_event)
 Index("idx_ai_conversation_created", ai_conversation_turns.c.created_at)
 
+classification_feedback = Table(
+    "classification_feedback",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("created_at", TIMESTAMP, server_default=func.now(), nullable=False),
+    Column("frigate_event", String),
+    Column("camera_name", String, nullable=False),
+    Column("model_id", String, nullable=False),
+    Column("predicted_label", String, nullable=False),
+    Column("corrected_label", String, nullable=False),
+    Column("predicted_score", Float),
+    Column("source", String, server_default="manual_tag", nullable=False),
+)
+
+Index(
+    "idx_classification_feedback_camera_model_time",
+    classification_feedback.c.camera_name,
+    classification_feedback.c.model_id,
+    classification_feedback.c.created_at,
+)
+Index(
+    "idx_classification_feedback_camera_model_predicted_time",
+    classification_feedback.c.camera_name,
+    classification_feedback.c.model_id,
+    classification_feedback.c.predicted_label,
+    classification_feedback.c.created_at,
+)
+
 taxonomy_cache = Table(
     "taxonomy_cache",
     metadata,
