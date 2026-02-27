@@ -6,7 +6,10 @@ import asyncio
 import json
 import re
 import unicodedata
+import structlog
 from app.utils.frigate import normalize_sub_label
+
+log = structlog.get_logger()
 
 @dataclass
 class Detection:
@@ -287,6 +290,62 @@ class DetectionRepository:
             (timestamp, frigate_event)
         )
         await self.db.commit()
+
+    async def insert_classification_feedback(
+        self,
+        *,
+        frigate_event: Optional[str],
+        camera_name: str,
+        model_id: str,
+        predicted_label: str,
+        corrected_label: str,
+        predicted_score: Optional[float],
+        source: str = "manual_tag",
+    ) -> bool:
+        """Insert a feedback row for personalization learning.
+
+        Returns False (without raising) when table/schema support is unavailable.
+        """
+        if not await self._table_exists("classification_feedback"):
+            return False
+
+        if not camera_name or not model_id or not predicted_label or not corrected_label:
+            log.warning(
+                "Skipping classification feedback insert due to missing required fields",
+                camera_name=bool(camera_name),
+                model_id=bool(model_id),
+                predicted_label=bool(predicted_label),
+                corrected_label=bool(corrected_label),
+            )
+            return False
+
+        try:
+            await self.db.execute(
+                """
+                INSERT INTO classification_feedback (
+                    frigate_event, camera_name, model_id, predicted_label, corrected_label, predicted_score, source
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    frigate_event,
+                    camera_name,
+                    model_id,
+                    predicted_label,
+                    corrected_label,
+                    predicted_score,
+                    source,
+                ),
+            )
+            return True
+        except Exception as exc:
+            log.warning(
+                "Failed to insert classification feedback; continuing without personalization feedback",
+                error=str(exc),
+                frigate_event=frigate_event,
+                camera_name=camera_name,
+                model_id=model_id,
+            )
+            return False
 
     async def update_ai_analysis(self, frigate_event: str, analysis: str):
         """Update AI naturalist analysis for an event."""

@@ -73,6 +73,7 @@ async def _seed_detection_and_taxonomy(event_id: str, taxa_id: int) -> None:
 
 async def _cleanup_detection_and_taxonomy(event_id: str, taxa_id: int) -> None:
     async with get_db() as db:
+        await db.execute("DELETE FROM classification_feedback WHERE frigate_event = ?", (event_id,))
         await db.execute("DELETE FROM detections WHERE frigate_event = ?", (event_id,))
         await db.execute("DELETE FROM taxonomy_translations WHERE taxa_id = ?", (taxa_id,))
         await db.execute("DELETE FROM taxonomy_cache WHERE taxa_id = ?", (taxa_id,))
@@ -120,5 +121,66 @@ async def test_manual_update_treats_localized_alias_of_same_species_as_unchanged
         assert row[3] == "Blue Tit"
         assert row[4] == taxa_id
         assert row[5] == 0
+    finally:
+        await _cleanup_detection_and_taxonomy(event_id=event_id, taxa_id=taxa_id)
+
+
+@pytest.mark.asyncio
+async def test_manual_update_writes_classification_feedback_row(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+
+    event_id = f"manual-{uuid.uuid4().hex[:10]}"
+    taxa_id = 920000 + int(uuid.uuid4().hex[:4], 16)
+    await _seed_detection_and_taxonomy(event_id=event_id, taxa_id=taxa_id)
+
+    try:
+        with patch(
+            "app.routers.events.taxonomy_service.get_names",
+            new=AsyncMock(return_value={"scientific_name": "Parus major", "common_name": "Great Tit", "taxa_id": 145252}),
+        ) as mock_get_names, patch(
+            "app.routers.events.audio_service.correlate_species",
+            new=AsyncMock(return_value=(False, None, None)),
+        ) as mock_audio, patch(
+            "app.routers.events.broadcaster.broadcast",
+            new=AsyncMock(),
+        ) as mock_broadcast:
+            response = await client.patch(
+                f"/api/events/{event_id}",
+                json={"display_name": "Great Tit"},
+                headers={"Accept-Language": "en"},
+            )
+
+        assert response.status_code == 200, response.text
+        payload = response.json()
+        assert payload["status"] == "updated"
+        assert payload["event_id"] == event_id
+        assert payload["old_species"] == "Blue Tit"
+        assert payload["new_species"] == "Great Tit"
+
+        mock_get_names.assert_awaited()
+        mock_audio.assert_awaited()
+        mock_broadcast.assert_awaited()
+
+        async with get_db() as db:
+            async with db.execute(
+                """
+                SELECT camera_name, model_id, predicted_label, corrected_label, predicted_score, source
+                FROM classification_feedback
+                WHERE frigate_event = ?
+                ORDER BY id DESC
+                LIMIT 1
+                """,
+                (event_id,),
+            ) as cursor:
+                feedback_row = await cursor.fetchone()
+
+        assert feedback_row is not None
+        assert feedback_row[0] == "test-camera"
+        assert feedback_row[1]
+        assert feedback_row[2] == "Blue Tit"
+        assert feedback_row[3] == "Parus major"
+        assert feedback_row[4] == pytest.approx(0.91, rel=1e-6)
+        assert feedback_row[5] == "manual_tag"
     finally:
         await _cleanup_detection_and_taxonomy(event_id=event_id, taxa_id=taxa_id)

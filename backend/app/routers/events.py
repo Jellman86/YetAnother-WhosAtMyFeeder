@@ -129,6 +129,21 @@ def _manual_update_is_alias_noop(detection, requested_species: str, resolved_ali
 
     return False
 
+
+def _get_active_model_id_for_feedback() -> str:
+    try:
+        from app.services.model_manager import model_manager
+
+        active_model_id = str(getattr(model_manager, "active_model_id", "") or "").strip()
+        if active_model_id:
+            return active_model_id
+    except Exception:
+        pass
+
+    configured_model = str(getattr(settings.classification, "model", "") or "").strip()
+    return configured_model or "unknown"
+
+
 async def batch_check_clips(event_ids: list[str]) -> dict[str, bool]:
     """
     Check clip availability for multiple events from Frigate.
@@ -999,6 +1014,8 @@ async def update_event(
             )
 
         old_species = detection.display_name
+        old_category_name = detection.category_name
+        old_score = detection.score
         new_species = update_request.display_name.strip()
 
         log.debug("Manual tag request",
@@ -1118,6 +1135,20 @@ async def update_event(
               sci_name, com_name, t_id,
               1 if audio_confirmed else 0, audio_species, audio_score,
               event_id))
+
+        model_id = _get_active_model_id_for_feedback()
+        predicted_label = (old_category_name or old_species or "").strip()
+        corrected_label = (stored_category_name or stored_display_name or "").strip()
+        if predicted_label and corrected_label and predicted_label != corrected_label:
+            await repo.insert_classification_feedback(
+                frigate_event=event_id,
+                camera_name=detection.camera_name,
+                model_id=model_id,
+                predicted_label=predicted_label,
+                corrected_label=corrected_label,
+                predicted_score=old_score,
+                source="manual_tag",
+            )
         await db.commit()
 
         log.info("Manually updated detection species",
