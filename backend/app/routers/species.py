@@ -138,6 +138,15 @@ def _species_unified_metrics_key(row: dict) -> str | None:
         return str(species).lower()
     return None
 
+
+def _to_utc_naive(dt: datetime | None) -> datetime | None:
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        return dt
+    return dt.astimezone(timezone.utc).replace(tzinfo=None)
+
+
 async def _get_cached_species_info(species_name: str, taxa_id: int | None, language: str, refresh: bool) -> SpeciesInfo | None:
     if refresh:
         return None
@@ -971,11 +980,19 @@ async def get_species_stats(
             if basic_stats["total"] > 0:
                 total_stats["total"] += basic_stats["total"]
                 if basic_stats["first_seen"]:
-                    if total_stats["first_seen"] is None or basic_stats["first_seen"] < total_stats["first_seen"]:
-                        total_stats["first_seen"] = basic_stats["first_seen"]
+                    candidate_first_seen = _to_utc_naive(basic_stats["first_seen"])
+                    current_first_seen = _to_utc_naive(total_stats["first_seen"])
+                    if current_first_seen is None or (
+                        candidate_first_seen is not None and candidate_first_seen < current_first_seen
+                    ):
+                        total_stats["first_seen"] = candidate_first_seen
                 if basic_stats["last_seen"]:
-                    if total_stats["last_seen"] is None or basic_stats["last_seen"] > total_stats["last_seen"]:
-                        total_stats["last_seen"] = basic_stats["last_seen"]
+                    candidate_last_seen = _to_utc_naive(basic_stats["last_seen"])
+                    current_last_seen = _to_utc_naive(total_stats["last_seen"])
+                    if current_last_seen is None or (
+                        candidate_last_seen is not None and candidate_last_seen > current_last_seen
+                    ):
+                        total_stats["last_seen"] = candidate_last_seen
                 total_stats["max_confidence"] = max(total_stats["max_confidence"], basic_stats["max_confidence"])
                 total_stats["min_confidence"] = min(total_stats["min_confidence"], basic_stats["min_confidence"])
                 confidence_sum += basic_stats["avg_confidence"] * basic_stats["total"]
@@ -1026,7 +1043,10 @@ async def get_species_stats(
             ]
 
         # Sort recent by time and limit to 5
-        recent.sort(key=lambda x: x.detection_time, reverse=True)
+        recent.sort(
+            key=lambda x: _to_utc_naive(x.detection_time) or datetime.min,
+            reverse=True,
+        )
         recent = recent[:5]
 
         # Convert dataclass detections to Pydantic models
