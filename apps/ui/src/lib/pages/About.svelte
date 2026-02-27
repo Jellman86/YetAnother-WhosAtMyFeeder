@@ -100,11 +100,6 @@
             descriptionKey: 'about.feature_list.observability.desc'
         },
         {
-            icon: '🦊',
-            titleKey: 'about.feature_list.wildlife.title',
-            descriptionKey: 'about.feature_list.wildlife.desc'
-        },
-        {
             icon: '⚡',
             titleKey: 'about.feature_list.fast_path.title',
             descriptionKey: 'about.feature_list.fast_path.desc'
