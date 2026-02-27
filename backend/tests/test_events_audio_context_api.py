@@ -119,3 +119,63 @@ async def test_events_include_audio_context_species_for_unmatched_audio(client: 
     assert event["audio_confirmed"] is False
     assert event["audio_species"] == "Corvus corone"
     assert event["audio_context_species"] == ["Corvus corone", "Passer domesticus"]
+
+
+@pytest.mark.asyncio
+async def test_events_handles_mixed_naive_and_aware_timestamps_for_audio_context(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+    settings.frigate.camera_audio_mapping = {"feeder-cam": "BirdCam"}
+
+    target_aware = datetime.now(timezone.utc).replace(microsecond=0)
+    target_naive = target_aware.replace(tzinfo=None)
+    event_id = f"evt-audio-mixed-ts-{int(target_aware.timestamp())}"
+
+    async with get_db() as db:
+        await db.execute("DELETE FROM detections WHERE frigate_event = ?", (event_id,))
+        await db.execute(
+            "DELETE FROM audio_detections WHERE timestamp >= ? AND timestamp <= ?",
+            (
+                (target_aware - timedelta(minutes=5)).isoformat(sep=" "),
+                (target_aware + timedelta(minutes=5)).isoformat(sep=" "),
+            ),
+        )
+        await db.execute(
+            """
+            INSERT INTO detections (
+                detection_time, detection_index, score, display_name, category_name,
+                frigate_event, camera_name, is_hidden, manual_tagged,
+                audio_confirmed, audio_species, audio_score
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, 0, ?, ?)
+            """,
+            (
+                target_naive.isoformat(sep=" "),
+                1,
+                0.77,
+                "Blue Tit",
+                "Blue Tit",
+                event_id,
+                "feeder-cam",
+                "Passer domesticus",
+                0.61,
+            ),
+        )
+        await db.execute(
+            """INSERT INTO audio_detections (timestamp, species, confidence, sensor_id, raw_data, scientific_name)
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            (
+                (target_aware + timedelta(seconds=8)).isoformat(sep=" "),
+                "Passer domesticus",
+                0.61,
+                "BirdCam",
+                json.dumps({"nm": "BirdCam", "src": "rtsp_birdcam"}),
+                "Passer domesticus",
+            ),
+        )
+        await db.commit()
+
+    response = await client.get("/api/events", params={"camera": "feeder-cam", "limit": 10})
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    event = next(item for item in payload if item["frigate_event"] == event_id)
+    assert event["audio_context_species"] == ["Passer domesticus"]

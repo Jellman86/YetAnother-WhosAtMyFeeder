@@ -1,6 +1,6 @@
 from typing import Optional
 from dataclasses import dataclass
-from datetime import datetime, timedelta, date
+from datetime import datetime, timedelta, date, timezone
 import aiosqlite
 import asyncio
 import json
@@ -2065,6 +2065,9 @@ class DetectionRepository:
         mapping_value: Optional[str],
         limit: int
     ) -> list[dict]:
+        if target_time.tzinfo is None:
+            target_time = target_time.replace(tzinfo=timezone.utc)
+
         start_dt = target_time - timedelta(seconds=window_seconds)
         end_dt = target_time + timedelta(seconds=window_seconds)
         query = """SELECT timestamp, species, confidence, sensor_id, scientific_name, raw_data
@@ -2084,6 +2087,8 @@ class DetectionRepository:
                 if not row_keys.intersection(mapping_keys):
                     continue
             det_time = _parse_datetime(row[0])
+            if det_time.tzinfo is None:
+                det_time = det_time.replace(tzinfo=timezone.utc)
             offset_seconds = int((det_time - target_time).total_seconds())
             results.append({
                 "timestamp": det_time.isoformat(),
