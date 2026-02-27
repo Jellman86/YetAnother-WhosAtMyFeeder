@@ -5,6 +5,7 @@ import structlog
 from pathlib import Path
 
 from app.services.classifier_service import get_classifier
+from app.services.personalization_service import personalization_service
 from app.config import settings
 from app.auth import require_owner, AuthContext
 from app.auth_legacy import get_auth_context_with_legacy
@@ -24,7 +25,20 @@ async def classifier_status(
     auth: AuthContext = Depends(get_auth_context_with_legacy)
 ):
     """Return the status of the bird classifier model."""
-    return classifier_service.get_status()
+    status = classifier_service.get_status()
+    status["personalized_rerank_enabled"] = bool(
+        getattr(settings.classification, "personalized_rerank_enabled", False)
+    )
+    status["personalization_min_feedback_tags"] = personalization_service.min_feedback_tags
+    status["personalization_feedback_rows"] = 0
+    status["personalization_active_camera_models"] = 0
+
+    try:
+        status.update(await personalization_service.get_status_summary())
+    except Exception as exc:
+        log.warning("Failed to load personalization status summary", error=str(exc))
+
+    return status
 
 
 @router.get("/labels")

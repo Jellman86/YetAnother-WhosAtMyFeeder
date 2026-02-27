@@ -987,6 +987,10 @@ export interface ClassifierStatus {
     fallback_reason?: string | null;
     available_providers?: string[];
     cuda_enabled?: boolean;
+    personalized_rerank_enabled?: boolean;
+    personalization_min_feedback_tags?: number;
+    personalization_feedback_rows?: number;
+    personalization_active_camera_models?: number;
 }
 
 export async function fetchClassifierStatus(): Promise<ClassifierStatus> {

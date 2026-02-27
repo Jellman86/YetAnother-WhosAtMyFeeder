@@ -335,6 +335,17 @@
                             </span>
                         {/if}
                     </div>
+                    <p class="text-[10px] font-bold text-slate-500">
+                        {$_('settings.detection.personalization_status_label', { default: 'Personalization' })}:
+                        {(classifierStatus.personalized_rerank_enabled ?? false)
+                            ? $_('common.enabled', { default: 'Enabled' })
+                            : $_('common.disabled', { default: 'Disabled' })}
+                        · {$_('settings.detection.personalization_active_pairs', { default: 'Active camera/model pairs' })}:
+                        {classifierStatus.personalization_active_camera_models ?? 0}
+                        · {$_('settings.detection.personalization_feedback_rows', { default: 'Feedback tags' })}:
+                        {classifierStatus.personalization_feedback_rows ?? 0}
+                        ({$_('settings.detection.personalization_min_tags', { default: 'min' })} {classifierStatus.personalization_min_feedback_tags ?? 20})
+                    </p>
                     {#if classifierStatus.fallback_reason}
                         <p class="text-[10px] font-bold text-amber-600 dark:text-amber-400">
                             {$_('settings.detection.provider_fallback_reason', { default: 'Fallback:' })} {classifierStatus.fallback_reason}
