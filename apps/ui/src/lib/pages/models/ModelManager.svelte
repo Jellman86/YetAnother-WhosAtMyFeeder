@@ -1,10 +1,11 @@
 <script lang="ts">
     import { onMount, onDestroy } from 'svelte';
-    import { fetchAvailableModels, fetchInstalledModels, downloadModel, fetchDownloadStatus, activateModel, checkHealth, type ModelMetadata, type InstalledModel, type DownloadProgress } from '../../api';
+    import { fetchAvailableModels, fetchInstalledModels, downloadModel, fetchDownloadStatus, activateModel, checkHealth, fetchClassifierStatus, type ModelMetadata, type InstalledModel, type DownloadProgress, type ClassifierStatus } from '../../api';
 
     let availableModels = $state<ModelMetadata[]>([]);
     let installedModels = $state<InstalledModel[]>([]);
     let health = $state<any>(null);
+    let classifierStatus = $state<ClassifierStatus | null>(null);
     let loading = $state(true);
     let error = $state<string | null>(null);
     let downloadStatuses = $state<Record<string, DownloadProgress>>({});
@@ -26,14 +27,19 @@
         loading = true;
         error = null;
         try {
-            const [available, installed, healthData] = await Promise.all([
+            const [available, installed, healthData, classifierData] = await Promise.all([
                 fetchAvailableModels(),
                 fetchInstalledModels(),
-                checkHealth()
+                checkHealth(),
+                fetchClassifierStatus().catch((e) => {
+                    console.warn("Failed to load classifier status in model manager", e);
+                    return null;
+                })
             ]);
             availableModels = available;
             installedModels = installed;
             health = healthData;
+            classifierStatus = classifierData;
         } catch (e) {
             console.error(e);
             error = "Failed to load models";
@@ -73,9 +79,9 @@
 
     function getProviderSupport(model: ModelMetadata): string[] {
         if (Array.isArray(model.supported_inference_providers) && model.supported_inference_providers.length > 0) {
-            return model.supported_inference_providers.filter((p) => p !== 'intel_cpu' && p !== 'intel_gpu');
+            return model.supported_inference_providers;
         }
-        if (model.runtime === 'onnx') return ['cpu', 'cuda'];
+        if (model.runtime === 'onnx') return ['cpu', 'cuda', 'intel_cpu', 'intel_gpu'];
         if (model.runtime === 'tflite') return ['cpu'];
         return ['cpu'];
     }
@@ -106,6 +112,85 @@
             default:
                 return 'bg-slate-500/10 text-slate-700 dark:text-slate-300 border-slate-500/20';
         }
+    }
+
+    function getDynamicProviderChips(model: ModelMetadata, active: boolean): Array<{ label: string; className: string; title: string }> {
+        if (!active) return [];
+
+        const compileDevice = (classifierStatus?.openvino_model_compile_device || '').toUpperCase();
+        const compileForIntelGpuFailed = classifierStatus?.openvino_model_compile_ok === false && compileDevice === 'GPU';
+        const compileForIntelCpuFailed = classifierStatus?.openvino_model_compile_ok === false && compileDevice === 'CPU';
+        const providerOrder = ['cpu', 'cuda', 'intel_cpu', 'intel_gpu'];
+        const activeProvider = classifierStatus?.active_provider ?? null;
+        const supportedProviders = getProviderSupport(model);
+
+        return providerOrder
+            .filter((p) => supportedProviders.includes(p))
+            .map((provider) => {
+                const baseLabel = providerLabel(provider);
+                const isActive = activeProvider === provider;
+
+                if (isActive) {
+                    return {
+                        label: `${baseLabel}: Active`,
+                        className: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/20',
+                        title: 'Currently active inference provider'
+                    };
+                }
+
+                if (provider === 'cpu') {
+                    return {
+                        label: `${baseLabel}: Available`,
+                        className: 'bg-slate-500/10 text-slate-700 dark:text-slate-300 border-slate-500/20',
+                        title: 'CPU fallback path is available'
+                    };
+                }
+
+                if (provider === 'cuda') {
+                    const available = classifierStatus?.cuda_available ?? false;
+                    return {
+                        label: `${baseLabel}: ${available ? 'Available' : 'Unavailable'}`,
+                        className: available
+                            ? 'bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-500/20'
+                            : 'bg-rose-500/10 text-rose-700 dark:text-rose-300 border-rose-500/20',
+                        title: available ? 'CUDA provider is available on this host' : 'CUDA provider is not available on this host'
+                    };
+                }
+
+                if (provider === 'intel_cpu') {
+                    if (compileForIntelCpuFailed) {
+                        return {
+                            label: `${baseLabel}: Fallback`,
+                            className: 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/20',
+                            title: 'OpenVINO CPU compile failed and fallback is active'
+                        };
+                    }
+                    const available = classifierStatus?.intel_cpu_available ?? false;
+                    return {
+                        label: `${baseLabel}: ${available ? 'Available' : 'Unavailable'}`,
+                        className: available
+                            ? 'bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 border-cyan-500/20'
+                            : 'bg-rose-500/10 text-rose-700 dark:text-rose-300 border-rose-500/20',
+                        title: available ? 'OpenVINO CPU is available on this host' : 'OpenVINO CPU is not available on this host'
+                    };
+                }
+
+                if (compileForIntelGpuFailed) {
+                    return {
+                        label: `${baseLabel}: Fallback`,
+                        className: 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/20',
+                        title: 'OpenVINO GPU compile failed and fallback is active'
+                    };
+                }
+                const available = classifierStatus?.intel_gpu_available ?? false;
+                return {
+                    label: `${baseLabel}: ${available ? 'Available' : 'Unavailable'}`,
+                    className: available
+                        ? 'bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 border-cyan-500/20'
+                        : 'bg-rose-500/10 text-rose-700 dark:text-rose-300 border-rose-500/20',
+                    title: available ? 'OpenVINO GPU is available on this host' : 'OpenVINO GPU is not available on this host'
+                };
+            });
     }
 
     async function handleDownload(model: ModelMetadata) {
@@ -182,6 +267,7 @@
                 {@const active = isActive(model.id)}
                 {@const download = downloadStatuses[model.id]}
                 {@const inProgress = download?.status === 'downloading' || download?.status === 'pending'}
+                {@const dynamicProviderChips = getDynamicProviderChips(model, active)}
                 
                 <div class="bg-white dark:bg-slate-800 rounded-xl border-2 transition-all duration-200 flex flex-col
                             {active ? 'border-teal-500 shadow-lg shadow-teal-500/10' : 'border-slate-200 dark:border-slate-700'}">
@@ -240,9 +326,19 @@
                                     </span>
                                 {/each}
                             </div>
-                            <p class="mt-2 text-[10px] font-bold text-slate-500 dark:text-slate-400">
-                                OpenVINO compatibility is host/runtime dependent and shown in Detection diagnostics.
-                            </p>
+                            {#if dynamicProviderChips.length > 0}
+                                <div class="mt-2 flex items-center gap-2">
+                                    {#each dynamicProviderChips as chip}
+                                        <span class={`px-2 py-1 rounded-full border text-[10px] font-black tracking-tight ${chip.className}`} title={chip.title}>
+                                            {chip.label}
+                                        </span>
+                                    {/each}
+                                </div>
+                            {:else}
+                                <p class="mt-2 text-[10px] font-bold text-slate-500 dark:text-slate-400">
+                                    OpenVINO host verification is shown for the active ONNX model.
+                                </p>
+                            {/if}
                         </div>
 
                         {#if inProgress}
