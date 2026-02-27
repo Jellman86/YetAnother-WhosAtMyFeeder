@@ -31,6 +31,26 @@
 
     let primaryName = $derived(naming.primary);
     let subName = $derived(naming.secondary);
+    let audioContextSpecies = $derived.by(() => {
+        const seen = new Set<string>();
+        const values: string[] = [];
+        const add = (candidate: unknown) => {
+            if (typeof candidate !== 'string') return;
+            const normalized = candidate.trim();
+            if (!normalized) return;
+            const key = normalized.toLowerCase();
+            if (seen.has(key)) return;
+            seen.add(key);
+            values.push(normalized);
+        };
+        add(detection.audio_species);
+        for (const species of detection.audio_context_species ?? []) {
+            add(species);
+        }
+        return values;
+    });
+    let hasAudioSignal = $derived(detection.audio_confirmed || audioContextSpecies.length > 0);
+    let audioNearbySummary = $derived(audioContextSpecies.join(', '));
     let hasWeather = $derived(
         detection.temperature !== undefined && detection.temperature !== null ||
         !!detection.weather_condition ||
@@ -102,12 +122,12 @@
                 <span class="px-2 py-0.5 bg-teal-700 text-white text-[10px] font-bold uppercase tracking-widest rounded-md">
                     {getRelativeTime(detection.detection_time, $_)}
                 </span>
-                {#if detection.audio_confirmed || detection.audio_species}
+                {#if hasAudioSignal}
                     <span class="px-2 py-0.5 {detection.audio_confirmed ? 'bg-blue-500' : 'bg-slate-500'} text-white text-[10px] font-bold uppercase tracking-widest rounded-md flex items-center gap-1">
                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
                         </svg>
-                        {detection.audio_confirmed ? $_('dashboard.hero.audio_confirmed') : $_('detection.audio_detected')}
+                        {detection.audio_confirmed ? $_('dashboard.hero.audio_confirmed') : $_('detection.audio_no_match')}
                     </span>
                 {/if}
             </div>
@@ -122,12 +142,12 @@
                 </p>
             {/if}
             
-            {#if detection.audio_species && detection.audio_species !== detection.display_name}
+            {#if !detection.audio_confirmed && audioNearbySummary}
                 <div class="mt-3 flex items-center gap-2 text-blue-300 text-xs font-bold uppercase tracking-widest bg-blue-500/10 border border-blue-500/20 px-3 py-1.5 rounded-xl w-fit backdrop-blur-md">
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
                     </svg>
-                    {$_('dashboard.hero.heard', { values: { species: detection.audio_species } })}
+                    {$_('detection.audio_nearby', { values: { species: audioNearbySummary }, default: 'Nearby audio: {species}' })}
                 </div>
             {/if}
 
