@@ -1072,6 +1072,7 @@ class ClassifierService:
         self._openvino_model_compile_ok: Optional[bool] = None
         self._openvino_model_compile_device: Optional[str] = None
         self._openvino_model_compile_error: Optional[str] = None
+        self._openvino_model_compile_unsupported_ops: list[str] = []
         self._accel_caps = _detect_acceleration_capabilities()
         self._init_bird_model()
 
@@ -1126,6 +1127,7 @@ class ClassifierService:
         self._openvino_model_compile_ok = None
         self._openvino_model_compile_device = None
         self._openvino_model_compile_error = None
+        self._openvino_model_compile_unsupported_ops = []
 
         if not self._accel_caps.get("openvino_available"):
             if self._accel_caps.get("openvino_import_error"):
@@ -1172,6 +1174,7 @@ class ClassifierService:
                 if bird_model.load():
                     self._openvino_model_compile_ok = True
                     self._openvino_model_compile_error = None
+                    self._openvino_model_compile_unsupported_ops = []
                     session_providers = []
                     if getattr(bird_model, "session", None):
                         try:
@@ -1208,6 +1211,9 @@ class ClassifierService:
                     return
                 self._openvino_model_compile_ok = False
                 self._openvino_model_compile_error = bird_model.error or "OpenVINO model load failed"
+                self._openvino_model_compile_unsupported_ops = _extract_openvino_unsupported_ops(
+                    self._openvino_model_compile_error
+                )
                 # Device/plugin can still fail even if detection said "available" (e.g. /dev/dri permissions)
                 if self._accel_caps.get("ort_available"):
                     log.warning(
@@ -1411,6 +1417,7 @@ class ClassifierService:
             "openvino_model_compile_ok": self._openvino_model_compile_ok,
             "openvino_model_compile_device": self._openvino_model_compile_device,
             "openvino_model_compile_error": self._openvino_model_compile_error,
+            "openvino_model_compile_unsupported_ops": list(self._openvino_model_compile_unsupported_ops or []),
             "openvino_devices": self._accel_caps.get("openvino_devices") or [],
             "cuda_provider_installed": bool(self._accel_caps.get("cuda_provider_installed")),
             "cuda_hardware_available": bool(self._accel_caps.get("cuda_hardware_available")),

@@ -968,6 +968,7 @@ export interface ClassifierStatus {
     openvino_model_compile_ok?: boolean | null;
     openvino_model_compile_device?: string | null;
     openvino_model_compile_error?: string | null;
+    openvino_model_compile_unsupported_ops?: string[];
     openvino_devices?: string[];
     cuda_provider_installed?: boolean;
     cuda_hardware_available?: boolean;

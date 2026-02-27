@@ -43,6 +43,13 @@
     } = $props();
 
     const circuitUntil = $derived(videoCircuitUntil ? formatDateTime(videoCircuitUntil) : null);
+    const openvinoUnsupportedOps = $derived(classifierStatus?.openvino_model_compile_unsupported_ops || []);
+    const hasOpenvinoOpIncompatibility = $derived(
+        (classifierStatus?.openvino_model_compile_ok === false) && openvinoUnsupportedOps.length > 0
+    );
+    const recommendedFallbackProvider = $derived(
+        (classifierStatus?.cuda_available ?? false) ? 'NVIDIA CUDA' : 'CPU'
+    );
 </script>
 
 <div class="space-y-6">
@@ -303,11 +310,11 @@
                         </p>
                     {/if}
                     {#if classifierStatus.openvino_model_compile_ok === false}
-                        <div class="rounded-2xl border border-rose-200/80 dark:border-rose-700/40 bg-rose-50/80 dark:bg-rose-950/20 p-3 space-y-1">
-                            <p class="text-[10px] font-black uppercase tracking-[0.14em] text-rose-700 dark:text-rose-300">
-                                {$_('settings.detection.openvino_compile_failure', { default: 'OpenVINO model compile failure' })}
+                        <div class="rounded-2xl border border-amber-200/80 dark:border-amber-700/40 bg-amber-50/80 dark:bg-amber-950/20 p-3 space-y-2">
+                            <p class="text-[10px] font-black uppercase tracking-[0.14em] text-amber-700 dark:text-amber-300">
+                                {$_('settings.detection.openvino_compile_failure', { default: 'OpenVINO model incompatibility on this host' })}
                             </p>
-                            <p class="text-[10px] font-medium text-rose-900 dark:text-rose-100 break-all">
+                            <p class="text-[10px] font-medium text-amber-900 dark:text-amber-100 break-all">
                                 {$_('settings.detection.openvino_compile_failure_detail', {
                                     default: 'Active model'
                                 })}: <code>{classifierStatus.active_model_id || 'unknown'}</code>
@@ -315,10 +322,33 @@
                                     ({classifierStatus.openvino_model_compile_device})
                                 {/if}
                             </p>
-                            {#if classifierStatus.openvino_model_compile_error}
-                                <p class="text-[10px] font-medium text-rose-900 dark:text-rose-100 break-all">
-                                    {classifierStatus.openvino_model_compile_error}
+                            <p class="text-[10px] font-medium text-amber-900 dark:text-amber-100">
+                                Automatic fallback is active: <code>{classifierStatus.inference_backend || 'unknown'}</code> / <code>{classifierStatus.active_provider || 'unknown'}</code>
+                            </p>
+                            {#if hasOpenvinoOpIncompatibility}
+                                <p class="text-[10px] font-medium text-amber-900 dark:text-amber-100">
+                                    OpenVINO reported unsupported ONNX operators for this model/runtime:
                                 </p>
+                                <div class="flex flex-wrap gap-1">
+                                    {#each openvinoUnsupportedOps as op}
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded-md bg-amber-100 dark:bg-amber-900/40 border border-amber-300/70 dark:border-amber-700/60 text-[10px] font-black text-amber-800 dark:text-amber-200">
+                                            {op}
+                                        </span>
+                                    {/each}
+                                </div>
+                            {/if}
+                            <p class="text-[10px] font-medium text-amber-900 dark:text-amber-100">
+                                Next steps: switch to <code>eva02_large_inat21</code> for OpenVINO, or keep this model and set provider to <code>{recommendedFallbackProvider}</code>.
+                            </p>
+                            {#if classifierStatus.openvino_model_compile_error}
+                                <details class="pt-1">
+                                    <summary class="cursor-pointer text-[10px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-300">
+                                        Technical details
+                                    </summary>
+                                    <p class="mt-1 text-[10px] font-medium text-amber-900 dark:text-amber-100 break-all">
+                                        {classifierStatus.openvino_model_compile_error}
+                                    </p>
+                                </details>
                             {/if}
                         </div>
                     {/if}

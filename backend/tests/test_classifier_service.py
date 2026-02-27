@@ -17,6 +17,7 @@ from app.services.classifier_service import (
     ClassifierService,
     ModelInstance,
     _detect_acceleration_capabilities,
+    _extract_openvino_unsupported_ops,
     _normalize_inference_provider,
     _probe_openvino_devices_safe,
     _probe_openvino_gpu_plugin_error_safe,
@@ -239,6 +240,16 @@ def test_summarize_openvino_load_error_includes_unsupported_ops():
     assert "using ONNX Runtime CPU" in msg
 
 
+def test_extract_openvino_unsupported_ops_parses_list():
+    err = (
+        "Exception from src/inference/src/cpp/core.cpp:93:\n"
+        "OpenVINO does not support the following ONNX operations: "
+        "SequenceEmpty, ConcatFromSequence, SequenceInsert"
+    )
+    ops = _extract_openvino_unsupported_ops(err)
+    assert ops == ["SequenceEmpty", "ConcatFromSequence", "SequenceInsert"]
+
+
 def test_summarize_openvino_load_error_truncates_long_error_text():
     err = "Failed to load OpenVINO model: " + ("x" * 1000)
     msg = _summarize_openvino_load_error(err, "CPU")
@@ -276,8 +287,10 @@ def test_classifier_status_exposes_openvino_model_compile_diagnostics():
     service._openvino_model_compile_ok = False
     service._openvino_model_compile_device = "GPU"
     service._openvino_model_compile_error = "unsupported ONNX ops: SequenceEmpty"
+    service._openvino_model_compile_unsupported_ops = ["SequenceEmpty"]
     status = service.get_status()
 
     assert status["openvino_model_compile_ok"] is False
     assert status["openvino_model_compile_device"] == "GPU"
     assert "SequenceEmpty" in (status["openvino_model_compile_error"] or "")
+    assert status["openvino_model_compile_unsupported_ops"] == ["SequenceEmpty"]
