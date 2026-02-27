@@ -319,25 +319,28 @@
                             <div class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-2">
                                 Inference Provider Pills
                             </div>
-                            <div class="flex flex-wrap gap-1.5">
-                                {#each getProviderSupport(model) as provider}
-                                    <span class={`max-w-full px-2 py-1 rounded-full border text-[10px] font-black tracking-tight whitespace-normal break-words text-center ${providerChipClass(provider)}`}>
-                                        {providerLabel(provider)}
-                                    </span>
-                                {/each}
-                            </div>
-                            {#if dynamicProviderChips.length > 0}
-                                <div class="mt-2 flex flex-wrap items-center gap-2 min-w-0">
-                                    {#each dynamicProviderChips as chip}
-                                        <span class={`max-w-full px-2 py-1 rounded-full border text-[10px] font-black tracking-tight whitespace-normal break-words text-center ${chip.className}`} title={chip.title}>
-                                            {chip.label}
+                            {#if active}
+                                {#if dynamicProviderChips.length > 0}
+                                    <div class="flex flex-wrap items-center gap-2 min-w-0">
+                                        {#each dynamicProviderChips as chip}
+                                            <span class={`max-w-full px-2 py-1 rounded-full border text-[10px] font-black tracking-tight whitespace-normal break-words text-center ${chip.className}`} title={chip.title}>
+                                                {chip.label}
+                                            </span>
+                                        {/each}
+                                    </div>
+                                {:else}
+                                    <p class="text-[10px] font-bold text-slate-500 dark:text-slate-400">
+                                        OpenVINO host verification is shown for the active ONNX model.
+                                    </p>
+                                {/if}
+                            {:else}
+                                <div class="flex flex-wrap gap-1.5">
+                                    {#each getProviderSupport(model) as provider}
+                                        <span class={`max-w-full px-2 py-1 rounded-full border text-[10px] font-black tracking-tight whitespace-normal break-words text-center ${providerChipClass(provider)}`}>
+                                            {providerLabel(provider)}
                                         </span>
                                     {/each}
                                 </div>
-                            {:else}
-                                <p class="mt-2 text-[10px] font-bold text-slate-500 dark:text-slate-400">
-                                    OpenVINO host verification is shown for the active ONNX model.
-                                </p>
                             {/if}
                         </div>
 
