@@ -128,6 +128,26 @@ Key fields:
    - If `openvino_gpu_probe_error` mentions `libOpenCL.so.1`, the image is missing OpenCL runtime libraries.
    - If it reports no supported devices, the Intel GPU userspace/driver stack is not available to the container.
 
+### ConvNeXt OpenVINO model patch (unsupported ONNX sequence ops)
+
+If `convnext_large_inat21` fails with:
+
+- `SequenceEmpty`
+- `SequenceInsert`
+- `ConcatFromSequence`
+
+you can generate an OpenVINO-compatible ONNX variant with:
+
+```bash
+cd backend
+python3 scripts/patch_convnext_openvino_model.py \
+  --model /data/models/convnext_large_inat21/model.onnx \
+  --replace
+docker restart yawamf-backend
+```
+
+The script creates a timestamped backup of the original model before replacement.
+
 ### NVIDIA CUDA checklist
 
 1. **Confirm CUDA status fields**
