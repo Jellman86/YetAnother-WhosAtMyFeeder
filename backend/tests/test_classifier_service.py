@@ -3,6 +3,7 @@ import numpy as np
 import sys
 import types
 from unittest.mock import MagicMock, patch, mock_open
+from unittest.mock import AsyncMock
 from PIL import Image
 
 # Mock model_manager before it's imported by anything
@@ -13,19 +14,19 @@ mock_mm.model_manager.active_model_id = "default"
 mock_mm.REMOTE_REGISTRY = []
 sys.modules["app.services.model_manager"] = mock_mm
 
-from app.services.classifier_service import (
+from app.services.classifier_service import (  # noqa: E402
     ClassifierService,
     ModelInstance,
     _detect_acceleration_capabilities,
     _extract_openvino_unsupported_ops,
     _normalize_inference_provider,
-    _probe_openvino_devices_safe,
     _probe_openvino_gpu_plugin_error_safe,
     _reconcile_ort_active_provider,
     _resolve_inference_selection,
     _summarize_openvino_load_error,
 )
-from app.services import classifier_service as classifier_service_module
+from app.services import classifier_service as classifier_service_module  # noqa: E402
+from app.config import settings  # noqa: E402
 
 @pytest.fixture
 def mock_tflite():
@@ -102,6 +103,58 @@ async def test_classifier_service_classify_async(mock_tflite, mock_os_path_exist
         
         assert results[0]["label"] == "Robin"
         mock_classify.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_classifier_service_classify_async_applies_personalization_when_enabled(mock_tflite, mock_os_path_exists):
+    original_toggle = settings.classification.personalized_rerank_enabled
+    settings.classification.personalized_rerank_enabled = True
+    try:
+        with patch("app.services.classifier_service.ModelInstance.load", return_value=True), \
+             patch("app.services.classifier_service.ModelInstance.classify") as mock_classify, \
+             patch("app.services.classifier_service.personalization_service.rerank", new=AsyncMock()) as mock_rerank:
+
+            mock_classify.return_value = [
+                {"label": "Robin", "score": 0.8, "index": 0},
+                {"label": "Sparrow", "score": 0.2, "index": 1},
+            ]
+            mock_rerank.return_value = [
+                {"label": "Sparrow", "score": 0.55, "index": 1},
+                {"label": "Robin", "score": 0.45, "index": 0},
+            ]
+
+            service = ClassifierService()
+            img = Image.new("RGB", (100, 100))
+            results = await service.classify_async(img, camera_name="front")
+
+            assert results[0]["label"] == "Sparrow"
+            mock_rerank.assert_awaited_once()
+            kwargs = mock_rerank.await_args.kwargs
+            assert kwargs["camera_name"] == "front"
+            assert kwargs["model_id"] == "default"
+    finally:
+        settings.classification.personalized_rerank_enabled = original_toggle
+
+
+@pytest.mark.asyncio
+async def test_classifier_service_classify_async_skips_personalization_when_disabled(mock_tflite, mock_os_path_exists):
+    original_toggle = settings.classification.personalized_rerank_enabled
+    settings.classification.personalized_rerank_enabled = False
+    try:
+        with patch("app.services.classifier_service.ModelInstance.load", return_value=True), \
+             patch("app.services.classifier_service.ModelInstance.classify") as mock_classify, \
+             patch("app.services.classifier_service.personalization_service.rerank", new=AsyncMock()) as mock_rerank:
+
+            mock_classify.return_value = [{"label": "Robin", "score": 0.9, "index": 0}]
+            service = ClassifierService()
+
+            img = Image.new("RGB", (100, 100))
+            results = await service.classify_async(img, camera_name="front")
+
+            assert results[0]["label"] == "Robin"
+            mock_rerank.assert_not_awaited()
+    finally:
+        settings.classification.personalized_rerank_enabled = original_toggle
 
 
 def test_normalize_inference_provider_defaults_to_auto_for_invalid_value():

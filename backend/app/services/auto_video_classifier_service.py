@@ -377,7 +377,8 @@ class AutoVideoClassifierService:
                         self._classifier.classify_video_async(
                             tmp_path,
                             max_frames=settings.classification.video_classification_frames,
-                            progress_callback=progress_callback
+                            progress_callback=progress_callback,
+                            camera_name=camera,
                         ),
                         timeout=timeout
                     )

@@ -192,7 +192,7 @@ class EventProcessor:
                 return None
 
             image = Image.open(BytesIO(snapshot_data))
-            results = await self.classifier.classify_async(image)
+            results = await self.classifier.classify_async(image, camera_name=event.camera)
 
             if not results:
                 return None

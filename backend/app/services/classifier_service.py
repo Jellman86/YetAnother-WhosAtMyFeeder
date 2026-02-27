@@ -84,7 +84,8 @@ _OPENVINO_SUPPORT = _detect_openvino_support()
 OpenVINOCore = _OPENVINO_SUPPORT["core_class"]
 OPENVINO_AVAILABLE = bool(_OPENVINO_SUPPORT["available"])
 
-from app.config import settings
+from app.config import settings  # noqa: E402
+from app.services.personalization_service import personalization_service  # noqa: E402
 
 log = structlog.get_logger()
 
@@ -1484,17 +1485,66 @@ class ClassifierService:
             "model_path": model_path,
         }
 
-    def classify(self, image: Image.Image) -> list[dict]:
+    def _resolve_active_model_id(self) -> str:
+        try:
+            from app.services.model_manager import model_manager
+
+            active_model_id = str(getattr(model_manager, "active_model_id", "") or "").strip()
+            if active_model_id:
+                return active_model_id
+        except Exception:
+            pass
+
+        configured_model = str(getattr(settings.classification, "model", "") or "").strip()
+        return configured_model or "unknown"
+
+    def classify(
+        self,
+        image: Image.Image,
+        camera_name: Optional[str] = None,
+        model_id: Optional[str] = None,
+    ) -> list[dict]:
         """Classify an image using the bird model."""
         bird = self._models.get("bird")
         if bird:
             return bird.classify(image)
         return []
 
-    async def classify_async(self, image: Image.Image) -> list[dict]:
+    async def classify_async(
+        self,
+        image: Image.Image,
+        camera_name: Optional[str] = None,
+        model_id: Optional[str] = None,
+    ) -> list[dict]:
         """Async wrapper for classify to prevent blocking the event loop."""
         loop = asyncio.get_running_loop()
-        return await loop.run_in_executor(self._executor, self.classify, image)
+        base_results = await loop.run_in_executor(self._executor, self.classify, image, camera_name, model_id)
+
+        if not base_results:
+            return base_results
+        if not bool(getattr(settings.classification, "personalized_rerank_enabled", False)):
+            return base_results
+        if not camera_name:
+            return base_results
+
+        effective_model_id = str(model_id or self._resolve_active_model_id()).strip()
+        if not effective_model_id:
+            return base_results
+
+        try:
+            return await personalization_service.rerank(
+                camera_name=camera_name,
+                model_id=effective_model_id,
+                results=base_results,
+            )
+        except Exception as exc:
+            log.warning(
+                "Personalized rerank failed; using base classifier scores",
+                camera_name=camera_name,
+                model_id=effective_model_id,
+                error=str(exc),
+            )
+            return base_results
 
     def classify_wildlife(self, image: Image.Image) -> list[dict]:
         """Classify an image using the wildlife model."""
@@ -1682,7 +1732,15 @@ class ClassifierService:
             if cap is not None:
                 cap.release()
 
-    async def classify_video_async(self, video_path: str, stride: int = 5, max_frames: Optional[int] = None, progress_callback=None) -> list[dict]:
+    async def classify_video_async(
+        self,
+        video_path: str,
+        stride: int = 5,
+        max_frames: Optional[int] = None,
+        progress_callback=None,
+        camera_name: Optional[str] = None,
+        model_id: Optional[str] = None,
+    ) -> list[dict]:
         """Async wrapper for video classification."""
         if max_frames is None:
             max_frames = settings.classification.video_classification_frames
@@ -1732,6 +1790,46 @@ class ClassifierService:
                 except Exception as e:
                     # Catch any exception in scheduling itself
                     log.error("Failed to schedule progress callback", error=str(e))
-            return await loop.run_in_executor(self._executor, self.classify_video, video_path, stride, max_frames, sync_callback)
+            base_results = await loop.run_in_executor(
+                self._executor,
+                self.classify_video,
+                video_path,
+                stride,
+                max_frames,
+                sync_callback,
+            )
         else:
-            return await loop.run_in_executor(self._executor, self.classify_video, video_path, stride, max_frames, None)
+            base_results = await loop.run_in_executor(
+                self._executor,
+                self.classify_video,
+                video_path,
+                stride,
+                max_frames,
+                None,
+            )
+
+        if not base_results:
+            return base_results
+        if not bool(getattr(settings.classification, "personalized_rerank_enabled", False)):
+            return base_results
+        if not camera_name:
+            return base_results
+
+        effective_model_id = str(model_id or self._resolve_active_model_id()).strip()
+        if not effective_model_id:
+            return base_results
+
+        try:
+            return await personalization_service.rerank(
+                camera_name=camera_name,
+                model_id=effective_model_id,
+                results=base_results,
+            )
+        except Exception as exc:
+            log.warning(
+                "Personalized rerank failed for video classification; using base scores",
+                camera_name=camera_name,
+                model_id=effective_model_id,
+                error=str(exc),
+            )
+            return base_results

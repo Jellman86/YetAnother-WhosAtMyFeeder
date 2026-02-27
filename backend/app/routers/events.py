@@ -896,7 +896,11 @@ async def reclassify_event(
                                         }
                                     })
 
-                                results = await classifier.classify_video_async(tmp_path, progress_callback=progress_callback)
+                                results = await classifier.classify_video_async(
+                                    tmp_path,
+                                    progress_callback=progress_callback,
+                                    camera_name=detection.camera_name,
+                                )
 
                                 # Broadcast completion
                                 await broadcast_reclassification_completed(results)
@@ -933,7 +937,7 @@ async def reclassify_event(
                     )
 
                 image = Image.open(BytesIO(snapshot_data))
-                results = await classifier.classify_async(image)
+                results = await classifier.classify_async(image, camera_name=detection.camera_name)
 
                 # Broadcast completion
                 await broadcast_reclassification_completed(results)
