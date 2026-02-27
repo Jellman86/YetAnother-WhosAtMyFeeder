@@ -4,7 +4,7 @@ This document tracks known issues and testing gaps that have not been verified e
 
 If you find a bug, please open a GitHub issue with the steps to reproduce and any redacted logs.
 
-Last reviewed against the GitHub issue tracker on **February 26, 2026**.
+Last reviewed against the GitHub issue tracker on **February 27, 2026**.
 
 ## P0: Active Regressions
 
@@ -12,16 +12,17 @@ Last reviewed against the GitHub issue tracker on **February 26, 2026**.
 
 ## Pending Verification (Fixes in Dev, Awaiting Reporter Confirmation)
 
-### GitHub Issue #19: Incorrect filter application
-- Issue: `https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/19`
-- Status (as of February 26, 2026): Open, follow-up `dev` fix shipped and awaiting reporter retest.
+### GitHub Issue #21: OpenVINO load fails for ConvNeXt
+- Issue: `https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/21`
+- Status (as of February 27, 2026): Open, remediation shipped on `dev`, awaiting reporter retest with model re-download.
 - Implemented fixes on `dev`:
-  - `c7f707a` (unknown-label alias filter canonicalization / API filter handling)
-  - `76433eb` (Explorer stale-card sync fix after batch reclassification bursts)
+  - `4cbd61f` (`patch_convnext_openvino_model.py` utility for unsupported ONNX sequence ops)
+  - `e2eaeea` (safe model re-download with in-UI progress and staged replace/rollback)
+  - `08eb353`, `4f44b15` (host-verified dynamic capability pills and duplicate-label cleanup)
 - Current understanding:
-  - The original unknown-label alias filter bug was fixed.
-  - The remaining reported symptom evolved into an Explorer UI consistency issue during batch reclassification (stale `Unknown Bird` cards after SSE patch bursts).
-  - The latest `dev` fix decouples Events patch sync from the capped recent-detections list and adds a debounced refresh fallback.
+  - The prior ConvNeXt model artifact could fail OpenVINO compile (`SequenceEmpty`/`SequenceInsert`/`ConcatFromSequence`) on affected runtimes.
+  - `dev` now provides a patched model path plus guided re-download flow to replace stale local artifacts safely.
+  - The issue remains open until reporter confirms successful OpenVINO activation after re-download.
 
 ### GitHub Issue #16: No audio detection mapped
 - Issue: `https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/16`
@@ -36,6 +37,7 @@ Last reviewed against the GitHub issue tracker on **February 26, 2026**.
 
 ## Recently Closed (Context)
 
+- **#19** Incorrect filter application / stale Explorer state - follow-up fixes merged and issue closed on **February 27, 2026**.
 - **#20** Weather conditions panel text alignment - reporter confirmed fix; closed on **February 26, 2026**.
 - **#17** Batch reclassify issue - remaining symptom moved to `#19`; closed on **February 26, 2026**.
 - **#13** Wrong Wikipedia reference (RU localization) - closed on **February 19, 2026** after validation.

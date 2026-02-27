@@ -30,7 +30,9 @@ A bird classification system that integrates with [Frigate NVR](https://frigate.
 
 - **Advanced AI Classification** - MobileNetV2, ConvNeXt, or EVA-02 models (up to 91% accuracy)
 - **Hardware Acceleration Selector** - Choose Auto/CPU/NVIDIA CUDA/Intel OpenVINO (single image, runtime fallback)
+- **Dynamic Acceleration Capability Pills** - Active model cards show host-verified CPU/CUDA/OpenVINO support in real time
 - **Multi-Sensor Verification** - Correlates visual detections with BirdNET-Go audio
+- **Personalized Re-ranking (Optional)** - Learns from manual corrections per camera/model to improve ranking over time
 - **Smart Notifications** - Discord, Telegram, Pushover, Email with customizable filters + Notification Center
 - **Video Analysis** - Automatic scanning of 15+ frames (temporal ensemble) for improved accuracy
 - **LLM Insights** - AI-powered behavioral analysis (Gemini/OpenAI/Claude)
@@ -203,9 +205,9 @@ If you use Portainer stacks, set the same `PUID`/`PGID` values in stack environm
 
 Open `http://localhost:9852` (or `http://YOUR_SERVER_IP:9852`)
 
-**6. Download the AI model:**
+**6. Download (or re-download) AI models:**
 
-In the web UI, go to **Settings** and click the model download button. The model is saved to `data/models/` and persists across updates.
+In the web UI, go to **Settings -> Detection -> Model Manager** and download a model. Re-download is also supported with progress tracking and safe staged replace/rollback behavior. Models are saved to `data/models/` and persist across updates.
 
 ### Public View (Guest Mode) at a Glance
 

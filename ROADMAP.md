@@ -199,12 +199,13 @@ Prioritize fixes for anything listed in `ISSUES.md` (known issues, testing gaps)
 If this section ever claims "none", treat it as stale: always check `ISSUES.md` and the GitHub issue tracker.
 
 ### Current Execution Focus (Issue Triage + Validation)
-- Snapshot as of **February 26, 2026**: prioritize open GitHub issues before new feature work (`#16`, `#19`).
-- ✅ `#17` (batch reclassify issue) closed after triage confirmed the remaining symptom belongs in `#19`.
+- Snapshot as of **February 27, 2026**: prioritize open GitHub issues before new feature work (`#16`, `#21`).
+- ✅ `#17` (batch reclassify issue) closed after triage confirmed the remaining symptom belonged in `#19`.
 - ✅ `#20` (weather conditions panel text alignment) fixed and reporter-confirmed, then closed.
-- 🔄 `#19` follow-up fix shipped on `dev` (`76433eb`) to prevent stale Explorer `Unknown Bird` cards after batch reclassification; awaiting reporter retest.
+- ✅ `#19` follow-up fixes shipped (`76433eb`, `419818f`) and issue closed after filter/state hardening and click-through correction.
 - 🔄 `#16` BirdNET-Go mapping improvements (source-name / `nm` mapping) are in `dev`; reporter sees audio figures again and is validating long-running stability.
-- 🔄 Continue reliability work in parallel: expand E2E coverage around upgrade/restart scenarios and permission-failure startup paths.
+- 🔄 `#21` OpenVINO ConvNeXt load failure has `dev` remediation (patched model + safe re-download flow + clearer capability diagnostics) and is awaiting reporter retest.
+- 🔄 Continue reliability work in parallel: expand E2E coverage around restart/recovery scenarios and GPU/provider fallback paths.
 
 ---
 
@@ -590,5 +591,5 @@ Have a feature idea not on this list? Open an issue on [GitHub](https://github.c
 
 ---
 
-**Last Updated:** 2026-02-19
-**Version:** 2.8.2
+**Last Updated:** 2026-02-27
+**Version:** 2.8.3-dev

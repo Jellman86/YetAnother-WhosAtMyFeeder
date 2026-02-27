@@ -17,6 +17,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Changed:** Detection Settings now surfaces ONNX inference provider/GPU acceleration controls in a dedicated panel (with an in-UI link to the repo GPU setup/diagnostics guide), and the bird naming style preference has been moved to Appearance Settings.
 - **Changed:** Camera-aware inference paths now pass camera context into snapshot/video classification so personalized re-ranking can be applied consistently in live processing and manual/background reclassification flows.
 - **Added:** AI Models settings cards now display model runtime and supported inference providers (CPU, NVIDIA CUDA, Intel OpenVINO CPU/GPU) so users can see which installed models can use each acceleration path.
+- **Changed:** Active model cards now show only host-verified dynamic acceleration pills (CPU/CUDA/OpenVINO) and no longer duplicate static capability labels.
 - **Fixed:** Added missing `ai_pricing_json` field to the backend settings update schema, resolving an issue where custom AI pricing inputs were not saved and reset to `[]`.
 - **Fixed:** Corrected the AI Cost Estimation Reference link in the AI Settings UI to properly point to the reference documentation hosted on the project's GitHub repository.
 - **Fixed:** CUDA availability detection now requires both the ONNX Runtime CUDA provider and a real NVIDIA CUDA device, preventing false-positive "CUDA available" status on Intel-only hosts.
@@ -41,6 +42,9 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Added:** BirdNET camera-audio mappings now support multiple source names per camera (comma-separated), allowing multi-stream camera setups to correlate audio across multiple BirdNET sources.
 - **Changed:** Detection cards and detection modal audio badges now show `No Audio Match` when audio does not confirm the visual species, and display nearby heard species instead of the previous generic `Heard` wording.
 - **Added:** Events API now includes `audio_context_species` for unmatched-audio detections so cards can surface nearby BirdNET species without per-card fetches.
+- **Fixed:** Manual-tag species options now hydrate missing taxonomy metadata on demand, improving common/scientific name coverage in locale-aware species pickers without requiring a full reload.
+- **Fixed:** Active model capability pills now wrap cleanly on small/mobile cards to prevent overflow and clipped labels.
+- **Fixed:** Dashboard "Recent Visitors" click-through now prefers stable `taxa:<id>` filters and no longer forces `date=today`, avoiding false "No events" results when sightings fall outside the local-day window.
 
 ## [2.8.3] - 2026-02-23
 
