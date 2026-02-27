@@ -12,6 +12,7 @@ mock_mm.model_manager = MagicMock()
 mock_mm.model_manager.get_active_model_paths.return_value = ("model.tflite", "labels.txt", 224)
 mock_mm.model_manager.active_model_id = "default"
 mock_mm.REMOTE_REGISTRY = []
+_original_model_manager_module = sys.modules.get("app.services.model_manager")
 sys.modules["app.services.model_manager"] = mock_mm
 
 from app.services.classifier_service import (  # noqa: E402
@@ -27,6 +28,12 @@ from app.services.classifier_service import (  # noqa: E402
 )
 from app.services import classifier_service as classifier_service_module  # noqa: E402
 from app.config import settings  # noqa: E402
+
+# Restore the original module so this test file doesn't leak a mock into other tests.
+if _original_model_manager_module is not None:
+    sys.modules["app.services.model_manager"] = _original_model_manager_module
+else:
+    sys.modules.pop("app.services.model_manager", None)
 
 @pytest.fixture
 def mock_tflite():
@@ -131,7 +138,7 @@ async def test_classifier_service_classify_async_applies_personalization_when_en
             mock_rerank.assert_awaited_once()
             kwargs = mock_rerank.await_args.kwargs
             assert kwargs["camera_name"] == "front"
-            assert kwargs["model_id"] == "default"
+            assert kwargs["model_id"] == service._resolve_active_model_id()
     finally:
         settings.classification.personalized_rerank_enabled = original_toggle
 
