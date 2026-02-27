@@ -682,7 +682,7 @@
             isSearching = true;
             (async () => {
                 try {
-                    searchResults = await searchSpecies('', 20);
+                    searchResults = await searchSpecies('', 20, true);
                 } catch (e) {
                     console.error("Search failed", e);
                     searchResults = classifierLabels.slice(0, 20).map(l => ({

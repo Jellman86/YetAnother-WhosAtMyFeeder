@@ -273,10 +273,10 @@
                             {active ? 'border-teal-500 shadow-lg shadow-teal-500/10' : 'border-slate-200 dark:border-slate-700'}">
                     
                     <div class="p-5 flex-1">
-                        <div class="flex justify-between items-start mb-2">
-                            <h3 class="text-lg font-bold text-slate-900 dark:text-white">{model.name}</h3>
+                        <div class="flex justify-between items-start gap-2 mb-2 min-w-0">
+                            <h3 class="min-w-0 text-lg font-bold text-slate-900 dark:text-white break-words leading-tight">{model.name}</h3>
                             {#if active}
-                                <span class="px-2 py-1 text-xs font-bold bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 rounded-full">
+                                <span class="shrink-0 px-2 py-1 text-xs font-bold bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 rounded-full">
                                     ACTIVE
                                 </span>
                             {/if}
@@ -321,15 +321,15 @@
                             </div>
                             <div class="flex flex-wrap gap-1.5">
                                 {#each getProviderSupport(model) as provider}
-                                    <span class={`px-2 py-1 rounded-full border text-[10px] font-black tracking-tight ${providerChipClass(provider)}`}>
+                                    <span class={`max-w-full px-2 py-1 rounded-full border text-[10px] font-black tracking-tight whitespace-normal break-words text-center ${providerChipClass(provider)}`}>
                                         {providerLabel(provider)}
                                     </span>
                                 {/each}
                             </div>
                             {#if dynamicProviderChips.length > 0}
-                                <div class="mt-2 flex items-center gap-2">
+                                <div class="mt-2 flex flex-wrap items-center gap-2 min-w-0">
                                     {#each dynamicProviderChips as chip}
-                                        <span class={`px-2 py-1 rounded-full border text-[10px] font-black tracking-tight ${chip.className}`} title={chip.title}>
+                                        <span class={`max-w-full px-2 py-1 rounded-full border text-[10px] font-black tracking-tight whitespace-normal break-words text-center ${chip.className}`} title={chip.title}>
                                             {chip.label}
                                         </span>
                                     {/each}

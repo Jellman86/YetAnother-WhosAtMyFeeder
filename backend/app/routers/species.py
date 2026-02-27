@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, Request, Depends, Query
 from datetime import datetime, timedelta, timezone
 from urllib.parse import quote
+import asyncio
 import httpx
 import structlog
 import re
@@ -36,6 +37,10 @@ GBIF_MATCH_URL = "https://api.gbif.org/v1/species/match"
 GBIF_TILE_URL = "https://api.gbif.org/v2/map/occurrence/density/{z}/{x}/{y}@1x.png"
 GBIF_CACHE_TTL = timedelta(hours=24)
 _gbif_cache: dict[str, tuple[int | None, datetime]] = {}
+SPECIES_SEARCH_HYDRATE_MAX = 30
+SPECIES_SEARCH_HYDRATE_CONCURRENCY = 6
+SPECIES_SEARCH_HYDRATE_LOOKUP_TIMEOUT = 2.5
+SPECIES_SEARCH_HYDRATE_TRANSLATION_TIMEOUT = 1.5
 
 # Species names that should NOT trigger Wikipedia lookup (no valid article exists)
 SKIP_WIKIPEDIA_LOOKUP = {
@@ -45,6 +50,7 @@ SKIP_WIKIPEDIA_LOOKUP = {
     "No Detection",
     "Unidentified"
 }
+SKIP_LOOKUP_NORMALIZED = {name.lower() for name in SKIP_WIKIPEDIA_LOOKUP}
 
 def _parse_cached_at(value: object) -> datetime | None:
     if isinstance(value, datetime):
@@ -124,6 +130,84 @@ async def _lookup_taxa_id(species_name: str, language: str | None = None) -> int
     if taxonomy.get("taxa_id") is not None:
         return int(taxonomy["taxa_id"])
     return None
+
+
+def _should_hydrate_species_label(label: str) -> bool:
+    normalized = (label or "").strip().lower()
+    if not normalized:
+        return False
+    if normalized in SKIP_LOOKUP_NORMALIZED:
+        return False
+    unknown_labels = getattr(settings.classification, "unknown_bird_labels", None) or []
+    if normalized in {str(name).lower() for name in unknown_labels}:
+        return False
+    return True
+
+
+async def _hydrate_species_search_results(
+    results: list[dict],
+    lang: str,
+) -> None:
+    """Best-effort enrichment for labels lacking common/scientific names."""
+    candidates: list[dict] = []
+    for result in results:
+        if result.get("scientific_name") and result.get("common_name"):
+            continue
+        label = str(result.get("id") or result.get("display_name") or "").strip()
+        if not _should_hydrate_species_label(label):
+            continue
+        candidates.append(result)
+        if len(candidates) >= SPECIES_SEARCH_HYDRATE_MAX:
+            break
+
+    if not candidates:
+        return
+
+    semaphore = asyncio.Semaphore(SPECIES_SEARCH_HYDRATE_CONCURRENCY)
+
+    async def _hydrate_one(item: dict) -> None:
+        label = str(item.get("id") or item.get("display_name") or "").strip()
+        if not label:
+            return
+        async with semaphore:
+            try:
+                taxonomy = await asyncio.wait_for(
+                    taxonomy_service.get_names(label),
+                    timeout=SPECIES_SEARCH_HYDRATE_LOOKUP_TIMEOUT,
+                )
+            except Exception as exc:
+                log.warning("Species search taxonomy hydration failed", label=label, error=str(exc))
+                return
+
+            if not taxonomy:
+                return
+
+            if not item.get("scientific_name") and taxonomy.get("scientific_name"):
+                item["scientific_name"] = taxonomy.get("scientific_name")
+
+            common_name = taxonomy.get("common_name")
+            taxa_id = taxonomy.get("taxa_id")
+            if lang != "en" and taxa_id:
+                try:
+                    localized = await asyncio.wait_for(
+                        taxonomy_service.get_localized_common_name(int(taxa_id), lang),
+                        timeout=SPECIES_SEARCH_HYDRATE_TRANSLATION_TIMEOUT,
+                    )
+                    if localized:
+                        common_name = localized
+                except Exception as exc:
+                    log.warning(
+                        "Species search localized taxonomy hydration failed",
+                        label=label,
+                        taxa_id=taxa_id,
+                        lang=lang,
+                        error=str(exc),
+                    )
+
+            if not item.get("common_name") and common_name:
+                item["common_name"] = common_name
+
+    await asyncio.gather(*(_hydrate_one(item) for item in candidates), return_exceptions=True)
 
 
 def _species_unified_metrics_key(row: dict) -> str | None:
@@ -311,6 +395,7 @@ async def search_species(
     request: Request,
     q: str = "",
     limit: int = 50,
+    hydrate_missing: bool = Query(False, description="Best-effort hydrate missing taxonomy/common names"),
     auth: AuthContext = Depends(get_auth_context_with_legacy)
 ):
     """Search for species labels (from classifier) and return with taxonomy info."""
@@ -395,6 +480,9 @@ async def search_species(
                 "scientific_name": sci_name,
                 "common_name": common_name
             })
+
+    if hydrate_missing and results:
+        await _hydrate_species_search_results(results, lang)
 
     return results
 

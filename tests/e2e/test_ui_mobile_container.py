@@ -1,13 +1,17 @@
 import pytest
+import os
 from playwright.sync_api import sync_playwright
+
+BASE_URL = "http://yawamf-frontend"
+
 
 @pytest.fixture(scope="module")
 def browser():
-    print("\nConnecting to Playwright service at ws://playwright-service:3000/...")
+    ws_url = os.environ.get("PLAYWRIGHT_WS", "ws://playwright-service:3000/")
+    print(f"\nConnecting to Playwright service at {ws_url}...")
     with sync_playwright() as p:
         try:
-            # Connect using the internal Docker network hostname
-            browser = p.chromium.connect("ws://playwright-service:3000/")
+            browser = p.chromium.connect(ws_url)
             print("Connected to Playwright service.")
             yield browser
             browser.close()
@@ -27,76 +31,78 @@ def mobile_page(browser):
     yield page
     context.close()
 
+
+def _is_login_page(page) -> bool:
+    return page.locator("input#username").count() > 0
+
+
+def _open_mobile_sidebar(page) -> None:
+    # The mobile header in App.svelte always renders the sidebar toggle
+    # as the first header button in vertical/mobile layout.
+    header = page.locator("div.md\\:hidden.sticky.top-0")
+    header.wait_for(timeout=10000)
+    menu_button = header.locator("button").first
+    menu_button.click(timeout=10000)
+    page.locator("aside.translate-x-0 nav").first.wait_for(timeout=10000)
+
+
+def _go_to_settings(page) -> None:
+    _open_mobile_sidebar(page)
+    # Settings can be absent in guest/public mode. Detect by gear icon path.
+    settings_button = page.locator("aside nav button:has(path[d^='M10.325'])").first
+    if settings_button.count() > 0 and settings_button.is_visible():
+        settings_button.click(timeout=5000)
+    else:
+        page.goto(f"{BASE_URL}/settings", timeout=30000)
+
+
 def test_mobile_layout(mobile_page):
-    base_url = "http://yawamf-frontend"
-    
-    print(f"\n[1] Navigating to Dashboard (Mobile View): {base_url}")
+    print(f"\n[1] Navigating to Dashboard (Mobile View): {BASE_URL}")
     try:
-        mobile_page.goto(base_url, timeout=30000)
+        mobile_page.goto(BASE_URL, timeout=30000)
     except Exception as e:
         print(f"Navigation failed: {e}")
         raise e
 
     # Wait for content to load (avoid networkidle due to SSE)
     mobile_page.wait_for_load_state("domcontentloaded")
-    mobile_page.wait_for_selector("text=YA-WAMF", timeout=10000)
+
+    # If auth is enforced and public access is disabled, app loads login page.
+    # In that mode we cannot test sidebar navigation without credentials.
+    if _is_login_page(mobile_page):
+        print("Login page detected (auth required without public access). Mobile smoke test stops here.")
+        return
+
+    mobile_page.locator("main#main-content").wait_for(timeout=10000)
     
     print("Taking mobile dashboard screenshot...")
     mobile_page.screenshot(path="mobile_dashboard.png")
     
-    # 1. Verify Mobile Menu Button Exists
-    # Look for the hamburger menu button which should be visible on mobile
-    print("Looking for mobile menu button...")
-    menu_button = mobile_page.get_by_label("Toggle menu")
-    
-    if menu_button.is_visible():
-        print("Mobile menu button found.")
-    else:
-        # Fallback: try to find by SVG or class if label isn't present
-        print("Menu button by label not visible, checking generic selector...")
-        # This assumes the sidebar code uses standard button for toggle
-        # We can try clicking the first button in the header
-        menu_button = mobile_page.locator("button").first
-        
-    # 2. Open Mobile Menu
-    print("Clicking menu button...")
-    menu_button.click()
-    
-    # Wait for menu to slide out/appear
-    # We look for a navigation item that was previously hidden or inside the menu
-    print("Waiting for menu items...")
-    # 'Events' or 'Explorer' should be in the menu
-    explorer_link = mobile_page.get_by_role("button", name="Explorer")
-    if not explorer_link.is_visible():
-         explorer_link = mobile_page.get_by_text("Explorer")
-    
-    # 3. Navigate to Settings via Mobile Menu
-    print("Navigating to Settings via mobile menu...")
-    try:
-        mobile_page.get_by_role("button", name="Settings").click()
-    except:
-        mobile_page.get_by_text("Settings").click()
+    print("Opening mobile menu and navigating to Events...")
+    _open_mobile_sidebar(mobile_page)
+    nav_buttons = mobile_page.locator("aside nav button.nav-button")
+    nav_count = nav_buttons.count()
+    assert nav_count >= 3, f"Expected at least 3 sidebar nav buttons, found {nav_count}"
+    nav_buttons.nth(1).click(timeout=5000)
+    mobile_page.wait_for_url("**/events", timeout=10000)
+    assert "/events" in mobile_page.url
 
-    mobile_page.wait_for_url("**/settings", timeout=10000)
-    print(f"Current URL: {mobile_page.url}")
-    assert "/settings" in mobile_page.url
-    
+    print("Navigating to Settings (or validating auth redirect)...")
+    _go_to_settings(mobile_page)
+    mobile_page.wait_for_load_state("domcontentloaded")
+
     print("Taking mobile settings screenshot...")
     mobile_page.screenshot(path="mobile_settings.png")
+
+    # If auth is enabled with public access, /settings may be blocked and
+    # redirect to login (or back to home).
+    if "/settings" not in mobile_page.url:
+        assert _is_login_page(mobile_page) or mobile_page.url.endswith("/")
+        print("Settings route blocked by auth/public mode as expected.")
+        return
     
     # 4. Verify Settings Layout
-    # Check if a specific setting is visible and readable
     print("Verifying settings content...")
-    try:
-        # Try finding typical settings headers
-        mobile_page.wait_for_selector("h2, h3", timeout=5000)
-    except:
-        print("Header lookup timed out, checking page content...")
-
-    content = mobile_page.content()
-    if "Configuration" in content or "Frigate" in content:
-        print("Settings page content verified (found 'Configuration' or 'Frigate').")
-    else:
-        print("Warning: Specific settings text not immediately found.")
+    mobile_page.wait_for_selector("h2, h3", timeout=10000)
     
     print("\n[SUCCESS] Mobile UI Test Completed Successfully.")

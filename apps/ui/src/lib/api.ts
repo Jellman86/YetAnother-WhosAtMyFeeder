@@ -1663,11 +1663,14 @@ export interface SearchResult {
     common_name?: string | null;
 }
 
-export async function searchSpecies(query: string, limit?: number): Promise<SearchResult[]> {
+export async function searchSpecies(query: string, limit?: number, hydrateMissing: boolean = false): Promise<SearchResult[]> {
     const params = new URLSearchParams();
     params.set('q', query);
     if (limit !== undefined) {
         params.set('limit', String(limit));
+    }
+    if (hydrateMissing) {
+        params.set('hydrate_missing', 'true');
     }
     const response = await apiFetch(`${API_BASE}/species/search?${params.toString()}`);
     return handleResponse<SearchResult[]>(response);
