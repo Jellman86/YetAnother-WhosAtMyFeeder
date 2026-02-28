@@ -675,6 +675,8 @@ async def update_settings(
     auth: AuthContext = Depends(require_owner)
 ):
     """Update application settings. Owner only."""
+    inference_provider_changed = False
+
     def should_update_secret(value: Optional[str]) -> bool:
         return value not in (None, "", "***REDACTED***")
 
@@ -749,7 +751,9 @@ async def update_settings(
     if "video_classification_frames" in fields_set and update.video_classification_frames is not None:
         settings.classification.video_classification_frames = update.video_classification_frames
     if "inference_provider" in fields_set and update.inference_provider is not None:
+        previous_provider = settings.classification.inference_provider
         settings.classification.inference_provider = update.inference_provider
+        inference_provider_changed = previous_provider != update.inference_provider
 
     # Media cache settings
     if "media_cache_enabled" in fields_set:
@@ -1028,7 +1032,7 @@ async def update_settings(
         background_tasks.add_task(telemetry_service.force_heartbeat)
 
     await settings.save()
-    if "inference_provider" in fields_set:
+    if inference_provider_changed:
         try:
             from app.services.classifier_service import get_classifier
             get_classifier().reload_bird_model()

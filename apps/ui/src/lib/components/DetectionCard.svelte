@@ -371,6 +371,11 @@
                         {processedUnknownStatus.label}
                     </div>
                 {/if}
+                {#if detection.has_frigate_event === false}
+                    <div class="px-2 py-1 rounded-full bg-rose-500 text-white text-[10px] font-bold uppercase tracking-wider shadow-lg">
+                        {$_('detection.frigate_media_missing', { default: 'Frigate Media Missing' })}
+                    </div>
+                {/if}
             </div>
             <div class="flex flex-col items-end gap-1.5">
                 <div class="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/40 text-white text-[9px] font-black uppercase tracking-wider backdrop-blur-md border border-white/10">

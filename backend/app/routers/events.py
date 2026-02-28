@@ -129,7 +129,6 @@ def _manual_update_is_alias_noop(detection, requested_species: str, resolved_ali
 
     return False
 
-
 def _get_active_model_id_for_feedback() -> str:
     try:
         from app.services.model_manager import model_manager
@@ -144,23 +143,37 @@ def _get_active_model_id_for_feedback() -> str:
     return configured_model or "unknown"
 
 
-async def batch_check_clips(event_ids: list[str]) -> dict[str, bool]:
+async def batch_check_clips(event_ids: list[str]) -> dict[str, dict[str, bool]]:
     """
-    Check clip availability for multiple events from Frigate.
-    Returns a dict mapping event_id -> has_clip boolean.
+    Check Frigate event/media availability for multiple events.
+    Returns a dict mapping event_id -> availability flags.
     """
     if not event_ids:
         return {}
 
     semaphore = asyncio.Semaphore(CLIP_CHECK_CONCURRENCY)
 
-    async def check(event_id: str) -> tuple[str, bool]:
+    async def check(event_id: str) -> tuple[str, dict[str, bool]]:
         async with semaphore:
             try:
                 event_data = await frigate_client.get_event(event_id)
-                return event_id, event_data.get("has_clip", False) if event_data else False
+                if not event_data:
+                    return event_id, {
+                        "has_frigate_event": False,
+                        "has_clip": False,
+                        "has_snapshot": False,
+                    }
+                return event_id, {
+                    "has_frigate_event": True,
+                    "has_clip": bool(event_data.get("has_clip", False)),
+                    "has_snapshot": bool(event_data.get("has_snapshot", True)),
+                }
             except Exception:
-                return event_id, False
+                return event_id, {
+                    "has_frigate_event": False,
+                    "has_clip": False,
+                    "has_snapshot": False,
+                }
 
     results = await asyncio.gather(*(check(event_id) for event_id in event_ids))
     return dict(results)
@@ -472,7 +485,9 @@ async def get_events(
                 category_name=event.category_name,
                 frigate_event=event.frigate_event,
                 camera_name="Hidden" if hide_camera_names else event.camera_name,
-                has_clip=clip_availability.get(event.frigate_event, False),
+                has_clip=clip_availability.get(event.frigate_event, {}).get("has_clip", False),
+                has_snapshot=clip_availability.get(event.frigate_event, {}).get("has_snapshot", False),
+                has_frigate_event=clip_availability.get(event.frigate_event, {}).get("has_frigate_event", False),
                 is_hidden=event.is_hidden,
                 is_favorite=event.is_favorite,
                 frigate_score=event.frigate_score,

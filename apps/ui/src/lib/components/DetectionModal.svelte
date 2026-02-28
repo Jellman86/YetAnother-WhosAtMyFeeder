@@ -1508,6 +1508,12 @@
                         <p class="text-white/50 text-[10px] uppercase font-bold tracking-widest mt-2">
                             {formatDateTime(detection.detection_time)}
                         </p>
+                        {#if detection.has_frigate_event === false}
+                            <p class="mt-2 inline-flex items-center gap-2 rounded-full bg-rose-500/90 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-white">
+                                <span class="inline-block h-2 w-2 rounded-full bg-white/90"></span>
+                                {$_('detection.frigate_media_missing', { default: 'Frigate Media Missing' })}
+                            </p>
+                        {/if}
                     </div>
 
                     <!-- Video Play Button (optional) -->

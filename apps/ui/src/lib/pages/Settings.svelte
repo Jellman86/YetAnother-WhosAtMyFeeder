@@ -2031,6 +2031,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
         birdnetSourcesError = null;
         try {
             const settings = await fetchSettings();
+            settingsStore.update(settings);
             frigateUrl = settings.frigate_url;
             mqttServer = settings.mqtt_server;
             mqttPort = settings.mqtt_port;
@@ -2450,8 +2451,6 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 // Appearance
                 appearance_font_theme: currentFontTheme
             });
-            // Update store
-            await settingsStore.load();
             // Public access flags are also used outside Settings (guest gating, etc.)
             await authStore.loadStatus();
             // Sync local state to handle server-side normalization (e.g. stripped slashes)

@@ -10,6 +10,8 @@ export interface Detection {
     detection_index?: number;
     category_name?: string;
     has_clip?: boolean;  // Clip availability from backend
+    has_snapshot?: boolean; // Snapshot availability in Frigate
+    has_frigate_event?: boolean; // Whether Frigate still has the event
     is_hidden?: boolean; // Hidden/ignored status
     is_favorite?: boolean; // Owner-curated favorite
     frigate_score?: number; // Frigate detection confidence

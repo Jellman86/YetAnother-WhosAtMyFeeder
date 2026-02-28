@@ -45,6 +45,8 @@ class Detection(BaseModel):
 
 class DetectionResponse(Detection):
     has_clip: bool = False  # Clip availability from Frigate
+    has_snapshot: bool = True  # Snapshot availability from Frigate
+    has_frigate_event: bool = True  # Event still exists in Frigate
 
 class FrigateEvent(BaseModel):
     id: str
