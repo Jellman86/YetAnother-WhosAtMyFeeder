@@ -920,7 +920,14 @@
     "ebird_notable_title": "附近的重大记录",
     "ebird_notable_badge": "稀有报告",
     "ebird_enable_notable": "启用 eBird 以查看重大报告",
-    "ebird_none_notable": "没有报告重大目击。"
+    "ebird_none_notable": "没有报告重大目击。",
+    "frigate_media_missing": "Frigate 媒体缺失",
+    "frigate_media_missing_detail_event_removed": "事件在媒体缓存前已从 Frigate 中删除。",
+    "frigate_media_missing_detail_clip_removed": "片段在 Frigate 中已不可用（可能在缓存前被保留策略清理）。",
+    "frigate_media_missing_detail_snapshot_removed": "快照在 Frigate 中已不可用。",
+    "frigate_media_missing_detail_timeout": "YA-WAMF 检查媒体可用性时，Frigate 请求超时。",
+    "frigate_media_missing_detail_unavailable": "检查媒体状态时，Frigate 暂时不可用。",
+    "frigate_media_missing_detail_unknown": "该检测在 Frigate 中没有可用媒体。"
   },
   "events": {
     "title": "事件",

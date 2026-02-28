@@ -893,7 +893,14 @@
     "ebird_notable_title": "Notables cercanos",
     "ebird_notable_badge": "Reportes raros",
     "ebird_enable_notable": "Habilita eBird para ver reportes notables",
-    "ebird_none_notable": "No se informaron avistamientos notables."
+    "ebird_none_notable": "No se informaron avistamientos notables.",
+    "frigate_media_missing": "Medios de Frigate no disponibles",
+    "frigate_media_missing_detail_event_removed": "El evento se eliminó de Frigate antes de que se pudiera almacenar en caché el medio.",
+    "frigate_media_missing_detail_clip_removed": "El clip ya no está disponible en Frigate (probablemente por limpieza de retención antes del caché).",
+    "frigate_media_missing_detail_snapshot_removed": "La instantánea ya no está disponible en Frigate.",
+    "frigate_media_missing_detail_timeout": "Frigate agotó el tiempo mientras YA-WAMF comprobaba la disponibilidad del medio.",
+    "frigate_media_missing_detail_unavailable": "Frigate no estaba disponible temporalmente mientras se comprobaba el estado del medio.",
+    "frigate_media_missing_detail_unknown": "El medio no está disponible en Frigate para esta detección."
   },
   "events": {
     "title": "Eventos",

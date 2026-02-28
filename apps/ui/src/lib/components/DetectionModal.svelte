@@ -769,6 +769,61 @@
         }
     }
 
+    function getFrigateMediaMissingDetail() {
+        const error = detection.video_classification_error || '';
+
+        if (detection.has_frigate_event === false || error === 'event_not_found') {
+            return $_('detection.frigate_media_missing_detail_event_removed');
+        }
+
+        if (detection.has_snapshot === false) {
+            return $_('detection.frigate_media_missing_detail_snapshot_removed');
+        }
+
+        if (
+            detection.has_frigate_event === true &&
+            !detection.has_clip
+        ) {
+            return $_('detection.frigate_media_missing_detail_clip_removed');
+        }
+
+        if (error === 'clip_not_retained' || error === 'frigate_retention_expired') {
+            return $_('detection.frigate_media_missing_detail_clip_removed');
+        }
+
+        if (error === 'event_timeout' || error === 'clip_timeout') {
+            return $_('detection.frigate_media_missing_detail_timeout');
+        }
+
+        if (
+            error === 'event_request_error' ||
+            error === 'clip_request_error' ||
+            error.startsWith('event_http_') ||
+            error.startsWith('clip_http_')
+        ) {
+            return $_('detection.frigate_media_missing_detail_unavailable');
+        }
+
+        return $_('detection.frigate_media_missing_detail_unknown');
+    }
+
+    function hasFrigateMediaMissingState() {
+        const error = detection.video_classification_error || '';
+        return (
+            detection.has_frigate_event === false ||
+            detection.has_snapshot === false ||
+            error === 'event_not_found' ||
+            error === 'clip_not_retained' ||
+            error === 'frigate_retention_expired' ||
+            error === 'event_timeout' ||
+            error === 'clip_timeout' ||
+            error === 'event_request_error' ||
+            error === 'clip_request_error' ||
+            error.startsWith('event_http_') ||
+            error.startsWith('clip_http_')
+        );
+    }
+
     function formatWindDirection(deg?: number | null): string {
         if (deg === null || deg === undefined || Number.isNaN(deg)) return '';
         const directions = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
@@ -1508,11 +1563,15 @@
                         <p class="text-white/50 text-[10px] uppercase font-bold tracking-widest mt-2">
                             {formatDateTime(detection.detection_time)}
                         </p>
-                        {#if detection.has_frigate_event === false}
-                            <p class="mt-2 inline-flex items-center gap-2 rounded-full bg-rose-500/90 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-white">
-                                <span class="inline-block h-2 w-2 rounded-full bg-white/90"></span>
-                                {$_('detection.frigate_media_missing', { default: 'Frigate Media Missing' })}
-                            </p>
+                        {#if hasFrigateMediaMissingState()}
+                            <div class="mt-3 max-w-[36rem] rounded-2xl border border-white/20 bg-black/35 p-3 backdrop-blur-md">
+                                <p class="text-[10px] font-black uppercase tracking-wider text-rose-300">
+                                    {$_('detection.frigate_media_missing', { default: 'Frigate Media Missing' })}
+                                </p>
+                                <p class="mt-1 text-[11px] leading-relaxed text-white/90">
+                                    {getFrigateMediaMissingDetail()}
+                                </p>
+                            </div>
                         {/if}
                     </div>
 

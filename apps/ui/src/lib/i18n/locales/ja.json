@@ -920,7 +920,14 @@
     "ebird_notable_title": "注目の近隣情報",
     "ebird_notable_badge": "稀な報告",
     "ebird_enable_notable": "eBirdを有効にして注目の報告を表示",
-    "ebird_none_notable": "注目の観察報告はありません。"
+    "ebird_none_notable": "注目の観察報告はありません。",
+    "frigate_media_missing": "Frigateメディアが見つかりません",
+    "frigate_media_missing_detail_event_removed": "メディアをキャッシュする前に、イベントがFrigateから削除されました。",
+    "frigate_media_missing_detail_clip_removed": "クリップはFrigateで利用できません（キャッシュ前に保持期間のクリーンアップで削除された可能性があります）。",
+    "frigate_media_missing_detail_snapshot_removed": "スナップショットはFrigateで利用できません。",
+    "frigate_media_missing_detail_timeout": "YA-WAMFがメディア可用性を確認中にFrigateがタイムアウトしました。",
+    "frigate_media_missing_detail_unavailable": "メディア状態の確認中にFrigateが一時的に利用できませんでした。",
+    "frigate_media_missing_detail_unknown": "この検出のメディアはFrigateで利用できません。"
   },
   "events": {
     "title": "イベント",

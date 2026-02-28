@@ -928,7 +928,14 @@
     "ebird_notable_title": "Значимые поблизости",
     "ebird_notable_badge": "Редкие сообщения",
     "ebird_enable_notable": "Включите eBird, чтобы видеть значимые сообщения",
-    "ebird_none_notable": "Нет сообщений о значимых наблюдениях."
+    "ebird_none_notable": "Нет сообщений о значимых наблюдениях.",
+    "frigate_media_missing": "Медиа Frigate недоступны",
+    "frigate_media_missing_detail_event_removed": "Событие было удалено из Frigate до того, как медиа успели попасть в кэш.",
+    "frigate_media_missing_detail_clip_removed": "Клип больше недоступен в Frigate (вероятно, удалён политикой хранения до кэширования).",
+    "frigate_media_missing_detail_snapshot_removed": "Снимок больше недоступен в Frigate.",
+    "frigate_media_missing_detail_timeout": "Frigate не ответил вовремя, пока YA-WAMF проверял доступность медиа.",
+    "frigate_media_missing_detail_unavailable": "Frigate был временно недоступен во время проверки статуса медиа.",
+    "frigate_media_missing_detail_unknown": "Медиа для этого обнаружения недоступны в Frigate."
   },
   "events": {
     "title": "События",

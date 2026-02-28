@@ -920,7 +920,14 @@
     "ebird_notable_title": "Bemerkenswerte in der Nähe",
     "ebird_notable_badge": "Seltene Meldungen",
     "ebird_enable_notable": "eBird aktivieren, um bemerkenswerte Meldungen zu sehen",
-    "ebird_none_notable": "Keine bemerkenswerten Beobachtungen gemeldet."
+    "ebird_none_notable": "Keine bemerkenswerten Beobachtungen gemeldet.",
+    "frigate_media_missing": "Frigate-Medien fehlen",
+    "frigate_media_missing_detail_event_removed": "Das Ereignis wurde in Frigate entfernt, bevor Medien zwischengespeichert werden konnten.",
+    "frigate_media_missing_detail_clip_removed": "Der Clip ist in Frigate nicht mehr verfügbar (wahrscheinlich durch Aufbewahrungsbereinigung vor dem Caching).",
+    "frigate_media_missing_detail_snapshot_removed": "Der Snapshot ist in Frigate nicht mehr verfügbar.",
+    "frigate_media_missing_detail_timeout": "Frigate hat ein Timeout erreicht, während YA-WAMF die Medienverfügbarkeit geprüft hat.",
+    "frigate_media_missing_detail_unavailable": "Frigate war vorübergehend nicht verfügbar, während der Medienstatus geprüft wurde.",
+    "frigate_media_missing_detail_unknown": "Medien sind für diese Erkennung in Frigate nicht verfügbar."
   },
   "events": {
     "title": "Ereignisse",

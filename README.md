@@ -30,7 +30,6 @@ A bird classification system that integrates with [Frigate NVR](https://frigate.
 
 - **Advanced AI Classification** - MobileNetV2, ConvNeXt, or EVA-02 models (up to 91% accuracy)
 - **Hardware Acceleration Selector** - Choose Auto/CPU/NVIDIA CUDA/Intel OpenVINO (single image, runtime fallback)
-- **Dynamic Acceleration Capability Pills** - Active model cards show host-verified CPU/CUDA/OpenVINO support in real time
 - **Multi-Sensor Verification** - Correlates visual detections with BirdNET-Go audio
 - **Personalized Re-ranking (Optional)** - Learns from manual corrections per camera/model to improve ranking over time
 - **Smart Notifications** - Discord, Telegram, Pushover, Email with customizable filters + Notification Center

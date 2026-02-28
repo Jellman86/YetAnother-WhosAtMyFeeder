@@ -907,7 +907,14 @@
     "ebird_notable_title": "Notable Nearby",
     "ebird_notable_badge": "Rare Reports",
     "ebird_enable_notable": "Enable eBird to see notable reports",
-    "ebird_none_notable": "No notable sightings reported."
+    "ebird_none_notable": "No notable sightings reported.",
+    "frigate_media_missing": "Frigate Media Missing",
+    "frigate_media_missing_detail_event_removed": "Event was removed from Frigate before media could be cached.",
+    "frigate_media_missing_detail_clip_removed": "Clip is no longer available in Frigate (likely retention cleanup before caching).",
+    "frigate_media_missing_detail_snapshot_removed": "Snapshot is no longer available in Frigate.",
+    "frigate_media_missing_detail_timeout": "Frigate timed out while YA-WAMF was checking media availability.",
+    "frigate_media_missing_detail_unavailable": "Frigate was temporarily unavailable while media status was being checked.",
+    "frigate_media_missing_detail_unknown": "Media is unavailable in Frigate for this detection."
   },
   "events": {
     "title": "Events",
