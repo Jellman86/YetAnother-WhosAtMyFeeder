@@ -683,7 +683,8 @@ class DetectionRepository:
         camera: str | None = None,
         sort: str = "newest",
         include_hidden: bool = False,
-        favorite_only: bool = False
+        favorite_only: bool = False,
+        audio_confirmed_only: bool = False
     ) -> list[Detection]:
         query = """
             SELECT d.id, d.detection_time, d.detection_index, d.score, d.display_name, d.category_name, d.frigate_event, d.camera_name,
@@ -725,6 +726,8 @@ class DetectionRepository:
             params.append(camera)
         if favorite_only:
             conditions.append("f.detection_id IS NOT NULL")
+        if audio_confirmed_only:
+            conditions.append("d.audio_confirmed = 1")
 
         if conditions:
             query += " WHERE " + " AND ".join(conditions)
@@ -755,6 +758,7 @@ class DetectionRepository:
         include_hidden: bool = False,
         favorite_only: bool = False,
         exclude_favorites: bool = False,
+        audio_confirmed_only: bool = False,
     ) -> int:
         """Get total count of detections, optionally filtered."""
         query = """
@@ -794,6 +798,9 @@ class DetectionRepository:
             conditions.append("f.detection_id IS NOT NULL")
         elif exclude_favorites:
             conditions.append("f.detection_id IS NULL")
+            
+        if audio_confirmed_only:
+            conditions.append("d.audio_confirmed = 1")
 
         if conditions:
             query += " WHERE " + " AND ".join(conditions)

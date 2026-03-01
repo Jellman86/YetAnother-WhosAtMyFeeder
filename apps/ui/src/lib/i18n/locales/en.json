@@ -927,7 +927,10 @@
       "month": "Month",
       "custom": "Custom",
       "all_species": "All Species",
-      "all_cameras": "All Cameras"
+      "all_cameras": "All Cameras",
+      "favorites": "Favorites",
+      "audio_confirmed": "Audio Matches",
+      "audio_confirmed_only": "Audio Confirmed Only"
     },
     "sort": {
       "newest": "Newest",

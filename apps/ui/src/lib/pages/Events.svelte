@@ -53,6 +53,7 @@
     let speciesFilter = $state('');
     let cameraFilter = $state('');
     let favoritesOnly = $state(false);
+    let audioConfirmedOnly = $state(false);
     let sortOrder = $state<'newest' | 'oldest' | 'confidence'>('newest');
 
     let selectedEvent = $state<Detection | null>(null);
@@ -148,7 +149,8 @@
                     camera: cameraFilter || undefined,
                     sort: sortOrder,
                     includeHidden: showHidden,
-                    favoritesOnly
+                    favoritesOnly,
+                    audioConfirmedOnly
                 }),
                 fetchEventsCount({
                     startDate: range.start,
@@ -156,7 +158,8 @@
                     species: speciesFilter || undefined,
                     camera: cameraFilter || undefined,
                     includeHidden: showHidden,
-                    favoritesOnly
+                    favoritesOnly,
+                    audioConfirmedOnly
                 })
             ]);
             events = newEvents;
@@ -258,6 +261,7 @@
         if (params.get('species')) speciesFilter = params.get('species')!;
         if (params.get('date')) datePreset = params.get('date') as any;
         if (params.get('favorites') === '1' || params.get('favorites') === 'true') favoritesOnly = true;
+        if (params.get('audio') === '1' || params.get('audio') === 'true') audioConfirmedOnly = true;
         const deepLinkedEvent = params.get('event');
         const deepLinkedShare = params.get('share');
         const videoParam = params.get('video');
@@ -670,6 +674,25 @@
                 <path stroke-linecap="round" stroke-linejoin="round" d="M11.05 2.927c.3-.921 1.603-.921 1.902 0l2.02 6.217a1 1 0 00.95.69h6.54c.969 0 1.371 1.24.588 1.81l-5.29 3.844a1 1 0 00-.364 1.118l2.02 6.217c.3.921-.755 1.688-1.539 1.118l-5.29-3.844a1 1 0 00-1.175 0l-5.29 3.844c-.783.57-1.838-.197-1.539-1.118l2.02-6.217a1 1 0 00-.364-1.118L.98 11.644c-.783-.57-.38-1.81.588-1.81h6.54a1 1 0 00.95-.69l2.02-6.217z" />
             </svg>
             <span>{$_('events.filters.favorites', { default: 'Favorites' })}</span>
+        </button>
+        <button
+            type="button"
+            class="inline-flex items-center gap-2 px-4 py-2 rounded-xl border text-xs font-black uppercase tracking-widest transition-colors
+                {audioConfirmedOnly
+                    ? 'bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-500/20 dark:text-blue-200 dark:border-blue-500/50'
+                    : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50 dark:bg-slate-900/60 dark:text-slate-200 dark:border-slate-700 dark:hover:bg-slate-800'}"
+            onclick={() => {
+                audioConfirmedOnly = !audioConfirmedOnly;
+                currentPage = 1;
+                void loadEvents();
+            }}
+            aria-pressed={audioConfirmedOnly}
+            title={$_('events.filters.audio_confirmed_only', { default: 'Audio confirmed only' })}
+        >
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+            </svg>
+            <span>{$_('events.filters.audio_confirmed', { default: 'Audio Matches' })}</span>
         </button>
     </div>
 

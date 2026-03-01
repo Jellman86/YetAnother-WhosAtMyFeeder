@@ -707,10 +707,11 @@ export interface FetchEventsOptions {
     sort?: 'newest' | 'oldest' | 'confidence';
     includeHidden?: boolean;  // Include hidden/ignored detections
     favoritesOnly?: boolean;  // Include only favorites
+    audioConfirmedOnly?: boolean; // Include only detections with audio confirmation
 }
 
 export async function fetchEvents(options: FetchEventsOptions = {}): Promise<Detection[]> {
-    const { limit = 50, offset = 0, startDate, endDate, species, camera, sort, includeHidden, favoritesOnly } = options;
+    const { limit = 50, offset = 0, startDate, endDate, species, camera, sort, includeHidden, favoritesOnly, audioConfirmedOnly } = options;
     const params = new URLSearchParams();
     params.set('limit', limit.toString());
     params.set('offset', offset.toString());
@@ -721,6 +722,7 @@ export async function fetchEvents(options: FetchEventsOptions = {}): Promise<Det
     if (sort) params.set('sort', sort);
     if (includeHidden) params.set('include_hidden', 'true');
     if (favoritesOnly) params.set('favorites', 'true');
+    if (audioConfirmedOnly) params.set('audio_confirmed_only', 'true');
 
     // Include pagination/date arguments in the abort key so unrelated views
     // (e.g. dashboard preload vs events page pagination) do not cancel each other.
@@ -731,6 +733,7 @@ export async function fetchEvents(options: FetchEventsOptions = {}): Promise<Det
         sort || 'newest',
         includeHidden ? 'hidden' : 'visible',
         favoritesOnly ? 'favorites' : 'all',
+        audioConfirmedOnly ? 'audio' : 'all',
         startDate || 'none',
         endDate || 'none',
         String(limit),
@@ -771,6 +774,7 @@ export interface EventsCountOptions {
     camera?: string;
     includeHidden?: boolean;
     favoritesOnly?: boolean;
+    audioConfirmedOnly?: boolean;
 }
 
 export interface EventsCountResponse {
@@ -779,7 +783,7 @@ export interface EventsCountResponse {
 }
 
 export async function fetchEventsCount(options: EventsCountOptions = {}): Promise<EventsCountResponse> {
-    const { startDate, endDate, species, camera, includeHidden, favoritesOnly } = options;
+    const { startDate, endDate, species, camera, includeHidden, favoritesOnly, audioConfirmedOnly } = options;
     const params = new URLSearchParams();
     if (startDate) params.set('start_date', startDate);
     if (endDate) params.set('end_date', endDate);
@@ -787,6 +791,7 @@ export async function fetchEventsCount(options: EventsCountOptions = {}): Promis
     if (camera) params.set('camera', camera);
     if (includeHidden) params.set('include_hidden', 'true');
     if (favoritesOnly) params.set('favorites', 'true');
+    if (audioConfirmedOnly) params.set('audio_confirmed_only', 'true');
 
     const response = await apiFetch(`${API_BASE}/events/count?${params.toString()}`);
     return handleResponse<EventsCountResponse>(response);

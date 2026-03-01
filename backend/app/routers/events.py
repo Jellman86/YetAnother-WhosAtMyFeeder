@@ -339,6 +339,7 @@ async def get_events(
     species: Optional[str] = Query(default=None, description="Filter by species name"),
     camera: Optional[str] = Query(default=None, description="Filter by camera name"),
     favorites: bool = Query(default=False, description="Only return favorited detections"),
+    audio_confirmed_only: bool = Query(default=False, description="Only return detections with audio confirmation"),
     sort: Literal["newest", "oldest", "confidence"] = Query(default="newest", description="Sort order"),
     include_hidden: bool = Query(default=False, description="Include hidden/ignored detections"),
     auth: AuthContext = Depends(get_auth_context_with_legacy)
@@ -397,7 +398,8 @@ async def get_events(
             camera=camera,
             sort=sort,
             include_hidden=include_hidden,
-            favorite_only=favorites
+            favorite_only=favorites,
+            audio_confirmed_only=audio_confirmed_only
         )
 
         # Batch fetch clip availability from Frigate (eliminates N individual HEAD requests)
@@ -544,6 +546,7 @@ async def get_events_count(
     species: Optional[str] = Query(default=None, description="Filter by species name"),
     camera: Optional[str] = Query(default=None, description="Filter by camera name"),
     favorites: bool = Query(default=False, description="Only count favorited detections"),
+    audio_confirmed_only: bool = Query(default=False, description="Only count detections with audio confirmation"),
     include_hidden: bool = Query(default=False, description="Include hidden/ignored detections"),
     auth: AuthContext = Depends(get_auth_context_with_legacy)
 ):
@@ -583,11 +586,12 @@ async def get_events_count(
             taxa_id=taxa_id,
             camera=camera,
             include_hidden=include_hidden,
-            favorite_only=favorites
+            favorite_only=favorites,
+            audio_confirmed_only=audio_confirmed_only
         )
 
         # Determine if any filters are applied
-        filtered = any([start_date, end_date, species, camera, favorites])
+        filtered = any([start_date, end_date, species, camera, favorites, audio_confirmed_only])
 
         return EventsCountResponse(count=count, filtered=filtered)
 
