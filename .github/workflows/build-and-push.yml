@@ -214,10 +214,14 @@ jobs:
       - name: Run tests
         run: |
           cd backend
-          timeout 900s python -m pytest tests/ -v --tb=short --durations=20 --cov=app --cov-report=term --cov-fail-under=20
+          set +e
+          timeout -k 30s 900s python -m pytest tests/ -v --tb=short --durations=20 --cov=app --cov-report=term --cov-fail-under=20
           rc=$?
+          set -e
           if [ $rc -eq 124 ]; then
-            echo "Backend pytest timed out after 900s (possible hang)."
+            echo "Backend pytest timed out after 900s (possible session teardown hang after test output)."
+            echo "Runner process snapshot:"
+            ps -eo pid,ppid,stat,etime,cmd | head -n 80 || true
             exit 1
           fi
           exit $rc
