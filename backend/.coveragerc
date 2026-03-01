@@ -1,0 +1,9 @@
+[run]
+source = app
+omit = 
+    */venv/*
+    */tests/*
+
+[report]
+show_missing = True
+fail_under = 20
