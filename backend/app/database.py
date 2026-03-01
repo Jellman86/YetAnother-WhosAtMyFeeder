@@ -253,6 +253,9 @@ def is_db_pool_initialized() -> bool:
 async def init_db():
     """Initialize database and connection pool."""
     global _db_pool
+    if _db_pool is not None and _db_pool._initialized:
+        await close_db()
+        
     db_path = _get_db_path()
     _assert_db_path_writable(db_path)
 
