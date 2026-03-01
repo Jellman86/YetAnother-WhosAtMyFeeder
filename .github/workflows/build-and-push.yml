@@ -210,12 +210,7 @@ jobs:
       - name: Run tests
         run: |
           cd backend
-          python -m pytest tests/ -v --tb=short --cov=app --cov-report=term
-
-      - name: Check minimum coverage
-        run: |
-          cd backend
-          python -m pytest tests/ --cov=app --cov-fail-under=20
+          python -m pytest tests/ -v --tb=short --cov=app --cov-report=term --cov-fail-under=20
 
       - name: Ensure single Alembic head
         run: |
