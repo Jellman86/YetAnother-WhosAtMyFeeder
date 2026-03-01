@@ -8,6 +8,32 @@ This roadmap outlines planned features and improvements for the YA-WAMF bird cla
 
 These are the top maintenance-mode improvements to prioritize before broader feature expansion.
 
+### 0. Canonical Species Identity Normalization (Scientific Name / Taxa ID) 🔒
+**Priority:** P0 | **Effort:** L (1-2 weeks) | **Status:** Planned
+
+Normalize detection identity to canonical taxonomy keys to prevent localization/alias mismatches across audio correlation, filters, and stats.
+
+**Safety-first rollout plan:**
+1. **Schema + invariants**
+- Treat `taxa_id` as canonical key where available; fallback to `scientific_name`.
+- Add/verify indexes and guardrails for canonical lookups without changing UI-facing names yet.
+
+2. **Backfill (idempotent + resumable)**
+- Backfill historical detections missing canonical fields via taxonomy cache/lookups.
+- Run in batches with progress logging and retry-safe checkpoints.
+
+3. **Write-path hardening**
+- Ensure all new/updated detections persist canonical identity fields first.
+- Keep `display_name/common_name` as presentation fields only.
+
+4. **Read/query migration**
+- Move grouping/filtering/correlation paths to canonical identity matching.
+- Keep localized/common name rendering at response/UI layer.
+
+5. **Verification + rollback**
+- Add regression tests for cross-language/alias cases (for example Woodpigeon vs Common Wood-Pigeon).
+- Run dual-read comparison metrics during rollout, then finalize once parity is confirmed.
+
 ### 1. Favourite Detections (Owner Curation) ⭐
 **Priority:** P1 | **Effort:** M (4-6 days) | **Status:** ✅ Completed (v2.8.1)
 
