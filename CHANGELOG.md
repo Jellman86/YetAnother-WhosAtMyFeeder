@@ -6,6 +6,9 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- **Added:** Explorer filter toggle to show only detections with an "Audio Match".
+- **Added:** Frigate logo asset for third-party integration representation (via acceptable use policy).
+- **Changed:** Leaderboard and analytical statistics now group species queries using resilient canonical identities (`taxa_id` and `scientific_name`), making the UI immune to language switching and speeding up analytical database paths.
 - **Added:** Single-image ONNX acceleration provider selector (`auto`, CPU, NVIDIA CUDA, Intel OpenVINO CPU/GPU) with runtime fallback reporting and Intel GPU auto-detection in the Settings UI.
 - **Added:** Expanded classifier/OpenVINO diagnostics in Detection Settings and `/api/classifier/status` (OpenVINO version/import path, `/dev/dri` visibility, process UID/GID/groups, device list, and GPU probe errors) to make Intel iGPU setup failures debuggable in-container.
 - **Added:** New non-interactive, movement-first video-analysis progress visualization for reclassification overlays (bottom thumbnail strip that advances with real analysis progress and scales to configurable frame counts), with a blurred current-frame/snapshot backdrop for clearer visual context.
