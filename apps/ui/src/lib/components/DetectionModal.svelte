@@ -1721,7 +1721,9 @@
                             <p class="text-[10px] font-black uppercase tracking-widest text-teal-600/70 dark:text-teal-400/70">
                                 {detection.audio_confirmed
                                     ? $_('detection.audio_match')
-                                    : $_('detection.audio_no_match', { default: 'No Audio Match' })}
+                                    : (audioNearbySummary
+                                        ? $_('detection.audio_possible_nearby', { default: 'Possible Nearby Audio Match' })
+                                        : $_('detection.audio_no_direct_match', { default: 'No Direct Audio Confirmation' }))}
                             </p>
                             <p class="text-sm font-bold text-slate-700 dark:text-slate-200 truncate">
                                 {detection.audio_confirmed

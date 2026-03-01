@@ -927,7 +927,9 @@
     "frigate_media_missing_detail_snapshot_removed": "スナップショットはFrigateで利用できません。",
     "frigate_media_missing_detail_timeout": "YA-WAMFがメディア可用性を確認中にFrigateがタイムアウトしました。",
     "frigate_media_missing_detail_unavailable": "メディア状態の確認中にFrigateが一時的に利用できませんでした。",
-    "frigate_media_missing_detail_unknown": "この検出のメディアはFrigateで利用できません。"
+    "frigate_media_missing_detail_unknown": "この検出のメディアはFrigateで利用できません。",
+    "audio_possible_nearby": "近くの音声一致の可能性",
+    "audio_no_direct_match": "直接の音声確認なし"
   },
   "events": {
     "title": "イベント",

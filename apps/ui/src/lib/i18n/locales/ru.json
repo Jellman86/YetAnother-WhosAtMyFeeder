@@ -935,7 +935,9 @@
     "frigate_media_missing_detail_snapshot_removed": "Снимок больше недоступен в Frigate.",
     "frigate_media_missing_detail_timeout": "Frigate не ответил вовремя, пока YA-WAMF проверял доступность медиа.",
     "frigate_media_missing_detail_unavailable": "Frigate был временно недоступен во время проверки статуса медиа.",
-    "frigate_media_missing_detail_unknown": "Медиа для этого обнаружения недоступны в Frigate."
+    "frigate_media_missing_detail_unknown": "Медиа для этого обнаружения недоступны в Frigate.",
+    "audio_possible_nearby": "Возможное близкое аудиосовпадение",
+    "audio_no_direct_match": "Нет прямого аудиоподтверждения"
   },
   "events": {
     "title": "События",

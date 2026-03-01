@@ -927,7 +927,9 @@
     "frigate_media_missing_detail_snapshot_removed": "Der Snapshot ist in Frigate nicht mehr verfügbar.",
     "frigate_media_missing_detail_timeout": "Frigate hat ein Timeout erreicht, während YA-WAMF die Medienverfügbarkeit geprüft hat.",
     "frigate_media_missing_detail_unavailable": "Frigate war vorübergehend nicht verfügbar, während der Medienstatus geprüft wurde.",
-    "frigate_media_missing_detail_unknown": "Medien sind für diese Erkennung in Frigate nicht verfügbar."
+    "frigate_media_missing_detail_unknown": "Medien sind für diese Erkennung in Frigate nicht verfügbar.",
+    "audio_possible_nearby": "Mögliche nahe Audio-Übereinstimmung",
+    "audio_no_direct_match": "Keine direkte Audio-Bestätigung"
   },
   "events": {
     "title": "Ereignisse",

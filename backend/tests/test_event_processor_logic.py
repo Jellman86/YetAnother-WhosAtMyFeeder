@@ -153,3 +153,35 @@ async def test_audio_confirmation_accepts_localized_audio_name_via_scientific_na
     assert kwargs["audio_confirmed"] is True
     assert kwargs["audio_species"] == "Лазоревка"
     assert kwargs["audio_score"] == 0.97
+
+
+@pytest.mark.asyncio
+async def test_audio_confirmation_accepts_audio_name_variants_via_taxonomy(mock_dependencies):
+    """Audio name variants should confirm when audio taxonomy resolves to same species."""
+    classifier = MagicMock()
+    classifier.classify_async = AsyncMock(return_value=[{"label": "Common Wood-Pigeon", "score": 0.83, "index": 1}])
+
+    mock_dependencies["det_service"].filter_and_label.return_value = ({"label": "Common Wood-Pigeon", "score": 0.83}, {})
+
+    async def taxonomy_lookup(name: str):
+        normalized = (name or "").strip().lower()
+        if normalized in {"common wood-pigeon", "woodpigeon"}:
+            return {"scientific_name": "Columba palumbus", "common_name": "Common Wood-Pigeon"}
+        return {"scientific_name": "Scientific Name", "common_name": "Common Name"}
+
+    audio_match = MagicMock()
+    audio_match.species = "Woodpigeon"
+    audio_match.scientific_name = None
+    audio_match.confidence = 0.94
+    mock_dependencies["audio"].find_match = AsyncMock(return_value=audio_match)
+
+    processor = EventProcessor(classifier)
+    payload = b'{"after": {"id": "event6", "label": "bird", "camera": "cam1", "start_time": 1700000000}}'
+
+    with patch("app.services.event_processor.taxonomy_service.get_names", new=AsyncMock(side_effect=taxonomy_lookup)):
+        await processor.process_mqtt_message(payload)
+
+    args, kwargs = mock_dependencies["det_service"].save_detection.call_args
+    assert kwargs["audio_confirmed"] is True
+    assert kwargs["audio_species"] == "Woodpigeon"
+    assert kwargs["audio_score"] == 0.94

@@ -280,6 +280,17 @@ class EventProcessor:
         audio_aliases = {audio_species_normalized}
         if audio_scientific_normalized:
             audio_aliases.add(audio_scientific_normalized)
+        else:
+            try:
+                audio_taxonomy = await taxonomy_service.get_names(audio_species)
+                audio_sci = str(audio_taxonomy.get("scientific_name") or "").strip().lower()
+                audio_common = str(audio_taxonomy.get("common_name") or "").strip().lower()
+                if audio_sci:
+                    audio_aliases.add(audio_sci)
+                if audio_common:
+                    audio_aliases.add(audio_common)
+            except Exception as e:
+                log.debug("Audio taxonomy lookup failed during audio correlation", species=audio_species, error=str(e))
 
         # Logic 1: Confirmation - audio matches visual
         if visual_aliases.intersection(audio_aliases):

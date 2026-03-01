@@ -927,7 +927,9 @@
     "frigate_media_missing_detail_snapshot_removed": "快照在 Frigate 中已不可用。",
     "frigate_media_missing_detail_timeout": "YA-WAMF 检查媒体可用性时，Frigate 请求超时。",
     "frigate_media_missing_detail_unavailable": "检查媒体状态时，Frigate 暂时不可用。",
-    "frigate_media_missing_detail_unknown": "该检测在 Frigate 中没有可用媒体。"
+    "frigate_media_missing_detail_unknown": "该检测在 Frigate 中没有可用媒体。",
+    "audio_possible_nearby": "可能存在附近音频匹配",
+    "audio_no_direct_match": "无直接音频确认"
   },
   "events": {
     "title": "事件",

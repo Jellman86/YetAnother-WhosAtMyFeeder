@@ -935,7 +935,9 @@
     "frigate_media_missing_detail_snapshot_removed": "O snapshot não está mais disponível no Frigate.",
     "frigate_media_missing_detail_timeout": "O Frigate expirou enquanto o YA-WAMF verificava a disponibilidade da mídia.",
     "frigate_media_missing_detail_unavailable": "O Frigate ficou temporariamente indisponível durante a verificação do status da mídia.",
-    "frigate_media_missing_detail_unknown": "A mídia não está disponível no Frigate para esta detecção."
+    "frigate_media_missing_detail_unknown": "A mídia não está disponível no Frigate para esta detecção.",
+    "audio_possible_nearby": "Possível correspondência de áudio próxima",
+    "audio_no_direct_match": "Sem confirmação direta por áudio"
   },
   "events": {
     "title": "Eventos",

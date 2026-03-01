@@ -900,7 +900,9 @@
     "frigate_media_missing_detail_snapshot_removed": "La instantánea ya no está disponible en Frigate.",
     "frigate_media_missing_detail_timeout": "Frigate agotó el tiempo mientras YA-WAMF comprobaba la disponibilidad del medio.",
     "frigate_media_missing_detail_unavailable": "Frigate no estaba disponible temporalmente mientras se comprobaba el estado del medio.",
-    "frigate_media_missing_detail_unknown": "El medio no está disponible en Frigate para esta detección."
+    "frigate_media_missing_detail_unknown": "El medio no está disponible en Frigate para esta detección.",
+    "audio_possible_nearby": "Posible coincidencia de audio cercana",
+    "audio_no_direct_match": "Sin confirmación directa por audio"
   },
   "events": {
     "title": "Eventos",
