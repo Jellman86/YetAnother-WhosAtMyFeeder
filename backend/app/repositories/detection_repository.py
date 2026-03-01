@@ -1511,17 +1511,13 @@ class DetectionRepository:
         """Get detection counts per species with taxonomic metadata."""
         query = """
             SELECT 
-                COALESCE(t.scientific_name, LOWER(d.scientific_name), LOWER(d.display_name)) as unified_id,
+                COALESCE(CAST(d.taxa_id AS VARCHAR), LOWER(d.scientific_name), LOWER(d.display_name)) as unified_id,
                 COUNT(*) as count, 
-                MAX(COALESCE(d.scientific_name, t.scientific_name)) as scientific_name, 
-                MAX(COALESCE(d.common_name, t.common_name)) as common_name,
+                MAX(d.scientific_name) as scientific_name, 
+                MAX(d.common_name) as common_name,
                 MAX(d.display_name) as display_name,
-                MAX(COALESCE(d.taxa_id, t.taxa_id)) as taxa_id
+                MAX(d.taxa_id) as taxa_id
             FROM detections d
-            LEFT JOIN taxonomy_cache t ON 
-                LOWER(d.display_name) = LOWER(t.scientific_name) OR 
-                LOWER(d.display_name) = LOWER(t.common_name) OR
-                LOWER(d.scientific_name) = LOWER(t.scientific_name)
             WHERE (d.is_hidden = 0 OR d.is_hidden IS NULL)
             GROUP BY unified_id
             ORDER BY count DESC
@@ -1543,12 +1539,12 @@ class DetectionRepository:
         """Get leaderboard base stats per species with taxonomy and time bounds."""
         query = """
             SELECT 
-                COALESCE(t.scientific_name, LOWER(d.scientific_name), LOWER(d.display_name)) as unified_id,
+                COALESCE(CAST(d.taxa_id AS VARCHAR), LOWER(d.scientific_name), LOWER(d.display_name)) as unified_id,
                 COUNT(*) as total_count, 
-                MAX(COALESCE(d.scientific_name, t.scientific_name)) as scientific_name, 
-                MAX(COALESCE(d.common_name, t.common_name)) as common_name,
+                MAX(d.scientific_name) as scientific_name, 
+                MAX(d.common_name) as common_name,
                 MAX(d.display_name) as display_name,
-                MAX(COALESCE(d.taxa_id, t.taxa_id)) as taxa_id,
+                MAX(d.taxa_id) as taxa_id,
                 MIN(d.detection_time) as first_seen,
                 MAX(d.detection_time) as last_seen,
                 AVG(d.score) as avg_confidence,
@@ -1556,10 +1552,6 @@ class DetectionRepository:
                 MIN(d.score) as min_confidence,
                 COUNT(DISTINCT d.camera_name) as camera_count
             FROM detections d
-            LEFT JOIN taxonomy_cache t ON 
-                LOWER(d.display_name) = LOWER(t.scientific_name) OR 
-                LOWER(d.display_name) = LOWER(t.common_name) OR
-                LOWER(d.scientific_name) = LOWER(t.scientific_name)
             WHERE (d.is_hidden = 0 OR d.is_hidden IS NULL)
             GROUP BY unified_id
             ORDER BY total_count DESC
@@ -1598,11 +1590,11 @@ class DetectionRepository:
         """
         query = """
             SELECT
-                COALESCE(t.scientific_name, LOWER(d.scientific_name), LOWER(d.display_name)) as unified_id,
-                MAX(COALESCE(d.scientific_name, t.scientific_name)) as scientific_name,
-                MAX(COALESCE(d.common_name, t.common_name)) as common_name,
+                COALESCE(CAST(d.taxa_id AS VARCHAR), LOWER(d.scientific_name), LOWER(d.display_name)) as unified_id,
+                MAX(d.scientific_name) as scientific_name,
+                MAX(d.common_name) as common_name,
                 MAX(d.display_name) as display_name,
-                MAX(COALESCE(d.taxa_id, t.taxa_id)) as taxa_id,
+                MAX(d.taxa_id) as taxa_id,
 
                 SUM(CASE WHEN d.detection_time >= ? AND d.detection_time < ? THEN 1 ELSE 0 END) as window_count,
                 SUM(CASE WHEN d.detection_time >= ? AND d.detection_time < ? THEN 1 ELSE 0 END) as prev_count,
@@ -1613,10 +1605,6 @@ class DetectionRepository:
                 AVG(CASE WHEN d.detection_time >= ? AND d.detection_time < ? THEN d.score ELSE NULL END) as window_avg_confidence,
                 COUNT(DISTINCT CASE WHEN d.detection_time >= ? AND d.detection_time < ? THEN d.camera_name ELSE NULL END) as window_camera_count
             FROM detections d
-            LEFT JOIN taxonomy_cache t ON
-                LOWER(d.display_name) = LOWER(t.scientific_name) OR
-                LOWER(d.display_name) = LOWER(t.common_name) OR
-                LOWER(d.scientific_name) = LOWER(t.scientific_name)
             WHERE (d.is_hidden = 0 OR d.is_hidden IS NULL)
               AND d.detection_time >= ?
               AND d.detection_time < ?
@@ -2049,18 +2037,14 @@ class DetectionRepository:
         """Get detection counts per species for a specific time range."""
         query = """
             SELECT 
-                COALESCE(t.scientific_name, LOWER(d.scientific_name), LOWER(d.display_name)) as unified_id,
+                COALESCE(CAST(d.taxa_id AS VARCHAR), LOWER(d.scientific_name), LOWER(d.display_name)) as unified_id,
                 COUNT(*) as count, 
                 MAX(d.frigate_event) as latest_event,
-                MAX(COALESCE(d.scientific_name, t.scientific_name)) as scientific_name, 
-                MAX(COALESCE(d.common_name, t.common_name)) as common_name,
+                MAX(d.scientific_name) as scientific_name, 
+                MAX(d.common_name) as common_name,
                 MAX(d.display_name) as display_name,
-                MAX(COALESCE(d.taxa_id, t.taxa_id)) as taxa_id
+                MAX(d.taxa_id) as taxa_id
             FROM detections d
-            LEFT JOIN taxonomy_cache t ON 
-                LOWER(d.display_name) = LOWER(t.scientific_name) OR 
-                LOWER(d.display_name) = LOWER(t.common_name) OR
-                LOWER(d.scientific_name) = LOWER(t.scientific_name)
             WHERE d.detection_time >= ? AND d.detection_time <= ?
             AND (d.is_hidden = 0 OR d.is_hidden IS NULL)
             GROUP BY unified_id
