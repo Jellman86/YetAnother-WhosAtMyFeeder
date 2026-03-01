@@ -147,8 +147,8 @@
     <!-- Frigate Connection -->
     <section class="card-base rounded-3xl p-8 backdrop-blur-md h-full flex flex-col">
         <div class="flex items-center gap-3 mb-6">
-            <div class="w-10 h-10 rounded-2xl bg-teal-500/10 flex items-center justify-center text-teal-600 dark:text-teal-400">
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+            <div class="w-10 h-10 rounded-2xl bg-teal-500/10 flex items-center justify-center p-1.5">
+                <img src="/frigate-logo.png" alt="Frigate Logo" class="w-full h-full object-contain" />
             </div>
             <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">{$_('settings.frigate.title')}</h3>
         </div>
