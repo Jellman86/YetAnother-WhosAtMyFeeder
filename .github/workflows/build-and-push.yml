@@ -215,7 +215,11 @@ jobs:
         run: |
           cd backend
           set +e
-          timeout -k 30s 900s python -m pytest tests/ -v --tb=short --durations=20 --cov=app --cov-report=term --cov-fail-under=20
+          timeout -k 30s 900s bash -lc "
+            python -m coverage erase &&
+            python -m coverage run -m pytest tests/ -v --tb=short --durations=20 &&
+            python -m coverage report --fail-under=20
+          "
           rc=$?
           set -e
           if [ $rc -eq 124 ]; then
