@@ -83,6 +83,23 @@ Consolidate the large settings implementation into reusable modules to reduce re
 - Reduced repeated logic in component files.
 - Existing `npm run check`, unit tests, and settings E2E flows remain green.
 
+### 3. Explorer Filter: Show Audio Matches Only 🎧
+**Priority:** P1 | **Effort:** S (1-2 days) | **Status:** Planned
+
+Add an Explorer filter toggle to show only detections with direct BirdNET audio confirmation.
+
+**Scope:**
+- Add `audio_confirmed_only` support to `/events` and `/events/count`.
+- Thread filter through API client and Explorer page state/URL params.
+- Add a clear UI toggle next to existing filter controls.
+- Keep behavior consistent with pagination, count, and SSE refresh flows.
+
+**Acceptance Criteria:**
+- Explorer list and total count stay in sync when filter is enabled/disabled.
+- Filter composes correctly with date/species/camera/favorites/hidden filters.
+- Guest/public access constraints remain unchanged.
+- Regression tests cover backend list+count filtering and basic frontend flow.
+
 ---
 
 ## Raspberry Pi Compatibility (Best-Effort Plan)
