@@ -124,3 +124,32 @@ async def test_audio_mismatch_recorded_as_heard(mock_dependencies):
     assert kwargs["audio_confirmed"] is False
     assert kwargs["audio_species"] == "European Robin"
     assert kwargs["audio_score"] == 0.95
+
+
+@pytest.mark.asyncio
+async def test_audio_confirmation_accepts_localized_audio_name_via_scientific_name(mock_dependencies):
+    """Localized audio common names should confirm when scientific names match visual label taxonomy."""
+    classifier = MagicMock()
+    classifier.classify_async = AsyncMock(return_value=[{"label": "Eurasian Blue Tit", "score": 0.89, "index": 1}])
+
+    mock_dependencies["det_service"].filter_and_label.return_value = ({"label": "Eurasian Blue Tit", "score": 0.89}, {})
+
+    mock_dependencies["taxonomy"].get_names = AsyncMock(
+        return_value={"scientific_name": "Cyanistes caeruleus", "common_name": "Eurasian Blue Tit"}
+    )
+
+    audio_match = MagicMock()
+    audio_match.species = "Лазоревка"
+    audio_match.scientific_name = "Cyanistes caeruleus"
+    audio_match.confidence = 0.97
+    mock_dependencies["audio"].find_match = AsyncMock(return_value=audio_match)
+
+    processor = EventProcessor(classifier)
+    payload = b'{"after": {"id": "event5", "label": "bird", "camera": "cam1", "start_time": 1700000000}}'
+
+    await processor.process_mqtt_message(payload)
+
+    args, kwargs = mock_dependencies["det_service"].save_detection.call_args
+    assert kwargs["audio_confirmed"] is True
+    assert kwargs["audio_species"] == "Лазоревка"
+    assert kwargs["audio_score"] == 0.97

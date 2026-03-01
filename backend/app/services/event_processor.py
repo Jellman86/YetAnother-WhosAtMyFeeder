@@ -14,6 +14,7 @@ from app.services.detection_service import DetectionService
 from app.services.audio.audio_service import audio_service
 from app.services.weather_service import weather_service
 from app.services.notification_orchestrator import NotificationOrchestrator
+from app.services.taxonomy.taxonomy_service import taxonomy_service
 from app.utils.frigate import normalize_sub_label
 # Backward-compat for tests that patch event_processor.notification_service
 from app.services.notification_service import notification_service  # noqa: F401
@@ -99,7 +100,7 @@ class EventProcessor:
             return
 
         context = await self._gather_context_data(event)
-        top_with_audio = self._correlate_audio(top, context['audio_match'])
+        top_with_audio = await self._correlate_audio(top, context['audio_match'])
         await self._handle_detection_save_and_notify(
             event, top_with_audio, snapshot_data, context
         )
@@ -241,7 +242,7 @@ class EventProcessor:
             'weather_data': weather_data
         }
 
-    def _correlate_audio(self, classification: Dict[str, Any], audio_match) -> Dict[str, Any]:
+    async def _correlate_audio(self, classification: Dict[str, Any], audio_match) -> Dict[str, Any]:
         """Correlate audio detection with visual classification.
 
         Modifies classification dict with audio correlation data.
@@ -260,9 +261,28 @@ class EventProcessor:
         audio_species = audio_match.species
         audio_score = audio_match.confidence
         visual_label = classification['label']
+        visual_label_normalized = str(visual_label or "").strip().lower()
+        audio_species_normalized = str(audio_species or "").strip().lower()
+        audio_scientific_normalized = str(getattr(audio_match, "scientific_name", "") or "").strip().lower()
+
+        visual_aliases = {visual_label_normalized}
+        try:
+            taxonomy = await taxonomy_service.get_names(visual_label)
+            sci = str(taxonomy.get("scientific_name") or "").strip().lower()
+            common = str(taxonomy.get("common_name") or "").strip().lower()
+            if sci:
+                visual_aliases.add(sci)
+            if common:
+                visual_aliases.add(common)
+        except Exception as e:
+            log.debug("Visual taxonomy lookup failed during audio correlation", label=visual_label, error=str(e))
+
+        audio_aliases = {audio_species_normalized}
+        if audio_scientific_normalized:
+            audio_aliases.add(audio_scientific_normalized)
 
         # Logic 1: Confirmation - audio matches visual
-        if audio_species.lower() == visual_label.lower():
+        if visual_aliases.intersection(audio_aliases):
             classification['audio_confirmed'] = True
             classification['audio_species'] = audio_species
             classification['audio_score'] = audio_score
