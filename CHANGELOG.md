@@ -8,6 +8,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 - **Changed:** Clicking the bell notification icon now navigates directly to the full Notifications page instead of opening a dropdown menu.
 - **Added:** A global progress bar now appears at the top of the application when background jobs (like backfills or batch analysis) are running, providing system-wide visibility into ongoing processes.
+- **Changed:** Updated the global progress bar styling to match the emerald gradient theme used in the Notifications view.
 
 - **Fixed:** Dashboard Discovery Feed now correctly displays an empty state instead of continuous loading skeletons when there are no recent detections in the past 3 days.
 
