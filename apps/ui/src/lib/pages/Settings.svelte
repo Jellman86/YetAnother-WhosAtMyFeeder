@@ -26,6 +26,7 @@
         fetchTaxonomyStatus,
         startTaxonomySync,
         resetDatabase,
+        clearClassificationFeedback,
         analyzeUnknowns,
         fetchAnalysisStatus,
         fetchAudioSources,
@@ -1570,6 +1571,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     let weatherBackfillTotal = $state(0);
     let backfillPollInterval: ReturnType<typeof setInterval> | null = null;
     let resettingDatabase = $state(false);
+    let clearingFeedback = $state(false);
     let analyzingUnknowns = $state(false);
     let analysisTotal = $state(0);
     let analysisStatus = $state<AnalysisStatus | null>(null);
@@ -1818,6 +1820,32 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             toastStore.error(e.message || $_('settings.data.reset_error'));
         } finally {
             resettingDatabase = false;
+        }
+    }
+
+    async function handleClearFeedback() {
+        let confirmMsg = 'Are you sure you want to clear all personalized re-ranking data? This will revert the AI back to its baseline accuracy and cannot be undone.';
+        try {
+            confirmMsg = $_('settings.danger.clear_feedback_confirm', { default: confirmMsg });
+        } catch (e) {
+            console.warn('Translation lookup failed, using fallback', e);
+        }
+
+        if (!confirm(confirmMsg)) {
+            return;
+        }
+
+        clearingFeedback = true;
+        message = null;
+        try {
+            const result = await clearClassificationFeedback();
+            message = { type: 'success', text: result.message };
+            toastStore.success(result.message || 'Personalization data cleared');
+        } catch (e: any) {
+            message = { type: 'error', text: e.message || 'Failed to clear personalization data' };
+            toastStore.error(e.message || 'Failed to clear personalization data');
+        } finally {
+            clearingFeedback = false;
         }
     }
 
@@ -2939,6 +2967,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     {taxonomyStatus}
                     {syncingTaxonomy}
                     {resettingDatabase}
+                    {clearingFeedback}
                     {analyzingUnknowns}
                     {analysisStatus}
                     {analysisTotal}
@@ -2952,6 +2981,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     {handleWeatherBackfill}
                     {handleAnalyzeUnknowns}
                     {handleResetDatabase}
+                    {handleClearFeedback}
                 />
             {/if}
 

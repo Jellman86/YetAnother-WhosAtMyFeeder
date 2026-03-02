@@ -405,6 +405,16 @@ class DetectionRepository:
         await self.db.commit()
         return deleted
 
+    async def clear_all_classification_feedback(self) -> int:
+        """Remove all personalized re-ranking classification feedback and return number of removed rows."""
+        if not await self._table_exists("classification_feedback"):
+            return 0
+            
+        async with self.db.execute("DELETE FROM classification_feedback") as cursor:
+            deleted = cursor.rowcount or 0
+        await self.db.commit()
+        return deleted
+
     async def get_hidden_count(self) -> int:
         """Get count of hidden detections."""
         async with self.db.execute(

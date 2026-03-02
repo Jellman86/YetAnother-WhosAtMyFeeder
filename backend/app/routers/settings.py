@@ -1468,3 +1468,24 @@ async def run_cache_cleanup(auth: AuthContext = Depends(require_owner)):
         **stats,
         "retention_days": retention
     }
+
+
+@router.delete("/maintenance/feedback/clear")
+async def clear_classification_feedback(auth: AuthContext = Depends(require_owner)):
+    """Clear all personalized re-ranking classification feedback. Owner only."""
+    from app.services.classifier_service import get_classifier
+    
+    async with get_db() as db:
+        repo = DetectionRepository(db)
+        deleted_count = await repo.clear_all_classification_feedback()
+        
+    try:
+        get_classifier().reload_bird_model()
+    except Exception as e:
+        log.warning("Failed to reload bird model after clearing personalization feedback", error=str(e))
+        
+    return {
+        "status": "success",
+        "message": f"Cleared {deleted_count} feedback records.",
+        "deleted_count": deleted_count
+    }

@@ -29,6 +29,7 @@
         weatherBackfillResult,
         weatherBackfillTotal = $bindable(0),
         resettingDatabase,
+        clearingFeedback,
         analyzingUnknowns,
         analysisStatus,
         analysisTotal,
@@ -41,7 +42,8 @@
         handleBackfill,
         handleWeatherBackfill,
         handleAnalyzeUnknowns,
-        handleResetDatabase
+        handleResetDatabase,
+        handleClearFeedback
     }: {
         maintenanceStats: MaintenanceStats | null;
         retentionDays: number;
@@ -67,6 +69,7 @@
         weatherBackfillResult: WeatherBackfillResult | null;
         weatherBackfillTotal: number;
         resettingDatabase: boolean;
+        clearingFeedback: boolean;
         analyzingUnknowns: boolean;
         analysisStatus: AnalysisStatus | null;
         analysisTotal: number;
@@ -80,6 +83,7 @@
         handleWeatherBackfill: () => Promise<void>;
         handleAnalyzeUnknowns: () => Promise<void>;
         handleResetDatabase: () => Promise<void>;
+        handleClearFeedback: () => Promise<void>;
     } = $props();
 
     const safeCount = (value: unknown): number => {
@@ -556,6 +560,32 @@
             <p class="text-[11px] text-slate-500 dark:text-slate-400 font-bold">
                 {$_('settings.data.clear_favorites_desc')}
             </p>
+            <div class="h-px bg-red-500/10 my-4"></div>
+            
+            <p class="text-sm text-slate-600 dark:text-slate-400 font-medium">
+                {$_('settings.danger.clear_feedback_desc', { default: 'Clearing personalization feedback will delete all manual tag corrections the AI uses to adjust confidence scores. This will revert the classifier to its baseline accuracy.' })}
+            </p>
+            <button
+                type="button"
+                onclick={handleClearFeedback}
+                disabled={clearingFeedback}
+                aria-label={$_('settings.danger.clear_feedback_button', { default: 'Clear Personalization Data' })}
+                class="w-full px-4 py-4 text-xs font-black uppercase tracking-widest rounded-2xl bg-amber-500 hover:bg-amber-600 text-white transition-all shadow-lg shadow-amber-500/20 flex items-center justify-center gap-3 disabled:opacity-50"
+            >
+                {#if clearingFeedback}
+                    <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                {/if}
+                {clearingFeedback ? $_('settings.danger.clearing_feedback', { default: 'Clearing...' }) : $_('settings.danger.clear_feedback_button', { default: 'Clear Personalization Data' })}
+            </button>
+            <p class="text-[11px] text-slate-500 dark:text-slate-400 font-bold mb-4">
+                {$_('settings.danger.clear_feedback_hint', { default: 'This does not delete detections or media. Re-ranking will begin learning again as you make new manual corrections.' })}
+            </p>
+
+            <div class="h-px bg-red-500/10 my-4"></div>
+            
             <button
                 type="button"
                 onclick={handleResetDatabase}

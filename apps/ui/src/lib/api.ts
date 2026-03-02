@@ -1426,6 +1426,17 @@ export async function resetDatabase(): Promise<ResetDatabaseResult> {
     return handleResponse<ResetDatabaseResult>(response);
 }
 
+export interface ClearFeedbackResult {
+    status: string;
+    message: string;
+    deleted_count: number;
+}
+
+export async function clearClassificationFeedback(): Promise<ClearFeedbackResult> {
+    const response = await apiFetch(`${API_BASE}/maintenance/feedback/clear`, { method: 'DELETE' });
+    return handleResponse<ClearFeedbackResult>(response);
+}
+
 // Media cache functions
 export async function fetchCacheStats(): Promise<CacheStats> {
     const response = await apiFetch(`${API_BASE}/cache/stats`);
