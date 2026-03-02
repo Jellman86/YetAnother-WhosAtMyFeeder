@@ -14,10 +14,30 @@
         return Math.min(100, Math.max(0, Math.round((current / total) * 100)));
     }
 
-    let aggregateProgress = $derived.by(() => {
-        if (ongoingItems.length === 0) return 0;
-        const total = ongoingItems.reduce((acc, item) => acc + getProgress(item), 0);
-        return Math.round(total / ongoingItems.length);
+    let aggregateStats = $derived.by(() => {
+        if (ongoingItems.length === 0) return { percent: 0, current: 0, total: 0 };
+        
+        let totalSum = 0;
+        let currentSum = 0;
+        let percentSum = 0;
+        
+        for (const item of ongoingItems) {
+            const meta = item.meta ?? {};
+            const t = Number(meta.total ?? 0);
+            const c = Number(meta.current ?? meta.processed ?? 0);
+            
+            if (Number.isFinite(t) && t > 0) {
+                totalSum += t;
+                currentSum += c;
+            }
+            percentSum += getProgress(item);
+        }
+        
+        return {
+            percent: Math.round(percentSum / ongoingItems.length),
+            current: currentSum,
+            total: totalSum
+        };
     });
 
     let currentMessage = $derived.by(() => {
@@ -78,8 +98,13 @@
                     
                     <div class="flex items-center gap-4">
                         <div class="flex items-center gap-2">
+                            {#if aggregateStats.total > 0}
+                                <span class="text-[9px] font-medium text-slate-500 tracking-wider">
+                                    {aggregateStats.current.toLocaleString()} / {aggregateStats.total.toLocaleString()}
+                                </span>
+                            {/if}
                             <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest whitespace-nowrap">
-                                {aggregateProgress}% Total
+                                {aggregateStats.percent}% Total
                             </p>
                         </div>
                     </div>
@@ -89,7 +114,7 @@
                 <div class="h-2 w-full bg-emerald-100 dark:bg-emerald-950/60 rounded-full overflow-hidden relative">
                     <div 
                         class="h-full bg-gradient-to-r from-emerald-500 via-teal-500 to-sky-500 transition-all duration-500"
-                        style="width: {aggregateProgress}%"
+                        style="width: {aggregateStats.percent}%"
                     ></div>
                 </div>
 
@@ -97,16 +122,23 @@
                 {#if showDetails && ongoingItems.length > 1}
                     <div class="pt-2 border-t border-slate-100 dark:border-slate-800/50 mt-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-2" in:slide>
                         {#each ongoingItems as job (job.id)}
+                            {@const meta = job.meta ?? {}}
+                            {@const total = Number(meta.total ?? 0)}
+                            {@const current = Number(meta.current ?? meta.processed ?? 0)}
+                            {@const hasStats = Number.isFinite(total) && total > 0}
                             <div class="flex items-center justify-between gap-3 text-[9px] min-w-0">
                                 <div class="flex items-center gap-2 min-w-0 flex-1">
                                     <span class="px-1.5 py-0.5 rounded-md font-black uppercase tracking-wide whitespace-nowrap bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300 truncate max-w-[150px]">
                                         {job.title}
                                     </span>
                                 </div>
-                                <span class="text-slate-400 truncate flex-1 text-right">
-                                    {job.message || ''}
+                                <span class="text-slate-400 truncate flex-1 text-right flex items-center justify-end gap-2">
+                                    <span class="truncate">{job.message || ''}</span>
+                                    {#if hasStats}
+                                        <span class="font-medium text-slate-500 whitespace-nowrap">{current.toLocaleString()} / {total.toLocaleString()}</span>
+                                    {/if}
                                 </span>
-                                <span class="font-black text-emerald-600 dark:text-emerald-400 w-8 text-right">
+                                <span class="font-black text-emerald-600 dark:text-emerald-400 w-8 text-right shrink-0">
                                     {getProgress(job)}%
                                 </span>
                             </div>
