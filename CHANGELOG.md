@@ -6,6 +6,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- **Fixed:** Dashboard Discovery Feed now correctly displays an empty state instead of continuous loading skeletons when there are no recent detections in the past 3 days.
+
 - **Added:** Explorer filter toggle to show only detections with an "Audio Match".
 - **Added:** Frigate logo asset for third-party integration representation (via acceptable use policy).
 - **Changed:** Leaderboard and analytical statistics now group species queries using resilient canonical identities (`taxa_id` and `scientific_name`), making the UI immune to language switching and speeding up analytical database paths.

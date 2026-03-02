@@ -383,10 +383,19 @@
                         />
                     </div>
                 {/each}
-            {:else}
+            {:else if detectionsStore.isLoading}
                 {#each Array(4) as _, index (index)}
                     <div class="min-h-[220px] rounded-3xl bg-slate-100/80 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60 animate-pulse"></div>
                 {/each}
+            {:else}
+                <div class="col-span-full py-12 flex flex-col items-center justify-center text-center bg-white/50 dark:bg-slate-800/20 rounded-3xl border border-dashed border-slate-200 dark:border-slate-700/50">
+                    <div class="w-16 h-16 mb-4 rounded-full bg-slate-100 dark:bg-slate-800/50 flex items-center justify-center text-slate-400 dark:text-slate-500">
+                        <svg class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                    </div>
+                    <p class="text-slate-500 dark:text-slate-400 font-medium">{$_('dashboard.no_detections')}</p>
+                </div>
             {/if}
         </div>
     </div>
