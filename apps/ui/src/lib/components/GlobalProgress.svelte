@@ -33,8 +33,15 @@
             percentSum += getProgress(item);
         }
         
+        let percent = 0;
+        if (totalSum > 0) {
+            percent = Math.round((currentSum / totalSum) * 100);
+        } else if (ongoingItems.length > 0) {
+            percent = Math.round(percentSum / ongoingItems.length);
+        }
+        
         return {
-            percent: Math.round(percentSum / ongoingItems.length),
+            percent,
             current: currentSum,
             total: totalSum
         };

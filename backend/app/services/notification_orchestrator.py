@@ -88,7 +88,8 @@ class NotificationOrchestrator:
             channels=channels,
             audio_confirmed=audio_confirmed,
             audio_species=audio_species,
-            snapshot_data=snapshot_data
+            snapshot_data=snapshot_data,
+            weather=getattr(event, 'weather_condition', None)
         )
 
     async def _send_and_mark_notified(

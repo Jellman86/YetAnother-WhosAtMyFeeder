@@ -79,7 +79,8 @@ class NotificationService:
         channels: Optional[list[str]] = None,
         audio_confirmed: bool = False,
         audio_species: Optional[str] = None,
-        snapshot_data: Optional[bytes] = None
+        snapshot_data: Optional[bytes] = None,
+        weather: Optional[str] = None
     ) -> bool:
         """Send notifications to all enabled platforms."""
         
@@ -118,7 +119,7 @@ class NotificationService:
         email_allowed = not settings.notifications.email.only_on_end or email_event_type == "end"
         if settings.notifications.email.enabled and email_allowed and allow_channel("email"):
             tasks.append(("email", self._send_email(
-                display_name, scientific_name, confidence, camera, timestamp, snapshot_url, snapshot_data, audio_confirmed, lang
+                display_name, scientific_name, confidence, camera, timestamp, snapshot_url, snapshot_data, audio_confirmed, lang, weather
             )))
         elif settings.notifications.email.enabled and allow_channel("email"):
             log.debug(
@@ -355,7 +356,8 @@ class NotificationService:
         snapshot_url: str,
         snapshot_data: Optional[bytes],
         audio_confirmed: bool,
-        lang: str
+        lang: str,
+        weather: Optional[str] = None
     ) -> bool:
         """Send email notification"""
         try:
@@ -395,7 +397,7 @@ class NotificationService:
                 "has_image": snapshot_data is not None and cfg.include_snapshot,
                 "dashboard_url": cfg.dashboard_url,
                 "font_family": font_family,
-                "weather": None  # TODO: Add weather data if available
+                "weather": weather
             }
 
             # Render templates

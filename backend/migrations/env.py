@@ -6,6 +6,7 @@ from sqlalchemy import engine_from_config
 from sqlalchemy import pool
 
 from alembic import context
+from app.db_schema import metadata
 
 # Add the project root to the path
 sys.path.append(os.getcwd())
@@ -17,8 +18,6 @@ config = context.config
 # Interpret the config file for Python logging.
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
-
-from app.db_schema import metadata
 
 # YA-WAMF doesn't use SQLAlchemy models for metadata, so we leave this as None
 # or we could manually define it if we wanted autogenerate.

@@ -15,6 +15,7 @@ from time import monotonic
 from contextlib import asynccontextmanager
 from typing import Awaitable, Callable
 from prometheus_client import generate_latest, CONTENT_TYPE_LATEST, Counter
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 from app.database import init_db, close_db, get_db, get_db_path_diagnostics, is_db_pool_initialized
 from app.services.mqtt_service import mqtt_service
@@ -322,7 +323,6 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Yet Another WhosAtMyFeeder API", version=APP_VERSION, lifespan=lifespan)
 
 # Trust proxy headers (X-Forwarded-Proto, X-Forwarded-For) for correct scheme/IP detection
-from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 trusted_proxy_hosts = settings.system.trusted_proxy_hosts
 if "*" in trusted_proxy_hosts:
     trusted_proxy_hosts = ["*"]
