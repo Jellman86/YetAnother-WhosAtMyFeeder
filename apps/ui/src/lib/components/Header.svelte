@@ -154,10 +154,6 @@
                 </button>
 
                 <NotificationCenter
-                    align="right"
-                    placement="inside"
-                    panelAlignOverride="right-0"
-                    panelStyle="left: auto;"
                     onNavigate={onNavigate}
                 />
 

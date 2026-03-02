@@ -170,9 +170,6 @@
     <!-- Language selector and Theme Toggle at Bottom -->
     <div class="p-3 border-t border-slate-200/80 dark:border-slate-700/50 space-y-2">
         <NotificationCenter
-            position="bottom"
-            align="left"
-            placement="outside"
             showLabel
             label={$_('notifications.center_title')}
             {collapsed}
