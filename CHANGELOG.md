@@ -7,6 +7,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 ## [Unreleased]
 
 - **Added:** New `classification.write_frigate_sublabel` setting (API + config + env: `CLASSIFICATION__WRITE_FRIGATE_SUBLABEL`) to control whether YA-WAMF writes species labels back to Frigate event sublabels.
+- **Added:** Detection Settings now includes a visible toggle for `write_frigate_sublabel`, with localization coverage across all supported UI languages.
 - **Changed:** Event processing now honors `write_frigate_sublabel`; Frigate write-back is skipped when disabled while local YA-WAMF detections still persist normally.
 - **Changed:** Snapshot classification now applies a stricter confidence gate when Frigate sublabel disagrees and Frigate trust is disabled, reducing overconfident cross-species mislabels (for example long-tailed tit drift) by demoting low-confidence disagreements to `Unknown Bird`.
 - **Changed:** Legacy `active_model.json` entries that reference `eva02_large_inat21` without explicit user selection now auto-remap to `convnext_large_inat21` on load; explicit EVA selections remain supported.

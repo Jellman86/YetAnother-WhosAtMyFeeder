@@ -617,6 +617,8 @@
       "floor_help": "この下限未満のイベントは完全に無視されます。下限以上しきい値未満のイベントは「Unknown Bird」として保存されます。",
       "trust_frigate": "Frigate のサブラベルを信頼",
       "trust_frigate_desc": "Frigate が種を識別した場合は内部分類をスキップ",
+      "write_frigate_sublabel": "ラベルを Frigate に書き戻す",
+      "write_frigate_sublabel_desc": "YA-WAMF の種ラベルを Frigate のイベントサブラベルに追記します",
       "auto_video": "自動動画解析",
       "auto_video_desc": "すべてのイベントで詳細な動画再分類を自動実行",
       "video_delay": "初期遅延 (秒)",

@@ -231,6 +231,7 @@ export interface Settings {
     retention_days: number;
     blocked_labels: string[];
     trust_frigate_sublabel: boolean;
+    write_frigate_sublabel: boolean;
     display_common_names: boolean;
     scientific_name_primary: boolean;
     personalized_rerank_enabled: boolean;

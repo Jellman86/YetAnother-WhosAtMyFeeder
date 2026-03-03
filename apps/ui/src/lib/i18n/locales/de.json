@@ -646,6 +646,8 @@
       "floor_help": "Ereignisse unter dieser Untergrenze werden vollständig ignoriert. Ereignisse zwischen Untergrenze und Schwelle werden als \"Unbekannter Vogel\" gespeichert.",
       "trust_frigate": "Frigate-Sublabels vertrauen",
       "trust_frigate_desc": "Interne Klassifizierung überspringen, wenn Frigate die Art identifiziert hat",
+      "write_frigate_sublabel": "Labels an Frigate zurückschreiben",
+      "write_frigate_sublabel_desc": "YA-WAMF-Artnamen als Ereignis-Sublabel in Frigate zurückschreiben",
       "auto_video": "Automatische Videoanalyse",
       "auto_video_desc": "Tiefenvideo-Reklassifizierung für jedes Ereignis automatisch ausführen",
       "video_delay": "Anfangsverzögerung (s)",

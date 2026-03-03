@@ -617,6 +617,8 @@
       "floor_help": "Les événements sous ce seuil sont ignorés. Entre le seuil minimal et le seuil de confiance, ils sont marqués comme \"Oiseau inconnu\".",
       "trust_frigate": "Faire confiance aux sous-labels Frigate",
       "trust_frigate_desc": "Ignorer la classification interne si Frigate a identifié l'espèce",
+      "write_frigate_sublabel": "Renvoyer les labels vers Frigate",
+      "write_frigate_sublabel_desc": "Ajouter les labels d'espèces YA-WAMF aux sous-labels d'événement Frigate",
       "auto_video": "Analyse vidéo automatique",
       "auto_video_desc": "Lancer la reclassification vidéo profonde pour chaque événement",
       "video_delay": "Délai initial (s)",

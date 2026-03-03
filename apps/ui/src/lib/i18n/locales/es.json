@@ -646,6 +646,8 @@
       "floor_help": "Los eventos por debajo de este suelo se ignoran por completo. Los eventos entre el suelo y el umbral se guardan como \"Ave desconocida\".",
       "trust_frigate": "Confiar en subetiquetas de Frigate",
       "trust_frigate_desc": "Omitir clasificación interna si Frigate identificó la especie",
+      "write_frigate_sublabel": "Escribir etiquetas en Frigate",
+      "write_frigate_sublabel_desc": "Añadir etiquetas de especie de YA-WAMF a las subetiquetas de eventos de Frigate",
       "auto_video": "Análisis de video automático",
       "auto_video_desc": "Ejecutar automáticamente reclasificación profunda de video para cada evento",
       "video_delay": "Retraso inicial (s)",

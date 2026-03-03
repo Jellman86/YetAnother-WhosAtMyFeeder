@@ -95,6 +95,7 @@
     let threshold = $state(0.7);
     let minConfidence = $state(0.4);
     let trustFrigateSublabel = $state(true);
+    let writeFrigateSublabel = $state(true);
     let displayCommonNames = $state(true);
     let scientificNamePrimary = $state(false);
     let personalizedRerankEnabled = $state(false);
@@ -1420,6 +1421,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'clipsEnabled', val: clipsEnabled, store: s.clips_enabled ?? true },
             { key: 'threshold', val: threshold, store: s.classification_threshold },
             { key: 'trustFrigateSublabel', val: trustFrigateSublabel, store: s.trust_frigate_sublabel ?? true },
+            { key: 'writeFrigateSublabel', val: writeFrigateSublabel, store: s.write_frigate_sublabel ?? true },
             { key: 'displayCommonNames', val: displayCommonNames, store: s.display_common_names ?? true },
             { key: 'scientificNamePrimary', val: scientificNamePrimary, store: s.scientific_name_primary ?? false },
             { key: 'personalizedRerankEnabled', val: personalizedRerankEnabled, store: s.personalized_rerank_enabled ?? false },
@@ -2093,6 +2095,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             threshold = settings.classification_threshold;
             minConfidence = settings.classification_min_confidence ?? 0.4;
             trustFrigateSublabel = settings.trust_frigate_sublabel ?? true;
+            writeFrigateSublabel = settings.write_frigate_sublabel ?? true;
             displayCommonNames = settings.display_common_names ?? true;
             scientificNamePrimary = settings.scientific_name_primary ?? false;
             personalizedRerankEnabled = settings.personalized_rerank_enabled ?? false;
@@ -2366,6 +2369,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 classification_threshold: threshold,
                 classification_min_confidence: minConfidence,
                 trust_frigate_sublabel: trustFrigateSublabel,
+                write_frigate_sublabel: writeFrigateSublabel,
                 display_common_names: displayCommonNames,
                 scientific_name_primary: scientificNamePrimary,
                 personalized_rerank_enabled: personalizedRerankEnabled,
@@ -2744,6 +2748,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     bind:threshold
                     bind:minConfidence
                     bind:trustFrigateSublabel
+                    bind:writeFrigateSublabel
                     bind:personalizedRerankEnabled
                     bind:autoVideoClassification
                     bind:videoClassificationDelay

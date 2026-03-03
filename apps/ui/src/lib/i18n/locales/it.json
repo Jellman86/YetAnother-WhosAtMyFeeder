@@ -625,6 +625,8 @@
       "floor_help": "Gli eventi al di sotto di questo livello vengono ignorati completamente. Gli eventi tra il livello e la soglia vengono salvati come \"Uccello sconosciuto\".",
       "trust_frigate": "Fidati dei sotto-label di Frigate",
       "trust_frigate_desc": "Salta la classificazione interna se Frigate ha identificato la specie",
+      "write_frigate_sublabel": "Scrivi etichette su Frigate",
+      "write_frigate_sublabel_desc": "Aggiungi le etichette specie di YA-WAMF ai sotto-label evento di Frigate",
       "auto_video": "Analisi video automatica",
       "auto_video_desc": "Esegui automaticamente la riclassificazione video profonda per ogni evento",
       "video_delay": "Ritardo iniziale (s)",

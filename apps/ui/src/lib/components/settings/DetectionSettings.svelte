@@ -10,6 +10,7 @@
         threshold = $bindable(0.7),
         minConfidence = $bindable(0.4),
         trustFrigateSublabel = $bindable(true),
+        writeFrigateSublabel = $bindable(true),
         personalizedRerankEnabled = $bindable(false),
         autoVideoClassification = $bindable(false),
         videoClassificationDelay = $bindable(30),
@@ -28,6 +29,7 @@
         threshold: number;
         minConfidence: number;
         trustFrigateSublabel: boolean;
+        writeFrigateSublabel: boolean;
         personalizedRerankEnabled: boolean;
         autoVideoClassification: boolean;
         videoClassificationDelay: number;
@@ -140,6 +142,29 @@
                     >
                         <span class="sr-only">{$_('settings.detection.trust_frigate')}</span>
                         <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {trustFrigateSublabel ? 'translate-x-5' : 'translate-x-0'}"></span>
+                    </button>
+                </div>
+
+                <div class="p-4 rounded-2xl bg-cyan-500/5 border border-cyan-500/10 flex items-center justify-between gap-4">
+                    <div id="write-frigate-label" class="flex-1">
+                        <span class="block text-sm font-black text-slate-900 dark:text-white">{$_('settings.detection.write_frigate_sublabel')}</span>
+                        <span class="block text-[10px] text-slate-500 font-bold leading-tight mt-1">{$_('settings.detection.write_frigate_sublabel_desc')}</span>
+                    </div>
+                    <button
+                        role="switch"
+                        aria-checked={writeFrigateSublabel}
+                        aria-labelledby="write-frigate-label"
+                        onclick={() => writeFrigateSublabel = !writeFrigateSublabel}
+                        onkeydown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                writeFrigateSublabel = !writeFrigateSublabel;
+                            }
+                        }}
+                        class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {writeFrigateSublabel ? 'bg-cyan-500' : 'bg-slate-300 dark:bg-slate-600'}"
+                    >
+                        <span class="sr-only">{$_('settings.detection.write_frigate_sublabel')}</span>
+                        <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {writeFrigateSublabel ? 'translate-x-5' : 'translate-x-0'}"></span>
                     </button>
                 </div>
 

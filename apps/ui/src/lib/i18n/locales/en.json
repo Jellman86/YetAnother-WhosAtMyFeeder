@@ -659,6 +659,8 @@
       "floor_help": "Events below this floor are ignored completely. Events between floor and threshold are saved as \"Unknown Bird\".",
       "trust_frigate": "Trust Frigate Sublabels",
       "trust_frigate_desc": "Skip internal classification if Frigate identified species",
+      "write_frigate_sublabel": "Write Labels Back to Frigate",
+      "write_frigate_sublabel_desc": "Append YA-WAMF species labels to Frigate event sublabels",
       "auto_video": "Auto Video Analysis",
       "auto_video_desc": "Automatically run deep video reclassification for every event",
       "video_delay": "Initial Delay (s)",

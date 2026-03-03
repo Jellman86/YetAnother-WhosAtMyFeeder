@@ -617,6 +617,8 @@
       "floor_help": "低于该下限的事件会被完全忽略。介于下限和阈值之间的事件会保存为“Unknown Bird”。",
       "trust_frigate": "信任 Frigate 子标签",
       "trust_frigate_desc": "如果 Frigate 已识别物种，则跳过内部分类",
+      "write_frigate_sublabel": "回写标签到 Frigate",
+      "write_frigate_sublabel_desc": "将 YA-WAMF 物种标签附加到 Frigate 事件子标签",
       "auto_video": "自动视频分析",
       "auto_video_desc": "为每个事件自动执行深度视频重分类",
       "video_delay": "初始延迟 (秒)",

@@ -625,6 +625,8 @@
       "floor_help": "Eventos abaixo deste piso são ignorados completamente. Eventos entre o piso e o limiar são guardados como \"Ave desconhecida\".",
       "trust_frigate": "Confiar nos sub-rótulos do Frigate",
       "trust_frigate_desc": "Ignorar a classificação interna se o Frigate identificou a espécie",
+      "write_frigate_sublabel": "Gravar rótulos no Frigate",
+      "write_frigate_sublabel_desc": "Anexar rótulos de espécie do YA-WAMF aos sub-rótulos de eventos do Frigate",
       "auto_video": "Análise de vídeo automática",
       "auto_video_desc": "Executar automaticamente a reclassificação profunda de vídeo para cada evento",
       "video_delay": "Atraso inicial (s)",
