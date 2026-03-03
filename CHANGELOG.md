@@ -11,6 +11,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Changed:** Event processing now honors `write_frigate_sublabel`; Frigate write-back is skipped when disabled while local YA-WAMF detections still persist normally.
 - **Changed:** Snapshot classification now applies a stricter confidence gate when Frigate sublabel disagrees and Frigate trust is disabled, reducing overconfident cross-species mislabels (for example long-tailed tit drift) by demoting low-confidence disagreements to `Unknown Bird`.
 - **Changed:** Legacy `active_model.json` entries that reference `eva02_large_inat21` without explicit user selection now auto-remap to `convnext_large_inat21` on load; explicit EVA selections remain supported.
+- **Fixed:** Frontend nginx now serves `/assets/*` with strict file lookup (`404` if missing) instead of SPA fallback to `index.html`, preventing module MIME errors (`text/html` returned for JavaScript chunks) after rolling updates.
 
 - **Fixed:** MQTT ingestion now dispatches Frigate/BirdNET message handling through bounded concurrent workers so long-running event processing no longer blocks topic intake in a single serial loop.
 - **Changed:** Real-time Frigate event handling now ignores routine `update` chatter and processes actionable bird events (`new`, `end`, and false-positive cleanup), reducing duplicate reclassification load.
