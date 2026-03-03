@@ -1,4 +1,5 @@
 import os
+import json
 
 import pytest
 
@@ -67,3 +68,24 @@ def test_validate_download_payload_requires_onnx_weights_when_configured(tmp_pat
 
     with pytest.raises(RuntimeError, match="model.onnx.data"):
         manager._validate_download_payload(meta, str(staged_dir), "model.onnx")
+
+
+def test_load_active_model_id_remaps_legacy_eva_default(tmp_path, monkeypatch):
+    monkeypatch.setattr("app.services.model_manager.MODELS_DIR", str(tmp_path))
+    config_path = tmp_path / "active_model.json"
+    config_path.write_text(json.dumps({"active_model_id": "eva02_large_inat21"}), encoding="utf-8")
+
+    manager = ModelManager()
+    assert manager.active_model_id == "convnext_large_inat21"
+
+
+def test_load_active_model_id_keeps_explicit_eva_selection(tmp_path, monkeypatch):
+    monkeypatch.setattr("app.services.model_manager.MODELS_DIR", str(tmp_path))
+    config_path = tmp_path / "active_model.json"
+    config_path.write_text(
+        json.dumps({"active_model_id": "eva02_large_inat21", "explicit_selection": True}),
+        encoding="utf-8",
+    )
+
+    manager = ModelManager()
+    assert manager.active_model_id == "eva02_large_inat21"

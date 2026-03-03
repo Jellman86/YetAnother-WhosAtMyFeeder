@@ -36,6 +36,8 @@ class DetectionService:
         score = top['score']
         label = top['label']
         original_label = label
+        normalized_label = str(label or "").strip().casefold()
+        normalized_frigate_sub_label = frigate_sub_label.casefold() if frigate_sub_label else None
 
         # Relabel unknown bird classifications
         if label in settings.classification.unknown_bird_labels:
@@ -55,13 +57,33 @@ class DetectionService:
         # Check minimum confidence floor
         below_min_confidence = score < effective_min
 
-        # Check primary threshold
-        below_threshold = score <= settings.classification.threshold
+        # Check primary threshold, with stricter guard when Frigate sublabel disagrees
+        # and Frigate trust is disabled.
+        required_threshold = float(settings.classification.threshold or 0.0)
+        threshold_reason = "threshold_passed"
+        sublabel_disagrees = bool(
+            not settings.classification.trust_frigate_sublabel
+            and normalized_frigate_sub_label
+            and normalized_label
+            and normalized_frigate_sub_label != normalized_label
+        )
+        if sublabel_disagrees:
+            disagreement_min_score = min(0.95, required_threshold + 0.20)
+            frigate_score_value = float(frigate_score or 0.0)
+            if frigate_score_value > 0:
+                disagreement_min_score = max(
+                    disagreement_min_score,
+                    min(0.98, frigate_score_value + 0.15),
+                )
+            required_threshold = max(required_threshold, disagreement_min_score)
+            threshold_reason = "threshold_passed_with_sublabel_disagreement_guard"
+
+        below_threshold = score <= required_threshold
 
         # If classification passes primary threshold, return it
         # (Implicitly passes min_confidence because threshold >= effective_min)
         if not below_threshold:
-            return top, "threshold_passed"
+            return top, threshold_reason
 
         # Classification failed primary threshold - check if we can fall back to Frigate sublabel
         if settings.classification.trust_frigate_sublabel and frigate_sub_label:
@@ -88,6 +110,8 @@ class DetectionService:
             log.info("Low confidence detection, saving as Unknown", 
                      original=original_label, 
                      score=score, 
+                     required_threshold=required_threshold,
+                     sublabel_disagrees=sublabel_disagrees,
                      event_id=frigate_event)
             return {
                 'label': "Unknown Bird",

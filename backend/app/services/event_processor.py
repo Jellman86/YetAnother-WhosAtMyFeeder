@@ -399,7 +399,10 @@ class EventProcessor:
         )
 
         # Update Frigate sublabel if confident
-        if score > settings.classification.threshold or classification['audio_confirmed']:
+        if (
+            settings.classification.write_frigate_sublabel
+            and (score > settings.classification.threshold or classification['audio_confirmed'])
+        ):
             await frigate_client.set_sublabel(event.frigate_event, label)
 
         # Send notifications based on policy

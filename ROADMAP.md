@@ -243,12 +243,13 @@ Prioritize fixes for anything listed in `ISSUES.md` (known issues, testing gaps)
 If this section ever claims "none", treat it as stale: always check `ISSUES.md` and the GitHub issue tracker.
 
 ### Current Execution Focus (Issue Triage + Validation)
-- Snapshot as of **February 27, 2026**: prioritize open GitHub issues before new feature work (`#16`, `#21`).
+- Snapshot as of **March 3, 2026**: prioritize open GitHub issues before new feature work (`#16`, `#21`).
 - ✅ `#17` (batch reclassify issue) closed after triage confirmed the remaining symptom belonged in `#19`.
 - ✅ `#20` (weather conditions panel text alignment) fixed and reporter-confirmed, then closed.
 - ✅ `#19` follow-up fixes shipped (`76433eb`, `419818f`) and issue closed after filter/state hardening and click-through correction.
 - 🔄 `#16` BirdNET-Go mapping improvements (source-name / `nm` mapping) are in `dev`; reporter sees audio figures again and is validating long-running stability.
 - 🔄 `#21` OpenVINO ConvNeXt load failure has `dev` remediation (patched model + safe re-download flow + clearer capability diagnostics) and is awaiting reporter retest.
+- 🔄 Latest detection-pipeline hardening (snapshot disagreement guard + optional Frigate sublabel write-back + legacy EVA default remap) is in `dev` and awaiting field validation against misclassification-heavy feeds.
 - 🔄 Continue reliability work in parallel: expand E2E coverage around restart/recovery scenarios and GPU/provider fallback paths.
 
 ---

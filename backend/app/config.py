@@ -196,6 +196,10 @@ class ClassificationSettings(BaseModel):
         default=True,
         description="Fall back to Frigate sublabel when YA-WAMF classification fails threshold"
     )
+    write_frigate_sublabel: bool = Field(
+        default=True,
+        description="Write YA-WAMF species labels back to Frigate as event sublabels"
+    )
     display_common_names: bool = Field(
         default=True,
         description="Display common names instead of scientific names when available"
@@ -560,6 +564,7 @@ class Settings(BaseSettings):
             'blocked_labels': [],
             'unknown_bird_labels': ["background", "Background"],
             'trust_frigate_sublabel': True,
+            'write_frigate_sublabel': os.environ.get('CLASSIFICATION__WRITE_FRIGATE_SUBLABEL', 'true').lower() == 'true',
             'display_common_names': True,
             'scientific_name_primary': False,
             'personalized_rerank_enabled': os.environ.get('CLASSIFICATION__PERSONALIZED_RERANK_ENABLED', 'false').lower() == 'true',
@@ -971,6 +976,7 @@ class Settings(BaseSettings):
                  blocked_labels=classification_data['blocked_labels'],
                  unknown_bird_labels=classification_data['unknown_bird_labels'],
                  trust_frigate_sublabel=classification_data['trust_frigate_sublabel'],
+                 write_frigate_sublabel=classification_data['write_frigate_sublabel'],
                  display_common_names=classification_data['display_common_names'],
                  scientific_name_primary=classification_data['scientific_name_primary'],
                  personalized_rerank_enabled=classification_data.get('personalized_rerank_enabled', False),

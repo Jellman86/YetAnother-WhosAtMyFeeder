@@ -97,16 +97,35 @@ class ModelManager:
             try:
                 with open(config_path, 'r') as f:
                     data = json.load(f)
-                    return data.get("active_model_id", "mobilenet_v2_birds")
+                    model_id = data.get("active_model_id", "mobilenet_v2_birds")
+                    explicit_selection = bool(data.get("explicit_selection", False))
+                    return self._coerce_active_model_id(model_id, explicit_selection=explicit_selection)
             except Exception:
                 return "mobilenet_v2_birds"
         return "mobilenet_v2_birds"
 
-    def _save_active_model_id(self, model_id: str):
+    def _coerce_active_model_id(self, model_id: str, explicit_selection: bool) -> str:
+        normalized = str(model_id or "mobilenet_v2_birds").strip() or "mobilenet_v2_birds"
+        if normalized == "eva02_large_inat21" and not explicit_selection:
+            log.warning(
+                "Remapping legacy non-explicit EVA active model to ConvNeXt",
+                from_model_id=normalized,
+                to_model_id="convnext_large_inat21",
+            )
+            return "convnext_large_inat21"
+        return normalized
+
+    def _save_active_model_id(self, model_id: str, explicit_selection: bool = True):
         """Save the active model ID."""
         config_path = os.path.join(MODELS_DIR, "active_model.json")
         with open(config_path, 'w') as f:
-            json.dump({"active_model_id": model_id}, f)
+            json.dump(
+                {
+                    "active_model_id": model_id,
+                    "explicit_selection": explicit_selection,
+                },
+                f,
+            )
         self.active_model_id = model_id
 
     async def list_available_models(self) -> List[ModelMetadata]:

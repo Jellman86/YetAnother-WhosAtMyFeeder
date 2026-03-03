@@ -270,6 +270,7 @@ class SettingsUpdate(BaseModel):
     auto_delete_missing_clips: bool = Field(False, description="Auto-delete detections when event/clip is missing")
     blocked_labels: List[str] = Field(default_factory=list, description="Labels to filter out from detections")
     trust_frigate_sublabel: bool = Field(True, description="Trust Frigate sublabels when available")
+    write_frigate_sublabel: bool = Field(True, description="Write YA-WAMF labels back to Frigate sublabels")
     display_common_names: bool = Field(True, description="Display common names instead of scientific")
     scientific_name_primary: bool = Field(False, description="Show scientific name as the primary label in UI")
     personalized_rerank_enabled: Optional[bool] = Field(False, description="Enable personalized reranking using manual tag feedback")
@@ -529,6 +530,7 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "auto_delete_missing_clips": settings.maintenance.auto_delete_missing_clips,
         "blocked_labels": settings.classification.blocked_labels,
         "trust_frigate_sublabel": settings.classification.trust_frigate_sublabel,
+        "write_frigate_sublabel": settings.classification.write_frigate_sublabel,
         "display_common_names": settings.classification.display_common_names,
         "scientific_name_primary": settings.classification.scientific_name_primary,
         "personalized_rerank_enabled": settings.classification.personalized_rerank_enabled,
@@ -735,6 +737,8 @@ async def update_settings(
         settings.classification.blocked_labels = update.blocked_labels
     if "trust_frigate_sublabel" in fields_set:
         settings.classification.trust_frigate_sublabel = update.trust_frigate_sublabel
+    if "write_frigate_sublabel" in fields_set:
+        settings.classification.write_frigate_sublabel = update.write_frigate_sublabel
     if "display_common_names" in fields_set:
         settings.classification.display_common_names = update.display_common_names
     if "scientific_name_primary" in fields_set:
