@@ -33,7 +33,9 @@ services:
     # If `gpus: all` is not supported by your host/compose plugin, use the
     # NVIDIA Container Toolkit runtime equivalent in your orchestrator.
     ports:
-      - "8946:8000"
+      # Bind backend API to localhost by default to avoid bypassing your HTTPS reverse proxy.
+      # Set BACKEND_BIND_IP=0.0.0.0 only if you intentionally want direct LAN/WAN access.
+      - "${BACKEND_BIND_IP:-127.0.0.1}:8946:8000"
     environment:
       - TZ=${TZ:-UTC}
       - PUID=${PUID:-1000}

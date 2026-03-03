@@ -323,13 +323,15 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Yet Another WhosAtMyFeeder API", version=APP_VERSION, lifespan=lifespan)
 
 # Trust proxy headers (X-Forwarded-Proto, X-Forwarded-For) for correct scheme/IP detection
-trusted_proxy_hosts = settings.system.trusted_proxy_hosts
-if "*" in trusted_proxy_hosts:
-    trusted_proxy_hosts = ["*"]
+configured_trusted_proxy_hosts = list(settings.system.trusted_proxy_hosts)
+if "*" in configured_trusted_proxy_hosts:
+    resolved_trusted_proxy_hosts = ["*"]
 else:
     # Expand DNS names to IPs so ProxyHeadersMiddleware can match client IPs.
-    trusted_proxy_hosts = _expand_trusted_hosts(trusted_proxy_hosts)
-app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=trusted_proxy_hosts)
+    resolved_trusted_proxy_hosts = _expand_trusted_hosts(configured_trusted_proxy_hosts)
+app.state.trusted_proxy_hosts_configured = configured_trusted_proxy_hosts
+app.state.trusted_proxy_hosts_resolved = resolved_trusted_proxy_hosts
+app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=resolved_trusted_proxy_hosts)
 
 # Setup structured logging
 log = structlog.get_logger()
@@ -419,6 +421,36 @@ async def _safe_call_next(request: Request, call_next: Callable[[Request], Await
         raise
 
 
+def _is_trusted_proxy_client(client_host: str | None, trusted_proxy_hosts: list[str]) -> bool:
+    """Return true if the immediate client is a trusted proxy."""
+    if not client_host:
+        return False
+    return "*" in trusted_proxy_hosts or client_host in trusted_proxy_hosts
+
+
+def _classify_https_warning_reason(
+    request_scheme: str,
+    client_host: str | None,
+    forwarded_proto: str | None,
+    trusted_proxy_hosts: list[str],
+) -> str:
+    """Classify why a request resolved to HTTP for actionable warning logs."""
+    if request_scheme == "https":
+        return "secure_request"
+
+    if forwarded_proto:
+        normalized_proto = forwarded_proto.split(",")[0].strip().lower()
+        if _is_trusted_proxy_client(client_host, trusted_proxy_hosts):
+            if normalized_proto in {"http", "ws"}:
+                return "trusted_proxy_forwarded_non_https"
+            if normalized_proto in {"https", "wss"}:
+                return "trusted_proxy_scheme_mismatch"
+            return "trusted_proxy_forwarded_unknown_proto"
+        return "untrusted_forwarded_proto_ignored"
+
+    return "direct_http_request"
+
+
 @app.middleware("http")
 async def add_security_headers(request: Request, call_next):
     """Add security headers to all responses."""
@@ -472,24 +504,39 @@ async def check_https_warning(request: Request, call_next):
     # Only check on non-health endpoints to avoid log spam
     if request.url.path not in ["/health", "/metrics"]:
         if settings.auth.enabled and request.url.scheme != "https":
+            resolved_trusted_hosts = getattr(app.state, "trusted_proxy_hosts_resolved", [])
+            client_host = request.client.host if request.client else None
+            x_forwarded_proto = request.headers.get("x-forwarded-proto")
+            warning_reason = _classify_https_warning_reason(
+                request_scheme=request.url.scheme,
+                client_host=client_host,
+                forwarded_proto=x_forwarded_proto,
+                trusted_proxy_hosts=resolved_trusted_hosts,
+            )
+
             # Log warning once per minute to avoid spam
-            if not hasattr(app.state, "_last_https_warning"):
+            should_log = (
+                not hasattr(app.state, "_last_https_warning")
+                or (datetime.now() - app.state._last_https_warning).total_seconds() > 60
+            )
+            if should_log:
                 app.state._last_https_warning = datetime.now()
                 log.warning(
                     "Authentication enabled over HTTP - credentials may be exposed",
                     path=request.url.path,
+                    host=request.headers.get("host"),
+                    client=client_host,
+                    scheme=request.url.scheme,
+                    warning_reason=warning_reason,
+                    x_forwarded_proto=x_forwarded_proto,
+                    x_forwarded_for=request.headers.get("x-forwarded-for"),
+                    x_forwarded_host=request.headers.get("x-forwarded-host"),
+                    trusted_proxy_hosts_configured=getattr(app.state, "trusted_proxy_hosts_configured", []),
+                    trusted_proxy_hosts_resolved=resolved_trusted_hosts,
                     recommendation="Use HTTPS in production for secure authentication"
                 )
-            else:
-                # Log at most once per minute
-                if (datetime.now() - app.state._last_https_warning).total_seconds() > 60:
-                    app.state._last_https_warning = datetime.now()
-                    log.warning(
-                        "Authentication enabled over HTTP - credentials may be exposed",
-                        recommendation="Use HTTPS in production for secure authentication"
-                    )
             # Warn if proxy trust is wide open
-            if settings.system.trusted_proxy_hosts == ["*"]:
+            if "*" in resolved_trusted_hosts:
                 if not hasattr(app.state, "_last_proxy_warning"):
                     app.state._last_proxy_warning = datetime.now()
                     log.warning(

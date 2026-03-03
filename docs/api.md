@@ -3,14 +3,14 @@
 This document is a practical map of the YA-WAMF API surface.
 For exact request/response schemas, use the runtime OpenAPI docs:
 
-- Swagger UI: `http://<host>:8946/docs`
-- OpenAPI JSON: `http://<host>:8946/openapi.json`
+- Swagger UI: `http://localhost:8946/docs`
+- OpenAPI JSON: `http://localhost:8946/openapi.json`
 
 If you run the backend directly (without Docker compose frontend/proxy), use port `8000`.
 
 ## Base URLs
 
-- Docker compose default backend: `http://<host>:8946`
+- Docker compose default backend: `http://localhost:8946` (bound to localhost by default)
 - Direct backend process: `http://<host>:8000`
 
 All application endpoints are under `/api` except:

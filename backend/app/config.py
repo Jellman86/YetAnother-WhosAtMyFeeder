@@ -384,7 +384,10 @@ class SystemSettings(BaseModel):
     """System-level performance and resource settings"""
     broadcaster_max_queue_size: int = Field(default=100, ge=10, le=1000, description="Maximum SSE message queue size per subscriber")
     broadcaster_max_consecutive_full: int = Field(default=10, ge=1, le=100, description="Remove subscriber after this many consecutive backpressure failures")
-    trusted_proxy_hosts: list[str] = Field(default_factory=lambda: ["*"], description="Trusted proxy hosts for X-Forwarded-* headers")
+    trusted_proxy_hosts: list[str] = Field(
+        default_factory=lambda: DEFAULT_TRUSTED_PROXY_HOSTS.copy(),
+        description="Trusted proxy hosts for X-Forwarded-* headers",
+    )
     debug_ui_enabled: bool = Field(default=False, description="Expose debug UI sections in the web app")
 
 

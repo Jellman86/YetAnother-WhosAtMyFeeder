@@ -752,7 +752,7 @@ services:
   yawamf-backend:
     image: ghcr.io/jellman86/wamf-backend:latest
     ports:
-      - "8946:8000"
+      - "${BACKEND_BIND_IP:-127.0.0.1}:8946:8000"
     volumes:
       - ./config:/config
       - ./data:/data

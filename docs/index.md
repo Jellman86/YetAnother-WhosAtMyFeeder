@@ -20,7 +20,7 @@ Everything you need to get the containers running and configured correctly.
 Build integrations and custom tools with YA-WAMF.
 - **[🔌 API Reference](api.md)** - Complete REST API documentation with examples
 - **OpenAPI/Swagger** - Interactive API docs when running:
-  - Docker Compose default: `http://localhost:8946/docs`
+  - Docker Compose default: `http://localhost:8946/docs` (`BACKEND_BIND_IP=127.0.0.1` by default)
   - Local backend (`uvicorn ... --port 8000`): `http://localhost:8000/docs`
 
 ### Mobile Ready
