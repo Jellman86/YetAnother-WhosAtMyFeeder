@@ -1,4 +1,5 @@
 import structlog
+import asyncio
 from datetime import datetime
 from dataclasses import dataclass, field
 from collections import defaultdict
@@ -12,6 +13,7 @@ from app.services.detection_service import DetectionService
 from app.utils.frigate import normalize_sub_label
 
 log = structlog.get_logger()
+BACKFILL_EVENT_TIMEOUT_SECONDS = 45.0
 
 
 @dataclass
@@ -134,6 +136,24 @@ class BackfillService:
             log.error("Error processing historical event", event_id=frigate_event, error=str(e))
             return 'error', 'exception'
 
+    async def process_historical_event_with_timeout(
+        self,
+        event: dict,
+        timeout_seconds: float = BACKFILL_EVENT_TIMEOUT_SECONDS,
+    ) -> tuple[str, str | None]:
+        try:
+            return await asyncio.wait_for(
+                self.process_historical_event(event),
+                timeout=timeout_seconds
+            )
+        except asyncio.TimeoutError:
+            log.error(
+                "Historical event processing timed out",
+                event_id=event.get("id"),
+                timeout_seconds=timeout_seconds
+            )
+            return "error", "timeout"
+
     async def run_backfill(self, start: datetime, end: datetime, cameras: list[str] = None) -> BackfillResult:
         """
         Run backfill for a date range.
@@ -152,7 +172,7 @@ class BackfillService:
 
         # Process each event
         for event in events:
-            status, reason = await self.process_historical_event(event)
+            status, reason = await self.process_historical_event_with_timeout(event)
             if status == 'new':
                 result.new_detections += 1
             elif status == 'skipped':

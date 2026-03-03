@@ -53,3 +53,64 @@ async def test_process_mqtt_message_ignore_non_bird():
     await processor.process_mqtt_message(payload)
     
     classifier.classify_async.assert_not_called()
+
+
+def test_parse_event_skips_update_events():
+    processor = EventProcessor(MagicMock())
+    event = processor._parse_and_validate_event({
+        "type": "update",
+        "after": {
+            "id": "evt-update-1",
+            "label": "bird",
+            "camera": "cam1",
+            "start_time": 1700000000,
+        },
+    })
+    assert event is None
+
+
+def test_parse_event_accepts_end_events():
+    processor = EventProcessor(MagicMock())
+    event = processor._parse_and_validate_event({
+        "type": "end",
+        "after": {
+            "id": "evt-end-1",
+            "label": "bird",
+            "camera": "cam1",
+            "start_time": 1700000000,
+        },
+    })
+    assert event is not None
+    assert event.type == "end"
+
+
+def test_parse_event_accepts_false_positive_updates():
+    processor = EventProcessor(MagicMock())
+    event = processor._parse_and_validate_event({
+        "type": "update",
+        "after": {
+            "id": "evt-fp-1",
+            "label": "bird",
+            "camera": "cam1",
+            "false_positive": True,
+            "start_time": 1700000000,
+        },
+    })
+    assert event is not None
+    assert event.is_false_positive is True
+
+
+@pytest.mark.asyncio
+async def test_process_mqtt_message_skips_new_after_false_positive_update():
+    processor = EventProcessor(MagicMock())
+    processor._handle_false_positive = AsyncMock()  # type: ignore[method-assign]
+    processor._classify_snapshot = AsyncMock(return_value=([{"label": "Cardinal", "score": 0.9, "index": 1}], b"img"))  # type: ignore[method-assign]
+
+    fp_payload = b'{"type":"update","after":{"id":"evt-race-1","label":"bird","camera":"cam1","start_time":1700000000,"false_positive":true}}'
+    new_payload = b'{"type":"new","after":{"id":"evt-race-1","label":"bird","camera":"cam1","start_time":1700000000}}'
+
+    await processor.process_mqtt_message(fp_payload)
+    await processor.process_mqtt_message(new_payload)
+
+    processor._handle_false_positive.assert_called_once_with("evt-race-1")
+    processor._classify_snapshot.assert_not_called()

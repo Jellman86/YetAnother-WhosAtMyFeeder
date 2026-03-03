@@ -1,5 +1,6 @@
 import json
 import asyncio
+import time
 import structlog
 from datetime import datetime, timezone
 from io import BytesIO
@@ -22,6 +23,7 @@ from app.database import get_db
 from app.repositories.detection_repository import DetectionRepository
 
 log = structlog.get_logger()
+FALSE_POSITIVE_TOMBSTONE_TTL_SECONDS = 600.0
 
 
 class EventData:
@@ -49,6 +51,7 @@ class EventProcessor:
         self.classifier = classifier
         self.detection_service = DetectionService(classifier)
         self.notification_orchestrator = NotificationOrchestrator()
+        self._false_positive_tombstones: dict[str, float] = {}
 
     async def process_audio_message(self, payload: bytes):
         """Process audio detections from BirdNET-Go."""
@@ -81,8 +84,13 @@ class EventProcessor:
             return
 
         if event.is_false_positive:
+            self._mark_false_positive_tombstone(event.frigate_event)
             log.info("Frigate marked event as false positive - cleaning up", event_id=event.frigate_event)
             await self._handle_false_positive(event.frigate_event)
+            return
+
+        if self._is_false_positive_tombstone_active(event.frigate_event):
+            log.info("Skipping event previously marked as false positive", event_id=event.frigate_event)
             return
 
         classification_result = await self._classify_snapshot(event)
@@ -104,6 +112,25 @@ class EventProcessor:
         await self._handle_detection_save_and_notify(
             event, top_with_audio, snapshot_data, context
         )
+
+    def _prune_false_positive_tombstones(self) -> None:
+        now = time.monotonic()
+        expired = [event_id for event_id, expiry in self._false_positive_tombstones.items() if expiry <= now]
+        for event_id in expired:
+            self._false_positive_tombstones.pop(event_id, None)
+
+    def _mark_false_positive_tombstone(self, event_id: str) -> None:
+        if not event_id:
+            return
+        self._prune_false_positive_tombstones()
+        self._false_positive_tombstones[event_id] = time.monotonic() + FALSE_POSITIVE_TOMBSTONE_TTL_SECONDS
+
+    def _is_false_positive_tombstone_active(self, event_id: str) -> bool:
+        if not event_id:
+            return False
+        self._prune_false_positive_tombstones()
+        expiry = self._false_positive_tombstones.get(event_id)
+        return bool(expiry and expiry > time.monotonic())
 
     async def _handle_false_positive(self, frigate_event_id: str):
         """Delete detection if Frigate marks it as false positive."""
@@ -142,13 +169,19 @@ class EventProcessor:
             return None
 
         event = EventData(data)
+        event_type = (event.type or "new").lower()
         
         # Log processing start
-        if event.type == 'new' or event.is_false_positive:
+        if event_type == "new" or event.is_false_positive:
              log.info("Processing MQTT event", event_id=event.frigate_event, label=event.label, type=event.type, false_positive=event.is_false_positive)
 
         # Only process bird events
         if event.label != 'bird':
+            return None
+
+        # Ignore routine update chatter; keep actionable events only.
+        # False positives can arrive on updates, so always allow cleanup path.
+        if not event.is_false_positive and event_type not in {"new", "end"}:
             return None
 
         if not event.frigate_event or event.frigate_event == "unknown":
@@ -162,7 +195,7 @@ class EventProcessor:
         # Filter by camera if configured
         if settings.frigate.camera and event.camera not in settings.frigate.camera:
             # Only log this once per event (on new) to avoid spam
-            if event.type == 'new':
+            if event_type == "new":
                 log.info("Filtering event by camera", camera=event.camera, allowed=settings.frigate.camera)
             return None
 

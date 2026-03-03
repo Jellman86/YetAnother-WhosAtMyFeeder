@@ -301,6 +301,37 @@ async def test_unified_species_window_metrics_combines_alias_variants():
 
 
 @pytest.mark.asyncio
+async def test_unified_species_window_metrics_uses_display_name_when_taxa_and_scientific_missing():
+    async with aiosqlite.connect(":memory:") as db:
+        await _create_detections_table(db)
+        await _create_taxonomy_tables(db)
+        await db.execute(
+            "INSERT INTO taxonomy_cache (scientific_name, common_name, taxa_id) VALUES (?, ?, ?)",
+            ("Passer domesticus", "House Sparrow", 1111),
+        )
+        await db.commit()
+
+        repo = DetectionRepository(db)
+        now = datetime.utcnow()
+        await repo.create(Detection(
+            detection_time=now,
+            detection_index=1,
+            score=0.84,
+            display_name="House Sparrow",
+            category_name="Bird",
+            frigate_event="evt_house_sparrow_unified",
+            camera_name="cam_1",
+            scientific_name=None,
+            common_name=None,
+            taxa_id=None,
+        ))
+
+        metrics = await repo.get_unified_species_window_metrics()
+        assert "house sparrow" in metrics
+        assert "passer domesticus" not in metrics
+
+
+@pytest.mark.asyncio
 async def test_delete_methods_report_exact_row_changes():
     async with aiosqlite.connect(":memory:") as db:
         await _create_detections_table(db)

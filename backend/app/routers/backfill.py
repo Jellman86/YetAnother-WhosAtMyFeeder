@@ -314,7 +314,7 @@ async def backfill_detections_async(
             })
 
             for event in events:
-                status, reason = await backfill_service.process_historical_event(event)
+                status, reason = await backfill_service.process_historical_event_with_timeout(event)
                 job.processed += 1
                 if status == "new":
                     job.new_detections += 1

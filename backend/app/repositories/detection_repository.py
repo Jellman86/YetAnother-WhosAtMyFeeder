@@ -1842,13 +1842,6 @@ class DetectionRepository:
                 COALESCE(
                     CAST(d.taxa_id AS TEXT),
                     LOWER(d.scientific_name),
-                    (
-                        SELECT LOWER(tc.scientific_name)
-                        FROM taxonomy_cache tc
-                        WHERE LOWER(d.display_name) = LOWER(tc.scientific_name)
-                           OR LOWER(d.display_name) = LOWER(tc.common_name)
-                        LIMIT 1
-                    ),
                     LOWER(d.display_name)
                 ) as unified_key,
                 SUM(CASE WHEN d.detection_time >= datetime('now','-1 day') THEN 1 ELSE 0 END) as count_1d,
