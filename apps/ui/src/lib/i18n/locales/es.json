@@ -742,6 +742,7 @@
     "center_expand": "Expandir",
     "center_ongoing": "Acciones en curso",
     "center_ongoing_label": "En progreso",
+    "global_progress_tasks": "{count} tareas en segundo plano en progreso",
     "center_history": "Notificaciones",
     "center_history_empty": "No hay notificaciones recientes.",
     "center_empty": "Todo al día.",

@@ -11,6 +11,7 @@
         const total = Number(meta.total ?? 0);
         const current = Number(meta.current ?? meta.processed ?? 0);
         if (!Number.isFinite(total) || total <= 0) return 0;
+        if (!Number.isFinite(current)) return 0;
         return Math.min(100, Math.max(0, Math.round((current / total) * 100)));
     }
 
@@ -28,7 +29,9 @@
             
             if (Number.isFinite(t) && t > 0) {
                 totalSum += t;
-                currentSum += c;
+                if (Number.isFinite(c)) {
+                    currentSum += Math.min(t, Math.max(0, c));
+                }
             }
             percentSum += getProgress(item);
         }
@@ -40,8 +43,10 @@
             percent = Math.round(percentSum / ongoingItems.length);
         }
         
+        const safePercent = Number.isFinite(percent) ? Math.min(100, Math.max(0, percent)) : 0;
+
         return {
-            percent,
+            percent: safePercent,
             current: currentSum,
             total: totalSum
         };
@@ -58,7 +63,7 @@
         if (ongoingItems.length === 1) {
             return ongoingItems[0].title;
         }
-        return `${ongoingItems.length} background tasks in progress`;
+        return $_('notifications.global_progress_tasks', { values: { count: ongoingItems.length } });
     });
 
     let showDetails = $state(false);
@@ -77,14 +82,14 @@
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 relative z-10">
             <div class="flex flex-col gap-2">
                 <div class="flex items-center justify-between gap-4">
-                    <div 
-                        class="flex items-center gap-3 min-w-0 flex-1 cursor-help focus:outline-none focus:ring-2 focus:ring-emerald-500 rounded-lg" 
+                    <button
+                        type="button"
+                        class="flex items-center gap-3 min-w-0 flex-1 cursor-help focus:outline-none focus:ring-2 focus:ring-emerald-500 rounded-lg text-left bg-transparent"
                         onmouseenter={() => showDetails = true} 
                         onmouseleave={() => showDetails = false}
                         onclick={() => showDetails = !showDetails}
-                        role="button"
-                        tabindex="0"
-                        onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') showDetails = !showDetails }}
+                        aria-expanded={showDetails && ongoingItems.length > 1}
+                        aria-controls="global-progress-details"
                     >
                         <div class="w-6 h-6 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400 flex-shrink-0">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -101,7 +106,7 @@
                                 </p>
                             {/if}
                         </div>
-                    </div>
+                    </button>
                     
                     <div class="flex items-center gap-4">
                         <div class="flex items-center gap-2">
@@ -127,7 +132,7 @@
 
                 <!-- Detailed View -->
                 {#if showDetails && ongoingItems.length > 1}
-                    <div class="pt-2 border-t border-slate-100 dark:border-slate-800/50 mt-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-2" in:slide>
+                    <div id="global-progress-details" class="pt-2 border-t border-slate-100 dark:border-slate-800/50 mt-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-2" in:slide>
                         {#each ongoingItems as job (job.id)}
                             {@const meta = job.meta ?? {}}
                             {@const total = Number(meta.total ?? 0)}

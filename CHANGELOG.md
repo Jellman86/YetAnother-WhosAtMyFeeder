@@ -13,6 +13,9 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Changed:** Clicking the bell notification icon now navigates directly to the full Notifications page instead of opening a dropdown menu.
 - **Added:** A global progress bar now appears at the top of the application when background jobs (like backfills or batch analysis) are running, providing system-wide visibility into ongoing processes.
 - **Changed:** Updated the global progress bar styling to match the emerald gradient theme used in the Notifications view.
+- **Fixed:** Global progress aggregate calculations now sanitize and clamp malformed progress metadata, preventing invalid percentages or overflowed progress widths.
+- **Changed:** Global progress multi-job summary text is now localized across supported UI languages instead of hard-coded English.
+- **Fixed:** Global progress expand/collapse control now uses native button semantics with `aria-expanded`/`aria-controls` for better keyboard and screen-reader accessibility.
 
 - **Fixed:** Dashboard Discovery Feed now correctly displays an empty state instead of continuous loading skeletons when there are no recent detections in the past 3 days.
 

@@ -769,6 +769,7 @@
     "center_expand": "Agrandir",
     "center_ongoing": "Actions en cours",
     "center_ongoing_label": "En cours",
+    "global_progress_tasks": "{count} tâches en arrière-plan en cours",
     "center_history": "Notifications",
     "center_history_empty": "Aucune notification récente.",
     "center_empty": "Tout est à jour.",

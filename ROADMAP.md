@@ -178,6 +178,7 @@ YA-WAMF already has extensive functionality built-in:
 
 **User Interface:**
 - ✅ Real-time dashboard with SSE updates
+- ✅ Global progress bar hardening (sanitized aggregate progress math, localized multi-task summary text, improved accessibility semantics)
 - ✅ Dark mode support
 - ✅ Detection filtering (species, camera, date, confidence, audio)
 - ✅ Advanced Search & Filtering UI

@@ -769,6 +769,7 @@
     "center_expand": "Erweitern",
     "center_ongoing": "Laufende Aktionen",
     "center_ongoing_label": "Läuft",
+    "global_progress_tasks": "{count} Hintergrundaufgaben in Bearbeitung",
     "center_history": "Benachrichtigungen",
     "center_history_empty": "Keine aktuellen Benachrichtigungen.",
     "center_empty": "Alles erledigt.",

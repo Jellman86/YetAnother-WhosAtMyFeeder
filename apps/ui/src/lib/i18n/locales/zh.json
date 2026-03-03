@@ -769,6 +769,7 @@
     "center_expand": "展开",
     "center_ongoing": "进行中的操作",
     "center_ongoing_label": "运行中",
+    "global_progress_tasks": "{count} 个后台任务进行中",
     "center_history": "通知",
     "center_history_empty": "暂无最近通知。",
     "center_empty": "暂无通知。",

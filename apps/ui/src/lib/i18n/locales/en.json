@@ -755,6 +755,7 @@
     "center_expand": "Expand",
     "center_ongoing": "Ongoing actions",
     "center_ongoing_label": "Running",
+    "global_progress_tasks": "{count} background tasks in progress",
     "center_history": "Notifications",
     "center_history_empty": "No recent notifications yet.",
     "center_empty": "You're all caught up.",

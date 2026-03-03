@@ -769,6 +769,7 @@
     "center_expand": "拡大表示",
     "center_ongoing": "進行中のアクション",
     "center_ongoing_label": "実行中",
+    "global_progress_tasks": "{count} 件のバックグラウンドタスクが進行中",
     "center_history": "通知",
     "center_history_empty": "最近の通知はありません。",
     "center_empty": "すべて完了しました。",

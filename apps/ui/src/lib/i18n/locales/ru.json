@@ -777,6 +777,7 @@
     "center_expand": "Развернуть",
     "center_ongoing": "Текущие действия",
     "center_ongoing_label": "Выполняется",
+    "global_progress_tasks": "Выполняется фоновых задач: {count}",
     "center_history": "Уведомления",
     "center_history_empty": "Нет новых уведомлений.",
     "center_empty": "Все прочитано.",
