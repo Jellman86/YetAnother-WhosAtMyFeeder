@@ -130,3 +130,67 @@ async def test_apply_video_result_does_not_override_known_species_with_lower_sco
     primary_updates = [call for call in mock_deps["db"].execute.call_args_list if "UPDATE detections" in call.args[0]]
     assert primary_updates == []
     mock_deps["audio"].correlate_species.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_apply_video_result_does_not_override_when_below_threshold(mock_deps):
+    classifier = MagicMock()
+    service = DetectionService(classifier)
+
+    existing = MagicMock(spec=Detection)
+    existing.score = 0.55
+    existing.display_name = "Great Tit"
+    existing.category_name = "Parus major"
+    existing.sub_label = None
+    existing.frigate_score = 0.8
+    existing.detection_time = datetime.now()
+    existing.camera_name = "cam1"
+    existing.is_hidden = False
+    existing.audio_species = None
+    existing.audio_score = None
+    existing.audio_confirmed = False
+    existing.video_classification_label = None
+    existing.video_classification_score = None
+    existing.video_classification_status = "pending"
+
+    mock_deps["repo"].get_by_frigate_event = AsyncMock(return_value=existing)
+
+    # Current score is lower, but still below the primary threshold (0.7 by default)
+    await service.apply_video_result("event1", "Blue Jay", 0.60, 2)
+
+    mock_deps["repo"].update_video_classification.assert_called_once()
+    primary_updates = [call for call in mock_deps["db"].execute.call_args_list if "UPDATE detections" in call.args[0]]
+    assert primary_updates == []
+    mock_deps["audio"].correlate_species.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_apply_video_result_respects_frigate_sublabel_disagreement_guard(mock_deps):
+    classifier = MagicMock()
+    service = DetectionService(classifier)
+
+    existing = MagicMock(spec=Detection)
+    existing.score = 0.60
+    existing.display_name = "Woodpigeon"
+    existing.category_name = "Columba palumbus"
+    existing.sub_label = "Columba palumbus"
+    existing.frigate_score = 0.82
+    existing.detection_time = datetime.now()
+    existing.camera_name = "cam1"
+    existing.is_hidden = False
+    existing.audio_species = None
+    existing.audio_score = None
+    existing.audio_confirmed = False
+    existing.video_classification_label = None
+    existing.video_classification_score = None
+    existing.video_classification_status = "pending"
+
+    mock_deps["repo"].get_by_frigate_event = AsyncMock(return_value=existing)
+
+    # Video disagrees with Frigate sublabel and is not confident enough to force override.
+    await service.apply_video_result("event1", "Aegithalos caudatus", 0.80, 3688)
+
+    mock_deps["repo"].update_video_classification.assert_called_once()
+    primary_updates = [call for call in mock_deps["db"].execute.call_args_list if "UPDATE detections" in call.args[0]]
+    assert primary_updates == []
+    mock_deps["audio"].correlate_species.assert_not_called()

@@ -240,7 +240,7 @@ class DetectionService:
         Override the primary ID when:
         - the action is an explicit/manual reclassification, or
         - the existing primary ID is an unknown-bird label, or
-        - the video score is at least as strong as the current primary score.
+        - the video score clears a reliability gate for automated promotion.
         """
         async with get_db() as db:
             repo = DetectionRepository(db)
@@ -270,7 +270,39 @@ class DetectionService:
             }
             existing_is_unknown = any(label in unknown_labels for label in existing_labels if label)
             current_score = float(existing.score or 0.0)
-            should_override = bool(manual_tagged or existing_is_unknown or video_score >= current_score)
+            threshold = float(settings.classification.threshold or 0.0)
+            base_required_score = max(current_score, threshold)
+
+            normalized_video_label = str(video_label or "").strip().casefold()
+            normalized_sub_label = normalize_sub_label(getattr(existing, "sub_label", None))
+            normalized_sub_label = normalized_sub_label.casefold() if normalized_sub_label else None
+            sublabel_disagrees = bool(
+                normalized_sub_label
+                and normalized_video_label
+                and normalized_sub_label != normalized_video_label
+            )
+
+            required_score = base_required_score
+            override_reason = "score_gate_passed"
+            if sublabel_disagrees:
+                frigate_score = float(getattr(existing, "frigate_score", 0.0) or 0.0)
+                disagreement_min_score = min(0.95, threshold + 0.20)
+                if frigate_score > 0:
+                    disagreement_min_score = max(
+                        disagreement_min_score,
+                        min(0.98, frigate_score + 0.15)
+                    )
+                required_score = max(required_score, disagreement_min_score)
+                override_reason = "score_gate_passed_with_sublabel_disagreement"
+
+            if manual_tagged:
+                should_override = True
+                override_reason = "manual_tagged"
+            elif existing_is_unknown:
+                should_override = True
+                override_reason = "existing_unknown"
+            else:
+                should_override = bool(video_score >= required_score)
 
             if should_override:
                 new_species = video_label
@@ -283,7 +315,9 @@ class DetectionService:
                          old_species=existing.display_name, 
                          old_score=existing.score,
                          new_species=new_species, 
-                         new_score=video_score)
+                         new_score=video_score,
+                         required_score=required_score,
+                         reason=override_reason)
 
                 # Get taxonomy for new label
                 taxonomy = await taxonomy_service.get_names(new_species)
@@ -366,6 +400,11 @@ class DetectionService:
                 log.debug("Video analysis completed but did not override primary ID", 
                           event_id=frigate_event, 
                           current_score=current_score,
+                          required_score=required_score,
+                          threshold=threshold,
                           existing_is_unknown=existing_is_unknown,
+                          sublabel_disagrees=sublabel_disagrees,
+                          sub_label=normalized_sub_label,
+                          video_label=normalized_video_label,
                           manual_tagged=manual_tagged,
                           video_score=video_score)
