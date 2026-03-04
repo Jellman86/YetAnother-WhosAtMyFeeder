@@ -378,9 +378,7 @@
                         class="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-rose-600 text-white text-[10px] font-black uppercase tracking-wider shadow-lg shadow-rose-900/30"
                         title={$_('detection.frigate_media_missing', { default: 'Frigate Media Missing' })}
                     >
-                        <svg class="w-3 h-3" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                            <path d="M12 2 3 7v6c0 5 3.6 8.5 9 9 5.4-.5 9-4 9-9V7l-9-5zM8 11h8v2H8zM8 15h8v2H8zM8 7h8v2H8z" />
-                        </svg>
+                        <img src="/frigate-logo.png" alt="" aria-hidden="true" class="w-3.5 h-3.5 rounded-[2px] bg-white/95 p-0.5 object-contain" />
                         <span>{$_('detection.frigate_badge', { default: 'Frigate' })}</span>
                     </div>
                 {/if}
