@@ -1072,6 +1072,7 @@ class ClassifierService:
             ),
         )
         self._image_executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="ml_image_worker")
+        self._background_image_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="ml_background_worker")
         self._video_executor = ThreadPoolExecutor(max_workers=video_workers, thread_name_prefix="ml_video_worker")
         # Backward-compatible alias for any external references.
         self._executor = self._image_executor
@@ -1551,6 +1552,52 @@ class ClassifierService:
         except Exception as exc:
             log.warning(
                 "Personalized rerank failed; using base classifier scores",
+                camera_name=camera_name,
+                model_id=effective_model_id,
+                error=str(exc),
+            )
+            return base_results
+
+    async def classify_async_background(
+        self,
+        image: Image.Image,
+        camera_name: Optional[str] = None,
+        model_id: Optional[str] = None,
+    ) -> list[dict]:
+        """Background image-classification path using low-priority workers.
+
+        Intended for backfill/batch-style work so live MQTT classification
+        remains responsive under sustained load.
+        """
+        loop = asyncio.get_running_loop()
+        base_results = await loop.run_in_executor(
+            self._background_image_executor,
+            self.classify,
+            image,
+            camera_name,
+            model_id,
+        )
+
+        if not base_results:
+            return base_results
+        if not bool(getattr(settings.classification, "personalized_rerank_enabled", False)):
+            return base_results
+        if not camera_name:
+            return base_results
+
+        effective_model_id = str(model_id or self._resolve_active_model_id()).strip()
+        if not effective_model_id:
+            return base_results
+
+        try:
+            return await personalization_service.rerank(
+                camera_name=camera_name,
+                model_id=effective_model_id,
+                results=base_results,
+            )
+        except Exception as exc:
+            log.warning(
+                "Background personalized rerank failed; using base classifier scores",
                 camera_name=camera_name,
                 model_id=effective_model_id,
                 error=str(exc),

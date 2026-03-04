@@ -17,6 +17,9 @@ MQTT_HANDLER_CONCURRENCY = 4
 MQTT_MAX_IN_FLIGHT_MESSAGES = 200
 MQTT_FRIGATE_HANDLER_TIMEOUT_SECONDS = 45.0
 MQTT_AUDIO_HANDLER_TIMEOUT_SECONDS = 10.0
+MQTT_PRESSURE_ELEVATED_RATIO = 0.50
+MQTT_PRESSURE_HIGH_RATIO = 0.70
+MQTT_PRESSURE_CRITICAL_RATIO = 0.90
 
 class MQTTService:
     def __init__(self, version: str = "unknown"):
@@ -37,6 +40,38 @@ class MQTTService:
             self.client_id = f"yawamf-unknown-{session_id}"
         else:
             self.client_id = f"yawamf-{git_hash}"
+
+    def _compute_pressure_level(self, in_flight: int) -> str:
+        if MQTT_MAX_IN_FLIGHT_MESSAGES <= 0:
+            return "normal"
+        load = in_flight / float(MQTT_MAX_IN_FLIGHT_MESSAGES)
+        if load >= MQTT_PRESSURE_CRITICAL_RATIO:
+            return "critical"
+        if load >= MQTT_PRESSURE_HIGH_RATIO:
+            return "high"
+        if load >= MQTT_PRESSURE_ELEVATED_RATIO:
+            return "elevated"
+        return "normal"
+
+    def get_status(self) -> dict:
+        in_flight = len(self._in_flight_tasks)
+        pressure_level = self._compute_pressure_level(in_flight)
+        return {
+            "running": self.running,
+            "paused": self.paused,
+            "connected": self.client is not None,
+            "in_flight": in_flight,
+            "in_flight_capacity": MQTT_MAX_IN_FLIGHT_MESSAGES,
+            "handler_concurrency": MQTT_HANDLER_CONCURRENCY,
+            "pressure_level": pressure_level,
+            "under_pressure": pressure_level in {"high", "critical"},
+        }
+
+    def is_under_pressure(self, min_level: str = "high") -> bool:
+        order = {"normal": 0, "elevated": 1, "high": 2, "critical": 3}
+        status = self.get_status()
+        level = str(status.get("pressure_level", "normal"))
+        return order.get(level, 0) >= order.get(min_level, 2)
 
     def _calculate_backoff(self) -> float:
         """Calculate exponential backoff with jitter.

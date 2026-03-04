@@ -94,7 +94,10 @@ class BackfillService:
 
             # Classify the image (async to use thread pool)
             image = Image.open(BytesIO(snapshot_data))
-            results = await self.classifier.classify_async(image)
+            results = await self.classifier.classify_async_background(
+                image,
+                camera_name=event.get("camera"),
+            )
 
             if not results:
                 log.debug("No classification results", event_id=frigate_event)

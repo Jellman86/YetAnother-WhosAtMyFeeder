@@ -114,3 +114,23 @@ async def test_parse_frigate_payload_meta_skips_non_actionable_updates():
     assert meta is not None
     assert meta["event_id"] == "evt-update"
     assert meta["should_process"] is False
+
+
+def test_get_status_reports_pressure_level_and_thresholds(monkeypatch):
+    service = MQTTService("test+abc123")
+    monkeypatch.setattr(mqtt_module, "MQTT_MAX_IN_FLIGHT_MESSAGES", 10, raising=False)
+    service._in_flight_tasks = set(range(2))
+    assert service.get_status()["pressure_level"] == "normal"
+    assert service.is_under_pressure() is False
+
+    service._in_flight_tasks = set(range(6))
+    assert service.get_status()["pressure_level"] == "elevated"
+    assert service.is_under_pressure(min_level="elevated") is True
+    assert service.is_under_pressure(min_level="high") is False
+
+    service._in_flight_tasks = set(range(8))
+    assert service.get_status()["pressure_level"] == "high"
+    assert service.is_under_pressure() is True
+
+    service._in_flight_tasks = set(range(10))
+    assert service.get_status()["pressure_level"] == "critical"

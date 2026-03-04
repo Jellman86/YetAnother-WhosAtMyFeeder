@@ -39,6 +39,7 @@ class AutoVideoClassifierService:
         self._processor_task: Optional[asyncio.Task] = None
         self._stale_task: Optional[asyncio.Task] = None
         self._running = False
+        self._last_mqtt_throttle_log_ts: float = 0.0
 
     async def start(self):
         """Start the queue processor."""
@@ -108,8 +109,28 @@ class AutoVideoClassifierService:
                     await asyncio.sleep(5)
                     continue
 
-                max_concurrent = settings.classification.video_classification_max_concurrent
-                if len(self._active_tasks) >= max_concurrent:
+                max_concurrent = int(settings.classification.video_classification_max_concurrent or 1)
+                throttle_state = self._get_mqtt_throttle_state(max_concurrent)
+                effective_max = throttle_state["effective_max_concurrent"]
+
+                if throttle_state["throttled"]:
+                    now = time.time()
+                    if now - self._last_mqtt_throttle_log_ts >= 15:
+                        self._last_mqtt_throttle_log_ts = now
+                        log.info(
+                            "Throttling background video classification due to MQTT pressure",
+                            mqtt_pressure_level=throttle_state["mqtt_pressure_level"],
+                            mqtt_in_flight=throttle_state["mqtt_in_flight"],
+                            mqtt_capacity=throttle_state["mqtt_capacity"],
+                            configured_max=max_concurrent,
+                            effective_max=effective_max,
+                        )
+
+                if effective_max <= 0:
+                    await asyncio.sleep(1)
+                    continue
+
+                if len(self._active_tasks) >= effective_max:
                     await asyncio.sleep(1)
                     continue
 
@@ -144,6 +165,41 @@ class AutoVideoClassifierService:
             except Exception as e:
                 log.error("Error in video classification queue loop", error=str(e))
                 await asyncio.sleep(5)
+
+    def _get_mqtt_throttle_state(self, configured_max: int) -> dict:
+        """Reduce background concurrency when MQTT ingest pressure rises."""
+        configured = max(1, int(configured_max or 1))
+        try:
+            from app.services.mqtt_service import mqtt_service
+
+            mqtt_status = mqtt_service.get_status()
+            level = str(mqtt_status.get("pressure_level") or "normal")
+            in_flight = int(mqtt_status.get("in_flight") or 0)
+            capacity = int(mqtt_status.get("in_flight_capacity") or 0)
+        except Exception:
+            mqtt_status = {}
+            level = "unknown"
+            in_flight = 0
+            capacity = 0
+
+        effective = configured
+        if level == "critical":
+            effective = 0
+        elif level == "high":
+            effective = min(effective, 1)
+        elif level == "elevated":
+            effective = min(effective, max(1, configured // 2))
+
+        throttled = effective < configured
+        return {
+            "throttled": throttled,
+            "configured_max_concurrent": configured,
+            "effective_max_concurrent": effective,
+            "mqtt_pressure_level": level,
+            "mqtt_in_flight": in_flight,
+            "mqtt_capacity": capacity,
+            "mqtt_status": mqtt_status,
+        }
 
     async def _stale_watchdog_loop(self):
         """Periodically mark stale pending/processing detections as failed."""
@@ -216,6 +272,8 @@ class AutoVideoClassifierService:
         """Get current queue status."""
         circuit = self.get_circuit_status()
         pending = self._pending_queue.qsize()
+        configured_max = int(settings.classification.video_classification_max_concurrent or 1)
+        throttle_state = self._get_mqtt_throttle_state(configured_max)
         return {
             "pending": pending,
             "active": len(self._active_tasks),
@@ -224,6 +282,12 @@ class AutoVideoClassifierService:
             "failure_count": circuit["failure_count"],
             "pending_capacity": MAX_PENDING_QUEUE,
             "pending_available": max(0, MAX_PENDING_QUEUE - pending),
+            "max_concurrent_configured": configured_max,
+            "max_concurrent_effective": throttle_state["effective_max_concurrent"],
+            "mqtt_pressure_level": throttle_state["mqtt_pressure_level"],
+            "throttled_for_mqtt_pressure": throttle_state["throttled"],
+            "mqtt_in_flight": throttle_state["mqtt_in_flight"],
+            "mqtt_in_flight_capacity": throttle_state["mqtt_capacity"],
         }
 
     async def queue_classification(self, frigate_event: str, camera: str) -> Literal["queued", "duplicate", "full"]:

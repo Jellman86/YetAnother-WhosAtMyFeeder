@@ -566,18 +566,26 @@ async def health_check():
     startup_instance_id = getattr(app.state, "startup_instance_id", "unknown")
     startup_started_at = getattr(app.state, "startup_started_at", None)
     classifier_health = get_classifier().check_health()
+    mqtt_health = mqtt_service.get_status()
+    video_health = auto_video_classifier.get_status()
     health = {
         "status": "ok", 
         "service": "ya-wamf-backend", 
         "version": APP_VERSION,
         "ml": classifier_health,
+        "mqtt": mqtt_health,
+        "video_classifier": video_health,
         "startup_warnings": startup_warnings,
         "startup_instance_id": startup_instance_id,
         "startup_started_at": startup_started_at,
     }
     
     # If startup had degraded phases or ML is unhealthy, top-level status should reflect it
-    if health["ml"]["status"] != "ok" or startup_warnings:
+    if (
+        health["ml"]["status"] != "ok"
+        or startup_warnings
+        or mqtt_health.get("pressure_level") in {"high", "critical"}
+    ):
         health["status"] = "degraded"
         
     return health

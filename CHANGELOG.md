@@ -20,6 +20,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Changed:** MQTT queue-pressure diagnostics now emit explicit saturation warnings (in-flight count + wait duration), making ingestion bottlenecks visible in backend logs instead of appearing silent.
 - **Fixed:** Detection backfill now wraps per-event processing in a timeout guard, preventing a single slow/hung historical event from stalling the entire async backfill job indefinitely.
 - **Fixed:** `ClassifierService` now uses separate thread pools for snapshot (`classify_async`) and video (`classify_video_async`) inference, preventing heavy background video analysis from starving real-time MQTT event classification.
+- **Added:** MQTT service now exposes pressure telemetry (`pressure_level`, in-flight utilization, and threshold-based `under_pressure`) for diagnostics and adaptive scheduling.
+- **Changed:** Auto video-classification queue now adaptively throttles effective concurrency when MQTT ingest pressure rises, prioritizing live `new/end` event processing during bursts.
+- **Changed:** Detection backfill now uses a dedicated low-priority image inference executor so backfill classification no longer competes directly with live MQTT snapshot inference workers.
+- **Changed:** `/health` now includes MQTT and video-classifier queue-pressure snapshots and marks health as `degraded` when MQTT pressure is high/critical.
 
 - **Changed:** Clicking the bell notification icon now navigates directly to the full Notifications page instead of opening a dropdown menu.
 - **Added:** A global progress bar now appears at the top of the application when background jobs (like backfills or batch analysis) are running, providing system-wide visibility into ongoing processes.

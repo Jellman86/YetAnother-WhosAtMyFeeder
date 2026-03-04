@@ -189,11 +189,15 @@ async def test_classifier_service_uses_separate_executors_for_image_and_video_wo
 
             img = Image.new("RGB", (100, 100))
             await service.classify_async(img, camera_name="front")
+            await service.classify_async_background(img, camera_name="front")
             await service.classify_video_async("/tmp/demo.mp4", max_frames=5, camera_name="front")
 
             assert fake_loop.executors[0] is service._image_executor
-            assert fake_loop.executors[1] is service._video_executor
+            assert fake_loop.executors[1] is service._background_image_executor
+            assert fake_loop.executors[2] is service._video_executor
             assert service._image_executor is not service._video_executor
+            assert service._background_image_executor is not service._video_executor
+            assert service._background_image_executor is not service._image_executor
     finally:
         settings.classification.personalized_rerank_enabled = original_toggle
 
