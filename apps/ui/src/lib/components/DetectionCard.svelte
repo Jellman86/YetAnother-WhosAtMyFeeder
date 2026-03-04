@@ -6,6 +6,7 @@
     import { authStore } from '../stores/auth.svelte';
     import { _ } from 'svelte-i18n';
     import ReclassificationOverlay from './ReclassificationOverlay.svelte';
+    import { hasFrigateMediaIssue } from '../utils/frigate-errors';
 
     import { getBirdNames } from '../naming';
     import { formatDate as formatDateValue, formatTime } from '../utils/datetime';
@@ -100,6 +101,7 @@
         }
         return null;
     });
+    let hasFrigateIssueBadge = $derived(hasFrigateMediaIssue(detection));
     let hasWeather = $derived(
         detection.temperature !== undefined && detection.temperature !== null ||
         !!detection.weather_condition ||
@@ -371,9 +373,15 @@
                         {processedUnknownStatus.label}
                     </div>
                 {/if}
-                {#if detection.has_frigate_event === false}
-                    <div class="px-2 py-1 rounded-full bg-rose-500 text-white text-[10px] font-bold uppercase tracking-wider shadow-lg">
-                        {$_('detection.frigate_media_missing', { default: 'Frigate Media Missing' })}
+                {#if hasFrigateIssueBadge}
+                    <div
+                        class="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-rose-600 text-white text-[10px] font-black uppercase tracking-wider shadow-lg shadow-rose-900/30"
+                        title={$_('detection.frigate_media_missing', { default: 'Frigate Media Missing' })}
+                    >
+                        <svg class="w-3 h-3" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                            <path d="M12 2 3 7v6c0 5 3.6 8.5 9 9 5.4-.5 9-4 9-9V7l-9-5zM8 11h8v2H8zM8 15h8v2H8zM8 7h8v2H8z" />
+                        </svg>
+                        <span>{$_('detection.frigate_badge', { default: 'Frigate' })}</span>
                     </div>
                 {/if}
             </div>
