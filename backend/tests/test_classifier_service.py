@@ -164,6 +164,40 @@ async def test_classifier_service_classify_async_skips_personalization_when_disa
         settings.classification.personalized_rerank_enabled = original_toggle
 
 
+@pytest.mark.asyncio
+async def test_classifier_service_uses_separate_executors_for_image_and_video_work(mock_tflite, mock_os_path_exists):
+    class _FakeLoop:
+        def __init__(self):
+            self.executors = []
+
+        async def run_in_executor(self, executor, func, *args):
+            self.executors.append(executor)
+            return func(*args)
+
+    original_toggle = settings.classification.personalized_rerank_enabled
+    settings.classification.personalized_rerank_enabled = False
+    try:
+        with patch.object(ClassifierService, "_init_bird_model", return_value=None), \
+             patch("app.services.classifier_service.ModelInstance.load", return_value=True), \
+             patch.object(ClassifierService, "classify", return_value=[{"label": "Robin", "score": 0.9, "index": 0}]), \
+             patch.object(ClassifierService, "classify_video", return_value=[{"label": "Robin", "score": 0.9, "index": 0}]), \
+             patch("app.services.classifier_service.asyncio.get_running_loop") as mock_get_loop:
+
+            fake_loop = _FakeLoop()
+            mock_get_loop.return_value = fake_loop
+            service = ClassifierService()
+
+            img = Image.new("RGB", (100, 100))
+            await service.classify_async(img, camera_name="front")
+            await service.classify_video_async("/tmp/demo.mp4", max_frames=5, camera_name="front")
+
+            assert fake_loop.executors[0] is service._image_executor
+            assert fake_loop.executors[1] is service._video_executor
+            assert service._image_executor is not service._video_executor
+    finally:
+        settings.classification.personalized_rerank_enabled = original_toggle
+
+
 def test_normalize_inference_provider_defaults_to_auto_for_invalid_value():
     assert _normalize_inference_provider(None) == "auto"
     assert _normalize_inference_provider("") == "auto"

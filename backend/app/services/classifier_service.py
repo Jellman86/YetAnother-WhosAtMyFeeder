@@ -1062,8 +1062,19 @@ class ClassifierService:
     def __init__(self):
         self._models: dict[str, ClassifierService.ModelType] = {}
         self._models_lock = threading.Lock()
-        # Dedicated executor for ML tasks to avoid blocking default executor
-        self._executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="ml_worker")
+        # Use dedicated executors so long-running video analysis cannot starve
+        # live snapshot/audio-adjacent classification work.
+        video_workers = max(
+            1,
+            min(
+                2,
+                int(getattr(settings.classification, "video_classification_max_concurrent", 2) or 2),
+            ),
+        )
+        self._image_executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="ml_image_worker")
+        self._video_executor = ThreadPoolExecutor(max_workers=video_workers, thread_name_prefix="ml_video_worker")
+        # Backward-compatible alias for any external references.
+        self._executor = self._image_executor
         self._selected_inference_provider = _normalize_inference_provider(
             getattr(settings.classification, "inference_provider", "auto")
         )
@@ -1518,7 +1529,7 @@ class ClassifierService:
     ) -> list[dict]:
         """Async wrapper for classify to prevent blocking the event loop."""
         loop = asyncio.get_running_loop()
-        base_results = await loop.run_in_executor(self._executor, self.classify, image, camera_name, model_id)
+        base_results = await loop.run_in_executor(self._image_executor, self.classify, image, camera_name, model_id)
 
         if not base_results:
             return base_results
@@ -1554,7 +1565,7 @@ class ClassifierService:
     async def classify_wildlife_async(self, image: Image.Image) -> list[dict]:
         """Async wrapper for wildlife classification."""
         loop = asyncio.get_running_loop()
-        return await loop.run_in_executor(self._executor, self.classify_wildlife, image)
+        return await loop.run_in_executor(self._image_executor, self.classify_wildlife, image)
 
     def get_wildlife_labels(self) -> list[str]:
         wildlife = self._get_wildlife_model()
@@ -1791,7 +1802,7 @@ class ClassifierService:
                     # Catch any exception in scheduling itself
                     log.error("Failed to schedule progress callback", error=str(e))
             base_results = await loop.run_in_executor(
-                self._executor,
+                self._video_executor,
                 self.classify_video,
                 video_path,
                 stride,
@@ -1800,7 +1811,7 @@ class ClassifierService:
             )
         else:
             base_results = await loop.run_in_executor(
-                self._executor,
+                self._video_executor,
                 self.classify_video,
                 video_path,
                 stride,
