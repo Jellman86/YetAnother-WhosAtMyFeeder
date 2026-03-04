@@ -15,6 +15,8 @@ MAX_BACKOFF = 60     # Cap at 60 seconds
 BACKOFF_MULTIPLIER = 2
 MQTT_HANDLER_CONCURRENCY = 4
 MQTT_MAX_IN_FLIGHT_MESSAGES = 200
+MQTT_FRIGATE_HANDLER_TIMEOUT_SECONDS = 45.0
+MQTT_AUDIO_HANDLER_TIMEOUT_SECONDS = 10.0
 
 class MQTTService:
     def __init__(self, version: str = "unknown"):
@@ -59,37 +61,89 @@ class MQTTService:
         task.add_done_callback(lambda done: self._in_flight_tasks.discard(done))
 
     async def _wait_for_handler_slot(self):
+        wait_started: float | None = None
         while len(self._in_flight_tasks) >= MQTT_MAX_IN_FLIGHT_MESSAGES and self.running:
+            if wait_started is None:
+                wait_started = asyncio.get_running_loop().time()
             done, _pending = await asyncio.wait(
                 self._in_flight_tasks,
-                return_when=asyncio.FIRST_COMPLETED
+                return_when=asyncio.FIRST_COMPLETED,
+                timeout=5.0,
             )
+            if not done:
+                waited = asyncio.get_running_loop().time() - wait_started
+                log.warning(
+                    "MQTT handler backlog saturated; waiting for in-flight tasks to drain",
+                    in_flight=len(self._in_flight_tasks),
+                    limit=MQTT_MAX_IN_FLIGHT_MESSAGES,
+                    waited_seconds=round(waited, 1),
+                )
+                continue
             for task in done:
                 self._in_flight_tasks.discard(task)
 
-    def _extract_frigate_event_id(self, payload: bytes) -> str | None:
+    def _parse_frigate_payload_meta(self, payload: bytes) -> dict | None:
         try:
             data = json.loads(payload)
             if not isinstance(data, dict):
                 return None
             after = data.get("after")
             if not isinstance(after, dict):
-                return None
+                return {
+                    "event_id": None,
+                    "should_process": False,
+                }
+            event_type = str(data.get("type") or "new").strip().lower()
+            label = str(after.get("label") or "").strip().lower()
+            false_positive = bool(after.get("false_positive", False))
             event_id = str(after.get("id") or "").strip()
-            return event_id or None
+            should_process = bool(
+                label == "bird" and (false_positive or event_type in {"new", "end"})
+            )
+            return {
+                "event_id": event_id or None,
+                "should_process": should_process,
+            }
         except Exception:
             return None
 
     async def _dispatch_frigate_message(self, event_processor, payload: bytes):
         async with self._handler_semaphore:
-            await event_processor.process_mqtt_message(payload)
+            try:
+                await asyncio.wait_for(
+                    event_processor.process_mqtt_message(payload),
+                    timeout=MQTT_FRIGATE_HANDLER_TIMEOUT_SECONDS,
+                )
+            except asyncio.TimeoutError:
+                meta = self._parse_frigate_payload_meta(payload)
+                log.warning(
+                    "Frigate MQTT handler timed out",
+                    event_id=(meta or {}).get("event_id"),
+                    timeout_seconds=MQTT_FRIGATE_HANDLER_TIMEOUT_SECONDS,
+                )
 
     async def _dispatch_audio_message(self, event_processor, payload: bytes):
         async with self._handler_semaphore:
-            await event_processor.process_audio_message(payload)
+            try:
+                await asyncio.wait_for(
+                    event_processor.process_audio_message(payload),
+                    timeout=MQTT_AUDIO_HANDLER_TIMEOUT_SECONDS,
+                )
+            except asyncio.TimeoutError:
+                log.warning(
+                    "BirdNET MQTT handler timed out",
+                    timeout_seconds=MQTT_AUDIO_HANDLER_TIMEOUT_SECONDS,
+                )
 
-    def _schedule_frigate_message(self, event_processor, payload: bytes) -> asyncio.Task:
-        event_id = self._extract_frigate_event_id(payload)
+    def _schedule_frigate_message(
+        self,
+        event_processor,
+        payload: bytes,
+        event_id: str | None = None,
+    ) -> asyncio.Task:
+        if event_id is None:
+            meta = self._parse_frigate_payload_meta(payload)
+            event_id = (meta or {}).get("event_id")
         previous_task = self._event_task_tails.get(event_id or "")
 
         async def _run():
@@ -183,8 +237,15 @@ class MQTTService:
                         topic = message.topic.value
                         if topic == frigate_topic:
                             log.info("Received MQTT message on frigate topic", payload_len=len(message.payload))
+                            meta = self._parse_frigate_payload_meta(message.payload)
+                            if meta is not None and not meta.get("should_process", False):
+                                continue
                             await self._wait_for_handler_slot()
-                            self._schedule_frigate_message(event_processor, message.payload)
+                            self._schedule_frigate_message(
+                                event_processor,
+                                message.payload,
+                                event_id=(meta or {}).get("event_id"),
+                            )
                         elif topic == birdnet_topic:
                             log.info("Received MQTT message on birdnet topic", payload_len=len(message.payload))
                             await self._wait_for_handler_slot()

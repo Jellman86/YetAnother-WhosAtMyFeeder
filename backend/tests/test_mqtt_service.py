@@ -3,6 +3,7 @@ import json
 
 import pytest
 
+import app.services.mqtt_service as mqtt_module
 from app.services.mqtt_service import MQTTService
 
 
@@ -31,6 +32,16 @@ class _RecordingProcessor:
 
     async def process_audio_message(self, payload: bytes):
         del payload
+
+
+class _SlowProcessor:
+    async def process_mqtt_message(self, payload: bytes):
+        del payload
+        await asyncio.sleep(0.2)
+
+    async def process_audio_message(self, payload: bytes):
+        del payload
+        await asyncio.sleep(0.2)
 
 
 def _frigate_payload(event_id: str, event_type: str, false_positive: bool = False) -> bytes:
@@ -78,3 +89,28 @@ async def test_schedule_frigate_message_allows_parallel_processing_for_different
 
     await asyncio.gather(task_a, task_b)
     assert processor.max_active >= 2
+
+
+@pytest.mark.asyncio
+async def test_dispatch_frigate_message_times_out_and_returns(monkeypatch):
+    service = MQTTService("test+abc123")
+    service.running = True
+    processor = _SlowProcessor()
+    monkeypatch.setattr(mqtt_module, "MQTT_FRIGATE_HANDLER_TIMEOUT_SECONDS", 0.01, raising=False)
+
+    await asyncio.wait_for(
+        service._dispatch_frigate_message(processor, _frigate_payload("evt-timeout", "new")),
+        timeout=0.1,
+    )
+
+
+@pytest.mark.asyncio
+async def test_parse_frigate_payload_meta_skips_non_actionable_updates():
+    service = MQTTService("test+abc123")
+
+    payload = _frigate_payload("evt-update", "update", false_positive=False)
+    meta = service._parse_frigate_payload_meta(payload)
+
+    assert meta is not None
+    assert meta["event_id"] == "evt-update"
+    assert meta["should_process"] is False

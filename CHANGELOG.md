@@ -15,6 +15,9 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 - **Fixed:** MQTT ingestion now dispatches Frigate/BirdNET message handling through bounded concurrent workers so long-running event processing no longer blocks topic intake in a single serial loop.
 - **Changed:** Real-time Frigate event handling now ignores routine `update` chatter and processes actionable bird events (`new`, `end`, and false-positive cleanup), reducing duplicate reclassification load.
+- **Fixed:** MQTT worker handlers now enforce per-message timeouts, preventing stalled Frigate/BirdNET processing tasks from occupying all worker slots indefinitely.
+- **Changed:** Frigate MQTT payloads are now pre-filtered before task scheduling, so non-actionable update chatter no longer consumes in-flight queue capacity.
+- **Changed:** MQTT queue-pressure diagnostics now emit explicit saturation warnings (in-flight count + wait duration), making ingestion bottlenecks visible in backend logs instead of appearing silent.
 - **Fixed:** Detection backfill now wraps per-event processing in a timeout guard, preventing a single slow/hung historical event from stalling the entire async backfill job indefinitely.
 
 - **Changed:** Clicking the bell notification icon now navigates directly to the full Notifications page instead of opening a dropdown menu.
