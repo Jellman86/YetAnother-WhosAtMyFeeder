@@ -244,9 +244,14 @@ jobs:
 
           if [ $rc -eq 124 ]; then
             # Known CI issue: process can hang after pytest already printed full pass+coverage output.
-            if grep -Eq "={6,}.*[0-9]+ passed" "$LOG_FILE" && grep -Eq "^TOTAL[[:space:]]+[0-9]+" "$LOG_FILE"; then
-              echo "Backend tests timed out after completion markers; treating as success (teardown hang workaround)."
-              exit 0
+            if grep -Eq "={6,}.*[0-9]+ passed" "$LOG_FILE"; then
+              echo "Pytest reported all tests passed before timeout; validating coverage gate post-timeout."
+              if python -m coverage report --fail-under=20; then
+                echo "Coverage gate passed after timeout; treating as success (teardown hang workaround)."
+                exit 0
+              fi
+              echo "Coverage gate failed after timeout."
+              exit 1
             fi
             if grep -Eq "={6,}.*[0-9]+ failed" "$LOG_FILE"; then
               echo "Backend tests timed out after pytest reported failures."
