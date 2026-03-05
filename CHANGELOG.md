@@ -7,13 +7,16 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 ## [Unreleased]
 
 - **Added:** Dedicated frontend background-job telemetry store (`jobProgressStore`) with explicit lifecycle states (`running`, `stale`, `completed`, `failed`), rate-per-minute estimation, and ETA tracking.
-- **Added:** New Jobs page (`/jobs`) for active/recent task visibility, with clear-history/clear-all controls and per-job navigation.
-- **Changed:** Global progress UI now reads from dedicated job telemetry (not notification `process` items), supports determinate/indeterminate rendering, exposes stale/update-age indicators, and links directly to Jobs.
+- **Changed:** Notifications now hosts a unified tabbed workspace for both notification history and jobs (`/notifications` + `/notifications/jobs`), with `/jobs` retained as a legacy canonical redirect to the Jobs tab.
+- **Changed:** Global progress UI now reads from dedicated job telemetry (not notification `process` items), supports determinate/indeterminate rendering, exposes stale/update-age indicators, and links directly to the Notifications Jobs tab.
 - **Changed:** Backfill and reclassification SSE/polling paths now update both notification history and job telemetry in parallel, improving resilience when terminal SSE events are missed.
 - **Fixed:** Backfill progress reconciliation no longer treats `null` status as implicit completion; matching jobs are now marked `stale` defensively to avoid false-finished states during restarts/auth races.
 - **Fixed:** Job telemetry updates now preserve prior counters when sparse payloads omit `current`/`total`, enforce monotonic progress, and prevent `N/0` terminal-state regressions.
 - **Changed:** Added locale-key coverage for new Jobs/global-progress/navigation/shortcut strings across all supported UI languages.
 - **Added:** Frontend unit tests for job telemetry edge cases (sparse payloads, monotonic counters, stale transitions, idempotent prefix-close behavior, terminal counter normalization) via Vitest.
+- **Added:** Owner API endpoint `GET /api/events/{event_id}/classification-status` for authoritative per-event video-classification state (`status`, `error`, `timestamp`) during client recovery flows.
+- **Fixed:** iOS PWA stale-reclassification drift now self-heals by reconciling stale `reclassify:*` jobs against backend classification status on app resume/reconnect/interval, aligning PWA behavior with Safari fresh-session state.
+- **Added:** Frontend + backend regression tests for reclassification fallback terminal transitions and classification-status API behavior.
 
 - **Changed:** Refactored backend configuration internals into segmented modules: `app/config.py` (orchestration), `app/config_models.py` (settings models/defaults), and `app/config_loader.py` (env/file merge logic), reducing `config.py` from 1,032 lines to 95 lines while preserving `from app.config import settings` compatibility.
 - **Added:** New backend regression tests for env-to-settings mapping coverage (`backend/tests/test_config_env_mapping.py`).
