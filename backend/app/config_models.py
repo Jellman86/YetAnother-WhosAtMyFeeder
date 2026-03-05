@@ -1,0 +1,458 @@
+import ipaddress
+import secrets as secrets_lib
+import socket
+from typing import Optional
+
+import structlog
+from pydantic import BaseModel, Field, field_validator
+
+log = structlog.get_logger()
+
+LEGACY_DEFAULT_AI_ANALYSIS_PROMPT = """
+You are an expert ornithologist and naturalist.
+{frame_note}
+
+Species identified by system: {species}
+Time of detection: {time}
+{weather_str}
+
+Respond in Markdown with these exact section headings and short bullet points:
+## Appearance
+## Behavior
+## Naturalist Note
+## Seasonal Context
+
+Keep the response concise (under 200 words). No extra sections.
+{language_note}
+""".strip()
+
+DEFAULT_AI_ANALYSIS_PROMPT = """
+You are an expert ornithologist and naturalist.
+{frame_note}
+
+Species identified by system: {species}
+Time of detection: {time}
+{weather_str}
+
+Respond in Markdown with these exact section headings. Under each heading, write 1 short paragraph (no bullet lists):
+## Appearance
+## Behavior
+## Naturalist Note
+## Seasonal Context
+
+Keep the response concise (under 200 words). No extra sections.
+{language_note}
+""".strip()
+
+LEGACY_DEFAULT_AI_CONVERSATION_PROMPT = """
+You are an expert ornithologist and naturalist. Continue a short Q&A about this detection.
+
+Species identified by system: {species}
+Previous analysis:
+{analysis}
+
+Conversation so far:
+{history}
+
+User question: {question}
+
+Answer concisely in Markdown using the same headings as the analysis (## Appearance, ## Behavior, ## Naturalist Note, ## Seasonal Context).
+If a section is not relevant, include it with a short "Not observed" bullet.
+{language_note}
+""".strip()
+
+DEFAULT_AI_CONVERSATION_PROMPT = """
+You are an expert ornithologist and naturalist. Continue a short Q&A about this detection.
+
+Species identified by system: {species}
+Previous analysis:
+{analysis}
+
+Conversation so far:
+{history}
+
+User question: {question}
+
+Answer concisely in Markdown using the same headings as the analysis (## Appearance, ## Behavior, ## Naturalist Note, ## Seasonal Context).
+Under each heading, write 1 short paragraph (no bullet lists). If a section is not relevant, write "Not observed."
+{language_note}
+""".strip()
+
+DEFAULT_AI_CHART_PROMPT = """
+You are a data analyst for bird feeder activity.
+You are looking at a chart of detections over time.
+
+Timeframe: {timeframe}
+Total detections in range: {total_count}
+Series shown: {series}
+{weather_notes}
+{sun_notes}
+
+Respond in Markdown with these exact section headings and short bullet points:
+## Overview
+## Patterns
+## Weather Correlations
+## Notable Spikes/Dips
+## Caveats
+
+Keep it concise (under 200 words). No extra sections.
+{language_note}
+{notes}
+""".strip()
+
+# Default trusted proxy hosts for common reverse-proxy setups.
+# These are only used when no env override or config value exists.
+DEFAULT_TRUSTED_PROXY_HOSTS = [
+    "yawamf-frontend",
+    "nginx-rp",
+    "cloudflare-tunnel",
+]
+
+def _expand_trusted_hosts(hosts: list[str]) -> list[str]:
+    """Expand hostnames to IPs for ProxyHeadersMiddleware matching."""
+    expanded: list[str] = []
+    for host in hosts:
+        if not host:
+            continue
+        host = host.strip()
+        if not host:
+            continue
+        # Keep CIDR and valid IPs as-is
+        try:
+            if "/" in host:
+                ipaddress.ip_network(host, strict=False)
+                expanded.append(host)
+                continue
+            ipaddress.ip_address(host)
+            expanded.append(host)
+            continue
+        except ValueError:
+            pass
+
+        # Resolve hostname to IPs
+        try:
+            _, _, ips = socket.gethostbyname_ex(host)
+            expanded.extend(ips)
+        except Exception:
+            # Keep original hostname (may be used elsewhere)
+            expanded.append(host)
+
+    # De-duplicate while preserving order
+    seen: set[str] = set()
+    result: list[str] = []
+    for host in expanded:
+        if host not in seen:
+            seen.add(host)
+            result.append(host)
+    return result
+
+class FrigateSettings(BaseModel):
+    frigate_url: str = Field(..., description="URL of the Frigate instance")
+    frigate_auth_token: Optional[str] = Field(None, description="Optional Bearer token for Frigate proxy auth")
+    main_topic: str = "frigate"
+    camera: list[str] = Field(default_factory=list, description="List of cameras to monitor")
+    clips_enabled: bool = Field(default=True, description="Enable fetching of video clips from Frigate")
+    mqtt_server: str = "mqtt"
+    mqtt_port: int = 1883
+    mqtt_auth: bool = False
+    mqtt_username: str = ""
+    mqtt_password: str = ""
+    birdnet_enabled: bool = Field(default=True, description="Enable BirdNET-Go integration")
+    audio_topic: str = "birdnet/text"
+    camera_audio_mapping: dict[str, str] = Field(
+        default_factory=dict,
+        description="Map Frigate camera name to BirdNET-Go sensor ID (e.g. {'front_feeder': 'front_mic'})"
+    )
+    audio_buffer_hours: int = Field(default=24, ge=1, le=168, description="Hours to keep audio detections in buffer for correlation (1-168)")
+    audio_correlation_window_seconds: int = Field(default=300, ge=5, le=3600, description="Time window in seconds for audio-visual correlation (±N seconds from detection)")
+
+class ClassificationSettings(BaseModel):
+    model: str = "model.tflite"
+    threshold: float = 0.7
+    min_confidence: float = Field(default=0.4, ge=0.0, le=1.0, description="Minimum confidence floor (reject below this)")
+    blocked_labels: list[str] = Field(
+        default=[],
+        description="Labels to filter out completely (won't be saved)"
+    )
+    unknown_bird_labels: list[str] = Field(
+        default=["background", "Background"],
+        description="Labels to relabel as 'Unknown Bird' (unidentifiable detections)"
+    )
+    trust_frigate_sublabel: bool = Field(
+        default=True,
+        description="Fall back to Frigate sublabel when YA-WAMF classification fails threshold"
+    )
+    write_frigate_sublabel: bool = Field(
+        default=True,
+        description="Write YA-WAMF species labels back to Frigate as event sublabels"
+    )
+    display_common_names: bool = Field(
+        default=True,
+        description="Display common names instead of scientific names when available"
+    )
+    scientific_name_primary: bool = Field(
+        default=False,
+        description="Show scientific name as the primary label in UI"
+    )
+    personalized_rerank_enabled: bool = Field(
+        default=False,
+        description="Enable personalized camera/model-aware reranking from manual tags"
+    )
+    # Auto Video Classification
+    auto_video_classification: bool = Field(default=False, description="Automatically classify video clips when available")
+    video_classification_delay: int = Field(default=30, description="Seconds to wait before checking for clip (allow Frigate to finalize)")
+    video_classification_max_retries: int = Field(default=3, description="Max retries for clip availability")
+    video_classification_retry_interval: int = Field(default=15, description="Seconds between retries")
+    video_classification_max_concurrent: int = Field(default=5, ge=1, le=20, description="Maximum concurrent video classification tasks")
+    video_classification_failure_threshold: int = Field(default=5, ge=1, description="Failures in window to open circuit breaker")
+    video_classification_failure_window_minutes: int = Field(default=10, ge=1, description="Failure window size in minutes")
+    video_classification_failure_cooldown_minutes: int = Field(default=15, ge=1, description="Cooldown minutes when circuit breaker is open")
+    video_classification_timeout_seconds: int = Field(default=180, ge=30, description="Timeout for a single video classification run")
+    video_classification_stale_minutes: int = Field(default=15, ge=1, description="Mark pending/processing as failed after this many minutes")
+    video_classification_frames: int = Field(default=15, ge=5, le=100, description="Number of frames to sample for video classification")
+    inference_provider: str = Field(default="auto", description="Preferred inference provider: auto|cpu|cuda|intel_gpu|intel_cpu")
+    ai_pricing_json: str = Field(default="[]", description="JSON string containing AI pricing overrides")
+
+    # Classification output settings
+    max_classification_results: int = Field(default=5, ge=1, le=20, description="Maximum number of top results to return from classifier")
+
+    # Wildlife/general animal model settings
+    wildlife_model: str = Field(default="wildlife_model.tflite", description="Wildlife classification model file")
+    wildlife_labels: str = Field(default="wildlife_labels.txt", description="Wildlife labels file")
+
+    @field_validator("inference_provider")
+    @classmethod
+    def validate_inference_provider(cls, v: str) -> str:
+        normalized = (v or "auto").strip().lower()
+        allowed = {"auto", "cpu", "cuda", "intel_gpu", "intel_cpu"}
+        if normalized not in allowed:
+            log.warning("Invalid inference_provider in config; falling back to auto", value=v)
+            return "auto"
+        return normalized
+
+class MaintenanceSettings(BaseModel):
+    retention_days: int = Field(default=0, ge=0, description="Days to keep detections (0 = unlimited)")
+    cleanup_enabled: bool = Field(default=True, description="Enable automatic cleanup")
+    auto_delete_missing_clips: bool = Field(
+        default=False,
+        description="Auto-delete detections when the Frigate event/clip is missing"
+    )
+
+
+class MediaCacheSettings(BaseModel):
+    enabled: bool = Field(default=True, description="Enable local media caching")
+    cache_snapshots: bool = Field(default=True, description="Cache snapshot images locally")
+    cache_clips: bool = Field(default=False, description="Cache video clips locally (may cause initial playback delay)")
+    retention_days: int = Field(default=0, ge=0, description="Days to keep cached media (0 = follow detection retention)")
+
+class LocationSettings(BaseModel):
+    latitude: Optional[float] = Field(None, description="Latitude for weather/sun data")
+    longitude: Optional[float] = Field(None, description="Longitude for weather/sun data")
+    automatic: bool = Field(True, description="Attempt to detect location automatically via IP")
+    temperature_unit: str = Field(default="celsius", description="Temperature unit: 'celsius' or 'fahrenheit'")
+
+class BirdWeatherSettings(BaseModel):
+    enabled: bool = Field(default=False, description="Enable BirdWeather reporting")
+    station_token: Optional[str] = Field(None, description="BirdWeather Station Token")
+
+class EbirdSettings(BaseModel):
+    enabled: bool = Field(default=False, description="Enable eBird enrichment")
+    api_key: Optional[str] = Field(default=None, description="eBird API key")
+    default_radius_km: int = Field(default=25, ge=1, le=50, description="Default search radius in km (1-50)")
+    default_days_back: int = Field(default=14, ge=1, le=30, description="Days back for recent observations (1-30)")
+    max_results: int = Field(default=25, ge=1, le=200, description="Maximum results to return")
+    locale: str = Field(default="en", description="Locale for species common names")
+
+class InaturalistSettings(BaseModel):
+    enabled: bool = Field(default=False, description="Enable iNaturalist submissions")
+    client_id: Optional[str] = Field(default=None, description="iNaturalist OAuth Client ID")
+    client_secret: Optional[str] = Field(default=None, description="iNaturalist OAuth Client Secret")
+    default_latitude: Optional[float] = Field(default=None, description="Default latitude for submissions")
+    default_longitude: Optional[float] = Field(default=None, description="Default longitude for submissions")
+    default_place_guess: Optional[str] = Field(default=None, description="Default place guess for submissions")
+
+class EnrichmentSettings(BaseModel):
+    mode: str = Field(default="per_enrichment", description="Enrichment source mode: single or per_enrichment")
+    single_provider: str = Field(default="wikipedia", description="Provider used when mode=single")
+    summary_source: str = Field(default="wikipedia", description="Provider for summaries/description")
+    taxonomy_source: str = Field(default="inaturalist", description="Provider for taxonomy/common names")
+    sightings_source: str = Field(default="disabled", description="Provider for nearby sightings")
+    seasonality_source: str = Field(default="disabled", description="Provider for seasonality")
+    rarity_source: str = Field(default="disabled", description="Provider for rarity indicators")
+    links_sources: list[str] = Field(default=["wikipedia", "inaturalist"], description="Providers for external links")
+
+class LLMSettings(BaseModel):
+    enabled: bool = Field(default=False, description="Enable LLM integration")
+    provider: str = Field(default="gemini", description="AI provider (gemini, openai, claude)")
+    api_key: Optional[str] = Field(default=None, description="API Key for the provider")
+    model: str = Field(default="gemini-3-flash-preview", description="Model name to use")
+    analysis_prompt_template: str = Field(default=DEFAULT_AI_ANALYSIS_PROMPT, description="Prompt template for detection analysis")
+    conversation_prompt_template: str = Field(default=DEFAULT_AI_CONVERSATION_PROMPT, description="Prompt template for follow-up conversation")
+    chart_prompt_template: str = Field(default=DEFAULT_AI_CHART_PROMPT, description="Prompt template for chart analysis")
+
+class TelemetrySettings(BaseModel):
+    enabled: bool = Field(default=False, description="Enable anonymous usage statistics")
+    url: Optional[str] = Field(default="https://yawamf-telemetry.ya-wamf.workers.dev/heartbeat", description="Telemetry endpoint URL")
+    installation_id: Optional[str] = Field(default=None, description="Unique anonymous installation ID")
+
+class DiscordSettings(BaseModel):
+    enabled: bool = Field(default=False, description="Enable Discord notifications")
+    webhook_url: Optional[str] = Field(default=None, description="Discord Webhook URL")
+    username: str = Field(default="YA-WAMF", description="Username for the bot")
+    include_snapshot: bool = Field(default=True, description="Include snapshot image")
+
+class PushoverSettings(BaseModel):
+    enabled: bool = Field(default=False, description="Enable Pushover notifications")
+    user_key: Optional[str] = Field(default=None, description="Pushover User Key")
+    api_token: Optional[str] = Field(default=None, description="Pushover API Token")
+    priority: int = Field(default=0, ge=-2, le=2, description="Notification priority (-2 to 2)")
+    include_snapshot: bool = Field(default=True, description="Include snapshot image")
+
+class TelegramSettings(BaseModel):
+    enabled: bool = Field(default=False, description="Enable Telegram notifications")
+    bot_token: Optional[str] = Field(default=None, description="Telegram Bot Token")
+    chat_id: Optional[str] = Field(default=None, description="Telegram Chat ID")
+    include_snapshot: bool = Field(default=True, description="Include snapshot image")
+
+class EmailSettings(BaseModel):
+    enabled: bool = Field(default=False, description="Enable Email notifications")
+    only_on_end: bool = Field(default=False, description="Only send email notifications on Frigate MQTT end events")
+    # OAuth2 Settings
+    use_oauth: bool = Field(default=False, description="Use OAuth2 authentication (Gmail/Outlook)")
+    oauth_provider: Optional[str] = Field(default=None, description="OAuth provider: 'gmail' or 'outlook'")
+    gmail_client_id: Optional[str] = Field(default=None, description="Gmail OAuth Client ID")
+    gmail_client_secret: Optional[str] = Field(default=None, description="Gmail OAuth Client Secret")
+    outlook_client_id: Optional[str] = Field(default=None, description="Outlook OAuth Client ID")
+    outlook_client_secret: Optional[str] = Field(default=None, description="Outlook OAuth Client Secret")
+    # Traditional SMTP Settings
+    smtp_host: Optional[str] = Field(default=None, description="SMTP server hostname")
+    smtp_port: int = Field(default=587, description="SMTP server port")
+    smtp_username: Optional[str] = Field(default=None, description="SMTP username")
+    smtp_password: Optional[str] = Field(default=None, description="SMTP password")
+    smtp_use_tls: bool = Field(default=True, description="Use TLS for SMTP connection")
+    # Email Settings
+    from_email: Optional[str] = Field(default=None, description="Sender email address")
+    to_email: Optional[str] = Field(default=None, description="Recipient email address")
+    include_snapshot: bool = Field(default=True, description="Include bird snapshot image")
+    dashboard_url: Optional[str] = Field(default=None, description="Dashboard URL for email links")
+
+class NotificationFilterSettings(BaseModel):
+    species_whitelist: list[str] = Field(default=[], description="Only notify for these species (empty = all)")
+    min_confidence: float = Field(default=0.7, description="Minimum confidence to trigger notification")
+    audio_confirmed_only: bool = Field(default=False, description="Only notify if audio confirmed")
+    camera_filters: dict[str, dict] = Field(default={}, description="Per-camera overrides")
+
+class NotificationSettings(BaseModel):
+    discord: DiscordSettings = DiscordSettings()
+    pushover: PushoverSettings = PushoverSettings()
+    telegram: TelegramSettings = TelegramSettings()
+    email: EmailSettings = EmailSettings()
+    filters: NotificationFilterSettings = NotificationFilterSettings()
+    notification_language: str = Field(default="en", description="Language for notifications (en, es, fr, de, ja, ru, pt, it)")
+    mode: str = Field(default="standard", description="Notification mode: silent, final, standard, realtime, custom")
+    notify_on_insert: bool = Field(default=True, description="Notify on new detection insert")
+    notify_on_update: bool = Field(default=False, description="Notify on detection updates")
+    delay_until_video: bool = Field(default=False, description="Delay notifications until video analysis completes (if enabled)")
+    video_fallback_timeout: int = Field(default=45, description="Seconds to wait for video before falling back to snapshot notification")
+    notification_cooldown_minutes: int = Field(default=0, description="Global cooldown between notifications in minutes (0 = disabled)")
+
+class AccessibilitySettings(BaseModel):
+    high_contrast: bool = Field(default=False, description="Enable high contrast mode")
+    dyslexia_font: bool = Field(default=False, description="Enable dyslexia-friendly font")
+    reduced_motion: bool = Field(default=False, description="Reduce motion/animations")
+    zen_mode: bool = Field(default=False, description="Enable simplified zen mode")
+    live_announcements: bool = Field(default=True, description="Enable screen reader live announcements")
+
+class AppearanceSettings(BaseModel):
+    # Mirrors the frontend font themes. Email clients may fall back to system fonts.
+    font_theme: str = Field(
+        default="classic",
+        description="UI font theme: default, clean, studio, classic, compact"
+    )
+
+class SystemSettings(BaseModel):
+    """System-level performance and resource settings"""
+    broadcaster_max_queue_size: int = Field(default=100, ge=10, le=1000, description="Maximum SSE message queue size per subscriber")
+    broadcaster_max_consecutive_full: int = Field(default=10, ge=1, le=100, description="Remove subscriber after this many consecutive backpressure failures")
+    trusted_proxy_hosts: list[str] = Field(
+        default_factory=lambda: DEFAULT_TRUSTED_PROXY_HOSTS.copy(),
+        description="Trusted proxy hosts for X-Forwarded-* headers",
+    )
+    debug_ui_enabled: bool = Field(default=False, description="Expose debug UI sections in the web app")
+
+
+class AuthSettings(BaseModel):
+    """Authentication configuration."""
+    enabled: bool = Field(
+        default=False,
+        description="Require authentication for full access (disabled by default for backward compatibility)"
+    )
+    username: str = Field(
+        default="admin",
+        description="Admin username"
+    )
+    password_hash: Optional[str] = Field(
+        default=None,
+        description="Bcrypt hashed password (set via Settings UI or auth/initial-setup endpoint)"
+    )
+    session_secret: str = Field(
+        default_factory=lambda: secrets_lib.token_urlsafe(32),
+        description="Secret key for JWT tokens (auto-generated)"
+    )
+    session_expiry_hours: int = Field(
+        default=168,  # 7 days
+        ge=1,
+        le=720,  # 30 days max
+        description="Session token validity in hours"
+    )
+
+
+class PublicAccessSettings(BaseModel):
+    """Public/guest access configuration."""
+    enabled: bool = Field(
+        default=False,
+        description="Allow unauthenticated public access to view detections"
+    )
+    show_camera_names: bool = Field(
+        default=True,
+        description="Show camera names to public visitors"
+    )
+    show_ai_conversation: bool = Field(
+        default=False,
+        description="Allow public visitors to view AI conversation threads"
+    )
+    allow_clip_downloads: bool = Field(
+        default=False,
+        description="Allow public visitors to download clip files"
+    )
+    historical_days_mode: str = Field(
+        default="retention",
+        description="History window mode: retention or custom"
+    )
+    show_historical_days: int = Field(
+        default=7,
+        ge=0,
+        le=365,
+        description="Days of historical data visible to public (0 = live only)"
+    )
+    media_days_mode: str = Field(
+        default="retention",
+        description="Media window mode: retention or custom"
+    )
+    media_historical_days: int = Field(
+        default=7,
+        ge=0,
+        le=365,
+        description="Days of media (snapshots/clips) visible to public (0 = live only)"
+    )
+    rate_limit_per_minute: int = Field(
+        default=30,
+        ge=1,
+        le=100,
+        description="API calls per minute for public users"
+    )
+    external_base_url: Optional[str] = Field(
+        default=None,
+        description="Public-facing base URL used when generating share links"
+    )
+

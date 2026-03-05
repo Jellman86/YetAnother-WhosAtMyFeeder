@@ -6,6 +6,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- **Changed:** Refactored backend configuration internals into segmented modules: `app/config.py` (orchestration), `app/config_models.py` (settings models/defaults), and `app/config_loader.py` (env/file merge logic), reducing `config.py` from 1,032 lines to 95 lines while preserving `from app.config import settings` compatibility.
+- **Added:** New backend regression tests for env-to-settings mapping coverage (`backend/tests/test_config_env_mapping.py`).
+- **Fixed:** Restored env override support for `CLASSIFICATION__VIDEO_CLASSIFICATION_TIMEOUT_SECONDS`, `CLASSIFICATION__VIDEO_CLASSIFICATION_STALE_MINUTES`, and `NOTIFICATIONS__NOTIFICATION_COOLDOWN_MINUTES`.
+
 - **Added:** New `classification.write_frigate_sublabel` setting (API + config + env: `CLASSIFICATION__WRITE_FRIGATE_SUBLABEL`) to control whether YA-WAMF writes species labels back to Frigate event sublabels.
 - **Added:** Detection Settings now includes a visible toggle for `write_frigate_sublabel`, with localization coverage across all supported UI languages.
 - **Changed:** Event processing now honors `write_frigate_sublabel`; Frigate write-back is skipped when disabled while local YA-WAMF detections still persist normally.
