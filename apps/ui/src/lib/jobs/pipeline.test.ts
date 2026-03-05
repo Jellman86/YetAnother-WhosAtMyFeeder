@@ -102,4 +102,19 @@ describe('buildJobsPipelineModel', () => {
             queueDepthKnown: true
         });
     });
+
+    it('hides idle queue-only kinds when queued and running are both zero', () => {
+        const model = buildJobsPipelineModel([], [], {
+            reclassify: {
+                queued: 0,
+                running: 0,
+                queueDepthKnown: true,
+                updatedAt: 9_000
+            }
+        });
+
+        expect(model.lanes.queuedKnown).toBe(0);
+        expect(model.lanes.running).toBe(0);
+        expect(model.kinds).toHaveLength(0);
+    });
 });

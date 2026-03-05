@@ -122,6 +122,13 @@ export function buildJobsPipelineModel(
             : null;
         const runningFromQueue = normalizeCount(queue?.running);
         const runningCount = Math.max(counters.running, runningFromQueue);
+        const hasJobActivity = runningCount > 0 || counters.completed > 0 || counters.failed > 0;
+        const hasQueuePressure = (queued ?? 0) > 0 || runningFromQueue > 0;
+
+        // Hide idle queue-only rows (for example, reclassify queue reported at 0/0 after clear-all).
+        if (!hasJobActivity && !hasQueuePressure) {
+            continue;
+        }
 
         const row: JobPipelineKindRow = {
             kind,
