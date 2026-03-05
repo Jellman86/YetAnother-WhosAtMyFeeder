@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from io import BytesIO
 from PIL import Image
 from typing import Optional, Dict, Any, Tuple
+from types import SimpleNamespace
 
 from app.config import settings
 from app.services.classifier_service import ClassifierService
@@ -15,6 +16,7 @@ from app.services.detection_service import DetectionService
 from app.services.audio.audio_service import audio_service
 from app.services.weather_service import weather_service
 from app.services.notification_orchestrator import NotificationOrchestrator
+from app.services.notification_dispatcher import notification_dispatcher
 from app.services.taxonomy.taxonomy_service import taxonomy_service
 from app.utils.frigate import normalize_sub_label
 # Backward-compat for tests that patch event_processor.notification_service
@@ -416,10 +418,25 @@ class EventProcessor:
                 from app.services.auto_video_classifier_service import auto_video_classifier
                 await auto_video_classifier.trigger_classification(event.frigate_event, event.camera)
 
-        await self.notification_orchestrator.handle_notifications(
-            event=event,
-            classification=classification,
-            snapshot_data=snapshot_data,
-            changed=changed,
-            was_inserted=was_inserted
+        # Keep remote notification I/O off MQTT ingest hot path.
+        notify_event = SimpleNamespace(
+            frigate_event=event.frigate_event,
+            camera=event.camera,
+            detection_dt=event.detection_dt,
+            type=event.type,
         )
+        notify_classification = dict(classification)
+
+        async def _run_notification_flow() -> None:
+            await self.notification_orchestrator.handle_notifications(
+                event=notify_event,
+                classification=notify_classification,
+                snapshot_data=snapshot_data,
+                changed=changed,
+                was_inserted=was_inserted,
+            )
+
+        job_name = f"notify:{event.frigate_event}:{event.type or 'new'}"
+        enqueued = await notification_dispatcher.enqueue(job_name=job_name, job_factory=_run_notification_flow)
+        if not enqueued:
+            log.warning("Notification queue saturated; dropping notification job", event_id=event.frigate_event)

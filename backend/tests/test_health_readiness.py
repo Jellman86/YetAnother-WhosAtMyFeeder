@@ -1,6 +1,7 @@
 import httpx
 import pytest
 import pytest_asyncio
+from types import SimpleNamespace
 
 import app.main as main_module
 from app.main import app
@@ -55,3 +56,31 @@ async def test_ready_503_when_not_testing_and_db_pool_not_initialized(
     body = response.json()
     assert body["ready"] is False
     assert body["db_pool_initialized"] is False
+
+
+@pytest.mark.asyncio
+async def test_health_degraded_when_notification_dispatcher_has_drops(
+    client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
+):
+    app.state.startup_warnings = []
+    monkeypatch.setattr(
+        main_module,
+        "notification_dispatcher",
+        SimpleNamespace(
+            get_status=lambda: {
+                "running": True,
+                "workers": 2,
+                "queue_size": 0,
+                "queue_max": 100,
+                "dropped_jobs": 3,
+                "timeout_seconds": 30.0,
+            }
+        ),
+        raising=False,
+    )
+
+    response = await client.get("/health")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "degraded"
+    assert body["notification_dispatcher"]["dropped_jobs"] == 3

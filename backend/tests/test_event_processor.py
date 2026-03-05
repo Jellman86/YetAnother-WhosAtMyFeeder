@@ -1,5 +1,6 @@
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
+from types import SimpleNamespace
 from app.services.event_processor import EventProcessor
 
 @pytest.mark.asyncio
@@ -152,3 +153,46 @@ async def test_process_mqtt_message_skips_new_after_false_positive_update():
 
     processor._handle_false_positive.assert_called_once_with("evt-race-1")
     processor._classify_snapshot.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_handle_detection_save_and_notify_uses_dispatcher_queue():
+    processor = EventProcessor(MagicMock())
+
+    event = SimpleNamespace(
+        frigate_event="evt-dispatch-1",
+        camera="cam1",
+        start_time_ts=1700000000,
+        frigate_score=0.95,
+        sub_label=None,
+        type="new",
+        detection_dt=None,
+    )
+    classification = {
+        "label": "Cardinal",
+        "score": 0.95,
+        "audio_confirmed": False,
+        "audio_species": None,
+        "audio_score": None,
+    }
+    context = {"weather_data": {}, "audio_match": None}
+
+    processor.detection_service.save_detection = AsyncMock(return_value=(True, True))  # type: ignore[attr-defined]
+    processor.notification_orchestrator.handle_notifications = AsyncMock()  # type: ignore[method-assign]
+
+    with patch("app.services.event_processor.notification_dispatcher") as mock_dispatcher, \
+         patch("app.services.event_processor.settings.classification.write_frigate_sublabel", False, create=True), \
+         patch("app.services.event_processor.settings.classification.auto_video_classification", False, create=True), \
+         patch("app.services.event_processor.settings.media_cache.enabled", False, create=True), \
+         patch("app.services.event_processor.settings.media_cache.cache_snapshots", False, create=True):
+        mock_dispatcher.enqueue = AsyncMock(return_value=True)
+
+        await processor._handle_detection_save_and_notify(
+            event=event,
+            classification=classification,
+            snapshot_data=b"img",
+            context=context,
+        )
+
+    mock_dispatcher.enqueue.assert_awaited_once()
+    processor.notification_orchestrator.handle_notifications.assert_not_awaited()

@@ -134,3 +134,54 @@ def test_get_status_reports_pressure_level_and_thresholds(monkeypatch):
 
     service._in_flight_tasks = set(range(10))
     assert service.get_status()["pressure_level"] == "critical"
+
+
+def test_should_reconnect_when_frigate_topic_is_stale_but_birdnet_is_active(monkeypatch):
+    service = MQTTService("test+abc123")
+    service.running = True
+
+    monkeypatch.setattr(mqtt_module, "MQTT_TOPIC_STALL_GRACE_SECONDS", 30.0, raising=False)
+    monkeypatch.setattr(mqtt_module, "MQTT_FRIGATE_TOPIC_STALE_SECONDS", 120.0, raising=False)
+    monkeypatch.setattr(mqtt_module, "MQTT_TOPIC_STALL_MIN_BIRDNET_MESSAGES", 10, raising=False)
+
+    service._connection_started_monotonic = 100.0
+    service._topic_last_message_monotonic = {
+        "frigate/events": 200.0,
+        "birdnet/detections": 400.0,
+    }
+    service._topic_message_counts = {
+        "frigate/events": 5,
+        "birdnet/detections": 50,
+    }
+
+    should_reconnect = service._should_reconnect_for_stalled_frigate_topic(
+        frigate_topic="frigate/events",
+        birdnet_topic="birdnet/detections",
+        now=400.0,
+    )
+    assert should_reconnect is True
+
+
+def test_should_not_reconnect_without_prior_frigate_traffic(monkeypatch):
+    service = MQTTService("test+abc123")
+    service.running = True
+
+    monkeypatch.setattr(mqtt_module, "MQTT_TOPIC_STALL_GRACE_SECONDS", 30.0, raising=False)
+    monkeypatch.setattr(mqtt_module, "MQTT_FRIGATE_TOPIC_STALE_SECONDS", 120.0, raising=False)
+    monkeypatch.setattr(mqtt_module, "MQTT_TOPIC_STALL_MIN_BIRDNET_MESSAGES", 10, raising=False)
+
+    service._connection_started_monotonic = 100.0
+    service._topic_last_message_monotonic = {
+        "birdnet/detections": 400.0,
+    }
+    service._topic_message_counts = {
+        "frigate/events": 0,
+        "birdnet/detections": 50,
+    }
+
+    should_reconnect = service._should_reconnect_for_stalled_frigate_topic(
+        frigate_topic="frigate/events",
+        birdnet_topic="birdnet/detections",
+        now=400.0,
+    )
+    assert should_reconnect is False

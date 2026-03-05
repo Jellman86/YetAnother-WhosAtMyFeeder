@@ -25,6 +25,7 @@ from app.services.media_cache import media_cache
 from app.services.broadcaster import broadcaster
 from app.services.telemetry_service import telemetry_service
 from app.services.auto_video_classifier_service import auto_video_classifier
+from app.services.notification_dispatcher import notification_dispatcher
 from app.services.frigate_client import frigate_client
 from app.repositories.detection_repository import DetectionRepository
 from app.routers import events, proxy, settings as settings_router, species, backfill, classifier, models, ai, stats, stats_ai, debug, audio, email, inaturalist, ebird, auth as auth_router
@@ -293,6 +294,7 @@ async def lifespan(app: FastAPI):
         log.info("Test mode enabled: skipping DB init and background services startup")
     else:
         await _run_lifecycle_phase(app, "db_init", init_db, fatal=True)
+        await _run_lifecycle_phase(app, "notification_dispatcher_start", notification_dispatcher.start, fatal=False)
         await _run_lifecycle_phase(app, "mqtt_service_task_start", _start_mqtt_service_task, fatal=False)
         await _run_lifecycle_phase(app, "telemetry_start", telemetry_service.start, fatal=False)
         await _run_lifecycle_phase(app, "auto_video_classifier_start", auto_video_classifier.start, fatal=False)
@@ -314,6 +316,7 @@ async def lifespan(app: FastAPI):
         except asyncio.CancelledError:
             pass
     if not test_mode:
+        await _run_lifecycle_phase(app, "notification_dispatcher_stop", notification_dispatcher.stop, fatal=False)
         await _run_lifecycle_phase(app, "auto_video_classifier_stop", auto_video_classifier.stop, fatal=False)
         await _run_lifecycle_phase(app, "telemetry_stop", telemetry_service.stop, fatal=False)
         await _run_lifecycle_phase(app, "mqtt_service_stop", mqtt_service.stop, fatal=False)
@@ -568,6 +571,7 @@ async def health_check():
     classifier_health = get_classifier().check_health()
     mqtt_health = mqtt_service.get_status()
     video_health = auto_video_classifier.get_status()
+    notification_dispatch_health = notification_dispatcher.get_status()
     health = {
         "status": "ok", 
         "service": "ya-wamf-backend", 
@@ -575,6 +579,7 @@ async def health_check():
         "ml": classifier_health,
         "mqtt": mqtt_health,
         "video_classifier": video_health,
+        "notification_dispatcher": notification_dispatch_health,
         "startup_warnings": startup_warnings,
         "startup_instance_id": startup_instance_id,
         "startup_started_at": startup_started_at,
@@ -585,6 +590,7 @@ async def health_check():
         health["ml"]["status"] != "ok"
         or startup_warnings
         or mqtt_health.get("pressure_level") in {"high", "critical"}
+        or int(notification_dispatch_health.get("dropped_jobs") or 0) > 0
     ):
         health["status"] = "degraded"
         
