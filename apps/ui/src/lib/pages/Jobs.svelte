@@ -2,21 +2,67 @@
     import { onMount } from 'svelte';
     import { _ } from 'svelte-i18n';
     import { jobProgressStore, type JobProgressItem } from '../stores/job_progress.svelte';
+    import { fetchAnalysisStatus } from '../api/maintenance';
+    import { buildJobsPipelineModel, type QueueTelemetryByKind } from '../jobs/pipeline';
     import { formatDateTime } from '../utils/datetime';
     let { onNavigate, embedded = false } = $props<{ onNavigate?: (path: string) => void; embedded?: boolean }>();
 
     let nowTs = $state(Date.now());
+    let queueByKind = $state<QueueTelemetryByKind>({});
     onMount(() => {
         const tick = setInterval(() => {
             nowTs = Date.now();
         }, 1000);
+        let queuePoll: ReturnType<typeof setInterval> | null = null;
+        let stopped = false;
+        let failures = 0;
+
+        const updateQueueTelemetry = async () => {
+            if (stopped) return;
+            try {
+                const status = await fetchAnalysisStatus();
+                queueByKind = {
+                    ...queueByKind,
+                    reclassify: {
+                        queued: Math.max(0, Math.floor(Number(status.pending ?? 0))),
+                        running: Math.max(0, Math.floor(Number(status.active ?? 0))),
+                        queueDepthKnown: true,
+                        updatedAt: Date.now()
+                    }
+                };
+                failures = 0;
+            } catch {
+                failures += 1;
+                queueByKind = {
+                    ...queueByKind,
+                    reclassify: {
+                        queued: 0,
+                        running: 0,
+                        queueDepthKnown: false,
+                        updatedAt: Date.now()
+                    }
+                };
+                if (failures >= 3 && queuePoll) {
+                    clearInterval(queuePoll);
+                    queuePoll = null;
+                }
+            }
+        };
+
+        updateQueueTelemetry();
+        queuePoll = setInterval(updateQueueTelemetry, 5000);
+
         return () => {
+            stopped = true;
             clearInterval(tick);
+            if (queuePoll) clearInterval(queuePoll);
         };
     });
 
     let activeJobs = $derived(jobProgressStore.activeJobs);
     let historyJobs = $derived(jobProgressStore.historyJobs);
+    let pipeline = $derived(buildJobsPipelineModel(activeJobs, historyJobs, queueByKind));
+    let staleCount = $derived(activeJobs.filter((job) => job.status === 'stale').length);
 
     function fmtRate(value?: number): string {
         if (!Number.isFinite(value) || !value || value <= 0) return 'n/a';
@@ -59,6 +105,24 @@
             window.location.assign(item.route);
         }
     }
+
+    function kindLabel(kind: string): string {
+        if (kind === 'reclassify') {
+            return $_('jobs.kind_reclassify', { default: 'Reclassification' });
+        }
+        if (kind === 'backfill') {
+            return $_('jobs.kind_backfill', { default: 'Detection Backfill' });
+        }
+        if (kind === 'weather_backfill') {
+            return $_('jobs.kind_weather_backfill', { default: 'Weather Backfill' });
+        }
+        if (kind === 'taxonomy_sync') {
+            return $_('jobs.kind_taxonomy_sync', { default: 'Taxonomy Sync' });
+        }
+        return kind
+            .replace(/_/g, ' ')
+            .replace(/\b\w/g, (ch) => ch.toUpperCase());
+    }
 </script>
 
 <div class="space-y-6">
@@ -78,6 +142,86 @@
             </div>
         </div>
     {/if}
+
+    <section class="card-base p-6">
+        <div class="mb-4">
+            <h3 class="text-xs font-black uppercase tracking-widest text-slate-500">{$_('jobs.pipeline_title', { default: 'Pipeline' })}</h3>
+            <p class="text-xs text-slate-500">{$_('jobs.pipeline_subtitle', { default: 'Queued work flows into active processing, then into completed outcomes.' })}</p>
+        </div>
+
+        <div class="flex flex-col md:flex-row items-stretch gap-2 md:gap-3">
+            <div class="flex-1 rounded-2xl border border-sky-200/80 dark:border-sky-900/60 bg-sky-50/70 dark:bg-sky-950/30 p-3">
+                <p class="text-[10px] font-black uppercase tracking-wider text-sky-700 dark:text-sky-300">{$_('jobs.queued', { default: 'Queued' })}</p>
+                <p class="text-2xl font-black text-sky-700 dark:text-sky-200 mt-1">{pipeline.lanes.queuedKnown.toLocaleString()}</p>
+                <p class="text-[10px] text-sky-700/80 dark:text-sky-300/90 mt-1">
+                    {#if pipeline.lanes.queuedUnknownKinds > 0}
+                        {$_('jobs.queue_unknown_suffix', { values: { count: pipeline.lanes.queuedUnknownKinds }, default: '+ {count} kinds not reported' })}
+                    {:else}
+                        {$_('jobs.queue_known', { default: 'All shown kinds report queue depth' })}
+                    {/if}
+                </p>
+            </div>
+
+            <div class="hidden md:flex items-center justify-center text-slate-400 dark:text-slate-500 font-black text-lg">→</div>
+
+            <div class="flex-1 rounded-2xl border border-emerald-200/80 dark:border-emerald-900/60 bg-emerald-50/70 dark:bg-emerald-950/30 p-3">
+                <p class="text-[10px] font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-300">{$_('jobs.running', { default: 'Running' })}</p>
+                <p class="text-2xl font-black text-emerald-700 dark:text-emerald-200 mt-1">{pipeline.lanes.running.toLocaleString()}</p>
+                <p class="text-[10px] text-emerald-700/80 dark:text-emerald-300/90 mt-1">
+                    {$_('jobs.stale_hint', { values: { count: staleCount }, default: '{count} stale' })}
+                </p>
+            </div>
+
+            <div class="hidden md:flex items-center justify-center text-slate-400 dark:text-slate-500 font-black text-lg">→</div>
+
+            <div class="flex-1 rounded-2xl border border-slate-200/80 dark:border-slate-700/70 bg-slate-50/70 dark:bg-slate-900/70 p-3">
+                <p class="text-[10px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">{$_('jobs.outcomes', { default: 'Outcomes' })}</p>
+                <p class="text-2xl font-black text-slate-700 dark:text-slate-100 mt-1">
+                    {(pipeline.lanes.completed + pipeline.lanes.failed).toLocaleString()}
+                </p>
+                <p class="text-[10px] text-slate-600 dark:text-slate-300 mt-1">
+                    {$_('jobs.completed_failed_counts', {
+                        values: {
+                            completed: pipeline.lanes.completed.toLocaleString(),
+                            failed: pipeline.lanes.failed.toLocaleString()
+                        },
+                        default: '{completed} completed • {failed} failed'
+                    })}
+                </p>
+            </div>
+        </div>
+
+        <div class="mt-4 space-y-2">
+            {#each pipeline.kinds as row (row.kind)}
+                <div class="rounded-xl border border-slate-200/80 dark:border-slate-700/60 bg-white/80 dark:bg-slate-900/60 px-3 py-2">
+                    <div class="flex items-center justify-between gap-2">
+                        <p class="text-xs font-black text-slate-800 dark:text-slate-100 uppercase tracking-wide">{kindLabel(row.kind)}</p>
+                        <p class="text-[10px] font-semibold text-slate-400">
+                            {#if row.queueDepthKnown}
+                                {$_('jobs.queue_reported', { default: 'Queue reported' })}
+                            {:else}
+                                {$_('jobs.queue_not_reported', { default: 'Queue not reported' })}
+                            {/if}
+                        </p>
+                    </div>
+                    <div class="mt-2 grid grid-cols-2 md:grid-cols-4 gap-2 text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-300">
+                        <div>
+                            {$_('jobs.queued', { default: 'Queued' })}: {row.queued === null ? '—' : row.queued.toLocaleString()}
+                        </div>
+                        <div>
+                            {$_('jobs.running', { default: 'Running' })}: {row.running.toLocaleString()}
+                        </div>
+                        <div>
+                            {$_('jobs.completed', { default: 'Completed' })}: {row.completed.toLocaleString()}
+                        </div>
+                        <div>
+                            {$_('jobs.failed', { default: 'Failed' })}: {row.failed.toLocaleString()}
+                        </div>
+                    </div>
+                </div>
+            {/each}
+        </div>
+    </section>
 
     <section class="card-base p-6">
         <div class="flex items-center justify-between mb-4">

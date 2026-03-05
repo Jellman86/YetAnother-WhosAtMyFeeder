@@ -15,6 +15,7 @@
         autoVideoClassification = $bindable(false),
         videoClassificationDelay = $bindable(30),
         videoClassificationMaxRetries = $bindable(3),
+        videoClassificationMaxConcurrent = $bindable(5),
         videoClassificationFrames = $bindable(15),
         inferenceProvider = $bindable<'auto' | 'cpu' | 'cuda' | 'intel_gpu' | 'intel_cpu'>('auto'),
         classifierStatus = null,
@@ -34,6 +35,7 @@
         autoVideoClassification: boolean;
         videoClassificationDelay: number;
         videoClassificationMaxRetries: number;
+        videoClassificationMaxConcurrent: number;
         videoClassificationFrames: number;
         inferenceProvider: 'auto' | 'cpu' | 'cuda' | 'intel_gpu' | 'intel_cpu';
         classifierStatus: ClassifierStatus | null;
@@ -237,7 +239,7 @@
                                 {/if}
                             </div>
                         {/if}
-                        <div class="grid grid-cols-3 gap-4 animate-in fade-in slide-in-from-top-2">
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 animate-in fade-in slide-in-from-top-2">
                             <div>
                                 <label for="video-delay" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.detection.video_delay')}</label>
                                 <input
@@ -257,6 +259,18 @@
                                     bind:value={videoClassificationMaxRetries}
                                     min="0"
                                     aria-label={$_('settings.detection.video_retries')}
+                                    class="w-full px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
+                                />
+                            </div>
+                            <div>
+                                <label for="video-max-concurrent" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.detection.video_max_concurrent', { default: 'Max Concurrent' })}</label>
+                                <input
+                                    id="video-max-concurrent"
+                                    type="number"
+                                    bind:value={videoClassificationMaxConcurrent}
+                                    min="1"
+                                    max="20"
+                                    aria-label={$_('settings.detection.video_max_concurrent', { default: 'Max Concurrent Video Jobs' })}
                                     class="w-full px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
                                 />
                             </div>

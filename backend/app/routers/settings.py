@@ -278,6 +278,7 @@ class SettingsUpdate(BaseModel):
     auto_video_classification: Optional[bool] = Field(False, description="Automatically classify video clips")
     video_classification_delay: Optional[int] = Field(30, ge=0, description="Seconds to wait before checking for clip")
     video_classification_max_retries: Optional[int] = Field(3, ge=0, description="Max retries for clip availability")
+    video_classification_max_concurrent: Optional[int] = Field(5, ge=1, le=20, description="Maximum concurrent video classification jobs")
     video_classification_frames: Optional[int] = Field(15, ge=5, le=100, description="Number of frames to sample for video classification")
     inference_provider: Optional[str] = Field("auto", description="Preferred inference provider: auto|cpu|cuda|intel_gpu|intel_cpu")
     # Media cache settings
@@ -537,6 +538,7 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "auto_video_classification": settings.classification.auto_video_classification,
         "video_classification_delay": settings.classification.video_classification_delay,
         "video_classification_max_retries": settings.classification.video_classification_max_retries,
+        "video_classification_max_concurrent": settings.classification.video_classification_max_concurrent,
         "video_classification_frames": settings.classification.video_classification_frames,
         "inference_provider": settings.classification.inference_provider,
         "video_classification_circuit_open": circuit_status.get("open", False),
@@ -752,6 +754,8 @@ async def update_settings(
         settings.classification.video_classification_delay = update.video_classification_delay
     if "video_classification_max_retries" in fields_set and update.video_classification_max_retries is not None:
         settings.classification.video_classification_max_retries = update.video_classification_max_retries
+    if "video_classification_max_concurrent" in fields_set and update.video_classification_max_concurrent is not None:
+        settings.classification.video_classification_max_concurrent = update.video_classification_max_concurrent
     if "video_classification_frames" in fields_set and update.video_classification_frames is not None:
         settings.classification.video_classification_frames = update.video_classification_frames
     if "inference_provider" in fields_set and update.inference_provider is not None:

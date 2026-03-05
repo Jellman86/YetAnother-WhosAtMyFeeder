@@ -96,12 +96,51 @@ async def test_settings_update_persists_classification_delay_and_env_precedence(
 
 
 @pytest.mark.asyncio
+async def test_settings_roundtrip_video_classification_max_concurrent(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+
+    get_before = await client.get("/api/settings")
+    assert get_before.status_code == 200, get_before.text
+    before_payload = get_before.json()
+
+    assert "video_classification_max_concurrent" in before_payload
+
+    original_limit = before_payload["video_classification_max_concurrent"]
+    updated_limit = 7 if original_limit != 7 else 8
+
+    update_payload = {
+        "frigate_url": before_payload["frigate_url"],
+        "mqtt_server": before_payload["mqtt_server"],
+        "classification_threshold": before_payload["classification_threshold"],
+        "video_classification_max_concurrent": updated_limit,
+    }
+    post_resp = await client.post("/api/settings", json=update_payload)
+    assert post_resp.status_code == 200, post_resp.text
+
+    get_after = await client.get("/api/settings")
+    assert get_after.status_code == 200, get_after.text
+    after_payload = get_after.json()
+    assert after_payload["video_classification_max_concurrent"] == updated_limit
+
+    restore_payload = {
+        "frigate_url": before_payload["frigate_url"],
+        "mqtt_server": before_payload["mqtt_server"],
+        "classification_threshold": before_payload["classification_threshold"],
+        "video_classification_max_concurrent": original_limit,
+    }
+    restore_resp = await client.post("/api/settings", json=restore_payload)
+    assert restore_resp.status_code == 200, restore_resp.text
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "invalid_patch, expected_field",
     [
         ({"inference_provider": "gpu_magic"}, "inference_provider"),
         ({"classification_threshold": 1.5}, "classification_threshold"),
         ({"video_classification_frames": 3}, "video_classification_frames"),
+        ({"video_classification_max_concurrent": 0}, "video_classification_max_concurrent"),
     ],
 )
 async def test_settings_update_rejects_invalid_classification_payload(

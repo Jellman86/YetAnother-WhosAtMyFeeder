@@ -24,6 +24,7 @@ export interface Settings {
     auto_video_classification: boolean;
     video_classification_delay: number;
     video_classification_max_retries: number;
+    video_classification_max_concurrent: number;
     video_classification_frames: number;
     inference_provider: 'auto' | 'cpu' | 'cuda' | 'intel_gpu' | 'intel_cpu' | string;
     ai_pricing_json: string;
