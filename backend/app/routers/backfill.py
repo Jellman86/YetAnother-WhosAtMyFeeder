@@ -35,6 +35,7 @@ class BackfillJobStatus(BaseModel):
     new_detections: int = 0
     updated: int = 0
     skipped: int = 0
+    skipped_reasons: dict[str, int] = Field(default_factory=dict)
     errors: int = 0
     message: str = ""
     started_at: Optional[str] = None
@@ -119,6 +120,33 @@ class WeatherBackfillResponse(BaseModel):
     skipped: int
     errors: int
     message: str
+
+
+def _build_skipped_message(skipped: int, skipped_reasons: Optional[dict[str, int]] = None) -> str:
+    """Build a human-readable skipped summary from reason counters."""
+    if skipped <= 0:
+        return ""
+
+    reasons = {
+        str(k): int(v)
+        for k, v in (skipped_reasons or {}).items()
+        if k and int(v) > 0
+    }
+    if not reasons:
+        return f"{skipped} skipped"
+
+    already_exists = reasons.pop("already_exists", 0)
+    other_skips = sum(reasons.values())
+
+    parts: list[str] = []
+    if already_exists > 0:
+        parts.append(f"{already_exists} already existed")
+    if other_skips > 0:
+        parts.append(f"{other_skips} skipped by filters/validation")
+
+    if not parts:
+        return f"{skipped} skipped"
+    return ", ".join(parts)
 
 
 def _resolve_date_range(date_range: str, start_date: Optional[str], end_date: Optional[str], lang: str) -> tuple[datetime, datetime]:
@@ -239,7 +267,7 @@ async def backfill_detections(
             message = "No new detections found"
 
         if result.skipped > 0:
-            message += f", {result.skipped} already existed"
+            message += f", {_build_skipped_message(result.skipped, result.skipped_reasons)}"
 
         if result.errors > 0:
             message += f", {result.errors} error(s)"
@@ -320,6 +348,8 @@ async def backfill_detections_async(
                     job.new_detections += 1
                 elif status == "skipped":
                     job.skipped += 1
+                    if reason:
+                        job.skipped_reasons[reason] = job.skipped_reasons.get(reason, 0) + 1
                 else:
                     job.errors += 1
                 if job.processed - last_broadcast >= broadcast_every or job.processed == job.total:
@@ -333,7 +363,7 @@ async def backfill_detections_async(
             else:
                 message = "No new detections found"
             if job.skipped:
-                message += f", {job.skipped} already existed"
+                message += f", {_build_skipped_message(job.skipped, job.skipped_reasons)}"
             if job.errors:
                 message += f", {job.errors} error(s)"
             job.message = message
