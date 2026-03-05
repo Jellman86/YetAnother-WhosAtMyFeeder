@@ -383,9 +383,9 @@
                     <p class="block text-[10px] font-black uppercase tracking-widest text-slate-500">
                         {$_('settings.data.backfill_custom', { default: 'Custom range' })}
                     </p>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div>
-                            <label for="backfill-from-date" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
+                        <div class="min-w-0">
+                            <label for="backfill-from-date" class="block text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1.5 sm:mb-2">
                                 {$_('settings.data.backfill_from', { default: 'From' })}
                             </label>
                             <input
@@ -394,11 +394,11 @@
                                 bind:value={backfillStartDate}
                                 max={backfillEndDate || todayDateOnly()}
                                 aria-label={$_('settings.data.backfill_from', { default: 'From date' })}
-                                class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"
+                                class="w-full min-w-0 px-3 py-2.5 sm:px-4 sm:py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-xs sm:text-sm"
                             />
                         </div>
-                        <div>
-                            <label for="backfill-to-date" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">
+                        <div class="min-w-0">
+                            <label for="backfill-to-date" class="block text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1.5 sm:mb-2">
                                 {$_('settings.data.backfill_to', { default: 'To' })}
                             </label>
                             <input
@@ -408,7 +408,7 @@
                                 min={backfillStartDate || undefined}
                                 max={todayDateOnly()}
                                 aria-label={$_('settings.data.backfill_to', { default: 'To date' })}
-                                class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"
+                                class="w-full min-w-0 px-3 py-2.5 sm:px-4 sm:py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-xs sm:text-sm"
                             />
                         </div>
                     </div>
