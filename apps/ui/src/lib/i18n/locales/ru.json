@@ -13,7 +13,8 @@
     "about": "О проекте",
     "toggle_menu": "Переключить меню",
     "collapse_sidebar": "Свернуть панель",
-    "expand_sidebar": "Развернуть панель"
+    "expand_sidebar": "Развернуть панель",
+    "jobs": "Задачи"
   },
   "theme": {
     "switch_light": "Переключить на светлую тему",
@@ -809,7 +810,9 @@
     "system_health_message": "Состояние системы: {status}",
     "system_cache_disabled_title": "Кэш медиа отключён",
     "system_cache_disabled_message": "Предпросмотр таймлайна и кэш медиа отключены в текущих настройках.",
-    "open_action": "Открыть"
+    "open_action": "Открыть",
+    "global_progress_last": "Обновлено {age} назад",
+    "global_progress_stale": "{count} устаревших"
   },
   "actions": {
     "confirm_delete": "Удалить это обнаружение {species}?",
@@ -1222,7 +1225,8 @@
     "go_species": "Перейти к Рейтингу",
     "go_settings": "Перейти к Настройкам",
     "close_modal": "Закрыть модальное окно",
-    "refresh": "Обновить страницу"
+    "refresh": "Обновить страницу",
+    "go_jobs": "Перейти к задачам"
   },
   "footer": {
     "did_you_know": "Знаете ли вы?",
@@ -1330,5 +1334,20 @@
     "share_manage_revoke": "Отозвать",
     "share_manage_load_failed": "Не удалось загрузить активные общие ссылки",
     "shared_watermark": "Общий клип"
+  },
+  "jobs": {
+    "title": "Задачи",
+    "subtitle": "Следите за активными фоновыми задачами и последними результатами.",
+    "open": "Открыть задачи",
+    "unknown_total": "Сканирование...",
+    "rate_label": "{rate}",
+    "more": "+{count} задач",
+    "clear_history": "Очистить историю",
+    "clear_all": "Очистить всё",
+    "active": "Активные",
+    "active_empty": "Нет активных задач.",
+    "recent": "Недавние",
+    "recent_empty": "Пока нет завершённых задач.",
+    "updated": "Обновлено {age} назад"
   }
 }

@@ -6,6 +6,15 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- **Added:** Dedicated frontend background-job telemetry store (`jobProgressStore`) with explicit lifecycle states (`running`, `stale`, `completed`, `failed`), rate-per-minute estimation, and ETA tracking.
+- **Added:** New Jobs page (`/jobs`) for active/recent task visibility, with clear-history/clear-all controls and per-job navigation.
+- **Changed:** Global progress UI now reads from dedicated job telemetry (not notification `process` items), supports determinate/indeterminate rendering, exposes stale/update-age indicators, and links directly to Jobs.
+- **Changed:** Backfill and reclassification SSE/polling paths now update both notification history and job telemetry in parallel, improving resilience when terminal SSE events are missed.
+- **Fixed:** Backfill progress reconciliation no longer treats `null` status as implicit completion; matching jobs are now marked `stale` defensively to avoid false-finished states during restarts/auth races.
+- **Fixed:** Job telemetry updates now preserve prior counters when sparse payloads omit `current`/`total`, enforce monotonic progress, and prevent `N/0` terminal-state regressions.
+- **Changed:** Added locale-key coverage for new Jobs/global-progress/navigation/shortcut strings across all supported UI languages.
+- **Added:** Frontend unit tests for job telemetry edge cases (sparse payloads, monotonic counters, stale transitions, idempotent prefix-close behavior, terminal counter normalization) via Vitest.
+
 - **Changed:** Refactored backend configuration internals into segmented modules: `app/config.py` (orchestration), `app/config_models.py` (settings models/defaults), and `app/config_loader.py` (env/file merge logic), reducing `config.py` from 1,032 lines to 95 lines while preserving `from app.config import settings` compatibility.
 - **Added:** New backend regression tests for env-to-settings mapping coverage (`backend/tests/test_config_env_mapping.py`).
 - **Fixed:** Restored env override support for `CLASSIFICATION__VIDEO_CLASSIFICATION_TIMEOUT_SECONDS`, `CLASSIFICATION__VIDEO_CLASSIFICATION_STALE_MINUTES`, and `NOTIFICATIONS__NOTIFICATION_COOLDOWN_MINUTES`.

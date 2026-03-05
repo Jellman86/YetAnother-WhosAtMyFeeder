@@ -13,7 +13,8 @@
     "about": "À propos",
     "toggle_menu": "Menu",
     "collapse_sidebar": "Réduire la barre latérale",
-    "expand_sidebar": "Développer la barre latérale"
+    "expand_sidebar": "Développer la barre latérale",
+    "jobs": "Tâches"
   },
   "theme": {
     "switch_light": "Passer au mode clair",
@@ -801,7 +802,9 @@
     "system_health_message": "État du système : {status}",
     "system_cache_disabled_title": "Cache média désactivé",
     "system_cache_disabled_message": "Les aperçus de la chronologie et la mise en cache des médias sont désactivés dans la configuration actuelle.",
-    "open_action": "Ouvrir"
+    "open_action": "Ouvrir",
+    "global_progress_last": "Mis à jour il y a {age}",
+    "global_progress_stale": "{count} obsolètes"
   },
   "actions": {
     "confirm_delete": "Supprimer cette détection de {species} ?",
@@ -1214,7 +1217,8 @@
     "go_species": "Aller au Classement",
     "go_settings": "Aller aux Paramètres",
     "close_modal": "Fermer la fenêtre",
-    "refresh": "Actualiser la page"
+    "refresh": "Actualiser la page",
+    "go_jobs": "Aller aux tâches"
   },
   "footer": {
     "did_you_know": "Le saviez-vous ?",
@@ -1330,5 +1334,20 @@
     "share_manage_revoke": "Revoquer",
     "share_manage_load_failed": "Impossible de charger les liens de partage actifs",
     "shared_watermark": "Clip partagé"
+  },
+  "jobs": {
+    "title": "Tâches",
+    "subtitle": "Suivez les tâches en arrière-plan actives et les résultats récents.",
+    "open": "Ouvrir les tâches",
+    "unknown_total": "Analyse en cours...",
+    "rate_label": "{rate}",
+    "more": "+{count} tâches supplémentaires",
+    "clear_history": "Effacer l’historique",
+    "clear_all": "Tout effacer",
+    "active": "Actives",
+    "active_empty": "Aucune tâche active.",
+    "recent": "Récentes",
+    "recent_empty": "Aucune tâche terminée pour le moment.",
+    "updated": "Mis à jour il y a {age}"
   }
 }

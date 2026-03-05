@@ -13,7 +13,8 @@
     "about": "关于",
     "toggle_menu": "切换菜单",
     "collapse_sidebar": "收起侧边栏",
-    "expand_sidebar": "展开侧边栏"
+    "expand_sidebar": "展开侧边栏",
+    "jobs": "任务"
   },
   "theme": {
     "switch_light": "切换到浅色模式",
@@ -801,7 +802,9 @@
     "system_health_message": "系统状态：{status}",
     "system_cache_disabled_title": "媒体缓存已禁用",
     "system_cache_disabled_message": "当前设置下，时间线预览和媒体缓存已禁用。",
-    "open_action": "打开"
+    "open_action": "打开",
+    "global_progress_last": "{age} 前更新",
+    "global_progress_stale": "{count} 个陈旧任务"
   },
   "actions": {
     "confirm_delete": "删除此 {species} 检测记录？",
@@ -1214,7 +1217,8 @@
     "go_species": "转到排行榜",
     "go_settings": "转到设置",
     "close_modal": "关闭模态框",
-    "refresh": "刷新页面"
+    "refresh": "刷新页面",
+    "go_jobs": "前往任务"
   },
   "footer": {
     "did_you_know": "你知道吗？",
@@ -1330,5 +1334,20 @@
     "share_manage_revoke": "撤销",
     "share_manage_load_failed": "无法加载有效分享链接",
     "shared_watermark": "已分享剪辑"
+  },
+  "jobs": {
+    "title": "任务",
+    "subtitle": "跟踪活跃的后台任务与最近结果。",
+    "open": "打开任务",
+    "unknown_total": "扫描中...",
+    "rate_label": "{rate}",
+    "more": "+{count} 个更多任务",
+    "clear_history": "清除历史",
+    "clear_all": "全部清除",
+    "active": "活跃",
+    "active_empty": "没有活跃任务。",
+    "recent": "最近",
+    "recent_empty": "还没有已完成任务。",
+    "updated": "{age} 前更新"
   }
 }

@@ -13,7 +13,8 @@
     "about": "このアプリについて",
     "toggle_menu": "メニューの切り替え",
     "collapse_sidebar": "サイドバーを折りたたむ",
-    "expand_sidebar": "サイドバーを展開"
+    "expand_sidebar": "サイドバーを展開",
+    "jobs": "ジョブ"
   },
   "theme": {
     "switch_light": "ライトモードに切り替え",
@@ -801,7 +802,9 @@
     "system_health_message": "システム状態: {status}",
     "system_cache_disabled_title": "メディアキャッシュが無効です",
     "system_cache_disabled_message": "現在の設定では、タイムラインプレビューとメディアキャッシュが無効になっています。",
-    "open_action": "開く"
+    "open_action": "開く",
+    "global_progress_last": "{age}前に更新",
+    "global_progress_stale": "{count}件の停滞"
   },
   "actions": {
     "confirm_delete": "この {species} の検出を削除しますか？",
@@ -1214,7 +1217,8 @@
     "go_species": "リーダーボードへ",
     "go_settings": "設定へ",
     "close_modal": "モーダルを閉じる",
-    "refresh": "ページを更新"
+    "refresh": "ページを更新",
+    "go_jobs": "ジョブへ移動"
   },
   "footer": {
     "did_you_know": "ご存知ですか？",
@@ -1330,5 +1334,20 @@
     "share_manage_revoke": "無効化",
     "share_manage_load_failed": "有効な共有リンクを読み込めませんでした",
     "shared_watermark": "共有クリップ"
+  },
+  "jobs": {
+    "title": "ジョブ",
+    "subtitle": "実行中のバックグラウンドタスクと最近の結果を確認します。",
+    "open": "ジョブを開く",
+    "unknown_total": "スキャン中...",
+    "rate_label": "{rate}",
+    "more": "+{count}件の追加ジョブ",
+    "clear_history": "履歴をクリア",
+    "clear_all": "すべてクリア",
+    "active": "実行中",
+    "active_empty": "実行中のジョブはありません。",
+    "recent": "最近",
+    "recent_empty": "完了したジョブはまだありません。",
+    "updated": "{age}前に更新"
   }
 }

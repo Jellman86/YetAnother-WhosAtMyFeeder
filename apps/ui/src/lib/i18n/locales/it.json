@@ -13,7 +13,8 @@
     "about": "Informazioni",
     "toggle_menu": "Attiva/disattiva menu",
     "collapse_sidebar": "Comprimi barra laterale",
-    "expand_sidebar": "Espandi barra laterale"
+    "expand_sidebar": "Espandi barra laterale",
+    "jobs": "Attività"
   },
   "theme": {
     "switch_light": "Passa alla modalità chiara",
@@ -809,7 +810,9 @@
     "system_health_message": "Stato del sistema: {status}",
     "system_cache_disabled_title": "Cache multimediale disattivata",
     "system_cache_disabled_message": "Le anteprime della timeline e la cache multimediale sono disattivate nelle impostazioni correnti.",
-    "open_action": "Apri"
+    "open_action": "Apri",
+    "global_progress_last": "Aggiornato {age} fa",
+    "global_progress_stale": "{count} obsoleti"
   },
   "actions": {
     "confirm_delete": "Eliminare questo rilevamento di {species}?",
@@ -1222,7 +1225,8 @@
     "go_species": "Vai a Classifica",
     "go_settings": "Vai a Impostazioni",
     "close_modal": "Chiudi modale",
-    "refresh": "Aggiorna pagina"
+    "refresh": "Aggiorna pagina",
+    "go_jobs": "Vai ad Attività"
   },
   "footer": {
     "did_you_know": "Lo sapevi?",
@@ -1330,5 +1334,20 @@
     "share_manage_revoke": "Revoca",
     "share_manage_load_failed": "Impossibile caricare i link condivisi attivi",
     "shared_watermark": "Clip condivisa"
+  },
+  "jobs": {
+    "title": "Attività",
+    "subtitle": "Monitora i processi in background attivi e i risultati recenti.",
+    "open": "Apri attività",
+    "unknown_total": "Scansione in corso...",
+    "rate_label": "{rate}",
+    "more": "+{count} altre attività",
+    "clear_history": "Cancella cronologia",
+    "clear_all": "Cancella tutto",
+    "active": "Attive",
+    "active_empty": "Nessuna attività attiva.",
+    "recent": "Recenti",
+    "recent_empty": "Nessuna attività completata al momento.",
+    "updated": "Aggiornato {age} fa"
   }
 }

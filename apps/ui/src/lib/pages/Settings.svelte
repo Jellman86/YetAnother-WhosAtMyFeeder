@@ -60,6 +60,8 @@
     import { settingsStore } from '../stores/settings.svelte';
     import { authStore } from '../stores/auth.svelte';
     import { toastStore } from '../stores/toast.svelte';
+    import { jobProgressStore } from '../stores/job_progress.svelte';
+    import { notificationCenter } from '../stores/notification_center.svelte';
     import { notificationPolicy } from '../notifications/policy';
     import { _, locale } from 'svelte-i18n';
     import { get } from 'svelte/store';
@@ -1349,6 +1351,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     let lastFeedbackKey = $state('');
     let lastFeedbackAt = $state(0);
     const BACKFILL_TOAST_THROTTLE_MS = 6 * 60 * 60 * 1000;
+    const BACKFILL_NOTIFICATION_SYNC_THROTTLE_MS = 1200;
 
     const normalizeSecret = (value?: string | null) => value === '***REDACTED***' ? '' : (value || '');
     const safeCount = (value: unknown): number => {
@@ -1364,6 +1367,151 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
         if (status.status === 'running') return Math.max(previous, 1);
         return previous;
     };
+
+    function isBackfillNotificationForKind(item: { id: string; meta?: { kind?: unknown } }, kind: 'detections' | 'weather') {
+        if (item.id.startsWith(`backfill:${kind}:`)) return true;
+        if (!item.id.startsWith('backfill:')) return false;
+        return item.meta?.kind === kind;
+    }
+
+    function settleBackfillProcessNotifications(kind: 'detections' | 'weather', keepId?: string) {
+        const now = Date.now();
+        for (const item of notificationCenter.items) {
+            if (item.type !== 'process' || item.read) continue;
+            if (!isBackfillNotificationForKind(item, kind)) continue;
+            if (keepId && item.id === keepId) continue;
+            notificationCenter.upsert({
+                ...item,
+                type: 'update',
+                read: true,
+                timestamp: now,
+                meta: {
+                    ...(item.meta ?? {}),
+                    source: item.meta?.source ?? 'ui',
+                    kind
+                }
+            });
+        }
+    }
+
+    function reconcileBackfillNotification(kind: 'detections' | 'weather', status: BackfillJobStatus | null) {
+        if (!status) {
+            const prefix = `backfill:${kind}:`;
+            jobProgressStore.closeActiveByPrefix(prefix, 'stale');
+            return;
+        }
+
+        const jobId = status.id || 'unknown';
+        const id = `backfill:${kind}:${jobId}`;
+        const legacyId = `backfill:${jobId}`;
+        if (legacyId !== id) {
+            notificationCenter.remove(legacyId);
+        }
+
+        const processed = safeCount(status.processed);
+        const total = safeCount(status.total);
+        const updated = kind === 'weather'
+            ? safeCount(status.updated)
+            : safeCount(status.new_detections);
+        const skipped = safeCount(status.skipped);
+        const errors = safeCount(status.errors);
+
+        const isRunning = status.status === 'running';
+        const normalizedTotal = total > 0 ? total : (isRunning ? Math.max(1, processed) : 0);
+        const progressTotal = total > 0 ? total : Math.max(processed, normalizedTotal);
+        settleBackfillProcessNotifications(kind, isRunning ? id : undefined);
+
+        let title = kind === 'weather'
+            ? $_('notifications.event_weather_backfill')
+            : $_('notifications.event_backfill');
+        if (status.status === 'completed') {
+            title = kind === 'weather'
+                ? $_('notifications.event_weather_backfill_done')
+                : $_('notifications.event_backfill_done');
+        } else if (status.status === 'failed') {
+            title = kind === 'weather'
+                ? $_('notifications.event_weather_backfill_failed')
+                : $_('notifications.event_backfill_failed');
+        }
+
+        const signature = [
+            status.status,
+            processed,
+            total,
+            updated,
+            skipped,
+            errors,
+            status.message ?? ''
+        ].join('|');
+        const syncKey = `settings:backfill-sync:${kind}:${jobId}`;
+        const throttleMs = isRunning ? BACKFILL_NOTIFICATION_SYNC_THROTTLE_MS : BACKFILL_TOAST_THROTTLE_MS;
+        if (!notificationPolicy.shouldEmit(syncKey, signature, throttleMs)) {
+            return;
+        }
+
+        let message = `${processed.toLocaleString()}/${normalizedTotal.toLocaleString()} • ${updated.toLocaleString()} upd • ${skipped.toLocaleString()} skip • ${errors.toLocaleString()} err`;
+        if (!isRunning) {
+            if (status.status === 'failed') {
+                message = status.message || $_('notifications.event_backfill_failed');
+            } else {
+                message = status.message || `${updated.toLocaleString()} updated, ${skipped.toLocaleString()} skipped, ${errors.toLocaleString()} errors`;
+            }
+        }
+
+        const progressTitle = kind === 'weather'
+            ? $_('notifications.event_weather_backfill')
+            : $_('notifications.event_backfill');
+        if (status.status === 'failed') {
+            jobProgressStore.markFailed({
+                id,
+                kind: kind === 'weather' ? 'weather_backfill' : 'backfill',
+                title: progressTitle,
+                message,
+                route: '/settings',
+                current: processed,
+                total: progressTotal,
+                source: 'poll'
+            });
+        } else if (status.status === 'completed') {
+            jobProgressStore.markCompleted({
+                id,
+                kind: kind === 'weather' ? 'weather_backfill' : 'backfill',
+                title: progressTitle,
+                message,
+                route: '/settings',
+                current: processed,
+                total: progressTotal,
+                source: 'poll'
+            });
+        } else {
+            jobProgressStore.upsertRunning({
+                id,
+                kind: kind === 'weather' ? 'weather_backfill' : 'backfill',
+                title: progressTitle,
+                message,
+                route: '/settings',
+                current: processed,
+                total: progressTotal,
+                source: 'poll'
+            });
+        }
+
+        notificationCenter.upsert({
+            id,
+            type: isRunning ? 'process' : 'update',
+            title,
+            message,
+            timestamp: Date.now(),
+            read: !isRunning,
+            meta: {
+                source: 'ui',
+                route: '/settings',
+                kind,
+                processed,
+                total: normalizedTotal
+            }
+        });
+    }
 
     function emitTerminalBackfillToast(
         kind: 'detections' | 'weather',
@@ -2012,7 +2160,13 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 } else if (detections.status === 'failed') {
                     emitTerminalBackfillToast('detections', detections, 'error', 'Backfill failed');
                 }
+            } else {
+                backfillJob = null;
+                backfillResult = null;
+                backfillTotal = 0;
+                backfilling = false;
             }
+            reconcileBackfillNotification('detections', detections);
 
             if (weather) {
                 weatherBackfillJob = weather;
@@ -2031,7 +2185,13 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 } else if (weather.status === 'failed') {
                     emitTerminalBackfillToast('weather', weather, 'error', 'Weather backfill failed');
                 }
+            } else {
+                weatherBackfillJob = null;
+                weatherBackfillResult = null;
+                weatherBackfillTotal = 0;
+                weatherBackfilling = false;
             }
+            reconcileBackfillNotification('weather', weather);
 
             const detectionsDone = !backfillJob || backfillJob.status !== 'running';
             const weatherDone = !weatherBackfillJob || weatherBackfillJob.status !== 'running';

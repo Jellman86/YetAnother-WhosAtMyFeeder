@@ -39,6 +39,40 @@ interface SettingsStoreLike {
     liveAnnouncements: boolean;
 }
 
+interface JobProgressLike {
+    upsertRunning(input: {
+        id: string;
+        kind: string;
+        title: string;
+        message?: string;
+        route?: string;
+        current?: number;
+        total?: number;
+        source?: 'sse' | 'poll' | 'ui' | 'system';
+    }): void;
+    markCompleted(input: {
+        id: string;
+        kind: string;
+        title: string;
+        message?: string;
+        route?: string;
+        current?: number;
+        total?: number;
+        source?: 'sse' | 'poll' | 'ui' | 'system';
+    }): void;
+    markFailed(input: {
+        id: string;
+        kind: string;
+        title: string;
+        message?: string;
+        route?: string;
+        current?: number;
+        total?: number;
+        source?: 'sse' | 'poll' | 'ui' | 'system';
+    }): void;
+    markStale(maxIdleMs: number): void;
+}
+
 interface LoggerLike {
     warn(message: string, payload?: any): void;
     error(message: string, error?: any, payload?: any): void;
@@ -50,6 +84,7 @@ interface LiveUpdateDeps {
     shouldNotify: () => boolean;
     applyNotificationPolicy: (id: string, signature: string, throttleMs?: number) => boolean;
     notificationCenter: NotificationCenterLike;
+    jobProgress: JobProgressLike;
     detectionsStore: DetectionsStoreLike;
     settingsStore: SettingsStoreLike;
     announcer: { announce(message: string): void };
@@ -110,6 +145,7 @@ export class LiveUpdateCoordinator {
         for (const item of stale) {
             this.deps.notificationCenter.upsert(item);
         }
+        this.deps.jobProgress.markStale(RECLASSIFY_STATE_MAX_IDLE_MS);
         this.pruneStaleReclassifyState();
     }
 
@@ -218,6 +254,15 @@ export class LiveUpdateCoordinator {
                     return;
                 }
                 this.markReclassifyStarted(payload.data.event_id, payload.data.total_frames ?? 0);
+                this.deps.jobProgress.upsertRunning({
+                    id: `reclassify:${payload.data.event_id}`,
+                    kind: 'reclassify',
+                    title: this.deps.t('actions.reclassify'),
+                    route: `/events?event=${encodeURIComponent(payload.data.event_id)}`,
+                    current: 0,
+                    total: Number(payload.data.total_frames ?? 0),
+                    source: 'sse'
+                });
                 this.deps.detectionsStore.startReclassification(
                     payload.data.event_id,
                     payload.data.total_frames ?? 15,
@@ -252,6 +297,17 @@ export class LiveUpdateCoordinator {
                     this.deps.logger.warn('SSE invalid reclassification_completed payload', { payload });
                     return;
                 }
+                const prior = this.reclassifyProgressByEvent.get(payload.data.event_id);
+                this.deps.jobProgress.markCompleted({
+                    id: `reclassify:${payload.data.event_id}`,
+                    kind: 'reclassify',
+                    title: this.deps.t('actions.reclassify'),
+                    message: this.deps.t('notifications.event_reclassify'),
+                    route: `/events?event=${encodeURIComponent(payload.data.event_id)}`,
+                    current: prior?.current ?? 0,
+                    total: prior?.total ?? 0,
+                    source: 'sse'
+                });
                 this.clearReclassifyProgressNotification(payload.data.event_id);
                 this.deps.detectionsStore.completeReclassification(
                     payload.data.event_id,
@@ -456,6 +512,19 @@ export class LiveUpdateCoordinator {
                 current: normalizedCurrent.toLocaleString(),
                 total: normalizedTotal.toLocaleString()
             });
+        this.deps.jobProgress.upsertRunning({
+            id: `reclassify:${eventId}`,
+            kind: 'reclassify',
+            title: this.deps.t('actions.reclassify'),
+            message: this.deps.t('notifications.event_reclassify_progress', {
+                current: normalizedCurrent.toLocaleString(),
+                total: normalizedTotal.toLocaleString()
+            }),
+            route: `/events?event=${encodeURIComponent(eventId)}`,
+            current: normalizedCurrent,
+            total: normalizedTotal,
+            source: 'sse'
+        });
         this.deps.notificationCenter.upsert({
             id: RECLASSIFY_PROGRESS_ID,
             type: 'process',
@@ -527,14 +596,52 @@ export class LiveUpdateCoordinator {
         const signature = `${payload.type}|${jobId}|${processed}|${total}|${updated}|${skipped}|${errors}`;
         const throttleMs = payload.type === 'backfill_progress' ? 1200 : 0;
         if (!this.deps.applyNotificationPolicy(id, signature, throttleMs)) return;
+        const isTerminal = payload.type === 'backfill_complete' || payload.type === 'backfill_failed';
+        const jobTitle = isWeather ? this.deps.t('notifications.event_weather_backfill') : this.deps.t('notifications.event_backfill');
+        const progressTotal = total > 0 ? total : (isTerminal ? processed : normalizedTotal);
+        const progressMessage = `${processed.toLocaleString()}/${normalizedTotal.toLocaleString()} • ${updated.toLocaleString()} upd • ${skipped.toLocaleString()} skip • ${errors.toLocaleString()} err`;
+        if (payload.type === 'backfill_failed') {
+            this.deps.jobProgress.markFailed({
+                id,
+                kind: isWeather ? 'weather_backfill' : 'backfill',
+                title: jobTitle,
+                message,
+                route: '/settings',
+                current: processed,
+                total: progressTotal,
+                source: 'sse'
+            });
+        } else if (payload.type === 'backfill_complete') {
+            this.deps.jobProgress.markCompleted({
+                id,
+                kind: isWeather ? 'weather_backfill' : 'backfill',
+                title: jobTitle,
+                message,
+                route: '/settings',
+                current: processed,
+                total: progressTotal,
+                source: 'sse'
+            });
+        } else {
+            this.deps.jobProgress.upsertRunning({
+                id,
+                kind: isWeather ? 'weather_backfill' : 'backfill',
+                title: jobTitle,
+                message: progressMessage,
+                route: '/settings',
+                current: processed,
+                total: progressTotal,
+                source: 'sse'
+            });
+        }
 
         this.deps.notificationCenter.upsert({
             id,
-            type: 'process',
+            type: isTerminal ? 'update' : 'process',
             title,
             message,
             timestamp: Date.now(),
-            read: payload.type === 'backfill_complete' || payload.type === 'backfill_failed',
+            read: isTerminal,
             meta: {
                 source: 'sse',
                 route: '/settings',

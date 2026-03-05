@@ -16,6 +16,7 @@
   import Settings from './lib/pages/Settings.svelte';
   import About from './lib/pages/About.svelte';
   import Notifications from './lib/pages/Notifications.svelte';
+  import Jobs from './lib/pages/Jobs.svelte';
   import Login from './lib/components/Login.svelte';
   import FirstRunWizard from './lib/pages/FirstRunWizard.svelte';
   import { checkHealth, fetchCacheStats, setAuthErrorCallback } from './lib/api';
@@ -25,6 +26,7 @@
   import { detectionsStore } from './lib/stores/detections.svelte';
   import { authStore } from './lib/stores/auth.svelte';
   import { notificationCenter } from './lib/stores/notification_center.svelte';
+  import { jobProgressStore } from './lib/stores/job_progress.svelte';
   import { notificationPolicy } from './lib/notifications/policy';
   import { announcer } from './lib/components/Announcer.svelte';
   import Announcer from './lib/components/Announcer.svelte';
@@ -121,6 +123,7 @@
       shouldNotify,
       applyNotificationPolicy,
       notificationCenter,
+      jobProgress: jobProgressStore,
       detectionsStore,
       settingsStore,
       announcer,
@@ -203,6 +206,7 @@
               'g d': () => navigate('/'),
               'g e': () => navigate('/events'),
               'g l': () => navigate('/species'),
+              'g j': () => navigate('/jobs'),
               'g t': () => navigate('/settings'),
               'Escape': () => {
                   // Close keyboard shortcuts modal
@@ -436,8 +440,8 @@
 
       <!-- Main Content Wrapper -->
       <div class="flex-1 flex flex-col transition-all duration-300 {effectiveLayout === 'vertical' ? (isSidebarCollapsed ? 'md:pl-20' : 'md:pl-64') : ''}">
-          {#if !currentRoute.startsWith('/notifications')}
-              <GlobalProgress />
+          {#if !currentRoute.startsWith('/notifications') && !currentRoute.startsWith('/jobs')}
+              <GlobalProgress onNavigate={navigate} />
           {/if}
           <main id="main-content" class="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
               {#if currentRoute === '/'}
@@ -455,6 +459,8 @@
                    {/if}
               {:else if currentRoute.startsWith('/notifications')}
                   <Notifications />
+              {:else if currentRoute.startsWith('/jobs')}
+                  <Jobs onNavigate={navigate} />
               {:else if currentRoute.startsWith('/about')}
                    <About />
               {/if}

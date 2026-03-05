@@ -1,94 +1,114 @@
 <script lang="ts">
+    import { onMount } from 'svelte';
     import { slide } from 'svelte/transition';
     import { _ } from 'svelte-i18n';
-    import { notificationCenter, type NotificationItem } from '../stores/notification_center.svelte';
+    import { jobProgressStore, type JobProgressItem } from '../stores/job_progress.svelte';
+    let { onNavigate } = $props<{ onNavigate?: (path: string) => void }>();
 
-    let items = $derived(notificationCenter.items);
-    let ongoingItems = $derived(items.filter((item) => item.type === 'process' && !item.read));
-
-    function getProgress(item: NotificationItem) {
-        const meta = item.meta ?? {};
-        const total = Number(meta.total ?? 0);
-        const current = Number(meta.current ?? meta.processed ?? 0);
-        if (!Number.isFinite(total) || total <= 0) return 0;
-        if (!Number.isFinite(current)) return 0;
-        return Math.min(100, Math.max(0, Math.round((current / total) * 100)));
-    }
-
-    let aggregateStats = $derived.by(() => {
-        if (ongoingItems.length === 0) return { percent: 0, current: 0, total: 0 };
-        
-        let totalSum = 0;
-        let currentSum = 0;
-        let percentSum = 0;
-        
-        for (const item of ongoingItems) {
-            const meta = item.meta ?? {};
-            const t = Number(meta.total ?? 0);
-            const c = Number(meta.current ?? meta.processed ?? 0);
-            
-            if (Number.isFinite(t) && t > 0) {
-                totalSum += t;
-                if (Number.isFinite(c)) {
-                    currentSum += Math.min(t, Math.max(0, c));
-                }
-            }
-            percentSum += getProgress(item);
-        }
-        
-        let percent = 0;
-        if (totalSum > 0) {
-            percent = Math.round((currentSum / totalSum) * 100);
-        } else if (ongoingItems.length > 0) {
-            percent = Math.round(percentSum / ongoingItems.length);
-        }
-        
-        const safePercent = Number.isFinite(percent) ? Math.min(100, Math.max(0, percent)) : 0;
-
-        return {
-            percent: safePercent,
-            current: currentSum,
-            total: totalSum
+    let nowTs = $state(Date.now());
+    let showDetails = $state(false);
+    const detailLimit = 4;
+    onMount(() => {
+        const tick = setInterval(() => {
+            nowTs = Date.now();
+        }, 1000);
+        return () => {
+            clearInterval(tick);
         };
     });
 
-    let currentMessage = $derived.by(() => {
-        if (ongoingItems.length === 0) return "";
-        const active = ongoingItems[0];
-        return active.title;
+    let activeJobs = $derived(jobProgressStore.activeJobs);
+    let staleJobs = $derived(activeJobs.filter((item) => item.status === 'stale'));
+    let detailJobs = $derived(activeJobs.slice(0, detailLimit));
+
+    function pct(item: JobProgressItem): number | null {
+        if (item.total <= 0) return null;
+        return Math.min(100, Math.max(0, Math.round((item.current / item.total) * 100)));
+    }
+
+    function fmtRate(value?: number): string {
+        if (!Number.isFinite(value) || !value || value <= 0) return 'n/a';
+        return `${Math.round(value).toLocaleString()}/min`;
+    }
+
+    function fmtEta(seconds?: number): string {
+        if (!Number.isFinite(seconds) || !seconds || seconds <= 0) return 'n/a';
+        const total = Math.floor(seconds);
+        const h = Math.floor(total / 3600);
+        const m = Math.floor((total % 3600) / 60);
+        const s = total % 60;
+        if (h > 0) return `${h}h ${m}m`;
+        if (m > 0) return `${m}m ${s}s`;
+        return `${s}s`;
+    }
+
+    function fmtAge(updatedAt: number): string {
+        const sec = Math.max(0, Math.floor((nowTs - updatedAt) / 1000));
+        if (sec < 60) return `${sec}s`;
+        const min = Math.floor(sec / 60);
+        const remSec = sec % 60;
+        if (min < 60) return `${min}m ${remSec}s`;
+        const hours = Math.floor(min / 60);
+        const remMin = min % 60;
+        return `${hours}h ${remMin}m`;
+    }
+
+    let aggregate = $derived.by(() => {
+        if (activeJobs.length === 0) {
+            return { percent: null as number | null, current: 0, total: 0, rate: 0, etaSeconds: null as number | null };
+        }
+        let current = 0;
+        let total = 0;
+        let rate = 0;
+        for (const item of activeJobs) {
+            if (item.total > 0) {
+                total += item.total;
+                current += Math.min(item.total, Math.max(0, item.current));
+            }
+            if (Number.isFinite(item.ratePerMinute) && (item.ratePerMinute ?? 0) > 0) {
+                rate += item.ratePerMinute ?? 0;
+            }
+        }
+        const percent = total > 0 ? Math.min(100, Math.max(0, Math.round((current / total) * 100))) : null;
+        const etaSeconds = total > 0 && rate > 0 && current < total
+            ? Math.ceil(((total - current) / rate) * 60)
+            : null;
+        return { percent, current, total, rate, etaSeconds };
     });
 
     let summaryLabel = $derived.by(() => {
-        if (ongoingItems.length === 0) return "";
-        if (ongoingItems.length === 1) {
-            return ongoingItems[0].title;
-        }
-        return $_('notifications.global_progress_tasks', { values: { count: ongoingItems.length } });
+        if (activeJobs.length === 1) return activeJobs[0].title;
+        return $_('notifications.global_progress_tasks', { values: { count: activeJobs.length } });
     });
 
-    let showDetails = $state(false);
+    function openJobsPage() {
+        if (onNavigate) {
+            onNavigate('/jobs');
+            return;
+        }
+        window.location.assign('/jobs');
+    }
 </script>
 
-{#if ongoingItems.length > 0}
-    <div 
-        class="w-full bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 overflow-hidden relative group shrink-0"
+{#if activeJobs.length > 0}
+    <div
+        class="w-full bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 overflow-hidden relative shrink-0"
         transition:slide={{ duration: 300 }}
         role="status"
         aria-live="polite"
     >
-        <!-- Subtle pulse background -->
-        <div class="absolute inset-0 bg-emerald-500/5 animate-pulse pointer-events-none"></div>
+        <div class="absolute inset-0 bg-emerald-500/5 pointer-events-none"></div>
 
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 relative z-10">
             <div class="flex flex-col gap-2">
-                <div class="flex items-center justify-between gap-4">
+                <div class="flex items-center justify-between gap-3">
                     <button
                         type="button"
-                        class="flex items-center gap-3 min-w-0 flex-1 cursor-help focus:outline-none focus:ring-2 focus:ring-emerald-500 rounded-lg text-left bg-transparent"
-                        onmouseenter={() => showDetails = true} 
+                        class="flex items-center gap-3 min-w-0 flex-1 text-left bg-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500 rounded-lg"
+                        onmouseenter={() => showDetails = true}
                         onmouseleave={() => showDetails = false}
                         onclick={() => showDetails = !showDetails}
-                        aria-expanded={showDetails && ongoingItems.length > 1}
+                        aria-expanded={showDetails}
                         aria-controls="global-progress-details"
                     >
                         <div class="w-6 h-6 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400 flex-shrink-0">
@@ -96,65 +116,91 @@
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                             </svg>
                         </div>
-                        <div class="min-w-0 flex flex-col md:flex-row md:items-baseline md:gap-3 cursor-help">
+                        <div class="min-w-0">
                             <p class="text-[10px] font-black text-slate-900 dark:text-white uppercase tracking-tight truncate">
                                 {summaryLabel}
                             </p>
-                            {#if ongoingItems.length > 1 && currentMessage}
-                                <p class="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-widest truncate max-w-[200px] md:max-w-md">
-                                    {currentMessage}
-                                </p>
-                            {/if}
-                        </div>
-                    </button>
-                    
-                    <div class="flex items-center gap-4">
-                        <div class="flex items-center gap-2">
-                            {#if aggregateStats.total > 0}
-                                <span class="text-[9px] font-medium text-slate-500 tracking-wider">
-                                    {aggregateStats.current.toLocaleString()} / {aggregateStats.total.toLocaleString()}
-                                </span>
-                            {/if}
-                            <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest whitespace-nowrap">
-                                {aggregateStats.percent}% Total
+                            <p class="text-[9px] font-bold text-slate-500 dark:text-slate-300 uppercase tracking-wider truncate">
+                                {$_('notifications.global_progress_last', { values: { age: fmtAge(activeJobs[0].updatedAt) }, default: 'Updated {age} ago' })}
+                                {#if staleJobs.length > 0}
+                                    · {$_('notifications.global_progress_stale', { values: { count: staleJobs.length }, default: '{count} stale' })}
+                                {/if}
                             </p>
                         </div>
-                    </div>
+                    </button>
+
+                    <button
+                        type="button"
+                        class="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 hover:bg-emerald-200 dark:hover:bg-emerald-800/50 transition-colors"
+                        onclick={openJobsPage}
+                    >
+                        {$_('jobs.open', { default: 'Open Jobs' })}
+                    </button>
                 </div>
 
-                <!-- Aggregated Progress Bar -->
+                <div class="flex items-center justify-between text-[9px] uppercase tracking-wider font-bold text-slate-500 dark:text-slate-300">
+                    <span>
+                        {#if aggregate.total > 0}
+                            {aggregate.current.toLocaleString()} / {aggregate.total.toLocaleString()}
+                        {:else}
+                            {$_('jobs.unknown_total', { default: 'Scanning...' })}
+                        {/if}
+                    </span>
+                    <span class="text-right">
+                        {#if aggregate.percent !== null}
+                            {aggregate.percent}% · {$_('jobs.rate_label', { values: { rate: fmtRate(aggregate.rate) }, default: '{rate}' })} · ETA {fmtEta(aggregate.etaSeconds ?? undefined)}
+                        {:else}
+                            {$_('jobs.rate_label', { values: { rate: fmtRate(aggregate.rate) }, default: '{rate}' })}
+                        {/if}
+                    </span>
+                </div>
+
                 <div class="h-2 w-full bg-emerald-100 dark:bg-emerald-950/60 rounded-full overflow-hidden relative">
-                    <div 
-                        class="h-full bg-gradient-to-r from-emerald-500 via-teal-500 to-sky-500 transition-all duration-500"
-                        style="width: {aggregateStats.percent}%"
-                    ></div>
+                    {#if aggregate.percent !== null}
+                        <div
+                            class="h-full bg-gradient-to-r from-emerald-500 via-teal-500 to-sky-500 transition-all duration-500"
+                            style="width: {aggregate.percent}%"
+                        ></div>
+                    {:else}
+                        <div class="h-full w-2/5 bg-gradient-to-r from-emerald-500/70 via-teal-500/70 to-sky-500/70 animate-pulse"></div>
+                    {/if}
                 </div>
 
-                <!-- Detailed View -->
-                {#if showDetails && ongoingItems.length > 1}
-                    <div id="global-progress-details" class="pt-2 border-t border-slate-100 dark:border-slate-800/50 mt-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-2" in:slide>
-                        {#each ongoingItems as job (job.id)}
-                            {@const meta = job.meta ?? {}}
-                            {@const total = Number(meta.total ?? 0)}
-                            {@const current = Number(meta.current ?? meta.processed ?? 0)}
-                            {@const hasStats = Number.isFinite(total) && total > 0}
-                            <div class="flex items-center justify-between gap-3 text-[9px] min-w-0">
-                                <div class="flex items-center gap-2 min-w-0 flex-1">
-                                    <span class="px-1.5 py-0.5 rounded-md font-black uppercase tracking-wide whitespace-nowrap bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300 truncate max-w-[150px]">
-                                        {job.title}
+                {#if showDetails}
+                    <div id="global-progress-details" class="pt-2 border-t border-slate-100 dark:border-slate-800/50 mt-1 grid grid-cols-1 gap-2">
+                        {#each detailJobs as job (job.id)}
+                            {@const jobPercent = pct(job)}
+                            <div class="rounded-xl border border-slate-200/80 dark:border-slate-700/60 px-3 py-2 bg-white/80 dark:bg-slate-900/60">
+                                <div class="flex items-center justify-between gap-2">
+                                    <p class="text-[10px] font-black uppercase tracking-wide text-slate-800 dark:text-slate-100 truncate">{job.title}</p>
+                                    <span class="text-[9px] font-bold uppercase tracking-widest {job.status === 'stale' ? 'text-amber-600 dark:text-amber-300' : 'text-emerald-600 dark:text-emerald-300'}">
+                                        {job.status}
                                     </span>
                                 </div>
-                                <span class="text-slate-400 truncate flex-1 text-right flex items-center justify-end gap-2">
-                                    <span class="truncate">{job.message || ''}</span>
-                                    {#if hasStats}
-                                        <span class="font-medium text-slate-500 whitespace-nowrap">{current.toLocaleString()} / {total.toLocaleString()}</span>
-                                    {/if}
-                                </span>
-                                <span class="font-black text-emerald-600 dark:text-emerald-400 w-8 text-right shrink-0">
-                                    {getProgress(job)}%
-                                </span>
+                                <p class="text-[10px] text-slate-500 dark:text-slate-300 truncate">{job.message || ''}</p>
+                                <div class="mt-1 flex items-center justify-between text-[9px] font-semibold text-slate-400 dark:text-slate-400">
+                                    <span>
+                                        {job.current.toLocaleString()}
+                                        {#if job.total > 0}
+                                            / {job.total.toLocaleString()}
+                                        {/if}
+                                        {#if jobPercent !== null}
+                                            · {jobPercent}%
+                                        {/if}
+                                    </span>
+                                    <span>{fmtRate(job.ratePerMinute)} · ETA {fmtEta(job.etaSeconds)}</span>
+                                </div>
                             </div>
                         {/each}
+                        {#if activeJobs.length > detailLimit}
+                            <button
+                                type="button"
+                                class="text-left text-[10px] font-black uppercase tracking-wider text-teal-600 dark:text-teal-300 hover:underline"
+                                onclick={openJobsPage}
+                            >
+                                {$_('jobs.more', { values: { count: activeJobs.length - detailLimit }, default: '+{count} more jobs' })}
+                            </button>
+                        {/if}
                     </div>
                 {/if}
             </div>

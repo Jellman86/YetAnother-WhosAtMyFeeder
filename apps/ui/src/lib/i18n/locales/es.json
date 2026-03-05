@@ -13,7 +13,8 @@
     "about": "Acerca de",
     "toggle_menu": "Alternar menú",
     "collapse_sidebar": "Contraer barra lateral",
-    "expand_sidebar": "Expandir barra lateral"
+    "expand_sidebar": "Expandir barra lateral",
+    "jobs": "Tareas"
   },
   "theme": {
     "switch_light": "Cambiar a modo claro",
@@ -774,7 +775,9 @@
     "system_health_message": "Estado del sistema: {status}",
     "system_cache_disabled_title": "Caché de medios desactivada",
     "system_cache_disabled_message": "Las vistas previas de la línea de tiempo y la caché de medios están desactivadas en la configuración actual.",
-    "open_action": "Abrir"
+    "open_action": "Abrir",
+    "global_progress_last": "Actualizado hace {age}",
+    "global_progress_stale": "{count} obsoletas"
   },
   "actions": {
     "confirm_delete": "¿Eliminar esta detección de {species}?",
@@ -1187,7 +1190,8 @@
     "go_species": "Ir a Clasificación",
     "go_settings": "Ir a Ajustes",
     "close_modal": "Cerrar modal",
-    "refresh": "Refrescar página"
+    "refresh": "Refrescar página",
+    "go_jobs": "Ir a Tareas"
   },
   "footer": {
     "did_you_know": "¿Sabías que?",
@@ -1303,5 +1307,20 @@
     "share_manage_revoke": "Revocar",
     "share_manage_load_failed": "No se pudieron cargar los enlaces compartidos activos",
     "shared_watermark": "Clip compartido"
+  },
+  "jobs": {
+    "title": "Tareas",
+    "subtitle": "Supervisa tareas activas en segundo plano y resultados recientes.",
+    "open": "Abrir tareas",
+    "unknown_total": "Escaneando...",
+    "rate_label": "{rate}",
+    "more": "+{count} tareas más",
+    "clear_history": "Borrar historial",
+    "clear_all": "Borrar todo",
+    "active": "Activas",
+    "active_empty": "No hay tareas activas.",
+    "recent": "Recientes",
+    "recent_empty": "Aún no hay tareas completadas.",
+    "updated": "Actualizado hace {age}"
   }
 }

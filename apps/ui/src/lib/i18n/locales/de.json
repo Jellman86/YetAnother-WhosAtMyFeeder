@@ -13,7 +13,8 @@
     "about": "Über uns",
     "toggle_menu": "Menü umschalten",
     "collapse_sidebar": "Seitenleiste einklappen",
-    "expand_sidebar": "Seitenleiste ausklappen"
+    "expand_sidebar": "Seitenleiste ausklappen",
+    "jobs": "Aufträge"
   },
   "theme": {
     "switch_light": "Zum hellen Modus wechseln",
@@ -801,7 +802,9 @@
     "system_health_message": "Systemstatus: {status}",
     "system_cache_disabled_title": "Medien-Cache deaktiviert",
     "system_cache_disabled_message": "Timeline-Vorschauen und Medien-Caching sind in den aktuellen Einstellungen deaktiviert.",
-    "open_action": "Öffnen"
+    "open_action": "Öffnen",
+    "global_progress_last": "Vor {age} aktualisiert",
+    "global_progress_stale": "{count} veraltet"
   },
   "actions": {
     "confirm_delete": "Diese {species} Erkennung löschen?",
@@ -1214,7 +1217,8 @@
     "go_species": "Zur Bestenliste",
     "go_settings": "Zu Einstellungen",
     "close_modal": "Modal schließen",
-    "refresh": "Seite aktualisieren"
+    "refresh": "Seite aktualisieren",
+    "go_jobs": "Zu Aufträgen wechseln"
   },
   "footer": {
     "did_you_know": "Wussten Sie?",
@@ -1330,5 +1334,20 @@
     "share_manage_revoke": "Widerrufen",
     "share_manage_load_failed": "Aktive Freigabelinks konnten nicht geladen werden",
     "shared_watermark": "Geteilter Clip"
+  },
+  "jobs": {
+    "title": "Aufträge",
+    "subtitle": "Aktive Hintergrundaufgaben und aktuelle Ergebnisse verfolgen.",
+    "open": "Aufträge öffnen",
+    "unknown_total": "Wird gescannt...",
+    "rate_label": "{rate}",
+    "more": "+{count} weitere Aufträge",
+    "clear_history": "Verlauf löschen",
+    "clear_all": "Alles löschen",
+    "active": "Aktiv",
+    "active_empty": "Keine aktiven Aufträge.",
+    "recent": "Zuletzt",
+    "recent_empty": "Noch keine abgeschlossenen Aufträge.",
+    "updated": "Vor {age} aktualisiert"
   }
 }

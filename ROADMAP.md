@@ -179,6 +179,8 @@ YA-WAMF already has extensive functionality built-in:
 **User Interface:**
 - ✅ Real-time dashboard with SSE updates
 - ✅ Global progress bar hardening (sanitized aggregate progress math, localized multi-task summary text, improved accessibility semantics)
+- ✅ Dedicated Jobs workspace (`/jobs`) for active/recent background task tracking with stale-state visibility
+- ✅ Unified frontend job telemetry model (rate + ETA + stale lifecycle) decoupled from notification-history state
 - ✅ Dark mode support
 - ✅ Detection filtering (species, camera, date, confidence, audio)
 - ✅ Advanced Search & Filtering UI
@@ -198,6 +200,7 @@ YA-WAMF already has extensive functionality built-in:
 - ✅ Health checks & Prometheus metrics
 - ✅ Optional API key authentication
 - ✅ Weather data enrichment
+- ✅ Frontend unit-test baseline for background job telemetry (`vitest` + targeted `jobProgressStore` regression coverage)
 
 See [DEVELOPER.md](DEVELOPER.md) for architectural details.
 
