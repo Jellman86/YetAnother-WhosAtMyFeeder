@@ -76,6 +76,7 @@ jobs:
     needs: detect-changes
     if: needs.detect-changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -215,23 +216,43 @@ jobs:
         run: |
           cd backend
           LOG_FILE=/tmp/backend-tests.log
+          TEST_TIMEOUT_SECONDS=600
+          HEARTBEAT_INTERVAL_SECONDS=30
           set +e
-          timeout -k 30s 900s bash -lc "
+
+          started_at=$(date +%s)
+          (
+            while true; do
+              sleep "$HEARTBEAT_INTERVAL_SECONDS"
+              now=$(date +%s)
+              elapsed=$((now - started_at))
+              echo "[backend-tests] still running (${elapsed}s elapsed)"
+            done
+          ) &
+          heartbeat_pid=$!
+
+          timeout -k 30s "${TEST_TIMEOUT_SECONDS}s" bash -lc "
             python -m coverage erase &&
             python -m coverage run -m pytest tests/ -v --tb=short --durations=20 &&
             python -m coverage report --fail-under=20
           " 2>&1 | tee "$LOG_FILE"
           rc=${PIPESTATUS[0]}
+
+          kill "$heartbeat_pid" >/dev/null 2>&1 || true
+          wait "$heartbeat_pid" 2>/dev/null || true
           set -e
+
           if [ $rc -eq 124 ]; then
             # Known CI issue: process can hang after pytest already printed full pass+coverage output.
             if grep -Eq "={6,}.*[0-9]+ passed" "$LOG_FILE" && grep -Eq "^TOTAL[[:space:]]+[0-9]+" "$LOG_FILE"; then
               echo "Backend tests timed out after completion markers; treating as success (teardown hang workaround)."
               exit 0
             fi
-            echo "Backend pytest timed out after 900s (possible session teardown hang after test output)."
+            echo "Backend pytest timed out after ${TEST_TIMEOUT_SECONDS}s."
+            echo "Last 200 log lines:"
+            tail -n 200 "$LOG_FILE" || true
             echo "Runner process snapshot:"
-            ps -eo pid,ppid,stat,etime,cmd | head -n 80 || true
+            ps -eo pid,ppid,stat,etime,cmd | head -n 120 || true
             exit 1
           fi
           exit $rc
