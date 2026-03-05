@@ -24,6 +24,13 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Changed:** Auto video-classification queue now adaptively throttles effective concurrency when MQTT ingest pressure rises, prioritizing live `new/end` event processing during bursts.
 - **Changed:** Detection backfill now uses a dedicated low-priority image inference executor so backfill classification no longer competes directly with live MQTT snapshot inference workers.
 - **Changed:** `/health` now includes MQTT and video-classifier queue-pressure snapshots and marks health as `degraded` when MQTT pressure is high/critical.
+- **Added:** New bounded async notification dispatcher service with configurable worker count, queue size, per-job timeout, and dropped-job accounting (`backend/app/services/notification_dispatcher.py`).
+- **Changed:** Event ingestion now queues notification orchestration work instead of awaiting remote notification I/O inline, so notification slowness no longer blocks Frigate/BirdNET event processing.
+- **Changed:** Notification queue saturation now fails safe by dropping excess notification jobs (with explicit warning logs and counters) rather than spawning unbounded fallback tasks in the ingest path.
+- **Added:** MQTT topic-liveness watchdog for Frigate/BirdNET traffic asymmetry, including automatic MQTT session recycle when Frigate topic activity stalls while BirdNET remains active.
+- **Added:** MQTT status telemetry now includes per-topic message counters, message-age metrics, connection uptime, liveness reconnect count, and last reconnect reason.
+- **Changed:** `/health` now includes `notification_dispatcher` status and reports `degraded` when notification jobs have been dropped, surfacing notifier backpressure explicitly.
+- **Added:** Backend regression tests covering queued notification dispatch, MQTT topic-stall reconnect detection, health degradation on notification drops, and MQTT-pressure throttling behavior for auto video classification.
 
 - **Changed:** Clicking the bell notification icon now navigates directly to the full Notifications page instead of opening a dropdown menu.
 - **Added:** A global progress bar now appears at the top of the application when background jobs (like backfills or batch analysis) are running, providing system-wide visibility into ongoing processes.
