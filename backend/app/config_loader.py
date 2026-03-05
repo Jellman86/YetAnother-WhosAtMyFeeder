@@ -36,6 +36,31 @@ from .config_models import (
 log = structlog.get_logger()
 
 
+CLASSIFICATION_ENV_OVERRIDES: dict[str, tuple[str, ...]] = {
+    "write_frigate_sublabel": ("CLASSIFICATION__WRITE_FRIGATE_SUBLABEL",),
+    "personalized_rerank_enabled": ("CLASSIFICATION__PERSONALIZED_RERANK_ENABLED",),
+    "auto_video_classification": ("CLASSIFICATION__AUTO_VIDEO_CLASSIFICATION",),
+    "video_classification_delay": ("CLASSIFICATION__VIDEO_CLASSIFICATION_DELAY",),
+    "video_classification_max_retries": ("CLASSIFICATION__VIDEO_CLASSIFICATION_MAX_RETRIES",),
+    "video_classification_retry_interval": ("CLASSIFICATION__VIDEO_CLASSIFICATION_RETRY_INTERVAL",),
+    "video_classification_max_concurrent": ("CLASSIFICATION__VIDEO_CLASSIFICATION_MAX_CONCURRENT",),
+    "video_classification_failure_threshold": ("CLASSIFICATION__VIDEO_FAILURE_THRESHOLD",),
+    "video_classification_failure_window_minutes": ("CLASSIFICATION__VIDEO_FAILURE_WINDOW_MINUTES",),
+    "video_classification_failure_cooldown_minutes": ("CLASSIFICATION__VIDEO_FAILURE_COOLDOWN_MINUTES",),
+    "video_classification_timeout_seconds": ("CLASSIFICATION__VIDEO_CLASSIFICATION_TIMEOUT_SECONDS",),
+    "video_classification_stale_minutes": ("CLASSIFICATION__VIDEO_CLASSIFICATION_STALE_MINUTES",),
+    "video_classification_frames": ("CLASSIFICATION__VIDEO_CLASSIFICATION_FRAMES",),
+    "inference_provider": ("CLASSIFICATION__INFERENCE_PROVIDER", "CLASSIFICATION__USE_CUDA"),
+    "ai_pricing_json": ("CLASSIFICATION__AI_PRICING_JSON",),
+    "max_classification_results": ("CLASSIFICATION__MAX_CLASSIFICATION_RESULTS",),
+}
+
+
+def _classification_overridden_by_env(key: str) -> bool:
+    env_keys = CLASSIFICATION_ENV_OVERRIDES.get(key, ())
+    return any(env_key in os.environ for env_key in env_keys)
+
+
 def load_settings_instance(settings_cls: type[Any], config_path: Path) -> Any:
     # API Key
     api_key = os.environ.get('YA_WAMF_API_KEY', None)
@@ -315,8 +340,12 @@ def load_settings_instance(settings_cls: type[Any], config_path: Path) -> Any:
                     cls_file = dict(cls_file)
                     cls_file['inference_provider'] = 'cuda' if bool(cls_file.get('use_cuda')) else 'cpu'
                 for key, value in cls_file.items():
-                    if value is not None:  # Guard against null values in config
-                        classification_data[key] = value
+                    if value is None:  # Guard against null values in config
+                        continue
+                    # Keep env vars authoritative for explicitly supported classification overrides.
+                    if _classification_overridden_by_env(key):
+                        continue
+                    classification_data[key] = value
     
             if 'media_cache' in file_data:
                 for key, value in file_data['media_cache'].items():
