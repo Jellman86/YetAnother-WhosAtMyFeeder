@@ -218,6 +218,9 @@ jobs:
           LOG_FILE=/tmp/backend-tests.log
           TEST_TIMEOUT_SECONDS=240
           HEARTBEAT_INTERVAL_SECONDS=30
+          SUMMARY_GRACE_SECONDS=12
+          MONITOR_INTERVAL_SECONDS=2
+          : > "$LOG_FILE"
           set +e
 
           started_at=$(date +%s)
@@ -231,31 +234,81 @@ jobs:
           ) &
           heartbeat_pid=$!
 
-          timeout -k 30s "${TEST_TIMEOUT_SECONDS}s" bash -lc "
+          export LOG_FILE TEST_TIMEOUT_SECONDS
+          RUNNER_SCRIPT=/tmp/run_backend_tests_ci.sh
+          cat > "$RUNNER_SCRIPT" <<'SH'
+          #!/usr/bin/env bash
+          set -o pipefail
+          timeout -k 30s "${TEST_TIMEOUT_SECONDS}s" bash -lc '
             python -m coverage erase &&
             python -m coverage run -m pytest tests/ -v --tb=short --durations=20 &&
             python -m coverage report --fail-under=20
-          " 2>&1 | tee "$LOG_FILE"
-          rc=${PIPESTATUS[0]}
+          ' 2>&1 | tee "$LOG_FILE"
+          SH
+          chmod +x "$RUNNER_SCRIPT"
+
+          # Run test pipeline in its own process group so we can terminate hung teardown quickly.
+          setsid "$RUNNER_SCRIPT" &
+          runner_pid=$!
+
+          summary_state=""
+          summary_seen_at=0
+
+          while kill -0 "$runner_pid" >/dev/null 2>&1; do
+            now=$(date +%s)
+            summary_line=$(grep -E "^={6,}.*={6,}$" "$LOG_FILE" | tail -n 1 || true)
+            if [ -z "$summary_state" ]; then
+              if [ -n "$summary_line" ] && echo "$summary_line" | grep -Eq "([0-9]+ failed|[0-9]+ error|[0-9]+ errors)"; then
+                summary_state="failed"
+                summary_seen_at=$now
+                echo "Detected pytest failure summary; allowing ${SUMMARY_GRACE_SECONDS}s for graceful teardown."
+              elif [ -n "$summary_line" ] && echo "$summary_line" | grep -Eq "[0-9]+ passed"; then
+                summary_state="passed"
+                summary_seen_at=$now
+                echo "Detected pytest pass summary; allowing ${SUMMARY_GRACE_SECONDS}s for graceful teardown."
+              fi
+            elif [ "$summary_state" = "passed" ] && [ -n "$summary_line" ] && echo "$summary_line" | grep -Eq "([0-9]+ failed|[0-9]+ error|[0-9]+ errors)"; then
+              summary_state="failed"
+              summary_seen_at=$now
+              echo "Detected pytest failure markers after initial pass signal; switching to failure state."
+            elif [ $((now - summary_seen_at)) -ge "$SUMMARY_GRACE_SECONDS" ]; then
+              echo "Runner still active ${SUMMARY_GRACE_SECONDS}s after pytest ${summary_state} summary; terminating stuck teardown."
+              kill -TERM -- "-$runner_pid" >/dev/null 2>&1 || true
+              sleep 2
+              kill -KILL -- "-$runner_pid" >/dev/null 2>&1 || true
+              break
+            fi
+            sleep "$MONITOR_INTERVAL_SECONDS"
+          done
+
+          wait "$runner_pid"
+          rc=$?
 
           kill "$heartbeat_pid" >/dev/null 2>&1 || true
           wait "$heartbeat_pid" 2>/dev/null || true
+          rm -f "$RUNNER_SCRIPT"
           set -e
 
+          # Known CI issue: process can hang after pytest printed final summary.
+          # If pytest reported pass, always re-check coverage gate from saved data.
+          if [ "$summary_state" = "passed" ]; then
+            echo "Validating coverage gate after pytest pass summary."
+            if python -m coverage report --fail-under=20; then
+              echo "Coverage gate passed."
+              exit 0
+            fi
+            echo "Coverage gate failed after pytest pass summary."
+            exit 1
+          fi
+
+          if [ "$summary_state" = "failed" ]; then
+            echo "Backend tests reported failures."
+            echo "Last 200 log lines:"
+            tail -n 200 "$LOG_FILE" || true
+            exit 1
+          fi
+
           if [ $rc -eq 124 ]; then
-            # Known CI issue: process can hang after pytest already printed full pass+coverage output.
-            if grep -Eq "={6,}.*[0-9]+ passed" "$LOG_FILE"; then
-              echo "Pytest reported all tests passed before timeout; validating coverage gate post-timeout."
-              if python -m coverage report --fail-under=20; then
-                echo "Coverage gate passed after timeout; treating as success (teardown hang workaround)."
-                exit 0
-              fi
-              echo "Coverage gate failed after timeout."
-              exit 1
-            fi
-            if grep -Eq "={6,}.*[0-9]+ failed" "$LOG_FILE"; then
-              echo "Backend tests timed out after pytest reported failures."
-            fi
             echo "Backend pytest timed out after ${TEST_TIMEOUT_SECONDS}s."
             echo "Last 200 log lines:"
             tail -n 200 "$LOG_FILE" || true
