@@ -1,6 +1,7 @@
 import os
 import sys
 import asyncio
+import time
 import aiosqlite
 import structlog
 from pathlib import Path
@@ -11,6 +12,7 @@ log = structlog.get_logger()
 
 DEFAULT_DB_POOL_SIZE = int(os.environ.get("DB_POOL_SIZE", "5"))
 DEFAULT_DB_BUSY_TIMEOUT_MS = int(os.environ.get("DB_BUSY_TIMEOUT_MS", "30000"))
+DB_POOL_SLOW_ACQUIRE_WARN_MS = float(os.environ.get("DB_POOL_SLOW_ACQUIRE_WARN_MS", "250"))
 
 def _is_testing() -> bool:
     # PYTEST_CURRENT_TEST is only set while a test is executing (not during collection/import).
@@ -160,6 +162,10 @@ class DatabasePool:
         self._pool: asyncio.Queue = asyncio.Queue(maxsize=pool_size)
         self._initialized = False
         self._lock = asyncio.Lock()
+        self._acquire_count = 0
+        self._slow_acquire_count = 0
+        self._acquire_wait_total_ms = 0.0
+        self._acquire_wait_max_ms = 0.0
 
     async def _create_connection(self) -> aiosqlite.Connection:
         """Create a new database connection with optimal settings."""
@@ -203,7 +209,22 @@ class DatabasePool:
             await self.initialize()
 
         # Get connection from pool (waits if none available)
+        started = time.monotonic()
         conn = await self._pool.get()
+        waited_ms = (time.monotonic() - started) * 1000.0
+        self._acquire_count += 1
+        self._acquire_wait_total_ms += waited_ms
+        if waited_ms > self._acquire_wait_max_ms:
+            self._acquire_wait_max_ms = waited_ms
+        if waited_ms >= DB_POOL_SLOW_ACQUIRE_WARN_MS:
+            self._slow_acquire_count += 1
+            log.warning(
+                "Slow DB pool acquire",
+                waited_ms=round(waited_ms, 1),
+                queue_available=self._pool.qsize(),
+                pool_size=self.pool_size,
+                busy_timeout_ms=DEFAULT_DB_BUSY_TIMEOUT_MS,
+            )
         return conn
 
     async def release(self, conn: aiosqlite.Connection):
@@ -240,6 +261,23 @@ class DatabasePool:
             self._initialized = False
             log.info("Database connection pool closed")
 
+    def get_status(self) -> dict:
+        avg_wait_ms = (
+            (self._acquire_wait_total_ms / self._acquire_count)
+            if self._acquire_count > 0
+            else 0.0
+        )
+        return {
+            "initialized": self._initialized,
+            "pool_size": self.pool_size,
+            "available_connections": self._pool.qsize(),
+            "acquire_count": self._acquire_count,
+            "slow_acquire_count": self._slow_acquire_count,
+            "acquire_wait_avg_ms": round(avg_wait_ms, 2),
+            "acquire_wait_max_ms": round(self._acquire_wait_max_ms, 2),
+            "slow_acquire_warn_ms": DB_POOL_SLOW_ACQUIRE_WARN_MS,
+        }
+
 
 # Global connection pool
 _db_pool: Optional[DatabasePool] = None
@@ -248,6 +286,22 @@ _db_pool: Optional[DatabasePool] = None
 def is_db_pool_initialized() -> bool:
     """Return True when the global DB pool has been initialized."""
     return _db_pool is not None and _db_pool._initialized
+
+
+def get_db_pool_status() -> dict:
+    """Return lightweight DB pool runtime diagnostics."""
+    if _db_pool is None:
+        return {
+            "initialized": False,
+            "pool_size": 0,
+            "available_connections": 0,
+            "acquire_count": 0,
+            "slow_acquire_count": 0,
+            "acquire_wait_avg_ms": 0.0,
+            "acquire_wait_max_ms": 0.0,
+            "slow_acquire_warn_ms": DB_POOL_SLOW_ACQUIRE_WARN_MS,
+        }
+    return _db_pool.get_status()
 
 
 async def init_db():

@@ -1,5 +1,6 @@
 import asyncio
 import json
+from unittest.mock import patch
 
 import pytest
 
@@ -42,6 +43,16 @@ class _SlowProcessor:
     async def process_audio_message(self, payload: bytes):
         del payload
         await asyncio.sleep(0.2)
+
+
+class _ExplodingProcessor:
+    async def process_mqtt_message(self, payload: bytes):
+        del payload
+        raise RuntimeError("boom")
+
+    async def process_audio_message(self, payload: bytes):
+        del payload
+        raise RuntimeError("boom-audio")
 
 
 def _frigate_payload(event_id: str, event_type: str, false_positive: bool = False) -> bytes:
@@ -101,6 +112,21 @@ async def test_dispatch_frigate_message_times_out_and_returns(monkeypatch):
     await asyncio.wait_for(
         service._dispatch_frigate_message(processor, _frigate_payload("evt-timeout", "new")),
         timeout=0.1,
+    )
+
+
+@pytest.mark.asyncio
+async def test_dispatch_frigate_message_logs_unexpected_failure():
+    service = MQTTService("test+abc123")
+    service.running = True
+
+    with patch("app.services.mqtt_service.log") as mock_log:
+        await service._dispatch_frigate_message(_ExplodingProcessor(), _frigate_payload("evt-fail", "new"))
+
+    mock_log.error.assert_any_call(
+        "Frigate MQTT handler failed",
+        event_id="evt-fail",
+        error="boom",
     )
 
 

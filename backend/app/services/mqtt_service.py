@@ -235,6 +235,15 @@ class MQTTService:
                     event_id=(meta or {}).get("event_id"),
                     timeout_seconds=MQTT_FRIGATE_HANDLER_TIMEOUT_SECONDS,
                 )
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                meta = self._parse_frigate_payload_meta(payload)
+                log.error(
+                    "Frigate MQTT handler failed",
+                    event_id=(meta or {}).get("event_id"),
+                    error=str(e),
+                )
 
     async def _dispatch_audio_message(self, event_processor, payload: bytes):
         async with self._handler_semaphore:
@@ -248,6 +257,10 @@ class MQTTService:
                     "BirdNET MQTT handler timed out",
                     timeout_seconds=MQTT_AUDIO_HANDLER_TIMEOUT_SECONDS,
                 )
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                log.error("BirdNET MQTT handler failed", error=str(e))
 
     def _schedule_frigate_message(
         self,

@@ -1,4 +1,5 @@
 import pytest
+import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 from datetime import datetime
 from app.services.detection_service import DetectionService
@@ -10,6 +11,7 @@ def mock_deps():
          patch("app.services.detection_service.DetectionRepository") as MockRepo, \
          patch("app.services.detection_service.taxonomy_service") as mock_taxonomy, \
          patch("app.services.detection_service.broadcaster") as mock_broadcaster, \
+         patch("app.services.detection_service.birdweather_service") as mock_birdweather, \
          patch("app.services.audio.audio_service.audio_service") as mock_audio:
         
         mock_db = AsyncMock()
@@ -21,6 +23,7 @@ def mock_deps():
         mock_taxonomy.get_names = AsyncMock(return_value={"scientific_name": "New Sci", "common_name": "New Common", "taxa_id": 123})
         
         mock_broadcaster.broadcast = AsyncMock()
+        mock_birdweather.report_detection = AsyncMock(return_value=True)
         mock_audio.correlate_species = AsyncMock(return_value=(False, None, None))
         
         yield {
@@ -28,6 +31,7 @@ def mock_deps():
             "repo": mock_repo,
             "taxonomy": mock_taxonomy,
             "broadcaster": mock_broadcaster,
+            "birdweather": mock_birdweather,
             "audio": mock_audio
         }
 
@@ -194,3 +198,41 @@ async def test_apply_video_result_respects_frigate_sublabel_disagreement_guard(m
     primary_updates = [call for call in mock_deps["db"].execute.call_args_list if "UPDATE detections" in call.args[0]]
     assert primary_updates == []
     mock_deps["audio"].correlate_species.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_save_detection_falls_back_when_taxonomy_lookup_times_out(mock_deps):
+    classifier = MagicMock()
+    service = DetectionService(classifier)
+
+    async def _slow_taxonomy(_label):
+        await asyncio.sleep(0.05)
+        return {"scientific_name": "ShouldNotReach"}
+
+    mock_deps["taxonomy"].get_names = AsyncMock(side_effect=_slow_taxonomy)
+    mock_deps["repo"].upsert_if_higher_score = AsyncMock(return_value=(True, False))
+    mock_deps["repo"].get_by_frigate_event = AsyncMock(return_value=None)
+
+    with patch("app.services.detection_service.TAXONOMY_LOOKUP_TIMEOUT_SECONDS", 0.01), \
+         patch("app.services.detection_service.create_background_task", side_effect=lambda coro, name=None: coro.close()), \
+         patch("app.services.detection_service.log") as mock_log:
+        changed, inserted = await service.save_detection(
+            frigate_event="evt-tax-timeout",
+            camera="cam1",
+            start_time=1700000000,
+            classification={"label": "Parus major", "score": 0.93, "index": 1},
+            frigate_score=0.88,
+            sub_label=None,
+        )
+
+    assert changed is True
+    assert inserted is True
+    detection = mock_deps["repo"].upsert_if_higher_score.await_args.args[0]
+    assert detection.scientific_name == "Parus major"
+    assert detection.common_name is None
+    assert detection.display_name == "Parus major"
+    mock_log.warning.assert_any_call(
+        "Taxonomy lookup timed out during detection save",
+        label="Parus major",
+        timeout_seconds=0.01,
+    )

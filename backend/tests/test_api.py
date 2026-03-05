@@ -15,4 +15,5 @@ async def test_health_check():
     assert data["service"] == "ya-wamf-backend"
     assert "status" in data
     assert "ml" in data
-
+    assert "db_pool" in data
+    assert "event_pipeline" in data

@@ -17,7 +17,14 @@ from typing import Awaitable, Callable
 from prometheus_client import generate_latest, CONTENT_TYPE_LATEST, Counter
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
-from app.database import init_db, close_db, get_db, get_db_path_diagnostics, is_db_pool_initialized
+from app.database import (
+    init_db,
+    close_db,
+    get_db,
+    get_db_path_diagnostics,
+    is_db_pool_initialized,
+    get_db_pool_status,
+)
 from app.services.mqtt_service import mqtt_service
 from app.services.classifier_service import get_classifier
 from app.services.event_processor import EventProcessor
@@ -572,14 +579,38 @@ async def health_check():
     mqtt_health = mqtt_service.get_status()
     video_health = auto_video_classifier.get_status()
     notification_dispatch_health = notification_dispatcher.get_status()
+    db_pool_health = get_db_pool_status()
+    event_pipeline_health = (
+        event_processor.get_status()
+        if event_processor is not None
+        else {
+            "status": "unknown",
+            "started_events": 0,
+            "completed_events": 0,
+            "dropped_events": 0,
+            "incomplete_events": 0,
+            "critical_failures": 0,
+            "stage_timeouts": {},
+            "stage_failures": {},
+            "stage_fallbacks": {},
+            "drop_reasons": {},
+            "last_stage_timeout": None,
+            "last_stage_failure": None,
+            "last_drop": None,
+            "last_completed": None,
+            "recent_outcomes": [],
+        }
+    )
     health = {
         "status": "ok", 
         "service": "ya-wamf-backend", 
         "version": APP_VERSION,
         "ml": classifier_health,
+        "db_pool": db_pool_health,
         "mqtt": mqtt_health,
         "video_classifier": video_health,
         "notification_dispatcher": notification_dispatch_health,
+        "event_pipeline": event_pipeline_health,
         "startup_warnings": startup_warnings,
         "startup_instance_id": startup_instance_id,
         "startup_started_at": startup_started_at,
@@ -591,6 +622,8 @@ async def health_check():
         or startup_warnings
         or mqtt_health.get("pressure_level") in {"high", "critical"}
         or int(notification_dispatch_health.get("dropped_jobs") or 0) > 0
+        or int(event_pipeline_health.get("critical_failures") or 0) > 0
+        or float(db_pool_health.get("acquire_wait_max_ms") or 0.0) >= 5000.0
     ):
         health["status"] = "degraded"
         

@@ -13,6 +13,10 @@ def _sample(
     birdnet_age: float | None,
     pressure: str = "normal",
     reconnects: int = 0,
+    event_started: int | None = None,
+    event_completed: int | None = None,
+    event_dropped: int | None = None,
+    event_critical_failures: int | None = 0,
 ) -> SoakSample:
     return SoakSample(
         observed_at=at,
@@ -23,6 +27,10 @@ def _sample(
         mqtt_birdnet_count=birdnet_count,
         mqtt_frigate_age_seconds=frigate_age,
         mqtt_birdnet_age_seconds=birdnet_age,
+        event_started_count=event_started if event_started is not None else frigate_count,
+        event_completed_count=event_completed if event_completed is not None else frigate_count,
+        event_dropped_count=event_dropped if event_dropped is not None else 0,
+        event_critical_failures=event_critical_failures,
     )
 
 
@@ -99,3 +107,29 @@ def test_evaluate_soak_run_fails_when_pressure_exceeds_limit():
 
     assert result["passed"] is False
     assert any("pressure level exceeded" in reason.lower() for reason in result["failure_reasons"])
+
+
+def test_evaluate_soak_run_fails_when_event_pipeline_starts_but_never_completes():
+    start = datetime(2026, 3, 5, 10, 30, tzinfo=timezone.utc)
+    samples = [
+        _sample(start + timedelta(seconds=0), frigate_count=100, birdnet_count=200, frigate_age=1.0, birdnet_age=1.0, event_started=50, event_completed=50),
+        _sample(start + timedelta(seconds=10), frigate_count=101, birdnet_count=201, frigate_age=1.2, birdnet_age=1.1, event_started=52, event_completed=50),
+        _sample(start + timedelta(seconds=20), frigate_count=102, birdnet_count=202, frigate_age=1.1, birdnet_age=1.0, event_started=54, event_completed=50),
+    ]
+    thresholds = SoakThresholds(
+        min_samples=3,
+        min_frigate_messages_delta=2,
+        min_birdnet_messages_delta=2,
+        max_degraded_ratio=1.0,
+        max_pressure_level="critical",
+        frigate_stall_age_seconds=60.0,
+        max_birdnet_active_age_seconds=20.0,
+        min_stall_duration_seconds=20.0,
+    )
+
+    result = evaluate_soak_run(samples, thresholds)
+
+    assert result["passed"] is False
+    assert result["event_started_delta"] == 4
+    assert result["event_completed_delta"] == 0
+    assert any("completed-events did not advance" in reason.lower() for reason in result["failure_reasons"])

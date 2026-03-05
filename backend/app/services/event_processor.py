@@ -1,7 +1,9 @@
 import json
 import asyncio
 import time
+import os
 import structlog
+from collections import Counter, deque
 from datetime import datetime, timezone
 from io import BytesIO
 from PIL import Image
@@ -26,6 +28,21 @@ from app.repositories.detection_repository import DetectionRepository
 
 log = structlog.get_logger()
 FALSE_POSITIVE_TOMBSTONE_TTL_SECONDS = 600.0
+EVENT_STAGE_TIMEOUT_CLASSIFY_SECONDS = max(
+    1.0, float(os.getenv("EVENT_STAGE_TIMEOUT_CLASSIFY_SECONDS", "30"))
+)
+EVENT_STAGE_TIMEOUT_CONTEXT_SECONDS = max(
+    0.5, float(os.getenv("EVENT_STAGE_TIMEOUT_CONTEXT_SECONDS", "6"))
+)
+EVENT_STAGE_TIMEOUT_AUDIO_CORRELATE_SECONDS = max(
+    0.5, float(os.getenv("EVENT_STAGE_TIMEOUT_AUDIO_CORRELATE_SECONDS", "4"))
+)
+EVENT_STAGE_TIMEOUT_SAVE_AND_NOTIFY_SECONDS = max(
+    1.0, float(os.getenv("EVENT_STAGE_TIMEOUT_SAVE_AND_NOTIFY_SECONDS", "6"))
+)
+EVENT_TAXONOMY_LOOKUP_TIMEOUT_SECONDS = max(
+    0.25, float(os.getenv("EVENT_TAXONOMY_LOOKUP_TIMEOUT_SECONDS", "2"))
+)
 
 
 class EventData:
@@ -54,6 +71,172 @@ class EventProcessor:
         self.detection_service = DetectionService(classifier)
         self.notification_orchestrator = NotificationOrchestrator()
         self._false_positive_tombstones: dict[str, float] = {}
+        self._started_events = 0
+        self._completed_events = 0
+        self._dropped_events = 0
+        self._stage_timeouts: Counter[str] = Counter()
+        self._stage_failures: Counter[str] = Counter()
+        self._stage_fallbacks: Counter[str] = Counter()
+        self._drop_reasons: Counter[str] = Counter()
+        self._recent_outcomes: deque[dict[str, Any]] = deque(maxlen=50)
+        self._last_stage_timeout: dict[str, Any] | None = None
+        self._last_stage_failure: dict[str, Any] | None = None
+        self._last_drop: dict[str, Any] | None = None
+        self._last_completed: dict[str, Any] | None = None
+
+    def _utc_now(self) -> str:
+        return datetime.now(timezone.utc).isoformat()
+
+    def _record_recent_outcome(self, event_id: str, outcome: str, **details: Any) -> None:
+        payload = {
+            "event_id": event_id,
+            "outcome": outcome,
+            "timestamp": self._utc_now(),
+        }
+        payload.update(details)
+        self._recent_outcomes.append(payload)
+
+    def _record_drop(self, event_id: str, reason: str, **details: Any) -> None:
+        reason_key = str(reason or "unknown")
+        self._dropped_events += 1
+        self._drop_reasons[reason_key] += 1
+        payload = {
+            "event_id": event_id,
+            "reason": reason_key,
+            "timestamp": self._utc_now(),
+        }
+        payload.update(details)
+        self._last_drop = payload
+        self._record_recent_outcome(event_id, "dropped", reason=reason_key, **details)
+
+    def _record_completed(self, event_id: str, duration_ms: float) -> None:
+        self._completed_events += 1
+        payload = {
+            "event_id": event_id,
+            "duration_ms": round(duration_ms, 1),
+            "timestamp": self._utc_now(),
+        }
+        self._last_completed = payload
+        self._record_recent_outcome(event_id, "completed", duration_ms=round(duration_ms, 1))
+
+    def _record_stage_timeout(self, stage: str, event_id: str, timeout_seconds: float) -> None:
+        self._stage_timeouts[stage] += 1
+        payload = {
+            "event_id": event_id,
+            "stage": stage,
+            "timeout_seconds": timeout_seconds,
+            "timestamp": self._utc_now(),
+        }
+        self._last_stage_timeout = payload
+        self._record_recent_outcome(
+            event_id,
+            "stage_timeout",
+            stage=stage,
+            timeout_seconds=timeout_seconds,
+        )
+
+    def _record_stage_failure(self, stage: str, event_id: str, error: str) -> None:
+        self._stage_failures[stage] += 1
+        payload = {
+            "event_id": event_id,
+            "stage": stage,
+            "error": error,
+            "timestamp": self._utc_now(),
+        }
+        self._last_stage_failure = payload
+        self._record_recent_outcome(event_id, "stage_failure", stage=stage, error=error)
+
+    def _record_stage_fallback(self, stage: str, event_id: str) -> None:
+        self._stage_fallbacks[stage] += 1
+        self._record_recent_outcome(event_id, "stage_fallback", stage=stage)
+
+    def get_status(self) -> dict[str, Any]:
+        stage_timeouts = dict(self._stage_timeouts)
+        stage_failures = dict(self._stage_failures)
+        stage_fallbacks = dict(self._stage_fallbacks)
+        drop_reasons = dict(self._drop_reasons)
+        critical_failures = (
+            int(stage_timeouts.get("classify_snapshot", 0))
+            + int(stage_failures.get("classify_snapshot", 0))
+            + int(stage_timeouts.get("save_and_notify", 0))
+            + int(stage_failures.get("save_and_notify", 0))
+        )
+        return {
+            "status": "degraded" if critical_failures > 0 else "ok",
+            "started_events": self._started_events,
+            "completed_events": self._completed_events,
+            "dropped_events": self._dropped_events,
+            "incomplete_events": max(0, self._started_events - self._completed_events - self._dropped_events),
+            "stage_timeouts": stage_timeouts,
+            "stage_failures": stage_failures,
+            "stage_fallbacks": stage_fallbacks,
+            "drop_reasons": drop_reasons,
+            "critical_failures": critical_failures,
+            "last_stage_timeout": self._last_stage_timeout,
+            "last_stage_failure": self._last_stage_failure,
+            "last_drop": self._last_drop,
+            "last_completed": self._last_completed,
+            "recent_outcomes": list(self._recent_outcomes),
+        }
+
+    async def _run_stage(
+        self,
+        *,
+        event_id: str,
+        stage: str,
+        timeout_seconds: float,
+        coro,
+        fallback: Any = None,
+    ) -> tuple[bool, Any]:
+        try:
+            return True, await asyncio.wait_for(coro, timeout=timeout_seconds)
+        except asyncio.TimeoutError:
+            self._record_stage_timeout(stage, event_id, timeout_seconds)
+            log.warning(
+                "MQTT event stage timed out",
+                event_id=event_id,
+                stage=stage,
+                timeout_seconds=timeout_seconds,
+            )
+            return False, fallback
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            self._record_stage_failure(stage, event_id, str(e))
+            log.error(
+                "MQTT event stage failed",
+                event_id=event_id,
+                stage=stage,
+                error=str(e),
+                exc_info=True,
+            )
+            return False, fallback
+
+    async def _lookup_taxonomy_aliases(self, query: str, event_id: str | None = None) -> Dict[str, Any]:
+        try:
+            taxonomy = await asyncio.wait_for(
+                taxonomy_service.get_names(query),
+                timeout=EVENT_TAXONOMY_LOOKUP_TIMEOUT_SECONDS,
+            )
+            if isinstance(taxonomy, dict):
+                return taxonomy
+        except asyncio.TimeoutError:
+            log.warning(
+                "Taxonomy alias lookup timed out during audio correlation",
+                event_id=event_id,
+                query=query,
+                timeout_seconds=EVENT_TAXONOMY_LOOKUP_TIMEOUT_SECONDS,
+            )
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            log.debug(
+                "Taxonomy alias lookup failed during audio correlation",
+                event_id=event_id,
+                query=query,
+                error=str(e),
+            )
+        return {}
 
     async def process_audio_message(self, payload: bytes):
         """Process audio detections from BirdNET-Go."""
@@ -84,35 +267,114 @@ class EventProcessor:
         event = self._parse_and_validate_event(data)
         if not event:
             return
+        self._started_events += 1
+        started = time.monotonic()
 
         if event.is_false_positive:
             self._mark_false_positive_tombstone(event.frigate_event)
             log.info("Frigate marked event as false positive - cleaning up", event_id=event.frigate_event)
             await self._handle_false_positive(event.frigate_event)
+            duration_ms = (time.monotonic() - started) * 1000.0
+            self._record_completed(event.frigate_event, duration_ms)
+            self._record_recent_outcome(event.frigate_event, "false_positive_cleanup")
             return
 
         if self._is_false_positive_tombstone_active(event.frigate_event):
             log.info("Skipping event previously marked as false positive", event_id=event.frigate_event)
+            self._record_drop(event.frigate_event, "false_positive_tombstone_active")
             return
 
-        classification_result = await self._classify_snapshot(event)
+        _classification_ok, classification_result = await self._run_stage(
+            event_id=event.frigate_event,
+            stage="classify_snapshot",
+            timeout_seconds=EVENT_STAGE_TIMEOUT_CLASSIFY_SECONDS,
+            coro=self._classify_snapshot(event),
+            fallback=None,
+        )
         if not classification_result:
+            log.info(
+                "Dropping MQTT event after classification stage failure",
+                event_id=event.frigate_event,
+                stage="classify_snapshot",
+            )
+            self._record_drop(event.frigate_event, "classify_snapshot_unavailable")
             return
 
         results, snapshot_data = classification_result
         if not results:
+            log.info(
+                "Dropping MQTT event because classifier returned no results",
+                event_id=event.frigate_event,
+            )
+            self._record_drop(event.frigate_event, "classifier_empty_results")
             return
 
-        top, _ = self.detection_service.filter_and_label(
+        top, reason = self.detection_service.filter_and_label(
             results[0], event.frigate_event, event.sub_label, event.frigate_score
         )
         if not top:
+            top_candidate = results[0] if results else {}
+            log.info(
+                "Dropping MQTT event after classification filter",
+                event_id=event.frigate_event,
+                reason=reason or "unknown",
+                label=top_candidate.get("label"),
+                score=top_candidate.get("score"),
+            )
+            self._record_drop(
+                event.frigate_event,
+                f"filter_{reason or 'unknown'}",
+                label=top_candidate.get("label"),
+                score=top_candidate.get("score"),
+            )
             return
 
-        context = await self._gather_context_data(event)
-        top_with_audio = await self._correlate_audio(top, context['audio_match'])
-        await self._handle_detection_save_and_notify(
-            event, top_with_audio, snapshot_data, context
+        context_ok, context_result = await self._run_stage(
+            event_id=event.frigate_event,
+            stage="gather_context",
+            timeout_seconds=EVENT_STAGE_TIMEOUT_CONTEXT_SECONDS,
+            coro=self._gather_context_data(event),
+            fallback={"audio_match": None, "weather_data": {}},
+        )
+        context = context_result if isinstance(context_result, dict) else {"audio_match": None, "weather_data": {}}
+        if not context_ok:
+            self._record_stage_fallback("gather_context", event.frigate_event)
+            log.info(
+                "Proceeding without full context after stage failure",
+                event_id=event.frigate_event,
+                stage="gather_context",
+            )
+
+        _audio_ok, top_with_audio = await self._run_stage(
+            event_id=event.frigate_event,
+            stage="correlate_audio",
+            timeout_seconds=EVENT_STAGE_TIMEOUT_AUDIO_CORRELATE_SECONDS,
+            coro=self._correlate_audio(top, context.get("audio_match"), event.frigate_event),
+            fallback=top,
+        )
+        if not isinstance(top_with_audio, dict):
+            self._record_stage_fallback("correlate_audio", event.frigate_event)
+            top_with_audio = top
+
+        save_ok, _ = await self._run_stage(
+            event_id=event.frigate_event,
+            stage="save_and_notify",
+            timeout_seconds=EVENT_STAGE_TIMEOUT_SAVE_AND_NOTIFY_SECONDS,
+            coro=self._handle_detection_save_and_notify(
+                event, top_with_audio, snapshot_data, context
+            ),
+            fallback=None,
+        )
+        if not save_ok:
+            self._record_drop(event.frigate_event, "save_and_notify_failed")
+            return
+
+        duration_ms = (time.monotonic() - started) * 1000.0
+        self._record_completed(event.frigate_event, duration_ms)
+        log.debug(
+            "Completed MQTT event processing",
+            event_id=event.frigate_event,
+            duration_ms=round(duration_ms, 1),
         )
 
     def _prune_false_positive_tombstones(self) -> None:
@@ -225,12 +487,14 @@ class EventProcessor:
         try:
             snapshot_data = await frigate_client.get_snapshot(event.frigate_event, crop=True, quality=95)
             if not snapshot_data:
+                log.info("Skipping MQTT event - snapshot unavailable", event_id=event.frigate_event)
                 return None
 
             image = Image.open(BytesIO(snapshot_data))
             results = await self.classifier.classify_async(image, camera_name=event.camera)
 
             if not results:
+                log.info("Skipping MQTT event - classifier returned empty results", event_id=event.frigate_event)
                 return None
 
             return (results, snapshot_data)
@@ -277,7 +541,12 @@ class EventProcessor:
             'weather_data': weather_data
         }
 
-    async def _correlate_audio(self, classification: Dict[str, Any], audio_match) -> Dict[str, Any]:
+    async def _correlate_audio(
+        self,
+        classification: Dict[str, Any],
+        audio_match,
+        event_id: str | None = None,
+    ) -> Dict[str, Any]:
         """Correlate audio detection with visual classification.
 
         Modifies classification dict with audio correlation data.
@@ -302,7 +571,7 @@ class EventProcessor:
 
         visual_aliases = {visual_label_normalized}
         try:
-            taxonomy = await taxonomy_service.get_names(visual_label)
+            taxonomy = await self._lookup_taxonomy_aliases(visual_label, event_id=event_id)
             sci = str(taxonomy.get("scientific_name") or "").strip().lower()
             common = str(taxonomy.get("common_name") or "").strip().lower()
             if sci:
@@ -317,7 +586,7 @@ class EventProcessor:
             audio_aliases.add(audio_scientific_normalized)
         else:
             try:
-                audio_taxonomy = await taxonomy_service.get_names(audio_species)
+                audio_taxonomy = await self._lookup_taxonomy_aliases(audio_species, event_id=event_id)
                 audio_sci = str(audio_taxonomy.get("scientific_name") or "").strip().lower()
                 audio_common = str(audio_taxonomy.get("common_name") or "").strip().lower()
                 if audio_sci:
@@ -417,6 +686,12 @@ class EventProcessor:
             if settings.classification.auto_video_classification:
                 from app.services.auto_video_classifier_service import auto_video_classifier
                 await auto_video_classifier.trigger_classification(event.frigate_event, event.camera)
+        else:
+            log.debug(
+                "Detection unchanged after upsert",
+                event_id=event.frigate_event,
+                score=score,
+            )
 
         # Keep remote notification I/O off MQTT ingest hot path.
         notify_event = SimpleNamespace(

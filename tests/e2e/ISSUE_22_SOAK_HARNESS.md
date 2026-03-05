@@ -11,7 +11,10 @@ It is designed to produce evidence artifacts for issue comments without automati
 3. Detects potential stall conditions where:
    - BirdNET traffic is still active/increasing, and
    - Frigate topic age is stale and Frigate count stops increasing.
-4. Writes machine-readable artifacts:
+4. Evaluates backend event-pipeline continuity from `/health.event_pipeline`:
+   - Detects when started events increase but completed events do not.
+   - Detects increases in event-pipeline critical failures.
+5. Writes machine-readable artifacts:
    - `samples.ndjson` (per-poll samples/errors/triggers)
    - `summary.json` (pass/fail evaluation + thresholds + publisher stats)
 

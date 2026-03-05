@@ -1,4 +1,6 @@
 import structlog
+import os
+import asyncio
 from datetime import datetime
 from app.config import settings
 from app.repositories.detection_repository import DetectionRepository, Detection
@@ -11,6 +13,9 @@ from app.utils.tasks import create_background_task
 from app.database import get_db
 
 log = structlog.get_logger()
+TAXONOMY_LOOKUP_TIMEOUT_SECONDS = max(
+    0.5, float(os.getenv("TAXONOMY_LOOKUP_TIMEOUT_SECONDS", "3"))
+)
 
 class DetectionService:
     """
@@ -145,7 +150,26 @@ class DetectionService:
 
         # 1. Normalize names (Bidirectional Scientific <-> Common)
         label = classification['label']
-        taxonomy = await taxonomy_service.get_names(label)
+        taxonomy: dict = {}
+        try:
+            taxonomy = await asyncio.wait_for(
+                taxonomy_service.get_names(label),
+                timeout=TAXONOMY_LOOKUP_TIMEOUT_SECONDS,
+            )
+        except asyncio.TimeoutError:
+            log.warning(
+                "Taxonomy lookup timed out during detection save",
+                label=label,
+                timeout_seconds=TAXONOMY_LOOKUP_TIMEOUT_SECONDS,
+            )
+        except Exception as e:
+            log.warning(
+                "Taxonomy lookup failed during detection save",
+                label=label,
+                error=str(e),
+            )
+        if not isinstance(taxonomy, dict):
+            taxonomy = {}
         
         scientific_name = taxonomy.get("scientific_name") or label
         common_name = taxonomy.get("common_name")

@@ -23,6 +23,10 @@ class SoakSample:
     mqtt_birdnet_count: int | None
     mqtt_frigate_age_seconds: float | None
     mqtt_birdnet_age_seconds: float | None
+    event_started_count: int | None
+    event_completed_count: int | None
+    event_dropped_count: int | None
+    event_critical_failures: int | None
 
     def to_json(self) -> dict[str, Any]:
         payload = asdict(self)
@@ -51,6 +55,8 @@ def sample_from_health_payload(payload: dict[str, Any], observed_at: datetime | 
     topic_counts = topic_counts if isinstance(topic_counts, dict) else {}
     topic_ages = mqtt.get("topic_last_message_age_seconds")
     topic_ages = topic_ages if isinstance(topic_ages, dict) else {}
+    event_pipeline = payload.get("event_pipeline") if isinstance(payload, dict) else {}
+    event_pipeline = event_pipeline if isinstance(event_pipeline, dict) else {}
 
     return SoakSample(
         observed_at=now,
@@ -61,6 +67,10 @@ def sample_from_health_payload(payload: dict[str, Any], observed_at: datetime | 
         mqtt_birdnet_count=_safe_int_or_none(topic_counts.get("birdnet")),
         mqtt_frigate_age_seconds=_safe_float_or_none(topic_ages.get("frigate")),
         mqtt_birdnet_age_seconds=_safe_float_or_none(topic_ages.get("birdnet")),
+        event_started_count=_safe_int_or_none(event_pipeline.get("started_events")),
+        event_completed_count=_safe_int_or_none(event_pipeline.get("completed_events")),
+        event_dropped_count=_safe_int_or_none(event_pipeline.get("dropped_events")),
+        event_critical_failures=_safe_int_or_none(event_pipeline.get("critical_failures")),
     )
 
 
@@ -77,6 +87,10 @@ def evaluate_soak_run(samples: list[SoakSample], thresholds: SoakThresholds, hea
     frigate_delta = _count_delta(samples, lambda sample: sample.mqtt_frigate_count)
     birdnet_delta = _count_delta(samples, lambda sample: sample.mqtt_birdnet_count)
     reconnect_delta = _count_delta(samples, lambda sample: sample.mqtt_topic_liveness_reconnects)
+    event_started_delta = _count_delta(samples, lambda sample: sample.event_started_count)
+    event_completed_delta = _count_delta(samples, lambda sample: sample.event_completed_count)
+    event_dropped_delta = _count_delta(samples, lambda sample: sample.event_dropped_count)
+    event_critical_failures_delta = _count_delta(samples, lambda sample: sample.event_critical_failures)
 
     if len(samples) < thresholds.min_samples:
         reasons.append(
@@ -122,6 +136,22 @@ def evaluate_soak_run(samples: list[SoakSample], thresholds: SoakThresholds, hea
             f"Frigate stream stalled while BirdNET remained active ({len(incidents)} incident(s))."
         )
 
+    if (
+        event_started_delta is not None
+        and event_completed_delta is not None
+        and event_started_delta > 0
+        and event_completed_delta <= 0
+    ):
+        reasons.append(
+            "Event pipeline started processing new MQTT events but completed-events did not advance."
+        )
+
+    if event_critical_failures_delta is not None and event_critical_failures_delta > 0:
+        reasons.append(
+            "Event pipeline critical failures increased during soak run "
+            f"(+{event_critical_failures_delta})."
+        )
+
     return {
         "passed": len(reasons) == 0,
         "failure_reasons": reasons,
@@ -133,6 +163,10 @@ def evaluate_soak_run(samples: list[SoakSample], thresholds: SoakThresholds, hea
         "frigate_delta": frigate_delta,
         "birdnet_delta": birdnet_delta,
         "topic_liveness_reconnects_delta": reconnect_delta,
+        "event_started_delta": event_started_delta,
+        "event_completed_delta": event_completed_delta,
+        "event_dropped_delta": event_dropped_delta,
+        "event_critical_failures_delta": event_critical_failures_delta,
         "stall_incidents": incidents,
     }
 
