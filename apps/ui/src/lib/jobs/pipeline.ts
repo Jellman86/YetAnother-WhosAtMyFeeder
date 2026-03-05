@@ -38,6 +38,12 @@ interface MutableCounters {
     failed: number;
 }
 
+const NON_QUEUED_KINDS = new Set([
+    'backfill',
+    'weather_backfill',
+    'taxonomy_sync'
+]);
+
 function normalizeCount(value: unknown): number {
     const parsed = Number(value);
     if (!Number.isFinite(parsed)) return 0;
@@ -109,8 +115,11 @@ export function buildJobsPipelineModel(
 
     for (const [kind, counters] of countersByKind.entries()) {
         const queue = queueByKind[kind];
-        const queueDepthKnown = queue?.queueDepthKnown === true;
-        const queued = queueDepthKnown ? normalizeCount(queue?.queued) : null;
+        const nonQueuedKind = NON_QUEUED_KINDS.has(kind);
+        const queueDepthKnown = nonQueuedKind || (queue?.queueDepthKnown === true);
+        const queued = queueDepthKnown
+            ? (nonQueuedKind ? 0 : normalizeCount(queue?.queued))
+            : null;
         const runningFromQueue = normalizeCount(queue?.running);
         const runningCount = Math.max(counters.running, runningFromQueue);
 

@@ -15,7 +15,6 @@
         }, 1000);
         let queuePoll: ReturnType<typeof setInterval> | null = null;
         let stopped = false;
-        let failures = 0;
 
         const updateQueueTelemetry = async () => {
             if (stopped) return;
@@ -30,21 +29,18 @@
                         updatedAt: Date.now()
                     }
                 };
-                failures = 0;
             } catch {
-                failures += 1;
-                queueByKind = {
-                    ...queueByKind,
-                    reclassify: {
-                        queued: 0,
-                        running: 0,
-                        queueDepthKnown: false,
-                        updatedAt: Date.now()
-                    }
-                };
-                if (failures >= 3 && queuePoll) {
-                    clearInterval(queuePoll);
-                    queuePoll = null;
+                // Keep polling; if we already have good queue data, keep displaying it.
+                if (!queueByKind.reclassify) {
+                    queueByKind = {
+                        ...queueByKind,
+                        reclassify: {
+                            queued: 0,
+                            running: 0,
+                            queueDepthKnown: false,
+                            updatedAt: Date.now()
+                        }
+                    };
                 }
             }
         };
@@ -129,8 +125,8 @@
     {#if !embedded}
         <div class="flex flex-wrap items-start justify-between gap-3">
             <div>
-                <h2 class="text-2xl font-black text-slate-900 dark:text-white tracking-tight">{$_('jobs.title', { default: 'Jobs' })}</h2>
-                <p class="text-xs text-slate-500">{$_('jobs.subtitle', { default: 'Track active background tasks and recent outcomes.' })}</p>
+                <h2 class="text-2xl font-black text-slate-900 dark:text-white tracking-tight">{$_('notifications.page_title', { default: 'Notifications & Jobs' })}</h2>
+                <p class="text-xs text-slate-500">{$_('notifications.page_subtitle', { default: 'Review notifications and background jobs.' })}</p>
             </div>
             <div class="flex items-center gap-2">
                 <button type="button" class="btn btn-secondary px-3 py-2 text-xs" onclick={() => jobProgressStore.clearHistory()}>

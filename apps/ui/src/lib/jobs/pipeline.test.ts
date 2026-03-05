@@ -60,7 +60,7 @@ describe('buildJobsPipelineModel', () => {
         expect(model.lanes.completed).toBe(1);
         expect(model.lanes.failed).toBe(1);
         expect(model.lanes.queuedKnown).toBe(12);
-        expect(model.lanes.queuedUnknownKinds).toBe(1);
+        expect(model.lanes.queuedUnknownKinds).toBe(0);
 
         const reclassify = model.kinds.find((k) => k.kind === 'reclassify');
         expect(reclassify).toMatchObject({
@@ -74,8 +74,8 @@ describe('buildJobsPipelineModel', () => {
 
         const backfill = model.kinds.find((k) => k.kind === 'backfill');
         expect(backfill).toMatchObject({
-            queued: null,
-            queueDepthKnown: false,
+            queued: 0,
+            queueDepthKnown: true,
             running: 1,
             stale: 0,
             completed: 0,
