@@ -3,6 +3,7 @@
     import { slide } from 'svelte/transition';
     import { _ } from 'svelte-i18n';
     import { jobProgressStore, type JobProgressItem } from '../stores/job_progress.svelte';
+    import { getNotificationsTabPath } from '../app/notifications_route';
     let { onNavigate } = $props<{ onNavigate?: (path: string) => void }>();
 
     let nowTs = $state(Date.now());
@@ -82,11 +83,12 @@
     });
 
     function openJobsPage() {
+        const jobsTabPath = getNotificationsTabPath('jobs');
         if (onNavigate) {
-            onNavigate('/jobs');
+            onNavigate(jobsTabPath);
             return;
         }
-        window.location.assign('/jobs');
+        window.location.assign(jobsTabPath);
     }
 </script>
 

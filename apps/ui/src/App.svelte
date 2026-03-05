@@ -16,10 +16,9 @@
   import Settings from './lib/pages/Settings.svelte';
   import About from './lib/pages/About.svelte';
   import Notifications from './lib/pages/Notifications.svelte';
-  import Jobs from './lib/pages/Jobs.svelte';
   import Login from './lib/components/Login.svelte';
   import FirstRunWizard from './lib/pages/FirstRunWizard.svelte';
-  import { checkHealth, fetchCacheStats, setAuthErrorCallback } from './lib/api';
+  import { checkHealth, fetchCacheStats, fetchEventClassificationStatus, setAuthErrorCallback } from './lib/api';
   import { themeStore } from './lib/stores/theme.svelte';
   import { layoutStore } from './lib/stores/layout.svelte';
   import { settingsStore } from './lib/stores/settings.svelte';
@@ -34,6 +33,11 @@
   import { initKeyboardShortcuts } from './lib/utils/keyboard-shortcuts';
   import { logger } from './lib/utils/logger';
   import { LiveUpdateCoordinator } from './lib/app/live-updates';
+  import {
+      getCanonicalNotificationRoute,
+      getNotificationsTabPath,
+      isNotificationRoute
+  } from './lib/app/notifications_route';
 
   // Track current layout using reactive derived
   let currentLayout = $derived(layoutStore.layout);
@@ -57,9 +61,10 @@
   });
 
   function navigate(path: string, opts: { replace?: boolean } = {}) {
-      currentRoute = path;
-      if (opts.replace) window.history.replaceState(null, '', path);
-      else window.history.pushState(null, '', path);
+      const targetPath = getCanonicalNotificationRoute(path) ?? path;
+      currentRoute = targetPath;
+      if (opts.replace) window.history.replaceState(null, '', targetPath);
+      else window.history.pushState(null, '', targetPath);
   }
 
   // Route guard: settings page should only be accessible when authenticated
@@ -80,8 +85,14 @@
   let reconnectAttempts = $state(0);
   let reconnectTimeout: number | null = $state(null);
   let stalePruneInterval: number | null = $state(null);
+  let staleReclassifyPollInterval: number | null = $state(null);
   let isReconnecting = $state(false);
   let mobileSidebarOpen = $state(false);
+  const STALE_RECLASSIFY_STATUS_POLL_MS = 20_000;
+  const RECLASSIFY_STATUS_RETRY_MS = 30_000;
+  const RECLASSIFY_JOB_ID_PREFIX = 'reclassify:';
+  const reclassifyStatusProbeInFlight = new Set<string>();
+  const reclassifyStatusLastProbeAt = new Map<string, number>();
 
   // Keyboard shortcuts
   let showKeyboardShortcuts = $state(false);
@@ -135,6 +146,78 @@
       }
   });
 
+  function parseReclassifyEventId(jobId: string): string | null {
+      if (typeof jobId !== 'string') return null;
+      if (!jobId.startsWith(RECLASSIFY_JOB_ID_PREFIX)) return null;
+      const eventId = jobId.slice(RECLASSIFY_JOB_ID_PREFIX.length).trim();
+      return eventId.length > 0 ? eventId : null;
+  }
+
+  async function reconcileStaleReclassifyJobs() {
+      const now = Date.now();
+      const staleJobs = jobProgressStore.activeJobs.filter((job) => job.kind === 'reclassify' && job.status === 'stale');
+      if (staleJobs.length === 0) return;
+
+      for (const job of staleJobs) {
+          const eventId = parseReclassifyEventId(job.id);
+          if (!eventId) continue;
+          if (reclassifyStatusProbeInFlight.has(eventId)) continue;
+
+          const lastProbeAt = reclassifyStatusLastProbeAt.get(eventId) ?? 0;
+          if (now - lastProbeAt < RECLASSIFY_STATUS_RETRY_MS) continue;
+
+          reclassifyStatusLastProbeAt.set(eventId, now);
+          reclassifyStatusProbeInFlight.add(eventId);
+          try {
+              const status = await fetchEventClassificationStatus(eventId);
+              const normalizedStatus = String(status.video_classification_status ?? '').trim().toLowerCase();
+              if (normalizedStatus === 'completed') {
+                  jobProgressStore.markCompleted({
+                      id: job.id,
+                      kind: job.kind,
+                      title: job.title,
+                      message: job.message,
+                      route: job.route,
+                      current: job.current,
+                      total: job.total,
+                      source: 'poll'
+                  });
+                  continue;
+              }
+              if (normalizedStatus === 'failed' || normalizedStatus === 'error') {
+                  const errorMessage = status.video_classification_error?.trim() || 'Unknown error';
+                  jobProgressStore.markFailed({
+                      id: job.id,
+                      kind: job.kind,
+                      title: job.title,
+                      message: errorMessage,
+                      route: job.route,
+                      current: job.current,
+                      total: job.total,
+                      source: 'poll'
+                  });
+                  continue;
+              }
+              if (normalizedStatus === 'pending' || normalizedStatus === 'processing') {
+                  jobProgressStore.upsertRunning({
+                      id: job.id,
+                      kind: job.kind,
+                      title: job.title,
+                      message: job.message,
+                      route: job.route,
+                      current: job.current,
+                      total: job.total,
+                      source: 'poll'
+                  });
+              }
+          } catch (error) {
+              logger.warn('reclassify_status_probe_failed', { eventId, error });
+          } finally {
+              reclassifyStatusProbeInFlight.delete(eventId);
+          }
+      }
+  }
+
   // Handle back button and initial load
   onMount(() => {
       (async () => {
@@ -155,7 +238,7 @@
           });
 
           const handlePopState = () => {
-              currentRoute = window.location.pathname;
+              currentRoute = getCanonicalNotificationRoute(window.location.pathname) ?? window.location.pathname;
           };
           window.addEventListener('popstate', handlePopState);
 
@@ -179,16 +262,25 @@
           window.addEventListener('unhandledrejection', handleUnhandledRejection);
 
           const path = window.location.pathname;
-          currentRoute = path === '' ? '/' : path;
+          const resolvedPath = path === '' ? '/' : path;
+          const canonicalPath = getCanonicalNotificationRoute(resolvedPath) ?? resolvedPath;
+          currentRoute = canonicalPath;
+          if (canonicalPath !== resolvedPath) {
+              window.history.replaceState(null, '', canonicalPath);
+          }
 
           await authStore.loadStatus();
           notificationCenter.hydrate();
           liveUpdates.pruneStaleProcessNotifications();
+          void reconcileStaleReclassifyJobs();
           await liveUpdates.runOwnerSystemChecks();
           stalePruneInterval = window.setInterval(() => {
               liveUpdates.pruneStaleProcessNotifications();
               detectionsStore.pruneReclassifications();
           }, 10_000);
+          staleReclassifyPollInterval = window.setInterval(() => {
+              void reconcileStaleReclassifyJobs();
+          }, STALE_RECLASSIFY_STATUS_POLL_MS);
 
           // Handle page visibility changes - reconnect when tab becomes visible
           const handleVisibilityChange = () => {
@@ -196,6 +288,9 @@
                   logger.info("Tab became visible, attempting to reconnect SSE");
                   reconnectAttempts = 0; // Reset backoff when user returns to tab
                   scheduleReconnect();
+              }
+              if (!document.hidden) {
+                  void reconcileStaleReclassifyJobs();
               }
           };
           document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -206,7 +301,7 @@
               'g d': () => navigate('/'),
               'g e': () => navigate('/events'),
               'g l': () => navigate('/species'),
-              'g j': () => navigate('/jobs'),
+              'g j': () => navigate(getNotificationsTabPath('jobs')),
               'g t': () => navigate('/settings'),
               'Escape': () => {
                   // Close keyboard shortcuts modal
@@ -236,6 +331,10 @@
               if (stalePruneInterval) {
                   clearInterval(stalePruneInterval);
                   stalePruneInterval = null;
+              }
+              if (staleReclassifyPollInterval) {
+                  clearInterval(staleReclassifyPollInterval);
+                  staleReclassifyPollInterval = null;
               }
           };
       })();
@@ -440,7 +539,7 @@
 
       <!-- Main Content Wrapper -->
       <div class="flex-1 flex flex-col transition-all duration-300 {effectiveLayout === 'vertical' ? (isSidebarCollapsed ? 'md:pl-20' : 'md:pl-64') : ''}">
-          {#if !currentRoute.startsWith('/notifications') && !currentRoute.startsWith('/jobs')}
+          {#if !isNotificationRoute(currentRoute)}
               <GlobalProgress onNavigate={navigate} />
           {/if}
           <main id="main-content" class="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -458,9 +557,7 @@
                        <div class="h-24"></div>
                    {/if}
               {:else if currentRoute.startsWith('/notifications')}
-                  <Notifications />
-              {:else if currentRoute.startsWith('/jobs')}
-                  <Jobs onNavigate={navigate} />
+                  <Notifications onNavigate={navigate} {currentRoute} />
               {:else if currentRoute.startsWith('/about')}
                    <About />
               {/if}

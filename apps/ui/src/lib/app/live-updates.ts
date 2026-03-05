@@ -236,6 +236,7 @@ export class LiveUpdateCoordinator {
                     return;
                 }
                 this.deps.detectionsStore.updateDetection(toDetection(payload.data));
+                this.reconcileReclassifyFromDetectionUpdate(payload.data);
                 return;
             }
 
@@ -422,6 +423,76 @@ export class LiveUpdateCoordinator {
                 open_label: this.deps.t('notifications.open_action')
             }
         });
+    }
+
+    private reconcileReclassifyFromDetectionUpdate(data: any) {
+        if (!data || typeof data !== 'object') return;
+        const eventId = typeof data.frigate_event === 'string' ? data.frigate_event.trim() : '';
+        if (!eventId) return;
+        const statusRaw = data.video_classification_status;
+        const status = typeof statusRaw === 'string' ? statusRaw.trim().toLowerCase() : '';
+        if (!status) return;
+
+        const isTracked = this.activeReclassifyEvents.has(eventId) || this.reclassifyProgressByEvent.has(eventId);
+        if (!isTracked) return;
+
+        const prior = this.reclassifyProgressByEvent.get(eventId);
+        const current = prior?.current ?? 0;
+        const total = prior?.total ?? 0;
+        const route = `/events?event=${encodeURIComponent(eventId)}`;
+        const title = this.deps.t('actions.reclassify');
+
+        if (status === 'completed') {
+            this.deps.jobProgress.markCompleted({
+                id: `reclassify:${eventId}`,
+                kind: 'reclassify',
+                title,
+                message: this.deps.t('notifications.event_reclassify'),
+                route,
+                current,
+                total,
+                source: 'sse'
+            });
+            this.clearReclassifyProgressNotification(eventId);
+            return;
+        }
+
+        if (status === 'failed' || status === 'error') {
+            const errorMessage = typeof data.video_classification_error === 'string' && data.video_classification_error.trim().length > 0
+                ? data.video_classification_error.trim()
+                : 'Unknown error';
+            this.deps.jobProgress.markFailed({
+                id: `reclassify:${eventId}`,
+                kind: 'reclassify',
+                title,
+                message: this.deps.t('notifications.reclassify_failed', { message: errorMessage }),
+                route,
+                current,
+                total,
+                source: 'sse'
+            });
+            this.clearReclassifyProgressNotification(eventId);
+            return;
+        }
+
+        if (status === 'pending' || status === 'processing') {
+            this.reclassifyLastUpdateByEvent.set(eventId, Date.now());
+            this.deps.jobProgress.upsertRunning({
+                id: `reclassify:${eventId}`,
+                kind: 'reclassify',
+                title,
+                message: total > 0
+                    ? this.deps.t('notifications.event_reclassify_progress', {
+                        current: current.toLocaleString(),
+                        total: total.toLocaleString()
+                    })
+                    : undefined,
+                route,
+                current,
+                total,
+                source: 'sse'
+            });
+        }
     }
 
     private addReclassifyNotification(eventId: string, label: string | null) {

@@ -747,6 +747,39 @@ class ReclassifyResponse(BaseModel):
     actual_strategy: Literal["snapshot", "video"]
 
 
+class ClassificationStatusResponse(BaseModel):
+    event_id: str
+    video_classification_status: str | None = None
+    video_classification_error: str | None = None
+    video_classification_timestamp: str | None = None
+
+
+@router.get("/events/{event_id}/classification-status", response_model=ClassificationStatusResponse)
+async def get_event_classification_status(
+    event_id: str,
+    request: Request,
+    auth: AuthContext = Depends(require_owner)
+):
+    """Get current video classification status for a single event. Owner only."""
+    lang = get_user_language(request)
+    async with get_db() as db:
+        repo = DetectionRepository(db)
+        detection = await repo.get_by_frigate_event(event_id)
+        if not detection:
+            raise HTTPException(
+                status_code=404,
+                detail=i18n_service.translate("errors.detection_not_found", lang=lang)
+            )
+
+        ts = detection.video_classification_timestamp
+        return ClassificationStatusResponse(
+            event_id=event_id,
+            video_classification_status=detection.video_classification_status,
+            video_classification_error=detection.video_classification_error,
+            video_classification_timestamp=ts.isoformat() if ts else None
+        )
+
+
 @router.post("/events/{event_id}/reclassify", response_model=ReclassifyResponse)
 async def reclassify_event(
     event_id: str,

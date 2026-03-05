@@ -45,6 +45,18 @@ export async function fetchEvents(options: FetchEventsOptions = {}): Promise<Det
     return fetchWithAbort<Detection[]>(filterKey, `${API_BASE}/events?${params.toString()}`);
 }
 
+export interface EventClassificationStatusResponse {
+    event_id: string;
+    video_classification_status: string | null;
+    video_classification_error: string | null;
+    video_classification_timestamp: string | null;
+}
+
+export async function fetchEventClassificationStatus(frigateEventId: string): Promise<EventClassificationStatusResponse> {
+    const response = await apiFetch(`${API_BASE}/events/${encodeURIComponent(frigateEventId)}/classification-status`);
+    return handleResponse<EventClassificationStatusResponse>(response);
+}
+
 export interface EventFilters {
     species: EventFilterSpecies[];
     cameras: string[];

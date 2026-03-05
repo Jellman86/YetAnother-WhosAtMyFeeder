@@ -3,7 +3,7 @@
     import { _ } from 'svelte-i18n';
     import { jobProgressStore, type JobProgressItem } from '../stores/job_progress.svelte';
     import { formatDateTime } from '../utils/datetime';
-    let { onNavigate } = $props<{ onNavigate?: (path: string) => void }>();
+    let { onNavigate, embedded = false } = $props<{ onNavigate?: (path: string) => void; embedded?: boolean }>();
 
     let nowTs = $state(Date.now());
     onMount(() => {
@@ -62,20 +62,22 @@
 </script>
 
 <div class="space-y-6">
-    <div class="flex flex-wrap items-start justify-between gap-3">
-        <div>
-            <h2 class="text-2xl font-black text-slate-900 dark:text-white tracking-tight">{$_('jobs.title', { default: 'Jobs' })}</h2>
-            <p class="text-xs text-slate-500">{$_('jobs.subtitle', { default: 'Track active background tasks and recent outcomes.' })}</p>
+    {#if !embedded}
+        <div class="flex flex-wrap items-start justify-between gap-3">
+            <div>
+                <h2 class="text-2xl font-black text-slate-900 dark:text-white tracking-tight">{$_('jobs.title', { default: 'Jobs' })}</h2>
+                <p class="text-xs text-slate-500">{$_('jobs.subtitle', { default: 'Track active background tasks and recent outcomes.' })}</p>
+            </div>
+            <div class="flex items-center gap-2">
+                <button type="button" class="btn btn-secondary px-3 py-2 text-xs" onclick={() => jobProgressStore.clearHistory()}>
+                    {$_('jobs.clear_history', { default: 'Clear History' })}
+                </button>
+                <button type="button" class="btn btn-secondary px-3 py-2 text-xs" onclick={() => jobProgressStore.clearAll()}>
+                    {$_('jobs.clear_all', { default: 'Clear All' })}
+                </button>
+            </div>
         </div>
-        <div class="flex items-center gap-2">
-            <button type="button" class="btn btn-secondary px-3 py-2 text-xs" onclick={() => jobProgressStore.clearHistory()}>
-                {$_('jobs.clear_history', { default: 'Clear History' })}
-            </button>
-            <button type="button" class="btn btn-secondary px-3 py-2 text-xs" onclick={() => jobProgressStore.clearAll()}>
-                {$_('jobs.clear_all', { default: 'Clear All' })}
-            </button>
-        </div>
-    </div>
+    {/if}
 
     <section class="card-base p-6">
         <div class="flex items-center justify-between mb-4">
