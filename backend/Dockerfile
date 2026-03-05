@@ -41,7 +41,8 @@ RUN set -eux; \
         curl \
         gpg \
         libgl1 \
-        libglib2.0-0; \
+        libglib2.0-0 \
+        sqlite3; \
     install -d -m 0755 /etc/apt/keyrings; \
     curl -fsSL --retry 5 --retry-delay 2 https://repositories.intel.com/gpu/intel-graphics.key \
         | gpg --dearmor -o /etc/apt/keyrings/intel-graphics.gpg; \
