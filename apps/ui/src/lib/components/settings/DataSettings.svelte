@@ -1,9 +1,5 @@
 <script lang="ts">
-    import { onDestroy } from 'svelte';
     import { _ } from 'svelte-i18n';
-    import flatpickr from 'flatpickr';
-    import type { Instance as FlatpickrInstance } from 'flatpickr/dist/types/instance';
-    import 'flatpickr/dist/flatpickr.min.css';
     import { formatDate } from '../../utils/datetime';
     import type { MaintenanceStats, BackfillResult, WeatherBackfillResult, CacheStats, TaxonomySyncStatus, AnalysisStatus } from '../../api';
 
@@ -106,9 +102,6 @@
         return date.toLocaleTimeString();
     };
 
-    let customRangeInput = $state<HTMLInputElement | null>(null);
-    let customRangePicker = $state<FlatpickrInstance | null>(null);
-
     const formatDateOnly = (date: Date): string => {
         const year = date.getFullYear();
         const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -134,39 +127,10 @@
         return date;
     };
 
-    const destroyCustomRangePicker = () => {
-        if (customRangePicker) {
-            customRangePicker.destroy();
-            customRangePicker = null;
-        }
-    };
-
-    const syncPickerSelection = () => {
-        if (!customRangePicker) return;
-        const dates: Date[] = [];
-        const start = parseDateOnly(backfillStartDate);
-        const end = parseDateOnly(backfillEndDate);
-        if (start) dates.push(start);
-        if (end) dates.push(end);
-        customRangePicker.setDate(dates, false);
-    };
-
-    const initCustomRangePicker = () => {
-        if (!customRangeInput || customRangePicker || typeof window === 'undefined') return;
-
-        customRangePicker = flatpickr(customRangeInput, {
-            mode: 'range',
-            dateFormat: 'Y-m-d',
-            maxDate: 'today',
-            allowInput: false,
-            disableMobile: true,
-            onChange: (selectedDates: Date[]) => {
-                backfillStartDate = selectedDates[0] ? formatDateOnly(selectedDates[0]) : '';
-                backfillEndDate = selectedDates[1] ? formatDateOnly(selectedDates[1]) : '';
-            }
-        });
-
-        syncPickerSelection();
+    const todayDateOnly = (): string => {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        return formatDateOnly(today);
     };
 
     const setCustomRangeDays = (days: number) => {
@@ -180,24 +144,17 @@
 
     const clearCustomRange = () => {
         backfillStartDate = '';
-        backfillEndDate = '';
-        if (customRangePicker) {
-            customRangePicker.clear();
-        }
+        backfillEndDate = todayDateOnly();
     };
 
     $effect(() => {
         if (backfillDateRange !== 'custom') {
-            destroyCustomRangePicker();
             return;
         }
-        if (!customRangeInput) return;
-        initCustomRangePicker();
-        syncPickerSelection();
-    });
-
-    onDestroy(() => {
-        destroyCustomRangePicker();
+        // Keep "To" anchored to today's date by default in custom mode.
+        if (!parseDateOnly(backfillEndDate)) {
+            backfillEndDate = todayDateOnly();
+        }
     });
 </script>
 
@@ -423,24 +380,36 @@
 
             {#if backfillDateRange === 'custom'}
                 <div class="space-y-3 animate-in fade-in slide-in-from-top-2">
-                    <label for="backfill-range-picker" class="block text-[10px] font-black uppercase tracking-widest text-slate-500">{$_('settings.data.backfill_custom', { default: 'Custom range' })}</label>
-                    <input
-                        id="backfill-range-picker"
-                        type="text"
-                        bind:this={customRangeInput}
-                        readonly
-                        aria-label={$_('settings.data.backfill_custom', { default: 'Custom range' })}
-                        placeholder={$_('settings.data.backfill_picker_placeholder', { default: 'Select start and end date' })}
-                        class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"
-                    />
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-[11px] font-bold text-slate-600 dark:text-slate-300">
-                        <div class="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-900/40">
-                            <span class="text-slate-400 mr-2">{$_('settings.data.backfill_start')}</span>
-                            <span>{backfillStartDate || '—'}</span>
+                    <p class="block text-[10px] font-black uppercase tracking-widest text-slate-500">
+                        {$_('settings.data.backfill_custom', { default: 'Custom range' })}
+                    </p>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                            <label for="backfill-from-date" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">
+                                {$_('settings.data.backfill_from', { default: 'From' })}
+                            </label>
+                            <input
+                                id="backfill-from-date"
+                                type="date"
+                                bind:value={backfillStartDate}
+                                max={backfillEndDate || todayDateOnly()}
+                                aria-label={$_('settings.data.backfill_from', { default: 'From date' })}
+                                class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"
+                            />
                         </div>
-                        <div class="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-900/40">
-                            <span class="text-slate-400 mr-2">{$_('settings.data.backfill_end')}</span>
-                            <span>{backfillEndDate || '—'}</span>
+                        <div>
+                            <label for="backfill-to-date" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">
+                                {$_('settings.data.backfill_to', { default: 'To' })}
+                            </label>
+                            <input
+                                id="backfill-to-date"
+                                type="date"
+                                bind:value={backfillEndDate}
+                                min={backfillStartDate || undefined}
+                                max={todayDateOnly()}
+                                aria-label={$_('settings.data.backfill_to', { default: 'To date' })}
+                                class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"
+                            />
                         </div>
                     </div>
                     <div class="grid grid-cols-3 gap-2">
