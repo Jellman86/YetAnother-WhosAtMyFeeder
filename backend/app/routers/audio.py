@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from app.services.audio.audio_service import audio_service
 from app.config import settings
 from app.auth import AuthContext
-from app.auth_legacy import get_auth_context_with_legacy
+from app.auth import get_auth_context_with_legacy
 from app.ratelimit import guest_rate_limit
 from app.database import get_db
 from app.repositories.detection_repository import DetectionRepository

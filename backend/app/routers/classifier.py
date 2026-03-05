@@ -8,7 +8,7 @@ from app.services.classifier_service import get_classifier
 from app.services.personalization_service import personalization_service
 from app.config import settings
 from app.auth import require_owner, AuthContext
-from app.auth_legacy import get_auth_context_with_legacy
+from app.auth import get_auth_context_with_legacy
 from app.ratelimit import guest_rate_limit
 
 router = APIRouter(prefix="/classifier", tags=["classifier"])

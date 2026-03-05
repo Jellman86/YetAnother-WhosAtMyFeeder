@@ -11,7 +11,7 @@ from app.config import settings
 from app.services.taxonomy.taxonomy_service import taxonomy_service
 from app.services.weather_service import weather_service
 from app.auth import AuthContext
-from app.auth_legacy import get_auth_context_with_legacy
+from app.auth import get_auth_context_with_legacy
 from app.ratelimit import guest_rate_limit
 from app.utils.language import get_user_language
 

@@ -10,7 +10,7 @@ from urllib.parse import urlencode
 
 from app.config import settings
 from app.auth import require_owner, AuthContext
-from app.auth_legacy import get_auth_context_with_legacy
+from app.auth import get_auth_context_with_legacy
 from app.services.inaturalist_service import inaturalist_service, INAT_AUTHORIZE_URL, INAT_TOKEN_URL, INAT_BASE_URL
 from app.services.i18n_service import i18n_service
 from app.utils.language import get_user_language

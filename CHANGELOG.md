@@ -6,6 +6,9 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- **Changed:** App shell refactor extracted mobile top-bar UI and stale reclassification recovery orchestration into dedicated modules, reducing `App.svelte` to a slimmer route/layout coordinator.
+- **Changed:** Legacy API-key fallback auth helpers were consolidated into `app/auth.py`, and router/main imports now use the unified auth module.
+- **Removed:** Deprecated `backend/app/auth_legacy.py`; legacy API-key behavior remains supported via `get_auth_context_with_legacy` in `app/auth.py`.
 - **Added:** Jobs page now includes a top pipeline flow view (`Queued → Running → Outcomes`) with per-kind stage counts so background work is visible at a glance.
 - **Changed:** Jobs pipeline now uses real queue telemetry for auto video reclassification (`pending`/`active`) and explicitly marks queue depth as “not reported” for job kinds that do not expose queue metrics yet.
 - **Fixed:** Jobs queue telemetry polling now keeps retrying after transient failures and preserves previously known queue data instead of downgrading to “not reported.”

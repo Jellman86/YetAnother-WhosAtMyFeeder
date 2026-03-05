@@ -3,6 +3,7 @@
 import pytest
 from fastapi import HTTPException
 from datetime import datetime, timedelta
+from starlette.requests import Request
 
 from app.auth import (
     hash_password,
@@ -10,7 +11,8 @@ from app.auth import (
     create_access_token,
     verify_token,
     AuthLevel,
-    AuthContext
+    AuthContext,
+    get_auth_context_with_legacy,
 )
 
 
@@ -96,3 +98,67 @@ def test_token_contains_expiry():
 
     assert token_data.exp > datetime.utcnow()
     assert token_data.exp < datetime.utcnow() + timedelta(hours=169)  # 7 days + buffer
+
+
+def _build_request(path: str = "/api/test", query: str = "") -> Request:
+    return Request(
+        {
+            "type": "http",
+            "http_version": "1.1",
+            "method": "GET",
+            "scheme": "http",
+            "path": path,
+            "raw_path": path.encode("utf-8"),
+            "query_string": query.encode("utf-8"),
+            "headers": [],
+            "client": ("127.0.0.1", 12345),
+            "server": ("testserver", 80),
+            "root_path": "",
+        }
+    )
+
+
+@pytest.mark.asyncio
+async def test_legacy_api_key_fallback_grants_owner_context():
+    """Legacy API key fallback should keep backward-compatible owner access."""
+    from app.config import settings
+
+    original_auth_enabled = settings.auth.enabled
+    original_public_enabled = settings.public_access.enabled
+    original_api_key = settings.api_key
+    settings.auth.enabled = True
+    settings.public_access.enabled = False
+    settings.api_key = "legacy-test-key"
+
+    try:
+        request = _build_request()
+        context = await get_auth_context_with_legacy(request, None, "legacy-test-key", None)
+        assert context.is_owner
+        assert context.username == "legacy_api_key"
+    finally:
+        settings.auth.enabled = original_auth_enabled
+        settings.public_access.enabled = original_public_enabled
+        settings.api_key = original_api_key
+
+
+@pytest.mark.asyncio
+async def test_legacy_api_key_fallback_rejects_invalid_key():
+    """Invalid legacy key should preserve normal auth-required 401 behavior."""
+    from app.config import settings
+
+    original_auth_enabled = settings.auth.enabled
+    original_public_enabled = settings.public_access.enabled
+    original_api_key = settings.api_key
+    settings.auth.enabled = True
+    settings.public_access.enabled = False
+    settings.api_key = "legacy-test-key"
+
+    try:
+        request = _build_request()
+        with pytest.raises(HTTPException) as exc:
+            await get_auth_context_with_legacy(request, None, "wrong-key", None)
+        assert exc.value.status_code == 401
+    finally:
+        settings.auth.enabled = original_auth_enabled
+        settings.public_access.enabled = original_public_enabled
+        settings.api_key = original_api_key

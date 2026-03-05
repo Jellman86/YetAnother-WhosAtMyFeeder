@@ -21,8 +21,16 @@ from app.config import settings
 from app.services.frigate_client import frigate_client
 from app.services.i18n_service import i18n_service
 from app.utils.language import get_user_language
-from app.auth import AuthContext, AuthLevel, require_owner, verify_token, security
-from app.auth_legacy import get_auth_context_with_legacy, api_key_header, api_key_query
+from app.auth import (
+    AuthContext,
+    AuthLevel,
+    require_owner,
+    verify_token,
+    security,
+    get_auth_context_with_legacy,
+    api_key_header,
+    api_key_query,
+)
 from app.ratelimit import guest_rate_limit, share_create_rate_limit
 from app.database import get_db
 from app.repositories.detection_repository import DetectionRepository

@@ -6,8 +6,9 @@ Supports both owner (full access) and guest (public read-only) auth levels.
 
 from datetime import datetime, timedelta, timezone
 from typing import Optional
-from fastapi import HTTPException, Request, status, Depends
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+import secrets
+from fastapi import HTTPException, Request, status, Depends, Security
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials, APIKeyHeader, APIKeyQuery
 import jwt
 import bcrypt
 from pydantic import BaseModel
@@ -15,6 +16,8 @@ import structlog
 
 log = structlog.get_logger()
 security = HTTPBearer(auto_error=False)
+api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
+api_key_query = APIKeyQuery(name="api_key", auto_error=False)
 
 
 class TokenData(BaseModel):
@@ -198,6 +201,49 @@ async def get_auth_context(
         detail="Authentication required. Please log in.",
         headers={"WWW-Authenticate": "Bearer"}
     )
+
+
+async def verify_api_key_legacy(
+    header_key: str = Security(api_key_header),
+    query_key: str = Security(api_key_query)
+) -> bool:
+    """Validate legacy API key credentials for backward compatibility."""
+    from app.config import settings
+
+    legacy_api_key = settings.api_key
+    if not legacy_api_key:
+        return False
+
+    api_key = header_key or query_key
+    if not api_key:
+        return False
+
+    if secrets.compare_digest(api_key, legacy_api_key):
+        log.warning(
+            "Using deprecated API key authentication",
+            notice=(
+                "Migrate to password-based auth in Settings. "
+                "API key support will be removed in v2.9.0"
+            ),
+        )
+        return True
+
+    return False
+
+
+async def get_auth_context_with_legacy(
+    request: Request,
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
+    header_key: str = Security(api_key_header),
+    query_key: str = Security(api_key_query),
+) -> AuthContext:
+    """Return auth context with deprecated API-key fallback support."""
+    try:
+        return await get_auth_context(request, credentials)
+    except HTTPException as exc:
+        if await verify_api_key_legacy(header_key, query_key):
+            return AuthContext(auth_level=AuthLevel.OWNER, username="legacy_api_key")
+        raise exc
 
 
 def require_owner(auth: AuthContext = Depends(get_auth_context)) -> AuthContext:

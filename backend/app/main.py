@@ -41,7 +41,7 @@ from app.middleware.language import LanguageMiddleware
 from app.utils.tasks import create_background_task
 from app.ratelimit import limiter
 from app.auth import AuthContext
-from app.auth_legacy import get_auth_context_with_legacy
+from app.auth import get_auth_context_with_legacy
 
 # Version management
 def get_base_version() -> str:

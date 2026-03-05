@@ -19,7 +19,7 @@ from app.services.ebird_service import ebird_service
 from app.utils.language import get_user_language
 from app.utils.enrichment import get_effective_enrichment_settings
 from app.auth import require_owner, AuthContext
-from app.auth_legacy import get_auth_context_with_legacy
+from app.auth import get_auth_context_with_legacy
 from app.ratelimit import guest_rate_limit
 
 router = APIRouter()

@@ -4,6 +4,7 @@
   import { get } from 'svelte/store';
   import ErrorBoundary from './lib/components/ErrorBoundary.svelte';
   import Header from './lib/components/Header.svelte';
+  import MobileTopBar from './lib/components/MobileTopBar.svelte';
   import Sidebar from './lib/components/Sidebar.svelte';
   import Footer from './lib/components/Footer.svelte';
   import TelemetryBanner from './lib/components/TelemetryBanner.svelte';
@@ -38,6 +39,7 @@
       getNotificationsTabPath,
       isNotificationRoute
   } from './lib/app/notifications_route';
+  import { createReclassifyRecovery } from './lib/app/reclassify_recovery';
 
   // Track current layout using reactive derived
   let currentLayout = $derived(layoutStore.layout);
@@ -89,10 +91,6 @@
   let isReconnecting = $state(false);
   let mobileSidebarOpen = $state(false);
   const STALE_RECLASSIFY_STATUS_POLL_MS = 20_000;
-  const RECLASSIFY_STATUS_RETRY_MS = 30_000;
-  const RECLASSIFY_JOB_ID_PREFIX = 'reclassify:';
-  const reclassifyStatusProbeInFlight = new Set<string>();
-  const reclassifyStatusLastProbeAt = new Map<string, number>();
 
   // Keyboard shortcuts
   let showKeyboardShortcuts = $state(false);
@@ -146,77 +144,11 @@
       }
   });
 
-  function parseReclassifyEventId(jobId: string): string | null {
-      if (typeof jobId !== 'string') return null;
-      if (!jobId.startsWith(RECLASSIFY_JOB_ID_PREFIX)) return null;
-      const eventId = jobId.slice(RECLASSIFY_JOB_ID_PREFIX.length).trim();
-      return eventId.length > 0 ? eventId : null;
-  }
-
-  async function reconcileStaleReclassifyJobs() {
-      const now = Date.now();
-      const staleJobs = jobProgressStore.activeJobs.filter((job) => job.kind === 'reclassify' && job.status === 'stale');
-      if (staleJobs.length === 0) return;
-
-      for (const job of staleJobs) {
-          const eventId = parseReclassifyEventId(job.id);
-          if (!eventId) continue;
-          if (reclassifyStatusProbeInFlight.has(eventId)) continue;
-
-          const lastProbeAt = reclassifyStatusLastProbeAt.get(eventId) ?? 0;
-          if (now - lastProbeAt < RECLASSIFY_STATUS_RETRY_MS) continue;
-
-          reclassifyStatusLastProbeAt.set(eventId, now);
-          reclassifyStatusProbeInFlight.add(eventId);
-          try {
-              const status = await fetchEventClassificationStatus(eventId);
-              const normalizedStatus = String(status.video_classification_status ?? '').trim().toLowerCase();
-              if (normalizedStatus === 'completed') {
-                  jobProgressStore.markCompleted({
-                      id: job.id,
-                      kind: job.kind,
-                      title: job.title,
-                      message: job.message,
-                      route: job.route,
-                      current: job.current,
-                      total: job.total,
-                      source: 'poll'
-                  });
-                  continue;
-              }
-              if (normalizedStatus === 'failed' || normalizedStatus === 'error') {
-                  const errorMessage = status.video_classification_error?.trim() || 'Unknown error';
-                  jobProgressStore.markFailed({
-                      id: job.id,
-                      kind: job.kind,
-                      title: job.title,
-                      message: errorMessage,
-                      route: job.route,
-                      current: job.current,
-                      total: job.total,
-                      source: 'poll'
-                  });
-                  continue;
-              }
-              if (normalizedStatus === 'processing') {
-                  jobProgressStore.upsertRunning({
-                      id: job.id,
-                      kind: job.kind,
-                      title: job.title,
-                      message: job.message,
-                      route: job.route,
-                      current: job.current,
-                      total: job.total,
-                      source: 'poll'
-                  });
-              }
-          } catch (error) {
-              logger.warn('reclassify_status_probe_failed', { eventId, error });
-          } finally {
-              reclassifyStatusProbeInFlight.delete(eventId);
-          }
-      }
-  }
+  const reclassifyRecovery = createReclassifyRecovery({
+      fetchStatus: fetchEventClassificationStatus,
+      jobProgress: jobProgressStore,
+      logger
+  });
 
   // Handle back button and initial load
   onMount(() => {
@@ -272,14 +204,14 @@
           await authStore.loadStatus();
           notificationCenter.hydrate();
           liveUpdates.pruneStaleProcessNotifications();
-          void reconcileStaleReclassifyJobs();
+          void reclassifyRecovery.reconcile();
           await liveUpdates.runOwnerSystemChecks();
           stalePruneInterval = window.setInterval(() => {
               liveUpdates.pruneStaleProcessNotifications();
               detectionsStore.pruneReclassifications();
           }, 10_000);
           staleReclassifyPollInterval = window.setInterval(() => {
-              void reconcileStaleReclassifyJobs();
+              void reclassifyRecovery.reconcile();
           }, STALE_RECLASSIFY_STATUS_POLL_MS);
 
           // Handle page visibility changes - reconnect when tab becomes visible
@@ -290,7 +222,7 @@
                   scheduleReconnect();
               }
               if (!document.hidden) {
-                  void reconcileStaleReclassifyJobs();
+                  void reclassifyRecovery.reconcile();
               }
           };
           document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -474,43 +406,16 @@
       <Login />
   {:else}
       {#if effectiveLayout === 'vertical'}
-          <!-- Mobile Header -->
-          <div class="md:hidden sticky top-0 z-40 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border-b border-slate-200/80 dark:border-slate-700/50 h-16 flex items-center px-4 justify-between">
-              <button 
-                  class="p-2 -ml-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors" 
-                  onclick={() => mobileSidebarOpen = !mobileSidebarOpen}
-                  aria-label={$_('nav.toggle_menu', { default: 'Toggle menu' }) || 'Toggle menu'}
-              >
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
-                  </svg>
-                  <span class="sr-only">{$_('nav.toggle_menu', { default: 'Toggle menu' }) || 'Toggle menu'}</span>
-              </button>
-              <div class="flex items-center gap-2">
-                  <div class="w-7 h-7 flex items-center justify-center overflow-hidden">
-                      <img src="/pwa-192x192.png" alt={$_('app.title')} class="w-full h-full object-contain bg-transparent" />
-                  </div>
-                  <span class="text-sm font-bold text-gradient">{$_('app.title')}</span>
-              </div>
-              <!-- Theme toggle for mobile -->
-              <button
-                  class="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-colors"
-                  onclick={() => themeStore.toggle()}
-                  aria-label={themeStore.theme === 'dark'
-                      ? ($_('theme.switch_light', { default: 'Switch to light mode' }) || 'Switch to light mode')
-                      : ($_('theme.switch_dark', { default: 'Switch to dark mode' }) || 'Switch to dark mode')}
-              >
-                  {#if themeStore.theme === 'dark'}
-                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                          <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-                      </svg>
-                  {:else}
-                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                          <path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-                      </svg>
-                  {/if}
-              </button>
-          </div>
+          <MobileTopBar
+              onToggleMenu={() => mobileSidebarOpen = !mobileSidebarOpen}
+              onToggleTheme={() => themeStore.toggle()}
+              theme={themeStore.theme}
+              appTitle={$_('app.title')}
+              toggleMenuLabel={$_('nav.toggle_menu', { default: 'Toggle menu' }) || 'Toggle menu'}
+              switchThemeLabel={themeStore.theme === 'dark'
+                  ? ($_('theme.switch_light', { default: 'Switch to light mode' }) || 'Switch to light mode')
+                  : ($_('theme.switch_dark', { default: 'Switch to dark mode' }) || 'Switch to dark mode')}
+          />
 
           <Sidebar {currentRoute} onNavigate={navigate} {mobileSidebarOpen} onMobileClose={() => mobileSidebarOpen = false}>
               {#snippet status()}
