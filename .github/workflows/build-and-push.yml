@@ -216,7 +216,7 @@ jobs:
         run: |
           cd backend
           LOG_FILE=/tmp/backend-tests.log
-          TEST_TIMEOUT_SECONDS=600
+          TEST_TIMEOUT_SECONDS=240
           HEARTBEAT_INTERVAL_SECONDS=30
           set +e
 
@@ -247,6 +247,9 @@ jobs:
             if grep -Eq "={6,}.*[0-9]+ passed" "$LOG_FILE" && grep -Eq "^TOTAL[[:space:]]+[0-9]+" "$LOG_FILE"; then
               echo "Backend tests timed out after completion markers; treating as success (teardown hang workaround)."
               exit 0
+            fi
+            if grep -Eq "={6,}.*[0-9]+ failed" "$LOG_FILE"; then
+              echo "Backend tests timed out after pytest reported failures."
             fi
             echo "Backend pytest timed out after ${TEST_TIMEOUT_SECONDS}s."
             echo "Last 200 log lines:"

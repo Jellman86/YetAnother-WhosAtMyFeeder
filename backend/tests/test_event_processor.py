@@ -16,7 +16,7 @@ async def test_process_mqtt_message_valid_bird():
          patch("app.services.event_processor.audio_service") as mock_audio, \
          patch("app.services.event_processor.weather_service") as mock_weather, \
          patch("app.services.event_processor.notification_service") as mock_notif, \
-         patch("app.services.taxonomy.taxonomy_service.taxonomy_service") as mock_taxonomy, \
+         patch("app.services.event_processor.taxonomy_service") as mock_taxonomy, \
          patch("app.services.event_processor.Image.open"):
 
         # Mock EventProcessor with dependencies already patched
@@ -57,7 +57,7 @@ async def test_process_mqtt_message_skips_frigate_write_back_when_disabled():
          patch("app.services.event_processor.audio_service") as mock_audio, \
          patch("app.services.event_processor.weather_service") as mock_weather, \
          patch("app.services.event_processor.notification_service") as mock_notif, \
-         patch("app.services.taxonomy.taxonomy_service.taxonomy_service") as mock_taxonomy, \
+         patch("app.services.event_processor.taxonomy_service") as mock_taxonomy, \
          patch("app.services.event_processor.Image.open"), \
          patch("app.services.event_processor.settings.classification.write_frigate_sublabel", False, create=True):
 
