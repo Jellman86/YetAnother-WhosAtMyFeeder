@@ -1,0 +1,60 @@
+export interface Detection {
+    id?: number;
+    frigate_event: string;
+    display_name: string;
+    score: number;
+    detection_time: string;
+    camera_name: string;
+    detection_index?: number;
+    category_name?: string;
+    has_clip?: boolean;
+    has_snapshot?: boolean;
+    has_frigate_event?: boolean;
+    is_hidden?: boolean;
+    is_favorite?: boolean;
+    frigate_score?: number;
+    sub_label?: string;
+    manual_tagged?: boolean;
+    audio_confirmed?: boolean;
+    audio_species?: string;
+    audio_score?: number;
+    audio_context_species?: string[] | null;
+    temperature?: number;
+    weather_condition?: string;
+    weather_cloud_cover?: number;
+    weather_wind_speed?: number;
+    weather_wind_direction?: number;
+    weather_precipitation?: number;
+    weather_rain?: number;
+    weather_snowfall?: number;
+    scientific_name?: string;
+    common_name?: string;
+    taxa_id?: number;
+    video_classification_score?: number;
+    video_classification_label?: string;
+    video_classification_timestamp?: string;
+    video_classification_status?: 'pending' | 'processing' | 'completed' | 'failed' | null;
+    video_classification_error?: string | null;
+    ai_analysis?: string | null;
+    ai_analysis_timestamp?: string | null;
+}
+
+export interface SpeciesCount {
+    species: string;
+    count: number;
+    scientific_name?: string | null;
+    common_name?: string | null;
+    first_seen?: string | null;
+    last_seen?: string | null;
+    avg_confidence?: number;
+    max_confidence?: number;
+    min_confidence?: number;
+    camera_count?: number;
+    count_1d?: number;
+    count_7d?: number;
+    count_30d?: number;
+    days_seen_14d?: number;
+    days_seen_30d?: number;
+    trend_delta?: number;
+    trend_percent?: number;
+}

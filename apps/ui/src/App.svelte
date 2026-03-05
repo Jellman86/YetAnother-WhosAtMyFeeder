@@ -9,6 +9,7 @@
   import TelemetryBanner from './lib/components/TelemetryBanner.svelte';
   import Toast from './lib/components/Toast.svelte';
   import KeyboardShortcuts from './lib/components/KeyboardShortcuts.svelte';
+  import ConnectionStatus from './lib/components/ConnectionStatus.svelte';
   import Dashboard from './lib/pages/Dashboard.svelte';
   import Events from './lib/pages/Events.svelte';
   import Species from './lib/pages/Species.svelte';
@@ -17,7 +18,7 @@
   import Notifications from './lib/pages/Notifications.svelte';
   import Login from './lib/components/Login.svelte';
   import FirstRunWizard from './lib/pages/FirstRunWizard.svelte';
-  import { checkHealth, fetchCacheStats, fetchEvents, fetchEventsCount, type Detection, setAuthErrorCallback } from './lib/api';
+  import { checkHealth, fetchCacheStats, setAuthErrorCallback } from './lib/api';
   import { themeStore } from './lib/stores/theme.svelte';
   import { layoutStore } from './lib/stores/layout.svelte';
   import { settingsStore } from './lib/stores/settings.svelte';
@@ -30,6 +31,7 @@
   import GlobalProgress from './lib/components/GlobalProgress.svelte';
   import { initKeyboardShortcuts } from './lib/utils/keyboard-shortcuts';
   import { logger } from './lib/utils/logger';
+  import { LiveUpdateCoordinator } from './lib/app/live-updates';
 
   // Track current layout using reactive derived
   let currentLayout = $derived(layoutStore.layout);
@@ -104,15 +106,31 @@
       return active;
   });
 
-  const STALE_PROCESS_MAX_AGE_MS = 45 * 60 * 1000;
-  const RECLASSIFY_PROGRESS_ID = 'reclassify:progress';
-  const LEGACY_RECLASSIFY_PROGRESS_PREFIX = 'reclassify:progress:';
-  const RECLASSIFY_STATE_MAX_IDLE_MS = 5 * 60 * 1000;
-  const activeReclassifyEvents = new Set<string>();
-  const reclassifyProgressByEvent = new Map<string, { current: number; total: number }>();
-  const reclassifyLastUpdateByEvent = new Map<string, number>();
-  let reclassifyStartedCount = 0;
-  let reclassifyCompletedCount = 0;
+  const t = (key: string, values: Record<string, any> = {}) => get(_)(key, { values });
+
+  function shouldNotify() {
+      return !authStore.isGuest;
+  }
+
+  function applyNotificationPolicy(id: string, signature: string, throttleMs = 0): boolean {
+      return notificationPolicy.shouldEmit(id, signature, throttleMs);
+  }
+
+  const liveUpdates = new LiveUpdateCoordinator({
+      t,
+      shouldNotify,
+      applyNotificationPolicy,
+      notificationCenter,
+      detectionsStore,
+      settingsStore,
+      announcer,
+      logger,
+      checkHealth,
+      fetchCacheStats,
+      onConnected: () => {
+          reconnectAttempts = 0;
+      }
+  });
 
   // Handle back button and initial load
   onMount(() => {
@@ -162,10 +180,10 @@
 
           await authStore.loadStatus();
           notificationCenter.hydrate();
-          pruneStaleProcessNotifications();
-          await runOwnerSystemChecks();
+          liveUpdates.pruneStaleProcessNotifications();
+          await liveUpdates.runOwnerSystemChecks();
           stalePruneInterval = window.setInterval(() => {
-              pruneStaleProcessNotifications();
+              liveUpdates.pruneStaleProcessNotifications();
               detectionsStore.pruneReclassifications();
           }, 10_000);
 
@@ -225,315 +243,6 @@
   });
 
   let cleanupFn: (() => void) | null = null;
-  const t = (key: string, values: Record<string, any> = {}) => get(_)(key, { values });
-
-  function shouldNotify() {
-      return !authStore.isGuest;
-  }
-
-  function applyNotificationPolicy(id: string, signature: string, throttleMs = 0): boolean {
-      return notificationPolicy.shouldEmit(id, signature, throttleMs);
-  }
-
-  function removeNotificationsByPrefix(prefix: string) {
-      const ids = notificationCenter.items
-          .filter((item) => item.id === prefix || item.id.startsWith(`${prefix}:`))
-          .map((item) => item.id);
-      for (const id of ids) {
-          notificationCenter.remove(id);
-      }
-  }
-
-  function isSystemHealthyStatus(status: string): boolean {
-      return status === 'healthy' || status === 'ok';
-  }
-
-  function pruneStaleProcessNotifications() {
-      const stale = notificationPolicy.settleStale(notificationCenter.items, STALE_PROCESS_MAX_AGE_MS);
-      for (const item of stale) {
-          notificationCenter.upsert(item);
-      }
-      pruneStaleReclassifyState();
-  }
-
-  function pruneStaleReclassifyState() {
-      const now = Date.now();
-      let removedAny = false;
-      for (const eventId of activeReclassifyEvents) {
-          const lastUpdate = reclassifyLastUpdateByEvent.get(eventId) ?? 0;
-          if (lastUpdate > 0 && now - lastUpdate <= RECLASSIFY_STATE_MAX_IDLE_MS) continue;
-          activeReclassifyEvents.delete(eventId);
-          reclassifyProgressByEvent.delete(eventId);
-          reclassifyLastUpdateByEvent.delete(eventId);
-          removedAny = true;
-      }
-      if (!removedAny) return;
-      if (activeReclassifyEvents.size <= 0) {
-          removeNotificationsByPrefix(RECLASSIFY_PROGRESS_ID);
-          reclassifyStartedCount = 0;
-          reclassifyCompletedCount = 0;
-          reclassifyProgressByEvent.clear();
-          reclassifyLastUpdateByEvent.clear();
-      }
-  }
-
-  async function runOwnerSystemChecks() {
-      if (!shouldNotify()) return;
-      let startupInstanceId = 'unknown';
-
-      try {
-          const health: any = await checkHealth();
-          startupInstanceId = String(health?.startup_instance_id ?? 'unknown');
-          const status = String(health?.status ?? '').trim().toLowerCase();
-          if (status && !isSystemHealthyStatus(status)) {
-              const id = `system:health:${startupInstanceId}`;
-              // Backward cleanup for earlier builds that used a static ID.
-              removeNotificationsByPrefix('system:health');
-              if (!notificationCenter.items.some((item) => item.id === id)) {
-                  notificationCenter.add({
-                      id,
-                      type: 'system',
-                      title: t('notifications.system_health_title'),
-                      message: t('notifications.system_health_message', { status: String(health?.status ?? 'unknown') }),
-                      meta: { source: 'health', route: '/settings' }
-                  });
-              }
-          } else {
-              // Health is OK; clear stale warning notifications from previous runs/versions.
-              removeNotificationsByPrefix('system:health');
-          }
-      } catch (error) {
-          logger.warn('health_check_failed', { error });
-      }
-
-      try {
-          const cache = await fetchCacheStats();
-          if (!cache.cache_enabled) {
-              const id = `system:cache-disabled:${startupInstanceId}`;
-              // Backward cleanup for earlier builds that used a static ID.
-              removeNotificationsByPrefix('system:cache-disabled');
-              if (!notificationCenter.items.some((item) => item.id === id)) {
-                  notificationCenter.add({
-                      id,
-                      type: 'system',
-                      title: t('notifications.system_cache_disabled_title'),
-                      message: t('notifications.system_cache_disabled_message'),
-                      meta: { source: 'cache', route: '/settings' }
-                  });
-              }
-          } else {
-              // Cache is enabled; remove stale cache-disabled notices.
-              removeNotificationsByPrefix('system:cache-disabled');
-          }
-      } catch (error) {
-          logger.warn('cache_stats_check_failed', { error });
-      }
-  }
-
-  function addDetectionNotification(det: Detection) {
-      if (!shouldNotify()) return;
-      const id = `detection:${det.frigate_event}`;
-      const signature = `${det.frigate_event}|${det.display_name}|${det.camera_name}|${det.detection_time}`;
-      if (!applyNotificationPolicy(id, signature, 4000)) return;
-      const title = t('notifications.event_detection');
-      const message = t('notifications.event_detection_desc', {
-          species: det.display_name,
-          camera: det.camera_name
-      });
-      notificationCenter.upsert({
-          id,
-          type: 'detection',
-          title,
-          message,
-          timestamp: Date.now(),
-          read: false,
-          meta: {
-              source: 'sse',
-              route: `/events?event=${encodeURIComponent(det.frigate_event)}`,
-              event_id: det.frigate_event,
-              open_label: t('notifications.open_action')
-          }
-      });
-  }
-
-  function addReclassifyNotification(eventId: string, label: string | null) {
-      if (!shouldNotify()) return;
-      const id = `reclassify:${eventId}`;
-      const signature = `${eventId}|${label ?? 'unknown'}`;
-      if (!applyNotificationPolicy(id, signature, 1500)) return;
-      const title = t('notifications.event_reclassify');
-      const message = t('notifications.event_reclassify_desc', {
-          species: label ?? 'Unknown'
-      });
-      notificationCenter.upsert({
-          id,
-          type: 'update',
-          title,
-          message,
-          timestamp: Date.now(),
-          read: false,
-          meta: {
-              source: 'sse',
-              route: `/events?event=${encodeURIComponent(eventId)}`,
-              event_id: eventId,
-              open_label: t('notifications.open_action')
-          }
-      });
-  }
-
-  function markReclassifyStarted(eventId: string, totalFrames: number = 0) {
-      if (!eventId) return;
-      const normalizedTotal = Number.isFinite(totalFrames) ? Math.max(0, Math.floor(totalFrames)) : 0;
-      if (!activeReclassifyEvents.has(eventId) && activeReclassifyEvents.size === 0) {
-          reclassifyStartedCount = 0;
-          reclassifyCompletedCount = 0;
-      }
-      if (!activeReclassifyEvents.has(eventId)) {
-          reclassifyStartedCount += 1;
-      }
-      activeReclassifyEvents.add(eventId);
-      reclassifyLastUpdateByEvent.set(eventId, Date.now());
-      if (!reclassifyProgressByEvent.has(eventId)) {
-          reclassifyProgressByEvent.set(eventId, { current: 0, total: normalizedTotal });
-      }
-  }
-
-  function markReclassifyCompleted(eventId: string) {
-      const wasActive = activeReclassifyEvents.delete(eventId);
-      reclassifyProgressByEvent.delete(eventId);
-      reclassifyLastUpdateByEvent.delete(eventId);
-      if (wasActive) {
-          reclassifyCompletedCount = Math.min(reclassifyStartedCount, reclassifyCompletedCount + 1);
-      }
-  }
-
-  function updateReclassifyProgress(eventId: string, current: number, total: number) {
-      if (!shouldNotify()) return;
-      if (!eventId) return;
-      const parsedCurrent = Number.isFinite(current) ? Math.max(0, Math.floor(current)) : 0;
-      const parsedTotal = Number.isFinite(total) ? Math.max(0, Math.floor(total)) : 0;
-      if (!activeReclassifyEvents.has(eventId)) {
-          markReclassifyStarted(eventId, parsedTotal);
-      }
-      reclassifyLastUpdateByEvent.set(eventId, Date.now());
-      const activeCount = activeReclassifyEvents.size;
-      const isBatch = reclassifyStartedCount > 1 || activeCount > 1;
-
-      // Avoid creating noisy/stuck progress cards when SSE starts with unknown frame totals.
-      if (!isBatch && parsedCurrent <= 0 && parsedTotal <= 0) return;
-
-      const normalizedTotal = parsedTotal > 0 ? parsedTotal : Math.max(1, parsedCurrent);
-      const normalizedCurrent = Math.min(normalizedTotal, parsedCurrent);
-      reclassifyProgressByEvent.set(eventId, { current: normalizedCurrent, total: normalizedTotal });
-
-      const startedTotal = Math.max(reclassifyStartedCount, reclassifyCompletedCount + activeCount);
-      // Use job-based progress (not frame totals) so the notification UI stays understandable.
-      const batchCurrent = Math.min(startedTotal, reclassifyCompletedCount + (activeCount > 0 ? 1 : 0));
-      const batchTotal = Math.max(1, startedTotal);
-      const signature = isBatch
-          ? `batch|${reclassifyCompletedCount}|${startedTotal}|${activeCount}`
-          : `single|${eventId}|${normalizedCurrent}|${normalizedTotal}`;
-      if (!applyNotificationPolicy(RECLASSIFY_PROGRESS_ID, signature, 1200)) return;
-      // Collapse any legacy per-event progress cards into a single active status card.
-      removeNotificationsByPrefix(LEGACY_RECLASSIFY_PROGRESS_PREFIX);
-
-      const title = isBatch
-          ? t('settings.data.batch_analysis_title')
-          : t('actions.reclassify');
-      const message = isBatch
-          ? `${t('settings.data.batch_analysis_active')}: ${activeCount.toLocaleString()} • ${reclassifyCompletedCount.toLocaleString()}/${startedTotal.toLocaleString()}`
-          : t('notifications.event_reclassify_progress', {
-              current: normalizedCurrent.toLocaleString(),
-              total: normalizedTotal.toLocaleString()
-          });
-      notificationCenter.upsert({
-          id: RECLASSIFY_PROGRESS_ID,
-          type: 'process',
-          title,
-          message,
-          timestamp: Date.now(),
-          read: false,
-          meta: {
-              source: 'sse',
-              route: isBatch ? '/settings#data' : `/events?event=${encodeURIComponent(eventId)}`,
-              event_id: isBatch ? undefined : eventId,
-              current: isBatch ? batchCurrent : normalizedCurrent,
-              total: isBatch ? batchTotal : normalizedTotal,
-              open_label: t('notifications.open_action')
-          }
-      });
-  }
-
-  function clearReclassifyProgressNotification(eventId: string) {
-      markReclassifyCompleted(eventId);
-      if (activeReclassifyEvents.size <= 0) {
-          removeNotificationsByPrefix(RECLASSIFY_PROGRESS_ID);
-          reclassifyStartedCount = 0;
-          reclassifyCompletedCount = 0;
-          reclassifyProgressByEvent.clear();
-          reclassifyLastUpdateByEvent.clear();
-      }
-  }
-
-  function updateBackfillNotification(payload: any) {
-      if (!shouldNotify()) return;
-      if (!payload || typeof payload !== 'object') return;
-      const data = payload.data ?? {};
-      const jobId = data.id ?? data.job_id ?? 'unknown';
-      const kind = data.kind ?? 'detections';
-      const isWeather = kind === 'weather';
-      const total = Number.isFinite(Number(data.total)) ? Math.max(0, Math.floor(Number(data.total))) : 0;
-      const processed = Number.isFinite(Number(data.processed)) ? Math.max(0, Math.floor(Number(data.processed))) : 0;
-      const updated = Number.isFinite(Number(data.updated ?? data.new_detections))
-          ? Math.max(0, Math.floor(Number(data.updated ?? data.new_detections)))
-          : 0;
-      const skipped = Number.isFinite(Number(data.skipped)) ? Math.max(0, Math.floor(Number(data.skipped))) : 0;
-      const errors = Number.isFinite(Number(data.errors)) ? Math.max(0, Math.floor(Number(data.errors))) : 0;
-      const hasOngoingState = payload.type === 'backfill_progress' || payload.type === 'backfill_started';
-      const normalizedTotal = total > 0 ? total : (hasOngoingState ? Math.max(1, processed) : 0);
-
-      let title = isWeather ? t('notifications.event_weather_backfill') : t('notifications.event_backfill');
-      if (payload.type === 'backfill_complete') {
-          title = isWeather ? t('notifications.event_weather_backfill_done') : t('notifications.event_backfill_done');
-      }
-      if (payload.type === 'backfill_failed') {
-          title = isWeather ? t('notifications.event_weather_backfill_failed') : t('notifications.event_backfill_failed');
-      }
-
-      let message = '';
-      if (payload.type === 'backfill_progress' || payload.type === 'backfill_started') {
-          message = `${processed.toLocaleString()}/${normalizedTotal.toLocaleString()} • ${updated.toLocaleString()} upd • ${skipped.toLocaleString()} skip • ${errors.toLocaleString()} err`;
-      } else if (payload.type === 'backfill_complete') {
-          message = data.message || `${updated.toLocaleString()} updated, ${skipped.toLocaleString()} skipped, ${errors.toLocaleString()} errors`;
-      } else if (payload.type === 'backfill_failed') {
-          message = data.message || t('notifications.event_backfill_failed');
-      }
-
-      const id = `backfill:${kind}:${jobId}`;
-      const legacyId = `backfill:${jobId}`;
-      if (legacyId !== id) {
-          notificationCenter.remove(legacyId);
-      }
-      const signature = `${payload.type}|${jobId}|${processed}|${total}|${updated}|${skipped}|${errors}`;
-      const throttleMs = payload.type === 'backfill_progress' ? 1200 : 0;
-      if (!applyNotificationPolicy(id, signature, throttleMs)) return;
-
-      notificationCenter.upsert({
-          id,
-          type: 'process',
-          title,
-          message,
-          timestamp: Date.now(),
-          read: payload.type === 'backfill_complete' || payload.type === 'backfill_failed',
-          meta: {
-              source: 'sse',
-              route: '/settings',
-              kind,
-              processed,
-              total: normalizedTotal
-          }
-      });
-  }
 
   $effect(() => {
       if (!authStore.statusLoaded) {
@@ -613,170 +322,7 @@
                      return;
                  }
 
-                 // Validate payload structure
-                 if (!payload || typeof payload !== 'object') {
-                     logger.error("SSE Invalid payload structure", undefined, { payload });
-                     return;
-                 }
-
-                 if (!payload.type) {
-                     logger.error("SSE Missing payload type", undefined, { payload });
-                     return;
-                 }
-
-                 // Handle different message types with error boundaries
-                 try {
-                     if (payload.type === 'connected') {
-                         detectionsStore.setConnected(true);
-                         reconnectAttempts = 0; // Reset backoff on successful connection
-                         logger.sseEvent("connected", { message: payload.message });
-                     } else if (payload.type === 'detection') {
-                         if (!payload.data || !payload.data.frigate_event) {
-                             logger.error("SSE Invalid detection data", undefined, { payload });
-                             return;
-                         }
-                         const newDet: Detection = {
-                             frigate_event: payload.data.frigate_event,
-                             display_name: payload.data.display_name,
-                             score: payload.data.score,
-                             detection_time: payload.data.timestamp,
-                             camera_name: payload.data.camera,
-                             has_clip: payload.data.has_clip,
-                             is_favorite: payload.data.is_favorite,
-                             frigate_score: payload.data.frigate_score,
-                             sub_label: payload.data.sub_label,
-                             manual_tagged: payload.data.manual_tagged,
-                             audio_confirmed: payload.data.audio_confirmed,
-                             audio_species: payload.data.audio_species,
-                             audio_score: payload.data.audio_score,
-                             temperature: payload.data.temperature,
-                             weather_condition: payload.data.weather_condition,
-                             weather_cloud_cover: payload.data.weather_cloud_cover,
-                             weather_wind_speed: payload.data.weather_wind_speed,
-                             weather_wind_direction: payload.data.weather_wind_direction,
-                             weather_precipitation: payload.data.weather_precipitation,
-                             weather_rain: payload.data.weather_rain,
-                             weather_snowfall: payload.data.weather_snowfall,
-                             scientific_name: payload.data.scientific_name,
-                             common_name: payload.data.common_name,
-                             taxa_id: payload.data.taxa_id,
-                             video_classification_score: payload.data.video_classification_score,
-                             video_classification_label: payload.data.video_classification_label,
-                             video_classification_status: payload.data.video_classification_status,
-                             video_classification_timestamp: payload.data.video_classification_timestamp
-                         };
-                         detectionsStore.addDetection(newDet);
-                         if (settingsStore.liveAnnouncements) {
-                             announcer.announce(`New bird detected: ${newDet.display_name} at ${newDet.camera_name}`);
-                         }
-                         addDetectionNotification(newDet);
-                     } else if (payload.type === 'detection_updated') {
-                         if (!payload.data || !payload.data.frigate_event) {
-                             logger.error("SSE Invalid detection_updated data", undefined, { payload });
-                             return;
-                         }
-                         const updatedDet: Detection = {
-                             frigate_event: payload.data.frigate_event,
-                             display_name: payload.data.display_name,
-                             score: payload.data.score,
-                             detection_time: payload.data.timestamp,
-                             camera_name: payload.data.camera,
-                             has_clip: payload.data.has_clip,
-                             frigate_score: payload.data.frigate_score,
-                             sub_label: payload.data.sub_label,
-                             is_hidden: payload.data.is_hidden,
-                             is_favorite: payload.data.is_favorite,
-                             manual_tagged: payload.data.manual_tagged,
-                             audio_confirmed: payload.data.audio_confirmed,
-                             audio_species: payload.data.audio_species,
-                             audio_score: payload.data.audio_score,
-                             temperature: payload.data.temperature,
-                             weather_condition: payload.data.weather_condition,
-                             weather_cloud_cover: payload.data.weather_cloud_cover,
-                             weather_wind_speed: payload.data.weather_wind_speed,
-                             weather_wind_direction: payload.data.weather_wind_direction,
-                             weather_precipitation: payload.data.weather_precipitation,
-                             weather_rain: payload.data.weather_rain,
-                             weather_snowfall: payload.data.weather_snowfall,
-                             scientific_name: payload.data.scientific_name,
-                             common_name: payload.data.common_name,
-                             taxa_id: payload.data.taxa_id,
-                             video_classification_score: payload.data.video_classification_score,
-                             video_classification_label: payload.data.video_classification_label,
-                             video_classification_status: payload.data.video_classification_status,
-                             video_classification_timestamp: payload.data.video_classification_timestamp
-                         };
-                         detectionsStore.updateDetection(updatedDet);
-                     } else if (payload.type === 'detection_deleted') {
-                         if (!payload.data || !payload.data.frigate_event) {
-                             logger.error("SSE Invalid detection_deleted data", undefined, { payload });
-                             return;
-                         }
-                         detectionsStore.removeDetection(payload.data.frigate_event, payload.data.timestamp);
-                     } else if (payload.type === 'reclassification_started') {
-                         if (!payload.data || !payload.data.event_id) {
-                             logger.warn("SSE invalid reclassification_started payload", { payload });
-                             return;
-                         }
-                         markReclassifyStarted(payload.data.event_id, payload.data.total_frames ?? 0);
-                         detectionsStore.startReclassification(
-                             payload.data.event_id,
-                             payload.data.total_frames ?? 15,
-                             payload.data.strategy ?? null
-                         );
-                         updateReclassifyProgress(payload.data.event_id, 0, payload.data.total_frames ?? 0);
-                     } else if (payload.type === 'reclassification_progress') {
-                         if (!payload.data || !payload.data.event_id) {
-                             logger.warn("SSE invalid reclassification_progress payload", { payload });
-                             return;
-                         }
-                         detectionsStore.updateReclassificationProgress(
-                             payload.data.event_id,
-                             payload.data.current_frame,
-                             payload.data.total_frames,
-                             payload.data.frame_score,
-                             payload.data.top_label,
-                             payload.data.frame_thumb,
-                             payload.data.frame_index,
-                             payload.data.clip_total,
-                             payload.data.model_name
-                         );
-                         updateReclassifyProgress(payload.data.event_id, payload.data.current_frame, payload.data.total_frames);
-                     } else if (payload.type === 'reclassification_completed') {
-                         if (!payload.data || !payload.data.event_id) {
-                             logger.warn("SSE invalid reclassification_completed payload", { payload });
-                             return;
-                         }
-                         clearReclassifyProgressNotification(payload.data.event_id);
-                         detectionsStore.completeReclassification(
-                             payload.data.event_id,
-                             payload.data.results
-                         );
-                         const topLabel = Array.isArray(payload.data.results) && payload.data.results.length > 0
-                             ? payload.data.results[0]?.label ?? null
-                             : null;
-                         addReclassifyNotification(payload.data.event_id, topLabel);
-                     } else if (payload.type === 'backfill_started' || payload.type === 'backfill_progress' || payload.type === 'backfill_complete' || payload.type === 'backfill_failed') {
-                         updateBackfillNotification(payload);
-                     } else if (payload.type === 'settings_updated') {
-                         const signature = `${payload.type}|${JSON.stringify(payload.data ?? {})}`;
-                         if (shouldNotify() && applyNotificationPolicy('settings:updated', signature, 3000)) {
-                             notificationCenter.upsert({
-                                 id: 'settings:updated',
-                                 type: 'update',
-                                 title: t('notifications.settings_updated_title'),
-                                 message: t('notifications.settings_updated_message'),
-                                 timestamp: Date.now(),
-                                 read: false,
-                                 meta: { source: 'sse', route: '/settings' }
-                             });
-                         }
-                     } else {
-                         console.warn("SSE Unknown message type:", payload.type);
-                     }
-                 } catch (handlerError) {
-                     console.error(`SSE Handler error for type '${payload.type}':`, handlerError, "Payload:", payload);
-                 }
+                 liveUpdates.handlePayload(payload);
               } catch (e) {
                   console.error("SSE Unexpected error in message handler:", e, "Event:", event);
               }
@@ -787,22 +333,7 @@
                   type: (err as any)?.type ?? 'error',
                   attempt: reconnectAttempts + 1
               });
-              detectionsStore.setConnected(false);
-              if (shouldNotify()) {
-                  const id = 'system:sse-disconnected';
-                  const signature = `${String((err as any)?.type ?? 'error')}|${document.hidden ? 'hidden' : 'visible'}`;
-                  if (applyNotificationPolicy(id, signature, 120000)) {
-                      notificationCenter.upsert({
-                          id,
-                          type: 'update',
-                          title: t('notifications.live_updates_disconnected_title'),
-                          message: t('notifications.live_updates_disconnected_message'),
-                          timestamp: Date.now(),
-                          read: false,
-                          meta: { source: 'sse', route: '/notifications' }
-                      });
-                  }
-              }
+              liveUpdates.handleDisconnect(err, document.hidden);
 
               if (evtSource) {
                   evtSource.close();
@@ -814,7 +345,7 @@
           };
       } catch (error) {
           logger.error("Failed to create SSE connection", error);
-          detectionsStore.setConnected(false);
+          liveUpdates.handleDisconnect(error, document.hidden);
           scheduleReconnect();
       }
   }
@@ -880,65 +411,22 @@
 
           <Sidebar {currentRoute} onNavigate={navigate} {mobileSidebarOpen} onMobileClose={() => mobileSidebarOpen = false}>
               {#snippet status()}
-                  <div class="flex items-center gap-4 px-2">
-                      {#if settingsStore.birdnetEnabled}
-                          <div class="relative flex items-center justify-center group cursor-help text-teal-500 dark:text-teal-400" title={$_('status.audio_active')}>
-                              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-400 opacity-20"></span>
-                              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /></svg>
-                          </div>
-                      {/if}
-
-                      {#if notificationsActive}
-                          <div class="relative flex items-center justify-center text-indigo-500 dark:text-indigo-400 cursor-help" title={$_('status.notifications_enabled')}>
-                              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h6m-6 8 4-4h6a4 4 0 0 0 4-4V7a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v9a4 4 0 0 0 4 4z" /></svg>
-                          </div>
-                      {/if}
-
-                      <div class="flex items-center gap-2 cursor-help" title={detectionsStore.connected ? $_('status.system_online') : $_('status.system_offline')}>
-                          {#if detectionsStore.connected}
-                              <div class="relative flex items-center justify-center text-emerald-500 dark:text-emerald-400">
-                                  <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-20"></span>
-                                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" /></svg>
-                              </div>
-                          {:else}
-                              <div class="relative flex items-center justify-center text-red-500">
-                                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                              </div>
-                          {/if}
-                      </div>
-                  </div>
+                  <ConnectionStatus
+                      birdnetEnabled={Boolean(settingsStore.birdnetEnabled)}
+                      {notificationsActive}
+                      connected={detectionsStore.connected}
+                      className="gap-4 px-2"
+                  />
               {/snippet}
           </Sidebar>
       {:else}
           <Header {currentRoute} onNavigate={navigate} onShowKeyboardShortcuts={() => showKeyboardShortcuts = true}>
               {#snippet status()}
-                  <div class="flex items-center gap-4">
-                      {#if settingsStore.birdnetEnabled}
-                          <div class="relative flex items-center justify-center group cursor-help text-teal-500 dark:text-teal-400" title={$_('status.audio_active')}>
-                              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-400 opacity-20"></span>
-                              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /></svg>
-                          </div>
-                      {/if}
-
-                      {#if notificationsActive}
-                          <div class="relative flex items-center justify-center text-indigo-500 dark:text-indigo-400 cursor-help" title={$_('status.notifications_enabled')}>
-                              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h6m-6 8 4-4h6a4 4 0 0 0 4-4V7a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v9a4 4 0 0 0 4 4z" /></svg>
-                          </div>
-                      {/if}
-
-                      <div class="flex items-center gap-2 cursor-help" title={detectionsStore.connected ? $_('status.system_online') : $_('status.system_offline')}>
-                          {#if detectionsStore.connected}
-                              <div class="relative flex items-center justify-center text-emerald-500 dark:text-emerald-400">
-                                  <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-20"></span>
-                                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" /></svg>
-                              </div>
-                          {:else}
-                              <div class="relative flex items-center justify-center text-red-500">
-                                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                              </div>
-                          {/if}
-                      </div>
-                  </div>
+                  <ConnectionStatus
+                      birdnetEnabled={Boolean(settingsStore.birdnetEnabled)}
+                      {notificationsActive}
+                      connected={detectionsStore.connected}
+                  />
               {/snippet}
           </Header>
       {/if}
