@@ -1,5 +1,9 @@
 <script lang="ts">
+    import { onDestroy } from 'svelte';
     import { _ } from 'svelte-i18n';
+    import flatpickr from 'flatpickr';
+    import type { Instance as FlatpickrInstance } from 'flatpickr/dist/types/instance';
+    import 'flatpickr/dist/flatpickr.min.css';
     import { formatDate } from '../../utils/datetime';
     import type { MaintenanceStats, BackfillResult, WeatherBackfillResult, CacheStats, TaxonomySyncStatus, AnalysisStatus } from '../../api';
 
@@ -22,6 +26,8 @@
         backfillDateRange = $bindable<'day' | 'week' | 'month' | 'custom'>('week'),
         backfillStartDate = $bindable(''),
         backfillEndDate = $bindable(''),
+        backfillCustomError = null,
+        backfillCustomValid = true,
         backfilling,
         backfillResult,
         backfillTotal = $bindable(0),
@@ -62,6 +68,8 @@
         backfillDateRange: 'day' | 'week' | 'month' | 'custom';
         backfillStartDate: string;
         backfillEndDate: string;
+        backfillCustomError: string | null;
+        backfillCustomValid: boolean;
         backfilling: boolean;
         backfillResult: BackfillResult | null;
         backfillTotal: number;
@@ -97,6 +105,100 @@
         if (Number.isNaN(date.getTime())) return '';
         return date.toLocaleTimeString();
     };
+
+    let customRangeInput = $state<HTMLInputElement | null>(null);
+    let customRangePicker = $state<FlatpickrInstance | null>(null);
+
+    const formatDateOnly = (date: Date): string => {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    };
+
+    const parseDateOnly = (value: string): Date | null => {
+        const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+        if (!match) return null;
+        const year = Number(match[1]);
+        const month = Number(match[2]);
+        const day = Number(match[3]);
+        const date = new Date(year, month - 1, day);
+        if (
+            date.getFullYear() !== year
+            || date.getMonth() !== month - 1
+            || date.getDate() !== day
+        ) {
+            return null;
+        }
+        date.setHours(0, 0, 0, 0);
+        return date;
+    };
+
+    const destroyCustomRangePicker = () => {
+        if (customRangePicker) {
+            customRangePicker.destroy();
+            customRangePicker = null;
+        }
+    };
+
+    const syncPickerSelection = () => {
+        if (!customRangePicker) return;
+        const dates: Date[] = [];
+        const start = parseDateOnly(backfillStartDate);
+        const end = parseDateOnly(backfillEndDate);
+        if (start) dates.push(start);
+        if (end) dates.push(end);
+        customRangePicker.setDate(dates, false);
+    };
+
+    const initCustomRangePicker = () => {
+        if (!customRangeInput || customRangePicker || typeof window === 'undefined') return;
+
+        customRangePicker = flatpickr(customRangeInput, {
+            mode: 'range',
+            dateFormat: 'Y-m-d',
+            maxDate: 'today',
+            allowInput: false,
+            disableMobile: true,
+            onChange: (selectedDates: Date[]) => {
+                backfillStartDate = selectedDates[0] ? formatDateOnly(selectedDates[0]) : '';
+                backfillEndDate = selectedDates[1] ? formatDateOnly(selectedDates[1]) : '';
+            }
+        });
+
+        syncPickerSelection();
+    };
+
+    const setCustomRangeDays = (days: number) => {
+        const end = new Date();
+        end.setHours(0, 0, 0, 0);
+        const start = new Date(end);
+        start.setDate(end.getDate() - (days - 1));
+        backfillStartDate = formatDateOnly(start);
+        backfillEndDate = formatDateOnly(end);
+    };
+
+    const clearCustomRange = () => {
+        backfillStartDate = '';
+        backfillEndDate = '';
+        if (customRangePicker) {
+            customRangePicker.clear();
+        }
+    };
+
+    $effect(() => {
+        if (backfillDateRange !== 'custom') {
+            destroyCustomRangePicker();
+            return;
+        }
+        if (!customRangeInput) return;
+        initCustomRangePicker();
+        syncPickerSelection();
+    });
+
+    onDestroy(() => {
+        destroyCustomRangePicker();
+    });
 </script>
 
 <div class="space-y-6">
@@ -320,27 +422,35 @@
             </div>
 
             {#if backfillDateRange === 'custom'}
-                <div class="grid grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2">
-                    <div>
-                        <label for="backfill-start" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.data.backfill_start')}</label>
-                        <input
-                            id="backfill-start"
-                            type="date"
-                            bind:value={backfillStartDate}
-                            aria-label={$_('settings.data.backfill_start')}
-                            class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"
-                        />
+                <div class="space-y-3 animate-in fade-in slide-in-from-top-2">
+                    <label for="backfill-range-picker" class="block text-[10px] font-black uppercase tracking-widest text-slate-500">{$_('settings.data.backfill_custom', { default: 'Custom range' })}</label>
+                    <input
+                        id="backfill-range-picker"
+                        type="text"
+                        bind:this={customRangeInput}
+                        readonly
+                        aria-label={$_('settings.data.backfill_custom', { default: 'Custom range' })}
+                        placeholder={$_('settings.data.backfill_picker_placeholder', { default: 'Select start and end date' })}
+                        class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"
+                    />
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-[11px] font-bold text-slate-600 dark:text-slate-300">
+                        <div class="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-900/40">
+                            <span class="text-slate-400 mr-2">{$_('settings.data.backfill_start')}</span>
+                            <span>{backfillStartDate || '—'}</span>
+                        </div>
+                        <div class="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-900/40">
+                            <span class="text-slate-400 mr-2">{$_('settings.data.backfill_end')}</span>
+                            <span>{backfillEndDate || '—'}</span>
+                        </div>
                     </div>
-                    <div>
-                        <label for="backfill-end" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.data.backfill_end')}</label>
-                        <input
-                            id="backfill-end"
-                            type="date"
-                            bind:value={backfillEndDate}
-                            aria-label={$_('settings.data.backfill_end')}
-                            class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"
-                        />
+                    <div class="grid grid-cols-3 gap-2">
+                        <button type="button" class="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 hover:border-teal-400" onclick={() => setCustomRangeDays(7)}>7D</button>
+                        <button type="button" class="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 hover:border-teal-400" onclick={() => setCustomRangeDays(30)}>30D</button>
+                        <button type="button" class="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 hover:border-teal-400" onclick={clearCustomRange}>{$_('common.clear', { default: 'Clear' })}</button>
                     </div>
+                    {#if backfillCustomError}
+                        <p class="text-[11px] font-bold text-red-500">{backfillCustomError}</p>
+                    {/if}
                 </div>
             {/if}
 
@@ -393,7 +503,7 @@
 
             <button
                 onclick={handleBackfill}
-                disabled={backfilling}
+                disabled={backfilling || !backfillCustomValid}
                 aria-label={$_('settings.data.backfill_scan_button')}
                 class="w-full px-4 py-4 text-xs font-black uppercase tracking-widest rounded-2xl bg-teal-500 hover:bg-teal-600 text-white transition-all shadow-lg shadow-teal-500/20 flex items-center justify-center gap-3 disabled:opacity-50"
             >
@@ -441,7 +551,7 @@
                 {/if}
                 <button
                     onclick={handleWeatherBackfill}
-                    disabled={weatherBackfilling}
+                    disabled={weatherBackfilling || !backfillCustomValid}
                     aria-label={$_('settings.data.weather_backfill_button')}
                     class="w-full px-4 py-4 text-xs font-black uppercase tracking-widest rounded-2xl bg-slate-800 hover:bg-slate-900 text-white transition-all shadow-lg shadow-slate-500/10 flex items-center justify-center gap-3 disabled:opacity-50"
                 >

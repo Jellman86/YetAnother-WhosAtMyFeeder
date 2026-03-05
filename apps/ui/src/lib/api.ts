@@ -1385,6 +1385,7 @@ export interface BackfillJobStatus {
     new_detections?: number;
     updated?: number;
     skipped: number;
+    skipped_reasons?: Record<string, number>;
     errors: number;
     message?: string;
     started_at?: string | null;

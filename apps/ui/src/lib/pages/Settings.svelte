@@ -1583,6 +1583,54 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     // Tab navigation
     let activeTab = $state<SettingsTab>('connection');
 
+    const parseDateOnly = (value: string): Date | null => {
+        const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+        if (!match) return null;
+        const year = Number(match[1]);
+        const month = Number(match[2]);
+        const day = Number(match[3]);
+        const date = new Date(year, month - 1, day);
+        if (
+            date.getFullYear() !== year
+            || date.getMonth() !== month - 1
+            || date.getDate() !== day
+        ) {
+            return null;
+        }
+        date.setHours(0, 0, 0, 0);
+        return date;
+    };
+
+    const validateBackfillCustomRange = (
+        dateRange: 'day' | 'week' | 'month' | 'custom',
+        startDate: string,
+        endDate: string
+    ): string | null => {
+        if (dateRange !== 'custom') return null;
+        if (!startDate || !endDate) {
+            return $_('settings.data.backfill_validation_select_both', { default: 'Select both start and end dates.' });
+        }
+
+        const start = parseDateOnly(startDate);
+        const end = parseDateOnly(endDate);
+        if (!start || !end) {
+            return $_('settings.data.backfill_validation_invalid', { default: 'Enter a valid date range.' });
+        }
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        if (start > today || end > today) {
+            return $_('settings.data.backfill_validation_future', { default: 'Future dates are not allowed.' });
+        }
+        if (start > end) {
+            return $_('settings.data.backfill_validation_order', { default: 'Start date must be before or equal to end date.' });
+        }
+        return null;
+    };
+
+    let backfillCustomError = $derived(validateBackfillCustomRange(backfillDateRange, backfillStartDate, backfillEndDate));
+    let backfillCustomValid = $derived(backfillDateRange !== 'custom' || !backfillCustomError);
+
     $effect(() => {
         currentTheme = themeStore.theme;
         currentLayout = layoutStore.layout;
@@ -1881,6 +1929,10 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     }
 
     async function handleBackfill() {
+        if (!backfillCustomValid) {
+            message = { type: 'error', text: backfillCustomError || $_('settings.data.backfill_error') };
+            return;
+        }
         backfilling = true;
         message = null;
         backfillResult = null;
@@ -1901,6 +1953,10 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     }
 
     async function handleWeatherBackfill() {
+        if (!backfillCustomValid) {
+            message = { type: 'error', text: backfillCustomError || $_('settings.data.weather_backfill_error') };
+            return;
+        }
         weatherBackfilling = true;
         message = null;
         weatherBackfillResult = null;
@@ -1944,6 +2000,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     new_detections: safeCount(detections.new_detections),
                     skipped: safeCount(detections.skipped),
                     errors: safeCount(detections.errors),
+                    skipped_reasons: detections.skipped_reasons ?? {},
                     message: detections.message || ''
                 };
                 backfillTotal = mergeBackfillTotal(backfillTotal, detections);
@@ -2956,6 +3013,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     bind:backfillDateRange
                     bind:backfillStartDate
                     bind:backfillEndDate
+                    {backfillCustomError}
+                    {backfillCustomValid}
                     {maintenanceStats}
                     {cacheStats}
                     {cleaningUp}
