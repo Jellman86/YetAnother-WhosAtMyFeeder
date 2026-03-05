@@ -111,3 +111,33 @@ If it fails, include:
 - Output from `/api/classifier/status`
 - Backend logs around model initialization/provider fallback
 - `nvidia-smi` output from host and backend container (redacted if needed)
+
+## MQTT Liveness Soak Validation (Issue #22)
+
+Goal: validate sustained Frigate + BirdNET MQTT ingestion continuity and detect Frigate-stall/BirdNET-active regressions.
+
+Harness:
+
+1. Run `/config/workspace/YA-WAMF/scripts/run_issue22_soak.py` using backend venv Python.
+2. The harness publishes synthetic MQTT traffic and polls `/health`.
+3. It writes:
+   - `samples.ndjson` (per-poll data/errors)
+   - `summary.json` (pass/fail + reasons + stall incidents)
+
+Quick example:
+
+```bash
+/config/workspace/YA-WAMF/backend/venv/bin/python \
+  /config/workspace/YA-WAMF/scripts/run_issue22_soak.py \
+  --backend-url http://127.0.0.1:8946 \
+  --mqtt-host 127.0.0.1 \
+  --mqtt-port 1883 \
+  --duration-seconds 1800 \
+  --poll-interval-seconds 5
+```
+
+When reporting results, include:
+
+1. Command used (redact tokens/secrets).
+2. `summary.json` status + failure reasons (if any).
+3. Relevant `samples.ndjson` window around any reported stall incident.
