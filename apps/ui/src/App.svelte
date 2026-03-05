@@ -198,7 +198,7 @@
                   });
                   continue;
               }
-              if (normalizedStatus === 'pending' || normalizedStatus === 'processing') {
+              if (normalizedStatus === 'processing') {
                   jobProgressStore.upsertRunning({
                       id: job.id,
                       kind: job.kind,

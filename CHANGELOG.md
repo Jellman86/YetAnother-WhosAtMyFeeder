@@ -11,6 +11,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Fixed:** Jobs queue telemetry polling now keeps retrying after transient failures and preserves previously known queue data instead of downgrading to “not reported.”
 - **Changed:** Notifications workspace heading now reads “Notifications & Jobs” to better match the combined page purpose.
 - **Fixed:** Jobs pipeline no longer shows idle reclassification queue rows after local clear actions when queue depth is `0` and no job activity exists.
+- **Fixed:** Reclassification fallback handling now treats `pending` as queued (not active running), preventing phantom extra active reclassify jobs beyond configured concurrency during batch analysis.
 - **Added:** Dedicated frontend background-job telemetry store (`jobProgressStore`) with explicit lifecycle states (`running`, `stale`, `completed`, `failed`), rate-per-minute estimation, and ETA tracking.
 - **Changed:** Notifications now hosts a unified tabbed workspace for both notification history and jobs (`/notifications` + `/notifications/jobs`), with `/jobs` retained as a legacy canonical redirect to the Jobs tab.
 - **Changed:** Global progress UI now reads from dedicated job telemetry (not notification `process` items), supports determinate/indeterminate rendering, exposes stale/update-age indicators, and links directly to the Notifications Jobs tab.

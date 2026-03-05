@@ -475,7 +475,7 @@ export class LiveUpdateCoordinator {
             return;
         }
 
-        if (status === 'pending' || status === 'processing') {
+        if (status === 'processing') {
             this.reclassifyLastUpdateByEvent.set(eventId, Date.now());
             this.deps.jobProgress.upsertRunning({
                 id: `reclassify:${eventId}`,

@@ -107,4 +107,26 @@ describe('LiveUpdateCoordinator reclassify fallback', () => {
         expect(calls.markFailed.length).toBe(1);
         expect(calls.markFailed[0].id).toBe('reclassify:evt-3');
     });
+
+    it('does not create additional running updates from pending fallback status', () => {
+        const { coordinator, calls } = buildCoordinator();
+
+        coordinator.handlePayload({
+            type: 'reclassification_started',
+            data: { event_id: 'evt-4', total_frames: 0, strategy: 'auto_video' }
+        });
+        expect(calls.upsertRunning.length).toBe(1);
+
+        coordinator.handlePayload({
+            type: 'detection_updated',
+            data: {
+                frigate_event: 'evt-4',
+                video_classification_status: 'pending',
+                video_classification_error: null
+            }
+        });
+
+        // Keep the originally started job, but do not duplicate/revive it from pending fallback.
+        expect(calls.upsertRunning.length).toBe(1);
+    });
 });
