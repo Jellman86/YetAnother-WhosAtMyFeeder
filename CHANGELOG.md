@@ -21,6 +21,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Changed:** Completed locale-key coverage pass for the Notifications/Jobs/Errors workspace additions (pipeline labels, Errors tab strings, bundle controls), including updated localized Notifications page headings.
 - **Added:** New UI locale regression test (`locales.jobs-errors.test.ts`) to enforce key coverage for Notifications/Jobs/Errors strings across all supported languages.
 - **Added:** Settings polling failures for analysis status and backfill status are now captured into the Errors diagnostics store for exportable troubleshooting context.
+- **Added:** New owner-only backend diagnostics history endpoint `GET /api/diagnostics/errors` with bounded in-memory retention, plus structured event capture for event-pipeline drops/timeouts/failures and notification-dispatcher queue/job failures.
 - **Fixed:** Jobs pipeline no longer shows idle reclassification queue rows after local clear actions when queue depth is `0` and no job activity exists.
 - **Fixed:** Reclassification fallback handling now treats `pending` as queued (not active running), preventing phantom extra active reclassify jobs beyond configured concurrency during batch analysis.
 - **Added:** Dedicated frontend background-job telemetry store (`jobProgressStore`) with explicit lifecycle states (`running`, `stale`, `completed`, `failed`), rate-per-minute estimation, and ETA tracking.

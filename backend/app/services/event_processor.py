@@ -20,6 +20,7 @@ from app.services.weather_service import weather_service
 from app.services.notification_orchestrator import NotificationOrchestrator
 from app.services.notification_dispatcher import notification_dispatcher
 from app.services.taxonomy.taxonomy_service import taxonomy_service
+from app.services.error_diagnostics import error_diagnostics_history
 from app.utils.frigate import normalize_sub_label
 # Backward-compat for tests that patch event_processor.notification_service
 from app.services.notification_service import notification_service  # noqa: F401
@@ -107,6 +108,17 @@ class EventProcessor:
         }
         payload.update(details)
         self._last_drop = payload
+        severity = "error" if reason_key in {"classify_snapshot_unavailable", "save_and_notify_failed"} else "warning"
+        error_diagnostics_history.record(
+            source="event_pipeline",
+            component="event_processor",
+            stage=str(details.get("stage", "") or "") or None,
+            reason_code=f"drop_{reason_key}",
+            message=f"Dropped event due to {reason_key}",
+            severity=severity,
+            event_id=event_id,
+            context=dict(details) if details else None,
+        )
         self._record_recent_outcome(event_id, "dropped", reason=reason_key, **details)
 
     def _record_completed(self, event_id: str, duration_ms: float) -> None:
@@ -128,6 +140,16 @@ class EventProcessor:
             "timestamp": self._utc_now(),
         }
         self._last_stage_timeout = payload
+        error_diagnostics_history.record(
+            source="event_pipeline",
+            component="event_processor",
+            stage=stage,
+            reason_code="stage_timeout",
+            message=f"Stage {stage} timed out after {timeout_seconds}s",
+            severity="error",
+            event_id=event_id,
+            context={"timeout_seconds": timeout_seconds},
+        )
         self._record_recent_outcome(
             event_id,
             "stage_timeout",
@@ -144,6 +166,16 @@ class EventProcessor:
             "timestamp": self._utc_now(),
         }
         self._last_stage_failure = payload
+        error_diagnostics_history.record(
+            source="event_pipeline",
+            component="event_processor",
+            stage=stage,
+            reason_code="stage_failure",
+            message=f"Stage {stage} failed: {error}",
+            severity="critical",
+            event_id=event_id,
+            context={"error": error},
+        )
         self._record_recent_outcome(event_id, "stage_failure", stage=stage, error=error)
 
     def _record_stage_fallback(self, stage: str, event_id: str) -> None:

@@ -35,7 +35,25 @@ from app.services.auto_video_classifier_service import auto_video_classifier
 from app.services.notification_dispatcher import notification_dispatcher
 from app.services.frigate_client import frigate_client
 from app.repositories.detection_repository import DetectionRepository
-from app.routers import events, proxy, settings as settings_router, species, backfill, classifier, models, ai, stats, stats_ai, debug, audio, email, inaturalist, ebird, auth as auth_router
+from app.routers import (
+    events,
+    proxy,
+    settings as settings_router,
+    species,
+    backfill,
+    classifier,
+    models,
+    ai,
+    stats,
+    stats_ai,
+    debug,
+    audio,
+    email,
+    inaturalist,
+    ebird,
+    diagnostics,
+    auth as auth_router,
+)
 from app.config import settings, _expand_trusted_hosts
 from app.middleware.language import LanguageMiddleware
 from app.utils.tasks import create_background_task
@@ -405,6 +423,7 @@ app.include_router(settings_router.router, prefix="/api", dependencies=[Depends(
 app.include_router(backfill.router, prefix="/api", tags=["backfill"], dependencies=[Depends(get_auth_context_with_legacy)])
 app.include_router(models.router, prefix="/api", tags=["models"], dependencies=[Depends(get_auth_context_with_legacy)])
 app.include_router(debug.router, prefix="/api", tags=["debug"], dependencies=[Depends(get_auth_context_with_legacy)])
+app.include_router(diagnostics.router, prefix="/api", tags=["diagnostics"], dependencies=[Depends(get_auth_context_with_legacy)])
 app.include_router(email.router, prefix="/api", tags=["email"], dependencies=[Depends(get_auth_context_with_legacy)])
 app.include_router(inaturalist.router, prefix="/api", tags=["inaturalist"], dependencies=[Depends(get_auth_context_with_legacy)])
 app.include_router(ebird.router, prefix="/api", tags=["ebird"], dependencies=[Depends(get_auth_context_with_legacy)])

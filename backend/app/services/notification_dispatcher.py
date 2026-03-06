@@ -5,6 +5,7 @@ from typing import Any
 
 import structlog
 
+from app.services.error_diagnostics import error_diagnostics_history
 from app.utils.tasks import create_background_task
 
 log = structlog.get_logger()
@@ -82,6 +83,20 @@ class NotificationDispatcher:
                 queue_max=NOTIFICATION_DISPATCH_QUEUE_MAX,
                 dropped_jobs=self._dropped_jobs,
             )
+            error_diagnostics_history.record(
+                source="notification_dispatcher",
+                component="notification_dispatcher",
+                stage="enqueue",
+                reason_code="queue_full",
+                message="Notification job dropped because dispatcher queue is full",
+                severity="error",
+                event_id=job_name,
+                context={
+                    "queue_size": self._queue.qsize(),
+                    "queue_max": NOTIFICATION_DISPATCH_QUEUE_MAX,
+                    "dropped_jobs": self._dropped_jobs,
+                },
+            )
             return False
 
         try:
@@ -95,6 +110,20 @@ class NotificationDispatcher:
                 queue_size=self._queue.qsize(),
                 queue_max=NOTIFICATION_DISPATCH_QUEUE_MAX,
                 dropped_jobs=self._dropped_jobs,
+            )
+            error_diagnostics_history.record(
+                source="notification_dispatcher",
+                component="notification_dispatcher",
+                stage="enqueue",
+                reason_code="queue_full_race",
+                message="Notification job dropped because dispatcher queue became full",
+                severity="error",
+                event_id=job_name,
+                context={
+                    "queue_size": self._queue.qsize(),
+                    "queue_max": NOTIFICATION_DISPATCH_QUEUE_MAX,
+                    "dropped_jobs": self._dropped_jobs,
+                },
             )
             return False
 
@@ -126,6 +155,16 @@ class NotificationDispatcher:
                     worker=worker_idx,
                     timeout_seconds=NOTIFICATION_DISPATCH_TIMEOUT_SECONDS,
                 )
+                error_diagnostics_history.record(
+                    source="notification_dispatcher",
+                    component="notification_dispatcher",
+                    stage="worker",
+                    reason_code="job_timeout",
+                    message=f"Notification job timed out after {NOTIFICATION_DISPATCH_TIMEOUT_SECONDS}s",
+                    severity="error",
+                    event_id=job_name,
+                    context={"worker": worker_idx, "timeout_seconds": NOTIFICATION_DISPATCH_TIMEOUT_SECONDS},
+                )
             except asyncio.CancelledError:
                 raise
             except Exception as e:
@@ -135,6 +174,16 @@ class NotificationDispatcher:
                     worker=worker_idx,
                     error=str(e),
                     exc_info=True,
+                )
+                error_diagnostics_history.record(
+                    source="notification_dispatcher",
+                    component="notification_dispatcher",
+                    stage="worker",
+                    reason_code="job_failed",
+                    message=f"Notification job failed: {e}",
+                    severity="critical",
+                    event_id=job_name,
+                    context={"worker": worker_idx, "error": str(e)},
                 )
             finally:
                 self._queue.task_done()
