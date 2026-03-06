@@ -17,6 +17,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Added:** Client-side diagnostics bundle capture/archive in the `Errors` tab so multiple support bundles can be stored and downloaded independently as JSON.
 - **Added:** Diagnostics export payloads now include app version/branch/hash metadata plus captured health snapshots with event-pipeline latest timeout/failure/drop details.
 - **Fixed:** Ongoing process notifications now auto-settle when no active backing job is tracked, preventing Notifications/Jobs drift after reconnects or missed terminal updates.
+- **Fixed:** Taxonomy repair now skips `Unknown Bird`/unknown-label detections so unresolved catch-all labels no longer appear as perpetual taxonomy work items on every sync run.
 - **Fixed:** Jobs pipeline no longer shows idle reclassification queue rows after local clear actions when queue depth is `0` and no job activity exists.
 - **Fixed:** Reclassification fallback handling now treats `pending` as queued (not active running), preventing phantom extra active reclassify jobs beyond configured concurrency during batch analysis.
 - **Added:** Dedicated frontend background-job telemetry store (`jobProgressStore`) with explicit lifecycle states (`running`, `stale`, `completed`, `failed`), rate-per-minute estimation, and ETA tracking.

@@ -279,10 +279,27 @@ class TaxonomyService:
                     WHERE scientific_name IS NULL OR common_name IS NULL
                 """) as cursor:
                     rows = await cursor.fetchall()
-                    unique_names = [row[0] for row in rows]
+                    raw_names = [row[0] for row in rows if row and isinstance(row[0], str) and row[0].strip()]
+
+                # Unknown-bird buckets are intentionally unresolved and should
+                # not be treated as taxonomy-repair work items.
+                unknown_labels = {
+                    "unknown bird",
+                    *(
+                        str(label).strip().lower()
+                        for label in (settings.classification.unknown_bird_labels or [])
+                        if str(label).strip()
+                    )
+                }
+                unique_names = [name for name in raw_names if name.strip().lower() not in unknown_labels]
+                skipped_unknown_labels = len(raw_names) - len(unique_names)
 
                 self._sync_status["total"] = len(unique_names)
-                log.info("Starting taxonomy background sync", unique_species=len(unique_names))
+                log.info(
+                    "Starting taxonomy background sync",
+                    unique_species=len(unique_names),
+                    skipped_unknown_labels=skipped_unknown_labels
+                )
 
                 if not unique_names:
                     self._sync_status["current_item"] = "Database Healthy: No missing taxonomy found"
