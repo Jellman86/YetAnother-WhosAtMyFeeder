@@ -222,6 +222,7 @@
 
           await authStore.loadStatus();
           notificationCenter.hydrate();
+          jobDiagnosticsStore.hydrate();
           liveUpdates.pruneStaleProcessNotifications();
           void reclassifyRecovery.reconcile();
           await liveUpdates.runOwnerSystemChecks();

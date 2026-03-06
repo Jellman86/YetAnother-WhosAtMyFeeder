@@ -9,6 +9,8 @@
     } from '../app/notifications_route';
     import { formatDateTime } from '../utils/datetime';
     import Jobs from './Jobs.svelte';
+    import Errors from './Errors.svelte';
+    import { jobDiagnosticsStore } from '../stores/job_diagnostics.svelte';
 
     let {
         onNavigate,
@@ -19,6 +21,7 @@
     let ongoingItems = $derived(items.filter((item) => item.type === 'process' && !item.read));
     let historyItems = $derived(items.filter((item) => !(item.type === 'process' && !item.read)));
     let activeJobs = $derived(jobProgressStore.activeJobs);
+    let errorGroupCount = $derived(jobDiagnosticsStore.groups.length);
     let activeTab = $derived(getNotificationsTabFromPath(currentRoute));
 
     function setTab(tab: NotificationsTab) {
@@ -94,6 +97,17 @@
                         <span class="ml-1 text-[10px] font-black text-emerald-600 dark:text-emerald-300">{activeJobs.length}</span>
                     {/if}
                 </button>
+                <button
+                    type="button"
+                    class="px-3 py-1.5 text-xs font-black uppercase tracking-wider rounded-lg transition-colors {activeTab === 'errors' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-300 hover:text-slate-700 dark:hover:text-slate-100'}"
+                    onclick={() => setTab('errors')}
+                    aria-pressed={activeTab === 'errors'}
+                >
+                    {$_('jobs.errors_title', { default: 'Errors' })}
+                    {#if errorGroupCount > 0}
+                        <span class="ml-1 text-[10px] font-black text-rose-600 dark:text-rose-300">{errorGroupCount}</span>
+                    {/if}
+                </button>
             </div>
 
             <div class="flex items-center gap-2 text-[11px] font-semibold text-slate-500">
@@ -104,7 +118,7 @@
                     <button type="button" class="btn btn-secondary px-3 py-2 text-xs" onclick={() => notificationCenter.clear()}>
                         {$_('notifications.center_clear')}
                     </button>
-                {:else}
+                {:else if activeTab === 'jobs'}
                     <button type="button" class="btn btn-secondary px-3 py-2 text-xs" onclick={() => jobProgressStore.clearHistory()}>
                         {$_('jobs.clear_history', { default: 'Clear History' })}
                     </button>
@@ -118,6 +132,8 @@
 
     {#if activeTab === 'jobs'}
         <Jobs {onNavigate} embedded />
+    {:else if activeTab === 'errors'}
+        <Errors />
     {:else if items.length === 0}
             <div class="card-base p-8 text-center text-sm text-slate-500">
                 {$_('notifications.page_empty')}

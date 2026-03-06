@@ -1,14 +1,19 @@
-export type NotificationsTab = 'notifications' | 'jobs';
+export type NotificationsTab = 'notifications' | 'jobs' | 'errors';
 
 function matchesPathSegment(path: string, segment: string): boolean {
     return path === segment || path.startsWith(`${segment}/`);
 }
 
 export function getNotificationsTabPath(tab: NotificationsTab): string {
-    return tab === 'jobs' ? '/notifications/jobs' : '/notifications';
+    if (tab === 'jobs') return '/notifications/jobs';
+    if (tab === 'errors') return '/notifications/errors';
+    return '/notifications';
 }
 
 export function getNotificationsTabFromPath(path: string): NotificationsTab {
+    if (matchesPathSegment(path, '/notifications/errors')) {
+        return 'errors';
+    }
     if (matchesPathSegment(path, '/jobs') || matchesPathSegment(path, '/notifications/jobs')) {
         return 'jobs';
     }
@@ -21,6 +26,9 @@ export function getCanonicalNotificationRoute(path: string): string | null {
     }
     if (matchesPathSegment(path, '/notifications/jobs')) {
         return '/notifications/jobs';
+    }
+    if (matchesPathSegment(path, '/notifications/errors')) {
+        return '/notifications/errors';
     }
     if (matchesPathSegment(path, '/notifications')) {
         return '/notifications';
