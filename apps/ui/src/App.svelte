@@ -36,7 +36,9 @@
   import { logger } from './lib/utils/logger';
   import { LiveUpdateCoordinator } from './lib/app/live-updates';
   import {
+      canonicalizeNotificationRouteForAccess,
       getCanonicalNotificationRoute,
+      getNotificationsTabPathForAccess,
       getNotificationsTabPath,
       isNotificationRoute
   } from './lib/app/notifications_route';
@@ -51,6 +53,13 @@
   // Router state
   let currentRoute = $state('/');
 
+  function normalizeRouteForCurrentAccess(path: string): string {
+      if (!authStore.statusLoaded) {
+          return getCanonicalNotificationRoute(path) ?? path;
+      }
+      return canonicalizeNotificationRouteForAccess(path, authStore.showSettings);
+  }
+
   // Accessibility Logic
   $effect(() => {
       const s = settingsStore.settings;
@@ -64,7 +73,7 @@
   });
 
   function navigate(path: string, opts: { replace?: boolean } = {}) {
-      const targetPath = getCanonicalNotificationRoute(path) ?? path;
+      const targetPath = normalizeRouteForCurrentAccess(path);
       currentRoute = targetPath;
       if (opts.replace) window.history.replaceState(null, '', targetPath);
       else window.history.pushState(null, '', targetPath);
@@ -80,6 +89,21 @@
       if (!authStore.showSettings) {
           authStore.requestLogin();
           navigate('/', { replace: true });
+      }
+  });
+
+  $effect(() => {
+      if (!authStore.statusLoaded) return;
+      notificationCenter.filterForAccess(authStore.showSettings);
+  });
+
+  $effect(() => {
+      if (!authStore.statusLoaded) return;
+      if (!currentRoute.startsWith('/notifications') && !currentRoute.startsWith('/jobs')) return;
+
+      const allowedRoute = canonicalizeNotificationRouteForAccess(currentRoute, authStore.showSettings);
+      if (allowedRoute !== currentRoute) {
+          navigate(allowedRoute, { replace: true });
       }
   });
 
@@ -173,7 +197,7 @@
           });
 
           const handlePopState = () => {
-              currentRoute = getCanonicalNotificationRoute(window.location.pathname) ?? window.location.pathname;
+              currentRoute = normalizeRouteForCurrentAccess(window.location.pathname);
           };
           window.addEventListener('popstate', handlePopState);
 
@@ -221,6 +245,11 @@
           }
 
           await authStore.loadStatus();
+          const accessAdjustedPath = canonicalizeNotificationRouteForAccess(currentRoute, authStore.showSettings);
+          if (accessAdjustedPath !== currentRoute) {
+              currentRoute = accessAdjustedPath;
+              window.history.replaceState(null, '', accessAdjustedPath);
+          }
           notificationCenter.hydrate();
           jobDiagnosticsStore.hydrate();
           liveUpdates.pruneStaleProcessNotifications();
@@ -256,7 +285,7 @@
               'g d': () => navigate('/'),
               'g e': () => navigate('/events'),
               'g l': () => navigate('/species'),
-              'g j': () => navigate(getNotificationsTabPath('jobs')),
+              'g j': () => navigate(getNotificationsTabPathForAccess('jobs', authStore.showSettings)),
               'g t': () => navigate('/settings'),
               'Escape': () => {
                   // Close keyboard shortcuts modal
@@ -471,7 +500,7 @@
 
       <!-- Main Content Wrapper -->
       <div class="flex-1 flex flex-col transition-all duration-300 {effectiveLayout === 'vertical' ? (isSidebarCollapsed ? 'md:pl-20' : 'md:pl-64') : ''}">
-          {#if !isNotificationRoute(currentRoute)}
+          {#if !isNotificationRoute(currentRoute) && !authStore.isGuest}
               <GlobalProgress onNavigate={navigate} />
           {/if}
           <main id="main-content" class="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">

@@ -6,6 +6,7 @@
     import { fetchAnalysisStatus } from '../api/maintenance';
     import { buildJobsPipelineModel, type QueueTelemetryByKind } from '../jobs/pipeline';
     import { formatDateTime } from '../utils/datetime';
+    import { authStore } from '../stores/auth.svelte';
     let { onNavigate, embedded = false } = $props<{ onNavigate?: (path: string) => void; embedded?: boolean }>();
 
     let nowTs = $state(Date.now());
@@ -19,6 +20,7 @@
 
         const updateQueueTelemetry = async () => {
             if (stopped) return;
+            if (!authStore.showSettings) return;
             try {
                 const status = await fetchAnalysisStatus();
                 queueByKind = {
@@ -55,8 +57,10 @@
             }
         };
 
-        updateQueueTelemetry();
-        queuePoll = setInterval(updateQueueTelemetry, 5000);
+        if (authStore.showSettings) {
+            updateQueueTelemetry();
+            queuePoll = setInterval(updateQueueTelemetry, 5000);
+        }
 
         return () => {
             stopped = true;

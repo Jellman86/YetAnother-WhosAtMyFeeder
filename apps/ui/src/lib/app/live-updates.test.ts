@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { LiveUpdateCoordinator } from './live-updates';
 
-function buildCoordinator(options?: { activeJobs?: any[] }) {
+function buildCoordinator(options?: { activeJobs?: any[]; shouldNotify?: boolean }) {
     const calls = {
         upsertRunning: [] as any[],
         markCompleted: [] as any[],
@@ -9,7 +9,10 @@ function buildCoordinator(options?: { activeJobs?: any[] }) {
         markStale: [] as any[],
         notificationUpserts: [] as any[],
         ingestHealth: [] as any[],
-        recordError: [] as any[]
+        recordError: [] as any[],
+        startReclassification: [] as any[],
+        updateReclassificationProgress: [] as any[],
+        completeReclassification: [] as any[]
     };
 
     const notificationItems: any[] = [];
@@ -24,7 +27,7 @@ function buildCoordinator(options?: { activeJobs?: any[] }) {
 
     const coordinator = new LiveUpdateCoordinator({
         t: (key: string) => key,
-        shouldNotify: () => true,
+        shouldNotify: () => options?.shouldNotify ?? true,
         applyNotificationPolicy: () => true,
         notificationCenter: {
             items: notificationItems,
@@ -46,9 +49,9 @@ function buildCoordinator(options?: { activeJobs?: any[] }) {
             addDetection: () => undefined,
             updateDetection: () => undefined,
             removeDetection: () => undefined,
-            startReclassification: () => undefined,
-            updateReclassificationProgress: () => undefined,
-            completeReclassification: () => undefined
+            startReclassification: (...args: any[]) => calls.startReclassification.push(args),
+            updateReclassificationProgress: (...args: any[]) => calls.updateReclassificationProgress.push(args),
+            completeReclassification: (...args: any[]) => calls.completeReclassification.push(args)
         },
         settingsStore: {
             liveAnnouncements: false
@@ -155,6 +158,40 @@ describe('LiveUpdateCoordinator reclassify fallback', () => {
         const { coordinator, calls } = buildCoordinator();
         await coordinator.runOwnerSystemChecks();
         expect(calls.ingestHealth.length).toBe(1);
+    });
+
+    it('does not track reclassification jobs for guest/public sessions', () => {
+        const { coordinator, calls } = buildCoordinator({ shouldNotify: false });
+
+        coordinator.handlePayload({
+            type: 'reclassification_started',
+            data: { event_id: 'evt-guest', total_frames: 12, strategy: 'snapshot' }
+        });
+        coordinator.handlePayload({
+            type: 'reclassification_progress',
+            data: {
+                event_id: 'evt-guest',
+                current_frame: 4,
+                total_frames: 12,
+                frame_score: 0.9,
+                top_label: 'Blue Tit'
+            }
+        });
+        coordinator.handlePayload({
+            type: 'reclassification_completed',
+            data: {
+                event_id: 'evt-guest',
+                results: [{ label: 'Blue Tit', score: 0.9 }]
+            }
+        });
+
+        expect(calls.upsertRunning.length).toBe(0);
+        expect(calls.markCompleted.length).toBe(0);
+        expect(calls.markFailed.length).toBe(0);
+        expect(calls.notificationUpserts.length).toBe(0);
+        expect(calls.startReclassification.length).toBe(0);
+        expect(calls.updateReclassificationProgress.length).toBe(0);
+        expect(calls.completeReclassification.length).toBe(1);
     });
 
     it('settles orphaned process notifications when no active jobs back them', () => {

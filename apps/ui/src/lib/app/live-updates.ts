@@ -310,6 +310,9 @@ export class LiveUpdateCoordinator {
                     this.deps.logger.warn('SSE invalid reclassification_started payload', { payload });
                     return;
                 }
+                if (!this.deps.shouldNotify()) {
+                    return;
+                }
                 this.markReclassifyStarted(payload.data.event_id, payload.data.total_frames ?? 0);
                 this.deps.jobProgress.upsertRunning({
                     id: `reclassify:${payload.data.event_id}`,
@@ -334,6 +337,9 @@ export class LiveUpdateCoordinator {
                     this.deps.logger.warn('SSE invalid reclassification_progress payload', { payload });
                     return;
                 }
+                if (!this.deps.shouldNotify()) {
+                    return;
+                }
                 this.deps.detectionsStore.updateReclassificationProgress(
                     payload.data.event_id,
                     payload.data.current_frame,
@@ -354,18 +360,20 @@ export class LiveUpdateCoordinator {
                     this.deps.logger.warn('SSE invalid reclassification_completed payload', { payload });
                     return;
                 }
-                const prior = this.reclassifyProgressByEvent.get(payload.data.event_id);
-                this.deps.jobProgress.markCompleted({
-                    id: `reclassify:${payload.data.event_id}`,
-                    kind: 'reclassify',
-                    title: this.deps.t('actions.reclassify'),
-                    message: this.deps.t('notifications.event_reclassify'),
-                    route: `/events?event=${encodeURIComponent(payload.data.event_id)}`,
-                    current: prior?.current ?? 0,
-                    total: prior?.total ?? 0,
-                    source: 'sse'
-                });
-                this.clearReclassifyProgressNotification(payload.data.event_id);
+                if (this.deps.shouldNotify()) {
+                    const prior = this.reclassifyProgressByEvent.get(payload.data.event_id);
+                    this.deps.jobProgress.markCompleted({
+                        id: `reclassify:${payload.data.event_id}`,
+                        kind: 'reclassify',
+                        title: this.deps.t('actions.reclassify'),
+                        message: this.deps.t('notifications.event_reclassify'),
+                        route: `/events?event=${encodeURIComponent(payload.data.event_id)}`,
+                        current: prior?.current ?? 0,
+                        total: prior?.total ?? 0,
+                        source: 'sse'
+                    });
+                    this.clearReclassifyProgressNotification(payload.data.event_id);
+                }
                 this.deps.detectionsStore.completeReclassification(
                     payload.data.event_id,
                     payload.data.results

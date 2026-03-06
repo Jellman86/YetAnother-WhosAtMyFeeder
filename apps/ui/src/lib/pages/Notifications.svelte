@@ -5,12 +5,14 @@
     import {
         type NotificationsTab,
         getNotificationsTabFromPath,
-        getNotificationsTabPath
+        getNotificationsTabPathForAccess,
+        isOwnerOnlyNotificationsTab
     } from '../app/notifications_route';
     import { formatDateTime } from '../utils/datetime';
     import Jobs from './Jobs.svelte';
     import Errors from './Errors.svelte';
     import { jobDiagnosticsStore } from '../stores/job_diagnostics.svelte';
+    import { authStore } from '../stores/auth.svelte';
 
     let {
         onNavigate,
@@ -23,10 +25,17 @@
     let activeJobs = $derived(jobProgressStore.activeJobs);
     let runningJobs = $derived(activeJobs.filter((job) => job.status === 'running'));
     let errorGroupCount = $derived(jobDiagnosticsStore.groups.length);
-    let activeTab = $derived(getNotificationsTabFromPath(currentRoute));
+    let canAccessOwnerTabs = $derived(authStore.showSettings);
+    let activeTab = $derived.by(() => {
+        const tab = getNotificationsTabFromPath(currentRoute);
+        if (!canAccessOwnerTabs && isOwnerOnlyNotificationsTab(tab)) {
+            return 'notifications';
+        }
+        return tab;
+    });
 
     function setTab(tab: NotificationsTab) {
-        const tabPath = getNotificationsTabPath(tab);
+        const tabPath = getNotificationsTabPathForAccess(tab, canAccessOwnerTabs);
         if (onNavigate) {
             onNavigate(tabPath);
             return;
@@ -87,28 +96,30 @@
                 >
                     {$_('notifications.center_title')}
                 </button>
-                <button
-                    type="button"
-                    class="px-3 py-1.5 text-xs font-black uppercase tracking-wider rounded-lg transition-colors {activeTab === 'jobs' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-300 hover:text-slate-700 dark:hover:text-slate-100'}"
-                    onclick={() => setTab('jobs')}
-                    aria-pressed={activeTab === 'jobs'}
-                >
-                    {$_('jobs.title', { default: 'Jobs' })}
-                    {#if runningJobs.length > 0}
-                        <span class="ml-1 text-[10px] font-black text-emerald-600 dark:text-emerald-300">{runningJobs.length}</span>
-                    {/if}
-                </button>
-                <button
-                    type="button"
-                    class="px-3 py-1.5 text-xs font-black uppercase tracking-wider rounded-lg transition-colors {activeTab === 'errors' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-300 hover:text-slate-700 dark:hover:text-slate-100'}"
-                    onclick={() => setTab('errors')}
-                    aria-pressed={activeTab === 'errors'}
-                >
-                    {$_('jobs.errors_title', { default: 'Errors' })}
-                    {#if errorGroupCount > 0}
-                        <span class="ml-1 text-[10px] font-black text-rose-600 dark:text-rose-300">{errorGroupCount}</span>
-                    {/if}
-                </button>
+                {#if canAccessOwnerTabs}
+                    <button
+                        type="button"
+                        class="px-3 py-1.5 text-xs font-black uppercase tracking-wider rounded-lg transition-colors {activeTab === 'jobs' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-300 hover:text-slate-700 dark:hover:text-slate-100'}"
+                        onclick={() => setTab('jobs')}
+                        aria-pressed={activeTab === 'jobs'}
+                    >
+                        {$_('jobs.title', { default: 'Jobs' })}
+                        {#if runningJobs.length > 0}
+                            <span class="ml-1 text-[10px] font-black text-emerald-600 dark:text-emerald-300">{runningJobs.length}</span>
+                        {/if}
+                    </button>
+                    <button
+                        type="button"
+                        class="px-3 py-1.5 text-xs font-black uppercase tracking-wider rounded-lg transition-colors {activeTab === 'errors' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-300 hover:text-slate-700 dark:hover:text-slate-100'}"
+                        onclick={() => setTab('errors')}
+                        aria-pressed={activeTab === 'errors'}
+                    >
+                        {$_('jobs.errors_title', { default: 'Errors' })}
+                        {#if errorGroupCount > 0}
+                            <span class="ml-1 text-[10px] font-black text-rose-600 dark:text-rose-300">{errorGroupCount}</span>
+                        {/if}
+                    </button>
+                {/if}
             </div>
 
             <div class="flex items-center gap-2 text-[11px] font-semibold text-slate-500">

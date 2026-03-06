@@ -10,6 +10,17 @@ export function getNotificationsTabPath(tab: NotificationsTab): string {
     return '/notifications';
 }
 
+export function isOwnerOnlyNotificationsTab(tab: NotificationsTab): boolean {
+    return tab === 'jobs' || tab === 'errors';
+}
+
+export function getNotificationsTabPathForAccess(tab: NotificationsTab, canAccessOwnerTabs: boolean): string {
+    if (!canAccessOwnerTabs && isOwnerOnlyNotificationsTab(tab)) {
+        return '/notifications';
+    }
+    return getNotificationsTabPath(tab);
+}
+
 export function getNotificationsTabFromPath(path: string): NotificationsTab {
     if (matchesPathSegment(path, '/notifications/errors')) {
         return 'errors';
@@ -34,6 +45,17 @@ export function getCanonicalNotificationRoute(path: string): string | null {
         return '/notifications';
     }
     return null;
+}
+
+export function canonicalizeNotificationRouteForAccess(path: string, canAccessOwnerTabs: boolean): string {
+    const canonical = getCanonicalNotificationRoute(path) ?? path;
+    if (!canAccessOwnerTabs && matchesPathSegment(canonical, '/notifications/jobs')) {
+        return '/notifications';
+    }
+    if (!canAccessOwnerTabs && matchesPathSegment(canonical, '/notifications/errors')) {
+        return '/notifications';
+    }
+    return canonical;
 }
 
 export function isNotificationRoute(path: string): boolean {

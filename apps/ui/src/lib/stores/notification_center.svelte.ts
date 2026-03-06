@@ -25,6 +25,14 @@ export interface NotificationItem {
 const STORAGE_KEY = 'yawamf_notification_center';
 const MAX_ITEMS = 50;
 
+function routeIsOwnerOnly(route: string | undefined): boolean {
+    if (!route) return false;
+    return route.startsWith('/settings')
+        || route.startsWith('/notifications/jobs')
+        || route.startsWith('/notifications/errors')
+        || route.startsWith('/jobs');
+}
+
 class NotificationCenterStore {
     items = $state<NotificationItem[]>([]);
     private fallbackCounter = 0;
@@ -80,6 +88,12 @@ class NotificationCenterStore {
         } catch {
             // ignore storage errors
         }
+    }
+
+    private isVisibleForAccess(item: NotificationItem, canAccessOwnerItems: boolean): boolean {
+        if (canAccessOwnerItems) return true;
+        if (item.type === 'process' || item.type === 'system') return false;
+        return !routeIsOwnerOnly(item.meta?.route);
     }
 
     persist() {
@@ -142,6 +156,13 @@ class NotificationCenterStore {
             window.clearTimeout(this.persistTimer);
             this.persistTimer = null;
         }
+        this.persist();
+    }
+
+    filterForAccess(canAccessOwnerItems: boolean) {
+        const filtered = this.items.filter((item) => this.isVisibleForAccess(item, canAccessOwnerItems));
+        if (filtered.length === this.items.length) return;
+        this.items = filtered;
         this.persist();
     }
 }
