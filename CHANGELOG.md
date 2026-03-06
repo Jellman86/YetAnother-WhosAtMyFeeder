@@ -39,12 +39,13 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Fixed:** Frontend nginx now serves `/assets/*` with strict file lookup (`404` if missing) instead of SPA fallback to `index.html`, preventing module MIME errors (`text/html` returned for JavaScript chunks) after rolling updates.
 
 - **Fixed:** MQTT ingestion now dispatches Frigate/BirdNET message handling through bounded concurrent workers so long-running event processing no longer blocks topic intake in a single serial loop.
-- **Changed:** Real-time Frigate event handling now ignores routine `update` chatter and processes actionable bird events (`new`, `end`, and false-positive cleanup), reducing duplicate reclassification load.
+- **Changed:** Real-time Frigate event handling now ignores routine `update`/`end` chatter and processes actionable bird events (`new` and false-positive cleanup), reducing duplicate classification passes per Frigate event ID.
 - **Fixed:** MQTT worker handlers now enforce per-message timeouts, preventing stalled Frigate/BirdNET processing tasks from occupying all worker slots indefinitely.
 - **Changed:** Frigate MQTT payloads are now pre-filtered before task scheduling, so non-actionable update chatter no longer consumes in-flight queue capacity.
 - **Changed:** MQTT queue-pressure diagnostics now emit explicit saturation warnings (in-flight count + wait duration), making ingestion bottlenecks visible in backend logs instead of appearing silent.
 - **Fixed:** Detection backfill now wraps per-event processing in a timeout guard, preventing a single slow/hung historical event from stalling the entire async backfill job indefinitely.
 - **Fixed:** `ClassifierService` now uses separate thread pools for snapshot (`classify_async`) and video (`classify_video_async`) inference, preventing heavy background video analysis from starving real-time MQTT event classification.
+- **Fixed:** Snapshot image inference now uses bounded admission control before executor dispatch; when workers are saturated, requests fail fast instead of piling up behind stuck/slow classifications.
 - **Added:** MQTT service now exposes pressure telemetry (`pressure_level`, in-flight utilization, and threshold-based `under_pressure`) for diagnostics and adaptive scheduling.
 - **Changed:** Auto video-classification queue now adaptively throttles effective concurrency when MQTT ingest pressure rises, prioritizing live `new/end` event processing during bursts.
 - **Changed:** Detection backfill now uses a dedicated low-priority image inference executor so backfill classification no longer competes directly with live MQTT snapshot inference workers.

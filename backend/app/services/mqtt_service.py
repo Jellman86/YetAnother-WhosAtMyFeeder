@@ -212,7 +212,7 @@ class MQTTService:
             false_positive = bool(after.get("false_positive", False))
             event_id = str(after.get("id") or "").strip()
             should_process = bool(
-                label == "bird" and (false_positive or event_type in {"new", "end"})
+                label == "bird" and (false_positive or event_type == "new")
             )
             return {
                 "event_id": event_id or None,

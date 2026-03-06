@@ -12,7 +12,7 @@ import sys
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from PIL import Image
-from typing import Optional
+from typing import Optional, Any, Callable
 
 # TFLite runtime
 try:
@@ -90,6 +90,11 @@ from app.services.personalization_service import personalization_service  # noqa
 log = structlog.get_logger()
 
 SUPPORTED_INFERENCE_PROVIDERS = {"auto", "cpu", "cuda", "intel_gpu", "intel_cpu"}
+CLASSIFIER_IMAGE_MAX_CONCURRENT = max(1, int(os.getenv("CLASSIFIER_IMAGE_MAX_CONCURRENT", "2")))
+CLASSIFIER_IMAGE_ADMISSION_TIMEOUT_SECONDS = max(
+    0.05,
+    float(os.getenv("CLASSIFIER_IMAGE_ADMISSION_TIMEOUT_SECONDS", "0.5")),
+)
 
 
 def _normalize_inference_provider(value: Optional[str]) -> str:
@@ -1071,9 +1076,12 @@ class ClassifierService:
                 int(getattr(settings.classification, "video_classification_max_concurrent", 2) or 2),
             ),
         )
-        self._image_executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="ml_image_worker")
+        image_workers = CLASSIFIER_IMAGE_MAX_CONCURRENT
+        self._image_executor = ThreadPoolExecutor(max_workers=image_workers, thread_name_prefix="ml_image_worker")
         self._background_image_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="ml_background_worker")
         self._video_executor = ThreadPoolExecutor(max_workers=video_workers, thread_name_prefix="ml_video_worker")
+        self._image_inference_semaphore = asyncio.Semaphore(image_workers)
+        self._image_admission_timeouts = 0
         # Backward-compatible alias for any external references.
         self._executor = self._image_executor
         self._selected_inference_provider = _normalize_inference_provider(
@@ -1446,6 +1454,9 @@ class ClassifierService:
             "active_provider": self._active_inference_provider,
             "inference_backend": self._inference_backend,
             "fallback_reason": self._inference_fallback_reason,
+            "image_max_concurrent": CLASSIFIER_IMAGE_MAX_CONCURRENT,
+            "image_admission_timeout_seconds": CLASSIFIER_IMAGE_ADMISSION_TIMEOUT_SECONDS,
+            "image_admission_timeouts": self._image_admission_timeouts,
             "available_providers": [
                 p for p in ["cpu", "cuda", "intel_cpu", "intel_gpu"]
                 if p == "cpu"
@@ -1522,6 +1533,32 @@ class ClassifierService:
             return bird.classify(image)
         return []
 
+    async def _run_image_inference(
+        self,
+        fn: Callable[..., list[dict]],
+        *args: Any,
+    ) -> list[dict]:
+        try:
+            await asyncio.wait_for(
+                self._image_inference_semaphore.acquire(),
+                timeout=CLASSIFIER_IMAGE_ADMISSION_TIMEOUT_SECONDS,
+            )
+        except asyncio.TimeoutError:
+            self._image_admission_timeouts += 1
+            log.warning(
+                "Image classification admission timed out; dropping request",
+                timeout_seconds=CLASSIFIER_IMAGE_ADMISSION_TIMEOUT_SECONDS,
+                max_concurrent=CLASSIFIER_IMAGE_MAX_CONCURRENT,
+                admission_timeouts=self._image_admission_timeouts,
+            )
+            return []
+
+        try:
+            loop = asyncio.get_running_loop()
+            return await loop.run_in_executor(self._image_executor, fn, *args)
+        finally:
+            self._image_inference_semaphore.release()
+
     async def classify_async(
         self,
         image: Image.Image,
@@ -1529,8 +1566,7 @@ class ClassifierService:
         model_id: Optional[str] = None,
     ) -> list[dict]:
         """Async wrapper for classify to prevent blocking the event loop."""
-        loop = asyncio.get_running_loop()
-        base_results = await loop.run_in_executor(self._image_executor, self.classify, image, camera_name, model_id)
+        base_results = await self._run_image_inference(self.classify, image, camera_name, model_id)
 
         if not base_results:
             return base_results
@@ -1611,8 +1647,7 @@ class ClassifierService:
 
     async def classify_wildlife_async(self, image: Image.Image) -> list[dict]:
         """Async wrapper for wildlife classification."""
-        loop = asyncio.get_running_loop()
-        return await loop.run_in_executor(self._image_executor, self.classify_wildlife, image)
+        return await self._run_image_inference(self.classify_wildlife, image)
 
     def get_wildlife_labels(self) -> list[str]:
         wildlife = self._get_wildlife_model()

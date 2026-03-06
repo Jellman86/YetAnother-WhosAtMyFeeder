@@ -2,6 +2,7 @@ import pytest
 import numpy as np
 import sys
 import types
+import asyncio
 from unittest.mock import MagicMock, patch, mock_open
 from unittest.mock import AsyncMock
 from PIL import Image
@@ -160,6 +161,38 @@ async def test_classifier_service_classify_async_skips_personalization_when_disa
 
             assert results[0]["label"] == "Robin"
             mock_rerank.assert_not_awaited()
+    finally:
+        settings.classification.personalized_rerank_enabled = original_toggle
+
+
+@pytest.mark.asyncio
+async def test_classifier_service_classify_async_returns_empty_when_image_queue_saturated(
+    mock_tflite, mock_os_path_exists, monkeypatch
+):
+    original_toggle = settings.classification.personalized_rerank_enabled
+    settings.classification.personalized_rerank_enabled = False
+    try:
+        with patch.object(ClassifierService, "_init_bird_model", return_value=None), \
+             patch("app.services.classifier_service.ModelInstance.load", return_value=True), \
+             patch.object(
+                 ClassifierService,
+                 "classify",
+                 return_value=[{"label": "Robin", "score": 0.9, "index": 0}],
+             ) as mock_classify:
+            service = ClassifierService()
+            service._image_inference_semaphore = asyncio.Semaphore(0)  # type: ignore[attr-defined]
+            monkeypatch.setattr(
+                classifier_service_module,
+                "CLASSIFIER_IMAGE_ADMISSION_TIMEOUT_SECONDS",
+                0.01,
+                raising=False,
+            )
+
+            img = Image.new("RGB", (100, 100))
+            results = await service.classify_async(img, camera_name="front")
+
+            assert results == []
+            mock_classify.assert_not_called()
     finally:
         settings.classification.personalized_rerank_enabled = original_toggle
 

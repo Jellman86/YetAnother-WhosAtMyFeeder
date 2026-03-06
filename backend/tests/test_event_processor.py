@@ -109,7 +109,7 @@ def test_parse_event_skips_update_events():
     assert event is None
 
 
-def test_parse_event_accepts_end_events():
+def test_parse_event_skips_end_events():
     processor = EventProcessor(MagicMock())
     event = processor._parse_and_validate_event({
         "type": "end",
@@ -120,8 +120,7 @@ def test_parse_event_accepts_end_events():
             "start_time": 1700000000,
         },
     })
-    assert event is not None
-    assert event.type == "end"
+    assert event is None
 
 
 def test_parse_event_accepts_false_positive_updates():
@@ -153,6 +152,19 @@ async def test_process_mqtt_message_skips_new_after_false_positive_update():
     await processor.process_mqtt_message(new_payload)
 
     processor._handle_false_positive.assert_called_once_with("evt-race-1")
+    processor._classify_snapshot.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_process_mqtt_message_skips_end_event_classification():
+    processor = EventProcessor(MagicMock())
+    processor._classify_snapshot = AsyncMock(  # type: ignore[method-assign]
+        return_value=([{"label": "Cardinal", "score": 0.9, "index": 1}], b"img")
+    )
+
+    end_payload = b'{"type":"end","after":{"id":"evt-end-skip-1","label":"bird","camera":"cam1","start_time":1700000000}}'
+    await processor.process_mqtt_message(end_payload)
+
     processor._classify_snapshot.assert_not_called()
 
 

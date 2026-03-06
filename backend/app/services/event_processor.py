@@ -443,9 +443,9 @@ class EventProcessor:
         if event.label != 'bird':
             return None
 
-        # Ignore routine update chatter; keep actionable events only.
+        # Ignore routine update/end chatter; keep first actionable event only.
         # False positives can arrive on updates, so always allow cleanup path.
-        if not event.is_false_positive and event_type not in {"new", "end"}:
+        if not event.is_false_positive and event_type != "new":
             return None
 
         if not event.frigate_event or event.frigate_event == "unknown":

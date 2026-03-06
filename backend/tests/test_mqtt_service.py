@@ -142,6 +142,18 @@ async def test_parse_frigate_payload_meta_skips_non_actionable_updates():
     assert meta["should_process"] is False
 
 
+@pytest.mark.asyncio
+async def test_parse_frigate_payload_meta_skips_end_events():
+    service = MQTTService("test+abc123")
+
+    payload = _frigate_payload("evt-end", "end", false_positive=False)
+    meta = service._parse_frigate_payload_meta(payload)
+
+    assert meta is not None
+    assert meta["event_id"] == "evt-end"
+    assert meta["should_process"] is False
+
+
 def test_get_status_reports_pressure_level_and_thresholds(monkeypatch):
     service = MQTTService("test+abc123")
     monkeypatch.setattr(mqtt_module, "MQTT_MAX_IN_FLIGHT_MESSAGES", 10, raising=False)
