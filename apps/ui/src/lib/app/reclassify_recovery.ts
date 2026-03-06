@@ -12,6 +12,7 @@ interface ReclassifyJob {
     status: string;
     current: number;
     total: number;
+    updatedAt?: number;
 }
 
 interface JobProgressStoreLike {
@@ -77,10 +78,16 @@ export function createReclassifyRecovery(options: ReclassifyRecoveryOptions) {
 
     async function reconcile(): Promise<void> {
         const currentTime = now();
-        const staleJobs = options.jobProgress.activeJobs.filter((job) => job.kind === 'reclassify' && job.status === 'stale');
-        if (staleJobs.length === 0) return;
+        const reconcilableJobs = options.jobProgress.activeJobs.filter((job) => {
+            if (job.kind !== 'reclassify') return false;
+            if (job.status === 'stale') return true;
+            if (job.status !== 'running') return false;
+            const updatedAt = Number.isFinite(Number(job.updatedAt)) ? Number(job.updatedAt) : 0;
+            return currentTime - updatedAt >= retryMs;
+        });
+        if (reconcilableJobs.length === 0) return;
 
-        for (const job of staleJobs) {
+        for (const job of reconcilableJobs) {
             const eventId = parseEventId(job.id);
             if (!eventId) continue;
             if (probeInFlight.has(eventId)) continue;
@@ -122,7 +129,7 @@ export function createReclassifyRecovery(options: ReclassifyRecoveryOptions) {
                     continue;
                 }
 
-                if (normalizedStatus === 'processing') {
+                if (normalizedStatus === 'processing' || normalizedStatus === 'pending') {
                     options.jobProgress.upsertRunning({
                         id: job.id,
                         kind: job.kind,
