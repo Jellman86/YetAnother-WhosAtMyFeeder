@@ -19,8 +19,9 @@
     });
 
     let activeJobs = $derived(jobProgressStore.activeJobs);
+    let runningJobs = $derived(activeJobs.filter((item) => item.status === 'running'));
     let staleJobs = $derived(activeJobs.filter((item) => item.status === 'stale'));
-    let detailJobs = $derived(activeJobs.slice(0, detailLimit));
+    let detailJobs = $derived(runningJobs.slice(0, detailLimit));
 
     function pct(item: JobProgressItem): number | null {
         if (item.total <= 0) return null;
@@ -55,13 +56,13 @@
     }
 
     let aggregate = $derived.by(() => {
-        if (activeJobs.length === 0) {
+        if (runningJobs.length === 0) {
             return { percent: null as number | null, current: 0, total: 0, rate: 0, etaSeconds: null as number | null };
         }
         let current = 0;
         let total = 0;
         let rate = 0;
-        for (const item of activeJobs) {
+        for (const item of runningJobs) {
             if (item.total > 0) {
                 total += item.total;
                 current += Math.min(item.total, Math.max(0, item.current));
@@ -78,8 +79,8 @@
     });
 
     let summaryLabel = $derived.by(() => {
-        if (activeJobs.length === 1) return activeJobs[0].title;
-        return $_('notifications.global_progress_tasks', { values: { count: activeJobs.length } });
+        if (runningJobs.length === 1) return runningJobs[0].title;
+        return $_('notifications.global_progress_tasks', { values: { count: runningJobs.length } });
     });
 
     function openJobsPage() {
@@ -92,7 +93,7 @@
     }
 </script>
 
-{#if activeJobs.length > 0}
+{#if runningJobs.length > 0}
     <div
         class="w-full bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 overflow-hidden relative shrink-0"
         transition:slide={{ duration: 300 }}
@@ -123,7 +124,7 @@
                                 {summaryLabel}
                             </p>
                             <p class="text-[9px] font-bold text-slate-500 dark:text-slate-300 uppercase tracking-wider truncate">
-                                {$_('notifications.global_progress_last', { values: { age: fmtAge(activeJobs[0].updatedAt) }, default: 'Updated {age} ago' })}
+                                {$_('notifications.global_progress_last', { values: { age: fmtAge(runningJobs[0].updatedAt) }, default: 'Updated {age} ago' })}
                                 {#if staleJobs.length > 0}
                                     · {$_('notifications.global_progress_stale', { values: { count: staleJobs.length }, default: '{count} stale' })}
                                 {/if}
@@ -194,13 +195,13 @@
                                 </div>
                             </div>
                         {/each}
-                        {#if activeJobs.length > detailLimit}
+                        {#if runningJobs.length > detailLimit}
                             <button
                                 type="button"
                                 class="text-left text-[10px] font-black uppercase tracking-wider text-teal-600 dark:text-teal-300 hover:underline"
                                 onclick={openJobsPage}
                             >
-                                {$_('jobs.more', { values: { count: activeJobs.length - detailLimit }, default: '+{count} more jobs' })}
+                                {$_('jobs.more', { values: { count: runningJobs.length - detailLimit }, default: '+{count} more jobs' })}
                             </button>
                         {/if}
                     </div>

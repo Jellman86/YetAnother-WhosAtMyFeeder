@@ -34,8 +34,9 @@ class AutoVideoClassifierService:
         self._failure_events: deque[tuple[float, str]] = deque()
         self._failure_event_ids: set[str] = set()
         self._circuit_open_until: float | None = None
-        self._pending_queue: asyncio.Queue[tuple[str, str]] = asyncio.Queue()
+        self._pending_queue: asyncio.Queue[tuple[str, str, bool]] = asyncio.Queue(maxsize=MAX_PENDING_QUEUE)
         self._pending_ids: set[str] = set()
+        self._queue_lock = asyncio.Lock()
         self._processor_task: Optional[asyncio.Task] = None
         self._stale_task: Optional[asyncio.Task] = None
         self._running = False
@@ -137,28 +138,38 @@ class AutoVideoClassifierService:
                 # Get next task
                 try:
                     # Wait for a task or timeout to recheck constraints
-                    frigate_event, camera = await asyncio.wait_for(self._pending_queue.get(), timeout=1.0)
+                    frigate_event, camera, skip_delay = await asyncio.wait_for(self._pending_queue.get(), timeout=1.0)
                 except asyncio.TimeoutError:
                     continue
-                # Item left the pending queue: clear dedupe marker.
-                self._pending_ids.discard(frigate_event)
 
-                if frigate_event in self._active_tasks:
+                try:
+                    if frigate_event in self._active_tasks:
+                        self._pending_ids.discard(frigate_event)
+                        continue
+
+                    # Start task - skip initial delay for queued (historical) tasks
+                    task = create_background_task(
+                        self._process_event(frigate_event, camera, skip_delay=skip_delay),
+                        name=f"video_classifier:{frigate_event}"
+                    )
+                    self._active_tasks[frigate_event] = task
+                    task.add_done_callback(lambda t: self._cleanup_task(frigate_event, t))
+                    # Only clear pending dedupe marker after active registration.
+                    self._pending_ids.discard(frigate_event)
+
+                    log.debug("Started queued video classification",
+                              event_id=frigate_event,
+                              queue_size=self._pending_queue.qsize())
+                except Exception as e:
+                    self._pending_ids.discard(frigate_event)
+                    log.error(
+                        "Failed to start queued video classification",
+                        event_id=frigate_event,
+                        error=str(e),
+                        exc_info=True,
+                    )
+                finally:
                     self._pending_queue.task_done()
-                    continue
-
-                # Start task - skip initial delay for queued (historical) tasks
-                task = create_background_task(
-                    self._process_event(frigate_event, camera, skip_delay=True),
-                    name=f"video_classifier:{frigate_event}"
-                )
-                self._active_tasks[frigate_event] = task
-                task.add_done_callback(lambda t: self._cleanup_task(frigate_event, t))
-                self._pending_queue.task_done()
-                
-                log.debug("Started queued video classification", 
-                          event_id=frigate_event, 
-                          queue_size=self._pending_queue.qsize())
 
             except asyncio.CancelledError:
                 break
@@ -270,6 +281,7 @@ class AutoVideoClassifierService:
 
     def get_status(self) -> dict:
         """Get current queue status."""
+        self._cleanup_completed_tasks()
         circuit = self.get_circuit_status()
         pending = self._pending_queue.qsize()
         configured_max = int(settings.classification.video_classification_max_concurrent or 1)
@@ -290,27 +302,35 @@ class AutoVideoClassifierService:
             "mqtt_in_flight_capacity": throttle_state["mqtt_capacity"],
         }
 
-    async def queue_classification(self, frigate_event: str, camera: str) -> Literal["queued", "duplicate", "full"]:
+    async def queue_classification(
+        self,
+        frigate_event: str,
+        camera: str,
+        *,
+        skip_delay: bool = True,
+    ) -> Literal["queued", "duplicate", "full"]:
         """
         Queue a video classification task.
         Use this for bulk operations or retries.
         """
-        self._cleanup_completed_tasks()
-        if frigate_event in self._active_tasks or frigate_event in self._pending_ids:
-            log.debug("Video classification already queued/active; skipping duplicate", event_id=frigate_event)
-            return "duplicate"
-        if self._pending_queue.qsize() >= MAX_PENDING_QUEUE:
-            log.warning(
-                "Video classification queue full; dropping task",
-                event_id=frigate_event,
-                queue_size=self._pending_queue.qsize(),
-                max_pending=MAX_PENDING_QUEUE
-            )
-            return "full"
-        await self._pending_queue.put((frigate_event, camera))
-        self._pending_ids.add(frigate_event)
-        log.debug("Queued video classification", event_id=frigate_event, queue_size=self._pending_queue.qsize())
-        return "queued"
+        async with self._queue_lock:
+            self._cleanup_completed_tasks()
+            if frigate_event in self._active_tasks or frigate_event in self._pending_ids:
+                log.debug("Video classification already queued/active; skipping duplicate", event_id=frigate_event)
+                return "duplicate"
+            try:
+                self._pending_queue.put_nowait((frigate_event, camera, bool(skip_delay)))
+            except asyncio.QueueFull:
+                log.warning(
+                    "Video classification queue full; dropping task",
+                    event_id=frigate_event,
+                    queue_size=self._pending_queue.qsize(),
+                    max_pending=MAX_PENDING_QUEUE
+                )
+                return "full"
+            self._pending_ids.add(frigate_event)
+            log.debug("Queued video classification", event_id=frigate_event, queue_size=self._pending_queue.qsize())
+            return "queued"
 
     def _cleanup_task(self, frigate_event: str, task: asyncio.Task):
         """Safely cleanup a completed task from the active tasks dict."""
@@ -328,36 +348,26 @@ class AutoVideoClassifierService:
     async def trigger_classification(self, frigate_event: str, camera: str):
         """
         Trigger automatic video classification for an event.
-        Starts a background task if not already processing.
+        Queue through the same bounded scheduler used by batch analysis.
         """
         if not settings.classification.auto_video_classification:
             return
-
-        # Clean up completed tasks before checking limit
-        self._cleanup_completed_tasks()
 
         if self._is_circuit_open():
             log.warning("Circuit breaker open, skipping auto video classification", event_id=frigate_event)
             await self._update_status(frigate_event, 'failed', error="circuit_open", broadcast=True)
             return
 
-        if frigate_event in self._active_tasks:
-            log.debug("Video classification already in progress", event_id=frigate_event)
-            return
-
-        max_concurrent = settings.classification.video_classification_max_concurrent
-        if len(self._active_tasks) >= max_concurrent:
-            log.warning("Max concurrent video classifications reached, skipping",
-                        event_id=frigate_event,
-                        limit=max_concurrent)
-            return
-
-        task = create_background_task(
-            self._process_event(frigate_event, camera),
-            name=f"video_classifier:{frigate_event}"
-        )
-        self._active_tasks[frigate_event] = task
-        task.add_done_callback(lambda t: self._cleanup_task(frigate_event, t))
+        result = await self.queue_classification(frigate_event, camera, skip_delay=False)
+        if result == "duplicate":
+            log.debug("Video classification already queued/active; skipping duplicate", event_id=frigate_event)
+        elif result == "full":
+            log.warning(
+                "Video classification queue full for auto trigger; dropping task",
+                event_id=frigate_event,
+                queue_size=self._pending_queue.qsize(),
+                max_pending=MAX_PENDING_QUEUE
+            )
 
     def _cleanup_completed_tasks(self):
         """Remove all completed/failed tasks from the active tasks dict."""

@@ -87,9 +87,10 @@ export function buildJobsPipelineModel(
 
     for (const item of activeJobs) {
         const counters = ensure(item.kind);
-        counters.running += 1;
         if (item.status === 'stale') {
             counters.stale += 1;
+        } else {
+            counters.running += 1;
         }
     }
 

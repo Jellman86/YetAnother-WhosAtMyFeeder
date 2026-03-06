@@ -117,4 +117,27 @@ describe('buildJobsPipelineModel', () => {
         expect(model.lanes.running).toBe(0);
         expect(model.kinds).toHaveLength(0);
     });
+
+    it('does not count stale reclassify jobs as running when backend reports lower active concurrency', () => {
+        const activeJobs: JobProgressItem[] = [
+            runningJob('reclassify:evt-1', 'reclassify', 'running'),
+            runningJob('reclassify:evt-2', 'reclassify', 'stale'),
+            runningJob('reclassify:evt-3', 'reclassify', 'stale')
+        ];
+        const model = buildJobsPipelineModel(activeJobs, [], {
+            reclassify: {
+                queued: 6,
+                running: 1,
+                queueDepthKnown: true,
+                updatedAt: 10_000
+            }
+        });
+
+        expect(model.lanes.running).toBe(1);
+        expect(model.kinds[0]).toMatchObject({
+            kind: 'reclassify',
+            running: 1,
+            stale: 2
+        });
+    });
 });
