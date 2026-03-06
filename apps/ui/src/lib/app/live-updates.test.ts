@@ -1,13 +1,25 @@
 import { describe, expect, it } from 'vitest';
 import { LiveUpdateCoordinator } from './live-updates';
 
-function buildCoordinator() {
+function buildCoordinator(options?: { activeJobs?: any[] }) {
     const calls = {
         upsertRunning: [] as any[],
         markCompleted: [] as any[],
         markFailed: [] as any[],
+        markStale: [] as any[],
+        notificationUpserts: [] as any[],
         ingestHealth: [] as any[],
         recordError: [] as any[]
+    };
+
+    const notificationItems: any[] = [];
+
+    const jobProgress = {
+        activeJobs: options?.activeJobs ?? ([] as any[]),
+        upsertRunning: (input: any) => calls.upsertRunning.push(input),
+        markCompleted: (input: any) => calls.markCompleted.push(input),
+        markFailed: (input: any) => calls.markFailed.push(input),
+        markStale: (maxIdleMs: number) => calls.markStale.push(maxIdleMs)
     };
 
     const coordinator = new LiveUpdateCoordinator({
@@ -15,17 +27,20 @@ function buildCoordinator() {
         shouldNotify: () => true,
         applyNotificationPolicy: () => true,
         notificationCenter: {
-            items: [],
+            items: notificationItems,
             add: () => undefined,
-            upsert: () => undefined,
+            upsert: (item: any) => {
+                calls.notificationUpserts.push(item);
+                const idx = notificationItems.findIndex((existing) => existing.id === item.id);
+                if (idx >= 0) {
+                    notificationItems[idx] = item;
+                    return;
+                }
+                notificationItems.unshift(item);
+            },
             remove: () => undefined
         },
-        jobProgress: {
-            upsertRunning: (input: any) => calls.upsertRunning.push(input),
-            markCompleted: (input: any) => calls.markCompleted.push(input),
-            markFailed: (input: any) => calls.markFailed.push(input),
-            markStale: () => undefined
-        },
+        jobProgress,
         detectionsStore: {
             setConnected: () => undefined,
             addDetection: () => undefined,
@@ -54,7 +69,7 @@ function buildCoordinator() {
         }
     });
 
-    return { coordinator, calls };
+    return { coordinator, calls, notificationItems, jobProgress };
 }
 
 describe('LiveUpdateCoordinator reclassify fallback', () => {
@@ -140,5 +155,51 @@ describe('LiveUpdateCoordinator reclassify fallback', () => {
         const { coordinator, calls } = buildCoordinator();
         await coordinator.runOwnerSystemChecks();
         expect(calls.ingestHealth.length).toBe(1);
+    });
+
+    it('settles orphaned process notifications when no active jobs back them', () => {
+        const { coordinator, calls, notificationItems } = buildCoordinator();
+        notificationItems.push({
+            id: 'reclassify:progress',
+            type: 'process',
+            title: 'Batch analysis',
+            message: 'running',
+            timestamp: Date.now() - (5 * 60 * 1000),
+            read: false,
+            meta: { source: 'sse' }
+        });
+
+        coordinator.pruneStaleProcessNotifications();
+
+        expect(calls.notificationUpserts.length).toBe(1);
+        expect(calls.notificationUpserts[0].id).toBe('reclassify:progress');
+        expect(calls.notificationUpserts[0].type).toBe('update');
+        expect(calls.notificationUpserts[0].read).toBe(true);
+        expect(calls.notificationUpserts[0].meta?.stale).toBe(true);
+    });
+
+    it('keeps process notifications when a matching active job exists', () => {
+        const { coordinator, calls, notificationItems } = buildCoordinator({
+            activeJobs: [
+                {
+                    id: 'reclassify:evt-1',
+                    kind: 'reclassify',
+                    status: 'running'
+                }
+            ]
+        });
+        notificationItems.push({
+            id: 'reclassify:progress',
+            type: 'process',
+            title: 'Batch analysis',
+            message: 'running',
+            timestamp: Date.now() - (5 * 60 * 1000),
+            read: false,
+            meta: { source: 'sse' }
+        });
+
+        coordinator.pruneStaleProcessNotifications();
+
+        expect(calls.notificationUpserts.length).toBe(0);
     });
 });

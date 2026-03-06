@@ -2,6 +2,7 @@ import type { Detection } from '../api';
 import { notificationPolicy } from '../notifications/policy';
 
 const STALE_PROCESS_MAX_AGE_MS = 45 * 60 * 1000;
+const ORPHAN_PROCESS_GRACE_MS = 2 * 60 * 1000;
 const RECLASSIFY_PROGRESS_ID = 'reclassify:progress';
 const LEGACY_RECLASSIFY_PROGRESS_PREFIX = 'reclassify:progress:';
 const RECLASSIFY_STATE_MAX_IDLE_MS = 5 * 60 * 1000;
@@ -40,6 +41,11 @@ interface SettingsStoreLike {
 }
 
 interface JobProgressLike {
+    activeJobs?: Array<{
+        id?: string;
+        kind?: string;
+        status?: string;
+    }>;
     upsertRunning(input: {
         id: string;
         kind: string;
@@ -161,6 +167,7 @@ export class LiveUpdateCoordinator {
         for (const item of stale) {
             this.deps.notificationCenter.upsert(item);
         }
+        this.settleOrphanProcessNotifications();
         this.deps.jobProgress.markStale(RECLASSIFY_STATE_MAX_IDLE_MS);
         this.pruneStaleReclassifyState();
     }
@@ -455,6 +462,61 @@ export class LiveUpdateCoordinator {
 
     private isSystemHealthyStatus(status: string): boolean {
         return status === 'healthy' || status === 'ok';
+    }
+
+    private settleOrphanProcessNotifications(): void {
+        const activeJobs = Array.isArray(this.deps.jobProgress.activeJobs)
+            ? this.deps.jobProgress.activeJobs
+            : [];
+        const activeJobIds = new Set<string>();
+        const activeJobKinds = new Set<string>();
+        for (const job of activeJobs) {
+            if (!job || typeof job !== 'object') continue;
+            const id = typeof job.id === 'string' ? job.id.trim() : '';
+            if (id) activeJobIds.add(id);
+            const kind = typeof job.kind === 'string' ? job.kind.trim().toLowerCase() : '';
+            if (kind) activeJobKinds.add(kind);
+        }
+
+        const now = Date.now();
+        for (const item of [...this.deps.notificationCenter.items]) {
+            if (item.type !== 'process' || item.read) continue;
+            const itemTs = Number.isFinite(Number(item.timestamp)) ? Number(item.timestamp) : 0;
+            if (itemTs > 0 && now - itemTs < ORPHAN_PROCESS_GRACE_MS) continue;
+            if (this.hasBackingActiveJob(item, activeJobIds, activeJobKinds)) continue;
+            this.deps.notificationCenter.upsert({
+                ...item,
+                type: 'update',
+                read: true,
+                timestamp: now,
+                message: item.message ? `${item.message} • sync cleared` : 'Process notification cleared after state sync',
+                meta: {
+                    ...(item.meta ?? {}),
+                    stale: true,
+                    source: item.meta?.source ?? 'system'
+                }
+            });
+        }
+    }
+
+    private hasBackingActiveJob(item: any, activeJobIds: Set<string>, activeJobKinds: Set<string>): boolean {
+        const id = typeof item?.id === 'string' ? item.id.trim() : '';
+        const metaKind = typeof item?.meta?.kind === 'string' ? item.meta.kind.trim().toLowerCase() : '';
+        if (!id) return true;
+
+        if (id === RECLASSIFY_PROGRESS_ID || id.startsWith(`${RECLASSIFY_PROGRESS_ID}:`)) {
+            return activeJobKinds.has('reclassify');
+        }
+        if (id.startsWith('reclassify:')) {
+            return activeJobIds.has(id) || activeJobKinds.has('reclassify');
+        }
+        if (id.startsWith('backfill:weather:') || metaKind === 'weather') {
+            return activeJobIds.has(id) || activeJobKinds.has('weather_backfill');
+        }
+        if (id.startsWith('backfill:detections:') || metaKind === 'detections') {
+            return activeJobIds.has(id) || activeJobKinds.has('backfill');
+        }
+        return true;
     }
 
     private pruneStaleReclassifyState() {
