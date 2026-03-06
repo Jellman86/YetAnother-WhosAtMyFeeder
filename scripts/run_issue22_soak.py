@@ -5,6 +5,7 @@ import argparse
 import json
 import os
 import signal
+import subprocess
 import sys
 import threading
 import time
@@ -46,6 +47,10 @@ class PublisherStats:
     last_error: str | None = None
 
 
+MQTT_CONNECT_TIMEOUT_SECONDS = 5.0
+MQTT_PUBLISH_TIMEOUT_SECONDS = 5.0
+
+
 def _now_utc() -> datetime:
     return datetime.now(timezone.utc)
 
@@ -84,7 +89,7 @@ def _fetch_health(backend_url: str, health_path: str, token: str | None, timeout
     return _request_json("GET", url, token, timeout_seconds)
 
 
-def _build_frigate_payload(event_id: str, event_type: str) -> str:
+def _build_frigate_payload(event_id: str, event_type: str, false_positive: bool = False) -> str:
     return json.dumps(
         {
             "type": event_type,
@@ -93,7 +98,7 @@ def _build_frigate_payload(event_id: str, event_type: str) -> str:
                 "camera": "soak_cam",
                 "label": "bird",
                 "start_time": time.time(),
-                "false_positive": False,
+                "false_positive": false_positive,
                 "top_score": 0.99,
                 "sub_label": "Parus major",
             },
@@ -117,6 +122,91 @@ def _build_birdnet_payload(sequence: int) -> str:
     )
 
 
+def _connect_mqtt_client(client, *, mqtt_host: str, mqtt_port: int, timeout_seconds: float) -> None:
+    connected = threading.Event()
+
+    def _on_connect(_client, _userdata, _flags, rc, _properties=None):
+        if rc == 0:
+            connected.set()
+
+    client.on_connect = _on_connect
+    client.connect(mqtt_host, mqtt_port, keepalive=30)
+    client.loop_start()
+    deadline = time.monotonic() + timeout_seconds
+    while time.monotonic() < deadline:
+        if connected.wait(0.05):
+            return
+        is_connected = getattr(client, "is_connected", None)
+        if callable(is_connected) and is_connected():
+            return
+    raise TimeoutError(f"MQTT connect timed out after {timeout_seconds}s")
+
+
+def _publish_message(client, *, topic: str, payload: str, timeout_seconds: float) -> None:
+    info = client.publish(topic, payload=payload, qos=1, retain=False)
+    if info.rc != mqtt.MQTT_ERR_SUCCESS:
+        raise RuntimeError(f"publish rc={info.rc}")
+
+    if not hasattr(info, "is_published"):
+        return
+
+    deadline = time.monotonic() + timeout_seconds
+    while time.monotonic() < deadline:
+        if info.is_published():
+            return
+        time.sleep(0.01)
+    raise TimeoutError(f"MQTT publish timed out after {timeout_seconds}s")
+
+
+def _build_mosquitto_pub_command(
+    *,
+    container_name: str,
+    mqtt_host: str,
+    mqtt_port: int,
+    mqtt_username: str | None,
+    mqtt_password: str | None,
+    topic: str,
+    payload: str,
+) -> list[str]:
+    command = [
+        "docker",
+        "exec",
+        container_name,
+        "mosquitto_pub",
+        "-h",
+        mqtt_host,
+        "-p",
+        str(mqtt_port),
+    ]
+    if mqtt_username:
+        command.extend(["-u", mqtt_username, "-P", mqtt_password or ""])
+    command.extend(["-t", topic, "-m", payload])
+    return command
+
+
+def _publish_message_via_container(
+    *,
+    container_name: str,
+    mqtt_host: str,
+    mqtt_port: int,
+    mqtt_username: str | None,
+    mqtt_password: str | None,
+    topic: str,
+    payload: str,
+    timeout_seconds: float,
+) -> None:
+    command = _build_mosquitto_pub_command(
+        container_name=container_name,
+        mqtt_host=mqtt_host,
+        mqtt_port=mqtt_port,
+        mqtt_username=mqtt_username,
+        mqtt_password=mqtt_password,
+        topic=topic,
+        payload=payload,
+    )
+    subprocess.run(command, check=True, timeout=timeout_seconds, capture_output=True, text=True)
+
+
 def _publisher_loop(
     *,
     stop_event: threading.Event,
@@ -129,7 +219,32 @@ def _publisher_loop(
     payload_factory,
     interval_seconds: float,
     client_id_prefix: str,
+    publish_container: str | None = None,
 ) -> None:
+    if publish_container:
+        sequence = 0
+        while not stop_event.is_set():
+            payload = payload_factory(sequence)
+            sequence += 1
+            try:
+                _publish_message_via_container(
+                    container_name=publish_container,
+                    mqtt_host="127.0.0.1",
+                    mqtt_port=mqtt_port,
+                    mqtt_username=mqtt_username,
+                    mqtt_password=mqtt_password,
+                    topic=topic,
+                    payload=payload,
+                    timeout_seconds=MQTT_PUBLISH_TIMEOUT_SECONDS,
+                )
+                stats.published += 1
+                time.sleep(interval_seconds)
+            except Exception as exc:  # pragma: no cover - runtime subprocess path
+                stats.publish_failures += 1
+                stats.last_error = str(exc)
+                time.sleep(min(interval_seconds, 2.0))
+        return
+
     client_id = f"{client_id_prefix}-{uuid.uuid4().hex[:8]}"
     client = mqtt.Client(client_id=client_id, clean_session=True)
     if mqtt_username:
@@ -143,10 +258,13 @@ def _publisher_loop(
         while not stop_event.is_set():
             if not connected:
                 try:
-                    client.connect(mqtt_host, mqtt_port, keepalive=30)
-                    if not loop_started:
-                        client.loop_start()
-                        loop_started = True
+                    _connect_mqtt_client(
+                        client,
+                        mqtt_host=mqtt_host,
+                        mqtt_port=mqtt_port,
+                        timeout_seconds=MQTT_CONNECT_TIMEOUT_SECONDS,
+                    )
+                    loop_started = True
                     connected = True
                 except Exception as exc:  # pragma: no cover - runtime networking path
                     stats.connect_failures += 1
@@ -157,19 +275,13 @@ def _publisher_loop(
             payload = payload_factory(sequence)
             sequence += 1
             try:
-                info = client.publish(topic, payload=payload, qos=0, retain=False)
-                if info.rc == mqtt.MQTT_ERR_SUCCESS:
-                    stats.published += 1
-                else:
-                    stats.publish_failures += 1
-                    stats.last_error = f"publish rc={info.rc}"
-                    connected = False
-                    try:
-                        client.reconnect()
-                        connected = True
-                    except Exception as exc:  # pragma: no cover - runtime networking path
-                        stats.connect_failures += 1
-                        stats.last_error = str(exc)
+                _publish_message(
+                    client,
+                    topic=topic,
+                    payload=payload,
+                    timeout_seconds=MQTT_PUBLISH_TIMEOUT_SECONDS,
+                )
+                stats.published += 1
                 time.sleep(interval_seconds)
             except Exception as exc:  # pragma: no cover - runtime networking path
                 stats.publish_failures += 1
@@ -207,9 +319,11 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--mqtt-port", type=int, default=int(os.getenv("SOAK_MQTT_PORT", os.getenv("MQTT_PORT", "1883"))))
     parser.add_argument("--mqtt-username", default=os.getenv("SOAK_MQTT_USERNAME", os.getenv("MQTT_USERNAME")))
     parser.add_argument("--mqtt-password", default=os.getenv("SOAK_MQTT_PASSWORD", os.getenv("MQTT_PASSWORD")))
+    parser.add_argument("--mqtt-publish-container", default=os.getenv("SOAK_MQTT_PUBLISH_CONTAINER", ""))
     parser.add_argument("--frigate-topic", default=os.getenv("SOAK_FRIGATE_TOPIC", "frigate/events"))
     parser.add_argument("--birdnet-topic", default=os.getenv("SOAK_BIRDNET_TOPIC", "birdnet/text"))
     parser.add_argument("--frigate-event-type", choices=["update", "new", "end"], default="update")
+    parser.add_argument("--frigate-false-positive", action="store_true")
     parser.add_argument("--frigate-publish-interval-seconds", type=float, default=1.0)
     parser.add_argument("--birdnet-publish-interval-seconds", type=float, default=1.0)
     parser.add_argument("--output-dir", default="")
@@ -276,9 +390,11 @@ def main() -> int:
             "payload_factory": lambda seq: _build_frigate_payload(
                 event_id=f"soak-{run_label}-{seq}",
                 event_type=args.frigate_event_type,
+                false_positive=args.frigate_false_positive,
             ),
             "interval_seconds": max(0.05, args.frigate_publish_interval_seconds),
             "client_id_prefix": "issue22-frigate",
+            "publish_container": args.mqtt_publish_container or None,
         },
         daemon=True,
     )
@@ -295,6 +411,7 @@ def main() -> int:
             "payload_factory": _build_birdnet_payload,
             "interval_seconds": max(0.05, args.birdnet_publish_interval_seconds),
             "client_id_prefix": "issue22-birdnet",
+            "publish_container": args.mqtt_publish_container or None,
         },
         daemon=True,
     )
@@ -384,9 +501,11 @@ def main() -> int:
             "trigger_analysis_interval_seconds": args.trigger_analysis_interval_seconds,
             "mqtt_host": args.mqtt_host,
             "mqtt_port": args.mqtt_port,
+            "mqtt_publish_container": args.mqtt_publish_container,
             "frigate_topic": args.frigate_topic,
             "birdnet_topic": args.birdnet_topic,
             "frigate_event_type": args.frigate_event_type,
+            "frigate_false_positive": args.frigate_false_positive,
             "frigate_publish_interval_seconds": args.frigate_publish_interval_seconds,
             "birdnet_publish_interval_seconds": args.birdnet_publish_interval_seconds,
             "thresholds": asdict(thresholds),
