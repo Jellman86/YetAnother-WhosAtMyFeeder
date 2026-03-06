@@ -61,6 +61,7 @@
     import { authStore } from '../stores/auth.svelte';
     import { toastStore } from '../stores/toast.svelte';
     import { jobProgressStore } from '../stores/job_progress.svelte';
+    import { jobDiagnosticsStore } from '../stores/job_diagnostics.svelte';
     import { notificationCenter } from '../stores/notification_center.svelte';
     import { notificationPolicy } from '../notifications/policy';
     import { _, locale } from 'svelte-i18n';
@@ -1359,6 +1360,15 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
         const parsed = Number(value ?? 0);
         return Number.isFinite(parsed) ? Math.max(0, Math.floor(parsed)) : 0;
     };
+    const toErrorMessage = (error: unknown, fallback: string): string => {
+        if (error instanceof Error) {
+            return error.message || fallback;
+        }
+        if (typeof error === 'string' && error.trim().length > 0) {
+            return error.trim();
+        }
+        return fallback;
+    };
     const mergeBackfillTotal = (previous: number, status: BackfillJobStatus | null): number => {
         if (!status) return previous;
         const total = safeCount(status.total);
@@ -2203,6 +2213,15 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             }
         } catch (e) {
             console.error('Failed to load backfill status', e);
+            jobDiagnosticsStore.recordError({
+                source: 'job',
+                component: 'backfill_status',
+                stage: 'poll',
+                reasonCode: 'status_fetch_failed',
+                message: toErrorMessage(e, 'Failed to load backfill status'),
+                severity: 'warning',
+                context: { route: '/api/backfill/status' }
+            });
         }
     }
 
@@ -2262,6 +2281,15 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             }
         } catch (e) {
             console.error('Failed to load analysis status', e);
+            jobDiagnosticsStore.recordError({
+                source: 'job',
+                component: 'analysis_status',
+                stage: 'poll',
+                reasonCode: 'status_fetch_failed',
+                message: toErrorMessage(e, 'Failed to load analysis status'),
+                severity: 'warning',
+                context: { route: '/api/maintenance/analysis/status' }
+            });
         }
     }
 
