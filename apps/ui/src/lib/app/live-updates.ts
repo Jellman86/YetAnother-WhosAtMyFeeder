@@ -79,6 +79,21 @@ interface LoggerLike {
     sseEvent(event: string, payload?: any): void;
 }
 
+interface JobDiagnosticsLike {
+    ingestHealth(health: any): void;
+    recordError(input: {
+        source: 'health' | 'sse' | 'runtime' | 'job' | 'system';
+        component: string;
+        stage?: string;
+        reasonCode: string;
+        message: string;
+        severity?: 'warning' | 'error' | 'critical';
+        eventId?: string;
+        context?: Record<string, unknown>;
+        healthSnapshot?: any;
+    }): void;
+}
+
 interface LiveUpdateDeps {
     t: TranslateFn;
     shouldNotify: () => boolean;
@@ -91,6 +106,7 @@ interface LiveUpdateDeps {
     logger: LoggerLike;
     checkHealth: () => Promise<any>;
     fetchCacheStats: () => Promise<any>;
+    diagnostics?: JobDiagnosticsLike;
     onConnected?: () => void;
 }
 
@@ -155,6 +171,7 @@ export class LiveUpdateCoordinator {
 
         try {
             const health: any = await this.deps.checkHealth();
+            this.deps.diagnostics?.ingestHealth(health);
             startupInstanceId = String(health?.startup_instance_id ?? 'unknown');
             const status = String(health?.status ?? '').trim().toLowerCase();
             if (status && !this.isSystemHealthyStatus(status)) {
@@ -174,6 +191,14 @@ export class LiveUpdateCoordinator {
             }
         } catch (error) {
             this.deps.logger.warn('health_check_failed', { error });
+            this.deps.diagnostics?.recordError({
+                source: 'health',
+                component: 'health_check',
+                reasonCode: 'request_failed',
+                message: this.toErrorMessage(error, 'Health check request failed'),
+                severity: 'warning',
+                context: { scope: 'runOwnerSystemChecks' }
+            });
         }
 
         try {
@@ -195,16 +220,40 @@ export class LiveUpdateCoordinator {
             }
         } catch (error) {
             this.deps.logger.warn('cache_stats_check_failed', { error });
+            this.deps.diagnostics?.recordError({
+                source: 'health',
+                component: 'cache_stats',
+                reasonCode: 'request_failed',
+                message: this.toErrorMessage(error, 'Cache stats request failed'),
+                severity: 'warning',
+                context: { scope: 'runOwnerSystemChecks' }
+            });
         }
     }
 
     handlePayload(payload: any) {
         if (!payload || typeof payload !== 'object') {
             this.deps.logger.error('SSE Invalid payload structure', undefined, { payload });
+            this.deps.diagnostics?.recordError({
+                source: 'sse',
+                component: 'sse',
+                reasonCode: 'invalid_payload',
+                message: 'SSE payload was not an object',
+                severity: 'warning',
+                context: { payload }
+            });
             return;
         }
         if (!payload.type) {
             this.deps.logger.error('SSE Missing payload type', undefined, { payload });
+            this.deps.diagnostics?.recordError({
+                source: 'sse',
+                component: 'sse',
+                reasonCode: 'missing_type',
+                message: 'SSE payload missing type field',
+                severity: 'warning',
+                context: { payload }
+            });
             return;
         }
 
@@ -345,6 +394,15 @@ export class LiveUpdateCoordinator {
             console.warn('SSE Unknown message type:', payload.type);
         } catch (handlerError) {
             console.error(`SSE Handler error for type '${payload.type}':`, handlerError, 'Payload:', payload);
+            this.deps.diagnostics?.recordError({
+                source: 'sse',
+                component: 'sse',
+                stage: String(payload?.type ?? 'unknown'),
+                reasonCode: 'handler_exception',
+                message: this.toErrorMessage(handlerError, 'Unhandled SSE handler exception'),
+                severity: 'error',
+                context: { payload }
+            });
         }
     }
 
@@ -363,6 +421,27 @@ export class LiveUpdateCoordinator {
             read: false,
             meta: { source: 'sse', route: '/notifications' }
         });
+        this.deps.diagnostics?.recordError({
+            source: 'sse',
+            component: 'sse',
+            reasonCode: 'disconnected',
+            message: this.toErrorMessage(err, 'Live updates disconnected'),
+            severity: 'warning',
+            context: {
+                hidden: isDocumentHidden,
+                signature
+            }
+        });
+    }
+
+    private toErrorMessage(error: unknown, fallback: string): string {
+        if (error instanceof Error) {
+            return error.message || fallback;
+        }
+        if (typeof error === 'string' && error.trim().length > 0) {
+            return error.trim();
+        }
+        return fallback;
     }
 
     private removeNotificationsByPrefix(prefix: string) {

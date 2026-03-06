@@ -27,6 +27,7 @@
   import { authStore } from './lib/stores/auth.svelte';
   import { notificationCenter } from './lib/stores/notification_center.svelte';
   import { jobProgressStore } from './lib/stores/job_progress.svelte';
+  import { jobDiagnosticsStore } from './lib/stores/job_diagnostics.svelte';
   import { notificationPolicy } from './lib/notifications/policy';
   import { announcer } from './lib/components/Announcer.svelte';
   import Announcer from './lib/components/Announcer.svelte';
@@ -88,6 +89,7 @@
   let reconnectTimeout: number | null = $state(null);
   let stalePruneInterval: number | null = $state(null);
   let staleReclassifyPollInterval: number | null = $state(null);
+  let ownerChecksInterval: number | null = $state(null);
   let isReconnecting = $state(false);
   let mobileSidebarOpen = $state(false);
   const STALE_RECLASSIFY_STATUS_POLL_MS = 20_000;
@@ -139,6 +141,7 @@
       logger,
       checkHealth,
       fetchCacheStats,
+      diagnostics: jobDiagnosticsStore,
       onConnected: () => {
           reconnectAttempts = 0;
       }
@@ -180,6 +183,14 @@
                   ? { message: event.error.message, stack: event.error.stack, name: event.error.name }
                   : { message: event.message, error: event.error };
               logger.error('window_runtime_error', payload);
+              jobDiagnosticsStore.recordError({
+                  source: 'runtime',
+                  component: 'browser',
+                  reasonCode: 'window_error',
+                  message: String(payload.message || 'Uncaught window error'),
+                  severity: 'error',
+                  context: payload
+              });
               console.error('window_runtime_error', payload);
           };
           const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
@@ -188,6 +199,14 @@
                   ? { message: reason.message, stack: reason.stack, name: reason.name }
                   : { reason };
               logger.error('window_unhandled_rejection', payload);
+              jobDiagnosticsStore.recordError({
+                  source: 'runtime',
+                  component: 'browser',
+                  reasonCode: 'unhandled_rejection',
+                  message: String((payload as any).message || 'Unhandled promise rejection'),
+                  severity: 'error',
+                  context: payload
+              });
               console.error('window_unhandled_rejection', payload);
           };
           window.addEventListener('error', handleWindowError);
@@ -206,6 +225,9 @@
           liveUpdates.pruneStaleProcessNotifications();
           void reclassifyRecovery.reconcile();
           await liveUpdates.runOwnerSystemChecks();
+          ownerChecksInterval = window.setInterval(() => {
+              void liveUpdates.runOwnerSystemChecks();
+          }, 60_000);
           stalePruneInterval = window.setInterval(() => {
               liveUpdates.pruneStaleProcessNotifications();
               detectionsStore.pruneReclassifications();
@@ -267,6 +289,10 @@
               if (staleReclassifyPollInterval) {
                   clearInterval(staleReclassifyPollInterval);
                   staleReclassifyPollInterval = null;
+              }
+              if (ownerChecksInterval) {
+                  clearInterval(ownerChecksInterval);
+                  ownerChecksInterval = null;
               }
           };
       })();

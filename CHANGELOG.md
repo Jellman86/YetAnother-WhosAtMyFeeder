@@ -13,6 +13,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Changed:** Jobs pipeline now uses real queue telemetry for auto video reclassification (`pending`/`active`) and explicitly marks queue depth as “not reported” for job kinds that do not expose queue metrics yet.
 - **Fixed:** Jobs queue telemetry polling now keeps retrying after transient failures and preserves previously known queue data instead of downgrading to “not reported.”
 - **Changed:** Notifications workspace heading now reads “Notifications & Jobs” to better match the combined page purpose.
+- **Added:** Notifications & Jobs now includes a grouped `Errors` panel with anti-spam deduplication (counted signatures), severity tagging, and optional drill-down metadata for troubleshooting.
+- **Added:** Client-side diagnostics JSON export from Notifications & Jobs (including grouped errors and captured health snapshots) for user-provided support bundles.
 - **Fixed:** Jobs pipeline no longer shows idle reclassification queue rows after local clear actions when queue depth is `0` and no job activity exists.
 - **Fixed:** Reclassification fallback handling now treats `pending` as queued (not active running), preventing phantom extra active reclassify jobs beyond configured concurrency during batch analysis.
 - **Added:** Dedicated frontend background-job telemetry store (`jobProgressStore`) with explicit lifecycle states (`running`, `stale`, `completed`, `failed`), rate-per-minute estimation, and ETA tracking.

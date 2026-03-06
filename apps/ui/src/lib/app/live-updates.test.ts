@@ -5,7 +5,9 @@ function buildCoordinator() {
     const calls = {
         upsertRunning: [] as any[],
         markCompleted: [] as any[],
-        markFailed: [] as any[]
+        markFailed: [] as any[],
+        ingestHealth: [] as any[],
+        recordError: [] as any[]
     };
 
     const coordinator = new LiveUpdateCoordinator({
@@ -45,7 +47,11 @@ function buildCoordinator() {
             sseEvent: () => undefined
         },
         checkHealth: async () => ({}),
-        fetchCacheStats: async () => ({})
+        fetchCacheStats: async () => ({}),
+        diagnostics: {
+            ingestHealth: (health: any) => calls.ingestHealth.push(health),
+            recordError: (input: any) => calls.recordError.push(input)
+        }
     });
 
     return { coordinator, calls };
@@ -128,5 +134,11 @@ describe('LiveUpdateCoordinator reclassify fallback', () => {
 
         // Keep the originally started job, but do not duplicate/revive it from pending fallback.
         expect(calls.upsertRunning.length).toBe(1);
+    });
+
+    it('forwards health payloads to diagnostics ingest', async () => {
+        const { coordinator, calls } = buildCoordinator();
+        await coordinator.runOwnerSystemChecks();
+        expect(calls.ingestHealth.length).toBe(1);
     });
 });
