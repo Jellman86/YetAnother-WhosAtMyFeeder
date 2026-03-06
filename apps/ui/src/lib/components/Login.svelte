@@ -1,6 +1,7 @@
 <script lang="ts">
     import { authStore } from '../stores/auth.svelte';
     import { _ } from 'svelte-i18n';
+    import { APP_ICON_192_URL } from '../assets';
     
     let username = $state('');
     let password = $state('');
@@ -46,7 +47,7 @@
             <!-- Header -->
             <div class="text-center mb-8">
                 <div class="mx-auto w-20 h-20 flex items-center justify-center mb-6">
-                    <img src="/pwa-192x192.png" alt="Logo" class="w-16 h-16 object-contain drop-shadow-md" />
+                    <img src={APP_ICON_192_URL} alt="Logo" class="w-16 h-16 object-contain drop-shadow-md" />
                 </div>
                 <h2 class="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
                     {$_('auth.welcome_back')}

@@ -7,6 +7,7 @@
     import { _ } from 'svelte-i18n';
     import ReclassificationOverlay from './ReclassificationOverlay.svelte';
     import { hasFrigateMediaIssue } from '../utils/frigate-errors';
+    import { FRIGATE_LOGO_URL } from '../assets';
 
     import { getBirdNames } from '../naming';
     import { formatDate as formatDateValue, formatTime } from '../utils/datetime';
@@ -378,7 +379,7 @@
                         class="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-rose-600 text-white text-[10px] font-black uppercase tracking-wider shadow-lg shadow-rose-900/30"
                         title={$_('detection.frigate_media_missing', { default: 'Frigate Media Missing' })}
                     >
-                        <img src="/frigate-logo.png" alt="" aria-hidden="true" class="w-3.5 h-3.5 rounded-[2px] bg-white/95 p-0.5 object-contain" />
+                        <img src={FRIGATE_LOGO_URL} alt="" aria-hidden="true" class="w-3.5 h-3.5 rounded-[2px] bg-white/95 p-0.5 object-contain" />
                         <span>{$_('detection.frigate_badge', { default: 'Frigate' })}</span>
                     </div>
                 {/if}

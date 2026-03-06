@@ -38,6 +38,7 @@
     import { get } from 'svelte/store';
     import { onDestroy, onMount } from 'svelte';
     import { trapFocus } from '../utils/focus-trap';
+    import { FRIGATE_LOGO_URL } from '../assets';
     import { formatDateTime } from '../utils/datetime';
     import { formatTemperature } from '../utils/temperature';
     import { renderMarkdown } from '../utils/markdown';
@@ -1513,7 +1514,7 @@
                                 class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-rose-600/95 text-white text-[10px] font-black uppercase tracking-wider shadow-xl shadow-rose-900/35 border border-rose-300/30 backdrop-blur-sm"
                                 title={$_('detection.frigate_media_missing', { default: 'Frigate Media Missing' })}
                             >
-                                <img src="/frigate-logo.png" alt="" aria-hidden="true" class="w-3.5 h-3.5 rounded-[2px] bg-white/95 p-0.5 object-contain" />
+                                <img src={FRIGATE_LOGO_URL} alt="" aria-hidden="true" class="w-3.5 h-3.5 rounded-[2px] bg-white/95 p-0.5 object-contain" />
                                 <span>{$_('detection.frigate_badge', { default: 'Frigate' })}</span>
                             </div>
                         </div>
@@ -1606,7 +1607,7 @@
                         </div>
                         {#if videoFailureInsight.isFrigateRelated}
                             <div class="shrink-0 inline-flex items-center gap-1 rounded-full bg-rose-600 px-2 py-1 text-[9px] font-black uppercase tracking-wider text-white">
-                                <img src="/frigate-logo.png" alt="" aria-hidden="true" class="w-3 h-3 rounded-[2px] bg-white/95 p-0.5 object-contain" />
+                                <img src={FRIGATE_LOGO_URL} alt="" aria-hidden="true" class="w-3 h-3 rounded-[2px] bg-white/95 p-0.5 object-contain" />
                                 <span>{$_('detection.frigate_badge', { default: 'Frigate' })}</span>
                             </div>
                         {/if}

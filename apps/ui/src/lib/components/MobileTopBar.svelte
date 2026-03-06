@@ -1,4 +1,6 @@
 <script lang="ts">
+    import { APP_ICON_192_URL } from '../assets';
+
     export let onToggleMenu: () => void = () => undefined;
     export let onToggleTheme: () => void = () => undefined;
     export let theme: string = 'light';
@@ -20,7 +22,7 @@
     </button>
     <div class="flex items-center gap-2">
         <div class="w-7 h-7 flex items-center justify-center overflow-hidden">
-            <img src="/pwa-192x192.png" alt={appTitle} class="w-full h-full object-contain bg-transparent" />
+            <img src={APP_ICON_192_URL} alt={appTitle} class="w-full h-full object-contain bg-transparent" />
         </div>
         <span class="text-sm font-bold text-gradient">{appTitle}</span>
     </div>

@@ -3,6 +3,7 @@
     import { _ } from 'svelte-i18n';
     import type { VersionInfo } from '../../api';
     import { authStore } from '../../stores/auth.svelte';
+    import { FRIGATE_LOGO_URL } from '../../assets';
     import SecretSavedBadge from './SecretSavedBadge.svelte';
 
     // Props
@@ -148,7 +149,7 @@
     <section class="card-base rounded-3xl p-8 backdrop-blur-md h-full flex flex-col">
         <div class="flex items-center gap-3 mb-6">
             <div class="w-10 h-10 rounded-2xl bg-teal-500/10 flex items-center justify-center p-1.5">
-                <img src="/frigate-logo.png" alt="Frigate Logo" class="w-full h-full object-contain" />
+                <img src={FRIGATE_LOGO_URL} alt="Frigate Logo" class="w-full h-full object-contain" />
             </div>
             <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">{$_('settings.frigate.title')}</h3>
         </div>

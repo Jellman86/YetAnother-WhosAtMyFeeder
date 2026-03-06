@@ -1,15 +1,16 @@
-const CACHE_NAME = 'yawamf-static-v1';
-const RUNTIME_CACHE = 'yawamf-runtime-v1';
+const CACHE_NAME = 'yawamf-static-v2';
+const RUNTIME_CACHE = 'yawamf-runtime-v2';
 
 const CORE_ASSETS = [
   '/',
   '/index.html',
-  '/manifest.json',
-  '/favicon.ico',
-  '/favicon.png',
-  '/apple-touch-icon.png',
-  '/pwa-192x192.png',
-  '/pwa-512x512.png'
+  '/manifest.json?v=20260306-1',
+  '/favicon.ico?v=20260306-1',
+  '/favicon.png?v=20260306-1',
+  '/apple-touch-icon.png?v=20260306-1',
+  '/pwa-192x192.png?v=20260306-1',
+  '/pwa-512x512.png?v=20260306-1',
+  '/frigate-logo.png?v=20260306-1'
 ];
 
 self.addEventListener('install', (event) => {

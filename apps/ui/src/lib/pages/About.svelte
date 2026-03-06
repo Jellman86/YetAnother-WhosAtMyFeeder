@@ -1,6 +1,7 @@
 <script lang="ts">
     import { fetchVersion, type VersionInfo } from '../api';
     import { _ } from 'svelte-i18n';
+    import { APP_ICON_192_URL } from '../assets';
 
     type FeatureDefinition = {
         icon: string;
@@ -238,7 +239,7 @@
     <header class="text-center space-y-4">
         <div class="flex items-center justify-center gap-3">
             <div class="w-16 h-16 flex items-center justify-center overflow-hidden">
-                <img src="/pwa-192x192.png" alt={$_('app.title')} class="w-full h-full object-contain bg-transparent" />
+                <img src={APP_ICON_192_URL} alt={$_('app.title')} class="w-full h-full object-contain bg-transparent" />
             </div>
         </div>
         <h1 class="text-4xl font-bold text-gradient">{$_('app.logo_title')} {$_('app.logo_subtitle')}</h1>

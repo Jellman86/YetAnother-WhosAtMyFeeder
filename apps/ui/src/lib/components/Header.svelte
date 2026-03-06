@@ -2,6 +2,7 @@
     import { themeStore } from '../stores/theme.svelte';
     import { authStore } from '../stores/auth.svelte';
     import { _ } from 'svelte-i18n';
+    import { APP_ICON_192_URL } from '../assets';
     import LanguageSelector from './LanguageSelector.svelte';
     import NotificationCenter from './NotificationCenter.svelte';
 
@@ -47,7 +48,7 @@
                 onclick={() => handleNavClick('/')}
             >
                 <div class="w-9 h-9 flex items-center justify-center overflow-hidden">
-                    <img src="/pwa-192x192.png" alt={$_('app.title')} class="w-full h-full object-contain bg-transparent" />
+                    <img src={APP_ICON_192_URL} alt={$_('app.title')} class="w-full h-full object-contain bg-transparent" />
                 </div>
                 <div class="flex flex-col">
                     <h1 class="text-lg font-bold text-gradient leading-tight hidden sm:block">
