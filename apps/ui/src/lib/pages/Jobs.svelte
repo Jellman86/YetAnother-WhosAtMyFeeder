@@ -4,6 +4,7 @@
     import { jobProgressStore, type JobProgressItem } from '../stores/job_progress.svelte';
     import { jobDiagnosticsStore } from '../stores/job_diagnostics.svelte';
     import { fetchAnalysisStatus } from '../api/maintenance';
+    import type { AnalysisStatus } from '../api/maintenance';
     import { buildJobsPipelineModel, type QueueTelemetryByKind } from '../jobs/pipeline';
     import { formatDateTime } from '../utils/datetime';
     import { authStore } from '../stores/auth.svelte';
@@ -11,6 +12,8 @@
 
     let nowTs = $state(Date.now());
     let queueByKind = $state<QueueTelemetryByKind>({});
+    let analysisStatus = $state<AnalysisStatus | null>(null);
+    let analysisStatusSignature = $state('');
     onMount(() => {
         const tick = setInterval(() => {
             nowTs = Date.now();
@@ -23,6 +26,19 @@
             if (!authStore.showSettings) return;
             try {
                 const status = await fetchAnalysisStatus();
+                const signature = [
+                    status.pending ?? 0,
+                    status.active ?? 0,
+                    status.circuit_open ? 1 : 0,
+                    status.open_until ?? '',
+                    status.failure_count ?? '',
+                    status.pending_capacity ?? '',
+                    status.pending_available ?? ''
+                ].join('|');
+                if (signature !== analysisStatusSignature) {
+                    analysisStatus = status;
+                    analysisStatusSignature = signature;
+                }
                 queueByKind = {
                     ...queueByKind,
                     reclassify: {
@@ -75,6 +91,10 @@
     let historyJobs = $derived(jobProgressStore.historyJobs);
     let pipeline = $derived(buildJobsPipelineModel(activeJobs, historyJobs, queueByKind));
     let staleCount = $derived(staleJobs.length);
+    let circuitOpen = $derived(Boolean(analysisStatus?.circuit_open));
+    let circuitOpenUntil = $derived(analysisStatus?.open_until ?? null);
+    let circuitFailureCount = $derived(Math.max(0, Math.floor(Number(analysisStatus?.failure_count ?? 0))));
+    let queuedReclassifyJobs = $derived(Math.max(0, Math.floor(Number(analysisStatus?.pending ?? queueByKind.reclassify?.queued ?? 0))));
 
     function fmtRate(value?: number): string {
         if (!Number.isFinite(value) || !value || value <= 0) return 'n/a';
@@ -239,6 +259,35 @@
                 </div>
             {/each}
         </div>
+
+        {#if circuitOpen}
+            <div class="mt-4 rounded-2xl border border-amber-200/80 dark:border-amber-800/60 bg-amber-50/80 dark:bg-amber-950/30 p-4">
+                <div class="flex flex-wrap items-start justify-between gap-2">
+                    <div>
+                        <p class="text-[10px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-300">
+                            {$_('jobs.circuit_open_label', { default: 'Queue Paused' })}
+                        </p>
+                        <p class="mt-1 text-sm font-semibold text-amber-900 dark:text-amber-100">
+                            {$_('jobs.circuit_open_message', { default: 'Reclassification queue paused by circuit breaker.' })}
+                        </p>
+                        <p class="mt-1 text-xs text-amber-700/90 dark:text-amber-200/90">
+                            {$_('jobs.circuit_open_detail', {
+                                values: {
+                                    queued: queuedReclassifyJobs.toLocaleString(),
+                                    failures: circuitFailureCount.toLocaleString()
+                                },
+                                default: '{queued} queued items are waiting. Recent failures: {failures}.'
+                            })}
+                        </p>
+                    </div>
+                    {#if circuitOpenUntil}
+                        <div class="text-[10px] font-black uppercase tracking-wider text-amber-700 dark:text-amber-300">
+                            {$_('jobs.circuit_open_until', { default: 'Until' })}: {formatDateTime(circuitOpenUntil)}
+                        </div>
+                    {/if}
+                </div>
+            </div>
+        {/if}
     </section>
 
     <section class="card-base p-6">

@@ -61,6 +61,13 @@ describe('jobDiagnosticsStore', () => {
             notification_dispatcher: {
                 dropped_jobs: 3
             },
+            video_classifier: {
+                circuit_open: true,
+                open_until: '2026-03-06T12:15:00.000Z',
+                failure_count: 8,
+                pending: 21,
+                active: 0
+            },
             db_pool: {
                 acquire_wait_max_ms: 9000
             },
@@ -84,6 +91,53 @@ describe('jobDiagnosticsStore', () => {
         expect(latestTimeoutGroup?.sampleEventIds).toContain('evt-timeout-9');
         expect(jobDiagnosticsStore.groups.some((group) => group.component === 'mqtt')).toBe(true);
         expect(jobDiagnosticsStore.groups.some((group) => group.component === 'db_pool')).toBe(true);
+        expect(
+            jobDiagnosticsStore.groups.some(
+                (group) =>
+                    group.component === 'video_classifier'
+                    && group.reasonCode === 'circuit_open'
+            )
+        ).toBe(true);
+    });
+
+    it('captures a new health snapshot when video classifier circuit state changes', () => {
+        const base = {
+            status: 'ok',
+            startup_instance_id: 'abc123',
+            mqtt: { pressure_level: 'normal' },
+            event_pipeline: { critical_failures: 0, stage_timeouts: {}, stage_failures: {} },
+            notification_dispatcher: { dropped_jobs: 0 },
+            db_pool: { acquire_wait_max_ms: 0 },
+            startup_warnings: [],
+            video_classifier: {
+                circuit_open: false,
+                open_until: null,
+                failure_count: 0,
+                pending: 0,
+                active: 0
+            }
+        };
+
+        jobDiagnosticsStore.ingestHealth(base);
+        jobDiagnosticsStore.ingestHealth({
+            ...base,
+            video_classifier: {
+                circuit_open: true,
+                open_until: '2026-03-06T12:15:00.000Z',
+                failure_count: 8,
+                pending: 21,
+                active: 0
+            }
+        });
+
+        expect(jobDiagnosticsStore.healthSnapshots.length).toBe(2);
+        expect(
+            jobDiagnosticsStore.healthSnapshots[0].payload.video_classifier
+        ).toMatchObject({
+            circuit_open: true,
+            failure_count: 8,
+            pending: 21
+        });
     });
 
     it('deduplicates identical consecutive health snapshots and exports JSON', () => {

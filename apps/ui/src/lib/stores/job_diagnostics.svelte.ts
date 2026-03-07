@@ -107,6 +107,7 @@ function createHealthSignature(health: any): string {
     const notificationDispatcher = health?.notification_dispatcher ?? {};
     const dbPool = health?.db_pool ?? {};
     const startupWarningCount = Array.isArray(health?.startup_warnings) ? health.startup_warnings.length : 0;
+    const videoClassifier = health?.video_classifier ?? {};
 
     const eventCritical = Math.max(0, Math.floor(asFiniteNumber(eventPipeline?.critical_failures)));
     const stageTimeoutTotal = sumCounterMap(eventPipeline?.stage_timeouts);
@@ -117,6 +118,9 @@ function createHealthSignature(health: any): string {
     const mqttPressure = normalizeString(mqtt?.pressure_level, 'unknown').toLowerCase();
     const droppedJobs = Math.max(0, Math.floor(asFiniteNumber(notificationDispatcher?.dropped_jobs)));
     const dbWaitMax = Math.max(0, Math.floor(asFiniteNumber(dbPool?.acquire_wait_max_ms)));
+    const videoCircuitOpen = !!videoClassifier?.circuit_open;
+    const videoCircuitUntil = normalizeString(videoClassifier?.open_until, '-');
+    const videoFailureCount = Math.max(0, Math.floor(asFiniteNumber(videoClassifier?.failure_count)));
 
     return [
         status,
@@ -133,6 +137,9 @@ function createHealthSignature(health: any): string {
         mqttPressure,
         droppedJobs,
         dbWaitMax,
+        videoCircuitOpen ? 'circuit_open' : 'circuit_closed',
+        videoCircuitUntil,
+        videoFailureCount,
         startupWarningCount
     ].join('|');
 }
@@ -201,7 +208,10 @@ function sanitizeHealthSnapshotPayload(health: any): Record<string, unknown> {
             pending: Math.floor(asFiniteNumber(videoClassifier?.pending)),
             active: Math.floor(asFiniteNumber(videoClassifier?.active)),
             completed: Math.floor(asFiniteNumber(videoClassifier?.completed)),
-            failed: Math.floor(asFiniteNumber(videoClassifier?.failed))
+            failed: Math.floor(asFiniteNumber(videoClassifier?.failed)),
+            circuit_open: Boolean(videoClassifier?.circuit_open),
+            open_until: normalizeString(videoClassifier?.open_until, ''),
+            failure_count: Math.floor(asFiniteNumber(videoClassifier?.failure_count))
         }
     };
 }
@@ -368,6 +378,30 @@ class JobDiagnosticsStore {
                 timestamp: ts,
                 healthSnapshotId: snapshotId,
                 context: { dropped_jobs: droppedJobs }
+            });
+        }
+
+        const videoClassifier = health?.video_classifier ?? {};
+        if (videoClassifier?.circuit_open) {
+            const failureCount = Math.max(0, Math.floor(asFiniteNumber(videoClassifier?.failure_count)));
+            const pending = Math.max(0, Math.floor(asFiniteNumber(videoClassifier?.pending)));
+            const active = Math.max(0, Math.floor(asFiniteNumber(videoClassifier?.active)));
+            const openUntil = normalizeString(videoClassifier?.open_until, '');
+            this.recordError({
+                source: 'health',
+                component: 'video_classifier',
+                stage: 'queue',
+                reasonCode: 'circuit_open',
+                message: 'Video classification queue paused by circuit breaker',
+                severity: 'warning',
+                timestamp: ts,
+                healthSnapshotId: snapshotId,
+                context: {
+                    open_until: openUntil || null,
+                    failure_count: failureCount,
+                    pending,
+                    active
+                }
             });
         }
 
