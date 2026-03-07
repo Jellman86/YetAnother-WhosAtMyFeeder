@@ -1596,7 +1596,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'blockedLabels', val: JSON.stringify(blockedLabels), store: JSON.stringify(s.blocked_labels || []) },
             { key: 'cacheEnabled', val: cacheEnabled, store: s.media_cache_enabled ?? true },
             { key: 'cacheSnapshots', val: cacheSnapshots, store: s.media_cache_snapshots ?? true },
-            { key: 'cacheClips', val: cacheClips, store: s.media_cache_clips ?? true },
+            { key: 'cacheClips', val: cacheClips, store: s.media_cache_clips ?? false },
+            { key: 'cacheHighQualityEventSnapshots', val: cacheHighQualityEventSnapshots, store: s.media_cache_high_quality_event_snapshots ?? false },
             { key: 'cacheRetentionDays', val: cacheRetentionDays, store: s.media_cache_retention_days ?? 0 },
             { key: 'locationLat', val: locationLat, store: s.location_latitude ?? null },
             { key: 'locationLon', val: locationLon, store: s.location_longitude ?? null },
@@ -1714,7 +1715,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     // Media cache state
     let cacheEnabled = $state(true);
     let cacheSnapshots = $state(true);
-    let cacheClips = $state(true);
+    let cacheClips = $state(false);
+    let cacheHighQualityEventSnapshots = $state(false);
     let cacheRetentionDays = $state(0);
     let cacheStats = $state<CacheStats | null>(null);
     let cleaningCache = $state(false);
@@ -2361,7 +2363,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             // Media cache settings
             cacheEnabled = settings.media_cache_enabled ?? true;
             cacheSnapshots = settings.media_cache_snapshots ?? true;
-            cacheClips = settings.media_cache_clips ?? true;
+            cacheClips = settings.media_cache_clips ?? false;
+            cacheHighQualityEventSnapshots = settings.media_cache_high_quality_event_snapshots ?? false;
             cacheRetentionDays = settings.media_cache_retention_days ?? 0;
             // Location settings
             locationLat = settings.location_latitude ?? null;
@@ -2633,6 +2636,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 media_cache_enabled: cacheEnabled,
                 media_cache_snapshots: cacheSnapshots,
                 media_cache_clips: cacheClips,
+                media_cache_high_quality_event_snapshots: cacheHighQualityEventSnapshots,
                 media_cache_retention_days: cacheRetentionDays,
                 location_latitude: locationLat,
                 location_longitude: locationLon,
@@ -3202,6 +3206,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     bind:cacheEnabled
                     bind:cacheSnapshots
                     bind:cacheClips
+                    bind:cacheHighQualityEventSnapshots
                     bind:cacheRetentionDays
                     bind:backfillDateRange
                     bind:backfillStartDate

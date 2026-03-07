@@ -57,6 +57,10 @@ VIDEO_PREVIEW_GENERATION_SECONDS = Histogram(
     "Duration of timeline preview generation",
     ["outcome"],
 )
+SNAPSHOT_NO_STORE_HEADERS = {
+    "Cache-Control": "no-store, max-age=0",
+    "Pragma": "no-cache",
+}
 
 
 def get_http_client() -> httpx.AsyncClient:
@@ -900,7 +904,7 @@ async def proxy_snapshot(
     if settings.media_cache.enabled and settings.media_cache.cache_snapshots:
         cached = await media_cache.get_snapshot(event_id)
         if cached:
-            return Response(content=cached, media_type="image/jpeg")
+            return Response(content=cached, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS)
 
     # Fetch from Frigate
     url = f"{settings.frigate.frigate_url}/api/events/{event_id}/snapshot.jpg"
@@ -919,7 +923,11 @@ async def proxy_snapshot(
         if settings.media_cache.enabled and settings.media_cache.cache_snapshots:
             await media_cache.cache_snapshot(event_id, resp.content)
 
-        return Response(content=resp.content, media_type=resp.headers.get("content-type", "image/jpeg"))
+        return Response(
+            content=resp.content,
+            media_type=resp.headers.get("content-type", "image/jpeg"),
+            headers=SNAPSHOT_NO_STORE_HEADERS,
+        )
     except httpx.TimeoutException:
         raise HTTPException(
             status_code=504,
@@ -1442,7 +1450,7 @@ async def proxy_thumb(
     if settings.media_cache.enabled and settings.media_cache.cache_snapshots:
         cached = await media_cache.get_snapshot(event_id)
         if cached:
-            return Response(content=cached, media_type="image/jpeg")
+            return Response(content=cached, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS)
 
     url = f"{settings.frigate.frigate_url}/api/events/{event_id}/thumbnail.jpg"
     client = get_http_client()
@@ -1460,7 +1468,11 @@ async def proxy_thumb(
         if settings.media_cache.enabled and settings.media_cache.cache_snapshots:
             await media_cache.cache_snapshot(event_id, resp.content)
 
-        return Response(content=resp.content, media_type=resp.headers.get("content-type", "image/jpeg"))
+        return Response(
+            content=resp.content,
+            media_type=resp.headers.get("content-type", "image/jpeg"),
+            headers=SNAPSHOT_NO_STORE_HEADERS,
+        )
     except httpx.TimeoutException:
         raise HTTPException(
             status_code=504,

@@ -124,6 +124,35 @@ async def test_health_includes_event_pipeline_status(
 
 
 @pytest.mark.asyncio
+async def test_health_includes_high_quality_snapshot_status(
+    client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
+):
+    app.state.startup_warnings = []
+    monkeypatch.setattr(
+        main_module,
+        "high_quality_snapshot_service",
+        SimpleNamespace(
+            get_status=lambda: {
+                "enabled": True,
+                "active": 1,
+                "scheduled_total": 3,
+                "duplicate_requests": 1,
+                "disabled_requests": 0,
+                "outcomes": {"replaced": 2, "clip_not_found": 1},
+                "last_result": {"event_id": "evt-1", "result": "replaced"},
+            }
+        ),
+        raising=False,
+    )
+
+    response = await client.get("/health")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["high_quality_snapshots"]["scheduled_total"] == 3
+    assert body["high_quality_snapshots"]["outcomes"]["replaced"] == 2
+
+
+@pytest.mark.asyncio
 async def test_health_degraded_when_event_pipeline_reports_critical_failures(
     client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
 ):

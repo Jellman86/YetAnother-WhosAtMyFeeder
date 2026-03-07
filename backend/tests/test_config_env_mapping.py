@@ -198,3 +198,31 @@ def test_classification_startup_load_env_precedence_with_full_file_payload(monke
     assert loaded.classification.inference_provider == "intel_gpu"
     assert loaded.classification.ai_pricing_json == '[{"provider":"openai","model":"gpt-test","input_per_1k":0.001}]'
     assert loaded.classification.max_classification_results == 11
+
+
+def test_media_cache_high_quality_event_snapshots_env_override(monkeypatch):
+    monkeypatch.setenv("MEDIA_CACHE__HIGH_QUALITY_EVENT_SNAPSHOTS", "true")
+
+    loaded = Settings.load()
+
+    assert loaded.media_cache.high_quality_event_snapshots is True
+
+
+def test_media_cache_high_quality_event_snapshots_env_overrides_file_value(monkeypatch, tmp_path):
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "media_cache": {
+                    "high_quality_event_snapshots": False,
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(config_module, "CONFIG_PATH", config_path)
+    monkeypatch.setenv("MEDIA_CACHE__HIGH_QUALITY_EVENT_SNAPSHOTS", "true")
+
+    loaded = Settings.load()
+
+    assert loaded.media_cache.high_quality_event_snapshots is True

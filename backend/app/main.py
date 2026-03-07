@@ -32,6 +32,7 @@ from app.services.media_cache import media_cache
 from app.services.broadcaster import broadcaster
 from app.services.telemetry_service import telemetry_service
 from app.services.auto_video_classifier_service import auto_video_classifier
+from app.services.high_quality_snapshot_service import high_quality_snapshot_service
 from app.services.notification_dispatcher import notification_dispatcher
 from app.services.frigate_client import frigate_client
 from app.repositories.detection_repository import DetectionRepository
@@ -342,6 +343,7 @@ async def lifespan(app: FastAPI):
             pass
     if not test_mode:
         await _run_lifecycle_phase(app, "notification_dispatcher_stop", notification_dispatcher.stop, fatal=False)
+        await _run_lifecycle_phase(app, "high_quality_snapshot_stop", high_quality_snapshot_service.stop, fatal=False)
         await _run_lifecycle_phase(app, "auto_video_classifier_stop", auto_video_classifier.stop, fatal=False)
         await _run_lifecycle_phase(app, "telemetry_stop", telemetry_service.stop, fatal=False)
         await _run_lifecycle_phase(app, "mqtt_service_stop", mqtt_service.stop, fatal=False)
@@ -597,6 +599,7 @@ async def health_check():
     classifier_health = get_classifier().check_health()
     mqtt_health = mqtt_service.get_status()
     video_health = auto_video_classifier.get_status()
+    high_quality_snapshot_health = high_quality_snapshot_service.get_status()
     notification_dispatch_health = notification_dispatcher.get_status()
     db_pool_health = get_db_pool_status()
     event_pipeline_health = (
@@ -628,6 +631,7 @@ async def health_check():
         "db_pool": db_pool_health,
         "mqtt": mqtt_health,
         "video_classifier": video_health,
+        "high_quality_snapshots": high_quality_snapshot_health,
         "notification_dispatcher": notification_dispatch_health,
         "event_pipeline": event_pipeline_health,
         "startup_warnings": startup_warnings,

@@ -1,6 +1,8 @@
 """Media cache service for storing snapshots and clips locally."""
 
+import asyncio
 import os
+import uuid
 import aiofiles
 import aiofiles.os
 import structlog
@@ -139,6 +141,22 @@ class MediaCacheService:
             raise ValueError(f"Invalid preview manifest path for event: {event_id}")
         return path
 
+    async def _write_bytes_atomic(self, path: Path, data: bytes) -> Path:
+        """Write bytes to a temp file in the same directory, then atomically replace."""
+        tmp_path = path.with_name(f"{path.name}.{uuid.uuid4().hex}.tmp")
+        try:
+            async with aiofiles.open(tmp_path, "wb") as f:
+                await f.write(data)
+            await asyncio.to_thread(tmp_path.replace, path)
+            return path
+        except Exception:
+            try:
+                if tmp_path.exists():
+                    tmp_path.unlink()
+            except Exception:
+                pass
+            raise
+
     async def cache_snapshot(self, event_id: str, image_bytes: bytes) -> Optional[Path]:
         """Cache a snapshot image.
 
@@ -154,12 +172,25 @@ class MediaCacheService:
             return None
         try:
             path = self._snapshot_path(event_id)
-            async with aiofiles.open(path, 'wb') as f:
-                await f.write(image_bytes)
+            await self._write_bytes_atomic(path, image_bytes)
             log.debug("Cached snapshot", event_id=event_id, size=len(image_bytes))
             return path
         except Exception as e:
             log.error("Failed to cache snapshot", event_id=event_id, error=str(e))
+            return None
+
+    async def replace_snapshot(self, event_id: str, image_bytes: bytes) -> Optional[Path]:
+        """Atomically replace a cached snapshot without exposing partial reads."""
+        if not self._available:
+            log.warning("Media cache unavailable; skipping snapshot replacement", error=self._init_error)
+            return None
+        try:
+            path = self._snapshot_path(event_id)
+            await self._write_bytes_atomic(path, image_bytes)
+            log.debug("Replaced cached snapshot", event_id=event_id, size=len(image_bytes))
+            return path
+        except Exception as e:
+            log.error("Failed to replace cached snapshot", event_id=event_id, error=str(e))
             return None
 
     async def get_snapshot(self, event_id: str) -> Optional[bytes]:

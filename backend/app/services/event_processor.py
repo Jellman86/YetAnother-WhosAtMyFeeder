@@ -12,6 +12,7 @@ from types import SimpleNamespace
 
 from app.config import settings
 from app.services.classifier_service import ClassifierService
+from app.services.high_quality_snapshot_service import high_quality_snapshot_service
 from app.services.media_cache import media_cache
 from app.services.frigate_client import frigate_client
 from app.services.detection_service import DetectionService
@@ -713,6 +714,8 @@ class EventProcessor:
             # Cache snapshot if we updated the DB (ensures image matches score)
             if snapshot_data and settings.media_cache.enabled and settings.media_cache.cache_snapshots:
                 await media_cache.cache_snapshot(event.frigate_event, snapshot_data)
+                if settings.media_cache.high_quality_event_snapshots:
+                    high_quality_snapshot_service.schedule_replacement(event.frigate_event)
 
             # Trigger auto video classification
             if settings.classification.auto_video_classification:

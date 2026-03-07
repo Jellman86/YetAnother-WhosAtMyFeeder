@@ -14,7 +14,8 @@
         purgingMissingSnapshots,
         cacheEnabled = $bindable(true),
         cacheSnapshots = $bindable(true),
-        cacheClips = $bindable(true),
+        cacheClips = $bindable(false),
+        cacheHighQualityEventSnapshots = $bindable(false),
         cacheStats,
         cleaningCache,
         taxonomyStatus,
@@ -57,6 +58,7 @@
         cacheEnabled: boolean;
         cacheSnapshots: boolean;
         cacheClips: boolean;
+        cacheHighQualityEventSnapshots: boolean;
         cacheStats: CacheStats | null;
         cleaningCache: boolean;
         taxonomyStatus: TaxonomySyncStatus | null;
@@ -264,7 +266,7 @@
 
             {#if cacheEnabled}
                 <div class="space-y-6 animate-in fade-in slide-in-from-top-2">
-                    <div class="grid grid-cols-2 gap-3">
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                         <button
                             onclick={() => cacheSnapshots = !cacheSnapshots}
                             aria-label={$_('settings.data.cache_snapshots')}
@@ -278,6 +280,16 @@
                             class="p-4 rounded-2xl border-2 transition-all text-center {cacheClips ? 'border-teal-500 bg-teal-500/5 text-teal-600' : 'border-slate-100 dark:border-slate-700/50 text-slate-400'}"
                         >
                             <p class="text-xs font-black uppercase tracking-widest">{$_('settings.data.cache_clips')}</p>
+                        </button>
+                        <button
+                            onclick={() => cacheHighQualityEventSnapshots = !cacheHighQualityEventSnapshots}
+                            aria-label={$_('settings.data.cache_high_quality_event_snapshots', { default: 'Upgrade event snapshots from clips' })}
+                            class="p-4 rounded-2xl border-2 transition-all text-center {cacheHighQualityEventSnapshots ? 'border-teal-500 bg-teal-500/5 text-teal-600' : 'border-slate-100 dark:border-slate-700/50 text-slate-400'}"
+                        >
+                            <p class="text-xs font-black uppercase tracking-widest">{$_('settings.data.cache_high_quality_event_snapshots', { default: 'HQ Event Snapshots' })}</p>
+                            <p class="mt-2 text-[10px] font-bold normal-case tracking-normal text-slate-500 dark:text-slate-400">
+                                {$_('settings.data.cache_high_quality_event_snapshots_help', { default: 'Replace Frigate snapshots later with a frame from the main-stream clip.' })}
+                            </p>
                         </button>
                     </div>
                     <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 flex items-center justify-between">

@@ -243,6 +243,10 @@ class MediaCacheSettings(BaseModel):
     enabled: bool = Field(default=True, description="Enable local media caching")
     cache_snapshots: bool = Field(default=True, description="Cache snapshot images locally")
     cache_clips: bool = Field(default=False, description="Cache video clips locally (may cause initial playback delay)")
+    high_quality_event_snapshots: bool = Field(
+        default=False,
+        description="Asynchronously replace cached event snapshots with a frame derived from the Frigate clip",
+    )
     retention_days: int = Field(default=0, ge=0, description="Days to keep cached media (0 = follow detection retention)")
 
 class LocationSettings(BaseModel):
@@ -455,4 +459,3 @@ class PublicAccessSettings(BaseModel):
         default=None,
         description="Public-facing base URL used when generating share links"
     )
-

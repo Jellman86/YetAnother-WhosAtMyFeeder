@@ -36,6 +36,7 @@ export interface Settings {
     media_cache_enabled: boolean;
     media_cache_snapshots: boolean;
     media_cache_clips: boolean;
+    media_cache_high_quality_event_snapshots: boolean;
     media_cache_retention_days: number;
     location_latitude?: number | null;
     location_longitude?: number | null;

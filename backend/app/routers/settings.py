@@ -285,6 +285,10 @@ class SettingsUpdate(BaseModel):
     media_cache_enabled: bool = Field(True, description="Enable local media caching")
     media_cache_snapshots: bool = Field(True, description="Cache snapshot images locally")
     media_cache_clips: bool = Field(False, description="Cache video clips locally (may cause initial playback delay)")
+    media_cache_high_quality_event_snapshots: bool = Field(
+        False,
+        description="Replace cached event snapshots with a frame derived from the Frigate clip when available",
+    )
     media_cache_retention_days: int = Field(0, ge=0, description="Days to keep cached media (0 = follow detection)")
     # Location settings
     location_latitude: Optional[float] = Field(None, description="Latitude")
@@ -548,6 +552,7 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "media_cache_enabled": settings.media_cache.enabled,
         "media_cache_snapshots": settings.media_cache.cache_snapshots,
         "media_cache_clips": settings.media_cache.cache_clips,
+        "media_cache_high_quality_event_snapshots": settings.media_cache.high_quality_event_snapshots,
         "media_cache_retention_days": settings.media_cache.retention_days,
         # Location settings
         "location_latitude": settings.location.latitude,
@@ -770,6 +775,8 @@ async def update_settings(
         settings.media_cache.cache_snapshots = update.media_cache_snapshots
     if "media_cache_clips" in fields_set:
         settings.media_cache.cache_clips = update.media_cache_clips
+    if "media_cache_high_quality_event_snapshots" in fields_set:
+        settings.media_cache.high_quality_event_snapshots = update.media_cache_high_quality_event_snapshots
     if "media_cache_retention_days" in fields_set:
         settings.media_cache.retention_days = update.media_cache_retention_days
     

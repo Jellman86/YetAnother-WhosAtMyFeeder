@@ -200,6 +200,48 @@ async def test_proxy_clip_thumbnails_vtt_success(client: httpx.AsyncClient):
 
 
 @pytest.mark.asyncio
+async def test_proxy_snapshot_cache_hit_sets_no_store_headers(client: httpx.AsyncClient):
+    original_cache_enabled = settings.media_cache.enabled
+    original_cache_snapshots = settings.media_cache.cache_snapshots
+    settings.media_cache.enabled = True
+    settings.media_cache.cache_snapshots = True
+
+    with patch("app.services.media_cache.media_cache.get_snapshot", new_callable=AsyncMock) as mock_snapshot:
+        mock_snapshot.return_value = b"fake-jpeg"
+
+        try:
+            response = await client.get("/api/frigate/test_event_id/snapshot.jpg")
+            assert response.status_code == 200
+            assert response.content == b"fake-jpeg"
+            assert response.headers["cache-control"] == "no-store, max-age=0"
+            assert response.headers["pragma"] == "no-cache"
+        finally:
+            settings.media_cache.enabled = original_cache_enabled
+            settings.media_cache.cache_snapshots = original_cache_snapshots
+
+
+@pytest.mark.asyncio
+async def test_proxy_thumbnail_cache_hit_sets_no_store_headers(client: httpx.AsyncClient):
+    original_cache_enabled = settings.media_cache.enabled
+    original_cache_snapshots = settings.media_cache.cache_snapshots
+    settings.media_cache.enabled = True
+    settings.media_cache.cache_snapshots = True
+
+    with patch("app.services.media_cache.media_cache.get_snapshot", new_callable=AsyncMock) as mock_snapshot:
+        mock_snapshot.return_value = b"fake-jpeg"
+
+        try:
+            response = await client.get("/api/frigate/test_event_id/thumbnail.jpg")
+            assert response.status_code == 200
+            assert response.content == b"fake-jpeg"
+            assert response.headers["cache-control"] == "no-store, max-age=0"
+            assert response.headers["pragma"] == "no-cache"
+        finally:
+            settings.media_cache.enabled = original_cache_enabled
+            settings.media_cache.cache_snapshots = original_cache_snapshots
+
+
+@pytest.mark.asyncio
 async def test_proxy_clip_thumbnails_sprite_success(client: httpx.AsyncClient):
     """Sprite endpoint should serve generated sprite file."""
     original_setting = settings.frigate.clips_enabled
