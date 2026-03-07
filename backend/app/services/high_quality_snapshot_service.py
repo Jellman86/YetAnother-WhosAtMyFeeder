@@ -33,6 +33,7 @@ class HighQualitySnapshotService:
     def __init__(self):
         self._active_ids: set[str] = set()
         self._queued_ids: set[str] = set()
+        self._completed_ids: set[str] = set()
         self._pending_queue: asyncio.Queue[str] = asyncio.Queue(maxsize=self.MAX_PENDING_QUEUE)
         self._worker_tasks: list[asyncio.Task] = []
         self._scheduled_total = 0
@@ -94,6 +95,36 @@ class HighQualitySnapshotService:
         log.info("High-quality snapshot replaced", event_id=event_id, size=len(image_bytes))
         return self._record_outcome(event_id, "replaced")
 
+    async def replace_from_clip_bytes(self, event_id: str, clip_bytes: bytes) -> str:
+        """Best-effort replacement using clip bytes already fetched by another workflow."""
+        if not self.enabled():
+            return self._record_outcome(event_id, "disabled")
+
+        self._cleanup_completed_workers()
+        if event_id in self._active_ids:
+            self._duplicate_requests += 1
+            return self._record_outcome(event_id, "duplicate")
+
+        self._active_ids.add(event_id)
+        try:
+            try:
+                image_bytes = await asyncio.to_thread(self._extract_snapshot_from_clip, clip_bytes)
+            except Exception as e:
+                log.warning("High-quality snapshot extraction failed", event_id=event_id, error=str(e))
+                return self._record_outcome(event_id, "frame_extract_failed")
+
+            replaced = await media_cache.replace_snapshot(event_id, image_bytes)
+            if not replaced:
+                return self._record_outcome(event_id, "snapshot_replace_failed")
+
+            if event_id in self._queued_ids:
+                self._completed_ids.add(event_id)
+
+            log.info("High-quality snapshot replaced from clip bytes", event_id=event_id, size=len(image_bytes))
+            return self._record_outcome(event_id, "replaced")
+        finally:
+            self._active_ids.discard(event_id)
+
     async def wait_for_idle(self) -> None:
         """Wait for all scheduled replacement tasks to complete."""
         await self._pending_queue.join()
@@ -110,6 +141,7 @@ class HighQualitySnapshotService:
         self._worker_tasks.clear()
         self._active_ids.clear()
         self._queued_ids.clear()
+        self._completed_ids.clear()
         self._pending_queue = asyncio.Queue(maxsize=self.MAX_PENDING_QUEUE)
         self._queue_full_rejections = 0
         self._scheduled_total = 0
@@ -125,6 +157,17 @@ class HighQualitySnapshotService:
         while True:
             event_id = await self._pending_queue.get()
             self._queued_ids.discard(event_id)
+            if event_id in self._completed_ids:
+                self._completed_ids.discard(event_id)
+                self._duplicate_requests += 1
+                self._record_outcome(event_id, "duplicate")
+                self._pending_queue.task_done()
+                continue
+            if event_id in self._active_ids:
+                self._duplicate_requests += 1
+                self._record_outcome(event_id, "duplicate")
+                self._pending_queue.task_done()
+                continue
             self._active_ids.add(event_id)
             try:
                 await self.process_event(event_id)

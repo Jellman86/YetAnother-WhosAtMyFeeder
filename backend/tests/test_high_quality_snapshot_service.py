@@ -156,3 +156,101 @@ async def test_high_quality_snapshot_service_status_tracks_outcomes(tmp_path, mo
     assert status["active"] == 0
     assert status["outcomes"]["replaced"] == 1
     assert status["last_result"] == {"event_id": "evt_status", "result": "replaced"}
+
+
+@pytest.mark.asyncio
+async def test_replace_from_clip_bytes_replaces_cached_snapshot_when_enabled(tmp_path, monkeypatch):
+    cache_service = _make_cache_service(tmp_path, monkeypatch)
+    await cache_service.cache_snapshot("evt_clip_bytes", b"frigate-bytes")
+    settings.media_cache.high_quality_event_snapshots = True
+
+    monkeypatch.setattr(
+        hq_module.high_quality_snapshot_service,
+        "_extract_snapshot_from_clip",
+        lambda clip_bytes: b"derived-bytes",
+    )
+
+    result = await hq_module.high_quality_snapshot_service.replace_from_clip_bytes("evt_clip_bytes", b"clip-bytes")
+
+    assert result == "replaced"
+    assert await cache_service.get_snapshot("evt_clip_bytes") == b"derived-bytes"
+
+
+@pytest.mark.asyncio
+async def test_replace_from_clip_bytes_is_disabled_when_feature_flag_off(tmp_path, monkeypatch):
+    cache_service = _make_cache_service(tmp_path, monkeypatch)
+    await cache_service.cache_snapshot("evt_clip_disabled", b"frigate-bytes")
+    settings.media_cache.high_quality_event_snapshots = False
+
+    monkeypatch.setattr(
+        hq_module.high_quality_snapshot_service,
+        "_extract_snapshot_from_clip",
+        lambda clip_bytes: b"derived-bytes",
+    )
+
+    result = await hq_module.high_quality_snapshot_service.replace_from_clip_bytes("evt_clip_disabled", b"clip-bytes")
+
+    assert result == "disabled"
+    assert await cache_service.get_snapshot("evt_clip_disabled") == b"frigate-bytes"
+
+
+@pytest.mark.asyncio
+async def test_replace_from_clip_bytes_preserves_original_on_extraction_failure(tmp_path, monkeypatch):
+    cache_service = _make_cache_service(tmp_path, monkeypatch)
+    await cache_service.cache_snapshot("evt_clip_failure", b"frigate-bytes")
+    settings.media_cache.high_quality_event_snapshots = True
+
+    def _boom(_clip_bytes):
+        raise ValueError("bad clip")
+
+    monkeypatch.setattr(
+        hq_module.high_quality_snapshot_service,
+        "_extract_snapshot_from_clip",
+        _boom,
+    )
+
+    result = await hq_module.high_quality_snapshot_service.replace_from_clip_bytes("evt_clip_failure", b"clip-bytes")
+
+    assert result == "frame_extract_failed"
+    assert await cache_service.get_snapshot("evt_clip_failure") == b"frigate-bytes"
+
+
+@pytest.mark.asyncio
+async def test_replace_from_clip_bytes_satisfies_queued_event_without_duplicate_worker_processing(tmp_path, monkeypatch):
+    cache_service = _make_cache_service(tmp_path, monkeypatch)
+    await cache_service.cache_snapshot("evt_clip_queued", b"frigate-bytes")
+    settings.media_cache.high_quality_event_snapshots = True
+
+    monkeypatch.setattr(hq_module.high_quality_snapshot_service, "_ensure_workers_started", lambda: None)
+    monkeypatch.setattr(
+        hq_module.high_quality_snapshot_service,
+        "_extract_snapshot_from_clip",
+        lambda clip_bytes: b"derived-bytes",
+    )
+
+    worker_processed = asyncio.Event()
+
+    async def fake_process_event(event_id: str):
+        worker_processed.set()
+        return "replaced"
+
+    monkeypatch.setattr(
+        hq_module.high_quality_snapshot_service,
+        "process_event",
+        fake_process_event,
+    )
+
+    queued = hq_module.high_quality_snapshot_service.schedule_replacement("evt_clip_queued")
+    assert queued is True
+
+    result = await hq_module.high_quality_snapshot_service.replace_from_clip_bytes("evt_clip_queued", b"clip-bytes")
+    assert result == "replaced"
+
+    worker_task = asyncio.create_task(hq_module.high_quality_snapshot_service._worker_loop(0))
+    await asyncio.sleep(0.05)
+    worker_task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await worker_task
+
+    assert worker_processed.is_set() is False
+    assert await cache_service.get_snapshot("evt_clip_queued") == b"derived-bytes"

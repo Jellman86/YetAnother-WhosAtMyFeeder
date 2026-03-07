@@ -9,6 +9,7 @@ from typing import Optional, Dict, Literal
 
 from app.config import settings
 from app.services.frigate_client import frigate_client
+from app.services.high_quality_snapshot_service import high_quality_snapshot_service
 from app.services.classifier_service import get_classifier
 from app.services.broadcaster import broadcaster
 from app.services.media_cache import media_cache
@@ -418,6 +419,16 @@ class AutoVideoClassifierService:
                     "data": { "event_id": frigate_event, "results": [] }
                 })
                 return
+
+            if settings.media_cache.high_quality_event_snapshots:
+                try:
+                    await high_quality_snapshot_service.replace_from_clip_bytes(frigate_event, clip_bytes)
+                except Exception as e:
+                    log.warning(
+                        "High-quality snapshot upgrade failed during auto video classification",
+                        event_id=frigate_event,
+                        error=str(e),
+                    )
 
             # 3. Save to temp file for processing
             with tempfile.NamedTemporaryFile(suffix='.mp4', delete=False) as tmp:

@@ -15,6 +15,7 @@ from app.repositories.detection_repository import DetectionRepository
 from app.config import settings
 from app.services.classifier_service import get_classifier
 from app.services.frigate_client import frigate_client
+from app.services.high_quality_snapshot_service import high_quality_snapshot_service
 from app.services.broadcaster import broadcaster
 from app.services.taxonomy.taxonomy_service import taxonomy_service
 from app.services.audio.audio_service import audio_service
@@ -928,6 +929,16 @@ async def reclassify_event(
 
                         if effective_strategy != "snapshot" and valid_clip:
                             try:
+                                if settings.media_cache.high_quality_event_snapshots:
+                                    try:
+                                        await high_quality_snapshot_service.replace_from_clip_bytes(event_id, clip_data)
+                                    except Exception as e:
+                                        log.warning(
+                                            "High-quality snapshot upgrade failed during manual video reclassification",
+                                            event_id=event_id,
+                                            error=str(e),
+                                        )
+
                                 # Broadcast start of video reclassification
                                 await broadcast_reclassification_started("video")
 
