@@ -27,6 +27,7 @@ class SoakSample:
     event_completed_count: int | None
     event_dropped_count: int | None
     event_critical_failures: int | None
+    live_image_admission_timeouts: int | None
 
     def to_json(self) -> dict[str, Any]:
         payload = asdict(self)
@@ -51,6 +52,10 @@ def sample_from_health_payload(payload: dict[str, Any], observed_at: datetime | 
     now = observed_at or datetime.now(timezone.utc)
     mqtt = payload.get("mqtt") if isinstance(payload, dict) else {}
     mqtt = mqtt if isinstance(mqtt, dict) else {}
+    ml = payload.get("ml") if isinstance(payload, dict) else {}
+    ml = ml if isinstance(ml, dict) else {}
+    live_image = ml.get("live_image")
+    live_image = live_image if isinstance(live_image, dict) else {}
     topic_counts = mqtt.get("topic_message_counts")
     topic_counts = topic_counts if isinstance(topic_counts, dict) else {}
     topic_ages = mqtt.get("topic_last_message_age_seconds")
@@ -71,6 +76,7 @@ def sample_from_health_payload(payload: dict[str, Any], observed_at: datetime | 
         event_completed_count=_safe_int_or_none(event_pipeline.get("completed_events")),
         event_dropped_count=_safe_int_or_none(event_pipeline.get("dropped_events")),
         event_critical_failures=_safe_int_or_none(event_pipeline.get("critical_failures")),
+        live_image_admission_timeouts=_safe_int_or_none(live_image.get("admission_timeouts")),
     )
 
 
@@ -91,6 +97,7 @@ def evaluate_soak_run(samples: list[SoakSample], thresholds: SoakThresholds, hea
     event_completed_delta = _count_delta(samples, lambda sample: sample.event_completed_count)
     event_dropped_delta = _count_delta(samples, lambda sample: sample.event_dropped_count)
     event_critical_failures_delta = _count_delta(samples, lambda sample: sample.event_critical_failures)
+    live_image_admission_timeouts_delta = _count_delta(samples, lambda sample: sample.live_image_admission_timeouts)
 
     if len(samples) < thresholds.min_samples:
         reasons.append(
@@ -152,6 +159,12 @@ def evaluate_soak_run(samples: list[SoakSample], thresholds: SoakThresholds, hea
             f"(+{event_critical_failures_delta})."
         )
 
+    if live_image_admission_timeouts_delta is not None and live_image_admission_timeouts_delta > 0:
+        reasons.append(
+            "Live image admission timeouts increased during soak run "
+            f"(+{live_image_admission_timeouts_delta})."
+        )
+
     return {
         "passed": len(reasons) == 0,
         "failure_reasons": reasons,
@@ -167,6 +180,7 @@ def evaluate_soak_run(samples: list[SoakSample], thresholds: SoakThresholds, hea
         "event_completed_delta": event_completed_delta,
         "event_dropped_delta": event_dropped_delta,
         "event_critical_failures_delta": event_critical_failures_delta,
+        "live_image_admission_timeouts_delta": live_image_admission_timeouts_delta,
         "stall_incidents": incidents,
     }
 

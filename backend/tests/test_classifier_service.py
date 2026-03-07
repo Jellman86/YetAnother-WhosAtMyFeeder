@@ -3,6 +3,7 @@ import numpy as np
 import sys
 import types
 import asyncio
+import threading
 from unittest.mock import MagicMock, patch, mock_open
 from unittest.mock import AsyncMock
 from PIL import Image
@@ -18,6 +19,7 @@ sys.modules["app.services.model_manager"] = mock_mm
 
 from app.services.classifier_service import (  # noqa: E402
     ClassifierService,
+    LiveImageClassificationOverloadedError,
     ModelInstance,
     _detect_acceleration_capabilities,
     _extract_openvino_unsupported_ops,
@@ -193,6 +195,78 @@ async def test_classifier_service_classify_async_returns_empty_when_image_queue_
 
             assert results == []
             mock_classify.assert_not_called()
+    finally:
+        settings.classification.personalized_rerank_enabled = original_toggle
+
+
+@pytest.mark.asyncio
+async def test_classifier_service_classify_async_live_raises_when_live_queue_saturated(
+    mock_tflite, mock_os_path_exists, monkeypatch
+):
+    original_toggle = settings.classification.personalized_rerank_enabled
+    settings.classification.personalized_rerank_enabled = False
+    try:
+        with patch.object(ClassifierService, "_init_bird_model", return_value=None), \
+             patch("app.services.classifier_service.ModelInstance.load", return_value=True), \
+             patch.object(
+                 ClassifierService,
+                 "classify",
+                 return_value=[{"label": "Robin", "score": 0.9, "index": 0}],
+             ) as mock_classify:
+            service = ClassifierService()
+            service._live_image_inference_semaphore = asyncio.Semaphore(0)  # type: ignore[attr-defined]
+            monkeypatch.setattr(
+                classifier_service_module,
+                "CLASSIFIER_LIVE_IMAGE_ADMISSION_TIMEOUT_SECONDS",
+                0.01,
+                raising=False,
+            )
+
+            img = Image.new("RGB", (100, 100))
+            with pytest.raises(LiveImageClassificationOverloadedError, match="classify_snapshot_overloaded"):
+                await service.classify_async_live(img, camera_name="front")
+
+            mock_classify.assert_not_called()
+    finally:
+        settings.classification.personalized_rerank_enabled = original_toggle
+
+
+@pytest.mark.asyncio
+async def test_classifier_service_classify_async_live_keeps_capacity_reserved_until_worker_finishes(
+    mock_tflite, mock_os_path_exists
+):
+    original_toggle = settings.classification.personalized_rerank_enabled
+    settings.classification.personalized_rerank_enabled = False
+    started = threading.Event()
+    release = threading.Event()
+
+    def _blocking_classify(*_args, **_kwargs):
+        started.set()
+        release.wait(timeout=1.0)
+        return [{"label": "Robin", "score": 0.9, "index": 0}]
+
+    try:
+        with patch.object(ClassifierService, "_init_bird_model", return_value=None), \
+             patch("app.services.classifier_service.ModelInstance.load", return_value=True), \
+             patch.object(ClassifierService, "classify", side_effect=_blocking_classify):
+            service = ClassifierService()
+            img = Image.new("RGB", (100, 100))
+
+            task = asyncio.create_task(service.classify_async_live(img, camera_name="front"))
+            await asyncio.wait_for(asyncio.to_thread(started.wait), timeout=1.0)
+
+            assert service.get_status()["live_image_in_flight"] == 1
+
+            task.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await task
+
+            assert service.get_status()["live_image_in_flight"] == 1
+
+            release.set()
+            await asyncio.sleep(0.05)
+
+            assert service.get_status()["live_image_in_flight"] == 0
     finally:
         settings.classification.personalized_rerank_enabled = original_toggle
 
@@ -425,3 +499,16 @@ def test_classifier_status_exposes_openvino_model_compile_diagnostics():
     assert status["openvino_model_compile_device"] == "GPU"
     assert "SequenceEmpty" in (status["openvino_model_compile_error"] or "")
     assert status["openvino_model_compile_unsupported_ops"] == ["SequenceEmpty"]
+
+
+def test_classifier_check_health_exposes_live_image_pressure():
+    with patch.object(ClassifierService, "_init_bird_model", return_value=None):
+        service = ClassifierService()
+
+    service._live_image_admission_timeouts = 4
+    service._live_image_inflight = {object()}  # type: ignore[assignment]
+    health = service.check_health()
+
+    assert health["live_image"]["max_concurrent"] >= 1
+    assert health["live_image"]["in_flight"] == 1
+    assert health["live_image"]["admission_timeouts"] == 4

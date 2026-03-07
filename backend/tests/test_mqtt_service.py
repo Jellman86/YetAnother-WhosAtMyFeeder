@@ -45,6 +45,19 @@ class _SlowProcessor:
         await asyncio.sleep(0.2)
 
 
+class _OverloadedProcessor:
+    def __init__(self):
+        self.calls = 0
+
+    async def process_mqtt_message(self, payload: bytes):
+        del payload
+        self.calls += 1
+        raise RuntimeError("classify_snapshot_overloaded")
+
+    async def process_audio_message(self, payload: bytes):
+        del payload
+
+
 class _ExplodingProcessor:
     async def process_mqtt_message(self, payload: bytes):
         del payload
@@ -128,6 +141,20 @@ async def test_dispatch_frigate_message_logs_unexpected_failure():
         event_id="evt-fail",
         error="boom",
     )
+
+
+@pytest.mark.asyncio
+async def test_dispatch_frigate_message_returns_promptly_on_overload():
+    service = MQTTService("test+abc123")
+    service.running = True
+    processor = _OverloadedProcessor()
+
+    await asyncio.wait_for(
+        service._dispatch_frigate_message(processor, _frigate_payload("evt-overload", "new")),
+        timeout=0.1,
+    )
+
+    assert processor.calls == 1
 
 
 @pytest.mark.asyncio

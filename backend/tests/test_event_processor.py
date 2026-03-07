@@ -8,7 +8,7 @@ from app.services.event_processor import EventProcessor
 async def test_process_mqtt_message_valid_bird():
     # Mock classifier
     classifier = MagicMock()
-    classifier.classify_async = AsyncMock(return_value=[{"label": "Cardinal", "score": 0.95, "index": 1}])
+    classifier.classify_async_live = AsyncMock(return_value=[{"label": "Cardinal", "score": 0.95, "index": 1}])
 
     # Mock dependencies
     with patch("app.services.event_processor.frigate_client") as mock_frigate, \
@@ -50,7 +50,7 @@ async def test_process_mqtt_message_valid_bird():
 @pytest.mark.asyncio
 async def test_process_mqtt_message_skips_frigate_write_back_when_disabled():
     classifier = MagicMock()
-    classifier.classify_async = AsyncMock(return_value=[{"label": "Cardinal", "score": 0.95, "index": 1}])
+    classifier.classify_async_live = AsyncMock(return_value=[{"label": "Cardinal", "score": 0.95, "index": 1}])
 
     with patch("app.services.event_processor.frigate_client") as mock_frigate, \
          patch("app.services.event_processor.DetectionService") as MockDetectionService, \
@@ -364,6 +364,25 @@ async def test_process_mqtt_message_logs_stage_timeout_for_classification():
     assert status["stage_timeouts"]["classify_snapshot"] == 1
     assert status["drop_reasons"]["classify_snapshot_unavailable"] == 1
     assert status["critical_failures"] == 1
+
+
+@pytest.mark.asyncio
+async def test_process_mqtt_message_records_distinct_overload_drop_reason():
+    classifier = MagicMock()
+    processor = EventProcessor(classifier)
+    processor._handle_detection_save_and_notify = AsyncMock()  # type: ignore[method-assign]
+
+    async def _overloaded_classify(_event):
+        raise RuntimeError("classify_snapshot_overloaded")
+
+    processor._classify_snapshot = _overloaded_classify  # type: ignore[method-assign]
+    payload = b'{"type":"new","after":{"id":"evt-overload-1","label":"bird","camera":"cam1","start_time":1700000000}}'
+
+    await processor.process_mqtt_message(payload)
+
+    status = processor.get_status()
+    assert status["drop_reasons"]["classify_snapshot_overloaded"] == 1
+    assert "classify_snapshot_unavailable" not in status["drop_reasons"]
 
 
 @pytest.mark.asyncio

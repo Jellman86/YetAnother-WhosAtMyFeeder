@@ -190,6 +190,38 @@ async def test_health_degraded_when_event_pipeline_reports_critical_failures(
 
 
 @pytest.mark.asyncio
+async def test_health_includes_live_image_classifier_pressure(
+    client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
+):
+    app.state.startup_warnings = []
+    monkeypatch.setattr(
+        main_module,
+        "get_classifier",
+        lambda: SimpleNamespace(
+            check_health=lambda: {
+                "status": "ok",
+                "runtimes": {},
+                "models": {},
+                "live_image": {
+                    "max_concurrent": 2,
+                    "in_flight": 1,
+                    "admission_timeout_seconds": 0.25,
+                    "admission_timeouts": 3,
+                },
+            }
+        ),
+        raising=False,
+    )
+
+    response = await client.get("/health")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["ml"]["live_image"]["max_concurrent"] == 2
+    assert body["ml"]["live_image"]["in_flight"] == 1
+    assert body["ml"]["live_image"]["admission_timeouts"] == 3
+
+
+@pytest.mark.asyncio
 async def test_health_degraded_when_db_pool_acquire_wait_is_extreme(
     client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
 ):

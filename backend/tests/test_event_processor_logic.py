@@ -38,7 +38,7 @@ def mock_dependencies():
 @pytest.mark.asyncio
 async def test_audio_confirmation(mock_dependencies):
     classifier = MagicMock()
-    classifier.classify_async = AsyncMock(return_value=[{"label": "Cardinal", "score": 0.9, "index": 1}])
+    classifier.classify_async_live = AsyncMock(return_value=[{"label": "Cardinal", "score": 0.9, "index": 1}])
     
     mock_dependencies["det_service"].filter_and_label.return_value = ({"label": "Cardinal", "score": 0.9}, {})
     
@@ -62,7 +62,7 @@ async def test_audio_confirmation(mock_dependencies):
 async def test_audio_enhancement_no_upgrade(mock_dependencies):
     """Test that audio no longer upgrades visual 'Unknown Bird' detections."""
     classifier = MagicMock()
-    classifier.classify_async = AsyncMock(return_value=[{"label": "Background", "score": 0.5, "index": 0}])
+    classifier.classify_async_live = AsyncMock(return_value=[{"label": "Background", "score": 0.5, "index": 0}])
     
     # filter_and_label normally converts Background to Unknown Bird
     mock_dependencies["det_service"].filter_and_label.return_value = ({"label": "Unknown Bird", "score": 0.5}, {})
@@ -87,7 +87,7 @@ async def test_audio_enhancement_no_upgrade(mock_dependencies):
 @pytest.mark.asyncio
 async def test_weather_context(mock_dependencies):
     classifier = MagicMock()
-    classifier.classify_async = AsyncMock(return_value=[{"label": "Cardinal", "score": 0.9, "index": 1}])
+    classifier.classify_async_live = AsyncMock(return_value=[{"label": "Cardinal", "score": 0.9, "index": 1}])
     mock_dependencies["det_service"].filter_and_label.return_value = ({"label": "Cardinal", "score": 0.9}, {})
     mock_dependencies["audio"].find_match = AsyncMock(return_value=None)
     
@@ -106,7 +106,7 @@ async def test_weather_context(mock_dependencies):
 async def test_audio_mismatch_recorded_as_heard(mock_dependencies):
     """Test that mismatched audio is still recorded as metadata but not confirmed."""
     classifier = MagicMock()
-    classifier.classify_async = AsyncMock(return_value=[{"label": "Blue Tit", "score": 0.9, "index": 1}])
+    classifier.classify_async_live = AsyncMock(return_value=[{"label": "Blue Tit", "score": 0.9, "index": 1}])
     mock_dependencies["det_service"].filter_and_label.return_value = ({"label": "Blue Tit", "score": 0.9}, {})
 
     # Audio match is a different species with high confidence
@@ -130,7 +130,7 @@ async def test_audio_mismatch_recorded_as_heard(mock_dependencies):
 async def test_audio_confirmation_accepts_localized_audio_name_via_scientific_name(mock_dependencies):
     """Localized audio common names should confirm when scientific names match visual label taxonomy."""
     classifier = MagicMock()
-    classifier.classify_async = AsyncMock(return_value=[{"label": "Eurasian Blue Tit", "score": 0.89, "index": 1}])
+    classifier.classify_async_live = AsyncMock(return_value=[{"label": "Eurasian Blue Tit", "score": 0.89, "index": 1}])
 
     mock_dependencies["det_service"].filter_and_label.return_value = ({"label": "Eurasian Blue Tit", "score": 0.89}, {})
 
@@ -159,7 +159,7 @@ async def test_audio_confirmation_accepts_localized_audio_name_via_scientific_na
 async def test_audio_confirmation_accepts_audio_name_variants_via_taxonomy(mock_dependencies):
     """Audio name variants should confirm when audio taxonomy resolves to same species."""
     classifier = MagicMock()
-    classifier.classify_async = AsyncMock(return_value=[{"label": "Common Wood-Pigeon", "score": 0.83, "index": 1}])
+    classifier.classify_async_live = AsyncMock(return_value=[{"label": "Common Wood-Pigeon", "score": 0.83, "index": 1}])
 
     mock_dependencies["det_service"].filter_and_label.return_value = ({"label": "Common Wood-Pigeon", "score": 0.83}, {})
 

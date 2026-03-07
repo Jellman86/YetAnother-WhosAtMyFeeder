@@ -11,7 +11,7 @@ from typing import Optional, Dict, Any, Tuple
 from types import SimpleNamespace
 
 from app.config import settings
-from app.services.classifier_service import ClassifierService
+from app.services.classifier_service import ClassifierService, LiveImageClassificationOverloadedError
 from app.services.high_quality_snapshot_service import high_quality_snapshot_service
 from app.services.media_cache import media_cache
 from app.services.frigate_client import frigate_client
@@ -45,6 +45,7 @@ EVENT_STAGE_TIMEOUT_SAVE_AND_NOTIFY_SECONDS = max(
 EVENT_TAXONOMY_LOOKUP_TIMEOUT_SECONDS = max(
     0.25, float(os.getenv("EVENT_TAXONOMY_LOOKUP_TIMEOUT_SECONDS", "2"))
 )
+_CLASSIFY_SNAPSHOT_OVERLOADED = object()
 
 
 class EventData:
@@ -183,6 +184,11 @@ class EventProcessor:
         self._stage_fallbacks[stage] += 1
         self._record_recent_outcome(event_id, "stage_fallback", stage=stage)
 
+    def _is_classify_snapshot_overload(self, stage: str, error: Exception) -> bool:
+        if stage != "classify_snapshot":
+            return False
+        return isinstance(error, LiveImageClassificationOverloadedError) or str(error) == "classify_snapshot_overloaded"
+
     def get_status(self) -> dict[str, Any]:
         stage_timeouts = dict(self._stage_timeouts)
         stage_failures = dict(self._stage_failures)
@@ -235,6 +241,15 @@ class EventProcessor:
         except asyncio.CancelledError:
             raise
         except Exception as e:
+            if self._is_classify_snapshot_overload(stage, e):
+                self._record_drop(event_id, "classify_snapshot_overloaded", stage=stage)
+                log.warning(
+                    "MQTT event stage overloaded",
+                    event_id=event_id,
+                    stage=stage,
+                    error=str(e),
+                )
+                return False, _CLASSIFY_SNAPSHOT_OVERLOADED
             self._record_stage_failure(stage, event_id, str(e))
             log.error(
                 "MQTT event stage failed",
@@ -324,6 +339,8 @@ class EventProcessor:
             coro=self._classify_snapshot(event),
             fallback=None,
         )
+        if classification_result is _CLASSIFY_SNAPSHOT_OVERLOADED:
+            return
         if not classification_result:
             log.info(
                 "Dropping MQTT event after classification stage failure",
@@ -524,7 +541,7 @@ class EventProcessor:
                 return None
 
             image = Image.open(BytesIO(snapshot_data))
-            results = await self.classifier.classify_async(image, camera_name=event.camera)
+            results = await self.classifier.classify_async_live(image, camera_name=event.camera)
 
             if not results:
                 log.info("Skipping MQTT event - classifier returned empty results", event_id=event.frigate_event)

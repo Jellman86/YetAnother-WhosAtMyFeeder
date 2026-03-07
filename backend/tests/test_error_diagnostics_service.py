@@ -78,3 +78,34 @@ def test_snapshot_supports_filters_and_summary_counters():
     assert filtered["component_counts"] == {"event_processor": 1}
     assert len(filtered["events"]) == 1
     assert filtered["events"][0]["event_id"] == "evt-1"
+
+
+def test_snapshot_preserves_distinct_overload_reason_codes():
+    history = ErrorDiagnosticsHistory(max_events=10)
+
+    history.record(
+        source="event_pipeline",
+        component="event_processor",
+        stage="classify_snapshot",
+        reason_code="drop_classify_snapshot_overloaded",
+        message="Dropped event due to classify_snapshot_overloaded",
+        severity="warning",
+        event_id="evt-overload-1",
+        context={"stage": "classify_snapshot"},
+    )
+    history.record(
+        source="event_pipeline",
+        component="event_processor",
+        stage="classify_snapshot",
+        reason_code="stage_timeout",
+        message="Stage classify_snapshot timed out after 30s",
+        severity="error",
+        event_id="evt-timeout-1",
+    )
+
+    snapshot = history.snapshot(limit=10, component="event_processor")
+
+    assert [event["reason_code"] for event in snapshot["events"]] == [
+        "stage_timeout",
+        "drop_classify_snapshot_overloaded",
+    ]

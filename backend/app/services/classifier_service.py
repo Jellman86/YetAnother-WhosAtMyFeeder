@@ -10,7 +10,7 @@ import re
 import subprocess
 import sys
 import threading
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import Future, ThreadPoolExecutor
 from PIL import Image
 from typing import Optional, Any, Callable
 
@@ -95,6 +95,14 @@ CLASSIFIER_IMAGE_ADMISSION_TIMEOUT_SECONDS = max(
     0.05,
     float(os.getenv("CLASSIFIER_IMAGE_ADMISSION_TIMEOUT_SECONDS", "0.5")),
 )
+CLASSIFIER_LIVE_IMAGE_ADMISSION_TIMEOUT_SECONDS = max(
+    0.05,
+    float(os.getenv("CLASSIFIER_LIVE_IMAGE_ADMISSION_TIMEOUT_SECONDS", "0.25")),
+)
+
+
+class LiveImageClassificationOverloadedError(RuntimeError):
+    """Raised when live image classification cannot obtain bounded capacity promptly."""
 
 
 def _normalize_inference_provider(value: Optional[str]) -> str:
@@ -1081,7 +1089,10 @@ class ClassifierService:
         self._background_image_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="ml_background_worker")
         self._video_executor = ThreadPoolExecutor(max_workers=video_workers, thread_name_prefix="ml_video_worker")
         self._image_inference_semaphore = asyncio.Semaphore(image_workers)
+        self._live_image_inference_semaphore = asyncio.Semaphore(image_workers)
         self._image_admission_timeouts = 0
+        self._live_image_admission_timeouts = 0
+        self._live_image_inflight: set[Future[list[dict]]] = set()
         # Backward-compatible alias for any external references.
         self._executor = self._image_executor
         self._selected_inference_provider = _normalize_inference_provider(
@@ -1390,7 +1401,13 @@ class ClassifierService:
                     "runtime": "onnx" if isinstance(model, ONNXModelInstance) else ("openvino" if isinstance(model, OpenVINOModelInstance) else "tflite"),
                     "error": model.error
                 } for name, model in self._models.items()
-            }
+            },
+            "live_image": {
+                "max_concurrent": CLASSIFIER_IMAGE_MAX_CONCURRENT,
+                "in_flight": len(self._live_image_inflight),
+                "admission_timeout_seconds": CLASSIFIER_LIVE_IMAGE_ADMISSION_TIMEOUT_SECONDS,
+                "admission_timeouts": self._live_image_admission_timeouts,
+            },
         }
 
     # Legacy properties
@@ -1457,6 +1474,10 @@ class ClassifierService:
             "image_max_concurrent": CLASSIFIER_IMAGE_MAX_CONCURRENT,
             "image_admission_timeout_seconds": CLASSIFIER_IMAGE_ADMISSION_TIMEOUT_SECONDS,
             "image_admission_timeouts": self._image_admission_timeouts,
+            "live_image_max_concurrent": CLASSIFIER_IMAGE_MAX_CONCURRENT,
+            "live_image_admission_timeout_seconds": CLASSIFIER_LIVE_IMAGE_ADMISSION_TIMEOUT_SECONDS,
+            "live_image_admission_timeouts": self._live_image_admission_timeouts,
+            "live_image_in_flight": len(self._live_image_inflight),
             "available_providers": [
                 p for p in ["cpu", "cuda", "intel_cpu", "intel_gpu"]
                 if p == "cpu"
@@ -1559,6 +1580,46 @@ class ClassifierService:
         finally:
             self._image_inference_semaphore.release()
 
+    def _release_live_image_slot(self, future: Future[list[dict]]) -> None:
+        if future in self._live_image_inflight:
+            self._live_image_inflight.discard(future)
+            self._live_image_inference_semaphore.release()
+
+    async def _run_live_image_inference(
+        self,
+        fn: Callable[..., list[dict]],
+        *args: Any,
+    ) -> list[dict]:
+        try:
+            await asyncio.wait_for(
+                self._live_image_inference_semaphore.acquire(),
+                timeout=CLASSIFIER_LIVE_IMAGE_ADMISSION_TIMEOUT_SECONDS,
+            )
+        except asyncio.TimeoutError:
+            self._live_image_admission_timeouts += 1
+            log.warning(
+                "Live image classification admission timed out; dropping request",
+                timeout_seconds=CLASSIFIER_LIVE_IMAGE_ADMISSION_TIMEOUT_SECONDS,
+                max_concurrent=CLASSIFIER_IMAGE_MAX_CONCURRENT,
+                admission_timeouts=self._live_image_admission_timeouts,
+            )
+            raise LiveImageClassificationOverloadedError("classify_snapshot_overloaded") from None
+
+        loop = asyncio.get_running_loop()
+        try:
+            future = self._image_executor.submit(fn, *args)
+        except Exception:
+            self._live_image_inference_semaphore.release()
+            raise
+
+        self._live_image_inflight.add(future)
+
+        def _on_done(done: Future[list[dict]]) -> None:
+            loop.call_soon_threadsafe(self._release_live_image_slot, done)
+
+        future.add_done_callback(_on_done)
+        return await asyncio.wrap_future(future)
+
     async def classify_async(
         self,
         image: Image.Image,
@@ -1588,6 +1649,41 @@ class ClassifierService:
         except Exception as exc:
             log.warning(
                 "Personalized rerank failed; using base classifier scores",
+                camera_name=camera_name,
+                model_id=effective_model_id,
+                error=str(exc),
+            )
+            return base_results
+
+    async def classify_async_live(
+        self,
+        image: Image.Image,
+        camera_name: Optional[str] = None,
+        model_id: Optional[str] = None,
+    ) -> list[dict]:
+        """Live image-classification path with bounded admission and accurate in-flight tracking."""
+        base_results = await self._run_live_image_inference(self.classify, image, camera_name, model_id)
+
+        if not base_results:
+            return base_results
+        if not bool(getattr(settings.classification, "personalized_rerank_enabled", False)):
+            return base_results
+        if not camera_name:
+            return base_results
+
+        effective_model_id = str(model_id or self._resolve_active_model_id()).strip()
+        if not effective_model_id:
+            return base_results
+
+        try:
+            return await personalization_service.rerank(
+                camera_name=camera_name,
+                model_id=effective_model_id,
+                results=base_results,
+            )
+        except Exception as exc:
+            log.warning(
+                "Live personalized rerank failed; using base classifier scores",
                 camera_name=camera_name,
                 model_id=effective_model_id,
                 error=str(exc),
