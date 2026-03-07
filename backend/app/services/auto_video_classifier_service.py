@@ -5,7 +5,10 @@ import structlog
 import time
 from collections import deque
 from datetime import datetime
+from io import BytesIO
 from typing import Optional, Dict, Literal
+
+from PIL import Image
 
 from app.config import settings
 from app.services.frigate_client import frigate_client
@@ -35,7 +38,7 @@ class AutoVideoClassifierService:
         self._failure_events: deque[tuple[float, str]] = deque()
         self._failure_event_ids: set[str] = set()
         self._circuit_open_until: float | None = None
-        self._pending_queue: asyncio.Queue[tuple[str, str, bool]] = asyncio.Queue(maxsize=MAX_PENDING_QUEUE)
+        self._pending_queue: asyncio.Queue[tuple[str, str, bool, bool]] = asyncio.Queue(maxsize=MAX_PENDING_QUEUE)
         self._pending_ids: set[str] = set()
         self._queue_lock = asyncio.Lock()
         self._processor_task: Optional[asyncio.Task] = None
@@ -139,7 +142,10 @@ class AutoVideoClassifierService:
                 # Get next task
                 try:
                     # Wait for a task or timeout to recheck constraints
-                    frigate_event, camera, skip_delay = await asyncio.wait_for(self._pending_queue.get(), timeout=1.0)
+                    frigate_event, camera, skip_delay, fallback_to_snapshot = await asyncio.wait_for(
+                        self._pending_queue.get(),
+                        timeout=1.0,
+                    )
                 except asyncio.TimeoutError:
                     continue
 
@@ -150,7 +156,12 @@ class AutoVideoClassifierService:
 
                     # Start task - skip initial delay for queued (historical) tasks
                     task = create_background_task(
-                        self._process_event(frigate_event, camera, skip_delay=skip_delay),
+                        self._process_event(
+                            frigate_event,
+                            camera,
+                            skip_delay=skip_delay,
+                            fallback_to_snapshot=fallback_to_snapshot,
+                        ),
                         name=f"video_classifier:{frigate_event}"
                     )
                     self._active_tasks[frigate_event] = task
@@ -236,7 +247,9 @@ class AutoVideoClassifierService:
             _, event_id = self._failure_events.popleft()
             self._failure_event_ids.discard(event_id)
 
-    def _record_failure(self, event_id: str):
+    def _record_failure(self, event_id: str, error: Optional[str] = None):
+        if error == "clip_not_retained":
+            return
         self._prune_failures()
         if event_id in self._failure_event_ids:
             return
@@ -309,6 +322,7 @@ class AutoVideoClassifierService:
         camera: str,
         *,
         skip_delay: bool = True,
+        fallback_to_snapshot: bool = False,
     ) -> Literal["queued", "duplicate", "full"]:
         """
         Queue a video classification task.
@@ -320,7 +334,9 @@ class AutoVideoClassifierService:
                 log.debug("Video classification already queued/active; skipping duplicate", event_id=frigate_event)
                 return "duplicate"
             try:
-                self._pending_queue.put_nowait((frigate_event, camera, bool(skip_delay)))
+                self._pending_queue.put_nowait(
+                    (frigate_event, camera, bool(skip_delay), bool(fallback_to_snapshot))
+                )
             except asyncio.QueueFull:
                 log.warning(
                     "Video classification queue full; dropping task",
@@ -378,7 +394,13 @@ class AutoVideoClassifierService:
         if completed:
             log.debug("Cleaned up completed tasks", count=len(completed))
 
-    async def _process_event(self, frigate_event: str, camera: str, skip_delay: bool = False):
+    async def _process_event(
+        self,
+        frigate_event: str,
+        camera: str,
+        skip_delay: bool = False,
+        fallback_to_snapshot: bool = False,
+    ):
         """Main workflow for processing a video clip."""
         log.info("Starting auto video classification", event_id=frigate_event, camera=camera, skip_delay=skip_delay)
         
@@ -410,9 +432,17 @@ class AutoVideoClassifierService:
             # 2. Wait for clip availability
             clip_bytes, clip_error = await self._wait_for_clip(frigate_event, skip_delay=skip_delay)
             if not clip_bytes:
+                if clip_error == "clip_not_retained" and fallback_to_snapshot:
+                    log.info(
+                        "Falling back to snapshot classification for missing retained clip",
+                        event_id=frigate_event,
+                    )
+                    await self._classify_from_snapshot(frigate_event, camera)
+                    self._record_success(frigate_event)
+                    return
                 log.warning("Clip not available after retries", event_id=frigate_event)
                 await self._update_status(frigate_event, 'failed', error=clip_error or "clip_unavailable", broadcast=True)
-                self._record_failure(frigate_event)
+                self._record_failure(frigate_event, clip_error or "clip_unavailable")
                 await self._auto_delete_if_missing(frigate_event, clip_error or "clip_unavailable")
                 await broadcaster.broadcast({
                     "type": "reclassification_completed",
@@ -470,7 +500,7 @@ class AutoVideoClassifierService:
                 except asyncio.TimeoutError:
                     log.warning("Video classification timed out", event_id=frigate_event, timeout_seconds=timeout)
                     await self._update_status(frigate_event, 'failed', error="video_timeout", broadcast=True)
-                    self._record_failure(frigate_event)
+                    self._record_failure(frigate_event, "video_timeout")
                     await broadcaster.broadcast({
                         "type": "reclassification_completed",
                         "data": { "event_id": frigate_event, "results": [] }
@@ -499,7 +529,7 @@ class AutoVideoClassifierService:
                 else:
                     log.warning("Video classification returned no results", event_id=frigate_event)
                     await self._update_status(frigate_event, 'failed', error="video_no_results", broadcast=True)
-                    self._record_failure(frigate_event)
+                    self._record_failure(frigate_event, "video_no_results")
                     await broadcaster.broadcast({
                         "type": "reclassification_completed",
                         "data": { "event_id": frigate_event, "results": [] }
@@ -513,12 +543,12 @@ class AutoVideoClassifierService:
         except asyncio.CancelledError:
             log.info("Video classification task cancelled", event_id=frigate_event)
             await self._update_status(frigate_event, 'failed', error="video_cancelled", broadcast=True)
-            self._record_failure(frigate_event)
+            self._record_failure(frigate_event, "video_cancelled")
             raise
         except Exception as e:
             log.error("Video classification failed", event_id=frigate_event, error=str(e))
             await self._update_status(frigate_event, 'failed', error="video_exception", broadcast=True)
-            self._record_failure(frigate_event)
+            self._record_failure(frigate_event, "video_exception")
             await self._auto_delete_if_missing(frigate_event, "video_exception")
             await broadcaster.broadcast({
                 "type": "reclassification_completed",
@@ -549,6 +579,9 @@ class AutoVideoClassifierService:
                     last_error = "clip_invalid"
             else:
                 last_error = error or "clip_unavailable"
+
+            if last_error == "clip_not_retained":
+                break
             
             if attempt < max_retries:
                 # Exponential backoff: 1x, 2x, 4x...
@@ -590,6 +623,7 @@ class AutoVideoClassifierService:
         missing_errors = {
             "event_not_found",
             "clip_unavailable",
+            "clip_not_retained",
             "clip_invalid",
             "clip_decode_failed",
             "video_exception",
@@ -683,6 +717,41 @@ class AutoVideoClassifierService:
             error=None
         )
         # _record_success is already called on completion in _process_event.
+
+    async def _classify_from_snapshot(self, frigate_event: str, camera: str) -> None:
+        """Fallback path for queued user-initiated analysis when Frigate clips are no longer retained."""
+        snapshot_data = await frigate_client.get_snapshot(frigate_event, crop=True, quality=95)
+        if not snapshot_data:
+            await self._update_status(frigate_event, 'failed', error="snapshot_fetch_failed", broadcast=True)
+            await broadcaster.broadcast({
+                "type": "reclassification_completed",
+                "data": {"event_id": frigate_event, "results": []}
+            })
+            return
+
+        await self._update_status(frigate_event, 'processing', error=None, broadcast=False)
+        image = Image.open(BytesIO(snapshot_data))
+        results = await self._classifier.classify_async(image, camera_name=camera)
+        if not results:
+            await self._update_status(frigate_event, 'failed', error="snapshot_no_results", broadcast=True)
+            await broadcaster.broadcast({
+                "type": "reclassification_completed",
+                "data": {"event_id": frigate_event, "results": []}
+            })
+            return
+
+        top = results[0]
+        await self._save_results(frigate_event, top)
+        await broadcaster.broadcast({
+            "type": "reclassification_completed",
+            "data": {"event_id": frigate_event, "results": results}
+        })
+        log.info(
+            "Snapshot fallback classification completed",
+            event_id=frigate_event,
+            label=top['label'],
+            score=top['score'],
+        )
 
 # Global singleton
 auto_video_classifier = AutoVideoClassifierService()

@@ -1369,7 +1369,11 @@ async def analyze_unknowns(auth: AuthContext = Depends(require_owner)):
             if state == "precheck_error":
                 precheck_errors += 1
 
-            result = await auto_video_classifier.queue_classification(d.frigate_event, d.camera_name)
+            result = await auto_video_classifier.queue_classification(
+                d.frigate_event,
+                d.camera_name,
+                fallback_to_snapshot=True,
+            )
             if result == "queued":
                 accepted += 1
             elif result == "duplicate":

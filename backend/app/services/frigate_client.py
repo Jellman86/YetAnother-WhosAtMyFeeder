@@ -137,6 +137,15 @@ class FrigateClient:
             if resp.status_code == 404:
                 log.warning("Clip not found", event_id=event_id)
                 return None, "clip_not_found"
+            if resp.status_code == 400:
+                try:
+                    payload = resp.json()
+                except Exception:
+                    payload = None
+                message = str((payload or {}).get("message") or "")
+                if "No recordings found for the specified time range" in message:
+                    log.warning("Clip recordings not retained", event_id=event_id)
+                    return None, "clip_not_retained"
             log.warning("Failed to fetch clip", event_id=event_id, status=resp.status_code)
             return None, f"clip_http_{resp.status_code}"
         except httpx.TimeoutException:

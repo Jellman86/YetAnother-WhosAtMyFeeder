@@ -205,3 +205,39 @@ async def test_reclassify_video_succeeds_even_if_snapshot_upgrade_raises(client:
         assert body["status"] == "success"
     finally:
         await _delete_detection(event_id)
+
+
+@pytest.mark.asyncio
+async def test_reclassify_video_falls_back_to_snapshot_when_clip_not_retained(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+    settings.media_cache.high_quality_event_snapshots = True
+    event_id = "evt-reclassify-video-no-recordings"
+    await _insert_detection(event_id, "Unknown Bird", "cam1")
+
+    classifier = MagicMock()
+    classifier.classify_async = AsyncMock(return_value=[{"label": "Robin", "score": 0.91, "index": 1}])
+
+    try:
+        with patch("app.routers.events.get_classifier", return_value=classifier), \
+             patch("app.routers.events.frigate_client") as mock_frigate, \
+             patch("app.services.detection_service.DetectionService") as mock_detection_service, \
+             patch("app.routers.events.high_quality_snapshot_service", create=True) as mock_hq, \
+             patch("app.routers.events.broadcaster.broadcast", new_callable=AsyncMock), \
+             patch("app.routers.events.Image.open", return_value=MagicMock()):
+            mock_frigate.get_event_with_error = AsyncMock(return_value=({"has_clip": True}, None))
+            mock_frigate.get_clip_with_error = AsyncMock(return_value=(None, "clip_not_retained"))
+            mock_frigate.get_snapshot = AsyncMock(return_value=b"snapshot-bytes")
+            mock_hq.replace_from_clip_bytes = AsyncMock(return_value="replaced")
+            mock_detection_service.return_value.apply_video_result = AsyncMock()
+
+            response = await client.post(f"/api/events/{event_id}/reclassify", params={"strategy": "video"})
+
+        assert response.status_code == 200, response.text
+        body = response.json()
+        assert body["status"] == "success"
+        assert body["actual_strategy"] == "snapshot"
+        mock_hq.replace_from_clip_bytes.assert_not_awaited()
+        classifier.classify_async.assert_awaited_once()
+    finally:
+        await _delete_detection(event_id)
