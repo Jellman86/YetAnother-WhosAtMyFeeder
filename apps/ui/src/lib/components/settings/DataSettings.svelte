@@ -16,6 +16,7 @@
         cacheSnapshots = $bindable(true),
         cacheClips = $bindable(false),
         cacheHighQualityEventSnapshots = $bindable(false),
+        cacheHighQualityEventSnapshotJpegQuality = $bindable(95),
         cacheStats,
         cleaningCache,
         taxonomyStatus,
@@ -59,6 +60,7 @@
         cacheSnapshots: boolean;
         cacheClips: boolean;
         cacheHighQualityEventSnapshots: boolean;
+        cacheHighQualityEventSnapshotJpegQuality: number;
         cacheStats: CacheStats | null;
         cleaningCache: boolean;
         taxonomyStatus: TaxonomySyncStatus | null;
@@ -292,6 +294,34 @@
                             </p>
                         </button>
                     </div>
+                    {#if cacheHighQualityEventSnapshots}
+                        <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 space-y-3">
+                            <div class="flex items-center justify-between gap-4">
+                                <div>
+                                    <p class="text-xs font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">
+                                        {$_('settings.data.cache_high_quality_event_snapshot_jpeg_quality', { default: 'HQ Snapshot JPEG Quality' })}
+                                    </p>
+                                    <p class="mt-1 text-[10px] font-bold text-slate-500 dark:text-slate-400">
+                                        {$_('settings.data.cache_high_quality_event_snapshot_jpeg_quality_help', { default: 'Higher values keep more detail but create larger derived snapshot files.' })}
+                                    </p>
+                                </div>
+                                <span class="text-sm font-black text-slate-900 dark:text-white">{cacheHighQualityEventSnapshotJpegQuality}</span>
+                            </div>
+                            <input
+                                type="range"
+                                min="70"
+                                max="100"
+                                step="1"
+                                bind:value={cacheHighQualityEventSnapshotJpegQuality}
+                                aria-label={$_('settings.data.cache_high_quality_event_snapshot_jpeg_quality', { default: 'HQ Snapshot JPEG Quality' })}
+                                class="w-full accent-teal-500"
+                            />
+                            <div class="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                <span>70</span>
+                                <span>100</span>
+                            </div>
+                        </div>
+                    {/if}
                     <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 flex items-center justify-between">
                         <span class="text-xs font-bold text-slate-500 uppercase tracking-widest">{$_('settings.data.cache_size')}</span>
                         <span class="text-sm font-black text-slate-900 dark:text-white">{cacheStats?.total_size_mb ?? 0} MB</span>

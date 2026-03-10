@@ -165,6 +165,8 @@
       "cache_title": "Media Cache",
       "cache_snapshots": "Snapshots",
       "cache_clips": "Video Clips",
+      "cache_high_quality_event_snapshot_jpeg_quality": "HQ Snapshot JPEG Quality",
+      "cache_high_quality_event_snapshot_jpeg_quality_help": "Higher values keep more detail but create larger derived snapshot files.",
       "cache_size": "Cache Size",
       "cache_clear_button": "Clear Cached Files",
       "taxonomy_title": "Taxonomy Repair",

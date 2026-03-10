@@ -514,6 +514,8 @@
       "cache_title": "Media Cache",
       "cache_snapshots": "Snapshots",
       "cache_clips": "Video Clips",
+      "cache_high_quality_event_snapshot_jpeg_quality": "Качество JPEG для HQ-снимков",
+      "cache_high_quality_event_snapshot_jpeg_quality_help": "Более высокие значения сохраняют больше деталей, но создают более крупные файлы производных снимков.",
       "cache_size": "Cache Size",
       "cache_clear_button": "Clear Cached Files",
       "taxonomy_title": "Taxonomy Repair",

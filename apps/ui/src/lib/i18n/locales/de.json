@@ -152,6 +152,8 @@
       "cache_title": "Medien-Cache",
       "cache_snapshots": "Schnappschüsse",
       "cache_clips": "Videoclips",
+      "cache_high_quality_event_snapshot_jpeg_quality": "JPEG-Qualität für HQ-Schnappschüsse",
+      "cache_high_quality_event_snapshot_jpeg_quality_help": "Höhere Werte erhalten mehr Details, erzeugen aber größere abgeleitete Schnappschussdateien.",
       "cache_size": "Cache-Größe",
       "cache_clear_button": "Gecachte Dateien löschen",
       "taxonomy_title": "Taxonomie-Reparatur",

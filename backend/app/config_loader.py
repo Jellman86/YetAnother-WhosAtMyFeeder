@@ -131,6 +131,7 @@ def load_settings_instance(settings_cls: type[Any], config_path: Path) -> Any:
         'cache_snapshots': os.environ.get('MEDIA_CACHE__CACHE_SNAPSHOTS', 'true').lower() == 'true',
         'cache_clips': os.environ.get('MEDIA_CACHE__CACHE_CLIPS', 'false').lower() == 'true',  # Disabled by default to avoid blocking
         'high_quality_event_snapshots': os.environ.get('MEDIA_CACHE__HIGH_QUALITY_EVENT_SNAPSHOTS', 'false').lower() == 'true',
+        'high_quality_event_snapshot_jpeg_quality': int(os.environ.get('MEDIA_CACHE__HIGH_QUALITY_EVENT_SNAPSHOT_JPEG_QUALITY', '95')),
         'retention_days': int(os.environ.get('MEDIA_CACHE__RETENTION_DAYS', '0')),
     }
     
@@ -535,6 +536,7 @@ def load_settings_instance(settings_cls: type[Any], config_path: Path) -> Any:
              cache_snapshots=media_cache_data['cache_snapshots'],
              cache_clips=media_cache_data['cache_clips'],
              high_quality_event_snapshots=media_cache_data['high_quality_event_snapshots'],
+             high_quality_event_snapshot_jpeg_quality=media_cache_data['high_quality_event_snapshot_jpeg_quality'],
              retention_days=media_cache_data['retention_days'])
     log.info("BirdWeather config", enabled=birdweather_data['enabled'])
     log.info("eBird config", enabled=ebird_data['enabled'])

@@ -506,6 +506,8 @@
       "cache_title": "Media Cache",
       "cache_snapshots": "Snapshots",
       "cache_clips": "Video Clips",
+      "cache_high_quality_event_snapshot_jpeg_quality": "高品質スナップショット JPEG 品質",
+      "cache_high_quality_event_snapshot_jpeg_quality_help": "値を高くすると細部をより保持できますが、生成される派生スナップショットファイルは大きくなります。",
       "cache_size": "Cache Size",
       "cache_clear_button": "Clear Cached Files",
       "taxonomy_title": "Taxonomy Repair",

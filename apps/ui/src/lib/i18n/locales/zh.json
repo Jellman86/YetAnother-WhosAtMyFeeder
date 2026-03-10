@@ -506,6 +506,8 @@
       "cache_title": "Media Cache",
       "cache_snapshots": "Snapshots",
       "cache_clips": "Video Clips",
+      "cache_high_quality_event_snapshot_jpeg_quality": "高质量快照 JPEG 质量",
+      "cache_high_quality_event_snapshot_jpeg_quality_help": "数值越高，保留的细节越多，但生成的派生快照文件也会更大。",
       "cache_size": "Cache Size",
       "cache_clear_button": "Clear Cached Files",
       "taxonomy_title": "Taxonomy Repair",

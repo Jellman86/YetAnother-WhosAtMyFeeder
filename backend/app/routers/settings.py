@@ -289,6 +289,12 @@ class SettingsUpdate(BaseModel):
         False,
         description="Replace cached event snapshots with a frame derived from the Frigate clip when available",
     )
+    media_cache_high_quality_event_snapshot_jpeg_quality: int = Field(
+        95,
+        ge=70,
+        le=100,
+        description="JPEG quality for derived high-quality event snapshots",
+    )
     media_cache_retention_days: int = Field(0, ge=0, description="Days to keep cached media (0 = follow detection)")
     # Location settings
     location_latitude: Optional[float] = Field(None, description="Latitude")
@@ -553,6 +559,7 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "media_cache_snapshots": settings.media_cache.cache_snapshots,
         "media_cache_clips": settings.media_cache.cache_clips,
         "media_cache_high_quality_event_snapshots": settings.media_cache.high_quality_event_snapshots,
+        "media_cache_high_quality_event_snapshot_jpeg_quality": settings.media_cache.high_quality_event_snapshot_jpeg_quality,
         "media_cache_retention_days": settings.media_cache.retention_days,
         # Location settings
         "location_latitude": settings.location.latitude,
@@ -777,6 +784,8 @@ async def update_settings(
         settings.media_cache.cache_clips = update.media_cache_clips
     if "media_cache_high_quality_event_snapshots" in fields_set:
         settings.media_cache.high_quality_event_snapshots = update.media_cache_high_quality_event_snapshots
+    if "media_cache_high_quality_event_snapshot_jpeg_quality" in fields_set:
+        settings.media_cache.high_quality_event_snapshot_jpeg_quality = update.media_cache_high_quality_event_snapshot_jpeg_quality
     if "media_cache_retention_days" in fields_set:
         settings.media_cache.retention_days = update.media_cache_retention_days
     

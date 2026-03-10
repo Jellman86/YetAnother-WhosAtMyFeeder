@@ -278,7 +278,14 @@ class HighQualitySnapshotService:
                     cap.set(cv2.CAP_PROP_POS_FRAMES, frame_index)
                 ok, frame = cap.read()
                 if ok and frame is not None:
-                    encoded_ok, encoded = cv2.imencode(".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
+                    encoded_ok, encoded = cv2.imencode(
+                        ".jpg",
+                        frame,
+                        [
+                            int(cv2.IMWRITE_JPEG_QUALITY),
+                            int(settings.media_cache.high_quality_event_snapshot_jpeg_quality),
+                        ],
+                    )
                     if not encoded_ok:
                         raise ValueError("Failed to encode extracted frame as JPEG")
                     return encoded.tobytes()

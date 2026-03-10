@@ -226,3 +226,31 @@ def test_media_cache_high_quality_event_snapshots_env_overrides_file_value(monke
     loaded = Settings.load()
 
     assert loaded.media_cache.high_quality_event_snapshots is True
+
+
+def test_media_cache_high_quality_event_snapshot_jpeg_quality_env_override(monkeypatch):
+    monkeypatch.setenv("MEDIA_CACHE__HIGH_QUALITY_EVENT_SNAPSHOT_JPEG_QUALITY", "82")
+
+    loaded = Settings.load()
+
+    assert loaded.media_cache.high_quality_event_snapshot_jpeg_quality == 82
+
+
+def test_media_cache_high_quality_event_snapshot_jpeg_quality_env_overrides_file_value(monkeypatch, tmp_path):
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "media_cache": {
+                    "high_quality_event_snapshot_jpeg_quality": 95,
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(config_module, "CONFIG_PATH", config_path)
+    monkeypatch.setenv("MEDIA_CACHE__HIGH_QUALITY_EVENT_SNAPSHOT_JPEG_QUALITY", "81")
+
+    loaded = Settings.load()
+
+    assert loaded.media_cache.high_quality_event_snapshot_jpeg_quality == 81

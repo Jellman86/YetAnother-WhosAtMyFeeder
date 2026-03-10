@@ -1,4 +1,6 @@
 import asyncio
+from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
 import pytest_asyncio
@@ -254,3 +256,31 @@ async def test_replace_from_clip_bytes_satisfies_queued_event_without_duplicate_
 
     assert worker_processed.is_set() is False
     assert await cache_service.get_snapshot("evt_clip_queued") == b"derived-bytes"
+
+
+def test_extract_snapshot_from_clip_uses_configured_jpeg_quality(monkeypatch):
+    original_quality = settings.media_cache.high_quality_event_snapshot_jpeg_quality
+    settings.media_cache.high_quality_event_snapshot_jpeg_quality = 82
+
+    cap = MagicMock()
+    cap.isOpened.return_value = True
+    cap.get.return_value = 1
+    cap.read.return_value = (True, object())
+    encoded = MagicMock()
+    encoded.tobytes.return_value = b"jpeg-bytes"
+    imencode = MagicMock(return_value=(True, encoded))
+
+    try:
+        monkeypatch.setattr(hq_module.cv2, "VideoCapture", lambda _path: cap)
+        monkeypatch.setattr(hq_module.cv2, "imencode", imencode)
+
+        result = hq_module.high_quality_snapshot_service._extract_snapshot_from_clip_path(Path("/tmp/demo.mp4"))
+
+        assert result == b"jpeg-bytes"
+        imencode.assert_called_once_with(
+            ".jpg",
+            cap.read.return_value[1],
+            [int(hq_module.cv2.IMWRITE_JPEG_QUALITY), 82],
+        )
+    finally:
+        settings.media_cache.high_quality_event_snapshot_jpeg_quality = original_quality

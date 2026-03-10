@@ -247,6 +247,12 @@ class MediaCacheSettings(BaseModel):
         default=False,
         description="Asynchronously replace cached event snapshots with a frame derived from the Frigate clip",
     )
+    high_quality_event_snapshot_jpeg_quality: int = Field(
+        default=95,
+        ge=70,
+        le=100,
+        description="JPEG quality for derived high-quality event snapshots",
+    )
     retention_days: int = Field(default=0, ge=0, description="Days to keep cached media (0 = follow detection retention)")
 
 class LocationSettings(BaseModel):
