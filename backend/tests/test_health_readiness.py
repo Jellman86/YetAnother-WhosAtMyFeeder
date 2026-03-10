@@ -190,6 +190,82 @@ async def test_health_degraded_when_event_pipeline_reports_critical_failures(
 
 
 @pytest.mark.asyncio
+async def test_health_not_degraded_by_historical_event_pipeline_failures(
+    client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
+):
+    app.state.startup_warnings = []
+    monkeypatch.setattr(
+        main_module,
+        "get_classifier",
+        lambda: SimpleNamespace(check_health=lambda: {"status": "ok", "runtimes": {}, "models": {}}),
+        raising=False,
+    )
+    monkeypatch.setattr(
+        main_module,
+        "mqtt_service",
+        SimpleNamespace(get_status=lambda: {"pressure_level": "normal"}),
+        raising=False,
+    )
+    monkeypatch.setattr(
+        main_module,
+        "auto_video_classifier",
+        SimpleNamespace(get_status=lambda: {"status": "ok"}),
+        raising=False,
+    )
+    monkeypatch.setattr(
+        main_module,
+        "high_quality_snapshot_service",
+        SimpleNamespace(get_status=lambda: {"enabled": True, "active": 0, "scheduled_total": 0, "duplicate_requests": 0, "disabled_requests": 0, "outcomes": {}, "last_result": None}),
+        raising=False,
+    )
+    monkeypatch.setattr(
+        main_module,
+        "notification_dispatcher",
+        SimpleNamespace(get_status=lambda: {"running": True, "workers": 0, "queue_size": 0, "queue_max": 100, "dropped_jobs": 0, "timeout_seconds": 30.0}),
+        raising=False,
+    )
+    monkeypatch.setattr(
+        main_module,
+        "get_db_pool_status",
+        lambda: {"acquire_wait_max_ms": 0.0},
+        raising=False,
+    )
+    monkeypatch.setattr(
+        main_module,
+        "event_processor",
+        SimpleNamespace(
+            get_status=lambda: {
+                "status": "ok",
+                "started_events": 10,
+                "completed_events": 8,
+                "dropped_events": 2,
+                "incomplete_events": 0,
+                "critical_failures": 1,
+                "stage_timeouts": {"classify_snapshot": 1},
+                "stage_failures": {},
+                "stage_fallbacks": {},
+                "drop_reasons": {"classify_snapshot_unavailable": 1},
+                "last_stage_timeout": None,
+                "last_stage_failure": None,
+                "last_drop": None,
+                "last_completed": None,
+                "recent_outcomes": [],
+                "last_critical_failure": "2026-03-10T00:00:00+00:00",
+                "critical_failure_recovery_window_seconds": 300.0,
+                "critical_failure_active": False,
+            }
+        ),
+        raising=False,
+    )
+
+    response = await client.get("/health")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "ok"
+    assert body["event_pipeline"]["critical_failures"] == 1
+
+
+@pytest.mark.asyncio
 async def test_health_includes_live_image_classifier_pressure(
     client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
 ):

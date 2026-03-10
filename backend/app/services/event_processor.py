@@ -45,6 +45,9 @@ EVENT_STAGE_TIMEOUT_SAVE_AND_NOTIFY_SECONDS = max(
 EVENT_TAXONOMY_LOOKUP_TIMEOUT_SECONDS = max(
     0.25, float(os.getenv("EVENT_TAXONOMY_LOOKUP_TIMEOUT_SECONDS", "2"))
 )
+EVENT_PIPELINE_RECOVERY_WINDOW_SECONDS = max(
+    1.0, float(os.getenv("EVENT_PIPELINE_RECOVERY_WINDOW_SECONDS", "300"))
+)
 _CLASSIFY_SNAPSHOT_OVERLOADED = object()
 
 
@@ -86,9 +89,36 @@ class EventProcessor:
         self._last_stage_failure: dict[str, Any] | None = None
         self._last_drop: dict[str, Any] | None = None
         self._last_completed: dict[str, Any] | None = None
+        self._last_critical_failure_monotonic: float | None = None
+        self._last_critical_failure: dict[str, Any] | None = None
 
     def _utc_now(self) -> str:
         return datetime.now(timezone.utc).isoformat()
+
+    def _is_critical_stage(self, stage: str) -> bool:
+        return stage in {"classify_snapshot", "save_and_notify"}
+
+    def _record_critical_failure(self, stage: str, event_id: str, kind: str, **details: Any) -> None:
+        if not self._is_critical_stage(stage):
+            return
+        payload = {
+            "event_id": event_id,
+            "stage": stage,
+            "kind": kind,
+            "timestamp": self._utc_now(),
+        }
+        payload.update(details)
+        self._last_critical_failure_monotonic = time.monotonic()
+        self._last_critical_failure = payload
+
+    def _critical_failure_active(self) -> bool:
+        if self._last_critical_failure_monotonic is None:
+            return False
+        age = time.monotonic() - self._last_critical_failure_monotonic
+        return age < EVENT_PIPELINE_RECOVERY_WINDOW_SECONDS
+
+    def _has_historical_critical_failure(self) -> bool:
+        return self._last_critical_failure_monotonic is not None
 
     def _record_recent_outcome(self, event_id: str, outcome: str, **details: Any) -> None:
         payload = {
@@ -142,6 +172,7 @@ class EventProcessor:
             "timestamp": self._utc_now(),
         }
         self._last_stage_timeout = payload
+        self._record_critical_failure(stage, event_id, "timeout", timeout_seconds=timeout_seconds)
         error_diagnostics_history.record(
             source="event_pipeline",
             component="event_processor",
@@ -168,6 +199,7 @@ class EventProcessor:
             "timestamp": self._utc_now(),
         }
         self._last_stage_failure = payload
+        self._record_critical_failure(stage, event_id, "failure", error=error)
         error_diagnostics_history.record(
             source="event_pipeline",
             component="event_processor",
@@ -200,12 +232,15 @@ class EventProcessor:
             + int(stage_timeouts.get("save_and_notify", 0))
             + int(stage_failures.get("save_and_notify", 0))
         )
+        incomplete_events = max(0, self._started_events - self._completed_events - self._dropped_events)
+        critical_failure_active = self._critical_failure_active()
+        has_unresolved_post_failure_work = self._has_historical_critical_failure() and incomplete_events > 0
         return {
-            "status": "degraded" if critical_failures > 0 else "ok",
+            "status": "degraded" if (critical_failure_active or has_unresolved_post_failure_work) else "ok",
             "started_events": self._started_events,
             "completed_events": self._completed_events,
             "dropped_events": self._dropped_events,
-            "incomplete_events": max(0, self._started_events - self._completed_events - self._dropped_events),
+            "incomplete_events": incomplete_events,
             "stage_timeouts": stage_timeouts,
             "stage_failures": stage_failures,
             "stage_fallbacks": stage_fallbacks,
@@ -215,6 +250,10 @@ class EventProcessor:
             "last_stage_failure": self._last_stage_failure,
             "last_drop": self._last_drop,
             "last_completed": self._last_completed,
+            "last_critical_failure": self._last_critical_failure,
+            "critical_failure_recovery_window_seconds": EVENT_PIPELINE_RECOVERY_WINDOW_SECONDS,
+            "critical_failure_active": critical_failure_active,
+            "has_unresolved_post_failure_work": has_unresolved_post_failure_work,
             "recent_outcomes": list(self._recent_outcomes),
         }
 

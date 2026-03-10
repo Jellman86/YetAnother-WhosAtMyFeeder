@@ -456,3 +456,33 @@ async def test_process_mqtt_message_status_tracks_completed_event():
     assert status["completed_events"] == 1
     assert status["dropped_events"] == 0
     assert status["critical_failures"] == 0
+
+
+def test_event_processor_status_recovers_after_stale_critical_failure():
+    processor = EventProcessor(MagicMock())
+    processor._stage_timeouts["classify_snapshot"] = 1
+    processor._last_critical_failure_monotonic = 10.0
+
+    with patch("app.services.event_processor.time.monotonic", return_value=20.0), \
+         patch("app.services.event_processor.EVENT_PIPELINE_RECOVERY_WINDOW_SECONDS", 5.0):
+        status = processor.get_status()
+
+    assert status["critical_failures"] == 1
+    assert status["status"] == "ok"
+
+
+def test_event_processor_status_stays_degraded_when_incomplete_events_remain_after_critical_failure():
+    processor = EventProcessor(MagicMock())
+    processor._stage_timeouts["classify_snapshot"] = 1
+    processor._started_events = 3
+    processor._completed_events = 1
+    processor._dropped_events = 1
+    processor._last_critical_failure_monotonic = 10.0
+
+    with patch("app.services.event_processor.time.monotonic", return_value=20.0), \
+         patch("app.services.event_processor.EVENT_PIPELINE_RECOVERY_WINDOW_SECONDS", 5.0):
+        status = processor.get_status()
+
+    assert status["critical_failures"] == 1
+    assert status["incomplete_events"] == 1
+    assert status["status"] == "degraded"

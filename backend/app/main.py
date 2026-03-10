@@ -26,7 +26,7 @@ from app.database import (
     get_db_pool_status,
 )
 from app.services.mqtt_service import mqtt_service
-from app.services.classifier_service import get_classifier
+from app.services.classifier_service import get_classifier, shutdown_classifier
 from app.services.event_processor import EventProcessor
 from app.services.media_cache import media_cache
 from app.services.broadcaster import broadcaster
@@ -348,6 +348,7 @@ async def lifespan(app: FastAPI):
         await _run_lifecycle_phase(app, "telemetry_stop", telemetry_service.stop, fatal=False)
         await _run_lifecycle_phase(app, "mqtt_service_stop", mqtt_service.stop, fatal=False)
         await _run_lifecycle_phase(app, "frigate_client_close", frigate_client.close, fatal=False)
+        await _run_lifecycle_phase(app, "classifier_shutdown", lambda: asyncio.to_thread(shutdown_classifier), fatal=False)
     await close_db()  # Close database connection pool
 
 app = FastAPI(title="Yet Another WhosAtMyFeeder API", version=APP_VERSION, lifespan=lifespan)
@@ -645,7 +646,7 @@ async def health_check():
         or startup_warnings
         or mqtt_health.get("pressure_level") in {"high", "critical"}
         or int(notification_dispatch_health.get("dropped_jobs") or 0) > 0
-        or int(event_pipeline_health.get("critical_failures") or 0) > 0
+        or event_pipeline_health.get("status") != "ok"
         or float(db_pool_health.get("acquire_wait_max_ms") or 0.0) >= 5000.0
     ):
         health["status"] = "degraded"

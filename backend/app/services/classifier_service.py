@@ -511,6 +511,15 @@ def get_classifier() -> 'ClassifierService':
     return _classifier_instance
 
 
+def shutdown_classifier() -> None:
+    """Shut down the shared classifier service instance if it exists."""
+    global _classifier_instance
+    with _classifier_lock:
+        if _classifier_instance is not None:
+            _classifier_instance.shutdown()
+            _classifier_instance = None
+
+
 class ModelInstance:
     """Represents a loaded TFLite model with its labels."""
 
@@ -1086,6 +1095,7 @@ class ClassifierService:
         )
         image_workers = CLASSIFIER_IMAGE_MAX_CONCURRENT
         self._image_executor = ThreadPoolExecutor(max_workers=image_workers, thread_name_prefix="ml_image_worker")
+        self._live_image_executor = ThreadPoolExecutor(max_workers=image_workers, thread_name_prefix="ml_live_image_worker")
         self._background_image_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="ml_background_worker")
         self._video_executor = ThreadPoolExecutor(max_workers=video_workers, thread_name_prefix="ml_video_worker")
         self._image_inference_semaphore = asyncio.Semaphore(image_workers)
@@ -1607,7 +1617,7 @@ class ClassifierService:
 
         loop = asyncio.get_running_loop()
         try:
-            future = self._image_executor.submit(fn, *args)
+            future = self._live_image_executor.submit(fn, *args)
         except Exception:
             self._live_image_inference_semaphore.release()
             raise
@@ -1761,6 +1771,15 @@ class ClassifierService:
             log.info("Reloaded wildlife model")
         except Exception as e:
             log.error("Failed to reload wildlife model", error=str(e))
+
+    def shutdown(self) -> None:
+        for executor in (
+            self._image_executor,
+            self._live_image_executor,
+            self._background_image_executor,
+            self._video_executor,
+        ):
+            executor.shutdown(wait=False, cancel_futures=True)
 
     def classify_video(self, video_path: str, stride: int = 5, max_frames: Optional[int] = None, progress_callback=None) -> list[dict]:
         """

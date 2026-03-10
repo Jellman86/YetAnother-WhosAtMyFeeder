@@ -4,6 +4,7 @@ import sys
 import types
 import asyncio
 import threading
+from concurrent.futures import ThreadPoolExecutor
 from unittest.mock import MagicMock, patch, mock_open
 from unittest.mock import AsyncMock
 from PIL import Image
@@ -272,6 +273,54 @@ async def test_classifier_service_classify_async_live_keeps_capacity_reserved_un
 
 
 @pytest.mark.asyncio
+async def test_classifier_service_classify_async_live_isolated_from_non_live_executor(
+    mock_tflite, mock_os_path_exists
+):
+    original_toggle = settings.classification.personalized_rerank_enabled
+    settings.classification.personalized_rerank_enabled = False
+    shared_started = threading.Event()
+    shared_release = threading.Event()
+    live_started = threading.Event()
+
+    def _blocking_non_live(*_args, **_kwargs):
+        shared_started.set()
+        shared_release.wait(timeout=1.0)
+        return [{"label": "Robin", "score": 0.9, "index": 0}]
+
+    def _fast_live(*_args, **_kwargs):
+        live_started.set()
+        return [{"label": "Robin", "score": 0.91, "index": 0}]
+
+    try:
+        with patch.object(ClassifierService, "_init_bird_model", return_value=None), \
+             patch("app.services.classifier_service.ModelInstance.load", return_value=True):
+            service = ClassifierService()
+            service._image_executor.shutdown(wait=False, cancel_futures=True)
+            service._image_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="test_shared_image_worker")
+            service._executor = service._image_executor
+
+            img = Image.new("RGB", (100, 100))
+
+            with patch.object(service, "classify", side_effect=_blocking_non_live):
+                shared_task = asyncio.create_task(service.classify_async(img, camera_name="front"))
+                await asyncio.wait_for(asyncio.to_thread(shared_started.wait), timeout=1.0)
+
+            with patch.object(service, "classify", side_effect=_fast_live):
+                live_results = await asyncio.wait_for(
+                    service.classify_async_live(img, camera_name="front"),
+                    timeout=0.2,
+                )
+
+            assert live_started.is_set()
+            assert live_results[0]["label"] == "Robin"
+
+            shared_release.set()
+            await asyncio.wait_for(shared_task, timeout=1.0)
+    finally:
+        settings.classification.personalized_rerank_enabled = original_toggle
+
+
+@pytest.mark.asyncio
 async def test_classifier_service_uses_separate_executors_for_image_and_video_work(mock_tflite, mock_os_path_exists):
     class _FakeLoop:
         def __init__(self):
@@ -512,3 +561,15 @@ def test_classifier_check_health_exposes_live_image_pressure():
     assert health["live_image"]["max_concurrent"] >= 1
     assert health["live_image"]["in_flight"] == 1
     assert health["live_image"]["admission_timeouts"] == 4
+
+
+def test_classifier_service_shutdown_closes_all_executors():
+    with patch.object(ClassifierService, "_init_bird_model", return_value=None):
+        service = ClassifierService()
+
+    service.shutdown()
+
+    assert service._image_executor._shutdown is True
+    assert service._live_image_executor._shutdown is True
+    assert service._background_image_executor._shutdown is True
+    assert service._video_executor._shutdown is True
