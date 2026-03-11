@@ -88,6 +88,46 @@ CLASSIFICATION_ENV_PRECEDENCE_CASES = [
     ("video_classification_frames", "CLASSIFICATION__VIDEO_CLASSIFICATION_FRAMES", "25", 15, 25),
     ("inference_provider", "CLASSIFICATION__INFERENCE_PROVIDER", "intel_cpu", "cpu", "intel_cpu"),
     ("inference_provider", "CLASSIFICATION__USE_CUDA", "true", "cpu", "cuda"),
+    ("image_execution_mode", "CLASSIFICATION__IMAGE_EXECUTION_MODE", "subprocess", "in_process", "subprocess"),
+    ("live_worker_count", "CLASSIFICATION__LIVE_WORKER_COUNT", "4", 2, 4),
+    ("background_worker_count", "CLASSIFICATION__BACKGROUND_WORKER_COUNT", "3", 1, 3),
+    (
+        "worker_heartbeat_timeout_seconds",
+        "CLASSIFICATION__WORKER_HEARTBEAT_TIMEOUT_SECONDS",
+        "7.5",
+        5.0,
+        7.5,
+    ),
+    (
+        "worker_hard_deadline_seconds",
+        "CLASSIFICATION__WORKER_HARD_DEADLINE_SECONDS",
+        "42.5",
+        35.0,
+        42.5,
+    ),
+    (
+        "worker_restart_window_seconds",
+        "CLASSIFICATION__WORKER_RESTART_WINDOW_SECONDS",
+        "120.0",
+        60.0,
+        120.0,
+    ),
+    ("worker_restart_threshold", "CLASSIFICATION__WORKER_RESTART_THRESHOLD", "6", 3, 6),
+    (
+        "worker_breaker_cooldown_seconds",
+        "CLASSIFICATION__WORKER_BREAKER_COOLDOWN_SECONDS",
+        "90.0",
+        60.0,
+        90.0,
+    ),
+    ("live_event_stale_drop_seconds", "CLASSIFICATION__LIVE_EVENT_STALE_DROP_SECONDS", "45.0", 30.0, 45.0),
+    (
+        "live_event_coalescing_enabled",
+        "CLASSIFICATION__LIVE_EVENT_COALESCING_ENABLED",
+        "false",
+        True,
+        False,
+    ),
     (
         "ai_pricing_json",
         "CLASSIFICATION__AI_PRICING_JSON",
@@ -150,6 +190,16 @@ def test_classification_startup_load_env_precedence_with_full_file_payload(monke
                     "video_classification_stale_minutes": 15,
                     "video_classification_frames": 15,
                     "inference_provider": "cpu",
+                    "image_execution_mode": "in_process",
+                    "live_worker_count": 2,
+                    "background_worker_count": 1,
+                    "worker_heartbeat_timeout_seconds": 5.0,
+                    "worker_hard_deadline_seconds": 35.0,
+                    "worker_restart_window_seconds": 60.0,
+                    "worker_restart_threshold": 3,
+                    "worker_breaker_cooldown_seconds": 60.0,
+                    "live_event_stale_drop_seconds": 30.0,
+                    "live_event_coalescing_enabled": True,
                     "ai_pricing_json": "[]",
                     "max_classification_results": 5,
                 }
@@ -174,6 +224,16 @@ def test_classification_startup_load_env_precedence_with_full_file_payload(monke
     monkeypatch.setenv("CLASSIFICATION__VIDEO_CLASSIFICATION_FRAMES", "31")
     monkeypatch.setenv("CLASSIFICATION__INFERENCE_PROVIDER", "intel_gpu")
     monkeypatch.setenv("CLASSIFICATION__USE_CUDA", "false")
+    monkeypatch.setenv("CLASSIFICATION__IMAGE_EXECUTION_MODE", "subprocess")
+    monkeypatch.setenv("CLASSIFICATION__LIVE_WORKER_COUNT", "4")
+    monkeypatch.setenv("CLASSIFICATION__BACKGROUND_WORKER_COUNT", "2")
+    monkeypatch.setenv("CLASSIFICATION__WORKER_HEARTBEAT_TIMEOUT_SECONDS", "7.5")
+    monkeypatch.setenv("CLASSIFICATION__WORKER_HARD_DEADLINE_SECONDS", "42.5")
+    monkeypatch.setenv("CLASSIFICATION__WORKER_RESTART_WINDOW_SECONDS", "120.0")
+    monkeypatch.setenv("CLASSIFICATION__WORKER_RESTART_THRESHOLD", "6")
+    monkeypatch.setenv("CLASSIFICATION__WORKER_BREAKER_COOLDOWN_SECONDS", "90.0")
+    monkeypatch.setenv("CLASSIFICATION__LIVE_EVENT_STALE_DROP_SECONDS", "45.0")
+    monkeypatch.setenv("CLASSIFICATION__LIVE_EVENT_COALESCING_ENABLED", "false")
     monkeypatch.setenv(
         "CLASSIFICATION__AI_PRICING_JSON",
         '[{"provider":"openai","model":"gpt-test","input_per_1k":0.001}]',
@@ -196,6 +256,16 @@ def test_classification_startup_load_env_precedence_with_full_file_payload(monke
     assert loaded.classification.video_classification_stale_minutes == 66
     assert loaded.classification.video_classification_frames == 31
     assert loaded.classification.inference_provider == "intel_gpu"
+    assert loaded.classification.image_execution_mode == "subprocess"
+    assert loaded.classification.live_worker_count == 4
+    assert loaded.classification.background_worker_count == 2
+    assert loaded.classification.worker_heartbeat_timeout_seconds == 7.5
+    assert loaded.classification.worker_hard_deadline_seconds == 42.5
+    assert loaded.classification.worker_restart_window_seconds == 120.0
+    assert loaded.classification.worker_restart_threshold == 6
+    assert loaded.classification.worker_breaker_cooldown_seconds == 90.0
+    assert loaded.classification.live_event_stale_drop_seconds == 45.0
+    assert loaded.classification.live_event_coalescing_enabled is False
     assert loaded.classification.ai_pricing_json == '[{"provider":"openai","model":"gpt-test","input_per_1k":0.001}]'
     assert loaded.classification.max_classification_results == 11
 
