@@ -141,6 +141,67 @@ def _normalize_inference_provider(value: Optional[str]) -> str:
     return normalized if normalized in SUPPORTED_INFERENCE_PROVIDERS else "auto"
 
 
+def _normalize_probability_vector(values: np.ndarray, *, context: str) -> np.ndarray:
+    probs = np.asarray(values, dtype=np.float32).reshape(-1)
+    if probs.size == 0:
+        return np.array([], dtype=np.float32)
+
+    finite_mask = np.isfinite(probs)
+    if not finite_mask.any():
+        log.warning("Classifier produced all non-finite probabilities", context=context)
+        return np.array([], dtype=np.float32)
+
+    if not finite_mask.all():
+        probs = probs.copy()
+        bad_count = int((~finite_mask).sum())
+        probs[~finite_mask] = 0.0
+        log.warning(
+            "Classifier produced non-finite probabilities; zeroing invalid entries",
+            context=context,
+            invalid_count=bad_count,
+        )
+
+    probs = np.maximum(probs, 0.0)
+    total = float(np.sum(probs))
+    if not np.isfinite(total) or total <= 0.0:
+        log.warning("Classifier probability normalization failed", context=context, total=total)
+        return np.array([], dtype=np.float32)
+
+    normalized = probs / total
+    if not np.isfinite(normalized).all():
+        log.warning("Classifier normalization still produced non-finite probabilities", context=context)
+        return np.array([], dtype=np.float32)
+    return normalized.astype(np.float32, copy=False)
+
+
+def _safe_softmax(x: np.ndarray, *, context: str) -> np.ndarray:
+    logits = np.asarray(x, dtype=np.float32).reshape(-1)
+    if logits.size == 0:
+        return np.array([], dtype=np.float32)
+
+    finite_mask = np.isfinite(logits)
+    if not finite_mask.any():
+        log.warning("Classifier produced all non-finite logits", context=context)
+        return np.array([], dtype=np.float32)
+
+    if not finite_mask.all():
+        logits = logits.copy()
+        bad_count = int((~finite_mask).sum())
+        logits[~finite_mask] = -np.inf
+        log.warning(
+            "Classifier produced non-finite logits; excluding invalid entries",
+            context=context,
+            invalid_count=bad_count,
+        )
+
+    max_logit = float(np.max(logits[finite_mask]))
+    shifted = logits - max_logit
+    exp_logits = np.zeros_like(logits, dtype=np.float32)
+    exp_mask = np.isfinite(shifted)
+    exp_logits[exp_mask] = np.exp(np.clip(shifted[exp_mask], -80.0, 80.0))
+    return _normalize_probability_vector(exp_logits, context=context)
+
+
 def _detect_acceleration_capabilities() -> dict:
     """Probe optional inference runtimes/providers without raising."""
     dev_dri_entries: list[str] = []
@@ -698,17 +759,19 @@ class ModelInstance:
                 results = results / 255.0
 
         # Softmax if needed (logits vs probabilities)
-        output_min = float(results.min())
-        output_max = float(results.max())
+        finite_results = results[np.isfinite(results)]
+        if finite_results.size == 0:
+            log.warning("TFLite inference produced no finite outputs", model=self.name)
+            return np.array([])
+
+        output_min = float(finite_results.min())
+        output_max = float(finite_results.max())
         is_probability = output_min >= 0 and output_max <= 1.0
 
         if is_probability:
-            output_sum = float(results.sum())
-            if output_sum > 0:
-                results = results / output_sum
+            results = _normalize_probability_vector(results, context=f"{self.name}:tflite")
         else:
-            exp_results = np.exp(results - np.max(results))
-            results = exp_results / np.sum(exp_results)
+            results = _safe_softmax(results, context=f"{self.name}:tflite")
 
         return results
 
@@ -876,8 +939,7 @@ class ONNXModelInstance:
 
     def _softmax(self, x: np.ndarray) -> np.ndarray:
         """Apply softmax to convert logits to probabilities."""
-        exp_x = np.exp(x - np.max(x))
-        return exp_x / np.sum(exp_x)
+        return _safe_softmax(x, context=f"{self.name}:onnx")
 
     def classify(self, image: Image.Image, top_k: int = 5) -> list[dict]:
         """Classify an image using this ONNX model."""
@@ -1039,8 +1101,7 @@ class OpenVINOModelInstance:
         return arr[np.newaxis, ...].astype(np.float32)
 
     def _softmax(self, x: np.ndarray) -> np.ndarray:
-        exp_x = np.exp(x - np.max(x))
-        return exp_x / np.sum(exp_x)
+        return _safe_softmax(x, context=f"{self.name}:openvino")
 
     def _infer_logits(self, image: Image.Image) -> np.ndarray:
         if not self.loaded or self.compiled_model is None or self.input_name is None:

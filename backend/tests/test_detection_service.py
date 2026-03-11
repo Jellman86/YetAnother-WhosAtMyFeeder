@@ -1,5 +1,6 @@
 import pytest
 import asyncio
+import math
 from unittest.mock import AsyncMock, MagicMock, patch
 from datetime import datetime
 from app.services.detection_service import DetectionService
@@ -236,3 +237,15 @@ async def test_save_detection_falls_back_when_taxonomy_lookup_times_out(mock_dep
         label="Parus major",
         timeout_seconds=0.01,
     )
+
+
+def test_filter_and_label_rejects_non_finite_score():
+    service = DetectionService(MagicMock())
+
+    result, reason = service.filter_and_label(
+        {"label": "Blue Jay", "score": math.nan, "index": 4},
+        "evt-invalid-score",
+    )
+
+    assert result is None
+    assert reason == "invalid_score"

@@ -22,6 +22,7 @@ from app.services.classifier_service import (  # noqa: E402
     ClassifierService,
     LiveImageClassificationOverloadedError,
     ModelInstance,
+    _safe_softmax,
     _detect_acceleration_capabilities,
     _extract_openvino_unsupported_ops,
     _normalize_inference_provider,
@@ -97,6 +98,15 @@ def test_model_instance_classify(mock_tflite, mock_os_path_exists):
     assert len(results) > 0
     assert results[0]['label'] == "Bird A"
     assert results[0]['score'] == pytest.approx(0.8)
+
+
+def test_safe_softmax_sanitizes_non_finite_logits():
+    probs = _safe_softmax(np.array([1.0, np.nan, 3.0], dtype=np.float32), context="test")
+
+    assert probs.shape == (3,)
+    assert np.isfinite(probs).all()
+    assert probs[1] == pytest.approx(0.0)
+    assert float(np.sum(probs)) == pytest.approx(1.0)
 
 
 def test_classifier_supervisor_config_defaults():

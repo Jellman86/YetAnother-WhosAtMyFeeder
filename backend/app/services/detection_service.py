@@ -1,6 +1,7 @@
 import structlog
 import os
 import asyncio
+import math
 from datetime import datetime
 from app.config import settings
 from app.repositories.detection_repository import DetectionRepository, Detection
@@ -38,7 +39,15 @@ class DetectionService:
         """
         frigate_sub_label = normalize_sub_label(frigate_sub_label)
         top = classification
-        score = top['score']
+        try:
+            score = float(top['score'])
+        except (KeyError, TypeError, ValueError):
+            log.warning("Invalid classification score", event_id=frigate_event, score=top.get("score"))
+            return None, "invalid_score"
+        if not math.isfinite(score):
+            log.warning("Non-finite classification score", event_id=frigate_event, score=score, label=top.get("label"))
+            return None, "invalid_score"
+        top = {**top, 'score': score}
         label = top['label']
         original_label = label
         normalized_label = str(label or "").strip().casefold()
@@ -185,7 +194,10 @@ class DetectionService:
         async with get_db() as db:
             repo = DetectionRepository(db)
 
-            score = classification['score']
+            score = float(classification['score'])
+            if not math.isfinite(score):
+                log.warning("Refusing to save detection with non-finite score", event_id=frigate_event, score=score)
+                return False, False
             category_name = classification['label']
             timestamp = datetime.fromtimestamp(start_time)
 

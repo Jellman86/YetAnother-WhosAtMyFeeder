@@ -10,16 +10,21 @@ def test_build_skipped_message_already_exists_only():
     assert _build_skipped_message(4, {"already_exists": 4}) == "4 already existed"
 
 
+def test_build_skipped_message_reports_invalid_scores():
+    assert _build_skipped_message(2, {"invalid_score": 2}) == "2 had invalid classifier scores"
+
+
 def test_build_skipped_message_mixed_reasons():
     msg = _build_skipped_message(
-        15,
+        17,
         {
             "already_exists": 5,
+            "invalid_score": 2,
             "low_confidence": 7,
             "blocked_label": 3,
         },
     )
-    assert msg == "5 already existed, 10 skipped by filters/validation"
+    assert msg == "5 already existed, 2 had invalid classifier scores, 10 skipped by filters/validation"
 
 
 def test_build_running_message_reports_scanning_when_total_unknown():

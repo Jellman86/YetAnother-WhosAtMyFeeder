@@ -113,6 +113,8 @@ class BackfillService:
             # Use shared filtering and labeling logic (with Frigate sublabel for fallback)
             top, reason = self.detection_service.filter_and_label(results[0], frigate_event, sub_label)
             if not top:
+                if reason == "invalid_score":
+                    log.warning("Historical event skipped due to invalid classifier score", event_id=frigate_event)
                 return 'skipped', reason
             
             camera_name = event.get('camera', 'unknown')
