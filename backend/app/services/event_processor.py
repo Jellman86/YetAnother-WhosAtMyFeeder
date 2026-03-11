@@ -66,6 +66,7 @@ class EventData:
         self.camera: str = after.get('camera')
         self.label: str = after.get('label')
         self.start_time_ts: float = after.get('start_time', 0.0)
+        self.received_at_ts: float = float(data.get('__received_at_ts') or time.time())
         self.sub_label: Optional[str] = normalize_sub_label(after.get('sub_label'))
         self.frigate_score: Optional[float] = after.get('top_score')
         self.is_false_positive: bool = after.get('false_positive', False)
@@ -359,6 +360,7 @@ class EventProcessor:
         try:
             data = json.loads(payload)
             if isinstance(data, dict):
+                data.setdefault("__received_at_ts", time.time())
                 after = data.get("after")
                 if isinstance(after, dict):
                     event_id = str(after.get("id") or "unknown")
@@ -429,99 +431,100 @@ class EventProcessor:
                 coro=self._classify_snapshot(event),
                 fallback=None,
             )
-            if classification_result is _CLASSIFY_SNAPSHOT_OVERLOADED:
-                self._record_drop(event.frigate_event, "classify_snapshot_overloaded", stage="classify_snapshot")
-                return
-            if classification_result is _CLASSIFY_SNAPSHOT_TIMED_OUT:
-                self._record_drop(event.frigate_event, "classify_snapshot_timeout", stage="classify_snapshot")
-                return
-            if not classification_result:
-                log.info(
-                    "Dropping MQTT event after classification stage failure",
-                    event_id=event.frigate_event,
-                    stage="classify_snapshot",
-                )
-                self._record_drop(event.frigate_event, "classify_snapshot_unavailable")
-                return
-
-            results, snapshot_data = classification_result
-            if not results:
-                log.info(
-                    "Dropping MQTT event because classifier returned no results",
-                    event_id=event.frigate_event,
-                )
-                self._record_drop(event.frigate_event, "classifier_empty_results")
-                return
-
-            top, reason = self.detection_service.filter_and_label(
-                results[0], event.frigate_event, event.sub_label, event.frigate_score
-            )
-            if not top:
-                top_candidate = results[0] if results else {}
-                log.info(
-                    "Dropping MQTT event after classification filter",
-                    event_id=event.frigate_event,
-                    reason=reason or "unknown",
-                    label=top_candidate.get("label"),
-                    score=top_candidate.get("score"),
-                )
-                self._record_drop(
-                    event.frigate_event,
-                    f"filter_{reason or 'unknown'}",
-                    label=top_candidate.get("label"),
-                    score=top_candidate.get("score"),
-                )
-                return
-
-            context_ok, context_result = await self._run_stage(
-                event_id=event.frigate_event,
-                stage="gather_context",
-                timeout_seconds=EVENT_STAGE_TIMEOUT_CONTEXT_SECONDS,
-                coro=self._gather_context_data(event),
-                fallback={"audio_match": None, "weather_data": {}},
-            )
-            context = context_result if isinstance(context_result, dict) else {"audio_match": None, "weather_data": {}}
-            if not context_ok:
-                self._record_stage_fallback("gather_context", event.frigate_event)
-                log.info(
-                    "Proceeding without full context after stage failure",
-                    event_id=event.frigate_event,
-                    stage="gather_context",
-                )
-
-            _audio_ok, top_with_audio = await self._run_stage(
-                event_id=event.frigate_event,
-                stage="correlate_audio",
-                timeout_seconds=EVENT_STAGE_TIMEOUT_AUDIO_CORRELATE_SECONDS,
-                coro=self._correlate_audio(top, context.get("audio_match"), event.frigate_event),
-                fallback=top,
-            )
-            if not isinstance(top_with_audio, dict):
-                self._record_stage_fallback("correlate_audio", event.frigate_event)
-                top_with_audio = top
-
-            save_ok, _ = await self._run_stage(
-                event_id=event.frigate_event,
-                stage="save_and_notify",
-                timeout_seconds=EVENT_STAGE_TIMEOUT_SAVE_AND_NOTIFY_SECONDS,
-                coro=self._handle_detection_save_and_notify(
-                    event, top_with_audio, snapshot_data, context
-                ),
-                fallback=None,
-            )
-            if not save_ok:
-                self._record_drop(event.frigate_event, "save_and_notify_failed")
-                return
-
-            duration_ms = (time.monotonic() - started) * 1000.0
-            self._record_completed(event.frigate_event, duration_ms)
-            log.debug(
-                "Completed MQTT event processing",
-                event_id=event.frigate_event,
-                duration_ms=round(duration_ms, 1),
-            )
         finally:
             self._release_live_event_key(event)
+
+        if classification_result is _CLASSIFY_SNAPSHOT_OVERLOADED:
+            self._record_drop(event.frigate_event, "classify_snapshot_overloaded", stage="classify_snapshot")
+            return
+        if classification_result is _CLASSIFY_SNAPSHOT_TIMED_OUT:
+            self._record_drop(event.frigate_event, "classify_snapshot_timeout", stage="classify_snapshot")
+            return
+        if not classification_result:
+            log.info(
+                "Dropping MQTT event after classification stage failure",
+                event_id=event.frigate_event,
+                stage="classify_snapshot",
+            )
+            self._record_drop(event.frigate_event, "classify_snapshot_unavailable")
+            return
+
+        results, snapshot_data = classification_result
+        if not results:
+            log.info(
+                "Dropping MQTT event because classifier returned no results",
+                event_id=event.frigate_event,
+            )
+            self._record_drop(event.frigate_event, "classifier_empty_results")
+            return
+
+        top, reason = self.detection_service.filter_and_label(
+            results[0], event.frigate_event, event.sub_label, event.frigate_score
+        )
+        if not top:
+            top_candidate = results[0] if results else {}
+            log.info(
+                "Dropping MQTT event after classification filter",
+                event_id=event.frigate_event,
+                reason=reason or "unknown",
+                label=top_candidate.get("label"),
+                score=top_candidate.get("score"),
+            )
+            self._record_drop(
+                event.frigate_event,
+                f"filter_{reason or 'unknown'}",
+                label=top_candidate.get("label"),
+                score=top_candidate.get("score"),
+            )
+            return
+
+        context_ok, context_result = await self._run_stage(
+            event_id=event.frigate_event,
+            stage="gather_context",
+            timeout_seconds=EVENT_STAGE_TIMEOUT_CONTEXT_SECONDS,
+            coro=self._gather_context_data(event),
+            fallback={"audio_match": None, "weather_data": {}},
+        )
+        context = context_result if isinstance(context_result, dict) else {"audio_match": None, "weather_data": {}}
+        if not context_ok:
+            self._record_stage_fallback("gather_context", event.frigate_event)
+            log.info(
+                "Proceeding without full context after stage failure",
+                event_id=event.frigate_event,
+                stage="gather_context",
+            )
+
+        _audio_ok, top_with_audio = await self._run_stage(
+            event_id=event.frigate_event,
+            stage="correlate_audio",
+            timeout_seconds=EVENT_STAGE_TIMEOUT_AUDIO_CORRELATE_SECONDS,
+            coro=self._correlate_audio(top, context.get("audio_match"), event.frigate_event),
+            fallback=top,
+        )
+        if not isinstance(top_with_audio, dict):
+            self._record_stage_fallback("correlate_audio", event.frigate_event)
+            top_with_audio = top
+
+        save_ok, _ = await self._run_stage(
+            event_id=event.frigate_event,
+            stage="save_and_notify",
+            timeout_seconds=EVENT_STAGE_TIMEOUT_SAVE_AND_NOTIFY_SECONDS,
+            coro=self._handle_detection_save_and_notify(
+                event, top_with_audio, snapshot_data, context
+            ),
+            fallback=None,
+        )
+        if not save_ok:
+            self._record_drop(event.frigate_event, "save_and_notify_failed")
+            return
+
+        duration_ms = (time.monotonic() - started) * 1000.0
+        self._record_completed(event.frigate_event, duration_ms)
+        log.debug(
+            "Completed MQTT event processing",
+            event_id=event.frigate_event,
+            duration_ms=round(duration_ms, 1),
+        )
 
     def _prune_false_positive_tombstones(self) -> None:
         now = time.monotonic()
@@ -615,9 +618,9 @@ class EventProcessor:
         return f"{event.camera}:{event.frigate_event}"
 
     def _live_event_age_seconds(self, event: EventData) -> float:
-        if event.start_time_ts <= 0:
+        if event.received_at_ts <= 0:
             return 0.0
-        return max(0.0, time.time() - float(event.start_time_ts))
+        return max(0.0, time.time() - float(event.received_at_ts))
 
     def _is_stale_live_event(self, event: EventData) -> bool:
         if event.is_false_positive:

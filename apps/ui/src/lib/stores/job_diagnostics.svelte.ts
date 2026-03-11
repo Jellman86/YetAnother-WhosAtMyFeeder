@@ -145,6 +145,7 @@ function createHealthSignature(health: any): string {
     const liveImageInFlight = Math.max(0, Math.floor(asFiniteNumber(liveImage?.in_flight)));
     const liveImageAbandoned = Math.max(0, Math.floor(asFiniteNumber(liveImage?.abandoned)));
     const liveImageRecoveryActive = !!liveImage?.recovery_active;
+    const liveImageRecoveryReason = normalizeString(liveImage?.recovery_reason, '-');
     const backgroundQueued = Math.max(0, Math.floor(asFiniteNumber(backgroundImage?.queued)));
     const backgroundThrottled = !!(backgroundImage?.background_throttled ?? ml?.background_throttled);
 
@@ -173,6 +174,7 @@ function createHealthSignature(health: any): string {
         liveImageInFlight,
         liveImageAbandoned,
         liveImageRecoveryActive ? 'recovery_active' : 'recovery_idle',
+        liveImageRecoveryReason,
         backgroundQueued,
         backgroundThrottled ? 'background_throttled' : 'background_clear',
         Math.floor(asFiniteNumber(liveWorkerPool.workers)),
@@ -263,6 +265,7 @@ function sanitizeHealthSnapshotPayload(health: any): Record<string, unknown> {
                 late_completions_ignored: Math.floor(asFiniteNumber(liveImage?.late_completions_ignored)),
                 oldest_running_age_seconds: asFiniteNumber(liveImage?.oldest_running_age_seconds),
                 recovery_active: Boolean(liveImage?.recovery_active),
+                recovery_reason: normalizeString(liveImage?.recovery_reason, ''),
                 recent_abandoned: Math.floor(asFiniteNumber(liveImage?.recent_abandoned)),
                 recent_late_completions_ignored: Math.floor(asFiniteNumber(liveImage?.recent_late_completions_ignored))
             },
@@ -518,16 +521,21 @@ class JobDiagnosticsStore {
         }
 
         if (Boolean(liveImage?.recovery_active)) {
+            const recoveryReason = normalizeString(liveImage?.recovery_reason, '');
+            const recoveryMessage = recoveryReason === 'worker_circuit_open'
+                ? 'Live image classifier is recovering worker processes'
+                : 'Live image classifier is reclaiming stale work';
             this.recordError({
                 source: 'health',
                 component: 'ml_live_image',
                 stage: 'admission',
                 reasonCode: 'recovery_active',
-                message: 'Live image classifier is reclaiming stale work',
+                message: recoveryMessage,
                 severity: 'critical',
                 timestamp: ts,
                 healthSnapshotId: snapshotId,
                 context: {
+                    recovery_reason: recoveryReason || null,
                     abandoned: Math.floor(asFiniteNumber(liveImage?.abandoned)),
                     recent_abandoned: Math.floor(asFiniteNumber(liveImage?.recent_abandoned)),
                     late_completions_ignored: Math.floor(asFiniteNumber(liveImage?.late_completions_ignored))

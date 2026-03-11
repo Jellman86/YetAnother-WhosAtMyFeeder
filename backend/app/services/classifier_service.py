@@ -1465,6 +1465,11 @@ class ClassifierService:
         supervisor_metrics = self._get_supervisor_metrics() or {}
         live_worker_pool = supervisor_metrics.get("live") if isinstance(supervisor_metrics, dict) else {}
         worker_circuit_open = bool((live_worker_pool or {}).get("circuit_open"))
+        recovery_reason = None
+        if worker_circuit_open:
+            recovery_reason = "worker_circuit_open"
+        elif recovery_active:
+            recovery_reason = "stale_work_reclaim"
 
         pressure_level = "normal"
         if queued > 0 or in_flight >= capacity:
@@ -1495,6 +1500,7 @@ class ClassifierService:
             "late_completions_ignored": int(admission_metrics["late_completions_ignored"]),
             "oldest_running_age_seconds": oldest_age,
             "recovery_active": recovery_active or worker_circuit_open,
+            "recovery_reason": recovery_reason,
             "recent_abandoned": recent_counts["recent_live_abandoned"],
             "recent_late_completions_ignored": recent_counts["recent_live_late_ignored"],
         }

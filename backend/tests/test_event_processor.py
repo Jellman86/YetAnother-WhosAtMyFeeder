@@ -514,7 +514,7 @@ async def test_process_mqtt_message_drops_stale_live_event_before_classification
         return_value=([{"label": "Sparrow", "score": 0.95, "index": 1}], b"img")
     )
 
-    payload = b'{"type":"new","after":{"id":"evt-stale-live-1","label":"bird","camera":"cam1","start_time":1700000000}}'
+    payload = b'{"type":"new","after":{"id":"evt-stale-live-1","label":"bird","camera":"cam1","start_time":1700000000},"__received_at_ts":1700000000.0}'
 
     with patch("app.services.event_processor.time.time", return_value=1700000100.0), \
          patch("app.services.event_processor.LIVE_EVENT_STALE_SECONDS", 30.0):
@@ -525,6 +525,41 @@ async def test_process_mqtt_message_drops_stale_live_event_before_classification
     assert status["started_events"] == 1
     assert status["dropped_events"] == 1
     assert status["drop_reasons"]["live_event_stale"] == 1
+
+
+@pytest.mark.asyncio
+async def test_process_mqtt_message_does_not_drop_backlog_event_when_received_recently():
+    classifier = MagicMock()
+    processor = EventProcessor(classifier)
+    processor._classify_snapshot = AsyncMock(  # type: ignore[method-assign]
+        return_value=([{"label": "Sparrow", "score": 0.95, "index": 1}], b"img")
+    )
+    processor._gather_context_data = AsyncMock(  # type: ignore[method-assign]
+        return_value={"audio_match": None, "weather_data": {}}
+    )
+    processor._correlate_audio = AsyncMock(return_value={  # type: ignore[method-assign]
+        "label": "Sparrow",
+        "score": 0.95,
+        "index": 1,
+        "audio_confirmed": False,
+        "audio_species": None,
+        "audio_score": None,
+    })
+    processor._handle_detection_save_and_notify = AsyncMock()  # type: ignore[method-assign]
+    processor.detection_service.filter_and_label = MagicMock(  # type: ignore[attr-defined]
+        return_value=({"label": "Sparrow", "score": 0.95, "index": 1}, None)
+    )
+
+    payload = b'{"type":"new","after":{"id":"evt-backlog-live-1","label":"bird","camera":"cam1","start_time":1700000000},"__received_at_ts":1700000099.5}'
+
+    with patch("app.services.event_processor.time.time", return_value=1700000100.0), \
+         patch("app.services.event_processor.LIVE_EVENT_STALE_SECONDS", 30.0):
+        await processor.process_mqtt_message(payload)
+
+    processor._classify_snapshot.assert_awaited_once()
+    status = processor.get_status()
+    assert "live_event_stale" not in status["drop_reasons"]
+    assert status["completed_events"] == 1
 
 
 @pytest.mark.asyncio
@@ -572,6 +607,62 @@ async def test_process_mqtt_message_coalesces_duplicate_live_event_while_active(
     assert status["completed_events"] == 1
     assert status["dropped_events"] == 1
     assert status["drop_reasons"]["live_event_coalesced"] == 1
+
+
+@pytest.mark.asyncio
+async def test_process_mqtt_message_allows_retry_after_classification_when_first_save_is_blocked():
+    classifier = MagicMock()
+    processor = EventProcessor(classifier)
+    first_save_started = asyncio.Event()
+    release_first_save = asyncio.Event()
+    classify_calls = 0
+    save_calls = 0
+
+    async def _classify(_event):
+        nonlocal classify_calls
+        classify_calls += 1
+        return ([{"label": "Sparrow", "score": 0.95, "index": 1}], b"img")
+
+    async def _save(*_args, **_kwargs):
+        nonlocal save_calls
+        save_calls += 1
+        if save_calls == 1:
+            first_save_started.set()
+            await release_first_save.wait()
+        return None
+
+    processor._classify_snapshot = _classify  # type: ignore[method-assign]
+    processor._gather_context_data = AsyncMock(  # type: ignore[method-assign]
+        return_value={"audio_match": None, "weather_data": {}}
+    )
+    processor._correlate_audio = AsyncMock(return_value={  # type: ignore[method-assign]
+        "label": "Sparrow",
+        "score": 0.95,
+        "index": 1,
+        "audio_confirmed": False,
+        "audio_species": None,
+        "audio_score": None,
+    })
+    processor._handle_detection_save_and_notify = _save  # type: ignore[method-assign]
+    processor.detection_service.filter_and_label = MagicMock(  # type: ignore[attr-defined]
+        return_value=({"label": "Sparrow", "score": 0.95, "index": 1}, None)
+    )
+
+    payload = b'{"type":"new","after":{"id":"evt-save-retry-live-1","label":"bird","camera":"cam1","start_time":1700000000}}'
+
+    first_task = asyncio.create_task(processor.process_mqtt_message(payload))
+    await first_save_started.wait()
+
+    await processor.process_mqtt_message(payload)
+
+    release_first_save.set()
+    await first_task
+
+    status = processor.get_status()
+    assert classify_calls == 2
+    assert save_calls == 2
+    assert "live_event_coalesced" not in status["drop_reasons"]
+    assert status["completed_events"] == 2
 
 
 def test_event_processor_status_recovers_after_stale_critical_failure():

@@ -923,6 +923,7 @@ def test_classifier_check_health_exposes_supervisor_pool_state():
     assert health["worker_pools"]["live"]["workers"] == 2
     assert health["worker_pools"]["live"]["circuit_open"] is True
     assert health["live_image"]["status"] == "degraded"
+    assert health["live_image"]["recovery_reason"] == "worker_circuit_open"
     assert status["worker_pools"]["live"]["restarts"] == 3
     assert status["late_results_ignored"] == 4
     service.shutdown()

@@ -211,7 +211,8 @@ describe('jobDiagnosticsStore', () => {
                     max_concurrent: 2,
                     in_flight: 2,
                     queued: 2,
-                    recovery_active: true
+                    recovery_active: true,
+                    recovery_reason: 'worker_circuit_open'
                 },
                 background_image: {
                     status: 'degraded',
@@ -257,10 +258,14 @@ describe('jobDiagnosticsStore', () => {
         expect(
             jobDiagnosticsStore.groups.some(
                 (group) =>
-                    group.component === 'ml_worker_live'
-                    && group.reasonCode === 'circuit_open'
+                    group.component === 'ml_live_image'
+                    && group.reasonCode === 'recovery_active'
+                    && group.message === 'Live image classifier is recovering worker processes'
             )
         ).toBe(true);
+        expect(jobDiagnosticsStore.healthSnapshots[0].payload.ml.live_image).toMatchObject({
+            recovery_reason: 'worker_circuit_open'
+        });
     });
 
     it('captures a new health snapshot when subprocess worker breaker state changes', () => {
