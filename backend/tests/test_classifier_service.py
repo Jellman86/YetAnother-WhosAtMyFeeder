@@ -892,6 +892,42 @@ def test_classifier_get_admission_status_is_lightweight_and_exposes_throttle_sta
     service.shutdown()
 
 
+def test_classifier_check_health_exposes_supervisor_pool_state():
+    with patch.object(ClassifierService, "_init_bird_model", return_value=None):
+        service = ClassifierService()
+
+    service._classifier_supervisor = MagicMock()
+    service._classifier_supervisor.get_metrics.return_value = {
+        "live": {
+            "workers": 2,
+            "restarts": 3,
+            "last_exit_reason": "heartbeat_timeout",
+            "circuit_open": True,
+            "circuit_open_until_monotonic": 123.0,
+        },
+        "background": {
+            "workers": 1,
+            "restarts": 0,
+            "last_exit_reason": None,
+            "circuit_open": False,
+            "circuit_open_until_monotonic": None,
+        },
+        "late_results_ignored": 4,
+    }
+    service._image_execution_mode = "subprocess"
+
+    health = service.check_health()
+    status = service.get_admission_status()
+
+    assert health["execution_mode"] == "subprocess"
+    assert health["worker_pools"]["live"]["workers"] == 2
+    assert health["worker_pools"]["live"]["circuit_open"] is True
+    assert health["live_image"]["status"] == "degraded"
+    assert status["worker_pools"]["live"]["restarts"] == 3
+    assert status["late_results_ignored"] == 4
+    service.shutdown()
+
+
 def test_classifier_service_shutdown_closes_all_executors():
     with patch.object(ClassifierService, "_init_bird_model", return_value=None):
         service = ClassifierService()

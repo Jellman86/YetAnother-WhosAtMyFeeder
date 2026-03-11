@@ -1442,6 +1442,15 @@ class ClassifierService:
                 counts["recent_live_late_ignored"] += 1
         return counts
 
+    def _get_supervisor_metrics(self) -> dict | None:
+        if self._classifier_supervisor is None:
+            return None
+        try:
+            metrics = self._classifier_supervisor.get_metrics()
+            return metrics if isinstance(metrics, dict) else None
+        except Exception:
+            return None
+
     def _describe_live_image_health(self, admission_metrics: dict) -> dict:
         live_metrics = admission_metrics["live"]
         recent_counts = self._recent_admission_outcome_counts(admission_metrics)
@@ -1453,6 +1462,9 @@ class ClassifierService:
             recent_counts["recent_live_abandoned"] > 0
             or recent_counts["recent_live_late_ignored"] > 0
         )
+        supervisor_metrics = self._get_supervisor_metrics() or {}
+        live_worker_pool = supervisor_metrics.get("live") if isinstance(supervisor_metrics, dict) else {}
+        worker_circuit_open = bool((live_worker_pool or {}).get("circuit_open"))
 
         pressure_level = "normal"
         if queued > 0 or in_flight >= capacity:
@@ -1464,9 +1476,11 @@ class ClassifierService:
             and oldest_age >= (CLASSIFIER_LIVE_IMAGE_LEASE_TIMEOUT_SECONDS * 0.8)
         ):
             pressure_level = "critical"
+        if worker_circuit_open:
+            pressure_level = "critical"
 
         status = "ok"
-        if recovery_active or pressure_level == "critical":
+        if recovery_active or pressure_level == "critical" or worker_circuit_open:
             status = "degraded"
 
         return {
@@ -1480,7 +1494,7 @@ class ClassifierService:
             "abandoned": int(live_metrics["abandoned"]),
             "late_completions_ignored": int(admission_metrics["late_completions_ignored"]),
             "oldest_running_age_seconds": oldest_age,
-            "recovery_active": recovery_active,
+            "recovery_active": recovery_active or worker_circuit_open,
             "recent_abandoned": recent_counts["recent_live_abandoned"],
             "recent_late_completions_ignored": recent_counts["recent_live_late_ignored"],
         }
@@ -1500,7 +1514,8 @@ class ClassifierService:
 
     def get_admission_status(self) -> dict:
         admission_metrics = self._classification_admission.get_metrics()
-        return {
+        status = {
+            "execution_mode": self._image_execution_mode,
             "live": {
                 "capacity": int(admission_metrics["live"]["capacity"]),
                 "queued": int(admission_metrics["live"]["queued"]),
@@ -1518,6 +1533,11 @@ class ClassifierService:
             "background_throttled": bool(admission_metrics["background_throttled"]),
             "late_completions_ignored": int(admission_metrics["late_completions_ignored"]),
         }
+        supervisor_metrics = self._get_supervisor_metrics()
+        if supervisor_metrics is not None:
+            status["worker_pools"] = supervisor_metrics
+            status["late_results_ignored"] = int(supervisor_metrics.get("late_results_ignored") or 0)
+        return status
 
     def check_health(self) -> dict:
         """Detailed health check for the classification service."""
@@ -1525,6 +1545,7 @@ class ClassifierService:
         admission_metrics = self._classification_admission.get_metrics()
         live_image_health = self._describe_live_image_health(admission_metrics)
         background_image_health = self._describe_background_image_health(admission_metrics)
+        supervisor_metrics = self._get_supervisor_metrics()
         
         # Determine which TFLite runtime is actually in use
         tflite_type = "none"
@@ -1534,8 +1555,9 @@ class ClassifierService:
             else:
                 tflite_type = "tensorflow-full"
 
-        return {
+        health = {
             "status": "ok" if (bird and bird.loaded) else "error",
+            "execution_mode": self._image_execution_mode,
             "runtimes": {
                 "tflite": {
                     "installed": tflite is not None,
@@ -1561,6 +1583,9 @@ class ClassifierService:
             "background_image": background_image_health,
             "background_throttled": background_image_health["background_throttled"],
         }
+        if supervisor_metrics is not None:
+            health["worker_pools"] = supervisor_metrics
+        return health
 
     # Legacy properties
     @property
@@ -1595,6 +1620,7 @@ class ClassifierService:
             active_model_id = None
 
         status = {
+            "image_execution_mode": self._image_execution_mode,
             "runtime": "tflite-runtime" if "tflite_runtime" in str(tflite) else "tensorflow",
             "runtime_installed": tflite is not None,
             "onnx_available": ONNX_AVAILABLE,
@@ -1649,7 +1675,10 @@ class ClassifierService:
             "cuda_enabled": _normalize_inference_provider(getattr(settings.classification, "inference_provider", "auto")) == "cuda",
             "models": {}
         }
-        
+        supervisor_metrics = self._get_supervisor_metrics()
+        if supervisor_metrics is not None:
+            status["worker_pools"] = supervisor_metrics
+
         for name, model in self._models.items():
             model_status = model.get_status()
             if name == "bird" and isinstance(model, ONNXModelInstance) and model.session:

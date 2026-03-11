@@ -194,6 +194,144 @@ describe('jobDiagnosticsStore', () => {
         ).toBe(true);
     });
 
+    it('captures subprocess worker pool breaker state in exported health snapshots', () => {
+        jobDiagnosticsStore.ingestHealth({
+            status: 'degraded',
+            startup_instance_id: 'abc123',
+            mqtt: { pressure_level: 'normal' },
+            event_pipeline: { critical_failures: 0, stage_timeouts: {}, stage_failures: {} },
+            notification_dispatcher: { dropped_jobs: 0 },
+            db_pool: { acquire_wait_max_ms: 0 },
+            startup_warnings: [],
+            ml: {
+                status: 'ok',
+                live_image: {
+                    status: 'degraded',
+                    pressure_level: 'critical',
+                    max_concurrent: 2,
+                    in_flight: 2,
+                    queued: 2,
+                    recovery_active: true
+                },
+                background_image: {
+                    status: 'degraded',
+                    queued: 4,
+                    background_throttled: true
+                },
+                execution_mode: 'subprocess',
+                worker_pools: {
+                    late_results_ignored: 3,
+                    live: {
+                        workers: 2,
+                        restarts: 4,
+                        last_exit_reason: 'heartbeat_timeout',
+                        circuit_open: true
+                    },
+                    background: {
+                        workers: 1,
+                        restarts: 1,
+                        last_exit_reason: 'deadline_exceeded',
+                        circuit_open: false
+                    }
+                }
+            }
+        });
+
+        expect(jobDiagnosticsStore.healthSnapshots.length).toBe(1);
+        expect(jobDiagnosticsStore.healthSnapshots[0].payload.ml).toMatchObject({
+            execution_mode: 'subprocess',
+            worker_pools: {
+                late_results_ignored: 3,
+                live: {
+                    restarts: 4,
+                    last_exit_reason: 'heartbeat_timeout',
+                    circuit_open: true
+                },
+                background: {
+                    restarts: 1,
+                    last_exit_reason: 'deadline_exceeded',
+                    circuit_open: false
+                }
+            }
+        });
+        expect(
+            jobDiagnosticsStore.groups.some(
+                (group) =>
+                    group.component === 'ml_worker_live'
+                    && group.reasonCode === 'circuit_open'
+            )
+        ).toBe(true);
+    });
+
+    it('captures a new health snapshot when subprocess worker breaker state changes', () => {
+        const base = {
+            status: 'degraded',
+            startup_instance_id: 'abc123',
+            mqtt: { pressure_level: 'normal' },
+            event_pipeline: { critical_failures: 0, stage_timeouts: {}, stage_failures: {} },
+            notification_dispatcher: { dropped_jobs: 0 },
+            db_pool: { acquire_wait_max_ms: 0 },
+            startup_warnings: [],
+            ml: {
+                status: 'ok',
+                live_image: {
+                    status: 'ok',
+                    pressure_level: 'normal',
+                    max_concurrent: 2,
+                    in_flight: 0,
+                    queued: 0,
+                    recovery_active: false
+                },
+                background_image: {
+                    status: 'ok',
+                    queued: 0,
+                    background_throttled: false
+                },
+                execution_mode: 'subprocess',
+                worker_pools: {
+                    late_results_ignored: 0,
+                    live: {
+                        workers: 2,
+                        restarts: 0,
+                        last_exit_reason: null,
+                        circuit_open: false
+                    },
+                    background: {
+                        workers: 1,
+                        restarts: 0,
+                        last_exit_reason: null,
+                        circuit_open: false
+                    }
+                }
+            }
+        };
+
+        jobDiagnosticsStore.ingestHealth(base);
+        jobDiagnosticsStore.ingestHealth({
+            ...base,
+            ml: {
+                ...base.ml,
+                live_image: {
+                    ...base.ml.live_image,
+                    status: 'degraded',
+                    recovery_active: true
+                },
+                worker_pools: {
+                    ...base.ml.worker_pools,
+                    late_results_ignored: 2,
+                    live: {
+                        ...base.ml.worker_pools.live,
+                        restarts: 3,
+                        last_exit_reason: 'worker_crash',
+                        circuit_open: true
+                    }
+                }
+            }
+        });
+
+        expect(jobDiagnosticsStore.healthSnapshots.length).toBe(2);
+    });
+
     it('deduplicates identical consecutive health snapshots and exports JSON', () => {
         const payload = {
             status: 'degraded',

@@ -153,6 +153,10 @@ def _build_running_message(job: BackfillJobStatus, classifier_status: Optional[d
     classifier_status = classifier_status or {}
     total = max(0, int(job.total or 0))
     processed = max(0, int(job.processed or 0))
+    worker_pools = classifier_status.get("worker_pools") or {}
+    live_worker = worker_pools.get("live") or {}
+    background_worker = worker_pools.get("background") or {}
+    worker_recovery_active = bool(live_worker.get("circuit_open")) or bool(background_worker.get("circuit_open"))
 
     if job.kind == "weather":
         if total <= 0:
@@ -161,6 +165,10 @@ def _build_running_message(job: BackfillJobStatus, classifier_status: Optional[d
 
     if total <= 0:
         return "Scanning historical events"
+    if worker_recovery_active and processed <= 0:
+        return "Paused while classifier workers recover"
+    if worker_recovery_active:
+        return "Waiting for classifier workers to recover"
     if classifier_status.get("background_throttled") and processed <= 0:
         return "Paused while live detections use classifier capacity"
     if classifier_status.get("background_throttled"):

@@ -39,3 +39,48 @@ def test_build_running_message_reports_live_pressure_pause():
         _build_running_message(job, {"background_throttled": True})
         == "Paused while live detections use classifier capacity"
     )
+
+
+def test_build_running_message_reports_classifier_recovery_pause():
+    job = BackfillJobStatus(
+        id="job-3",
+        kind="detections",
+        status="running",
+        processed=0,
+        total=200,
+    )
+    assert (
+        _build_running_message(
+            job,
+            {
+                "background_throttled": True,
+                "worker_pools": {
+                    "live": {"circuit_open": True},
+                    "background": {"circuit_open": False},
+                },
+            },
+        )
+        == "Paused while classifier workers recover"
+    )
+
+
+def test_build_running_message_reports_classifier_recovery_mid_run():
+    job = BackfillJobStatus(
+        id="job-4",
+        kind="detections",
+        status="running",
+        processed=48,
+        total=200,
+    )
+    assert (
+        _build_running_message(
+            job,
+            {
+                "worker_pools": {
+                    "live": {"circuit_open": False},
+                    "background": {"circuit_open": True},
+                },
+            },
+        )
+        == "Waiting for classifier workers to recover"
+    )

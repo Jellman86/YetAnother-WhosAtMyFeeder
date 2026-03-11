@@ -522,6 +522,120 @@ async def test_health_degraded_when_live_image_recovery_is_active(
 
 
 @pytest.mark.asyncio
+async def test_health_degraded_when_live_worker_circuit_is_open(
+    client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
+):
+    app.state.startup_warnings = []
+    monkeypatch.setattr(
+        main_module,
+        "get_classifier",
+        lambda: SimpleNamespace(
+            check_health=lambda: {
+                "status": "ok",
+                "execution_mode": "subprocess",
+                "worker_pools": {
+                    "live": {
+                        "workers": 2,
+                        "restarts": 3,
+                        "last_exit_reason": "heartbeat_timeout",
+                        "circuit_open": True,
+                    },
+                    "background": {
+                        "workers": 1,
+                        "restarts": 0,
+                        "last_exit_reason": None,
+                        "circuit_open": False,
+                    },
+                },
+                "runtimes": {},
+                "models": {},
+                "live_image": {
+                    "status": "degraded",
+                    "pressure_level": "critical",
+                    "max_concurrent": 2,
+                    "in_flight": 0,
+                    "queued": 0,
+                    "admission_timeouts": 0,
+                    "abandoned": 0,
+                    "late_completions_ignored": 0,
+                    "oldest_running_age_seconds": None,
+                    "recovery_active": True,
+                },
+                "background_image": {
+                    "status": "ok",
+                    "in_flight": 0,
+                    "queued": 0,
+                    "abandoned": 0,
+                    "background_throttled": False,
+                },
+                "background_throttled": False,
+            }
+        ),
+        raising=False,
+    )
+    monkeypatch.setattr(
+        main_module,
+        "mqtt_service",
+        SimpleNamespace(get_status=lambda: {"pressure_level": "normal"}),
+        raising=False,
+    )
+    monkeypatch.setattr(
+        main_module,
+        "auto_video_classifier",
+        SimpleNamespace(get_status=lambda: {"status": "ok"}),
+        raising=False,
+    )
+    monkeypatch.setattr(
+        main_module,
+        "high_quality_snapshot_service",
+        SimpleNamespace(get_status=lambda: {"enabled": True, "active": 0, "scheduled_total": 0, "duplicate_requests": 0, "disabled_requests": 0, "outcomes": {}, "last_result": None}),
+        raising=False,
+    )
+    monkeypatch.setattr(
+        main_module,
+        "notification_dispatcher",
+        SimpleNamespace(get_status=lambda: {"running": True, "workers": 2, "queue_size": 0, "queue_max": 100, "dropped_jobs": 0, "timeout_seconds": 30.0}),
+        raising=False,
+    )
+    monkeypatch.setattr(
+        main_module,
+        "get_db_pool_status",
+        lambda: {"acquire_wait_max_ms": 0.0},
+        raising=False,
+    )
+    monkeypatch.setattr(
+        main_module,
+        "event_processor",
+        SimpleNamespace(
+            get_status=lambda: {
+                "status": "ok",
+                "started_events": 0,
+                "completed_events": 0,
+                "dropped_events": 0,
+                "incomplete_events": 0,
+                "critical_failures": 0,
+                "stage_timeouts": {},
+                "stage_failures": {},
+                "stage_fallbacks": {},
+                "drop_reasons": {},
+                "last_stage_timeout": None,
+                "last_stage_failure": None,
+                "last_drop": None,
+                "last_completed": None,
+                "recent_outcomes": [],
+            }
+        ),
+        raising=False,
+    )
+
+    response = await client.get("/health")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "degraded"
+    assert body["ml"]["worker_pools"]["live"]["circuit_open"] is True
+
+
+@pytest.mark.asyncio
 async def test_health_degraded_when_db_pool_acquire_wait_is_extreme(
     client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
 ):

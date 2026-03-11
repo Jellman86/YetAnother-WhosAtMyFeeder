@@ -99,6 +99,16 @@ function sumCounterMap(counters: unknown): number {
     return total;
 }
 
+function normalizeWorkerPoolState(pool: unknown): Record<string, unknown> {
+    const value = pool && typeof pool === 'object' ? (pool as Record<string, unknown>) : {};
+    return {
+        workers: Math.max(0, Math.floor(asFiniteNumber(value.workers))),
+        restarts: Math.max(0, Math.floor(asFiniteNumber(value.restarts))),
+        last_exit_reason: normalizeString(value.last_exit_reason, ''),
+        circuit_open: Boolean(value.circuit_open)
+    };
+}
+
 function createHealthSignature(health: any): string {
     const status = normalizeString(health?.status, 'unknown').toLowerCase();
     const startupInstanceId = normalizeString(health?.startup_instance_id, 'unknown');
@@ -109,6 +119,11 @@ function createHealthSignature(health: any): string {
     const ml = health?.ml ?? {};
     const liveImage = ml?.live_image ?? {};
     const backgroundImage = ml?.background_image ?? {};
+    const executionMode = normalizeString(ml?.execution_mode ?? health?.execution_mode, 'in_process').toLowerCase();
+    const workerPools = ml?.worker_pools ?? health?.worker_pools ?? {};
+    const liveWorkerPool = normalizeWorkerPoolState(workerPools?.live);
+    const backgroundWorkerPool = normalizeWorkerPoolState(workerPools?.background);
+    const lateResultsIgnored = Math.max(0, Math.floor(asFiniteNumber(workerPools?.late_results_ignored)));
     const startupWarningCount = Array.isArray(health?.startup_warnings) ? health.startup_warnings.length : 0;
     const videoClassifier = health?.video_classifier ?? {};
 
@@ -151,6 +166,7 @@ function createHealthSignature(health: any): string {
         videoCircuitOpen ? 'circuit_open' : 'circuit_closed',
         videoCircuitUntil,
         videoFailureCount,
+        executionMode,
         liveImageStatus,
         liveImagePressure,
         liveImageQueued,
@@ -159,6 +175,15 @@ function createHealthSignature(health: any): string {
         liveImageRecoveryActive ? 'recovery_active' : 'recovery_idle',
         backgroundQueued,
         backgroundThrottled ? 'background_throttled' : 'background_clear',
+        Math.floor(asFiniteNumber(liveWorkerPool.workers)),
+        Math.floor(asFiniteNumber(liveWorkerPool.restarts)),
+        normalizeString(liveWorkerPool.last_exit_reason, '-'),
+        Boolean(liveWorkerPool.circuit_open) ? 'live_worker_circuit_open' : 'live_worker_circuit_closed',
+        Math.floor(asFiniteNumber(backgroundWorkerPool.workers)),
+        Math.floor(asFiniteNumber(backgroundWorkerPool.restarts)),
+        normalizeString(backgroundWorkerPool.last_exit_reason, '-'),
+        Boolean(backgroundWorkerPool.circuit_open) ? 'background_worker_circuit_open' : 'background_worker_circuit_closed',
+        lateResultsIgnored,
         startupWarningCount
     ].join('|');
 }
@@ -171,6 +196,8 @@ function sanitizeHealthSnapshotPayload(health: any): Record<string, unknown> {
     const ml = health?.ml ?? {};
     const liveImage = ml?.live_image ?? {};
     const backgroundImage = ml?.background_image ?? {};
+    const executionMode = normalizeString(ml?.execution_mode ?? health?.execution_mode, 'in_process');
+    const workerPools = ml?.worker_pools ?? health?.worker_pools ?? {};
     const videoClassifier = health?.video_classifier ?? {};
     const startupWarnings = Array.isArray(health?.startup_warnings) ? health.startup_warnings : [];
 
@@ -223,6 +250,7 @@ function sanitizeHealthSnapshotPayload(health: any): Record<string, unknown> {
         },
         ml: {
             status: normalizeString(ml?.status, 'unknown'),
+            execution_mode: executionMode,
             live_image: {
                 status: normalizeString(liveImage?.status, 'unknown'),
                 pressure_level: normalizeString(liveImage?.pressure_level, 'unknown'),
@@ -244,6 +272,11 @@ function sanitizeHealthSnapshotPayload(health: any): Record<string, unknown> {
                 queued: Math.floor(asFiniteNumber(backgroundImage?.queued)),
                 abandoned: Math.floor(asFiniteNumber(backgroundImage?.abandoned)),
                 background_throttled: Boolean(backgroundImage?.background_throttled ?? ml?.background_throttled)
+            },
+            worker_pools: {
+                late_results_ignored: Math.floor(asFiniteNumber(workerPools?.late_results_ignored)),
+                live: normalizeWorkerPoolState(workerPools?.live),
+                background: normalizeWorkerPoolState(workerPools?.background)
             }
         },
         video_classifier: {
@@ -517,6 +550,60 @@ class JobDiagnosticsStore {
                     queued: Math.floor(asFiniteNumber(backgroundImage?.queued)),
                     in_flight: Math.floor(asFiniteNumber(backgroundImage?.in_flight))
                 }
+            });
+        }
+
+        const workerPools = ml?.worker_pools ?? health?.worker_pools ?? {};
+        const liveWorkerPool = normalizeWorkerPoolState(workerPools?.live);
+        if (Boolean(liveWorkerPool.circuit_open)) {
+            this.recordError({
+                source: 'health',
+                component: 'ml_worker_live',
+                stage: 'supervisor',
+                reasonCode: 'circuit_open',
+                message: 'Live classifier workers are recovering under circuit breaker',
+                severity: 'critical',
+                timestamp: ts,
+                healthSnapshotId: snapshotId,
+                context: {
+                    workers: Math.floor(asFiniteNumber(liveWorkerPool.workers)),
+                    restarts: Math.floor(asFiniteNumber(liveWorkerPool.restarts)),
+                    last_exit_reason: normalizeString(liveWorkerPool.last_exit_reason, '') || null
+                }
+            });
+        }
+
+        const backgroundWorkerPool = normalizeWorkerPoolState(workerPools?.background);
+        if (Boolean(backgroundWorkerPool.circuit_open)) {
+            this.recordError({
+                source: 'health',
+                component: 'ml_worker_background',
+                stage: 'supervisor',
+                reasonCode: 'circuit_open',
+                message: 'Background classifier workers are paused by circuit breaker',
+                severity: 'warning',
+                timestamp: ts,
+                healthSnapshotId: snapshotId,
+                context: {
+                    workers: Math.floor(asFiniteNumber(backgroundWorkerPool.workers)),
+                    restarts: Math.floor(asFiniteNumber(backgroundWorkerPool.restarts)),
+                    last_exit_reason: normalizeString(backgroundWorkerPool.last_exit_reason, '') || null
+                }
+            });
+        }
+
+        const lateResultsIgnored = Math.max(0, Math.floor(asFiniteNumber(workerPools?.late_results_ignored)));
+        if (lateResultsIgnored > 0) {
+            this.recordError({
+                source: 'health',
+                component: 'ml_worker_supervisor',
+                stage: 'supervisor',
+                reasonCode: 'late_results_ignored',
+                message: `Classifier supervisor ignored ${lateResultsIgnored} stale worker result(s)`,
+                severity: 'warning',
+                timestamp: ts,
+                healthSnapshotId: snapshotId,
+                context: { late_results_ignored: lateResultsIgnored }
             });
         }
 
