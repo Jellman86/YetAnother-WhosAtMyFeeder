@@ -1,4 +1,5 @@
 import type { Detection } from '../api';
+import { formatBackfillProgressSummary, resolveRunningBackfillMessage } from '../backfill/progress';
 import { notificationPolicy } from '../notifications/policy';
 
 const STALE_PROCESS_MAX_AGE_MS = 45 * 60 * 1000;
@@ -789,7 +790,7 @@ export class LiveUpdateCoordinator {
         const skipped = Number.isFinite(Number(data.skipped)) ? Math.max(0, Math.floor(Number(data.skipped))) : 0;
         const errors = Number.isFinite(Number(data.errors)) ? Math.max(0, Math.floor(Number(data.errors))) : 0;
         const hasOngoingState = payload.type === 'backfill_progress' || payload.type === 'backfill_started';
-        const normalizedTotal = total > 0 ? total : (hasOngoingState ? Math.max(1, processed) : 0);
+        const normalizedTotal = total > 0 ? total : 0;
 
         let title = isWeather ? this.deps.t('notifications.event_weather_backfill') : this.deps.t('notifications.event_backfill');
         if (payload.type === 'backfill_complete') {
@@ -801,7 +802,13 @@ export class LiveUpdateCoordinator {
 
         let message = '';
         if (payload.type === 'backfill_progress' || payload.type === 'backfill_started') {
-            message = `${processed.toLocaleString()}/${normalizedTotal.toLocaleString()} • ${updated.toLocaleString()} upd • ${skipped.toLocaleString()} skip • ${errors.toLocaleString()} err`;
+            message = resolveRunningBackfillMessage(
+                {
+                    status: 'running',
+                    message: typeof data.message === 'string' ? data.message : ''
+                },
+                formatBackfillProgressSummary(processed, normalizedTotal, updated, skipped, errors)
+            );
         } else if (payload.type === 'backfill_complete') {
             message = data.message || `${updated.toLocaleString()} updated, ${skipped.toLocaleString()} skipped, ${errors.toLocaleString()} errors`;
         } else if (payload.type === 'backfill_failed') {
@@ -818,8 +825,14 @@ export class LiveUpdateCoordinator {
         if (!this.deps.applyNotificationPolicy(id, signature, throttleMs)) return;
         const isTerminal = payload.type === 'backfill_complete' || payload.type === 'backfill_failed';
         const jobTitle = isWeather ? this.deps.t('notifications.event_weather_backfill') : this.deps.t('notifications.event_backfill');
-        const progressTotal = total > 0 ? total : (isTerminal ? processed : normalizedTotal);
-        const progressMessage = `${processed.toLocaleString()}/${normalizedTotal.toLocaleString()} • ${updated.toLocaleString()} upd • ${skipped.toLocaleString()} skip • ${errors.toLocaleString()} err`;
+        const progressTotal = total > 0 ? total : (isTerminal ? processed : 0);
+        const progressMessage = resolveRunningBackfillMessage(
+            {
+                status: 'running',
+                message: typeof data.message === 'string' ? data.message : ''
+            },
+            formatBackfillProgressSummary(processed, normalizedTotal, updated, skipped, errors)
+        );
         if (payload.type === 'backfill_failed') {
             this.deps.jobProgress.markFailed({
                 id,

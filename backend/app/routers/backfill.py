@@ -149,6 +149,27 @@ def _build_skipped_message(skipped: int, skipped_reasons: Optional[dict[str, int
     return ", ".join(parts)
 
 
+def _build_running_message(job: BackfillJobStatus, classifier_status: Optional[dict] = None) -> str:
+    classifier_status = classifier_status or {}
+    total = max(0, int(job.total or 0))
+    processed = max(0, int(job.processed or 0))
+
+    if job.kind == "weather":
+        if total <= 0:
+            return "Scanning detections for missing weather"
+        return "Filling weather history"
+
+    if total <= 0:
+        return "Scanning historical events"
+    if classifier_status.get("background_throttled") and processed <= 0:
+        return "Paused while live detections use classifier capacity"
+    if classifier_status.get("background_throttled"):
+        return "Throttled by live detections"
+    if processed <= 0:
+        return f"Queued {total} historical event(s)"
+    return "Processing historical events"
+
+
 def _resolve_date_range(date_range: str, start_date: Optional[str], end_date: Optional[str], lang: str) -> tuple[datetime, datetime]:
     now = datetime.now()
     if date_range == "day":
@@ -334,6 +355,7 @@ async def backfill_detections_async(
             )
             job.total = len(events)
             job.processed = 0
+            job.message = _build_running_message(job, backfill_service.classifier.get_admission_status())
             last_broadcast = 0
             broadcast_every = max(1, job.total // 20) if job.total else 1
             await broadcaster.broadcast({
@@ -354,6 +376,7 @@ async def backfill_detections_async(
                     job.errors += 1
                 if job.processed - last_broadcast >= broadcast_every or job.processed == job.total:
                     last_broadcast = job.processed
+                    job.message = _build_running_message(job, backfill_service.classifier.get_admission_status())
                     await broadcaster.broadcast({
                         "type": "backfill_progress",
                         "data": _job_payload(job)

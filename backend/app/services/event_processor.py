@@ -11,6 +11,7 @@ from typing import Optional, Dict, Any, Tuple
 from types import SimpleNamespace
 
 from app.config import settings
+from app.services.classification_admission import ClassificationLeaseExpiredError
 from app.services.classifier_service import ClassifierService, LiveImageClassificationOverloadedError
 from app.services.high_quality_snapshot_service import high_quality_snapshot_service
 from app.services.media_cache import media_cache
@@ -49,6 +50,7 @@ EVENT_PIPELINE_RECOVERY_WINDOW_SECONDS = max(
     1.0, float(os.getenv("EVENT_PIPELINE_RECOVERY_WINDOW_SECONDS", "300"))
 )
 _CLASSIFY_SNAPSHOT_OVERLOADED = object()
+_CLASSIFY_SNAPSHOT_TIMED_OUT = object()
 
 
 class EventData:
@@ -140,7 +142,7 @@ class EventProcessor:
         }
         payload.update(details)
         self._last_drop = payload
-        severity = "error" if reason_key in {"classify_snapshot_unavailable", "save_and_notify_failed"} else "warning"
+        severity = "error" if reason_key in {"classify_snapshot_unavailable", "classify_snapshot_timeout", "save_and_notify_failed"} else "warning"
         error_diagnostics_history.record(
             source="event_pipeline",
             component="event_processor",
@@ -221,6 +223,9 @@ class EventProcessor:
             return False
         return isinstance(error, LiveImageClassificationOverloadedError) or str(error) == "classify_snapshot_overloaded"
 
+    def _is_classify_snapshot_lease_expired(self, stage: str, error: Exception) -> bool:
+        return stage == "classify_snapshot" and isinstance(error, ClassificationLeaseExpiredError)
+
     def get_status(self) -> dict[str, Any]:
         stage_timeouts = dict(self._stage_timeouts)
         stage_failures = dict(self._stage_failures)
@@ -276,12 +281,13 @@ class EventProcessor:
                 stage=stage,
                 timeout_seconds=timeout_seconds,
             )
+            if stage == "classify_snapshot":
+                return False, _CLASSIFY_SNAPSHOT_TIMED_OUT
             return False, fallback
         except asyncio.CancelledError:
             raise
         except Exception as e:
             if self._is_classify_snapshot_overload(stage, e):
-                self._record_drop(event_id, "classify_snapshot_overloaded", stage=stage)
                 log.warning(
                     "MQTT event stage overloaded",
                     event_id=event_id,
@@ -289,6 +295,16 @@ class EventProcessor:
                     error=str(e),
                 )
                 return False, _CLASSIFY_SNAPSHOT_OVERLOADED
+            if self._is_classify_snapshot_lease_expired(stage, e):
+                timeout_seconds = float(getattr(e, "timeout_seconds", EVENT_STAGE_TIMEOUT_CLASSIFY_SECONDS))
+                self._record_stage_timeout(stage, event_id, timeout_seconds)
+                log.warning(
+                    "MQTT event stage lease expired",
+                    event_id=event_id,
+                    stage=stage,
+                    timeout_seconds=timeout_seconds,
+                )
+                return False, _CLASSIFY_SNAPSHOT_TIMED_OUT
             self._record_stage_failure(stage, event_id, str(e))
             log.error(
                 "MQTT event stage failed",
@@ -379,6 +395,10 @@ class EventProcessor:
             fallback=None,
         )
         if classification_result is _CLASSIFY_SNAPSHOT_OVERLOADED:
+            self._record_drop(event.frigate_event, "classify_snapshot_overloaded", stage="classify_snapshot")
+            return
+        if classification_result is _CLASSIFY_SNAPSHOT_TIMED_OUT:
+            self._record_drop(event.frigate_event, "classify_snapshot_timeout", stage="classify_snapshot")
             return
         if not classification_result:
             log.info(
@@ -588,6 +608,8 @@ class EventProcessor:
 
             return (results, snapshot_data)
 
+        except (LiveImageClassificationOverloadedError, ClassificationLeaseExpiredError):
+            raise
         except Exception as e:
             log.error("Classification failed", event_id=event.frigate_event, error=str(e))
             return None

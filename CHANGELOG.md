@@ -6,6 +6,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- **Added:** Issue `#22` classifier resilience hardening: a live/background admission coordinator with lease reclaim and stale-completion rejection, recovery-aware ML/event-pipeline health reporting, richer diagnostics export, and truthful paused/throttled backfill progress messaging.
+- **Added:** New subprocess classifier-supervisor foundation behind `classification.image_execution_mode`, including worker config/settings, a framed worker protocol, worker-process and worker-client primitives, supervised live/background pools, watchdog-based worker replacement, restart-budget circuit breaking, and initial `ClassifierService` routing hooks for subprocess image execution.
 - **Changed:** App shell refactor extracted mobile top-bar UI and stale reclassification recovery orchestration into dedicated modules, reducing `App.svelte` to a slimmer route/layout coordinator.
 - **Changed:** Legacy API-key fallback auth helpers were consolidated into `app/auth.py`, and router/main imports now use the unified auth module.
 - **Removed:** Deprecated `backend/app/auth_legacy.py`; legacy API-key behavior remains supported via `get_auth_context_with_legacy` in `app/auth.py`.

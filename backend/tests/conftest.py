@@ -2,6 +2,7 @@
 import os
 import tempfile
 import pytest
+import pytest_asyncio
 import sys
 from pathlib import Path
 
@@ -73,6 +74,14 @@ def disable_rate_limiting():
     limiter.enabled = False
     yield
     limiter.enabled = old_enabled
+
+
+@pytest_asyncio.fixture(autouse=True)
+async def cleanup_async_singletons():
+    yield
+    from app.services.notification_dispatcher import notification_dispatcher
+
+    await notification_dispatcher.stop()
 
 
 

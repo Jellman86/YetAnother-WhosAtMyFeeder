@@ -211,6 +211,19 @@ class ClassificationSettings(BaseModel):
     video_classification_stale_minutes: int = Field(default=15, ge=1, description="Mark pending/processing as failed after this many minutes")
     video_classification_frames: int = Field(default=15, ge=5, le=100, description="Number of frames to sample for video classification")
     inference_provider: str = Field(default="auto", description="Preferred inference provider: auto|cpu|cuda|intel_gpu|intel_cpu")
+    image_execution_mode: str = Field(
+        default="in_process",
+        description="Image inference execution mode: in_process|subprocess",
+    )
+    live_worker_count: int = Field(default=2, ge=1, le=8, description="Live classifier worker process count")
+    background_worker_count: int = Field(default=1, ge=1, le=4, description="Background classifier worker process count")
+    worker_heartbeat_timeout_seconds: float = Field(default=5.0, ge=0.5, le=60.0, description="Classifier worker heartbeat timeout in seconds")
+    worker_hard_deadline_seconds: float = Field(default=35.0, ge=1.0, le=300.0, description="Hard deadline before killing a stuck classifier worker")
+    worker_restart_window_seconds: float = Field(default=60.0, ge=1.0, le=3600.0, description="Rolling window for classifier worker restart budget")
+    worker_restart_threshold: int = Field(default=3, ge=1, le=100, description="Restart count in window before classifier circuit breaker opens")
+    worker_breaker_cooldown_seconds: float = Field(default=60.0, ge=1.0, le=3600.0, description="Cooldown while classifier worker circuit breaker is open")
+    live_event_stale_drop_seconds: float = Field(default=30.0, ge=1.0, le=3600.0, description="Drop live events older than this before classifier admission")
+    live_event_coalescing_enabled: bool = Field(default=True, description="Coalesce duplicate live image classification requests before admission")
     ai_pricing_json: str = Field(default="[]", description="JSON string containing AI pricing overrides")
 
     # Classification output settings
@@ -228,6 +241,16 @@ class ClassificationSettings(BaseModel):
         if normalized not in allowed:
             log.warning("Invalid inference_provider in config; falling back to auto", value=v)
             return "auto"
+        return normalized
+
+    @field_validator("image_execution_mode")
+    @classmethod
+    def validate_image_execution_mode(cls, v: str) -> str:
+        normalized = (v or "in_process").strip().lower()
+        allowed = {"in_process", "subprocess"}
+        if normalized not in allowed:
+            log.warning("Invalid image_execution_mode in config; falling back to in_process", value=v)
+            return "in_process"
         return normalized
 
 class MaintenanceSettings(BaseModel):

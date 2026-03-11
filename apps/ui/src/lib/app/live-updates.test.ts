@@ -239,4 +239,27 @@ describe('LiveUpdateCoordinator reclassify fallback', () => {
 
         expect(calls.notificationUpserts.length).toBe(0);
     });
+
+    it('keeps backfill progress totals unknown when the backend has not reported one yet', () => {
+        const { coordinator, calls } = buildCoordinator();
+
+        coordinator.handlePayload({
+            type: 'backfill_started',
+            data: {
+                id: 'job-unknown-total',
+                kind: 'detections',
+                status: 'running',
+                processed: 0,
+                total: 0,
+                new_detections: 0,
+                skipped: 0,
+                errors: 0,
+                message: 'Scanning historical events'
+            }
+        });
+
+        expect(calls.upsertRunning.length).toBe(1);
+        expect(calls.upsertRunning[0].total).toBe(0);
+        expect(calls.upsertRunning[0].message).toBe('Scanning historical events');
+    });
 });

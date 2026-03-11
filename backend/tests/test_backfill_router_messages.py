@@ -1,4 +1,4 @@
-from app.routers.backfill import _build_skipped_message
+from app.routers.backfill import BackfillJobStatus, _build_running_message, _build_skipped_message
 
 
 def test_build_skipped_message_without_reasons():
@@ -20,3 +20,22 @@ def test_build_skipped_message_mixed_reasons():
         },
     )
     assert msg == "5 already existed, 10 skipped by filters/validation"
+
+
+def test_build_running_message_reports_scanning_when_total_unknown():
+    job = BackfillJobStatus(id="job-1", kind="detections", status="running")
+    assert _build_running_message(job, {}) == "Scanning historical events"
+
+
+def test_build_running_message_reports_live_pressure_pause():
+    job = BackfillJobStatus(
+        id="job-2",
+        kind="detections",
+        status="running",
+        processed=0,
+        total=200,
+    )
+    assert (
+        _build_running_message(job, {"background_throttled": True})
+        == "Paused while live detections use classifier capacity"
+    )

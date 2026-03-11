@@ -64,6 +64,11 @@
     import { jobDiagnosticsStore } from '../stores/job_diagnostics.svelte';
     import { notificationCenter } from '../stores/notification_center.svelte';
     import { notificationPolicy } from '../notifications/policy';
+    import {
+        formatBackfillProgressSummary,
+        resolveRunningBackfillMessage,
+        updateScopedBackfillProgress
+    } from '../backfill/progress';
     import { _, locale } from 'svelte-i18n';
     import { get } from 'svelte/store';
     import SettingsTabs from '../components/settings/SettingsTabs.svelte';
@@ -1369,14 +1374,15 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
         }
         return fallback;
     };
-    const mergeBackfillTotal = (previous: number, status: BackfillJobStatus | null): number => {
-        if (!status) return previous;
-        const total = safeCount(status.total);
-        const processed = safeCount(status.processed);
-        if (total > 0) return Math.max(previous, total);
-        if (processed > 0) return Math.max(previous, processed);
-        if (status.status === 'running') return Math.max(previous, 1);
-        return previous;
+    const mergeBackfillTotal = (
+        previousJobId: string | null,
+        previousTotal: number,
+        status: BackfillJobStatus | null
+    ): { jobId: string | null; total: number } => {
+        return updateScopedBackfillProgress(
+            { jobId: previousJobId, total: previousTotal },
+            status
+        );
     };
 
     function isBackfillNotificationForKind(item: { id: string; meta?: { kind?: unknown } }, kind: 'detections' | 'weather') {
@@ -1428,8 +1434,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
         const errors = safeCount(status.errors);
 
         const isRunning = status.status === 'running';
-        const normalizedTotal = total > 0 ? total : (isRunning ? Math.max(1, processed) : 0);
-        const progressTotal = total > 0 ? total : Math.max(processed, normalizedTotal);
+        const normalizedTotal = total > 0 ? total : 0;
+        const progressTotal = total > 0 ? total : (isRunning ? 0 : processed);
         settleBackfillProcessNotifications(kind, isRunning ? id : undefined);
 
         let title = kind === 'weather'
@@ -1460,13 +1466,15 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             return;
         }
 
-        let message = `${processed.toLocaleString()}/${normalizedTotal.toLocaleString()} • ${updated.toLocaleString()} upd • ${skipped.toLocaleString()} skip • ${errors.toLocaleString()} err`;
+        let message = formatBackfillProgressSummary(processed, normalizedTotal, updated, skipped, errors);
         if (!isRunning) {
             if (status.status === 'failed') {
                 message = status.message || $_('notifications.event_backfill_failed');
             } else {
                 message = status.message || `${updated.toLocaleString()} updated, ${skipped.toLocaleString()} skipped, ${errors.toLocaleString()} errors`;
             }
+        } else {
+            message = resolveRunningBackfillMessage(status, message);
         }
 
         const progressTitle = kind === 'weather'
@@ -1730,10 +1738,12 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     let backfilling = $state(false);
     let backfillResult = $state<BackfillResult | null>(null);
     let backfillJob = $state<BackfillJobStatus | null>(null);
+    let backfillTotalJobId = $state<string | null>(null);
     let backfillTotal = $state(0);
     let weatherBackfilling = $state(false);
     let weatherBackfillResult = $state<WeatherBackfillResult | null>(null);
     let weatherBackfillJob = $state<BackfillJobStatus | null>(null);
+    let weatherBackfillTotalJobId = $state<string | null>(null);
     let weatherBackfillTotal = $state(0);
     let backfillPollInterval: ReturnType<typeof setInterval> | null = null;
     let resettingDatabase = $state(false);
@@ -2101,6 +2111,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
         message = null;
         backfillResult = null;
         backfillJob = null;
+        backfillTotalJobId = null;
         backfillTotal = 0;
         try {
             const job = await startBackfillJob({
@@ -2109,7 +2120,9 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 end_date: backfillDateRange === 'custom' ? backfillEndDate : undefined
             });
             backfillJob = job;
-            backfillTotal = mergeBackfillTotal(backfillTotal, job);
+            const scoped = mergeBackfillTotal(backfillTotalJobId, backfillTotal, job);
+            backfillTotalJobId = scoped.jobId;
+            backfillTotal = scoped.total;
             startBackfillPolling();
         } catch (e: any) {
             message = { type: 'error', text: e.message || $_('settings.data.backfill_error') };
@@ -2125,6 +2138,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
         message = null;
         weatherBackfillResult = null;
         weatherBackfillJob = null;
+        weatherBackfillTotalJobId = null;
         weatherBackfillTotal = 0;
         try {
             const job = await startWeatherBackfillJob({
@@ -2134,7 +2148,9 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 only_missing: true
             });
             weatherBackfillJob = job;
-            weatherBackfillTotal = mergeBackfillTotal(weatherBackfillTotal, job);
+            const scoped = mergeBackfillTotal(weatherBackfillTotalJobId, weatherBackfillTotal, job);
+            weatherBackfillTotalJobId = scoped.jobId;
+            weatherBackfillTotal = scoped.total;
             startBackfillPolling();
         } catch (e: any) {
             message = { type: 'error', text: e.message || $_('settings.data.weather_backfill_error') };
@@ -2167,7 +2183,9 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     skipped_reasons: detections.skipped_reasons ?? {},
                     message: detections.message || ''
                 };
-                backfillTotal = mergeBackfillTotal(backfillTotal, detections);
+                const scoped = mergeBackfillTotal(backfillTotalJobId, backfillTotal, detections);
+                backfillTotalJobId = scoped.jobId;
+                backfillTotal = scoped.total;
                 backfilling = detections.status === 'running';
                 if (detections.status === 'completed') {
                     if (emitTerminalBackfillToast('detections', detections, 'success', 'Backfill complete')) {
@@ -2179,6 +2197,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             } else {
                 backfillJob = null;
                 backfillResult = null;
+                backfillTotalJobId = null;
                 backfillTotal = 0;
                 backfilling = false;
             }
@@ -2194,7 +2213,9 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     errors: safeCount(weather.errors),
                     message: weather.message || ''
                 };
-                weatherBackfillTotal = mergeBackfillTotal(weatherBackfillTotal, weather);
+                const scoped = mergeBackfillTotal(weatherBackfillTotalJobId, weatherBackfillTotal, weather);
+                weatherBackfillTotalJobId = scoped.jobId;
+                weatherBackfillTotal = scoped.total;
                 weatherBackfilling = weather.status === 'running';
                 if (weather.status === 'completed') {
                     emitTerminalBackfillToast('weather', weather, 'success', 'Weather backfill complete');
@@ -2204,6 +2225,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             } else {
                 weatherBackfillJob = null;
                 weatherBackfillResult = null;
+                weatherBackfillTotalJobId = null;
                 weatherBackfillTotal = 0;
                 weatherBackfilling = false;
             }

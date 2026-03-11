@@ -106,6 +106,9 @@ function createHealthSignature(health: any): string {
     const mqtt = health?.mqtt ?? {};
     const notificationDispatcher = health?.notification_dispatcher ?? {};
     const dbPool = health?.db_pool ?? {};
+    const ml = health?.ml ?? {};
+    const liveImage = ml?.live_image ?? {};
+    const backgroundImage = ml?.background_image ?? {};
     const startupWarningCount = Array.isArray(health?.startup_warnings) ? health.startup_warnings.length : 0;
     const videoClassifier = health?.video_classifier ?? {};
 
@@ -121,6 +124,14 @@ function createHealthSignature(health: any): string {
     const videoCircuitOpen = !!videoClassifier?.circuit_open;
     const videoCircuitUntil = normalizeString(videoClassifier?.open_until, '-');
     const videoFailureCount = Math.max(0, Math.floor(asFiniteNumber(videoClassifier?.failure_count)));
+    const liveImageStatus = normalizeString(liveImage?.status, 'unknown').toLowerCase();
+    const liveImagePressure = normalizeString(liveImage?.pressure_level, 'unknown').toLowerCase();
+    const liveImageQueued = Math.max(0, Math.floor(asFiniteNumber(liveImage?.queued)));
+    const liveImageInFlight = Math.max(0, Math.floor(asFiniteNumber(liveImage?.in_flight)));
+    const liveImageAbandoned = Math.max(0, Math.floor(asFiniteNumber(liveImage?.abandoned)));
+    const liveImageRecoveryActive = !!liveImage?.recovery_active;
+    const backgroundQueued = Math.max(0, Math.floor(asFiniteNumber(backgroundImage?.queued)));
+    const backgroundThrottled = !!(backgroundImage?.background_throttled ?? ml?.background_throttled);
 
     return [
         status,
@@ -140,6 +151,14 @@ function createHealthSignature(health: any): string {
         videoCircuitOpen ? 'circuit_open' : 'circuit_closed',
         videoCircuitUntil,
         videoFailureCount,
+        liveImageStatus,
+        liveImagePressure,
+        liveImageQueued,
+        liveImageInFlight,
+        liveImageAbandoned,
+        liveImageRecoveryActive ? 'recovery_active' : 'recovery_idle',
+        backgroundQueued,
+        backgroundThrottled ? 'background_throttled' : 'background_clear',
         startupWarningCount
     ].join('|');
 }
@@ -150,6 +169,8 @@ function sanitizeHealthSnapshotPayload(health: any): Record<string, unknown> {
     const notificationDispatcher = health?.notification_dispatcher ?? {};
     const dbPool = health?.db_pool ?? {};
     const ml = health?.ml ?? {};
+    const liveImage = ml?.live_image ?? {};
+    const backgroundImage = ml?.background_image ?? {};
     const videoClassifier = health?.video_classifier ?? {};
     const startupWarnings = Array.isArray(health?.startup_warnings) ? health.startup_warnings : [];
 
@@ -201,7 +222,29 @@ function sanitizeHealthSnapshotPayload(health: any): Record<string, unknown> {
             acquire_timeouts: Math.floor(asFiniteNumber(dbPool?.acquire_timeouts))
         },
         ml: {
-            status: normalizeString(ml?.status, 'unknown')
+            status: normalizeString(ml?.status, 'unknown'),
+            live_image: {
+                status: normalizeString(liveImage?.status, 'unknown'),
+                pressure_level: normalizeString(liveImage?.pressure_level, 'unknown'),
+                max_concurrent: Math.floor(asFiniteNumber(liveImage?.max_concurrent)),
+                in_flight: Math.floor(asFiniteNumber(liveImage?.in_flight)),
+                queued: Math.floor(asFiniteNumber(liveImage?.queued)),
+                admission_timeout_seconds: asFiniteNumber(liveImage?.admission_timeout_seconds),
+                admission_timeouts: Math.floor(asFiniteNumber(liveImage?.admission_timeouts)),
+                abandoned: Math.floor(asFiniteNumber(liveImage?.abandoned)),
+                late_completions_ignored: Math.floor(asFiniteNumber(liveImage?.late_completions_ignored)),
+                oldest_running_age_seconds: asFiniteNumber(liveImage?.oldest_running_age_seconds),
+                recovery_active: Boolean(liveImage?.recovery_active),
+                recent_abandoned: Math.floor(asFiniteNumber(liveImage?.recent_abandoned)),
+                recent_late_completions_ignored: Math.floor(asFiniteNumber(liveImage?.recent_late_completions_ignored))
+            },
+            background_image: {
+                status: normalizeString(backgroundImage?.status, 'unknown'),
+                in_flight: Math.floor(asFiniteNumber(backgroundImage?.in_flight)),
+                queued: Math.floor(asFiniteNumber(backgroundImage?.queued)),
+                abandoned: Math.floor(asFiniteNumber(backgroundImage?.abandoned)),
+                background_throttled: Boolean(backgroundImage?.background_throttled ?? ml?.background_throttled)
+            }
         },
         video_classifier: {
             status: normalizeString(videoClassifier?.status, 'unknown'),
@@ -417,6 +460,63 @@ class JobDiagnosticsStore {
                 timestamp: ts,
                 healthSnapshotId: snapshotId,
                 context: { acquire_wait_max_ms: waitMaxMs }
+            });
+        }
+
+        const ml = health?.ml ?? {};
+        const liveImage = ml?.live_image ?? {};
+        const liveImagePressure = normalizeString(liveImage?.pressure_level, '').toLowerCase();
+        if (liveImagePressure === 'high' || liveImagePressure === 'critical') {
+            this.recordError({
+                source: 'health',
+                component: 'ml_live_image',
+                stage: 'admission',
+                reasonCode: `pressure_${liveImagePressure}`,
+                message: `Live image classifier pressure is ${liveImagePressure}`,
+                severity: liveImagePressure === 'critical' ? 'critical' : 'error',
+                timestamp: ts,
+                healthSnapshotId: snapshotId,
+                context: {
+                    in_flight: Math.floor(asFiniteNumber(liveImage?.in_flight)),
+                    queued: Math.floor(asFiniteNumber(liveImage?.queued)),
+                    max_concurrent: Math.floor(asFiniteNumber(liveImage?.max_concurrent))
+                }
+            });
+        }
+
+        if (Boolean(liveImage?.recovery_active)) {
+            this.recordError({
+                source: 'health',
+                component: 'ml_live_image',
+                stage: 'admission',
+                reasonCode: 'recovery_active',
+                message: 'Live image classifier is reclaiming stale work',
+                severity: 'critical',
+                timestamp: ts,
+                healthSnapshotId: snapshotId,
+                context: {
+                    abandoned: Math.floor(asFiniteNumber(liveImage?.abandoned)),
+                    recent_abandoned: Math.floor(asFiniteNumber(liveImage?.recent_abandoned)),
+                    late_completions_ignored: Math.floor(asFiniteNumber(liveImage?.late_completions_ignored))
+                }
+            });
+        }
+
+        const backgroundImage = ml?.background_image ?? {};
+        if (Boolean(backgroundImage?.background_throttled) && Math.floor(asFiniteNumber(backgroundImage?.queued)) > 0) {
+            this.recordError({
+                source: 'health',
+                component: 'ml_background_image',
+                stage: 'admission',
+                reasonCode: 'throttled_by_live_pressure',
+                message: 'Background image classification is throttled by live detections',
+                severity: 'warning',
+                timestamp: ts,
+                healthSnapshotId: snapshotId,
+                context: {
+                    queued: Math.floor(asFiniteNumber(backgroundImage?.queued)),
+                    in_flight: Math.floor(asFiniteNumber(backgroundImage?.in_flight))
+                }
             });
         }
 

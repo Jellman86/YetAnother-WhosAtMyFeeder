@@ -60,6 +60,22 @@ describe('jobProgressStore', () => {
         expect(item.total).toBe(30);
     });
 
+    it('keeps running totals unknown until the backend reports a denominator', () => {
+        jobProgressStore.upsertRunning({
+            id: 'backfill:detections:job-unknown',
+            kind: 'backfill',
+            title: 'Backfill',
+            current: 12,
+            total: 0,
+            timestamp: 1000
+        });
+
+        const item = jobProgressStore.activeJobs[0];
+        expect(item.current).toBe(12);
+        expect(item.total).toBe(0);
+        expect(item.etaSeconds).toBeUndefined();
+    });
+
     it('marks only sufficiently idle running jobs as stale', () => {
         vi.useFakeTimers();
         vi.setSystemTime(new Date('2026-03-05T00:00:00.000Z'));

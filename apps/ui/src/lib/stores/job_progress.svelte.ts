@@ -73,10 +73,16 @@ class JobProgressStore {
         const current = currentInput === null
             ? previousCurrent
             : Math.max(previousCurrent, currentInput);
-        const totalCandidate = totalInput === null
-            ? previousTotal
-            : Math.max(0, totalInput);
-        const total = Math.max(totalCandidate, current);
+        let total = previousTotal;
+        if (totalInput === null) {
+            total = previousTotal;
+        } else if (totalInput > 0) {
+            total = Math.max(totalInput, current);
+        } else if (previousTotal > 0) {
+            total = Math.max(previousTotal, current);
+        } else {
+            total = 0;
+        }
         const startedAt = existing?.startedAt ?? now;
         const previousUpdatedAt = existing?.updatedAt ?? startedAt;
 

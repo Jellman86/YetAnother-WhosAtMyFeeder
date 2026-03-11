@@ -3,6 +3,8 @@ import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 from types import SimpleNamespace
 from app.services.event_processor import EventProcessor
+from app.services.classification_admission import ClassificationLeaseExpiredError
+from app.services.classifier_service import LiveImageClassificationOverloadedError
 
 @pytest.mark.asyncio
 async def test_process_mqtt_message_valid_bird():
@@ -362,7 +364,7 @@ async def test_process_mqtt_message_logs_stage_timeout_for_classification():
     )
     status = processor.get_status()
     assert status["stage_timeouts"]["classify_snapshot"] == 1
-    assert status["drop_reasons"]["classify_snapshot_unavailable"] == 1
+    assert status["drop_reasons"]["classify_snapshot_timeout"] == 1
     assert status["critical_failures"] == 1
 
 
@@ -383,6 +385,46 @@ async def test_process_mqtt_message_records_distinct_overload_drop_reason():
     status = processor.get_status()
     assert status["drop_reasons"]["classify_snapshot_overloaded"] == 1
     assert "classify_snapshot_unavailable" not in status["drop_reasons"]
+
+
+@pytest.mark.asyncio
+async def test_process_mqtt_message_preserves_live_overload_from_classifier_service():
+    classifier = MagicMock()
+    classifier.classify_async_live = AsyncMock(
+        side_effect=LiveImageClassificationOverloadedError("classify_snapshot_overloaded")
+    )
+
+    with patch("app.services.event_processor.frigate_client") as mock_frigate, \
+         patch("app.services.event_processor.Image.open", return_value=MagicMock()):
+        processor = EventProcessor(classifier)
+        mock_frigate.get_snapshot = AsyncMock(return_value=b"fakeimage")
+
+        payload = b'{"type":"new","after":{"id":"evt-overload-live","label":"bird","camera":"cam1","start_time":1700000000}}'
+        await processor.process_mqtt_message(payload)
+
+    status = processor.get_status()
+    assert status["drop_reasons"]["classify_snapshot_overloaded"] == 1
+    assert "classify_snapshot_unavailable" not in status["drop_reasons"]
+
+
+@pytest.mark.asyncio
+async def test_process_mqtt_message_records_live_lease_expiry_as_timeout_drop():
+    classifier = MagicMock()
+    classifier.classify_async_live = AsyncMock(
+        side_effect=ClassificationLeaseExpiredError("live", "snapshot_classification", 0.01)
+    )
+
+    with patch("app.services.event_processor.frigate_client") as mock_frigate, \
+         patch("app.services.event_processor.Image.open", return_value=MagicMock()):
+        processor = EventProcessor(classifier)
+        mock_frigate.get_snapshot = AsyncMock(return_value=b"fakeimage")
+
+        payload = b'{"type":"new","after":{"id":"evt-lease-timeout","label":"bird","camera":"cam1","start_time":1700000000}}'
+        await processor.process_mqtt_message(payload)
+
+    status = processor.get_status()
+    assert status["stage_timeouts"]["classify_snapshot"] == 1
+    assert status["drop_reasons"]["classify_snapshot_timeout"] == 1
 
 
 @pytest.mark.asyncio

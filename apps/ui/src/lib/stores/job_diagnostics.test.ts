@@ -140,6 +140,60 @@ describe('jobDiagnosticsStore', () => {
         });
     });
 
+    it('captures live image coordinator recovery in exported health snapshots', () => {
+        jobDiagnosticsStore.ingestHealth({
+            status: 'degraded',
+            startup_instance_id: 'abc123',
+            mqtt: { pressure_level: 'normal' },
+            event_pipeline: { critical_failures: 0, stage_timeouts: {}, stage_failures: {} },
+            notification_dispatcher: { dropped_jobs: 0 },
+            db_pool: { acquire_wait_max_ms: 0 },
+            startup_warnings: [],
+            ml: {
+                status: 'ok',
+                live_image: {
+                    status: 'degraded',
+                    pressure_level: 'critical',
+                    max_concurrent: 2,
+                    in_flight: 2,
+                    queued: 3,
+                    admission_timeout_seconds: 0.25,
+                    admission_timeouts: 0,
+                    abandoned: 1,
+                    late_completions_ignored: 1,
+                    oldest_running_age_seconds: 0.41,
+                    recovery_active: true
+                },
+                background_image: {
+                    queued: 1,
+                    background_throttled: true
+                }
+            }
+        });
+
+        expect(jobDiagnosticsStore.healthSnapshots.length).toBe(1);
+        expect(jobDiagnosticsStore.healthSnapshots[0].payload.ml).toMatchObject({
+            status: 'ok',
+            live_image: {
+                status: 'degraded',
+                pressure_level: 'critical',
+                abandoned: 1,
+                recovery_active: true
+            },
+            background_image: {
+                queued: 1,
+                background_throttled: true
+            }
+        });
+        expect(
+            jobDiagnosticsStore.groups.some(
+                (group) =>
+                    group.component === 'ml_live_image'
+                    && group.reasonCode === 'recovery_active'
+            )
+        ).toBe(true);
+    });
+
     it('deduplicates identical consecutive health snapshots and exports JSON', () => {
         const payload = {
             status: 'degraded',

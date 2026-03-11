@@ -639,10 +639,16 @@ async def health_check():
         "startup_instance_id": startup_instance_id,
         "startup_started_at": startup_started_at,
     }
+    live_image_health = health["ml"].get("live_image") or {}
+    live_image_status = str(live_image_health.get("status") or "").lower()
     
     # If startup had degraded phases or ML is unhealthy, top-level status should reflect it
     if (
         health["ml"]["status"] != "ok"
+        or (
+            live_image_status not in {"", "ok", "healthy"}
+            or bool(live_image_health.get("recovery_active"))
+        )
         or startup_warnings
         or mqtt_health.get("pressure_level") in {"high", "critical"}
         or int(notification_dispatch_health.get("dropped_jobs") or 0) > 0

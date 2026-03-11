@@ -30,8 +30,10 @@ from app.services.classifier_service import (  # noqa: E402
     _resolve_inference_selection,
     _summarize_openvino_load_error,
 )
+from app.services.classification_admission import ClassificationLeaseExpiredError  # noqa: E402
 from app.services import classifier_service as classifier_service_module  # noqa: E402
 from app.config import settings  # noqa: E402
+from app.config_models import ClassificationSettings  # noqa: E402
 
 # Restore the original module so this test file doesn't leak a mock into other tests.
 if _original_model_manager_module is not None:
@@ -49,6 +51,10 @@ def mock_os_path_exists():
     with patch("os.path.exists") as mock:
         mock.return_value = True
         yield mock
+
+
+def _stub_init_bird_model(self):
+    self._models["bird"] = MagicMock(loaded=True, error=None, labels=[])
 
 def test_model_instance_load(mock_tflite, mock_os_path_exists):
     # Mock labels file content
@@ -88,23 +94,107 @@ def test_model_instance_classify(mock_tflite, mock_os_path_exists):
     assert results[0]['label'] == "Bird A"
     assert results[0]['score'] == pytest.approx(0.8)
 
+
+def test_classifier_supervisor_config_defaults():
+    config = ClassificationSettings()
+
+    assert config.image_execution_mode == "in_process"
+    assert config.live_worker_count == 2
+    assert config.background_worker_count == 1
+    assert config.worker_heartbeat_timeout_seconds == pytest.approx(5.0)
+    assert config.worker_hard_deadline_seconds == pytest.approx(35.0)
+    assert config.worker_restart_window_seconds == pytest.approx(60.0)
+    assert config.worker_restart_threshold == 3
+    assert config.worker_breaker_cooldown_seconds == pytest.approx(60.0)
+    assert config.live_event_stale_drop_seconds == pytest.approx(30.0)
+    assert config.live_event_coalescing_enabled is True
+
+
+@pytest.mark.asyncio
+async def test_classifier_service_routes_live_requests_through_supervisor(mock_tflite, mock_os_path_exists):
+    original_mode = settings.classification.image_execution_mode
+    settings.classification.image_execution_mode = "subprocess"
+
+    class _FakeSupervisor:
+        def __init__(self):
+            self.calls = []
+
+        async def classify(self, **kwargs):
+            self.calls.append(kwargs)
+            return [{"label": "Robin", "score": 0.97}]
+
+        def get_metrics(self):
+            return {
+                "live": {"workers": 2, "restarts": 0, "last_exit_reason": None},
+                "background": {"workers": 1, "restarts": 0, "last_exit_reason": None},
+                "late_results_ignored": 0,
+            }
+
+    supervisor = _FakeSupervisor()
+
+    try:
+        with patch.object(ClassifierService, "_init_bird_model", new=_stub_init_bird_model):
+            service = ClassifierService(supervisor=supervisor)
+            with patch.object(ClassifierService, "classify", side_effect=AssertionError("should use supervisor")):
+                img = Image.new("RGB", (32, 32), color="red")
+                results = await service.classify_async_live(img, camera_name="front", model_id="default")
+
+            assert results[0]["label"] == "Robin"
+            assert supervisor.calls[0]["priority"] == "live"
+            assert supervisor.calls[0]["camera_name"] == "front"
+            service.shutdown()
+    finally:
+        settings.classification.image_execution_mode = original_mode
+
+
+@pytest.mark.asyncio
+async def test_classifier_service_routes_background_requests_through_supervisor(mock_tflite, mock_os_path_exists):
+    original_mode = settings.classification.image_execution_mode
+    settings.classification.image_execution_mode = "subprocess"
+
+    class _FakeSupervisor:
+        def __init__(self):
+            self.calls = []
+
+        async def classify(self, **kwargs):
+            self.calls.append(kwargs)
+            return [{"label": "Blackbird", "score": 0.83}]
+
+        def get_metrics(self):
+            return {
+                "live": {"workers": 2, "restarts": 0, "last_exit_reason": None},
+                "background": {"workers": 1, "restarts": 0, "last_exit_reason": None},
+                "late_results_ignored": 0,
+            }
+
+    supervisor = _FakeSupervisor()
+
+    try:
+        with patch.object(ClassifierService, "_init_bird_model", new=_stub_init_bird_model):
+            service = ClassifierService(supervisor=supervisor)
+            with patch.object(ClassifierService, "classify", side_effect=AssertionError("should use supervisor")):
+                img = Image.new("RGB", (32, 32), color="blue")
+                results = await service.classify_async_background(img, camera_name="garden", model_id="default")
+
+            assert results[0]["label"] == "Blackbird"
+            assert supervisor.calls[0]["priority"] == "background"
+            assert supervisor.calls[0]["camera_name"] == "garden"
+            service.shutdown()
+    finally:
+        settings.classification.image_execution_mode = original_mode
+
 @pytest.mark.asyncio
 async def test_classifier_service_init(mock_tflite, mock_os_path_exists):
-    # Define a side effect that sets the loaded attribute to True
-    def mock_load(self):
-        self.loaded = True
-        return True
-
-    # Use autospec=True so 'self' is passed to the side_effect
-    with patch("app.services.classifier_service.ModelInstance.load", autospec=True, side_effect=mock_load):
+    with patch.object(ClassifierService, "_init_bird_model", new=_stub_init_bird_model):
         service = ClassifierService()
         assert "bird" in service._models
         assert service.model_loaded is True
+        service.shutdown()
 
 @pytest.mark.asyncio
 async def test_classifier_service_classify_async(mock_tflite, mock_os_path_exists):
-    with patch("app.services.classifier_service.ModelInstance.load", return_value=True), \
-         patch("app.services.classifier_service.ModelInstance.classify") as mock_classify:
+    with patch.object(ClassifierService, "_init_bird_model", new=_stub_init_bird_model), \
+         patch.object(ClassifierService, "classify") as mock_classify:
         
         mock_classify.return_value = [{"label": "Robin", "score": 0.9}]
         service = ClassifierService()
@@ -114,6 +204,7 @@ async def test_classifier_service_classify_async(mock_tflite, mock_os_path_exist
         
         assert results[0]["label"] == "Robin"
         mock_classify.assert_called_once()
+        service.shutdown()
 
 
 @pytest.mark.asyncio
@@ -121,8 +212,8 @@ async def test_classifier_service_classify_async_applies_personalization_when_en
     original_toggle = settings.classification.personalized_rerank_enabled
     settings.classification.personalized_rerank_enabled = True
     try:
-        with patch("app.services.classifier_service.ModelInstance.load", return_value=True), \
-             patch("app.services.classifier_service.ModelInstance.classify") as mock_classify, \
+        with patch.object(ClassifierService, "_init_bird_model", new=_stub_init_bird_model), \
+             patch.object(ClassifierService, "classify") as mock_classify, \
              patch("app.services.classifier_service.personalization_service.rerank", new=AsyncMock()) as mock_rerank:
 
             mock_classify.return_value = [
@@ -143,6 +234,7 @@ async def test_classifier_service_classify_async_applies_personalization_when_en
             kwargs = mock_rerank.await_args.kwargs
             assert kwargs["camera_name"] == "front"
             assert kwargs["model_id"] == service._resolve_active_model_id()
+            service.shutdown()
     finally:
         settings.classification.personalized_rerank_enabled = original_toggle
 
@@ -152,8 +244,8 @@ async def test_classifier_service_classify_async_skips_personalization_when_disa
     original_toggle = settings.classification.personalized_rerank_enabled
     settings.classification.personalized_rerank_enabled = False
     try:
-        with patch("app.services.classifier_service.ModelInstance.load", return_value=True), \
-             patch("app.services.classifier_service.ModelInstance.classify") as mock_classify, \
+        with patch.object(ClassifierService, "_init_bird_model", new=_stub_init_bird_model), \
+             patch.object(ClassifierService, "classify") as mock_classify, \
              patch("app.services.classifier_service.personalization_service.rerank", new=AsyncMock()) as mock_rerank:
 
             mock_classify.return_value = [{"label": "Robin", "score": 0.9, "index": 0}]
@@ -164,6 +256,7 @@ async def test_classifier_service_classify_async_skips_personalization_when_disa
 
             assert results[0]["label"] == "Robin"
             mock_rerank.assert_not_awaited()
+            service.shutdown()
     finally:
         settings.classification.personalized_rerank_enabled = original_toggle
 
@@ -174,28 +267,41 @@ async def test_classifier_service_classify_async_returns_empty_when_image_queue_
 ):
     original_toggle = settings.classification.personalized_rerank_enabled
     settings.classification.personalized_rerank_enabled = False
+    started = threading.Event()
+    release = threading.Event()
+
+    def _blocking_classify(*_args, **_kwargs):
+        started.set()
+        release.wait(timeout=1.0)
+        return [{"label": "Robin", "score": 0.9, "index": 0}]
+
     try:
         with patch.object(ClassifierService, "_init_bird_model", return_value=None), \
-             patch("app.services.classifier_service.ModelInstance.load", return_value=True), \
-             patch.object(
-                 ClassifierService,
-                 "classify",
-                 return_value=[{"label": "Robin", "score": 0.9, "index": 0}],
-             ) as mock_classify:
+             patch.object(ClassifierService, "classify", side_effect=_blocking_classify):
+            monkeypatch.setattr(
+                classifier_service_module,
+                "CLASSIFIER_IMAGE_MAX_CONCURRENT",
+                1,
+                raising=False,
+            )
             service = ClassifierService()
-            service._image_inference_semaphore = asyncio.Semaphore(0)  # type: ignore[attr-defined]
             monkeypatch.setattr(
                 classifier_service_module,
                 "CLASSIFIER_IMAGE_ADMISSION_TIMEOUT_SECONDS",
                 0.01,
                 raising=False,
             )
+            service._classification_admission._background_capacity = 1
 
             img = Image.new("RGB", (100, 100))
+            first_task = asyncio.create_task(service.classify_async(img, camera_name="front"))
+            await asyncio.wait_for(asyncio.to_thread(started.wait), timeout=1.0)
             results = await service.classify_async(img, camera_name="front")
 
             assert results == []
-            mock_classify.assert_not_called()
+            release.set()
+            await first_task
+            service.shutdown()
     finally:
         settings.classification.personalized_rerank_enabled = original_toggle
 
@@ -206,28 +312,41 @@ async def test_classifier_service_classify_async_live_raises_when_live_queue_sat
 ):
     original_toggle = settings.classification.personalized_rerank_enabled
     settings.classification.personalized_rerank_enabled = False
+    started = threading.Event()
+    release = threading.Event()
+
+    def _blocking_classify(*_args, **_kwargs):
+        started.set()
+        release.wait(timeout=1.0)
+        return [{"label": "Robin", "score": 0.9, "index": 0}]
+
     try:
         with patch.object(ClassifierService, "_init_bird_model", return_value=None), \
-             patch("app.services.classifier_service.ModelInstance.load", return_value=True), \
-             patch.object(
-                 ClassifierService,
-                 "classify",
-                 return_value=[{"label": "Robin", "score": 0.9, "index": 0}],
-             ) as mock_classify:
+             patch.object(ClassifierService, "classify", side_effect=_blocking_classify):
+            monkeypatch.setattr(
+                classifier_service_module,
+                "CLASSIFIER_IMAGE_MAX_CONCURRENT",
+                1,
+                raising=False,
+            )
             service = ClassifierService()
-            service._live_image_inference_semaphore = asyncio.Semaphore(0)  # type: ignore[attr-defined]
             monkeypatch.setattr(
                 classifier_service_module,
                 "CLASSIFIER_LIVE_IMAGE_ADMISSION_TIMEOUT_SECONDS",
                 0.01,
                 raising=False,
             )
+            service._classification_admission._live_capacity = 1
 
             img = Image.new("RGB", (100, 100))
+            first_task = asyncio.create_task(service.classify_async_live(img, camera_name="front"))
+            await asyncio.wait_for(asyncio.to_thread(started.wait), timeout=1.0)
             with pytest.raises(LiveImageClassificationOverloadedError, match="classify_snapshot_overloaded"):
                 await service.classify_async_live(img, camera_name="front")
 
-            mock_classify.assert_not_called()
+            release.set()
+            assert (await first_task)[0]["label"] == "Robin"
+            service.shutdown()
     finally:
         settings.classification.personalized_rerank_enabled = original_toggle
 
@@ -268,6 +387,7 @@ async def test_classifier_service_classify_async_live_keeps_capacity_reserved_un
             await asyncio.sleep(0.05)
 
             assert service.get_status()["live_image_in_flight"] == 0
+            service.shutdown()
     finally:
         settings.classification.personalized_rerank_enabled = original_toggle
 
@@ -316,6 +436,59 @@ async def test_classifier_service_classify_async_live_isolated_from_non_live_exe
 
             shared_release.set()
             await asyncio.wait_for(shared_task, timeout=1.0)
+            service.shutdown()
+    finally:
+        settings.classification.personalized_rerank_enabled = original_toggle
+
+
+@pytest.mark.asyncio
+async def test_classifier_service_classify_async_live_reclaims_stale_capacity_for_next_request(
+    mock_tflite, mock_os_path_exists, monkeypatch
+):
+    original_toggle = settings.classification.personalized_rerank_enabled
+    settings.classification.personalized_rerank_enabled = False
+    started = threading.Event()
+    release = threading.Event()
+
+    def _blocking_classify(*_args, **_kwargs):
+        started.set()
+        release.wait(timeout=1.0)
+        return [{"label": "Robin", "score": 0.9, "index": 0}]
+
+    try:
+        with patch.object(ClassifierService, "_init_bird_model", return_value=None), \
+             patch("app.services.classifier_service.ModelInstance.load", return_value=True), \
+             patch.object(ClassifierService, "classify", side_effect=_blocking_classify):
+            monkeypatch.setattr(
+                classifier_service_module,
+                "CLASSIFIER_IMAGE_MAX_CONCURRENT",
+                1,
+                raising=False,
+            )
+            monkeypatch.setattr(
+                classifier_service_module,
+                "CLASSIFIER_LIVE_IMAGE_LEASE_TIMEOUT_SECONDS",
+                0.01,
+                raising=False,
+            )
+            service = ClassifierService()
+            service._classification_admission._live_capacity = 1
+            img = Image.new("RGB", (100, 100))
+
+            first_task = asyncio.create_task(service.classify_async_live(img, camera_name="front"))
+            await asyncio.wait_for(asyncio.to_thread(started.wait), timeout=1.0)
+
+            with pytest.raises(ClassificationLeaseExpiredError):
+                await first_task
+
+            release.set()
+            await asyncio.sleep(0.05)
+
+            with patch.object(ClassifierService, "classify", return_value=[{"label": "Robin", "score": 0.92, "index": 0}]):
+                results = await service.classify_async_live(img, camera_name="front")
+
+            assert results[0]["label"] == "Robin"
+            service.shutdown()
     finally:
         settings.classification.personalized_rerank_enabled = original_toggle
 
@@ -323,23 +496,31 @@ async def test_classifier_service_classify_async_live_isolated_from_non_live_exe
 @pytest.mark.asyncio
 async def test_classifier_service_uses_separate_executors_for_image_and_video_work(mock_tflite, mock_os_path_exists):
     class _FakeLoop:
-        def __init__(self):
+        def __init__(self, real_loop):
             self.executors = []
+            self._real_loop = real_loop
 
         async def run_in_executor(self, executor, func, *args):
             self.executors.append(executor)
             return func(*args)
 
+        def create_task(self, coro):
+            return self._real_loop.create_task(coro)
+
+        def create_future(self):
+            return self._real_loop.create_future()
+
     original_toggle = settings.classification.personalized_rerank_enabled
     settings.classification.personalized_rerank_enabled = False
     try:
+        real_loop = asyncio.get_running_loop()
         with patch.object(ClassifierService, "_init_bird_model", return_value=None), \
              patch("app.services.classifier_service.ModelInstance.load", return_value=True), \
              patch.object(ClassifierService, "classify", return_value=[{"label": "Robin", "score": 0.9, "index": 0}]), \
              patch.object(ClassifierService, "classify_video", return_value=[{"label": "Robin", "score": 0.9, "index": 0}]), \
              patch("app.services.classifier_service.asyncio.get_running_loop") as mock_get_loop:
 
-            fake_loop = _FakeLoop()
+            fake_loop = _FakeLoop(real_loop)
             mock_get_loop.return_value = fake_loop
             service = ClassifierService()
 
@@ -354,6 +535,7 @@ async def test_classifier_service_uses_separate_executors_for_image_and_video_wo
             assert service._image_executor is not service._video_executor
             assert service._background_image_executor is not service._video_executor
             assert service._background_image_executor is not service._image_executor
+            service.shutdown()
     finally:
         settings.classification.personalized_rerank_enabled = original_toggle
 
@@ -555,12 +737,115 @@ def test_classifier_check_health_exposes_live_image_pressure():
         service = ClassifierService()
 
     service._live_image_admission_timeouts = 4
-    service._live_image_inflight = {object()}  # type: ignore[assignment]
+    service._classification_admission.get_metrics = MagicMock(return_value={  # type: ignore[method-assign]
+        "live": {
+            "capacity": 2,
+            "queued": 0,
+            "running": 1,
+            "completed": 0,
+            "failed": 0,
+            "abandoned": 0,
+            "rejected": 0,
+            "oldest_running_age_seconds": 1.0,
+        },
+        "background": {
+            "capacity": 1,
+            "queued": 0,
+            "running": 0,
+            "completed": 0,
+            "failed": 0,
+            "abandoned": 0,
+            "rejected": 0,
+            "oldest_running_age_seconds": None,
+        },
+        "late_completions_ignored": 0,
+        "recent_outcomes": [],
+        "background_throttled": False,
+        "closed": False,
+    })
     health = service.check_health()
 
     assert health["live_image"]["max_concurrent"] >= 1
     assert health["live_image"]["in_flight"] == 1
     assert health["live_image"]["admission_timeouts"] == 4
+    service.shutdown()
+
+
+def test_classifier_check_health_keeps_transient_live_saturation_out_of_degraded_status():
+    with patch.object(ClassifierService, "_init_bird_model", return_value=None):
+        service = ClassifierService()
+
+    service._classification_admission.get_metrics = MagicMock(return_value={  # type: ignore[method-assign]
+        "live": {
+            "capacity": 2,
+            "queued": 1,
+            "running": 2,
+            "completed": 0,
+            "failed": 0,
+            "abandoned": 0,
+            "rejected": 0,
+            "oldest_running_age_seconds": 1.0,
+        },
+        "background": {
+            "capacity": 1,
+            "queued": 0,
+            "running": 0,
+            "completed": 0,
+            "failed": 0,
+            "abandoned": 0,
+            "rejected": 0,
+            "oldest_running_age_seconds": None,
+        },
+        "late_completions_ignored": 0,
+        "recent_outcomes": [],
+        "background_throttled": True,
+        "closed": False,
+    })
+
+    health = service.check_health()
+
+    assert health["live_image"]["pressure_level"] == "high"
+    assert health["live_image"]["status"] == "ok"
+    service.shutdown()
+
+
+def test_classifier_get_admission_status_is_lightweight_and_exposes_throttle_state():
+    with patch.object(ClassifierService, "_init_bird_model", return_value=None):
+        service = ClassifierService()
+
+    service._classification_admission.get_metrics = MagicMock(return_value={  # type: ignore[method-assign]
+        "live": {
+            "capacity": 2,
+            "queued": 0,
+            "running": 1,
+            "completed": 0,
+            "failed": 0,
+            "abandoned": 0,
+            "rejected": 0,
+            "oldest_running_age_seconds": 0.5,
+        },
+        "background": {
+            "capacity": 1,
+            "queued": 3,
+            "running": 0,
+            "completed": 0,
+            "failed": 0,
+            "abandoned": 0,
+            "rejected": 0,
+            "oldest_running_age_seconds": None,
+        },
+        "late_completions_ignored": 0,
+        "recent_outcomes": [],
+        "background_throttled": True,
+        "closed": False,
+    })
+
+    with patch("app.services.classifier_service._detect_acceleration_capabilities", side_effect=AssertionError("should not probe runtimes")):
+        status = service.get_admission_status()
+
+    assert status["background_throttled"] is True
+    assert status["background"]["queued"] == 3
+    service.shutdown()
 
 
 def test_classifier_service_shutdown_closes_all_executors():

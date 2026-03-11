@@ -23,15 +23,58 @@ class NotificationDispatcher:
     """
 
     def __init__(self):
-        self._queue: asyncio.Queue[tuple[str, Callable[[], Coroutine[Any, Any, None]]]] = asyncio.Queue(
-            maxsize=NOTIFICATION_DISPATCH_QUEUE_MAX
-        )
+        self._queue: asyncio.Queue[tuple[str, Callable[[], Coroutine[Any, Any, None]]]] | None = None
         self._workers: list[asyncio.Task] = []
         self._running = False
         self._dropped_jobs = 0
+        self._lock: asyncio.Lock | None = None
+        self._loop: asyncio.AbstractEventLoop | None = None
+
+    def _ensure_loop_state(self) -> int:
+        loop = asyncio.get_running_loop()
+        if self._loop is loop and self._queue is not None and self._lock is not None:
+            return 0
+
+        for worker in self._workers:
+            worker.cancel()
+        dropped = self._queue.qsize() if self._queue is not None else 0
+        self._queue = asyncio.Queue(maxsize=NOTIFICATION_DISPATCH_QUEUE_MAX)
+        self._workers = []
+        self._running = False
         self._lock = asyncio.Lock()
+        self._loop = loop
+        return dropped
+
+    def _queue_size(self) -> int:
+        return self._queue.qsize() if self._queue is not None else 0
+
+    def _record_loop_reset_drop(self, dropped: int) -> None:
+        if dropped <= 0:
+            return
+        self._dropped_jobs += dropped
+        log.warning(
+            "Notification dispatcher dropped queued jobs after event-loop reset",
+            dropped_queued=dropped,
+            dropped_jobs=self._dropped_jobs,
+        )
+        error_diagnostics_history.record(
+            source="notification_dispatcher",
+            component="notification_dispatcher",
+            stage="loop_reset",
+            reason_code="loop_reset_drop",
+            message="Notification dispatcher dropped queued jobs after event-loop reset",
+            severity="error",
+            event_id="event_loop_reset",
+            context={
+                "dropped_queued": dropped,
+                "dropped_jobs": self._dropped_jobs,
+                "queue_max": NOTIFICATION_DISPATCH_QUEUE_MAX,
+            },
+        )
 
     async def start(self) -> None:
+        dropped = self._ensure_loop_state()
+        self._record_loop_reset_drop(dropped)
         async with self._lock:
             if self._running:
                 return
@@ -48,6 +91,7 @@ class NotificationDispatcher:
             )
 
     async def stop(self) -> None:
+        self._ensure_loop_state()
         async with self._lock:
             if not self._running:
                 return
@@ -60,9 +104,17 @@ class NotificationDispatcher:
                 except asyncio.CancelledError:
                     pass
             self._workers.clear()
+            queued = 0
+            while self._queue is not None and not self._queue.empty():
+                try:
+                    self._queue.get_nowait()
+                    self._queue.task_done()
+                    queued += 1
+                except asyncio.QueueEmpty:
+                    break
             log.info(
                 "Notification dispatcher stopped",
-                queued=self._queue.qsize(),
+                queued=queued,
                 dropped_jobs=self._dropped_jobs,
             )
 
@@ -71,15 +123,17 @@ class NotificationDispatcher:
         job_name: str,
         job_factory: Callable[[], Coroutine[Any, Any, None]],
     ) -> bool:
+        dropped = self._ensure_loop_state()
+        self._record_loop_reset_drop(dropped)
         if not self._running:
             await self.start()
 
-        if self._queue.full():
+        if self._queue is not None and self._queue.full():
             self._dropped_jobs += 1
             log.warning(
                 "Notification job dropped: dispatcher queue is full",
                 job=job_name,
-                queue_size=self._queue.qsize(),
+                queue_size=self._queue_size(),
                 queue_max=NOTIFICATION_DISPATCH_QUEUE_MAX,
                 dropped_jobs=self._dropped_jobs,
             )
@@ -92,7 +146,7 @@ class NotificationDispatcher:
                 severity="error",
                 event_id=job_name,
                 context={
-                    "queue_size": self._queue.qsize(),
+                    "queue_size": self._queue_size(),
                     "queue_max": NOTIFICATION_DISPATCH_QUEUE_MAX,
                     "dropped_jobs": self._dropped_jobs,
                 },
@@ -107,7 +161,7 @@ class NotificationDispatcher:
             log.warning(
                 "Notification job dropped: dispatcher queue became full before enqueue",
                 job=job_name,
-                queue_size=self._queue.qsize(),
+                queue_size=self._queue_size(),
                 queue_max=NOTIFICATION_DISPATCH_QUEUE_MAX,
                 dropped_jobs=self._dropped_jobs,
             )
@@ -120,7 +174,7 @@ class NotificationDispatcher:
                 severity="error",
                 event_id=job_name,
                 context={
-                    "queue_size": self._queue.qsize(),
+                    "queue_size": self._queue_size(),
                     "queue_max": NOTIFICATION_DISPATCH_QUEUE_MAX,
                     "dropped_jobs": self._dropped_jobs,
                 },
@@ -131,7 +185,7 @@ class NotificationDispatcher:
         return {
             "running": self._running,
             "workers": len(self._workers),
-            "queue_size": self._queue.qsize(),
+            "queue_size": self._queue_size(),
             "queue_max": NOTIFICATION_DISPATCH_QUEUE_MAX,
             "dropped_jobs": self._dropped_jobs,
             "timeout_seconds": NOTIFICATION_DISPATCH_TIMEOUT_SECONDS,

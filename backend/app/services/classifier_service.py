@@ -3,16 +3,19 @@ import numpy as np
 import os
 import cv2
 import asyncio
+import base64
 import ctypes
 import importlib
+import io
 import json
 import re
 import subprocess
 import sys
 import threading
-from concurrent.futures import Future, ThreadPoolExecutor
+import time
+from concurrent.futures import ThreadPoolExecutor
 from PIL import Image
-from typing import Optional, Any, Callable
+from typing import Optional, Any, Callable, Literal
 
 # TFLite runtime
 try:
@@ -85,6 +88,12 @@ OpenVINOCore = _OPENVINO_SUPPORT["core_class"]
 OPENVINO_AVAILABLE = bool(_OPENVINO_SUPPORT["available"])
 
 from app.config import settings  # noqa: E402
+from app.services.classification_admission import (  # noqa: E402
+    ClassificationAdmissionCoordinator,
+    ClassificationAdmissionTimeoutError,
+    ClassificationLeaseExpiredError,
+)
+from app.services.classifier_supervisor import ClassifierSupervisor  # noqa: E402
 from app.services.personalization_service import personalization_service  # noqa: E402
 
 log = structlog.get_logger()
@@ -98,6 +107,22 @@ CLASSIFIER_IMAGE_ADMISSION_TIMEOUT_SECONDS = max(
 CLASSIFIER_LIVE_IMAGE_ADMISSION_TIMEOUT_SECONDS = max(
     0.05,
     float(os.getenv("CLASSIFIER_LIVE_IMAGE_ADMISSION_TIMEOUT_SECONDS", "0.25")),
+)
+CLASSIFIER_IMAGE_LEASE_TIMEOUT_SECONDS = max(
+    0.1,
+    float(os.getenv("CLASSIFIER_IMAGE_LEASE_TIMEOUT_SECONDS", "15")),
+)
+CLASSIFIER_LIVE_IMAGE_LEASE_TIMEOUT_SECONDS = max(
+    0.1,
+    float(os.getenv("CLASSIFIER_LIVE_IMAGE_LEASE_TIMEOUT_SECONDS", "30")),
+)
+CLASSIFIER_BACKGROUND_IMAGE_LEASE_TIMEOUT_SECONDS = max(
+    0.1,
+    float(os.getenv("CLASSIFIER_BACKGROUND_IMAGE_LEASE_TIMEOUT_SECONDS", "45")),
+)
+CLASSIFIER_ADMISSION_RECOVERY_WINDOW_SECONDS = max(
+    1.0,
+    float(os.getenv("CLASSIFIER_ADMISSION_RECOVERY_WINDOW_SECONDS", "300")),
 )
 
 
@@ -1081,9 +1106,15 @@ class ClassifierService:
     # Union type for model instances
     ModelType = ModelInstance | ONNXModelInstance | OpenVINOModelInstance
 
-    def __init__(self):
+    def __init__(self, *, supervisor: Any | None = None, worker_process_mode: bool = False):
         self._models: dict[str, ClassifierService.ModelType] = {}
         self._models_lock = threading.Lock()
+        self._worker_process_mode = bool(worker_process_mode)
+        configured_mode = str(
+            getattr(settings.classification, "image_execution_mode", "in_process") or "in_process"
+        ).strip().lower()
+        self._image_execution_mode = "in_process" if self._worker_process_mode else configured_mode
+        self._classifier_supervisor = supervisor
         # Use dedicated executors so long-running video analysis cannot starve
         # live snapshot/audio-adjacent classification work.
         video_workers = max(
@@ -1098,13 +1129,24 @@ class ClassifierService:
         self._live_image_executor = ThreadPoolExecutor(max_workers=image_workers, thread_name_prefix="ml_live_image_worker")
         self._background_image_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="ml_background_worker")
         self._video_executor = ThreadPoolExecutor(max_workers=video_workers, thread_name_prefix="ml_video_worker")
-        self._image_inference_semaphore = asyncio.Semaphore(image_workers)
-        self._live_image_inference_semaphore = asyncio.Semaphore(image_workers)
         self._image_admission_timeouts = 0
         self._live_image_admission_timeouts = 0
-        self._live_image_inflight: set[Future[list[dict]]] = set()
+        self._classification_admission = ClassificationAdmissionCoordinator(
+            live_capacity=image_workers,
+            background_capacity=1,
+            live_lease_timeout_seconds=CLASSIFIER_LIVE_IMAGE_LEASE_TIMEOUT_SECONDS,
+            background_lease_timeout_seconds=CLASSIFIER_BACKGROUND_IMAGE_LEASE_TIMEOUT_SECONDS,
+            default_queue_timeout_seconds=CLASSIFIER_IMAGE_ADMISSION_TIMEOUT_SECONDS,
+        )
         # Backward-compatible alias for any external references.
         self._executor = self._image_executor
+        if self._classifier_supervisor is None and self._image_execution_mode == "subprocess":
+            self._classifier_supervisor = ClassifierSupervisor(
+                live_worker_count=int(getattr(settings.classification, "live_worker_count", image_workers) or image_workers),
+                background_worker_count=int(getattr(settings.classification, "background_worker_count", 1) or 1),
+                heartbeat_timeout_seconds=float(getattr(settings.classification, "worker_heartbeat_timeout_seconds", 5.0) or 5.0),
+                hard_deadline_seconds=float(getattr(settings.classification, "worker_hard_deadline_seconds", 35.0) or 35.0),
+            )
         self._selected_inference_provider = _normalize_inference_provider(
             getattr(settings.classification, "inference_provider", "auto")
         )
@@ -1377,9 +1419,106 @@ class ClassifierService:
 
         return model
 
+    def _recent_admission_outcome_counts(self, admission_metrics: dict) -> dict[str, int]:
+        threshold = time.time() - CLASSIFIER_ADMISSION_RECOVERY_WINDOW_SECONDS
+        counts = {
+            "recent_live_abandoned": 0,
+            "recent_live_late_ignored": 0,
+        }
+        for outcome in admission_metrics.get("recent_outcomes", []):
+            if float(outcome.get("timestamp") or 0.0) < threshold:
+                continue
+            if outcome.get("priority") != "live":
+                continue
+            if outcome.get("outcome") == "abandoned":
+                counts["recent_live_abandoned"] += 1
+            elif outcome.get("outcome") in {"late_completion_ignored", "late_failure_ignored"}:
+                counts["recent_live_late_ignored"] += 1
+        return counts
+
+    def _describe_live_image_health(self, admission_metrics: dict) -> dict:
+        live_metrics = admission_metrics["live"]
+        recent_counts = self._recent_admission_outcome_counts(admission_metrics)
+        in_flight = int(live_metrics["running"])
+        queued = int(live_metrics["queued"])
+        capacity = int(live_metrics["capacity"])
+        oldest_age = live_metrics.get("oldest_running_age_seconds")
+        recovery_active = (
+            recent_counts["recent_live_abandoned"] > 0
+            or recent_counts["recent_live_late_ignored"] > 0
+        )
+
+        pressure_level = "normal"
+        if queued > 0 or in_flight >= capacity:
+            pressure_level = "high"
+        if (
+            queued > 0
+            and in_flight >= capacity
+            and isinstance(oldest_age, (int, float))
+            and oldest_age >= (CLASSIFIER_LIVE_IMAGE_LEASE_TIMEOUT_SECONDS * 0.8)
+        ):
+            pressure_level = "critical"
+
+        status = "ok"
+        if recovery_active or pressure_level == "critical":
+            status = "degraded"
+
+        return {
+            "status": status,
+            "pressure_level": pressure_level,
+            "max_concurrent": capacity,
+            "in_flight": in_flight,
+            "queued": queued,
+            "admission_timeout_seconds": CLASSIFIER_LIVE_IMAGE_ADMISSION_TIMEOUT_SECONDS,
+            "admission_timeouts": self._live_image_admission_timeouts,
+            "abandoned": int(live_metrics["abandoned"]),
+            "late_completions_ignored": int(admission_metrics["late_completions_ignored"]),
+            "oldest_running_age_seconds": oldest_age,
+            "recovery_active": recovery_active,
+            "recent_abandoned": recent_counts["recent_live_abandoned"],
+            "recent_late_completions_ignored": recent_counts["recent_live_late_ignored"],
+        }
+
+    def _describe_background_image_health(self, admission_metrics: dict) -> dict:
+        background_metrics = admission_metrics["background"]
+        throttled = bool(admission_metrics["background_throttled"])
+        queued = int(background_metrics["queued"])
+        status = "degraded" if throttled and queued > 0 else "ok"
+        return {
+            "status": status,
+            "in_flight": int(background_metrics["running"]),
+            "queued": queued,
+            "abandoned": int(background_metrics["abandoned"]),
+            "background_throttled": throttled,
+        }
+
+    def get_admission_status(self) -> dict:
+        admission_metrics = self._classification_admission.get_metrics()
+        return {
+            "live": {
+                "capacity": int(admission_metrics["live"]["capacity"]),
+                "queued": int(admission_metrics["live"]["queued"]),
+                "running": int(admission_metrics["live"]["running"]),
+                "abandoned": int(admission_metrics["live"]["abandoned"]),
+                "oldest_running_age_seconds": admission_metrics["live"].get("oldest_running_age_seconds"),
+            },
+            "background": {
+                "capacity": int(admission_metrics["background"]["capacity"]),
+                "queued": int(admission_metrics["background"]["queued"]),
+                "running": int(admission_metrics["background"]["running"]),
+                "abandoned": int(admission_metrics["background"]["abandoned"]),
+                "oldest_running_age_seconds": admission_metrics["background"].get("oldest_running_age_seconds"),
+            },
+            "background_throttled": bool(admission_metrics["background_throttled"]),
+            "late_completions_ignored": int(admission_metrics["late_completions_ignored"]),
+        }
+
     def check_health(self) -> dict:
         """Detailed health check for the classification service."""
         bird = self._models.get("bird")
+        admission_metrics = self._classification_admission.get_metrics()
+        live_image_health = self._describe_live_image_health(admission_metrics)
+        background_image_health = self._describe_background_image_health(admission_metrics)
         
         # Determine which TFLite runtime is actually in use
         tflite_type = "none"
@@ -1412,12 +1551,9 @@ class ClassifierService:
                     "error": model.error
                 } for name, model in self._models.items()
             },
-            "live_image": {
-                "max_concurrent": CLASSIFIER_IMAGE_MAX_CONCURRENT,
-                "in_flight": len(self._live_image_inflight),
-                "admission_timeout_seconds": CLASSIFIER_LIVE_IMAGE_ADMISSION_TIMEOUT_SECONDS,
-                "admission_timeouts": self._live_image_admission_timeouts,
-            },
+            "live_image": live_image_health,
+            "background_image": background_image_health,
+            "background_throttled": background_image_health["background_throttled"],
         }
 
     # Legacy properties
@@ -1443,6 +1579,7 @@ class ClassifierService:
 
     def get_status(self) -> dict:
         bird = self._models.get("bird")
+        admission_metrics = self._classification_admission.get_metrics()
         self._accel_caps = _detect_acceleration_capabilities()
         active_model_id = None
         try:
@@ -1484,10 +1621,17 @@ class ClassifierService:
             "image_max_concurrent": CLASSIFIER_IMAGE_MAX_CONCURRENT,
             "image_admission_timeout_seconds": CLASSIFIER_IMAGE_ADMISSION_TIMEOUT_SECONDS,
             "image_admission_timeouts": self._image_admission_timeouts,
-            "live_image_max_concurrent": CLASSIFIER_IMAGE_MAX_CONCURRENT,
+            "live_image_max_concurrent": admission_metrics["live"]["capacity"],
             "live_image_admission_timeout_seconds": CLASSIFIER_LIVE_IMAGE_ADMISSION_TIMEOUT_SECONDS,
             "live_image_admission_timeouts": self._live_image_admission_timeouts,
-            "live_image_in_flight": len(self._live_image_inflight),
+            "live_image_in_flight": admission_metrics["live"]["running"],
+            "live_image_queued": admission_metrics["live"]["queued"],
+            "live_image_abandoned": admission_metrics["live"]["abandoned"],
+            "background_image_in_flight": admission_metrics["background"]["running"],
+            "background_image_queued": admission_metrics["background"]["queued"],
+            "background_image_abandoned": admission_metrics["background"]["abandoned"],
+            "late_completions_ignored": admission_metrics["late_completions_ignored"],
+            "background_throttled": admission_metrics["background_throttled"],
             "available_providers": [
                 p for p in ["cpu", "cuda", "intel_cpu", "intel_gpu"]
                 if p == "cpu"
@@ -1564,17 +1708,75 @@ class ClassifierService:
             return bird.classify(image)
         return []
 
-    async def _run_image_inference(
+    def _encode_image_for_worker(self, image: Image.Image) -> str:
+        buffer = io.BytesIO()
+        image.save(buffer, format="PNG")
+        return base64.b64encode(buffer.getvalue()).decode("ascii")
+
+    async def _run_supervised_inference(
         self,
+        priority: Literal["live", "background"],
+        image: Image.Image,
+        camera_name: Optional[str],
+        model_id: Optional[str],
+    ) -> list[dict]:
+        if self._classifier_supervisor is None:
+            raise RuntimeError("classifier supervisor is not configured")
+        return await self._classifier_supervisor.classify(
+            priority=priority,
+            work_id=f"{priority}-{time.monotonic_ns()}",
+            lease_token=1,
+            image_b64=self._encode_image_for_worker(image),
+            camera_name=camera_name,
+            model_id=model_id,
+        )
+
+    async def _run_coordinated_executor_inference(
+        self,
+        priority: Literal["live", "background"],
+        executor: ThreadPoolExecutor,
+        kind: str,
         fn: Callable[..., list[dict]],
         *args: Any,
     ) -> list[dict]:
-        try:
-            await asyncio.wait_for(
-                self._image_inference_semaphore.acquire(),
-                timeout=CLASSIFIER_IMAGE_ADMISSION_TIMEOUT_SECONDS,
+        async def _runner() -> list[dict]:
+            loop = asyncio.get_running_loop()
+            return await loop.run_in_executor(executor, fn, *args)
+
+        queue_timeout_seconds = (
+            CLASSIFIER_LIVE_IMAGE_ADMISSION_TIMEOUT_SECONDS
+            if priority == "live"
+            else CLASSIFIER_IMAGE_ADMISSION_TIMEOUT_SECONDS
+        )
+        lease_timeout_seconds = (
+            CLASSIFIER_LIVE_IMAGE_LEASE_TIMEOUT_SECONDS
+            if priority == "live"
+            else (
+                CLASSIFIER_BACKGROUND_IMAGE_LEASE_TIMEOUT_SECONDS
+                if kind == "background_image_inference"
+                else CLASSIFIER_IMAGE_LEASE_TIMEOUT_SECONDS
             )
-        except asyncio.TimeoutError:
+        )
+
+        try:
+            return await self._classification_admission.submit(
+                priority=priority,
+                kind=kind,
+                runner=_runner,
+                queue_timeout_seconds=queue_timeout_seconds,
+                lease_timeout_seconds=lease_timeout_seconds,
+            )
+        except ClassificationAdmissionTimeoutError:
+            if priority == "live":
+                self._live_image_admission_timeouts += 1
+                log.warning(
+                    "Live image classification admission timed out; dropping request",
+                    timeout_seconds=queue_timeout_seconds,
+                    max_concurrent=CLASSIFIER_IMAGE_MAX_CONCURRENT,
+                    admission_timeouts=self._live_image_admission_timeouts,
+                )
+                raise LiveImageClassificationOverloadedError("classify_snapshot_overloaded") from None
+
             self._image_admission_timeouts += 1
             log.warning(
                 "Image classification admission timed out; dropping request",
@@ -1583,52 +1785,60 @@ class ClassifierService:
                 admission_timeouts=self._image_admission_timeouts,
             )
             return []
+        except ClassificationLeaseExpiredError:
+            if priority == "live":
+                log.warning(
+                    "Live image classification lease expired; reclaiming capacity",
+                    timeout_seconds=lease_timeout_seconds,
+                    max_concurrent=CLASSIFIER_IMAGE_MAX_CONCURRENT,
+                )
+                raise
+            log.warning(
+                "Image classification lease expired; reclaiming capacity",
+                timeout_seconds=lease_timeout_seconds,
+                max_concurrent=CLASSIFIER_IMAGE_MAX_CONCURRENT,
+            )
+            return []
 
-        try:
-            loop = asyncio.get_running_loop()
-            return await loop.run_in_executor(self._image_executor, fn, *args)
-        finally:
-            self._image_inference_semaphore.release()
-
-    def _release_live_image_slot(self, future: Future[list[dict]]) -> None:
-        if future in self._live_image_inflight:
-            self._live_image_inflight.discard(future)
-            self._live_image_inference_semaphore.release()
+    async def _run_image_inference(
+        self,
+        fn: Callable[..., list[dict]],
+        *args: Any,
+    ) -> list[dict]:
+        if self._image_execution_mode == "subprocess" and args:
+            return await self._run_supervised_inference(
+                "background",
+                args[0],
+                args[1] if len(args) > 1 else None,
+                args[2] if len(args) > 2 else None,
+            )
+        return await self._run_coordinated_executor_inference(
+            "background",
+            self._image_executor,
+            "image_inference",
+            fn,
+            *args,
+        )
 
     async def _run_live_image_inference(
         self,
         fn: Callable[..., list[dict]],
         *args: Any,
     ) -> list[dict]:
-        try:
-            await asyncio.wait_for(
-                self._live_image_inference_semaphore.acquire(),
-                timeout=CLASSIFIER_LIVE_IMAGE_ADMISSION_TIMEOUT_SECONDS,
+        if self._image_execution_mode == "subprocess" and args:
+            return await self._run_supervised_inference(
+                "live",
+                args[0],
+                args[1] if len(args) > 1 else None,
+                args[2] if len(args) > 2 else None,
             )
-        except asyncio.TimeoutError:
-            self._live_image_admission_timeouts += 1
-            log.warning(
-                "Live image classification admission timed out; dropping request",
-                timeout_seconds=CLASSIFIER_LIVE_IMAGE_ADMISSION_TIMEOUT_SECONDS,
-                max_concurrent=CLASSIFIER_IMAGE_MAX_CONCURRENT,
-                admission_timeouts=self._live_image_admission_timeouts,
-            )
-            raise LiveImageClassificationOverloadedError("classify_snapshot_overloaded") from None
-
-        loop = asyncio.get_running_loop()
-        try:
-            future = self._live_image_executor.submit(fn, *args)
-        except Exception:
-            self._live_image_inference_semaphore.release()
-            raise
-
-        self._live_image_inflight.add(future)
-
-        def _on_done(done: Future[list[dict]]) -> None:
-            loop.call_soon_threadsafe(self._release_live_image_slot, done)
-
-        future.add_done_callback(_on_done)
-        return await asyncio.wrap_future(future)
+        return await self._run_coordinated_executor_inference(
+            "live",
+            self._live_image_executor,
+            "live_image_inference",
+            fn,
+            *args,
+        )
 
     async def classify_async(
         self,
@@ -1711,14 +1921,18 @@ class ClassifierService:
         Intended for backfill/batch-style work so live MQTT classification
         remains responsive under sustained load.
         """
-        loop = asyncio.get_running_loop()
-        base_results = await loop.run_in_executor(
-            self._background_image_executor,
-            self.classify,
-            image,
-            camera_name,
-            model_id,
-        )
+        if self._image_execution_mode == "subprocess":
+            base_results = await self._run_supervised_inference("background", image, camera_name, model_id)
+        else:
+            base_results = await self._run_coordinated_executor_inference(
+                "background",
+                self._background_image_executor,
+                "background_image_inference",
+                self.classify,
+                image,
+                camera_name,
+                model_id,
+            )
 
         if not base_results:
             return base_results
@@ -1773,6 +1987,7 @@ class ClassifierService:
             log.error("Failed to reload wildlife model", error=str(e))
 
     def shutdown(self) -> None:
+        self._classification_admission.close_sync()
         for executor in (
             self._image_executor,
             self._live_image_executor,
