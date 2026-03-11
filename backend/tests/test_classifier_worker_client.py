@@ -4,6 +4,7 @@ import pytest
 
 from app.services.classifier_worker_client import ClassifierWorkerClient
 from app.services.classifier_worker_protocol import (
+    build_classify_request,
     build_heartbeat_event,
     build_ready_event,
     encode_protocol_message,
@@ -165,3 +166,34 @@ async def test_classifier_worker_client_terminate_and_kill_delegate_to_process()
 
     await client.kill()
     assert process.killed is True
+
+
+@pytest.mark.asyncio
+async def test_classifier_worker_client_spawns_real_worker_process(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("YA_WAMF_CLASSIFIER_WORKER_TEST_MODE", "1")
+
+    client = ClassifierWorkerClient(
+        worker_name="live-real",
+        worker_generation=7,
+        heartbeat_timeout_seconds=5.0,
+    )
+    await client.start()
+    await asyncio.wait_for(client.wait_until_ready(), timeout=5.0)
+    await client.send(
+        build_classify_request(
+            worker_generation=7,
+            request_id="req-real",
+            work_id="live-real-1",
+            lease_token=1,
+            image_b64="payload",
+            camera_name="front",
+            model_id="default",
+        )
+    )
+
+    event = await asyncio.wait_for(client.next_event(), timeout=5.0)
+
+    assert event["type"] == "result"
+    assert event["results"][0]["label"] == "WorkerTest"
+
+    await client.terminate()

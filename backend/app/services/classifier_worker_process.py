@@ -1,7 +1,12 @@
 import asyncio
+import os
 import inspect
 import sys
+from base64 import b64decode
+from io import BytesIO
 from typing import Any, Awaitable, Callable
+
+from PIL import Image
 
 from .classifier_worker_protocol import (
     build_error_event,
@@ -146,5 +151,35 @@ async def run_worker_main(
     await worker.run()
 
 
+def _build_default_classify_fn() -> Callable[..., list[dict[str, Any]]]:
+    if os.getenv("YA_WAMF_CLASSIFIER_WORKER_TEST_MODE") == "1":
+        def _test_classify_fn(**_kwargs: Any) -> list[dict[str, Any]]:
+            return [{"label": "WorkerTest", "score": 0.99}]
+
+        return _test_classify_fn
+
+    from .classifier_service import ClassifierService
+
+    service = ClassifierService(worker_process_mode=True)
+
+    def _classify_fn(*, image_b64: str, camera_name: str | None, model_id: str | None) -> list[dict[str, Any]]:
+        image = Image.open(BytesIO(b64decode(image_b64.encode("ascii")))).convert("RGB")
+        return service.classify(image, camera_name=camera_name, model_id=model_id)
+
+    return _classify_fn
+
+
 def main() -> None:
-    raise RuntimeError("classifier worker entrypoint requires an explicit classify function")
+    worker_generation = int(sys.argv[2]) if len(sys.argv) > 2 else 1
+    heartbeat_interval_seconds = float(os.getenv("CLASSIFIER_WORKER_HEARTBEAT_INTERVAL_SECONDS", "1.0"))
+    asyncio.run(
+        run_worker_main(
+            classify_fn=_build_default_classify_fn(),
+            worker_generation=worker_generation,
+            heartbeat_interval_seconds=heartbeat_interval_seconds,
+        )
+    )
+
+
+if __name__ == "__main__":
+    main()

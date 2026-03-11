@@ -93,7 +93,13 @@ from app.services.classification_admission import (  # noqa: E402
     ClassificationAdmissionTimeoutError,
     ClassificationLeaseExpiredError,
 )
-from app.services.classifier_supervisor import ClassifierSupervisor  # noqa: E402
+from app.services.classifier_supervisor import (  # noqa: E402
+    ClassifierSupervisor,
+    ClassifierWorkerCircuitOpenError,
+    ClassifierWorkerDeadlineExceededError,
+    ClassifierWorkerExitedError,
+    ClassifierWorkerHeartbeatTimeoutError,
+)
 from app.services.personalization_service import personalization_service  # noqa: E402
 
 log = structlog.get_logger()
@@ -1722,14 +1728,31 @@ class ClassifierService:
     ) -> list[dict]:
         if self._classifier_supervisor is None:
             raise RuntimeError("classifier supervisor is not configured")
-        return await self._classifier_supervisor.classify(
-            priority=priority,
-            work_id=f"{priority}-{time.monotonic_ns()}",
-            lease_token=1,
-            image_b64=self._encode_image_for_worker(image),
-            camera_name=camera_name,
-            model_id=model_id,
-        )
+        try:
+            return await self._classifier_supervisor.classify(
+                priority=priority,
+                work_id=f"{priority}-{time.monotonic_ns()}",
+                lease_token=1,
+                image_b64=self._encode_image_for_worker(image),
+                camera_name=camera_name,
+                model_id=model_id,
+            )
+        except ClassifierWorkerCircuitOpenError:
+            if priority == "live":
+                raise LiveImageClassificationOverloadedError("classify_snapshot_circuit_open") from None
+            return []
+        except (ClassifierWorkerHeartbeatTimeoutError, ClassifierWorkerDeadlineExceededError):
+            if priority == "live":
+                raise ClassificationLeaseExpiredError(
+                    "live",
+                    "live_image_inference",
+                    float(getattr(settings.classification, "worker_hard_deadline_seconds", 35.0) or 35.0),
+                ) from None
+            return []
+        except ClassifierWorkerExitedError:
+            if priority == "live":
+                raise LiveImageClassificationOverloadedError("classify_snapshot_worker_unavailable") from None
+            return []
 
     async def _run_coordinated_executor_inference(
         self,

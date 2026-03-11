@@ -1,4 +1,5 @@
 import asyncio
+import os
 import sys
 import time
 from collections.abc import Awaitable, Callable
@@ -44,7 +45,7 @@ class ClassifierWorkerClient:
         self._reader_task = asyncio.create_task(self._reader_loop())
         self._wait_task = asyncio.create_task(self._wait_loop())
 
-    async def wait_until_ready(self, timeout_seconds: float = 1.0) -> None:
+    async def wait_until_ready(self, timeout_seconds: float = 5.0) -> None:
         await asyncio.wait_for(self._ready.wait(), timeout=max(0.01, float(timeout_seconds)))
 
     async def send(self, message: dict[str, Any]) -> None:
@@ -111,6 +112,7 @@ class ClassifierWorkerClient:
             self._closed.set()
 
     async def _spawn_process(self, *, worker_name: str, worker_generation: int) -> Any:
+        backend_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
         return await asyncio.create_subprocess_exec(
             sys.executable,
             "-m",
@@ -120,4 +122,5 @@ class ClassifierWorkerClient:
             stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
+            cwd=backend_root,
         )
