@@ -1318,7 +1318,16 @@
     "error_bundles_empty": "No saved bundles yet.",
     "error_bundles_stats": "{groups} groups • {events} events • {snapshots} snapshots",
     "error_bundles_download": "Download",
-    "error_bundles_delete": "Delete"
+    "error_bundles_delete": "Delete",
+    "current_issues_title": "Current Issues",
+    "current_issues_empty": "No current incidents detected.",
+    "recent_incidents_title": "Recent Incidents",
+    "recent_incidents_empty": "No resolved incidents yet.",
+    "incident_detail_title": "Incident Detail",
+    "report_issue_title": "Report Issue",
+    "report_issue_empty": "Select an incident to inspect or report it.",
+    "report_issue_copy_summary": "Copy Issue Summary",
+    "report_issue_open_github": "Open GitHub Issue"
   },
   "footer": {
     "did_you_know": "Did you know?",

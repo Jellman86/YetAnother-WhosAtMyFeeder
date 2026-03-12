@@ -28,6 +28,7 @@
   import { notificationCenter } from './lib/stores/notification_center.svelte';
   import { jobProgressStore } from './lib/stores/job_progress.svelte';
   import { jobDiagnosticsStore } from './lib/stores/job_diagnostics.svelte';
+  import { incidentWorkspaceStore } from './lib/stores/incident_workspace.svelte';
   import { notificationPolicy } from './lib/notifications/policy';
   import { announcer } from './lib/components/Announcer.svelte';
   import Announcer from './lib/components/Announcer.svelte';
@@ -170,6 +171,7 @@
       fetchCacheStats,
       fetchAnalysisStatus,
       diagnostics: jobDiagnosticsStore,
+      syncDiagnosticsWorkspace: () => incidentWorkspaceStore.refresh(),
       onConnected: () => {
           reconnectAttempts = 0;
       }

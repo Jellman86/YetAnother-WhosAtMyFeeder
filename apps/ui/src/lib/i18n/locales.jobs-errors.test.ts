@@ -58,7 +58,16 @@ const REQUIRED_KEYS = [
     'jobs.error_bundles_empty',
     'jobs.error_bundles_stats',
     'jobs.error_bundles_download',
-    'jobs.error_bundles_delete'
+    'jobs.error_bundles_delete',
+    'jobs.current_issues_title',
+    'jobs.current_issues_empty',
+    'jobs.recent_incidents_title',
+    'jobs.recent_incidents_empty',
+    'jobs.incident_detail_title',
+    'jobs.report_issue_title',
+    'jobs.report_issue_empty',
+    'jobs.report_issue_copy_summary',
+    'jobs.report_issue_open_github'
 ];
 
 const LOCALES: Array<[string, LocaleRoot]> = [

@@ -13,6 +13,7 @@
     import Errors from './Errors.svelte';
     import { jobDiagnosticsStore } from '../stores/job_diagnostics.svelte';
     import { authStore } from '../stores/auth.svelte';
+    import { incidentWorkspaceStore } from '../stores/incident_workspace.svelte';
 
     let {
         onNavigate,
@@ -23,7 +24,7 @@
     let ongoingItems = $derived(items.filter((item) => item.type === 'process' && !item.read));
     let historyItems = $derived(items.filter((item) => !(item.type === 'process' && !item.read)));
     let activeJobs = $derived(jobProgressStore.activeJobs);
-    let errorGroupCount = $derived(jobDiagnosticsStore.groups.length);
+    let errorGroupCount = $derived(Math.max(jobDiagnosticsStore.groups.length, incidentWorkspaceStore.currentIssues.length));
     let canAccessOwnerTabs = $derived(authStore.showSettings);
     let activeTab = $derived.by(() => {
         const tab = getNotificationsTabFromPath(currentRoute);
