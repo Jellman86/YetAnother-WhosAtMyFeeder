@@ -6,6 +6,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- **Added:** Owner incident workspace in Notifications > Errors now correlates backend diagnostics into current/recent incidents, preserves richer evidence in exported bundles, and generates issue-ready report text with optional owner notes for GitHub reporting.
 - **Changed:** OpenVINO/GPU bird inference is now fully supervisor-oriented in subprocess mode: the main backend no longer eagerly loads a duplicate bird model, status probes are cached instead of re-running OpenVINO device detection on every refresh, and owner bird test/debug routes use subprocess-safe behavior instead of assuming an in-process bird runtime.
 - **Fixed:** Classifier self-healing is more robust under worker replacement failures: failed restarts no longer kill the watchdog loop, unavailable slots are tracked explicitly, restart budgets still trip circuit breakers, and recovery telemetry now includes worker-reported runtime fallback events.
 - **Added:** Supervised video bird classification now uses a dedicated worker pool and protocol support for progress events, isolating clip analysis from live/background snapshot workers while preserving progress callbacks and worker-side runtime recovery reporting.

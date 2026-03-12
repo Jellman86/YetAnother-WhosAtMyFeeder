@@ -4,6 +4,7 @@ import { jobDiagnosticsStore } from './job_diagnostics.svelte';
 describe('jobDiagnosticsStore', () => {
     beforeEach(() => {
         jobDiagnosticsStore.clear();
+        jobDiagnosticsStore.clearBundles();
         vi.useFakeTimers();
         vi.setSystemTime(new Date('2026-03-06T12:00:00.000Z'));
     });
@@ -372,6 +373,26 @@ describe('jobDiagnosticsStore', () => {
             health_snapshots: expect.any(Array)
         });
         expect((payload.raw_evidence as { error_groups: unknown[] }).error_groups).toHaveLength(2);
+    });
+
+    it('captures bundle report notes without clearing live diagnostics', () => {
+        jobDiagnosticsStore.recordError({
+            source: 'runtime',
+            component: 'frontend',
+            reasonCode: 'uncaught_exception',
+            message: 'Owner page crashed',
+            severity: 'error'
+        });
+
+        const bundle = jobDiagnosticsStore.captureBundle('incident repro', 'repro after database reset');
+
+        expect(bundle).toBeTruthy();
+        expect(jobDiagnosticsStore.groups).toHaveLength(1);
+        expect(bundle?.payload.report).toMatchObject({
+            label: 'incident repro',
+            notes: 'repro after database reset',
+            schema_version: 2
+        });
     });
 
     it('captures a new health snapshot when subprocess worker breaker state changes', () => {

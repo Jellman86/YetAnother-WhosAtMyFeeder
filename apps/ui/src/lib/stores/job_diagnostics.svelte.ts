@@ -669,7 +669,7 @@ class JobDiagnosticsStore {
         return this.buildExportPayload(this.groups, this.healthSnapshots);
     }
 
-    captureBundle(label?: string): JobDiagnosticBundle | null {
+    captureBundle(label?: string, notes?: string): JobDiagnosticBundle | null {
         if (this.groups.length <= 0 && this.healthSnapshots.length <= 0) return null;
         const id = `bundle:${Date.now()}:${this.bundleCounter++}`;
         const fallbackLabel = `Bundle ${this.bundles.length + 1}`;
@@ -678,6 +678,12 @@ class JobDiagnosticsStore {
             this.groups,
             this.healthSnapshots.slice(0, MAX_BUNDLE_HEALTH_SNAPSHOTS)
         );
+        payload.report = {
+            label: resolvedLabel,
+            notes: normalizeString(notes, ''),
+            generated_at: payload.generated_at,
+            schema_version: payload.schema_version
+        };
         const summary = payload.summary as {
             error_groups: number;
             total_events: number;

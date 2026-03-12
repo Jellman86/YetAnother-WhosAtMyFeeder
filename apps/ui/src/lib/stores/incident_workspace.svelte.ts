@@ -24,6 +24,12 @@ export interface IncidentRecord {
     primaryReasonCode: string;
 }
 
+export interface IncidentIssueDraft {
+    title: string;
+    body: string;
+    bundleSchemaVersion: number | null;
+}
+
 function toTimestamp(value: string | number | undefined | null): number {
     if (typeof value === 'number' && Number.isFinite(value)) return value;
     if (typeof value === 'string') {
@@ -108,6 +114,50 @@ class IncidentWorkspaceStore {
         if (!id) return;
         this.jobs.set(id, { ...job, id });
         this.recompute();
+    }
+
+    buildIssueDraft(
+        incident: IncidentRecord | null | undefined,
+        options?: {
+            bundleLabel?: string;
+            bundleSchemaVersion?: number | null;
+            reportNotes?: string;
+        }
+    ): IncidentIssueDraft {
+        const selected = incident ?? this.currentIssues[0] ?? this.recentIncidents[0] ?? null;
+        const health = this.workspacePayload?.health ?? {};
+        const healthStatus = normalizeString(health.status, 'unknown');
+        const service = normalizeString(health.service, 'ya-wamf-backend');
+        const version = normalizeString(health.version, 'unknown');
+        const bundleLabel = normalizeString(options?.bundleLabel, '');
+        const reportNotes = normalizeString(options?.reportNotes, '');
+        const title = selected
+            ? `[incident] ${selected.title}`
+            : '[incident] Diagnostics workspace report';
+        const body = [
+            'Environment',
+            `- Service: ${service}`,
+            `- Version: ${version}`,
+            `- Health: ${healthStatus}`,
+            bundleLabel ? `- Bundle: ${bundleLabel}` : null,
+            '',
+            'Incident Summary',
+            selected ? `- Title: ${selected.title}` : '- Title: Unknown incident',
+            selected ? `- Area: ${selected.affected_area}` : '- Area: unknown',
+            selected ? `- Status: ${selected.status}` : '- Status: unknown',
+            selected ? `- Severity: ${selected.severity}` : '- Severity: unknown',
+            selected ? `- Reason: ${selected.primaryReasonCode}` : '- Reason: unknown',
+            selected ? `- Evidence: ${selected.evidenceRefs.join(', ') || 'none'}` : '- Evidence: none',
+            reportNotes ? `- Notes: ${reportNotes}` : null,
+            '',
+            selected?.summary ?? 'No incident summary available.'
+        ].filter((line): line is string => Boolean(line)).join('\n');
+
+        return {
+            title,
+            body,
+            bundleSchemaVersion: options?.bundleSchemaVersion ?? null
+        };
     }
 
     private recompute(): void {

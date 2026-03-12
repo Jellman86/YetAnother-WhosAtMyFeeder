@@ -18,6 +18,7 @@
     let healthSnapshots = $derived(jobDiagnosticsStore.healthSnapshots);
     let bundles = $derived(jobDiagnosticsStore.bundles);
     let captureLabel = $state('');
+    let reportNotes = $state('');
     let selectedIncidentId = $state<string | null>(null);
     let refreshing = $state(false);
     let refreshError = $state('');
@@ -77,7 +78,8 @@
 
     function captureBundle() {
         const label = captureLabel.trim();
-        const bundle = jobDiagnosticsStore.captureBundle(label || undefined);
+        const notes = reportNotes.trim();
+        const bundle = jobDiagnosticsStore.captureBundle(label || undefined, notes || undefined);
         if (bundle) {
             captureLabel = '';
         }
@@ -87,35 +89,25 @@
         jobDiagnosticsStore.downloadBundle(bundle.id);
     }
 
-    function buildIssueSummary(incident: IncidentRecord | null): string {
-        if (!incident) return '';
-        const healthStatus = String(workspacePayload?.health?.status ?? 'unknown');
-        const evidenceCount = incident.evidenceRefs.length;
-        return [
-            `Incident: ${incident.title}`,
-            `Area: ${incident.affected_area}`,
-            `Status: ${incident.status}`,
-            `Severity: ${incident.severity}`,
-            `Reason: ${incident.primaryReasonCode}`,
-            `First seen: ${formatDateTime(incident.startedAt)}`,
-            `Last seen: ${formatDateTime(incident.lastSeenAt)}`,
-            `Current health: ${healthStatus}`,
-            `Evidence refs: ${evidenceCount > 0 ? incident.evidenceRefs.join(', ') : 'none'}`,
-            '',
-            incident.summary
-        ].join('\n');
-    }
-
     async function copyIssueSummary() {
-        const summary = buildIssueSummary(selectedIncident);
-        if (!summary || typeof navigator === 'undefined' || !navigator.clipboard) return;
-        await navigator.clipboard.writeText(summary);
+        const draft = incidentWorkspaceStore.buildIssueDraft(selectedIncident, {
+            bundleLabel: captureLabel.trim() || undefined,
+            bundleSchemaVersion: Number(jobDiagnosticsStore.exportJson().schema_version ?? 0) || null,
+            reportNotes: reportNotes.trim() || undefined
+        });
+        if (!draft.body || typeof navigator === 'undefined' || !navigator.clipboard) return;
+        await navigator.clipboard.writeText(draft.body);
     }
 
     function openGithubIssue() {
         if (!selectedIncident || typeof window === 'undefined') return;
-        const title = encodeURIComponent(`[incident] ${selectedIncident.title}`);
-        const body = encodeURIComponent(buildIssueSummary(selectedIncident));
+        const draft = incidentWorkspaceStore.buildIssueDraft(selectedIncident, {
+            bundleLabel: captureLabel.trim() || undefined,
+            bundleSchemaVersion: Number(jobDiagnosticsStore.exportJson().schema_version ?? 0) || null,
+            reportNotes: reportNotes.trim() || undefined
+        });
+        const title = encodeURIComponent(draft.title);
+        const body = encodeURIComponent(draft.body);
         window.open(
             `https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/new?title=${title}&body=${body}`,
             '_blank',
@@ -302,7 +294,12 @@
                 <p class="text-xs text-slate-500">{$_('jobs.report_issue_empty', { default: 'Select an incident to inspect or report it.' })}</p>
             {:else}
                 <div class="space-y-3">
-                    <textarea class="textarea textarea-bordered min-h-40 w-full text-xs" readonly value={buildIssueSummary(selectedIncident)}></textarea>
+                    <textarea class="textarea textarea-bordered min-h-24 w-full text-xs" bind:value={reportNotes} placeholder="Optional repro notes"></textarea>
+                    <textarea class="textarea textarea-bordered min-h-40 w-full text-xs" readonly value={incidentWorkspaceStore.buildIssueDraft(selectedIncident, {
+                        bundleLabel: captureLabel.trim() || undefined,
+                        bundleSchemaVersion: Number(jobDiagnosticsStore.exportJson().schema_version ?? 0) || null,
+                        reportNotes: reportNotes.trim() || undefined
+                    }).body}></textarea>
                     <div class="flex items-center gap-2">
                         <button type="button" class="btn btn-secondary px-3 py-2 text-xs" onclick={copyIssueSummary}>
                             {$_('jobs.report_issue_copy_summary', { default: 'Copy Issue Summary' })}
