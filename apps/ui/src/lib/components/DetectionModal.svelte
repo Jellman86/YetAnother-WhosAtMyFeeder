@@ -1667,9 +1667,28 @@
                     <p class="text-sm font-bold text-slate-800 dark:text-slate-200">
                         {detection.video_classification_label}
                     </p>
-                    <p class="text-[10px] text-slate-500 mt-1 italic leading-tight">
-                        {$_('detection.video_analysis.verified_desc')}
-                    </p>
+                    <div class="flex flex-wrap items-center gap-2 mt-1">
+                        <p class="text-[10px] text-slate-500 italic leading-tight">
+                            {$_('detection.video_analysis.verified_desc')}
+                        </p>
+                        {#if detection.video_classification_provider}
+                            <div class="flex items-center gap-1.5 px-1.5 py-0.5 rounded border border-indigo-200/50 dark:border-indigo-500/30 bg-white/60 dark:bg-slate-900/40">
+                                {#if detection.video_classification_provider === 'intel_gpu' || detection.video_classification_provider === 'cuda'}
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-3 h-3 text-indigo-500">
+                                        <path d="M5.25 5.25v13.5h13.5V5.25H5.25ZM3 3.75A2.25 2.25 0 0 1 5.25 1.5h13.5A2.25 2.25 0 0 1 21 3.75v13.5A2.25 2.25 0 0 1 18.75 19.5H5.25A2.25 2.25 0 0 1 3 17.25V3.75Z" />
+                                        <path d="M8.25 8.25v7.5h7.5v-7.5h-7.5ZM9.75 9.75h4.5v4.5h-4.5v-4.5Z" />
+                                    </svg>
+                                    <span class="text-[9px] font-black text-indigo-700 dark:text-indigo-300 uppercase tracking-wider" title={detection.video_classification_provider}>GPU</span>
+                                {:else}
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-3 h-3 text-slate-400">
+                                        <path d="M5.25 5.25v13.5h13.5V5.25H5.25ZM3 3.75A2.25 2.25 0 0 1 5.25 1.5h13.5A2.25 2.25 0 0 1 21 3.75v13.5A2.25 2.25 0 0 1 18.75 19.5H5.25A2.25 2.25 0 0 1 3 17.25V3.75Z" />
+                                        <path d="M8.25 8.25v7.5h7.5v-7.5h-7.5ZM9.75 9.75h4.5v4.5h-4.5v-4.5Z" />
+                                    </svg>
+                                    <span class="text-[9px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-wider" title={detection.video_classification_provider}>CPU</span>
+                                {/if}
+                            </div>
+                        {/if}
+                    </div>
                 </div>
             {:else if (detection.video_classification_status === 'processing' || detection.video_classification_status === 'pending') && !showMediaSlotVideoAnalysis}
                  <div class="p-4 rounded-2xl bg-white/80 dark:bg-slate-900/40 border border-slate-200/70 dark:border-slate-700/50 flex items-center gap-3 animate-pulse">
