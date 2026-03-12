@@ -13,7 +13,8 @@ function buildCoordinator(options?: { activeJobs?: any[]; shouldNotify?: boolean
         recordError: [] as any[],
         startReclassification: [] as any[],
         updateReclassificationProgress: [] as any[],
-        completeReclassification: [] as any[]
+        completeReclassification: [] as any[],
+        syncDiagnosticsWorkspace: [] as any[]
     };
 
     const notificationItems: any[] = [];
@@ -81,6 +82,9 @@ function buildCoordinator(options?: { activeJobs?: any[]; shouldNotify?: boolean
         diagnostics: {
             ingestHealth: (health: any) => calls.ingestHealth.push(health),
             recordError: (input: any) => calls.recordError.push(input)
+        },
+        syncDiagnosticsWorkspace: async () => {
+            calls.syncDiagnosticsWorkspace.push(true);
         }
     });
 
@@ -170,6 +174,12 @@ describe('LiveUpdateCoordinator reclassify fallback', () => {
         const { coordinator, calls } = buildCoordinator();
         await coordinator.runOwnerSystemChecks();
         expect(calls.ingestHealth.length).toBe(1);
+    });
+
+    it('refreshes owner diagnostics workspace during owner system checks', async () => {
+        const { coordinator, calls } = buildCoordinator();
+        await coordinator.runOwnerSystemChecks();
+        expect(calls.syncDiagnosticsWorkspace).toHaveLength(1);
     });
 
     it('creates a synthetic batch analysis job when queue status shows work but no event jobs are active', async () => {

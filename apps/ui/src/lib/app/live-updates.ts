@@ -121,6 +121,7 @@ interface LiveUpdateDeps {
     fetchCacheStats: () => Promise<any>;
     fetchAnalysisStatus: () => Promise<AnalysisStatus>;
     diagnostics?: JobDiagnosticsLike;
+    syncDiagnosticsWorkspace?: () => Promise<void>;
     onConnected?: () => void;
 }
 
@@ -245,6 +246,22 @@ export class LiveUpdateCoordinator {
                 severity: 'warning',
                 context: { scope: 'runOwnerSystemChecks' }
             });
+        }
+
+        if (this.deps.syncDiagnosticsWorkspace) {
+            try {
+                await this.deps.syncDiagnosticsWorkspace();
+            } catch (error) {
+                this.deps.logger.warn('diagnostics_workspace_sync_failed', { error });
+                this.deps.diagnostics?.recordError({
+                    source: 'health',
+                    component: 'diagnostics_workspace',
+                    reasonCode: 'request_failed',
+                    message: this.toErrorMessage(error, 'Diagnostics workspace refresh failed'),
+                    severity: 'warning',
+                    context: { scope: 'runOwnerSystemChecks' }
+                });
+            }
         }
     }
 
