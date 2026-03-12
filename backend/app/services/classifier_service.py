@@ -1177,7 +1177,15 @@ class OpenVINOModelInstance:
             self.core.set_property({"CACHE_DIR": cache_dir})
             
             model = self.core.read_model(self.model_path)
-            self.compiled_model = self.core.compile_model(model, self.device_name)
+            
+            # Intel GPUs default to f16 inference precision. Un-quantized ONNX models 
+            # often have intermediate activations >65504, which overflow f16, resulting 
+            # in non-finite logits (NaN/inf) and crashing the strict softmax pipeline.
+            config = {}
+            if self.device_name == "GPU" or str(self.device_name).startswith("GPU."):
+                config["INFERENCE_PRECISION_HINT"] = "f32"
+                
+            self.compiled_model = self.core.compile_model(model, self.device_name, config=config)
             self.input_name = self.compiled_model.inputs[0].get_any_name()
             self.loaded = True
             self.error = None
