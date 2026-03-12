@@ -14,6 +14,13 @@
         const handleError = (event: ErrorEvent) => {
             // Only handle errors from our app, not from browser extensions, etc.
             if (event.filename && event.filename.includes('/src/')) {
+                // Ignore meaningless extension/network/cloudflare errors
+                const msg = event.message || event.error?.message || '';
+                if (msg.includes('Cloudflare connection failed') || 
+                    msg.includes('Network error: Something went wrong') ||
+                    msg.includes('ResizeObserver loop limit exceeded')) {
+                    return;
+                }
                 error = event.error || new Error(event.message);
                 errorInfo = `${event.filename}:${event.lineno}:${event.colno}`;
                 event.preventDefault();
@@ -24,9 +31,13 @@
         const handleRejection = (event: PromiseRejectionEvent) => {
             const reason = event.reason instanceof Error ? event.reason : new Error(String(event.reason));
             if (reason.name === 'AbortError') {
-                // Request cancellations are expected during rapid filter/navigation changes.
                 return;
             }
+            // Ignore fetch errors that are likely adblockers/cloudflare/extensions
+            if (reason.message.includes('Failed to fetch') || reason.message.includes('NetworkError')) {
+                return;
+            }
+            
             error = reason;
             errorInfo = 'Unhandled Promise Rejection';
             event.preventDefault();
