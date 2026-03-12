@@ -40,6 +40,49 @@ export interface LocalDiagnosticGroup {
     lastSeen: number;
 }
 
+function localGroupsEqual(a: LocalDiagnosticGroup[], b: LocalDiagnosticGroup[]): boolean {
+    if (a === b) return true;
+    if (a.length !== b.length) return false;
+    for (let index = 0; index < a.length; index += 1) {
+        const left = a[index];
+        const right = b[index];
+        if (
+            left.fingerprint !== right.fingerprint
+            || left.component !== right.component
+            || left.reasonCode !== right.reasonCode
+            || left.severity !== right.severity
+            || left.message !== right.message
+            || left.firstSeen !== right.firstSeen
+            || left.lastSeen !== right.lastSeen
+        ) {
+            return false;
+        }
+    }
+    return true;
+}
+
+function backendEventsEqual(a: BackendDiagnosticEvent[], b: BackendDiagnosticEvent[]): boolean {
+    if (a === b) return true;
+    if (a.length !== b.length) return false;
+    for (let index = 0; index < a.length; index += 1) {
+        const left = a[index];
+        const right = b[index];
+        if (
+            left.id !== right.id
+            || left.timestamp !== right.timestamp
+            || left.component !== right.component
+            || left.reason_code !== right.reason_code
+            || left.severity !== right.severity
+            || left.message !== right.message
+            || normalizeString(left.job_id) !== normalizeString(right.job_id)
+            || normalizeString(left.correlation_key) !== normalizeString(right.correlation_key)
+        ) {
+            return false;
+        }
+    }
+    return true;
+}
+
 function toTimestamp(value: string | number | undefined | null): number {
     if (typeof value === 'number' && Number.isFinite(value)) return value;
     if (typeof value === 'string') {
@@ -116,7 +159,11 @@ class IncidentWorkspaceStore {
     }
 
     ingestBackendDiagnostics(events: BackendDiagnosticEvent[]): void {
-        this.backendEvents = Array.isArray(events) ? [...events] : [];
+        const nextEvents = Array.isArray(events) ? [...events] : [];
+        if (backendEventsEqual(this.backendEvents, nextEvents)) {
+            return;
+        }
+        this.backendEvents = nextEvents;
         this.recompute();
     }
 
@@ -128,7 +175,11 @@ class IncidentWorkspaceStore {
     }
 
     ingestLocalDiagnosticGroups(groups: LocalDiagnosticGroup[]): void {
-        this.localGroups = Array.isArray(groups) ? [...groups] : [];
+        const nextGroups = Array.isArray(groups) ? [...groups] : [];
+        if (localGroupsEqual(this.localGroups, nextGroups)) {
+            return;
+        }
+        this.localGroups = nextGroups;
         this.recompute();
     }
 

@@ -125,4 +125,26 @@ describe('incidentWorkspaceStore', () => {
         expect(store.currentIssues[0].affected_area).toBe('frontend');
         expect(store.currentIssues[0].evidenceRefs).toContain('local:runtime|frontend|-|uncaught_exception');
     });
+
+    it('does not churn incident state when equivalent local diagnostic groups are re-ingested', () => {
+        const store = createIncidentWorkspaceStore();
+        const groups = [
+            {
+                fingerprint: 'runtime|frontend|-|uncaught_exception',
+                component: 'frontend',
+                reasonCode: 'uncaught_exception',
+                severity: 'error' as const,
+                message: 'Owner page crashed',
+                firstSeen: Date.parse('2026-03-12T10:00:00Z'),
+                lastSeen: Date.parse('2026-03-12T10:01:00Z')
+            }
+        ];
+
+        store.ingestLocalDiagnosticGroups(groups);
+        const firstCurrentIssues = store.currentIssues;
+
+        store.ingestLocalDiagnosticGroups([{ ...groups[0] }]);
+
+        expect(store.currentIssues).toBe(firstCurrentIssues);
+    });
 });
