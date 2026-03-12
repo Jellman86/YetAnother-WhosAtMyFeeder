@@ -558,7 +558,11 @@ def test_classifier_service_recovers_from_invalid_openvino_gpu_output(mock_tflit
                 "intel_cpu",
                 "Runtime fallback after invalid openvino/intel_gpu output: invalid logits; using openvino/intel_cpu",
             ),
-        ) as mock_load:
+        ) as mock_load, patch.object(
+            service,
+            "_attempt_gpu_retry_after_invalid_output",
+            return_value=False,
+        ):
             results = service.classify(Image.new("RGB", (32, 32), color="white"))
 
         assert results == [{"label": "Unknown Bird", "score": 0.12, "index": 0}]
@@ -571,6 +575,121 @@ def test_classifier_service_recovers_from_invalid_openvino_gpu_output(mock_tflit
         assert broken.cleanup_called is True
         assert "openvino/intel_cpu" in (service._inference_fallback_reason or "")
         mock_load.assert_called_once()
+        service.shutdown()
+
+
+def test_classifier_service_retries_gpu_once_before_cpu_fallback(mock_tflite, mock_os_path_exists):
+    class _BrokenOpenVINOModel:
+        loaded = True
+        error = None
+        labels = []
+
+        def __init__(self):
+            self.cleanup_called = False
+
+        def classify(self, _image):
+            raise InvalidInferenceOutputError(
+                backend="openvino",
+                provider="GPU",
+                detail="bird inference produced no finite probabilities",
+            )
+
+        def cleanup(self):
+            self.cleanup_called = True
+
+        def get_status(self):
+            return {"loaded": True, "error": None}
+
+    with patch.object(ClassifierService, "_init_bird_model", return_value=None):
+        service = ClassifierService()
+        broken = _BrokenOpenVINOModel()
+        recovered_gpu = _FallbackReadyModel([{"label": "Robin", "score": 0.77, "index": 0}])
+        service._models["bird"] = broken
+        service._inference_backend = "openvino"
+        service._active_inference_provider = "intel_gpu"
+        service._accel_caps = {
+            "openvino_available": True,
+            "intel_gpu_available": True,
+            "intel_cpu_available": True,
+            "ort_available": True,
+        }
+
+        with patch.object(
+            service,
+            "_build_bird_model_for_backend",
+            return_value=recovered_gpu,
+        ) as mock_build, patch.object(
+            service,
+            "_load_runtime_fallback_bird_model",
+        ) as mock_fallback, patch.object(
+            service,
+            "_resolve_active_bird_model_spec",
+            return_value={
+                "model_path": "/tmp/model.onnx",
+                "labels_path": "/tmp/labels.txt",
+                "input_size": 384,
+                "preprocessing": None,
+                "runtime": "onnx",
+            },
+        ):
+            results = service.classify(Image.new("RGB", (32, 32), color="white"))
+
+        assert results == [{"label": "Robin", "score": 0.77, "index": 0}]
+        assert service._models["bird"] is recovered_gpu
+        assert service._inference_backend == "openvino"
+        assert service._active_inference_provider == "intel_gpu"
+        assert service._runtime_gpu_retries == 1
+        assert service._runtime_fallback_recoveries == 0
+        mock_build.assert_called()
+        mock_fallback.assert_not_called()
+        service.shutdown()
+
+
+def test_classifier_service_auto_restores_gpu_after_cpu_fallback_cooldown(mock_tflite, mock_os_path_exists):
+    with patch.object(ClassifierService, "_init_bird_model", return_value=None):
+        service = ClassifierService()
+        cpu_model = _FallbackReadyModel([{"label": "CPU Bird", "score": 0.2, "index": 0}])
+        gpu_model = _FallbackReadyModel([{"label": "GPU Bird", "score": 0.9, "index": 0}])
+        service._models["bird"] = cpu_model
+        service._inference_backend = "openvino"
+        service._active_inference_provider = "intel_cpu"
+        service._gpu_restore_not_before_monotonic = 0.0
+        service._accel_caps = {
+            "openvino_available": True,
+            "intel_gpu_available": True,
+            "intel_cpu_available": True,
+            "ort_available": True,
+        }
+
+        original_provider = settings.classification.inference_provider
+        settings.classification.inference_provider = "auto"
+        try:
+            with patch.object(
+                service,
+                "_build_bird_model_for_backend",
+                return_value=gpu_model,
+            ) as mock_build, patch.object(
+                service,
+                "_resolve_active_bird_model_spec",
+                return_value={
+                    "model_path": "/tmp/model.onnx",
+                    "labels_path": "/tmp/labels.txt",
+                    "input_size": 384,
+                    "preprocessing": None,
+                    "runtime": "onnx",
+                },
+            ):
+                results = service.classify(Image.new("RGB", (32, 32), color="white"))
+        finally:
+            settings.classification.inference_provider = original_provider
+
+        assert results == [{"label": "GPU Bird", "score": 0.9, "index": 0}]
+        assert service._models["bird"] is gpu_model
+        assert service._inference_backend == "openvino"
+        assert service._active_inference_provider == "intel_gpu"
+        assert service._runtime_gpu_restore_attempts == 1
+        assert service._runtime_gpu_restore_successes == 1
+        mock_build.assert_called()
         service.shutdown()
 
 

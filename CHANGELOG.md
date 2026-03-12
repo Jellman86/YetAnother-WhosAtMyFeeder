@@ -6,6 +6,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- **Changed:** GPU runtime recovery policy is now more robust: on invalid OpenVINO GPU output, YA-WAMF now retries once on a freshly reloaded GPU model before demoting to CPU fallback, and workers that fell back to OpenVINO CPU now auto-attempt GPU restoration after a cooldown (when GPU is configured/available) instead of staying on CPU indefinitely.
+- **Added:** Classifier status telemetry now includes GPU recovery counters (`runtime_gpu_retries`, restore attempts/success/fail, and restore cooldown marker) so owner diagnostics can verify whether the system is actually recovering back to GPU over time.
 - **Changed:** Backend dependency pinning now locks `openvino==2025.4.1` as a known-good baseline for Intel GPU stability, replacing the previous open-ended `openvino>=2024.0.0` range to avoid unexpected runtime behavior shifts from 2026.x upgrades.
 - **Added:** New backend regression test (`backend/tests/test_dependency_pins.py`) asserts the OpenVINO pin remains fixed, preventing accidental drift back to an unbounded OpenVINO version range.
 - **Fixed:** Subprocess video-classification progress callbacks now accept both keyword and positional callback signatures (`current_frame`/`total_frames` and legacy positional args), restoring reliable `reclassification_progress` SSE emission for frame-strip UI updates during reclassify/auto-video runs.

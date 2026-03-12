@@ -135,6 +135,14 @@ CLASSIFIER_ACCEL_PROBE_TTL_SECONDS = max(
     1.0,
     float(os.getenv("CLASSIFIER_ACCEL_PROBE_TTL_SECONDS", "60")),
 )
+CLASSIFIER_GPU_INVALID_RETRY_LIMIT = max(
+    0,
+    int(os.getenv("CLASSIFIER_GPU_INVALID_RETRY_LIMIT", "1")),
+)
+CLASSIFIER_GPU_RESTORE_COOLDOWN_SECONDS = max(
+    1.0,
+    float(os.getenv("CLASSIFIER_GPU_RESTORE_COOLDOWN_SECONDS", "120")),
+)
 
 
 class LiveImageClassificationOverloadedError(RuntimeError):
@@ -1324,6 +1332,12 @@ class ClassifierService:
         self._openvino_model_compile_unsupported_ops: list[str] = []
         self._runtime_invalid_output_failures = 0
         self._runtime_fallback_recoveries = 0
+        self._runtime_gpu_retries = 0
+        self._runtime_gpu_restore_attempts = 0
+        self._runtime_gpu_restore_successes = 0
+        self._runtime_gpu_restore_failures = 0
+        self._gpu_invalid_retry_remaining = CLASSIFIER_GPU_INVALID_RETRY_LIMIT
+        self._gpu_restore_not_before_monotonic: float = 0.0
         self._last_runtime_recovery: Optional[dict[str, Any]] = None
         self._accel_caps_ttl_seconds = CLASSIFIER_ACCEL_PROBE_TTL_SECONDS
         self._accel_caps_last_refreshed_monotonic: float | None = None
@@ -1504,6 +1518,107 @@ class ClassifierService:
             return replacement, backend, provider, reason
         return None, None, None, None
 
+    def _gpu_restore_eligible(self) -> bool:
+        if self._inference_backend != "openvino" or self._active_inference_provider != "intel_cpu":
+            return False
+        if time.monotonic() < self._gpu_restore_not_before_monotonic:
+            return False
+        requested_provider = _normalize_inference_provider(
+            getattr(settings.classification, "inference_provider", "auto")
+        )
+        if requested_provider not in {"auto", "intel_gpu"}:
+            return False
+        if not self._accel_caps.get("openvino_available"):
+            return False
+        if not self._accel_caps.get("intel_gpu_available"):
+            return False
+        return True
+
+    def _record_gpu_success(self) -> None:
+        self._gpu_invalid_retry_remaining = CLASSIFIER_GPU_INVALID_RETRY_LIMIT
+
+    def _maybe_restore_gpu_provider(self) -> None:
+        with self._models_lock:
+            if not self._gpu_restore_eligible():
+                return
+            current = self._models.get("bird")
+            if current is None:
+                return
+            self._runtime_gpu_restore_attempts += 1
+            spec = self._resolve_active_bird_model_spec()
+            replacement = self._build_bird_model_for_backend(
+                spec,
+                backend="openvino",
+                provider="intel_gpu",
+            )
+            if replacement is None:
+                self._runtime_gpu_restore_failures += 1
+                self._gpu_restore_not_before_monotonic = (
+                    time.monotonic() + CLASSIFIER_GPU_RESTORE_COOLDOWN_SECONDS
+                )
+                return
+            self._models["bird"] = replacement
+            self._inference_backend = "openvino"
+            self._active_inference_provider = "intel_gpu"
+            self._record_gpu_success()
+            self._runtime_gpu_restore_successes += 1
+            if hasattr(current, "cleanup"):
+                try:
+                    current.cleanup()
+                except Exception:
+                    pass
+            self._last_runtime_recovery = {
+                "status": "recovered",
+                "failed_backend": "openvino",
+                "failed_provider": "intel_cpu",
+                "recovered_backend": "openvino",
+                "recovered_provider": "intel_gpu",
+                "detail": "Auto-restored OpenVINO GPU provider after cooldown",
+                "at": time.time(),
+            }
+
+    def _attempt_gpu_retry_after_invalid_output(
+        self,
+        failed_model: ModelType,
+        error: InvalidInferenceOutputError,
+    ) -> bool:
+        if (
+            self._inference_backend != "openvino"
+            or self._active_inference_provider != "intel_gpu"
+            or error.backend != "openvino"
+            or error.provider.lower() not in {"gpu", "intel_gpu"}
+            or self._gpu_invalid_retry_remaining <= 0
+        ):
+            return False
+
+        spec = self._resolve_active_bird_model_spec()
+        replacement = self._build_bird_model_for_backend(
+            spec,
+            backend="openvino",
+            provider="intel_gpu",
+        )
+        if replacement is None:
+            return False
+
+        self._gpu_invalid_retry_remaining -= 1
+        self._runtime_gpu_retries += 1
+        self._models["bird"] = replacement
+        self._last_runtime_recovery = {
+            "status": "recovered",
+            "failed_backend": error.backend,
+            "failed_provider": error.provider,
+            "recovered_backend": "openvino",
+            "recovered_provider": "intel_gpu",
+            "detail": f"{error.detail}; reloaded GPU model and retrying once",
+            "at": time.time(),
+        }
+        if hasattr(failed_model, "cleanup"):
+            try:
+                failed_model.cleanup()
+            except Exception:
+                pass
+        return True
+
     def _recover_from_invalid_bird_output(
         self,
         failed_model: ModelType,
@@ -1517,6 +1632,8 @@ class ClassifierService:
                 return True
 
             self._runtime_invalid_output_failures += 1
+            if self._attempt_gpu_retry_after_invalid_output(failed_model, error):
+                return True
             replacement, backend, provider, reason = self._load_runtime_fallback_bird_model(
                 failed_backend=error.backend,
                 failed_provider=error.provider,
@@ -1542,6 +1659,10 @@ class ClassifierService:
             self._models["bird"] = replacement
             self._inference_backend = backend
             self._active_inference_provider = provider
+            if backend == "openvino" and provider == "intel_cpu" and error.backend == "openvino":
+                self._gpu_restore_not_before_monotonic = (
+                    time.monotonic() + CLASSIFIER_GPU_RESTORE_COOLDOWN_SECONDS
+                )
             self._append_inference_fallback_reason(reason)
             self._runtime_fallback_recoveries += 1
             self._last_runtime_recovery = {
@@ -2124,6 +2245,11 @@ class ClassifierService:
             "image_admission_timeouts": self._image_admission_timeouts,
             "runtime_invalid_output_failures": self._runtime_invalid_output_failures,
             "runtime_fallback_recoveries": self._runtime_fallback_recoveries,
+            "runtime_gpu_retries": self._runtime_gpu_retries,
+            "runtime_gpu_restore_attempts": self._runtime_gpu_restore_attempts,
+            "runtime_gpu_restore_successes": self._runtime_gpu_restore_successes,
+            "runtime_gpu_restore_failures": self._runtime_gpu_restore_failures,
+            "gpu_restore_not_before_monotonic": self._gpu_restore_not_before_monotonic,
             "last_runtime_recovery": effective_runtime_recovery,
             "live_image_max_concurrent": admission_metrics["live"]["capacity"],
             "live_image_admission_timeout_seconds": CLASSIFIER_LIVE_IMAGE_ADMISSION_TIMEOUT_SECONDS,
@@ -2211,6 +2337,7 @@ class ClassifierService:
         """Classify an image using the bird model."""
         attempted_models: set[int] = set()
         while True:
+            self._maybe_restore_gpu_provider()
             bird = self._models.get("bird")
             if bird is None:
                 return []
@@ -2219,7 +2346,10 @@ class ClassifierService:
                 return []
             attempted_models.add(model_identity)
             try:
-                return bird.classify(image)
+                results = bird.classify(image)
+                if self._inference_backend == "openvino" and self._active_inference_provider == "intel_gpu":
+                    self._record_gpu_success()
+                return results
             except InvalidInferenceOutputError as exc:
                 if not self._recover_from_invalid_bird_output(bird, exc):
                     return []
@@ -2231,6 +2361,7 @@ class ClassifierService:
     ) -> tuple[np.ndarray, ModelType | None]:
         attempted_models: set[int] = set()
         while True:
+            self._maybe_restore_gpu_provider()
             bird = self._models.get("bird")
             if bird is None:
                 return np.array([]), None
@@ -2239,7 +2370,10 @@ class ClassifierService:
                 return np.array([]), bird
             attempted_models.add(model_identity)
             try:
-                return bird.classify_raw(image), bird
+                scores = bird.classify_raw(image)
+                if self._inference_backend == "openvino" and self._active_inference_provider == "intel_gpu":
+                    self._record_gpu_success()
+                return scores, bird
             except InvalidInferenceOutputError as exc:
                 if not self._recover_from_invalid_bird_output(bird, exc):
                     return np.array([]), bird
