@@ -32,6 +32,7 @@ export interface IncidentIssueDraft {
 
 export interface LocalDiagnosticGroup {
     fingerprint: string;
+    source?: string;
     component: string;
     reasonCode: string;
     severity: 'warning' | 'error' | 'critical';
@@ -48,6 +49,7 @@ function localGroupsEqual(a: LocalDiagnosticGroup[], b: LocalDiagnosticGroup[]):
         const right = b[index];
         if (
             left.fingerprint !== right.fingerprint
+            || normalizeString(left.source) !== normalizeString(right.source)
             || left.component !== right.component
             || left.reasonCode !== right.reasonCode
             || left.severity !== right.severity
@@ -139,6 +141,53 @@ function deriveStatus(job?: IncidentJobState): IncidentStatus {
     return 'open';
 }
 
+function isStatefulIncidentOpen(component: string, reasonCode: string, health: Record<string, any> | null): boolean | null {
+    const normalizedComponent = normalizeString(component).toLowerCase();
+    const normalizedReason = normalizeString(reasonCode).toLowerCase();
+    const currentHealth = health ?? {};
+    const ml = currentHealth.ml ?? {};
+    const workerPools = ml.worker_pools ?? currentHealth.worker_pools ?? {};
+
+    if (
+        (normalizedComponent === 'video_classifier' && normalizedReason === 'circuit_open')
+        || (normalizedComponent === 'auto_video_classifier'
+            && (normalizedReason === 'video_circuit_open' || normalizedReason === 'video_circuit_opened'))
+    ) {
+        return Boolean(currentHealth.video_classifier?.circuit_open);
+    }
+
+    if (normalizedComponent === 'ml_live_image' && normalizedReason === 'recovery_active') {
+        return Boolean(ml.live_image?.recovery_active);
+    }
+
+    if (normalizedComponent === 'ml_background_image' && normalizedReason === 'throttled_by_live_pressure') {
+        return Boolean(ml.background_image?.background_throttled)
+            && Number(ml.background_image?.queued ?? 0) > 0;
+    }
+
+    if (normalizedComponent === 'ml_worker_live' && normalizedReason === 'circuit_open') {
+        return Boolean(workerPools.live?.circuit_open);
+    }
+
+    if (normalizedComponent === 'ml_worker_background' && normalizedReason === 'circuit_open') {
+        return Boolean(workerPools.background?.circuit_open);
+    }
+
+    return null;
+}
+
+function deriveEventStatus(
+    component: string,
+    reasonCode: string,
+    health: Record<string, any> | null,
+    job?: IncidentJobState
+): IncidentStatus {
+    const statefulOpen = isStatefulIncidentOpen(component, reasonCode, health);
+    if (statefulOpen === true) return 'open';
+    if (statefulOpen === false) return 'resolved';
+    return deriveStatus(job);
+}
+
 class IncidentWorkspaceStore {
     currentIssues = $state<IncidentRecord[]>([]);
     recentIncidents = $state<IncidentRecord[]>([]);
@@ -150,7 +199,12 @@ class IncidentWorkspaceStore {
 
     ingestWorkspacePayload(payload: DiagnosticsWorkspacePayload): void {
         this.workspacePayload = payload;
-        this.ingestBackendDiagnostics(payload.backend_diagnostics?.events ?? []);
+        const nextEvents = payload.backend_diagnostics?.events ?? [];
+        const eventsChanged = !backendEventsEqual(this.backendEvents, nextEvents);
+        this.ingestBackendDiagnostics(nextEvents);
+        if (!eventsChanged) {
+            this.recompute();
+        }
     }
 
     async refresh(limit = 200): Promise<void> {
@@ -229,6 +283,9 @@ class IncidentWorkspaceStore {
 
     private recompute(): void {
         const grouped = new Map<string, IncidentRecord>();
+        const currentHealth = this.workspacePayload?.health && typeof this.workspacePayload.health === 'object'
+            ? (this.workspacePayload.health as Record<string, any>)
+            : null;
 
         for (const event of this.backendEvents) {
             const key = buildIncidentKey(event);
@@ -244,7 +301,7 @@ class IncidentWorkspaceStore {
             if (!existing) {
                 grouped.set(key, {
                     id: key,
-                    status: deriveStatus(job),
+                    status: deriveEventStatus(event.component, event.reason_code, currentHealth, job),
                     severity,
                     title,
                     summary,
@@ -257,7 +314,7 @@ class IncidentWorkspaceStore {
                 continue;
             }
 
-            existing.status = deriveStatus(job);
+            existing.status = deriveEventStatus(event.component, event.reason_code, currentHealth, job);
             if (severityRank(severity) > severityRank(existing.severity)) {
                 existing.severity = severity;
             }
@@ -278,9 +335,10 @@ class IncidentWorkspaceStore {
         for (const group of this.localGroups) {
             const key = `local:${normalizeString(group.fingerprint, 'unknown')}`;
             if (grouped.has(key)) continue;
+            const statefulOpen = isStatefulIncidentOpen(group.component, group.reasonCode, currentHealth);
             incidents.push({
                 id: key,
-                status: 'open',
+                status: statefulOpen === false ? 'resolved' : 'open',
                 severity: normalizeSeverity(group.severity),
                 title: normalizeString(group.message, normalizeString(group.reasonCode, 'Incident')),
                 summary: normalizeString(group.message, 'Incident detected'),

@@ -6,6 +6,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- **Fixed:** Owner incident correlation now resolves stateful health incidents against the latest backend health snapshot instead of leaving them permanently open; cleared video/classifier circuit-breaker incidents move to recent history, and active root-cause incidents like `video_no_results` remain visible in Current Issues after recovery.
 - **Added:** Global weather measurement units setting for issue `#24`: `Settings > Integrations > Location` now uses a single `metric`/`imperial` preference, older `location.temperature_unit` configs auto-migrate on load, and auth/settings payloads expose the canonical unit-system field while keeping the legacy temperature alias for compatibility.
 - **Changed:** Weather rendering now uses one shared frontend unit helper across detection cards, the latest-detection hero, the detection modal, and species weather charts so temperature, wind, and precipitation stay consistent instead of mixing `°F` with `km/h` or `mm`.
 - **Fixed:** Auto video classification now uses a video-specific supervised worker deadline instead of the shorter live-image worker deadline, preserves worker failure reasons (deadline/startup/exit/circuit) instead of flattening them into generic “no results”, and records canonical backend diagnostics for video failures/circuit-open events so the owner Errors workspace can surface them.

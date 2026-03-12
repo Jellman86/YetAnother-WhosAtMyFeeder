@@ -147,4 +147,122 @@ describe('incidentWorkspaceStore', () => {
 
         expect(store.currentIssues).toBe(firstCurrentIssues);
     });
+
+    it('moves cleared local health circuit incidents out of current issues', () => {
+        const store = createIncidentWorkspaceStore();
+
+        store.ingestWorkspacePayload({
+            workspace_schema_version: '2026-03-12.owner-incident-workspace.v1',
+            backend_diagnostics: {
+                captured_at: '2026-03-12T16:15:15Z',
+                capacity: 500,
+                total_events: 0,
+                filtered_events: 0,
+                returned_events: 0,
+                severity_counts: {},
+                component_counts: {},
+                events: []
+            },
+            health: {
+                status: 'degraded',
+                video_classifier: {
+                    circuit_open: true
+                }
+            },
+            startup_warnings: []
+        });
+        store.ingestLocalDiagnosticGroups([
+            {
+                fingerprint: 'health|video_classifier|queue|circuit_open',
+                source: 'health',
+                component: 'video_classifier',
+                reasonCode: 'circuit_open',
+                severity: 'warning',
+                message: 'Video classification queue paused by circuit breaker',
+                firstSeen: Date.parse('2026-03-12T16:15:14Z'),
+                lastSeen: Date.parse('2026-03-12T16:15:15Z')
+            }
+        ]);
+
+        expect(store.currentIssues).toHaveLength(1);
+        expect(store.currentIssues[0].primaryReasonCode).toBe('circuit_open');
+
+        store.ingestWorkspacePayload({
+            workspace_schema_version: '2026-03-12.owner-incident-workspace.v1',
+            backend_diagnostics: {
+                captured_at: '2026-03-12T16:30:44Z',
+                capacity: 500,
+                total_events: 0,
+                filtered_events: 0,
+                returned_events: 0,
+                severity_counts: {},
+                component_counts: {},
+                events: []
+            },
+            health: {
+                status: 'ok',
+                video_classifier: {
+                    circuit_open: false
+                }
+            },
+            startup_warnings: []
+        });
+
+        expect(store.currentIssues).toHaveLength(0);
+        expect(store.recentIncidents).toHaveLength(1);
+        expect(store.recentIncidents[0].primaryReasonCode).toBe('circuit_open');
+        expect(store.recentIncidents[0].status).toBe('resolved');
+    });
+
+    it('keeps video no-results current after the circuit breaker has recovered', () => {
+        const store = createIncidentWorkspaceStore();
+
+        store.ingestWorkspacePayload({
+            workspace_schema_version: '2026-03-12.owner-incident-workspace.v1',
+            backend_diagnostics: {
+                captured_at: '2026-03-12T16:30:44Z',
+                capacity: 500,
+                total_events: 2,
+                filtered_events: 2,
+                returned_events: 2,
+                severity_counts: { warning: 2 },
+                component_counts: { auto_video_classifier: 2 },
+                events: [
+                    {
+                        id: 'diag-video-open',
+                        component: 'auto_video_classifier',
+                        reason_code: 'video_circuit_open',
+                        severity: 'warning',
+                        message: 'Video classification skipped because the circuit breaker is open',
+                        timestamp: '2026-03-12T16:15:15Z',
+                        correlation_key: 'video:circuit_open',
+                        worker_pool: 'video'
+                    },
+                    {
+                        id: 'diag-video-empty',
+                        component: 'auto_video_classifier',
+                        reason_code: 'video_no_results',
+                        severity: 'warning',
+                        message: 'Video classification completed without any candidate results',
+                        timestamp: '2026-03-12T16:15:09Z',
+                        event_id: 'evt-video-1',
+                        correlation_key: 'video:evt-video-1',
+                        worker_pool: 'video'
+                    }
+                ]
+            },
+            health: {
+                status: 'ok',
+                video_classifier: {
+                    circuit_open: false
+                }
+            },
+            startup_warnings: []
+        });
+
+        expect(store.currentIssues).toHaveLength(1);
+        expect(store.currentIssues[0].primaryReasonCode).toBe('video_no_results');
+        expect(store.currentIssues[0].evidenceRefs).toContain('diag-video-empty');
+        expect(store.recentIncidents.some((incident) => incident.primaryReasonCode === 'video_circuit_open')).toBe(true);
+    });
 });
