@@ -24,6 +24,7 @@ from app.services.classifier_service import (  # noqa: E402
     InvalidInferenceOutputError,
     LiveImageClassificationOverloadedError,
     ModelInstance,
+    OpenVINOModelInstance,
     VideoClassificationWorkerError,
     _safe_softmax,
     _detect_acceleration_capabilities,
@@ -627,6 +628,56 @@ def test_classifier_service_recovers_raw_classification_from_invalid_openvino_gp
         assert service._models["bird"] is recovered
         assert broken.cleanup_called is True
         service.shutdown()
+
+
+def test_openvino_model_classify_raw_raises_invalid_output_on_runtime_exception():
+    model = OpenVINOModelInstance(
+        "bird",
+        "/tmp/model.onnx",
+        "/tmp/labels.txt",
+        device_name="GPU",
+    )
+    model.loaded = True
+    model.compiled_model = object()
+    model.input_name = "input"
+    model.labels = ["Robin", "Sparrow"]
+
+    with patch.object(
+        model,
+        "_infer_logits",
+        side_effect=RuntimeError("clFlush failed: CL_OUT_OF_RESOURCES"),
+    ):
+        with pytest.raises(InvalidInferenceOutputError) as exc:
+            model.classify_raw(Image.new("RGB", (32, 32), color="white"))
+
+    assert exc.value.backend == "openvino"
+    assert exc.value.provider == "GPU"
+    assert "CL_OUT_OF_RESOURCES" in exc.value.detail
+
+
+def test_openvino_model_classify_raises_invalid_output_on_runtime_exception():
+    model = OpenVINOModelInstance(
+        "bird",
+        "/tmp/model.onnx",
+        "/tmp/labels.txt",
+        device_name="GPU",
+    )
+    model.loaded = True
+    model.compiled_model = object()
+    model.input_name = "input"
+    model.labels = ["Robin", "Sparrow"]
+
+    with patch.object(
+        model,
+        "_infer_logits",
+        side_effect=RuntimeError("clFlush failed: CL_OUT_OF_RESOURCES"),
+    ):
+        with pytest.raises(InvalidInferenceOutputError) as exc:
+            model.classify(Image.new("RGB", (32, 32), color="white"))
+
+    assert exc.value.backend == "openvino"
+    assert exc.value.provider == "GPU"
+    assert "CL_OUT_OF_RESOURCES" in exc.value.detail
 
 
 def test_classifier_service_uses_tflite_asset_paths_when_onnx_fallback_reaches_tflite(

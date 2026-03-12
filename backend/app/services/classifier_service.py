@@ -233,6 +233,14 @@ def _safe_softmax(x: np.ndarray, *, context: str) -> np.ndarray:
     return _normalize_probability_vector(exp_logits, context=context)
 
 
+def _summarize_runtime_exception(exc: Exception, *, max_len: int = 280) -> str:
+    message = f"{type(exc).__name__}: {exc}"
+    message = " ".join(message.split())
+    if len(message) > max_len:
+        return f"{message[: max_len - 1]}…"
+    return message
+
+
 def _detect_acceleration_capabilities() -> dict:
     """Probe optional inference runtimes/providers without raising."""
     dev_dri_entries: list[str] = []
@@ -1194,7 +1202,11 @@ class OpenVINOModelInstance:
             raise
         except Exception as e:
             log.error(f"OpenVINO inference failed for {self.name}", error=str(e), device=self.device_name)
-            return []
+            raise InvalidInferenceOutputError(
+                backend="openvino",
+                provider=str(self.device_name),
+                detail=f"{self.name} runtime exception: {_summarize_runtime_exception(e)}",
+            ) from e
 
     def classify_raw(self, image: Image.Image) -> np.ndarray:
         if not self.loaded or self.compiled_model is None:
@@ -1215,7 +1227,11 @@ class OpenVINOModelInstance:
             raise
         except Exception as e:
             log.error("OpenVINO raw classification failed", error=str(e), device=self.device_name)
-            return np.array([])
+            raise InvalidInferenceOutputError(
+                backend="openvino",
+                provider=str(self.device_name),
+                detail=f"{self.name} runtime exception: {_summarize_runtime_exception(e)}",
+            ) from e
 
     def cleanup(self):
         self.compiled_model = None
@@ -1538,7 +1554,15 @@ class ClassifierService:
                 "at": time.time(),
             }
             if hasattr(old_model, "cleanup"):
-                old_model.cleanup()
+                try:
+                    old_model.cleanup()
+                except Exception as cleanup_error:
+                    log.warning(
+                        "Failed to cleanup previous classifier model after runtime fallback",
+                        failed_backend=error.backend,
+                        failed_provider=error.provider,
+                        cleanup_error=str(cleanup_error),
+                    )
             log.warning(
                 "Classifier produced invalid runtime output; switched inference backend",
                 failed_backend=error.backend,
