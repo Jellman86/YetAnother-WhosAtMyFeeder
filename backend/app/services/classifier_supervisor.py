@@ -67,6 +67,7 @@ class ClassifierSupervisor:
         hard_deadline_seconds: float,
         video_hard_deadline_seconds: float | None = None,
         worker_ready_timeout_seconds: float = 20.0,
+        video_worker_ready_timeout_seconds: float | None = None,
         worker_factory=None,
         watchdog_interval_seconds: float = 0.05,
         restart_window_seconds: float = 60.0,
@@ -90,7 +91,17 @@ class ClassifierSupervisor:
                 else base_hard_deadline_seconds,
             ),
         }
-        self._worker_ready_timeout_seconds = max(0.01, float(worker_ready_timeout_seconds))
+        base_ready_timeout_seconds = max(0.01, float(worker_ready_timeout_seconds))
+        self._worker_ready_timeout_seconds = {
+            "live": base_ready_timeout_seconds,
+            "background": base_ready_timeout_seconds,
+            "video": max(
+                0.01,
+                float(video_worker_ready_timeout_seconds)
+                if video_worker_ready_timeout_seconds is not None
+                else base_ready_timeout_seconds,
+            ),
+        }
         self._watchdog_interval_seconds = max(0.01, float(watchdog_interval_seconds))
         self._restart_window_seconds = max(0.01, float(restart_window_seconds))
         self._restart_threshold = max(1, int(restart_threshold))
@@ -158,8 +169,15 @@ class ClassifierSupervisor:
         if self._watchdog_task is None:
             self._watchdog_task = asyncio.create_task(self._watchdog_loop())
 
+        previously_started = {current: self._pool_started[current] for current in priorities}
         await asyncio.gather(*(self._ensure_pool_started(current) for current in priorities))
-        await asyncio.gather(*(self._restore_unavailable_slots(current) for current in priorities))
+        await asyncio.gather(
+            *(
+                self._restore_unavailable_slots(current)
+                for current in priorities
+                if previously_started[current]
+            )
+        )
         self._started = any(self._pool_started.values())
 
     async def shutdown(self) -> None:
@@ -308,36 +326,34 @@ class ClassifierSupervisor:
             if self._pool_started[priority]:
                 return
 
-            spawn_tasks = [
-                asyncio.create_task(self._spawn_worker(priority, index, generation=1))
-                for index in range(self._worker_counts[priority])
-            ]
-            results = await asyncio.gather(*spawn_tasks, return_exceptions=True)
-
             slots: list[_WorkerSlot] = []
-            errors: list[BaseException] = []
-            for result in results:
-                if isinstance(result, BaseException):
-                    errors.append(result)
-                else:
-                    slots.append(result)
-
-            if errors:
-                for slot in slots:
-                    slot.consumer_task.cancel()
-                    try:
-                        await slot.consumer_task
-                    except asyncio.CancelledError:
-                        pass
-                    await slot.worker.terminate()
-                    await slot.worker.wait_closed()
-                self._slots[priority] = []
-                self._metrics[priority]["workers"] = 0
-                raise errors[0]
+            for index in range(self._worker_counts[priority]):
+                try:
+                    slots.append(await self._spawn_worker(priority, index, generation=1))
+                except BaseException as exc:
+                    if not slots:
+                        self._slots[priority] = []
+                        self._metrics[priority]["workers"] = 0
+                        raise exc
+                    slots.append(
+                        _WorkerSlot(
+                            priority=priority,
+                            index=index,
+                            worker_name=f"{priority}-{index}",
+                            worker_generation=1,
+                            worker=None,
+                            consumer_task=None,
+                        )
+                    )
+                    if isinstance(exc, ClassifierWorkerStartupTimeoutError):
+                        self._metrics[priority]["last_exit_reason"] = "startup_timeout"
+                    else:
+                        self._metrics[priority]["last_exit_reason"] = "startup_failed"
 
             self._slots[priority] = slots
             self._metrics[priority]["workers"] = len(slots)
             self._pool_started[priority] = True
+            self._metrics[priority]["workers"] = self._active_worker_count(priority)
 
     async def _wait_for_idle_slot(self, priority: WorkPriority) -> _WorkerSlot:
         while True:
@@ -386,12 +402,12 @@ class ClassifierSupervisor:
                     index=index,
                 )
             await worker.start()
-            await worker.wait_until_ready(timeout_seconds=self._worker_ready_timeout_seconds)
+            await worker.wait_until_ready(timeout_seconds=self._worker_ready_timeout_seconds[priority])
         except TimeoutError as exc:
             await self._close_failed_worker(worker)
             self._record_start_failure(priority, worker, reason="startup_timeout")
             raise ClassifierWorkerStartupTimeoutError(
-                f"worker startup timed out worker={worker_name} generation={generation} timeout={self._worker_ready_timeout_seconds}"
+                f"worker startup timed out worker={worker_name} generation={generation} timeout={self._worker_ready_timeout_seconds[priority]}"
             ) from exc
         except Exception as exc:
             await self._close_failed_worker(worker)

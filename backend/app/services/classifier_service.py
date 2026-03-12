@@ -1291,6 +1291,10 @@ class ClassifierService:
                 hard_deadline_seconds=image_hard_deadline_seconds,
                 video_hard_deadline_seconds=max(image_hard_deadline_seconds, video_timeout_seconds + 15.0),
                 worker_ready_timeout_seconds=float(getattr(settings.classification, "worker_ready_timeout_seconds", 20.0) or 20.0),
+                video_worker_ready_timeout_seconds=max(
+                    float(getattr(settings.classification, "worker_ready_timeout_seconds", 20.0) or 20.0),
+                    min(60.0, max(30.0, video_timeout_seconds / 2.0)),
+                ),
             )
         self._selected_inference_provider = _normalize_inference_provider(
             getattr(settings.classification, "inference_provider", "auto")

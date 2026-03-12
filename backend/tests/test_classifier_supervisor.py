@@ -91,6 +91,17 @@ class _SendFailWorker(_FakeWorker):
         raise ConnectionResetError("Connection lost")
 
 
+class _GateReadyWorker(_FakeWorker):
+    def __init__(self, worker_name: str, worker_generation: int, *, gate: asyncio.Event) -> None:
+        super().__init__(worker_name, worker_generation)
+        self._gate = gate
+        self.ready_timeout_seen: float | None = None
+
+    async def wait_until_ready(self, timeout_seconds: float = 1.0) -> None:
+        self.ready_timeout_seen = float(timeout_seconds)
+        await self._gate.wait()
+
+
 def _find_worker(created: list[_FakeWorker], worker_name: str, generation: int) -> _FakeWorker:
     for worker in created:
         if worker.worker_name == worker_name and worker.worker_generation == generation:
@@ -376,6 +387,82 @@ async def test_classifier_supervisor_replaces_worker_after_send_transport_failur
     assert metrics["background"]["last_exit_reason"] == "send_failed"
     assert metrics["background"]["workers"] == 1
     assert len(created) == 2
+
+    await supervisor.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_classifier_supervisor_starts_pool_workers_sequentially():
+    created: list[_GateReadyWorker] = []
+    gate = asyncio.Event()
+
+    async def _factory(*, worker_name: str, worker_generation: int, **_kwargs):
+        worker = _GateReadyWorker(worker_name, worker_generation, gate=gate)
+        created.append(worker)
+        return worker
+
+    supervisor = ClassifierSupervisor(
+        live_worker_count=1,
+        background_worker_count=1,
+        video_worker_count=2,
+        heartbeat_timeout_seconds=5.0,
+        hard_deadline_seconds=1.0,
+        worker_factory=_factory,
+    )
+
+    start_task = asyncio.create_task(supervisor.start("video"))
+    await asyncio.sleep(0.01)
+    assert [worker.worker_name for worker in created] == ["video-0"]
+
+    gate.set()
+    await start_task
+
+    assert [worker.worker_name for worker in created] == ["video-0", "video-1"]
+    await supervisor.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_classifier_supervisor_uses_video_specific_ready_timeout():
+    created: list[_SlowReadyWorker] = []
+
+    async def _factory(*, worker_name: str, worker_generation: int, **_kwargs):
+        worker = _SlowReadyWorker(worker_name, worker_generation, ready_delay_seconds=0.03)
+        created.append(worker)
+        return worker
+
+    supervisor = ClassifierSupervisor(
+        live_worker_count=1,
+        background_worker_count=1,
+        video_worker_count=1,
+        heartbeat_timeout_seconds=5.0,
+        hard_deadline_seconds=1.0,
+        worker_ready_timeout_seconds=0.02,
+        video_worker_ready_timeout_seconds=0.05,
+        worker_factory=_factory,
+    )
+
+    task = asyncio.create_task(
+        supervisor.classify_video(
+            work_id="video-ready-timeout",
+            lease_token=1,
+            video_path="/tmp/test.mp4",
+        )
+    )
+    await asyncio.sleep(0.05)
+
+    assert created[0].ready_timeout_seen == pytest.approx(0.05)
+    await created[0].events.put(
+        {
+            "type": "result",
+            "worker_generation": 1,
+            "request_id": created[0].sent_messages[0]["request_id"],
+            "work_id": "video-ready-timeout",
+            "lease_token": 1,
+            "results": [{"label": "Robin", "score": 0.8}],
+        }
+    )
+    results = await task
+    assert results[0]["label"] == "Robin"
 
     await supervisor.shutdown()
 
