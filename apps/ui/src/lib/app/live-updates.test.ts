@@ -1,12 +1,13 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { LiveUpdateCoordinator } from './live-updates';
 
-function buildCoordinator(options?: { activeJobs?: any[]; shouldNotify?: boolean }) {
+function buildCoordinator(options?: { activeJobs?: any[]; shouldNotify?: boolean; fetchAnalysisStatus?: () => Promise<any> }) {
     const calls = {
         upsertRunning: [] as any[],
         markCompleted: [] as any[],
         markFailed: [] as any[],
         markStale: [] as any[],
+        remove: [] as any[],
         notificationUpserts: [] as any[],
         ingestHealth: [] as any[],
         recordError: [] as any[],
@@ -22,12 +23,14 @@ function buildCoordinator(options?: { activeJobs?: any[]; shouldNotify?: boolean
         upsertRunning: (input: any) => calls.upsertRunning.push(input),
         markCompleted: (input: any) => calls.markCompleted.push(input),
         markFailed: (input: any) => calls.markFailed.push(input),
-        markStale: (maxIdleMs: number) => calls.markStale.push(maxIdleMs)
+        markStale: (maxIdleMs: number) => calls.markStale.push(maxIdleMs),
+        remove: (id: string) => calls.remove.push(id)
     };
 
     const coordinator = new LiveUpdateCoordinator({
         t: (key: string) => key,
         shouldNotify: () => options?.shouldNotify ?? true,
+        hasOwnerAccess: () => true,
         applyNotificationPolicy: () => true,
         notificationCenter: {
             items: notificationItems,
@@ -66,6 +69,15 @@ function buildCoordinator(options?: { activeJobs?: any[]; shouldNotify?: boolean
         },
         checkHealth: async () => ({}),
         fetchCacheStats: async () => ({}),
+        fetchAnalysisStatus: options?.fetchAnalysisStatus ?? (async () => ({
+            pending: 0,
+            active: 0,
+            circuit_open: false,
+            open_until: null,
+            failure_count: 0,
+            pending_capacity: 1000,
+            pending_available: 1000
+        })),
         diagnostics: {
             ingestHealth: (health: any) => calls.ingestHealth.push(health),
             recordError: (input: any) => calls.recordError.push(input)
@@ -158,6 +170,87 @@ describe('LiveUpdateCoordinator reclassify fallback', () => {
         const { coordinator, calls } = buildCoordinator();
         await coordinator.runOwnerSystemChecks();
         expect(calls.ingestHealth.length).toBe(1);
+    });
+
+    it('creates a synthetic batch analysis job when queue status shows work but no event jobs are active', async () => {
+        const fetchAnalysisStatus = vi.fn(async () => ({
+            pending: 6,
+            active: 1,
+            circuit_open: false,
+            open_until: null,
+            failure_count: 0,
+            pending_capacity: 1000,
+            pending_available: 993
+        }));
+        const { coordinator, calls } = buildCoordinator({ fetchAnalysisStatus });
+
+        await coordinator.syncAnalysisQueueStatus();
+
+        expect(fetchAnalysisStatus).toHaveBeenCalledTimes(1);
+        expect(calls.upsertRunning.length).toBe(1);
+        expect(calls.upsertRunning[0].id).toBe('reclassify:progress');
+        expect(calls.upsertRunning[0].kind).toBe('reclassify_batch');
+        expect(calls.upsertRunning[0].total).toBe(7);
+        expect(calls.notificationUpserts.length).toBe(1);
+        expect(calls.notificationUpserts[0].id).toBe('reclassify:progress');
+        expect(calls.notificationUpserts[0].type).toBe('process');
+        expect(calls.notificationUpserts[0].meta?.source).toBe('poll');
+    });
+
+    it('settles synthetic batch UI when queue status reports idle', async () => {
+        const fetchAnalysisStatus = vi
+            .fn()
+            .mockResolvedValueOnce({
+                pending: 4,
+                active: 1,
+                circuit_open: false,
+                open_until: null,
+                failure_count: 0,
+                pending_capacity: 1000,
+                pending_available: 995
+            })
+            .mockResolvedValueOnce({
+                pending: 0,
+                active: 0,
+                circuit_open: false,
+                open_until: null,
+                failure_count: 0,
+                pending_capacity: 1000,
+                pending_available: 1000
+            });
+        const { coordinator, calls } = buildCoordinator({ fetchAnalysisStatus });
+
+        await coordinator.syncAnalysisQueueStatus();
+        await coordinator.syncAnalysisQueueStatus();
+
+        expect(calls.markCompleted.length).toBe(1);
+        expect(calls.markCompleted[0].id).toBe('reclassify:progress');
+        const terminalNotification = calls.notificationUpserts[calls.notificationUpserts.length - 1];
+        expect(terminalNotification.id).toBe('reclassify:progress');
+        expect(terminalNotification.type).toBe('update');
+        expect(terminalNotification.read).toBe(true);
+    });
+
+    it('does not add a synthetic batch job when per-event reclassify jobs are already active', async () => {
+        const fetchAnalysisStatus = vi.fn(async () => ({
+            pending: 2,
+            active: 1,
+            circuit_open: false,
+            open_until: null,
+            failure_count: 0,
+            pending_capacity: 1000,
+            pending_available: 997
+        }));
+        const { coordinator, calls } = buildCoordinator({
+            fetchAnalysisStatus,
+            activeJobs: [{ id: 'reclassify:evt-1', kind: 'reclassify', status: 'running' }]
+        });
+
+        await coordinator.syncAnalysisQueueStatus();
+
+        expect(calls.upsertRunning.length).toBe(0);
+        expect(calls.notificationUpserts.length).toBe(1);
+        expect(calls.remove).toContain('reclassify:progress');
     });
 
     it('does not track reclassification jobs for guest/public sessions', () => {

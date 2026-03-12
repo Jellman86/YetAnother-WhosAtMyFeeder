@@ -6,6 +6,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- **Fixed:** Batch reclassification UI now self-heals from the authoritative owner queue status: the app shell polls `/api/maintenance/analysis/status` globally, recreates a synthetic batch job for the global progress bar after refresh/SSE loss, settles stale `Batch Analysis` process notifications when the queue drains, and avoids duplicate batch-vs-event progress counting when per-event reclassification jobs are already active.
 - **Changed:** eBird CSV export now targets the strict eBird record-format workflow: it emits headerless 19-column rows, accepts an optional single-day `date` filter, prefers English taxonomy names for species labels, and no longer requires eBird API enablement or credentials just to export local detections.
 - **Fixed:** eBird export now validates the `date` query before streaming begins, avoids duplicate rows when taxonomy cache aliases share a `taxa_id`, and treats corrupt score metadata as best-effort provenance so one bad historical row cannot break the full CSV download.
 - **Fixed:** Classifier subprocess workers no longer let bootstrap/runtime logs corrupt the stdout protocol stream: normal worker logs are redirected to stderr, the client tolerates stray stdout noise defensively, and live/backfill classification no longer fails startup with misleading `exited before ready` errors when TensorFlow/OpenVINO emits initialization chatter.

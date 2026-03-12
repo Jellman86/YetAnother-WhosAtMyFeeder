@@ -1,4 +1,5 @@
 import type { Detection } from '../api';
+import type { AnalysisStatus } from '../api/maintenance';
 import { formatBackfillProgressSummary, resolveRunningBackfillMessage } from '../backfill/progress';
 import { notificationPolicy } from '../notifications/policy';
 
@@ -7,6 +8,7 @@ const ORPHAN_PROCESS_GRACE_MS = 2 * 60 * 1000;
 const RECLASSIFY_PROGRESS_ID = 'reclassify:progress';
 const LEGACY_RECLASSIFY_PROGRESS_PREFIX = 'reclassify:progress:';
 const RECLASSIFY_STATE_MAX_IDLE_MS = 5 * 60 * 1000;
+const ANALYSIS_STATUS_POLL_ROUTE = '/api/maintenance/analysis/status';
 
 type TranslateFn = (key: string, values?: Record<string, any>) => string;
 
@@ -46,6 +48,8 @@ interface JobProgressLike {
         id?: string;
         kind?: string;
         status?: string;
+        current?: number;
+        total?: number;
     }>;
     upsertRunning(input: {
         id: string;
@@ -78,6 +82,7 @@ interface JobProgressLike {
         source?: 'sse' | 'poll' | 'ui' | 'system';
     }): void;
     markStale(maxIdleMs: number): void;
+    remove?(id: string): void;
 }
 
 interface LoggerLike {
@@ -104,6 +109,7 @@ interface JobDiagnosticsLike {
 interface LiveUpdateDeps {
     t: TranslateFn;
     shouldNotify: () => boolean;
+    hasOwnerAccess?: () => boolean;
     applyNotificationPolicy: (id: string, signature: string, throttleMs?: number) => boolean;
     notificationCenter: NotificationCenterLike;
     jobProgress: JobProgressLike;
@@ -113,6 +119,7 @@ interface LiveUpdateDeps {
     logger: LoggerLike;
     checkHealth: () => Promise<any>;
     fetchCacheStats: () => Promise<any>;
+    fetchAnalysisStatus: () => Promise<AnalysisStatus>;
     diagnostics?: JobDiagnosticsLike;
     onConnected?: () => void;
 }
@@ -158,6 +165,7 @@ export class LiveUpdateCoordinator {
     private reclassifyLastUpdateByEvent = new Map<string, number>();
     private reclassifyStartedCount = 0;
     private reclassifyCompletedCount = 0;
+    private analysisQueueBaselineTotal = 0;
 
     constructor(deps: LiveUpdateDeps) {
         this.deps = deps;
@@ -175,6 +183,7 @@ export class LiveUpdateCoordinator {
 
     async runOwnerSystemChecks() {
         if (!this.deps.shouldNotify()) return;
+        if (this.deps.hasOwnerAccess && !this.deps.hasOwnerAccess()) return;
         let startupInstanceId = 'unknown';
 
         try {
@@ -235,6 +244,27 @@ export class LiveUpdateCoordinator {
                 message: this.toErrorMessage(error, 'Cache stats request failed'),
                 severity: 'warning',
                 context: { scope: 'runOwnerSystemChecks' }
+            });
+        }
+    }
+
+    async syncAnalysisQueueStatus() {
+        if (!this.deps.shouldNotify()) return;
+        if (this.deps.hasOwnerAccess && !this.deps.hasOwnerAccess()) return;
+
+        try {
+            const status = await this.deps.fetchAnalysisStatus();
+            this.reconcileAnalysisQueueStatus(status);
+        } catch (error) {
+            this.deps.logger.warn('analysis_status_check_failed', { error });
+            this.deps.diagnostics?.recordError({
+                source: 'job',
+                component: 'analysis_status',
+                stage: 'poll',
+                reasonCode: 'status_fetch_failed',
+                message: this.toErrorMessage(error, 'Failed to load analysis status'),
+                severity: 'warning',
+                context: { route: ANALYSIS_STATUS_POLL_ROUTE, scope: 'syncAnalysisQueueStatus' }
             });
         }
     }
@@ -514,7 +544,9 @@ export class LiveUpdateCoordinator {
         if (!id) return true;
 
         if (id === RECLASSIFY_PROGRESS_ID || id.startsWith(`${RECLASSIFY_PROGRESS_ID}:`)) {
-            return activeJobKinds.has('reclassify');
+            return activeJobIds.has(RECLASSIFY_PROGRESS_ID)
+                || activeJobKinds.has('reclassify')
+                || activeJobKinds.has('reclassify_batch');
         }
         if (id.startsWith('reclassify:')) {
             return activeJobIds.has(id) || activeJobKinds.has('reclassify');
@@ -573,6 +605,125 @@ export class LiveUpdateCoordinator {
                 open_label: this.deps.t('notifications.open_action')
             }
         });
+    }
+
+    private reconcileAnalysisQueueStatus(status: AnalysisStatus) {
+        const pending = Number.isFinite(Number(status.pending)) ? Math.max(0, Math.floor(Number(status.pending))) : 0;
+        const active = Number.isFinite(Number(status.active)) ? Math.max(0, Math.floor(Number(status.active))) : 0;
+        const remaining = pending + active;
+        const existingProgressNotification = this.deps.notificationCenter.items.find((item) => item.id === RECLASSIFY_PROGRESS_ID) ?? null;
+        const existingNotificationTotal = Number(existingProgressNotification?.meta?.total ?? 0);
+        const existingNotificationCurrent = Number(existingProgressNotification?.meta?.current ?? 0);
+        const existingBatchJob = this.deps.jobProgress.activeJobs?.find((job) => job.id === RECLASSIFY_PROGRESS_ID) ?? null;
+        const existingJobTotal = Number(existingBatchJob?.total ?? 0);
+        const existingJobCurrent = Number(existingBatchJob?.current ?? 0);
+        const hasPerEventJobs = (this.deps.jobProgress.activeJobs ?? []).some(
+            (job) => job.kind === 'reclassify' && (job.status === 'running' || job.status === 'stale')
+        );
+
+        if (remaining > 0) {
+            const priorCompleted = Math.max(
+                0,
+                existingNotificationCurrent,
+                existingJobCurrent,
+                this.analysisQueueBaselineTotal > 0 ? Math.max(0, this.analysisQueueBaselineTotal - remaining) : 0
+            );
+            const baseline = Math.max(
+                this.analysisQueueBaselineTotal,
+                existingNotificationTotal,
+                existingJobTotal,
+                remaining + priorCompleted
+            );
+            this.analysisQueueBaselineTotal = baseline;
+            const current = Math.max(0, baseline - remaining);
+            const circuitOpen = Boolean(status.circuit_open);
+            const pendingLabel = this.deps.t('settings.data.batch_analysis_pending', { default: 'Pending' });
+            const activeLabel = this.deps.t('settings.data.batch_analysis_active', { default: 'Active' });
+            const message = circuitOpen
+                ? `${this.deps.t('settings.data.batch_analysis_circuit_open', { default: 'Circuit breaker open' })} • ${pendingLabel}: ${pending.toLocaleString()} • ${activeLabel}: ${active.toLocaleString()}`
+                : `${pendingLabel}: ${pending.toLocaleString()} • ${activeLabel}: ${active.toLocaleString()}`;
+
+            this.deps.notificationCenter.upsert({
+                id: RECLASSIFY_PROGRESS_ID,
+                type: 'process',
+                title: this.deps.t('settings.data.batch_analysis_title'),
+                message,
+                timestamp: Date.now(),
+                read: false,
+                meta: {
+                    source: 'poll',
+                    route: '/settings#data',
+                    kind: 'reclassify_batch',
+                    current,
+                    total: baseline,
+                    open_label: this.deps.t('notifications.open_action')
+                }
+            });
+
+            if (hasPerEventJobs) {
+                this.deps.jobProgress.remove?.(RECLASSIFY_PROGRESS_ID);
+                return;
+            }
+
+            this.deps.jobProgress.upsertRunning({
+                id: RECLASSIFY_PROGRESS_ID,
+                kind: 'reclassify_batch',
+                title: this.deps.t('settings.data.batch_analysis_title'),
+                message,
+                route: '/settings#data',
+                current,
+                total: baseline,
+                source: 'poll'
+            });
+            return;
+        }
+
+        const completedTotal = Math.max(
+            0,
+            this.analysisQueueBaselineTotal,
+            existingNotificationTotal,
+            existingJobTotal,
+            existingNotificationCurrent,
+            existingJobCurrent
+        );
+        const completionMessage = this.deps.t('settings.data.batch_analysis_complete', { default: 'Batch analysis complete' });
+
+        if (existingProgressNotification) {
+            this.deps.notificationCenter.upsert({
+                ...existingProgressNotification,
+                type: 'update',
+                title: this.deps.t('settings.data.batch_analysis_title'),
+                message: completionMessage,
+                timestamp: Date.now(),
+                read: true,
+                meta: {
+                    ...(existingProgressNotification.meta ?? {}),
+                    source: 'poll',
+                    kind: 'reclassify_batch',
+                    current: completedTotal,
+                    total: completedTotal,
+                    route: '/settings#data',
+                    open_label: this.deps.t('notifications.open_action')
+                }
+            });
+        }
+
+        if (existingBatchJob || completedTotal > 0) {
+            this.deps.jobProgress.markCompleted({
+                id: RECLASSIFY_PROGRESS_ID,
+                kind: 'reclassify_batch',
+                title: this.deps.t('settings.data.batch_analysis_title'),
+                message: completionMessage,
+                route: '/settings#data',
+                current: completedTotal,
+                total: completedTotal,
+                source: 'poll'
+            });
+        } else {
+            this.deps.jobProgress.remove?.(RECLASSIFY_PROGRESS_ID);
+        }
+
+        this.analysisQueueBaselineTotal = 0;
     }
 
     private reconcileReclassifyFromDetectionUpdate(data: any) {

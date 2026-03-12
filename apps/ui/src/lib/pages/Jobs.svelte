@@ -148,6 +148,9 @@
         if (kind === 'reclassify') {
             return $_('jobs.kind_reclassify', { default: 'Reclassification' });
         }
+        if (kind === 'reclassify_batch') {
+            return $_('settings.data.batch_analysis_title', { default: 'Batch Analysis' });
+        }
         if (kind === 'backfill') {
             return $_('jobs.kind_backfill', { default: 'Detection Backfill' });
         }

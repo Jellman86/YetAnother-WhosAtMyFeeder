@@ -19,7 +19,7 @@
   import Notifications from './lib/pages/Notifications.svelte';
   import Login from './lib/components/Login.svelte';
   import FirstRunWizard from './lib/pages/FirstRunWizard.svelte';
-  import { checkHealth, fetchCacheStats, fetchEventClassificationStatus, setAuthErrorCallback } from './lib/api';
+  import { checkHealth, fetchAnalysisStatus, fetchCacheStats, fetchEventClassificationStatus, setAuthErrorCallback } from './lib/api';
   import { themeStore } from './lib/stores/theme.svelte';
   import { layoutStore } from './lib/stores/layout.svelte';
   import { settingsStore } from './lib/stores/settings.svelte';
@@ -114,9 +114,11 @@
   let stalePruneInterval: number | null = $state(null);
   let staleReclassifyPollInterval: number | null = $state(null);
   let ownerChecksInterval: number | null = $state(null);
+  let analysisQueueInterval: number | null = $state(null);
   let isReconnecting = $state(false);
   let mobileSidebarOpen = $state(false);
   const STALE_RECLASSIFY_STATUS_POLL_MS = 20_000;
+  const ANALYSIS_QUEUE_POLL_MS = 5_000;
 
   // Keyboard shortcuts
   let showKeyboardShortcuts = $state(false);
@@ -156,6 +158,7 @@
   const liveUpdates = new LiveUpdateCoordinator({
       t,
       shouldNotify,
+      hasOwnerAccess: () => authStore.showSettings,
       applyNotificationPolicy,
       notificationCenter,
       jobProgress: jobProgressStore,
@@ -165,6 +168,7 @@
       logger,
       checkHealth,
       fetchCacheStats,
+      fetchAnalysisStatus,
       diagnostics: jobDiagnosticsStore,
       onConnected: () => {
           reconnectAttempts = 0;
@@ -254,10 +258,14 @@
           jobDiagnosticsStore.hydrate();
           liveUpdates.pruneStaleProcessNotifications();
           void reclassifyRecovery.reconcile();
+          await liveUpdates.syncAnalysisQueueStatus();
           await liveUpdates.runOwnerSystemChecks();
           ownerChecksInterval = window.setInterval(() => {
               void liveUpdates.runOwnerSystemChecks();
           }, 60_000);
+          analysisQueueInterval = window.setInterval(() => {
+              void liveUpdates.syncAnalysisQueueStatus();
+          }, ANALYSIS_QUEUE_POLL_MS);
           stalePruneInterval = window.setInterval(() => {
               liveUpdates.pruneStaleProcessNotifications();
               detectionsStore.pruneReclassifications();
@@ -275,6 +283,7 @@
               }
               if (!document.hidden) {
                   void reclassifyRecovery.reconcile();
+                  void liveUpdates.syncAnalysisQueueStatus();
               }
           };
           document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -323,6 +332,10 @@
               if (ownerChecksInterval) {
                   clearInterval(ownerChecksInterval);
                   ownerChecksInterval = null;
+              }
+              if (analysisQueueInterval) {
+                  clearInterval(analysisQueueInterval);
+                  analysisQueueInterval = null;
               }
           };
       })();
