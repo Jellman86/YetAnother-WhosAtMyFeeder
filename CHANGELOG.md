@@ -6,6 +6,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- **Changed:** Backend dependency pinning now locks `openvino==2025.4.1` as a known-good baseline for Intel GPU stability, replacing the previous open-ended `openvino>=2024.0.0` range to avoid unexpected runtime behavior shifts from 2026.x upgrades.
+- **Added:** New backend regression test (`backend/tests/test_dependency_pins.py`) asserts the OpenVINO pin remains fixed, preventing accidental drift back to an unbounded OpenVINO version range.
 - **Fixed:** Subprocess video-classification progress callbacks now accept both keyword and positional callback signatures (`current_frame`/`total_frames` and legacy positional args), restoring reliable `reclassification_progress` SSE emission for frame-strip UI updates during reclassify/auto-video runs.
 - **Added:** Location weather units now support a third `british` mode (`°C`, `mph`, `mm`) across backend settings/auth payloads and frontend weather rendering/helpers, so UK-style mixed units can be selected globally without temperature/speed/precipitation mismatches.
 - **Fixed:** OpenVINO GPU runtime failures (for example `CL_OUT_OF_RESOURCES`) are no longer silently treated as empty classifier output. OpenVINO classify/classify_raw paths now surface these as invalid-runtime errors so classifier runtime recovery can immediately fail over to a safer backend/provider (typically Intel CPU) instead of cascading into repeated `video_no_results` failures and circuit-breaker opens.
