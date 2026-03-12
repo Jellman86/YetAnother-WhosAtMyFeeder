@@ -582,6 +582,75 @@ async def test_classifier_supervisor_records_worker_stderr_on_exit():
 
 
 @pytest.mark.asyncio
+async def test_classifier_supervisor_records_worker_runtime_recovery():
+    created: list[_FakeWorker] = []
+
+    async def _factory(*, worker_name: str, worker_generation: int, **_kwargs):
+        worker = _FakeWorker(worker_name, worker_generation)
+        created.append(worker)
+        return worker
+
+    supervisor = ClassifierSupervisor(
+        live_worker_count=1,
+        background_worker_count=1,
+        heartbeat_timeout_seconds=0.5,
+        hard_deadline_seconds=1.0,
+        worker_factory=_factory,
+        watchdog_interval_seconds=0.01,
+    )
+    await supervisor.start()
+
+    task = asyncio.create_task(
+        supervisor.classify(
+            priority="live",
+            work_id="live-recovery-1",
+            lease_token=14,
+            image_b64="payload",
+            camera_name="front",
+            model_id="default",
+        )
+    )
+    await asyncio.sleep(0.01)
+    request_id = created[0].sent_messages[0]["request_id"]
+    await created[0].events.put(
+        {
+            "type": "runtime_recovery",
+            "worker_generation": 1,
+            "request_id": request_id,
+            "work_id": "live-recovery-1",
+            "lease_token": 14,
+            "recovery": {
+                "status": "recovered",
+                "failed_backend": "openvino",
+                "failed_provider": "GPU",
+                "recovered_backend": "openvino",
+                "recovered_provider": "intel_cpu",
+                "detail": "invalid probabilities",
+                "at": 123.0,
+            },
+        }
+    )
+    await created[0].events.put(
+        {
+            "type": "result",
+            "worker_generation": 1,
+            "request_id": request_id,
+            "work_id": "live-recovery-1",
+            "lease_token": 14,
+            "results": [{"label": "Robin", "score": 0.91}],
+        }
+    )
+
+    await task
+
+    metrics = supervisor.get_metrics()
+    assert metrics["live"]["last_runtime_recovery"]["failed_provider"] == "GPU"
+    assert metrics["live"]["last_runtime_recovery"]["recovered_provider"] == "intel_cpu"
+
+    await supervisor.shutdown()
+
+
+@pytest.mark.asyncio
 async def test_classifier_supervisor_survives_replacement_start_failure():
     created: list[_FakeWorker] = []
     factory_calls = 0

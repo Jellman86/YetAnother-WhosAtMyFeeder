@@ -74,6 +74,13 @@ async def wildlife_classifier_labels(
 @router.get("/debug")
 async def bird_classifier_debug(auth: AuthContext = Depends(require_owner)):
     """Debug endpoint to inspect bird model details. Owner only."""
+    if getattr(classifier_service, "_image_execution_mode", "in_process") == "subprocess":
+        return {
+            "mode": "subprocess",
+            "message": "Direct bird runtime inspection is unavailable in subprocess mode",
+            "status": classifier_service.get_status(),
+        }
+
     import numpy as np
     from PIL import Image
 
@@ -167,8 +174,10 @@ async def test_bird_classifier(
     try:
         contents = await image.read()
         pil_image = Image.open(io.BytesIO(contents))
-
-        results = classifier_service.classify(pil_image)
+        if getattr(classifier_service, "_image_execution_mode", "in_process") == "subprocess":
+            results = await classifier_service.classify_async_background(pil_image)
+        else:
+            results = classifier_service.classify(pil_image)
 
         return {
             "status": "ok",

@@ -5,6 +5,7 @@ from app.services.classifier_worker_protocol import (
     build_error_event,
     build_heartbeat_event,
     build_ready_event,
+    build_runtime_recovery_event,
     build_result_event,
     decode_protocol_message,
     encode_protocol_message,
@@ -67,6 +68,32 @@ def test_classifier_worker_protocol_round_trips_error_message():
 
     assert decoded["type"] == "error"
     assert decoded["error"] == "boom"
+
+
+def test_classifier_worker_protocol_round_trips_runtime_recovery_message():
+    encoded = encode_protocol_message(
+        build_runtime_recovery_event(
+            worker_generation=6,
+            request_id="req-5",
+            work_id="live-11",
+            lease_token=3,
+            recovery={
+                "status": "recovered",
+                "failed_backend": "openvino",
+                "failed_provider": "GPU",
+                "recovered_backend": "openvino",
+                "recovered_provider": "intel_cpu",
+                "detail": "invalid probabilities",
+                "at": 123.0,
+            },
+        )
+    )
+
+    decoded = decode_protocol_message(encoded)
+
+    assert decoded["type"] == "runtime_recovery"
+    assert decoded["recovery"]["failed_provider"] == "GPU"
+    assert decoded["recovery"]["recovered_provider"] == "intel_cpu"
 
 
 def test_classifier_worker_protocol_rejects_malformed_message():

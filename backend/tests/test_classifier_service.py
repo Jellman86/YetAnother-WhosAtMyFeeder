@@ -155,6 +155,62 @@ def test_classifier_supervisor_config_defaults():
     assert config.live_event_coalescing_enabled is True
 
 
+def test_classifier_service_skips_main_bird_model_init_in_subprocess_mode():
+    original_mode = settings.classification.image_execution_mode
+    settings.classification.image_execution_mode = "subprocess"
+
+    try:
+        with patch.object(
+            ClassifierService,
+            "_init_bird_model",
+            side_effect=AssertionError("main process should not eagerly load bird model"),
+        ):
+            service = ClassifierService(supervisor=MagicMock())
+            assert "bird" not in service._models
+            service.shutdown()
+    finally:
+        settings.classification.image_execution_mode = original_mode
+
+
+def test_classifier_service_caches_acceleration_probe_results():
+    caps = {
+        "ort_available": False,
+        "cuda_provider_installed": False,
+        "cuda_hardware_available": False,
+        "cuda_available": False,
+        "openvino_available": True,
+        "openvino_version": "2026.1",
+        "openvino_import_path": "openvino.Core",
+        "openvino_import_error": None,
+        "openvino_probe_error": None,
+        "openvino_gpu_probe_error": None,
+        "intel_gpu_available": True,
+        "intel_cpu_available": True,
+        "openvino_devices": ["GPU", "CPU"],
+        "dev_dri_present": True,
+        "dev_dri_entries": ["renderD128"],
+        "process_uid": 1000,
+        "process_gid": 1000,
+        "process_groups": [44],
+    }
+
+    with patch.object(ClassifierService, "_init_bird_model", return_value=None), \
+         patch.object(classifier_service_module, "_detect_acceleration_capabilities", return_value=dict(caps)) as mock_detect:
+        service = ClassifierService()
+        service.get_status()
+        service.get_status()
+
+        assert mock_detect.call_count == 1
+
+        service._accel_caps_last_refreshed_monotonic = (
+            (service._accel_caps_last_refreshed_monotonic or 0.0) - service._accel_caps_ttl_seconds - 1.0
+        )
+        service.get_status()
+
+        assert mock_detect.call_count == 2
+        service.shutdown()
+
+
 @pytest.mark.asyncio
 async def test_classifier_service_routes_live_requests_through_supervisor(mock_tflite, mock_os_path_exists):
     original_mode = settings.classification.image_execution_mode

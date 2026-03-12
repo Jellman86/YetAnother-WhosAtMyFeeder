@@ -7,6 +7,7 @@ _REQUIRED_FIELDS: dict[str, tuple[str, ...]] = {
     "heartbeat": ("worker_generation", "busy"),
     "result": ("worker_generation", "request_id", "work_id", "lease_token", "results"),
     "error": ("worker_generation", "request_id", "work_id", "lease_token", "error"),
+    "runtime_recovery": ("worker_generation", "request_id", "work_id", "lease_token", "recovery"),
     "classify": ("worker_generation", "request_id", "work_id", "lease_token", "image_b64"),
     "shutdown": (),
 }
@@ -93,6 +94,24 @@ def build_error_event(
         "work_id": str(work_id),
         "lease_token": int(lease_token),
         "error": str(error),
+    }
+
+
+def build_runtime_recovery_event(
+    *,
+    worker_generation: int,
+    request_id: str,
+    work_id: str,
+    lease_token: int,
+    recovery: dict[str, Any],
+) -> dict[str, Any]:
+    return {
+        "type": "runtime_recovery",
+        "worker_generation": int(worker_generation),
+        "request_id": str(request_id),
+        "work_id": str(work_id),
+        "lease_token": int(lease_token),
+        "recovery": dict(recovery),
     }
 
 

@@ -90,6 +90,7 @@ class ClassifierSupervisor:
                 "last_exit_reason": None,
                 "last_stderr_excerpt": "",
                 "last_stderr_truncated_bytes": 0,
+                "last_runtime_recovery": None,
                 "circuit_open": False,
                 "circuit_open_until_monotonic": None,
             },
@@ -99,6 +100,7 @@ class ClassifierSupervisor:
                 "last_exit_reason": None,
                 "last_stderr_excerpt": "",
                 "last_stderr_truncated_bytes": 0,
+                "last_runtime_recovery": None,
                 "circuit_open": False,
                 "circuit_open_until_monotonic": None,
             },
@@ -363,6 +365,9 @@ class ClassifierSupervisor:
                 continue
 
             assignment = self._assignments.get(worker_name)
+            if message["type"] == "runtime_recovery":
+                self._metrics[current_slot.priority]["last_runtime_recovery"] = dict(message.get("recovery") or {})
+                continue
             if assignment is None:
                 self._metrics["late_results_ignored"] += 1
                 continue

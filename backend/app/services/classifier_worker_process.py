@@ -12,6 +12,7 @@ from .classifier_worker_protocol import (
     build_error_event,
     build_heartbeat_event,
     build_ready_event,
+    build_runtime_recovery_event,
     build_result_event,
     decode_protocol_message,
     encode_protocol_message,
@@ -46,12 +47,14 @@ class ClassifierWorkerProcess:
         classify_fn: Callable[..., list[dict[str, Any]] | Awaitable[list[dict[str, Any]]]],
         worker_generation: int,
         heartbeat_interval_seconds: float = 1.0,
+        runtime_recovery_getter: Callable[[], dict[str, Any] | None] | None = None,
     ) -> None:
         self.reader = reader
         self.writer = writer
         self.classify_fn = classify_fn
         self.worker_generation = int(worker_generation)
         self.heartbeat_interval_seconds = max(0.01, float(heartbeat_interval_seconds))
+        self.runtime_recovery_getter = runtime_recovery_getter
         self._closed = False
         self._busy = False
         self._current_request_id: str | None = None
@@ -105,11 +108,23 @@ class ClassifierWorkerProcess:
         self._busy = True
         self._current_request_id = str(message["request_id"])
         try:
+            before_recovery = self._runtime_recovery_snapshot()
             results = await self._run_classify(
                 image_b64=message["image_b64"],
                 camera_name=message.get("camera_name"),
                 model_id=message.get("model_id"),
             )
+            after_recovery = self._runtime_recovery_snapshot()
+            if after_recovery is not None and after_recovery != before_recovery:
+                await self._emit(
+                    build_runtime_recovery_event(
+                        worker_generation=self.worker_generation,
+                        request_id=str(message["request_id"]),
+                        work_id=str(message["work_id"]),
+                        lease_token=int(message["lease_token"]),
+                        recovery=after_recovery,
+                    )
+                )
             await self._emit(
                 build_result_event(
                     worker_generation=self.worker_generation,
@@ -133,6 +148,14 @@ class ClassifierWorkerProcess:
             self._busy = False
             self._current_request_id = None
 
+    def _runtime_recovery_snapshot(self) -> dict[str, Any] | None:
+        if self.runtime_recovery_getter is None:
+            return None
+        recovery = self.runtime_recovery_getter()
+        if recovery is None:
+            return None
+        return dict(recovery)
+
     async def _run_classify(self, **kwargs: Any) -> list[dict[str, Any]]:
         if inspect.iscoroutinefunction(self.classify_fn):
             return list(await self.classify_fn(**kwargs))
@@ -145,6 +168,7 @@ async def run_worker_main(
     worker_generation: int = 1,
     heartbeat_interval_seconds: float = 1.0,
     writer: Any | None = None,
+    runtime_recovery_getter: Callable[[], dict[str, Any] | None] | None = None,
 ) -> None:
     loop = asyncio.get_running_loop()
     reader = asyncio.StreamReader(limit=WORKER_PROTOCOL_STREAM_LIMIT_BYTES)
@@ -159,6 +183,7 @@ async def run_worker_main(
         classify_fn=classify_fn,
         worker_generation=worker_generation,
         heartbeat_interval_seconds=heartbeat_interval_seconds,
+        runtime_recovery_getter=runtime_recovery_getter,
     )
     await worker.run()
 
@@ -178,6 +203,7 @@ def _build_default_classify_fn() -> Callable[..., list[dict[str, Any]]]:
         image = Image.open(BytesIO(b64decode(image_b64.encode("ascii")))).convert("RGB")
         return service.classify(image, camera_name=camera_name, model_id=model_id)
 
+    _classify_fn._runtime_recovery_getter = lambda: service._last_runtime_recovery  # type: ignore[attr-defined]
     return _classify_fn
 
 
@@ -188,10 +214,11 @@ def main() -> None:
     os.dup2(sys.stderr.fileno(), sys.stdout.fileno())
     asyncio.run(
         run_worker_main(
-            classify_fn=_build_default_classify_fn(),
+            classify_fn=(classify_fn := _build_default_classify_fn()),
             worker_generation=worker_generation,
             heartbeat_interval_seconds=heartbeat_interval_seconds,
             writer=_StdoutWriter(protocol_stdout),
+            runtime_recovery_getter=getattr(classify_fn, "_runtime_recovery_getter", None),
         )
     )
 

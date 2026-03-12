@@ -135,3 +135,56 @@ async def test_classifier_worker_process_emits_structured_error():
         message["type"] == "error" and message["error"] == "broken"
         for message in writer.messages
     )
+
+
+@pytest.mark.asyncio
+async def test_classifier_worker_process_emits_runtime_recovery_event():
+    reader = asyncio.StreamReader()
+    writer = _MemoryWriter()
+    runtime_recovery = {"value": None}
+
+    def _classify_fn(**_kwargs):
+        runtime_recovery["value"] = {
+            "status": "recovered",
+            "failed_backend": "openvino",
+            "failed_provider": "GPU",
+            "recovered_backend": "openvino",
+            "recovered_provider": "intel_cpu",
+            "detail": "invalid probabilities",
+            "at": 123.0,
+        }
+        return [{"label": "Robin", "score": 0.9}]
+
+    process = ClassifierWorkerProcess(
+        reader=reader,
+        writer=writer,
+        classify_fn=_classify_fn,
+        worker_generation=12,
+        heartbeat_interval_seconds=0.5,
+        runtime_recovery_getter=lambda: runtime_recovery["value"],
+    )
+
+    task = asyncio.create_task(process.run())
+    await asyncio.sleep(0)
+    reader.feed_data(
+        process.encode_message(
+            build_classify_request(
+                worker_generation=12,
+                request_id="req-3",
+                work_id="live-3",
+                lease_token=6,
+                image_b64="payload",
+                camera_name="front",
+                model_id="default",
+            )
+        )
+    )
+    await asyncio.sleep(0.05)
+    reader.feed_eof()
+    await task
+
+    assert any(
+        message["type"] == "runtime_recovery"
+        and message["recovery"]["failed_provider"] == "GPU"
+        for message in writer.messages
+    )

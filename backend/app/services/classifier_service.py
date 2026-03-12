@@ -131,6 +131,10 @@ CLASSIFIER_ADMISSION_RECOVERY_WINDOW_SECONDS = max(
     1.0,
     float(os.getenv("CLASSIFIER_ADMISSION_RECOVERY_WINDOW_SECONDS", "300")),
 )
+CLASSIFIER_ACCEL_PROBE_TTL_SECONDS = max(
+    1.0,
+    float(os.getenv("CLASSIFIER_ACCEL_PROBE_TTL_SECONDS", "60")),
+)
 
 
 class LiveImageClassificationOverloadedError(RuntimeError):
@@ -1285,8 +1289,11 @@ class ClassifierService:
         self._runtime_invalid_output_failures = 0
         self._runtime_fallback_recoveries = 0
         self._last_runtime_recovery: Optional[dict[str, Any]] = None
-        self._accel_caps = _detect_acceleration_capabilities()
-        self._init_bird_model()
+        self._accel_caps_ttl_seconds = CLASSIFIER_ACCEL_PROBE_TTL_SECONDS
+        self._accel_caps_last_refreshed_monotonic: float | None = None
+        self._accel_caps = self._refresh_accel_caps(force=True)
+        if self._worker_process_mode or self._image_execution_mode != "subprocess":
+            self._init_bird_model()
 
     def _get_model_paths(self, model_file: str, labels_file: str) -> tuple[str, str]:
         """Get full paths for model and labels files."""
@@ -1336,6 +1343,18 @@ class ClassifierService:
             return
         prev_reason = self._inference_fallback_reason
         self._inference_fallback_reason = f"{prev_reason}; {reason}" if prev_reason else reason
+
+    def _refresh_accel_caps(self, *, force: bool = False) -> dict[str, Any]:
+        now = time.monotonic()
+        if (
+            not force
+            and self._accel_caps_last_refreshed_monotonic is not None
+            and now - self._accel_caps_last_refreshed_monotonic < self._accel_caps_ttl_seconds
+        ):
+            return self._accel_caps
+        self._accel_caps = _detect_acceleration_capabilities()
+        self._accel_caps_last_refreshed_monotonic = now
+        return self._accel_caps
 
     def _build_bird_model_for_backend(
         self,
@@ -1528,7 +1547,7 @@ class ClassifierService:
         self._selected_inference_provider = _normalize_inference_provider(
             getattr(settings.classification, "inference_provider", "auto")
         )
-        self._accel_caps = _detect_acceleration_capabilities()
+        self._refresh_accel_caps(force=True)
         self._inference_fallback_reason = None
         self._inference_backend = "tflite"
         self._active_inference_provider = "tflite"
@@ -1930,7 +1949,18 @@ class ClassifierService:
     @property
     def labels(self) -> list[str]:
         bird = self._models.get("bird")
-        return bird.labels if bird else []
+        if bird:
+            return bird.labels
+        if self._image_execution_mode == "subprocess" and not self._worker_process_mode:
+            try:
+                spec = self._resolve_active_bird_model_spec()
+                labels_path = str(spec.get("labels_path") or "")
+                if labels_path and os.path.exists(labels_path):
+                    with open(labels_path, "r", encoding="utf-8", errors="replace") as handle:
+                        return [line.strip() for line in handle.readlines() if line.strip()]
+            except Exception:
+                return []
+        return []
 
     @property
     def model_loaded(self) -> bool:
@@ -1945,7 +1975,7 @@ class ClassifierService:
     def get_status(self) -> dict:
         bird = self._models.get("bird")
         admission_metrics = self._classification_admission.get_metrics()
-        self._accel_caps = _detect_acceleration_capabilities()
+        self._refresh_accel_caps()
         active_model_id = None
         try:
             from app.services.model_manager import model_manager

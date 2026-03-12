@@ -1,12 +1,16 @@
 import uuid
+import io
 
 import httpx
 import pytest
 import pytest_asyncio
+from PIL import Image
 
+from app.auth import AuthContext, AuthLevel, require_owner
 from app.main import app
 from app.config import settings
 from app.database import get_db, init_db, close_db
+from app.routers import classifier as classifier_router
 
 
 @pytest_asyncio.fixture
@@ -32,6 +36,7 @@ def reset_auth_config():
     yield
     settings.auth.enabled = original_auth_enabled
     settings.public_access.enabled = original_public_enabled
+    app.dependency_overrides.pop(require_owner, None)
 
 
 @pytest.mark.asyncio
@@ -73,3 +78,38 @@ async def test_classifier_status_includes_personalization_summary(client: httpx.
         async with get_db() as db:
             await db.execute("DELETE FROM classification_feedback WHERE frigate_event LIKE ?", (f"{event_prefix}-%",))
             await db.commit()
+
+
+@pytest.mark.asyncio
+async def test_classifier_test_endpoint_uses_supervised_path_in_subprocess_mode(client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch):
+    original_mode = settings.classification.image_execution_mode
+    settings.classification.image_execution_mode = "subprocess"
+    app.dependency_overrides[require_owner] = lambda: AuthContext(auth_level=AuthLevel.OWNER, username="owner")
+
+    async def _fake_background_classify(_image, camera_name=None, model_id=None):
+        return [{"label": "Robin", "score": 0.93, "index": 1}]
+
+    monkeypatch.setattr(
+        classifier_router.classifier_service,
+        "classify",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("direct classify should not be used")),
+    )
+    monkeypatch.setattr(
+        classifier_router.classifier_service,
+        "classify_async_background",
+        _fake_background_classify,
+    )
+    image_buffer = io.BytesIO()
+    Image.new("RGB", (8, 8), color="white").save(image_buffer, format="PNG")
+
+    try:
+        response = await client.post(
+            "/api/classifier/test",
+            files={"image": ("bird.png", image_buffer.getvalue(), "image/png")},
+        )
+        assert response.status_code == 200, response.text
+        payload = response.json()
+        assert payload["status"] == "ok"
+        assert payload["results"][0]["label"] == "Robin"
+    finally:
+        settings.classification.image_execution_mode = original_mode

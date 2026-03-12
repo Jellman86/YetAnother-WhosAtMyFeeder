@@ -7,6 +7,7 @@ from app.services.classifier_worker_protocol import (
     build_classify_request,
     build_heartbeat_event,
     build_ready_event,
+    build_runtime_recovery_event,
     encode_protocol_message,
 )
 
@@ -159,6 +160,48 @@ async def test_classifier_worker_client_records_non_zero_exit():
     await client.wait_closed()
 
     assert client.get_status()["exit_code"] == 9
+
+
+@pytest.mark.asyncio
+async def test_classifier_worker_client_queues_runtime_recovery_events():
+    process = _FakeProcess()
+
+    async def _factory(**_kwargs):
+        return process
+
+    client = ClassifierWorkerClient(
+        worker_name="live-recovery",
+        worker_generation=11,
+        heartbeat_timeout_seconds=5.0,
+        process_factory=_factory,
+    )
+    await client.start()
+    process.feed(build_ready_event(worker_generation=11))
+    await asyncio.wait_for(client.wait_until_ready(), timeout=0.2)
+    process.feed(
+        build_runtime_recovery_event(
+            worker_generation=11,
+            request_id="req-recovery",
+            work_id="live-recovery-1",
+            lease_token=4,
+            recovery={
+                "status": "recovered",
+                "failed_backend": "openvino",
+                "failed_provider": "GPU",
+                "recovered_backend": "openvino",
+                "recovered_provider": "intel_cpu",
+                "detail": "invalid probabilities",
+                "at": 123.0,
+            },
+        )
+    )
+
+    event = await asyncio.wait_for(client.next_event(), timeout=0.2)
+    assert event["type"] == "runtime_recovery"
+    assert event["recovery"]["failed_provider"] == "GPU"
+
+    process.finish()
+    await client.wait_closed()
 
 
 @pytest.mark.asyncio
