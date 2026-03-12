@@ -20,6 +20,7 @@ sys.modules["app.services.model_manager"] = mock_mm
 
 from app.services.classifier_service import (  # noqa: E402
     ClassifierService,
+    InvalidInferenceOutputError,
     LiveImageClassificationOverloadedError,
     ModelInstance,
     _safe_softmax,
@@ -70,6 +71,24 @@ def force_in_process_mode():
 
 def _stub_init_bird_model(self):
     self._models["bird"] = MagicMock(loaded=True, error=None, labels=[])
+
+
+class _FallbackReadyModel:
+    def __init__(self, results):
+        self.loaded = True
+        self.error = None
+        self.labels = []
+        self._results = list(results)
+        self.cleanup_called = False
+
+    def classify(self, _image):
+        return list(self._results)
+
+    def cleanup(self):
+        self.cleanup_called = True
+
+    def get_status(self):
+        return {"loaded": True, "error": None}
 
 def test_model_instance_load(mock_tflite, mock_os_path_exists):
     # Mock labels file content
@@ -268,6 +287,199 @@ async def test_classifier_service_classify_async(mock_tflite, mock_os_path_exist
         
         assert results[0]["label"] == "Robin"
         mock_classify.assert_called_once()
+        service.shutdown()
+
+
+def test_classifier_service_recovers_from_invalid_openvino_gpu_output(mock_tflite, mock_os_path_exists):
+    class _BrokenOpenVINOModel:
+        loaded = True
+        error = None
+        labels = []
+
+        def __init__(self):
+            self.cleanup_called = False
+
+        def classify(self, _image):
+            raise InvalidInferenceOutputError(
+                backend="openvino",
+                provider="intel_gpu",
+                detail="bird inference produced no finite probabilities",
+            )
+
+        def cleanup(self):
+            self.cleanup_called = True
+
+        def get_status(self):
+            return {"loaded": True, "error": None}
+
+    with patch.object(ClassifierService, "_init_bird_model", return_value=None):
+        service = ClassifierService()
+        broken = _BrokenOpenVINOModel()
+        recovered = _FallbackReadyModel([{"label": "Unknown Bird", "score": 0.12, "index": 0}])
+        service._models["bird"] = broken
+        service._inference_backend = "openvino"
+        service._active_inference_provider = "intel_gpu"
+        service._accel_caps = {
+            "openvino_available": True,
+            "intel_cpu_available": True,
+            "ort_available": True,
+        }
+
+        with patch.object(
+            service,
+            "_load_runtime_fallback_bird_model",
+            return_value=(
+                recovered,
+                "openvino",
+                "intel_cpu",
+                "Runtime fallback after invalid openvino/intel_gpu output: invalid logits; using openvino/intel_cpu",
+            ),
+        ) as mock_load:
+            results = service.classify(Image.new("RGB", (32, 32), color="white"))
+
+        assert results == [{"label": "Unknown Bird", "score": 0.12, "index": 0}]
+        assert service._models["bird"] is recovered
+        assert service._inference_backend == "openvino"
+        assert service._active_inference_provider == "intel_cpu"
+        assert service._runtime_invalid_output_failures == 1
+        assert service._runtime_fallback_recoveries == 1
+        assert service._last_runtime_recovery["status"] == "recovered"
+        assert broken.cleanup_called is True
+        assert "openvino/intel_cpu" in (service._inference_fallback_reason or "")
+        mock_load.assert_called_once()
+        service.shutdown()
+
+
+def test_classifier_service_recovers_raw_classification_from_invalid_openvino_gpu_output(
+    mock_tflite, mock_os_path_exists
+):
+    class _BrokenOpenVINOModel:
+        loaded = True
+        error = None
+        labels = []
+
+        def __init__(self):
+            self.cleanup_called = False
+
+        def classify_raw(self, _image):
+            raise InvalidInferenceOutputError(
+                backend="openvino",
+                provider="intel_gpu",
+                detail="bird inference produced no finite probabilities",
+            )
+
+        def cleanup(self):
+            self.cleanup_called = True
+
+        def get_status(self):
+            return {"loaded": True, "error": None}
+
+    class _RecoveredRawModel(_FallbackReadyModel):
+        def classify_raw(self, _image):
+            return np.array([0.8, 0.2], dtype=np.float32)
+
+    with patch.object(ClassifierService, "_init_bird_model", return_value=None):
+        service = ClassifierService()
+        broken = _BrokenOpenVINOModel()
+        recovered = _RecoveredRawModel([])
+        recovered.labels = ["Robin", "Sparrow"]
+        service._models["bird"] = broken
+        service._inference_backend = "openvino"
+        service._active_inference_provider = "intel_gpu"
+
+        with patch.object(
+            service,
+            "_load_runtime_fallback_bird_model",
+            return_value=(
+                recovered,
+                "openvino",
+                "intel_cpu",
+                "Runtime fallback after invalid openvino/intel_gpu output: invalid logits; using openvino/intel_cpu",
+            ),
+        ):
+            scores, active_model = service._classify_raw_with_runtime_recovery(Image.new("RGB", (32, 32), color="white"))
+
+        assert np.allclose(scores, np.array([0.8, 0.2], dtype=np.float32))
+        assert active_model is recovered
+        assert service._models["bird"] is recovered
+        assert broken.cleanup_called is True
+        service.shutdown()
+
+
+def test_classifier_service_uses_tflite_asset_paths_when_onnx_fallback_reaches_tflite(
+    mock_tflite, mock_os_path_exists
+):
+    with patch.object(
+        classifier_service_module,
+        "_detect_acceleration_capabilities",
+        return_value={
+            "openvino_available": False,
+            "ort_available": True,
+            "intel_cpu_available": False,
+            "intel_gpu_available": False,
+        },
+    ), patch.object(
+        classifier_service_module,
+        "_resolve_inference_selection",
+        return_value={
+            "backend": "onnxruntime",
+            "active_provider": "cpu",
+            "ort_providers": ["CPUExecutionProvider"],
+            "fallback_reason": None,
+        },
+    ), patch.object(
+        ClassifierService,
+        "_resolve_active_bird_model_spec",
+        return_value={
+            "model_path": "/tmp/active/model.onnx",
+            "labels_path": "/tmp/active/labels.txt",
+            "input_size": 384,
+            "preprocessing": {"mean": [0.5, 0.5, 0.5], "std": [0.5, 0.5, 0.5]},
+            "runtime": "onnx",
+        },
+    ), patch.object(
+        ClassifierService,
+        "_get_model_paths",
+        return_value=("/tmp/fallback/model.tflite", "/tmp/fallback/labels.txt"),
+    ), patch(
+        "app.services.classifier_service.ONNXModelInstance"
+    ) as mock_onnx_model, patch(
+        "app.services.classifier_service.ModelInstance"
+    ) as mock_tflite_model:
+        mock_onnx_model.return_value.load.return_value = False
+        mock_tflite_model.return_value.load.return_value = True
+        mock_tflite_model.return_value.loaded = True
+        mock_tflite_model.return_value.error = None
+
+        service = ClassifierService()
+
+        mock_tflite_model.assert_called_with(
+            "bird",
+            "/tmp/fallback/model.tflite",
+            "/tmp/fallback/labels.txt",
+            preprocessing={"mean": [0.5, 0.5, 0.5], "std": [0.5, 0.5, 0.5]},
+        )
+        assert service._inference_backend == "tflite"
+        assert service._active_inference_provider == "tflite"
+        service.shutdown()
+
+
+def test_classifier_health_reports_error_when_invalid_output_recovery_fails(mock_tflite, mock_os_path_exists):
+    with patch.object(ClassifierService, "_init_bird_model", return_value=None):
+        service = ClassifierService()
+        service._models["bird"] = _FallbackReadyModel([{"label": "Robin", "score": 0.9, "index": 0}])
+        service._last_runtime_recovery = {
+            "status": "failed",
+            "failed_backend": "openvino",
+            "failed_provider": "intel_gpu",
+            "detail": "bird inference produced no finite probabilities",
+            "at": 123.0,
+        }
+
+        health = service.check_health()
+
+        assert health["status"] == "error"
+        assert health["runtime_recovery"]["last_recovery"]["status"] == "failed"
         service.shutdown()
 
 

@@ -136,6 +136,16 @@ class LiveImageClassificationOverloadedError(RuntimeError):
     """Raised when live image classification cannot obtain bounded capacity promptly."""
 
 
+class InvalidInferenceOutputError(RuntimeError):
+    """Raised when a runtime returns unusable model outputs after successful load."""
+
+    def __init__(self, *, backend: str, provider: str, detail: str):
+        self.backend = str(backend)
+        self.provider = str(provider)
+        self.detail = str(detail)
+        super().__init__(f"{self.backend}:{self.provider}: {self.detail}")
+
+
 def _normalize_inference_provider(value: Optional[str]) -> str:
     normalized = (value or "auto").strip().lower()
     return normalized if normalized in SUPPORTED_INFERENCE_PROVIDERS else "auto"
@@ -762,7 +772,11 @@ class ModelInstance:
         finite_results = results[np.isfinite(results)]
         if finite_results.size == 0:
             log.warning("TFLite inference produced no finite outputs", model=self.name)
-            return np.array([])
+            raise InvalidInferenceOutputError(
+                backend="tflite",
+                provider="tflite",
+                detail=f"{self.name} inference produced no finite outputs",
+            )
 
         output_min = float(finite_results.min())
         output_max = float(finite_results.max())
@@ -960,6 +974,12 @@ class ONNXModelInstance:
 
             # Apply softmax to get probabilities
             probs = self._softmax(logits)
+            if probs.size == 0:
+                raise InvalidInferenceOutputError(
+                    backend="onnxruntime",
+                    provider=(self.ort_providers[0] if self.ort_providers else "cpu"),
+                    detail=f"{self.name} inference produced no finite probabilities",
+                )
 
             # Get top-k results
             top_indices = np.argsort(probs)[::-1][:top_k]
@@ -975,6 +995,8 @@ class ONNXModelInstance:
 
             return classifications
 
+        except InvalidInferenceOutputError:
+            raise
         except Exception as e:
             log.error(f"ONNX inference failed for {self.name}", error=str(e))
             return []
@@ -990,7 +1012,16 @@ class ONNXModelInstance:
             with self._lock:
                 outputs = self.session.run(None, {input_name: input_tensor})
             logits = outputs[0][0]
-            return self._softmax(logits)
+            probs = self._softmax(logits)
+            if probs.size == 0:
+                raise InvalidInferenceOutputError(
+                    backend="onnxruntime",
+                    provider=(self.ort_providers[0] if self.ort_providers else "cpu"),
+                    detail=f"{self.name} inference produced no finite probabilities",
+                )
+            return probs
+        except InvalidInferenceOutputError:
+            raise
         except Exception as e:
             log.error("ONNX raw classification failed", error=str(e))
             return np.array([])
@@ -1123,6 +1154,12 @@ class OpenVINOModelInstance:
             if logits.size == 0:
                 return []
             probs = self._softmax(logits)
+            if probs.size == 0:
+                raise InvalidInferenceOutputError(
+                    backend="openvino",
+                    provider=self.device_name,
+                    detail=f"{self.name} inference produced no finite probabilities",
+                )
             top_indices = np.argsort(probs)[::-1][:top_k]
             return [
                 {
@@ -1132,6 +1169,8 @@ class OpenVINOModelInstance:
                 }
                 for i in top_indices
             ]
+        except InvalidInferenceOutputError:
+            raise
         except Exception as e:
             log.error(f"OpenVINO inference failed for {self.name}", error=str(e), device=self.device_name)
             return []
@@ -1143,7 +1182,16 @@ class OpenVINOModelInstance:
             logits = self._infer_logits(image)
             if logits.size == 0:
                 return np.array([])
-            return self._softmax(logits)
+            probs = self._softmax(logits)
+            if probs.size == 0:
+                raise InvalidInferenceOutputError(
+                    backend="openvino",
+                    provider=self.device_name,
+                    detail=f"{self.name} inference produced no finite probabilities",
+                )
+            return probs
+        except InvalidInferenceOutputError:
+            raise
         except Exception as e:
             log.error("OpenVINO raw classification failed", error=str(e), device=self.device_name)
             return np.array([])
@@ -1224,6 +1272,9 @@ class ClassifierService:
         self._openvino_model_compile_device: Optional[str] = None
         self._openvino_model_compile_error: Optional[str] = None
         self._openvino_model_compile_unsupported_ops: list[str] = []
+        self._runtime_invalid_output_failures = 0
+        self._runtime_fallback_recoveries = 0
+        self._last_runtime_recovery: Optional[dict[str, Any]] = None
         self._accel_caps = _detect_acceleration_capabilities()
         self._init_bird_model()
 
@@ -1244,23 +1295,219 @@ class ClassifierService:
 
         return model_path, labels_path
 
-    def _init_bird_model(self):
-        """Initialize the bird classification model (loaded at startup)."""
+    def _resolve_active_bird_model_spec(self) -> dict[str, Any]:
         from app.services.model_manager import model_manager, REMOTE_REGISTRY
 
         model_path, labels_path, input_size = model_manager.get_active_model_paths()
 
-        # Fetch metadata from model_manager registry
         active_model_id = model_manager.active_model_id
-        model_meta = next((m for m in REMOTE_REGISTRY if m['id'] == active_model_id), None)
-        preprocessing = model_meta.get('preprocessing') if model_meta else None
-        runtime = model_meta.get('runtime', 'tflite') if model_meta else 'tflite'
+        model_meta = next((m for m in REMOTE_REGISTRY if m["id"] == active_model_id), None)
+        preprocessing = model_meta.get("preprocessing") if model_meta else None
+        runtime = model_meta.get("runtime", "tflite") if model_meta else "tflite"
 
         if not os.path.exists(model_path):
             model_path, labels_path = self._get_model_paths(
                 settings.classification.model,
-                "labels.txt"
+                "labels.txt",
             )
+            runtime = "tflite"
+
+        return {
+            "model_path": model_path,
+            "labels_path": labels_path,
+            "input_size": input_size,
+            "preprocessing": preprocessing,
+            "runtime": runtime,
+        }
+
+    def _append_inference_fallback_reason(self, reason: str) -> None:
+        reason = str(reason or "").strip()
+        if not reason:
+            return
+        prev_reason = self._inference_fallback_reason
+        self._inference_fallback_reason = f"{prev_reason}; {reason}" if prev_reason else reason
+
+    def _build_bird_model_for_backend(
+        self,
+        spec: dict[str, Any],
+        *,
+        backend: str,
+        provider: str,
+    ) -> ModelType | None:
+        model_path = str(spec.get("model_path") or "")
+        labels_path = str(spec.get("labels_path") or "")
+        input_size = int(spec.get("input_size") or 384)
+        preprocessing = spec.get("preprocessing")
+
+        if backend == "openvino":
+            device_name = "GPU" if provider == "intel_gpu" else "CPU"
+            model = OpenVINOModelInstance(
+                "bird",
+                model_path,
+                labels_path,
+                preprocessing=preprocessing,
+                input_size=input_size,
+                device_name=device_name,
+            )
+            return model if model.load() else None
+
+        if backend == "onnxruntime":
+            ort_providers = (
+                ["CUDAExecutionProvider", "CPUExecutionProvider"]
+                if provider == "cuda"
+                else ["CPUExecutionProvider"]
+            )
+            model = ONNXModelInstance(
+                "bird",
+                model_path,
+                labels_path,
+                preprocessing=preprocessing,
+                input_size=input_size,
+                ort_providers=ort_providers,
+            )
+            return model if model.load() else None
+
+        if backend == "tflite":
+            tflite_model_path, tflite_labels_path = self._get_model_paths(
+                settings.classification.model,
+                "labels.txt",
+            )
+            model = ModelInstance(
+                "bird",
+                tflite_model_path,
+                tflite_labels_path,
+                preprocessing=preprocessing,
+            )
+            return model if model.load() else None
+
+        return None
+
+    def _runtime_fallback_targets(self) -> list[tuple[str, str]]:
+        targets: list[tuple[str, str]] = []
+
+        def _append(target_backend: str, target_provider: str) -> None:
+            target = (target_backend, target_provider)
+            if (
+                target not in targets
+                and not (
+                    target_backend == self._inference_backend
+                    and target_provider == self._active_inference_provider
+                )
+            ):
+                targets.append(target)
+
+        if self._inference_backend == "openvino":
+            if self._active_inference_provider == "intel_gpu" and self._accel_caps.get("intel_cpu_available"):
+                _append("openvino", "intel_cpu")
+            if self._accel_caps.get("ort_available"):
+                _append("onnxruntime", "cpu")
+            _append("tflite", "tflite")
+            return targets
+
+        if self._inference_backend == "onnxruntime":
+            if self._active_inference_provider != "cpu" and self._accel_caps.get("ort_available"):
+                _append("onnxruntime", "cpu")
+            if self._accel_caps.get("openvino_available") and self._accel_caps.get("intel_cpu_available"):
+                _append("openvino", "intel_cpu")
+            _append("tflite", "tflite")
+            return targets
+
+        if self._inference_backend == "tflite":
+            return targets
+
+        if self._accel_caps.get("ort_available"):
+            _append("onnxruntime", "cpu")
+        _append("tflite", "tflite")
+        return targets
+
+    def _load_runtime_fallback_bird_model(
+        self,
+        *,
+        failed_backend: str,
+        failed_provider: str,
+        failure_detail: str,
+    ) -> tuple[ModelType | None, str | None, str | None, str | None]:
+        spec = self._resolve_active_bird_model_spec()
+        for backend, provider in self._runtime_fallback_targets():
+            replacement = self._build_bird_model_for_backend(spec, backend=backend, provider=provider)
+            if replacement is None:
+                continue
+            reason = (
+                f"Runtime fallback after invalid {failed_backend}/{failed_provider} output: "
+                f"{failure_detail}; using {backend}/{provider}"
+            )
+            return replacement, backend, provider, reason
+        return None, None, None, None
+
+    def _recover_from_invalid_bird_output(
+        self,
+        failed_model: ModelType,
+        error: InvalidInferenceOutputError,
+    ) -> bool:
+        with self._models_lock:
+            current = self._models.get("bird")
+            if current is None:
+                return False
+            if current is not failed_model:
+                return True
+
+            self._runtime_invalid_output_failures += 1
+            replacement, backend, provider, reason = self._load_runtime_fallback_bird_model(
+                failed_backend=error.backend,
+                failed_provider=error.provider,
+                failure_detail=error.detail,
+            )
+            if replacement is None or backend is None or provider is None or reason is None:
+                self._last_runtime_recovery = {
+                    "status": "failed",
+                    "failed_backend": error.backend,
+                    "failed_provider": error.provider,
+                    "detail": error.detail,
+                    "at": time.time(),
+                }
+                log.error(
+                    "Classifier produced invalid runtime output and no fallback succeeded",
+                    failed_backend=error.backend,
+                    failed_provider=error.provider,
+                    detail=error.detail,
+                )
+                return False
+
+            old_model = self._models["bird"]
+            self._models["bird"] = replacement
+            self._inference_backend = backend
+            self._active_inference_provider = provider
+            self._append_inference_fallback_reason(reason)
+            self._runtime_fallback_recoveries += 1
+            self._last_runtime_recovery = {
+                "status": "recovered",
+                "failed_backend": error.backend,
+                "failed_provider": error.provider,
+                "recovered_backend": backend,
+                "recovered_provider": provider,
+                "detail": error.detail,
+                "at": time.time(),
+            }
+            if hasattr(old_model, "cleanup"):
+                old_model.cleanup()
+            log.warning(
+                "Classifier produced invalid runtime output; switched inference backend",
+                failed_backend=error.backend,
+                failed_provider=error.provider,
+                recovered_backend=backend,
+                recovered_provider=provider,
+                detail=error.detail,
+            )
+            return True
+
+    def _init_bird_model(self):
+        """Initialize the bird classification model (loaded at startup)."""
+        spec = self._resolve_active_bird_model_spec()
+        model_path = str(spec["model_path"])
+        labels_path = str(spec["labels_path"])
+        input_size = int(spec["input_size"])
+        preprocessing = spec.get("preprocessing")
+        runtime = str(spec["runtime"])
 
         log.info("Initializing bird model",
                  path=model_path,
@@ -1453,8 +1700,10 @@ class ClassifierService:
             runtime = 'tflite'
 
         # Default: TFLite model
-        bird_model = ModelInstance("bird", model_path, labels_path, preprocessing=preprocessing)
-        bird_model.load()
+        bird_model = self._build_bird_model_for_backend(spec, backend="tflite", provider="tflite")
+        if bird_model is None:
+            bird_model = ModelInstance("bird", model_path, labels_path, preprocessing=preprocessing)
+            bird_model.load()
         self._models["bird"] = bird_model
         self._inference_backend = "tflite"
         self._active_inference_provider = "tflite"
@@ -1622,8 +1871,15 @@ class ClassifierService:
             else:
                 tflite_type = "tensorflow-full"
 
+        runtime_recovery = {
+            "invalid_output_failures": self._runtime_invalid_output_failures,
+            "fallback_recoveries": self._runtime_fallback_recoveries,
+            "last_recovery": self._last_runtime_recovery,
+        }
+        runtime_recovery_failed = bool((self._last_runtime_recovery or {}).get("status") == "failed")
+
         health = {
-            "status": "ok" if (bird and bird.loaded) else "error",
+            "status": "ok" if (bird and bird.loaded and not runtime_recovery_failed) else "error",
             "execution_mode": self._image_execution_mode,
             "runtimes": {
                 "tflite": {
@@ -1649,6 +1905,7 @@ class ClassifierService:
             "live_image": live_image_health,
             "background_image": background_image_health,
             "background_throttled": background_image_health["background_throttled"],
+            "runtime_recovery": runtime_recovery,
         }
         if supervisor_metrics is not None:
             health["worker_pools"] = supervisor_metrics
@@ -1720,6 +1977,9 @@ class ClassifierService:
             "image_max_concurrent": CLASSIFIER_IMAGE_MAX_CONCURRENT,
             "image_admission_timeout_seconds": CLASSIFIER_IMAGE_ADMISSION_TIMEOUT_SECONDS,
             "image_admission_timeouts": self._image_admission_timeouts,
+            "runtime_invalid_output_failures": self._runtime_invalid_output_failures,
+            "runtime_fallback_recoveries": self._runtime_fallback_recoveries,
+            "last_runtime_recovery": self._last_runtime_recovery,
             "live_image_max_concurrent": admission_metrics["live"]["capacity"],
             "live_image_admission_timeout_seconds": CLASSIFIER_LIVE_IMAGE_ADMISSION_TIMEOUT_SECONDS,
             "live_image_admission_timeouts": self._live_image_admission_timeouts,
@@ -1805,10 +2065,40 @@ class ClassifierService:
         model_id: Optional[str] = None,
     ) -> list[dict]:
         """Classify an image using the bird model."""
-        bird = self._models.get("bird")
-        if bird:
-            return bird.classify(image)
+        attempted_models: set[int] = set()
+        while True:
+            bird = self._models.get("bird")
+            if bird is None:
+                return []
+            model_identity = id(bird)
+            if model_identity in attempted_models:
+                return []
+            attempted_models.add(model_identity)
+            try:
+                return bird.classify(image)
+            except InvalidInferenceOutputError as exc:
+                if not self._recover_from_invalid_bird_output(bird, exc):
+                    return []
         return []
+
+    def _classify_raw_with_runtime_recovery(
+        self,
+        image: Image.Image,
+    ) -> tuple[np.ndarray, ModelType | None]:
+        attempted_models: set[int] = set()
+        while True:
+            bird = self._models.get("bird")
+            if bird is None:
+                return np.array([]), None
+            model_identity = id(bird)
+            if model_identity in attempted_models:
+                return np.array([]), bird
+            attempted_models.add(model_identity)
+            try:
+                return bird.classify_raw(image), bird
+            except InvalidInferenceOutputError as exc:
+                if not self._recover_from_invalid_bird_output(bird, exc):
+                    return np.array([]), bird
 
     def _encode_image_for_worker(self, image: Image.Image) -> str:
         buffer = io.BytesIO()
@@ -2196,8 +2486,10 @@ class ClassifierService:
                 frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                 image = Image.fromarray(frame_rgb)
 
-                # Get raw probability vector
-                scores = bird_model.classify_raw(image)
+                # Get raw probability vector, recovering from invalid runtime output if possible.
+                scores, active_bird_model = self._classify_raw_with_runtime_recovery(image)
+                if active_bird_model is not None:
+                    bird_model = active_bird_model
 
                 if len(scores) > 0:
                     all_scores.append(scores)
