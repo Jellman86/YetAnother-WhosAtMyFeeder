@@ -6,6 +6,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- **Fixed:** Frontend `svelte-check` now passes for the strict non-finite debug toggle by adding `strict_non_finite_output` to the UI `Settings` API type, aligning typed settings reads/writes with the backend-exposed field.
 - **Added:** Experimental strict-non-finite classifier toggle is now configurable end-to-end: backend setting `classification.strict_non_finite_output` (env override `CLASSIFICATION__STRICT_NON_FINITE_OUTPUT`, with legacy `CLASSIFIER_STRICT_NON_FINITE_OUTPUT` fallback) is exposed in `Settings > Debug`, persisted via `/api/settings`, and surfaced in `/api/classifier/status` as `strict_non_finite_output` so active policy is explicit during controlled GPU/CPU behavior tests.
 - **Fixed:** Detection Details video-analysis inference markers now use inline SVG GPU/CPU icons instead of font-dependent glyph characters, so provider markers render consistently across browsers/platform fonts.
 - **Fixed:** Subprocess classifier supervision now supports a dedicated background worker hard deadline (`classification.background_worker_hard_deadline_seconds`, env `CLASSIFICATION__BACKGROUND_WORKER_HARD_DEADLINE_SECONDS`, default `120s`) instead of forcing background/backfill jobs to share the shorter live deadline; this prevents long-running historical classification work from repeatedly tripping `hard_deadline` restarts and opening the background worker circuit while preserving strict live-request deadlines.
