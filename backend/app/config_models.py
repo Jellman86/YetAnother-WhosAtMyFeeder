@@ -212,7 +212,7 @@ class ClassificationSettings(BaseModel):
     video_classification_frames: int = Field(default=15, ge=5, le=100, description="Number of frames to sample for video classification")
     inference_provider: str = Field(default="auto", description="Preferred inference provider: auto|cpu|cuda|intel_gpu|intel_cpu")
     image_execution_mode: str = Field(
-        default="in_process",
+        default="subprocess",
         description="Image inference execution mode: in_process|subprocess",
     )
     live_worker_count: int = Field(default=2, ge=1, le=8, description="Live classifier worker process count")
@@ -246,11 +246,11 @@ class ClassificationSettings(BaseModel):
     @field_validator("image_execution_mode")
     @classmethod
     def validate_image_execution_mode(cls, v: str) -> str:
-        normalized = (v or "in_process").strip().lower()
+        normalized = (v or "subprocess").strip().lower()
         allowed = {"in_process", "subprocess"}
         if normalized not in allowed:
-            log.warning("Invalid image_execution_mode in config; falling back to in_process", value=v)
-            return "in_process"
+            log.warning("Invalid image_execution_mode in config; falling back to subprocess", value=v)
+            return "subprocess"
         return normalized
 
 class MaintenanceSettings(BaseModel):

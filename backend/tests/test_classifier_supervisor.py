@@ -23,6 +23,8 @@ class _FakeWorker:
         self.busy = False
         self.ready = True
         self.exit_code: int | None = None
+        self.recent_stderr_excerpt = ""
+        self.stderr_truncated_bytes = 0
         self.terminated = False
         self.killed = False
         self.closed = False
@@ -62,6 +64,8 @@ class _FakeWorker:
             "last_heartbeat_monotonic": self.last_heartbeat_monotonic,
             "heartbeat_timeout_seconds": 0.05,
             "exit_code": self.exit_code,
+            "recent_stderr_excerpt": self.recent_stderr_excerpt,
+            "stderr_truncated_bytes": self.stderr_truncated_bytes,
         }
 
 
@@ -436,5 +440,38 @@ async def test_classifier_supervisor_allows_recovery_after_cooldown_expires():
     results = await task
     assert results[0]["label"] == "Recovered"
     assert supervisor.get_metrics()["live"]["circuit_open"] is False
+
+    await supervisor.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_classifier_supervisor_records_worker_stderr_on_exit():
+    created: list[_FakeWorker] = []
+
+    async def _factory(*, worker_name: str, worker_generation: int, **_kwargs):
+        worker = _FakeWorker(worker_name, worker_generation)
+        created.append(worker)
+        return worker
+
+    supervisor = ClassifierSupervisor(
+        live_worker_count=1,
+        background_worker_count=1,
+        heartbeat_timeout_seconds=0.5,
+        hard_deadline_seconds=1.0,
+        worker_factory=_factory,
+        watchdog_interval_seconds=0.01,
+    )
+    await supervisor.start()
+
+    created[0].recent_stderr_excerpt = "import failed"
+    created[0].stderr_truncated_bytes = 12
+    created[0].exit_code = 17
+
+    await asyncio.sleep(0.05)
+
+    metrics = supervisor.get_metrics()
+    assert metrics["live"]["last_exit_reason"] == "exit_code_17"
+    assert metrics["live"]["last_stderr_excerpt"] == "import failed"
+    assert metrics["live"]["last_stderr_truncated_bytes"] == 12
 
     await supervisor.shutdown()

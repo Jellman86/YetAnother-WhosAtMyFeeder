@@ -29,6 +29,7 @@ class _FakeStdin:
 class _FakeProcess:
     def __init__(self) -> None:
         self.stdout = asyncio.StreamReader()
+        self.stderr = asyncio.StreamReader()
         self.stdin = _FakeStdin()
         self.returncode: int | None = None
         self.terminated = False
@@ -42,9 +43,13 @@ class _FakeProcess:
     def feed(self, message: dict) -> None:
         self.stdout.feed_data(encode_protocol_message(message))
 
+    def feed_stderr(self, data: bytes) -> None:
+        self.stderr.feed_data(data)
+
     def finish(self, returncode: int = 0) -> None:
         self.returncode = returncode
         self.stdout.feed_eof()
+        self.stderr.feed_eof()
         self._wait_event.set()
 
     def terminate(self) -> None:
@@ -127,6 +132,56 @@ async def test_classifier_worker_client_records_non_zero_exit():
     await client.wait_closed()
 
     assert client.get_status()["exit_code"] == 9
+
+
+@pytest.mark.asyncio
+async def test_classifier_worker_client_drains_stderr_and_keeps_bounded_excerpt():
+    process = _FakeProcess()
+
+    async def _factory(**_kwargs):
+        return process
+
+    client = ClassifierWorkerClient(
+        worker_name="live-err",
+        worker_generation=6,
+        heartbeat_timeout_seconds=5.0,
+        process_factory=_factory,
+        stderr_tail_max_bytes=16,
+    )
+    await client.start()
+    process.feed(build_ready_event(worker_generation=6))
+    await asyncio.wait_for(client.wait_until_ready(), timeout=0.2)
+
+    process.feed_stderr(b"0123456789abcdefMORE\n")
+    await asyncio.sleep(0.01)
+
+    status = client.get_status()
+    assert status["recent_stderr_excerpt"].endswith("abcdefMORE\n")
+    assert status["stderr_truncated_bytes"] > 0
+
+    process.finish()
+    await client.wait_closed()
+
+
+@pytest.mark.asyncio
+async def test_classifier_worker_client_ready_failure_includes_stderr_context():
+    process = _FakeProcess()
+
+    async def _factory(**_kwargs):
+        return process
+
+    client = ClassifierWorkerClient(
+        worker_name="live-fail",
+        worker_generation=8,
+        heartbeat_timeout_seconds=5.0,
+        process_factory=_factory,
+    )
+    await client.start()
+    process.feed_stderr(b"startup exploded\n")
+    process.finish(returncode=17)
+
+    with pytest.raises(RuntimeError, match="startup exploded"):
+        await client.wait_until_ready(timeout_seconds=0.2)
 
 
 @pytest.mark.asyncio

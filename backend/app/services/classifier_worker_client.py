@@ -19,21 +19,27 @@ class ClassifierWorkerClient:
         worker_generation: int,
         heartbeat_timeout_seconds: float,
         process_factory: ProcessFactory | None = None,
+        stderr_tail_max_bytes: int = 8192,
     ) -> None:
         self.worker_name = str(worker_name)
         self.worker_generation = int(worker_generation)
         self.heartbeat_timeout_seconds = max(0.1, float(heartbeat_timeout_seconds))
         self._process_factory = process_factory or self._spawn_process
+        self._stderr_tail_max_bytes = max(1, int(stderr_tail_max_bytes))
         self._process: Any = None
         self._ready = asyncio.Event()
         self._closed = asyncio.Event()
         self._reader_task: asyncio.Task[None] | None = None
+        self._stderr_task: asyncio.Task[None] | None = None
         self._wait_task: asyncio.Task[None] | None = None
         self._event_queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
         self._last_heartbeat_monotonic: float | None = None
+        self._last_stderr_monotonic: float | None = None
         self._busy = False
         self._current_request_id: str | None = None
         self._exit_code: int | None = None
+        self._stderr_tail = bytearray()
+        self._stderr_truncated_bytes = 0
 
     async def start(self) -> None:
         if self._process is not None:
@@ -43,10 +49,35 @@ class ClassifierWorkerClient:
             worker_generation=self.worker_generation,
         )
         self._reader_task = asyncio.create_task(self._reader_loop())
+        self._stderr_task = asyncio.create_task(self._stderr_loop())
         self._wait_task = asyncio.create_task(self._wait_loop())
 
     async def wait_until_ready(self, timeout_seconds: float = 5.0) -> None:
-        await asyncio.wait_for(self._ready.wait(), timeout=max(0.01, float(timeout_seconds)))
+        timeout = max(0.01, float(timeout_seconds))
+        ready_task = asyncio.create_task(self._ready.wait())
+        closed_task = asyncio.create_task(self._closed.wait())
+        try:
+            done, pending = await asyncio.wait(
+                {ready_task, closed_task},
+                timeout=timeout,
+                return_when=asyncio.FIRST_COMPLETED,
+            )
+            for task in pending:
+                task.cancel()
+
+            if ready_task in done and self._ready.is_set():
+                return
+            if closed_task in done and self._closed.is_set():
+                raise RuntimeError(self._build_startup_failure_message())
+            raise TimeoutError()
+        except TimeoutError:
+            if self._closed.is_set():
+                raise RuntimeError(self._build_startup_failure_message()) from None
+            raise
+        finally:
+            for task in (ready_task, closed_task):
+                if not task.done():
+                    task.cancel()
 
     async def send(self, message: dict[str, Any]) -> None:
         if self._process is None or getattr(self._process, "stdin", None) is None:
@@ -80,8 +111,11 @@ class ClassifierWorkerClient:
             "busy": self._busy,
             "current_request_id": self._current_request_id,
             "last_heartbeat_monotonic": self._last_heartbeat_monotonic,
+            "last_stderr_monotonic": self._last_stderr_monotonic,
             "heartbeat_timeout_seconds": self.heartbeat_timeout_seconds,
             "exit_code": self._exit_code,
+            "recent_stderr_excerpt": self._stderr_excerpt(),
+            "stderr_truncated_bytes": self._stderr_truncated_bytes,
         }
 
     async def _reader_loop(self) -> None:
@@ -103,13 +137,55 @@ class ClassifierWorkerClient:
                 else:
                     await self._event_queue.put(message)
         finally:
-            self._closed.set()
+            self._mark_closed()
+
+    async def _stderr_loop(self) -> None:
+        try:
+            while True:
+                raw = await self._process.stderr.read(4096)
+                if not raw:
+                    return
+                self._append_stderr(raw)
+        finally:
+            self._mark_closed()
 
     async def _wait_loop(self) -> None:
         try:
             self._exit_code = await self._process.wait()
         finally:
+            self._mark_closed()
+
+    def _append_stderr(self, data: bytes) -> None:
+        if not data:
+            return
+        self._last_stderr_monotonic = time.monotonic()
+        self._stderr_tail.extend(data)
+        overflow = len(self._stderr_tail) - self._stderr_tail_max_bytes
+        if overflow > 0:
+            del self._stderr_tail[:overflow]
+            self._stderr_truncated_bytes += overflow
+
+    def _stderr_excerpt(self) -> str:
+        if not self._stderr_tail:
+            return ""
+        return bytes(self._stderr_tail).decode("utf-8", errors="replace")
+
+    def _build_startup_failure_message(self) -> str:
+        message = f"classifier worker exited before ready worker={self.worker_name} generation={self.worker_generation}"
+        if self._exit_code is not None:
+            message += f" exit_code={self._exit_code}"
+        stderr_excerpt = self._stderr_excerpt().strip()
+        if stderr_excerpt:
+            message += f" stderr={stderr_excerpt}"
+        return message
+
+    def _mark_closed(self) -> None:
+        if self._closed.is_set():
+            return
+        try:
             self._closed.set()
+        except RuntimeError:
+            pass
 
     async def _spawn_process(self, *, worker_name: str, worker_generation: int) -> Any:
         backend_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))

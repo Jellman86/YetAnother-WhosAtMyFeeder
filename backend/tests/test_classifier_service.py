@@ -58,6 +58,16 @@ def mock_os_path_exists():
         yield mock
 
 
+@pytest.fixture(autouse=True)
+def force_in_process_mode():
+    original_mode = settings.classification.image_execution_mode
+    settings.classification.image_execution_mode = "in_process"
+    try:
+        yield
+    finally:
+        settings.classification.image_execution_mode = original_mode
+
+
 def _stub_init_bird_model(self):
     self._models["bird"] = MagicMock(loaded=True, error=None, labels=[])
 
@@ -112,7 +122,7 @@ def test_safe_softmax_sanitizes_non_finite_logits():
 def test_classifier_supervisor_config_defaults():
     config = ClassificationSettings()
 
-    assert config.image_execution_mode == "in_process"
+    assert config.image_execution_mode == "subprocess"
     assert config.live_worker_count == 2
     assert config.background_worker_count == 1
     assert config.worker_heartbeat_timeout_seconds == pytest.approx(5.0)

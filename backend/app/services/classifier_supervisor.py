@@ -78,8 +78,24 @@ class ClassifierSupervisor:
         self._slots: dict[WorkPriority, list[_WorkerSlot]] = {"live": [], "background": []}
         self._assignments: dict[str, _Assignment] = {}
         self._metrics = {
-            "live": {"workers": 0, "restarts": 0, "last_exit_reason": None, "circuit_open": False, "circuit_open_until_monotonic": None},
-            "background": {"workers": 0, "restarts": 0, "last_exit_reason": None, "circuit_open": False, "circuit_open_until_monotonic": None},
+            "live": {
+                "workers": 0,
+                "restarts": 0,
+                "last_exit_reason": None,
+                "last_stderr_excerpt": "",
+                "last_stderr_truncated_bytes": 0,
+                "circuit_open": False,
+                "circuit_open_until_monotonic": None,
+            },
+            "background": {
+                "workers": 0,
+                "restarts": 0,
+                "last_exit_reason": None,
+                "last_stderr_excerpt": "",
+                "last_stderr_truncated_bytes": 0,
+                "circuit_open": False,
+                "circuit_open_until_monotonic": None,
+            },
             "late_results_ignored": 0,
         }
         self._restart_history: dict[WorkPriority, deque[float]] = {
@@ -300,6 +316,7 @@ class ClassifierSupervisor:
         kill: bool,
     ) -> None:
         slot = self._slots[priority][index]
+        worker_status = slot.worker.get_status()
         if kill:
             await slot.worker.kill()
         assignment = self._assignments.pop(slot.worker_name, None)
@@ -307,6 +324,8 @@ class ClassifierSupervisor:
             assignment.future.set_exception(assignment_error)
         self._metrics[priority]["restarts"] += 1
         self._metrics[priority]["last_exit_reason"] = reason
+        self._metrics[priority]["last_stderr_excerpt"] = str(worker_status.get("recent_stderr_excerpt") or "")
+        self._metrics[priority]["last_stderr_truncated_bytes"] = int(worker_status.get("stderr_truncated_bytes") or 0)
         self._record_restart(priority)
         new_slot = await self._spawn_worker(priority, index, generation=slot.worker_generation + 1)
         self._slots[priority][index] = new_slot

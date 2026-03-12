@@ -23,6 +23,17 @@ def test_classification_stale_minutes_env_override(monkeypatch):
     assert loaded.classification.video_classification_stale_minutes == 61
 
 
+def test_classification_image_execution_mode_defaults_to_subprocess(monkeypatch, tmp_path):
+    config_path = tmp_path / "config.json"
+    config_path.write_text("{}", encoding="utf-8")
+    monkeypatch.setattr(config_module, "CONFIG_PATH", config_path)
+    monkeypatch.delenv("CLASSIFICATION__IMAGE_EXECUTION_MODE", raising=False)
+
+    loaded = Settings.load()
+
+    assert loaded.classification.image_execution_mode == "subprocess"
+
+
 def test_notification_cooldown_env_override(monkeypatch):
     monkeypatch.setenv("NOTIFICATIONS__NOTIFICATION_COOLDOWN_MINUTES", "13")
 
