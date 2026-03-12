@@ -1488,9 +1488,14 @@
                                     <div class="shrink-0 flex items-center gap-1.5 rounded-full px-2.5 py-1 bg-white/85 dark:bg-slate-900/80 border border-slate-200/80 dark:border-slate-700/70">
                                         <span class="{videoInferenceBadge.kind === 'gpu' ? 'text-emerald-600 dark:text-emerald-300' : 'text-sky-600 dark:text-sky-300'}" aria-hidden="true">
                                             {#if videoInferenceBadge.kind === 'gpu'}
-                                                ◈
+                                                <svg class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                                                    <path d="M10 2.5 16.5 9 10 15.5 3.5 9 10 2.5Zm0 2.12L5.62 9 10 13.38 14.38 9 10 4.62Z" />
+                                                </svg>
                                             {:else}
-                                                ◉
+                                                <svg class="h-3 w-3" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6">
+                                                    <rect x="4.5" y="5.5" width="11" height="9" rx="1.5" />
+                                                    <path d="M8 2.75v2M12 2.75v2M8 15.25v2M12 15.25v2M2.75 8h2M2.75 12h2M15.25 8h2M15.25 12h2" stroke-linecap="round" />
+                                                </svg>
                                             {/if}
                                         </span>
                                         <span class="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">

@@ -6,6 +6,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- **Fixed:** Detection Details video-analysis inference markers now use inline SVG GPU/CPU icons instead of font-dependent glyph characters, so provider markers render consistently across browsers/platform fonts.
 - **Fixed:** Subprocess classifier supervision now supports a dedicated background worker hard deadline (`classification.background_worker_hard_deadline_seconds`, env `CLASSIFICATION__BACKGROUND_WORKER_HARD_DEADLINE_SECONDS`, default `120s`) instead of forcing background/backfill jobs to share the shorter live deadline; this prevents long-running historical classification work from repeatedly tripping `hard_deadline` restarts and opening the background worker circuit while preserving strict live-request deadlines.
 - **Added:** Detection Details video-analysis card now shows a live inference-provider badge (`GPU` / `CPU`) during active analysis by polling classifier status, so owners can immediately see whether current processing is running on accelerated or fallback compute.
 - **Added:** Auto video-classifier diagnostics now include classifier runtime context (`inference_backend`, `active_provider`, `selected_provider`, and latest runtime-recovery snapshot when available), so exported incident evidence shows which inference path was active when failures occurred.
