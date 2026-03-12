@@ -157,6 +157,29 @@ async def test_process_historical_event_returns_classifier_worker_reason(monkeyp
 
 
 @pytest.mark.asyncio
+async def test_process_historical_event_with_timeout_retries_transient_classifier_failure():
+    service = BackfillService(MagicMock())
+    attempts: list[str] = []
+
+    async def _flaky(_event):
+        attempts.append("attempt")
+        if len(attempts) == 1:
+            return "error", "background_image_worker_unavailable"
+        return "new", None
+
+    service.process_historical_event = _flaky  # type: ignore[method-assign]
+
+    status, reason = await service.process_historical_event_with_timeout(
+        {"id": "evt-transient-worker-failure"},
+        timeout_seconds=20.0,
+    )
+
+    assert attempts == ["attempt", "attempt"]
+    assert status == "new"
+    assert reason is None
+
+
+@pytest.mark.asyncio
 async def test_fetch_frigate_events_paginates_until_exhausted(monkeypatch):
     classifier = MagicMock()
     service = BackfillService(classifier)

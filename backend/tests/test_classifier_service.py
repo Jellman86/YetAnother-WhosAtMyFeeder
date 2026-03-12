@@ -39,6 +39,7 @@ from app.services import classifier_service as classifier_service_module  # noqa
 from app.services.classifier_supervisor import (  # noqa: E402
     ClassifierWorkerCircuitOpenError,
     ClassifierWorkerDeadlineExceededError,
+    ClassifierWorkerExitedError,
     ClassifierWorkerHeartbeatTimeoutError,
     ClassifierWorkerStartupTimeoutError,
 )
@@ -463,6 +464,26 @@ async def test_classifier_service_maps_supervisor_startup_timeout_to_empty_backg
             service = ClassifierService(supervisor=_FakeSupervisor())
             img = Image.new("RGB", (16, 16), color="purple")
             with pytest.raises(BackgroundImageClassificationUnavailableError, match="background_image_worker_startup_timeout"):
+                await service.classify_async_background(img, camera_name="garden")
+            service.shutdown()
+    finally:
+        settings.classification.image_execution_mode = original_mode
+
+
+@pytest.mark.asyncio
+async def test_classifier_service_maps_supervisor_exit_during_send_to_background_unavailable(mock_tflite, mock_os_path_exists):
+    original_mode = settings.classification.image_execution_mode
+    settings.classification.image_execution_mode = "subprocess"
+
+    class _FakeSupervisor:
+        async def classify(self, **_kwargs):
+            raise ClassifierWorkerExitedError("worker send failed: ConnectionResetError")
+
+    try:
+        with patch.object(ClassifierService, "_init_bird_model", new=_stub_init_bird_model):
+            service = ClassifierService(supervisor=_FakeSupervisor())
+            img = Image.new("RGB", (16, 16), color="purple")
+            with pytest.raises(BackgroundImageClassificationUnavailableError, match="background_image_worker_unavailable"):
                 await service.classify_async_background(img, camera_name="garden")
             service.shutdown()
     finally:

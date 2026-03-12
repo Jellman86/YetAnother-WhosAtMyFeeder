@@ -17,9 +17,17 @@ from app.services.error_diagnostics import error_diagnostics_history
 from app.utils.frigate import normalize_sub_label
 
 log = structlog.get_logger()
-BACKFILL_EVENT_TIMEOUT_SECONDS = 45.0
+BACKFILL_EVENT_TIMEOUT_SECONDS = 75.0
 BACKFILL_EVENTS_PAGE_LIMIT = 100
 BACKFILL_EVENTS_MAX_PAGES_PER_CAMERA = 1000
+BACKFILL_TRANSIENT_RETRY_ATTEMPTS = 2
+BACKFILL_TRANSIENT_RETRY_BACKOFF_SECONDS = 1.0
+BACKFILL_TRANSIENT_RETRY_MIN_REMAINING_SECONDS = 15.0
+BACKFILL_TRANSIENT_RETRY_REASONS = {
+    "background_image_worker_unavailable",
+    "background_image_worker_startup_timeout",
+    "background_image_worker_timed_out",
+}
 
 
 @dataclass
@@ -53,6 +61,21 @@ class BackfillService:
             return None
         oldest = min(timestamps)
         return min(oldest, float(fallback_before_ts))
+
+    @staticmethod
+    def _should_retry_transient_error(
+        *,
+        status: str,
+        reason: str | None,
+        attempt: int,
+        remaining_seconds: float,
+    ) -> bool:
+        return (
+            status == "error"
+            and (reason or "") in BACKFILL_TRANSIENT_RETRY_REASONS
+            and attempt < BACKFILL_TRANSIENT_RETRY_ATTEMPTS
+            and remaining_seconds >= BACKFILL_TRANSIENT_RETRY_MIN_REMAINING_SECONDS
+        )
 
     async def _fetch_camera_events(
         self,
@@ -274,11 +297,42 @@ class BackfillService:
         event: dict,
         timeout_seconds: float = BACKFILL_EVENT_TIMEOUT_SECONDS,
     ) -> tuple[str, str | None]:
+        deadline = asyncio.get_running_loop().time() + max(0.01, float(timeout_seconds))
+        attempt = 0
         try:
-            return await asyncio.wait_for(
-                self.process_historical_event(event),
-                timeout=timeout_seconds
-            )
+            while True:
+                attempt += 1
+                remaining_seconds = deadline - asyncio.get_running_loop().time()
+                if remaining_seconds <= 0:
+                    raise asyncio.TimeoutError()
+
+                status, reason = await asyncio.wait_for(
+                    self.process_historical_event(event),
+                    timeout=remaining_seconds,
+                )
+                remaining_seconds = max(0.0, deadline - asyncio.get_running_loop().time())
+                if not self._should_retry_transient_error(
+                    status=status,
+                    reason=reason,
+                    attempt=attempt,
+                    remaining_seconds=remaining_seconds,
+                ):
+                    return status, reason
+
+                backoff_seconds = min(
+                    BACKFILL_TRANSIENT_RETRY_BACKOFF_SECONDS,
+                    max(0.0, remaining_seconds - BACKFILL_TRANSIENT_RETRY_MIN_REMAINING_SECONDS),
+                )
+                log.warning(
+                    "Retrying historical event after transient classifier failure",
+                    event_id=event.get("id"),
+                    reason=reason,
+                    attempt=attempt + 1,
+                    max_attempts=BACKFILL_TRANSIENT_RETRY_ATTEMPTS,
+                    remaining_seconds=round(remaining_seconds, 2),
+                )
+                if backoff_seconds > 0:
+                    await asyncio.sleep(backoff_seconds)
         except asyncio.TimeoutError:
             log.error(
                 "Historical event processing timed out",

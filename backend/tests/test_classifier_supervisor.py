@@ -83,6 +83,14 @@ class _SlowReadyWorker(_FakeWorker):
             raise TimeoutError()
 
 
+class _SendFailWorker(_FakeWorker):
+    async def send(self, message: dict) -> None:
+        self.sent_messages.append(message)
+        self.current_request_id = message.get("request_id")
+        self.busy = True
+        raise ConnectionResetError("Connection lost")
+
+
 def _find_worker(created: list[_FakeWorker], worker_name: str, generation: int) -> _FakeWorker:
     for worker in created:
         if worker.worker_name == worker_name and worker.worker_generation == generation:
@@ -328,6 +336,46 @@ async def test_classifier_supervisor_replaces_worker_after_hard_deadline():
 
     assert created[0].killed is True
     assert supervisor.get_metrics()["live"]["restarts"] == 1
+
+    await supervisor.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_classifier_supervisor_replaces_worker_after_send_transport_failure():
+    created: list[_FakeWorker] = []
+
+    async def _factory(*, worker_name: str, worker_generation: int, **_kwargs):
+        if worker_generation == 1:
+            worker = _SendFailWorker(worker_name, worker_generation)
+        else:
+            worker = _FakeWorker(worker_name, worker_generation)
+        created.append(worker)
+        return worker
+
+    supervisor = ClassifierSupervisor(
+        live_worker_count=1,
+        background_worker_count=1,
+        heartbeat_timeout_seconds=5.0,
+        hard_deadline_seconds=1.0,
+        worker_factory=_factory,
+        watchdog_interval_seconds=0.01,
+    )
+
+    with pytest.raises(ClassifierWorkerExitedError, match="worker send failed"):
+        await supervisor.classify(
+            priority="background",
+            work_id="background-send-failure",
+            lease_token=1,
+            image_b64="payload",
+            camera_name="garden",
+            model_id="default",
+        )
+
+    metrics = supervisor.get_metrics()
+    assert metrics["background"]["restarts"] == 1
+    assert metrics["background"]["last_exit_reason"] == "send_failed"
+    assert metrics["background"]["workers"] == 1
+    assert len(created) == 2
 
     await supervisor.shutdown()
 

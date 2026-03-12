@@ -276,7 +276,28 @@ class ClassifierSupervisor:
             )
             self._assignments[slot.worker_name] = assignment
 
-        await slot.worker.send(build_message(slot, request_id))
+        try:
+            await slot.worker.send(build_message(slot, request_id))
+        except Exception as exc:
+            assignment_error = ClassifierWorkerExitedError(
+                f"worker send failed: {type(exc).__name__}"
+            )
+            current_slot = self._find_slot(slot.worker_name)
+            if current_slot is not None and current_slot.worker_generation == slot.worker_generation:
+                await self._replace_worker(
+                    priority,
+                    current_slot.index,
+                    reason="send_failed",
+                    assignment_error=assignment_error,
+                    kill=False,
+                )
+            else:
+                assignment = self._assignments.pop(slot.worker_name, None)
+                if assignment is not None and not assignment.future.done():
+                    assignment.future.set_exception(assignment_error)
+                async with self._condition:
+                    self._condition.notify_all()
+            raise assignment_error from exc
         return await future
 
     async def _ensure_pool_started(self, priority: WorkPriority) -> None:
@@ -545,6 +566,8 @@ class ClassifierSupervisor:
         worker_status = slot.worker.get_status()
         if kill:
             await slot.worker.kill()
+        else:
+            await self._close_failed_worker(slot.worker)
         assignment = self._assignments.pop(slot.worker_name, None)
         if assignment is not None and not assignment.future.done():
             assignment.future.set_exception(assignment_error)
