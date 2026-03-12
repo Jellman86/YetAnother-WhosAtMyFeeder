@@ -22,7 +22,8 @@
     let activeJobs = $derived(jobProgressStore.activeJobs);
     let runningJobs = $derived(activeJobs.filter((item) => item.status === 'running'));
     let staleJobs = $derived(activeJobs.filter((item) => item.status === 'stale'));
-    let detailJobs = $derived(runningJobs.slice(0, detailLimit));
+    let visibleJobs = $derived(activeJobs);
+    let detailJobs = $derived(visibleJobs.slice(0, detailLimit));
 
     function pct(item: JobProgressItem): number | null {
         if (item.total <= 0) return null;
@@ -57,17 +58,19 @@
     }
 
     let aggregate = $derived.by(() => {
-        if (runningJobs.length === 0) {
+        if (activeJobs.length === 0) {
             return { percent: null as number | null, current: 0, total: 0, rate: 0, etaSeconds: null as number | null };
         }
         let current = 0;
         let total = 0;
         let rate = 0;
-        for (const item of runningJobs) {
+        for (const item of activeJobs) {
             if (item.total > 0) {
                 total += item.total;
                 current += Math.min(item.total, Math.max(0, item.current));
             }
+        }
+        for (const item of runningJobs) {
             if (Number.isFinite(item.ratePerMinute) && (item.ratePerMinute ?? 0) > 0) {
                 rate += item.ratePerMinute ?? 0;
             }
@@ -80,8 +83,8 @@
     });
 
     let summaryLabel = $derived.by(() => {
-        if (runningJobs.length === 1) return runningJobs[0].title;
-        return $_('notifications.global_progress_tasks', { values: { count: runningJobs.length } });
+        if (activeJobs.length === 1) return activeJobs[0].title;
+        return $_('notifications.global_progress_tasks', { values: { count: activeJobs.length } });
     });
 
     function openJobsPage() {
@@ -94,7 +97,7 @@
     }
 </script>
 
-{#if runningJobs.length > 0}
+{#if activeJobs.length > 0}
     <div
         class="w-full bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 overflow-hidden relative shrink-0"
         transition:slide={{ duration: 300 }}
@@ -116,7 +119,7 @@
                         aria-controls="global-progress-details"
                     >
                         <div class="w-6 h-6 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400 flex-shrink-0">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 {runningJobs.length > 0 ? 'animate-spin' : ''}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                             </svg>
                         </div>
@@ -125,7 +128,7 @@
                                 {summaryLabel}
                             </p>
                             <p class="text-[9px] font-bold text-slate-500 dark:text-slate-300 uppercase tracking-wider truncate">
-                                {$_('notifications.global_progress_last', { values: { age: fmtAge(runningJobs[0].updatedAt) }, default: 'Updated {age} ago' })}
+                                {$_('notifications.global_progress_last', { values: { age: fmtAge(activeJobs[0].updatedAt) }, default: 'Updated {age} ago' })}
                                 {#if staleJobs.length > 0}
                                     · {$_('notifications.global_progress_stale', { values: { count: staleJobs.length }, default: '{count} stale' })}
                                 {/if}
@@ -196,13 +199,13 @@
                                 </div>
                             </div>
                         {/each}
-                        {#if runningJobs.length > detailLimit}
+                        {#if visibleJobs.length > detailLimit}
                             <button
                                 type="button"
                                 class="text-left text-[10px] font-black uppercase tracking-wider text-teal-600 dark:text-teal-300 hover:underline"
                                 onclick={openJobsPage}
                             >
-                                {$_('jobs.more', { values: { count: runningJobs.length - detailLimit }, default: '+{count} more jobs' })}
+                                {$_('jobs.more', { values: { count: visibleJobs.length - detailLimit }, default: '+{count} more jobs' })}
                             </button>
                         {/if}
                     </div>

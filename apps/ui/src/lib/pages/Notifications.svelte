@@ -23,7 +23,6 @@
     let ongoingItems = $derived(items.filter((item) => item.type === 'process' && !item.read));
     let historyItems = $derived(items.filter((item) => !(item.type === 'process' && !item.read)));
     let activeJobs = $derived(jobProgressStore.activeJobs);
-    let runningJobs = $derived(activeJobs.filter((job) => job.status === 'running'));
     let errorGroupCount = $derived(jobDiagnosticsStore.groups.length);
     let canAccessOwnerTabs = $derived(authStore.showSettings);
     let activeTab = $derived.by(() => {
@@ -104,8 +103,8 @@
                         aria-pressed={activeTab === 'jobs'}
                     >
                         {$_('jobs.title', { default: 'Jobs' })}
-                        {#if runningJobs.length > 0}
-                            <span class="ml-1 text-[10px] font-black text-emerald-600 dark:text-emerald-300">{runningJobs.length}</span>
+                        {#if activeJobs.length > 0}
+                            <span class="ml-1 text-[10px] font-black text-emerald-600 dark:text-emerald-300">{activeJobs.length}</span>
                         {/if}
                     </button>
                     <button

@@ -85,7 +85,14 @@ export function buildJobsPipelineModel(
         return created;
     };
 
+    const shouldSuppressKind = (kind: string): boolean => {
+        const normalized = normalizeKind(kind);
+        if (normalized !== 'reclassify_batch') return false;
+        return Boolean(queueByKind.reclassify);
+    };
+
     for (const item of activeJobs) {
+        if (shouldSuppressKind(item.kind)) continue;
         const counters = ensure(item.kind);
         if (item.status === 'stale') {
             counters.stale += 1;
@@ -95,6 +102,7 @@ export function buildJobsPipelineModel(
     }
 
     for (const item of historyJobs) {
+        if (shouldSuppressKind(item.kind)) continue;
         const counters = ensure(item.kind);
         if (item.status === 'failed') {
             counters.failed += 1;

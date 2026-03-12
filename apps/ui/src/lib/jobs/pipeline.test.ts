@@ -140,4 +140,27 @@ describe('buildJobsPipelineModel', () => {
             stale: 2
         });
     });
+
+    it('suppresses synthetic batch rows when authoritative reclassify queue telemetry exists', () => {
+        const activeJobs: JobProgressItem[] = [
+            runningJob('reclassify:progress', 'reclassify_batch', 'running')
+        ];
+
+        const model = buildJobsPipelineModel(activeJobs, [], {
+            reclassify: {
+                queued: 4,
+                running: 1,
+                queueDepthKnown: true,
+                updatedAt: 11_000
+            }
+        });
+
+        expect(model.lanes.running).toBe(1);
+        expect(model.kinds).toHaveLength(1);
+        expect(model.kinds[0]).toMatchObject({
+            kind: 'reclassify',
+            queued: 4,
+            running: 1
+        });
+    });
 });

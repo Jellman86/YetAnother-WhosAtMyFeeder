@@ -296,18 +296,13 @@
     <section class="card-base p-6">
         <div class="flex items-center justify-between mb-4">
             <h3 class="text-xs font-black uppercase tracking-widest text-emerald-600/80 dark:text-emerald-300/80">{$_('jobs.active', { default: 'Active' })}</h3>
-            <span class="text-[10px] font-semibold text-slate-400">{runningJobs.length}</span>
+            <span class="text-[10px] font-semibold text-slate-400">{activeJobs.length}</span>
         </div>
-        {#if runningJobs.length === 0}
+        {#if activeJobs.length === 0}
             <p class="text-xs text-slate-500">{$_('jobs.active_empty', { default: 'No active jobs.' })}</p>
-            {#if staleJobs.length > 0}
-                <p class="mt-1 text-[10px] font-semibold text-amber-600 dark:text-amber-300">
-                    {$_('jobs.stale_hint', { values: { count: staleJobs.length }, default: '{count} stale' })}
-                </p>
-            {/if}
         {:else}
             <div class="space-y-3">
-                {#each runningJobs as job (job.id)}
+                {#each activeJobs as job (job.id)}
                     {@const percent = pct(job)}
                     <div class="rounded-2xl border border-emerald-100/80 dark:border-emerald-900/50 bg-white/80 dark:bg-slate-900/70 px-4 py-3 shadow-sm">
                         <div class="flex items-start justify-between gap-2">

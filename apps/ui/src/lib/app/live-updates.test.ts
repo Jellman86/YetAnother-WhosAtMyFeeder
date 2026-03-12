@@ -217,9 +217,19 @@ describe('LiveUpdateCoordinator reclassify fallback', () => {
                 failure_count: 0,
                 pending_capacity: 1000,
                 pending_available: 1000
+            })
+            .mockResolvedValueOnce({
+                pending: 0,
+                active: 0,
+                circuit_open: false,
+                open_until: null,
+                failure_count: 0,
+                pending_capacity: 1000,
+                pending_available: 1000
             });
         const { coordinator, calls } = buildCoordinator({ fetchAnalysisStatus });
 
+        await coordinator.syncAnalysisQueueStatus();
         await coordinator.syncAnalysisQueueStatus();
         await coordinator.syncAnalysisQueueStatus();
 

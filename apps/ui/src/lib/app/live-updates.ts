@@ -643,22 +643,34 @@ export class LiveUpdateCoordinator {
                 ? `${this.deps.t('settings.data.batch_analysis_circuit_open', { default: 'Circuit breaker open' })} • ${pendingLabel}: ${pending.toLocaleString()} • ${activeLabel}: ${active.toLocaleString()}`
                 : `${pendingLabel}: ${pending.toLocaleString()} • ${activeLabel}: ${active.toLocaleString()}`;
 
-            this.deps.notificationCenter.upsert({
-                id: RECLASSIFY_PROGRESS_ID,
-                type: 'process',
-                title: this.deps.t('settings.data.batch_analysis_title'),
-                message,
-                timestamp: Date.now(),
-                read: false,
-                meta: {
-                    source: 'poll',
-                    route: '/settings#data',
-                    kind: 'reclassify_batch',
-                    current,
-                    total: baseline,
-                    open_label: this.deps.t('notifications.open_action')
-                }
-            });
+            const notificationSignature = [
+                'running',
+                pending,
+                active,
+                current,
+                baseline,
+                circuitOpen ? 1 : 0,
+                status.open_until ?? '',
+                status.failure_count ?? 0
+            ].join('|');
+            if (this.deps.applyNotificationPolicy('reclassify:progress:sync', notificationSignature, 1000)) {
+                this.deps.notificationCenter.upsert({
+                    id: RECLASSIFY_PROGRESS_ID,
+                    type: 'process',
+                    title: this.deps.t('settings.data.batch_analysis_title'),
+                    message,
+                    timestamp: Date.now(),
+                    read: false,
+                    meta: {
+                        source: 'poll',
+                        route: '/settings#data',
+                        kind: 'reclassify_batch',
+                        current,
+                        total: baseline,
+                        open_label: this.deps.t('notifications.open_action')
+                    }
+                });
+            }
 
             if (hasPerEventJobs) {
                 this.deps.jobProgress.remove?.(RECLASSIFY_PROGRESS_ID);
@@ -686,6 +698,14 @@ export class LiveUpdateCoordinator {
             existingNotificationCurrent,
             existingJobCurrent
         );
+        const alreadySettled = !existingBatchJob
+            && this.analysisQueueBaselineTotal === 0
+            && Boolean(existingProgressNotification)
+            && existingProgressNotification?.type === 'update'
+            && existingProgressNotification?.read === true;
+        if (alreadySettled) {
+            return;
+        }
         const completionMessage = this.deps.t('settings.data.batch_analysis_complete', { default: 'Batch analysis complete' });
 
         if (existingProgressNotification) {
