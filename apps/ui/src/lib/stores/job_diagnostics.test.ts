@@ -268,6 +268,112 @@ describe('jobDiagnosticsStore', () => {
         });
     });
 
+    it('preserves worker runtime recovery evidence and video pool state in health snapshots', () => {
+        jobDiagnosticsStore.ingestHealth({
+            status: 'degraded',
+            startup_instance_id: 'abc123',
+            mqtt: { pressure_level: 'normal' },
+            event_pipeline: { critical_failures: 0, stage_timeouts: {}, stage_failures: {} },
+            notification_dispatcher: { dropped_jobs: 0 },
+            db_pool: { acquire_wait_max_ms: 0 },
+            startup_warnings: [],
+            ml: {
+                status: 'ok',
+                execution_mode: 'subprocess',
+                live_image: {
+                    status: 'degraded',
+                    pressure_level: 'critical',
+                    recovery_active: true,
+                    recovery_reason: 'worker_circuit_open'
+                },
+                background_image: {
+                    status: 'ok',
+                    queued: 0,
+                    background_throttled: false
+                },
+                worker_pools: {
+                    late_results_ignored: 1,
+                    live: {
+                        workers: 2,
+                        restarts: 3,
+                        last_exit_reason: 'startup_timeout',
+                        circuit_open: false,
+                        last_runtime_recovery: {
+                            failed_provider: 'GPU',
+                            recovered_provider: 'intel_cpu'
+                        },
+                        last_stderr_excerpt: 'OpenVINO compile failed'
+                    },
+                    background: {
+                        workers: 1,
+                        restarts: 0,
+                        last_exit_reason: null,
+                        circuit_open: false
+                    },
+                    video: {
+                        workers: 1,
+                        restarts: 2,
+                        last_exit_reason: 'deadline_exceeded',
+                        circuit_open: true,
+                        last_stderr_excerpt: 'video worker stderr'
+                    }
+                }
+            }
+        });
+
+        expect(jobDiagnosticsStore.healthSnapshots[0].payload.ml.worker_pools.live).toMatchObject({
+            last_runtime_recovery: {
+                failed_provider: 'GPU',
+                recovered_provider: 'intel_cpu'
+            },
+            last_stderr_excerpt: 'OpenVINO compile failed'
+        });
+        expect(jobDiagnosticsStore.healthSnapshots[0].payload.ml.worker_pools.video).toMatchObject({
+            workers: 1,
+            restarts: 2,
+            last_exit_reason: 'deadline_exceeded',
+            circuit_open: true,
+            last_stderr_excerpt: 'video worker stderr'
+        });
+    });
+
+    it('exports incident workspace bundle sections without dropping grouped evidence', () => {
+        jobDiagnosticsStore.recordError({
+            source: 'runtime',
+            component: 'frontend',
+            reasonCode: 'uncaught_exception',
+            message: 'Owner page crashed',
+            severity: 'error',
+            eventId: 'evt-ui-1',
+            context: { route: '/jobs?tab=errors' }
+        });
+        jobDiagnosticsStore.ingestHealth({
+            status: 'degraded',
+            startup_instance_id: 'abc123',
+            startup_warnings: [],
+            mqtt: { pressure_level: 'normal' },
+            event_pipeline: { critical_failures: 0, stage_timeouts: {}, stage_failures: {} },
+            notification_dispatcher: { dropped_jobs: 0 },
+            db_pool: { acquire_wait_max_ms: 0 }
+        });
+
+        const payload = jobDiagnosticsStore.exportJson();
+
+        expect(payload.schema_version).toBe(2);
+        expect(payload.environment).toMatchObject({
+            app_version: expect.any(String),
+            git_hash: expect.any(String)
+        });
+        expect(payload.health).toBeTruthy();
+        expect(payload.incidents).toEqual([]);
+        expect(payload.timeline).toEqual([]);
+        expect(payload.raw_evidence).toMatchObject({
+            error_groups: expect.any(Array),
+            health_snapshots: expect.any(Array)
+        });
+        expect((payload.raw_evidence as { error_groups: unknown[] }).error_groups).toHaveLength(2);
+    });
+
     it('captures a new health snapshot when subprocess worker breaker state changes', () => {
         const base = {
             status: 'degraded',

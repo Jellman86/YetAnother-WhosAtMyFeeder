@@ -105,7 +105,12 @@ function normalizeWorkerPoolState(pool: unknown): Record<string, unknown> {
         workers: Math.max(0, Math.floor(asFiniteNumber(value.workers))),
         restarts: Math.max(0, Math.floor(asFiniteNumber(value.restarts))),
         last_exit_reason: normalizeString(value.last_exit_reason, ''),
-        circuit_open: Boolean(value.circuit_open)
+        circuit_open: Boolean(value.circuit_open),
+        last_runtime_recovery: value.last_runtime_recovery && typeof value.last_runtime_recovery === 'object'
+            ? value.last_runtime_recovery
+            : null,
+        last_stderr_excerpt: normalizeString(value.last_stderr_excerpt, ''),
+        last_stderr_truncated_bytes: Math.max(0, Math.floor(asFiniteNumber(value.last_stderr_truncated_bytes)))
     };
 }
 
@@ -123,6 +128,7 @@ function createHealthSignature(health: any): string {
     const workerPools = ml?.worker_pools ?? health?.worker_pools ?? {};
     const liveWorkerPool = normalizeWorkerPoolState(workerPools?.live);
     const backgroundWorkerPool = normalizeWorkerPoolState(workerPools?.background);
+    const videoWorkerPool = normalizeWorkerPoolState(workerPools?.video);
     const lateResultsIgnored = Math.max(0, Math.floor(asFiniteNumber(workerPools?.late_results_ignored)));
     const startupWarningCount = Array.isArray(health?.startup_warnings) ? health.startup_warnings.length : 0;
     const videoClassifier = health?.video_classifier ?? {};
@@ -185,6 +191,10 @@ function createHealthSignature(health: any): string {
         Math.floor(asFiniteNumber(backgroundWorkerPool.restarts)),
         normalizeString(backgroundWorkerPool.last_exit_reason, '-'),
         Boolean(backgroundWorkerPool.circuit_open) ? 'background_worker_circuit_open' : 'background_worker_circuit_closed',
+        Math.floor(asFiniteNumber(videoWorkerPool.workers)),
+        Math.floor(asFiniteNumber(videoWorkerPool.restarts)),
+        normalizeString(videoWorkerPool.last_exit_reason, '-'),
+        Boolean(videoWorkerPool.circuit_open) ? 'video_worker_circuit_open' : 'video_worker_circuit_closed',
         lateResultsIgnored,
         startupWarningCount
     ].join('|');
@@ -279,7 +289,8 @@ function sanitizeHealthSnapshotPayload(health: any): Record<string, unknown> {
             worker_pools: {
                 late_results_ignored: Math.floor(asFiniteNumber(workerPools?.late_results_ignored)),
                 live: normalizeWorkerPoolState(workerPools?.live),
-                background: normalizeWorkerPoolState(workerPools?.background)
+                background: normalizeWorkerPoolState(workerPools?.background),
+                video: normalizeWorkerPoolState(workerPools?.video)
             }
         },
         video_classifier: {
@@ -705,9 +716,23 @@ class JobDiagnosticsStore {
         const totalEvents = groups.reduce((sum, group) => sum + group.count, 0);
         const firstSeen = groups.reduce((min, group) => Math.min(min, group.firstSeen), Number.POSITIVE_INFINITY);
         const lastSeen = groups.reduce((max, group) => Math.max(max, group.lastSeen), 0);
+        const normalizedGroups = groups.map((group) => ({
+            ...group,
+            firstSeenISO: new Date(group.firstSeen).toISOString(),
+            lastSeenISO: new Date(group.lastSeen).toISOString()
+        }));
+        const normalizedHealthSnapshots = healthSnapshots.map((snapshot) => ({
+            ...snapshot,
+            timestampISO: new Date(snapshot.timestamp).toISOString()
+        }));
         return {
-            schema_version: 1,
+            schema_version: 2,
             generated_at: new Date().toISOString(),
+            environment: {
+                app_version: typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : 'unknown',
+                git_hash: typeof __GIT_HASH__ === 'string' ? __GIT_HASH__ : 'unknown',
+                branch: typeof __APP_BRANCH__ === 'string' ? __APP_BRANCH__ : 'unknown'
+            },
             app: {
                 version: typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : 'unknown',
                 git_hash: typeof __GIT_HASH__ === 'string' ? __GIT_HASH__ : 'unknown',
@@ -720,15 +745,15 @@ class JobDiagnosticsStore {
                 first_seen: Number.isFinite(firstSeen) ? new Date(firstSeen).toISOString() : null,
                 last_seen: lastSeen > 0 ? new Date(lastSeen).toISOString() : null
             },
-            error_groups: groups.map((group) => ({
-                ...group,
-                firstSeenISO: new Date(group.firstSeen).toISOString(),
-                lastSeenISO: new Date(group.lastSeen).toISOString()
-            })),
-            health_snapshots: healthSnapshots.map((snapshot) => ({
-                ...snapshot,
-                timestampISO: new Date(snapshot.timestamp).toISOString()
-            }))
+            health: normalizedHealthSnapshots[0] ?? null,
+            incidents: [],
+            timeline: [],
+            raw_evidence: {
+                error_groups: normalizedGroups,
+                health_snapshots: normalizedHealthSnapshots
+            },
+            error_groups: normalizedGroups,
+            health_snapshots: normalizedHealthSnapshots
         };
     }
 
