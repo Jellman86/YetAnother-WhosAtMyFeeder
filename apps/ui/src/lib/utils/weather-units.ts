@@ -5,7 +5,7 @@ export type WeatherUnitSystem = 'metric' | 'imperial' | 'british';
 type UnitLabels = {
     metric: string;
     imperial: string;
-    british: string;
+    british?: string;
 };
 
 const DEFAULT_WIND_LABELS: UnitLabels = {
@@ -63,7 +63,9 @@ export function formatWindSpeed(
     if (converted === null) {
         return '';
     }
-    const label = labels[system];
+    const label = system === 'british'
+        ? (labels.british ?? labels.imperial)
+        : labels[system];
     return `${Math.round(converted)} ${label}`;
 }
 
@@ -76,7 +78,9 @@ export function formatPrecipitation(
     if (converted === null) {
         return '';
     }
-    const label = labels[system];
+    const label = system === 'british'
+        ? (labels.british ?? labels.metric)
+        : labels[system];
     if (system === 'imperial') {
         if (converted < 0.1) return `${converted.toFixed(2)}${label}`;
         return `${converted.toFixed(1)}${label}`;
