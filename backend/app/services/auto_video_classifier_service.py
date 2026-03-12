@@ -17,6 +17,8 @@ from app.services.classifier_service import get_classifier
 from app.services.broadcaster import broadcaster
 from app.services.media_cache import media_cache
 from app.services.video_classification_waiter import video_classification_waiter
+from app.services.error_diagnostics import error_diagnostics_history
+from app.services.classifier_service import VideoClassificationWorkerError
 from app.database import get_db
 from app.repositories.detection_repository import DetectionRepository
 from app.utils.tasks import create_background_task
@@ -264,6 +266,21 @@ class AutoVideoClassifierService:
             log.warning("Video classification circuit opened",
                         failures=len(self._failure_events),
                         cooldown_minutes=settings.classification.video_classification_failure_cooldown_minutes)
+            error_diagnostics_history.record(
+                source="video_classifier",
+                component="auto_video_classifier",
+                reason_code="video_circuit_opened",
+                message="Video classification circuit opened after repeated failures",
+                severity="error",
+                event_id=event_id,
+                correlation_key="video:circuit_open",
+                worker_pool="video",
+                context={
+                    "failure_count": len(self._failure_events),
+                    "cooldown_minutes": settings.classification.video_classification_failure_cooldown_minutes,
+                    "last_error": error,
+                },
+            )
 
     def _record_success(self, event_id: str):
         self._prune_failures()
@@ -372,6 +389,12 @@ class AutoVideoClassifierService:
 
         if self._is_circuit_open():
             log.warning("Circuit breaker open, skipping auto video classification", event_id=frigate_event)
+            self._record_diagnostic(
+                frigate_event,
+                reason_code="video_circuit_open",
+                message="Video classification skipped because the circuit breaker is open",
+                severity="warning",
+            )
             await self._update_status(frigate_event, 'failed', error="circuit_open", broadcast=True)
             return
 
@@ -384,6 +407,13 @@ class AutoVideoClassifierService:
                 event_id=frigate_event,
                 queue_size=self._pending_queue.qsize(),
                 max_pending=MAX_PENDING_QUEUE
+            )
+            self._record_diagnostic(
+                frigate_event,
+                reason_code="video_queue_full",
+                message="Video classification queue was full and the task was dropped",
+                severity="warning",
+                context={"queue_size": self._pending_queue.qsize(), "max_pending": MAX_PENDING_QUEUE},
             )
 
     def _cleanup_completed_tasks(self):
@@ -420,6 +450,13 @@ class AutoVideoClassifierService:
             event_data, event_error = await frigate_client.get_event_with_error(frigate_event, timeout=8.0)
             if event_error:
                 log.warning("Frigate event precheck failed", event_id=frigate_event, error=event_error)
+                self._record_diagnostic(
+                    frigate_event,
+                    reason_code=event_error,
+                    message="Frigate event precheck failed during video classification",
+                    severity="warning",
+                    context={"error": event_error},
+                )
                 await self._update_status(frigate_event, 'failed', error=event_error, broadcast=True)
                 self._record_failure(frigate_event)
                 await self._auto_delete_if_missing(frigate_event, event_error)
@@ -441,6 +478,13 @@ class AutoVideoClassifierService:
                     self._record_success(frigate_event)
                     return
                 log.warning("Clip not available after retries", event_id=frigate_event)
+                self._record_diagnostic(
+                    frigate_event,
+                    reason_code=clip_error or "clip_unavailable",
+                    message="Video clip was not available for classification",
+                    severity="warning",
+                    context={"error": clip_error or "clip_unavailable"},
+                )
                 await self._update_status(frigate_event, 'failed', error=clip_error or "clip_unavailable", broadcast=True)
                 self._record_failure(frigate_event, clip_error or "clip_unavailable")
                 await self._auto_delete_if_missing(frigate_event, clip_error or "clip_unavailable")
@@ -494,13 +538,37 @@ class AutoVideoClassifierService:
                             max_frames=settings.classification.video_classification_frames,
                             progress_callback=progress_callback,
                             camera_name=camera,
+                            propagate_worker_failure=True,
                         ),
                         timeout=timeout
                     )
                 except asyncio.TimeoutError:
                     log.warning("Video classification timed out", event_id=frigate_event, timeout_seconds=timeout)
+                    self._record_diagnostic(
+                        frigate_event,
+                        reason_code="video_timeout",
+                        message="Video classification exceeded the configured timeout",
+                        severity="error",
+                        context={"timeout_seconds": timeout},
+                    )
                     await self._update_status(frigate_event, 'failed', error="video_timeout", broadcast=True)
                     self._record_failure(frigate_event, "video_timeout")
+                    await broadcaster.broadcast({
+                        "type": "reclassification_completed",
+                        "data": { "event_id": frigate_event, "results": [] }
+                    })
+                    return
+                except VideoClassificationWorkerError as exc:
+                    reason_code = exc.reason_code
+                    self._record_diagnostic(
+                        frigate_event,
+                        reason_code=reason_code,
+                        message="Video classification worker failed before producing results",
+                        severity="error",
+                        context={"error": reason_code},
+                    )
+                    await self._update_status(frigate_event, 'failed', error=reason_code, broadcast=True)
+                    self._record_failure(frigate_event, reason_code)
                     await broadcaster.broadcast({
                         "type": "reclassification_completed",
                         "data": { "event_id": frigate_event, "results": [] }
@@ -528,6 +596,12 @@ class AutoVideoClassifierService:
                              score=top['score'])
                 else:
                     log.warning("Video classification returned no results", event_id=frigate_event)
+                    self._record_diagnostic(
+                        frigate_event,
+                        reason_code="video_no_results",
+                        message="Video classification completed without any candidate results",
+                        severity="warning",
+                    )
                     await self._update_status(frigate_event, 'failed', error="video_no_results", broadcast=True)
                     self._record_failure(frigate_event, "video_no_results")
                     await broadcaster.broadcast({
@@ -542,11 +616,30 @@ class AutoVideoClassifierService:
 
         except asyncio.CancelledError:
             log.info("Video classification task cancelled", event_id=frigate_event)
+            self._record_diagnostic(
+                frigate_event,
+                reason_code="video_cancelled",
+                message="Video classification task was cancelled",
+                severity="warning",
+            )
             await self._update_status(frigate_event, 'failed', error="video_cancelled", broadcast=True)
             self._record_failure(frigate_event, "video_cancelled")
             raise
         except Exception as e:
-            log.error("Video classification failed", event_id=frigate_event, error=str(e))
+            log.error(
+                "Video classification failed",
+                event_id=frigate_event,
+                error=str(e),
+                error_type=type(e).__name__,
+                error_repr=repr(e),
+            )
+            self._record_diagnostic(
+                frigate_event,
+                reason_code="video_exception",
+                message="Video classification failed with an unexpected exception",
+                severity="error",
+                context={"error": str(e), "error_type": type(e).__name__, "error_repr": repr(e)},
+            )
             await self._update_status(frigate_event, 'failed', error="video_exception", broadcast=True)
             self._record_failure(frigate_event, "video_exception")
             await self._auto_delete_if_missing(frigate_event, "video_exception")
@@ -554,6 +647,27 @@ class AutoVideoClassifierService:
                 "type": "reclassification_completed",
                 "data": { "event_id": frigate_event, "results": [] }
             })
+
+    def _record_diagnostic(
+        self,
+        frigate_event: str,
+        *,
+        reason_code: str,
+        message: str,
+        severity: Literal["warning", "error", "critical"] = "warning",
+        context: Optional[dict] = None,
+    ) -> None:
+        error_diagnostics_history.record(
+            source="video_classifier",
+            component="auto_video_classifier",
+            reason_code=reason_code,
+            message=message,
+            severity=severity,
+            event_id=frigate_event,
+            correlation_key=f"video:{frigate_event}",
+            worker_pool="video",
+            context=context,
+        )
 
     async def _wait_for_clip(self, frigate_event: str, skip_delay: bool = False) -> tuple[Optional[bytes], Optional[str]]:
         """Poll Frigate for clip availability with retries."""

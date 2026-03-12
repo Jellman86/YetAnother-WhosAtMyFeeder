@@ -6,6 +6,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- **Fixed:** Auto video classification now uses a video-specific supervised worker deadline instead of the shorter live-image worker deadline, preserves worker failure reasons (deadline/startup/exit/circuit) instead of flattening them into generic “no results”, and records canonical backend diagnostics for video failures/circuit-open events so the owner Errors workspace can surface them.
 - **Added:** Owner incident workspace in Notifications > Errors now correlates backend diagnostics into current/recent incidents, preserves richer evidence in exported bundles, and generates issue-ready report text with optional owner notes for GitHub reporting.
 - **Changed:** OpenVINO/GPU bird inference is now fully supervisor-oriented in subprocess mode: the main backend no longer eagerly loads a duplicate bird model, status probes are cached instead of re-running OpenVINO device detection on every refresh, and owner bird test/debug routes use subprocess-safe behavior instead of assuming an in-process bird runtime.
 - **Fixed:** Classifier self-healing is more robust under worker replacement failures: failed restarts no longer kill the watchdog loop, unavailable slots are tracked explicitly, restart budgets still trip circuit breakers, and recovery telemetry now includes worker-reported runtime fallback events.

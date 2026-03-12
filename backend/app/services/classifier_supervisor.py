@@ -65,6 +65,7 @@ class ClassifierSupervisor:
         video_worker_count: int = 1,
         heartbeat_timeout_seconds: float,
         hard_deadline_seconds: float,
+        video_hard_deadline_seconds: float | None = None,
         worker_ready_timeout_seconds: float = 20.0,
         worker_factory=None,
         watchdog_interval_seconds: float = 0.05,
@@ -78,7 +79,17 @@ class ClassifierSupervisor:
             "video": max(1, int(video_worker_count)),
         }
         self._heartbeat_timeout_seconds = max(0.01, float(heartbeat_timeout_seconds))
-        self._hard_deadline_seconds = max(0.01, float(hard_deadline_seconds))
+        base_hard_deadline_seconds = max(0.01, float(hard_deadline_seconds))
+        self._hard_deadline_seconds = {
+            "live": base_hard_deadline_seconds,
+            "background": base_hard_deadline_seconds,
+            "video": max(
+                0.01,
+                float(video_hard_deadline_seconds)
+                if video_hard_deadline_seconds is not None
+                else base_hard_deadline_seconds,
+            ),
+        }
         self._worker_ready_timeout_seconds = max(0.01, float(worker_ready_timeout_seconds))
         self._watchdog_interval_seconds = max(0.01, float(watchdog_interval_seconds))
         self._restart_window_seconds = max(0.01, float(restart_window_seconds))
@@ -248,6 +259,7 @@ class ClassifierSupervisor:
         loop = asyncio.get_running_loop()
         request_id = f"req-{next(self._request_counter)}"
         future: asyncio.Future[list[dict[str, Any]]] = loop.create_future()
+        future.add_done_callback(self._consume_future_exception)
 
         async with self._condition:
             slot = await self._wait_for_idle_slot(priority)
@@ -511,7 +523,7 @@ class ClassifierSupervisor:
                             kill=True,
                         )
                         continue
-                    if now - assignment.started_at > self._hard_deadline_seconds:
+                    if now - assignment.started_at > self._hard_deadline_seconds[priority]:
                         await self._replace_worker(
                             priority,
                             index,
@@ -579,3 +591,12 @@ class ClassifierSupervisor:
             self._metrics[priority]["circuit_open_until_monotonic"] = None
             history = self._restart_history[priority]
             history.clear()
+
+    @staticmethod
+    def _consume_future_exception(future: asyncio.Future[list[dict[str, Any]]]) -> None:
+        if future.cancelled():
+            return
+        try:
+            future.exception()
+        except Exception:
+            pass

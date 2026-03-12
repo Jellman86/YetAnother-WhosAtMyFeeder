@@ -24,6 +24,7 @@ from app.services.classifier_service import (  # noqa: E402
     InvalidInferenceOutputError,
     LiveImageClassificationOverloadedError,
     ModelInstance,
+    VideoClassificationWorkerError,
     _safe_softmax,
     _detect_acceleration_capabilities,
     _extract_openvino_unsupported_ops,
@@ -37,6 +38,7 @@ from app.services.classification_admission import ClassificationLeaseExpiredErro
 from app.services import classifier_service as classifier_service_module  # noqa: E402
 from app.services.classifier_supervisor import (  # noqa: E402
     ClassifierWorkerCircuitOpenError,
+    ClassifierWorkerDeadlineExceededError,
     ClassifierWorkerHeartbeatTimeoutError,
     ClassifierWorkerStartupTimeoutError,
 )
@@ -331,6 +333,57 @@ async def test_classifier_service_routes_video_requests_through_supervisor(mock_
             assert results[0]["label"] == "Robin"
             assert supervisor.calls[0]["video_path"] == "/tmp/demo.mp4"
             assert seen_progress == [(1, 3, "Robin")]
+            service.shutdown()
+    finally:
+        settings.classification.image_execution_mode = original_mode
+
+
+@pytest.mark.asyncio
+async def test_classifier_service_uses_extended_video_deadline_for_supervisor_workers(mock_tflite, mock_os_path_exists):
+    original_mode = settings.classification.image_execution_mode
+    original_worker_deadline = settings.classification.worker_hard_deadline_seconds
+    original_video_timeout = settings.classification.video_classification_timeout_seconds
+    settings.classification.image_execution_mode = "subprocess"
+    settings.classification.worker_hard_deadline_seconds = 35.0
+    settings.classification.video_classification_timeout_seconds = 180
+
+    try:
+        with patch.object(ClassifierService, "_init_bird_model", new=_stub_init_bird_model), \
+             patch("app.services.classifier_service.ClassifierSupervisor") as mock_supervisor:
+            service = ClassifierService()
+
+            kwargs = mock_supervisor.call_args.kwargs
+            assert kwargs["hard_deadline_seconds"] == 35.0
+            assert kwargs["video_hard_deadline_seconds"] > 180.0
+            assert kwargs["video_hard_deadline_seconds"] > kwargs["hard_deadline_seconds"]
+            service.shutdown()
+    finally:
+        settings.classification.image_execution_mode = original_mode
+        settings.classification.worker_hard_deadline_seconds = original_worker_deadline
+        settings.classification.video_classification_timeout_seconds = original_video_timeout
+
+
+@pytest.mark.asyncio
+async def test_classifier_service_can_propagate_supervisor_video_failure_reason(mock_tflite, mock_os_path_exists):
+    original_mode = settings.classification.image_execution_mode
+    settings.classification.image_execution_mode = "subprocess"
+
+    class _FakeSupervisor:
+        async def classify_video(self, **_kwargs):
+            raise ClassifierWorkerDeadlineExceededError("worker hard deadline exceeded")
+
+    try:
+        with patch.object(ClassifierService, "_init_bird_model", new=_stub_init_bird_model):
+            service = ClassifierService(supervisor=_FakeSupervisor())
+            with pytest.raises(VideoClassificationWorkerError, match="video_worker_deadline_exceeded") as excinfo:
+                await service.classify_video_async(
+                    "/tmp/demo.mp4",
+                    max_frames=3,
+                    camera_name="front",
+                    propagate_worker_failure=True,
+                )
+
+            assert excinfo.value.reason_code == "video_worker_deadline_exceeded"
             service.shutdown()
     finally:
         settings.classification.image_execution_mode = original_mode

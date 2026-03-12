@@ -4,6 +4,8 @@ import pytest
 
 from app.config import settings
 from app.services.auto_video_classifier_service import AutoVideoClassifierService
+from app.services.classifier_service import VideoClassificationWorkerError
+from app.services.error_diagnostics import error_diagnostics_history
 
 
 @pytest.fixture(autouse=True)
@@ -92,3 +94,54 @@ async def test_process_event_marks_failed_when_clip_not_retained_for_auto_mode()
 
     service._save_results.assert_not_awaited()
     service._auto_delete_if_missing.assert_awaited_once_with("evt-auto-no-recordings", "clip_not_retained")
+
+
+@pytest.mark.asyncio
+async def test_process_event_records_backend_diagnostic_for_worker_failure():
+    service = AutoVideoClassifierService()
+    service._classifier = MagicMock()
+    service._classifier.classify_video_async = AsyncMock(
+        side_effect=VideoClassificationWorkerError("video_worker_deadline_exceeded")
+    )
+    service._update_status = AsyncMock()  # type: ignore[method-assign]
+    service._save_results = AsyncMock()  # type: ignore[method-assign]
+    service._auto_delete_if_missing = AsyncMock()  # type: ignore[method-assign]
+    service._wait_for_clip = AsyncMock(return_value=(b"clip-bytes", None))  # type: ignore[method-assign]
+    error_diagnostics_history.clear()
+
+    try:
+        with patch("app.services.auto_video_classifier_service.frigate_client.get_event_with_error", new=AsyncMock(return_value=({"has_clip": True}, None))), \
+             patch("app.services.auto_video_classifier_service.broadcaster.broadcast", new=AsyncMock()):
+            await service._process_event("evt-video-worker-deadline", "cam1", skip_delay=True)
+
+        snapshot = error_diagnostics_history.snapshot(limit=20)
+        event = next(item for item in snapshot["events"] if item["event_id"] == "evt-video-worker-deadline")
+        assert event["component"] == "auto_video_classifier"
+        assert event["reason_code"] == "video_worker_deadline_exceeded"
+        assert event["worker_pool"] == "video"
+    finally:
+        error_diagnostics_history.clear()
+
+
+@pytest.mark.asyncio
+async def test_record_failure_records_backend_diagnostic_when_video_circuit_opens():
+    service = AutoVideoClassifierService()
+    original_threshold = settings.classification.video_classification_failure_threshold
+    original_cooldown = settings.classification.video_classification_failure_cooldown_minutes
+    settings.classification.video_classification_failure_threshold = 2
+    settings.classification.video_classification_failure_cooldown_minutes = 15
+    error_diagnostics_history.clear()
+
+    try:
+        service._record_failure("evt-video-circuit-a", "video_no_results")
+        service._record_failure("evt-video-circuit-b", "video_no_results")
+
+        snapshot = error_diagnostics_history.snapshot(limit=20)
+        event = next(item for item in snapshot["events"] if item["reason_code"] == "video_circuit_opened")
+        assert event["component"] == "auto_video_classifier"
+        assert event["worker_pool"] == "video"
+        assert event["context"]["failure_count"] == 2
+    finally:
+        settings.classification.video_classification_failure_threshold = original_threshold
+        settings.classification.video_classification_failure_cooldown_minutes = original_cooldown
+        error_diagnostics_history.clear()

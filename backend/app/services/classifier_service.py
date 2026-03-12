@@ -149,6 +149,14 @@ class BackgroundImageClassificationUnavailableError(RuntimeError):
         super().__init__(self.reason_code)
 
 
+class VideoClassificationWorkerError(RuntimeError):
+    """Raised when supervised video classification fails with a specific worker/runtime reason."""
+
+    def __init__(self, reason_code: str):
+        self.reason_code = str(reason_code or "video_worker_unavailable")
+        super().__init__(self.reason_code)
+
+
 class InvalidInferenceOutputError(RuntimeError):
     """Raised when a runtime returns unusable model outputs after successful load."""
 
@@ -1269,12 +1277,19 @@ class ClassifierService:
         # Backward-compatible alias for any external references.
         self._executor = self._image_executor
         if self._classifier_supervisor is None and self._image_execution_mode == "subprocess":
+            video_timeout_seconds = float(
+                getattr(settings.classification, "video_classification_timeout_seconds", 180) or 180.0
+            )
+            image_hard_deadline_seconds = float(
+                getattr(settings.classification, "worker_hard_deadline_seconds", 35.0) or 35.0
+            )
             self._classifier_supervisor = ClassifierSupervisor(
                 live_worker_count=int(getattr(settings.classification, "live_worker_count", image_workers) or image_workers),
                 background_worker_count=int(getattr(settings.classification, "background_worker_count", 1) or 1),
                 video_worker_count=video_workers,
                 heartbeat_timeout_seconds=float(getattr(settings.classification, "worker_heartbeat_timeout_seconds", 5.0) or 5.0),
-                hard_deadline_seconds=float(getattr(settings.classification, "worker_hard_deadline_seconds", 35.0) or 35.0),
+                hard_deadline_seconds=image_hard_deadline_seconds,
+                video_hard_deadline_seconds=max(image_hard_deadline_seconds, video_timeout_seconds + 15.0),
                 worker_ready_timeout_seconds=float(getattr(settings.classification, "worker_ready_timeout_seconds", 20.0) or 20.0),
             )
         self._selected_inference_provider = _normalize_inference_provider(
@@ -2682,6 +2697,7 @@ class ClassifierService:
         progress_callback=None,
         camera_name: Optional[str] = None,
         model_id: Optional[str] = None,
+        propagate_worker_failure: bool = False,
     ) -> list[dict]:
         """Async wrapper for video classification."""
         if max_frames is None:
@@ -2705,6 +2721,16 @@ class ClassifierService:
                 ClassifierWorkerExitedError,
             ) as exc:
                 log.warning("Supervised video classification failed", error=str(exc), video_path=video_path)
+                if propagate_worker_failure:
+                    if isinstance(exc, ClassifierWorkerCircuitOpenError):
+                        raise VideoClassificationWorkerError("video_worker_circuit_open") from exc
+                    if isinstance(exc, ClassifierWorkerHeartbeatTimeoutError):
+                        raise VideoClassificationWorkerError("video_worker_heartbeat_timeout") from exc
+                    if isinstance(exc, ClassifierWorkerDeadlineExceededError):
+                        raise VideoClassificationWorkerError("video_worker_deadline_exceeded") from exc
+                    if isinstance(exc, ClassifierWorkerStartupTimeoutError):
+                        raise VideoClassificationWorkerError("video_worker_startup_timeout") from exc
+                    raise VideoClassificationWorkerError("video_worker_unavailable") from exc
                 return []
         else:
             loop = asyncio.get_running_loop()
