@@ -399,6 +399,11 @@ async def backfill_detections_async(
                     detail=i18n_service.translate("errors.backfill.invalid_time_range", lang)
                 )
 
+            job.message = "Querying Frigate API for historical events..."
+            await broadcaster.broadcast({
+                "type": "backfill_started",
+                "data": _job_payload(job)
+            })
             events = await backfill_service.fetch_frigate_events(
                 start.timestamp(),
                 end.timestamp(),
@@ -410,7 +415,7 @@ async def backfill_detections_async(
             last_broadcast = 0
             broadcast_every = max(1, job.total // 20) if job.total else 1
             await broadcaster.broadcast({
-                "type": "backfill_started",
+                "type": "backfill_progress",
                 "data": _job_payload(job)
             })
 
