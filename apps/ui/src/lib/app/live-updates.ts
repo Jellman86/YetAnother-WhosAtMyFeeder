@@ -689,11 +689,6 @@ export class LiveUpdateCoordinator {
                 });
             }
 
-            if (hasPerEventJobs) {
-                this.deps.jobProgress.remove?.(RECLASSIFY_PROGRESS_ID);
-                return;
-            }
-
             this.deps.jobProgress.upsertRunning({
                 id: RECLASSIFY_PROGRESS_ID,
                 kind: 'reclassify_batch',

@@ -61,10 +61,16 @@
         if (activeJobs.length === 0) {
             return { percent: null as number | null, current: 0, total: 0, rate: 0, etaSeconds: null as number | null };
         }
+        
+        // Prevent mixing units (queue items vs video frames) by excluding 
+        // per-event frame progress from the global sum if a batch queue is active.
+        const hasBatch = activeJobs.some(j => j.kind === 'reclassify_batch');
+        const jobsToSum = activeJobs.filter(j => hasBatch ? j.kind !== 'reclassify' : true);
+
         let current = 0;
         let total = 0;
         let rate = 0;
-        for (const item of activeJobs) {
+        for (const item of jobsToSum) {
             if (item.total > 0) {
                 total += item.total;
                 current += Math.min(item.total, Math.max(0, item.current));
