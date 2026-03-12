@@ -1940,8 +1940,25 @@ class ClassifierService:
             else:
                 live_pool = supervisor_metrics.get("live") or {}
                 background_pool = supervisor_metrics.get("background") or {}
+                live_workers = int(live_pool.get("workers") or 0)
+                background_workers = int(background_pool.get("workers") or 0)
+                live_circuit_open = bool(live_pool.get("circuit_open"))
+                background_circuit_open = bool(background_pool.get("circuit_open"))
+                live_exit_reason = str(live_pool.get("last_exit_reason") or "").strip()
+                background_exit_reason = str(background_pool.get("last_exit_reason") or "").strip()
+                explicit_start_failure = {
+                    "startup_failed",
+                    "startup_timeout",
+                }
                 bird_runtime_ready = bool(
-                    int(live_pool.get("workers") or 0) > 0 or int(background_pool.get("workers") or 0) > 0
+                    live_workers > 0
+                    or background_workers > 0
+                    or (
+                        not live_circuit_open
+                        and not background_circuit_open
+                        and live_exit_reason not in explicit_start_failure
+                        and background_exit_reason not in explicit_start_failure
+                    )
                 )
         else:
             bird_runtime_ready = bool(bird and bird.loaded)

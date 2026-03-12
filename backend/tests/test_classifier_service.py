@@ -1379,6 +1379,72 @@ def test_classifier_check_health_uses_worker_runtime_state_in_subprocess_mode():
     service.shutdown()
 
 
+def test_classifier_check_health_is_ok_before_lazy_subprocess_workers_start():
+    with patch.object(ClassifierService, "_init_bird_model", return_value=None):
+        service = ClassifierService()
+
+    service._classifier_supervisor = MagicMock()
+    service._classifier_supervisor.get_metrics.return_value = {
+        "live": {
+            "workers": 0,
+            "restarts": 0,
+            "last_exit_reason": None,
+            "last_runtime_recovery": None,
+            "circuit_open": False,
+            "circuit_open_until_monotonic": None,
+        },
+        "background": {
+            "workers": 0,
+            "restarts": 0,
+            "last_exit_reason": None,
+            "last_runtime_recovery": None,
+            "circuit_open": False,
+            "circuit_open_until_monotonic": None,
+        },
+        "video": {
+            "workers": 0,
+            "restarts": 0,
+            "last_exit_reason": None,
+            "last_runtime_recovery": None,
+            "circuit_open": False,
+            "circuit_open_until_monotonic": None,
+        },
+        "late_results_ignored": 0,
+    }
+    service._image_execution_mode = "subprocess"
+    service._classification_admission.get_metrics = MagicMock(return_value={
+        "live": {
+            "capacity": 2,
+            "queued": 0,
+            "running": 0,
+            "completed": 0,
+            "failed": 0,
+            "abandoned": 0,
+            "rejected": 0,
+            "oldest_running_age_seconds": None,
+        },
+        "background": {
+            "capacity": 1,
+            "queued": 0,
+            "running": 0,
+            "completed": 0,
+            "failed": 0,
+            "abandoned": 0,
+            "rejected": 0,
+            "oldest_running_age_seconds": None,
+        },
+        "late_completions_ignored": 0,
+        "recent_outcomes": [],
+        "background_throttled": False,
+        "closed": False,
+    })
+
+    health = service.check_health()
+
+    assert health["status"] == "ok"
+    service.shutdown()
+
+
 def test_classifier_service_shutdown_closes_all_executors():
     with patch.object(ClassifierService, "_init_bird_model", return_value=None):
         service = ClassifierService()
