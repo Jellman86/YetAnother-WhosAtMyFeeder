@@ -124,7 +124,11 @@ class ClassifierWorkerClient:
                 raw = await self._process.stdout.readline()
                 if not raw:
                     return
-                message = decode_protocol_message(raw)
+                try:
+                    message = decode_protocol_message(raw)
+                except ValueError:
+                    self._append_stdout_noise(raw)
+                    continue
                 if message.get("worker_generation") not in {None, self.worker_generation}:
                     continue
                 message_type = message["type"]
@@ -164,6 +168,14 @@ class ClassifierWorkerClient:
         if overflow > 0:
             del self._stderr_tail[:overflow]
             self._stderr_truncated_bytes += overflow
+
+    def _append_stdout_noise(self, data: bytes) -> None:
+        if not data:
+            return
+        stripped = data.rstrip(b"\r\n")
+        if not stripped:
+            return
+        self._append_stderr(b"[stdout-noise] " + stripped + b"\n")
 
     def _stderr_excerpt(self) -> str:
         if not self._stderr_tail:

@@ -85,6 +85,33 @@ async def test_classifier_worker_client_waits_for_ready_handshake():
 
 
 @pytest.mark.asyncio
+async def test_classifier_worker_client_ignores_non_protocol_stdout_before_ready():
+    process = _FakeProcess()
+
+    async def _factory(**_kwargs):
+        return process
+
+    client = ClassifierWorkerClient(
+        worker_name="live-noise",
+        worker_generation=9,
+        heartbeat_timeout_seconds=5.0,
+        process_factory=_factory,
+    )
+    await client.start()
+    process.stdout.feed_data(b"2026-03-12 08:25:46 [info] worker bootstrap log line\n")
+    process.feed(build_ready_event(worker_generation=9))
+
+    await asyncio.wait_for(client.wait_until_ready(), timeout=0.2)
+
+    status = client.get_status()
+    assert status["ready"] is True
+    assert "bootstrap log line" in status["recent_stderr_excerpt"]
+
+    process.finish()
+    await client.wait_closed()
+
+
+@pytest.mark.asyncio
 async def test_classifier_worker_client_tracks_heartbeat_state():
     process = _FakeProcess()
 

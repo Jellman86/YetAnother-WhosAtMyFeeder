@@ -19,14 +19,20 @@ from .classifier_worker_protocol import (
 
 
 class _StdoutWriter:
+    def __init__(self, stream: Any | None = None) -> None:
+        self._stream = stream or sys.stdout.buffer
+
     def write(self, data: bytes) -> None:
-        sys.stdout.buffer.write(data)
+        self._stream.write(data)
 
     async def drain(self) -> None:
-        await asyncio.to_thread(sys.stdout.buffer.flush)
+        await asyncio.to_thread(self._stream.flush)
 
     def close(self) -> None:
-        sys.stdout.buffer.flush()
+        self._stream.flush()
+        close = getattr(self._stream, "close", None)
+        if callable(close):
+            close()
 
 
 class ClassifierWorkerProcess:
@@ -136,14 +142,18 @@ async def run_worker_main(
     classify_fn: Callable[..., list[dict[str, Any]] | Awaitable[list[dict[str, Any]]]],
     worker_generation: int = 1,
     heartbeat_interval_seconds: float = 1.0,
+    writer: Any | None = None,
 ) -> None:
     loop = asyncio.get_running_loop()
     reader = asyncio.StreamReader()
     protocol = asyncio.StreamReaderProtocol(reader)
-    await loop.connect_read_pipe(lambda: protocol, sys.stdin)
+    try:
+        await loop.connect_read_pipe(lambda: protocol, sys.stdin)
+    except (PermissionError, OSError):
+        reader.feed_eof()
     worker = ClassifierWorkerProcess(
         reader=reader,
-        writer=_StdoutWriter(),
+        writer=writer or _StdoutWriter(),
         classify_fn=classify_fn,
         worker_generation=worker_generation,
         heartbeat_interval_seconds=heartbeat_interval_seconds,
@@ -172,11 +182,14 @@ def _build_default_classify_fn() -> Callable[..., list[dict[str, Any]]]:
 def main() -> None:
     worker_generation = int(sys.argv[2]) if len(sys.argv) > 2 else 1
     heartbeat_interval_seconds = float(os.getenv("CLASSIFIER_WORKER_HEARTBEAT_INTERVAL_SECONDS", "1.0"))
+    protocol_stdout = os.fdopen(os.dup(sys.stdout.fileno()), "wb", closefd=True)
+    os.dup2(sys.stderr.fileno(), sys.stdout.fileno())
     asyncio.run(
         run_worker_main(
             classify_fn=_build_default_classify_fn(),
             worker_generation=worker_generation,
             heartbeat_interval_seconds=heartbeat_interval_seconds,
+            writer=_StdoutWriter(protocol_stdout),
         )
     )
 
