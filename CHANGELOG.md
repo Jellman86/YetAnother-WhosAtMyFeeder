@@ -6,6 +6,14 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- **Fixed:** Intel GPUs now use forced `f32` inference precision. This prevents OpenVINO from implicitly using `f16`, which was causing mathematical overflow (yielding `NaN`/`inf` probabilities) on un-quantized FP32 ONNX models and forcing unnecessary CPU fallbacks.
+- **Fixed:** The Svelte global `ErrorBoundary` now explicitly ignores meaningless network exceptions (such as `Cloudflare connection failed`, `Failed to fetch`, and `ResizeObserver loop limit exceeded`), preventing browser extensions or transient ad-blocker network drops from triggering full-screen crash UI.
+- **Fixed:** The global jobs pipeline and `GlobalProgress` bar no longer drop the "Batch Analysis" tracker when per-event video classification frames start processing, and they correctly isolate the queue progress percentage from individual frame percentages, eliminating erratic UI progress jumps.
+- **Added:** Detection backfill jobs now instantly broadcast their started status to the UI, providing immediate feedback while the backend iterates through heavy multi-page Frigate API historical event queries.
+- **Added:** Detection Details video-analysis card now surfaces the explicit classification hardware provider (e.g. `GPU` or `CPU` badges) so users can see exactly which compute environment verified the detection.
+- **Changed:** Restored OpenVINO `2025.4.1` pinning for Intel GPU stability on newer hardware, and explicitly enabled OpenVINO's `CACHE_DIR` to prevent expensive from-scratch shader compilations from triggering worker startup timeouts during GPU inference initialization.
+- **Fixed:** OpenVINO runtime/fallback exceptions (such as `CL_OUT_OF_RESOURCES`) are now explicitly raised as `InvalidInferenceOutputError` instead of being swallowed. This ensures the classifier supervisor accurately tracks crashed workers and replaces them, preventing batch reclassification queues from permanently hanging with "Video classification returned no results".
+
 - **Fixed:** Video classification now rejects degenerate near-uniform confidence outputs (for example top score near `1 / class_count`) as `video_no_results` instead of reporting a misleading `completed` result with ~`0%` confidence, and uses deterministic full-clip stratified frame sampling with best-frame aggregation to improve transient-bird recovery.
 - **Added:** Detection video results now persist per-event inference runtime evidence (`video_classification_provider`, `video_classification_backend`) through DB/API/UI so GPU vs CPU execution is attributable on each classified event instead of inferred from process-global status.
 - **Fixed:** Frontend `svelte-check` now passes for the strict non-finite debug toggle by adding `strict_non_finite_output` to the UI `Settings` API type, aligning typed settings reads/writes with the backend-exposed field.
