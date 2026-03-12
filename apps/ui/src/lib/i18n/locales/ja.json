@@ -484,6 +484,7 @@
       "weather_unit_system": "天気の単位",
       "metric": "メートル法 (°C, km/h, mm)",
       "imperial": "ヤード・ポンド法 (°F, mph, in)",
+      "british": "英国式 (°C, mph, mm)",
       "weather_unit_system_desc": "気温、風速、降水量に一貫した単位系を使います。",
       "temperature_unit": "温度単位",
       "celsius": "摂氏（°C）",

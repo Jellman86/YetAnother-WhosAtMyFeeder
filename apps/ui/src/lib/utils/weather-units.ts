@@ -1,20 +1,23 @@
 import type { TemperatureUnit } from './temperature';
 
-export type WeatherUnitSystem = 'metric' | 'imperial';
+export type WeatherUnitSystem = 'metric' | 'imperial' | 'british';
 
 type UnitLabels = {
     metric: string;
     imperial: string;
+    british: string;
 };
 
 const DEFAULT_WIND_LABELS: UnitLabels = {
     metric: 'km/h',
-    imperial: 'mph'
+    imperial: 'mph',
+    british: 'mph'
 };
 
 const DEFAULT_PRECIP_LABELS: UnitLabels = {
     metric: 'mm',
-    imperial: 'in'
+    imperial: 'in',
+    british: 'mm'
 };
 
 export function resolveWeatherUnitSystem(
@@ -22,7 +25,7 @@ export function resolveWeatherUnitSystem(
     legacyTemperatureUnit?: string | null
 ): WeatherUnitSystem {
     const normalizedSystem = String(weatherUnitSystem ?? '').trim().toLowerCase();
-    if (normalizedSystem === 'metric' || normalizedSystem === 'imperial') {
+    if (normalizedSystem === 'metric' || normalizedSystem === 'imperial' || normalizedSystem === 'british') {
         return normalizedSystem;
     }
 
@@ -41,7 +44,7 @@ export function convertWindSpeed(speedKmh: number | null | undefined, system: We
     if (speedKmh === null || speedKmh === undefined || Number.isNaN(speedKmh)) {
         return null;
     }
-    return system === 'imperial' ? speedKmh / 1.609344 : speedKmh;
+    return system === 'metric' ? speedKmh : speedKmh / 1.609344;
 }
 
 export function convertPrecipitation(valueMm: number | null | undefined, system: WeatherUnitSystem): number | null {
@@ -60,7 +63,7 @@ export function formatWindSpeed(
     if (converted === null) {
         return '';
     }
-    const label = system === 'imperial' ? labels.imperial : labels.metric;
+    const label = labels[system];
     return `${Math.round(converted)} ${label}`;
 }
 
@@ -73,7 +76,7 @@ export function formatPrecipitation(
     if (converted === null) {
         return '';
     }
-    const label = system === 'imperial' ? labels.imperial : labels.metric;
+    const label = labels[system];
     if (system === 'imperial') {
         if (converted < 0.1) return `${converted.toFixed(2)}${label}`;
         return `${converted.toFixed(1)}${label}`;

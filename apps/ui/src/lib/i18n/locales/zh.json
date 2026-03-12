@@ -484,6 +484,7 @@
       "weather_unit_system": "天气单位",
       "metric": "公制 (°C, km/h, mm)",
       "imperial": "英制 (°F, mph, in)",
+      "british": "英式 (°C, mph, mm)",
       "weather_unit_system_desc": "为温度、风速和降水使用统一的单位制。",
       "temperature_unit": "温度单位",
       "celsius": "摄氏度（°C）",

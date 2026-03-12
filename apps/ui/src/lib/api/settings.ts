@@ -42,7 +42,7 @@ export interface Settings {
     location_latitude?: number | null;
     location_longitude?: number | null;
     location_automatic?: boolean;
-    location_weather_unit_system?: 'metric' | 'imperial' | string;
+    location_weather_unit_system?: 'metric' | 'imperial' | 'british' | string;
     location_temperature_unit?: 'celsius' | 'fahrenheit' | string;
     birdweather_enabled: boolean;
     birdweather_station_token?: string | null;

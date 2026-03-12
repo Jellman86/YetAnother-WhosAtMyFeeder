@@ -16,6 +16,10 @@ describe('weather units helpers', () => {
         expect(formatWindSpeed(16.09344, 'imperial')).toBe('10 mph');
     });
 
+    it('formats wind speed in british units from stored km/h values', () => {
+        expect(formatWindSpeed(16.09344, 'british')).toBe('10 mph');
+    });
+
     it('formats precipitation in metric units from stored millimetres', () => {
         expect(formatPrecipitation(0.45, 'metric')).toBe('0.5mm');
     });
@@ -24,9 +28,14 @@ describe('weather units helpers', () => {
         expect(formatPrecipitation(25.4, 'imperial')).toBe('1.0in');
     });
 
+    it('formats precipitation in british units from stored millimetres', () => {
+        expect(formatPrecipitation(25.4, 'british')).toBe('25mm');
+    });
+
     it.each([
         ['metric', 'celsius'],
-        ['imperial', 'fahrenheit']
+        ['imperial', 'fahrenheit'],
+        ['british', 'celsius']
     ] as const satisfies ReadonlyArray<readonly [WeatherUnitSystem, 'celsius' | 'fahrenheit']>)(
         'maps %s to the correct temperature unit',
         (system, expected) => {

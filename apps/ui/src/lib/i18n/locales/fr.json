@@ -484,6 +484,7 @@
       "weather_unit_system": "Unités météo",
       "metric": "Métrique (°C, km/h, mm)",
       "imperial": "Impérial (°F, mph, in)",
+      "british": "Britannique (°C, mph, mm)",
       "weather_unit_system_desc": "Utilise un système cohérent pour la température, le vent et les précipitations.",
       "temperature_unit": "Unité de température",
       "celsius": "Celsius (°C)",

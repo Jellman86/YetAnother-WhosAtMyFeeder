@@ -27,6 +27,7 @@ const REQUIRED_KEYS = [
     'settings.location.weather_unit_system',
     'settings.location.metric',
     'settings.location.imperial',
+    'settings.location.british',
     'settings.location.weather_unit_system_desc',
     'common.unit_mph',
     'common.unit_in'

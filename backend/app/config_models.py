@@ -283,9 +283,9 @@ class LocationSettings(BaseModel):
     latitude: Optional[float] = Field(None, description="Latitude for weather/sun data")
     longitude: Optional[float] = Field(None, description="Longitude for weather/sun data")
     automatic: bool = Field(True, description="Attempt to detect location automatically via IP")
-    weather_unit_system: Literal["metric", "imperial"] = Field(
+    weather_unit_system: Literal["metric", "imperial", "british"] = Field(
         default="metric",
-        description="Weather measurement unit system: metric or imperial",
+        description="Weather measurement unit system: metric, imperial, or british",
     )
 
     @model_validator(mode="before")
@@ -306,7 +306,7 @@ class LocationSettings(BaseModel):
     @classmethod
     def validate_weather_unit_system(cls, v: str) -> str:
         normalized = (v or "metric").strip().lower()
-        if normalized not in {"metric", "imperial"}:
+        if normalized not in {"metric", "imperial", "british"}:
             log.warning("Invalid weather_unit_system in config; falling back to metric", value=v)
             return "metric"
         return normalized

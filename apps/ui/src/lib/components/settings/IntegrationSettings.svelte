@@ -35,7 +35,7 @@
         locationAuto = $bindable(true),
         locationLat = $bindable<number | null>(null),
         locationLon = $bindable<number | null>(null),
-        locationWeatherUnitSystem = $bindable<'metric' | 'imperial'>('metric'),
+        locationWeatherUnitSystem = $bindable<'metric' | 'imperial' | 'british'>('metric'),
         handleTestBirdNET,
         handleTestBirdWeather,
         initiateInaturalistOAuth,
@@ -76,7 +76,7 @@
         locationAuto: boolean;
         locationLat: number | null;
         locationLon: number | null;
-        locationWeatherUnitSystem: 'metric' | 'imperial';
+        locationWeatherUnitSystem: 'metric' | 'imperial' | 'british';
         handleTestBirdNET: () => Promise<void>;
         handleTestBirdWeather: () => Promise<void>;
         initiateInaturalistOAuth: () => Promise<{ authorization_url: string }>;
@@ -715,6 +715,7 @@
                 >
                     <option value="metric">{$_('settings.location.metric')}</option>
                     <option value="imperial">{$_('settings.location.imperial')}</option>
+                    <option value="british">{$_('settings.location.british')}</option>
                 </select>
                 <p class="mt-1 text-[10px] text-slate-400 font-bold italic">{$_('settings.location.weather_unit_system_desc')}</p>
             </div>

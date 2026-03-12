@@ -300,7 +300,10 @@ class SettingsUpdate(BaseModel):
     location_latitude: Optional[float] = Field(None, description="Latitude")
     location_longitude: Optional[float] = Field(None, description="Longitude")
     location_automatic: Optional[bool] = Field(True, description="Auto-detect location")
-    location_weather_unit_system: Optional[str] = Field("metric", description="Weather unit system: 'metric' or 'imperial'")
+    location_weather_unit_system: Optional[str] = Field(
+        "metric",
+        description="Weather unit system: 'metric', 'imperial', or 'british'",
+    )
     location_temperature_unit: Optional[str] = Field("celsius", description="Temperature unit: 'celsius' or 'fahrenheit'")
     # BirdWeather settings
     birdweather_enabled: Optional[bool] = Field(False, description="Enable BirdWeather reporting")
@@ -446,8 +449,8 @@ class SettingsUpdate(BaseModel):
         if v is None:
             return v
         normalized = v.strip().lower()
-        if normalized not in ("metric", "imperial"):
-            raise ValueError("location_weather_unit_system must be 'metric' or 'imperial'")
+        if normalized not in ("metric", "imperial", "british"):
+            raise ValueError("location_weather_unit_system must be 'metric', 'imperial', or 'british'")
         return normalized
 
     @field_validator('location_temperature_unit')

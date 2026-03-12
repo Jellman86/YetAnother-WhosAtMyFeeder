@@ -643,6 +643,7 @@
       "weather_unit_system": "Weather Units",
       "metric": "Metric (°C, km/h, mm)",
       "imperial": "Imperial (°F, mph, in)",
+      "british": "British (°C, mph, mm)",
       "weather_unit_system_desc": "Use one consistent unit system for temperature, wind, and precipitation.",
       "temperature_unit": "Temperature Unit",
       "celsius": "Celsius (°C)",

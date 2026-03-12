@@ -130,7 +130,7 @@
     let locationLat = $state<number | null>(null);
     let locationLon = $state<number | null>(null);
     let locationAuto = $state(true);
-    let locationWeatherUnitSystem = $state<'metric' | 'imperial'>('metric');
+    let locationWeatherUnitSystem = $state<'metric' | 'imperial' | 'british'>('metric');
 
     // BirdNET-Go Settings
     let birdnetEnabled = $state(true);
@@ -1614,7 +1614,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             {
                 key: 'locationWeatherUnitSystem',
                 val: locationWeatherUnitSystem,
-                store: ((s.location_weather_unit_system as 'metric' | 'imperial') ?? (s.location_temperature_unit === 'fahrenheit' ? 'imperial' : 'metric'))
+                store: ((s.location_weather_unit_system as 'metric' | 'imperial' | 'british') ?? (s.location_temperature_unit === 'fahrenheit' ? 'imperial' : 'metric'))
             },
             { key: 'birdweatherEnabled', val: birdweatherEnabled, store: s.birdweather_enabled ?? false },
             { key: 'birdweatherStationToken', val: birdweatherStationToken, store: normalizeSecret(s.birdweather_station_token) },
@@ -2399,7 +2399,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             locationLat = settings.location_latitude ?? null;
             locationLon = settings.location_longitude ?? null;
             locationAuto = settings.location_automatic ?? true;
-            locationWeatherUnitSystem = ((settings.location_weather_unit_system as 'metric' | 'imperial') ?? (settings.location_temperature_unit === 'fahrenheit' ? 'imperial' : 'metric'));
+            locationWeatherUnitSystem = ((settings.location_weather_unit_system as 'metric' | 'imperial' | 'british') ?? (settings.location_temperature_unit === 'fahrenheit' ? 'imperial' : 'metric'));
             // BirdWeather settings
             birdweatherEnabled = settings.birdweather_enabled ?? false;
             if (settings.birdweather_station_token === '***REDACTED***') {
