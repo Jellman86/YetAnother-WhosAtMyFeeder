@@ -9,6 +9,7 @@ from app.services.classifier_supervisor import (
     ClassifierWorkerDeadlineExceededError,
     ClassifierWorkerExitedError,
     ClassifierWorkerHeartbeatTimeoutError,
+    ClassifierWorkerStartupTimeoutError,
 )
 
 
@@ -69,6 +70,19 @@ class _FakeWorker:
         }
 
 
+class _SlowReadyWorker(_FakeWorker):
+    def __init__(self, worker_name: str, worker_generation: int, *, ready_delay_seconds: float) -> None:
+        super().__init__(worker_name, worker_generation)
+        self.ready_delay_seconds = float(ready_delay_seconds)
+        self.ready_timeout_seen: float | None = None
+
+    async def wait_until_ready(self, timeout_seconds: float = 1.0) -> None:
+        self.ready_timeout_seen = float(timeout_seconds)
+        await asyncio.sleep(min(self.ready_delay_seconds, timeout_seconds))
+        if self.ready_delay_seconds > timeout_seconds:
+            raise TimeoutError()
+
+
 @pytest.mark.asyncio
 async def test_classifier_supervisor_starts_live_and_background_pools():
     created: list[_FakeWorker] = []
@@ -90,6 +104,96 @@ async def test_classifier_supervisor_starts_live_and_background_pools():
     metrics = supervisor.get_metrics()
     assert metrics["live"]["workers"] == 2
     assert metrics["background"]["workers"] == 1
+
+    await supervisor.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_classifier_supervisor_classify_starts_requested_pool_only():
+    created: list[_FakeWorker] = []
+
+    async def _factory(*, worker_name: str, worker_generation: int, **_kwargs):
+        worker = _FakeWorker(worker_name, worker_generation)
+        created.append(worker)
+        return worker
+
+    supervisor = ClassifierSupervisor(
+        live_worker_count=2,
+        background_worker_count=1,
+        heartbeat_timeout_seconds=0.5,
+        hard_deadline_seconds=1.0,
+        worker_factory=_factory,
+    )
+
+    task = asyncio.create_task(
+        supervisor.classify(
+            priority="background",
+            work_id="background-1",
+            lease_token=1,
+            image_b64="payload",
+            camera_name="garden",
+            model_id="default",
+        )
+    )
+    await asyncio.sleep(0.01)
+
+    assert [worker.worker_name for worker in created] == ["background-0"]
+    await created[0].events.put(
+        {
+            "type": "result",
+            "worker_generation": 1,
+            "request_id": created[0].sent_messages[0]["request_id"],
+            "work_id": "background-1",
+            "lease_token": 1,
+            "results": [{"label": "Robin", "score": 0.8}],
+        }
+    )
+
+    results = await task
+    assert results[0]["label"] == "Robin"
+    metrics = supervisor.get_metrics()
+    assert metrics["live"]["workers"] == 0
+    assert metrics["background"]["workers"] == 1
+
+    await supervisor.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_classifier_supervisor_raises_startup_timeout_with_metrics():
+    created: list[_SlowReadyWorker] = []
+
+    async def _factory(*, worker_name: str, worker_generation: int, **_kwargs):
+        worker = _SlowReadyWorker(
+            worker_name,
+            worker_generation,
+            ready_delay_seconds=0.1,
+        )
+        created.append(worker)
+        return worker
+
+    supervisor = ClassifierSupervisor(
+        live_worker_count=1,
+        background_worker_count=1,
+        heartbeat_timeout_seconds=0.5,
+        hard_deadline_seconds=1.0,
+        worker_factory=_factory,
+        worker_ready_timeout_seconds=0.02,
+    )
+
+    with pytest.raises(ClassifierWorkerStartupTimeoutError):
+        await supervisor.classify(
+            priority="background",
+            work_id="background-timeout",
+            lease_token=1,
+            image_b64="payload",
+            camera_name="garden",
+            model_id="default",
+        )
+
+    assert created[0].ready_timeout_seen == pytest.approx(0.02)
+    metrics = supervisor.get_metrics()
+    assert metrics["background"]["workers"] == 0
+    assert metrics["background"]["last_exit_reason"] == "startup_timeout"
 
     await supervisor.shutdown()
 

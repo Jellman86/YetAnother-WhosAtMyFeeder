@@ -138,7 +138,12 @@ class BackfillService:
             return 'new', None
 
         except Exception as e:
-            log.error("Error processing historical event", event_id=frigate_event, error=str(e))
+            log.error(
+                "Error processing historical event",
+                event_id=frigate_event,
+                error_type=type(e).__name__,
+                error=str(e) or repr(e),
+            )
             return 'error', 'exception'
 
     async def process_historical_event_with_timeout(

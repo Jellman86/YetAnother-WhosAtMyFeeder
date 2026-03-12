@@ -99,6 +99,7 @@ from app.services.classifier_supervisor import (  # noqa: E402
     ClassifierWorkerDeadlineExceededError,
     ClassifierWorkerExitedError,
     ClassifierWorkerHeartbeatTimeoutError,
+    ClassifierWorkerStartupTimeoutError,
 )
 from app.services.personalization_service import personalization_service  # noqa: E402
 
@@ -1261,6 +1262,7 @@ class ClassifierService:
                 background_worker_count=int(getattr(settings.classification, "background_worker_count", 1) or 1),
                 heartbeat_timeout_seconds=float(getattr(settings.classification, "worker_heartbeat_timeout_seconds", 5.0) or 5.0),
                 hard_deadline_seconds=float(getattr(settings.classification, "worker_hard_deadline_seconds", 35.0) or 35.0),
+                worker_ready_timeout_seconds=float(getattr(settings.classification, "worker_ready_timeout_seconds", 20.0) or 20.0),
             )
         self._selected_inference_provider = _normalize_inference_provider(
             getattr(settings.classification, "inference_provider", "auto")
@@ -2134,6 +2136,10 @@ class ClassifierService:
                     "live_image_inference",
                     float(getattr(settings.classification, "worker_hard_deadline_seconds", 35.0) or 35.0),
                 ) from None
+            return []
+        except ClassifierWorkerStartupTimeoutError:
+            if priority == "live":
+                raise LiveImageClassificationOverloadedError("classify_snapshot_worker_unavailable") from None
             return []
         except ClassifierWorkerExitedError:
             if priority == "live":

@@ -37,6 +37,7 @@ from app.services import classifier_service as classifier_service_module  # noqa
 from app.services.classifier_supervisor import (  # noqa: E402
     ClassifierWorkerCircuitOpenError,
     ClassifierWorkerHeartbeatTimeoutError,
+    ClassifierWorkerStartupTimeoutError,
 )
 from app.config import settings  # noqa: E402
 from app.config_models import ClassificationSettings  # noqa: E402
@@ -262,6 +263,45 @@ async def test_classifier_service_maps_supervisor_heartbeat_timeout_to_live_leas
             img = Image.new("RGB", (16, 16), color="yellow")
             with pytest.raises(ClassificationLeaseExpiredError):
                 await service.classify_async_live(img, camera_name="front")
+            service.shutdown()
+    finally:
+        settings.classification.image_execution_mode = original_mode
+
+
+@pytest.mark.asyncio
+async def test_classifier_service_maps_supervisor_startup_timeout_to_live_overload(mock_tflite, mock_os_path_exists):
+    original_mode = settings.classification.image_execution_mode
+    settings.classification.image_execution_mode = "subprocess"
+
+    class _FakeSupervisor:
+        async def classify(self, **_kwargs):
+            raise ClassifierWorkerStartupTimeoutError("worker startup timed out")
+
+    try:
+        with patch.object(ClassifierService, "_init_bird_model", new=_stub_init_bird_model):
+            service = ClassifierService(supervisor=_FakeSupervisor())
+            img = Image.new("RGB", (16, 16), color="orange")
+            with pytest.raises(LiveImageClassificationOverloadedError, match="classify_snapshot_worker_unavailable"):
+                await service.classify_async_live(img, camera_name="front")
+            service.shutdown()
+    finally:
+        settings.classification.image_execution_mode = original_mode
+
+
+@pytest.mark.asyncio
+async def test_classifier_service_maps_supervisor_startup_timeout_to_empty_background_results(mock_tflite, mock_os_path_exists):
+    original_mode = settings.classification.image_execution_mode
+    settings.classification.image_execution_mode = "subprocess"
+
+    class _FakeSupervisor:
+        async def classify(self, **_kwargs):
+            raise ClassifierWorkerStartupTimeoutError("worker startup timed out")
+
+    try:
+        with patch.object(ClassifierService, "_init_bird_model", new=_stub_init_bird_model):
+            service = ClassifierService(supervisor=_FakeSupervisor())
+            img = Image.new("RGB", (16, 16), color="purple")
+            assert await service.classify_async_background(img, camera_name="garden") == []
             service.shutdown()
     finally:
         settings.classification.image_execution_mode = original_mode

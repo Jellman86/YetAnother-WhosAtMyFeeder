@@ -219,6 +219,7 @@ class ClassificationSettings(BaseModel):
     background_worker_count: int = Field(default=1, ge=1, le=4, description="Background classifier worker process count")
     worker_heartbeat_timeout_seconds: float = Field(default=5.0, ge=0.5, le=60.0, description="Classifier worker heartbeat timeout in seconds")
     worker_hard_deadline_seconds: float = Field(default=35.0, ge=1.0, le=300.0, description="Hard deadline before killing a stuck classifier worker")
+    worker_ready_timeout_seconds: float = Field(default=20.0, ge=1.0, le=300.0, description="Timeout while waiting for a classifier worker to load and report ready")
     worker_restart_window_seconds: float = Field(default=60.0, ge=1.0, le=3600.0, description="Rolling window for classifier worker restart budget")
     worker_restart_threshold: int = Field(default=3, ge=1, le=100, description="Restart count in window before classifier circuit breaker opens")
     worker_breaker_cooldown_seconds: float = Field(default=60.0, ge=1.0, le=3600.0, description="Cooldown while classifier worker circuit breaker is open")
