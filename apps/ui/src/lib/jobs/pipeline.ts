@@ -86,9 +86,7 @@ export function buildJobsPipelineModel(
     };
 
     const shouldSuppressKind = (kind: string): boolean => {
-        const normalized = normalizeKind(kind);
-        if (normalized !== 'reclassify_batch') return false;
-        return Boolean(queueByKind.reclassify);
+        return false;
     };
 
     for (const item of activeJobs) {
