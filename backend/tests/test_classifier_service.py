@@ -538,10 +538,9 @@ def test_classify_video_returns_empty_for_degenerate_uniform_confidence(mock_tfl
              patch("cv2.VideoCapture") as mock_capture:
             capture = mock_capture.return_value
             capture.isOpened.return_value = True
-            capture.get.side_effect = lambda prop: 20 if prop == cv2.CAP_PROP_FRAME_COUNT else 10
+            capture.get.side_effect = lambda prop: 20 if prop == 7 else 10  # 7 is cv2.CAP_PROP_FRAME_COUNT
             capture.set.return_value = True
             capture.read.return_value = (True, fake_frame)
-
             results = service.classify_video("/tmp/fake.mp4", max_frames=5)
 
         assert results == []

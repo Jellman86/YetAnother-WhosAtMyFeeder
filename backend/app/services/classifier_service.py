@@ -2396,7 +2396,7 @@ class ClassifierService:
                 return results
             except InvalidInferenceOutputError as exc:
                 if not self._recover_from_invalid_bird_output(bird, exc):
-                    return []
+                    raise
         return []
 
     def _classify_raw_with_runtime_recovery(
@@ -2420,7 +2420,7 @@ class ClassifierService:
                 return scores, bird
             except InvalidInferenceOutputError as exc:
                 if not self._recover_from_invalid_bird_output(bird, exc):
-                    return np.array([]), bird
+                    raise
 
     def _encode_image_for_worker(self, image: Image.Image) -> str:
         buffer = io.BytesIO()
@@ -2894,7 +2894,7 @@ class ClassifierService:
 
         except Exception as e:
             log.error("Error during video classification", error=str(e))
-            return []
+            raise
         finally:
             # Always release video capture to prevent memory leaks
             if cap is not None:
