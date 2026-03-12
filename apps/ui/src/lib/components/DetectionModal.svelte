@@ -937,6 +937,13 @@
     });
 
     async function refreshVideoInferenceProvider() {
+        const persistedProvider = detection.video_classification_provider ?? null;
+        const persistedBackend = detection.video_classification_backend ?? null;
+        if (persistedProvider || persistedBackend) {
+            videoInferenceProvider = persistedProvider;
+            videoInferenceBackend = persistedBackend;
+            return;
+        }
         try {
             const status = await fetchClassifierStatus();
             videoInferenceProvider = status.active_provider ?? null;
@@ -946,6 +953,10 @@
             videoInferenceBackend = null;
         }
     }
+
+    $effect(() => {
+        void refreshVideoInferenceProvider();
+    });
 
     $effect(() => {
         const shouldPoll = Boolean(showMediaSlotVideoAnalysis || reclassifyProgress);

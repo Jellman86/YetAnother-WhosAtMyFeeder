@@ -6,6 +6,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- **Fixed:** Video classification now rejects degenerate near-uniform confidence outputs (for example top score near `1 / class_count`) as `video_no_results` instead of reporting a misleading `completed` result with ~`0%` confidence, and uses deterministic full-clip stratified frame sampling with best-frame aggregation to improve transient-bird recovery.
+- **Added:** Detection video results now persist per-event inference runtime evidence (`video_classification_provider`, `video_classification_backend`) through DB/API/UI so GPU vs CPU execution is attributable on each classified event instead of inferred from process-global status.
 - **Fixed:** Frontend `svelte-check` now passes for the strict non-finite debug toggle by adding `strict_non_finite_output` to the UI `Settings` API type, aligning typed settings reads/writes with the backend-exposed field.
 - **Added:** Experimental strict-non-finite classifier toggle is now configurable end-to-end: backend setting `classification.strict_non_finite_output` (env override `CLASSIFICATION__STRICT_NON_FINITE_OUTPUT`, with legacy `CLASSIFIER_STRICT_NON_FINITE_OUTPUT` fallback) is exposed in `Settings > Debug`, persisted via `/api/settings`, and surfaced in `/api/classifier/status` as `strict_non_finite_output` so active policy is explicit during controlled GPU/CPU behavior tests.
 - **Fixed:** Detection Details video-analysis inference markers now use inline SVG GPU/CPU icons instead of font-dependent glyph characters, so provider markers render consistently across browsers/platform fonts.

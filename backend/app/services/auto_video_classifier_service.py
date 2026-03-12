@@ -831,6 +831,8 @@ class AutoVideoClassifierService:
                             "video_classification_label": det.video_classification_label,
                             "video_classification_status": det.video_classification_status,
                             "video_classification_error": det.video_classification_error,
+                            "video_classification_provider": det.video_classification_provider,
+                            "video_classification_backend": det.video_classification_backend,
                             "video_classification_timestamp": det.video_classification_timestamp.isoformat() if det.video_classification_timestamp else None
                         }
                     })
@@ -844,7 +846,9 @@ class AutoVideoClassifierService:
             frigate_event=frigate_event,
             video_label=result['label'],
             video_score=result['score'],
-            video_index=result['index']
+            video_index=result['index'],
+            video_provider=result.get("inference_provider"),
+            video_backend=result.get("inference_backend"),
         )
         await video_classification_waiter.publish(
             frigate_event,

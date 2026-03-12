@@ -210,6 +210,8 @@ def _detection_updated_payload(detection, overrides: dict | None = None) -> dict
         "video_classification_label": detection.video_classification_label,
         "video_classification_status": detection.video_classification_status,
         "video_classification_error": detection.video_classification_error,
+        "video_classification_provider": detection.video_classification_provider,
+        "video_classification_backend": detection.video_classification_backend,
         "video_classification_timestamp": detection.video_classification_timestamp.isoformat() if detection.video_classification_timestamp else None,
     }
     if overrides:
@@ -753,6 +755,8 @@ class ClassificationStatusResponse(BaseModel):
     video_classification_status: str | None = None
     video_classification_error: str | None = None
     video_classification_timestamp: str | None = None
+    video_classification_provider: str | None = None
+    video_classification_backend: str | None = None
 
 
 @router.get("/events/{event_id}/classification-status", response_model=ClassificationStatusResponse)
@@ -777,7 +781,9 @@ async def get_event_classification_status(
             event_id=event_id,
             video_classification_status=detection.video_classification_status,
             video_classification_error=detection.video_classification_error,
-            video_classification_timestamp=ts.isoformat() if ts else None
+            video_classification_timestamp=ts.isoformat() if ts else None,
+            video_classification_provider=detection.video_classification_provider,
+            video_classification_backend=detection.video_classification_backend,
         )
 
 
@@ -982,7 +988,9 @@ async def reclassify_event(
                                 label=top_result["label"],
                                 score=top_result["score"],
                                 index=top_result["index"],
-                                status="completed"
+                                status="completed",
+                                provider=top_result.get("inference_provider"),
+                                backend=top_result.get("inference_backend"),
                             )
                             await broadcast_video_status("completed", None)
 
@@ -1021,7 +1029,9 @@ async def reclassify_event(
                 video_label=top['label'],
                 video_score=top['score'],
                 video_index=top['index'],
-                manual_tagged=True
+                manual_tagged=True,
+                video_provider=top.get("inference_provider"),
+                video_backend=top.get("inference_backend"),
             )
 
             # Re-fetch updated detection for the response

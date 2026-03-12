@@ -50,6 +50,8 @@ export interface EventClassificationStatusResponse {
     video_classification_status: string | null;
     video_classification_error: string | null;
     video_classification_timestamp: string | null;
+    video_classification_provider?: string | null;
+    video_classification_backend?: string | null;
 }
 
 export async function fetchEventClassificationStatus(frigateEventId: string): Promise<EventClassificationStatusResponse> {

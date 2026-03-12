@@ -39,6 +39,8 @@ async def _create_detections_table(db: aiosqlite.Connection) -> None:
             video_classification_timestamp TIMESTAMP,
             video_classification_status TEXT,
             video_classification_error TEXT,
+            video_classification_provider TEXT,
+            video_classification_backend TEXT,
             ai_analysis TEXT,
             ai_analysis_timestamp TIMESTAMP,
             notified_at TIMESTAMP
@@ -399,6 +401,43 @@ async def test_get_unknown_detections_includes_completed_unknowns_for_manual_bat
         assert "evt_unknown_completed" in ids
         assert "evt_unknown_pending" not in ids
         assert "evt_unknown_retention_expired" not in ids
+
+
+@pytest.mark.asyncio
+async def test_update_video_classification_persists_runtime_provider_and_backend():
+    async with aiosqlite.connect(":memory:") as db:
+        await _create_detections_table(db)
+        await db.commit()
+        repo = DetectionRepository(db)
+
+        await repo.create(
+            Detection(
+                detection_time=datetime.utcnow(),
+                detection_index=1,
+                score=0.77,
+                display_name="Unknown Bird",
+                category_name="Bird",
+                frigate_event="evt_video_runtime",
+                camera_name="cam_1",
+            )
+        )
+
+        await repo.update_video_classification(
+            frigate_event="evt_video_runtime",
+            label="Blue Jay",
+            score=0.88,
+            index=123,
+            status="completed",
+            provider="intel_gpu",
+            backend="openvino",
+        )
+
+        updated = await repo.get_by_frigate_event("evt_video_runtime")
+        assert updated is not None
+        assert updated.video_classification_label == "Blue Jay"
+        assert updated.video_classification_score == pytest.approx(0.88)
+        assert updated.video_classification_provider == "intel_gpu"
+        assert updated.video_classification_backend == "openvino"
 
 
 @pytest.mark.asyncio

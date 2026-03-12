@@ -518,6 +518,36 @@ async def test_classifier_service_init(mock_tflite, mock_os_path_exists):
         assert service.model_loaded is True
         service.shutdown()
 
+
+def test_classify_video_returns_empty_for_degenerate_uniform_confidence(mock_tflite, mock_os_path_exists):
+    class _FakeBirdModel:
+        loaded = True
+        labels = [f"Class {i}" for i in range(5)]
+
+    fake_model = _FakeBirdModel()
+    fake_probs = np.full(5, 0.2, dtype=np.float32)
+    fake_frame = np.zeros((32, 32, 3), dtype=np.uint8)
+
+    with patch.object(ClassifierService, "_init_bird_model", new=_stub_init_bird_model):
+        service = ClassifierService()
+        service._models["bird"] = fake_model
+        service._active_inference_provider = "intel_gpu"
+        service._inference_backend = "openvino"
+
+        with patch.object(service, "_classify_raw_with_runtime_recovery", return_value=(fake_probs, fake_model)), \
+             patch("cv2.VideoCapture") as mock_capture:
+            capture = mock_capture.return_value
+            capture.isOpened.return_value = True
+            capture.get.side_effect = lambda prop: 20 if prop == cv2.CAP_PROP_FRAME_COUNT else 10
+            capture.set.return_value = True
+            capture.read.return_value = (True, fake_frame)
+
+            results = service.classify_video("/tmp/fake.mp4", max_frames=5)
+
+        assert results == []
+        service.shutdown()
+
+
 @pytest.mark.asyncio
 async def test_classifier_service_classify_async(mock_tflite, mock_os_path_exists):
     with patch.object(ClassifierService, "_init_bird_model", new=_stub_init_bird_model), \

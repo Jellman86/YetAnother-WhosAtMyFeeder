@@ -39,6 +39,8 @@ class Detection(BaseModel):
     video_classification_timestamp: datetime | None = None
     video_classification_status: str | None = None
     video_classification_error: str | None = None
+    video_classification_provider: str | None = None
+    video_classification_backend: str | None = None
     # AI naturalist analysis fields
     ai_analysis: str | None = None
     ai_analysis_timestamp: datetime | None = None

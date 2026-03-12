@@ -87,6 +87,8 @@ def _assert_db_path_writable(db_path: str) -> None:
 REQUIRED_COLUMNS = {
     "detections": {
         "video_classification_error",
+        "video_classification_provider",
+        "video_classification_backend",
         "ai_analysis",
         "ai_analysis_timestamp",
         "manual_tagged",

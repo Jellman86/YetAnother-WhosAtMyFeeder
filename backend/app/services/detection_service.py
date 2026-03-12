@@ -293,7 +293,16 @@ class DetectionService:
             repo = DetectionRepository(db)
             return await repo.get_by_frigate_event(frigate_event)
 
-    async def apply_video_result(self, frigate_event: str, video_label: str, video_score: float, video_index: int, manual_tagged: bool = False):
+    async def apply_video_result(
+        self,
+        frigate_event: str,
+        video_label: str,
+        video_score: float,
+        video_index: int,
+        manual_tagged: bool = False,
+        video_provider: str | None = None,
+        video_backend: str | None = None,
+    ):
         """
         Process and save results from background video analysis.
 
@@ -315,7 +324,9 @@ class DetectionService:
                 label=video_label,
                 score=video_score,
                 index=video_index,
-                status='completed'
+                status='completed',
+                provider=video_provider,
+                backend=video_backend,
             )
 
             # 2. Only promote video results when they are trustworthy enough, but
@@ -453,6 +464,8 @@ class DetectionService:
                             "video_classification_label": updated.video_classification_label,
                             "video_classification_score": updated.video_classification_score,
                             "video_classification_status": updated.video_classification_status,
+                            "video_classification_provider": updated.video_classification_provider,
+                            "video_classification_backend": updated.video_classification_backend,
                             "video_classification_timestamp": updated.video_classification_timestamp.isoformat() if updated.video_classification_timestamp else None
                         }
                     })

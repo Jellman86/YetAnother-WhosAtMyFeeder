@@ -143,6 +143,10 @@ CLASSIFIER_GPU_RESTORE_COOLDOWN_SECONDS = max(
     1.0,
     float(os.getenv("CLASSIFIER_GPU_RESTORE_COOLDOWN_SECONDS", "120")),
 )
+CLASSIFIER_VIDEO_UNIFORM_SCORE_MULTIPLIER = max(
+    1.0,
+    float(os.getenv("CLASSIFIER_VIDEO_UNIFORM_SCORE_MULTIPLIER", "1.25")),
+)
 LEGACY_CLASSIFIER_STRICT_NON_FINITE_OUTPUT = os.getenv("CLASSIFIER_STRICT_NON_FINITE_OUTPUT", "true").strip().lower() != "false"
 
 
@@ -2767,26 +2771,10 @@ class ClassifierService:
 
             log.info("Analyzing video", frames=total_frames, fps=fps, max_samples=max_frames)
 
-            # --- Normal Distribution Sampling ---
-            # We want to sample frames mostly from the middle where the bird is likely most active/visible
-            # mu = center of video, sigma = 1/4 of video length to cover ~95% of duration
-            mu = total_frames / 2
-            sigma = total_frames / 4
-
-            # Use a local RNG for deterministic sampling
-            rng = np.random.RandomState(42)
-
-            # Generate more samples than needed then unique/sort to get high-quality distribution
-            raw_indices = rng.normal(mu, sigma, max_frames * 2)
-            frame_indices = np.clip(raw_indices, 0, total_frames - 1).astype(int)
-            frame_indices = np.unique(np.sort(frame_indices))
-
-            # If we have too many after unique, take max_frames spread out
-            if len(frame_indices) > max_frames:
-                # Sub-sample to exactly max_frames
-                idx = np.round(np.linspace(0, len(frame_indices) - 1, max_frames)).astype(int)
-                frame_indices = frame_indices[idx]
-            # ------------------------------------
+            # Use deterministic stratified sampling across the full clip so we do not
+            # bias toward the center and miss short bird appearances at the edges.
+            sample_count = min(max_frames, total_frames)
+            frame_indices = np.linspace(0, total_frames - 1, sample_count).astype(int)
 
             all_scores = []
 
@@ -2860,17 +2848,12 @@ class ClassifierService:
                 log.warning("No frames processed from video")
                 return []
 
-            # Top-K Average (Representative Score Logic)
-            # This focuses on the 'best looks' the model got at the bird.
+            # Best-frame ensemble: keep each class' strongest frame confidence.
+            # This avoids suppressing legitimate transient detections when many
+            # sampled frames are background-heavy.
             processed_count = len(all_scores)
             scores_matrix = np.vstack(all_scores)
-
-            # Use top 5 frames (or all if fewer than 5)
-            k = min(processed_count, 5)
-
-            # For each class, sort and take the average of the top K scores
-            top_k_per_class = np.sort(scores_matrix, axis=0)[-k:]
-            representative_scores = np.mean(top_k_per_class, axis=0)
+            representative_scores = np.max(scores_matrix, axis=0)
 
             # Create standard classification list from representative scores
             top_indices = representative_scores.argsort()[-5:][::-1]
@@ -2882,8 +2865,26 @@ class ClassifierService:
                 classifications.append({
                     "index": int(i),
                     "score": score,
-                    "label": label
+                    "label": label,
+                    "inference_provider": str(self._active_inference_provider or ""),
+                    "inference_backend": str(self._inference_backend or ""),
                 })
+
+            if classifications:
+                top_score = float(classifications[0]["score"])
+                class_count = int(len(representative_scores))
+                uniform_baseline = (1.0 / class_count) if class_count > 0 else 1.0
+                degenerate_cutoff = uniform_baseline * CLASSIFIER_VIDEO_UNIFORM_SCORE_MULTIPLIER
+                if (not np.isfinite(top_score)) or top_score <= degenerate_cutoff:
+                    log.warning(
+                        "Video classification produced degenerate confidence distribution",
+                        top_score=top_score,
+                        class_count=class_count,
+                        uniform_baseline=uniform_baseline,
+                        degenerate_cutoff=degenerate_cutoff,
+                        top_label=classifications[0].get("label"),
+                    )
+                    return []
 
             log.info(f"Video classification complete (Top-K). Analyzed {processed_count} frames.",
                      top_result=classifications[0]['label'] if classifications else None,
