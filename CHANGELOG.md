@@ -6,6 +6,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- **Added:** Detection Details video-analysis card now shows a live inference-provider badge (`GPU` / `CPU`) during active analysis by polling classifier status, so owners can immediately see whether current processing is running on accelerated or fallback compute.
+- **Added:** Auto video-classifier diagnostics now include classifier runtime context (`inference_backend`, `active_provider`, `selected_provider`, and latest runtime-recovery snapshot when available), so exported incident evidence shows which inference path was active when failures occurred.
 - **Changed:** GPU runtime recovery policy is now more robust: on invalid OpenVINO GPU output, YA-WAMF now retries once on a freshly reloaded GPU model before demoting to CPU fallback, and workers that fell back to OpenVINO CPU now auto-attempt GPU restoration after a cooldown (when GPU is configured/available) instead of staying on CPU indefinitely.
 - **Added:** Classifier status telemetry now includes GPU recovery counters (`runtime_gpu_retries`, restore attempts/success/fail, and restore cooldown marker) so owner diagnostics can verify whether the system is actually recovering back to GPU over time.
 - **Changed:** Backend dependency pinning now locks `openvino==2025.4.1` as a known-good baseline for Intel GPU stability, replacing the previous open-ended `openvino>=2024.0.0` range to avoid unexpected runtime behavior shifts from 2026.x upgrades.

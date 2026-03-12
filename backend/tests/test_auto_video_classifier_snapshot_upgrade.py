@@ -124,6 +124,46 @@ async def test_process_event_records_backend_diagnostic_for_worker_failure():
 
 
 @pytest.mark.asyncio
+async def test_process_event_diagnostic_includes_inference_provider_context():
+    service = AutoVideoClassifierService()
+    service._classifier = MagicMock()
+    service._classifier.classify_video_async = AsyncMock(
+        side_effect=VideoClassificationWorkerError("video_worker_deadline_exceeded")
+    )
+    service._classifier.get_status = MagicMock(
+        return_value={
+            "inference_backend": "openvino",
+            "active_provider": "intel_gpu",
+            "selected_provider": "intel_gpu",
+            "last_runtime_recovery": {
+                "status": "recovered",
+                "failed_provider": "GPU",
+                "recovered_provider": "intel_cpu",
+            },
+        }
+    )
+    service._update_status = AsyncMock()  # type: ignore[method-assign]
+    service._save_results = AsyncMock()  # type: ignore[method-assign]
+    service._auto_delete_if_missing = AsyncMock()  # type: ignore[method-assign]
+    service._wait_for_clip = AsyncMock(return_value=(b"clip-bytes", None))  # type: ignore[method-assign]
+    error_diagnostics_history.clear()
+
+    try:
+        with patch("app.services.auto_video_classifier_service.frigate_client.get_event_with_error", new=AsyncMock(return_value=({"has_clip": True}, None))), \
+             patch("app.services.auto_video_classifier_service.broadcaster.broadcast", new=AsyncMock()):
+            await service._process_event("evt-video-provider-context", "cam1", skip_delay=True)
+
+        snapshot = error_diagnostics_history.snapshot(limit=20)
+        event = next(item for item in snapshot["events"] if item["event_id"] == "evt-video-provider-context")
+        assert event["context"]["inference_backend"] == "openvino"
+        assert event["context"]["active_provider"] == "intel_gpu"
+        assert event["context"]["selected_provider"] == "intel_gpu"
+        assert event["context"]["last_runtime_recovery"]["recovered_provider"] == "intel_cpu"
+    finally:
+        error_diagnostics_history.clear()
+
+
+@pytest.mark.asyncio
 async def test_record_failure_records_backend_diagnostic_when_video_circuit_opens():
     service = AutoVideoClassifierService()
     original_threshold = settings.classification.video_classification_failure_threshold

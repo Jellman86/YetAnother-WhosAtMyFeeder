@@ -657,6 +657,9 @@ class AutoVideoClassifierService:
         severity: Literal["warning", "error", "critical"] = "warning",
         context: Optional[dict] = None,
     ) -> None:
+        merged_context = self._classifier_runtime_context()
+        if context:
+            merged_context.update(context)
         error_diagnostics_history.record(
             source="video_classifier",
             component="auto_video_classifier",
@@ -666,8 +669,28 @@ class AutoVideoClassifierService:
             event_id=frigate_event,
             correlation_key=f"video:{frigate_event}",
             worker_pool="video",
-            context=context,
+            context=merged_context or None,
         )
+
+    def _classifier_runtime_context(self) -> dict:
+        status_fn = getattr(self._classifier, "get_status", None)
+        if not callable(status_fn):
+            return {}
+        try:
+            status = status_fn() or {}
+        except Exception:
+            return {}
+        if not isinstance(status, dict):
+            return {}
+        context: dict = {}
+        for key in ("inference_backend", "active_provider", "selected_provider"):
+            value = status.get(key)
+            if value is not None:
+                context[key] = value
+        recovery = status.get("last_runtime_recovery")
+        if isinstance(recovery, dict):
+            context["last_runtime_recovery"] = dict(recovery)
+        return context
 
     async def _wait_for_clip(self, frigate_event: str, skip_delay: bool = False) -> tuple[Optional[bytes], Optional[str]]:
         """Poll Frigate for clip availability with retries."""

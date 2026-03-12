@@ -16,6 +16,7 @@
         fetchSpeciesInfo,
         fetchEbirdNearby,
         fetchEbirdNotable,
+        fetchClassifierStatus,
         fetchDetectionConversation,
         sendDetectionConversationMessage,
         type SearchResult,
@@ -49,6 +50,7 @@
     } from '../utils/weather-units';
     import { renderMarkdown } from '../utils/markdown';
     import { getVideoFailureInsight, hasFrigateMediaIssue } from '../utils/frigate-errors';
+    import { classifyInferenceProvider } from '../utils/inference-provider';
 
     interface Props {
         detection: Detection;
@@ -383,6 +385,11 @@
     }));
     let modalVideoAnalysisProgress = $derived(reclassifyProgress ?? placeholderVideoAnalysisProgress);
     let showMediaSlotVideoAnalysis = $derived(!reclassifyProgress && videoAnalysisActive && !awaitingReclassifyOverlay);
+    let videoInferenceProvider = $state<string | null>(null);
+    let videoInferenceBackend = $state<string | null>(null);
+    let videoInferenceBadge = $derived(
+        classifyInferenceProvider(videoInferenceProvider, videoInferenceBackend)
+    );
 
     // Naming logic
     const showCommon = $derived(settingsStore.settings?.display_common_names ?? authStore.displayCommonNames ?? true);
@@ -929,6 +936,37 @@
         }
     });
 
+    async function refreshVideoInferenceProvider() {
+        try {
+            const status = await fetchClassifierStatus();
+            videoInferenceProvider = status.active_provider ?? null;
+            videoInferenceBackend = status.inference_backend ?? null;
+        } catch {
+            videoInferenceProvider = null;
+            videoInferenceBackend = null;
+        }
+    }
+
+    $effect(() => {
+        const shouldPoll = Boolean(showMediaSlotVideoAnalysis || reclassifyProgress);
+        if (!shouldPoll) return;
+
+        let cancelled = false;
+        const poll = async () => {
+            if (cancelled) return;
+            await refreshVideoInferenceProvider();
+        };
+        void poll();
+        const handle = setInterval(() => {
+            void poll();
+        }, 5000);
+
+        return () => {
+            cancelled = true;
+            clearInterval(handle);
+        };
+    });
+
     function handleSpeciesInfo() {
         onViewSpecies(detection.display_name);
         onClose();
@@ -1446,6 +1484,20 @@
                                         {$_('detection.video_analysis.in_progress')}
                                     </span>
                                 </div>
+                                {#if videoInferenceBadge.kind}
+                                    <div class="shrink-0 flex items-center gap-1.5 rounded-full px-2.5 py-1 bg-white/85 dark:bg-slate-900/80 border border-slate-200/80 dark:border-slate-700/70">
+                                        <span class="{videoInferenceBadge.kind === 'gpu' ? 'text-emerald-600 dark:text-emerald-300' : 'text-sky-600 dark:text-sky-300'}" aria-hidden="true">
+                                            {#if videoInferenceBadge.kind === 'gpu'}
+                                                ◈
+                                            {:else}
+                                                ◉
+                                            {/if}
+                                        </span>
+                                        <span class="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">
+                                            {videoInferenceBadge.label}
+                                        </span>
+                                    </div>
+                                {/if}
                             </div>
 
                             <div class="my-3 sm:my-4">
