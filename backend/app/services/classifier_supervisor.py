@@ -38,8 +38,8 @@ class _WorkerSlot:
     index: int
     worker_name: str
     worker_generation: int
-    worker: Any
-    consumer_task: asyncio.Task[None]
+    worker: Any | None
+    consumer_task: asyncio.Task[None] | None
 
 
 @dataclass
@@ -130,6 +130,7 @@ class ClassifierSupervisor:
             self._watchdog_task = asyncio.create_task(self._watchdog_loop())
 
         await asyncio.gather(*(self._ensure_pool_started(current) for current in priorities))
+        await asyncio.gather(*(self._restore_unavailable_slots(current) for current in priorities))
         self._started = any(self._pool_started.values())
 
     async def shutdown(self) -> None:
@@ -141,8 +142,9 @@ class ClassifierSupervisor:
                 pass
         for priority in ("live", "background"):
             for slot in self._slots[priority]:
-                await slot.worker.terminate()
-                await slot.worker.wait_closed()
+                if slot.worker is not None:
+                    await slot.worker.terminate()
+                    await slot.worker.wait_closed()
         for task in list(self._consumer_tasks):
             task.cancel()
         for task in list(self._consumer_tasks):
@@ -170,6 +172,7 @@ class ClassifierSupervisor:
     ) -> list[dict[str, Any]]:
         await self.start(priority)
         self._refresh_circuit_state(priority)
+        await self._restore_unavailable_slots(priority)
         if self._metrics[priority]["circuit_open"]:
             raise ClassifierWorkerCircuitOpenError(f"{priority} classifier circuit is open")
 
@@ -246,9 +249,31 @@ class ClassifierSupervisor:
     async def _wait_for_idle_slot(self, priority: WorkPriority) -> _WorkerSlot:
         while True:
             for slot in self._slots[priority]:
-                if slot.worker_name not in self._assignments:
+                if slot.worker is not None and slot.worker_name not in self._assignments:
                     return slot
             await self._condition.wait()
+
+    async def _restore_unavailable_slots(self, priority: WorkPriority) -> None:
+        if not self._pool_started[priority]:
+            return
+
+        async with self._start_locks[priority]:
+            for index, slot in enumerate(list(self._slots[priority])):
+                if slot.worker is not None:
+                    continue
+                try:
+                    self._slots[priority][index] = await self._spawn_worker(
+                        priority,
+                        index,
+                        generation=slot.worker_generation,
+                    )
+                except ClassifierWorkerStartupTimeoutError:
+                    self._record_unavailable_slot(priority, index, "startup_timeout")
+                    continue
+                except Exception:
+                    self._record_unavailable_slot(priority, index, "startup_failed")
+                    continue
+            self._metrics[priority]["workers"] = self._active_worker_count(priority)
 
     async def _spawn_worker(self, priority: WorkPriority, index: int, generation: int) -> _WorkerSlot:
         worker_name = f"{priority}-{index}"
@@ -309,6 +334,23 @@ class ClassifierSupervisor:
         self._metrics[priority]["last_stderr_excerpt"] = str(status.get("recent_stderr_excerpt") or "")
         self._metrics[priority]["last_stderr_truncated_bytes"] = int(status.get("stderr_truncated_bytes") or 0)
 
+    def _record_unavailable_slot(self, priority: WorkPriority, index: int, reason: str) -> None:
+        slot = self._slots[priority][index]
+        self._slots[priority][index] = _WorkerSlot(
+            priority=priority,
+            index=index,
+            worker_name=slot.worker_name,
+            worker_generation=slot.worker_generation,
+            worker=None,
+            consumer_task=slot.consumer_task,
+        )
+        self._metrics[priority]["last_exit_reason"] = reason
+        self._metrics[priority]["workers"] = self._active_worker_count(priority)
+        self._record_restart(priority)
+
+    def _active_worker_count(self, priority: WorkPriority) -> int:
+        return sum(1 for slot in self._slots[priority] if slot.worker is not None)
+
     async def _consume_worker_events(self, worker_name: str, generation: int, worker: Any) -> None:
         while True:
             try:
@@ -349,6 +391,8 @@ class ClassifierSupervisor:
             await asyncio.sleep(self._watchdog_interval_seconds)
             for priority in ("live", "background"):
                 for index, slot in enumerate(list(self._slots[priority])):
+                    if slot.worker is None:
+                        continue
                     status = slot.worker.get_status()
                     exit_code = status.get("exit_code")
                     if exit_code is not None:
@@ -408,8 +452,15 @@ class ClassifierSupervisor:
         self._metrics[priority]["last_stderr_excerpt"] = str(worker_status.get("recent_stderr_excerpt") or "")
         self._metrics[priority]["last_stderr_truncated_bytes"] = int(worker_status.get("stderr_truncated_bytes") or 0)
         self._record_restart(priority)
-        new_slot = await self._spawn_worker(priority, index, generation=slot.worker_generation + 1)
-        self._slots[priority][index] = new_slot
+        try:
+            new_slot = await self._spawn_worker(priority, index, generation=slot.worker_generation + 1)
+        except ClassifierWorkerStartupTimeoutError:
+            self._record_unavailable_slot(priority, index, "startup_timeout")
+        except Exception:
+            self._record_unavailable_slot(priority, index, "startup_failed")
+        else:
+            self._slots[priority][index] = new_slot
+            self._metrics[priority]["workers"] = self._active_worker_count(priority)
         async with self._condition:
             self._condition.notify_all()
 

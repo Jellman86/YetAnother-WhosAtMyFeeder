@@ -579,3 +579,68 @@ async def test_classifier_supervisor_records_worker_stderr_on_exit():
     assert metrics["live"]["last_stderr_truncated_bytes"] == 12
 
     await supervisor.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_classifier_supervisor_survives_replacement_start_failure():
+    created: list[_FakeWorker] = []
+    factory_calls = 0
+
+    async def _factory(*, worker_name: str, worker_generation: int, **_kwargs):
+        nonlocal factory_calls
+        factory_calls += 1
+        if factory_calls == 2:
+            raise RuntimeError("replacement failed to start")
+        worker = _FakeWorker(worker_name, worker_generation)
+        created.append(worker)
+        return worker
+
+    supervisor = ClassifierSupervisor(
+        live_worker_count=1,
+        background_worker_count=1,
+        heartbeat_timeout_seconds=0.05,
+        hard_deadline_seconds=1.0,
+        worker_factory=_factory,
+        watchdog_interval_seconds=0.01,
+        restart_window_seconds=60.0,
+        restart_threshold=1,
+        breaker_cooldown_seconds=0.5,
+    )
+    await supervisor.start("live")
+
+    task = asyncio.create_task(
+        supervisor.classify(
+            priority="live",
+            work_id="live-replacement-failure",
+            lease_token=12,
+            image_b64="payload",
+            camera_name="front",
+            model_id="default",
+        )
+    )
+    await asyncio.sleep(0.01)
+    created[0].last_heartbeat_monotonic = time.monotonic() - 1.0
+
+    with pytest.raises(ClassifierWorkerHeartbeatTimeoutError):
+        await task
+
+    await asyncio.sleep(0.05)
+
+    assert supervisor._watchdog_task is not None
+    assert supervisor._watchdog_task.done() is False
+    metrics = supervisor.get_metrics()
+    assert metrics["live"]["restarts"] == 1
+    assert metrics["live"]["last_exit_reason"] == "startup_failed"
+    assert metrics["live"]["circuit_open"] is True
+
+    with pytest.raises(ClassifierWorkerCircuitOpenError):
+        await supervisor.classify(
+            priority="live",
+            work_id="live-replacement-failure-open",
+            lease_token=13,
+            image_b64="payload",
+            camera_name="front",
+            model_id="default",
+        )
+
+    await supervisor.shutdown()
