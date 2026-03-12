@@ -238,7 +238,10 @@
         "locale": "Idioma",
         "export_csv": "Exportar todos los avistamientos (CSV)",
         "export_csv_desc": "Descargar detecciones en formato eBird Record para importación manual.",
-        "export_csv_error": "Error al exportar CSV"
+        "export_csv_error": "Error al exportar CSV",
+        "export_date": "Fecha de exportación",
+        "export_date_label": "Fecha opcional de exportación de eBird",
+        "export_date_help": "Déjalo en blanco para exportar todas las detecciones, o elige un día para una única importación de eBird."
       },
       "birdweather": {
         "title": "BirdWeather",

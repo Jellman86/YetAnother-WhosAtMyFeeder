@@ -134,8 +134,13 @@ export async function fetchEbirdNotable(): Promise<EbirdNotableResult> {
     return handleResponse<EbirdNotableResult>(response);
 }
 
-export async function exportEbirdCsv(): Promise<void> {
-    const response = await apiFetch(`${API_BASE}/ebird/export`);
+export async function exportEbirdCsv(date?: string): Promise<void> {
+    const params = new URLSearchParams();
+    if (date) {
+        params.set('date', date);
+    }
+    const suffix = params.toString() ? `?${params.toString()}` : '';
+    const response = await apiFetch(`${API_BASE}/ebird/export${suffix}`);
     if (!response.ok) {
         throw new Error('Failed to export eBird CSV');
     }

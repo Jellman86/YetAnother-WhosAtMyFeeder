@@ -246,7 +246,10 @@
         "locale": "Локаль",
         "export_csv": "Экспорт всех наблюдений (CSV)",
         "export_csv_desc": "Скачать обнаружения в формате eBird Record для ручного импорта.",
-        "export_csv_error": "Ошибка экспорта CSV"
+        "export_csv_error": "Ошибка экспорта CSV",
+        "export_date": "Дата экспорта",
+        "export_date_label": "Необязательная дата экспорта eBird",
+        "export_date_help": "Оставьте пустым, чтобы экспортировать все обнаружения, или выберите один день для одного импорта в eBird."
       },
       "birdweather": {
         "title": "BirdWeather",

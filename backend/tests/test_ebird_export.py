@@ -1,0 +1,305 @@
+import csv
+import io
+import uuid
+from datetime import datetime
+
+import httpx
+import pytest
+import pytest_asyncio
+
+from app.config import settings
+from app.database import get_db
+from app.main import app
+
+
+@pytest_asyncio.fixture
+async def client():
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        yield client
+
+
+@pytest.fixture(autouse=True)
+def reset_auth_and_ebird_settings():
+    original_auth_enabled = settings.auth.enabled
+    original_public_enabled = settings.public_access.enabled
+    original_ebird_enabled = settings.ebird.enabled
+    original_ebird_api_key = settings.ebird.api_key
+    original_ebird_locale = settings.ebird.locale
+    original_lat = settings.location.latitude
+    original_lng = settings.location.longitude
+
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+    settings.location.latitude = 51.501
+    settings.location.longitude = -0.142
+
+    yield
+
+    settings.auth.enabled = original_auth_enabled
+    settings.public_access.enabled = original_public_enabled
+    settings.ebird.enabled = original_ebird_enabled
+    settings.ebird.api_key = original_ebird_api_key
+    settings.ebird.locale = original_ebird_locale
+    settings.location.latitude = original_lat
+    settings.location.longitude = original_lng
+
+
+@pytest_asyncio.fixture(autouse=True)
+async def clear_detections():
+    async with get_db() as db:
+        await db.execute("DELETE FROM detections")
+        await db.execute("DELETE FROM taxonomy_cache")
+        await db.commit()
+    yield
+    async with get_db() as db:
+        await db.execute("DELETE FROM detections")
+        await db.execute("DELETE FROM taxonomy_cache")
+        await db.commit()
+
+
+async def _insert_detection(
+    *,
+    frigate_event: str,
+    detection_time: datetime,
+    score: float,
+    display_name: str,
+    scientific_name: str,
+    common_name: str,
+    taxa_id: int | None = None,
+    camera_name: str = "feeder",
+    is_hidden: bool = False,
+) -> None:
+    async with get_db() as db:
+        await db.execute(
+            """
+            INSERT INTO detections (
+                detection_time, detection_index, score, display_name, category_name,
+                frigate_event, camera_name, is_hidden, scientific_name, common_name, taxa_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                detection_time,
+                0,
+                score,
+                display_name,
+                display_name,
+                frigate_event,
+                camera_name,
+                1 if is_hidden else 0,
+                scientific_name,
+                common_name,
+                taxa_id,
+            ),
+        )
+        await db.commit()
+
+
+async def _insert_taxonomy_cache(*, scientific_name: str, common_name: str, taxa_id: int) -> None:
+    async with get_db() as db:
+        await db.execute(
+            """
+            INSERT INTO taxonomy_cache (scientific_name, common_name, taxa_id, is_not_found)
+            VALUES (?, ?, ?, 0)
+            """,
+            (scientific_name, common_name, taxa_id),
+        )
+        await db.commit()
+
+
+def _read_csv_rows(payload: str) -> list[list[str]]:
+    return list(csv.reader(io.StringIO(payload)))
+
+
+@pytest.mark.asyncio
+async def test_ebird_export_is_strict_19_column_csv_without_header(client: httpx.AsyncClient):
+    settings.ebird.enabled = False
+    settings.ebird.api_key = None
+
+    event_id = f"evt-{uuid.uuid4().hex[:8]}"
+    await _insert_detection(
+        frigate_event=event_id,
+        detection_time=datetime(2026, 3, 12, 7, 5, 22),
+        score=0.8421,
+        display_name="Localized Name",
+        scientific_name="Turdus merula",
+        common_name="Common Blackbird",
+        camera_name="garden",
+    )
+
+    response = await client.get("/api/ebird/export")
+
+    assert response.status_code == 200, response.text
+    rows = _read_csv_rows(response.text)
+    assert len(rows) == 1
+
+    row = rows[0]
+    assert len(row) == 19
+    assert row[0] == "Common Blackbird"
+    assert row[1] == "Turdus"
+    assert row[2] == "merula"
+    assert row[8] == "03/12/2026"
+    assert row[9] == "07:05"
+    assert row[12] == "Incidental"
+    assert row[18].startswith("Exported from YA-WAMF")
+
+
+@pytest.mark.asyncio
+async def test_ebird_export_omits_hidden_detections(client: httpx.AsyncClient):
+    settings.ebird.enabled = False
+    settings.ebird.api_key = None
+
+    await _insert_detection(
+        frigate_event=f"evt-{uuid.uuid4().hex[:8]}",
+        detection_time=datetime(2026, 3, 12, 8, 0, 0),
+        score=0.9,
+        display_name="Hidden Bird",
+        scientific_name="Parus major",
+        common_name="Great Tit",
+        is_hidden=True,
+    )
+
+    response = await client.get("/api/ebird/export")
+
+    assert response.status_code == 200, response.text
+    assert _read_csv_rows(response.text) == []
+
+
+@pytest.mark.asyncio
+async def test_ebird_export_filters_to_single_requested_date(client: httpx.AsyncClient):
+    settings.ebird.enabled = False
+    settings.ebird.api_key = None
+
+    await _insert_detection(
+        frigate_event=f"evt-{uuid.uuid4().hex[:8]}",
+        detection_time=datetime(2026, 3, 11, 18, 0, 0),
+        score=0.91,
+        display_name="Bird One",
+        scientific_name="Parus major",
+        common_name="Great Tit",
+    )
+    await _insert_detection(
+        frigate_event=f"evt-{uuid.uuid4().hex[:8]}",
+        detection_time=datetime(2026, 3, 12, 7, 30, 0),
+        score=0.88,
+        display_name="Bird Two",
+        scientific_name="Turdus merula",
+        common_name="Common Blackbird",
+    )
+
+    response = await client.get("/api/ebird/export", params={"date": "2026-03-12"})
+
+    assert response.status_code == 200, response.text
+    rows = _read_csv_rows(response.text)
+    assert len(rows) == 1
+    assert rows[0][0] == "Common Blackbird"
+    assert rows[0][8] == "03/12/2026"
+
+
+@pytest.mark.asyncio
+async def test_ebird_export_prefers_english_taxonomy_common_name_over_localized_detection_name(
+    client: httpx.AsyncClient,
+):
+    settings.ebird.enabled = True
+    settings.ebird.api_key = "test-token"
+    settings.ebird.locale = "ru"
+
+    taxa_id = 424242
+    await _insert_taxonomy_cache(
+        scientific_name="Turdus merula",
+        common_name="Common Blackbird",
+        taxa_id=taxa_id,
+    )
+    await _insert_detection(
+        frigate_event=f"evt-{uuid.uuid4().hex[:8]}",
+        detection_time=datetime(2026, 3, 12, 9, 0, 0),
+        score=0.77,
+        display_name="Merel UI",
+        scientific_name="Turdus merula",
+        common_name="Amsel Localized",
+        taxa_id=taxa_id,
+    )
+
+    response = await client.get("/api/ebird/export")
+
+    assert response.status_code == 200, response.text
+    rows = _read_csv_rows(response.text)
+    assert len(rows) == 1
+    assert rows[0][0] == "Common Blackbird"
+
+
+@pytest.mark.asyncio
+async def test_ebird_export_does_not_duplicate_rows_when_multiple_taxonomy_cache_entries_share_taxa_id(
+    client: httpx.AsyncClient,
+):
+    settings.ebird.enabled = False
+    settings.ebird.api_key = None
+
+    taxa_id = 515151
+    await _insert_taxonomy_cache(
+        scientific_name="Turdus merula",
+        common_name="Common Blackbird",
+        taxa_id=taxa_id,
+    )
+    await _insert_taxonomy_cache(
+        scientific_name="Merula merula",
+        common_name="Blackbird Alias",
+        taxa_id=taxa_id,
+    )
+    await _insert_detection(
+        frigate_event=f"evt-{uuid.uuid4().hex[:8]}",
+        detection_time=datetime(2026, 3, 12, 10, 0, 0),
+        score=0.81,
+        display_name="Blackbird UI",
+        scientific_name="Turdus merula",
+        common_name="Localized Blackbird",
+        taxa_id=taxa_id,
+    )
+
+    response = await client.get("/api/ebird/export")
+
+    assert response.status_code == 200, response.text
+    rows = _read_csv_rows(response.text)
+    assert len(rows) == 1
+    assert rows[0][0] == "Common Blackbird"
+
+
+@pytest.mark.asyncio
+async def test_ebird_export_rejects_invalid_date_query(client: httpx.AsyncClient):
+    settings.ebird.enabled = False
+    settings.ebird.api_key = None
+
+    response = await client.get("/api/ebird/export", params={"date": "2026-13-40"})
+
+    assert response.status_code == 400
+    assert "Invalid date" in response.text
+
+
+@pytest.mark.asyncio
+async def test_ebird_export_tolerates_non_finite_score_metadata(client: httpx.AsyncClient):
+    settings.ebird.enabled = False
+    settings.ebird.api_key = None
+
+    event_id = f"evt-{uuid.uuid4().hex[:8]}"
+    await _insert_detection(
+        frigate_event=event_id,
+        detection_time=datetime(2026, 3, 12, 11, 0, 0),
+        score=0.91,
+        display_name="Bad Score Bird",
+        scientific_name="Parus major",
+        common_name="Great Tit",
+    )
+    async with get_db() as db:
+        await db.execute(
+            "UPDATE detections SET score = ? WHERE frigate_event = ?",
+            ("bad-score", event_id),
+        )
+        await db.commit()
+
+    response = await client.get("/api/ebird/export")
+
+    assert response.status_code == 200, response.text
+    rows = _read_csv_rows(response.text)
+    assert len(rows) == 1
+    assert rows[0][0] == "Great Tit"
+    assert rows[0][18] == "Exported from YA-WAMF"

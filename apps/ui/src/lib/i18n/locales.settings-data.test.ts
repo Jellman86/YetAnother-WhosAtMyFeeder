@@ -20,7 +20,10 @@ function pick(obj: LocaleRoot, path: string): unknown {
 
 const REQUIRED_KEYS = [
     'settings.data.cache_high_quality_event_snapshot_jpeg_quality',
-    'settings.data.cache_high_quality_event_snapshot_jpeg_quality_help'
+    'settings.data.cache_high_quality_event_snapshot_jpeg_quality_help',
+    'settings.integrations.ebird.export_date',
+    'settings.integrations.ebird.export_date_label',
+    'settings.integrations.ebird.export_date_help'
 ];
 
 const LOCALES: Array<[string, LocaleRoot]> = [

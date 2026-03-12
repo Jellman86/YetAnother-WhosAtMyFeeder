@@ -82,7 +82,7 @@
         initiateInaturalistOAuth: () => Promise<{ authorization_url: string }>;
         disconnectInaturalistOAuth: () => Promise<{ status: string }>;
         refreshInaturalistStatus: () => Promise<void>;
-        exportEbirdCsv: () => Promise<void>;
+        exportEbirdCsv: (date?: string) => Promise<void>;
         birdweatherStationTokenSaved: boolean;
         onActionFeedback: (type: 'success' | 'error', text: string) => void;
     } = $props();
@@ -93,6 +93,7 @@
     let inatDisconnecting = $state(false);
     let exportingEbirdCsv = $state(false);
     let testingBirdWeather = $state(false);
+    let ebirdExportDate = $state('');
 
     function actionErrorMessage(error: unknown) {
         if (error instanceof Error && error.message.trim().length > 0) {
@@ -551,11 +552,22 @@
             </div>
 
             <div class="pt-4 border-t border-slate-100 dark:border-slate-700/50">
+                <div class="mb-3">
+                    <label for="ebird-export-date" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.integrations.ebird.export_date')}</label>
+                    <input
+                        id="ebird-export-date"
+                        type="date"
+                        bind:value={ebirdExportDate}
+                        aria-label={$_('settings.integrations.ebird.export_date_label')}
+                        class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-teal-500 outline-none"
+                    />
+                    <p class="mt-1 text-[10px] text-slate-400 font-bold italic">{$_('settings.integrations.ebird.export_date_help')}</p>
+                </div>
                 <button
                     onclick={async () => {
                         try {
                             exportingEbirdCsv = true;
-                            await exportEbirdCsv();
+                            await exportEbirdCsv(ebirdExportDate || undefined);
                             onActionFeedback('success', $_('settings.integrations.ebird.export_csv'));
                         } catch (e) {
                             onActionFeedback('error', $_('settings.integrations.ebird.export_csv_error'));

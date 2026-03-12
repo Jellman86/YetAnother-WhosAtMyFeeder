@@ -1,8 +1,8 @@
 from typing import Optional
-import asyncio
 import csv
 import io
-from datetime import datetime
+import math
+from datetime import date, datetime, time, timedelta
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -12,44 +12,146 @@ from app.auth import get_auth_context_with_legacy
 from app.database import get_db
 from app.config import settings
 from app.services.ebird_service import ebird_service
-from app.services.taxonomy.taxonomy_service import taxonomy_service
-
 log = structlog.get_logger()
 router = APIRouter(prefix="/ebird", tags=["ebird"])
 
 
-def _require_ebird():
+def _require_ebird_api():
     if not settings.ebird.enabled or not settings.ebird.api_key:
         raise HTTPException(status_code=400, detail="eBird integration is disabled")
-    # API key not strictly required for export, but config enabled is.
+
+
+def _format_ebird_row(
+    *,
+    display_name: str,
+    scientific_name: str | None,
+    detection_time: datetime,
+    score: float,
+    camera_name: str | None,
+    common_name: str | None,
+    english_common_name: str | None,
+) -> list[str]:
+    date_str = detection_time.strftime("%m/%d/%Y")
+    time_str = detection_time.strftime("%H:%M")
+
+    genus = ""
+    species = ""
+    if scientific_name:
+        parts = scientific_name.strip().split(" ", 1)
+        if len(parts) > 0:
+            genus = parts[0]
+        if len(parts) > 1:
+            species = parts[1]
+
+    export_common_name = english_common_name or common_name or display_name
+    location_name = f"Home ({camera_name})" if camera_name else "Home"
+    lat = settings.location.latitude
+    lon = settings.location.longitude
+    submission_comment = "Exported from YA-WAMF"
+
+    try:
+        confidence = float(score)
+    except (TypeError, ValueError):
+        confidence = None
+    if confidence is not None and math.isfinite(confidence):
+        submission_comment = f"{submission_comment}; AI confidence {confidence:.2f}"
+
+    return [
+        export_common_name,
+        genus,
+        species,
+        "1",
+        "",
+        location_name,
+        f"{lat:.6f}" if lat is not None else "",
+        f"{lon:.6f}" if lon is not None else "",
+        date_str,
+        time_str,
+        "",
+        "",
+        "Incidental",
+        "1",
+        "",
+        "N",
+        "",
+        "",
+        submission_comment,
+    ]
 
 
 @router.get("/export")
-async def export_ebird_csv(auth=Depends(get_auth_context_with_legacy)):
+async def export_ebird_csv(
+    date_filter: Optional[str] = Query(None, alias="date", description="Optional single export date in YYYY-MM-DD"),
+    auth=Depends(get_auth_context_with_legacy),
+):
     """
     Export all non-hidden detections in eBird Record Format CSV.
     """
-    _require_ebird()
-    
+    params: list[object] = []
+    date_clause = ""
+
+    if date_filter:
+        try:
+            requested_day = date.fromisoformat(date_filter)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail="Invalid date; expected YYYY-MM-DD") from exc
+        start_dt = datetime.combine(requested_day, time.min)
+        end_dt = datetime.combine(requested_day + timedelta(days=1), time.min)
+        date_clause = " AND d.detection_time >= ? AND d.detection_time < ?"
+        params.extend([start_dt, end_dt])
+
     async def iter_csv():
         f = io.StringIO()
         writer = csv.writer(f, quoting=csv.QUOTE_MINIMAL)
-        
-        # We omit the header row as eBird 'Record Format' imports often 
-        # try to parse it as data, and different eBird locales expect different headers.
-        # The column order below matches the standard eBird Record Format (Extended).
+
+        # eBird spreadsheet import is strict about column order and often treats headers as data,
+        # so this endpoint emits headerless rows in the standard 19-column record format.
         
         async with get_db() as db:
-            async with db.execute("""
+            async with db.execute(
+                f"""
                 SELECT 
-                    display_name, scientific_name, detection_time, 
-                    score, camera_name, common_name
-                FROM detections
-                WHERE is_hidden = 0 
-                ORDER BY detection_time DESC
-            """) as cursor:
+                    d.display_name,
+                    d.scientific_name,
+                    d.detection_time, 
+                    d.score,
+                    d.camera_name,
+                    d.common_name,
+                    COALESCE(
+                        (
+                            SELECT tc_by_name.common_name
+                            FROM taxonomy_cache tc_by_name
+                            WHERE d.scientific_name IS NOT NULL
+                              AND LOWER(tc_by_name.scientific_name) = LOWER(d.scientific_name)
+                            ORDER BY tc_by_name.id ASC
+                            LIMIT 1
+                        ),
+                        (
+                            SELECT tc_by_taxa.common_name
+                            FROM taxonomy_cache tc_by_taxa
+                            WHERE d.taxa_id IS NOT NULL
+                              AND tc_by_taxa.taxa_id = d.taxa_id
+                            ORDER BY tc_by_taxa.id ASC
+                            LIMIT 1
+                        )
+                    ) AS english_common_name
+                FROM detections d
+                WHERE d.is_hidden = 0
+                {date_clause}
+                ORDER BY d.detection_time DESC
+                """,
+                params,
+            ) as cursor:
                 async for row in cursor:
-                    display_name, scientific_name, detection_time, score, camera_name, common_name = row
+                    (
+                        display_name,
+                        scientific_name,
+                        detection_time,
+                        score,
+                        camera_name,
+                        common_name,
+                        english_common_name,
+                    ) = row
                     
                     # Handle date parsing if string
                     dt = detection_time
@@ -62,68 +164,17 @@ async def export_ebird_csv(auth=Depends(get_auth_context_with_legacy)):
                             except ValueError:
                                 continue # Skip invalid dates
                     
-                    # eBird preferred formats
-                    date_str = dt.strftime("%m/%d/%Y")
-                    time_str = dt.strftime("%H:%M")
-                    
-                    lat = settings.location.latitude
-                    lon = settings.location.longitude
-
-                    # Parse Scientific Name into Genus and Species
-                    genus = ""
-                    species = ""
-                    if scientific_name:
-                        parts = scientific_name.strip().split(' ', 1)
-                        if len(parts) > 0:
-                            genus = parts[0]
-                        if len(parts) > 1:
-                            species = parts[1]
-                    
-                    # Use stored common name if available (likely eBird or iNat normalized), otherwise fallback to display label
-                    ebird_common_name = common_name if common_name else display_name
-
-                    # eBird Record Format (Extended) - 19 Columns
-                    # 1. Common Name
-                    # 2. Genus
-                    # 3. Species
-                    # 4. Number
-                    # 5. Species Comments
-                    # 6. Location Name
-                    # 7. Latitude
-                    # 8. Longitude
-                    # 9. Date
-                    # 10. Start Time
-                    # 11. State/Province
-                    # 12. Country Code
-                    # 13. Protocol
-                    # 14. Number of Observers
-                    # 15. Duration
-                    # 16. All Observations Reported?
-                    # 17. Effort Distance Miles
-                    # 18. Effort Area Acres
-                    # 19. Submission Comments
-                    
-                    writer.writerow([
-                        ebird_common_name,                          # 1. Common Name
-                        genus,                                      # 2. Genus
-                        species,                                    # 3. Species
-                        1,                                          # 4. Number
-                        f"Confidence: {score:.2f}",                 # 5. Species Comments
-                        f"Home ({camera_name})",                    # 6. Location Name
-                        f"{lat:.6f}" if lat is not None else "",    # 7. Latitude
-                        f"{lon:.6f}" if lon is not None else "",    # 8. Longitude
-                        date_str,                                   # 9. Date
-                        time_str,                                   # 10. Start Time
-                        "",                                         # 11. State/Province
-                        "",                                         # 12. Country Code
-                        "Incidental",                               # 13. Protocol
-                        1,                                          # 14. Number of Observers
-                        "",                                         # 15. Duration
-                        "N",                                        # 16. All Obs Reported
-                        "",                                         # 17. Effort Distance Miles
-                        "",                                         # 18. Effort Area Acres
-                        "Exported from YA-WAMF"                     # 19. Submission Comments
-                    ])
+                    writer.writerow(
+                        _format_ebird_row(
+                            display_name=display_name,
+                            scientific_name=scientific_name,
+                            detection_time=dt,
+                            score=score,
+                            camera_name=camera_name,
+                            common_name=common_name,
+                            english_common_name=english_common_name,
+                        )
+                    )
                     
                     f.seek(0)
                     data = f.read()
@@ -151,7 +202,7 @@ async def get_nearby_observations(
     max_results: Optional[int] = Query(None, ge=1, le=200, description="Max results"),
     auth=Depends(get_auth_context_with_legacy)
 ):
-    _require_ebird()
+    _require_ebird_api()
     if lat is None or lng is None:
         if settings.location.latitude is None or settings.location.longitude is None:
             raise HTTPException(status_code=400, detail="Location is not configured")
@@ -208,7 +259,7 @@ async def get_notable_observations(
     max_results: Optional[int] = Query(None, ge=1, le=200, description="Max results"),
     auth=Depends(get_auth_context_with_legacy)
 ):
-    _require_ebird()
+    _require_ebird_api()
     if lat is None or lng is None:
         if settings.location.latitude is None or settings.location.longitude is None:
             raise HTTPException(status_code=400, detail="Location is not configured")
