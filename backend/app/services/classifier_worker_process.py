@@ -160,7 +160,36 @@ class ClassifierWorkerProcess:
             before_recovery = self._runtime_recovery_snapshot()
             loop = asyncio.get_running_loop()
 
-            def _progress_callback(current, total, score, label, frame_thumb=None, frame_index=None, clip_total=None, model_name=None):
+            def _progress_callback(*args, **kwargs):
+                current = kwargs.get("current_frame", kwargs.get("current"))
+                total = kwargs.get("total_frames", kwargs.get("total"))
+                score = kwargs.get("frame_score", kwargs.get("score"))
+                label = kwargs.get("top_label", kwargs.get("label"))
+                frame_thumb = kwargs.get("frame_thumb")
+                frame_index = kwargs.get("frame_index")
+                clip_total = kwargs.get("clip_total")
+                model_name = kwargs.get("model_name")
+
+                if current is None and len(args) > 0:
+                    current = args[0]
+                if total is None and len(args) > 1:
+                    total = args[1]
+                if score is None and len(args) > 2:
+                    score = args[2]
+                if label is None and len(args) > 3:
+                    label = args[3]
+                if frame_thumb is None and len(args) > 4:
+                    frame_thumb = args[4]
+                if frame_index is None and len(args) > 5:
+                    frame_index = args[5]
+                if clip_total is None and len(args) > 6:
+                    clip_total = args[6]
+                if model_name is None and len(args) > 7:
+                    model_name = args[7]
+
+                if current is None or total is None or score is None or label is None:
+                    return None
+
                 future = asyncio.run_coroutine_threadsafe(
                     self._emit_progress(
                         request_id=str(message["request_id"]),

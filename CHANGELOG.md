@@ -6,6 +6,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- **Fixed:** Subprocess video-classification progress callbacks now accept both keyword and positional callback signatures (`current_frame`/`total_frames` and legacy positional args), restoring reliable `reclassification_progress` SSE emission for frame-strip UI updates during reclassify/auto-video runs.
 - **Added:** Location weather units now support a third `british` mode (`°C`, `mph`, `mm`) across backend settings/auth payloads and frontend weather rendering/helpers, so UK-style mixed units can be selected globally without temperature/speed/precipitation mismatches.
 - **Fixed:** OpenVINO GPU runtime failures (for example `CL_OUT_OF_RESOURCES`) are no longer silently treated as empty classifier output. OpenVINO classify/classify_raw paths now surface these as invalid-runtime errors so classifier runtime recovery can immediately fail over to a safer backend/provider (typically Intel CPU) instead of cascading into repeated `video_no_results` failures and circuit-breaker opens.
 - **Fixed:** Auto video analysis no longer collapses into `video_no_results` when progress delivery is slow: worker-side progress emission is now best-effort, video classification no longer treats progress callback failures as fatal, and supervisor progress callbacks no longer block worker result consumption behind slow SSE/broadcast handling.

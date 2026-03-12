@@ -247,6 +247,58 @@ async def test_classifier_worker_process_handles_video_request_and_progress():
 
 
 @pytest.mark.asyncio
+async def test_classifier_worker_process_accepts_keyword_progress_callback_arguments():
+    reader = asyncio.StreamReader()
+    writer = _MemoryWriter()
+
+    def _classify_video_fn(*, video_path: str, stride: int, max_frames: int | None, progress_callback):
+        assert video_path == "/tmp/demo.mp4"
+        progress_callback(
+            current_frame=1,
+            total_frames=3,
+            frame_score=0.7,
+            top_label="Robin",
+            frame_thumb=None,
+            frame_index=0,
+            clip_total=3,
+            model_name="bird",
+        )
+        return [{"label": "Robin", "score": 0.91, "index": 0}]
+
+    process = ClassifierWorkerProcess(
+        reader=reader,
+        writer=writer,
+        classify_fn=lambda **_: [],
+        classify_video_fn=_classify_video_fn,
+        worker_generation=15,
+        heartbeat_interval_seconds=0.5,
+    )
+
+    task = asyncio.create_task(process.run())
+    await asyncio.sleep(0)
+    reader.feed_data(
+        process.encode_message(
+            build_classify_video_request(
+                worker_generation=15,
+                request_id="req-video-keyword-progress",
+                work_id="video-3",
+                lease_token=9,
+                video_path="/tmp/demo.mp4",
+                stride=5,
+                max_frames=3,
+            )
+        )
+    )
+    await asyncio.sleep(0.05)
+    reader.feed_eof()
+    await task
+
+    assert any(message["type"] == "progress" and message["top_label"] == "Robin" for message in writer.messages)
+    assert any(message["type"] == "result" and message["results"][0]["label"] == "Robin" for message in writer.messages)
+    assert not any(message["type"] == "error" for message in writer.messages)
+
+
+@pytest.mark.asyncio
 async def test_classifier_worker_process_does_not_fail_video_classification_when_progress_emit_is_slow():
     reader = asyncio.StreamReader()
     writer = _SlowProgressWriter()
