@@ -7,13 +7,19 @@ from io import BytesIO
 from PIL import Image
 
 from app.config import settings
-from app.services.classifier_service import ClassifierService
+from app.services.classifier_service import (
+    BackgroundImageClassificationUnavailableError,
+    ClassifierService,
+)
 from app.services.frigate_client import frigate_client
 from app.services.detection_service import DetectionService
+from app.services.error_diagnostics import error_diagnostics_history
 from app.utils.frigate import normalize_sub_label
 
 log = structlog.get_logger()
 BACKFILL_EVENT_TIMEOUT_SECONDS = 45.0
+BACKFILL_EVENTS_PAGE_LIMIT = 100
+BACKFILL_EVENTS_MAX_PAGES_PER_CAMERA = 1000
 
 
 @dataclass
@@ -24,6 +30,7 @@ class BackfillResult:
     skipped: int = 0
     errors: int = 0
     skipped_reasons: dict[str, int] = field(default_factory=lambda: defaultdict(int))
+    error_reasons: dict[str, int] = field(default_factory=lambda: defaultdict(int))
 
 
 class BackfillService:
@@ -33,35 +40,104 @@ class BackfillService:
         self.classifier = classifier
         self.detection_service = DetectionService(classifier)
 
+    @staticmethod
+    def _oldest_event_cursor(events: list[dict], fallback_before_ts: float) -> float | None:
+        timestamps: list[float] = []
+        for event in events:
+            for key in ("start_time", "end_time"):
+                value = event.get(key)
+                if isinstance(value, (int, float)):
+                    timestamps.append(float(value))
+                    break
+        if not timestamps:
+            return None
+        oldest = min(timestamps)
+        return min(oldest, float(fallback_before_ts))
+
+    async def _fetch_camera_events(
+        self,
+        *,
+        after_ts: float,
+        before_ts: float,
+        camera: str | None,
+    ) -> list[dict]:
+        all_events: list[dict] = []
+        cursor_before = float(before_ts)
+        pages = 0
+
+        while pages < BACKFILL_EVENTS_MAX_PAGES_PER_CAMERA:
+            events = await frigate_client.list_events(
+                after=after_ts,
+                before=cursor_before,
+                label="bird",
+                camera=camera,
+                has_snapshot=True,
+                limit=BACKFILL_EVENTS_PAGE_LIMIT,
+            )
+            if not events:
+                break
+
+            all_events.extend(events)
+            pages += 1
+
+            if len(events) < BACKFILL_EVENTS_PAGE_LIMIT:
+                break
+
+            next_cursor = self._oldest_event_cursor(events, cursor_before)
+            if next_cursor is None:
+                log.warning(
+                    "Backfill pagination stopped because Frigate events had no usable timestamps",
+                    camera=camera,
+                    pages=pages,
+                )
+                break
+
+            next_cursor = max(after_ts, next_cursor - 0.001)
+            if next_cursor >= cursor_before:
+                log.warning(
+                    "Backfill pagination stopped because Frigate cursor did not advance",
+                    camera=camera,
+                    current_before=cursor_before,
+                    next_before=next_cursor,
+                    pages=pages,
+                )
+                break
+            if next_cursor <= after_ts:
+                break
+
+            cursor_before = next_cursor
+
+        if pages >= BACKFILL_EVENTS_MAX_PAGES_PER_CAMERA:
+            log.warning(
+                "Backfill pagination hit maximum page budget",
+                camera=camera,
+                max_pages=BACKFILL_EVENTS_MAX_PAGES_PER_CAMERA,
+                page_limit=BACKFILL_EVENTS_PAGE_LIMIT,
+            )
+
+        return all_events
+
     async def fetch_frigate_events(self, after_ts: float, before_ts: float, cameras: list[str] = None) -> list[dict]:
         """
         Fetch bird events from Frigate API for a given time range.
         """
         all_events = []
 
-        # If cameras are configured, fetch events for each camera
         camera_list = cameras or settings.frigate.camera or []
 
         if camera_list:
-            # Fetch for each configured camera
             for camera in camera_list:
-                events = await frigate_client.list_events(
-                    after=after_ts,
-                    before=before_ts,
-                    label="bird",
+                events = await self._fetch_camera_events(
+                    after_ts=after_ts,
+                    before_ts=before_ts,
                     camera=camera,
-                    has_snapshot=True,
-                    limit=100
                 )
                 all_events.extend(events)
         else:
-            # Fetch all cameras
-            events = await frigate_client.list_events(
-                after=after_ts,
-                before=before_ts,
-                label="bird",
-                has_snapshot=True,
-                limit=100
+            events = await self._fetch_camera_events(
+                after_ts=after_ts,
+                before_ts=before_ts,
+                camera=None,
             )
             all_events.extend(events)
 
@@ -90,6 +166,16 @@ class BackfillService:
             # Fetch snapshot from Frigate using centralized client
             snapshot_data = await frigate_client.get_snapshot(frigate_event, crop=True, quality=95)
             if not snapshot_data:
+                error_diagnostics_history.record(
+                    source="backfill",
+                    component="detections",
+                    stage="fetch_snapshot",
+                    reason_code="fetch_snapshot_failed",
+                    message="Historical event snapshot fetch failed",
+                    severity="error",
+                    event_id=frigate_event,
+                    context={"camera": event.get("camera")},
+                )
                 return 'error', 'fetch_snapshot_failed'
 
             # Classify the image (async to use thread pool)
@@ -101,6 +187,16 @@ class BackfillService:
 
             if not results:
                 log.debug("No classification results", event_id=frigate_event)
+                error_diagnostics_history.record(
+                    source="backfill",
+                    component="detections",
+                    stage="classify_snapshot",
+                    reason_code="classification_failed",
+                    message="Historical event classification returned no results",
+                    severity="error",
+                    event_id=frigate_event,
+                    context={"camera": event.get("camera")},
+                )
                 return 'error', 'classification_failed'
 
             # Capture Frigate metadata (needed for fallback)
@@ -111,7 +207,7 @@ class BackfillService:
             sub_label = normalize_sub_label(event.get('sub_label'))
 
             # Use shared filtering and labeling logic (with Frigate sublabel for fallback)
-            top, reason = self.detection_service.filter_and_label(results[0], frigate_event, sub_label)
+            top, reason = self.detection_service.filter_and_label(results[0], frigate_event, sub_label, frigate_score)
             if not top:
                 if reason == "invalid_score":
                     log.warning("Historical event skipped due to invalid classifier score", event_id=frigate_event)
@@ -137,12 +233,39 @@ class BackfillService:
             log.info("Backfilled detection", event_id=frigate_event, species=top['label'], score=top['score'])
             return 'new', None
 
+        except BackgroundImageClassificationUnavailableError as e:
+            reason = str(getattr(e, "reason_code", "") or str(e) or "background_image_unavailable")
+            log.warning("Historical event classification unavailable", event_id=frigate_event, reason=reason)
+            error_diagnostics_history.record(
+                source="backfill",
+                component="detections",
+                stage="classify_snapshot",
+                reason_code=reason,
+                message="Historical event classification unavailable",
+                severity="error",
+                event_id=frigate_event,
+                context={"camera": event.get("camera")},
+            )
+            return "error", reason
         except Exception as e:
             log.error(
                 "Error processing historical event",
                 event_id=frigate_event,
                 error_type=type(e).__name__,
                 error=str(e) or repr(e),
+            )
+            error_diagnostics_history.record(
+                source="backfill",
+                component="detections",
+                stage="process_event",
+                reason_code="exception",
+                message="Historical event processing failed",
+                severity="error",
+                event_id=frigate_event,
+                context={
+                    "error_type": type(e).__name__,
+                    "error": str(e) or repr(e),
+                },
             )
             return 'error', 'exception'
 
@@ -161,6 +284,16 @@ class BackfillService:
                 "Historical event processing timed out",
                 event_id=event.get("id"),
                 timeout_seconds=timeout_seconds
+            )
+            error_diagnostics_history.record(
+                source="backfill",
+                component="detections",
+                stage="process_event",
+                reason_code="timeout",
+                message="Historical event processing timed out",
+                severity="error",
+                event_id=event.get("id"),
+                context={"timeout_seconds": timeout_seconds},
             )
             return "error", "timeout"
 
@@ -191,11 +324,14 @@ class BackfillService:
                     result.skipped_reasons[reason] += 1
             else:
                 result.errors += 1
+                if reason:
+                    result.error_reasons[reason] += 1
 
         log.info("Backfill complete",
                  processed=result.processed,
                  new=result.new_detections,
                  skipped=result.skipped,
-                 errors=result.errors)
+                 errors=result.errors,
+                 error_reasons=dict(result.error_reasons))
 
         return result

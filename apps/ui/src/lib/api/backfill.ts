@@ -14,6 +14,7 @@ export interface BackfillResult {
     skipped: number;
     errors: number;
     skipped_reasons?: Record<string, number>;
+    error_reasons?: Record<string, number>;
     message: string;
 }
 
@@ -39,6 +40,7 @@ export interface WeatherBackfillResult {
     updated: number;
     skipped: number;
     errors: number;
+    error_reasons?: Record<string, number>;
     message: string;
 }
 
@@ -62,6 +64,7 @@ export interface BackfillJobStatus {
     skipped: number;
     skipped_reasons?: Record<string, number>;
     errors: number;
+    error_reasons?: Record<string, number>;
     message?: string;
     started_at?: string | null;
     finished_at?: string | null;

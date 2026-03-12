@@ -6,6 +6,7 @@ import pytest
 from PIL import Image
 
 from app.services.backfill_service import BackfillService
+from app.services.classifier_service import BackgroundImageClassificationUnavailableError
 
 
 @pytest.mark.asyncio
@@ -78,3 +79,107 @@ async def test_process_historical_event_returns_invalid_score_for_nan_classifier
     assert status == "skipped"
     assert reason == "invalid_score"
     save_mock.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_process_historical_event_passes_frigate_score_into_filtering(monkeypatch):
+    classifier = MagicMock()
+    classifier.classify_async_background = AsyncMock(
+        return_value=[{"label": "Wood Pigeon", "score": 0.82, "index": 3}]
+    )
+    service = BackfillService(classifier)
+
+    image = Image.new("RGB", (8, 8), color="white")
+    buffer = BytesIO()
+    image.save(buffer, format="JPEG")
+
+    async def _fake_snapshot(*_args, **_kwargs):
+        return buffer.getvalue()
+
+    monkeypatch.setattr("app.services.backfill_service.frigate_client.get_snapshot", _fake_snapshot)
+
+    observed: dict[str, object] = {}
+
+    def _fake_filter(result, frigate_event, sub_label, frigate_score=None):
+        observed["result"] = result
+        observed["frigate_event"] = frigate_event
+        observed["sub_label"] = sub_label
+        observed["frigate_score"] = frigate_score
+        return result, "threshold_passed"
+
+    save_mock = AsyncMock(return_value=(True, True))
+    service.detection_service.filter_and_label = _fake_filter  # type: ignore[method-assign]
+    service.detection_service.save_detection = save_mock
+
+    status, reason = await service.process_historical_event(
+        {
+            "id": "evt-frigate-score",
+            "camera": "front",
+            "start_time": 1700000000,
+            "sub_label": "Columba palumbus",
+            "data": {"top_score": 0.91},
+        }
+    )
+
+    assert status == "new"
+    assert reason is None
+    assert observed["frigate_score"] == pytest.approx(0.91)
+    save_mock.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_process_historical_event_returns_classifier_worker_reason(monkeypatch):
+    classifier = MagicMock()
+    classifier.classify_async_background = AsyncMock(
+        side_effect=BackgroundImageClassificationUnavailableError("background_image_worker_unavailable")
+    )
+    service = BackfillService(classifier)
+
+    image = Image.new("RGB", (8, 8), color="white")
+    buffer = BytesIO()
+    image.save(buffer, format="JPEG")
+
+    async def _fake_snapshot(*_args, **_kwargs):
+        return buffer.getvalue()
+
+    monkeypatch.setattr("app.services.backfill_service.frigate_client.get_snapshot", _fake_snapshot)
+
+    status, reason = await service.process_historical_event(
+        {
+            "id": "evt-worker-unavailable",
+            "camera": "front",
+            "start_time": 1700000000,
+        }
+    )
+
+    assert status == "error"
+    assert reason == "background_image_worker_unavailable"
+
+
+@pytest.mark.asyncio
+async def test_fetch_frigate_events_paginates_until_exhausted(monkeypatch):
+    classifier = MagicMock()
+    service = BackfillService(classifier)
+
+    page_one = [{"id": f"evt-{idx}", "start_time": 2000 - idx} for idx in range(100)]
+    page_two = [{"id": f"evt-{100 + idx}", "start_time": 1900 - idx} for idx in range(100)]
+    page_three = [{"id": f"evt-{200 + idx}", "start_time": 1800 - idx} for idx in range(35)]
+    seen_before_values: list[float] = []
+
+    async def _fake_list_events(*, after=None, before=None, **_kwargs):
+        seen_before_values.append(float(before))
+        if len(seen_before_values) == 1:
+            return page_one
+        if len(seen_before_values) == 2:
+            return page_two
+        return page_three
+
+    monkeypatch.setattr("app.services.backfill_service.frigate_client.list_events", _fake_list_events)
+
+    events = await service.fetch_frigate_events(after_ts=1000.0, before_ts=3000.0, cameras=["front"])
+
+    assert len(events) == 235
+    assert events[0]["id"] == "evt-0"
+    assert events[-1]["id"] == "evt-234"
+    assert seen_before_values[0] == pytest.approx(3000.0)
+    assert seen_before_values[1] < seen_before_values[0]

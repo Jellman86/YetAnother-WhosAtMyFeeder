@@ -1,4 +1,9 @@
-from app.routers.backfill import BackfillJobStatus, _build_running_message, _build_skipped_message
+from app.routers.backfill import (
+    BackfillJobStatus,
+    _build_error_message,
+    _build_running_message,
+    _build_skipped_message,
+)
 
 
 def test_build_skipped_message_without_reasons():
@@ -25,6 +30,24 @@ def test_build_skipped_message_mixed_reasons():
         },
     )
     assert msg == "5 already existed, 2 had invalid classifier scores, 10 skipped by filters/validation"
+
+
+def test_build_error_message_without_reasons():
+    assert _build_error_message(0, None) == ""
+    assert _build_error_message(3, None) == "3 error(s)"
+
+
+def test_build_error_message_reports_known_detection_failures():
+    msg = _build_error_message(
+        7,
+        {
+            "fetch_snapshot_failed": 2,
+            "background_image_worker_unavailable": 1,
+            "timeout": 3,
+            "exception": 1,
+        },
+    )
+    assert msg == "2 missing snapshots, 1 classifier worker unavailable, 3 timed out, 1 processing exception"
 
 
 def test_build_running_message_reports_scanning_when_total_unknown():

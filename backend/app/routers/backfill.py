@@ -18,6 +18,7 @@ from app.auth import require_owner, AuthContext
 from app.services.broadcaster import broadcaster
 from app.services.mqtt_service import mqtt_service
 from app.services.auto_video_classifier_service import auto_video_classifier
+from app.services.error_diagnostics import error_diagnostics_history
 from app.utils.tasks import create_background_task
 
 router = APIRouter()
@@ -37,6 +38,7 @@ class BackfillJobStatus(BaseModel):
     skipped: int = 0
     skipped_reasons: dict[str, int] = Field(default_factory=dict)
     errors: int = 0
+    error_reasons: dict[str, int] = Field(default_factory=dict)
     message: str = ""
     started_at: Optional[str] = None
     finished_at: Optional[str] = None
@@ -91,6 +93,7 @@ class BackfillResponse(BaseModel):
     skipped: int
     errors: int
     skipped_reasons: dict[str, int] = Field(default_factory=dict)
+    error_reasons: dict[str, int] = Field(default_factory=dict)
     message: str
 
 
@@ -119,6 +122,7 @@ class WeatherBackfillResponse(BaseModel):
     updated: int
     skipped: int
     errors: int
+    error_reasons: dict[str, int] = Field(default_factory=dict)
     message: str
 
 
@@ -179,6 +183,41 @@ def _build_running_message(job: BackfillJobStatus, classifier_status: Optional[d
     if processed <= 0:
         return f"Queued {total} historical event(s)"
     return "Processing historical events"
+
+
+def _build_error_message(errors: int, error_reasons: Optional[dict[str, int]] = None) -> str:
+    if errors <= 0:
+        return ""
+
+    reasons = {
+        str(k): int(v)
+        for k, v in (error_reasons or {}).items()
+        if k and int(v) > 0
+    }
+    if not reasons:
+        return f"{errors} error(s)"
+
+    labels = [
+        ("fetch_snapshot_failed", "missing snapshots"),
+        ("background_image_worker_unavailable", "classifier worker unavailable"),
+        ("background_image_worker_startup_timeout", "classifier startup timeout"),
+        ("background_image_worker_timed_out", "classifier worker timeout"),
+        ("background_image_lease_expired", "classifier lease expiry"),
+        ("background_image_overloaded", "classifier overload"),
+        ("background_image_circuit_open", "classifier recovery pause"),
+        ("classification_failed", "empty classifier result"),
+        ("timeout", "timed out"),
+        ("exception", "processing exception"),
+    ]
+    parts: list[str] = []
+    for reason_code, label in labels:
+        count = reasons.pop(reason_code, 0)
+        if count > 0:
+            parts.append(f"{count} {label}")
+    other_errors = sum(reasons.values())
+    if other_errors > 0:
+        parts.append(f"{other_errors} other error(s)")
+    return ", ".join(parts) if parts else f"{errors} error(s)"
 
 
 def _resolve_date_range(date_range: str, start_date: Optional[str], end_date: Optional[str], lang: str) -> tuple[datetime, datetime]:
@@ -302,7 +341,7 @@ async def backfill_detections(
             message += f", {_build_skipped_message(result.skipped, result.skipped_reasons)}"
 
         if result.errors > 0:
-            message += f", {result.errors} error(s)"
+            message += f", {_build_error_message(result.errors, result.error_reasons)}"
 
         return BackfillResponse(
             status="completed",
@@ -311,6 +350,7 @@ async def backfill_detections(
             skipped=result.skipped,
             errors=result.errors,
             skipped_reasons=result.skipped_reasons,
+            error_reasons=result.error_reasons,
             message=message
         )
 
@@ -385,6 +425,8 @@ async def backfill_detections_async(
                         job.skipped_reasons[reason] = job.skipped_reasons.get(reason, 0) + 1
                 else:
                     job.errors += 1
+                    if reason:
+                        job.error_reasons[reason] = job.error_reasons.get(reason, 0) + 1
                 if job.processed - last_broadcast >= broadcast_every or job.processed == job.total:
                     last_broadcast = job.processed
                     job.message = _build_running_message(job, backfill_service.classifier.get_admission_status())
@@ -399,7 +441,7 @@ async def backfill_detections_async(
             if job.skipped:
                 message += f", {_build_skipped_message(job.skipped, job.skipped_reasons)}"
             if job.errors:
-                message += f", {job.errors} error(s)"
+                message += f", {_build_error_message(job.errors, job.error_reasons)}"
             job.message = message
             job.status = "completed"
             job.finished_at = _now_iso()
@@ -407,11 +449,31 @@ async def backfill_detections_async(
                 "type": "backfill_complete",
                 "data": _job_payload(job)
             })
+        except asyncio.CancelledError:
+            log.warning("Async backfill cancelled", job_id=job.id)
+            if _JOB_STORE.get(job.id) is job:
+                job.status = "failed"
+                job.message = "Backfill cancelled"
+                job.finished_at = _now_iso()
+                await broadcaster.broadcast({
+                    "type": "backfill_failed",
+                    "data": _job_payload(job)
+                })
+            raise
         except Exception as e:
             log.error("Async backfill failed", error=str(e))
             job.status = "failed"
             job.message = str(e)
             job.finished_at = _now_iso()
+            error_diagnostics_history.record(
+                source="backfill",
+                component="detections",
+                stage="job",
+                reason_code="job_failed",
+                message="Async detection backfill failed",
+                severity="error",
+                context={"job_id": job.id, "error": str(e) or repr(e)},
+            )
             await broadcaster.broadcast({
                 "type": "backfill_failed",
                 "data": _job_payload(job)
@@ -477,6 +539,7 @@ async def backfill_weather(
             updated = 0
             skipped = 0
             errors = 0
+            error_reasons: dict[str, int] = {}
 
             for det in detections:
                 try:
@@ -511,13 +574,14 @@ async def backfill_weather(
                     updated += 1
                 except Exception as e:
                     errors += 1
+                    error_reasons["exception"] = error_reasons.get("exception", 0) + 1
                     log.warning("Weather backfill failed", error=str(e), event_id=det.get("frigate_event"))
 
             message = f"Updated {updated} detection(s)"
             if skipped:
                 message += f", {skipped} skipped"
             if errors:
-                message += f", {errors} errors"
+                message += f", {_build_error_message(errors, error_reasons)}"
 
             return WeatherBackfillResponse(
                 status="completed",
@@ -525,6 +589,7 @@ async def backfill_weather(
                 updated=updated,
                 skipped=skipped,
                 errors=errors,
+                error_reasons=error_reasons,
                 message=message
             )
     except HTTPException:
@@ -642,6 +707,7 @@ async def backfill_weather_async(
                             job.updated += 1
                     except Exception as e:
                         job.errors += 1
+                        job.error_reasons["exception"] = job.error_reasons.get("exception", 0) + 1
                         log.warning("Weather backfill failed", error=str(e), event_id=det.get("frigate_event"))
                     finally:
                         job.processed += 1
@@ -656,7 +722,7 @@ async def backfill_weather_async(
                 if job.skipped:
                     message += f", {job.skipped} skipped"
                 if job.errors:
-                    message += f", {job.errors} errors"
+                    message += f", {_build_error_message(job.errors, job.error_reasons)}"
                 job.message = message
                 job.status = "completed"
                 job.finished_at = _now_iso()
@@ -664,11 +730,31 @@ async def backfill_weather_async(
                     "type": "backfill_complete",
                     "data": _job_payload(job)
                 })
+        except asyncio.CancelledError:
+            log.warning("Async weather backfill cancelled", job_id=job.id)
+            if _JOB_STORE.get(job.id) is job:
+                job.status = "failed"
+                job.message = "Weather backfill cancelled"
+                job.finished_at = _now_iso()
+                await broadcaster.broadcast({
+                    "type": "backfill_failed",
+                    "data": _job_payload(job)
+                })
+            raise
         except Exception as e:
             log.error("Async weather backfill failed", error=str(e))
             job.status = "failed"
             job.message = str(e)
             job.finished_at = _now_iso()
+            error_diagnostics_history.record(
+                source="backfill",
+                component="weather",
+                stage="job",
+                reason_code="job_failed",
+                message="Async weather backfill failed",
+                severity="error",
+                context={"job_id": job.id, "error": str(e) or repr(e)},
+            )
             await broadcaster.broadcast({
                 "type": "backfill_failed",
                 "data": _job_payload(job)

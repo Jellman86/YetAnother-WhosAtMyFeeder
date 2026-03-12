@@ -19,6 +19,7 @@ _original_model_manager_module = sys.modules.get("app.services.model_manager")
 sys.modules["app.services.model_manager"] = mock_mm
 
 from app.services.classifier_service import (  # noqa: E402
+    BackgroundImageClassificationUnavailableError,
     ClassifierService,
     InvalidInferenceOutputError,
     LiveImageClassificationOverloadedError,
@@ -301,7 +302,8 @@ async def test_classifier_service_maps_supervisor_startup_timeout_to_empty_backg
         with patch.object(ClassifierService, "_init_bird_model", new=_stub_init_bird_model):
             service = ClassifierService(supervisor=_FakeSupervisor())
             img = Image.new("RGB", (16, 16), color="purple")
-            assert await service.classify_async_background(img, camera_name="garden") == []
+            with pytest.raises(BackgroundImageClassificationUnavailableError, match="background_image_worker_startup_timeout"):
+                await service.classify_async_background(img, camera_name="garden")
             service.shutdown()
     finally:
         settings.classification.image_execution_mode = original_mode

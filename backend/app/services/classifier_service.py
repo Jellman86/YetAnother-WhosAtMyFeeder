@@ -137,6 +137,14 @@ class LiveImageClassificationOverloadedError(RuntimeError):
     """Raised when live image classification cannot obtain bounded capacity promptly."""
 
 
+class BackgroundImageClassificationUnavailableError(RuntimeError):
+    """Raised when background image classification cannot complete due to capacity or worker availability."""
+
+    def __init__(self, reason_code: str):
+        self.reason_code = str(reason_code or "background_image_unavailable")
+        super().__init__(self.reason_code)
+
+
 class InvalidInferenceOutputError(RuntimeError):
     """Raised when a runtime returns unusable model outputs after successful load."""
 
@@ -2128,7 +2136,7 @@ class ClassifierService:
         except ClassifierWorkerCircuitOpenError:
             if priority == "live":
                 raise LiveImageClassificationOverloadedError("classify_snapshot_circuit_open") from None
-            return []
+            raise BackgroundImageClassificationUnavailableError("background_image_circuit_open") from None
         except (ClassifierWorkerHeartbeatTimeoutError, ClassifierWorkerDeadlineExceededError):
             if priority == "live":
                 raise ClassificationLeaseExpiredError(
@@ -2136,15 +2144,15 @@ class ClassifierService:
                     "live_image_inference",
                     float(getattr(settings.classification, "worker_hard_deadline_seconds", 35.0) or 35.0),
                 ) from None
-            return []
+            raise BackgroundImageClassificationUnavailableError("background_image_worker_timed_out") from None
         except ClassifierWorkerStartupTimeoutError:
             if priority == "live":
                 raise LiveImageClassificationOverloadedError("classify_snapshot_worker_unavailable") from None
-            return []
+            raise BackgroundImageClassificationUnavailableError("background_image_worker_startup_timeout") from None
         except ClassifierWorkerExitedError:
             if priority == "live":
                 raise LiveImageClassificationOverloadedError("classify_snapshot_worker_unavailable") from None
-            return []
+            raise BackgroundImageClassificationUnavailableError("background_image_worker_unavailable") from None
 
     async def _run_coordinated_executor_inference(
         self,
@@ -2199,7 +2207,7 @@ class ClassifierService:
                 max_concurrent=CLASSIFIER_IMAGE_MAX_CONCURRENT,
                 admission_timeouts=self._image_admission_timeouts,
             )
-            return []
+            raise BackgroundImageClassificationUnavailableError("background_image_overloaded") from None
         except ClassificationLeaseExpiredError:
             if priority == "live":
                 log.warning(
@@ -2213,7 +2221,7 @@ class ClassifierService:
                 timeout_seconds=lease_timeout_seconds,
                 max_concurrent=CLASSIFIER_IMAGE_MAX_CONCURRENT,
             )
-            return []
+            raise BackgroundImageClassificationUnavailableError("background_image_lease_expired") from None
 
     async def _run_image_inference(
         self,
@@ -2262,7 +2270,10 @@ class ClassifierService:
         model_id: Optional[str] = None,
     ) -> list[dict]:
         """Async wrapper for classify to prevent blocking the event loop."""
-        base_results = await self._run_image_inference(self.classify, image, camera_name, model_id)
+        try:
+            base_results = await self._run_image_inference(self.classify, image, camera_name, model_id)
+        except BackgroundImageClassificationUnavailableError:
+            return []
 
         if not base_results:
             return base_results
