@@ -21,6 +21,7 @@
     let reportNotes = $state('');
     let selectedIncidentId = $state<string | null>(null);
     let refreshing = $state(false);
+    let clearing = $state(false);
     let refreshError = $state('');
 
     let allIncidents = $derived([...currentIssues, ...recentIncidents]);
@@ -67,6 +68,30 @@
             });
         } finally {
             refreshing = false;
+        }
+    }
+
+    async function clearWorkspace() {
+        clearing = true;
+        refreshError = '';
+        try {
+            await incidentWorkspaceStore.clearRemote();
+            jobDiagnosticsStore.clear();
+            selectedIncidentId = null;
+            await incidentWorkspaceStore.refresh();
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Failed to clear incident workspace';
+            refreshError = message;
+            jobDiagnosticsStore.recordError({
+                source: 'runtime',
+                component: 'incident_workspace',
+                reasonCode: 'clear_failed',
+                message,
+                severity: 'warning',
+                context: { scope: 'Errors.svelte' }
+            });
+        } finally {
+            clearing = false;
         }
     }
 
@@ -134,6 +159,9 @@
             <div class="flex items-center gap-2">
                 <button type="button" class="btn btn-secondary px-3 py-2 text-xs" onclick={() => jobDiagnosticsStore.downloadJson()}>
                     {$_('jobs.errors_export', { default: 'Export Current JSON' })}
+                </button>
+                <button type="button" class="btn btn-secondary px-3 py-2 text-xs" onclick={clearWorkspace} disabled={clearing || refreshing}>
+                    {clearing ? 'Clearing...' : $_('jobs.errors_clear', { default: 'Clear Live Errors' })}
                 </button>
                 <button type="button" class="btn btn-secondary px-3 py-2 text-xs" onclick={refreshWorkspace} disabled={refreshing}>
                     {refreshing ? 'Refreshing...' : 'Refresh'}

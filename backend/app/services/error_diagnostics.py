@@ -45,10 +45,12 @@ class ErrorDiagnosticsHistory:
     def capacity(self) -> int:
         return self._capacity
 
-    def clear(self) -> None:
+    def clear(self) -> int:
         with self._lock:
+            cleared = len(self._events)
             self._events.clear()
             self._counter = 0
+            return cleared
 
     def record(
         self,

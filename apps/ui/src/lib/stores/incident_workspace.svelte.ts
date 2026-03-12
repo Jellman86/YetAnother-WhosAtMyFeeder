@@ -1,5 +1,5 @@
 import type { BackendDiagnosticEvent, DiagnosticsWorkspacePayload } from '../api/diagnostics';
-import { fetchDiagnosticsWorkspace } from '../api/diagnostics';
+import { clearDiagnosticsWorkspace, fetchDiagnosticsWorkspace } from '../api/diagnostics';
 
 export type IncidentStatus = 'open' | 'recovering' | 'resolved';
 export type IncidentSeverity = 'warning' | 'error' | 'critical';
@@ -235,6 +235,20 @@ class IncidentWorkspaceStore {
         }
         this.localGroups = nextGroups;
         this.recompute();
+    }
+
+    clear(): void {
+        this.workspacePayload = null;
+        this.backendEvents = [];
+        this.localGroups = [];
+        this.jobs.clear();
+        this.currentIssues = [];
+        this.recentIncidents = [];
+    }
+
+    async clearRemote(): Promise<void> {
+        await clearDiagnosticsWorkspace();
+        this.clear();
     }
 
     buildIssueDraft(

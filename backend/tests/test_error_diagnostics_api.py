@@ -126,3 +126,36 @@ async def test_owner_can_fetch_workspace_diagnostics_payload(client: httpx.Async
     assert payload["health"]["service"] == "ya-wamf-backend"
     assert "ml" in payload["health"]
     assert "startup_warnings" in payload
+
+
+@pytest.mark.asyncio
+async def test_owner_can_clear_diagnostics_history(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+
+    error_diagnostics_history.record(
+        source="event_pipeline",
+        component="event_processor",
+        reason_code="stage_timeout",
+        message="Classification timed out",
+        severity="error",
+        event_id="evt-owner-clear-1",
+    )
+    error_diagnostics_history.record(
+        source="auto_video_classifier",
+        component="video_classifier",
+        reason_code="circuit_open",
+        message="Video classification queue paused by circuit breaker",
+        severity="warning",
+    )
+
+    response = await client.post("/api/diagnostics/clear")
+    assert response.status_code == 200, response.text
+    payload = response.json()
+
+    assert payload["cleared_events"] == 2
+    assert payload["remaining_events"] == 0
+
+    snapshot = error_diagnostics_history.snapshot(limit=20)
+    assert snapshot["total_events"] == 0
+    assert snapshot["returned_events"] == 0

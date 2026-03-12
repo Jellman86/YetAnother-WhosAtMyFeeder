@@ -38,3 +38,15 @@ export async function fetchDiagnosticsWorkspace(limit = 200): Promise<Diagnostic
     const response = await apiFetch(`${API_BASE}/diagnostics/workspace?limit=${Math.max(1, Math.floor(limit))}`);
     return handleResponse<DiagnosticsWorkspacePayload>(response);
 }
+
+export interface ClearDiagnosticsWorkspaceResponse {
+    cleared_events: number;
+    remaining_events: number;
+}
+
+export async function clearDiagnosticsWorkspace(): Promise<ClearDiagnosticsWorkspaceResponse> {
+    const response = await apiFetch(`${API_BASE}/diagnostics/clear`, {
+        method: 'POST'
+    });
+    return handleResponse<ClearDiagnosticsWorkspaceResponse>(response);
+}

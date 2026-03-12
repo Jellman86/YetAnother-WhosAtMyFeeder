@@ -265,4 +265,64 @@ describe('incidentWorkspaceStore', () => {
         expect(store.currentIssues[0].evidenceRefs).toContain('diag-video-empty');
         expect(store.recentIncidents.some((incident) => incident.primaryReasonCode === 'video_circuit_open')).toBe(true);
     });
+
+    it('clears backend, local, and derived incident state', () => {
+        const store = createIncidentWorkspaceStore();
+
+        store.ingestWorkspacePayload({
+            workspace_schema_version: '2026-03-12.owner-incident-workspace.v1',
+            backend_diagnostics: {
+                captured_at: '2026-03-12T16:30:44Z',
+                capacity: 500,
+                total_events: 1,
+                filtered_events: 1,
+                returned_events: 1,
+                severity_counts: { error: 1 },
+                component_counts: { classifier_supervisor: 1 },
+                events: [
+                    {
+                        id: 'diag-clear-1',
+                        component: 'classifier_supervisor',
+                        reason_code: 'background_image_worker_unavailable',
+                        severity: 'error',
+                        message: 'Background workers unavailable',
+                        timestamp: '2026-03-12T16:15:09Z',
+                        job_id: 'job-clear-1'
+                    }
+                ]
+            },
+            health: {
+                status: 'degraded'
+            },
+            startup_warnings: []
+        });
+        store.ingestJobState({
+            id: 'job-clear-1',
+            kind: 'backfill_detection',
+            status: 'failed',
+            message: 'classification failed'
+        });
+        store.ingestLocalDiagnosticGroups([
+            {
+                fingerprint: 'runtime|frontend|-|uncaught_exception',
+                component: 'frontend',
+                reasonCode: 'uncaught_exception',
+                severity: 'error',
+                message: 'Owner page crashed',
+                firstSeen: Date.parse('2026-03-12T10:00:00Z'),
+                lastSeen: Date.parse('2026-03-12T10:01:00Z')
+            }
+        ]);
+
+        expect(store.currentIssues.length).toBeGreaterThan(0);
+        expect(store.workspacePayload).not.toBeNull();
+
+        store.clear();
+
+        expect(store.currentIssues).toEqual([]);
+        expect(store.recentIncidents).toEqual([]);
+        expect(store.backendEvents).toEqual([]);
+        expect(store.localGroups).toEqual([]);
+        expect(store.workspacePayload).toBeNull();
+    });
 });

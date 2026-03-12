@@ -40,3 +40,15 @@ async def get_owner_workspace_diagnostics(
         "health": health,
         "startup_warnings": health.get("startup_warnings") or [],
     }
+
+
+@router.post("/clear")
+async def clear_owner_workspace_diagnostics(
+    _auth: AuthContext = Depends(require_owner),
+):
+    """Clear bounded backend diagnostics history for the owner workspace."""
+    cleared_events = error_diagnostics_history.clear()
+    return {
+        "cleared_events": cleared_events,
+        "remaining_events": 0,
+    }
