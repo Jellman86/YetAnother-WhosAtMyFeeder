@@ -279,3 +279,36 @@ async def test_classifier_worker_client_spawns_real_worker_process(monkeypatch: 
     assert event["results"][0]["label"] == "WorkerTest"
 
     await client.terminate()
+
+
+@pytest.mark.asyncio
+async def test_classifier_worker_client_real_worker_accepts_large_classify_request(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.setenv("YA_WAMF_CLASSIFIER_WORKER_TEST_MODE", "1")
+
+    client = ClassifierWorkerClient(
+        worker_name="background-real",
+        worker_generation=10,
+        heartbeat_timeout_seconds=5.0,
+    )
+    await client.start()
+    await asyncio.wait_for(client.wait_until_ready(), timeout=5.0)
+    await client.send(
+        build_classify_request(
+            worker_generation=10,
+            request_id="req-large",
+            work_id="background-real-1",
+            lease_token=2,
+            image_b64="x" * 200_000,
+            camera_name="feeder",
+            model_id="default",
+        )
+    )
+
+    event = await asyncio.wait_for(client.next_event(), timeout=5.0)
+
+    assert event["type"] == "result"
+    assert event["results"][0]["label"] == "WorkerTest"
+
+    await client.terminate()

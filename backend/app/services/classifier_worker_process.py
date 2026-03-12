@@ -17,6 +17,8 @@ from .classifier_worker_protocol import (
     encode_protocol_message,
 )
 
+WORKER_PROTOCOL_STREAM_LIMIT_BYTES = 4 * 1024 * 1024
+
 
 class _StdoutWriter:
     def __init__(self, stream: Any | None = None) -> None:
@@ -145,7 +147,7 @@ async def run_worker_main(
     writer: Any | None = None,
 ) -> None:
     loop = asyncio.get_running_loop()
-    reader = asyncio.StreamReader()
+    reader = asyncio.StreamReader(limit=WORKER_PROTOCOL_STREAM_LIMIT_BYTES)
     protocol = asyncio.StreamReaderProtocol(reader)
     try:
         await loop.connect_read_pipe(lambda: protocol, sys.stdin)
