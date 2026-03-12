@@ -105,4 +105,24 @@ describe('incidentWorkspaceStore', () => {
         expect(draft.body).toContain('backfill');
         expect(draft.bundleSchemaVersion).toBe(2);
     });
+
+    it('surfaces local diagnostic groups as current incidents when backend evidence is absent', () => {
+        const store = createIncidentWorkspaceStore();
+
+        store.ingestLocalDiagnosticGroups([
+            {
+                fingerprint: 'runtime|frontend|-|uncaught_exception',
+                component: 'frontend',
+                reasonCode: 'uncaught_exception',
+                severity: 'error',
+                message: 'Owner page crashed',
+                firstSeen: Date.parse('2026-03-12T10:00:00Z'),
+                lastSeen: Date.parse('2026-03-12T10:01:00Z')
+            }
+        ]);
+
+        expect(store.currentIssues).toHaveLength(1);
+        expect(store.currentIssues[0].affected_area).toBe('frontend');
+        expect(store.currentIssues[0].evidenceRefs).toContain('local:runtime|frontend|-|uncaught_exception');
+    });
 });

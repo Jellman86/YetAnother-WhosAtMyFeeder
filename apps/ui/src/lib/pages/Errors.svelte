@@ -24,6 +24,12 @@
     let refreshError = $state('');
 
     let allIncidents = $derived([...currentIssues, ...recentIncidents]);
+    let workspaceCapturedAt = $derived.by(() => {
+        const raw = workspacePayload?.backend_diagnostics?.captured_at;
+        if (typeof raw !== 'string' || raw.length === 0) return null;
+        const parsed = Date.parse(raw);
+        return Number.isFinite(parsed) ? parsed : null;
+    });
     let selectedIncident = $derived.by(() =>
         allIncidents.find((incident) => incident.id === selectedIncidentId)
         ?? allIncidents[0]
@@ -141,7 +147,7 @@
                 <span class="ml-2">· {$_('jobs.errors_latest_health', {
                     values: {
                         status: String(workspacePayload.health.status ?? 'unknown'),
-                        at: formatDateTime(Date.now())
+                        at: formatDateTime(workspaceCapturedAt ?? Date.now())
                     },
                     default: 'Latest health: {status} at {at}'
                 })}</span>

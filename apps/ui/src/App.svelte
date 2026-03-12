@@ -177,6 +177,10 @@
       }
   });
 
+  $effect(() => {
+      incidentWorkspaceStore.ingestLocalDiagnosticGroups(jobDiagnosticsStore.groups);
+  });
+
   const reclassifyRecovery = createReclassifyRecovery({
       fetchStatus: fetchEventClassificationStatus,
       jobProgress: jobProgressStore,

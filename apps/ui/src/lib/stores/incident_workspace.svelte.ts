@@ -30,6 +30,16 @@ export interface IncidentIssueDraft {
     bundleSchemaVersion: number | null;
 }
 
+export interface LocalDiagnosticGroup {
+    fingerprint: string;
+    component: string;
+    reasonCode: string;
+    severity: 'warning' | 'error' | 'critical';
+    message: string;
+    firstSeen: number;
+    lastSeen: number;
+}
+
 function toTimestamp(value: string | number | undefined | null): number {
     if (typeof value === 'number' && Number.isFinite(value)) return value;
     if (typeof value === 'string') {
@@ -91,6 +101,7 @@ class IncidentWorkspaceStore {
     recentIncidents = $state<IncidentRecord[]>([]);
     workspacePayload = $state<DiagnosticsWorkspacePayload | null>(null);
     backendEvents = $state<BackendDiagnosticEvent[]>([]);
+    localGroups = $state<LocalDiagnosticGroup[]>([]);
 
     private jobs = new Map<string, IncidentJobState>();
 
@@ -113,6 +124,11 @@ class IncidentWorkspaceStore {
         const id = normalizeString(job.id);
         if (!id) return;
         this.jobs.set(id, { ...job, id });
+        this.recompute();
+    }
+
+    ingestLocalDiagnosticGroups(groups: LocalDiagnosticGroup[]): void {
+        this.localGroups = Array.isArray(groups) ? [...groups] : [];
         this.recompute();
     }
 
@@ -208,6 +224,23 @@ class IncidentWorkspaceStore {
         }
 
         const incidents = [...grouped.values()].sort((a, b) => b.lastSeenAt - a.lastSeenAt);
+        for (const group of this.localGroups) {
+            const key = `local:${normalizeString(group.fingerprint, 'unknown')}`;
+            if (grouped.has(key)) continue;
+            incidents.push({
+                id: key,
+                status: 'open',
+                severity: normalizeSeverity(group.severity),
+                title: normalizeString(group.message, normalizeString(group.reasonCode, 'Incident')),
+                summary: normalizeString(group.message, 'Incident detected'),
+                affected_area: normalizeString(group.component, 'system').toLowerCase(),
+                startedAt: Math.max(0, Math.floor(group.firstSeen)),
+                lastSeenAt: Math.max(0, Math.floor(group.lastSeen)),
+                evidenceRefs: [key],
+                primaryReasonCode: normalizeString(group.reasonCode, 'unknown_reason')
+            });
+        }
+        incidents.sort((a, b) => b.lastSeenAt - a.lastSeenAt);
         this.currentIssues = incidents.filter((incident) => incident.status !== 'resolved');
         this.recentIncidents = incidents.filter((incident) => incident.status === 'resolved').slice(0, 20);
     }
