@@ -2639,16 +2639,24 @@ class ClassifierService:
                         except Exception as e:
                             log.debug("Failed to encode frame thumbnail", error=str(e))
 
-                        progress_callback(
-                            current_frame=len(all_scores),
-                            total_frames=len(frame_indices),
-                            frame_score=top_score,
-                            top_label=top_label,
-                            frame_thumb=frame_thumb,
-                            frame_index=int(idx) + 1,
-                            clip_total=int(total_frames),
-                            model_name=model_name
-                        )
+                        try:
+                            progress_callback(
+                                current_frame=len(all_scores),
+                                total_frames=len(frame_indices),
+                                frame_score=top_score,
+                                top_label=top_label,
+                                frame_thumb=frame_thumb,
+                                frame_index=int(idx) + 1,
+                                clip_total=int(total_frames),
+                                model_name=model_name
+                            )
+                        except Exception as exc:
+                            log.warning(
+                                "Video classification progress callback failed; continuing",
+                                error=str(exc),
+                                frame_index=int(idx) + 1,
+                                total_frames=len(frame_indices),
+                            )
 
             if not all_scores:
                 log.warning("No frames processed from video")

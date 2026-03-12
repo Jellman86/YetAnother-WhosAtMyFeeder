@@ -1039,6 +1039,60 @@ async def test_classifier_service_uses_separate_executors_for_image_and_video_wo
         settings.classification.personalized_rerank_enabled = original_toggle
 
 
+def test_classifier_service_video_progress_callback_failure_does_not_drop_results(mock_tflite, mock_os_path_exists):
+    original_toggle = settings.classification.personalized_rerank_enabled
+    settings.classification.personalized_rerank_enabled = False
+
+    class _LoadedBirdModel:
+        loaded = True
+        labels = ["Robin", "Blackbird"]
+
+    class _FakeCapture:
+        def __init__(self, _path):
+            self._index = 0
+
+        def isOpened(self):
+            return True
+
+        def get(self, prop):
+            if prop == classifier_service_module.cv2.CAP_PROP_FRAME_COUNT:
+                return 3
+            if prop == classifier_service_module.cv2.CAP_PROP_FPS:
+                return 30
+            return 0
+
+        def set(self, *_args):
+            return True
+
+        def read(self):
+            if self._index >= 3:
+                return False, None
+            self._index += 1
+            return True, np.zeros((16, 16, 3), dtype=np.uint8)
+
+        def release(self):
+            return None
+
+    try:
+        with patch.object(ClassifierService, "_init_bird_model", return_value=None), \
+             patch("app.services.classifier_service.cv2.VideoCapture", _FakeCapture), \
+             patch("app.services.classifier_service.cv2.cvtColor", side_effect=lambda frame, _code: frame), \
+             patch.object(ClassifierService, "_classify_raw_with_runtime_recovery", return_value=(np.array([0.91, 0.09]), _LoadedBirdModel())):
+            service = ClassifierService()
+            service._models["bird"] = _LoadedBirdModel()
+
+            def _broken_progress(**_kwargs):
+                raise TimeoutError("simulated slow progress delivery")
+
+            results = service.classify_video("/tmp/demo.mp4", max_frames=3, progress_callback=_broken_progress)
+
+            assert results
+            assert results[0]["label"] == "Robin"
+            service.shutdown()
+    finally:
+        settings.classification.personalized_rerank_enabled = original_toggle
+
+
 def test_normalize_inference_provider_defaults_to_auto_for_invalid_value():
     assert _normalize_inference_provider(None) == "auto"
     assert _normalize_inference_provider("") == "auto"

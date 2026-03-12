@@ -6,6 +6,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- **Fixed:** Auto video analysis no longer collapses into `video_no_results` when progress delivery is slow: worker-side progress emission is now best-effort, video classification no longer treats progress callback failures as fatal, and supervisor progress callbacks no longer block worker result consumption behind slow SSE/broadcast handling.
+- **Fixed:** Owner incident detail now shows grouped diagnostics for the selected incident even when the evidence exists only in backend diagnostics; backend-only incidents like `video_no_results` no longer render an empty “Grouped Diagnostics” panel just because no matching local frontend group exists.
 - **Changed:** GitHub Actions now opts JavaScript actions into Node 24, uses the newer checkout/setup-node actions, gives workflow runs explicit commit-based run names, and always builds/publishes the frontend and backend images together on `dev` so both `:dev` containers share the same git hash for deployment tracking.
 - **Added:** Owner Errors workspace now has a real “Clear Live Errors” path: the backend exposes an owner-only diagnostics clear endpoint, the frontend clears persisted local diagnostics and resets correlated incidents, and the page refreshes against empty backend history instead of leaving stale evidence with no way to reset it.
 - **Fixed:** Supervised video OpenVINO startup is now less fragile on GPU hosts: worker pools warm sequentially instead of compiling multiple video workers in parallel during cold start, and video workers get a larger ready timeout than live/background workers so heavy OpenVINO initialization does not fail under the short image-worker startup budget.

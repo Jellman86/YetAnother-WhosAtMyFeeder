@@ -266,6 +266,50 @@ describe('incidentWorkspaceStore', () => {
         expect(store.recentIncidents.some((incident) => incident.primaryReasonCode === 'video_circuit_open')).toBe(true);
     });
 
+    it('returns grouped diagnostics for backend-only incidents', () => {
+        const store = createIncidentWorkspaceStore();
+
+        store.ingestWorkspacePayload({
+            workspace_schema_version: '2026-03-12.owner-incident-workspace.v1',
+            backend_diagnostics: {
+                captured_at: '2026-03-12T18:43:38Z',
+                capacity: 500,
+                total_events: 1,
+                filtered_events: 1,
+                returned_events: 1,
+                severity_counts: { warning: 1 },
+                component_counts: { auto_video_classifier: 1 },
+                events: [
+                    {
+                        id: 'diag:1773341018219:2',
+                        component: 'auto_video_classifier',
+                        reason_code: 'video_no_results',
+                        severity: 'warning',
+                        message: 'Video classification completed without any candidate results',
+                        timestamp: '2026-03-12T18:43:38Z',
+                        correlation_key: 'video:evt-1',
+                        worker_pool: 'video'
+                    }
+                ]
+            },
+            health: {
+                status: 'ok'
+            },
+            startup_warnings: []
+        });
+
+        const incident = store.currentIssues[0];
+        const groups = store.getDiagnosticGroups(incident);
+
+        expect(groups).toHaveLength(1);
+        expect(groups[0]).toMatchObject({
+            source: 'backend',
+            component: 'auto_video_classifier',
+            reasonCode: 'video_no_results',
+            count: 1
+        });
+    });
+
     it('clears backend, local, and derived incident state', () => {
         const store = createIncidentWorkspaceStore();
 

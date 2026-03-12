@@ -41,6 +41,18 @@ export interface LocalDiagnosticGroup {
     lastSeen: number;
 }
 
+export interface IncidentDiagnosticGroup {
+    fingerprint: string;
+    source: 'backend' | 'local';
+    component: string;
+    reasonCode: string;
+    severity: IncidentSeverity;
+    message: string;
+    count: number;
+    firstSeen: number;
+    lastSeen: number;
+}
+
 function localGroupsEqual(a: LocalDiagnosticGroup[], b: LocalDiagnosticGroup[]): boolean {
     if (a === b) return true;
     if (a.length !== b.length) return false;
@@ -249,6 +261,64 @@ class IncidentWorkspaceStore {
     async clearRemote(): Promise<void> {
         await clearDiagnosticsWorkspace();
         this.clear();
+    }
+
+    getDiagnosticGroups(incident: IncidentRecord | null | undefined): IncidentDiagnosticGroup[] {
+        if (!incident) return [];
+        const evidenceRefs = new Set(incident.evidenceRefs);
+        const grouped = new Map<string, IncidentDiagnosticGroup>();
+
+        for (const event of this.backendEvents) {
+            if (!evidenceRefs.has(normalizeString(event.id))) continue;
+            const key = `backend:${normalizeString(event.component, 'unknown')}:${normalizeString(event.reason_code, 'unknown_reason')}`;
+            const timestamp = toTimestamp(event.timestamp);
+            const severity = normalizeSeverity(event.severity);
+            const message = normalizeString(event.message, normalizeString(event.reason_code, 'Incident'));
+            const existing = grouped.get(key);
+            if (!existing) {
+                grouped.set(key, {
+                    fingerprint: key,
+                    source: 'backend',
+                    component: normalizeString(event.component, 'unknown'),
+                    reasonCode: normalizeString(event.reason_code, 'unknown_reason'),
+                    severity,
+                    message,
+                    count: 1,
+                    firstSeen: timestamp,
+                    lastSeen: timestamp
+                });
+                continue;
+            }
+            existing.count += 1;
+            existing.firstSeen = Math.min(existing.firstSeen, timestamp);
+            existing.lastSeen = Math.max(existing.lastSeen, timestamp);
+            existing.message = message;
+            if (severityRank(severity) > severityRank(existing.severity)) {
+                existing.severity = severity;
+            }
+        }
+
+        for (const group of this.localGroups) {
+            const key = `local:${normalizeString(group.fingerprint, 'unknown')}`;
+            if (!evidenceRefs.has(key)) continue;
+            grouped.set(key, {
+                fingerprint: key,
+                source: 'local',
+                component: normalizeString(group.component, 'unknown'),
+                reasonCode: normalizeString(group.reasonCode, 'unknown_reason'),
+                severity: normalizeSeverity(group.severity),
+                message: normalizeString(group.message, normalizeString(group.reasonCode, 'Incident')),
+                count: 1,
+                firstSeen: Math.max(0, Math.floor(group.firstSeen)),
+                lastSeen: Math.max(0, Math.floor(group.lastSeen))
+            });
+        }
+
+        return [...grouped.values()].sort((left, right) => {
+            const severityDiff = severityRank(right.severity) - severityRank(left.severity);
+            if (severityDiff !== 0) return severityDiff;
+            return right.lastSeen - left.lastSeen;
+        });
     }
 
     buildIssueDraft(

@@ -177,7 +177,12 @@ class ClassifierWorkerProcess:
                     ),
                     loop,
                 )
-                future.result(timeout=1.0)
+                try:
+                    future.result(timeout=1.0)
+                except Exception:
+                    # Progress delivery is best-effort; do not fail the classification
+                    # if the parent process is slow to consume progress updates.
+                    return None
 
             results = await self._run_classify_video(
                 video_path=message["video_path"],

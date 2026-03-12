@@ -25,6 +25,19 @@ class _MemoryWriter:
         self.closed = True
 
 
+class _SlowProgressWriter(_MemoryWriter):
+    def __init__(self) -> None:
+        super().__init__()
+        self._slow_next_progress = True
+
+    async def drain(self) -> None:
+        if self._slow_next_progress and self.messages and self.messages[-1].get("type") == "progress":
+            self._slow_next_progress = False
+            await asyncio.sleep(1.2)
+            return None
+        return None
+
+
 async def _feed_lines(reader: asyncio.StreamReader, messages: list[dict]) -> None:
     for message in messages:
         reader.feed_data((await asyncio.to_thread(lambda: message)).__class__ and b"")
@@ -231,3 +244,46 @@ async def test_classifier_worker_process_handles_video_request_and_progress():
 
     assert any(message["type"] == "progress" and message["top_label"] == "Robin" for message in writer.messages)
     assert any(message["type"] == "result" and message["results"][0]["label"] == "Robin" for message in writer.messages)
+
+
+@pytest.mark.asyncio
+async def test_classifier_worker_process_does_not_fail_video_classification_when_progress_emit_is_slow():
+    reader = asyncio.StreamReader()
+    writer = _SlowProgressWriter()
+
+    def _classify_video_fn(*, video_path: str, stride: int, max_frames: int | None, progress_callback):
+        assert video_path == "/tmp/demo.mp4"
+        progress_callback(1, 3, 0.7, "Robin", None, 0, 3, "bird")
+        return [{"label": "Robin", "score": 0.91, "index": 0}]
+
+    process = ClassifierWorkerProcess(
+        reader=reader,
+        writer=writer,
+        classify_fn=lambda **_: [],
+        classify_video_fn=_classify_video_fn,
+        worker_generation=14,
+        heartbeat_interval_seconds=0.5,
+    )
+
+    task = asyncio.create_task(process.run())
+    await asyncio.sleep(0)
+    reader.feed_data(
+        process.encode_message(
+            build_classify_video_request(
+                worker_generation=14,
+                request_id="req-video-slow-progress",
+                work_id="video-2",
+                lease_token=8,
+                video_path="/tmp/demo.mp4",
+                stride=5,
+                max_frames=3,
+            )
+        )
+    )
+    await asyncio.sleep(1.4)
+    reader.feed_eof()
+    await task
+
+    assert any(message["type"] == "progress" for message in writer.messages)
+    assert any(message["type"] == "result" and message["results"][0]["label"] == "Robin" for message in writer.messages)
+    assert not any(message["type"] == "error" for message in writer.messages)

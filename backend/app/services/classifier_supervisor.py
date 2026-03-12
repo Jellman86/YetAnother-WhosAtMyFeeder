@@ -499,7 +499,8 @@ class ClassifierSupervisor:
                         message.get("model_name"),
                     )
                     if inspect.isawaitable(callback_result):
-                        await callback_result
+                        progress_task = asyncio.create_task(callback_result)
+                        progress_task.add_done_callback(self._consume_progress_exception)
                 continue
             if assignment is None:
                 self._metrics["late_results_ignored"] += 1
@@ -637,5 +638,14 @@ class ClassifierSupervisor:
             return
         try:
             future.exception()
+        except Exception:
+            pass
+
+    @staticmethod
+    def _consume_progress_exception(task: asyncio.Task[Any]) -> None:
+        if task.cancelled():
+            return
+        try:
+            task.exception()
         except Exception:
             pass

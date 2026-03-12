@@ -36,6 +36,7 @@
         ?? allIncidents[0]
         ?? null
     );
+    let selectedDiagnosticGroups = $derived.by(() => incidentWorkspaceStore.getDiagnosticGroups(selectedIncident));
 
     $effect(() => {
         if (!selectedIncidentId && allIncidents[0]) {
@@ -294,11 +295,11 @@
                     </div>
                     <div>
                         <p class="text-[11px] font-black uppercase tracking-wider text-slate-400 mb-2">Grouped Diagnostics</p>
-                        {#if diagnosticGroups.length === 0}
+                        {#if selectedDiagnosticGroups.length === 0}
                             <p class="text-xs text-slate-500">{$_('jobs.errors_empty', { default: 'No grouped errors recorded yet.' })}</p>
                         {:else}
                             <div class="space-y-2">
-                                {#each diagnosticGroups.slice(0, 5) as group (group.fingerprint)}
+                                {#each selectedDiagnosticGroups.slice(0, 5) as group (group.fingerprint)}
                                     <div class="rounded-xl border border-slate-200/80 dark:border-slate-700/60 px-3 py-2">
                                         <div class="flex flex-wrap items-center justify-between gap-2">
                                             <span class="text-[10px] font-black uppercase tracking-wider text-slate-500">{group.component} · {group.reasonCode}</span>
