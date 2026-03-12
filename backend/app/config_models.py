@@ -210,6 +210,10 @@ class ClassificationSettings(BaseModel):
     video_classification_timeout_seconds: int = Field(default=180, ge=30, description="Timeout for a single video classification run")
     video_classification_stale_minutes: int = Field(default=15, ge=1, description="Mark pending/processing as failed after this many minutes")
     video_classification_frames: int = Field(default=15, ge=5, le=100, description="Number of frames to sample for video classification")
+    strict_non_finite_output: bool = Field(
+        default=True,
+        description="Reject all-non-finite model output vectors and trigger runtime recovery/fallback",
+    )
     inference_provider: str = Field(default="auto", description="Preferred inference provider: auto|cpu|cuda|intel_gpu|intel_cpu")
     image_execution_mode: str = Field(
         default="subprocess",

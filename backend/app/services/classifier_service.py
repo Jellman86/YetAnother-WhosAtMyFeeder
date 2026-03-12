@@ -143,7 +143,7 @@ CLASSIFIER_GPU_RESTORE_COOLDOWN_SECONDS = max(
     1.0,
     float(os.getenv("CLASSIFIER_GPU_RESTORE_COOLDOWN_SECONDS", "120")),
 )
-CLASSIFIER_STRICT_NON_FINITE_OUTPUT = os.getenv("CLASSIFIER_STRICT_NON_FINITE_OUTPUT", "true").strip().lower() != "false"
+LEGACY_CLASSIFIER_STRICT_NON_FINITE_OUTPUT = os.getenv("CLASSIFIER_STRICT_NON_FINITE_OUTPUT", "true").strip().lower() != "false"
 
 
 class LiveImageClassificationOverloadedError(RuntimeError):
@@ -176,6 +176,13 @@ class InvalidInferenceOutputError(RuntimeError):
         super().__init__(f"{self.backend}:{self.provider}: {self.detail}")
 
 
+def _strict_non_finite_output_enabled() -> bool:
+    configured = getattr(getattr(settings, "classification", None), "strict_non_finite_output", None)
+    if isinstance(configured, bool):
+        return configured
+    return LEGACY_CLASSIFIER_STRICT_NON_FINITE_OUTPUT
+
+
 def _normalize_inference_provider(value: Optional[str]) -> str:
     normalized = (value or "auto").strip().lower()
     return normalized if normalized in SUPPORTED_INFERENCE_PROVIDERS else "auto"
@@ -188,7 +195,7 @@ def _normalize_probability_vector(values: np.ndarray, *, context: str) -> np.nda
 
     finite_mask = np.isfinite(probs)
     if not finite_mask.any():
-        if not CLASSIFIER_STRICT_NON_FINITE_OUTPUT:
+        if not _strict_non_finite_output_enabled():
             log.warning(
                 "Classifier produced all non-finite probabilities; coercing in non-strict mode",
                 context=context,
@@ -231,7 +238,7 @@ def _safe_softmax(x: np.ndarray, *, context: str) -> np.ndarray:
 
     finite_mask = np.isfinite(logits)
     if not finite_mask.any():
-        if not CLASSIFIER_STRICT_NON_FINITE_OUTPUT:
+        if not _strict_non_finite_output_enabled():
             log.warning(
                 "Classifier produced all non-finite logits; coercing in non-strict mode",
                 context=context,
@@ -2282,7 +2289,7 @@ class ClassifierService:
             "runtime_gpu_restore_successes": self._runtime_gpu_restore_successes,
             "runtime_gpu_restore_failures": self._runtime_gpu_restore_failures,
             "gpu_restore_not_before_monotonic": self._gpu_restore_not_before_monotonic,
-            "strict_non_finite_output": CLASSIFIER_STRICT_NON_FINITE_OUTPUT,
+            "strict_non_finite_output": _strict_non_finite_output_enabled(),
             "last_runtime_recovery": effective_runtime_recovery,
             "live_image_max_concurrent": admission_metrics["live"]["capacity"],
             "live_image_admission_timeout_seconds": CLASSIFIER_LIVE_IMAGE_ADMISSION_TIMEOUT_SECONDS,

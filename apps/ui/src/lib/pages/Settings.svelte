@@ -1155,6 +1155,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     let debugUiEnabled = $state(false);
     let inatPreviewEnabled = $state(false);
     let inatPreviewDirty = $state(false);
+    let strictNonFiniteOutput = $state(true);
 
     // Notifications
     let discordEnabled = $state(false);
@@ -1598,6 +1599,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'videoClassificationMaxRetries', val: videoClassificationMaxRetries, store: s.video_classification_max_retries ?? 3 },
             { key: 'videoClassificationMaxConcurrent', val: videoClassificationMaxConcurrent, store: s.video_classification_max_concurrent ?? 5 },
             { key: 'videoClassificationFrames', val: videoClassificationFrames, store: s.video_classification_frames ?? 15 },
+            { key: 'strictNonFiniteOutput', val: strictNonFiniteOutput, store: s.strict_non_finite_output ?? true },
             { key: 'inferenceProvider', val: inferenceProvider, store: (s.inference_provider as any) ?? 'auto' },
             { key: 'selectedCameras', val: JSON.stringify(selectedCameras), store: JSON.stringify(s.cameras || []) },
             { key: 'retentionDays', val: retentionDays, store: s.retention_days || 0 },
@@ -2381,6 +2383,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             videoClassificationMaxRetries = settings.video_classification_max_retries ?? 3;
             videoClassificationMaxConcurrent = settings.video_classification_max_concurrent ?? 5;
             videoClassificationFrames = settings.video_classification_frames ?? 15;
+            strictNonFiniteOutput = settings.strict_non_finite_output ?? true;
             inferenceProvider = (settings.inference_provider as any) ?? 'auto';
             videoCircuitOpen = settings.video_classification_circuit_open ?? false;
             videoCircuitUntil = settings.video_classification_circuit_until ?? null;
@@ -2658,6 +2661,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 video_classification_max_retries: videoClassificationMaxRetries,
                 video_classification_max_concurrent: videoClassificationMaxConcurrent,
                 video_classification_frames: videoClassificationFrames,
+                strict_non_finite_output: strictNonFiniteOutput,
                 inference_provider: inferenceProvider,
                 cameras: selectedCameras,
                 retention_days: retentionDays,
@@ -3370,6 +3374,29 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                                 >
                                     <span class="sr-only">{$_('settings.debug.inat_preview')}</span>
                                     <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {inatPreviewEnabled ? 'translate-x-5' : 'translate-x-0'}"></span>
+                                </button>
+                            </div>
+                            <div class="flex items-center justify-between gap-4 rounded-2xl border border-slate-200/70 dark:border-slate-700/60 bg-white/70 dark:bg-slate-900/40 px-4 py-3">
+                                <div>
+                                    <span class="block text-sm font-black text-slate-900 dark:text-white">{$_('settings.debug.strict_non_finite_output', { default: 'Strict non-finite output handling' })}</span>
+                                    <span class="block text-[10px] font-bold text-slate-500 mt-1">{$_('settings.debug.strict_non_finite_output_desc', { default: 'When enabled, all-non-finite classifier outputs are rejected and trigger runtime recovery. Disable only for controlled debugging.' })}</span>
+                                </div>
+                                <button
+                                    role="switch"
+                                    aria-checked={strictNonFiniteOutput}
+                                    onclick={() => {
+                                        strictNonFiniteOutput = !strictNonFiniteOutput;
+                                    }}
+                                    onkeydown={(e) => {
+                                        if (e.key === 'Enter' || e.key === ' ') {
+                                            e.preventDefault();
+                                            strictNonFiniteOutput = !strictNonFiniteOutput;
+                                        }
+                                    }}
+                                    class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {strictNonFiniteOutput ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-600'}"
+                                >
+                                    <span class="sr-only">{$_('settings.debug.strict_non_finite_output', { default: 'Strict non-finite output handling' })}</span>
+                                    <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {strictNonFiniteOutput ? 'translate-x-5' : 'translate-x-0'}"></span>
                                 </button>
                             </div>
                             <div class="flex items-center justify-between text-[10px] font-bold">

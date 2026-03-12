@@ -52,6 +52,44 @@ async def test_settings_roundtrip_personalized_rerank_enabled(client: httpx.Asyn
 
 
 @pytest.mark.asyncio
+async def test_settings_roundtrip_strict_non_finite_output(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+
+    get_before = await client.get("/api/settings")
+    assert get_before.status_code == 200, get_before.text
+    before_payload = get_before.json()
+
+    assert "strict_non_finite_output" in before_payload
+
+    original_value = bool(before_payload["strict_non_finite_output"])
+    updated_value = not original_value
+
+    update_payload = {
+        "frigate_url": before_payload["frigate_url"],
+        "mqtt_server": before_payload["mqtt_server"],
+        "classification_threshold": before_payload["classification_threshold"],
+        "strict_non_finite_output": updated_value,
+    }
+    post_resp = await client.post("/api/settings", json=update_payload)
+    assert post_resp.status_code == 200, post_resp.text
+
+    get_after = await client.get("/api/settings")
+    assert get_after.status_code == 200, get_after.text
+    after_payload = get_after.json()
+    assert after_payload["strict_non_finite_output"] is updated_value
+
+    restore_payload = {
+        "frigate_url": before_payload["frigate_url"],
+        "mqtt_server": before_payload["mqtt_server"],
+        "classification_threshold": before_payload["classification_threshold"],
+        "strict_non_finite_output": original_value,
+    }
+    restore_resp = await client.post("/api/settings", json=restore_payload)
+    assert restore_resp.status_code == 200, restore_resp.text
+
+
+@pytest.mark.asyncio
 async def test_settings_update_persists_classification_delay_and_env_precedence(
     client: httpx.AsyncClient, monkeypatch
 ):

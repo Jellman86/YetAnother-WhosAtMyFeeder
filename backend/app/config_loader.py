@@ -50,6 +50,7 @@ CLASSIFICATION_ENV_OVERRIDES: dict[str, tuple[str, ...]] = {
     "video_classification_timeout_seconds": ("CLASSIFICATION__VIDEO_CLASSIFICATION_TIMEOUT_SECONDS",),
     "video_classification_stale_minutes": ("CLASSIFICATION__VIDEO_CLASSIFICATION_STALE_MINUTES",),
     "video_classification_frames": ("CLASSIFICATION__VIDEO_CLASSIFICATION_FRAMES",),
+    "strict_non_finite_output": ("CLASSIFICATION__STRICT_NON_FINITE_OUTPUT", "CLASSIFIER_STRICT_NON_FINITE_OUTPUT"),
     "inference_provider": ("CLASSIFICATION__INFERENCE_PROVIDER", "CLASSIFICATION__USE_CUDA"),
     "image_execution_mode": ("CLASSIFICATION__IMAGE_EXECUTION_MODE",),
     "live_worker_count": ("CLASSIFICATION__LIVE_WORKER_COUNT",),
@@ -132,6 +133,12 @@ def load_settings_instance(settings_cls: type[Any], config_path: Path) -> Any:
         'video_classification_timeout_seconds': int(os.environ.get('CLASSIFICATION__VIDEO_CLASSIFICATION_TIMEOUT_SECONDS', '180')),
         'video_classification_stale_minutes': int(os.environ.get('CLASSIFICATION__VIDEO_CLASSIFICATION_STALE_MINUTES', '15')),
         'video_classification_frames': int(os.environ.get('CLASSIFICATION__VIDEO_CLASSIFICATION_FRAMES', '15')),
+        'strict_non_finite_output': (
+            os.environ.get(
+                'CLASSIFICATION__STRICT_NON_FINITE_OUTPUT',
+                os.environ.get('CLASSIFIER_STRICT_NON_FINITE_OUTPUT', 'true'),
+            ).lower() == 'true'
+        ),
         'inference_provider': default_inference_provider,
         'image_execution_mode': os.environ.get('CLASSIFICATION__IMAGE_EXECUTION_MODE', 'subprocess'),
         'live_worker_count': int(os.environ.get('CLASSIFICATION__LIVE_WORKER_COUNT', '2')),

@@ -280,6 +280,10 @@ class SettingsUpdate(BaseModel):
     video_classification_max_retries: Optional[int] = Field(3, ge=0, description="Max retries for clip availability")
     video_classification_max_concurrent: Optional[int] = Field(5, ge=1, le=20, description="Maximum concurrent video classification jobs")
     video_classification_frames: Optional[int] = Field(15, ge=5, le=100, description="Number of frames to sample for video classification")
+    strict_non_finite_output: Optional[bool] = Field(
+        True,
+        description="Reject all-non-finite inference outputs and trigger runtime recovery/fallback",
+    )
     inference_provider: Optional[str] = Field("auto", description="Preferred inference provider: auto|cpu|cuda|intel_gpu|intel_cpu")
     # Media cache settings
     media_cache_enabled: bool = Field(True, description="Enable local media caching")
@@ -564,6 +568,7 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "video_classification_max_retries": settings.classification.video_classification_max_retries,
         "video_classification_max_concurrent": settings.classification.video_classification_max_concurrent,
         "video_classification_frames": settings.classification.video_classification_frames,
+        "strict_non_finite_output": settings.classification.strict_non_finite_output,
         "inference_provider": settings.classification.inference_provider,
         "video_classification_circuit_open": circuit_status.get("open", False),
         "video_classification_circuit_until": circuit_status.get("open_until"),
@@ -785,6 +790,8 @@ async def update_settings(
         settings.classification.video_classification_max_concurrent = update.video_classification_max_concurrent
     if "video_classification_frames" in fields_set and update.video_classification_frames is not None:
         settings.classification.video_classification_frames = update.video_classification_frames
+    if "strict_non_finite_output" in fields_set and update.strict_non_finite_output is not None:
+        settings.classification.strict_non_finite_output = update.strict_non_finite_output
     if "inference_provider" in fields_set and update.inference_provider is not None:
         previous_provider = settings.classification.inference_provider
         settings.classification.inference_provider = update.inference_provider

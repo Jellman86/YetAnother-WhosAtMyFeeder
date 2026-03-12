@@ -97,6 +97,8 @@ CLASSIFICATION_ENV_PRECEDENCE_CASES = [
     ),
     ("video_classification_stale_minutes", "CLASSIFICATION__VIDEO_CLASSIFICATION_STALE_MINUTES", "61", 15, 61),
     ("video_classification_frames", "CLASSIFICATION__VIDEO_CLASSIFICATION_FRAMES", "25", 15, 25),
+    ("strict_non_finite_output", "CLASSIFICATION__STRICT_NON_FINITE_OUTPUT", "false", True, False),
+    ("strict_non_finite_output", "CLASSIFIER_STRICT_NON_FINITE_OUTPUT", "false", True, False),
     ("inference_provider", "CLASSIFICATION__INFERENCE_PROVIDER", "intel_cpu", "cpu", "intel_cpu"),
     ("inference_provider", "CLASSIFICATION__USE_CUDA", "true", "cpu", "cuda"),
     ("image_execution_mode", "CLASSIFICATION__IMAGE_EXECUTION_MODE", "subprocess", "in_process", "subprocess"),
@@ -214,6 +216,7 @@ def test_classification_startup_load_env_precedence_with_full_file_payload(monke
                     "video_classification_timeout_seconds": 180,
                     "video_classification_stale_minutes": 15,
                     "video_classification_frames": 15,
+                    "strict_non_finite_output": True,
                     "inference_provider": "cpu",
                     "image_execution_mode": "in_process",
                     "live_worker_count": 2,
@@ -249,6 +252,7 @@ def test_classification_startup_load_env_precedence_with_full_file_payload(monke
     monkeypatch.setenv("CLASSIFICATION__VIDEO_CLASSIFICATION_TIMEOUT_SECONDS", "321")
     monkeypatch.setenv("CLASSIFICATION__VIDEO_CLASSIFICATION_STALE_MINUTES", "66")
     monkeypatch.setenv("CLASSIFICATION__VIDEO_CLASSIFICATION_FRAMES", "31")
+    monkeypatch.setenv("CLASSIFICATION__STRICT_NON_FINITE_OUTPUT", "false")
     monkeypatch.setenv("CLASSIFICATION__INFERENCE_PROVIDER", "intel_gpu")
     monkeypatch.setenv("CLASSIFICATION__USE_CUDA", "false")
     monkeypatch.setenv("CLASSIFICATION__IMAGE_EXECUTION_MODE", "subprocess")
@@ -284,6 +288,7 @@ def test_classification_startup_load_env_precedence_with_full_file_payload(monke
     assert loaded.classification.video_classification_timeout_seconds == 321
     assert loaded.classification.video_classification_stale_minutes == 66
     assert loaded.classification.video_classification_frames == 31
+    assert loaded.classification.strict_non_finite_output is False
     assert loaded.classification.inference_provider == "intel_gpu"
     assert loaded.classification.image_execution_mode == "subprocess"
     assert loaded.classification.live_worker_count == 4

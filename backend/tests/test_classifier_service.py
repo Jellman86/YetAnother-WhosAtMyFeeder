@@ -145,9 +145,13 @@ def test_safe_softmax_sanitizes_non_finite_logits():
 
 
 def test_safe_softmax_non_strict_mode_coerces_all_non_finite_logits(monkeypatch):
-    monkeypatch.setattr(classifier_service_module, "CLASSIFIER_STRICT_NON_FINITE_OUTPUT", False)
+    original_value = settings.classification.strict_non_finite_output
+    settings.classification.strict_non_finite_output = False
 
-    probs = _safe_softmax(np.array([np.nan, np.inf, -np.inf], dtype=np.float32), context="test")
+    try:
+        probs = _safe_softmax(np.array([np.nan, np.inf, -np.inf], dtype=np.float32), context="test")
+    finally:
+        settings.classification.strict_non_finite_output = original_value
 
     assert probs.shape == (3,)
     assert np.isfinite(probs).all()
@@ -163,6 +167,7 @@ def test_classifier_supervisor_config_defaults():
     assert config.worker_heartbeat_timeout_seconds == pytest.approx(5.0)
     assert config.worker_hard_deadline_seconds == pytest.approx(35.0)
     assert config.background_worker_hard_deadline_seconds == pytest.approx(120.0)
+    assert config.strict_non_finite_output is True
     assert config.worker_restart_window_seconds == pytest.approx(60.0)
     assert config.worker_restart_threshold == 3
     assert config.worker_breaker_cooldown_seconds == pytest.approx(60.0)
