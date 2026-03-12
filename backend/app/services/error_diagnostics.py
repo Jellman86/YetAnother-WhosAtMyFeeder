@@ -28,6 +28,10 @@ def _normalize_severity(value: Any) -> str:
     return "warning"
 
 
+def _normalize_optional_dict(value: Any) -> dict[str, Any] | None:
+    return value if isinstance(value, dict) else None
+
+
 class ErrorDiagnosticsHistory:
     """Bounded in-memory diagnostics history for operator-visible error bundles."""
 
@@ -58,6 +62,11 @@ class ErrorDiagnosticsHistory:
         event_id: str | None = None,
         context: dict[str, Any] | None = None,
         timestamp: str | None = None,
+        correlation_key: str | None = None,
+        job_id: str | None = None,
+        worker_pool: str | None = None,
+        runtime_recovery: dict[str, Any] | None = None,
+        snapshot_ref: str | None = None,
     ) -> dict[str, Any]:
         now_iso = _normalize_string(timestamp) or datetime.now(timezone.utc).isoformat()
         normalized_source = _normalize_string(source, "unknown")
@@ -67,6 +76,11 @@ class ErrorDiagnosticsHistory:
         normalized_stage = _normalize_string(stage) or None
         normalized_event_id = _normalize_string(event_id) or None
         normalized_context = context if isinstance(context, dict) else None
+        normalized_correlation_key = _normalize_string(correlation_key) or None
+        normalized_job_id = _normalize_string(job_id) or None
+        normalized_worker_pool = _normalize_string(worker_pool) or None
+        normalized_runtime_recovery = _normalize_optional_dict(runtime_recovery)
+        normalized_snapshot_ref = _normalize_string(snapshot_ref) or None
 
         with self._lock:
             self._counter += 1
@@ -81,6 +95,11 @@ class ErrorDiagnosticsHistory:
                 "severity": _normalize_severity(severity),
                 "event_id": normalized_event_id,
                 "context": normalized_context,
+                "correlation_key": normalized_correlation_key,
+                "job_id": normalized_job_id,
+                "worker_pool": normalized_worker_pool,
+                "runtime_recovery": normalized_runtime_recovery,
+                "snapshot_ref": normalized_snapshot_ref,
             }
             self._events.appendleft(record)
             return dict(record)

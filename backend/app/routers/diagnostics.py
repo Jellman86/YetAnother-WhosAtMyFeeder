@@ -5,6 +5,8 @@ from app.services.error_diagnostics import error_diagnostics_history
 
 router = APIRouter(prefix="/diagnostics", tags=["diagnostics"])
 
+WORKSPACE_SCHEMA_VERSION = "2026-03-12.owner-incident-workspace.v1"
+
 
 @router.get("/errors")
 async def get_error_diagnostics_history(
@@ -21,3 +23,20 @@ async def get_error_diagnostics_history(
         component=component,
         severity=severity,
     )
+
+
+@router.get("/workspace")
+async def get_owner_workspace_diagnostics(
+    limit: int = Query(default=200, ge=1, le=1000),
+    _auth: AuthContext = Depends(require_owner),
+):
+    """Return bounded diagnostics evidence for the owner incident workspace."""
+    from app.main import health_check
+
+    health = await health_check()
+    return {
+        "workspace_schema_version": WORKSPACE_SCHEMA_VERSION,
+        "backend_diagnostics": error_diagnostics_history.snapshot(limit=limit),
+        "health": health,
+        "startup_warnings": health.get("startup_warnings") or [],
+    }

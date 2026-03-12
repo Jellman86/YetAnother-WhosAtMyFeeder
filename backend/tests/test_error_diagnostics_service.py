@@ -109,3 +109,36 @@ def test_snapshot_preserves_distinct_overload_reason_codes():
         "stage_timeout",
         "drop_classify_snapshot_overloaded",
     ]
+
+
+def test_snapshot_preserves_extended_workspace_fields():
+    history = ErrorDiagnosticsHistory(max_events=5)
+
+    history.record(
+        source="worker",
+        component="classifier_supervisor",
+        reason_code="startup_timeout",
+        message="Background worker timed out during startup",
+        severity="error",
+        stage="startup",
+        event_id="evt-1",
+        context={"detail": "pool blocked"},
+        correlation_key="background:startup_timeout",
+        job_id="job-123",
+        worker_pool="background",
+        runtime_recovery={"failed_provider": "GPU", "recovered_provider": "intel_cpu"},
+        snapshot_ref="health-1",
+    )
+
+    snapshot = history.snapshot(limit=10)
+
+    assert snapshot["returned_events"] == 1
+    event = snapshot["events"][0]
+    assert event["correlation_key"] == "background:startup_timeout"
+    assert event["job_id"] == "job-123"
+    assert event["worker_pool"] == "background"
+    assert event["snapshot_ref"] == "health-1"
+    assert event["runtime_recovery"] == {
+        "failed_provider": "GPU",
+        "recovered_provider": "intel_cpu",
+    }

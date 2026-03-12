@@ -98,3 +98,31 @@ async def test_diagnostics_history_supports_limit_and_filters(client: httpx.Asyn
     assert payload["severity_counts"] == {"critical": 1}
     assert payload["events"][0]["component"] == "event_processor"
     assert payload["events"][0]["severity"] == "critical"
+
+
+@pytest.mark.asyncio
+async def test_owner_can_fetch_workspace_diagnostics_payload(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+
+    error_diagnostics_history.record(
+        source="event_pipeline",
+        component="event_processor",
+        reason_code="stage_timeout",
+        message="Classification timed out",
+        severity="error",
+        event_id="evt-owner-2",
+        correlation_key="event_pipeline:stage_timeout",
+        snapshot_ref="health-abc",
+    )
+
+    response = await client.get("/api/diagnostics/workspace")
+    assert response.status_code == 200, response.text
+    payload = response.json()
+
+    assert payload["workspace_schema_version"]
+    assert payload["backend_diagnostics"]["returned_events"] == 1
+    assert payload["backend_diagnostics"]["events"][0]["correlation_key"] == "event_pipeline:stage_timeout"
+    assert payload["health"]["service"] == "ya-wamf-backend"
+    assert "ml" in payload["health"]
+    assert "startup_warnings" in payload
