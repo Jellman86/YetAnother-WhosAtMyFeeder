@@ -144,6 +144,16 @@ def test_safe_softmax_sanitizes_non_finite_logits():
     assert float(np.sum(probs)) == pytest.approx(1.0)
 
 
+def test_safe_softmax_non_strict_mode_coerces_all_non_finite_logits(monkeypatch):
+    monkeypatch.setattr(classifier_service_module, "CLASSIFIER_STRICT_NON_FINITE_OUTPUT", False)
+
+    probs = _safe_softmax(np.array([np.nan, np.inf, -np.inf], dtype=np.float32), context="test")
+
+    assert probs.shape == (3,)
+    assert np.isfinite(probs).all()
+    assert float(np.sum(probs)) == pytest.approx(1.0)
+
+
 def test_classifier_supervisor_config_defaults():
     config = ClassificationSettings()
 

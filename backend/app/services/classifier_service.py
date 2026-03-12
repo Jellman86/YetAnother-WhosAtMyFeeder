@@ -143,6 +143,7 @@ CLASSIFIER_GPU_RESTORE_COOLDOWN_SECONDS = max(
     1.0,
     float(os.getenv("CLASSIFIER_GPU_RESTORE_COOLDOWN_SECONDS", "120")),
 )
+CLASSIFIER_STRICT_NON_FINITE_OUTPUT = os.getenv("CLASSIFIER_STRICT_NON_FINITE_OUTPUT", "true").strip().lower() != "false"
 
 
 class LiveImageClassificationOverloadedError(RuntimeError):
@@ -187,6 +188,16 @@ def _normalize_probability_vector(values: np.ndarray, *, context: str) -> np.nda
 
     finite_mask = np.isfinite(probs)
     if not finite_mask.any():
+        if not CLASSIFIER_STRICT_NON_FINITE_OUTPUT:
+            log.warning(
+                "Classifier produced all non-finite probabilities; coercing in non-strict mode",
+                context=context,
+            )
+            probs = np.nan_to_num(probs, nan=1.0, posinf=1.0, neginf=0.0).astype(np.float32, copy=False)
+            total = float(np.sum(np.maximum(probs, 0.0)))
+            if total > 0.0 and np.isfinite(total):
+                return (np.maximum(probs, 0.0) / total).astype(np.float32, copy=False)
+            return np.full((probs.size,), 1.0 / float(probs.size), dtype=np.float32)
         log.warning("Classifier produced all non-finite probabilities", context=context)
         return np.array([], dtype=np.float32)
 
@@ -220,6 +231,15 @@ def _safe_softmax(x: np.ndarray, *, context: str) -> np.ndarray:
 
     finite_mask = np.isfinite(logits)
     if not finite_mask.any():
+        if not CLASSIFIER_STRICT_NON_FINITE_OUTPUT:
+            log.warning(
+                "Classifier produced all non-finite logits; coercing in non-strict mode",
+                context=context,
+            )
+            logits = np.nan_to_num(logits, nan=0.0, posinf=80.0, neginf=-80.0).astype(np.float32, copy=False)
+            shifted = logits - float(np.max(logits))
+            exp_logits = np.exp(np.clip(shifted, -80.0, 80.0)).astype(np.float32, copy=False)
+            return _normalize_probability_vector(exp_logits, context=context)
         log.warning("Classifier produced all non-finite logits", context=context)
         return np.array([], dtype=np.float32)
 
@@ -2262,6 +2282,7 @@ class ClassifierService:
             "runtime_gpu_restore_successes": self._runtime_gpu_restore_successes,
             "runtime_gpu_restore_failures": self._runtime_gpu_restore_failures,
             "gpu_restore_not_before_monotonic": self._gpu_restore_not_before_monotonic,
+            "strict_non_finite_output": CLASSIFIER_STRICT_NON_FINITE_OUTPUT,
             "last_runtime_recovery": effective_runtime_recovery,
             "live_image_max_concurrent": admission_metrics["live"]["capacity"],
             "live_image_admission_timeout_seconds": CLASSIFIER_LIVE_IMAGE_ADMISSION_TIMEOUT_SECONDS,
