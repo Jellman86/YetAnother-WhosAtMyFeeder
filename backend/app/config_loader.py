@@ -162,7 +162,7 @@ def load_settings_instance(settings_cls: type[Any], config_path: Path) -> Any:
         'latitude': None,
         'longitude': None,
         'automatic': True,
-        'temperature_unit': 'celsius'
+        'weather_unit_system': 'metric'
     }
     
     # BirdWeather settings
@@ -378,7 +378,17 @@ def load_settings_instance(settings_cls: type[Any], config_path: Path) -> Any:
                         media_cache_data[key] = value
                         
             if 'location' in file_data:
-                for key, value in file_data['location'].items():
+                location_file = file_data['location']
+                if (
+                    isinstance(location_file, dict)
+                    and 'weather_unit_system' not in location_file
+                    and location_file.get('temperature_unit') is not None
+                ):
+                    legacy_temperature_unit = str(location_file.get('temperature_unit')).strip().lower()
+                    location_data['weather_unit_system'] = (
+                        'imperial' if legacy_temperature_unit == 'fahrenheit' else 'metric'
+                    )
+                for key, value in location_file.items():
                     if value is not None:
                         location_data[key] = value
     

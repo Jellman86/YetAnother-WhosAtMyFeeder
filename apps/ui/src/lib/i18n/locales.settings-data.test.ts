@@ -23,7 +23,13 @@ const REQUIRED_KEYS = [
     'settings.data.cache_high_quality_event_snapshot_jpeg_quality_help',
     'settings.integrations.ebird.export_date',
     'settings.integrations.ebird.export_date_label',
-    'settings.integrations.ebird.export_date_help'
+    'settings.integrations.ebird.export_date_help',
+    'settings.location.weather_unit_system',
+    'settings.location.metric',
+    'settings.location.imperial',
+    'settings.location.weather_unit_system_desc',
+    'common.unit_mph',
+    'common.unit_in'
 ];
 
 const LOCALES: Array<[string, LocaleRoot]> = [

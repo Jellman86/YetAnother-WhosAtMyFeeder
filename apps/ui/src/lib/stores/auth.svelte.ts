@@ -6,6 +6,11 @@ import {
     setAuthToken,
     setInitialPassword
 } from '../api';
+import {
+    getTemperatureUnitForSystem,
+    resolveWeatherUnitSystem,
+    type WeatherUnitSystem
+} from '../utils/weather-units';
 
 class AuthStore {
     authRequired = $state(false);
@@ -34,6 +39,7 @@ class AuthStore {
     displayCommonNames = $state(true);
     scientificNamePrimary = $state(false);
     liveAnnouncements = $state(true);
+    locationWeatherUnitSystem = $state<WeatherUnitSystem>("metric");
     locationTemperatureUnit = $state("celsius");
     dateFormat = $state("locale");
 
@@ -81,7 +87,11 @@ class AuthStore {
             this.displayCommonNames = status.display_common_names ?? true;
             this.scientificNamePrimary = status.scientific_name_primary ?? false;
             this.liveAnnouncements = status.accessibility_live_announcements ?? true;
-            this.locationTemperatureUnit = status.location_temperature_unit ?? "celsius";
+            this.locationWeatherUnitSystem = resolveWeatherUnitSystem(
+                status.location_weather_unit_system,
+                status.location_temperature_unit
+            );
+            this.locationTemperatureUnit = getTemperatureUnitForSystem(this.locationWeatherUnitSystem);
             this.dateFormat = status.date_format ?? "locale";
         } catch (err) {
             console.error('Failed to load auth status', err);

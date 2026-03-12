@@ -23,6 +23,11 @@
     import { formatTemperature } from '../utils/temperature';
     import { formatDateTime } from '../utils/datetime';
     import { getErrorMessage, isTransientRequestError } from '../utils/error-handling';
+    import {
+        convertWindSpeed,
+        getTemperatureUnitForSystem,
+        resolveWeatherUnitSystem
+    } from '../utils/weather-units';
     import { logger } from '../utils/logger';
     import { _, locale } from 'svelte-i18n';
 
@@ -434,7 +439,18 @@
         return $_('leaderboard.chart_auto', { default: 'Auto' });
     });
     let isDark = $derived(() => themeStore.isDark);
-    let temperatureUnit = $derived(settingsStore.settings?.location_temperature_unit ?? 'celsius');
+    let weatherUnitSystem = $derived(
+        resolveWeatherUnitSystem(
+            settingsStore.settings?.location_weather_unit_system,
+            settingsStore.settings?.location_temperature_unit ?? authStore.locationTemperatureUnit
+        )
+    );
+    let temperatureUnit = $derived(getTemperatureUnitForSystem(weatherUnitSystem));
+    let windUnitLabel = $derived(
+        weatherUnitSystem === 'imperial'
+            ? $_('common.unit_mph', { default: 'mph' })
+            : $_('common.unit_kmh', { default: 'km/h' })
+    );
     let weatherByBucket = $derived(() => new Map((timeline?.weather ?? []).map((w) => [w.bucket_start, w] as const)));
     let hasWeather = $derived(() => !!(timeline?.weather && timeline.weather.length));
     let weatherOverlayEligible = $derived(() => {
@@ -548,7 +564,7 @@
         }));
         const windData = indexedPoints.map(({ point, x }) => ({
             x,
-            y: weatherValue(point.bucket_start, 'wind_avg')
+            y: convertWindSpeed(weatherValue(point.bucket_start, 'wind_avg'), weatherUnitSystem)
         }));
 
         const hasTemperatureSeries = hasWeather() && showTemperature && temperatureData.some((p) => p.y !== null);
@@ -628,7 +644,7 @@
                 opposite: true,
                 labels: {
                     style: { fontSize: '10px', colors: '#0ea5e9' },
-                    formatter: (value: number) => `${Math.round(value)} ${$_('common.unit_kmh', { default: 'km/h' })}`
+                    formatter: (value: number) => `${Math.round(value)} ${windUnitLabel}`
                 }
             });
         }
@@ -695,7 +711,7 @@
                     formatter: (value: number, opts: any) => {
                         const seriesName = opts?.w?.globals?.seriesNames?.[opts.seriesIndex] ?? '';
                         if (seriesName === temperatureName) return formatTemperature(value, temperatureUnit as any);
-                        if (seriesName === windName) return `${Math.round(value)} ${$_('common.unit_kmh', { default: 'km/h' })}`;
+                        if (seriesName === windName) return `${Math.round(value)} ${windUnitLabel}`;
                         if (seriesName === smoothName || seriesName === primaryName) return formatMetricValue(value);
                         return `${Math.round(value)} ${$_('leaderboard.metric_detections', { default: 'detections' }).toLowerCase()}`;
                     }

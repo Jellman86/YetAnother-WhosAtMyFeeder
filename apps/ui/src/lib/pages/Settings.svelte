@@ -130,7 +130,7 @@
     let locationLat = $state<number | null>(null);
     let locationLon = $state<number | null>(null);
     let locationAuto = $state(true);
-    let locationTemperatureUnit = $state<'celsius' | 'fahrenheit'>('celsius');
+    let locationWeatherUnitSystem = $state<'metric' | 'imperial'>('metric');
 
     // BirdNET-Go Settings
     let birdnetEnabled = $state(true);
@@ -1611,7 +1611,11 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'locationLat', val: locationLat, store: s.location_latitude ?? null },
             { key: 'locationLon', val: locationLon, store: s.location_longitude ?? null },
             { key: 'locationAuto', val: locationAuto, store: s.location_automatic ?? true },
-            { key: 'locationTemperatureUnit', val: locationTemperatureUnit, store: s.location_temperature_unit ?? 'celsius' },
+            {
+                key: 'locationWeatherUnitSystem',
+                val: locationWeatherUnitSystem,
+                store: ((s.location_weather_unit_system as 'metric' | 'imperial') ?? (s.location_temperature_unit === 'fahrenheit' ? 'imperial' : 'metric'))
+            },
             { key: 'birdweatherEnabled', val: birdweatherEnabled, store: s.birdweather_enabled ?? false },
             { key: 'birdweatherStationToken', val: birdweatherStationToken, store: normalizeSecret(s.birdweather_station_token) },
             { key: 'ebirdEnabled', val: ebirdEnabled, store: s.ebird_enabled ?? false },
@@ -2395,7 +2399,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             locationLat = settings.location_latitude ?? null;
             locationLon = settings.location_longitude ?? null;
             locationAuto = settings.location_automatic ?? true;
-            locationTemperatureUnit = (settings.location_temperature_unit as 'celsius' | 'fahrenheit') ?? 'celsius';
+            locationWeatherUnitSystem = ((settings.location_weather_unit_system as 'metric' | 'imperial') ?? (settings.location_temperature_unit === 'fahrenheit' ? 'imperial' : 'metric'));
             // BirdWeather settings
             birdweatherEnabled = settings.birdweather_enabled ?? false;
             if (settings.birdweather_station_token === '***REDACTED***') {
@@ -2667,7 +2671,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 location_latitude: locationLat,
                 location_longitude: locationLon,
                 location_automatic: locationAuto,
-                location_temperature_unit: locationTemperatureUnit,
+                location_weather_unit_system: locationWeatherUnitSystem,
                 birdweather_enabled: birdweatherEnabled,
                 birdweather_station_token: birdweatherStationToken,
                 ebird_enabled: ebirdEnabled,
@@ -3138,7 +3142,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     bind:locationAuto
                     bind:locationLat
                     bind:locationLon
-                    bind:locationTemperatureUnit
+                    bind:locationWeatherUnitSystem
                     handleTestBirdNET={handleTestBirdNET}
                     handleTestBirdWeather={handleTestBirdWeather}
                     initiateInaturalistOAuth={initiateInaturalistOAuth}

@@ -69,6 +69,7 @@ class AuthStatusResponse(BaseModel):
     display_common_names: bool = True
     scientific_name_primary: bool = False
     accessibility_live_announcements: bool = True
+    location_weather_unit_system: str = "metric"
     location_temperature_unit: str = "celsius"
     date_format: str = "locale"
     username: Optional[str] = None
@@ -268,6 +269,7 @@ async def get_auth_status(request: Request):
         display_common_names=settings.classification.display_common_names,
         scientific_name_primary=settings.classification.scientific_name_primary,
         accessibility_live_announcements=settings.accessibility.live_announcements,
+        location_weather_unit_system=settings.location.weather_unit_system,
         location_temperature_unit=settings.location.temperature_unit,
         date_format=settings.date_format,
         username=username if auth_level == AuthLevel.OWNER else None,

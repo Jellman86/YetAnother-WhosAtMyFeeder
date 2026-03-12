@@ -27,6 +27,7 @@ def reset_auth_config():
     original_hash = settings.auth.password_hash
     original_username = settings.auth.username
     original_public = settings.public_access.enabled
+    original_weather_unit_system = settings.location.weather_unit_system
 
     yield
 
@@ -34,6 +35,7 @@ def reset_auth_config():
     settings.auth.password_hash = original_hash
     settings.auth.username = original_username
     settings.public_access.enabled = original_public
+    settings.location.weather_unit_system = original_weather_unit_system
 
 
 @pytest.mark.asyncio
@@ -70,6 +72,18 @@ async def test_auth_status_public_enabled(client: httpx.AsyncClient):
     assert response.status_code == 200
     data = response.json()
     assert data["public_access_enabled"] is True
+
+
+@pytest.mark.asyncio
+async def test_auth_status_exposes_weather_unit_system(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+    settings.location.weather_unit_system = "imperial"
+
+    response = await client.get("/api/auth/status")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["location_weather_unit_system"] == "imperial"
 
 
 @pytest.mark.asyncio

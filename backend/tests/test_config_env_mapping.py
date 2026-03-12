@@ -291,6 +291,25 @@ def test_classification_startup_load_env_precedence_with_full_file_payload(monke
     assert loaded.classification.max_classification_results == 11
 
 
+def test_legacy_location_temperature_unit_migrates_to_weather_unit_system(monkeypatch, tmp_path):
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "frigate": {"frigate_url": "http://frigate:5000"},
+                "location": {"temperature_unit": "fahrenheit"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(config_module, "CONFIG_PATH", config_path)
+
+    loaded = Settings.load()
+
+    assert loaded.location.weather_unit_system == "imperial"
+    assert loaded.location.temperature_unit == "fahrenheit"
+
+
 def test_media_cache_high_quality_event_snapshots_env_override(monkeypatch):
     monkeypatch.setenv("MEDIA_CACHE__HIGH_QUALITY_EVENT_SNAPSHOTS", "true")
 

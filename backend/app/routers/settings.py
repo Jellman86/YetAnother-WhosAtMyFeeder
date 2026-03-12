@@ -300,6 +300,7 @@ class SettingsUpdate(BaseModel):
     location_latitude: Optional[float] = Field(None, description="Latitude")
     location_longitude: Optional[float] = Field(None, description="Longitude")
     location_automatic: Optional[bool] = Field(True, description="Auto-detect location")
+    location_weather_unit_system: Optional[str] = Field("metric", description="Weather unit system: 'metric' or 'imperial'")
     location_temperature_unit: Optional[str] = Field("celsius", description="Temperature unit: 'celsius' or 'fahrenheit'")
     # BirdWeather settings
     birdweather_enabled: Optional[bool] = Field(False, description="Enable BirdWeather reporting")
@@ -439,6 +440,16 @@ class SettingsUpdate(BaseModel):
     date_format: Optional[str] = None
     appearance_font_theme: Optional[str] = None
 
+    @field_validator('location_weather_unit_system')
+    @classmethod
+    def validate_location_weather_unit_system(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        normalized = v.strip().lower()
+        if normalized not in ("metric", "imperial"):
+            raise ValueError("location_weather_unit_system must be 'metric' or 'imperial'")
+        return normalized
+
     @field_validator('location_temperature_unit')
     @classmethod
     def validate_location_temperature_unit(cls, v: Optional[str]) -> Optional[str]:
@@ -565,6 +576,7 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "location_latitude": settings.location.latitude,
         "location_longitude": settings.location.longitude,
         "location_automatic": settings.location.automatic,
+        "location_weather_unit_system": settings.location.weather_unit_system,
         "location_temperature_unit": settings.location.temperature_unit,
         # BirdWeather settings
         "birdweather_enabled": settings.birdweather.enabled,
@@ -796,7 +808,13 @@ async def update_settings(
         settings.location.longitude = update.location_longitude
     if "location_automatic" in fields_set and update.location_automatic is not None:
         settings.location.automatic = update.location_automatic
-    if "location_temperature_unit" in fields_set and update.location_temperature_unit is not None:
+    if "location_weather_unit_system" in fields_set and update.location_weather_unit_system is not None:
+        settings.location.weather_unit_system = update.location_weather_unit_system
+    if (
+        "location_temperature_unit" in fields_set
+        and "location_weather_unit_system" not in fields_set
+        and update.location_temperature_unit is not None
+    ):
         settings.location.temperature_unit = update.location_temperature_unit
 
     # BirdWeather settings

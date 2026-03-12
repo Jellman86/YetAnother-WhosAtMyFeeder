@@ -41,6 +41,12 @@
     import { FRIGATE_LOGO_URL } from '../assets';
     import { formatDateTime } from '../utils/datetime';
     import { formatTemperature } from '../utils/temperature';
+    import {
+        formatPrecipitation,
+        formatWindSpeed,
+        getTemperatureUnitForSystem,
+        resolveWeatherUnitSystem
+    } from '../utils/weather-units';
     import { renderMarkdown } from '../utils/markdown';
     import { getVideoFailureInsight, hasFrigateMediaIssue } from '../utils/frigate-errors';
 
@@ -746,11 +752,19 @@
     }
 
     function formatPrecip(value?: number | null): string {
-        if (value === null || value === undefined || Number.isNaN(value)) return '';
-        if (value < 0.1) return `${value.toFixed(2)}mm`;
-        if (value < 1) return `${value.toFixed(1)}mm`;
-        return `${value.toFixed(0)}mm`;
+        return formatPrecipitation(value, weatherUnitSystem, {
+            metric: $_('common.unit_mm', { default: 'mm' }),
+            imperial: $_('common.unit_in', { default: 'in' })
+        });
     }
+
+    const weatherUnitSystem = $derived(
+        resolveWeatherUnitSystem(
+            settingsStore.settings?.location_weather_unit_system,
+            settingsStore.settings?.location_temperature_unit ?? authStore.locationTemperatureUnit
+        )
+    );
+    const temperatureUnit = $derived(getTemperatureUnitForSystem(weatherUnitSystem));
 
     function formatAudioOffset(offsetSeconds: number): string {
         const abs = Math.abs(offsetSeconds);
@@ -1661,7 +1675,7 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
                         </svg>
                         <span class="text-sm font-bold text-slate-700 dark:text-slate-300">
-                            {formatTemperature(detection.temperature, settingsStore.settings?.location_temperature_unit as any)}
+                            {formatTemperature(detection.temperature, temperatureUnit)}
                         </span>
                     </div>
                 {/if}
@@ -1760,7 +1774,7 @@
                         </div>
                         {#if detection.temperature !== undefined && detection.temperature !== null}
                             <div class="text-sm font-black text-slate-800 dark:text-slate-100">
-                                {formatTemperature(detection.temperature, settingsStore.settings?.location_temperature_unit as any)}
+                                {formatTemperature(detection.temperature, temperatureUnit)}
                             </div>
                         {/if}
                     </div>
@@ -1789,7 +1803,10 @@
                                 </div>
                                 <p class="text-xs font-bold text-slate-700 dark:text-slate-200">
                                     {#if detection.weather_wind_speed !== undefined && detection.weather_wind_speed !== null}
-                                        {Math.round(detection.weather_wind_speed)} km/h {formatWindDirection(detection.weather_wind_direction)}
+                                        {formatWindSpeed(detection.weather_wind_speed, weatherUnitSystem, {
+                                            metric: $_('common.unit_kmh', { default: 'km/h' }),
+                                            imperial: $_('common.unit_mph', { default: 'mph' })
+                                        })} {formatWindDirection(detection.weather_wind_direction)}
                                     {:else}
                                         —
                                     {/if}

@@ -1,10 +1,10 @@
 import ipaddress
 import secrets as secrets_lib
 import socket
-from typing import Optional
+from typing import Literal, Optional
 
 import structlog
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 log = structlog.get_logger()
 
@@ -283,7 +283,42 @@ class LocationSettings(BaseModel):
     latitude: Optional[float] = Field(None, description="Latitude for weather/sun data")
     longitude: Optional[float] = Field(None, description="Longitude for weather/sun data")
     automatic: bool = Field(True, description="Attempt to detect location automatically via IP")
-    temperature_unit: str = Field(default="celsius", description="Temperature unit: 'celsius' or 'fahrenheit'")
+    weather_unit_system: Literal["metric", "imperial"] = Field(
+        default="metric",
+        description="Weather measurement unit system: metric or imperial",
+    )
+
+    @model_validator(mode="before")
+    @classmethod
+    def migrate_legacy_temperature_unit(cls, data):
+        if not isinstance(data, dict):
+            return data
+        migrated = dict(data)
+        if "weather_unit_system" not in migrated or migrated.get("weather_unit_system") is None:
+            legacy_unit = str(migrated.get("temperature_unit", "") or "").strip().lower()
+            if legacy_unit == "fahrenheit":
+                migrated["weather_unit_system"] = "imperial"
+            elif legacy_unit == "celsius":
+                migrated["weather_unit_system"] = "metric"
+        return migrated
+
+    @field_validator("weather_unit_system")
+    @classmethod
+    def validate_weather_unit_system(cls, v: str) -> str:
+        normalized = (v or "metric").strip().lower()
+        if normalized not in {"metric", "imperial"}:
+            log.warning("Invalid weather_unit_system in config; falling back to metric", value=v)
+            return "metric"
+        return normalized
+
+    @property
+    def temperature_unit(self) -> str:
+        return "fahrenheit" if self.weather_unit_system == "imperial" else "celsius"
+
+    @temperature_unit.setter
+    def temperature_unit(self, value: str) -> None:
+        normalized = (value or "celsius").strip().lower()
+        self.weather_unit_system = "imperial" if normalized == "fahrenheit" else "metric"
 
 class BirdWeatherSettings(BaseModel):
     enabled: bool = Field(default=False, description="Enable BirdWeather reporting")

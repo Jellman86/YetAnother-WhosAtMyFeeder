@@ -35,7 +35,7 @@
         locationAuto = $bindable(true),
         locationLat = $bindable<number | null>(null),
         locationLon = $bindable<number | null>(null),
-        locationTemperatureUnit = $bindable<'celsius' | 'fahrenheit'>('celsius'),
+        locationWeatherUnitSystem = $bindable<'metric' | 'imperial'>('metric'),
         handleTestBirdNET,
         handleTestBirdWeather,
         initiateInaturalistOAuth,
@@ -76,7 +76,7 @@
         locationAuto: boolean;
         locationLat: number | null;
         locationLon: number | null;
-        locationTemperatureUnit: 'celsius' | 'fahrenheit';
+        locationWeatherUnitSystem: 'metric' | 'imperial';
         handleTestBirdNET: () => Promise<void>;
         handleTestBirdWeather: () => Promise<void>;
         initiateInaturalistOAuth: () => Promise<{ authorization_url: string }>;
@@ -706,17 +706,17 @@
             {/if}
 
             <div>
-                <label for="temperature-unit" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.location.temperature_unit')}</label>
+                <label for="weather-unit-system" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.location.weather_unit_system')}</label>
                 <select
-                    id="temperature-unit"
-                    bind:value={locationTemperatureUnit}
-                    aria-label="{$_('settings.location.temperature_unit')}"
+                    id="weather-unit-system"
+                    bind:value={locationWeatherUnitSystem}
+                    aria-label="{$_('settings.location.weather_unit_system')}"
                     class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-teal-500 outline-none"
                 >
-                    <option value="celsius">{$_('settings.location.celsius')}</option>
-                    <option value="fahrenheit">{$_('settings.location.fahrenheit')}</option>
+                    <option value="metric">{$_('settings.location.metric')}</option>
+                    <option value="imperial">{$_('settings.location.imperial')}</option>
                 </select>
-                <p class="mt-1 text-[10px] text-slate-400 font-bold italic">{$_('settings.location.temperature_unit_desc')}</p>
+                <p class="mt-1 text-[10px] text-slate-400 font-bold italic">{$_('settings.location.weather_unit_system_desc')}</p>
             </div>
         </div>
     </section>

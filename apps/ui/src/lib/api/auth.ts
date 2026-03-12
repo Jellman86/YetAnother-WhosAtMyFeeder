@@ -21,6 +21,7 @@ export interface AuthStatusResponse {
     display_common_names: boolean;
     scientific_name_primary: boolean;
     accessibility_live_announcements: boolean;
+    location_weather_unit_system: string;
     location_temperature_unit: string;
     date_format: string;
     username: string | null;

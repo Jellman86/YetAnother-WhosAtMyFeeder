@@ -10,6 +10,12 @@
     import { getBirdNames } from '../naming';
     import { formatTime } from '../utils/datetime';
     import { formatTemperature } from '../utils/temperature';
+    import {
+        formatPrecipitation,
+        formatWindSpeed,
+        getTemperatureUnitForSystem,
+        resolveWeatherUnitSystem
+    } from '../utils/weather-units';
 
     interface Props {
         detection: Detection;
@@ -45,6 +51,13 @@
         detection.weather_rain !== undefined && detection.weather_rain !== null ||
         detection.weather_snowfall !== undefined && detection.weather_snowfall !== null
     );
+    let weatherUnitSystem = $derived(
+        resolveWeatherUnitSystem(
+            settingsStore.settings?.location_weather_unit_system,
+            settingsStore.settings?.location_temperature_unit ?? authStore.locationTemperatureUnit
+        )
+    );
+    let temperatureUnit = $derived(getTemperatureUnitForSystem(weatherUnitSystem));
 
     function getRelativeTime(dateString: string, t: any): string {
         try {
@@ -71,10 +84,10 @@
     }
 
     function formatPrecip(value?: number | null): string {
-        if (value === null || value === undefined || Number.isNaN(value)) return '';
-        if (value < 0.1) return `${value.toFixed(2)}mm`;
-        if (value < 1) return `${value.toFixed(1)}mm`;
-        return `${value.toFixed(0)}mm`;
+        return formatPrecipitation(value, weatherUnitSystem, {
+            metric: $_('common.unit_mm', { default: 'mm' }),
+            imperial: $_('common.unit_in', { default: 'in' })
+        });
     }
 </script>
 
@@ -137,7 +150,7 @@
                 </span>
                 {#if detection.temperature !== undefined && detection.temperature !== null}
                     <span class="flex items-center gap-1.5">
-                        🌡️ {formatTemperature(detection.temperature, settingsStore.settings?.location_temperature_unit as any)}
+                        🌡️ {formatTemperature(detection.temperature, temperatureUnit)}
                     </span>
                 {/if}
             </div>
@@ -166,7 +179,10 @@
                     {/if}
                     {#if detection.weather_wind_speed !== undefined && detection.weather_wind_speed !== null}
                         <span class="px-2 py-0.5 bg-emerald-500/20 text-emerald-200 text-[10px] font-bold uppercase tracking-widest rounded-md">
-                            {Math.round(detection.weather_wind_speed)} km/h {$_('detection.weather_wind')}
+                            {formatWindSpeed(detection.weather_wind_speed, weatherUnitSystem, {
+                                metric: $_('common.unit_kmh', { default: 'km/h' }),
+                                imperial: $_('common.unit_mph', { default: 'mph' })
+                            })} {$_('detection.weather_wind')}
                         </span>
                     {/if}
                 </div>

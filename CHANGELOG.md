@@ -6,6 +6,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- **Added:** Global weather measurement units setting for issue `#24`: `Settings > Integrations > Location` now uses a single `metric`/`imperial` preference, older `location.temperature_unit` configs auto-migrate on load, and auth/settings payloads expose the canonical unit-system field while keeping the legacy temperature alias for compatibility.
+- **Changed:** Weather rendering now uses one shared frontend unit helper across detection cards, the latest-detection hero, the detection modal, and species weather charts so temperature, wind, and precipitation stay consistent instead of mixing `°F` with `km/h` or `mm`.
 - **Fixed:** Auto video classification now uses a video-specific supervised worker deadline instead of the shorter live-image worker deadline, preserves worker failure reasons (deadline/startup/exit/circuit) instead of flattening them into generic “no results”, and records canonical backend diagnostics for video failures/circuit-open events so the owner Errors workspace can surface them.
 - **Added:** Owner incident workspace in Notifications > Errors now correlates backend diagnostics into current/recent incidents, preserves richer evidence in exported bundles, and generates issue-ready report text with optional owner notes for GitHub reporting.
 - **Changed:** OpenVINO/GPU bird inference is now fully supervisor-oriented in subprocess mode: the main backend no longer eagerly loads a duplicate bird model, status probes are cached instead of re-running OpenVINO device detection on every refresh, and owner bird test/debug routes use subprocess-safe behavior instead of assuming an in-process bird runtime.

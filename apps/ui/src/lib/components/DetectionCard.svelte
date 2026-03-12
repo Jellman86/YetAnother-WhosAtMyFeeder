@@ -12,6 +12,12 @@
     import { getBirdNames } from '../naming';
     import { formatDate as formatDateValue, formatTime } from '../utils/datetime';
     import { formatTemperature } from '../utils/temperature';
+    import {
+        formatPrecipitation,
+        formatWindSpeed,
+        getTemperatureUnitForSystem,
+        resolveWeatherUnitSystem
+    } from '../utils/weather-units';
 
     interface Props {
         detection: Detection;
@@ -216,6 +222,13 @@
     const hasIcy = $derived(
         hasTemperature && (detection.temperature ?? 0) <= 0
     );
+    const weatherUnitSystem = $derived(
+        resolveWeatherUnitSystem(
+            settingsStore.settings?.location_weather_unit_system,
+            settingsStore.settings?.location_temperature_unit ?? authStore.locationTemperatureUnit
+        )
+    );
+    const temperatureUnit = $derived(getTemperatureUnitForSystem(weatherUnitSystem));
 
     function rainColor(total: number) {
         if (total >= 5) return 'text-blue-600';
@@ -248,10 +261,14 @@
     }
 
     function formatPrecip(value?: number | null): string {
-        if (value === null || value === undefined || Number.isNaN(value)) return '0mm';
-        if (value < 0.1) return `${value.toFixed(2)}mm`;
-        if (value < 1) return `${value.toFixed(1)}mm`;
-        return `${value.toFixed(0)}mm`;
+        const formatted = formatPrecipitation(value, weatherUnitSystem, {
+            metric: $_('common.unit_mm', { default: 'mm' }),
+            imperial: $_('common.unit_in', { default: 'in' })
+        });
+        if (formatted) return formatted;
+        return weatherUnitSystem === 'imperial'
+            ? `0${$_('common.unit_in', { default: 'in' })}`
+            : `0${$_('common.unit_mm', { default: 'mm' })}`;
     }
 
     function summarizeWeatherCondition(value?: string | null): string {
@@ -535,7 +552,7 @@
                             </div>
                             {#if hasTemperature}
                                 <div class="shrink-0 whitespace-nowrap text-xs font-black text-slate-700 dark:text-slate-200">
-                                    {formatTemperature(detection.temperature, settingsStore.settings?.location_temperature_unit as any)}
+                                    {formatTemperature(detection.temperature, temperatureUnit)}
                                 </div>
                             {/if}
                         </div>
@@ -580,7 +597,10 @@
                                     <svg class="w-4 h-4 {windColor(windSpeed)}" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-label={$_('detection.weather_wind')}>
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h11a3 3 0 100-6M2 12h13a3 3 0 110 6H9" />
                                     </svg>
-                                    <span>{Math.round(windSpeed ?? 0)} km/h</span>
+                                    <span>{formatWindSpeed(windSpeed, weatherUnitSystem, {
+                                        metric: $_('common.unit_kmh', { default: 'km/h' }),
+                                        imperial: $_('common.unit_mph', { default: 'mph' })
+                                    })}</span>
                                 </div>
                             {/if}
                         </div>
