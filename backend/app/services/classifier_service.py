@@ -1272,6 +1272,7 @@ class ClassifierService:
             self._classifier_supervisor = ClassifierSupervisor(
                 live_worker_count=int(getattr(settings.classification, "live_worker_count", image_workers) or image_workers),
                 background_worker_count=int(getattr(settings.classification, "background_worker_count", 1) or 1),
+                video_worker_count=video_workers,
                 heartbeat_timeout_seconds=float(getattr(settings.classification, "worker_heartbeat_timeout_seconds", 5.0) or 5.0),
                 hard_deadline_seconds=float(getattr(settings.classification, "worker_hard_deadline_seconds", 35.0) or 35.0),
                 worker_ready_timeout_seconds=float(getattr(settings.classification, "worker_ready_timeout_seconds", 20.0) or 20.0),
@@ -1790,6 +1791,22 @@ class ClassifierService:
         except Exception:
             return None
 
+    def _latest_worker_runtime_recovery(self, supervisor_metrics: dict[str, Any] | None) -> dict[str, Any] | None:
+        if not isinstance(supervisor_metrics, dict):
+            return None
+        recoveries: list[dict[str, Any]] = []
+        for pool_name in ("live", "background"):
+            pool = supervisor_metrics.get(pool_name)
+            if not isinstance(pool, dict):
+                continue
+            recovery = pool.get("last_runtime_recovery")
+            if isinstance(recovery, dict):
+                recoveries.append(dict(recovery))
+        if not recoveries:
+            return None
+        recoveries.sort(key=lambda item: float(item.get("at") or 0.0), reverse=True)
+        return recoveries[0]
+
     def _describe_live_image_health(self, admission_metrics: dict) -> dict:
         live_metrics = admission_metrics["live"]
         recent_counts = self._recent_admission_outcome_counts(admission_metrics)
@@ -1879,6 +1896,11 @@ class ClassifierService:
             "late_completions_ignored": int(admission_metrics["late_completions_ignored"]),
         }
         supervisor_metrics = self._get_supervisor_metrics()
+        effective_runtime_recovery = (
+            self._latest_worker_runtime_recovery(supervisor_metrics)
+            if self._image_execution_mode == "subprocess"
+            else None
+        ) or self._last_runtime_recovery
         if supervisor_metrics is not None:
             status["worker_pools"] = supervisor_metrics
             status["late_results_ignored"] = int(supervisor_metrics.get("late_results_ignored") or 0)
@@ -1891,6 +1913,11 @@ class ClassifierService:
         live_image_health = self._describe_live_image_health(admission_metrics)
         background_image_health = self._describe_background_image_health(admission_metrics)
         supervisor_metrics = self._get_supervisor_metrics()
+        effective_runtime_recovery = (
+            self._latest_worker_runtime_recovery(supervisor_metrics)
+            if self._image_execution_mode == "subprocess"
+            else None
+        ) or self._last_runtime_recovery
         
         # Determine which TFLite runtime is actually in use
         tflite_type = "none"
@@ -1903,12 +1930,24 @@ class ClassifierService:
         runtime_recovery = {
             "invalid_output_failures": self._runtime_invalid_output_failures,
             "fallback_recoveries": self._runtime_fallback_recoveries,
-            "last_recovery": self._last_runtime_recovery,
+            "last_recovery": effective_runtime_recovery,
         }
-        runtime_recovery_failed = bool((self._last_runtime_recovery or {}).get("status") == "failed")
+        runtime_recovery_failed = bool((effective_runtime_recovery or {}).get("status") == "failed")
+        bird_runtime_ready = False
+        if self._image_execution_mode == "subprocess":
+            if supervisor_metrics is None:
+                bird_runtime_ready = False
+            else:
+                live_pool = supervisor_metrics.get("live") or {}
+                background_pool = supervisor_metrics.get("background") or {}
+                bird_runtime_ready = bool(
+                    int(live_pool.get("workers") or 0) > 0 or int(background_pool.get("workers") or 0) > 0
+                )
+        else:
+            bird_runtime_ready = bool(bird and bird.loaded)
 
         health = {
-            "status": "ok" if (bird and bird.loaded and not runtime_recovery_failed) else "error",
+            "status": "ok" if (bird_runtime_ready and not runtime_recovery_failed) else "error",
             "execution_mode": self._image_execution_mode,
             "runtimes": {
                 "tflite": {
@@ -1976,6 +2015,12 @@ class ClassifierService:
         bird = self._models.get("bird")
         admission_metrics = self._classification_admission.get_metrics()
         self._refresh_accel_caps()
+        supervisor_metrics = self._get_supervisor_metrics()
+        effective_runtime_recovery = (
+            self._latest_worker_runtime_recovery(supervisor_metrics)
+            if self._image_execution_mode == "subprocess"
+            else None
+        ) or self._last_runtime_recovery
         active_model_id = None
         try:
             from app.services.model_manager import model_manager
@@ -2019,7 +2064,7 @@ class ClassifierService:
             "image_admission_timeouts": self._image_admission_timeouts,
             "runtime_invalid_output_failures": self._runtime_invalid_output_failures,
             "runtime_fallback_recoveries": self._runtime_fallback_recoveries,
-            "last_runtime_recovery": self._last_runtime_recovery,
+            "last_runtime_recovery": effective_runtime_recovery,
             "live_image_max_concurrent": admission_metrics["live"]["capacity"],
             "live_image_admission_timeout_seconds": CLASSIFIER_LIVE_IMAGE_ADMISSION_TIMEOUT_SECONDS,
             "live_image_admission_timeouts": self._live_image_admission_timeouts,
@@ -2042,7 +2087,6 @@ class ClassifierService:
             "cuda_enabled": _normalize_inference_provider(getattr(settings.classification, "inference_provider", "auto")) == "cuda",
             "models": {}
         }
-        supervisor_metrics = self._get_supervisor_metrics()
         if supervisor_metrics is not None:
             status["worker_pools"] = supervisor_metrics
 
@@ -2626,68 +2670,84 @@ class ClassifierService:
         if max_frames is None:
             max_frames = settings.classification.video_classification_frames
 
-        loop = asyncio.get_running_loop()
-
-        # Wrap the callback to make it thread-safe
-        if progress_callback:
-            def sync_callback(
-                current_frame,
-                total_frames,
-                frame_score,
-                top_label,
-                frame_thumb=None,
-                frame_index=None,
-                clip_total=None,
-                model_name=None
-            ):
-                try:
-                    # Schedule the async callback in the event loop from the executor thread
-                    future = asyncio.run_coroutine_threadsafe(
-                        progress_callback(
-                            current_frame,
-                            total_frames,
-                            frame_score,
-                            top_label,
-                            frame_thumb,
-                            frame_index,
-                            clip_total,
-                            model_name
-                        ),
-                        loop
-                    )
-                    # Wait for completion and catch any exceptions
-                    # Use a short timeout to avoid blocking the video processing
-                    try:
-                        future.result(timeout=1.0)
-                    except TimeoutError:
-                        log.warning("Progress callback timed out after 1s",
-                                   frame=current_frame,
-                                   total=total_frames)
-                    except Exception as e:
-                        log.error("Progress callback failed",
-                                 error=str(e),
-                                 frame=current_frame,
-                                 total=total_frames)
-                except Exception as e:
-                    # Catch any exception in scheduling itself
-                    log.error("Failed to schedule progress callback", error=str(e))
-            base_results = await loop.run_in_executor(
-                self._video_executor,
-                self.classify_video,
-                video_path,
-                stride,
-                max_frames,
-                sync_callback,
-            )
+        if self._image_execution_mode == "subprocess" and self._classifier_supervisor is not None:
+            try:
+                base_results = await self._classifier_supervisor.classify_video(
+                    work_id=f"video-{time.monotonic_ns()}",
+                    lease_token=1,
+                    video_path=video_path,
+                    stride=stride,
+                    max_frames=max_frames,
+                    progress_callback=progress_callback,
+                )
+            except (
+                ClassifierWorkerCircuitOpenError,
+                ClassifierWorkerHeartbeatTimeoutError,
+                ClassifierWorkerDeadlineExceededError,
+                ClassifierWorkerStartupTimeoutError,
+                ClassifierWorkerExitedError,
+            ) as exc:
+                log.warning("Supervised video classification failed", error=str(exc), video_path=video_path)
+                return []
         else:
-            base_results = await loop.run_in_executor(
-                self._video_executor,
-                self.classify_video,
-                video_path,
-                stride,
-                max_frames,
-                None,
-            )
+            loop = asyncio.get_running_loop()
+
+            # Wrap the callback to make it thread-safe
+            if progress_callback:
+                def sync_callback(
+                    current_frame,
+                    total_frames,
+                    frame_score,
+                    top_label,
+                    frame_thumb=None,
+                    frame_index=None,
+                    clip_total=None,
+                    model_name=None
+                ):
+                    try:
+                        future = asyncio.run_coroutine_threadsafe(
+                            progress_callback(
+                                current_frame,
+                                total_frames,
+                                frame_score,
+                                top_label,
+                                frame_thumb,
+                                frame_index,
+                                clip_total,
+                                model_name
+                            ),
+                            loop
+                        )
+                        try:
+                            future.result(timeout=1.0)
+                        except TimeoutError:
+                            log.warning("Progress callback timed out after 1s",
+                                       frame=current_frame,
+                                       total=total_frames)
+                        except Exception as e:
+                            log.error("Progress callback failed",
+                                     error=str(e),
+                                     frame=current_frame,
+                                     total=total_frames)
+                    except Exception as e:
+                        log.error("Failed to schedule progress callback", error=str(e))
+                base_results = await loop.run_in_executor(
+                    self._video_executor,
+                    self.classify_video,
+                    video_path,
+                    stride,
+                    max_frames,
+                    sync_callback,
+                )
+            else:
+                base_results = await loop.run_in_executor(
+                    self._video_executor,
+                    self.classify_video,
+                    video_path,
+                    stride,
+                    max_frames,
+                    None,
+                )
 
         if not base_results:
             return base_results

@@ -1,15 +1,16 @@
 import asyncio
+import inspect
 import itertools
 import time
 from collections import deque
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import Any, Awaitable, Callable, Literal
 
 from .classifier_worker_client import ClassifierWorkerClient
-from .classifier_worker_protocol import build_classify_request
+from .classifier_worker_protocol import build_classify_request, build_classify_video_request
 
 
-WorkPriority = Literal["live", "background"]
+WorkPriority = Literal["live", "background", "video"]
 
 
 class ClassifierWorkerHeartbeatTimeoutError(RuntimeError):
@@ -52,6 +53,7 @@ class _Assignment:
     lease_token: int
     started_at: float
     future: asyncio.Future[list[dict[str, Any]]]
+    progress_callback: Callable[..., Awaitable[None] | None] | None = None
 
 
 class ClassifierSupervisor:
@@ -60,6 +62,7 @@ class ClassifierSupervisor:
         *,
         live_worker_count: int,
         background_worker_count: int,
+        video_worker_count: int = 1,
         heartbeat_timeout_seconds: float,
         hard_deadline_seconds: float,
         worker_ready_timeout_seconds: float = 20.0,
@@ -72,6 +75,7 @@ class ClassifierSupervisor:
         self._worker_counts = {
             "live": max(1, int(live_worker_count)),
             "background": max(1, int(background_worker_count)),
+            "video": max(1, int(video_worker_count)),
         }
         self._heartbeat_timeout_seconds = max(0.01, float(heartbeat_timeout_seconds))
         self._hard_deadline_seconds = max(0.01, float(hard_deadline_seconds))
@@ -81,7 +85,7 @@ class ClassifierSupervisor:
         self._restart_threshold = max(1, int(restart_threshold))
         self._breaker_cooldown_seconds = max(0.01, float(breaker_cooldown_seconds))
         self._worker_factory = worker_factory
-        self._slots: dict[WorkPriority, list[_WorkerSlot]] = {"live": [], "background": []}
+        self._slots: dict[WorkPriority, list[_WorkerSlot]] = {"live": [], "background": [], "video": []}
         self._assignments: dict[str, _Assignment] = {}
         self._metrics = {
             "live": {
@@ -104,11 +108,22 @@ class ClassifierSupervisor:
                 "circuit_open": False,
                 "circuit_open_until_monotonic": None,
             },
+            "video": {
+                "workers": 0,
+                "restarts": 0,
+                "last_exit_reason": None,
+                "last_stderr_excerpt": "",
+                "last_stderr_truncated_bytes": 0,
+                "last_runtime_recovery": None,
+                "circuit_open": False,
+                "circuit_open_until_monotonic": None,
+            },
             "late_results_ignored": 0,
         }
         self._restart_history: dict[WorkPriority, deque[float]] = {
             "live": deque(),
             "background": deque(),
+            "video": deque(),
         }
         self._consumer_tasks: set[asyncio.Task[None]] = set()
         self._request_counter = itertools.count(1)
@@ -116,15 +131,16 @@ class ClassifierSupervisor:
         self._start_locks: dict[WorkPriority, asyncio.Lock] = {
             "live": asyncio.Lock(),
             "background": asyncio.Lock(),
+            "video": asyncio.Lock(),
         }
-        self._pool_started: dict[WorkPriority, bool] = {"live": False, "background": False}
+        self._pool_started: dict[WorkPriority, bool] = {"live": False, "background": False, "video": False}
         self._watchdog_task: asyncio.Task[None] | None = None
         self._started = False
 
     async def start(self, priority: WorkPriority | None = None) -> None:
         priorities: tuple[WorkPriority, ...]
         if priority is None:
-            priorities = ("live", "background")
+            priorities = ("live", "background", "video")
         else:
             priorities = (priority,)
 
@@ -142,7 +158,7 @@ class ClassifierSupervisor:
                 await self._watchdog_task
             except asyncio.CancelledError:
                 pass
-        for priority in ("live", "background"):
+        for priority in ("live", "background", "video"):
             for slot in self._slots[priority]:
                 if slot.worker is not None:
                     await slot.worker.terminate()
@@ -159,6 +175,7 @@ class ClassifierSupervisor:
         return {
             "live": dict(self._metrics["live"]),
             "background": dict(self._metrics["background"]),
+            "video": dict(self._metrics["video"]),
             "late_results_ignored": self._metrics["late_results_ignored"],
         }
 
@@ -171,6 +188,56 @@ class ClassifierSupervisor:
         image_b64: str,
         camera_name: str | None,
         model_id: str | None,
+    ) -> list[dict[str, Any]]:
+        return await self._submit_request(
+            priority=priority,
+            work_id=str(work_id),
+            lease_token=int(lease_token),
+            build_message=lambda slot, request_id: build_classify_request(
+                worker_generation=slot.worker_generation,
+                request_id=request_id,
+                work_id=str(work_id),
+                lease_token=int(lease_token),
+                image_b64=image_b64,
+                camera_name=camera_name,
+                model_id=model_id,
+            ),
+        )
+
+    async def classify_video(
+        self,
+        *,
+        work_id: str,
+        lease_token: int,
+        video_path: str,
+        stride: int = 5,
+        max_frames: int | None = None,
+        progress_callback: Callable[..., Awaitable[None] | None] | None = None,
+    ) -> list[dict[str, Any]]:
+        return await self._submit_request(
+            priority="video",
+            work_id=str(work_id),
+            lease_token=int(lease_token),
+            build_message=lambda slot, request_id: build_classify_video_request(
+                worker_generation=slot.worker_generation,
+                request_id=request_id,
+                work_id=str(work_id),
+                lease_token=int(lease_token),
+                video_path=video_path,
+                stride=int(stride),
+                max_frames=max_frames,
+            ),
+            progress_callback=progress_callback,
+        )
+
+    async def _submit_request(
+        self,
+        *,
+        priority: WorkPriority,
+        work_id: str,
+        lease_token: int,
+        build_message: Callable[[_WorkerSlot, str], dict[str, Any]],
+        progress_callback: Callable[..., Awaitable[None] | None] | None = None,
     ) -> list[dict[str, Any]]:
         await self.start(priority)
         self._refresh_circuit_state(priority)
@@ -189,24 +256,15 @@ class ClassifierSupervisor:
                 worker_name=slot.worker_name,
                 worker_generation=slot.worker_generation,
                 request_id=request_id,
-                work_id=str(work_id),
-                lease_token=int(lease_token),
+                work_id=work_id,
+                lease_token=lease_token,
                 started_at=time.monotonic(),
                 future=future,
+                progress_callback=progress_callback,
             )
             self._assignments[slot.worker_name] = assignment
 
-        await slot.worker.send(
-            build_classify_request(
-                worker_generation=slot.worker_generation,
-                request_id=request_id,
-                work_id=str(work_id),
-                lease_token=int(lease_token),
-                image_b64=image_b64,
-                camera_name=camera_name,
-                model_id=model_id,
-            )
-            )
+        await slot.worker.send(build_message(slot, request_id))
         return await future
 
     async def _ensure_pool_started(self, priority: WorkPriority) -> None:
@@ -368,6 +426,32 @@ class ClassifierSupervisor:
             if message["type"] == "runtime_recovery":
                 self._metrics[current_slot.priority]["last_runtime_recovery"] = dict(message.get("recovery") or {})
                 continue
+            if message["type"] == "progress":
+                if assignment is None:
+                    self._metrics["late_results_ignored"] += 1
+                    continue
+                if (
+                    assignment.worker_generation != generation
+                    or message.get("request_id") != assignment.request_id
+                    or message.get("work_id") != assignment.work_id
+                    or int(message.get("lease_token") or -1) != assignment.lease_token
+                ):
+                    self._metrics["late_results_ignored"] += 1
+                    continue
+                if assignment.progress_callback is not None:
+                    callback_result = assignment.progress_callback(
+                        message.get("current_frame"),
+                        message.get("total_frames"),
+                        message.get("frame_score"),
+                        message.get("top_label"),
+                        message.get("frame_thumb"),
+                        message.get("frame_index"),
+                        message.get("clip_total"),
+                        message.get("model_name"),
+                    )
+                    if inspect.isawaitable(callback_result):
+                        await callback_result
+                continue
             if assignment is None:
                 self._metrics["late_results_ignored"] += 1
                 continue
@@ -394,7 +478,7 @@ class ClassifierSupervisor:
     async def _watchdog_loop(self) -> None:
         while True:
             await asyncio.sleep(self._watchdog_interval_seconds)
-            for priority in ("live", "background"):
+            for priority in ("live", "background", "video"):
                 for index, slot in enumerate(list(self._slots[priority])):
                     if slot.worker is None:
                         continue
@@ -470,7 +554,7 @@ class ClassifierSupervisor:
             self._condition.notify_all()
 
     def _find_slot(self, worker_name: str) -> _WorkerSlot | None:
-        for priority in ("live", "background"):
+        for priority in ("live", "background", "video"):
             for slot in self._slots[priority]:
                 if slot.worker_name == worker_name:
                     return slot

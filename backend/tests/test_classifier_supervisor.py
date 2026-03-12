@@ -83,6 +83,13 @@ class _SlowReadyWorker(_FakeWorker):
             raise TimeoutError()
 
 
+def _find_worker(created: list[_FakeWorker], worker_name: str, generation: int) -> _FakeWorker:
+    for worker in created:
+        if worker.worker_name == worker_name and worker.worker_generation == generation:
+            return worker
+    raise AssertionError(f"worker not found: {worker_name} gen={generation}")
+
+
 @pytest.mark.asyncio
 async def test_classifier_supervisor_starts_live_and_background_pools():
     created: list[_FakeWorker] = []
@@ -410,7 +417,7 @@ async def test_classifier_supervisor_ignores_stale_results_from_replaced_worker(
             model_id="default",
         )
     )
-    replacement_live_worker = created[2]
+    replacement_live_worker = _find_worker(created, "live-0", 2)
     for _ in range(20):
         if replacement_live_worker.sent_messages:
             break
@@ -458,7 +465,7 @@ async def test_classifier_supervisor_opens_circuit_after_restart_budget_exhauste
 
     created[0].exit_code = 7
     await asyncio.sleep(0.05)
-    created[2].exit_code = 8
+    _find_worker(created, "live-0", 2).exit_code = 8
     await asyncio.sleep(0.05)
 
     metrics = supervisor.get_metrics()
@@ -524,7 +531,7 @@ async def test_classifier_supervisor_allows_recovery_after_cooldown_expires():
             model_id="default",
         )
     )
-    replacement_live_worker = created[2]
+    replacement_live_worker = _find_worker(created, "live-0", 2)
     for _ in range(20):
         if replacement_live_worker.sent_messages:
             break

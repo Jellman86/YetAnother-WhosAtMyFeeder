@@ -11,6 +11,7 @@ from PIL import Image
 from .classifier_worker_protocol import (
     build_error_event,
     build_heartbeat_event,
+    build_progress_event,
     build_ready_event,
     build_runtime_recovery_event,
     build_result_event,
@@ -45,6 +46,7 @@ class ClassifierWorkerProcess:
         reader: asyncio.StreamReader,
         writer: Any,
         classify_fn: Callable[..., list[dict[str, Any]] | Awaitable[list[dict[str, Any]]]],
+        classify_video_fn: Callable[..., list[dict[str, Any]] | Awaitable[list[dict[str, Any]]]] | None = None,
         worker_generation: int,
         heartbeat_interval_seconds: float = 1.0,
         runtime_recovery_getter: Callable[[], dict[str, Any] | None] | None = None,
@@ -52,6 +54,7 @@ class ClassifierWorkerProcess:
         self.reader = reader
         self.writer = writer
         self.classify_fn = classify_fn
+        self.classify_video_fn = classify_video_fn
         self.worker_generation = int(worker_generation)
         self.heartbeat_interval_seconds = max(0.01, float(heartbeat_interval_seconds))
         self.runtime_recovery_getter = runtime_recovery_getter
@@ -76,6 +79,8 @@ class ClassifierWorkerProcess:
                     break
                 if message["type"] == "classify":
                     await self._handle_classify(message)
+                if message["type"] == "classify_video":
+                    await self._handle_classify_video(message)
         finally:
             self._closed = True
             heartbeat_task.cancel()
@@ -148,6 +153,72 @@ class ClassifierWorkerProcess:
             self._busy = False
             self._current_request_id = None
 
+    async def _handle_classify_video(self, message: dict[str, Any]) -> None:
+        self._busy = True
+        self._current_request_id = str(message["request_id"])
+        try:
+            before_recovery = self._runtime_recovery_snapshot()
+            loop = asyncio.get_running_loop()
+
+            def _progress_callback(current, total, score, label, frame_thumb=None, frame_index=None, clip_total=None, model_name=None):
+                future = asyncio.run_coroutine_threadsafe(
+                    self._emit_progress(
+                        request_id=str(message["request_id"]),
+                        work_id=str(message["work_id"]),
+                        lease_token=int(message["lease_token"]),
+                        current=current,
+                        total=total,
+                        score=score,
+                        label=label,
+                        frame_thumb=frame_thumb,
+                        frame_index=frame_index,
+                        clip_total=clip_total,
+                        model_name=model_name,
+                    ),
+                    loop,
+                )
+                future.result(timeout=1.0)
+
+            results = await self._run_classify_video(
+                video_path=message["video_path"],
+                stride=int(message.get("stride") or 5),
+                max_frames=message.get("max_frames"),
+                progress_callback=_progress_callback,
+            )
+            after_recovery = self._runtime_recovery_snapshot()
+            if after_recovery is not None and after_recovery != before_recovery:
+                await self._emit(
+                    build_runtime_recovery_event(
+                        worker_generation=self.worker_generation,
+                        request_id=str(message["request_id"]),
+                        work_id=str(message["work_id"]),
+                        lease_token=int(message["lease_token"]),
+                        recovery=after_recovery,
+                    )
+                )
+            await self._emit(
+                build_result_event(
+                    worker_generation=self.worker_generation,
+                    request_id=str(message["request_id"]),
+                    work_id=str(message["work_id"]),
+                    lease_token=int(message["lease_token"]),
+                    results=results,
+                )
+            )
+        except Exception as exc:
+            await self._emit(
+                build_error_event(
+                    worker_generation=self.worker_generation,
+                    request_id=str(message["request_id"]),
+                    work_id=str(message["work_id"]),
+                    lease_token=int(message["lease_token"]),
+                    error=str(exc),
+                )
+            )
+        finally:
+            self._busy = False
+            self._current_request_id = None
+
     def _runtime_recovery_snapshot(self) -> dict[str, Any] | None:
         if self.runtime_recovery_getter is None:
             return None
@@ -161,10 +232,50 @@ class ClassifierWorkerProcess:
             return list(await self.classify_fn(**kwargs))
         return list(await asyncio.to_thread(self.classify_fn, **kwargs))
 
+    async def _run_classify_video(self, **kwargs: Any) -> list[dict[str, Any]]:
+        if self.classify_video_fn is None:
+            raise RuntimeError("video classification is not configured")
+        if inspect.iscoroutinefunction(self.classify_video_fn):
+            return list(await self.classify_video_fn(**kwargs))
+        return list(await asyncio.to_thread(self.classify_video_fn, **kwargs))
+
+    async def _emit_progress(
+        self,
+        *,
+        request_id: str,
+        work_id: str,
+        lease_token: int,
+        current: int,
+        total: int,
+        score: float,
+        label: str,
+        frame_thumb: str | None = None,
+        frame_index: int | None = None,
+        clip_total: int | None = None,
+        model_name: str | None = None,
+    ) -> None:
+        await self._emit(
+            build_progress_event(
+                worker_generation=self.worker_generation,
+                request_id=request_id,
+                work_id=work_id,
+                lease_token=lease_token,
+                current_frame=current,
+                total_frames=total,
+                frame_score=score,
+                top_label=label,
+                frame_thumb=frame_thumb,
+                frame_index=frame_index,
+                clip_total=clip_total,
+                model_name=model_name,
+            )
+        )
+
 
 async def run_worker_main(
     *,
     classify_fn: Callable[..., list[dict[str, Any]] | Awaitable[list[dict[str, Any]]]],
+    classify_video_fn: Callable[..., list[dict[str, Any]] | Awaitable[list[dict[str, Any]]]] | None = None,
     worker_generation: int = 1,
     heartbeat_interval_seconds: float = 1.0,
     writer: Any | None = None,
@@ -181,6 +292,7 @@ async def run_worker_main(
         reader=reader,
         writer=writer or _StdoutWriter(),
         classify_fn=classify_fn,
+        classify_video_fn=classify_video_fn,
         worker_generation=worker_generation,
         heartbeat_interval_seconds=heartbeat_interval_seconds,
         runtime_recovery_getter=runtime_recovery_getter,
@@ -204,6 +316,7 @@ def _build_default_classify_fn() -> Callable[..., list[dict[str, Any]]]:
         return service.classify(image, camera_name=camera_name, model_id=model_id)
 
     _classify_fn._runtime_recovery_getter = lambda: service._last_runtime_recovery  # type: ignore[attr-defined]
+    _classify_fn._video_classify_fn = service.classify_video  # type: ignore[attr-defined]
     return _classify_fn
 
 
@@ -215,6 +328,7 @@ def main() -> None:
     asyncio.run(
         run_worker_main(
             classify_fn=(classify_fn := _build_default_classify_fn()),
+            classify_video_fn=getattr(classify_fn, "_video_classify_fn", None),
             worker_generation=worker_generation,
             heartbeat_interval_seconds=heartbeat_interval_seconds,
             writer=_StdoutWriter(protocol_stdout),

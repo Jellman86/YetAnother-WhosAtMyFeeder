@@ -5,6 +5,7 @@ import pytest
 from app.services.classifier_worker_process import ClassifierWorkerProcess
 from app.services.classifier_worker_protocol import (
     build_classify_request,
+    build_classify_video_request,
     decode_protocol_message,
 )
 
@@ -188,3 +189,45 @@ async def test_classifier_worker_process_emits_runtime_recovery_event():
         and message["recovery"]["failed_provider"] == "GPU"
         for message in writer.messages
     )
+
+
+@pytest.mark.asyncio
+async def test_classifier_worker_process_handles_video_request_and_progress():
+    reader = asyncio.StreamReader()
+    writer = _MemoryWriter()
+
+    def _classify_video_fn(*, video_path: str, stride: int, max_frames: int | None, progress_callback):
+        assert video_path == "/tmp/demo.mp4"
+        progress_callback(1, 3, 0.7, "Robin", None, 0, 3, "bird")
+        return [{"label": "Robin", "score": 0.91, "index": 0}]
+
+    process = ClassifierWorkerProcess(
+        reader=reader,
+        writer=writer,
+        classify_fn=lambda **_: [],
+        classify_video_fn=_classify_video_fn,
+        worker_generation=13,
+        heartbeat_interval_seconds=0.5,
+    )
+
+    task = asyncio.create_task(process.run())
+    await asyncio.sleep(0)
+    reader.feed_data(
+        process.encode_message(
+            build_classify_video_request(
+                worker_generation=13,
+                request_id="req-video",
+                work_id="video-1",
+                lease_token=7,
+                video_path="/tmp/demo.mp4",
+                stride=5,
+                max_frames=3,
+            )
+        )
+    )
+    await asyncio.sleep(0.05)
+    reader.feed_eof()
+    await task
+
+    assert any(message["type"] == "progress" and message["top_label"] == "Robin" for message in writer.messages)
+    assert any(message["type"] == "result" and message["results"][0]["label"] == "Robin" for message in writer.messages)

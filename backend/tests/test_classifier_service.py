@@ -286,6 +286,57 @@ async def test_classifier_service_routes_background_requests_through_supervisor(
 
 
 @pytest.mark.asyncio
+async def test_classifier_service_routes_video_requests_through_supervisor(mock_tflite, mock_os_path_exists):
+    original_mode = settings.classification.image_execution_mode
+    settings.classification.image_execution_mode = "subprocess"
+
+    class _FakeSupervisor:
+        def __init__(self):
+            self.calls = []
+
+        async def classify_video(self, **kwargs):
+            self.calls.append(kwargs)
+            callback = kwargs.get("progress_callback")
+            if callback is not None:
+                await callback(1, 3, 0.7, "Robin", None, 0, 3, "bird")
+            return [{"label": "Robin", "score": 0.95, "index": 0}]
+
+        def get_metrics(self):
+            return {
+                "live": {"workers": 2, "restarts": 0, "last_exit_reason": None, "last_runtime_recovery": None},
+                "background": {"workers": 1, "restarts": 0, "last_exit_reason": None, "last_runtime_recovery": None},
+                "video": {"workers": 1, "restarts": 0, "last_exit_reason": None, "last_runtime_recovery": None},
+                "late_results_ignored": 0,
+            }
+
+    seen_progress: list[tuple[int, int, str]] = []
+
+    async def _progress(*args):
+        seen_progress.append((args[0], args[1], args[3]))
+
+    supervisor = _FakeSupervisor()
+
+    try:
+        with patch.object(ClassifierService, "_init_bird_model", new=_stub_init_bird_model), \
+             patch.object(ClassifierService, "classify_video", side_effect=AssertionError("should use supervisor")):
+            service = ClassifierService(supervisor=supervisor)
+            results = await service.classify_video_async(
+                "/tmp/demo.mp4",
+                max_frames=3,
+                progress_callback=_progress,
+                camera_name="front",
+                model_id="default",
+            )
+
+            assert results[0]["label"] == "Robin"
+            assert supervisor.calls[0]["video_path"] == "/tmp/demo.mp4"
+            assert seen_progress == [(1, 3, "Robin")]
+            service.shutdown()
+    finally:
+        settings.classification.image_execution_mode = original_mode
+
+
+@pytest.mark.asyncio
 async def test_classifier_service_maps_supervisor_circuit_open_to_live_overload(mock_tflite, mock_os_path_exists):
     original_mode = settings.classification.image_execution_mode
     settings.classification.image_execution_mode = "subprocess"
@@ -1256,6 +1307,75 @@ def test_classifier_check_health_exposes_supervisor_pool_state():
     assert health["live_image"]["recovery_reason"] == "worker_circuit_open"
     assert status["worker_pools"]["live"]["restarts"] == 3
     assert status["late_results_ignored"] == 4
+    service.shutdown()
+
+
+def test_classifier_check_health_uses_worker_runtime_state_in_subprocess_mode():
+    with patch.object(ClassifierService, "_init_bird_model", return_value=None):
+        service = ClassifierService()
+
+    service._classifier_supervisor = MagicMock()
+    service._classifier_supervisor.get_metrics.return_value = {
+        "live": {
+            "workers": 2,
+            "restarts": 1,
+            "last_exit_reason": None,
+            "last_runtime_recovery": {
+                "status": "recovered",
+                "failed_backend": "openvino",
+                "failed_provider": "GPU",
+                "recovered_backend": "openvino",
+                "recovered_provider": "intel_cpu",
+                "detail": "invalid probabilities",
+                "at": 123.0,
+            },
+            "circuit_open": False,
+            "circuit_open_until_monotonic": None,
+        },
+        "background": {
+            "workers": 1,
+            "restarts": 0,
+            "last_exit_reason": None,
+            "last_runtime_recovery": None,
+            "circuit_open": False,
+            "circuit_open_until_monotonic": None,
+        },
+        "late_results_ignored": 0,
+    }
+    service._image_execution_mode = "subprocess"
+    service._classification_admission.get_metrics = MagicMock(return_value={
+        "live": {
+            "capacity": 2,
+            "queued": 0,
+            "running": 0,
+            "completed": 0,
+            "failed": 0,
+            "abandoned": 0,
+            "rejected": 0,
+            "oldest_running_age_seconds": None,
+        },
+        "background": {
+            "capacity": 1,
+            "queued": 0,
+            "running": 0,
+            "completed": 0,
+            "failed": 0,
+            "abandoned": 0,
+            "rejected": 0,
+            "oldest_running_age_seconds": None,
+        },
+        "late_completions_ignored": 0,
+        "recent_outcomes": [],
+        "background_throttled": False,
+        "closed": False,
+    })
+
+    health = service.check_health()
+    status = service.get_status()
+
+    assert health["status"] == "ok"
+    assert health["runtime_recovery"]["last_recovery"]["failed_provider"] == "GPU"
+    assert status["last_runtime_recovery"]["recovered_provider"] == "intel_cpu"
     service.shutdown()
 
 

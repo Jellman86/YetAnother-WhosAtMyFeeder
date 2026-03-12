@@ -2,8 +2,10 @@ import pytest
 
 from app.services.classifier_worker_protocol import (
     build_classify_request,
+    build_classify_video_request,
     build_error_event,
     build_heartbeat_event,
+    build_progress_event,
     build_ready_event,
     build_runtime_recovery_event,
     build_result_event,
@@ -117,3 +119,34 @@ def test_classifier_worker_protocol_builds_classify_request():
     assert message["image_b64"] == "abc123"
     assert message["camera_name"] == "front"
     assert message["model_id"] == "default"
+
+
+def test_classifier_worker_protocol_round_trips_video_messages():
+    request = build_classify_video_request(
+        worker_generation=7,
+        request_id="req-video",
+        work_id="video-1",
+        lease_token=9,
+        video_path="/tmp/demo.mp4",
+        stride=5,
+        max_frames=12,
+    )
+    progress = build_progress_event(
+        worker_generation=7,
+        request_id="req-video",
+        work_id="video-1",
+        lease_token=9,
+        current_frame=3,
+        total_frames=12,
+        frame_score=0.81,
+        top_label="Robin",
+    )
+
+    decoded_request = decode_protocol_message(encode_protocol_message(request))
+    decoded_progress = decode_protocol_message(encode_protocol_message(progress))
+
+    assert decoded_request["type"] == "classify_video"
+    assert decoded_request["video_path"] == "/tmp/demo.mp4"
+    assert decoded_progress["type"] == "progress"
+    assert decoded_progress["current_frame"] == 3
+    assert decoded_progress["top_label"] == "Robin"

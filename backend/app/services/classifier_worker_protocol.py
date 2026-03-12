@@ -8,7 +8,9 @@ _REQUIRED_FIELDS: dict[str, tuple[str, ...]] = {
     "result": ("worker_generation", "request_id", "work_id", "lease_token", "results"),
     "error": ("worker_generation", "request_id", "work_id", "lease_token", "error"),
     "runtime_recovery": ("worker_generation", "request_id", "work_id", "lease_token", "recovery"),
+    "progress": ("worker_generation", "request_id", "work_id", "lease_token", "current_frame", "total_frames", "frame_score", "top_label"),
     "classify": ("worker_generation", "request_id", "work_id", "lease_token", "image_b64"),
+    "classify_video": ("worker_generation", "request_id", "work_id", "lease_token", "video_path"),
     "shutdown": (),
 }
 
@@ -137,6 +139,67 @@ def build_classify_request(
         message["camera_name"] = str(camera_name)
     if model_id is not None:
         message["model_id"] = str(model_id)
+    return message
+
+
+def build_classify_video_request(
+    *,
+    worker_generation: int,
+    request_id: str,
+    work_id: str,
+    lease_token: int,
+    video_path: str,
+    stride: int = 5,
+    max_frames: int | None = None,
+) -> dict[str, Any]:
+    message = {
+        "type": "classify_video",
+        "worker_generation": int(worker_generation),
+        "request_id": str(request_id),
+        "work_id": str(work_id),
+        "lease_token": int(lease_token),
+        "video_path": str(video_path),
+        "stride": int(stride),
+    }
+    if max_frames is not None:
+        message["max_frames"] = int(max_frames)
+    return message
+
+
+def build_progress_event(
+    *,
+    worker_generation: int,
+    request_id: str,
+    work_id: str,
+    lease_token: int,
+    current_frame: int,
+    total_frames: int,
+    frame_score: float,
+    top_label: str,
+    frame_thumb: str | None = None,
+    frame_index: int | None = None,
+    clip_total: int | None = None,
+    model_name: str | None = None,
+) -> dict[str, Any]:
+    message = {
+        "type": "progress",
+        "worker_generation": int(worker_generation),
+        "request_id": str(request_id),
+        "work_id": str(work_id),
+        "lease_token": int(lease_token),
+        "current_frame": int(current_frame),
+        "total_frames": int(total_frames),
+        "frame_score": float(frame_score),
+        "top_label": str(top_label),
+    }
+    if frame_thumb is not None:
+        message["frame_thumb"] = str(frame_thumb)
+    if frame_index is not None:
+        message["frame_index"] = int(frame_index)
+    if clip_total is not None:
+        message["clip_total"] = int(clip_total)
+    if model_name is not None:
+        message["model_name"] = str(model_name)
     return message
 
 
