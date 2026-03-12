@@ -152,6 +152,7 @@ def test_classifier_supervisor_config_defaults():
     assert config.background_worker_count == 1
     assert config.worker_heartbeat_timeout_seconds == pytest.approx(5.0)
     assert config.worker_hard_deadline_seconds == pytest.approx(35.0)
+    assert config.background_worker_hard_deadline_seconds == pytest.approx(120.0)
     assert config.worker_restart_window_seconds == pytest.approx(60.0)
     assert config.worker_restart_threshold == 3
     assert config.worker_breaker_cooldown_seconds == pytest.approx(60.0)
@@ -344,9 +345,11 @@ async def test_classifier_service_routes_video_requests_through_supervisor(mock_
 async def test_classifier_service_uses_extended_video_deadline_for_supervisor_workers(mock_tflite, mock_os_path_exists):
     original_mode = settings.classification.image_execution_mode
     original_worker_deadline = settings.classification.worker_hard_deadline_seconds
+    original_background_worker_deadline = settings.classification.background_worker_hard_deadline_seconds
     original_video_timeout = settings.classification.video_classification_timeout_seconds
     settings.classification.image_execution_mode = "subprocess"
     settings.classification.worker_hard_deadline_seconds = 35.0
+    settings.classification.background_worker_hard_deadline_seconds = 120.0
     settings.classification.video_classification_timeout_seconds = 180
 
     try:
@@ -356,12 +359,14 @@ async def test_classifier_service_uses_extended_video_deadline_for_supervisor_wo
 
             kwargs = mock_supervisor.call_args.kwargs
             assert kwargs["hard_deadline_seconds"] == 35.0
+            assert kwargs["background_hard_deadline_seconds"] == 120.0
             assert kwargs["video_hard_deadline_seconds"] > 180.0
             assert kwargs["video_hard_deadline_seconds"] > kwargs["hard_deadline_seconds"]
             service.shutdown()
     finally:
         settings.classification.image_execution_mode = original_mode
         settings.classification.worker_hard_deadline_seconds = original_worker_deadline
+        settings.classification.background_worker_hard_deadline_seconds = original_background_worker_deadline
         settings.classification.video_classification_timeout_seconds = original_video_timeout
 
 

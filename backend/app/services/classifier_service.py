@@ -1307,12 +1307,24 @@ class ClassifierService:
             image_hard_deadline_seconds = float(
                 getattr(settings.classification, "worker_hard_deadline_seconds", 35.0) or 35.0
             )
+            background_hard_deadline_seconds = max(
+                image_hard_deadline_seconds,
+                float(
+                    getattr(
+                        settings.classification,
+                        "background_worker_hard_deadline_seconds",
+                        120.0,
+                    )
+                    or 120.0
+                ),
+            )
             self._classifier_supervisor = ClassifierSupervisor(
                 live_worker_count=int(getattr(settings.classification, "live_worker_count", image_workers) or image_workers),
                 background_worker_count=int(getattr(settings.classification, "background_worker_count", 1) or 1),
                 video_worker_count=video_workers,
                 heartbeat_timeout_seconds=float(getattr(settings.classification, "worker_heartbeat_timeout_seconds", 5.0) or 5.0),
                 hard_deadline_seconds=image_hard_deadline_seconds,
+                background_hard_deadline_seconds=background_hard_deadline_seconds,
                 video_hard_deadline_seconds=max(image_hard_deadline_seconds, video_timeout_seconds + 15.0),
                 worker_ready_timeout_seconds=float(getattr(settings.classification, "worker_ready_timeout_seconds", 20.0) or 20.0),
                 video_worker_ready_timeout_seconds=max(

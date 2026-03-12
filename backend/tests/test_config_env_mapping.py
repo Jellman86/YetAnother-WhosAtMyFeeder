@@ -117,6 +117,13 @@ CLASSIFICATION_ENV_PRECEDENCE_CASES = [
         42.5,
     ),
     (
+        "background_worker_hard_deadline_seconds",
+        "CLASSIFICATION__BACKGROUND_WORKER_HARD_DEADLINE_SECONDS",
+        "140.0",
+        120.0,
+        140.0,
+    ),
+    (
         "worker_ready_timeout_seconds",
         "CLASSIFICATION__WORKER_READY_TIMEOUT_SECONDS",
         "22.5",
@@ -213,6 +220,7 @@ def test_classification_startup_load_env_precedence_with_full_file_payload(monke
                     "background_worker_count": 1,
                     "worker_heartbeat_timeout_seconds": 5.0,
                     "worker_hard_deadline_seconds": 35.0,
+                    "background_worker_hard_deadline_seconds": 120.0,
                     "worker_ready_timeout_seconds": 20.0,
                     "worker_restart_window_seconds": 60.0,
                     "worker_restart_threshold": 3,
@@ -248,6 +256,7 @@ def test_classification_startup_load_env_precedence_with_full_file_payload(monke
     monkeypatch.setenv("CLASSIFICATION__BACKGROUND_WORKER_COUNT", "2")
     monkeypatch.setenv("CLASSIFICATION__WORKER_HEARTBEAT_TIMEOUT_SECONDS", "7.5")
     monkeypatch.setenv("CLASSIFICATION__WORKER_HARD_DEADLINE_SECONDS", "42.5")
+    monkeypatch.setenv("CLASSIFICATION__BACKGROUND_WORKER_HARD_DEADLINE_SECONDS", "140.0")
     monkeypatch.setenv("CLASSIFICATION__WORKER_READY_TIMEOUT_SECONDS", "22.5")
     monkeypatch.setenv("CLASSIFICATION__WORKER_RESTART_WINDOW_SECONDS", "120.0")
     monkeypatch.setenv("CLASSIFICATION__WORKER_RESTART_THRESHOLD", "6")
@@ -281,6 +290,7 @@ def test_classification_startup_load_env_precedence_with_full_file_payload(monke
     assert loaded.classification.background_worker_count == 2
     assert loaded.classification.worker_heartbeat_timeout_seconds == 7.5
     assert loaded.classification.worker_hard_deadline_seconds == 42.5
+    assert loaded.classification.background_worker_hard_deadline_seconds == 140.0
     assert loaded.classification.worker_ready_timeout_seconds == 22.5
     assert loaded.classification.worker_restart_window_seconds == 120.0
     assert loaded.classification.worker_restart_threshold == 6

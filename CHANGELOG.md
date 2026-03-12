@@ -6,6 +6,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- **Fixed:** Subprocess classifier supervision now supports a dedicated background worker hard deadline (`classification.background_worker_hard_deadline_seconds`, env `CLASSIFICATION__BACKGROUND_WORKER_HARD_DEADLINE_SECONDS`, default `120s`) instead of forcing background/backfill jobs to share the shorter live deadline; this prevents long-running historical classification work from repeatedly tripping `hard_deadline` restarts and opening the background worker circuit while preserving strict live-request deadlines.
 - **Added:** Detection Details video-analysis card now shows a live inference-provider badge (`GPU` / `CPU`) during active analysis by polling classifier status, so owners can immediately see whether current processing is running on accelerated or fallback compute.
 - **Added:** Auto video-classifier diagnostics now include classifier runtime context (`inference_backend`, `active_provider`, `selected_provider`, and latest runtime-recovery snapshot when available), so exported incident evidence shows which inference path was active when failures occurred.
 - **Changed:** GPU runtime recovery policy is now more robust: on invalid OpenVINO GPU output, YA-WAMF now retries once on a freshly reloaded GPU model before demoting to CPU fallback, and workers that fell back to OpenVINO CPU now auto-attempt GPU restoration after a cooldown (when GPU is configured/available) instead of staying on CPU indefinitely.

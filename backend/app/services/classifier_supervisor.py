@@ -65,6 +65,7 @@ class ClassifierSupervisor:
         video_worker_count: int = 1,
         heartbeat_timeout_seconds: float,
         hard_deadline_seconds: float,
+        background_hard_deadline_seconds: float | None = None,
         video_hard_deadline_seconds: float | None = None,
         worker_ready_timeout_seconds: float = 20.0,
         video_worker_ready_timeout_seconds: float | None = None,
@@ -83,7 +84,12 @@ class ClassifierSupervisor:
         base_hard_deadline_seconds = max(0.01, float(hard_deadline_seconds))
         self._hard_deadline_seconds = {
             "live": base_hard_deadline_seconds,
-            "background": base_hard_deadline_seconds,
+            "background": max(
+                0.01,
+                float(background_hard_deadline_seconds)
+                if background_hard_deadline_seconds is not None
+                else base_hard_deadline_seconds,
+            ),
             "video": max(
                 0.01,
                 float(video_hard_deadline_seconds)
