@@ -1169,6 +1169,13 @@ class OpenVINOModelInstance:
 
         try:
             self.core = OpenVINOCore()
+            
+            # Enable caching so GPU model compilation isn't repeated from scratch
+            # on every worker process startup, avoiding readiness timeouts.
+            cache_dir = os.getenv("OPENVINO_CACHE_DIR", "/tmp/openvino_cache")
+            os.makedirs(cache_dir, exist_ok=True)
+            self.core.set_property({"CACHE_DIR": cache_dir})
+            
             model = self.core.read_model(self.model_path)
             self.compiled_model = self.core.compile_model(model, self.device_name)
             self.input_name = self.compiled_model.inputs[0].get_any_name()
