@@ -158,3 +158,53 @@ async def test_classifier_probe_endpoint_returns_runtime_diagnostics_for_synthet
     assert payload["runtime"]["backend"] == "openvino"
     assert payload["compile_properties"]["INFERENCE_PRECISION_HINT"] == "f32"
     assert payload["output_summary"]["nan_count"] == 10000
+
+
+@pytest.mark.asyncio
+async def test_classifier_status_endpoint_returns_artifact_fingerprint_and_compatibility(
+    client: httpx.AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.setattr(
+        classifier_router.classifier_service,
+        "get_status",
+        lambda: {
+            "loaded": True,
+            "labels_loaded": 10000,
+            "selected_provider": "auto",
+            "active_provider": "intel_gpu",
+            "inference_backend": "openvino",
+            "openvino_runtime": {
+                "selected_provider": "auto",
+                "active_provider": "intel_gpu",
+                "inference_backend": "openvino",
+                "model": {
+                    "model_path": "/models/bird.onnx",
+                    "input_size": 384,
+                    "model_sha256": "abc123",
+                    "weights_sha256": "def456",
+                    "producer_name": "pytorch",
+                    "producer_version": "2.9.1",
+                    "opset": [{"domain": "ai.onnx", "version": 18}],
+                },
+                "compatibility": {
+                    "artifact_trust_state": "untrusted",
+                    "last_probe_device": "GPU",
+                    "last_probe_status": "invalid_output",
+                },
+            },
+        },
+    )
+
+    response = await client.get("/api/classifier/status")
+    assert response.status_code == 200, response.text
+    payload = response.json()
+
+    assert payload["openvino_runtime"]["model"]["model_sha256"] == "abc123"
+    assert payload["openvino_runtime"]["model"]["weights_sha256"] == "def456"
+    assert payload["openvino_runtime"]["model"]["producer_name"] == "pytorch"
+    assert payload["openvino_runtime"]["model"]["producer_version"] == "2.9.1"
+    assert payload["openvino_runtime"]["model"]["opset"] == [{"domain": "ai.onnx", "version": 18}]
+    assert payload["openvino_runtime"]["compatibility"]["artifact_trust_state"] == "untrusted"
+    assert payload["openvino_runtime"]["compatibility"]["last_probe_device"] == "GPU"
+    assert payload["openvino_runtime"]["compatibility"]["last_probe_status"] == "invalid_output"

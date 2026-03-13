@@ -4,6 +4,7 @@ import sys
 import types
 import asyncio
 import threading
+import importlib
 from concurrent.futures import ThreadPoolExecutor
 from unittest.mock import MagicMock, patch, mock_open
 from unittest.mock import AsyncMock
@@ -33,6 +34,7 @@ from app.services.classifier_service import (  # noqa: E402
     _probe_openvino_gpu_plugin_error_safe,
     _reconcile_ort_active_provider,
     _resolve_inference_selection,
+    _summarize_numeric_array,
     _summarize_openvino_load_error,
 )
 from app.services.classification_admission import ClassificationLeaseExpiredError  # noqa: E402
@@ -893,6 +895,62 @@ def test_openvino_model_load_fails_when_gpu_startup_self_test_is_non_finite(mock
     assert "startup self-test" in (model.error or "")
 
 
+def test_summarize_numeric_array_marks_all_nan_output_kind():
+    summary = _summarize_numeric_array(
+        np.full((1, 10000), np.nan, dtype=np.float32),
+        name="output_logits",
+    )
+
+    assert summary["shape"] == [1, 10000]
+    assert summary["nan_count"] == 10000
+    assert summary["finite_count"] == 0
+    assert summary["invalid_output_kind"] == "all_nan"
+
+
+def test_summarize_numeric_array_marks_empty_output_kind():
+    summary = _summarize_numeric_array(
+        np.array([], dtype=np.float32),
+        name="output_logits",
+    )
+
+    assert summary["shape"] == [0]
+    assert summary["element_count"] == 0
+    assert summary["invalid_output_kind"] == "empty"
+
+
+def test_extract_model_artifact_metadata_reports_hashes_and_onnx_metadata(tmp_path):
+    model_path = tmp_path / "model.onnx"
+    weights_path = tmp_path / "model.onnx.data"
+    model_path.write_bytes(b"onnx-model")
+    weights_path.write_bytes(b"weights-data")
+
+    class _FakeOpset:
+        def __init__(self, domain, version):
+            self.domain = domain
+            self.version = version
+
+    fake_model = types.SimpleNamespace(
+        producer_name="pytorch",
+        producer_version="2.9.1",
+        opset_import=[_FakeOpset("", 18)],
+        graph=types.SimpleNamespace(
+            input=[],
+            output=[],
+        ),
+    )
+    fake_onnx = types.SimpleNamespace(load=lambda *_args, **_kwargs: fake_model)
+    original_import_module = importlib.import_module
+
+    with patch("importlib.import_module", side_effect=lambda name: fake_onnx if name == "onnx" else original_import_module(name)):
+        metadata = classifier_service_module._extract_model_artifact_metadata(str(model_path))
+
+    assert metadata["model_sha256"]
+    assert metadata["weights_sha256"]
+    assert metadata["producer_name"] == "pytorch"
+    assert metadata["producer_version"] == "2.9.1"
+    assert metadata["opset"] == [{"domain": "ai.onnx", "version": 18}]
+
+
 def test_openvino_model_load_applies_optional_gpu_debug_properties(mock_os_path_exists, monkeypatch):
     fake_core = MagicMock()
     fake_core.read_model.return_value = object()
@@ -1686,6 +1744,18 @@ def test_classifier_status_exposes_openvino_runtime_diagnostics_block():
         "preprocessing": {"mean": [0.1, 0.2, 0.3], "std": [0.4, 0.5, 0.6]},
         "runtime": "onnx",
     })
+    service._bird_model_artifact_metadata = {
+        "model_sha256": "abc123",
+        "weights_sha256": "def456",
+        "producer_name": "pytorch",
+        "producer_version": "2.9.1",
+        "opset": [{"domain": "ai.onnx", "version": 18}],
+    }
+    service._bird_model_compatibility = {
+        "artifact_trust_state": "untrusted",
+        "last_probe_device": "GPU",
+        "last_probe_status": "invalid_output",
+    }
 
     status = service.get_status()
 
@@ -1696,8 +1766,54 @@ def test_classifier_status_exposes_openvino_runtime_diagnostics_block():
     assert status["openvino_runtime"]["model"]["model_path"] == "/models/bird.onnx"
     assert status["openvino_runtime"]["model"]["input_size"] == 384
     assert status["openvino_runtime"]["model"]["preprocessing"]["mean"] == [0.1, 0.2, 0.3]
+    assert status["openvino_runtime"]["model"]["model_sha256"] == "abc123"
+    assert status["openvino_runtime"]["model"]["weights_sha256"] == "def456"
+    assert status["openvino_runtime"]["model"]["producer_name"] == "pytorch"
+    assert status["openvino_runtime"]["model"]["producer_version"] == "2.9.1"
+    assert status["openvino_runtime"]["model"]["opset"] == [{"domain": "ai.onnx", "version": 18}]
+    assert status["openvino_runtime"]["compatibility"]["artifact_trust_state"] == "untrusted"
+    assert status["openvino_runtime"]["compatibility"]["last_probe_device"] == "GPU"
+    assert status["openvino_runtime"]["compatibility"]["last_probe_status"] == "invalid_output"
     assert status["openvino_runtime"]["last_runtime_recovery"]["diagnostics"]["compile_properties"]["INFERENCE_PRECISION_HINT"] == "f32"
     assert status["openvino_runtime"]["last_runtime_recovery"]["diagnostics"]["output_summary"]["nan_count"] == 10000
+    service.shutdown()
+
+
+def test_probe_bird_runtime_updates_compatibility_state_from_probe_result():
+    with patch.object(ClassifierService, "_init_bird_model", return_value=None):
+        service = ClassifierService()
+
+    service._resolve_active_bird_model_spec = MagicMock(return_value={
+        "model_path": "/models/bird.onnx",
+        "labels_path": "/models/labels.txt",
+        "input_size": 384,
+        "preprocessing": {"mean": [0.1, 0.2, 0.3], "std": [0.4, 0.5, 0.6]},
+        "runtime": "onnx",
+    })
+
+    fake_model = MagicMock()
+    fake_model.load.return_value = True
+    fake_model.error = None
+    fake_model.current_compile_properties.return_value = {"INFERENCE_PRECISION_HINT": "f32"}
+    fake_model.startup_self_test_status.return_value = {"enabled": True, "ran": True, "error": None, "diagnostics": {}}
+    fake_model.probe.return_value = {
+        "status": "invalid_output",
+        "output_summary": {
+            "shape": [1, 10000],
+            "nan_count": 10000,
+            "finite_count": 0,
+            "invalid_output_kind": "all_nan",
+        },
+    }
+
+    with patch("app.services.classifier_service.OpenVINOModelInstance", return_value=fake_model):
+        report = service.probe_bird_runtime(device="GPU", synthetic_image=True)
+
+    assert report["status"] == "invalid_output"
+    assert report["output_summary"]["invalid_output_kind"] == "all_nan"
+    assert service._bird_model_compatibility["artifact_trust_state"] == "untrusted"
+    assert service._bird_model_compatibility["last_probe_device"] == "GPU"
+    assert service._bird_model_compatibility["last_probe_status"] == "invalid_output"
     service.shutdown()
 
 

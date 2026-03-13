@@ -5,6 +5,7 @@ import cv2
 import asyncio
 import base64
 import ctypes
+import hashlib
 import importlib
 import io
 import json
@@ -316,6 +317,18 @@ def _summarize_numeric_array(values: np.ndarray, *, name: str) -> dict[str, Any]
     arr = np.asarray(values)
     finite_mask = np.isfinite(arr)
     finite_values = arr[finite_mask]
+    invalid_output_kind: str | None = None
+    if arr.size == 0:
+        invalid_output_kind = "empty"
+    elif finite_values.size == 0:
+        if np.isnan(arr).any():
+            invalid_output_kind = "all_nan"
+        elif np.isinf(arr).any():
+            invalid_output_kind = "all_inf"
+        else:
+            invalid_output_kind = "no_finite"
+    elif not finite_mask.all():
+        invalid_output_kind = "mixed_non_finite"
     summary: dict[str, Any] = {
         "name": str(name),
         "shape": [int(dim) for dim in arr.shape],
@@ -325,6 +338,7 @@ def _summarize_numeric_array(values: np.ndarray, *, name: str) -> dict[str, Any]
         "nan_count": int(np.isnan(arr).sum()),
         "pos_inf_count": int(np.isposinf(arr).sum()),
         "neg_inf_count": int(np.isneginf(arr).sum()),
+        "invalid_output_kind": invalid_output_kind,
     }
     if finite_values.size:
         summary["finite_min"] = float(finite_values.min())
@@ -343,6 +357,48 @@ def _summarize_runtime_exception(exc: Exception, *, max_len: int = 280) -> str:
     if len(message) > max_len:
         return f"{message[: max_len - 1]}…"
     return message
+
+
+def _safe_sha256_file(path: str) -> str | None:
+    file_path = Path(str(path or ""))
+    if not file_path.exists() or not file_path.is_file():
+        return None
+    digest = hashlib.sha256()
+    with file_path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _extract_model_artifact_metadata(model_path: str) -> dict[str, Any]:
+    model_file = Path(str(model_path or ""))
+    metadata: dict[str, Any] = {
+        "model_sha256": _safe_sha256_file(str(model_file)),
+        "weights_sha256": _safe_sha256_file(f"{model_file}.data"),
+        "producer_name": None,
+        "producer_version": None,
+        "opset": [],
+    }
+    if model_file.suffix.lower() != ".onnx" or not model_file.exists():
+        return metadata
+
+    try:
+        onnx = importlib.import_module("onnx")
+        model = onnx.load(str(model_file), load_external_data=False)
+    except Exception:
+        return metadata
+
+    metadata["producer_name"] = str(getattr(model, "producer_name", "") or "") or None
+    metadata["producer_version"] = str(getattr(model, "producer_version", "") or "") or None
+    opset_import = getattr(model, "opset_import", None) or []
+    metadata["opset"] = [
+        {
+            "domain": str(getattr(entry, "domain", "") or "ai.onnx"),
+            "version": int(getattr(entry, "version", 0) or 0),
+        }
+        for entry in opset_import
+    ]
+    return metadata
 
 
 def _detect_acceleration_capabilities() -> dict:
@@ -1586,6 +1642,8 @@ class ClassifierService:
         self._gpu_invalid_retry_remaining = CLASSIFIER_GPU_INVALID_RETRY_LIMIT
         self._gpu_restore_not_before_monotonic: float = 0.0
         self._last_runtime_recovery: Optional[dict[str, Any]] = None
+        self._bird_model_artifact_metadata: dict[str, Any] = {}
+        self._bird_model_compatibility: dict[str, Any] = {}
         self._accel_caps_ttl_seconds = CLASSIFIER_ACCEL_PROBE_TTL_SECONDS
         self._accel_caps_last_refreshed_monotonic: float | None = None
         self._accel_caps = self._refresh_accel_caps(force=True)
@@ -1646,7 +1704,7 @@ class ClassifierService:
 
     def _runtime_model_snapshot(self) -> dict[str, Any]:
         spec = self._resolve_active_bird_model_spec()
-        return {
+        snapshot = {
             "model_path": str(spec.get("model_path") or ""),
             "labels_path": str(spec.get("labels_path") or ""),
             "input_size": int(spec.get("input_size") or 0),
@@ -1654,6 +1712,8 @@ class ClassifierService:
             "declared_runtime": str(spec.get("runtime") or ""),
             "model_type": self._classify_model_artifact_type(str(spec.get("model_path") or "")),
         }
+        snapshot.update(dict(self._bird_model_artifact_metadata or {}))
+        return snapshot
 
     def _gpu_runtime_settings_snapshot(self) -> dict[str, Any]:
         return {
@@ -1667,6 +1727,16 @@ class ClassifierService:
             },
             "invalid_retry_limit": CLASSIFIER_GPU_INVALID_RETRY_LIMIT,
             "restore_cooldown_seconds": CLASSIFIER_GPU_RESTORE_COOLDOWN_SECONDS,
+        }
+
+    def _update_bird_model_compatibility(self, *, device: str, status: str) -> None:
+        normalized_device = str(device or "").upper() or None
+        normalized_status = str(status or "") or None
+        trust_state = "trusted" if normalized_status == "ok" else "untrusted"
+        self._bird_model_compatibility = {
+            "artifact_trust_state": trust_state,
+            "last_probe_device": normalized_device,
+            "last_probe_status": normalized_status,
         }
 
     def _active_openvino_model(self) -> OpenVINOModelInstance | None:
@@ -1688,6 +1758,7 @@ class ClassifierService:
             "active_provider": active_provider,
             "inference_backend": active_backend,
             "model": self._runtime_model_snapshot(),
+            "compatibility": dict(self._bird_model_compatibility or {}),
             "gpu_settings": self._gpu_runtime_settings_snapshot(),
             "compile_diagnostics": {
                 "compile_ok": self._openvino_model_compile_ok,
@@ -2039,6 +2110,12 @@ class ClassifierService:
         self._inference_fallback_reason = None
         self._inference_backend = "tflite"
         self._active_inference_provider = "tflite"
+        self._bird_model_artifact_metadata = _extract_model_artifact_metadata(model_path)
+        self._bird_model_compatibility = {
+            "artifact_trust_state": "unknown",
+            "last_probe_device": None,
+            "last_probe_status": None,
+        }
         self._openvino_model_compile_ok = None
         self._openvino_model_compile_device = None
         self._openvino_model_compile_error = None
@@ -2683,10 +2760,12 @@ class ClassifierService:
         }
         if not loaded:
             report["status"] = "compile_failed"
+            self._update_bird_model_compatibility(device=normalized_device, status=report["status"])
             return report
 
         probe_report = model.probe(probe_image)
         report.update(probe_report)
+        self._update_bird_model_compatibility(device=normalized_device, status=str(report.get("status") or ""))
         report["image"] = {
             "mode": str(probe_image.mode),
             "size": [int(probe_image.size[0]), int(probe_image.size[1])],
