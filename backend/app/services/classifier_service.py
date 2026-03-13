@@ -242,6 +242,17 @@ def _safe_softmax(x: np.ndarray, *, context: str) -> np.ndarray:
 
     finite_mask = np.isfinite(logits)
     if not finite_mask.any():
+        nan_count = int(np.isnan(logits).sum())
+        pos_inf_count = int((logits == np.inf).sum())
+        neg_inf_count = int((logits == -np.inf).sum())
+        log.warning(
+            "Classifier produced ALL non-finite logits",
+            context=context,
+            nan_count=nan_count,
+            pos_inf_count=pos_inf_count,
+            neg_inf_count=neg_inf_count,
+            total_elements=logits.size
+        )
         if not _strict_non_finite_output_enabled():
             log.warning(
                 "Classifier produced all non-finite logits; coercing in non-strict mode",
@@ -1181,9 +1192,13 @@ class OpenVINOModelInstance:
             # Intel GPUs default to f16 inference precision. Un-quantized ONNX models 
             # often have intermediate activations >65504, which overflow f16, resulting 
             # in non-finite logits (NaN/inf) and crashing the strict softmax pipeline.
-            config = {}
+            config = {
+                "PERFORMANCE_HINT": "LATENCY",
+                "GPU_THROUGHPUT_STREAMS": "1"
+            }
             if self.device_name == "GPU" or str(self.device_name).startswith("GPU."):
                 config["INFERENCE_PRECISION_HINT"] = "f32"
+                log.info("Applying f32 precision hint for Intel GPU stability", model=self.name)
                 
             self.compiled_model = self.core.compile_model(model, self.device_name, config=config)
             self.input_name = self.compiled_model.inputs[0].get_any_name()
