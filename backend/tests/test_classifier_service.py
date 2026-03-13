@@ -1861,6 +1861,29 @@ def test_openvino_infer_output_tensor_uses_compiled_output_handle_and_preserves_
     assert np.isnan(logits).all()
 
 
+def test_openvino_infer_output_tensor_can_run_during_startup_self_test_before_loaded_flag(mock_os_path_exists):
+    infer_request = MagicMock()
+    compiled_model = MagicMock()
+    compiled_model.outputs = ["output0"]
+    compiled_model.create_infer_request.return_value = infer_request
+    infer_request.infer.return_value = {"output0": np.full((1, 10000), np.nan, dtype=np.float32)}
+
+    model = OpenVINOModelInstance(
+        "bird",
+        "/tmp/model.onnx",
+        "/tmp/labels.txt",
+        device_name="GPU",
+    )
+    model.loaded = False
+    model.compiled_model = compiled_model
+    model.input_name = "input"
+
+    logits = model._infer_output_tensor(Image.new("RGB", (32, 32), color="white"))
+
+    assert logits.shape == (1, 10000)
+    assert np.isnan(logits).all()
+
+
 def test_openvino_gpu_startup_self_test_preserves_all_nan_output_diagnostics(mock_os_path_exists):
     model = OpenVINOModelInstance(
         "bird",

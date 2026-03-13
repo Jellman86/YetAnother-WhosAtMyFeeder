@@ -1451,7 +1451,7 @@ class OpenVINOModelInstance:
         return _safe_softmax(x, context=f"{self.name}:openvino")
 
     def _infer_output_tensor(self, image: Image.Image) -> np.ndarray:
-        if not self.loaded or self.compiled_model is None or self.input_name is None:
+        if self.compiled_model is None or self.input_name is None:
             return np.array([])
 
         input_tensor = self._preprocess(image)
