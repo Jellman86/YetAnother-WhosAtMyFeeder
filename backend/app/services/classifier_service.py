@@ -1780,12 +1780,17 @@ class ClassifierService:
                  path=model_path,
                  input_size=input_size,
                  runtime=runtime,
-                 preprocessing=preprocessing)
+                 preprocessing=preprocessing,
+                 worker_mode=self._worker_process_mode)
 
         self._selected_inference_provider = _normalize_inference_provider(
             getattr(settings.classification, "inference_provider", "auto")
         )
         self._refresh_accel_caps(force=True)
+        log.info("Acceleration capabilities for model init", 
+                 openvino_available=self._accel_caps.get("openvino_available"),
+                 intel_gpu_available=self._accel_caps.get("intel_gpu_available"),
+                 ort_available=self._accel_caps.get("ort_available"))
         self._inference_fallback_reason = None
         self._inference_backend = "tflite"
         self._active_inference_provider = "tflite"
@@ -1967,6 +1972,7 @@ class ClassifierService:
             runtime = 'tflite'
 
         # Default: TFLite model
+        log.info("Falling back to default TFLite model", runtime=runtime)
         bird_model = self._build_bird_model_for_backend(spec, backend="tflite", provider="tflite")
         if bird_model is None:
             bird_model = ModelInstance("bird", model_path, labels_path, preprocessing=preprocessing)
