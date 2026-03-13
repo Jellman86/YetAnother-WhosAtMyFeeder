@@ -1194,11 +1194,10 @@ class OpenVINOModelInstance:
             # in non-finite logits (NaN/inf) and crashing the strict softmax pipeline.
             config = {
                 "PERFORMANCE_HINT": "LATENCY",
-                "GPU_THROUGHPUT_STREAMS": "1"
+                "NUM_STREAMS": "1"
             }
             if self.device_name == "GPU" or str(self.device_name).startswith("GPU."):
                 config["INFERENCE_PRECISION_HINT"] = "f32"
-                log.info("Applying f32 precision hint for Intel GPU stability", model=self.name)
                 
             self.compiled_model = self.core.compile_model(model, self.device_name, config=config)
             self.input_name = self.compiled_model.inputs[0].get_any_name()
@@ -1780,17 +1779,12 @@ class ClassifierService:
                  path=model_path,
                  input_size=input_size,
                  runtime=runtime,
-                 preprocessing=preprocessing,
-                 worker_mode=self._worker_process_mode)
+                 preprocessing=preprocessing)
 
         self._selected_inference_provider = _normalize_inference_provider(
             getattr(settings.classification, "inference_provider", "auto")
         )
         self._refresh_accel_caps(force=True)
-        log.info("Acceleration capabilities for model init", 
-                 openvino_available=self._accel_caps.get("openvino_available"),
-                 intel_gpu_available=self._accel_caps.get("intel_gpu_available"),
-                 ort_available=self._accel_caps.get("ort_available"))
         self._inference_fallback_reason = None
         self._inference_backend = "tflite"
         self._active_inference_provider = "tflite"
@@ -1972,7 +1966,6 @@ class ClassifierService:
             runtime = 'tflite'
 
         # Default: TFLite model
-        log.info("Falling back to default TFLite model", runtime=runtime)
         bird_model = self._build_bird_model_for_backend(spec, backend="tflite", provider="tflite")
         if bird_model is None:
             bird_model = ModelInstance("bird", model_path, labels_path, preprocessing=preprocessing)
