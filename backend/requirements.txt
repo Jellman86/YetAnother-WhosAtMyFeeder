@@ -19,8 +19,9 @@ tensorflow-cpu; python_version >= '3.12'
 # ONNX Runtime (GPU wheel includes CPU fallback and CUDA provider when host libs are present)
 onnxruntime-gpu>=1.16.0
 # OpenVINO runtime for Intel CPU/iGPU acceleration.
-# Pin to the known-good pre-2026 series to avoid unstable GPU runtime behavior in 2026.x.
-openvino==2025.4.1
+# Pin to the last 2024 release; this runtime line has proven stable for the
+# current ConvNeXt GPU path on the live Intel iGPU host.
+openvino==2024.6.0
 aiomqtt==2.0.1
 alembic==1.13.1
 opencv-python-headless<4.11
