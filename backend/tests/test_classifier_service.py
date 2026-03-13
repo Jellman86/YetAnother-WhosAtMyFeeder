@@ -1752,9 +1752,12 @@ def test_classifier_status_exposes_openvino_runtime_diagnostics_block():
         "opset": [{"domain": "ai.onnx", "version": 18}],
     }
     service._bird_model_compatibility = {
-        "artifact_trust_state": "untrusted",
-        "last_probe_device": "GPU",
-        "last_probe_status": "invalid_output",
+        "devices": {
+            "GPU": {
+                "artifact_trust_state": "untrusted",
+                "last_probe_status": "invalid_output",
+            }
+        }
     }
 
     status = service.get_status()
@@ -1771,9 +1774,8 @@ def test_classifier_status_exposes_openvino_runtime_diagnostics_block():
     assert status["openvino_runtime"]["model"]["producer_name"] == "pytorch"
     assert status["openvino_runtime"]["model"]["producer_version"] == "2.9.1"
     assert status["openvino_runtime"]["model"]["opset"] == [{"domain": "ai.onnx", "version": 18}]
-    assert status["openvino_runtime"]["compatibility"]["artifact_trust_state"] == "untrusted"
-    assert status["openvino_runtime"]["compatibility"]["last_probe_device"] == "GPU"
-    assert status["openvino_runtime"]["compatibility"]["last_probe_status"] == "invalid_output"
+    assert status["openvino_runtime"]["compatibility"]["devices"]["GPU"]["artifact_trust_state"] == "untrusted"
+    assert status["openvino_runtime"]["compatibility"]["devices"]["GPU"]["last_probe_status"] == "invalid_output"
     assert status["openvino_runtime"]["last_runtime_recovery"]["diagnostics"]["compile_properties"]["INFERENCE_PRECISION_HINT"] == "f32"
     assert status["openvino_runtime"]["last_runtime_recovery"]["diagnostics"]["output_summary"]["nan_count"] == 10000
     service.shutdown()
@@ -1811,10 +1813,73 @@ def test_probe_bird_runtime_updates_compatibility_state_from_probe_result():
 
     assert report["status"] == "invalid_output"
     assert report["output_summary"]["invalid_output_kind"] == "all_nan"
-    assert service._bird_model_compatibility["artifact_trust_state"] == "untrusted"
-    assert service._bird_model_compatibility["last_probe_device"] == "GPU"
-    assert service._bird_model_compatibility["last_probe_status"] == "invalid_output"
+    assert service._bird_model_compatibility["devices"]["GPU"]["artifact_trust_state"] == "untrusted"
+    assert service._bird_model_compatibility["devices"]["GPU"]["last_probe_status"] == "invalid_output"
     service.shutdown()
+
+
+def test_cpu_probe_does_not_overwrite_gpu_compatibility_state():
+    with patch.object(ClassifierService, "_init_bird_model", return_value=None):
+        service = ClassifierService()
+
+    service._bird_model_compatibility = {
+        "devices": {
+            "GPU": {
+                "artifact_trust_state": "untrusted",
+                "last_probe_status": "invalid_output",
+            }
+        }
+    }
+    service._update_bird_model_compatibility(device="CPU", status="ok")
+
+    assert service._bird_model_compatibility["devices"]["GPU"]["artifact_trust_state"] == "untrusted"
+    assert service._bird_model_compatibility["devices"]["CPU"]["artifact_trust_state"] == "trusted"
+    service.shutdown()
+
+
+def test_openvino_infer_output_tensor_uses_compiled_output_handle_and_preserves_nan_shape(mock_os_path_exists):
+    infer_request = MagicMock()
+    infer_request.infer.return_value = {"wrong": np.array([], dtype=np.float64)}
+    compiled_model = MagicMock()
+    compiled_model.outputs = ["output0"]
+    compiled_model.create_infer_request.return_value = infer_request
+    infer_request.infer.return_value = {"output0": np.full((1, 10000), np.nan, dtype=np.float32)}
+
+    model = OpenVINOModelInstance(
+        "bird",
+        "/tmp/model.onnx",
+        "/tmp/labels.txt",
+        device_name="GPU",
+    )
+    model.loaded = True
+    model.compiled_model = compiled_model
+    model.input_name = "input"
+
+    logits = model._infer_output_tensor(Image.new("RGB", (32, 32), color="white"))
+
+    assert logits.shape == (1, 10000)
+    assert np.isnan(logits).all()
+
+
+def test_openvino_gpu_startup_self_test_preserves_all_nan_output_diagnostics(mock_os_path_exists):
+    model = OpenVINOModelInstance(
+        "bird",
+        "/tmp/model.onnx",
+        "/tmp/labels.txt",
+        device_name="GPU",
+    )
+    model.loaded = True
+    model.compiled_model = MagicMock()
+    model.input_name = "input"
+
+    with patch.object(model, "_infer_output_tensor", return_value=np.full((1, 10000), np.nan, dtype=np.float32)):
+        with pytest.raises(InvalidInferenceOutputError) as exc:
+            model._run_gpu_startup_self_test()
+
+    summary = exc.value.diagnostics["output_summary"]
+    assert summary["shape"] == [1, 10000]
+    assert summary["nan_count"] == 10000
+    assert summary["invalid_output_kind"] == "all_nan"
 
 
 def test_classifier_check_health_exposes_live_image_pressure():

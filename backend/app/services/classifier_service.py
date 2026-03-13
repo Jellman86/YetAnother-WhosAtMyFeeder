@@ -1314,7 +1314,7 @@ class OpenVINOModelInstance:
         self._startup_self_test_ran = True
         image = self._build_startup_self_test_image()
         input_tensor = self._preprocess(image)
-        logits = self._infer_logits(image)
+        logits = self._infer_output_tensor(image)
         self._last_startup_self_test_diagnostics = self._collect_runtime_diagnostics(
             input_tensor=input_tensor,
             logits=logits,
@@ -1419,7 +1419,7 @@ class OpenVINOModelInstance:
             "input_summary": _summarize_numeric_array(input_tensor, name="input_tensor"),
         }
         try:
-            logits = self._infer_logits(image)
+            logits = self._infer_output_tensor(image)
             report["output_summary"] = _summarize_numeric_array(logits, name="output_logits")
             if logits.size == 0 or not np.isfinite(logits).any():
                 report["status"] = "invalid_output"
@@ -1450,7 +1450,7 @@ class OpenVINOModelInstance:
     def _softmax(self, x: np.ndarray) -> np.ndarray:
         return _safe_softmax(x, context=f"{self.name}:openvino")
 
-    def _infer_logits(self, image: Image.Image) -> np.ndarray:
+    def _infer_output_tensor(self, image: Image.Image) -> np.ndarray:
         if not self.loaded or self.compiled_model is None or self.input_name is None:
             return np.array([])
 
@@ -1458,8 +1458,17 @@ class OpenVINOModelInstance:
         with self._lock:
             infer_request = self.compiled_model.create_infer_request()
             outputs = infer_request.infer({self.input_name: input_tensor})
-        raw = next(iter(outputs.values()))
-        return np.asarray(raw)[0]
+        try:
+            raw = outputs[self.compiled_model.outputs[0]]
+        except Exception:
+            raw = next(iter(outputs.values()))
+        return np.asarray(raw)
+
+    def _infer_logits(self, image: Image.Image) -> np.ndarray:
+        raw = self._infer_output_tensor(image)
+        if raw.ndim > 0 and raw.shape[0] == 1:
+            return raw[0]
+        return raw
 
     def classify(self, image: Image.Image, top_k: int = 5) -> list[dict]:
         if not self.loaded or self.compiled_model is None:
@@ -1733,11 +1742,13 @@ class ClassifierService:
         normalized_device = str(device or "").upper() or None
         normalized_status = str(status or "") or None
         trust_state = "trusted" if normalized_status == "ok" else "untrusted"
-        self._bird_model_compatibility = {
-            "artifact_trust_state": trust_state,
-            "last_probe_device": normalized_device,
-            "last_probe_status": normalized_status,
-        }
+        devices = dict((self._bird_model_compatibility or {}).get("devices") or {})
+        if normalized_device:
+            devices[normalized_device] = {
+                "artifact_trust_state": trust_state,
+                "last_probe_status": normalized_status,
+            }
+        self._bird_model_compatibility = {"devices": devices}
 
     def _active_openvino_model(self) -> OpenVINOModelInstance | None:
         bird = self._models.get("bird")

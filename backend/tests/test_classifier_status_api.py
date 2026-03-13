@@ -188,9 +188,16 @@ async def test_classifier_status_endpoint_returns_artifact_fingerprint_and_compa
                     "opset": [{"domain": "ai.onnx", "version": 18}],
                 },
                 "compatibility": {
-                    "artifact_trust_state": "untrusted",
-                    "last_probe_device": "GPU",
-                    "last_probe_status": "invalid_output",
+                    "devices": {
+                        "GPU": {
+                            "artifact_trust_state": "untrusted",
+                            "last_probe_status": "invalid_output",
+                        },
+                        "CPU": {
+                            "artifact_trust_state": "trusted",
+                            "last_probe_status": "ok",
+                        },
+                    },
                 },
             },
         },
@@ -205,6 +212,6 @@ async def test_classifier_status_endpoint_returns_artifact_fingerprint_and_compa
     assert payload["openvino_runtime"]["model"]["producer_name"] == "pytorch"
     assert payload["openvino_runtime"]["model"]["producer_version"] == "2.9.1"
     assert payload["openvino_runtime"]["model"]["opset"] == [{"domain": "ai.onnx", "version": 18}]
-    assert payload["openvino_runtime"]["compatibility"]["artifact_trust_state"] == "untrusted"
-    assert payload["openvino_runtime"]["compatibility"]["last_probe_device"] == "GPU"
-    assert payload["openvino_runtime"]["compatibility"]["last_probe_status"] == "invalid_output"
+    assert payload["openvino_runtime"]["compatibility"]["devices"]["GPU"]["artifact_trust_state"] == "untrusted"
+    assert payload["openvino_runtime"]["compatibility"]["devices"]["GPU"]["last_probe_status"] == "invalid_output"
+    assert payload["openvino_runtime"]["compatibility"]["devices"]["CPU"]["artifact_trust_state"] == "trusted"
