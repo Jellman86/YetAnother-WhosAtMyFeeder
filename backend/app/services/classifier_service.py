@@ -1248,6 +1248,7 @@ class OpenVINOModelInstance:
         preprocessing: Optional[dict] = None,
         input_size: int = 384,
         device_name: str = "CPU",
+        startup_self_test_enabled: bool | None = None,
     ):
         self.name = name
         self.model_path = model_path
@@ -1255,6 +1256,11 @@ class OpenVINOModelInstance:
         self.preprocessing = preprocessing or {}
         self.input_size = input_size
         self.device_name = device_name
+        self._startup_self_test_enabled = (
+            _openvino_gpu_startup_self_test_enabled()
+            if startup_self_test_enabled is None
+            else bool(startup_self_test_enabled)
+        )
         self.core = None
         self.compiled_model = None
         self.input_name: Optional[str] = None
@@ -1309,7 +1315,7 @@ class OpenVINOModelInstance:
         return Image.fromarray(np.stack((red, green, blue), axis=2), mode="RGB")
 
     def _run_gpu_startup_self_test(self) -> None:
-        if not _openvino_gpu_startup_self_test_enabled():
+        if not self._startup_self_test_enabled:
             return
         self._startup_self_test_ran = True
         image = self._build_startup_self_test_image()
@@ -1374,7 +1380,9 @@ class OpenVINOModelInstance:
                 
             self.compiled_model = self.core.compile_model(model, self.device_name, config=config)
             self.input_name = self.compiled_model.inputs[0].get_any_name()
-            if self.device_name == "GPU" or str(self.device_name).startswith("GPU."):
+            if self._startup_self_test_enabled and (
+                self.device_name == "GPU" or str(self.device_name).startswith("GPU.")
+            ):
                 self._run_gpu_startup_self_test()
             self.loaded = True
             self.error = None
@@ -1404,7 +1412,7 @@ class OpenVINOModelInstance:
 
     def startup_self_test_status(self) -> dict[str, Any]:
         return {
-            "enabled": _openvino_gpu_startup_self_test_enabled(),
+            "enabled": bool(self._startup_self_test_enabled),
             "ran": bool(self._startup_self_test_ran),
             "error": self._last_startup_self_test_error,
             "diagnostics": dict(self._last_startup_self_test_diagnostics or {}),
@@ -1725,8 +1733,9 @@ class ClassifierService:
         return snapshot
 
     def _gpu_runtime_settings_snapshot(self) -> dict[str, Any]:
+        startup_self_test_enabled = _openvino_gpu_startup_self_test_enabled() and not self._worker_process_mode
         return {
-            "startup_self_test_enabled": _openvino_gpu_startup_self_test_enabled(),
+            "startup_self_test_enabled": startup_self_test_enabled,
             "cache_dir": os.getenv("OPENVINO_CACHE_DIR", "/tmp/openvino_cache"),
             "requested_compile_properties": {
                 "PERFORMANCE_HINT": "LATENCY",
@@ -1826,6 +1835,7 @@ class ClassifierService:
                 preprocessing=preprocessing,
                 input_size=input_size,
                 device_name=device_name,
+                startup_self_test_enabled=not self._worker_process_mode,
             )
             return model if model.load() else None
 
@@ -2173,6 +2183,7 @@ class ClassifierService:
                     preprocessing=preprocessing,
                     input_size=input_size,
                     device_name=openvino_device,
+                    startup_self_test_enabled=not self._worker_process_mode,
                 )
                 if bird_model.load():
                     self._openvino_model_compile_ok = True
@@ -2290,6 +2301,7 @@ class ClassifierService:
                         preprocessing=preprocessing,
                         input_size=input_size,
                         device_name="CPU",
+                        startup_self_test_enabled=not self._worker_process_mode,
                     )
                     fallback_model.load()
                     self._models["bird"] = fallback_model

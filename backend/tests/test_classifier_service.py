@@ -895,6 +895,32 @@ def test_openvino_model_load_fails_when_gpu_startup_self_test_is_non_finite(mock
     assert "startup self-test" in (model.error or "")
 
 
+def test_openvino_model_load_skips_gpu_startup_self_test_when_disabled(mock_os_path_exists):
+    fake_core = MagicMock()
+    fake_core.read_model.return_value = object()
+    fake_compiled_model = MagicMock()
+    fake_compiled_model.inputs = [MagicMock(get_any_name=MagicMock(return_value="input"))]
+    fake_core.compile_model.return_value = fake_compiled_model
+
+    with patch("app.services.classifier_service.OPENVINO_AVAILABLE", True), \
+         patch("app.services.classifier_service.OpenVINOCore", return_value=fake_core), \
+         patch("builtins.open", mock_open(read_data="Bird A\nBird B\n")), \
+         patch.object(OpenVINOModelInstance, "_run_gpu_startup_self_test") as mock_self_test:
+        model = OpenVINOModelInstance(
+            "bird",
+            "/tmp/model.onnx",
+            "/tmp/labels.txt",
+            device_name="GPU",
+            startup_self_test_enabled=False,
+        )
+
+        loaded = model.load()
+
+    assert loaded is True
+    assert model.loaded is True
+    mock_self_test.assert_not_called()
+
+
 def test_summarize_numeric_array_marks_all_nan_output_kind():
     summary = _summarize_numeric_array(
         np.full((1, 10000), np.nan, dtype=np.float32),
@@ -1778,6 +1804,16 @@ def test_classifier_status_exposes_openvino_runtime_diagnostics_block():
     assert status["openvino_runtime"]["compatibility"]["devices"]["GPU"]["last_probe_status"] == "invalid_output"
     assert status["openvino_runtime"]["last_runtime_recovery"]["diagnostics"]["compile_properties"]["INFERENCE_PRECISION_HINT"] == "f32"
     assert status["openvino_runtime"]["last_runtime_recovery"]["diagnostics"]["output_summary"]["nan_count"] == 10000
+    service.shutdown()
+
+
+def test_classifier_status_disables_gpu_startup_self_test_in_worker_process_mode():
+    with patch.object(ClassifierService, "_init_bird_model", return_value=None):
+        service = ClassifierService(worker_process_mode=True)
+
+    status = service.get_status()
+
+    assert status["openvino_runtime"]["gpu_settings"]["startup_self_test_enabled"] is False
     service.shutdown()
 
 
