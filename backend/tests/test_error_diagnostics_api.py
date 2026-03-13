@@ -5,6 +5,7 @@ import pytest_asyncio
 from app.main import app
 from app.config import settings
 from app.services.error_diagnostics import error_diagnostics_history
+from app.routers import classifier as classifier_router
 
 
 @pytest_asyncio.fixture
@@ -116,16 +117,36 @@ async def test_owner_can_fetch_workspace_diagnostics_payload(client: httpx.Async
         snapshot_ref="health-abc",
     )
 
-    response = await client.get("/api/diagnostics/workspace")
-    assert response.status_code == 200, response.text
-    payload = response.json()
+    original_get_status = classifier_router.classifier_service.get_status
+    try:
+        classifier_router.classifier_service.get_status = lambda: {
+            "active_provider": "intel_gpu",
+            "inference_backend": "openvino",
+            "openvino_runtime": {
+                "selected_provider": "intel_gpu",
+                "active_provider": "intel_gpu",
+                "inference_backend": "openvino",
+                "model": {
+                    "model_path": "/models/bird.onnx",
+                    "input_size": 384,
+                },
+            },
+        }
 
-    assert payload["workspace_schema_version"]
-    assert payload["backend_diagnostics"]["returned_events"] == 1
-    assert payload["backend_diagnostics"]["events"][0]["correlation_key"] == "event_pipeline:stage_timeout"
-    assert payload["health"]["service"] == "ya-wamf-backend"
-    assert "ml" in payload["health"]
-    assert "startup_warnings" in payload
+        response = await client.get("/api/diagnostics/workspace")
+        assert response.status_code == 200, response.text
+        payload = response.json()
+
+        assert payload["workspace_schema_version"]
+        assert payload["backend_diagnostics"]["returned_events"] == 1
+        assert payload["backend_diagnostics"]["events"][0]["correlation_key"] == "event_pipeline:stage_timeout"
+        assert payload["health"]["service"] == "ya-wamf-backend"
+        assert "ml" in payload["health"]
+        assert "startup_warnings" in payload
+        assert payload["classifier"]["active_provider"] == "intel_gpu"
+        assert payload["classifier"]["openvino_runtime"]["model"]["model_path"] == "/models/bird.onnx"
+    finally:
+        classifier_router.classifier_service.get_status = original_get_status
 
 
 @pytest.mark.asyncio

@@ -577,6 +577,16 @@ def test_classifier_service_recovers_from_invalid_openvino_gpu_output(mock_tflit
                 backend="openvino",
                 provider="intel_gpu",
                 detail="bird inference produced no finite probabilities",
+                diagnostics={
+                    "output_summary": {
+                        "nan_count": 10000,
+                        "finite_count": 0,
+                    },
+                    "compile_properties": {
+                        "INFERENCE_PRECISION_HINT": "f32",
+                        "NUM_STREAMS": "1",
+                    },
+                },
             )
 
         def cleanup(self):
@@ -621,6 +631,8 @@ def test_classifier_service_recovers_from_invalid_openvino_gpu_output(mock_tflit
         assert service._runtime_invalid_output_failures == 1
         assert service._runtime_fallback_recoveries == 1
         assert service._last_runtime_recovery["status"] == "recovered"
+        assert service._last_runtime_recovery["diagnostics"]["output_summary"]["nan_count"] == 10000
+        assert service._last_runtime_recovery["diagnostics"]["compile_properties"]["INFERENCE_PRECISION_HINT"] == "f32"
         assert broken.cleanup_called is True
         assert "openvino/intel_cpu" in (service._inference_fallback_reason or "")
         mock_load.assert_called_once()
@@ -846,6 +858,135 @@ def test_openvino_model_classify_raises_invalid_output_on_runtime_exception():
     assert exc.value.backend == "openvino"
     assert exc.value.provider == "GPU"
     assert "CL_OUT_OF_RESOURCES" in exc.value.detail
+
+
+def test_openvino_model_load_fails_when_gpu_startup_self_test_is_non_finite(mock_os_path_exists):
+    fake_core = MagicMock()
+    fake_core.read_model.return_value = object()
+    fake_core.compile_model.return_value = MagicMock()
+
+    with patch("app.services.classifier_service.OPENVINO_AVAILABLE", True), \
+         patch("app.services.classifier_service.OpenVINOCore", return_value=fake_core), \
+         patch("builtins.open", mock_open(read_data="Bird A\nBird B\n")), \
+         patch.object(
+             OpenVINOModelInstance,
+             "_run_gpu_startup_self_test",
+             side_effect=InvalidInferenceOutputError(
+                 backend="openvino",
+                 provider="GPU",
+                 detail="bird inference produced no finite probabilities during startup self-test",
+                 diagnostics={"output_summary": {"nan_count": 10000, "finite_count": 0}},
+             ),
+         ):
+        model = OpenVINOModelInstance(
+            "bird",
+            "/tmp/model.onnx",
+            "/tmp/labels.txt",
+            device_name="GPU",
+        )
+
+        loaded = model.load()
+
+    assert loaded is False
+    assert model.loaded is False
+    assert model.compiled_model is None
+    assert "startup self-test" in (model.error or "")
+
+
+def test_openvino_model_load_applies_optional_gpu_debug_properties(mock_os_path_exists, monkeypatch):
+    fake_core = MagicMock()
+    fake_core.read_model.return_value = object()
+    fake_core.compile_model.return_value = MagicMock()
+    monkeypatch.setenv("OPENVINO_GPU_EXECUTION_MODE_HINT", "ACCURACY")
+    monkeypatch.setenv("OPENVINO_GPU_ACTIVATIONS_SCALE_FACTOR", "8.0")
+
+    with patch("app.services.classifier_service.OPENVINO_AVAILABLE", True), \
+         patch("app.services.classifier_service.OpenVINOCore", return_value=fake_core), \
+         patch("builtins.open", mock_open(read_data="Bird A\nBird B\n")), \
+         patch.object(OpenVINOModelInstance, "_run_gpu_startup_self_test", return_value=None):
+        model = OpenVINOModelInstance(
+            "bird",
+            "/tmp/model.onnx",
+            "/tmp/labels.txt",
+            device_name="GPU",
+        )
+
+        loaded = model.load()
+
+    assert loaded is True
+    _, _, kwargs = fake_core.compile_model.mock_calls[0]
+    assert kwargs["config"]["EXECUTION_MODE_HINT"] == "ACCURACY"
+    assert kwargs["config"]["ACTIVATIONS_SCALE_FACTOR"] == "8.0"
+
+
+def test_classifier_service_falls_back_when_gpu_startup_self_test_fails(mock_os_path_exists):
+    class _FakeOpenVINOModel:
+        def __init__(self, *args, **kwargs):
+            self.loaded = False
+            self.error = "Failed OpenVINO model startup self-test: produced no finite probabilities"
+
+        def load(self):
+            return False
+
+    class _FakeONNXModel:
+        def __init__(self, *args, **kwargs):
+            self.loaded = True
+            self.error = None
+            self.labels = []
+            self.session = None
+
+        def load(self):
+            return True
+
+        def get_status(self):
+            return {"loaded": True, "error": None}
+
+    caps = {
+        "ort_available": True,
+        "cuda_provider_installed": False,
+        "cuda_hardware_available": False,
+        "cuda_available": False,
+        "openvino_available": True,
+        "openvino_version": "2025.4.1",
+        "openvino_import_path": "openvino.runtime.Core",
+        "openvino_import_error": None,
+        "openvino_probe_error": None,
+        "openvino_gpu_probe_error": None,
+        "intel_gpu_available": True,
+        "intel_cpu_available": True,
+        "openvino_devices": ["CPU", "GPU"],
+        "dev_dri_present": True,
+        "dev_dri_entries": ["card0", "renderD128"],
+        "process_uid": 1000,
+        "process_gid": 1000,
+        "process_groups": [44, 107],
+    }
+
+    original_provider = settings.classification.inference_provider
+    settings.classification.inference_provider = "auto"
+    try:
+        with patch("app.services.classifier_service._detect_acceleration_capabilities", return_value=caps), \
+             patch.object(
+                 ClassifierService,
+                 "_resolve_active_bird_model_spec",
+                 return_value={
+                     "model_path": "/tmp/model.onnx",
+                     "labels_path": "/tmp/labels.txt",
+                     "input_size": 384,
+                     "preprocessing": None,
+                     "runtime": "onnx",
+                 },
+             ), \
+             patch("app.services.classifier_service.OpenVINOModelInstance", _FakeOpenVINOModel), \
+             patch("app.services.classifier_service.ONNXModelInstance", _FakeONNXModel):
+            service = ClassifierService()
+    finally:
+        settings.classification.inference_provider = original_provider
+
+    assert service._inference_backend == "onnxruntime"
+    assert service._active_inference_provider == "cpu"
+    assert "startup self-test" in (service._openvino_model_compile_error or "")
+    service.shutdown()
 
 
 def test_classifier_service_uses_tflite_asset_paths_when_onnx_fallback_reaches_tflite(
@@ -1504,6 +1645,62 @@ def test_classifier_status_exposes_openvino_model_compile_diagnostics():
     assert status["openvino_model_compile_unsupported_ops"] == ["SequenceEmpty"]
 
 
+def test_classifier_status_exposes_openvino_runtime_diagnostics_block():
+    with patch.object(ClassifierService, "_init_bird_model", return_value=None):
+        service = ClassifierService()
+
+    service._image_execution_mode = "in_process"
+    service._active_inference_provider = "intel_gpu"
+    service._inference_backend = "openvino"
+    service._last_runtime_recovery = {
+        "status": "recovered",
+        "failed_backend": "openvino",
+        "failed_provider": "GPU",
+        "recovered_backend": "openvino",
+        "recovered_provider": "intel_cpu",
+        "detail": "non-finite logits",
+        "at": 123.0,
+        "diagnostics": {
+            "compile_properties": {
+                "INFERENCE_PRECISION_HINT": "f32",
+                "NUM_STREAMS": "1",
+            },
+            "output_summary": {
+                "nan_count": 10000,
+                "finite_count": 0,
+            },
+        },
+    }
+    service._models["bird"] = MagicMock()
+    service._models["bird"].get_status.return_value = {
+        "loaded": True,
+        "runtime": "openvino",
+        "device": "GPU",
+        "model_path": "/models/bird.onnx",
+        "input_size": 384,
+    }
+    service._resolve_active_bird_model_spec = MagicMock(return_value={
+        "model_path": "/models/bird.onnx",
+        "labels_path": "/models/labels.txt",
+        "input_size": 384,
+        "preprocessing": {"mean": [0.1, 0.2, 0.3], "std": [0.4, 0.5, 0.6]},
+        "runtime": "onnx",
+    })
+
+    status = service.get_status()
+
+    assert status["openvino_runtime"]["selected_provider"] == "auto"
+    assert status["openvino_runtime"]["active_provider"] == "intel_gpu"
+    assert status["openvino_runtime"]["inference_backend"] == "openvino"
+    assert status["openvino_runtime"]["gpu_settings"]["startup_self_test_enabled"] is True
+    assert status["openvino_runtime"]["model"]["model_path"] == "/models/bird.onnx"
+    assert status["openvino_runtime"]["model"]["input_size"] == 384
+    assert status["openvino_runtime"]["model"]["preprocessing"]["mean"] == [0.1, 0.2, 0.3]
+    assert status["openvino_runtime"]["last_runtime_recovery"]["diagnostics"]["compile_properties"]["INFERENCE_PRECISION_HINT"] == "f32"
+    assert status["openvino_runtime"]["last_runtime_recovery"]["diagnostics"]["output_summary"]["nan_count"] == 10000
+    service.shutdown()
+
+
 def test_classifier_check_health_exposes_live_image_pressure():
     with patch.object(ClassifierService, "_init_bird_model", return_value=None):
         service = ClassifierService()
@@ -1722,6 +1919,59 @@ def test_classifier_check_health_uses_worker_runtime_state_in_subprocess_mode():
 
     assert health["status"] == "ok"
     assert health["runtime_recovery"]["last_recovery"]["failed_provider"] == "GPU"
+    assert status["last_runtime_recovery"]["recovered_provider"] == "intel_cpu"
+    service.shutdown()
+
+
+def test_classifier_status_uses_video_worker_runtime_truth_in_subprocess_mode():
+    with patch.object(ClassifierService, "_init_bird_model", return_value=None):
+        service = ClassifierService()
+
+    service._classifier_supervisor = MagicMock()
+    service._classifier_supervisor.get_metrics.return_value = {
+        "live": {
+            "workers": 0,
+            "restarts": 0,
+            "last_exit_reason": None,
+            "last_runtime_recovery": None,
+            "circuit_open": False,
+            "circuit_open_until_monotonic": None,
+        },
+        "background": {
+            "workers": 0,
+            "restarts": 0,
+            "last_exit_reason": None,
+            "last_runtime_recovery": None,
+            "circuit_open": False,
+            "circuit_open_until_monotonic": None,
+        },
+        "video": {
+            "workers": 2,
+            "restarts": 0,
+            "last_exit_reason": None,
+            "last_runtime_recovery": {
+                "status": "recovered",
+                "failed_backend": "openvino",
+                "failed_provider": "GPU",
+                "recovered_backend": "openvino",
+                "recovered_provider": "intel_cpu",
+                "detail": "bird inference produced no finite probabilities",
+                "at": 456.0,
+            },
+            "circuit_open": False,
+            "circuit_open_until_monotonic": None,
+        },
+        "late_results_ignored": 0,
+    }
+    service._image_execution_mode = "subprocess"
+    service._active_inference_provider = "tflite"
+    service._inference_backend = "tflite"
+
+    status = service.get_status()
+
+    assert status["selected_provider"] == "auto"
+    assert status["active_provider"] == "intel_cpu"
+    assert status["inference_backend"] == "openvino"
     assert status["last_runtime_recovery"]["recovered_provider"] == "intel_cpu"
     service.shutdown()
 

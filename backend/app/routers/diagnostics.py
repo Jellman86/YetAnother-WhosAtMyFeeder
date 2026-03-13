@@ -32,12 +32,14 @@ async def get_owner_workspace_diagnostics(
 ):
     """Return bounded diagnostics evidence for the owner incident workspace."""
     from app.main import health_check
+    from app.routers.classifier import classifier_service
 
     health = await health_check()
     return {
         "workspace_schema_version": WORKSPACE_SCHEMA_VERSION,
         "backend_diagnostics": error_diagnostics_history.snapshot(limit=limit),
         "health": health,
+        "classifier": classifier_service.get_status(),
         "startup_warnings": health.get("startup_warnings") or [],
     }
 

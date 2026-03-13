@@ -1,6 +1,6 @@
 """Classifier endpoints for model status, debugging, and downloads."""
 
-from fastapi import APIRouter, UploadFile, File, Depends, Request
+from fastapi import APIRouter, UploadFile, File, Depends, Request, HTTPException, Query
 import structlog
 from pathlib import Path
 
@@ -188,6 +188,35 @@ async def test_bird_classifier(
     except Exception as e:
         import traceback
         return {"error": str(e), "traceback": traceback.format_exc()}
+
+
+@router.post("/probe")
+async def probe_bird_classifier_runtime(
+    device: str = Query(default="GPU"),
+    synthetic_image: bool = Query(default=False),
+    image: UploadFile | None = File(default=None),
+    auth: AuthContext = Depends(require_owner),
+):
+    """Run one explicit OpenVINO bird-model probe and return runtime diagnostics. Owner only."""
+    from PIL import Image
+    import io
+
+    if image is None and not synthetic_image:
+        raise HTTPException(status_code=400, detail="Provide an image upload or set synthetic_image=true")
+
+    pil_image = None
+    if image is not None:
+        contents = await image.read()
+        pil_image = Image.open(io.BytesIO(contents))
+
+    try:
+        return classifier_service.probe_bird_runtime(
+            device=device,
+            image=pil_image,
+            synthetic_image=synthetic_image,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.get("/wildlife/debug")

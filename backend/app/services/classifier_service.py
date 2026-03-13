@@ -14,6 +14,7 @@ import sys
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 from PIL import Image
 from typing import Optional, Any, Callable, Literal
 
@@ -173,10 +174,18 @@ class VideoClassificationWorkerError(RuntimeError):
 class InvalidInferenceOutputError(RuntimeError):
     """Raised when a runtime returns unusable model outputs after successful load."""
 
-    def __init__(self, *, backend: str, provider: str, detail: str):
+    def __init__(
+        self,
+        *,
+        backend: str,
+        provider: str,
+        detail: str,
+        diagnostics: Optional[dict[str, Any]] = None,
+    ):
         self.backend = str(backend)
         self.provider = str(provider)
         self.detail = str(detail)
+        self.diagnostics = dict(diagnostics or {})
         super().__init__(f"{self.backend}:{self.provider}: {self.detail}")
 
 
@@ -185,6 +194,26 @@ def _strict_non_finite_output_enabled() -> bool:
     if isinstance(configured, bool):
         return configured
     return LEGACY_CLASSIFIER_STRICT_NON_FINITE_OUTPUT
+
+
+def _openvino_gpu_startup_self_test_enabled() -> bool:
+    return os.getenv("OPENVINO_GPU_STARTUP_SELF_TEST", "1").strip().lower() not in {
+        "0",
+        "false",
+        "no",
+        "off",
+    }
+
+
+def _openvino_gpu_optional_compile_properties() -> dict[str, str]:
+    properties: dict[str, str] = {}
+    execution_mode = os.getenv("OPENVINO_GPU_EXECUTION_MODE_HINT", "").strip()
+    activations_scale = os.getenv("OPENVINO_GPU_ACTIVATIONS_SCALE_FACTOR", "").strip()
+    if execution_mode:
+        properties["EXECUTION_MODE_HINT"] = execution_mode
+    if activations_scale:
+        properties["ACTIVATIONS_SCALE_FACTOR"] = activations_scale
+    return properties
 
 
 def _normalize_inference_provider(value: Optional[str]) -> str:
@@ -281,6 +310,31 @@ def _safe_softmax(x: np.ndarray, *, context: str) -> np.ndarray:
     exp_mask = np.isfinite(shifted)
     exp_logits[exp_mask] = np.exp(np.clip(shifted[exp_mask], -80.0, 80.0))
     return _normalize_probability_vector(exp_logits, context=context)
+
+
+def _summarize_numeric_array(values: np.ndarray, *, name: str) -> dict[str, Any]:
+    arr = np.asarray(values)
+    finite_mask = np.isfinite(arr)
+    finite_values = arr[finite_mask]
+    summary: dict[str, Any] = {
+        "name": str(name),
+        "shape": [int(dim) for dim in arr.shape],
+        "dtype": str(arr.dtype),
+        "element_count": int(arr.size),
+        "finite_count": int(finite_mask.sum()),
+        "nan_count": int(np.isnan(arr).sum()),
+        "pos_inf_count": int(np.isposinf(arr).sum()),
+        "neg_inf_count": int(np.isneginf(arr).sum()),
+    }
+    if finite_values.size:
+        summary["finite_min"] = float(finite_values.min())
+        summary["finite_max"] = float(finite_values.max())
+        summary["finite_mean"] = float(finite_values.mean())
+    else:
+        summary["finite_min"] = None
+        summary["finite_max"] = None
+        summary["finite_mean"] = None
+    return summary
 
 
 def _summarize_runtime_exception(exc: Exception, *, max_len: int = 280) -> str:
@@ -1152,9 +1206,71 @@ class OpenVINOModelInstance:
         self.loaded = False
         self.error: Optional[str] = None
         self._lock = threading.Lock()
+        self._last_startup_self_test_diagnostics: dict[str, Any] | None = None
+        self._last_startup_self_test_error: str | None = None
+        self._startup_self_test_ran = False
 
         self.mean = np.array(self.preprocessing.get("mean", [0.485, 0.456, 0.406]))
         self.std = np.array(self.preprocessing.get("std", [0.229, 0.224, 0.225]))
+
+    def _collect_runtime_diagnostics(
+        self,
+        *,
+        input_tensor: np.ndarray | None = None,
+        logits: np.ndarray | None = None,
+    ) -> dict[str, Any]:
+        diagnostics: dict[str, Any] = {
+            "device_name": str(self.device_name),
+            "model_path": self.model_path,
+        }
+        compiled_properties: dict[str, Any] = {}
+        if self.compiled_model is not None:
+            for name in ("INFERENCE_PRECISION_HINT", "NUM_STREAMS", "PERFORMANCE_HINT", "EXECUTION_DEVICES"):
+                try:
+                    value = self.compiled_model.get_property(name)
+                    if isinstance(value, np.ndarray):
+                        compiled_properties[name] = value.tolist()
+                    elif isinstance(value, tuple):
+                        compiled_properties[name] = list(value)
+                    else:
+                        compiled_properties[name] = str(value)
+                except Exception as exc:
+                    compiled_properties[name] = f"ERROR: {exc}"
+        diagnostics["compile_properties"] = compiled_properties
+        if input_tensor is not None:
+            diagnostics["input_summary"] = _summarize_numeric_array(input_tensor, name="input_tensor")
+        if logits is not None:
+            diagnostics["output_summary"] = _summarize_numeric_array(logits, name="output_logits")
+        return diagnostics
+
+    def _build_startup_self_test_image(self) -> Image.Image:
+        size = max(8, int(self.input_size))
+        x = np.linspace(0, 255, size, dtype=np.uint8)
+        y = np.linspace(255, 0, size, dtype=np.uint8)
+        red = np.tile(x, (size, 1))
+        green = np.tile(y[:, None], (1, size))
+        blue = np.full((size, size), 127, dtype=np.uint8)
+        return Image.fromarray(np.stack((red, green, blue), axis=2), mode="RGB")
+
+    def _run_gpu_startup_self_test(self) -> None:
+        if not _openvino_gpu_startup_self_test_enabled():
+            return
+        self._startup_self_test_ran = True
+        image = self._build_startup_self_test_image()
+        input_tensor = self._preprocess(image)
+        logits = self._infer_logits(image)
+        self._last_startup_self_test_diagnostics = self._collect_runtime_diagnostics(
+            input_tensor=input_tensor,
+            logits=logits,
+        )
+        self._last_startup_self_test_error = None
+        if logits.size == 0 or not np.isfinite(logits).any():
+            raise InvalidInferenceOutputError(
+                backend="openvino",
+                provider=self.device_name,
+                detail=f"{self.name} inference produced no finite probabilities during startup self-test",
+                diagnostics=dict(self._last_startup_self_test_diagnostics),
+            )
 
     def load(self) -> bool:
         if self.loaded:
@@ -1198,17 +1314,64 @@ class OpenVINOModelInstance:
             }
             if self.device_name == "GPU" or str(self.device_name).startswith("GPU."):
                 config["INFERENCE_PRECISION_HINT"] = "f32"
+                config.update(_openvino_gpu_optional_compile_properties())
                 
             self.compiled_model = self.core.compile_model(model, self.device_name, config=config)
             self.input_name = self.compiled_model.inputs[0].get_any_name()
+            if self.device_name == "GPU" or str(self.device_name).startswith("GPU."):
+                self._run_gpu_startup_self_test()
             self.loaded = True
             self.error = None
             log.info("OpenVINO model loaded successfully", model=self.name, device=self.device_name, input_size=self.input_size)
             return True
+        except InvalidInferenceOutputError as exc:
+            self.error = f"Failed OpenVINO model startup self-test: {exc.detail}"
+            self._last_startup_self_test_error = self.error
+            log.warning(
+                "OpenVINO model failed startup self-test",
+                model=self.name,
+                device=self.device_name,
+                detail=exc.detail,
+                diagnostics=exc.diagnostics,
+            )
+            self.compiled_model = None
+            self.core = None
+            self.loaded = False
+            return False
         except Exception as e:
             self.error = f"Failed to load OpenVINO model: {str(e)}"
             log.error(f"Failed to load {self.name} OpenVINO model", error=str(e), device=self.device_name)
             return False
+
+    def current_compile_properties(self) -> dict[str, Any]:
+        return self._collect_runtime_diagnostics().get("compile_properties") or {}
+
+    def startup_self_test_status(self) -> dict[str, Any]:
+        return {
+            "enabled": _openvino_gpu_startup_self_test_enabled(),
+            "ran": bool(self._startup_self_test_ran),
+            "error": self._last_startup_self_test_error,
+            "diagnostics": dict(self._last_startup_self_test_diagnostics or {}),
+        }
+
+    def probe(self, image: Image.Image) -> dict[str, Any]:
+        input_tensor = self._preprocess(image)
+        report: dict[str, Any] = {
+            "status": "ok",
+            "device": str(self.device_name),
+            "compile_properties": self.current_compile_properties(),
+            "input_summary": _summarize_numeric_array(input_tensor, name="input_tensor"),
+        }
+        try:
+            logits = self._infer_logits(image)
+            report["output_summary"] = _summarize_numeric_array(logits, name="output_logits")
+            if logits.size == 0 or not np.isfinite(logits).any():
+                report["status"] = "invalid_output"
+            return report
+        except Exception as exc:
+            report["status"] = "runtime_error"
+            report["error"] = _summarize_runtime_exception(exc, max_len=600)
+            return report
 
     def _resize_with_padding(self, image: Image.Image, target_size: int) -> Image.Image:
         iw, ih = image.size
@@ -1247,6 +1410,7 @@ class OpenVINOModelInstance:
             log.warning(f"{self.name} OpenVINO model not loaded, cannot classify")
             return []
         try:
+            input_tensor = self._preprocess(image)
             logits = self._infer_logits(image)
             if logits.size == 0:
                 return []
@@ -1256,6 +1420,10 @@ class OpenVINOModelInstance:
                     backend="openvino",
                     provider=self.device_name,
                     detail=f"{self.name} inference produced no finite probabilities",
+                    diagnostics=self._collect_runtime_diagnostics(
+                        input_tensor=input_tensor,
+                        logits=logits,
+                    ),
                 )
             top_indices = np.argsort(probs)[::-1][:top_k]
             return [
@@ -1280,6 +1448,7 @@ class OpenVINOModelInstance:
         if not self.loaded or self.compiled_model is None:
             return np.array([])
         try:
+            input_tensor = self._preprocess(image)
             logits = self._infer_logits(image)
             if logits.size == 0:
                 return np.array([])
@@ -1289,6 +1458,10 @@ class OpenVINOModelInstance:
                     backend="openvino",
                     provider=self.device_name,
                     detail=f"{self.name} inference produced no finite probabilities",
+                    diagnostics=self._collect_runtime_diagnostics(
+                        input_tensor=input_tensor,
+                        logits=logits,
+                    ),
                 )
             return probs
         except InvalidInferenceOutputError:
@@ -1317,6 +1490,8 @@ class OpenVINOModelInstance:
             "runtime": "openvino",
             "input_size": self.input_size,
             "device": self.device_name,
+            "compile_properties": self.current_compile_properties(),
+            "startup_self_test": self.startup_self_test_status(),
         }
 
 
@@ -1458,6 +1633,76 @@ class ClassifierService:
             "preprocessing": preprocessing,
             "runtime": runtime,
         }
+
+    def _classify_model_artifact_type(self, model_path: str) -> str:
+        suffix = Path(str(model_path or "")).suffix.lower()
+        if suffix == ".onnx":
+            return "onnx"
+        if suffix == ".xml":
+            return "openvino_ir_xml"
+        if suffix == ".tflite":
+            return "tflite"
+        return suffix.lstrip(".") or "unknown"
+
+    def _runtime_model_snapshot(self) -> dict[str, Any]:
+        spec = self._resolve_active_bird_model_spec()
+        return {
+            "model_path": str(spec.get("model_path") or ""),
+            "labels_path": str(spec.get("labels_path") or ""),
+            "input_size": int(spec.get("input_size") or 0),
+            "preprocessing": dict(spec.get("preprocessing") or {}),
+            "declared_runtime": str(spec.get("runtime") or ""),
+            "model_type": self._classify_model_artifact_type(str(spec.get("model_path") or "")),
+        }
+
+    def _gpu_runtime_settings_snapshot(self) -> dict[str, Any]:
+        return {
+            "startup_self_test_enabled": _openvino_gpu_startup_self_test_enabled(),
+            "cache_dir": os.getenv("OPENVINO_CACHE_DIR", "/tmp/openvino_cache"),
+            "requested_compile_properties": {
+                "PERFORMANCE_HINT": "LATENCY",
+                "NUM_STREAMS": "1",
+                "INFERENCE_PRECISION_HINT": "f32",
+                **_openvino_gpu_optional_compile_properties(),
+            },
+            "invalid_retry_limit": CLASSIFIER_GPU_INVALID_RETRY_LIMIT,
+            "restore_cooldown_seconds": CLASSIFIER_GPU_RESTORE_COOLDOWN_SECONDS,
+        }
+
+    def _active_openvino_model(self) -> OpenVINOModelInstance | None:
+        bird = self._models.get("bird")
+        if isinstance(bird, OpenVINOModelInstance):
+            return bird
+        return None
+
+    def _openvino_runtime_snapshot(
+        self,
+        *,
+        active_backend: str,
+        active_provider: str,
+        runtime_recovery: dict[str, Any] | None,
+    ) -> dict[str, Any]:
+        active_model = self._active_openvino_model()
+        snapshot = {
+            "selected_provider": _normalize_inference_provider(getattr(settings.classification, "inference_provider", "auto")),
+            "active_provider": active_provider,
+            "inference_backend": active_backend,
+            "model": self._runtime_model_snapshot(),
+            "gpu_settings": self._gpu_runtime_settings_snapshot(),
+            "compile_diagnostics": {
+                "compile_ok": self._openvino_model_compile_ok,
+                "compile_device": self._openvino_model_compile_device,
+                "compile_error": self._openvino_model_compile_error,
+                "compile_unsupported_ops": list(self._openvino_model_compile_unsupported_ops or []),
+            },
+            "active_model_compile_properties": {},
+            "startup_self_test": None,
+            "last_runtime_recovery": runtime_recovery,
+        }
+        if active_model is not None:
+            snapshot["active_model_compile_properties"] = active_model.current_compile_properties()
+            snapshot["startup_self_test"] = active_model.startup_self_test_status()
+        return snapshot
 
     def _append_inference_fallback_reason(self, reason: str) -> None:
         reason = str(reason or "").strip()
@@ -1684,6 +1929,8 @@ class ClassifierService:
             "detail": f"{error.detail}; reloaded GPU model and retrying once",
             "at": time.time(),
         }
+        if error.diagnostics:
+            self._last_runtime_recovery["diagnostics"] = dict(error.diagnostics)
         if hasattr(failed_model, "cleanup"):
             try:
                 failed_model.cleanup()
@@ -1719,6 +1966,8 @@ class ClassifierService:
                     "detail": error.detail,
                     "at": time.time(),
                 }
+                if error.diagnostics:
+                    self._last_runtime_recovery["diagnostics"] = dict(error.diagnostics)
                 log.error(
                     "Classifier produced invalid runtime output and no fallback succeeded",
                     failed_backend=error.backend,
@@ -1746,6 +1995,8 @@ class ClassifierService:
                 "detail": error.detail,
                 "at": time.time(),
             }
+            if error.diagnostics:
+                self._last_runtime_recovery["diagnostics"] = dict(error.diagnostics)
             if hasattr(old_model, "cleanup"):
                 try:
                     old_model.cleanup()
@@ -2031,7 +2282,7 @@ class ClassifierService:
         if not isinstance(supervisor_metrics, dict):
             return None
         recoveries: list[dict[str, Any]] = []
-        for pool_name in ("live", "background"):
+        for pool_name in ("live", "background", "video"):
             pool = supervisor_metrics.get(pool_name)
             if not isinstance(pool, dict):
                 continue
@@ -2042,6 +2293,23 @@ class ClassifierService:
             return None
         recoveries.sort(key=lambda item: float(item.get("at") or 0.0), reverse=True)
         return recoveries[0]
+
+    def _effective_subprocess_runtime_fields(
+        self,
+        runtime_recovery: dict[str, Any] | None,
+    ) -> tuple[str, str]:
+        backend = self._inference_backend
+        provider = self._active_inference_provider
+        if not isinstance(runtime_recovery, dict):
+            return backend, provider
+
+        recovered_backend = str(runtime_recovery.get("recovered_backend") or "").strip()
+        recovered_provider = str(runtime_recovery.get("recovered_provider") or "").strip()
+        if recovered_backend:
+            backend = recovered_backend
+        if recovered_provider:
+            provider = recovered_provider
+        return backend, provider
 
     def _describe_live_image_health(self, admission_metrics: dict) -> dict:
         live_metrics = admission_metrics["live"]
@@ -2274,6 +2542,11 @@ class ClassifierService:
             if self._image_execution_mode == "subprocess"
             else None
         ) or self._last_runtime_recovery
+        effective_backend, effective_provider = (
+            self._effective_subprocess_runtime_fields(effective_runtime_recovery)
+            if self._image_execution_mode == "subprocess"
+            else (self._inference_backend, self._active_inference_provider)
+        )
         active_model_id = None
         try:
             from app.services.model_manager import model_manager
@@ -2309,8 +2582,8 @@ class ClassifierService:
             "process_gid": self._accel_caps.get("process_gid"),
             "process_groups": self._accel_caps.get("process_groups") or [],
             "selected_provider": _normalize_inference_provider(getattr(settings.classification, "inference_provider", "auto")),
-            "active_provider": self._active_inference_provider,
-            "inference_backend": self._inference_backend,
+            "active_provider": effective_provider,
+            "inference_backend": effective_backend,
             "fallback_reason": self._inference_fallback_reason,
             "image_max_concurrent": CLASSIFIER_IMAGE_MAX_CONCURRENT,
             "image_admission_timeout_seconds": CLASSIFIER_IMAGE_ADMISSION_TIMEOUT_SECONDS,
@@ -2324,6 +2597,11 @@ class ClassifierService:
             "gpu_restore_not_before_monotonic": self._gpu_restore_not_before_monotonic,
             "strict_non_finite_output": _strict_non_finite_output_enabled(),
             "last_runtime_recovery": effective_runtime_recovery,
+            "openvino_runtime": self._openvino_runtime_snapshot(
+                active_backend=effective_backend,
+                active_provider=effective_provider,
+                runtime_recovery=effective_runtime_recovery,
+            ),
             "live_image_max_concurrent": admission_metrics["live"]["capacity"],
             "live_image_admission_timeout_seconds": CLASSIFIER_LIVE_IMAGE_ADMISSION_TIMEOUT_SECONDS,
             "live_image_admission_timeouts": self._live_image_admission_timeouts,
@@ -2360,6 +2638,68 @@ class ClassifierService:
             status.update(bird.get_status())
             
         return status
+
+    def probe_bird_runtime(
+        self,
+        *,
+        device: str = "GPU",
+        image: Image.Image | None = None,
+        synthetic_image: bool = False,
+    ) -> dict[str, Any]:
+        normalized_device = str(device or "GPU").strip().upper() or "GPU"
+        if normalized_device not in {"CPU", "GPU"}:
+            raise ValueError(f"Unsupported probe device: {device}")
+
+        spec = self._resolve_active_bird_model_spec()
+        model = OpenVINOModelInstance(
+            "bird",
+            str(spec.get("model_path") or ""),
+            str(spec.get("labels_path") or ""),
+            preprocessing=spec.get("preprocessing"),
+            input_size=int(spec.get("input_size") or 384),
+            device_name=normalized_device,
+        )
+        loaded = model.load()
+        probe_image = image
+        if probe_image is None:
+            synthetic_image = True
+            probe_image = model._build_startup_self_test_image()
+
+        report: dict[str, Any] = {
+            "device": normalized_device,
+            "synthetic_image": bool(synthetic_image),
+            "runtime": {
+                "backend": "openvino",
+                "provider": "intel_gpu" if normalized_device == "GPU" else "intel_cpu",
+            },
+            "model": {
+                **self._runtime_model_snapshot(),
+            },
+            "gpu_settings": self._gpu_runtime_settings_snapshot(),
+            "compile_ok": bool(loaded),
+            "compile_error": getattr(model, "error", None),
+            "compile_properties": model.current_compile_properties() if loaded else {},
+            "startup_self_test": model.startup_self_test_status(),
+        }
+        if not loaded:
+            report["status"] = "compile_failed"
+            return report
+
+        probe_report = model.probe(probe_image)
+        report.update(probe_report)
+        report["image"] = {
+            "mode": str(probe_image.mode),
+            "size": [int(probe_image.size[0]), int(probe_image.size[1])],
+        }
+        log.info(
+            "Executed bird runtime probe",
+            device=normalized_device,
+            synthetic_image=bool(synthetic_image),
+            status=report.get("status"),
+            compile_properties=report.get("compile_properties"),
+            output_summary=report.get("output_summary"),
+        )
+        return report
 
     def get_wildlife_status(self) -> dict:
         wildlife = self._models.get("wildlife")

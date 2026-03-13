@@ -166,6 +166,15 @@ async def test_classifier_worker_process_emits_runtime_recovery_event():
             "recovered_provider": "intel_cpu",
             "detail": "invalid probabilities",
             "at": 123.0,
+            "diagnostics": {
+                "output_summary": {
+                    "nan_count": 10000,
+                    "finite_count": 0,
+                },
+                "compile_properties": {
+                    "INFERENCE_PRECISION_HINT": "f32",
+                },
+            },
         }
         return [{"label": "Robin", "score": 0.9}]
 
@@ -200,6 +209,7 @@ async def test_classifier_worker_process_emits_runtime_recovery_event():
     assert any(
         message["type"] == "runtime_recovery"
         and message["recovery"]["failed_provider"] == "GPU"
+        and message["recovery"]["diagnostics"]["output_summary"]["nan_count"] == 10000
         for message in writer.messages
     )
 

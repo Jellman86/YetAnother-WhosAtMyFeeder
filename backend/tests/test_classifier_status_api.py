@@ -113,3 +113,48 @@ async def test_classifier_test_endpoint_uses_supervised_path_in_subprocess_mode(
         assert payload["results"][0]["label"] == "Robin"
     finally:
         settings.classification.image_execution_mode = original_mode
+
+
+@pytest.mark.asyncio
+async def test_classifier_probe_endpoint_returns_runtime_diagnostics_for_synthetic_gpu_probe(
+    client: httpx.AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    app.dependency_overrides[require_owner] = lambda: AuthContext(auth_level=AuthLevel.OWNER, username="owner")
+
+    monkeypatch.setattr(
+        classifier_router.classifier_service,
+        "probe_bird_runtime",
+        lambda **_kwargs: {
+            "device": "GPU",
+            "synthetic_image": True,
+            "status": "invalid_output",
+            "runtime": {
+                "backend": "openvino",
+                "provider": "intel_gpu",
+            },
+            "model": {
+                "model_path": "/models/bird.onnx",
+                "input_size": 384,
+                "model_type": "onnx",
+            },
+            "compile_properties": {
+                "INFERENCE_PRECISION_HINT": "f32",
+                "NUM_STREAMS": "1",
+            },
+            "output_summary": {
+                "nan_count": 10000,
+                "finite_count": 0,
+            },
+        },
+    )
+
+    response = await client.post("/api/classifier/probe", params={"device": "GPU", "synthetic_image": "true"})
+    assert response.status_code == 200, response.text
+    payload = response.json()
+
+    assert payload["device"] == "GPU"
+    assert payload["synthetic_image"] is True
+    assert payload["runtime"]["backend"] == "openvino"
+    assert payload["compile_properties"]["INFERENCE_PRECISION_HINT"] == "f32"
+    assert payload["output_summary"]["nan_count"] == 10000
