@@ -14,4 +14,4 @@ def test_openvino_is_pinned_to_known_good_series():
         if line.strip().startswith("openvino")
     ]
     assert openvino_lines, "openvino requirement missing"
-    assert openvino_lines[0] == "openvino==2025.4.1"
+    assert openvino_lines[0] == "openvino==2024.6.0"

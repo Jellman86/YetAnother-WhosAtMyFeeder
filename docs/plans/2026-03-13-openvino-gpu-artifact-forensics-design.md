@@ -7,7 +7,7 @@ Make YA-WAMF's OpenVINO GPU failure diagnostics trustworthy enough to isolate wh
 ## Current Findings
 
 - The live ConvNeXt artifact at `/data/models/convnext_large_inat21/model.onnx` is already the patched variant with sequence ops removed.
-- That patched artifact is byte-for-byte identical to the output of [patch_convnext_openvino_model.py](/config/workspace/YA-WAMF/.worktrees/openvino-gpu-reliability/backend/scripts/patch_convnext_openvino_model.py).
+- That patched artifact is byte-for-byte identical to the output of `backend/scripts/patch_convnext_openvino_model.py`.
 - On the live backend container, the patched ConvNeXt artifact produces:
   - finite logits on OpenVINO CPU
   - all-`NaN` logits on OpenVINO GPU
