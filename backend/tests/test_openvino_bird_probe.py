@@ -3,7 +3,7 @@ from unittest.mock import MagicMock
 
 import numpy as np
 
-from backend.scripts.probe_openvino_bird_model import (
+from scripts.probe_openvino_bird_model import (
     compare_probe_outputs,
     probe_openvino_bird_model,
     summarize_array,
@@ -50,7 +50,7 @@ def test_probe_openvino_bird_model_returns_json_safe_report(monkeypatch):
         },
     }
     monkeypatch.setattr(
-        "backend.scripts.probe_openvino_bird_model.resolve_active_bird_model_spec",
+        "scripts.probe_openvino_bird_model.resolve_active_bird_model_spec",
         lambda: {
             "model_id": fake_meta["id"],
             "model_path": "/tmp/model.onnx",
@@ -85,7 +85,7 @@ def test_probe_openvino_bird_model_returns_json_safe_report(monkeypatch):
     fake_model.load = lambda: True
 
     monkeypatch.setattr(
-        "backend.scripts.probe_openvino_bird_model.build_probe_model",
+        "scripts.probe_openvino_bird_model.build_probe_model",
         lambda spec, device: fake_model,
     )
 
@@ -98,4 +98,3 @@ def test_probe_openvino_bird_model_returns_json_safe_report(monkeypatch):
     assert report["input_summary"]["shape"] == [1, 3, 384, 384]
     assert report["output_summary"]["finite_count"] == 3
     assert report["output_summary"]["nan_count"] == 0
-
