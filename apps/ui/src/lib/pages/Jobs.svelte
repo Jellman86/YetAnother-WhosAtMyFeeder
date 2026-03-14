@@ -3,98 +3,22 @@
     import { _ } from 'svelte-i18n';
     import { jobProgressStore, type JobProgressItem } from '../stores/job_progress.svelte';
     import { jobDiagnosticsStore } from '../stores/job_diagnostics.svelte';
-    import { fetchAnalysisStatus } from '../api/maintenance';
-    import type { AnalysisStatus } from '../api/maintenance';
     import { buildJobsPipelineModel, type QueueTelemetryByKind } from '../jobs/pipeline';
     import { presentActiveJob, presentPipelineKindRow, type JobsTranslateFn } from '../jobs/presenter';
     import { formatDateTime } from '../utils/datetime';
-    import { authStore } from '../stores/auth.svelte';
+    import { analysisQueueStatusStore } from '../stores/analysis_queue_status.svelte';
     let { onNavigate, embedded = false } = $props<{ onNavigate?: (path: string) => void; embedded?: boolean }>();
 
     let nowTs = $state(Date.now());
-    let queueByKind = $state<QueueTelemetryByKind>({});
-    let analysisStatus = $state<AnalysisStatus | null>(null);
-    let analysisStatusSignature = $state('');
     onMount(() => {
         const tick = setInterval(() => {
             nowTs = Date.now();
         }, 1000);
-        let queuePoll: ReturnType<typeof setInterval> | null = null;
-        let stopped = false;
-
-        const updateQueueTelemetry = async () => {
-            if (stopped) return;
-            if (!authStore.showSettings) return;
-            try {
-                const status = await fetchAnalysisStatus();
-                const signature = [
-                    status.pending ?? 0,
-                    status.active ?? 0,
-                    status.circuit_open ? 1 : 0,
-                    status.open_until ?? '',
-                    status.failure_count ?? '',
-                    status.pending_capacity ?? '',
-                    status.pending_available ?? '',
-                    status.max_concurrent_configured ?? '',
-                    status.max_concurrent_effective ?? '',
-                    status.mqtt_pressure_level ?? '',
-                    status.throttled_for_mqtt_pressure ? 1 : 0,
-                    status.mqtt_in_flight ?? '',
-                    status.mqtt_in_flight_capacity ?? ''
-                ].join('|');
-                if (signature !== analysisStatusSignature) {
-                    analysisStatus = status;
-                    analysisStatusSignature = signature;
-                }
-                queueByKind = {
-                    ...queueByKind,
-                    reclassify: {
-                        queued: Math.max(0, Math.floor(Number(status.pending ?? 0))),
-                        running: Math.max(0, Math.floor(Number(status.active ?? 0))),
-                        queueDepthKnown: true,
-                        updatedAt: Date.now(),
-                        maxConcurrentConfigured: Math.max(0, Math.floor(Number(status.max_concurrent_configured ?? 0))),
-                        maxConcurrentEffective: Math.max(0, Math.floor(Number(status.max_concurrent_effective ?? 0))),
-                        mqttPressureLevel: typeof status.mqtt_pressure_level === 'string' ? status.mqtt_pressure_level : undefined,
-                        throttledForMqttPressure: status.throttled_for_mqtt_pressure === true,
-                        mqttInFlight: Math.max(0, Math.floor(Number(status.mqtt_in_flight ?? 0))),
-                        mqttInFlightCapacity: Math.max(0, Math.floor(Number(status.mqtt_in_flight_capacity ?? 0)))
-                    }
-                };
-            } catch (error) {
-                jobDiagnosticsStore.recordError({
-                    source: 'job',
-                    component: 'reclassify_queue',
-                    stage: 'poll',
-                    reasonCode: 'status_fetch_failed',
-                    message: toErrorMessage(error, 'Failed to fetch reclassification queue status'),
-                    severity: 'warning',
-                    context: { route: '/api/maintenance/analysis/status' }
-                });
-                // Keep polling; if we already have good queue data, keep displaying it.
-                if (!queueByKind.reclassify) {
-                    queueByKind = {
-                        ...queueByKind,
-                        reclassify: {
-                            queued: 0,
-                            running: 0,
-                            queueDepthKnown: false,
-                            updatedAt: Date.now()
-                        }
-                    };
-                }
-            }
-        };
-
-        if (authStore.showSettings) {
-            updateQueueTelemetry();
-            queuePoll = setInterval(updateQueueTelemetry, 5000);
-        }
+        const release = analysisQueueStatusStore.retain();
 
         return () => {
-            stopped = true;
+            release();
             clearInterval(tick);
-            if (queuePoll) clearInterval(queuePoll);
         };
     });
 
@@ -102,6 +26,8 @@
     let runningJobs = $derived(activeJobs.filter((job) => job.status === 'running'));
     let staleJobs = $derived(activeJobs.filter((job) => job.status === 'stale'));
     let historyJobs = $derived(jobProgressStore.historyJobs);
+    let queueByKind = $derived(analysisQueueStatusStore.queueByKind as QueueTelemetryByKind);
+    let analysisStatus = $derived(analysisQueueStatusStore.analysisStatus);
     let pipeline = $derived(buildJobsPipelineModel(activeJobs, historyJobs, queueByKind));
     let pipelineByKind = $derived.by(() => new Map(pipeline.kinds.map((row) => [row.kind, row])));
     const t: JobsTranslateFn = (key, values, fallback) => $_(key, { values, default: fallback });
@@ -144,12 +70,6 @@
         const hours = Math.floor(min / 60);
         const remMin = min % 60;
         return `${hours}h ${remMin}m`;
-    }
-
-    function toErrorMessage(error: unknown, fallback: string): string {
-        if (error instanceof Error) return error.message || fallback;
-        if (typeof error === 'string' && error.trim().length > 0) return error.trim();
-        return fallback;
     }
 
     function pct(item: JobProgressItem): number | null {

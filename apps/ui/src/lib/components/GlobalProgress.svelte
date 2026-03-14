@@ -3,93 +3,33 @@
     import { slide } from 'svelte/transition';
     import { _ } from 'svelte-i18n';
     import { jobProgressStore, type JobProgressItem } from '../stores/job_progress.svelte';
-    import { authStore } from '../stores/auth.svelte';
-    import { fetchAnalysisStatus, type AnalysisStatus } from '../api/maintenance';
     import { getNotificationsTabPathForAccess } from '../app/notifications_route';
-    import { buildJobsPipelineModel, type QueueTelemetryByKind } from '../jobs/pipeline';
+    import { authStore } from '../stores/auth.svelte';
+    import { buildJobsPipelineModel } from '../jobs/pipeline';
     import { buildGlobalProgressSummary, presentActiveJob, type JobsTranslateFn } from '../jobs/presenter';
+    import { analysisQueueStatusStore } from '../stores/analysis_queue_status.svelte';
     let { onNavigate } = $props<{ onNavigate?: (path: string) => void }>();
 
     let nowTs = $state(Date.now());
     let showDetails = $state(false);
-    let queueByKind = $state<QueueTelemetryByKind>({});
-    let analysisStatus = $state<AnalysisStatus | null>(null);
-    let analysisStatusSignature = $state('');
     const detailLimit = 4;
     onMount(() => {
         const tick = setInterval(() => {
             nowTs = Date.now();
         }, 1000);
-        let queuePoll: ReturnType<typeof setInterval> | null = null;
-        let stopped = false;
-
-        const updateQueueTelemetry = async () => {
-            if (stopped) return;
-            if (!authStore.showSettings) return;
-            try {
-                const status = await fetchAnalysisStatus();
-                const signature = [
-                    status.pending ?? 0,
-                    status.active ?? 0,
-                    status.circuit_open ? 1 : 0,
-                    status.pending_capacity ?? '',
-                    status.pending_available ?? '',
-                    status.max_concurrent_configured ?? '',
-                    status.max_concurrent_effective ?? '',
-                    status.mqtt_pressure_level ?? '',
-                    status.throttled_for_mqtt_pressure ? 1 : 0,
-                    status.mqtt_in_flight ?? '',
-                    status.mqtt_in_flight_capacity ?? ''
-                ].join('|');
-                if (signature !== analysisStatusSignature) {
-                    analysisStatus = status;
-                    analysisStatusSignature = signature;
-                }
-                queueByKind = {
-                    ...queueByKind,
-                    reclassify: {
-                        queued: Math.max(0, Math.floor(Number(status.pending ?? 0))),
-                        running: Math.max(0, Math.floor(Number(status.active ?? 0))),
-                        queueDepthKnown: true,
-                        updatedAt: Date.now(),
-                        maxConcurrentConfigured: Math.max(0, Math.floor(Number(status.max_concurrent_configured ?? 0))),
-                        maxConcurrentEffective: Math.max(0, Math.floor(Number(status.max_concurrent_effective ?? 0))),
-                        mqttPressureLevel: typeof status.mqtt_pressure_level === 'string' ? status.mqtt_pressure_level : undefined,
-                        throttledForMqttPressure: status.throttled_for_mqtt_pressure === true,
-                        mqttInFlight: Math.max(0, Math.floor(Number(status.mqtt_in_flight ?? 0))),
-                        mqttInFlightCapacity: Math.max(0, Math.floor(Number(status.mqtt_in_flight_capacity ?? 0)))
-                    }
-                };
-            } catch {
-                if (!queueByKind.reclassify) {
-                    queueByKind = {
-                        ...queueByKind,
-                        reclassify: {
-                            queued: 0,
-                            running: 0,
-                            queueDepthKnown: false,
-                            updatedAt: Date.now()
-                        }
-                    };
-                }
-            }
-        };
-
-        if (authStore.showSettings) {
-            updateQueueTelemetry();
-            queuePoll = setInterval(updateQueueTelemetry, 5000);
-        }
+        const release = analysisQueueStatusStore.retain();
 
         return () => {
-            stopped = true;
+            release();
             clearInterval(tick);
-            if (queuePoll) clearInterval(queuePoll);
         };
     });
 
     let activeJobs = $derived(jobProgressStore.activeJobs);
     let runningJobs = $derived(activeJobs.filter((item) => item.status === 'running'));
     let staleJobs = $derived(activeJobs.filter((item) => item.status === 'stale'));
+    let queueByKind = $derived(analysisQueueStatusStore.queueByKind);
+    let analysisStatus = $derived(analysisQueueStatusStore.analysisStatus);
     let pipeline = $derived(buildJobsPipelineModel(activeJobs, [], queueByKind));
     let rowsByKind = $derived.by(() => new Map(pipeline.kinds.map((row) => [row.kind, row])));
     const t: JobsTranslateFn = (key, values, fallback) => $_(key, { values, default: fallback });
