@@ -144,6 +144,22 @@ def _get_active_model_id_for_feedback() -> str:
     return configured_model or "unknown"
 
 
+def _video_classification_model_name(model_id: str | None) -> str | None:
+    normalized = str(model_id or "").strip()
+    if not normalized:
+        return None
+    try:
+        from app.services.model_manager import REMOTE_REGISTRY
+
+        model_meta = next((m for m in REMOTE_REGISTRY if m["id"] == normalized), None)
+    except Exception:
+        model_meta = None
+    if not model_meta:
+        return None
+    name = str(model_meta.get("name") or "").strip()
+    return name or None
+
+
 async def batch_check_clips(event_ids: list[str]) -> dict[str, dict[str, bool]]:
     """
     Check Frigate event/media availability for multiple events.
@@ -212,6 +228,8 @@ def _detection_updated_payload(detection, overrides: dict | None = None) -> dict
         "video_classification_error": detection.video_classification_error,
         "video_classification_provider": detection.video_classification_provider,
         "video_classification_backend": detection.video_classification_backend,
+        "video_classification_model_id": detection.video_classification_model_id,
+        "video_classification_model_name": _video_classification_model_name(detection.video_classification_model_id),
         "video_classification_timestamp": detection.video_classification_timestamp.isoformat() if detection.video_classification_timestamp else None,
     }
     if overrides:
@@ -518,6 +536,10 @@ async def get_events(
                 video_classification_timestamp=event.video_classification_timestamp,
                 video_classification_status=event.video_classification_status,
                 video_classification_error=event.video_classification_error,
+                video_classification_provider=event.video_classification_provider,
+                video_classification_backend=event.video_classification_backend,
+                video_classification_model_id=event.video_classification_model_id,
+                video_classification_model_name=_video_classification_model_name(event.video_classification_model_id),
                 ai_analysis=event.ai_analysis,
                 ai_analysis_timestamp=event.ai_analysis_timestamp
             )
@@ -757,6 +779,8 @@ class ClassificationStatusResponse(BaseModel):
     video_classification_timestamp: str | None = None
     video_classification_provider: str | None = None
     video_classification_backend: str | None = None
+    video_classification_model_id: str | None = None
+    video_classification_model_name: str | None = None
 
 
 @router.get("/events/{event_id}/classification-status", response_model=ClassificationStatusResponse)
@@ -784,6 +808,8 @@ async def get_event_classification_status(
             video_classification_timestamp=ts.isoformat() if ts else None,
             video_classification_provider=detection.video_classification_provider,
             video_classification_backend=detection.video_classification_backend,
+            video_classification_model_id=detection.video_classification_model_id,
+            video_classification_model_name=_video_classification_model_name(detection.video_classification_model_id),
         )
 
 
@@ -991,6 +1017,7 @@ async def reclassify_event(
                                 status="completed",
                                 provider=top_result.get("inference_provider"),
                                 backend=top_result.get("inference_backend"),
+                                model_id=top_result.get("model_id"),
                             )
                             await broadcast_video_status("completed", None)
 

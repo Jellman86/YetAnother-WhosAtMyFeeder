@@ -302,6 +302,7 @@ class DetectionService:
         manual_tagged: bool = False,
         video_provider: str | None = None,
         video_backend: str | None = None,
+        video_model_id: str | None = None,
     ):
         """
         Process and save results from background video analysis.
@@ -327,6 +328,7 @@ class DetectionService:
                 status='completed',
                 provider=video_provider,
                 backend=video_backend,
+                model_id=video_model_id,
             )
 
             # 2. Only promote video results when they are trustworthy enough, but
@@ -466,6 +468,7 @@ class DetectionService:
                             "video_classification_status": updated.video_classification_status,
                             "video_classification_provider": updated.video_classification_provider,
                             "video_classification_backend": updated.video_classification_backend,
+                            "video_classification_model_id": updated.video_classification_model_id,
                             "video_classification_timestamp": updated.video_classification_timestamp.isoformat() if updated.video_classification_timestamp else None
                         }
                     })

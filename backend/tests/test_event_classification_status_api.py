@@ -47,8 +47,9 @@ async def test_event_classification_status_returns_current_video_fields(client: 
             INSERT INTO detections (
                 detection_time, detection_index, score, display_name, category_name,
                 frigate_event, camera_name, is_hidden,
-                video_classification_status, video_classification_error, video_classification_timestamp
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)
+                video_classification_status, video_classification_error, video_classification_timestamp,
+                video_classification_provider, video_classification_backend, video_classification_model_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?)
             """,
             (
                 now.isoformat(sep=" "),
@@ -61,6 +62,9 @@ async def test_event_classification_status_returns_current_video_fields(client: 
                 "failed",
                 "video_timeout",
                 now.isoformat(sep=" "),
+                "intel_gpu",
+                "openvino",
+                "convnext_large_inat21",
             ),
         )
         await db.commit()
@@ -72,6 +76,55 @@ async def test_event_classification_status_returns_current_video_fields(client: 
     assert payload["video_classification_status"] == "failed"
     assert payload["video_classification_error"] == "video_timeout"
     assert payload["video_classification_timestamp"] is not None
+    assert payload["video_classification_provider"] == "intel_gpu"
+    assert payload["video_classification_backend"] == "openvino"
+    assert payload["video_classification_model_id"] == "convnext_large_inat21"
+    assert payload["video_classification_model_name"] == "ConvNeXt Large (High Accuracy)"
+
+
+@pytest.mark.asyncio
+async def test_events_list_includes_video_runtime_metadata(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+
+    event_id = "classification-status-test-2"
+    now = datetime.now(timezone.utc).replace(microsecond=0)
+    async with get_db() as db:
+        await db.execute(
+            """
+            INSERT INTO detections (
+                detection_time, detection_index, score, display_name, category_name,
+                frigate_event, camera_name, is_hidden,
+                video_classification_status, video_classification_error, video_classification_timestamp,
+                video_classification_provider, video_classification_backend, video_classification_model_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                now.isoformat(sep=" "),
+                1,
+                0.93,
+                "Blue Jay",
+                "Blue Jay",
+                event_id,
+                "test-camera",
+                "completed",
+                None,
+                now.isoformat(sep=" "),
+                "intel_gpu",
+                "openvino",
+                "convnext_large_inat21",
+            ),
+        )
+        await db.commit()
+
+    response = await client.get("/api/events", params={"limit": 10, "camera": "test-camera"})
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    row = next(item for item in payload if item["frigate_event"] == event_id)
+    assert row["video_classification_provider"] == "intel_gpu"
+    assert row["video_classification_backend"] == "openvino"
+    assert row["video_classification_model_id"] == "convnext_large_inat21"
+    assert row["video_classification_model_name"] == "ConvNeXt Large (High Accuracy)"
 
 
 @pytest.mark.asyncio

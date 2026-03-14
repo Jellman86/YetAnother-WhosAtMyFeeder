@@ -155,6 +155,10 @@ function toDetection(data: any): Detection {
         video_classification_score: data.video_classification_score,
         video_classification_label: data.video_classification_label,
         video_classification_status: data.video_classification_status,
+        video_classification_provider: data.video_classification_provider,
+        video_classification_backend: data.video_classification_backend,
+        video_classification_model_id: data.video_classification_model_id,
+        video_classification_model_name: data.video_classification_model_name,
         video_classification_timestamp: data.video_classification_timestamp
     };
 }

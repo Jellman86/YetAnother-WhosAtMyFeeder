@@ -3431,6 +3431,8 @@ class ClassifierService:
                     "label": label,
                     "inference_provider": str(self._active_inference_provider or ""),
                     "inference_backend": str(self._inference_backend or ""),
+                    "model_id": str(active_model_id or ""),
+                    "model_name": model_name,
                 })
 
             if classifications:

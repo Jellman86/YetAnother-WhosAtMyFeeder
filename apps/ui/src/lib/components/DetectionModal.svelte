@@ -390,6 +390,12 @@
     let videoInferenceBadge = $derived(
         classifyInferenceProvider(videoInferenceProvider, videoInferenceBackend)
     );
+    let completedVideoInferenceBadge = $derived(
+        classifyInferenceProvider(
+            detection.video_classification_provider ?? null,
+            detection.video_classification_backend ?? null
+        )
+    );
 
     // Naming logic
     const showCommon = $derived(settingsStore.settings?.display_common_names ?? authStore.displayCommonNames ?? true);
@@ -1671,21 +1677,38 @@
                         <p class="text-[10px] text-slate-500 italic leading-tight">
                             {$_('detection.video_analysis.verified_desc')}
                         </p>
-                        {#if detection.video_classification_provider}
+                        {#if completedVideoInferenceBadge.kind}
                             <div class="flex items-center gap-1.5 px-1.5 py-0.5 rounded border border-indigo-200/50 dark:border-indigo-500/30 bg-white/60 dark:bg-slate-900/40">
-                                {#if detection.video_classification_provider === 'intel_gpu' || detection.video_classification_provider === 'cuda'}
-                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-3 h-3 text-indigo-500">
-                                        <path d="M5.25 5.25v13.5h13.5V5.25H5.25ZM3 3.75A2.25 2.25 0 0 1 5.25 1.5h13.5A2.25 2.25 0 0 1 21 3.75v13.5A2.25 2.25 0 0 1 18.75 19.5H5.25A2.25 2.25 0 0 1 3 17.25V3.75Z" />
-                                        <path d="M8.25 8.25v7.5h7.5v-7.5h-7.5ZM9.75 9.75h4.5v4.5h-4.5v-4.5Z" />
+                                {#if completedVideoInferenceBadge.kind === 'gpu'}
+                                    <svg class="h-3 w-3 text-indigo-500" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                        <path d="M10 2.5 16.5 9 10 15.5 3.5 9 10 2.5Zm0 2.12L5.62 9 10 13.38 14.38 9 10 4.62Z" />
                                     </svg>
-                                    <span class="text-[9px] font-black text-indigo-700 dark:text-indigo-300 uppercase tracking-wider" title={detection.video_classification_provider}>GPU</span>
+                                    <span class="text-[9px] font-black text-indigo-700 dark:text-indigo-300 uppercase tracking-wider" title={detection.video_classification_provider ?? undefined}>
+                                        {completedVideoInferenceBadge.label}
+                                    </span>
                                 {:else}
-                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-3 h-3 text-slate-400">
-                                        <path d="M5.25 5.25v13.5h13.5V5.25H5.25ZM3 3.75A2.25 2.25 0 0 1 5.25 1.5h13.5A2.25 2.25 0 0 1 21 3.75v13.5A2.25 2.25 0 0 1 18.75 19.5H5.25A2.25 2.25 0 0 1 3 17.25V3.75Z" />
-                                        <path d="M8.25 8.25v7.5h7.5v-7.5h-7.5ZM9.75 9.75h4.5v4.5h-4.5v-4.5Z" />
+                                    <svg class="h-3 w-3 text-slate-400" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+                                        <rect x="4.5" y="5.5" width="11" height="9" rx="1.5" />
+                                        <path d="M8 2.75v2M12 2.75v2M8 15.25v2M12 15.25v2M2.75 8h2M2.75 12h2M15.25 8h2M15.25 12h2" stroke-linecap="round" />
                                     </svg>
-                                    <span class="text-[9px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-wider" title={detection.video_classification_provider}>CPU</span>
+                                    <span class="text-[9px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-wider" title={detection.video_classification_provider ?? detection.video_classification_backend ?? undefined}>
+                                        {completedVideoInferenceBadge.label}
+                                    </span>
                                 {/if}
+                            </div>
+                        {/if}
+                        {#if detection.video_classification_model_name}
+                            <div class="flex items-center gap-1.5 px-1.5 py-0.5 rounded border border-slate-200/70 dark:border-slate-600/60 bg-white/60 dark:bg-slate-900/40">
+                                <svg class="h-3 w-3 text-slate-500 dark:text-slate-300" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+                                    <path d="M4.5 5.75 10 2.75l5.5 3v8.5L10 17.25l-5.5-3v-8.5Z" />
+                                    <path d="M10 2.75v14.5M4.5 5.75 10 9l5.5-3.25" stroke-linecap="round" stroke-linejoin="round" />
+                                </svg>
+                                <span
+                                    class="text-[9px] font-black text-slate-600 dark:text-slate-200 tracking-wide"
+                                    title={detection.video_classification_model_id ?? detection.video_classification_model_name}
+                                >
+                                    {detection.video_classification_model_name}
+                                </span>
                             </div>
                         {/if}
                     </div>

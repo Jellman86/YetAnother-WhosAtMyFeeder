@@ -53,6 +53,7 @@ class Detection:
     video_classification_error: Optional[str] = None
     video_classification_provider: Optional[str] = None
     video_classification_backend: Optional[str] = None
+    video_classification_model_id: Optional[str] = None
     # AI naturalist analysis fields
     ai_analysis: Optional[str] = None
     ai_analysis_timestamp: Optional[datetime] = None
@@ -198,6 +199,9 @@ def _row_to_detection(row) -> Detection:
     if len(row) > 37:
         d.video_classification_backend = row[37]
 
+    if len(row) > 38:
+        d.video_classification_model_id = row[38]
+
     return d
 
 
@@ -236,7 +240,7 @@ class DetectionRepository:
                       d.video_classification_timestamp, d.video_classification_status, d.video_classification_error,
                       d.ai_analysis, d.ai_analysis_timestamp, d.manual_tagged, d.notified_at,
                       CASE WHEN f.detection_id IS NULL THEN 0 ELSE 1 END AS is_favorite,
-                      d.video_classification_provider, d.video_classification_backend
+                      d.video_classification_provider, d.video_classification_backend, d.video_classification_model_id
                FROM detections d
                LEFT JOIN detection_favorites f ON f.detection_id = d.id
                WHERE d.frigate_event = ?""",
@@ -256,6 +260,7 @@ class DetectionRepository:
         status: str = 'completed',
         provider: Optional[str] = None,
         backend: Optional[str] = None,
+        model_id: Optional[str] = None,
     ):
         """Update video classification results for an event."""
         now = datetime.now()
@@ -268,9 +273,10 @@ class DetectionRepository:
                 video_classification_status = ?,
                 video_classification_error = NULL,
                 video_classification_provider = ?,
-                video_classification_backend = ?
+                video_classification_backend = ?,
+                video_classification_model_id = ?
             WHERE frigate_event = ?
-        """, (label, score, index, now, status, provider, backend, frigate_event))
+        """, (label, score, index, now, status, provider, backend, model_id, frigate_event))
         await self.db.commit()
 
     async def update_video_status(self, frigate_event: str, status: str, error: Optional[str] = None):
@@ -725,7 +731,7 @@ class DetectionRepository:
                    d.video_classification_timestamp, d.video_classification_status, d.video_classification_error,
                    d.ai_analysis, d.ai_analysis_timestamp, d.manual_tagged, d.notified_at,
                    CASE WHEN f.detection_id IS NULL THEN 0 ELSE 1 END AS is_favorite,
-                   d.video_classification_provider, d.video_classification_backend
+                   d.video_classification_provider, d.video_classification_backend, d.video_classification_model_id
             FROM detections d
             LEFT JOIN detection_favorites f ON f.detection_id = d.id
         """
@@ -1117,7 +1123,7 @@ class DetectionRepository:
                    d.video_classification_error, d.ai_analysis, d.ai_analysis_timestamp,
                    d.manual_tagged, d.notified_at,
                    CASE WHEN f.detection_id IS NULL THEN 0 ELSE 1 END AS is_favorite,
-                   d.video_classification_provider, d.video_classification_backend
+                   d.video_classification_provider, d.video_classification_backend, d.video_classification_model_id
             FROM detections d
             LEFT JOIN detection_favorites f ON f.detection_id = d.id
             WHERE d.display_name = 'Unknown Bird'
@@ -2202,7 +2208,7 @@ class DetectionRepository:
                           d.video_classification_index, d.video_classification_timestamp, d.video_classification_status,
                           d.video_classification_error, d.ai_analysis, d.ai_analysis_timestamp, d.manual_tagged, d.notified_at,
                           CASE WHEN f.detection_id IS NULL THEN 0 ELSE 1 END AS is_favorite,
-                          d.video_classification_provider, d.video_classification_backend
+                          d.video_classification_provider, d.video_classification_backend, d.video_classification_model_id
                    FROM detections d
                    LEFT JOIN detection_favorites f ON f.detection_id = d.id
                    WHERE d.display_name = ?
@@ -2218,7 +2224,7 @@ class DetectionRepository:
                           d.video_classification_index, d.video_classification_timestamp, d.video_classification_status,
                           d.video_classification_error, d.ai_analysis, d.ai_analysis_timestamp, d.manual_tagged, d.notified_at,
                           CASE WHEN f.detection_id IS NULL THEN 0 ELSE 1 END AS is_favorite,
-                          d.video_classification_provider, d.video_classification_backend
+                          d.video_classification_provider, d.video_classification_backend, d.video_classification_model_id
                    FROM detections d
                    LEFT JOIN detection_favorites f ON f.detection_id = d.id
                    WHERE d.display_name = ? AND (d.is_hidden = 0 OR d.is_hidden IS NULL)

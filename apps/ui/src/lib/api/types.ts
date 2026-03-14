@@ -37,6 +37,8 @@ export interface Detection {
     video_classification_error?: string | null;
     video_classification_provider?: string | null;
     video_classification_backend?: string | null;
+    video_classification_model_id?: string | null;
+    video_classification_model_name?: string | null;
     ai_analysis?: string | null;
     ai_analysis_timestamp?: string | null;
 }

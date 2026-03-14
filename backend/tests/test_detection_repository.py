@@ -41,6 +41,7 @@ async def _create_detections_table(db: aiosqlite.Connection) -> None:
             video_classification_error TEXT,
             video_classification_provider TEXT,
             video_classification_backend TEXT,
+            video_classification_model_id TEXT,
             ai_analysis TEXT,
             ai_analysis_timestamp TIMESTAMP,
             notified_at TIMESTAMP
@@ -404,7 +405,7 @@ async def test_get_unknown_detections_includes_completed_unknowns_for_manual_bat
 
 
 @pytest.mark.asyncio
-async def test_update_video_classification_persists_runtime_provider_and_backend():
+async def test_update_video_classification_persists_runtime_provider_backend_and_model():
     async with aiosqlite.connect(":memory:") as db:
         await _create_detections_table(db)
         await db.commit()
@@ -430,6 +431,7 @@ async def test_update_video_classification_persists_runtime_provider_and_backend
             status="completed",
             provider="intel_gpu",
             backend="openvino",
+            model_id="convnext_large_inat21",
         )
 
         updated = await repo.get_by_frigate_event("evt_video_runtime")
@@ -438,6 +440,7 @@ async def test_update_video_classification_persists_runtime_provider_and_backend
         assert updated.video_classification_score == pytest.approx(0.88)
         assert updated.video_classification_provider == "intel_gpu"
         assert updated.video_classification_backend == "openvino"
+        assert updated.video_classification_model_id == "convnext_large_inat21"
 
 
 @pytest.mark.asyncio

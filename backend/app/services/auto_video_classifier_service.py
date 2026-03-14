@@ -849,6 +849,7 @@ class AutoVideoClassifierService:
             video_index=result['index'],
             video_provider=result.get("inference_provider"),
             video_backend=result.get("inference_backend"),
+            video_model_id=result.get("model_id"),
         )
         await video_classification_waiter.publish(
             frigate_event,
