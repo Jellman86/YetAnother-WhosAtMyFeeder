@@ -324,6 +324,41 @@ class ClassifierSupervisor:
             raise assignment_error from exc
         return await future
 
+    async def abort_request(
+        self,
+        *,
+        priority: WorkPriority,
+        work_id: str,
+        lease_token: int,
+        reason: str = "coordinator_lease_expired",
+    ) -> bool:
+        match: _Assignment | None = None
+        slot: _WorkerSlot | None = None
+        async with self._condition:
+            for assignment in self._assignments.values():
+                if (
+                    assignment.priority == priority
+                    and assignment.work_id == work_id
+                    and assignment.lease_token == lease_token
+                ):
+                    match = assignment
+                    slot = self._find_slot(assignment.worker_name)
+                    break
+
+        if match is None or slot is None or slot.worker is None:
+            return False
+
+        await self._replace_worker(
+            priority,
+            slot.index,
+            reason=reason,
+            assignment_error=ClassifierWorkerDeadlineExceededError(
+                f"worker aborted after lease expiry work_id={work_id} lease_token={lease_token}"
+            ),
+            kill=True,
+        )
+        return True
+
     async def _ensure_pool_started(self, priority: WorkPriority) -> None:
         if self._pool_started[priority]:
             return

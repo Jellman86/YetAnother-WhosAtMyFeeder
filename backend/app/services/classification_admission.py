@@ -1,5 +1,6 @@
 import asyncio
 import contextlib
+import inspect
 import itertools
 import time
 from collections import Counter, deque
@@ -44,12 +45,14 @@ class _WorkItem:
     work_id: str
     priority: WorkPriority
     kind: str
-    runner: Callable[[], Awaitable[Any]]
+    runner: Callable[..., Awaitable[Any]]
     queue_timeout_seconds: float
     lease_timeout_seconds: float
     enqueued_at: float
     admitted_future: asyncio.Future[None]
     result_future: asyncio.Future[Any]
+    runner_accepts_work_metadata: bool = False
+    on_lease_expired: Callable[[str, int], Awaitable[None] | None] | None = None
     state: WorkState = "queued"
     lease_token: int = 0
     admitted_at: float | None = None
@@ -103,9 +106,11 @@ class ClassificationAdmissionCoordinator:
         *,
         priority: WorkPriority,
         kind: str,
-        runner: Callable[[], Awaitable[Any]],
+        runner: Callable[..., Awaitable[Any]],
         queue_timeout_seconds: float | None = None,
         lease_timeout_seconds: float | None = None,
+        runner_accepts_work_metadata: bool = False,
+        on_lease_expired: Callable[[str, int], Awaitable[None] | None] | None = None,
     ) -> Any:
         if priority not in {"live", "background"}:
             raise ValueError(f"unsupported priority: {priority}")
@@ -139,6 +144,8 @@ class ClassificationAdmissionCoordinator:
             enqueued_at=time.monotonic(),
             admitted_future=loop.create_future(),
             result_future=loop.create_future(),
+            runner_accepts_work_metadata=bool(runner_accepts_work_metadata),
+            on_lease_expired=on_lease_expired,
         )
 
         async with self._condition:
@@ -234,9 +241,10 @@ class ClassificationAdmissionCoordinator:
             while not self._closed:
                 await asyncio.sleep(self.REAPER_INTERVAL_SECONDS)
                 async with self._condition:
-                    self._reclaim_expired_locked()
+                    expired_callbacks = self._reclaim_expired_locked()
                     self._schedule_locked()
                     self._condition.notify_all()
+                await self._dispatch_lease_expired_callbacks(expired_callbacks)
         except asyncio.CancelledError:
             raise
 
@@ -274,7 +282,10 @@ class ClassificationAdmissionCoordinator:
 
     async def _run_item(self, item: _WorkItem, token: int) -> None:
         try:
-            result = await item.runner()
+            if item.runner_accepts_work_metadata:
+                result = await item.runner(item.work_id, token)
+            else:
+                result = await item.runner()
         except asyncio.CancelledError:
             raise
         except Exception as exc:
@@ -323,8 +334,9 @@ class ClassificationAdmissionCoordinator:
             self._schedule_locked()
             self._condition.notify_all()
 
-    def _reclaim_expired_locked(self) -> None:
+    def _reclaim_expired_locked(self) -> list[tuple[Callable[[str, int], Awaitable[None] | None], str, int]]:
         now = time.monotonic()
+        callbacks: list[tuple[Callable[[str, int], Awaitable[None] | None], str, int]] = []
         expired = [
             item
             for item in self._active.values()
@@ -347,6 +359,9 @@ class ClassificationAdmissionCoordinator:
                         item.lease_timeout_seconds,
                     )
                 )
+            if item.on_lease_expired is not None:
+                callbacks.append((item.on_lease_expired, item.work_id, item.lease_token))
+        return callbacks
 
     def _is_live_pressure_active(self) -> bool:
         return bool(self._pending["live"]) or self._running["live"] >= self._live_capacity
@@ -383,3 +398,16 @@ class ClassificationAdmissionCoordinator:
         if not ages:
             return None
         return round(max(ages), 3)
+
+    async def _dispatch_lease_expired_callbacks(
+        self,
+        callbacks: list[tuple[Callable[[str, int], Awaitable[None] | None], str, int]],
+    ) -> None:
+        for callback, work_id, lease_token in callbacks:
+            try:
+                callback_result = callback(work_id, lease_token)
+            except Exception:
+                continue
+            if inspect.isawaitable(callback_result):
+                with contextlib.suppress(Exception):
+                    await callback_result

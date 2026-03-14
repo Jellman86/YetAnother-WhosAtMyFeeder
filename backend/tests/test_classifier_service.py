@@ -98,6 +98,69 @@ class _FallbackReadyModel:
     def get_status(self):
         return {"loaded": True, "error": None}
 
+
+class _SingleSlotBlockingSupervisor:
+    def __init__(self):
+        self.calls = []
+        self.abort_calls = []
+        self.started = asyncio.Event()
+        self.release = asyncio.Event()
+        self._slot_available = asyncio.Event()
+        self._slot_available.set()
+
+    async def classify(self, **kwargs):
+        self.calls.append(dict(kwargs))
+        await self._slot_available.wait()
+        self._slot_available.clear()
+        try:
+            if len(self.calls) == 1:
+                self.started.set()
+                await self.release.wait()
+                return [{"label": "Robin", "score": 0.97, "index": 0}]
+            return [{"label": "Blackbird", "score": 0.91, "index": 0}]
+        finally:
+            self._slot_available.set()
+
+    async def abort_request(self, *, priority: str, work_id: str, lease_token: int, reason: str):
+        self.abort_calls.append(
+            {
+                "priority": priority,
+                "work_id": work_id,
+                "lease_token": lease_token,
+                "reason": reason,
+            }
+        )
+        self.release.set()
+
+    def get_metrics(self):
+        return {
+            "live": {
+                "workers": 1,
+                "restarts": 0,
+                "last_exit_reason": None,
+                "last_runtime_recovery": None,
+                "circuit_open": False,
+                "circuit_open_until_monotonic": None,
+            },
+            "background": {
+                "workers": 1,
+                "restarts": 0,
+                "last_exit_reason": None,
+                "last_runtime_recovery": None,
+                "circuit_open": False,
+                "circuit_open_until_monotonic": None,
+            },
+            "video": {
+                "workers": 1,
+                "restarts": 0,
+                "last_exit_reason": None,
+                "last_runtime_recovery": None,
+                "circuit_open": False,
+                "circuit_open_until_monotonic": None,
+            },
+            "late_results_ignored": 0,
+        }
+
 def test_model_instance_load(mock_tflite, mock_os_path_exists):
     # Mock labels file content
     m = mock_open(read_data="Bird A\nBird B\n")
@@ -305,6 +368,112 @@ async def test_classifier_service_routes_background_requests_through_supervisor(
             service.shutdown()
     finally:
         settings.classification.image_execution_mode = original_mode
+
+
+@pytest.mark.asyncio
+async def test_classifier_service_subprocess_live_queue_saturation_raises_fast(
+    mock_tflite, mock_os_path_exists, monkeypatch
+):
+    original_mode = settings.classification.image_execution_mode
+    original_toggle = settings.classification.personalized_rerank_enabled
+    original_live_workers = settings.classification.live_worker_count
+    settings.classification.image_execution_mode = "subprocess"
+    settings.classification.personalized_rerank_enabled = False
+    settings.classification.live_worker_count = 1
+    monkeypatch.setattr(
+        classifier_service_module,
+        "CLASSIFIER_LIVE_IMAGE_ADMISSION_TIMEOUT_SECONDS",
+        0.01,
+        raising=False,
+    )
+
+    supervisor = _SingleSlotBlockingSupervisor()
+
+    try:
+        with patch.object(ClassifierService, "_init_bird_model", new=_stub_init_bird_model):
+            service = ClassifierService(supervisor=supervisor)
+            img = Image.new("RGB", (32, 32), color="red")
+            first_task = asyncio.create_task(service.classify_async_live(img, camera_name="front"))
+            await asyncio.wait_for(supervisor.started.wait(), timeout=1.0)
+
+            with pytest.raises(LiveImageClassificationOverloadedError, match="classify_snapshot_overloaded"):
+                await asyncio.wait_for(service.classify_async_live(img, camera_name="front"), timeout=0.2)
+
+            supervisor.release.set()
+            assert (await first_task)[0]["label"] == "Robin"
+            service.shutdown()
+    finally:
+        settings.classification.image_execution_mode = original_mode
+        settings.classification.personalized_rerank_enabled = original_toggle
+        settings.classification.live_worker_count = original_live_workers
+
+
+@pytest.mark.asyncio
+async def test_classifier_service_subprocess_status_tracks_live_in_flight_requests(
+    mock_tflite, mock_os_path_exists
+):
+    original_mode = settings.classification.image_execution_mode
+    original_toggle = settings.classification.personalized_rerank_enabled
+    settings.classification.image_execution_mode = "subprocess"
+    settings.classification.personalized_rerank_enabled = False
+    supervisor = _SingleSlotBlockingSupervisor()
+
+    try:
+        with patch.object(ClassifierService, "_init_bird_model", new=_stub_init_bird_model):
+            service = ClassifierService(supervisor=supervisor)
+            img = Image.new("RGB", (32, 32), color="green")
+            task = asyncio.create_task(service.classify_async_live(img, camera_name="front"))
+            await asyncio.wait_for(supervisor.started.wait(), timeout=1.0)
+
+            assert service.get_status()["live_image_in_flight"] == 1
+
+            supervisor.release.set()
+            assert (await task)[0]["label"] == "Robin"
+            assert service.get_status()["live_image_in_flight"] == 0
+            service.shutdown()
+    finally:
+        settings.classification.image_execution_mode = original_mode
+        settings.classification.personalized_rerank_enabled = original_toggle
+
+
+@pytest.mark.asyncio
+async def test_classifier_service_subprocess_live_reclaims_stale_capacity_for_next_request(
+    mock_tflite, mock_os_path_exists, monkeypatch
+):
+    original_mode = settings.classification.image_execution_mode
+    original_toggle = settings.classification.personalized_rerank_enabled
+    original_live_workers = settings.classification.live_worker_count
+    settings.classification.image_execution_mode = "subprocess"
+    settings.classification.personalized_rerank_enabled = False
+    settings.classification.live_worker_count = 1
+    monkeypatch.setattr(
+        classifier_service_module,
+        "CLASSIFIER_LIVE_IMAGE_LEASE_TIMEOUT_SECONDS",
+        0.01,
+        raising=False,
+    )
+
+    supervisor = _SingleSlotBlockingSupervisor()
+
+    try:
+        with patch.object(ClassifierService, "_init_bird_model", new=_stub_init_bird_model):
+            service = ClassifierService(supervisor=supervisor)
+            img = Image.new("RGB", (32, 32), color="yellow")
+            first_task = asyncio.create_task(service.classify_async_live(img, camera_name="front"))
+            await asyncio.wait_for(supervisor.started.wait(), timeout=1.0)
+
+            with pytest.raises(ClassificationLeaseExpiredError):
+                await asyncio.wait_for(first_task, timeout=0.2)
+
+            results = await asyncio.wait_for(service.classify_async_live(img, camera_name="front"), timeout=0.2)
+
+            assert results[0]["label"] == "Blackbird"
+            assert supervisor.abort_calls
+            service.shutdown()
+    finally:
+        settings.classification.image_execution_mode = original_mode
+        settings.classification.personalized_rerank_enabled = original_toggle
+        settings.classification.live_worker_count = original_live_workers
 
 
 @pytest.mark.asyncio

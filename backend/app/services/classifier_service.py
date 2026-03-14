@@ -17,7 +17,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from PIL import Image
-from typing import Optional, Any, Callable, Literal
+from typing import Optional, Any, Awaitable, Callable, Literal
 
 # TFLite runtime
 try:
@@ -1593,6 +1593,15 @@ class ClassifierService:
             ),
         )
         image_workers = CLASSIFIER_IMAGE_MAX_CONCURRENT
+        live_admission_capacity = image_workers
+        background_admission_capacity = 1
+        if self._image_execution_mode == "subprocess":
+            live_admission_capacity = int(
+                getattr(settings.classification, "live_worker_count", image_workers) or image_workers
+            )
+            background_admission_capacity = int(
+                getattr(settings.classification, "background_worker_count", 1) or 1
+            )
         self._image_executor = ThreadPoolExecutor(max_workers=image_workers, thread_name_prefix="ml_image_worker")
         self._live_image_executor = ThreadPoolExecutor(max_workers=image_workers, thread_name_prefix="ml_live_image_worker")
         self._background_image_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="ml_background_worker")
@@ -1600,8 +1609,8 @@ class ClassifierService:
         self._image_admission_timeouts = 0
         self._live_image_admission_timeouts = 0
         self._classification_admission = ClassificationAdmissionCoordinator(
-            live_capacity=image_workers,
-            background_capacity=1,
+            live_capacity=live_admission_capacity,
+            background_capacity=background_admission_capacity,
             live_lease_timeout_seconds=CLASSIFIER_LIVE_IMAGE_LEASE_TIMEOUT_SECONDS,
             background_lease_timeout_seconds=CLASSIFIER_BACKGROUND_IMAGE_LEASE_TIMEOUT_SECONDS,
             default_queue_timeout_seconds=CLASSIFIER_IMAGE_ADMISSION_TIMEOUT_SECONDS,
@@ -2904,14 +2913,17 @@ class ClassifierService:
         image: Image.Image,
         camera_name: Optional[str],
         model_id: Optional[str],
+        *,
+        work_id: str | None = None,
+        lease_token: int | None = None,
     ) -> list[dict]:
         if self._classifier_supervisor is None:
             raise RuntimeError("classifier supervisor is not configured")
         try:
             return await self._classifier_supervisor.classify(
                 priority=priority,
-                work_id=f"{priority}-{time.monotonic_ns()}",
-                lease_token=1,
+                work_id=str(work_id or f"{priority}-{time.monotonic_ns()}"),
+                lease_token=int(lease_token or 1),
                 image_b64=self._encode_image_for_worker(image),
                 camera_name=camera_name,
                 model_id=model_id,
@@ -2937,18 +2949,15 @@ class ClassifierService:
                 raise LiveImageClassificationOverloadedError("classify_snapshot_worker_unavailable") from None
             raise BackgroundImageClassificationUnavailableError("background_image_worker_unavailable") from None
 
-    async def _run_coordinated_executor_inference(
+    async def _run_coordinated_inference(
         self,
         priority: Literal["live", "background"],
-        executor: ThreadPoolExecutor,
         kind: str,
-        fn: Callable[..., list[dict]],
-        *args: Any,
+        runner: Callable[..., list[dict] | Awaitable[list[dict]]],
+        *,
+        runner_accepts_work_metadata: bool = False,
+        on_lease_expired: Callable[[str, int], Awaitable[None] | None] | None = None,
     ) -> list[dict]:
-        async def _runner() -> list[dict]:
-            loop = asyncio.get_running_loop()
-            return await loop.run_in_executor(executor, fn, *args)
-
         queue_timeout_seconds = (
             CLASSIFIER_LIVE_IMAGE_ADMISSION_TIMEOUT_SECONDS
             if priority == "live"
@@ -2963,14 +2972,17 @@ class ClassifierService:
                 else CLASSIFIER_IMAGE_LEASE_TIMEOUT_SECONDS
             )
         )
+        capacity = int(self._classification_admission.get_metrics()[priority]["capacity"])
 
         try:
             return await self._classification_admission.submit(
                 priority=priority,
                 kind=kind,
-                runner=_runner,
+                runner=runner,
                 queue_timeout_seconds=queue_timeout_seconds,
                 lease_timeout_seconds=lease_timeout_seconds,
+                runner_accepts_work_metadata=runner_accepts_work_metadata,
+                on_lease_expired=on_lease_expired,
             )
         except ClassificationAdmissionTimeoutError:
             if priority == "live":
@@ -2978,7 +2990,7 @@ class ClassifierService:
                 log.warning(
                     "Live image classification admission timed out; dropping request",
                     timeout_seconds=queue_timeout_seconds,
-                    max_concurrent=CLASSIFIER_IMAGE_MAX_CONCURRENT,
+                    max_concurrent=capacity,
                     admission_timeouts=self._live_image_admission_timeouts,
                 )
                 raise LiveImageClassificationOverloadedError("classify_snapshot_overloaded") from None
@@ -2987,7 +2999,7 @@ class ClassifierService:
             log.warning(
                 "Image classification admission timed out; dropping request",
                 timeout_seconds=CLASSIFIER_IMAGE_ADMISSION_TIMEOUT_SECONDS,
-                max_concurrent=CLASSIFIER_IMAGE_MAX_CONCURRENT,
+                max_concurrent=capacity,
                 admission_timeouts=self._image_admission_timeouts,
             )
             raise BackgroundImageClassificationUnavailableError("background_image_overloaded") from None
@@ -2996,15 +3008,87 @@ class ClassifierService:
                 log.warning(
                     "Live image classification lease expired; reclaiming capacity",
                     timeout_seconds=lease_timeout_seconds,
-                    max_concurrent=CLASSIFIER_IMAGE_MAX_CONCURRENT,
+                    max_concurrent=capacity,
                 )
                 raise
             log.warning(
                 "Image classification lease expired; reclaiming capacity",
                 timeout_seconds=lease_timeout_seconds,
-                max_concurrent=CLASSIFIER_IMAGE_MAX_CONCURRENT,
+                max_concurrent=capacity,
             )
             raise BackgroundImageClassificationUnavailableError("background_image_lease_expired") from None
+
+    async def _run_coordinated_executor_inference(
+        self,
+        priority: Literal["live", "background"],
+        executor: ThreadPoolExecutor,
+        kind: str,
+        fn: Callable[..., list[dict]],
+        *args: Any,
+    ) -> list[dict]:
+        async def _runner() -> list[dict]:
+            loop = asyncio.get_running_loop()
+            return await loop.run_in_executor(executor, fn, *args)
+
+        return await self._run_coordinated_inference(priority, kind, _runner)
+
+    async def _abort_supervised_request_after_lease_expiry(
+        self,
+        *,
+        priority: Literal["live", "background"],
+        work_id: str,
+        lease_token: int,
+    ) -> None:
+        if self._classifier_supervisor is None:
+            return
+        try:
+            await self._classifier_supervisor.abort_request(
+                priority=priority,
+                work_id=work_id,
+                lease_token=lease_token,
+                reason="coordinator_lease_expired",
+            )
+        except Exception as exc:
+            log.warning(
+                "Failed to abort supervised classifier request after lease expiry",
+                priority=priority,
+                work_id=work_id,
+                lease_token=lease_token,
+                error=str(exc),
+            )
+
+    async def _run_coordinated_supervised_inference(
+        self,
+        priority: Literal["live", "background"],
+        kind: str,
+        image: Image.Image,
+        camera_name: Optional[str],
+        model_id: Optional[str],
+    ) -> list[dict]:
+        async def _runner(work_id: str, lease_token: int) -> list[dict]:
+            return await self._run_supervised_inference(
+                priority,
+                image,
+                camera_name,
+                model_id,
+                work_id=work_id,
+                lease_token=lease_token,
+            )
+
+        async def _on_lease_expired(work_id: str, lease_token: int) -> None:
+            await self._abort_supervised_request_after_lease_expiry(
+                priority=priority,
+                work_id=work_id,
+                lease_token=lease_token,
+            )
+
+        return await self._run_coordinated_inference(
+            priority,
+            kind,
+            _runner,
+            runner_accepts_work_metadata=True,
+            on_lease_expired=_on_lease_expired,
+        )
 
     async def _run_image_inference(
         self,
@@ -3012,8 +3096,9 @@ class ClassifierService:
         *args: Any,
     ) -> list[dict]:
         if self._image_execution_mode == "subprocess" and args:
-            return await self._run_supervised_inference(
+            return await self._run_coordinated_supervised_inference(
                 "background",
+                "image_inference",
                 args[0],
                 args[1] if len(args) > 1 else None,
                 args[2] if len(args) > 2 else None,
@@ -3032,8 +3117,9 @@ class ClassifierService:
         *args: Any,
     ) -> list[dict]:
         if self._image_execution_mode == "subprocess" and args:
-            return await self._run_supervised_inference(
+            return await self._run_coordinated_supervised_inference(
                 "live",
+                "live_image_inference",
                 args[0],
                 args[1] if len(args) > 1 else None,
                 args[2] if len(args) > 2 else None,
@@ -3131,7 +3217,13 @@ class ClassifierService:
         remains responsive under sustained load.
         """
         if self._image_execution_mode == "subprocess":
-            base_results = await self._run_supervised_inference("background", image, camera_name, model_id)
+            base_results = await self._run_coordinated_supervised_inference(
+                "background",
+                "background_image_inference",
+                image,
+                camera_name,
+                model_id,
+            )
         else:
             base_results = await self._run_coordinated_executor_inference(
                 "background",

@@ -352,6 +352,109 @@ async def test_classifier_supervisor_replaces_worker_after_hard_deadline():
 
 
 @pytest.mark.asyncio
+async def test_classifier_supervisor_abort_request_replaces_matching_worker():
+    created: list[_FakeWorker] = []
+
+    async def _factory(*, worker_name: str, worker_generation: int, **_kwargs):
+        worker = _FakeWorker(worker_name, worker_generation)
+        created.append(worker)
+        return worker
+
+    supervisor = ClassifierSupervisor(
+        live_worker_count=1,
+        background_worker_count=1,
+        heartbeat_timeout_seconds=5.0,
+        hard_deadline_seconds=1.0,
+        worker_factory=_factory,
+        watchdog_interval_seconds=0.01,
+    )
+    await supervisor.start()
+
+    task = asyncio.create_task(
+        supervisor.classify(
+            priority="live",
+            work_id="live-abort",
+            lease_token=7,
+            image_b64="payload",
+            camera_name="front",
+            model_id="default",
+        )
+    )
+    await asyncio.sleep(0.01)
+
+    aborted = await supervisor.abort_request(
+        priority="live",
+        work_id="live-abort",
+        lease_token=7,
+    )
+
+    assert aborted is True
+    with pytest.raises(ClassifierWorkerDeadlineExceededError, match="worker aborted after lease expiry"):
+        await task
+    assert created[0].killed is True
+    assert supervisor.get_metrics()["live"]["restarts"] == 1
+
+    await supervisor.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_classifier_supervisor_abort_request_ignores_stale_token():
+    created: list[_FakeWorker] = []
+
+    async def _factory(*, worker_name: str, worker_generation: int, **_kwargs):
+        worker = _FakeWorker(worker_name, worker_generation)
+        created.append(worker)
+        return worker
+
+    supervisor = ClassifierSupervisor(
+        live_worker_count=1,
+        background_worker_count=1,
+        heartbeat_timeout_seconds=5.0,
+        hard_deadline_seconds=1.0,
+        worker_factory=_factory,
+        watchdog_interval_seconds=0.01,
+    )
+    await supervisor.start()
+
+    task = asyncio.create_task(
+        supervisor.classify(
+            priority="live",
+            work_id="live-stale",
+            lease_token=8,
+            image_b64="payload",
+            camera_name="front",
+            model_id="default",
+        )
+    )
+    await asyncio.sleep(0.01)
+
+    aborted = await supervisor.abort_request(
+        priority="live",
+        work_id="live-stale",
+        lease_token=999,
+    )
+
+    assert aborted is False
+    assert created[0].killed is False
+
+    await created[0].events.put(
+        {
+            "type": "result",
+            "worker_generation": 1,
+            "request_id": created[0].sent_messages[0]["request_id"],
+            "work_id": "live-stale",
+            "lease_token": 8,
+            "results": [{"label": "Robin", "score": 0.88}],
+        }
+    )
+
+    results = await task
+    assert results[0]["label"] == "Robin"
+
+    await supervisor.shutdown()
+
+
+@pytest.mark.asyncio
 async def test_classifier_supervisor_allows_background_deadline_override():
     created: list[_FakeWorker] = []
 
