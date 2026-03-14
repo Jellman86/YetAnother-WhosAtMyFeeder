@@ -72,3 +72,16 @@ def test_classification_feedback_schema_exists(tmp_path):
         assert "idx_classification_feedback_camera_model_predicted_time" in index_names
     finally:
         conn.close()
+
+
+def test_detections_schema_includes_video_classification_model_id(tmp_path):
+    db_path = tmp_path / "schema_video_runtime.db"
+    _upgrade_db(db_path)
+
+    conn = sqlite3.connect(str(db_path))
+    try:
+        cols = conn.execute("PRAGMA table_info(detections);").fetchall()
+        col_names = [c[1] for c in cols]
+        assert "video_classification_model_id" in col_names
+    finally:
+        conn.close()
