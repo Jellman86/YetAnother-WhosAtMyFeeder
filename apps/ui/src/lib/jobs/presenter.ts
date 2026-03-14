@@ -2,7 +2,8 @@ import type { AnalysisStatus } from '../api/maintenance';
 import type { JobProgressItem } from '../stores/job_progress.svelte';
 import type { JobPipelineKindRow } from './pipeline';
 
-export type JobsTranslateFn = (key: string, values?: Record<string, unknown>, fallback?: string) => string;
+export type JobsTranslationValues = Record<string, string | number | boolean | Date | null | undefined>;
+export type JobsTranslateFn = (key: string, values?: JobsTranslationValues, fallback?: string) => string;
 
 export interface PresentedActiveJob {
     activityLabel: string;
@@ -19,6 +20,16 @@ export interface PresentedPipelineKindRow {
     activityLabel: string;
     capacityLabel: string | null;
     blockerLabel: string | null;
+    queueDepthLabel: string;
+    queueCapacityLabel: string | null;
+}
+
+export interface PresentedGlobalProgressSummary {
+    headline: string;
+    subline: string;
+    progressLabel: string;
+    determinate: boolean;
+    percent: number | null;
 }
 
 function normalizeCount(value: unknown): number {
@@ -49,6 +60,32 @@ function formatProgress(current: number, total: number, unit: string, t: JobsTra
 function resolveProgressUnit(job: JobProgressItem): string {
     if (job.kind === 'reclassify') return 'frames';
     return 'items';
+}
+
+function resolveSummarySubline(
+    kind: string,
+    row: JobPipelineKindRow | null,
+    analysisStatus: AnalysisStatus | null | undefined,
+    t: JobsTranslateFn,
+    kindLabel: (kind: string) => string
+): string {
+    const label = kindLabel(kind);
+    const capacityLabel = resolveCapacityLabel(row, t);
+    const compactCapacityLabel = typeof capacityLabel === 'string'
+        ? capacityLabel.replace(/\s+busy$/, '')
+        : null;
+    const queued = row?.queued;
+    if (compactCapacityLabel && queued !== null && queued !== undefined) {
+        return t('jobs.global_summary_with_queue', {
+            kind: label,
+            capacity: compactCapacityLabel,
+            queued: normalizeCount(queued).toLocaleString()
+        }, '{kind} using {capacity}, {queued} queued');
+    }
+    if (analysisStatus?.circuit_open) {
+        return t('jobs.global_summary_circuit_open', { kind: label }, '{kind} paused by circuit breaker');
+    }
+    return t('jobs.global_summary_basic', { kind: label }, '{kind} in progress');
 }
 
 function resolveActivityLabel(
@@ -147,6 +184,63 @@ export function presentPipelineKindRow(
     return {
         activityLabel,
         capacityLabel: resolveCapacityLabel(row, t),
-        blockerLabel: resolveBlockerLabel(row, analysisStatus, t)
+        blockerLabel: resolveBlockerLabel(row, analysisStatus, t),
+        queueDepthLabel: row.queueDepthKnown
+            ? t('jobs.queue_reported', undefined, 'Queue reported')
+            : t('jobs.queue_depth_unknown', undefined, 'Queue depth not reported'),
+        queueCapacityLabel: normalizeCount(analysisStatus?.pending_capacity) > 0
+            ? t('jobs.queue_slots_free', {
+                available: normalizeCount(analysisStatus?.pending_available).toLocaleString(),
+                capacity: normalizeCount(analysisStatus?.pending_capacity).toLocaleString()
+            }, '{available} of {capacity} queue slots free')
+            : null
+    };
+}
+
+export function buildGlobalProgressSummary(
+    activeJobs: JobProgressItem[],
+    rowsByKind: Map<string, JobPipelineKindRow>,
+    analysisStatus: AnalysisStatus | null | undefined,
+    _nowTs: number,
+    t: JobsTranslateFn,
+    kindLabel: (kind: string) => string
+): PresentedGlobalProgressSummary {
+    if (activeJobs.length === 0) {
+        return {
+            headline: t('notifications.global_progress_tasks', { count: 0 }, '{count} background tasks in progress'),
+            subline: t('jobs.activity_processing', undefined, 'Processing work'),
+            progressLabel: t('jobs.progress_expanding', undefined, 'Total work still expanding'),
+            determinate: false,
+            percent: null
+        };
+    }
+
+    const dominantJob = activeJobs[0];
+    const dominantRow = rowsByKind.get(dominantJob.kind) ?? null;
+    const units = new Set(activeJobs.map((job) => resolveProgressUnit(job)));
+    const compatible = units.size === 1 && activeJobs.every((job) => job.total > 0);
+    let progressLabel = t('jobs.progress_expanding', undefined, 'Total work still expanding');
+    let percent: number | null = null;
+
+    if (compatible) {
+        const total = activeJobs.reduce((sum, job) => sum + normalizeCount(job.total), 0);
+        const current = activeJobs.reduce((sum, job) => sum + Math.min(normalizeCount(job.current), normalizeCount(job.total)), 0);
+        const unit = resolveProgressUnit(activeJobs[0]);
+        progressLabel = formatProgress(current, total, unit, t);
+        percent = total > 0 ? Math.min(100, Math.max(0, Math.round((current / total) * 100))) : null;
+    } else {
+        progressLabel = t(
+            'jobs.global_summary_mixed_units',
+            undefined,
+            'Mixed work units; showing live status instead of a combined percent'
+        );
+    }
+
+    return {
+        headline: t('notifications.global_progress_tasks', { count: activeJobs.length }, '{count} background tasks in progress'),
+        subline: resolveSummarySubline(dominantJob.kind, dominantRow, analysisStatus, t, kindLabel),
+        progressLabel,
+        determinate: compatible,
+        percent
     };
 }

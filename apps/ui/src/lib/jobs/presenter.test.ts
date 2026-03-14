@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { AnalysisStatus } from '../api/maintenance';
 import type { JobProgressItem } from '../stores/job_progress.svelte';
 import type { JobPipelineKindRow } from './pipeline';
-import { presentActiveJob, presentPipelineKindRow } from './presenter';
+import { buildGlobalProgressSummary, presentActiveJob, presentPipelineKindRow } from './presenter';
 
 function renderTemplate(template: string, values: Record<string, unknown> = {}): string {
     return template.replace(/\{(\w+)\}/g, (_, key) => String(values[key] ?? ''));
@@ -98,6 +98,25 @@ describe('jobs presenter', () => {
         expect(presented.blockerLabel).toBe('Recent failures paused reclassification work');
     });
 
+    it('surfaces queue depth and free-capacity labels for throughput rows', () => {
+        const analysisStatus: AnalysisStatus = {
+            pending: 12,
+            active: 2,
+            circuit_open: false,
+            pending_capacity: 200,
+            pending_available: 188
+        };
+
+        const presented = presentPipelineKindRow(
+            makeRow({ queued: null, queueDepthKnown: false }),
+            analysisStatus,
+            t
+        );
+
+        expect(presented.queueDepthLabel).toBe('Queue depth not reported');
+        expect(presented.queueCapacityLabel).toBe('188 of 200 queue slots free');
+    });
+
     it('marks stale jobs with explicit freshness labels', () => {
         const presented = presentActiveJob(
             makeJob({ status: 'stale', updatedAt: 0 }),
@@ -109,5 +128,53 @@ describe('jobs presenter', () => {
 
         expect(presented.freshnessLabel).toBe('No update for 5m 1s');
         expect(presented.isStale).toBe(true);
+    });
+
+    it('builds an indeterminate banner summary for mixed-unit jobs', () => {
+        const summary = buildGlobalProgressSummary(
+            [
+                makeJob({ id: 'reclassify:evt-1', kind: 'reclassify', total: 10, current: 3 }),
+                makeJob({ id: 'backfill:job-1', kind: 'backfill', total: 100, current: 20, title: 'Backfill' })
+            ],
+            new Map([
+                ['reclassify', makeRow({ queued: 12, running: 1, maxConcurrentConfigured: 2 })],
+                ['backfill', makeRow({ kind: 'backfill', queued: 0, running: 1, maxConcurrentConfigured: null, maxConcurrentEffective: null })]
+            ]),
+            {
+                pending: 12,
+                active: 1,
+                circuit_open: false
+            },
+            125_000,
+            t,
+            (kind) => kind === 'reclassify' ? 'Reclassification' : 'Backfill'
+        );
+
+        expect(summary.headline).toBe('2 background tasks in progress');
+        expect(summary.subline).toBe('Reclassification using 1 of 2 worker slots, 12 queued');
+        expect(summary.determinate).toBe(false);
+        expect(summary.progressLabel).toBe('Mixed work units; showing live status instead of a combined percent');
+    });
+
+    it('builds a determinate banner summary when active jobs share a unit', () => {
+        const summary = buildGlobalProgressSummary(
+            [
+                makeJob({ id: 'reclassify:evt-1', current: 3, total: 10 }),
+                makeJob({ id: 'reclassify:evt-2', current: 5, total: 10 })
+            ],
+            new Map([['reclassify', makeRow({ queued: 4, running: 2, maxConcurrentConfigured: 2 })]]),
+            {
+                pending: 4,
+                active: 2,
+                circuit_open: false
+            },
+            125_000,
+            t,
+            () => 'Reclassification'
+        );
+
+        expect(summary.determinate).toBe(true);
+        expect(summary.percent).toBe(40);
+        expect(summary.progressLabel).toBe('8 / 20 frames');
     });
 });

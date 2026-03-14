@@ -693,16 +693,20 @@ export class LiveUpdateCoordinator {
                 });
             }
 
-            this.deps.jobProgress.upsertRunning({
-                id: RECLASSIFY_PROGRESS_ID,
-                kind: 'reclassify_batch',
-                title: this.deps.t('settings.data.batch_analysis_title'),
-                message,
-                route: '/settings#data',
-                current,
-                total: baseline,
-                source: 'poll'
-            });
+            if (hasPerEventJobs) {
+                this.deps.jobProgress.remove?.(RECLASSIFY_PROGRESS_ID);
+            } else {
+                this.deps.jobProgress.upsertRunning({
+                    id: RECLASSIFY_PROGRESS_ID,
+                    kind: 'reclassify_batch',
+                    title: this.deps.t('settings.data.batch_analysis_title'),
+                    message,
+                    route: '/settings#data',
+                    current,
+                    total: baseline,
+                    source: 'poll'
+                });
+            }
             return;
         }
 

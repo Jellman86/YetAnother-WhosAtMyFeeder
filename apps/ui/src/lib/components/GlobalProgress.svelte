@@ -4,47 +4,100 @@
     import { _ } from 'svelte-i18n';
     import { jobProgressStore, type JobProgressItem } from '../stores/job_progress.svelte';
     import { authStore } from '../stores/auth.svelte';
+    import { fetchAnalysisStatus, type AnalysisStatus } from '../api/maintenance';
     import { getNotificationsTabPathForAccess } from '../app/notifications_route';
+    import { buildJobsPipelineModel, type QueueTelemetryByKind } from '../jobs/pipeline';
+    import { buildGlobalProgressSummary, presentActiveJob, type JobsTranslateFn } from '../jobs/presenter';
     let { onNavigate } = $props<{ onNavigate?: (path: string) => void }>();
 
     let nowTs = $state(Date.now());
     let showDetails = $state(false);
+    let queueByKind = $state<QueueTelemetryByKind>({});
+    let analysisStatus = $state<AnalysisStatus | null>(null);
+    let analysisStatusSignature = $state('');
     const detailLimit = 4;
     onMount(() => {
         const tick = setInterval(() => {
             nowTs = Date.now();
         }, 1000);
+        let queuePoll: ReturnType<typeof setInterval> | null = null;
+        let stopped = false;
+
+        const updateQueueTelemetry = async () => {
+            if (stopped) return;
+            if (!authStore.showSettings) return;
+            try {
+                const status = await fetchAnalysisStatus();
+                const signature = [
+                    status.pending ?? 0,
+                    status.active ?? 0,
+                    status.circuit_open ? 1 : 0,
+                    status.pending_capacity ?? '',
+                    status.pending_available ?? '',
+                    status.max_concurrent_configured ?? '',
+                    status.max_concurrent_effective ?? '',
+                    status.mqtt_pressure_level ?? '',
+                    status.throttled_for_mqtt_pressure ? 1 : 0,
+                    status.mqtt_in_flight ?? '',
+                    status.mqtt_in_flight_capacity ?? ''
+                ].join('|');
+                if (signature !== analysisStatusSignature) {
+                    analysisStatus = status;
+                    analysisStatusSignature = signature;
+                }
+                queueByKind = {
+                    ...queueByKind,
+                    reclassify: {
+                        queued: Math.max(0, Math.floor(Number(status.pending ?? 0))),
+                        running: Math.max(0, Math.floor(Number(status.active ?? 0))),
+                        queueDepthKnown: true,
+                        updatedAt: Date.now(),
+                        maxConcurrentConfigured: Math.max(0, Math.floor(Number(status.max_concurrent_configured ?? 0))),
+                        maxConcurrentEffective: Math.max(0, Math.floor(Number(status.max_concurrent_effective ?? 0))),
+                        mqttPressureLevel: typeof status.mqtt_pressure_level === 'string' ? status.mqtt_pressure_level : undefined,
+                        throttledForMqttPressure: status.throttled_for_mqtt_pressure === true,
+                        mqttInFlight: Math.max(0, Math.floor(Number(status.mqtt_in_flight ?? 0))),
+                        mqttInFlightCapacity: Math.max(0, Math.floor(Number(status.mqtt_in_flight_capacity ?? 0)))
+                    }
+                };
+            } catch {
+                if (!queueByKind.reclassify) {
+                    queueByKind = {
+                        ...queueByKind,
+                        reclassify: {
+                            queued: 0,
+                            running: 0,
+                            queueDepthKnown: false,
+                            updatedAt: Date.now()
+                        }
+                    };
+                }
+            }
+        };
+
+        if (authStore.showSettings) {
+            updateQueueTelemetry();
+            queuePoll = setInterval(updateQueueTelemetry, 5000);
+        }
+
         return () => {
+            stopped = true;
             clearInterval(tick);
+            if (queuePoll) clearInterval(queuePoll);
         };
     });
 
     let activeJobs = $derived(jobProgressStore.activeJobs);
     let runningJobs = $derived(activeJobs.filter((item) => item.status === 'running'));
     let staleJobs = $derived(activeJobs.filter((item) => item.status === 'stale'));
+    let pipeline = $derived(buildJobsPipelineModel(activeJobs, [], queueByKind));
+    let rowsByKind = $derived.by(() => new Map(pipeline.kinds.map((row) => [row.kind, row])));
+    const t: JobsTranslateFn = (key, values, fallback) => $_(key, { values, default: fallback });
     let visibleJobs = $derived(activeJobs);
-    let detailJobs = $derived(visibleJobs.slice(0, detailLimit));
-
-    function pct(item: JobProgressItem): number | null {
-        if (item.total <= 0) return null;
-        return Math.min(100, Math.max(0, Math.round((item.current / item.total) * 100)));
-    }
-
-    function fmtRate(value?: number): string {
-        if (!Number.isFinite(value) || !value || value <= 0) return 'n/a';
-        return `${Math.round(value).toLocaleString()}/min`;
-    }
-
-    function fmtEta(seconds?: number): string {
-        if (!Number.isFinite(seconds) || !seconds || seconds <= 0) return 'n/a';
-        const total = Math.floor(seconds);
-        const h = Math.floor(total / 3600);
-        const m = Math.floor((total % 3600) / 60);
-        const s = total % 60;
-        if (h > 0) return `${h}h ${m}m`;
-        if (m > 0) return `${m}m ${s}s`;
-        return `${s}s`;
-    }
+    let detailJobs = $derived(visibleJobs.slice(0, detailLimit).map((job) => ({
+        job,
+        presentation: presentActiveJob(job, rowsByKind.get(job.kind) ?? null, analysisStatus, nowTs, t)
+    })));
 
     function fmtAge(updatedAt: number): string {
         const sec = Math.max(0, Math.floor((nowTs - updatedAt) / 1000));
@@ -57,41 +110,16 @@
         return `${hours}h ${remMin}m`;
     }
 
-    let aggregate = $derived.by(() => {
-        if (activeJobs.length === 0) {
-            return { percent: null as number | null, current: 0, total: 0, rate: 0, etaSeconds: null as number | null };
-        }
-        
-        // Prevent mixing units (queue items vs video frames) by excluding 
-        // per-event frame progress from the global sum if a batch queue is active.
-        const hasBatch = activeJobs.some(j => j.kind === 'reclassify_batch');
-        const jobsToSum = activeJobs.filter(j => hasBatch ? j.kind !== 'reclassify' : true);
+    function kindLabel(kind: string): string {
+        if (kind === 'reclassify') return $_('jobs.kind_reclassify', { default: 'Reclassification' });
+        if (kind === 'reclassify_batch') return $_('settings.data.batch_analysis_title', { default: 'Batch Analysis' });
+        if (kind === 'backfill') return $_('jobs.kind_backfill', { default: 'Detection Backfill' });
+        if (kind === 'weather_backfill') return $_('jobs.kind_weather_backfill', { default: 'Weather Backfill' });
+        if (kind === 'taxonomy_sync') return $_('jobs.kind_taxonomy_sync', { default: 'Taxonomy Sync' });
+        return kind.replace(/_/g, ' ').replace(/\b\w/g, (ch) => ch.toUpperCase());
+    }
 
-        let current = 0;
-        let total = 0;
-        let rate = 0;
-        for (const item of jobsToSum) {
-            if (item.total > 0) {
-                total += item.total;
-                current += Math.min(item.total, Math.max(0, item.current));
-            }
-        }
-        for (const item of runningJobs) {
-            if (Number.isFinite(item.ratePerMinute) && (item.ratePerMinute ?? 0) > 0) {
-                rate += item.ratePerMinute ?? 0;
-            }
-        }
-        const percent = total > 0 ? Math.min(100, Math.max(0, Math.round((current / total) * 100))) : null;
-        const etaSeconds = total > 0 && rate > 0 && current < total
-            ? Math.ceil(((total - current) / rate) * 60)
-            : null;
-        return { percent, current, total, rate, etaSeconds };
-    });
-
-    let summaryLabel = $derived.by(() => {
-        if (activeJobs.length === 1) return activeJobs[0].title;
-        return $_('notifications.global_progress_tasks', { values: { count: activeJobs.length } });
-    });
+    let aggregate = $derived(buildGlobalProgressSummary(activeJobs, rowsByKind, analysisStatus, nowTs, t, kindLabel));
 
     function openJobsPage() {
         const jobsTabPath = getNotificationsTabPathForAccess('jobs', authStore.showSettings);
@@ -131,10 +159,10 @@
                         </div>
                         <div class="min-w-0">
                             <p class="text-[10px] font-black text-slate-900 dark:text-white uppercase tracking-tight truncate">
-                                {summaryLabel}
+                                {aggregate.headline}
                             </p>
                             <p class="text-[9px] font-bold text-slate-500 dark:text-slate-300 uppercase tracking-wider truncate">
-                                {$_('notifications.global_progress_last', { values: { age: fmtAge(activeJobs[0].updatedAt) }, default: 'Updated {age} ago' })}
+                                {aggregate.subline}
                                 {#if staleJobs.length > 0}
                                     · {$_('notifications.global_progress_stale', { values: { count: staleJobs.length }, default: '{count} stale' })}
                                 {/if}
@@ -152,24 +180,12 @@
                 </div>
 
                 <div class="flex items-center justify-between text-[9px] uppercase tracking-wider font-bold text-slate-500 dark:text-slate-300">
-                    <span>
-                        {#if aggregate.total > 0}
-                            {aggregate.current.toLocaleString()} / {aggregate.total.toLocaleString()}
-                        {:else}
-                            {$_('jobs.unknown_total', { default: 'Scanning...' })}
-                        {/if}
-                    </span>
-                    <span class="text-right">
-                        {#if aggregate.percent !== null}
-                            {aggregate.percent}% · {$_('jobs.rate_label', { values: { rate: fmtRate(aggregate.rate) }, default: '{rate}' })} · ETA {fmtEta(aggregate.etaSeconds ?? undefined)}
-                        {:else}
-                            {$_('jobs.rate_label', { values: { rate: fmtRate(aggregate.rate) }, default: '{rate}' })}
-                        {/if}
-                    </span>
+                    <span>{aggregate.progressLabel}</span>
+                    <span class="text-right">{$_('notifications.global_progress_last', { values: { age: fmtAge(activeJobs[0].updatedAt) }, default: 'Updated {age} ago' })}</span>
                 </div>
 
                 <div class="h-2 w-full bg-emerald-100 dark:bg-emerald-950/60 rounded-full overflow-hidden relative">
-                    {#if aggregate.percent !== null}
+                    {#if aggregate.determinate && aggregate.percent !== null}
                         <div
                             class="h-full bg-gradient-to-r from-emerald-500 via-teal-500 to-sky-500 transition-all duration-500"
                             style="width: {aggregate.percent}%"
@@ -181,8 +197,9 @@
 
                 {#if showDetails}
                     <div id="global-progress-details" class="pt-2 border-t border-slate-100 dark:border-slate-800/50 mt-1 grid grid-cols-1 gap-2">
-                        {#each detailJobs as job (job.id)}
-                            {@const jobPercent = pct(job)}
+                        {#each detailJobs as item (item.job.id)}
+                            {@const job = item.job}
+                            {@const presentation = item.presentation}
                             <div class="rounded-xl border border-slate-200/80 dark:border-slate-700/60 px-3 py-2 bg-white/80 dark:bg-slate-900/60">
                                 <div class="flex items-center justify-between gap-2">
                                     <p class="text-[10px] font-black uppercase tracking-wide text-slate-800 dark:text-slate-100 truncate">{job.title}</p>
@@ -190,19 +207,23 @@
                                         {job.status}
                                     </span>
                                 </div>
-                                <p class="text-[10px] text-slate-500 dark:text-slate-300 truncate">{job.message || ''}</p>
+                                <p class="text-[10px] font-semibold text-slate-700 dark:text-slate-200 truncate">{presentation.activityLabel}</p>
+                                {#if job.message}
+                                    <p class="text-[10px] text-slate-500 dark:text-slate-300 truncate">{job.message}</p>
+                                {/if}
                                 <div class="mt-1 flex items-center justify-between text-[9px] font-semibold text-slate-400 dark:text-slate-400">
-                                    <span>
-                                        {job.current.toLocaleString()}
-                                        {#if job.total > 0}
-                                            / {job.total.toLocaleString()}
-                                        {/if}
-                                        {#if jobPercent !== null}
-                                            · {jobPercent}%
-                                        {/if}
-                                    </span>
-                                    <span>{fmtRate(job.ratePerMinute)} · ETA {fmtEta(job.etaSeconds)}</span>
+                                    <span>{presentation.progressLabel}</span>
+                                    <span>{presentation.freshnessLabel}</span>
                                 </div>
+                                {#if presentation.capacityLabel || presentation.blockerLabel}
+                                    <p class="mt-1 text-[9px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-400 truncate">
+                                        {presentation.capacityLabel ?? ''}
+                                        {#if presentation.capacityLabel && presentation.blockerLabel}
+                                            ·
+                                        {/if}
+                                        {presentation.blockerLabel ?? ''}
+                                    </p>
+                                {/if}
                             </div>
                         {/each}
                         {#if visibleJobs.length > detailLimit}

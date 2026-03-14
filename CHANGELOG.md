@@ -6,6 +6,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- **Changed:** Notifications Jobs and the global progress banner now explain what background work is actually doing. Active rows show explicit activity, determinate vs indeterminate progress, freshness, and blocker text instead of unlabeled bars.
+- **Added:** Reclassification queue telemetry now surfaces truthful capacity details in the UI, including worker-slot usage, queue-slot availability, and MQTT-pressure throttling context where available.
 - **Added:** Deep Video Analysis now persists the model id used for completed video-classification results, exposes a backend-derived friendly model name in event APIs, and shows both provider (`CPU` / `GPU`) and model chips in the Detection Details video-analysis card.
 - **Fixed:** Intel iGPU OpenVINO stability now uses `openvino==2024.6.0` as the last verified working runtime line for the live ConvNeXt bird model on this host. Earlier investigation showed `2026.x` broke GPU device discovery and `2025.4.1` still produced non-finite GPU outputs for the live ConvNeXt path despite `f32`, cache, and stream hardening.
 - **Changed:** The repo now treats OpenVINO runtime drift as a first-class regression risk. The durable incident backstory, misleading intermediate symptoms, and final runtime findings are documented in [docs/plans/2026-03-13-openvino-gpu-regression-retrospective.md](docs/plans/2026-03-13-openvino-gpu-regression-retrospective.md) so future debugging does not repeat the same archaeology.

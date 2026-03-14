@@ -6,6 +6,7 @@
     import { fetchAnalysisStatus } from '../api/maintenance';
     import type { AnalysisStatus } from '../api/maintenance';
     import { buildJobsPipelineModel, type QueueTelemetryByKind } from '../jobs/pipeline';
+    import { presentActiveJob, presentPipelineKindRow, type JobsTranslateFn } from '../jobs/presenter';
     import { formatDateTime } from '../utils/datetime';
     import { authStore } from '../stores/auth.svelte';
     let { onNavigate, embedded = false } = $props<{ onNavigate?: (path: string) => void; embedded?: boolean }>();
@@ -33,7 +34,13 @@
                     status.open_until ?? '',
                     status.failure_count ?? '',
                     status.pending_capacity ?? '',
-                    status.pending_available ?? ''
+                    status.pending_available ?? '',
+                    status.max_concurrent_configured ?? '',
+                    status.max_concurrent_effective ?? '',
+                    status.mqtt_pressure_level ?? '',
+                    status.throttled_for_mqtt_pressure ? 1 : 0,
+                    status.mqtt_in_flight ?? '',
+                    status.mqtt_in_flight_capacity ?? ''
                 ].join('|');
                 if (signature !== analysisStatusSignature) {
                     analysisStatus = status;
@@ -45,7 +52,13 @@
                         queued: Math.max(0, Math.floor(Number(status.pending ?? 0))),
                         running: Math.max(0, Math.floor(Number(status.active ?? 0))),
                         queueDepthKnown: true,
-                        updatedAt: Date.now()
+                        updatedAt: Date.now(),
+                        maxConcurrentConfigured: Math.max(0, Math.floor(Number(status.max_concurrent_configured ?? 0))),
+                        maxConcurrentEffective: Math.max(0, Math.floor(Number(status.max_concurrent_effective ?? 0))),
+                        mqttPressureLevel: typeof status.mqtt_pressure_level === 'string' ? status.mqtt_pressure_level : undefined,
+                        throttledForMqttPressure: status.throttled_for_mqtt_pressure === true,
+                        mqttInFlight: Math.max(0, Math.floor(Number(status.mqtt_in_flight ?? 0))),
+                        mqttInFlightCapacity: Math.max(0, Math.floor(Number(status.mqtt_in_flight_capacity ?? 0)))
                     }
                 };
             } catch (error) {
@@ -90,6 +103,16 @@
     let staleJobs = $derived(activeJobs.filter((job) => job.status === 'stale'));
     let historyJobs = $derived(jobProgressStore.historyJobs);
     let pipeline = $derived(buildJobsPipelineModel(activeJobs, historyJobs, queueByKind));
+    let pipelineByKind = $derived.by(() => new Map(pipeline.kinds.map((row) => [row.kind, row])));
+    const t: JobsTranslateFn = (key, values, fallback) => $_(key, { values, default: fallback });
+    let presentedKinds = $derived(pipeline.kinds.map((row) => ({
+        row,
+        presentation: presentPipelineKindRow(row, analysisStatus, t)
+    })));
+    let presentedActiveJobs = $derived(activeJobs.map((job) => ({
+        job,
+        presentation: presentActiveJob(job, pipelineByKind.get(job.kind) ?? null, analysisStatus, nowTs, t)
+    })));
     let staleCount = $derived(staleJobs.length);
     let circuitOpen = $derived(Boolean(analysisStatus?.circuit_open));
     let circuitOpenUntil = $derived(analysisStatus?.open_until ?? null);
@@ -186,8 +209,8 @@
 
     <section class="card-base p-6">
         <div class="mb-4">
-            <h3 class="text-xs font-black uppercase tracking-widest text-slate-500">{$_('jobs.pipeline_title', { default: 'Pipeline' })}</h3>
-            <p class="text-xs text-slate-500">{$_('jobs.pipeline_subtitle', { default: 'Queued work flows into active processing, then into completed outcomes.' })}</p>
+            <h3 class="text-xs font-black uppercase tracking-widest text-slate-500">{$_('jobs.system_throughput', { default: 'System Throughput' })}</h3>
+            <p class="text-xs text-slate-500">{$_('jobs.system_throughput_subtitle', { default: 'See which queues are active, what capacity is available, and what is limiting throughput.' })}</p>
         </div>
 
         <div class="flex flex-col md:flex-row items-stretch gap-2 md:gap-3">
@@ -232,19 +255,16 @@
             </div>
         </div>
 
-        <div class="mt-4 space-y-2">
-            {#each pipeline.kinds as row (row.kind)}
+        <div class="mt-4 space-y-3">
+            {#each presentedKinds as item (item.row.kind)}
+                {@const row = item.row}
+                {@const presentation = item.presentation}
                 <div class="rounded-xl border border-slate-200/80 dark:border-slate-700/60 bg-white/80 dark:bg-slate-900/60 px-3 py-2">
                     <div class="flex items-center justify-between gap-2">
                         <p class="text-xs font-black text-slate-800 dark:text-slate-100 uppercase tracking-wide">{kindLabel(row.kind)}</p>
-                        <p class="text-[10px] font-semibold text-slate-400">
-                            {#if row.queueDepthKnown}
-                                {$_('jobs.queue_reported', { default: 'Queue reported' })}
-                            {:else}
-                                {$_('jobs.queue_not_reported', { default: 'Queue not reported' })}
-                            {/if}
-                        </p>
+                        <p class="text-[10px] font-semibold text-slate-400">{presentation.queueDepthLabel}</p>
                     </div>
+                    <p class="mt-2 text-sm font-semibold text-slate-900 dark:text-slate-100">{presentation.activityLabel}</p>
                     <div class="mt-2 grid grid-cols-2 md:grid-cols-4 gap-2 text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-300">
                         <div>
                             {$_('jobs.queued', { default: 'Queued' })}: {row.queued === null ? '—' : row.queued.toLocaleString()}
@@ -257,6 +277,24 @@
                         </div>
                         <div>
                             {$_('jobs.failed', { default: 'Failed' })}: {row.failed.toLocaleString()}
+                        </div>
+                    </div>
+                    <div class="mt-3 grid grid-cols-1 md:grid-cols-2 gap-2">
+                        <div class="rounded-xl bg-slate-50 dark:bg-slate-950/50 px-3 py-2">
+                            <p class="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                                {$_('jobs.capacity_label', { default: 'Capacity' })}
+                            </p>
+                            <p class="mt-1 text-xs font-semibold text-slate-800 dark:text-slate-100">
+                                {presentation.capacityLabel ?? presentation.queueCapacityLabel ?? '—'}
+                            </p>
+                        </div>
+                        <div class="rounded-xl bg-slate-50 dark:bg-slate-950/50 px-3 py-2">
+                            <p class="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                                {$_('jobs.blocker_label', { default: 'Blockers' })}
+                            </p>
+                            <p class="mt-1 text-xs font-semibold text-slate-800 dark:text-slate-100">
+                                {presentation.blockerLabel ?? presentation.queueDepthLabel}
+                            </p>
                         </div>
                     </div>
                 </div>
@@ -302,36 +340,58 @@
             <p class="text-xs text-slate-500">{$_('jobs.active_empty', { default: 'No active jobs.' })}</p>
         {:else}
             <div class="space-y-3">
-                {#each activeJobs as job (job.id)}
-                    {@const percent = pct(job)}
+                {#each presentedActiveJobs as item (item.job.id)}
+                    {@const job = item.job}
+                    {@const presentation = item.presentation}
+                    {@const percent = presentation.percent}
                     <div class="rounded-2xl border border-emerald-100/80 dark:border-emerald-900/50 bg-white/80 dark:bg-slate-900/70 px-4 py-3 shadow-sm">
                         <div class="flex items-start justify-between gap-2">
                             <div class="min-w-0">
                                 <p class="text-sm font-semibold text-slate-900 dark:text-white truncate">{job.title}</p>
-                                <p class="text-xs text-slate-500 dark:text-slate-300 truncate">{job.message || ''}</p>
+                                <p class="text-xs font-semibold text-slate-700 dark:text-slate-200">{presentation.activityLabel}</p>
+                                {#if job.message}
+                                    <p class="text-xs text-slate-500 dark:text-slate-300 truncate">{job.message}</p>
+                                {/if}
                             </div>
                             <span class="text-[10px] font-black uppercase tracking-wider {job.status === 'stale' ? 'text-amber-600 dark:text-amber-300' : 'text-emerald-600 dark:text-emerald-300'}">
                                 {job.status}
                             </span>
                         </div>
-                        <div class="mt-2 flex flex-wrap items-center justify-between gap-2 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                            <span>
-                                {job.current.toLocaleString()}
-                                {#if job.total > 0}
-                                    / {job.total.toLocaleString()}
+                        <div class="mt-3 grid grid-cols-1 md:grid-cols-2 gap-2">
+                            <div class="rounded-xl bg-slate-50 dark:bg-slate-950/50 px-3 py-2">
+                                <p class="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                                    {$_('jobs.progress_label', { default: 'Progress' })}
+                                </p>
+                                <p class="mt-1 text-xs font-semibold text-slate-800 dark:text-slate-100">{presentation.progressLabel}</p>
+                                <p class="mt-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                                    {fmtRate(job.ratePerMinute)} · ETA {fmtEta(job.etaSeconds)}
+                                </p>
+                            </div>
+                            <div class="rounded-xl bg-slate-50 dark:bg-slate-950/50 px-3 py-2">
+                                <p class="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                                    {$_('jobs.capacity_label', { default: 'Capacity' })}
+                                </p>
+                                <p class="mt-1 text-xs font-semibold text-slate-800 dark:text-slate-100">
+                                    {presentation.capacityLabel ?? '—'}
+                                </p>
+                                {#if presentation.blockerLabel}
+                                    <p class="mt-1 text-[10px] font-semibold uppercase tracking-wider text-amber-600 dark:text-amber-300">
+                                        {presentation.blockerLabel}
+                                    </p>
                                 {/if}
-                                {#if percent !== null}
-                                    · {percent}%
-                                {/if}
-                            </span>
-                            <span>{fmtRate(job.ratePerMinute)} · ETA {fmtEta(job.etaSeconds)}</span>
-                            <span>{$_('jobs.updated', { values: { age: fmtAge(job.updatedAt) }, default: 'Updated {age} ago' })}</span>
+                            </div>
                         </div>
                         <div class="mt-2 h-2 rounded-full bg-emerald-100 dark:bg-emerald-950/60 overflow-hidden">
-                            {#if percent !== null}
+                            {#if presentation.determinate && percent !== null}
                                 <div class="h-full bg-gradient-to-r from-emerald-500 via-teal-500 to-sky-500 transition-all duration-500" style={`width: ${percent}%`}></div>
                             {:else}
                                 <div class="h-full w-2/5 bg-gradient-to-r from-emerald-500/70 via-teal-500/70 to-sky-500/70 animate-pulse"></div>
+                            {/if}
+                        </div>
+                        <div class="mt-2 flex flex-wrap items-center justify-between gap-2 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                            <span>{presentation.freshnessLabel}</span>
+                            {#if presentation.determinate && percent !== null}
+                                <span>{percent}%</span>
                             {/if}
                         </div>
                         {#if job.route}
