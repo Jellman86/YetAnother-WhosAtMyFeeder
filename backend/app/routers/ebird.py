@@ -1,3 +1,4 @@
+import asyncio
 from typing import Optional
 import csv
 import io
@@ -12,6 +13,7 @@ from app.auth import get_auth_context_with_legacy
 from app.database import get_db
 from app.config import settings
 from app.services.ebird_service import ebird_service
+from app.services.taxonomy.taxonomy_service import taxonomy_service
 log = structlog.get_logger()
 router = APIRouter(prefix="/ebird", tags=["ebird"])
 
@@ -291,10 +293,15 @@ async def get_notable_observations(
 
     async def enrich(item):
         name = item.get("common_name") or item.get("scientific_name")
-        if name:
+        if not name:
+            return
+        try:
             tax = await taxonomy_service.get_names(name)
-            if tax and tax.get("thumbnail_url"):
-                item["thumbnail_url"] = tax.get("thumbnail_url")
+        except Exception as exc:
+            log.warning("eBird notable enrichment failed", species=name, error=str(exc))
+            return
+        if tax and tax.get("thumbnail_url"):
+            item["thumbnail_url"] = tax.get("thumbnail_url")
 
     # Enrich concurrently (cached lookups are fast, uncached hit iNat)
     await asyncio.gather(*(enrich(item) for item in results))
