@@ -39,17 +39,6 @@
         presentation: presentActiveJob(job, rowsByKind.get(job.kind) ?? null, analysisStatus, nowTs, t)
     })));
 
-    function fmtAge(updatedAt: number): string {
-        const sec = Math.max(0, Math.floor((nowTs - updatedAt) / 1000));
-        if (sec < 60) return `${sec}s`;
-        const min = Math.floor(sec / 60);
-        const remSec = sec % 60;
-        if (min < 60) return `${min}m ${remSec}s`;
-        const hours = Math.floor(min / 60);
-        const remMin = min % 60;
-        return `${hours}h ${remMin}m`;
-    }
-
     function kindLabel(kind: string): string {
         if (kind === 'reclassify') return $_('jobs.kind_reclassify', { default: 'Reclassification' });
         if (kind === 'reclassify_batch') return $_('settings.data.batch_analysis_title', { default: 'Batch Analysis' });
@@ -101,7 +90,7 @@
                             <p class="text-[10px] font-black text-slate-900 dark:text-white uppercase tracking-tight truncate">
                                 {aggregate.headline}
                             </p>
-                            <p class="text-[9px] font-bold text-slate-500 dark:text-slate-300 uppercase tracking-wider truncate">
+                            <p class="text-[10px] font-semibold text-slate-600 dark:text-slate-300 truncate">
                                 {aggregate.subline}
                                 {#if staleJobs.length > 0}
                                     · {$_('notifications.global_progress_stale', { values: { count: staleJobs.length }, default: '{count} stale' })}
@@ -119,10 +108,7 @@
                     </button>
                 </div>
 
-                <div class="flex items-center justify-between text-[9px] uppercase tracking-wider font-bold text-slate-500 dark:text-slate-300">
-                    <span>{aggregate.progressLabel}</span>
-                    <span class="text-right">{$_('notifications.global_progress_last', { values: { age: fmtAge(activeJobs[0].updatedAt) }, default: 'Updated {age} ago' })}</span>
-                </div>
+                <p class="text-[10px] font-semibold text-slate-500 dark:text-slate-300">{aggregate.progressLabel}</p>
 
                 <div class="h-2 w-full bg-emerald-100 dark:bg-emerald-950/60 rounded-full overflow-hidden relative">
                     {#if aggregate.determinate && aggregate.percent !== null}
@@ -147,21 +133,13 @@
                                         {job.status}
                                     </span>
                                 </div>
-                                <p class="text-[10px] font-semibold text-slate-700 dark:text-slate-200 truncate">{presentation.activityLabel}</p>
-                                {#if job.message}
-                                    <p class="text-[10px] text-slate-500 dark:text-slate-300 truncate">{job.message}</p>
-                                {/if}
-                                <div class="mt-1 flex items-center justify-between text-[9px] font-semibold text-slate-400 dark:text-slate-400">
-                                    <span>{presentation.progressLabel}</span>
-                                    <span>{presentation.freshnessLabel}</span>
-                                </div>
-                                {#if presentation.capacityLabel || presentation.blockerLabel}
-                                    <p class="mt-1 text-[9px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-400 truncate">
-                                        {presentation.capacityLabel ?? ''}
-                                        {#if presentation.capacityLabel && presentation.blockerLabel}
-                                            ·
-                                        {/if}
-                                        {presentation.blockerLabel ?? ''}
+                                <p class="mt-1 text-[10px] font-semibold text-slate-700 dark:text-slate-200 truncate">{presentation.activityLabel}</p>
+                                <p class="mt-1 text-[9px] font-semibold text-slate-400 dark:text-slate-400 truncate">
+                                    {presentation.progressLabel} · {presentation.freshnessLabel}
+                                </p>
+                                {#if presentation.detailLabel && !presentation.isStale}
+                                    <p class="mt-1 text-[9px] font-semibold text-amber-600 dark:text-amber-300 truncate">
+                                        {presentation.detailLabel}
                                     </p>
                                 {/if}
                             </div>

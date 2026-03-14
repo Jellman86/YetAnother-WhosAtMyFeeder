@@ -1397,8 +1397,8 @@
     "freshness_updated": "Updated {age} ago",
     "global_summary_with_queue": "{kind} using {capacity}, {queued} queued",
     "global_summary_circuit_open": "{kind} paused by circuit breaker",
-    "global_summary_basic": "{kind} in progress",
-    "global_summary_mixed_units": "Mixed work units; showing live status instead of a combined percent",
+    "global_summary_basic": "{kind} {activity}",
+    "global_summary_mixed_units": "Multiple jobs in progress",
     "kind_reclassify": "Reclassification",
     "kind_backfill": "Detection Backfill",
     "kind_weather_backfill": "Weather Backfill",
@@ -1432,6 +1432,9 @@
     "report_issue_title": "Report Issue",
     "report_issue_empty": "Select an incident to inspect or report it.",
     "report_issue_copy_summary": "Copy Issue Summary",
-    "report_issue_open_github": "Open GitHub Issue"
+    "report_issue_open_github": "Open GitHub Issue",
+    "progress_working": "Working...",
+    "global_running_single": "1 job running",
+    "global_running_multi": "{count} jobs running"
   }
 }

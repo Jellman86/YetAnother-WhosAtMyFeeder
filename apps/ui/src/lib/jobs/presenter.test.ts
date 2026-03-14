@@ -55,6 +55,7 @@ describe('jobs presenter', () => {
         expect(presented.progressLabel).toBe('3 / 10 frames');
         expect(presented.capacityLabel).toBe('2 of 4 worker slots busy');
         expect(presented.blockerLabel).toBeNull();
+        expect(presented.detailLabel).toBeNull();
         expect(presented.determinate).toBe(true);
         expect(presented.percent).toBe(30);
     });
@@ -77,9 +78,10 @@ describe('jobs presenter', () => {
         );
 
         expect(presented.activityLabel).toBe('Waiting for classifier slots');
-        expect(presented.progressLabel).toBe('Total work still expanding');
+        expect(presented.progressLabel).toBe('Working...');
         expect(presented.capacityLabel).toBe('1 of 2 worker slots busy');
         expect(presented.blockerLabel).toBe('MQTT pressure reduced background capacity');
+        expect(presented.detailLabel).toBe('MQTT pressure reduced background capacity');
         expect(presented.determinate).toBe(false);
         expect(presented.percent).toBeNull();
     });
@@ -154,6 +156,7 @@ describe('jobs presenter', () => {
         );
 
         expect(presented.freshnessLabel).toBe('No update for 5m 1s');
+        expect(presented.detailLabel).toBe('No update for 5m 1s');
         expect(presented.isStale).toBe(true);
     });
 
@@ -177,10 +180,10 @@ describe('jobs presenter', () => {
             (kind) => kind === 'reclassify' ? 'Reclassification' : 'Backfill'
         );
 
-        expect(summary.headline).toBe('2 background tasks in progress');
-        expect(summary.subline).toBe('Reclassification using 1 of 2 worker slots, 12 queued');
+        expect(summary.headline).toBe('2 jobs running');
+        expect(summary.subline).toBe('Reclassification analyzing clips');
         expect(summary.determinate).toBe(false);
-        expect(summary.progressLabel).toBe('Mixed work units; showing live status instead of a combined percent');
+        expect(summary.progressLabel).toBe('Multiple jobs in progress');
     });
 
     it('chooses the highest-pressure job family for the banner summary, not just the newest update', () => {
@@ -203,7 +206,7 @@ describe('jobs presenter', () => {
             (kind) => kind === 'reclassify' ? 'Reclassification' : 'Backfill'
         );
 
-        expect(summary.subline).toBe('Reclassification using 1 of 2 worker slots, 12 queued');
+        expect(summary.subline).toBe('Reclassification analyzing clips');
     });
 
     it('builds a determinate banner summary when active jobs share a unit', () => {
@@ -225,6 +228,7 @@ describe('jobs presenter', () => {
 
         expect(summary.determinate).toBe(true);
         expect(summary.percent).toBe(40);
+        expect(summary.headline).toBe('2 jobs running');
         expect(summary.progressLabel).toBe('8 / 20 frames');
     });
 });

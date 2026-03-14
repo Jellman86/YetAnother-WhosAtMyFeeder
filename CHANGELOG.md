@@ -6,6 +6,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- **Changed:** Notifications jobs surfaces are now much more compact. The global progress banner and Jobs view default to short, direct status text and only show extra detail when a job is blocked, stale, or otherwise needs explanation.
 - **Fixed:** `/api/ebird/notable` no longer returns `500 Internal Server Error` when optional taxonomy thumbnail enrichment fails. The route now imports its enrichment dependencies correctly and treats thumbnail lookup as best-effort so notable observations still load.
 - **Changed:** Notifications Jobs and the global progress banner now explain what background work is actually doing. Active rows show explicit activity, determinate vs indeterminate progress, freshness, and blocker text instead of unlabeled bars.
 - **Added:** Reclassification queue telemetry now surfaces truthful capacity details in the UI, including worker-slot usage, queue-slot availability, and MQTT-pressure throttling context where available.

@@ -10,6 +10,7 @@ export interface PresentedActiveJob {
     progressLabel: string;
     capacityLabel: string | null;
     blockerLabel: string | null;
+    detailLabel: string | null;
     freshnessLabel: string;
     determinate: boolean;
     percent: number | null;
@@ -30,6 +31,13 @@ export interface PresentedGlobalProgressSummary {
     progressLabel: string;
     determinate: boolean;
     percent: number | null;
+}
+
+function formatRunningHeadline(count: number, t: JobsTranslateFn): string {
+    if (count === 1) {
+        return t('jobs.global_running_single', undefined, '1 job running');
+    }
+    return t('jobs.global_running_multi', { count: count.toLocaleString() }, '{count} jobs running');
 }
 
 function supportsReclassifyQueueStatus(kind: string): boolean {
@@ -68,35 +76,33 @@ function formatProgress(current: number, total: number, unit: string, t: JobsTra
     }, '{current} / {total} {unit}');
 }
 
+function lowercaseLeadingChar(value: string): string {
+    if (!value) return value;
+    return value.charAt(0).toLowerCase() + value.slice(1);
+}
+
 function resolveProgressUnit(job: JobProgressItem): string {
     if (job.kind === 'reclassify') return 'frames';
     return 'items';
 }
 
 function resolveSummarySubline(
-    kind: string,
+    job: JobProgressItem,
     row: JobPipelineKindRow | null,
     analysisStatus: AnalysisStatus | null | undefined,
     t: JobsTranslateFn,
     kindLabel: (kind: string) => string
 ): string {
-    const label = kindLabel(kind);
-    const capacityLabel = resolveCapacityLabel(row, t);
-    const compactCapacityLabel = typeof capacityLabel === 'string'
-        ? capacityLabel.replace(/\s+busy$/, '')
-        : null;
-    const queued = row?.queued;
-    if (compactCapacityLabel && queued !== null && queued !== undefined) {
-        return t('jobs.global_summary_with_queue', {
-            kind: label,
-            capacity: compactCapacityLabel,
-            queued: normalizeCount(queued).toLocaleString()
-        }, '{kind} using {capacity}, {queued} queued');
-    }
-    if (supportsReclassifyQueueStatus(kind) && analysisStatus?.circuit_open) {
+    const label = kindLabel(job.kind);
+    if (supportsReclassifyQueueStatus(job.kind) && analysisStatus?.circuit_open) {
         return t('jobs.global_summary_circuit_open', { kind: label }, '{kind} paused by circuit breaker');
     }
-    return t('jobs.global_summary_basic', { kind: label }, '{kind} in progress');
+    const activityLabel = resolveActivityLabel(job, row, analysisStatus, t);
+    return t(
+        'jobs.global_summary_basic',
+        { kind: label, activity: lowercaseLeadingChar(activityLabel) },
+        '{kind} {activity}'
+    );
 }
 
 function resolveActivityLabel(
@@ -162,18 +168,21 @@ export function presentActiveJob(
     const percent = determinate ? Math.min(100, Math.max(0, Math.round((job.current / job.total) * 100))) : null;
     const progressLabel = determinate
         ? formatProgress(job.current, job.total, resolveProgressUnit(job), t)
-        : t('jobs.progress_expanding', undefined, 'Total work still expanding');
+        : t('jobs.progress_working', undefined, 'Working...');
     const age = formatAge(Math.max(0, nowTs - job.updatedAt));
     const isStale = job.status === 'stale';
     const freshnessLabel = isStale
         ? t('jobs.freshness_stale', { age }, 'No update for {age}')
         : t('jobs.freshness_updated', { age }, 'Updated {age} ago');
+    const blockerLabel = resolveBlockerLabel(row, analysisStatus, t);
+    const detailLabel = isStale ? freshnessLabel : blockerLabel;
 
     return {
         activityLabel: resolveActivityLabel(job, row, analysisStatus, t),
         progressLabel,
         capacityLabel: resolveCapacityLabel(row, t),
-        blockerLabel: resolveBlockerLabel(row, analysisStatus, t),
+        blockerLabel,
+        detailLabel,
         freshnessLabel,
         determinate,
         percent,
@@ -219,9 +228,9 @@ export function buildGlobalProgressSummary(
 ): PresentedGlobalProgressSummary {
     if (activeJobs.length === 0) {
         return {
-            headline: t('notifications.global_progress_tasks', { count: 0 }, '{count} background tasks in progress'),
+            headline: formatRunningHeadline(0, t),
             subline: t('jobs.activity_processing', undefined, 'Processing work'),
-            progressLabel: t('jobs.progress_expanding', undefined, 'Total work still expanding'),
+            progressLabel: t('jobs.progress_working', undefined, 'Working...'),
             determinate: false,
             percent: null
         };
@@ -237,7 +246,7 @@ export function buildGlobalProgressSummary(
     const dominantRow = rowsByKind.get(dominantKind) ?? null;
     const units = new Set(activeJobs.map((job) => resolveProgressUnit(job)));
     const compatible = units.size === 1 && activeJobs.every((job) => job.total > 0);
-    let progressLabel = t('jobs.progress_expanding', undefined, 'Total work still expanding');
+    let progressLabel = t('jobs.progress_working', undefined, 'Working...');
     let percent: number | null = null;
 
     if (compatible) {
@@ -250,13 +259,13 @@ export function buildGlobalProgressSummary(
         progressLabel = t(
             'jobs.global_summary_mixed_units',
             undefined,
-            'Mixed work units; showing live status instead of a combined percent'
+            'Multiple jobs in progress'
         );
     }
 
     return {
-        headline: t('notifications.global_progress_tasks', { count: activeJobs.length }, '{count} background tasks in progress'),
-        subline: resolveSummarySubline(dominantJob.kind, dominantRow, analysisStatus, t, kindLabel),
+        headline: formatRunningHeadline(activeJobs.length, t),
+        subline: resolveSummarySubline(dominantJob, dominantRow, analysisStatus, t, kindLabel),
         progressLabel,
         determinate: compatible,
         percent
