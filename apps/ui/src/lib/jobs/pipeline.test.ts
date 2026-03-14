@@ -141,5 +141,34 @@ describe('buildJobsPipelineModel', () => {
         });
     });
 
+    it('preserves queue telemetry needed for capacity and pressure labels', () => {
+        const model = buildJobsPipelineModel([], [], {
+            reclassify: {
+                queued: 12,
+                running: 2,
+                queueDepthKnown: true,
+                updatedAt: 11_000,
+                maxConcurrentConfigured: 4,
+                maxConcurrentEffective: 2,
+                mqttPressureLevel: 'high',
+                throttledForMqttPressure: true,
+                mqttInFlight: 9,
+                mqttInFlightCapacity: 10
+            }
+        });
+
+        expect(model.kinds[0]).toMatchObject({
+            kind: 'reclassify',
+            queued: 12,
+            running: 2,
+            maxConcurrentConfigured: 4,
+            maxConcurrentEffective: 2,
+            mqttPressureLevel: 'high',
+            throttledForMqttPressure: true,
+            mqttInFlight: 9,
+            mqttInFlightCapacity: 10
+        });
+    });
+
 
 });

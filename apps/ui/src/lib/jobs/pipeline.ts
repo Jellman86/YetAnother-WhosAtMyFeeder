@@ -5,6 +5,12 @@ export interface QueueTelemetrySnapshot {
     running?: number;
     queueDepthKnown: boolean;
     updatedAt: number;
+    maxConcurrentConfigured?: number;
+    maxConcurrentEffective?: number;
+    mqttPressureLevel?: string;
+    throttledForMqttPressure?: boolean;
+    mqttInFlight?: number;
+    mqttInFlightCapacity?: number;
 }
 
 export type QueueTelemetryByKind = Record<string, QueueTelemetrySnapshot>;
@@ -18,6 +24,12 @@ export interface JobPipelineKindRow {
     completed: number;
     failed: number;
     queueUpdatedAt: number | null;
+    maxConcurrentConfigured: number | null;
+    maxConcurrentEffective: number | null;
+    mqttPressureLevel: string | null;
+    throttledForMqttPressure: boolean;
+    mqttInFlight: number | null;
+    mqttInFlightCapacity: number | null;
 }
 
 export interface JobPipelineModel {
@@ -145,7 +157,15 @@ export function buildJobsPipelineModel(
             stale: counters.stale,
             completed: counters.completed,
             failed: counters.failed,
-            queueUpdatedAt: queue ? normalizeCount(queue.updatedAt) : null
+            queueUpdatedAt: queue ? normalizeCount(queue.updatedAt) : null,
+            maxConcurrentConfigured: queue ? normalizeCount(queue.maxConcurrentConfigured) || null : null,
+            maxConcurrentEffective: queue ? normalizeCount(queue.maxConcurrentEffective) || null : null,
+            mqttPressureLevel: typeof queue?.mqttPressureLevel === 'string' && queue.mqttPressureLevel.trim().length > 0
+                ? queue.mqttPressureLevel.trim().toLowerCase()
+                : null,
+            throttledForMqttPressure: queue?.throttledForMqttPressure === true,
+            mqttInFlight: queue ? normalizeCount(queue.mqttInFlight) || null : null,
+            mqttInFlightCapacity: queue ? normalizeCount(queue.mqttInFlightCapacity) || null : null
         };
         kinds.push(row);
 

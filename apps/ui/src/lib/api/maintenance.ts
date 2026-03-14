@@ -71,6 +71,12 @@ export interface AnalysisStatus {
     failure_count?: number;
     pending_capacity?: number;
     pending_available?: number;
+    max_concurrent_configured?: number;
+    max_concurrent_effective?: number;
+    mqtt_pressure_level?: string;
+    throttled_for_mqtt_pressure?: boolean;
+    mqtt_in_flight?: number;
+    mqtt_in_flight_capacity?: number;
 }
 
 export interface ResetDatabaseResult {
