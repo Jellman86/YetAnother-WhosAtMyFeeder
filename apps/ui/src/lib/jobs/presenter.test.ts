@@ -117,6 +117,33 @@ describe('jobs presenter', () => {
         expect(presented.queueCapacityLabel).toBe('188 of 200 queue slots free');
     });
 
+    it('does not leak reclassify circuit and queue telemetry into unrelated job rows', () => {
+        const analysisStatus: AnalysisStatus = {
+            pending: 12,
+            active: 0,
+            circuit_open: true,
+            pending_capacity: 200,
+            pending_available: 188
+        };
+
+        const presented = presentPipelineKindRow(
+            makeRow({
+                kind: 'backfill',
+                queued: 0,
+                queueDepthKnown: true,
+                running: 1,
+                maxConcurrentConfigured: null,
+                maxConcurrentEffective: null
+            }),
+            analysisStatus,
+            t
+        );
+
+        expect(presented.activityLabel).toBe('Processing work');
+        expect(presented.blockerLabel).toBeNull();
+        expect(presented.queueCapacityLabel).toBeNull();
+    });
+
     it('marks stale jobs with explicit freshness labels', () => {
         const presented = presentActiveJob(
             makeJob({ status: 'stale', updatedAt: 0 }),
@@ -154,6 +181,29 @@ describe('jobs presenter', () => {
         expect(summary.subline).toBe('Reclassification using 1 of 2 worker slots, 12 queued');
         expect(summary.determinate).toBe(false);
         expect(summary.progressLabel).toBe('Mixed work units; showing live status instead of a combined percent');
+    });
+
+    it('chooses the highest-pressure job family for the banner summary, not just the newest update', () => {
+        const summary = buildGlobalProgressSummary(
+            [
+                makeJob({ id: 'backfill:job-1', kind: 'backfill', total: 100, current: 20, title: 'Backfill', updatedAt: 130_000 }),
+                makeJob({ id: 'reclassify:evt-1', kind: 'reclassify', total: 10, current: 3, updatedAt: 120_000 })
+            ],
+            new Map([
+                ['reclassify', makeRow({ queued: 12, running: 1, maxConcurrentConfigured: 2 })],
+                ['backfill', makeRow({ kind: 'backfill', queued: 0, running: 1, maxConcurrentConfigured: null, maxConcurrentEffective: null })]
+            ]),
+            {
+                pending: 12,
+                active: 1,
+                circuit_open: false
+            },
+            130_000,
+            t,
+            (kind) => kind === 'reclassify' ? 'Reclassification' : 'Backfill'
+        );
+
+        expect(summary.subline).toBe('Reclassification using 1 of 2 worker slots, 12 queued');
     });
 
     it('builds a determinate banner summary when active jobs share a unit', () => {

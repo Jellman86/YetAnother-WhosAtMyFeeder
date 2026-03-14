@@ -32,6 +32,17 @@ export interface PresentedGlobalProgressSummary {
     percent: number | null;
 }
 
+function supportsReclassifyQueueStatus(kind: string): boolean {
+    return kind === 'reclassify' || kind === 'reclassify_batch';
+}
+
+function rankRow(row: JobPipelineKindRow): number {
+    return (normalizeCount(row.running) * 1000)
+        + (normalizeCount(row.queued) * 100)
+        + (normalizeCount(row.failed) * 10)
+        + normalizeCount(row.completed);
+}
+
 function normalizeCount(value: unknown): number {
     const parsed = Number(value);
     if (!Number.isFinite(parsed)) return 0;
@@ -82,7 +93,7 @@ function resolveSummarySubline(
             queued: normalizeCount(queued).toLocaleString()
         }, '{kind} using {capacity}, {queued} queued');
     }
-    if (analysisStatus?.circuit_open) {
+    if (supportsReclassifyQueueStatus(kind) && analysisStatus?.circuit_open) {
         return t('jobs.global_summary_circuit_open', { kind: label }, '{kind} paused by circuit breaker');
     }
     return t('jobs.global_summary_basic', { kind: label }, '{kind} in progress');
@@ -131,10 +142,10 @@ function resolveBlockerLabel(
     analysisStatus: AnalysisStatus | null | undefined,
     t: JobsTranslateFn
 ): string | null {
-    if (analysisStatus?.circuit_open) {
+    if (row && supportsReclassifyQueueStatus(row.kind) && analysisStatus?.circuit_open) {
         return t('jobs.blocker_circuit_open', undefined, 'Recent failures paused reclassification work');
     }
-    if (row?.throttledForMqttPressure) {
+    if (row && supportsReclassifyQueueStatus(row.kind) && row.throttledForMqttPressure) {
         return t('jobs.blocker_mqtt_pressure', undefined, 'MQTT pressure reduced background capacity');
     }
     return null;
@@ -175,7 +186,8 @@ export function presentPipelineKindRow(
     analysisStatus: AnalysisStatus | null | undefined,
     t: JobsTranslateFn
 ): PresentedPipelineKindRow {
-    const activityLabel = analysisStatus?.circuit_open
+    const queueStatusApplies = supportsReclassifyQueueStatus(row.kind);
+    const activityLabel = queueStatusApplies && analysisStatus?.circuit_open
         ? t('jobs.activity_circuit_open', undefined, 'Paused by circuit breaker')
         : row.running > 0
             ? t('jobs.activity_processing', undefined, 'Processing work')
@@ -188,7 +200,7 @@ export function presentPipelineKindRow(
         queueDepthLabel: row.queueDepthKnown
             ? t('jobs.queue_reported', undefined, 'Queue reported')
             : t('jobs.queue_depth_unknown', undefined, 'Queue depth not reported'),
-        queueCapacityLabel: normalizeCount(analysisStatus?.pending_capacity) > 0
+        queueCapacityLabel: queueStatusApplies && normalizeCount(analysisStatus?.pending_capacity) > 0
             ? t('jobs.queue_slots_free', {
                 available: normalizeCount(analysisStatus?.pending_available).toLocaleString(),
                 capacity: normalizeCount(analysisStatus?.pending_capacity).toLocaleString()
@@ -215,8 +227,14 @@ export function buildGlobalProgressSummary(
         };
     }
 
-    const dominantJob = activeJobs[0];
-    const dominantRow = rowsByKind.get(dominantJob.kind) ?? null;
+    const rankedRows = [...rowsByKind.values()].sort((a, b) => {
+        const diff = rankRow(b) - rankRow(a);
+        if (diff !== 0) return diff;
+        return a.kind.localeCompare(b.kind);
+    });
+    const dominantKind = rankedRows[0]?.kind ?? activeJobs[0].kind;
+    const dominantJob = activeJobs.find((job) => job.kind === dominantKind) ?? activeJobs[0];
+    const dominantRow = rowsByKind.get(dominantKind) ?? null;
     const units = new Set(activeJobs.map((job) => resolveProgressUnit(job)));
     const compatible = units.size === 1 && activeJobs.every((job) => job.total > 0);
     let progressLabel = t('jobs.progress_expanding', undefined, 'Total work still expanding');
