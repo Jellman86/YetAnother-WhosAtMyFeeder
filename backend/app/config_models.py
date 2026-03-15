@@ -287,6 +287,8 @@ class MediaCacheSettings(BaseModel):
 class LocationSettings(BaseModel):
     latitude: Optional[float] = Field(None, description="Latitude for weather/sun data")
     longitude: Optional[float] = Field(None, description="Longitude for weather/sun data")
+    state: Optional[str] = Field(None, description="Optional state/region for eBird export")
+    country: Optional[str] = Field(None, description="Optional country for eBird export")
     automatic: bool = Field(True, description="Attempt to detect location automatically via IP")
     weather_unit_system: Literal["metric", "imperial", "british"] = Field(
         default="metric",

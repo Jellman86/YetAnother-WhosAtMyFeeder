@@ -48,4 +48,10 @@ describe('exportEbirdCsv', () => {
 
         expect(apiFetchMock).toHaveBeenCalledWith('/api/ebird/export?date=2026-03-12');
     });
+
+    it('requests full export when no date is provided', async () => {
+        await exportEbirdCsv();
+
+        expect(apiFetchMock).toHaveBeenCalledWith('/api/ebird/export');
+    });
 });

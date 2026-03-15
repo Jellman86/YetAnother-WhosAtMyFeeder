@@ -520,7 +520,9 @@
       "fahrenheit": "Fahrenheit (°F)",
       "temperature_unit_desc": "Mostrar temperatura en datos meteorológicos",
       "auto_detect_enabled": "Detección automática vía IP habilitada",
-      "desc": "Se utiliza para el contexto meteorológico localizado durante las detecciones."
+      "desc": "Se utiliza para el contexto meteorológico localizado durante las detecciones.",
+      "state": "State / Region",
+      "country": "Country"
     },
     "danger": {
       "title": "Zona de Peligro",

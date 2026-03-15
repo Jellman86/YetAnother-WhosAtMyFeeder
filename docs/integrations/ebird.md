@@ -25,10 +25,11 @@ When eBird is enabled, YA-WAMF will prefer eBird taxonomy and recent sightings f
 Since eBird does not provide a public API for submitting checklists programmatically, YA-WAMF provides a CSV export feature compliant with the "Record Format".
 
 1. Go to **Settings > Integrations > eBird**.
-2. Click **Export All Sightings (CSV)**.
-3. Log in to the [eBird Import Data](https://ebird.org/import) tool.
-4. Upload the generated CSV file.
-5. Select **eBird Record Format (Extended)**.
-6. Verify the data and submit.
+2. Optionally choose an export date if you want a single-day checklist file.
+3. Click **Export All Sightings (CSV)**.
+4. Log in to the [eBird Import Data](https://ebird.org/import) tool.
+5. Upload the generated CSV file.
+6. Select **eBird Record Format (Extended)**.
+7. Verify the data and submit.
 
-**Note:** The export sets the protocol to "Incidental" and duration to "0" by default, as YA-WAMF detections are continuous automated events rather than a dedicated birding session. You may edit the CSV before upload if you wish to group them into specific checklists.
+**Note:** The export now uses the `Stationary` protocol, keeps bird names English-stable for compatibility, and fills duration from the first to last exported detection on each exported date. If you set optional location `state` / `country` values in Settings, YA-WAMF will place them into the export instead of leaving those columns blank.

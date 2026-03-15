@@ -32,6 +32,9 @@ def _format_ebird_row(
     camera_name: str | None,
     common_name: str | None,
     english_common_name: str | None,
+    duration_minutes: int,
+    video_classification_provider: str | None,
+    video_classification_backend: str | None,
 ) -> list[str]:
     date_str = detection_time.strftime("%m/%d/%Y")
     time_str = detection_time.strftime("%H:%M")
@@ -49,14 +52,25 @@ def _format_ebird_row(
     location_name = f"Home ({camera_name})" if camera_name else "Home"
     lat = settings.location.latitude
     lon = settings.location.longitude
-    submission_comment = "Exported from YA-WAMF"
+    state = str(getattr(settings.location, "state", "") or "").strip()
+    country = str(getattr(settings.location, "country", "") or "").strip()
+    submission_parts = ["Exported from YA-WAMF"]
+
+    provider = str(video_classification_provider or "").strip()
+    backend = str(video_classification_backend or "").strip()
+    if provider:
+        submission_parts.append(f"provider {provider}")
+    if backend:
+        submission_parts.append(f"backend {backend}")
 
     try:
         confidence = float(score)
     except (TypeError, ValueError):
         confidence = None
     if confidence is not None and math.isfinite(confidence):
-        submission_comment = f"{submission_comment}; AI confidence {confidence:.2f}"
+        submission_parts.append(f"confidence {confidence:.2f}")
+
+    submission_comment = "; ".join(submission_parts)
 
     return [
         export_common_name,
@@ -69,16 +83,30 @@ def _format_ebird_row(
         f"{lon:.6f}" if lon is not None else "",
         date_str,
         time_str,
-        "",
-        "",
-        "Incidental",
+        state,
+        country,
+        "Stationary",
         "1",
-        "",
+        str(max(0, int(duration_minutes))),
         "N",
         "",
         "",
         submission_comment,
     ]
+
+
+def _parse_detection_time(value: object) -> datetime | None:
+    if isinstance(value, datetime):
+        return value
+    if isinstance(value, str):
+        try:
+            return datetime.fromisoformat(value)
+        except ValueError:
+            try:
+                return datetime.strptime(value, "%Y-%m-%d %H:%M:%S.%f")
+            except ValueError:
+                return None
+    return None
 
 
 @router.get("/export")
@@ -105,6 +133,7 @@ async def export_ebird_csv(
     async def iter_csv():
         f = io.StringIO()
         writer = csv.writer(f, quoting=csv.QUOTE_MINIMAL)
+        parsed_rows: list[tuple[str, str | None, datetime, float, str | None, str | None, str | None, str | None, str | None, date]] = []
 
         # eBird spreadsheet import is strict about column order and often treats headers as data,
         # so this endpoint emits headerless rows in the standard 19-column record format.
@@ -119,6 +148,8 @@ async def export_ebird_csv(
                     d.score,
                     d.camera_name,
                     d.common_name,
+                    d.video_classification_provider,
+                    d.video_classification_backend,
                     COALESCE(
                         (
                             SELECT tc_by_name.common_name
@@ -152,38 +183,83 @@ async def export_ebird_csv(
                         score,
                         camera_name,
                         common_name,
+                        video_classification_provider,
+                        video_classification_backend,
                         english_common_name,
                     ) = row
-                    
-                    # Handle date parsing if string
-                    dt = detection_time
-                    if isinstance(dt, str):
-                        try:
-                            dt = datetime.fromisoformat(dt)
-                        except ValueError:
-                            try:
-                                dt = datetime.strptime(dt, "%Y-%m-%d %H:%M:%S.%f")
-                            except ValueError:
-                                continue # Skip invalid dates
-                    
-                    writer.writerow(
-                        _format_ebird_row(
-                            display_name=display_name,
-                            scientific_name=scientific_name,
-                            detection_time=dt,
-                            score=score,
-                            camera_name=camera_name,
-                            common_name=common_name,
-                            english_common_name=english_common_name,
+                    dt = _parse_detection_time(detection_time)
+                    if dt is None:
+                        continue
+                    bucket = dt.date()
+                    parsed_rows.append(
+                        (
+                            display_name,
+                            scientific_name,
+                            dt,
+                            score,
+                            camera_name,
+                            common_name,
+                            video_classification_provider,
+                            video_classification_backend,
+                            english_common_name,
+                            bucket,
                         )
                     )
-                    
-                    f.seek(0)
-                    data = f.read()
-                    if data:
-                        yield data
-                    f.truncate(0)
-                    f.seek(0)
+
+            durations_by_date: dict[date, int] = {}
+            for row in parsed_rows:
+                bucket = row[9]
+                existing = durations_by_date.get(bucket)
+                if existing is None:
+                    durations_by_date[bucket] = 0
+
+            min_max_by_date: dict[date, tuple[datetime, datetime]] = {}
+            for row in parsed_rows:
+                bucket = row[9]
+                dt = row[2]
+                current = min_max_by_date.get(bucket)
+                if current is None:
+                    min_max_by_date[bucket] = (dt, dt)
+                else:
+                    min_dt, max_dt = current
+                    min_max_by_date[bucket] = (min(min_dt, dt), max(max_dt, dt))
+
+            for bucket, (min_dt, max_dt) in min_max_by_date.items():
+                durations_by_date[bucket] = max(0, int((max_dt - min_dt).total_seconds() // 60))
+
+            for (
+                display_name,
+                scientific_name,
+                dt,
+                score,
+                camera_name,
+                common_name,
+                video_classification_provider,
+                video_classification_backend,
+                english_common_name,
+                bucket,
+            ) in parsed_rows:
+                writer.writerow(
+                    _format_ebird_row(
+                        display_name=display_name,
+                        scientific_name=scientific_name,
+                        detection_time=dt,
+                        score=score,
+                        camera_name=camera_name,
+                        common_name=common_name,
+                        english_common_name=english_common_name,
+                        duration_minutes=durations_by_date.get(bucket, 0),
+                        video_classification_provider=video_classification_provider,
+                        video_classification_backend=video_classification_backend,
+                    )
+                )
+
+                f.seek(0)
+                data = f.read()
+                if data:
+                    yield data
+                f.truncate(0)
+                f.seek(0)
 
     filename = f"ebird_export_{datetime.now().strftime('%Y%m%d')}.csv"
     return StreamingResponse(

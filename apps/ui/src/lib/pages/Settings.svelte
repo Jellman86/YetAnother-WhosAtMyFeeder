@@ -129,6 +129,8 @@
     // Location Settings
     let locationLat = $state<number | null>(null);
     let locationLon = $state<number | null>(null);
+    let locationState = $state('');
+    let locationCountry = $state('');
     let locationAuto = $state(true);
     let locationWeatherUnitSystem = $state<'metric' | 'imperial' | 'british'>('metric');
 
@@ -2401,6 +2403,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             // Location settings
             locationLat = settings.location_latitude ?? null;
             locationLon = settings.location_longitude ?? null;
+            locationState = settings.location_state ?? '';
+            locationCountry = settings.location_country ?? '';
             locationAuto = settings.location_automatic ?? true;
             locationWeatherUnitSystem = ((settings.location_weather_unit_system as 'metric' | 'imperial' | 'british') ?? (settings.location_temperature_unit === 'fahrenheit' ? 'imperial' : 'metric'));
             // BirdWeather settings
@@ -2674,6 +2678,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 media_cache_retention_days: cacheRetentionDays,
                 location_latitude: locationLat,
                 location_longitude: locationLon,
+                location_state: locationState || null,
+                location_country: locationCountry || null,
                 location_automatic: locationAuto,
                 location_weather_unit_system: locationWeatherUnitSystem,
                 birdweather_enabled: birdweatherEnabled,
@@ -3146,6 +3152,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     bind:locationAuto
                     bind:locationLat
                     bind:locationLon
+                    bind:locationState
+                    bind:locationCountry
                     bind:locationWeatherUnitSystem
                     handleTestBirdNET={handleTestBirdNET}
                     handleTestBirdWeather={handleTestBirdWeather}

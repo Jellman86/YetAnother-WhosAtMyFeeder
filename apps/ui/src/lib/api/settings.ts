@@ -42,6 +42,8 @@ export interface Settings {
     media_cache_retention_days: number;
     location_latitude?: number | null;
     location_longitude?: number | null;
+    location_state?: string | null;
+    location_country?: string | null;
     location_automatic?: boolean;
     location_weather_unit_system?: 'metric' | 'imperial' | 'british' | string;
     location_temperature_unit?: 'celsius' | 'fahrenheit' | string;

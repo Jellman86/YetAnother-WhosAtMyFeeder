@@ -499,7 +499,9 @@
       "fahrenheit": "Fahrenheit (°F)",
       "temperature_unit_desc": "Mostra temperatura nei dati meteo",
       "auto_detect_enabled": "Rilevamento auto tramite IP abilitato",
-      "desc": "Usato per contesto meteo locale durante rilevamenti."
+      "desc": "Usato per contesto meteo locale durante rilevamenti.",
+      "state": "State / Region",
+      "country": "Country"
     },
     "danger": {
       "title": "Zona Pericolo",

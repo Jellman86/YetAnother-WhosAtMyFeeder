@@ -637,7 +637,9 @@
       "fahrenheit": "Fahrenheit (°F)",
       "temperature_unit_desc": "Temperatur in Wetterdaten anzeigen",
       "auto_detect_enabled": "Automatische Erkennung über IP aktiviert",
-      "desc": "Wird für lokalisierte Wetterkontexte während Erkennungen verwendet."
+      "desc": "Wird für lokalisierte Wetterkontexte während Erkennungen verwendet.",
+      "state": "State / Region",
+      "country": "Country"
     },
     "danger": {
       "title": "Gefahrenzone",

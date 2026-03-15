@@ -491,7 +491,9 @@
       "fahrenheit": "华氏度（°F）",
       "temperature_unit_desc": "在天气数据中显示温度",
       "auto_detect_enabled": "已启用通过 IP 自动检测",
-      "desc": "用于检测期间的本地化天气上下文。"
+      "desc": "用于检测期间的本地化天气上下文。",
+      "state": "State / Region",
+      "country": "Country"
     },
     "danger": {
       "title": "危险区域",

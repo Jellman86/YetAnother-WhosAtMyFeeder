@@ -303,6 +303,8 @@ class SettingsUpdate(BaseModel):
     # Location settings
     location_latitude: Optional[float] = Field(None, description="Latitude")
     location_longitude: Optional[float] = Field(None, description="Longitude")
+    location_state: Optional[str] = Field(None, description="State/region")
+    location_country: Optional[str] = Field(None, description="Country")
     location_automatic: Optional[bool] = Field(True, description="Auto-detect location")
     location_weather_unit_system: Optional[str] = Field(
         "metric",
@@ -583,6 +585,8 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         # Location settings
         "location_latitude": settings.location.latitude,
         "location_longitude": settings.location.longitude,
+        "location_state": settings.location.state,
+        "location_country": settings.location.country,
         "location_automatic": settings.location.automatic,
         "location_weather_unit_system": settings.location.weather_unit_system,
         "location_temperature_unit": settings.location.temperature_unit,
@@ -816,6 +820,10 @@ async def update_settings(
         settings.location.latitude = update.location_latitude
     if "location_longitude" in fields_set:
         settings.location.longitude = update.location_longitude
+    if "location_state" in fields_set:
+        settings.location.state = update.location_state
+    if "location_country" in fields_set:
+        settings.location.country = update.location_country
     if "location_automatic" in fields_set and update.location_automatic is not None:
         settings.location.automatic = update.location_automatic
     if "location_weather_unit_system" in fields_set and update.location_weather_unit_system is not None:

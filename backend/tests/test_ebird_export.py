@@ -28,6 +28,8 @@ def reset_auth_and_ebird_settings():
     original_ebird_locale = settings.ebird.locale
     original_lat = settings.location.latitude
     original_lng = settings.location.longitude
+    original_state = getattr(settings.location, "state", None)
+    original_country = getattr(settings.location, "country", None)
 
     settings.auth.enabled = False
     settings.public_access.enabled = False
@@ -43,6 +45,8 @@ def reset_auth_and_ebird_settings():
     settings.ebird.locale = original_ebird_locale
     settings.location.latitude = original_lat
     settings.location.longitude = original_lng
+    settings.location.state = original_state
+    settings.location.country = original_country
 
 
 @pytest_asyncio.fixture(autouse=True)
@@ -69,14 +73,17 @@ async def _insert_detection(
     taxa_id: int | None = None,
     camera_name: str = "feeder",
     is_hidden: bool = False,
+    video_classification_provider: str | None = None,
+    video_classification_backend: str | None = None,
 ) -> None:
     async with get_db() as db:
         await db.execute(
             """
             INSERT INTO detections (
                 detection_time, detection_index, score, display_name, category_name,
-                frigate_event, camera_name, is_hidden, scientific_name, common_name, taxa_id
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                frigate_event, camera_name, is_hidden, scientific_name, common_name, taxa_id,
+                video_classification_provider, video_classification_backend
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 detection_time,
@@ -90,6 +97,8 @@ async def _insert_detection(
                 scientific_name,
                 common_name,
                 taxa_id,
+                video_classification_provider,
+                video_classification_backend,
             ),
         )
         await db.commit()
@@ -140,8 +149,11 @@ async def test_ebird_export_is_strict_19_column_csv_without_header(client: httpx
     assert row[2] == "merula"
     assert row[8] == "03/12/2026"
     assert row[9] == "07:05"
-    assert row[12] == "Incidental"
-    assert row[18].startswith("Exported from YA-WAMF")
+    assert row[10] == ""
+    assert row[11] == ""
+    assert row[12] == "Stationary"
+    assert row[14] == "0"
+    assert row[18] == "Exported from YA-WAMF; confidence 0.84"
 
 
 @pytest.mark.asyncio
@@ -303,3 +315,133 @@ async def test_ebird_export_tolerates_non_finite_score_metadata(client: httpx.As
     assert len(rows) == 1
     assert rows[0][0] == "Great Tit"
     assert rows[0][18] == "Exported from YA-WAMF"
+
+
+@pytest.mark.asyncio
+async def test_ebird_export_uses_daily_duration_window_per_date(client: httpx.AsyncClient):
+    settings.ebird.enabled = False
+    settings.ebird.api_key = None
+
+    await _insert_detection(
+        frigate_event=f"evt-{uuid.uuid4().hex[:8]}",
+        detection_time=datetime(2026, 3, 12, 7, 5, 0),
+        score=0.71,
+        display_name="Bird One",
+        scientific_name="Parus major",
+        common_name="Great Tit",
+    )
+    await _insert_detection(
+        frigate_event=f"evt-{uuid.uuid4().hex[:8]}",
+        detection_time=datetime(2026, 3, 12, 7, 47, 0),
+        score=0.74,
+        display_name="Bird Two",
+        scientific_name="Parus major",
+        common_name="Great Tit",
+    )
+
+    response = await client.get("/api/ebird/export", params={"date": "2026-03-12"})
+
+    assert response.status_code == 200, response.text
+    rows = _read_csv_rows(response.text)
+    assert len(rows) == 2
+    assert rows[0][14] == "42"
+    assert rows[1][14] == "42"
+
+
+@pytest.mark.asyncio
+async def test_ebird_export_computes_duration_per_exported_date_bucket(client: httpx.AsyncClient):
+    settings.ebird.enabled = False
+    settings.ebird.api_key = None
+
+    await _insert_detection(
+        frigate_event=f"evt-{uuid.uuid4().hex[:8]}",
+        detection_time=datetime(2026, 3, 11, 6, 0, 0),
+        score=0.55,
+        display_name="Older Bird",
+        scientific_name="Parus major",
+        common_name="Great Tit",
+    )
+    await _insert_detection(
+        frigate_event=f"evt-{uuid.uuid4().hex[:8]}",
+        detection_time=datetime(2026, 3, 11, 6, 10, 0),
+        score=0.65,
+        display_name="Older Bird Two",
+        scientific_name="Parus major",
+        common_name="Great Tit",
+    )
+    await _insert_detection(
+        frigate_event=f"evt-{uuid.uuid4().hex[:8]}",
+        detection_time=datetime(2026, 3, 12, 7, 0, 0),
+        score=0.75,
+        display_name="Newer Bird",
+        scientific_name="Turdus merula",
+        common_name="Common Blackbird",
+    )
+    await _insert_detection(
+        frigate_event=f"evt-{uuid.uuid4().hex[:8]}",
+        detection_time=datetime(2026, 3, 12, 7, 45, 0),
+        score=0.85,
+        display_name="Newer Bird Two",
+        scientific_name="Turdus merula",
+        common_name="Common Blackbird",
+    )
+
+    response = await client.get("/api/ebird/export")
+
+    assert response.status_code == 200, response.text
+    rows = _read_csv_rows(response.text)
+    assert len(rows) == 4
+    durations_by_timestamp = {(row[8], row[9]): row[14] for row in rows}
+    assert durations_by_timestamp[("03/12/2026", "07:45")] == "45"
+    assert durations_by_timestamp[("03/12/2026", "07:00")] == "45"
+    assert durations_by_timestamp[("03/11/2026", "06:10")] == "10"
+    assert durations_by_timestamp[("03/11/2026", "06:00")] == "10"
+
+
+@pytest.mark.asyncio
+async def test_ebird_export_includes_available_runtime_metadata_in_submission_comments(client: httpx.AsyncClient):
+    settings.ebird.enabled = False
+    settings.ebird.api_key = None
+
+    await _insert_detection(
+        frigate_event=f"evt-{uuid.uuid4().hex[:8]}",
+        detection_time=datetime(2026, 3, 12, 12, 0, 0),
+        score=0.953,
+        display_name="Metadata Bird",
+        scientific_name="Turdus merula",
+        common_name="Common Blackbird",
+        video_classification_provider="intel_gpu",
+        video_classification_backend="openvino",
+    )
+
+    response = await client.get("/api/ebird/export")
+
+    assert response.status_code == 200, response.text
+    rows = _read_csv_rows(response.text)
+    assert len(rows) == 1
+    assert rows[0][18] == "Exported from YA-WAMF; provider intel_gpu; backend openvino; confidence 0.95"
+
+
+@pytest.mark.asyncio
+async def test_ebird_export_uses_configured_state_and_country_when_present(client: httpx.AsyncClient):
+    settings.ebird.enabled = False
+    settings.ebird.api_key = None
+    settings.location.state = "California"
+    settings.location.country = "United States"
+
+    await _insert_detection(
+        frigate_event=f"evt-{uuid.uuid4().hex[:8]}",
+        detection_time=datetime(2026, 3, 12, 12, 30, 0),
+        score=0.88,
+        display_name="Region Bird",
+        scientific_name="Turdus merula",
+        common_name="Common Blackbird",
+    )
+
+    response = await client.get("/api/ebird/export")
+
+    assert response.status_code == 200, response.text
+    rows = _read_csv_rows(response.text)
+    assert len(rows) == 1
+    assert rows[0][10] == "California"
+    assert rows[0][11] == "United States"

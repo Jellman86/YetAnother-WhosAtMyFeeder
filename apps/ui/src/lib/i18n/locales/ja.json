@@ -491,7 +491,9 @@
       "fahrenheit": "華氏（°F）",
       "temperature_unit_desc": "気象データに温度を表示",
       "auto_detect_enabled": "IPによる自動検出が有効です",
-      "desc": "検出時のローカライズされた気象コンテキストに使用されます。"
+      "desc": "検出時のローカライズされた気象コンテキストに使用されます。",
+      "state": "State / Region",
+      "country": "Country"
     },
     "danger": {
       "title": "危険ゾーン",

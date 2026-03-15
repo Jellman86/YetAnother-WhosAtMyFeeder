@@ -35,6 +35,8 @@
         locationAuto = $bindable(true),
         locationLat = $bindable<number | null>(null),
         locationLon = $bindable<number | null>(null),
+        locationState = $bindable(''),
+        locationCountry = $bindable(''),
         locationWeatherUnitSystem = $bindable<'metric' | 'imperial' | 'british'>('metric'),
         handleTestBirdNET,
         handleTestBirdWeather,
@@ -76,6 +78,8 @@
         locationAuto: boolean;
         locationLat: number | null;
         locationLon: number | null;
+        locationState: string;
+        locationCountry: string;
         locationWeatherUnitSystem: 'metric' | 'imperial' | 'british';
         handleTestBirdNET: () => Promise<void>;
         handleTestBirdWeather: () => Promise<void>;
@@ -697,6 +701,26 @@
                             step="any"
                             bind:value={locationLon}
                             aria-label="{$_('settings.location.longitude')}"
+                            class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"
+                        />
+                    </div>
+                    <div>
+                        <label for="location-state" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.location.state')}</label>
+                        <input
+                            id="location-state"
+                            type="text"
+                            bind:value={locationState}
+                            aria-label="{$_('settings.location.state')}"
+                            class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"
+                        />
+                    </div>
+                    <div>
+                        <label for="location-country" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.location.country')}</label>
+                        <input
+                            id="location-country"
+                            type="text"
+                            bind:value={locationCountry}
+                            aria-label="{$_('settings.location.country')}"
                             class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"
                         />
                     </div>

@@ -25,6 +25,8 @@ const REQUIRED_KEYS = [
     'settings.integrations.ebird.export_date_label',
     'settings.integrations.ebird.export_date_help',
     'settings.location.weather_unit_system',
+    'settings.location.state',
+    'settings.location.country',
     'settings.location.metric',
     'settings.location.imperial',
     'settings.location.british',

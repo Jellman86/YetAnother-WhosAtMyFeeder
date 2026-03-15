@@ -650,7 +650,9 @@
       "fahrenheit": "Fahrenheit (°F)",
       "temperature_unit_desc": "Display temperature in weather data",
       "auto_detect_enabled": "Auto-detect via IP enabled",
-      "desc": "Used for localized weather context during detections."
+      "desc": "Used for localized weather context during detections.",
+      "state": "State / Region",
+      "country": "Country"
     },
     "danger": {
       "title": "Danger Zone",
