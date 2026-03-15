@@ -1,5 +1,6 @@
 <script lang="ts">
     import { _ } from 'svelte-i18n';
+    import { locationTogglePresentation } from '../../settings/location-toggle';
     import SecretSavedBadge from './SecretSavedBadge.svelte';
 
     // Props
@@ -151,6 +152,8 @@
             ebirdExportRangeError = '';
         }
     }
+
+    let locationToggle = $derived(locationTogglePresentation(locationAuto));
 </script>
 
 <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
@@ -727,7 +730,7 @@
             </div>
 
             <div class="flex items-center gap-3">
-                <span class="text-[10px] font-black uppercase tracking-widest {locationAuto ? 'text-teal-500' : 'text-slate-400'}">{$_('settings.location.auto')}</span>
+                <span class="text-[10px] font-black uppercase tracking-widest {locationToggle.autoActive ? 'text-teal-500' : 'text-slate-400'}">{$_('settings.location.auto')}</span>
                 <button
                     role="switch"
                     aria-checked={locationAuto}
@@ -742,9 +745,9 @@
                     class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {locationAuto ? 'bg-teal-500' : 'bg-slate-300 dark:bg-slate-600'}"
                 >
                     <span class="sr-only">Location auto-detect</span>
-                    <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {locationAuto ? 'translate-x-5' : 'translate-x-0'}"></span>
+                    <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {locationToggle.thumbTranslateClass}"></span>
                 </button>
-                <span class="text-[10px] font-black uppercase tracking-widest {!locationAuto ? 'text-orange-500' : 'text-slate-400'}">{$_('settings.location.manual')}</span>
+                <span class="text-[10px] font-black uppercase tracking-widest {locationToggle.manualActive ? 'text-orange-500' : 'text-slate-400'}">{$_('settings.location.manual')}</span>
             </div>
         </div>
 
