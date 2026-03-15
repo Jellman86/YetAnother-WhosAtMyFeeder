@@ -106,7 +106,7 @@ describe('incidentWorkspaceStore', () => {
         expect(draft.bundleSchemaVersion).toBe(2);
     });
 
-    it('surfaces local diagnostic groups as current incidents when backend evidence is absent', () => {
+    it('does not surface local-only diagnostic groups as live incidents', () => {
         const store = createIncidentWorkspaceStore();
 
         store.ingestLocalDiagnosticGroups([
@@ -121,9 +121,8 @@ describe('incidentWorkspaceStore', () => {
             }
         ]);
 
-        expect(store.currentIssues).toHaveLength(1);
-        expect(store.currentIssues[0].affected_area).toBe('frontend');
-        expect(store.currentIssues[0].evidenceRefs).toContain('local:runtime|frontend|-|uncaught_exception');
+        expect(store.currentIssues).toHaveLength(0);
+        expect(store.recentIncidents).toHaveLength(0);
     });
 
     it('does not churn incident state when equivalent local diagnostic groups are re-ingested', () => {
@@ -148,7 +147,7 @@ describe('incidentWorkspaceStore', () => {
         expect(store.currentIssues).toBe(firstCurrentIssues);
     });
 
-    it('moves cleared local health circuit incidents out of current issues', () => {
+    it('does not surface local health circuit incidents in the live workspace', () => {
         const store = createIncidentWorkspaceStore();
 
         store.ingestWorkspacePayload({
@@ -184,8 +183,8 @@ describe('incidentWorkspaceStore', () => {
             }
         ]);
 
-        expect(store.currentIssues).toHaveLength(1);
-        expect(store.currentIssues[0].primaryReasonCode).toBe('circuit_open');
+        expect(store.currentIssues).toHaveLength(0);
+        expect(store.recentIncidents).toHaveLength(0);
 
         store.ingestWorkspacePayload({
             workspace_schema_version: '2026-03-12.owner-incident-workspace.v1',
@@ -209,9 +208,7 @@ describe('incidentWorkspaceStore', () => {
         });
 
         expect(store.currentIssues).toHaveLength(0);
-        expect(store.recentIncidents).toHaveLength(1);
-        expect(store.recentIncidents[0].primaryReasonCode).toBe('circuit_open');
-        expect(store.recentIncidents[0].status).toBe('resolved');
+        expect(store.recentIncidents).toHaveLength(0);
     });
 
     it('keeps video no-results current after the circuit breaker has recovered', () => {
@@ -308,6 +305,54 @@ describe('incidentWorkspaceStore', () => {
             reasonCode: 'video_no_results',
             count: 1
         });
+    });
+
+    it('excludes local-only groups from live incident diagnostic groups', () => {
+        const store = createIncidentWorkspaceStore();
+
+        store.ingestWorkspacePayload({
+            workspace_schema_version: '2026-03-12.owner-incident-workspace.v1',
+            backend_diagnostics: {
+                captured_at: '2026-03-12T18:43:38Z',
+                capacity: 500,
+                total_events: 1,
+                filtered_events: 1,
+                returned_events: 1,
+                severity_counts: { warning: 1 },
+                component_counts: { auto_video_classifier: 1 },
+                events: [
+                    {
+                        id: 'diag:evt-2',
+                        component: 'auto_video_classifier',
+                        reason_code: 'video_no_results',
+                        severity: 'warning',
+                        message: 'Video classification completed without any candidate results',
+                        timestamp: '2026-03-12T18:43:38Z',
+                        correlation_key: 'video:evt-2'
+                    }
+                ]
+            },
+            health: {
+                status: 'ok'
+            },
+            startup_warnings: []
+        });
+        store.ingestLocalDiagnosticGroups([
+            {
+                fingerprint: 'runtime|frontend|-|cache_status_failed',
+                component: 'frontend',
+                reasonCode: 'cache_status_failed',
+                severity: 'warning',
+                message: 'Failed to load cache status',
+                firstSeen: Date.parse('2026-03-12T18:44:00Z'),
+                lastSeen: Date.parse('2026-03-12T18:44:05Z')
+            }
+        ]);
+
+        const groups = store.getDiagnosticGroups(store.currentIssues[0]);
+
+        expect(groups).toHaveLength(1);
+        expect(groups[0].source).toBe('backend');
     });
 
     it('clears backend, local, and derived incident state', () => {

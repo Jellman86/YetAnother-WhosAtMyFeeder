@@ -301,17 +301,6 @@ class IncidentWorkspaceStore {
         for (const group of this.localGroups) {
             const key = `local:${normalizeString(group.fingerprint, 'unknown')}`;
             if (!evidenceRefs.has(key)) continue;
-            grouped.set(key, {
-                fingerprint: key,
-                source: 'local',
-                component: normalizeString(group.component, 'unknown'),
-                reasonCode: normalizeString(group.reasonCode, 'unknown_reason'),
-                severity: normalizeSeverity(group.severity),
-                message: normalizeString(group.message, normalizeString(group.reasonCode, 'Incident')),
-                count: 1,
-                firstSeen: Math.max(0, Math.floor(group.firstSeen)),
-                lastSeen: Math.max(0, Math.floor(group.lastSeen))
-            });
         }
 
         return [...grouped.values()].sort((left, right) => {
@@ -416,23 +405,6 @@ class IncidentWorkspaceStore {
         }
 
         const incidents = [...grouped.values()].sort((a, b) => b.lastSeenAt - a.lastSeenAt);
-        for (const group of this.localGroups) {
-            const key = `local:${normalizeString(group.fingerprint, 'unknown')}`;
-            if (grouped.has(key)) continue;
-            const statefulOpen = isStatefulIncidentOpen(group.component, group.reasonCode, currentHealth);
-            incidents.push({
-                id: key,
-                status: statefulOpen === false ? 'resolved' : 'open',
-                severity: normalizeSeverity(group.severity),
-                title: normalizeString(group.message, normalizeString(group.reasonCode, 'Incident')),
-                summary: normalizeString(group.message, 'Incident detected'),
-                affected_area: normalizeString(group.component, 'system').toLowerCase(),
-                startedAt: Math.max(0, Math.floor(group.firstSeen)),
-                lastSeenAt: Math.max(0, Math.floor(group.lastSeen)),
-                evidenceRefs: [key],
-                primaryReasonCode: normalizeString(group.reasonCode, 'unknown_reason')
-            });
-        }
         incidents.sort((a, b) => b.lastSeenAt - a.lastSeenAt);
         this.currentIssues = incidents.filter((incident) => incident.status !== 'resolved');
         this.recentIncidents = incidents.filter((incident) => incident.status === 'resolved').slice(0, 20);

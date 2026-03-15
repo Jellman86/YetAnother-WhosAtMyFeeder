@@ -14,7 +14,6 @@
     let currentIssues = $derived(incidentWorkspaceStore.currentIssues);
     let recentIncidents = $derived(incidentWorkspaceStore.recentIncidents);
     let workspacePayload = $derived(incidentWorkspaceStore.workspacePayload);
-    let diagnosticGroups = $derived(jobDiagnosticsStore.groups);
     let healthSnapshots = $derived(jobDiagnosticsStore.healthSnapshots);
     let bundles = $derived(jobDiagnosticsStore.bundles);
     let captureLabel = $state('');
@@ -37,6 +36,12 @@
         ?? null
     );
     let selectedDiagnosticGroups = $derived.by(() => incidentWorkspaceStore.getDiagnosticGroups(selectedIncident));
+    let backendDiagnosticGroupCount = $derived.by(
+        () => [...currentIssues, ...recentIncidents].reduce(
+            (count, incident) => count + incidentWorkspaceStore.getDiagnosticGroups(incident).length,
+            0
+        )
+    );
 
     $effect(() => {
         if (!selectedIncidentId && allIncidents[0]) {
@@ -171,7 +176,7 @@
         </div>
 
         <div class="text-[11px] font-semibold text-slate-500 dark:text-slate-300">
-            {currentIssues.length.toLocaleString()} current issues • {recentIncidents.length.toLocaleString()} recent incidents • {diagnosticGroups.length.toLocaleString()} grouped diagnostics
+            {currentIssues.length.toLocaleString()} current issues • {recentIncidents.length.toLocaleString()} recent incidents • {backendDiagnosticGroupCount.toLocaleString()} grouped diagnostics
             {#if workspacePayload?.health}
                 <span class="ml-2">· {$_('jobs.errors_latest_health', {
                     values: {
