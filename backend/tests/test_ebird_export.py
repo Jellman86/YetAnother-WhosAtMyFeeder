@@ -178,7 +178,7 @@ async def test_ebird_export_omits_hidden_detections(client: httpx.AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_ebird_export_filters_to_single_requested_date(client: httpx.AsyncClient):
+async def test_ebird_export_filters_to_inclusive_requested_date_range(client: httpx.AsyncClient):
     settings.ebird.enabled = False
     settings.ebird.api_key = None
 
@@ -198,14 +198,73 @@ async def test_ebird_export_filters_to_single_requested_date(client: httpx.Async
         scientific_name="Turdus merula",
         common_name="Common Blackbird",
     )
+    await _insert_detection(
+        frigate_event=f"evt-{uuid.uuid4().hex[:8]}",
+        detection_time=datetime(2026, 3, 13, 8, 15, 0),
+        score=0.8,
+        display_name="Bird Three",
+        scientific_name="Cyanistes caeruleus",
+        common_name="Blue Tit",
+    )
 
-    response = await client.get("/api/ebird/export", params={"date": "2026-03-12"})
+    response = await client.get("/api/ebird/export", params={"from": "2026-03-12", "to": "2026-03-13"})
 
     assert response.status_code == 200, response.text
     rows = _read_csv_rows(response.text)
-    assert len(rows) == 1
-    assert rows[0][0] == "Common Blackbird"
-    assert rows[0][8] == "03/12/2026"
+    assert len(rows) == 2
+    assert {(row[0], row[8]) for row in rows} == {
+        ("Common Blackbird", "03/12/2026"),
+        ("Blue Tit", "03/13/2026"),
+    }
+
+
+@pytest.mark.asyncio
+async def test_ebird_export_supports_open_ended_date_range_filters(client: httpx.AsyncClient):
+    settings.ebird.enabled = False
+    settings.ebird.api_key = None
+
+    await _insert_detection(
+        frigate_event=f"evt-{uuid.uuid4().hex[:8]}",
+        detection_time=datetime(2026, 3, 10, 7, 0, 0),
+        score=0.76,
+        display_name="Bird One",
+        scientific_name="Parus major",
+        common_name="Great Tit",
+    )
+    await _insert_detection(
+        frigate_event=f"evt-{uuid.uuid4().hex[:8]}",
+        detection_time=datetime(2026, 3, 12, 7, 30, 0),
+        score=0.88,
+        display_name="Bird Two",
+        scientific_name="Turdus merula",
+        common_name="Common Blackbird",
+    )
+    await _insert_detection(
+        frigate_event=f"evt-{uuid.uuid4().hex[:8]}",
+        detection_time=datetime(2026, 3, 14, 8, 15, 0),
+        score=0.8,
+        display_name="Bird Three",
+        scientific_name="Cyanistes caeruleus",
+        common_name="Blue Tit",
+    )
+
+    from_response = await client.get("/api/ebird/export", params={"from": "2026-03-12"})
+    to_response = await client.get("/api/ebird/export", params={"to": "2026-03-12"})
+
+    assert from_response.status_code == 200, from_response.text
+    assert to_response.status_code == 200, to_response.text
+
+    from_rows = _read_csv_rows(from_response.text)
+    to_rows = _read_csv_rows(to_response.text)
+
+    assert {(row[0], row[8]) for row in from_rows} == {
+        ("Common Blackbird", "03/12/2026"),
+        ("Blue Tit", "03/14/2026"),
+    }
+    assert {(row[0], row[8]) for row in to_rows} == {
+        ("Great Tit", "03/10/2026"),
+        ("Common Blackbird", "03/12/2026"),
+    }
 
 
 @pytest.mark.asyncio
@@ -281,10 +340,21 @@ async def test_ebird_export_rejects_invalid_date_query(client: httpx.AsyncClient
     settings.ebird.enabled = False
     settings.ebird.api_key = None
 
-    response = await client.get("/api/ebird/export", params={"date": "2026-13-40"})
+    response = await client.get("/api/ebird/export", params={"from": "2026-13-40"})
 
     assert response.status_code == 400
     assert "Invalid date" in response.text
+
+
+@pytest.mark.asyncio
+async def test_ebird_export_rejects_inverted_date_range_query(client: httpx.AsyncClient):
+    settings.ebird.enabled = False
+    settings.ebird.api_key = None
+
+    response = await client.get("/api/ebird/export", params={"from": "2026-03-13", "to": "2026-03-12"})
+
+    assert response.status_code == 400
+    assert "Invalid date range" in response.text
 
 
 @pytest.mark.asyncio
@@ -339,7 +409,7 @@ async def test_ebird_export_uses_daily_duration_window_per_date(client: httpx.As
         common_name="Great Tit",
     )
 
-    response = await client.get("/api/ebird/export", params={"date": "2026-03-12"})
+    response = await client.get("/api/ebird/export", params={"from": "2026-03-12", "to": "2026-03-12"})
 
     assert response.status_code == 200, response.text
     rows = _read_csv_rows(response.text)

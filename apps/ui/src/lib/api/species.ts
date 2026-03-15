@@ -134,10 +134,18 @@ export async function fetchEbirdNotable(): Promise<EbirdNotableResult> {
     return handleResponse<EbirdNotableResult>(response);
 }
 
-export async function exportEbirdCsv(date?: string): Promise<void> {
+export interface EbirdExportRange {
+    from?: string;
+    to?: string;
+}
+
+export async function exportEbirdCsv(range?: EbirdExportRange): Promise<void> {
     const params = new URLSearchParams();
-    if (date) {
-        params.set('date', date);
+    if (range?.from) {
+        params.set('from', range.from);
+    }
+    if (range?.to) {
+        params.set('to', range.to);
     }
     const suffix = params.toString() ? `?${params.toString()}` : '';
     const response = await apiFetch(`${API_BASE}/ebird/export${suffix}`);

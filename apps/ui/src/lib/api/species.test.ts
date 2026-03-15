@@ -43,10 +43,22 @@ describe('exportEbirdCsv', () => {
         });
     });
 
-    it('requests day-scoped export when a date is provided', async () => {
-        await exportEbirdCsv('2026-03-12');
+    it('requests range-scoped export when from and to dates are provided', async () => {
+        await exportEbirdCsv({ from: '2026-03-12', to: '2026-03-14' });
 
-        expect(apiFetchMock).toHaveBeenCalledWith('/api/ebird/export?date=2026-03-12');
+        expect(apiFetchMock).toHaveBeenCalledWith('/api/ebird/export?from=2026-03-12&to=2026-03-14');
+    });
+
+    it('requests open-ended export when only from is provided', async () => {
+        await exportEbirdCsv({ from: '2026-03-12' });
+
+        expect(apiFetchMock).toHaveBeenCalledWith('/api/ebird/export?from=2026-03-12');
+    });
+
+    it('requests open-ended export when only to is provided', async () => {
+        await exportEbirdCsv({ to: '2026-03-14' });
+
+        expect(apiFetchMock).toHaveBeenCalledWith('/api/ebird/export?to=2026-03-14');
     });
 
     it('requests full export when no date is provided', async () => {

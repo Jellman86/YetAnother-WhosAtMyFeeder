@@ -249,9 +249,12 @@
         "export_csv": "Exportar todos os avistamientos (CSV)",
         "export_csv_desc": "Baixar detecções no formato eBird Record para importação manual.",
         "export_csv_error": "Falha ao exportar CSV",
-        "export_date": "Data de exportação",
-        "export_date_label": "Data opcional de exportação do eBird",
-        "export_date_help": "Deixe em branco para exportar todas as detecções, ou escolha um dia para uma única importação do eBird."
+        "export_from": "From",
+        "export_from_label": "Inclusive eBird export start date",
+        "export_to": "To",
+        "export_to_label": "Inclusive eBird export end date",
+        "export_range_help": "Leave both blank to export all detections, or choose an inclusive date range.",
+        "export_range_error": "From date must be on or before the To date."
       },
       "birdweather": {
         "title": "BirdWeather",

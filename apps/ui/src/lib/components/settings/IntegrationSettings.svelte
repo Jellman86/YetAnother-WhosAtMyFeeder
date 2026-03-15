@@ -86,7 +86,7 @@
         initiateInaturalistOAuth: () => Promise<{ authorization_url: string }>;
         disconnectInaturalistOAuth: () => Promise<{ status: string }>;
         refreshInaturalistStatus: () => Promise<void>;
-        exportEbirdCsv: (date?: string) => Promise<void>;
+        exportEbirdCsv: (range?: { from?: string; to?: string }) => Promise<void>;
         birdweatherStationTokenSaved: boolean;
         onActionFeedback: (type: 'success' | 'error', text: string) => void;
     } = $props();
@@ -97,7 +97,9 @@
     let inatDisconnecting = $state(false);
     let exportingEbirdCsv = $state(false);
     let testingBirdWeather = $state(false);
-    let ebirdExportDate = $state('');
+    let ebirdExportFrom = $state('');
+    let ebirdExportTo = $state('');
+    let ebirdExportRangeError = $state('');
 
     function actionErrorMessage(error: unknown) {
         if (error instanceof Error && error.message.trim().length > 0) {
@@ -126,6 +128,14 @@
         if (birdweatherStationTokenSaved && birdweatherStationToken) {
             birdweatherStationTokenSaved = false;
         }
+    });
+
+    $effect(() => {
+        if (ebirdExportFrom && ebirdExportTo && ebirdExportFrom > ebirdExportTo) {
+            ebirdExportRangeError = $_('settings.integrations.ebird.export_range_error');
+            return;
+        }
+        ebirdExportRangeError = '';
     });
 </script>
 
@@ -556,22 +566,40 @@
             </div>
 
             <div class="pt-4 border-t border-slate-100 dark:border-slate-700/50">
-                <div class="mb-3">
-                    <label for="ebird-export-date" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.integrations.ebird.export_date')}</label>
-                    <input
-                        id="ebird-export-date"
-                        type="date"
-                        bind:value={ebirdExportDate}
-                        aria-label={$_('settings.integrations.ebird.export_date_label')}
-                        class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-teal-500 outline-none"
-                    />
-                    <p class="mt-1 text-[10px] text-slate-400 font-bold italic">{$_('settings.integrations.ebird.export_date_help')}</p>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-3">
+                    <div>
+                        <label for="ebird-export-from" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.integrations.ebird.export_from')}</label>
+                        <input
+                            id="ebird-export-from"
+                            type="date"
+                            bind:value={ebirdExportFrom}
+                            aria-label={$_('settings.integrations.ebird.export_from_label')}
+                            class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-teal-500 outline-none"
+                        />
+                    </div>
+                    <div>
+                        <label for="ebird-export-to" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.integrations.ebird.export_to')}</label>
+                        <input
+                            id="ebird-export-to"
+                            type="date"
+                            bind:value={ebirdExportTo}
+                            aria-label={$_('settings.integrations.ebird.export_to_label')}
+                            class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-teal-500 outline-none"
+                        />
+                    </div>
                 </div>
+                <p class="mt-1 text-[10px] text-slate-400 font-bold italic">{$_('settings.integrations.ebird.export_range_help')}</p>
+                {#if ebirdExportRangeError}
+                    <p class="mt-2 text-[10px] text-rose-500 font-bold">{ebirdExportRangeError}</p>
+                {/if}
                 <button
                     onclick={async () => {
                         try {
                             exportingEbirdCsv = true;
-                            await exportEbirdCsv(ebirdExportDate || undefined);
+                            await exportEbirdCsv({
+                                from: ebirdExportFrom || undefined,
+                                to: ebirdExportTo || undefined
+                            });
                             onActionFeedback('success', $_('settings.integrations.ebird.export_csv'));
                         } catch (e) {
                             onActionFeedback('error', $_('settings.integrations.ebird.export_csv_error'));
@@ -579,7 +607,7 @@
                             exportingEbirdCsv = false;
                         }
                     }}
-                    disabled={exportingEbirdCsv}
+                    disabled={exportingEbirdCsv || !!ebirdExportRangeError}
                     class="flex items-center gap-2 px-4 py-3 rounded-2xl bg-sky-50 dark:bg-sky-900/20 text-sky-600 dark:text-sky-400 font-bold text-xs uppercase tracking-widest hover:bg-sky-100 dark:hover:bg-sky-900/40 transition-colors w-full justify-center"
                 >
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>

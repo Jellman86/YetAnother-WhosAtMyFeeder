@@ -241,9 +241,12 @@
         "export_csv": "すべての目撃情報をエクスポート (CSV)",
         "export_csv_desc": "手動インポート用に eBird レコード形式で検出をダウンロードします。",
         "export_csv_error": "CSVのエクスポートに失敗しました",
-        "export_date": "エクスポート日",
-        "export_date_label": "任意の eBird エクスポート日",
-        "export_date_help": "空欄のままですべての検出をエクスポートし、1日分だけ取り込む場合は日付を選択します。"
+        "export_from": "From",
+        "export_from_label": "Inclusive eBird export start date",
+        "export_to": "To",
+        "export_to_label": "Inclusive eBird export end date",
+        "export_range_help": "Leave both blank to export all detections, or choose an inclusive date range.",
+        "export_range_error": "From date must be on or before the To date."
       },
       "birdweather": {
         "title": "BirdWeather",

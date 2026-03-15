@@ -241,9 +241,12 @@
         "export_csv": "导出所有目击记录 (CSV)",
         "export_csv_desc": "下载 eBird 记录格式的检测结果，以便手动导入。",
         "export_csv_error": "CSV 导出失败",
-        "export_date": "导出日期",
-        "export_date_label": "可选的 eBird 导出日期",
-        "export_date_help": "留空可导出所有检测结果，或选择某一天进行一次 eBird 导入。"
+        "export_from": "From",
+        "export_from_label": "Inclusive eBird export start date",
+        "export_to": "To",
+        "export_to_label": "Inclusive eBird export end date",
+        "export_range_help": "Leave both blank to export all detections, or choose an inclusive date range.",
+        "export_range_error": "From date must be on or before the To date."
       },
       "birdweather": {
         "title": "BirdWeather",

@@ -111,24 +111,33 @@ def _parse_detection_time(value: object) -> datetime | None:
 
 @router.get("/export")
 async def export_ebird_csv(
-    date_filter: Optional[str] = Query(None, alias="date", description="Optional single export date in YYYY-MM-DD"),
+    from_date: Optional[str] = Query(None, alias="from", description="Optional inclusive export start date in YYYY-MM-DD"),
+    to_date: Optional[str] = Query(None, alias="to", description="Optional inclusive export end date in YYYY-MM-DD"),
     auth=Depends(get_auth_context_with_legacy),
 ):
     """
     Export all non-hidden detections in eBird Record Format CSV.
     """
     params: list[object] = []
-    date_clause = ""
+    date_clauses: list[str] = []
 
-    if date_filter:
-        try:
-            requested_day = date.fromisoformat(date_filter)
-        except ValueError as exc:
-            raise HTTPException(status_code=400, detail="Invalid date; expected YYYY-MM-DD") from exc
-        start_dt = datetime.combine(requested_day, time.min)
-        end_dt = datetime.combine(requested_day + timedelta(days=1), time.min)
-        date_clause = " AND d.detection_time >= ? AND d.detection_time < ?"
-        params.extend([start_dt, end_dt])
+    try:
+        requested_from = date.fromisoformat(from_date) if from_date else None
+        requested_to = date.fromisoformat(to_date) if to_date else None
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="Invalid date; expected YYYY-MM-DD") from exc
+
+    if requested_from and requested_to and requested_from > requested_to:
+        raise HTTPException(status_code=400, detail="Invalid date range; expected from <= to")
+
+    if requested_from:
+        date_clauses.append("d.detection_time >= ?")
+        params.append(datetime.combine(requested_from, time.min))
+    if requested_to:
+        date_clauses.append("d.detection_time < ?")
+        params.append(datetime.combine(requested_to + timedelta(days=1), time.min))
+
+    date_clause = f" AND {' AND '.join(date_clauses)}" if date_clauses else ""
 
     async def iter_csv():
         f = io.StringIO()
