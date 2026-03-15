@@ -97,6 +97,7 @@
     let inatDisconnecting = $state(false);
     let exportingEbirdCsv = $state(false);
     let testingBirdWeather = $state(false);
+    let ebirdExportEverything = $state(true);
     let ebirdExportFrom = $state('');
     let ebirdExportTo = $state('');
     let ebirdExportRangeError = $state('');
@@ -131,12 +132,25 @@
     });
 
     $effect(() => {
+        if (ebirdExportEverything) {
+            ebirdExportRangeError = '';
+            return;
+        }
         if (ebirdExportFrom && ebirdExportTo && ebirdExportFrom > ebirdExportTo) {
             ebirdExportRangeError = $_('settings.integrations.ebird.export_range_error');
             return;
         }
         ebirdExportRangeError = '';
     });
+
+    function toggleEbirdExportEverything() {
+        ebirdExportEverything = !ebirdExportEverything;
+        if (ebirdExportEverything) {
+            ebirdExportFrom = '';
+            ebirdExportTo = '';
+            ebirdExportRangeError = '';
+        }
+    }
 </script>
 
 <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
@@ -566,6 +580,32 @@
             </div>
 
             <div class="pt-4 border-t border-slate-100 dark:border-slate-700/50">
+                <div class="mb-4">
+                    <button
+                        role="switch"
+                        aria-checked={ebirdExportEverything}
+                        aria-label={$_('settings.integrations.ebird.export_everything_label')}
+                        onclick={toggleEbirdExportEverything}
+                        onkeydown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                toggleEbirdExportEverything();
+                            }
+                        }}
+                        class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {ebirdExportEverything ? 'bg-sky-500' : 'bg-slate-300 dark:bg-slate-600'}"
+                    >
+                        <span class="sr-only">{$_('settings.integrations.ebird.export_everything')}</span>
+                        <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {ebirdExportEverything ? 'translate-x-5' : 'translate-x-0'}"></span>
+                    </button>
+                    <div class="mt-2">
+                        <div class="text-[10px] font-black uppercase tracking-widest text-slate-500">
+                            {$_('settings.integrations.ebird.export_everything')}
+                        </div>
+                        <p class="mt-1 text-[10px] text-slate-400 font-bold italic">
+                            {$_('settings.integrations.ebird.export_everything_help')}
+                        </p>
+                    </div>
+                </div>
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-3">
                     <div>
                         <label for="ebird-export-from" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.integrations.ebird.export_from')}</label>
@@ -573,8 +613,9 @@
                             id="ebird-export-from"
                             type="date"
                             bind:value={ebirdExportFrom}
+                            disabled={ebirdExportEverything}
                             aria-label={$_('settings.integrations.ebird.export_from_label')}
-                            class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-teal-500 outline-none"
+                            class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-teal-500 outline-none disabled:opacity-50 disabled:cursor-not-allowed"
                         />
                     </div>
                     <div>
@@ -583,8 +624,9 @@
                             id="ebird-export-to"
                             type="date"
                             bind:value={ebirdExportTo}
+                            disabled={ebirdExportEverything}
                             aria-label={$_('settings.integrations.ebird.export_to_label')}
-                            class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-teal-500 outline-none"
+                            class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-teal-500 outline-none disabled:opacity-50 disabled:cursor-not-allowed"
                         />
                     </div>
                 </div>
@@ -597,8 +639,8 @@
                         try {
                             exportingEbirdCsv = true;
                             await exportEbirdCsv({
-                                from: ebirdExportFrom || undefined,
-                                to: ebirdExportTo || undefined
+                                from: ebirdExportEverything ? undefined : ebirdExportFrom || undefined,
+                                to: ebirdExportEverything ? undefined : ebirdExportTo || undefined
                             });
                             onActionFeedback('success', $_('settings.integrations.ebird.export_csv'));
                         } catch (e) {

@@ -348,7 +348,10 @@
         "export_to": "To",
         "export_to_label": "Inclusive eBird export end date",
         "export_range_help": "Leave both blank to export all detections, or choose an inclusive date range.",
-        "export_range_error": "From date must be on or before the To date."
+        "export_range_error": "From date must be on or before the To date.",
+        "export_everything": "Export everything",
+        "export_everything_label": "Toggle export everything for eBird CSV",
+        "export_everything_help": "Turn this on to export all detections and disable the date range."
       },
       "birdweather": {
         "title": "BirdWeather",

@@ -7,6 +7,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 ## [Unreleased]
 
 - **Changed:** eBird export now follows the reopened issue-23 follow-up contract: protocol is `Stationary`, duration is populated per exported date window, submission comments include available runtime metadata and confidence, export uses explicit location `state` / `country` settings when provided, and the UI now supports inclusive `From` / `To` export dates instead of a single-date picker.
+- **Changed:** The eBird export range UI now has an explicit `Export everything` toggle that clears and disables the `From` / `To` pickers when enabled, making full-export state obvious instead of relying on blank date fields.
 - **Added:** Location settings now include optional `state` / `country` values so eBird export can fill those columns without guessing from coordinates.
 - **Changed:** Notifications jobs surfaces are now much more compact. The global progress banner and Jobs view default to short, direct status text and only show extra detail when a job is blocked, stale, or otherwise needs explanation.
 - **Fixed:** `/api/ebird/notable` no longer returns `500 Internal Server Error` when optional taxonomy thumbnail enrichment fails. The route now imports its enrichment dependencies correctly and treats thumbnail lookup as best-effort so notable observations still load.
