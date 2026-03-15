@@ -72,6 +72,7 @@
     import { _, locale } from 'svelte-i18n';
     import { get } from 'svelte/store';
     import SettingsTabs from '../components/settings/SettingsTabs.svelte';
+    import { locationSettingsDirty } from '../settings/location-dirty';
 
     // Import all 7 settings components
     import AccessibilitySettings from '../components/settings/AccessibilitySettings.svelte';
@@ -1612,14 +1613,6 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'cacheHighQualityEventSnapshots', val: cacheHighQualityEventSnapshots, store: s.media_cache_high_quality_event_snapshots ?? false },
             { key: 'cacheHighQualityEventSnapshotJpegQuality', val: cacheHighQualityEventSnapshotJpegQuality, store: s.media_cache_high_quality_event_snapshot_jpeg_quality ?? 95 },
             { key: 'cacheRetentionDays', val: cacheRetentionDays, store: s.media_cache_retention_days ?? 0 },
-            { key: 'locationLat', val: locationLat, store: s.location_latitude ?? null },
-            { key: 'locationLon', val: locationLon, store: s.location_longitude ?? null },
-            { key: 'locationAuto', val: locationAuto, store: s.location_automatic ?? true },
-            {
-                key: 'locationWeatherUnitSystem',
-                val: locationWeatherUnitSystem,
-                store: ((s.location_weather_unit_system as 'metric' | 'imperial' | 'british') ?? (s.location_temperature_unit === 'fahrenheit' ? 'imperial' : 'metric'))
-            },
             { key: 'birdweatherEnabled', val: birdweatherEnabled, store: s.birdweather_enabled ?? false },
             { key: 'birdweatherStationToken', val: birdweatherStationToken, store: normalizeSecret(s.birdweather_station_token) },
             { key: 'ebirdEnabled', val: ebirdEnabled, store: s.ebird_enabled ?? false },
@@ -1717,7 +1710,20 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             return true;
         }
 
-        return checks.some(c => c.val !== c.store);
+        return (
+            checks.some(c => c.val !== c.store) ||
+            locationSettingsDirty({
+                current: {
+                    latitude: locationLat,
+                    longitude: locationLon,
+                    state: locationState,
+                    country: locationCountry,
+                    automatic: locationAuto,
+                    weatherUnitSystem: locationWeatherUnitSystem
+                },
+                stored: s
+            })
+        );
     });
 
     let classifierStatus = $state<ClassifierStatus | null>(null);
