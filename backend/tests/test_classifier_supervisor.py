@@ -1144,6 +1144,12 @@ async def test_classifier_supervisor_aborts_unassigned_request():
         await task2
 
     # Clean up
+    task1.cancel()
+    try:
+        await task1
+    except asyncio.CancelledError:
+        pass
+        
     created[0].killed = True
     await supervisor.shutdown()
 
