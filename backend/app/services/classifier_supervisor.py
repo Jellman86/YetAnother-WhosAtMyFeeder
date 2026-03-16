@@ -164,6 +164,7 @@ class ClassifierSupervisor:
         self._pool_started: dict[WorkPriority, bool] = {"live": False, "background": False, "video": False}
         self._watchdog_task: asyncio.Task[None] | None = None
         self._started = False
+        self._pending_requests: dict[tuple[WorkPriority, str, int], asyncio.Future[None]] = {}
 
     async def start(self, priority: WorkPriority | None = None) -> None:
         priorities: tuple[WorkPriority, ...]
@@ -280,13 +281,24 @@ class ClassifierSupervisor:
         if self._metrics[priority]["circuit_open"]:
             raise ClassifierWorkerCircuitOpenError(f"{priority} classifier circuit is open")
 
+        if self._active_worker_count(priority) == 0:
+            raise ClassifierWorkerExitedError(f"No active workers available for {priority}")
+
         loop = asyncio.get_running_loop()
         request_id = f"req-{next(self._request_counter)}"
         future: asyncio.Future[list[dict[str, Any]]] = loop.create_future()
         future.add_done_callback(self._consume_future_exception)
 
+        request_key = (priority, work_id, lease_token)
+        pending_future = loop.create_future()
+
         async with self._condition:
-            slot = await self._wait_for_idle_slot(priority)
+            self._pending_requests[request_key] = pending_future
+            try:
+                slot = await self._wait_for_idle_slot(priority, request_key)
+            finally:
+                self._pending_requests.pop(request_key, None)
+
             assignment = _Assignment(
                 priority=priority,
                 worker_name=slot.worker_name,
@@ -332,9 +344,23 @@ class ClassifierSupervisor:
         lease_token: int,
         reason: str = "coordinator_lease_expired",
     ) -> bool:
+        request_key = (priority, work_id, lease_token)
+
         match: _Assignment | None = None
         slot: _WorkerSlot | None = None
+        
         async with self._condition:
+            if request_key in self._pending_requests:
+                pending_future = self._pending_requests[request_key]
+                if not pending_future.done():
+                    pending_future.set_exception(
+                        ClassifierWorkerDeadlineExceededError(
+                            f"worker aborted before assignment work_id={work_id} lease_token={lease_token}"
+                        )
+                    )
+                self._condition.notify_all()
+                return True
+
             for assignment in self._assignments.values():
                 if (
                     assignment.priority == priority
@@ -396,8 +422,11 @@ class ClassifierSupervisor:
             self._pool_started[priority] = True
             self._metrics[priority]["workers"] = self._active_worker_count(priority)
 
-    async def _wait_for_idle_slot(self, priority: WorkPriority) -> _WorkerSlot:
+    async def _wait_for_idle_slot(self, priority: WorkPriority, request_key: tuple[WorkPriority, str, int]) -> _WorkerSlot:
         while True:
+            if request_key in self._pending_requests and self._pending_requests[request_key].done():
+                raise self._pending_requests[request_key].exception() or ClassifierWorkerDeadlineExceededError("worker aborted before assignment")
+
             for slot in self._slots[priority]:
                 if slot.worker is not None and slot.worker_name not in self._assignments:
                     return slot
