@@ -153,7 +153,7 @@ describe('LiveUpdateCoordinator reclassify fallback', () => {
 
         coordinator.handlePayload({
             type: 'reclassification_started',
-            data: { event_id: 'evt-4', total_frames: 0, strategy: 'auto_video' }
+            data: { event_id: 'evt-4', total_frames: 0, strategy: 'manual' }
         });
         expect(calls.upsertRunning.length).toBe(1);
 

@@ -165,7 +165,7 @@ function toDetection(data: any): Detection {
 
 export class LiveUpdateCoordinator {
     private deps: LiveUpdateDeps;
-    private activeReclassifyEvents = new Set<string>();
+    private activeReclassifyEvents = new Map<string, { strategy?: string }>();
     private reclassifyProgressByEvent = new Map<string, { current: number; total: number }>();
     private reclassifyLastUpdateByEvent = new Map<string, number>();
     private reclassifyStartedCount = 0;
@@ -365,16 +365,19 @@ export class LiveUpdateCoordinator {
                 if (!this.deps.shouldNotify()) {
                     return;
                 }
-                this.markReclassifyStarted(payload.data.event_id, payload.data.total_frames ?? 0);
-                this.deps.jobProgress.upsertRunning({
-                    id: `reclassify:${payload.data.event_id}`,
-                    kind: 'reclassify',
-                    title: this.deps.t('actions.reclassify'),
-                    route: `/events?event=${encodeURIComponent(payload.data.event_id)}`,
-                    current: 0,
-                    total: Number(payload.data.total_frames ?? 0),
-                    source: 'sse'
-                });
+                this.markReclassifyStarted(payload.data.event_id, payload.data.total_frames ?? 0, payload.data.strategy);
+                const isBatch = payload.data.strategy === 'auto_video';
+                if (!isBatch) {
+                    this.deps.jobProgress.upsertRunning({
+                        id: `reclassify:${payload.data.event_id}`,
+                        kind: 'reclassify',
+                        title: this.deps.t('actions.reclassify'),
+                        route: `/events?event=${encodeURIComponent(payload.data.event_id)}`,
+                        current: 0,
+                        total: Number(payload.data.total_frames ?? 0),
+                        source: 'sse'
+                    });
+                }
                 this.deps.detectionsStore.startReclassification(
                     payload.data.event_id,
                     payload.data.total_frames ?? 15,
@@ -414,16 +417,19 @@ export class LiveUpdateCoordinator {
                 }
                 if (this.deps.shouldNotify()) {
                     const prior = this.reclassifyProgressByEvent.get(payload.data.event_id);
-                    this.deps.jobProgress.markCompleted({
-                        id: `reclassify:${payload.data.event_id}`,
-                        kind: 'reclassify',
-                        title: this.deps.t('actions.reclassify'),
-                        message: this.deps.t('notifications.event_reclassify'),
-                        route: `/events?event=${encodeURIComponent(payload.data.event_id)}`,
-                        current: prior?.current ?? 0,
-                        total: prior?.total ?? 0,
-                        source: 'sse'
-                    });
+                    const isBatch = this.activeReclassifyEvents.get(payload.data.event_id)?.strategy === 'auto_video';
+                    if (!isBatch) {
+                        this.deps.jobProgress.markCompleted({
+                            id: `reclassify:${payload.data.event_id}`,
+                            kind: 'reclassify',
+                            title: this.deps.t('actions.reclassify'),
+                            message: this.deps.t('notifications.event_reclassify'),
+                            route: `/events?event=${encodeURIComponent(payload.data.event_id)}`,
+                            current: prior?.current ?? 0,
+                            total: prior?.total ?? 0,
+                            source: 'sse'
+                        });
+                    }
                     this.clearReclassifyProgressNotification(payload.data.event_id);
                 }
                 this.deps.detectionsStore.completeReclassification(
@@ -861,7 +867,7 @@ export class LiveUpdateCoordinator {
         });
     }
 
-    private markReclassifyStarted(eventId: string, totalFrames: number = 0) {
+    private markReclassifyStarted(eventId: string, totalFrames: number = 0, strategy?: string) {
         if (!eventId) return;
         const normalizedTotal = Number.isFinite(totalFrames) ? Math.max(0, Math.floor(totalFrames)) : 0;
         if (!this.activeReclassifyEvents.has(eventId) && this.activeReclassifyEvents.size === 0) {
@@ -871,7 +877,7 @@ export class LiveUpdateCoordinator {
         if (!this.activeReclassifyEvents.has(eventId)) {
             this.reclassifyStartedCount += 1;
         }
-        this.activeReclassifyEvents.add(eventId);
+        this.activeReclassifyEvents.set(eventId, { strategy });
         this.reclassifyLastUpdateByEvent.set(eventId, Date.now());
         if (!this.reclassifyProgressByEvent.has(eventId)) {
             this.reclassifyProgressByEvent.set(eventId, { current: 0, total: normalizedTotal });
@@ -892,38 +898,32 @@ export class LiveUpdateCoordinator {
         if (!eventId) return;
         const parsedCurrent = Number.isFinite(current) ? Math.max(0, Math.floor(current)) : 0;
         const parsedTotal = Number.isFinite(total) ? Math.max(0, Math.floor(total)) : 0;
-        if (!this.activeReclassifyEvents.has(eventId)) {
+        
+        const existingMeta = this.activeReclassifyEvents.get(eventId);
+        if (!existingMeta) {
             this.markReclassifyStarted(eventId, parsedTotal);
         }
         this.reclassifyLastUpdateByEvent.set(eventId, Date.now());
-        const activeCount = this.activeReclassifyEvents.size;
-        const isBatch = this.reclassifyStartedCount > 1 || activeCount > 1;
 
-        if (!isBatch && parsedCurrent <= 0 && parsedTotal <= 0) return;
+        if (parsedCurrent <= 0 && parsedTotal <= 0) return;
 
         const normalizedTotal = parsedTotal > 0 ? parsedTotal : Math.max(1, parsedCurrent);
         const normalizedCurrent = Math.min(normalizedTotal, parsedCurrent);
         this.reclassifyProgressByEvent.set(eventId, { current: normalizedCurrent, total: normalizedTotal });
 
-        const startedTotal = Math.max(this.reclassifyStartedCount, this.reclassifyCompletedCount + activeCount);
-        const batchCurrent = Math.min(startedTotal, this.reclassifyCompletedCount + (activeCount > 0 ? 1 : 0));
-        const batchTotal = Math.max(1, startedTotal);
-        const signature = isBatch
-            ? `batch|${this.reclassifyCompletedCount}|${startedTotal}|${activeCount}`
-            : `single|${eventId}|${normalizedCurrent}|${normalizedTotal}`;
+        const strategy = this.activeReclassifyEvents.get(eventId)?.strategy;
+        const isBatch = strategy === 'auto_video';
+
+        if (isBatch) {
+            this.deps.jobProgress.remove?.(`reclassify:${eventId}`);
+            return;
+        }
+
+        const signature = `single|${eventId}|${normalizedCurrent}|${normalizedTotal}`;
         if (!this.deps.applyNotificationPolicy(RECLASSIFY_PROGRESS_ID, signature, 1200)) return;
 
         this.removeNotificationsByPrefix(LEGACY_RECLASSIFY_PROGRESS_PREFIX);
 
-        const title = isBatch
-            ? this.deps.t('settings.data.batch_analysis_title')
-            : this.deps.t('actions.reclassify');
-        const message = isBatch
-            ? `${this.deps.t('settings.data.batch_analysis_active')}: ${activeCount.toLocaleString()} • ${this.reclassifyCompletedCount.toLocaleString()}/${startedTotal.toLocaleString()}`
-            : this.deps.t('notifications.event_reclassify_progress', {
-                current: normalizedCurrent.toLocaleString(),
-                total: normalizedTotal.toLocaleString()
-            });
         this.deps.jobProgress.upsertRunning({
             id: `reclassify:${eventId}`,
             kind: 'reclassify',
@@ -940,16 +940,19 @@ export class LiveUpdateCoordinator {
         this.deps.notificationCenter.upsert({
             id: RECLASSIFY_PROGRESS_ID,
             type: 'process',
-            title,
-            message,
+            title: this.deps.t('actions.reclassify'),
+            message: this.deps.t('notifications.event_reclassify_progress', {
+                current: normalizedCurrent.toLocaleString(),
+                total: normalizedTotal.toLocaleString()
+            }),
             timestamp: Date.now(),
             read: false,
             meta: {
                 source: 'sse',
-                route: isBatch ? '/settings#data' : `/events?event=${encodeURIComponent(eventId)}`,
-                event_id: isBatch ? undefined : eventId,
-                current: isBatch ? batchCurrent : normalizedCurrent,
-                total: isBatch ? batchTotal : normalizedTotal,
+                route: `/events?event=${encodeURIComponent(eventId)}`,
+                event_id: eventId,
+                current: normalizedCurrent,
+                total: normalizedTotal,
                 open_label: this.deps.t('notifications.open_action')
             }
         });
