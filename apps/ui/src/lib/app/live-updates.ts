@@ -590,7 +590,7 @@ export class LiveUpdateCoordinator {
     private pruneStaleReclassifyState() {
         const now = Date.now();
         let removedAny = false;
-        for (const eventId of this.activeReclassifyEvents) {
+        for (const [eventId] of this.activeReclassifyEvents) {
             const lastUpdate = this.reclassifyLastUpdateByEvent.get(eventId) ?? 0;
             if (lastUpdate > 0 && now - lastUpdate <= RECLASSIFY_STATE_MAX_IDLE_MS) continue;
             this.activeReclassifyEvents.delete(eventId);
