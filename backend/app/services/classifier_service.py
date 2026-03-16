@@ -3351,11 +3351,29 @@ class ClassifierService:
             if not model_name:
                 model_name = "bird"
 
-            for idx in frame_indices:
+            last_top_label = "Analyzing..."
+            last_top_score = 0.0
+            last_frame_thumb = None
+
+            for i, idx in enumerate(frame_indices, 1):
                 # Seek to frame
                 cap.set(cv2.CAP_PROP_POS_FRAMES, idx)
                 ret, frame = cap.read()
                 if not ret:
+                    if progress_callback:
+                        try:
+                            progress_callback(
+                                current_frame=i,
+                                total_frames=len(frame_indices),
+                                frame_score=last_top_score,
+                                top_label=last_top_label,
+                                frame_thumb=last_frame_thumb,
+                                frame_index=int(idx) + 1,
+                                clip_total=int(total_frames),
+                                model_name=model_name
+                            )
+                        except Exception:
+                            pass
                     continue
 
                 # Convert BGR (OpenCV) to RGB (PIL)
@@ -3370,42 +3388,42 @@ class ClassifierService:
                 if len(scores) > 0:
                     all_scores.append(scores)
 
-                    # Call progress callback if provided
-                    if progress_callback:
-                        # Get top prediction for this frame
-                        top_idx = int(np.argmax(scores))
-                        top_score = float(scores[top_idx])
-                        top_label = bird_model.labels[top_idx] if top_idx < len(bird_model.labels) else f"Class {top_idx}"
-                        frame_thumb = None
-                        try:
-                            from io import BytesIO
-                            import base64
-                            thumb = image.copy()
-                            thumb.thumbnail((96, 72))
-                            buf = BytesIO()
-                            thumb.save(buf, format="JPEG", quality=60)
-                            frame_thumb = base64.b64encode(buf.getvalue()).decode("ascii")
-                        except Exception as e:
-                            log.debug("Failed to encode frame thumbnail", error=str(e))
+                    # Update last valid result metadata
+                    top_idx = int(np.argmax(scores))
+                    last_top_score = float(scores[top_idx])
+                    last_top_label = bird_model.labels[top_idx] if top_idx < len(bird_model.labels) else f"Class {top_idx}"
+                    
+                    try:
+                        from io import BytesIO
+                        import base64
+                        thumb = image.copy()
+                        thumb.thumbnail((96, 72))
+                        buf = BytesIO()
+                        thumb.save(buf, format="JPEG", quality=60)
+                        last_frame_thumb = base64.b64encode(buf.getvalue()).decode("ascii")
+                    except Exception as e:
+                        log.debug("Failed to encode frame thumbnail", error=str(e))
 
-                        try:
-                            progress_callback(
-                                current_frame=len(all_scores),
-                                total_frames=len(frame_indices),
-                                frame_score=top_score,
-                                top_label=top_label,
-                                frame_thumb=frame_thumb,
-                                frame_index=int(idx) + 1,
-                                clip_total=int(total_frames),
-                                model_name=model_name
-                            )
-                        except Exception as exc:
-                            log.warning(
-                                "Video classification progress callback failed; continuing",
-                                error=str(exc),
-                                frame_index=int(idx) + 1,
-                                total_frames=len(frame_indices),
-                            )
+                # Call progress callback for every sampled frame
+                if progress_callback:
+                    try:
+                        progress_callback(
+                            current_frame=i,
+                            total_frames=len(frame_indices),
+                            frame_score=last_top_score,
+                            top_label=last_top_label,
+                            frame_thumb=last_frame_thumb,
+                            frame_index=int(idx) + 1,
+                            clip_total=int(total_frames),
+                            model_name=model_name
+                        )
+                    except Exception as exc:
+                        log.warning(
+                            "Video classification progress callback failed; continuing",
+                            error=str(exc),
+                            frame_index=int(idx) + 1,
+                            total_frames=len(frame_indices),
+                        )
 
             if not all_scores:
                 log.warning("No frames processed from video")

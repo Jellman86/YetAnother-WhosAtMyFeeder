@@ -6,6 +6,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- **Fixed:** Video classification progress now accurately reaches 100% in the UI overlay even when some frames are skipped due to inference errors or non-finite results. Previously, the progress bar would appear stuck (e.g. at 67%) because it only counted successful classifications rather than total attempted frames.
 - **Fixed:** Concurrent manual video reclassifications now correctly track their progress independently in the UI. Previously, triggering multiple manual reclassifications simultaneously caused their progress bars to violently overwrite each other in the notification center.
 - **Fixed:** The global progress banner during Batch Analysis will no longer jump backward or display misleading totals. The UI previously confused per-worker video frame ticks with overall queue item counts, causing the progress denominator to fluctuate dynamically as workers picked up new events. Batch progress now correctly stabilizes on "Items" using the authoritative backend queue status.
 - **Fixed:** Resolved a critical pre-assignment deadlock in the subprocess classifier supervisor that could permanently stall live Frigate MQTT ingestion (Issue #22). If a worker process crashed during startup (e.g. GPU initialization failure) and the pool was previously active, the supervisor would block incoming classification requests indefinitely waiting for an idle worker, preventing the admission coordinator from shedding load and wedging the pipeline at 0% capacity.
