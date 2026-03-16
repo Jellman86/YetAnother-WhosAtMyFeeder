@@ -48,7 +48,11 @@ def _format_ebird_row(
         if len(parts) > 1:
             species = parts[1]
 
-    export_common_name = english_common_name or common_name or display_name
+    export_common_name = _resolve_export_common_name(
+        display_name=display_name,
+        common_name=common_name,
+        english_common_name=english_common_name,
+    )
     location_name = f"Home ({camera_name})" if camera_name else "Home"
     lat = settings.location.latitude
     lon = settings.location.longitude
@@ -93,6 +97,47 @@ def _format_ebird_row(
         "",
         submission_comment,
     ]
+
+
+def _is_english_safe_name(value: str | None) -> bool:
+    candidate = str(value or "").strip()
+    if not candidate:
+        return False
+    if candidate.lower() == "unknown bird":
+        return False
+    return candidate.isascii()
+
+
+def _resolve_export_common_name(
+    *,
+    display_name: str | None,
+    common_name: str | None,
+    english_common_name: str | None,
+) -> str:
+    for candidate in (english_common_name, common_name, display_name):
+        if _is_english_safe_name(candidate):
+            return str(candidate).strip()
+    return ""
+
+
+def _is_exportable_ebird_detection(
+    *,
+    display_name: str | None,
+    common_name: str | None,
+    english_common_name: str | None,
+) -> bool:
+    normalized_display = str(display_name or "").strip().lower()
+    normalized_common = str(common_name or "").strip().lower()
+
+    if normalized_display == "unknown bird" or normalized_common == "unknown bird":
+        return False
+    if not _resolve_export_common_name(
+        display_name=display_name,
+        common_name=common_name,
+        english_common_name=english_common_name,
+    ):
+        return False
+    return True
 
 
 def _parse_detection_time(value: object) -> datetime | None:
@@ -196,6 +241,12 @@ async def export_ebird_csv(
                         video_classification_backend,
                         english_common_name,
                     ) = row
+                    if not _is_exportable_ebird_detection(
+                        display_name=display_name,
+                        common_name=common_name,
+                        english_common_name=english_common_name,
+                    ):
+                        continue
                     dt = _parse_detection_time(detection_time)
                     if dt is None:
                         continue

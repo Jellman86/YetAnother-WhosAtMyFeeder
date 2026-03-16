@@ -515,3 +515,90 @@ async def test_ebird_export_uses_configured_state_and_country_when_present(clien
     assert len(rows) == 1
     assert rows[0][10] == "California"
     assert rows[0][11] == "United States"
+
+
+@pytest.mark.asyncio
+async def test_ebird_export_excludes_unknown_bird_rows(client: httpx.AsyncClient):
+    settings.ebird.enabled = False
+    settings.ebird.api_key = None
+
+    await _insert_detection(
+        frigate_event=f"evt-{uuid.uuid4().hex[:8]}",
+        detection_time=datetime(2026, 3, 12, 12, 30, 0),
+        score=0.51,
+        display_name="Unknown Bird",
+        scientific_name="Unknown Bird",
+        common_name="Unknown Bird",
+    )
+
+    response = await client.get("/api/ebird/export")
+
+    assert response.status_code == 200, response.text
+    assert _read_csv_rows(response.text) == []
+
+
+@pytest.mark.asyncio
+async def test_ebird_export_excludes_rows_without_english_common_name(client: httpx.AsyncClient):
+    settings.ebird.enabled = False
+    settings.ebird.api_key = None
+
+    await _insert_detection(
+        frigate_event=f"evt-{uuid.uuid4().hex[:8]}",
+        detection_time=datetime(2026, 3, 12, 13, 0, 0),
+        score=0.96,
+        display_name="Большая синица",
+        scientific_name="Parus major",
+        common_name="Большая синица",
+    )
+
+    response = await client.get("/api/ebird/export")
+
+    assert response.status_code == 200, response.text
+    assert _read_csv_rows(response.text) == []
+
+
+@pytest.mark.asyncio
+async def test_ebird_export_range_filter_still_applies_after_strict_row_suppression(client: httpx.AsyncClient):
+    settings.ebird.enabled = False
+    settings.ebird.api_key = None
+
+    taxa_id = 737373
+    await _insert_taxonomy_cache(
+        scientific_name="Parus major",
+        common_name="Great Tit",
+        taxa_id=taxa_id,
+    )
+    await _insert_detection(
+        frigate_event=f"evt-{uuid.uuid4().hex[:8]}",
+        detection_time=datetime(2026, 3, 11, 7, 0, 0),
+        score=0.9,
+        display_name="Большая синица",
+        scientific_name="Parus major",
+        common_name="Большая синица",
+        taxa_id=taxa_id,
+    )
+    await _insert_detection(
+        frigate_event=f"evt-{uuid.uuid4().hex[:8]}",
+        detection_time=datetime(2026, 3, 12, 7, 0, 0),
+        score=0.55,
+        display_name="Unknown Bird",
+        scientific_name="Unknown Bird",
+        common_name="Unknown Bird",
+    )
+    await _insert_detection(
+        frigate_event=f"evt-{uuid.uuid4().hex[:8]}",
+        detection_time=datetime(2026, 3, 13, 7, 0, 0),
+        score=0.9,
+        display_name="Большая синица",
+        scientific_name="Parus major",
+        common_name="Большая синица",
+        taxa_id=taxa_id,
+    )
+
+    response = await client.get("/api/ebird/export", params={"from": "2026-03-12", "to": "2026-03-13"})
+
+    assert response.status_code == 200, response.text
+    rows = _read_csv_rows(response.text)
+    assert len(rows) == 1
+    assert rows[0][0] == "Great Tit"
+    assert rows[0][8] == "03/13/2026"
