@@ -919,10 +919,9 @@ export class LiveUpdateCoordinator {
             return;
         }
 
+        const notificationId = `reclassify:progress:${eventId}`;
         const signature = `single|${eventId}|${normalizedCurrent}|${normalizedTotal}`;
-        if (!this.deps.applyNotificationPolicy(RECLASSIFY_PROGRESS_ID, signature, 1200)) return;
-
-        this.removeNotificationsByPrefix(LEGACY_RECLASSIFY_PROGRESS_PREFIX);
+        if (!this.deps.applyNotificationPolicy(notificationId, signature, 1200)) return;
 
         this.deps.jobProgress.upsertRunning({
             id: `reclassify:${eventId}`,
@@ -938,7 +937,7 @@ export class LiveUpdateCoordinator {
             source: 'sse'
         });
         this.deps.notificationCenter.upsert({
-            id: RECLASSIFY_PROGRESS_ID,
+            id: notificationId,
             type: 'process',
             title: this.deps.t('actions.reclassify'),
             message: this.deps.t('notifications.event_reclassify_progress', {
@@ -959,7 +958,13 @@ export class LiveUpdateCoordinator {
     }
 
     private clearReclassifyProgressNotification(eventId: string) {
+        const strategy = this.activeReclassifyEvents.get(eventId)?.strategy;
         this.markReclassifyCompleted(eventId);
+
+        if (strategy !== 'auto_video') {
+            this.deps.notificationCenter.remove(`reclassify:progress:${eventId}`);
+        }
+
         if (this.activeReclassifyEvents.size <= 0) {
             this.removeNotificationsByPrefix(RECLASSIFY_PROGRESS_ID);
             this.reclassifyStartedCount = 0;
