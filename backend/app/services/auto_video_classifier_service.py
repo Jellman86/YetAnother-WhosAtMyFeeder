@@ -513,16 +513,16 @@ class AutoVideoClassifierService:
                 # 4. Run classification
                 await self._update_status(frigate_event, 'processing', error=None, broadcast=False)
                 
-                async def progress_callback(current, total, score, label, frame_thumb=None, frame_index=None, clip_total=None, model_name=None):
+                async def progress_callback(current_frame, total_frames, frame_score, top_label, frame_thumb=None, frame_index=None, clip_total=None, model_name=None):
                     # Broadcast progress via SSE
                     await broadcaster.broadcast({
                         "type": "reclassification_progress",
                         "data": {
                             "event_id": frigate_event,
-                            "current_frame": current,
-                            "total_frames": total,
-                            "frame_score": score,
-                            "top_label": label,
+                            "current_frame": current_frame,
+                            "total_frames": total_frames,
+                            "frame_score": frame_score,
+                            "top_label": top_label,
                             "frame_thumb": frame_thumb,
                             "frame_index": frame_index,
                             "clip_total": clip_total,

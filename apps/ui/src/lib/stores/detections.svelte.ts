@@ -223,7 +223,12 @@ class DetectionsStore {
             const safeTotalFrames = this.toSafeInt(totalFrames, existing.totalFrames, 1);
             const boundedCurrentFrame = Math.min(this.MAX_RECLASSIFICATION_FRAMES, safeCurrentFrame);
             const boundedTotalFrames = Math.min(this.MAX_RECLASSIFICATION_FRAMES, safeTotalFrames);
-            const nextTotalFrames = Math.max(1, existing.totalFrames, boundedTotalFrames, boundedCurrentFrame);
+            
+            // Trust backend's total frames if it's explicitly provided and valid
+            const nextTotalFrames = boundedTotalFrames > 0 
+                ? boundedTotalFrames 
+                : Math.max(1, existing.totalFrames, boundedCurrentFrame);
+                
             const nextCurrentFrame = Math.min(
                 nextTotalFrames,
                 Math.max(existing.currentFrame, boundedCurrentFrame)
