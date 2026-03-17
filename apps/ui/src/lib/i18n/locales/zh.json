@@ -679,7 +679,11 @@
       "provider_fallback_reason": "回退：",
       "provider_intel_gpu": "Intel GPU（OpenVINO）",
       "selected_provider_label": "已选择",
-      "openvino_status": "OpenVINO"
+      "openvino_status": "OpenVINO",
+      "execution_mode": "执行模式",
+      "execution_mode_desc": "Subprocess 提供隔离和稳定性（推荐）。In-Process 通过共享模型权重显著节省 RAM，但如果崩溃会导致整个后端停止运行。",
+      "mode_subprocess": "Subprocess（隔离）",
+      "mode_in_process": "In-Process（共享 RAM）"
     },
     "llm": {
       "title": "AI 洞察",

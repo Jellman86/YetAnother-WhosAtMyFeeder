@@ -113,6 +113,7 @@
     let videoClassificationMaxRetries = $state(3);
     let videoClassificationMaxConcurrent = $state(5);
     let videoClassificationFrames = $state(15);
+    let imageExecutionMode = $state<'in_process' | 'subprocess' | string>('subprocess');
     let inferenceProvider = $state<'auto' | 'cpu' | 'cuda' | 'intel_gpu' | 'intel_cpu'>('auto');
     let videoCircuitOpen = $state(false);
     let videoCircuitUntil = $state<string | null>(null);
@@ -2391,6 +2392,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             videoClassificationMaxRetries = settings.video_classification_max_retries ?? 3;
             videoClassificationMaxConcurrent = settings.video_classification_max_concurrent ?? 5;
             videoClassificationFrames = settings.video_classification_frames ?? 15;
+            imageExecutionMode = settings.image_execution_mode ?? 'subprocess';
             strictNonFiniteOutput = (settings as any).strict_non_finite_output ?? true;
             inferenceProvider = (settings.inference_provider as any) ?? 'auto';
             videoCircuitOpen = settings.video_classification_circuit_open ?? false;
@@ -2671,6 +2673,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 video_classification_max_retries: videoClassificationMaxRetries,
                 video_classification_max_concurrent: videoClassificationMaxConcurrent,
                 video_classification_frames: videoClassificationFrames,
+                image_execution_mode: imageExecutionMode,
                 strict_non_finite_output: strictNonFiniteOutput,
                 inference_provider: inferenceProvider,
                 cameras: selectedCameras,
@@ -3054,6 +3057,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     bind:videoClassificationMaxRetries
                     bind:videoClassificationMaxConcurrent
                     bind:videoClassificationFrames
+                    bind:imageExecutionMode
                     bind:inferenceProvider
                     {classifierStatus}
                     bind:blockedLabels

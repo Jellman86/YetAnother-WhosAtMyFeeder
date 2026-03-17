@@ -17,6 +17,7 @@
         videoClassificationMaxRetries = $bindable(3),
         videoClassificationMaxConcurrent = $bindable(5),
         videoClassificationFrames = $bindable(15),
+        imageExecutionMode = $bindable<'in_process' | 'subprocess' | string>('subprocess'),
         inferenceProvider = $bindable<'auto' | 'cpu' | 'cuda' | 'intel_gpu' | 'intel_cpu'>('auto'),
         classifierStatus = null,
         videoCircuitOpen = false,
@@ -317,6 +318,25 @@
                         <option value="cuda">{$_('settings.detection.provider_cuda', { default: 'NVIDIA CUDA' })}</option>
                         <option value="intel_gpu">{$_('settings.detection.provider_intel_gpu', { default: 'Intel GPU (OpenVINO)' })}</option>
                         <option value="intel_cpu">{$_('settings.detection.provider_intel_cpu', { default: 'Intel CPU (OpenVINO)' })}</option>
+                    </select>
+                </div>
+
+                <div class="flex items-start justify-between gap-4 pt-2">
+                    <div id="execution-mode-label" class="flex-1">
+                        <span class="block text-sm font-black text-slate-900 dark:text-white">
+                            {$_('settings.detection.execution_mode', { default: 'Execution Mode' })}
+                        </span>
+                        <span class="block text-[10px] text-slate-500 font-bold leading-tight mt-1">
+                            {$_('settings.detection.execution_mode_desc', { default: 'Subprocess provides isolation and stability (recommended). In-Process saves significant RAM by sharing model weights, but a crash will take down the entire backend.' })}
+                        </span>
+                    </div>
+                    <select
+                        bind:value={imageExecutionMode}
+                        aria-labelledby="execution-mode-label"
+                        class="min-w-[10rem] px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
+                    >
+                        <option value="subprocess">{$_('settings.detection.mode_subprocess', { default: 'Subprocess (Isolated)' })}</option>
+                        <option value="in_process">{$_('settings.detection.mode_in_process', { default: 'In-Process (Shared RAM)' })}</option>
                     </select>
                 </div>
 

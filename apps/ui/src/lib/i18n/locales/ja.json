@@ -679,7 +679,11 @@
       "provider_fallback_reason": "フォールバック:",
       "provider_intel_gpu": "Intel GPU (OpenVINO)",
       "selected_provider_label": "選択",
-      "openvino_status": "OpenVINO"
+      "openvino_status": "OpenVINO",
+      "execution_mode": "実行モード",
+      "execution_mode_desc": "Subprocess は隔離と安定性を提供します（推奨）。In-Process はモデルの重みを共有することで RAM を大幅に節約しますが、クラッシュするとバックエンド全体が停止します。",
+      "mode_subprocess": "Subprocess（隔離）",
+      "mode_in_process": "In-Process（共有 RAM）"
     },
     "llm": {
       "title": "AI インサイト",

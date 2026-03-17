@@ -721,7 +721,11 @@
       "selected_provider_label": "Selected",
       "active_provider_label": "Active",
       "inference_backend_label": "Backend",
-      "provider_fallback_reason": "Fallback:"
+      "provider_fallback_reason": "Fallback:",
+      "execution_mode": "Execution Mode",
+      "execution_mode_desc": "Subprocess provides isolation and stability (recommended). In-Process saves significant RAM by sharing model weights, but a crash will take down the entire backend.",
+      "mode_subprocess": "Subprocess (Isolated)",
+      "mode_in_process": "In-Process (Shared RAM)"
     },
     "llm": {
       "title": "AI Insights",

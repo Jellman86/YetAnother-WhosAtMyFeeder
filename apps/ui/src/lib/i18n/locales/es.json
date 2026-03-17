@@ -708,7 +708,11 @@
       "provider_fallback_reason": "Fallback:",
       "provider_intel_gpu": "GPU Intel (OpenVINO)",
       "selected_provider_label": "Seleccionado",
-      "openvino_status": "OpenVINO"
+      "openvino_status": "OpenVINO",
+      "execution_mode": "Modo de ejecución",
+      "execution_mode_desc": "Subprocess proporciona aislamiento y estabilidad (recomendado). In-Process ahorra RAM compartiendo el modelo, pero un fallo puede detener todo el backend.",
+      "mode_subprocess": "Subprocess (Aislado)",
+      "mode_in_process": "In-Process (RAM compartida)"
     },
     "llm": {
       "title": "Análisis de IA",
