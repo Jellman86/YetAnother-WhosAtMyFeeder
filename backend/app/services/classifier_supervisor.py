@@ -711,6 +711,13 @@ class ClassifierSupervisor:
         except Exception:
             self._record_unavailable_slot(priority, index, "startup_failed")
         else:
+            # DEFENSIVE: If another concurrent _replace_worker (e.g. from restart_pool) 
+            # replaced this slot while we were awaiting _spawn_worker, we must kill 
+            # the worker we just spawned to prevent a zombie process leak.
+            if self._slots[priority][index] is not slot:
+                await new_slot.worker.kill()
+                return
+
             self._slots[priority][index] = new_slot
             self._metrics[priority]["workers"] = self._active_worker_count(priority)
         async with self._condition:
