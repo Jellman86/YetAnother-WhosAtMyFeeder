@@ -348,7 +348,7 @@ async def lifespan(app: FastAPI):
         await _run_lifecycle_phase(app, "telemetry_stop", telemetry_service.stop, fatal=False)
         await _run_lifecycle_phase(app, "mqtt_service_stop", mqtt_service.stop, fatal=False)
         await _run_lifecycle_phase(app, "frigate_client_close", frigate_client.close, fatal=False)
-        await _run_lifecycle_phase(app, "classifier_shutdown", lambda: asyncio.to_thread(shutdown_classifier), fatal=False)
+        await _run_lifecycle_phase(app, "classifier_shutdown", shutdown_classifier, fatal=False)
     await close_db()  # Close database connection pool
 
 app = FastAPI(title="Yet Another WhosAtMyFeeder API", version=APP_VERSION, lifespan=lifespan)

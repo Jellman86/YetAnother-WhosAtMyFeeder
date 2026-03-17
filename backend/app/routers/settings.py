@@ -280,6 +280,10 @@ class SettingsUpdate(BaseModel):
     video_classification_max_retries: Optional[int] = Field(3, ge=0, description="Max retries for clip availability")
     video_classification_max_concurrent: Optional[int] = Field(5, ge=1, le=20, description="Maximum concurrent video classification jobs")
     video_classification_frames: Optional[int] = Field(15, ge=5, le=100, description="Number of frames to sample for video classification")
+    image_execution_mode: Optional[str] = Field(
+        "subprocess",
+        description="Image inference execution mode: in_process|subprocess",
+    )
     strict_non_finite_output: Optional[bool] = Field(
         True,
         description="Reject all-non-finite inference outputs and trigger runtime recovery/fallback",
@@ -794,6 +798,13 @@ async def update_settings(
         settings.classification.video_classification_max_concurrent = update.video_classification_max_concurrent
     if "video_classification_frames" in fields_set and update.video_classification_frames is not None:
         settings.classification.video_classification_frames = update.video_classification_frames
+    
+    execution_mode_changed = False
+    if "image_execution_mode" in fields_set and update.image_execution_mode is not None:
+        previous_mode = settings.classification.image_execution_mode
+        settings.classification.image_execution_mode = update.image_execution_mode
+        execution_mode_changed = previous_mode != update.image_execution_mode
+
     if "strict_non_finite_output" in fields_set and update.strict_non_finite_output is not None:
         settings.classification.strict_non_finite_output = update.strict_non_finite_output
     if "inference_provider" in fields_set and update.inference_provider is not None:
@@ -1092,9 +1103,17 @@ async def update_settings(
         background_tasks.add_task(telemetry_service.force_heartbeat)
 
     await settings.save()
-    if inference_provider_changed:
-        from app.services.classifier_service import get_classifier
-        background_tasks.add_task(get_classifier().reload_bird_model)
+    if inference_provider_changed or execution_mode_changed:
+        from app.services.classifier_service import get_classifier, shutdown_classifier
+        
+        async def full_reload():
+            if execution_mode_changed:
+                log.info("Execution mode changed, performing full classifier service restart")
+                await shutdown_classifier()
+            await get_classifier().reload_bird_model()
+            
+        background_tasks.add_task(full_reload)
+
     try:
         from app.services.broadcaster import broadcaster
         await broadcaster.broadcast({

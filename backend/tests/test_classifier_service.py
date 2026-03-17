@@ -240,7 +240,8 @@ def test_classifier_supervisor_config_defaults():
     assert config.live_event_coalescing_enabled is True
 
 
-def test_classifier_service_skips_main_bird_model_init_in_subprocess_mode():
+@pytest.mark.asyncio
+async def test_classifier_service_skips_main_bird_model_init_in_subprocess_mode():
     original_mode = settings.classification.image_execution_mode
     settings.classification.image_execution_mode = "subprocess"
 
@@ -252,12 +253,13 @@ def test_classifier_service_skips_main_bird_model_init_in_subprocess_mode():
         ):
             service = ClassifierService(supervisor=MagicMock())
             assert "bird" not in service._models
-            service.shutdown()
+            await service.shutdown()
     finally:
         settings.classification.image_execution_mode = original_mode
 
 
-def test_classifier_service_caches_acceleration_probe_results():
+@pytest.mark.asyncio
+async def test_classifier_service_caches_acceleration_probe_results():
     caps = {
         "ort_available": False,
         "cuda_provider_installed": False,
@@ -293,7 +295,7 @@ def test_classifier_service_caches_acceleration_probe_results():
         service.get_status()
 
         assert mock_detect.call_count == 2
-        service.shutdown()
+        await service.shutdown()
 
 
 @pytest.mark.asyncio
@@ -328,7 +330,7 @@ async def test_classifier_service_routes_live_requests_through_supervisor(mock_t
             assert results[0]["label"] == "Robin"
             assert supervisor.calls[0]["priority"] == "live"
             assert supervisor.calls[0]["camera_name"] == "front"
-            service.shutdown()
+            await service.shutdown()
     finally:
         settings.classification.image_execution_mode = original_mode
 
@@ -365,7 +367,7 @@ async def test_classifier_service_routes_background_requests_through_supervisor(
             assert results[0]["label"] == "Blackbird"
             assert supervisor.calls[0]["priority"] == "background"
             assert supervisor.calls[0]["camera_name"] == "garden"
-            service.shutdown()
+            await service.shutdown()
     finally:
         settings.classification.image_execution_mode = original_mode
 
@@ -401,7 +403,7 @@ async def test_classifier_service_subprocess_live_queue_saturation_raises_fast(
 
             supervisor.release.set()
             assert (await first_task)[0]["label"] == "Robin"
-            service.shutdown()
+            await service.shutdown()
     finally:
         settings.classification.image_execution_mode = original_mode
         settings.classification.personalized_rerank_enabled = original_toggle
@@ -430,7 +432,7 @@ async def test_classifier_service_subprocess_status_tracks_live_in_flight_reques
             supervisor.release.set()
             assert (await task)[0]["label"] == "Robin"
             assert service.get_status()["live_image_in_flight"] == 0
-            service.shutdown()
+            await service.shutdown()
     finally:
         settings.classification.image_execution_mode = original_mode
         settings.classification.personalized_rerank_enabled = original_toggle
@@ -469,7 +471,7 @@ async def test_classifier_service_subprocess_live_reclaims_stale_capacity_for_ne
 
             assert results[0]["label"] == "Blackbird"
             assert supervisor.abort_calls
-            service.shutdown()
+            await service.shutdown()
     finally:
         settings.classification.image_execution_mode = original_mode
         settings.classification.personalized_rerank_enabled = original_toggle
@@ -522,7 +524,7 @@ async def test_classifier_service_routes_video_requests_through_supervisor(mock_
             assert results[0]["label"] == "Robin"
             assert supervisor.calls[0]["video_path"] == "/tmp/demo.mp4"
             assert seen_progress == [(1, 3, "Robin")]
-            service.shutdown()
+            await service.shutdown()
     finally:
         settings.classification.image_execution_mode = original_mode
 
@@ -548,7 +550,7 @@ async def test_classifier_service_uses_extended_video_deadline_for_supervisor_wo
             assert kwargs["background_hard_deadline_seconds"] == 120.0
             assert kwargs["video_hard_deadline_seconds"] > 180.0
             assert kwargs["video_hard_deadline_seconds"] > kwargs["hard_deadline_seconds"]
-            service.shutdown()
+            await service.shutdown()
     finally:
         settings.classification.image_execution_mode = original_mode
         settings.classification.worker_hard_deadline_seconds = original_worker_deadline
@@ -577,7 +579,7 @@ async def test_classifier_service_can_propagate_supervisor_video_failure_reason(
                 )
 
             assert excinfo.value.reason_code == "video_worker_deadline_exceeded"
-            service.shutdown()
+            await service.shutdown()
     finally:
         settings.classification.image_execution_mode = original_mode
 
@@ -597,7 +599,7 @@ async def test_classifier_service_maps_supervisor_circuit_open_to_live_overload(
             img = Image.new("RGB", (16, 16), color="green")
             with pytest.raises(LiveImageClassificationOverloadedError, match="classify_snapshot_circuit_open"):
                 await service.classify_async_live(img, camera_name="front")
-            service.shutdown()
+            await service.shutdown()
     finally:
         settings.classification.image_execution_mode = original_mode
 
@@ -617,7 +619,7 @@ async def test_classifier_service_maps_supervisor_heartbeat_timeout_to_live_leas
             img = Image.new("RGB", (16, 16), color="yellow")
             with pytest.raises(ClassificationLeaseExpiredError):
                 await service.classify_async_live(img, camera_name="front")
-            service.shutdown()
+            await service.shutdown()
     finally:
         settings.classification.image_execution_mode = original_mode
 
@@ -637,7 +639,7 @@ async def test_classifier_service_maps_supervisor_startup_timeout_to_live_overlo
             img = Image.new("RGB", (16, 16), color="orange")
             with pytest.raises(LiveImageClassificationOverloadedError, match="classify_snapshot_worker_unavailable"):
                 await service.classify_async_live(img, camera_name="front")
-            service.shutdown()
+            await service.shutdown()
     finally:
         settings.classification.image_execution_mode = original_mode
 
@@ -657,7 +659,7 @@ async def test_classifier_service_maps_supervisor_startup_timeout_to_empty_backg
             img = Image.new("RGB", (16, 16), color="purple")
             with pytest.raises(BackgroundImageClassificationUnavailableError, match="background_image_worker_startup_timeout"):
                 await service.classify_async_background(img, camera_name="garden")
-            service.shutdown()
+            await service.shutdown()
     finally:
         settings.classification.image_execution_mode = original_mode
 
@@ -677,7 +679,7 @@ async def test_classifier_service_maps_supervisor_exit_during_send_to_background
             img = Image.new("RGB", (16, 16), color="purple")
             with pytest.raises(BackgroundImageClassificationUnavailableError, match="background_image_worker_unavailable"):
                 await service.classify_async_background(img, camera_name="garden")
-            service.shutdown()
+            await service.shutdown()
     finally:
         settings.classification.image_execution_mode = original_mode
 
@@ -687,10 +689,11 @@ async def test_classifier_service_init(mock_tflite, mock_os_path_exists):
         service = ClassifierService()
         assert "bird" in service._models
         assert service.model_loaded is True
-        service.shutdown()
+        await service.shutdown()
 
 
-def test_classify_video_returns_empty_for_degenerate_uniform_confidence(mock_tflite, mock_os_path_exists):
+@pytest.mark.asyncio
+async def test_classify_video_returns_empty_for_degenerate_uniform_confidence(mock_tflite, mock_os_path_exists):
     class _FakeBirdModel:
         loaded = True
         labels = [f"Class {i}" for i in range(5)]
@@ -715,7 +718,7 @@ def test_classify_video_returns_empty_for_degenerate_uniform_confidence(mock_tfl
             results = service.classify_video("/tmp/fake.mp4", max_frames=5)
 
         assert results == []
-        service.shutdown()
+        await service.shutdown()
 
 
 @pytest.mark.asyncio
@@ -731,10 +734,11 @@ async def test_classifier_service_classify_async(mock_tflite, mock_os_path_exist
         
         assert results[0]["label"] == "Robin"
         mock_classify.assert_called_once()
-        service.shutdown()
+        await service.shutdown()
 
 
-def test_classifier_service_recovers_from_invalid_openvino_gpu_output(mock_tflite, mock_os_path_exists):
+@pytest.mark.asyncio
+async def test_classifier_service_recovers_from_invalid_openvino_gpu_output(mock_tflite, mock_os_path_exists):
     class _BrokenOpenVINOModel:
         loaded = True
         error = None
@@ -807,10 +811,11 @@ def test_classifier_service_recovers_from_invalid_openvino_gpu_output(mock_tflit
         assert broken.cleanup_called is True
         assert "openvino/intel_cpu" in (service._inference_fallback_reason or "")
         mock_load.assert_called_once()
-        service.shutdown()
+        await service.shutdown()
 
 
-def test_classifier_service_retries_gpu_once_before_cpu_fallback(mock_tflite, mock_os_path_exists):
+@pytest.mark.asyncio
+async def test_classifier_service_retries_gpu_once_before_cpu_fallback(mock_tflite, mock_os_path_exists):
     class _BrokenOpenVINOModel:
         loaded = True
         error = None
@@ -874,10 +879,11 @@ def test_classifier_service_retries_gpu_once_before_cpu_fallback(mock_tflite, mo
         assert service._runtime_fallback_recoveries == 0
         mock_build.assert_called()
         mock_fallback.assert_not_called()
-        service.shutdown()
+        await service.shutdown()
 
 
-def test_classifier_service_auto_restores_gpu_after_cpu_fallback_cooldown(mock_tflite, mock_os_path_exists):
+@pytest.mark.asyncio
+async def test_classifier_service_auto_restores_gpu_after_cpu_fallback_cooldown(mock_tflite, mock_os_path_exists):
     with patch.object(ClassifierService, "_init_bird_model", return_value=None):
         service = ClassifierService()
         cpu_model = _FallbackReadyModel([{"label": "CPU Bird", "score": 0.2, "index": 0}])
@@ -922,10 +928,11 @@ def test_classifier_service_auto_restores_gpu_after_cpu_fallback_cooldown(mock_t
         assert service._runtime_gpu_restore_attempts == 1
         assert service._runtime_gpu_restore_successes == 1
         mock_build.assert_called()
-        service.shutdown()
+        await service.shutdown()
 
 
-def test_classifier_service_recovers_raw_classification_from_invalid_openvino_gpu_output(
+@pytest.mark.asyncio
+async def test_classifier_service_recovers_raw_classification_from_invalid_openvino_gpu_output(
     mock_tflite, mock_os_path_exists
 ):
     class _BrokenOpenVINOModel:
@@ -978,7 +985,7 @@ def test_classifier_service_recovers_raw_classification_from_invalid_openvino_gp
         assert active_model is recovered
         assert service._models["bird"] is recovered
         assert broken.cleanup_called is True
-        service.shutdown()
+        await service.shutdown()
 
 
 def test_openvino_model_classify_raw_raises_invalid_output_on_runtime_exception():
@@ -1172,7 +1179,8 @@ def test_openvino_model_load_applies_optional_gpu_debug_properties(mock_os_path_
     assert kwargs["config"]["ACTIVATIONS_SCALE_FACTOR"] == "8.0"
 
 
-def test_classifier_service_falls_back_when_gpu_startup_self_test_fails(mock_os_path_exists):
+@pytest.mark.asyncio
+async def test_classifier_service_falls_back_when_gpu_startup_self_test_fails(mock_os_path_exists):
     class _FakeOpenVINOModel:
         def __init__(self, *args, **kwargs):
             self.loaded = False
@@ -1239,10 +1247,11 @@ def test_classifier_service_falls_back_when_gpu_startup_self_test_fails(mock_os_
     assert service._inference_backend == "onnxruntime"
     assert service._active_inference_provider == "cpu"
     assert "startup self-test" in (service._openvino_model_compile_error or "")
-    service.shutdown()
+    await service.shutdown()
 
 
-def test_classifier_service_uses_tflite_asset_paths_when_onnx_fallback_reaches_tflite(
+@pytest.mark.asyncio
+async def test_classifier_service_uses_tflite_asset_paths_when_onnx_fallback_reaches_tflite(
     mock_tflite, mock_os_path_exists
 ):
     with patch.object(
@@ -1297,10 +1306,11 @@ def test_classifier_service_uses_tflite_asset_paths_when_onnx_fallback_reaches_t
         )
         assert service._inference_backend == "tflite"
         assert service._active_inference_provider == "tflite"
-        service.shutdown()
+        await service.shutdown()
 
 
-def test_classifier_health_reports_error_when_invalid_output_recovery_fails(mock_tflite, mock_os_path_exists):
+@pytest.mark.asyncio
+async def test_classifier_health_reports_error_when_invalid_output_recovery_fails(mock_tflite, mock_os_path_exists):
     with patch.object(ClassifierService, "_init_bird_model", return_value=None):
         service = ClassifierService()
         service._models["bird"] = _FallbackReadyModel([{"label": "Robin", "score": 0.9, "index": 0}])
@@ -1316,7 +1326,7 @@ def test_classifier_health_reports_error_when_invalid_output_recovery_fails(mock
 
         assert health["status"] == "error"
         assert health["runtime_recovery"]["last_recovery"]["status"] == "failed"
-        service.shutdown()
+        await service.shutdown()
 
 
 @pytest.mark.asyncio
@@ -1346,7 +1356,7 @@ async def test_classifier_service_classify_async_applies_personalization_when_en
             kwargs = mock_rerank.await_args.kwargs
             assert kwargs["camera_name"] == "front"
             assert kwargs["model_id"] == service._resolve_active_model_id()
-            service.shutdown()
+            await service.shutdown()
     finally:
         settings.classification.personalized_rerank_enabled = original_toggle
 
@@ -1368,7 +1378,7 @@ async def test_classifier_service_classify_async_skips_personalization_when_disa
 
             assert results[0]["label"] == "Robin"
             mock_rerank.assert_not_awaited()
-            service.shutdown()
+            await service.shutdown()
     finally:
         settings.classification.personalized_rerank_enabled = original_toggle
 
@@ -1413,7 +1423,7 @@ async def test_classifier_service_classify_async_returns_empty_when_image_queue_
             assert results == []
             release.set()
             await first_task
-            service.shutdown()
+            await service.shutdown()
     finally:
         settings.classification.personalized_rerank_enabled = original_toggle
 
@@ -1458,7 +1468,7 @@ async def test_classifier_service_classify_async_live_raises_when_live_queue_sat
 
             release.set()
             assert (await first_task)[0]["label"] == "Robin"
-            service.shutdown()
+            await service.shutdown()
     finally:
         settings.classification.personalized_rerank_enabled = original_toggle
 
@@ -1499,7 +1509,7 @@ async def test_classifier_service_classify_async_live_keeps_capacity_reserved_un
             await asyncio.sleep(0.05)
 
             assert service.get_status()["live_image_in_flight"] == 0
-            service.shutdown()
+            await service.shutdown()
     finally:
         settings.classification.personalized_rerank_enabled = original_toggle
 
@@ -1548,7 +1558,7 @@ async def test_classifier_service_classify_async_live_isolated_from_non_live_exe
 
             shared_release.set()
             await asyncio.wait_for(shared_task, timeout=1.0)
-            service.shutdown()
+            await service.shutdown()
     finally:
         settings.classification.personalized_rerank_enabled = original_toggle
 
@@ -1600,7 +1610,7 @@ async def test_classifier_service_classify_async_live_reclaims_stale_capacity_fo
                 results = await service.classify_async_live(img, camera_name="front")
 
             assert results[0]["label"] == "Robin"
-            service.shutdown()
+            await service.shutdown()
     finally:
         settings.classification.personalized_rerank_enabled = original_toggle
 
@@ -1647,12 +1657,13 @@ async def test_classifier_service_uses_separate_executors_for_image_and_video_wo
             assert service._image_executor is not service._video_executor
             assert service._background_image_executor is not service._video_executor
             assert service._background_image_executor is not service._image_executor
-            service.shutdown()
+            await service.shutdown()
     finally:
         settings.classification.personalized_rerank_enabled = original_toggle
 
 
-def test_classifier_service_video_progress_callback_failure_does_not_drop_results(mock_tflite, mock_os_path_exists):
+@pytest.mark.asyncio
+async def test_classifier_service_video_progress_callback_failure_does_not_drop_results(mock_tflite, mock_os_path_exists):
     original_toggle = settings.classification.personalized_rerank_enabled
     settings.classification.personalized_rerank_enabled = False
 
@@ -1701,7 +1712,7 @@ def test_classifier_service_video_progress_callback_failure_does_not_drop_result
 
             assert results
             assert results[0]["label"] == "Robin"
-            service.shutdown()
+            await service.shutdown()
     finally:
         settings.classification.personalized_rerank_enabled = original_toggle
 
@@ -1898,7 +1909,8 @@ def test_classifier_status_exposes_openvino_model_compile_diagnostics():
     assert status["openvino_model_compile_unsupported_ops"] == ["SequenceEmpty"]
 
 
-def test_classifier_status_exposes_openvino_runtime_diagnostics_block():
+@pytest.mark.asyncio
+async def test_classifier_status_exposes_openvino_runtime_diagnostics_block():
     with patch.object(ClassifierService, "_init_bird_model", return_value=None):
         service = ClassifierService()
 
@@ -1973,20 +1985,22 @@ def test_classifier_status_exposes_openvino_runtime_diagnostics_block():
     assert status["openvino_runtime"]["compatibility"]["devices"]["GPU"]["last_probe_status"] == "invalid_output"
     assert status["openvino_runtime"]["last_runtime_recovery"]["diagnostics"]["compile_properties"]["INFERENCE_PRECISION_HINT"] == "f32"
     assert status["openvino_runtime"]["last_runtime_recovery"]["diagnostics"]["output_summary"]["nan_count"] == 10000
-    service.shutdown()
+    await service.shutdown()
 
 
-def test_classifier_status_disables_gpu_startup_self_test_in_worker_process_mode():
+@pytest.mark.asyncio
+async def test_classifier_status_disables_gpu_startup_self_test_in_worker_process_mode():
     with patch.object(ClassifierService, "_init_bird_model", return_value=None):
         service = ClassifierService(worker_process_mode=True)
 
     status = service.get_status()
 
     assert status["openvino_runtime"]["gpu_settings"]["startup_self_test_enabled"] is False
-    service.shutdown()
+    await service.shutdown()
 
 
-def test_probe_bird_runtime_updates_compatibility_state_from_probe_result():
+@pytest.mark.asyncio
+async def test_probe_bird_runtime_updates_compatibility_state_from_probe_result():
     with patch.object(ClassifierService, "_init_bird_model", return_value=None):
         service = ClassifierService()
 
@@ -2020,10 +2034,11 @@ def test_probe_bird_runtime_updates_compatibility_state_from_probe_result():
     assert report["output_summary"]["invalid_output_kind"] == "all_nan"
     assert service._bird_model_compatibility["devices"]["GPU"]["artifact_trust_state"] == "untrusted"
     assert service._bird_model_compatibility["devices"]["GPU"]["last_probe_status"] == "invalid_output"
-    service.shutdown()
+    await service.shutdown()
 
 
-def test_cpu_probe_does_not_overwrite_gpu_compatibility_state():
+@pytest.mark.asyncio
+async def test_cpu_probe_does_not_overwrite_gpu_compatibility_state():
     with patch.object(ClassifierService, "_init_bird_model", return_value=None):
         service = ClassifierService()
 
@@ -2039,7 +2054,7 @@ def test_cpu_probe_does_not_overwrite_gpu_compatibility_state():
 
     assert service._bird_model_compatibility["devices"]["GPU"]["artifact_trust_state"] == "untrusted"
     assert service._bird_model_compatibility["devices"]["CPU"]["artifact_trust_state"] == "trusted"
-    service.shutdown()
+    await service.shutdown()
 
 
 def test_openvino_infer_output_tensor_uses_compiled_output_handle_and_preserves_nan_shape(mock_os_path_exists):
@@ -2110,7 +2125,8 @@ def test_openvino_gpu_startup_self_test_preserves_all_nan_output_diagnostics(moc
     assert summary["invalid_output_kind"] == "all_nan"
 
 
-def test_classifier_check_health_exposes_live_image_pressure():
+@pytest.mark.asyncio
+async def test_classifier_check_health_exposes_live_image_pressure():
     with patch.object(ClassifierService, "_init_bird_model", return_value=None):
         service = ClassifierService()
 
@@ -2146,10 +2162,11 @@ def test_classifier_check_health_exposes_live_image_pressure():
     assert health["live_image"]["max_concurrent"] >= 1
     assert health["live_image"]["in_flight"] == 1
     assert health["live_image"]["admission_timeouts"] == 4
-    service.shutdown()
+    await service.shutdown()
 
 
-def test_classifier_check_health_keeps_transient_live_saturation_out_of_degraded_status():
+@pytest.mark.asyncio
+async def test_classifier_check_health_keeps_transient_live_saturation_out_of_degraded_status():
     with patch.object(ClassifierService, "_init_bird_model", return_value=None):
         service = ClassifierService()
 
@@ -2184,10 +2201,11 @@ def test_classifier_check_health_keeps_transient_live_saturation_out_of_degraded
 
     assert health["live_image"]["pressure_level"] == "high"
     assert health["live_image"]["status"] == "ok"
-    service.shutdown()
+    await service.shutdown()
 
 
-def test_classifier_get_admission_status_is_lightweight_and_exposes_throttle_state():
+@pytest.mark.asyncio
+async def test_classifier_get_admission_status_is_lightweight_and_exposes_throttle_state():
     with patch.object(ClassifierService, "_init_bird_model", return_value=None):
         service = ClassifierService()
 
@@ -2223,10 +2241,11 @@ def test_classifier_get_admission_status_is_lightweight_and_exposes_throttle_sta
 
     assert status["background_throttled"] is True
     assert status["background"]["queued"] == 3
-    service.shutdown()
+    await service.shutdown()
 
 
-def test_classifier_check_health_exposes_supervisor_pool_state():
+@pytest.mark.asyncio
+async def test_classifier_check_health_exposes_supervisor_pool_state():
     with patch.object(ClassifierService, "_init_bird_model", return_value=None):
         service = ClassifierService()
 
@@ -2260,10 +2279,11 @@ def test_classifier_check_health_exposes_supervisor_pool_state():
     assert health["live_image"]["recovery_reason"] == "worker_circuit_open"
     assert status["worker_pools"]["live"]["restarts"] == 3
     assert status["late_results_ignored"] == 4
-    service.shutdown()
+    await service.shutdown()
 
 
-def test_classifier_check_health_uses_worker_runtime_state_in_subprocess_mode():
+@pytest.mark.asyncio
+async def test_classifier_check_health_uses_worker_runtime_state_in_subprocess_mode():
     with patch.object(ClassifierService, "_init_bird_model", return_value=None):
         service = ClassifierService()
 
@@ -2329,10 +2349,11 @@ def test_classifier_check_health_uses_worker_runtime_state_in_subprocess_mode():
     assert health["status"] == "ok"
     assert health["runtime_recovery"]["last_recovery"]["failed_provider"] == "GPU"
     assert status["last_runtime_recovery"]["recovered_provider"] == "intel_cpu"
-    service.shutdown()
+    await service.shutdown()
 
 
-def test_classifier_status_uses_video_worker_runtime_truth_in_subprocess_mode():
+@pytest.mark.asyncio
+async def test_classifier_status_uses_video_worker_runtime_truth_in_subprocess_mode():
     with patch.object(ClassifierService, "_init_bird_model", return_value=None):
         service = ClassifierService()
 
@@ -2382,10 +2403,11 @@ def test_classifier_status_uses_video_worker_runtime_truth_in_subprocess_mode():
     assert status["active_provider"] == "intel_cpu"
     assert status["inference_backend"] == "openvino"
     assert status["last_runtime_recovery"]["recovered_provider"] == "intel_cpu"
-    service.shutdown()
+    await service.shutdown()
 
 
-def test_classifier_check_health_is_ok_before_lazy_subprocess_workers_start():
+@pytest.mark.asyncio
+async def test_classifier_check_health_is_ok_before_lazy_subprocess_workers_start():
     with patch.object(ClassifierService, "_init_bird_model", return_value=None):
         service = ClassifierService()
 
@@ -2448,14 +2470,15 @@ def test_classifier_check_health_is_ok_before_lazy_subprocess_workers_start():
     health = service.check_health()
 
     assert health["status"] == "ok"
-    service.shutdown()
+    await service.shutdown()
 
 
-def test_classifier_service_shutdown_closes_all_executors():
+@pytest.mark.asyncio
+async def test_classifier_service_shutdown_closes_all_executors():
     with patch.object(ClassifierService, "_init_bird_model", return_value=None):
         service = ClassifierService()
 
-    service.shutdown()
+    await service.shutdown()
 
     assert service._image_executor._shutdown is True
     assert service._live_image_executor._shutdown is True

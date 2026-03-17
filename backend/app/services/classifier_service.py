@@ -3,6 +3,7 @@ import numpy as np
 import os
 import cv2
 import asyncio
+import inspect
 import base64
 import ctypes
 import hashlib
@@ -802,12 +803,12 @@ def get_classifier() -> 'ClassifierService':
     return _classifier_instance
 
 
-def shutdown_classifier() -> None:
+async def shutdown_classifier() -> None:
     """Shut down the shared classifier service instance if it exists."""
     global _classifier_instance
-    with _classifier_lock:
-        if _classifier_instance is not None:
-            _classifier_instance.shutdown()
+    if _classifier_instance is not None:
+        await _classifier_instance.shutdown()
+        with _classifier_lock:
             _classifier_instance = None
 
 
@@ -3299,8 +3300,15 @@ class ClassifierService:
         except Exception as e:
             log.error("Failed to reload wildlife model", error=str(e))
 
-    def shutdown(self) -> None:
+    async def shutdown(self) -> None:
         self._classification_admission.close_sync()
+        if self._classifier_supervisor is not None:
+            # Defensive check for mocks/fakes in tests that might not implement shutdown
+            shutdown_fn = getattr(self._classifier_supervisor, "shutdown", None)
+            if callable(shutdown_fn):
+                result = shutdown_fn()
+                if inspect.isawaitable(result):
+                    await result
         for executor in (
             self._image_executor,
             self._live_image_executor,
