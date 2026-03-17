@@ -32,7 +32,7 @@ from app.repositories.detection_repository import DetectionRepository
 log = structlog.get_logger()
 FALSE_POSITIVE_TOMBSTONE_TTL_SECONDS = 600.0
 EVENT_STAGE_TIMEOUT_CLASSIFY_SECONDS = max(
-    1.0, float(os.getenv("EVENT_STAGE_TIMEOUT_CLASSIFY_SECONDS", "30"))
+    1.0, float(os.getenv("EVENT_STAGE_TIMEOUT_CLASSIFY_SECONDS", "60"))
 )
 EVENT_STAGE_TIMEOUT_CONTEXT_SECONDS = max(
     0.5, float(os.getenv("EVENT_STAGE_TIMEOUT_CONTEXT_SECONDS", "6"))
