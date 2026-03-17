@@ -38,6 +38,7 @@
         videoClassificationMaxRetries: number;
         videoClassificationMaxConcurrent: number;
         videoClassificationFrames: number;
+        imageExecutionMode: 'in_process' | 'subprocess' | string;
         inferenceProvider: 'auto' | 'cpu' | 'cuda' | 'intel_gpu' | 'intel_cpu';
         classifierStatus: ClassifierStatus | null;
         videoCircuitOpen: boolean;
