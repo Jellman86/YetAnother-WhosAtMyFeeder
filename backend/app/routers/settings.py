@@ -1093,11 +1093,8 @@ async def update_settings(
 
     await settings.save()
     if inference_provider_changed:
-        try:
-            from app.services.classifier_service import get_classifier
-            await get_classifier().reload_bird_model()
-        except Exception as e:
-            log.warning("Failed to reload bird model after inference provider change", error=str(e))
+        from app.services.classifier_service import get_classifier
+        background_tasks.add_task(get_classifier().reload_bird_model)
     try:
         from app.services.broadcaster import broadcaster
         await broadcaster.broadcast({
@@ -1535,21 +1532,20 @@ async def run_cache_cleanup(auth: AuthContext = Depends(require_owner)):
 
 
 @router.delete("/maintenance/feedback/clear")
-async def clear_classification_feedback(auth: AuthContext = Depends(require_owner)):
+async def clear_classification_feedback(
+    background_tasks: BackgroundTasks,
+    auth: AuthContext = Depends(require_owner)
+):
     """Clear all personalized re-ranking classification feedback. Owner only."""
     from app.services.classifier_service import get_classifier
-    
+
     async with get_db() as db:
         repo = DetectionRepository(db)
         deleted_count = await repo.clear_all_classification_feedback()
-        
-    try:
-        await get_classifier().reload_bird_model()
-    except Exception as e:
-        log.warning("Failed to reload bird model after clearing personalization feedback", error=str(e))
-        
-    return {
-        "status": "success",
+
+    background_tasks.add_task(get_classifier().reload_bird_model)
+
+    return {        "status": "success",
         "message": f"Cleared {deleted_count} feedback records.",
         "deleted_count": deleted_count
     }

@@ -42,6 +42,7 @@ async def get_download_status(
 @router.post("/models/{model_id}/activate")
 async def activate_model(
     model_id: str,
+    background_tasks: BackgroundTasks,
     auth: AuthContext = Depends(require_owner)
 ):
     """Set a specific model as the active classifier. Owner only."""
@@ -49,9 +50,10 @@ async def activate_model(
     if not success:
         raise HTTPException(status_code=404, detail="Model not installed")
     
-    # Reload the classifier
+    # Reload the classifier in the background to prevent blocking API timeouts
+    # when loading heavy models across multiple worker processes.
     classifier = get_classifier()
-    await classifier.reload_bird_model()
+    background_tasks.add_task(classifier.reload_bird_model)
 
     return {"status": "success", "message": f"Model {model_id} activated"}
 

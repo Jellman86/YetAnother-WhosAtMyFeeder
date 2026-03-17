@@ -634,6 +634,12 @@ class ClassifierSupervisor:
         while True:
             await asyncio.sleep(self._watchdog_interval_seconds)
             for priority in ("live", "background", "video"):
+                # If a startup or restart operation is in progress, skip watchdog 
+                # checks for this priority to prevent race conditions that could 
+                # leak worker processes.
+                if self._start_locks[priority].locked():
+                    continue
+
                 for index, slot in enumerate(list(self._slots[priority])):
                     if slot.worker is None:
                         continue
