@@ -166,6 +166,11 @@ class ClassifierSupervisor:
         self._started = False
         self._pending_requests: dict[tuple[WorkPriority, str, int], asyncio.Future[None]] = {}
 
+        # Global lock to ensure only one worker across all pools can be 
+        # initializing at a time. This prevents RAM/GPU spikes when loading
+        # large "Elite" models.
+        self._global_init_lock = asyncio.Lock()
+
     async def start(self, priority: WorkPriority | None = None) -> None:
         priorities: tuple[WorkPriority, ...]
         if priority is None:
@@ -498,8 +503,11 @@ class ClassifierSupervisor:
                     priority=priority,
                     index=index,
                 )
-            await worker.start()
-            await worker.wait_until_ready(timeout_seconds=self._worker_ready_timeout_seconds[priority])
+            
+            # Serialize model loading across all pools to prevent RAM/GPU spikes
+            async with self._global_init_lock:
+                await worker.start()
+                await worker.wait_until_ready(timeout_seconds=self._worker_ready_timeout_seconds[priority])
         except TimeoutError as exc:
             await self._close_failed_worker(worker)
             self._record_start_failure(priority, worker, reason="startup_timeout")
