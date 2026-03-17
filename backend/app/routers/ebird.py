@@ -52,6 +52,7 @@ def _format_ebird_row(
         display_name=display_name,
         common_name=common_name,
         english_common_name=english_common_name,
+        scientific_name=scientific_name,
     )
     location_name = f"Home ({camera_name})" if camera_name else "Home"
     lat = settings.location.latitude
@@ -113,10 +114,25 @@ def _resolve_export_common_name(
     display_name: str | None,
     common_name: str | None,
     english_common_name: str | None,
+    scientific_name: str | None,
 ) -> str:
-    for candidate in (english_common_name, common_name, display_name):
-        if _is_english_safe_name(candidate):
-            return str(candidate).strip()
+    # 1. Prefer the resolved English common name from taxonomy cache
+    if _is_english_safe_name(english_common_name):
+        return str(english_common_name).strip()
+    
+    # 2. Try the stored common name if it's English-safe (e.g. from model labels)
+    if _is_english_safe_name(common_name):
+        return str(common_name).strip()
+        
+    # 3. Try the display name if it's English-safe
+    if _is_english_safe_name(display_name):
+        return str(display_name).strip()
+        
+    # 4. As a last resort for eBird compatibility, use the scientific name.
+    # eBird import accepts scientific names in the Common Name column if they match their taxonomy.
+    if scientific_name and scientific_name.strip():
+        return str(scientific_name).strip()
+        
     return ""
 
 
@@ -125,16 +141,19 @@ def _is_exportable_ebird_detection(
     display_name: str | None,
     common_name: str | None,
     english_common_name: str | None,
+    scientific_name: str | None,
 ) -> bool:
     normalized_display = str(display_name or "").strip().lower()
     normalized_common = str(common_name or "").strip().lower()
 
     if normalized_display == "unknown bird" or normalized_common == "unknown bird":
         return False
+        
     if not _resolve_export_common_name(
         display_name=display_name,
         common_name=common_name,
         english_common_name=english_common_name,
+        scientific_name=scientific_name,
     ):
         return False
     return True
@@ -245,6 +264,7 @@ async def export_ebird_csv(
                         display_name=display_name,
                         common_name=common_name,
                         english_common_name=english_common_name,
+                        scientific_name=scientific_name,
                     ):
                         continue
                     dt = _parse_detection_time(detection_time)

@@ -538,7 +538,7 @@ async def test_ebird_export_excludes_unknown_bird_rows(client: httpx.AsyncClient
 
 
 @pytest.mark.asyncio
-async def test_ebird_export_excludes_rows_without_english_common_name(client: httpx.AsyncClient):
+async def test_ebird_export_falls_back_to_scientific_name_when_common_name_missing(client: httpx.AsyncClient):
     settings.ebird.enabled = False
     settings.ebird.api_key = None
 
@@ -554,7 +554,10 @@ async def test_ebird_export_excludes_rows_without_english_common_name(client: ht
     response = await client.get("/api/ebird/export")
 
     assert response.status_code == 200, response.text
-    assert _read_csv_rows(response.text) == []
+    rows = _read_csv_rows(response.text)
+    assert len(rows) == 1
+    # Should fallback to scientific name in the common name column (index 0)
+    assert rows[0][0] == "Parus major"
 
 
 @pytest.mark.asyncio

@@ -78,20 +78,25 @@ class TaxonomyService:
             }
             
         # 3. Enrichment Override (eBird)
-        # If user prefers eBird common names, try to fetch and override
+        # If user prefers eBird common names, try to fetch and store as translation
         effective = get_effective_enrichment_settings()
         if effective["taxonomy_source"] == "ebird":
              try:
-                 # Use the scientific name we just found to lookup in eBird
-                 # This is safer than using the raw query_name
                  sci_name = result.get("scientific_name") or query_name
-                 ebird_common = await ebird_service.get_common_name(sci_name, locale=settings.ebird.locale)
+                 locale = settings.ebird.locale or "en"
+                 ebird_common = await ebird_service.get_common_name(sci_name, locale=locale)
                  
                  if ebird_common:
-                     log.info("Overriding common name with eBird", original=result.get("common_name"), ebird=ebird_common)
-                     result["common_name"] = ebird_common
+                     if locale == "en":
+                         # Overwrite English common name in main result
+                         log.info("Overriding canonical common name with eBird (en)", original=result.get("common_name"), ebird=ebird_common)
+                         result["common_name"] = ebird_common
+                     else:
+                         # Store as translation, do NOT overwrite the main result (which should remain English for exporter compatibility)
+                         log.info("Storing localized eBird common name in translations", locale=locale, ebird=ebird_common)
+                         await self._save_translation_to_cache(result["taxa_id"], locale, ebird_common, db=db)
              except Exception as e:
-                 log.warning("Failed to lookup eBird common name, falling back to iNaturalist", error=str(e))
+                 log.warning("Failed to lookup eBird common name", error=str(e))
 
         # 4. Save Success to Cache
         await self._save_to_cache(result, db=db)
