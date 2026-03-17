@@ -1095,7 +1095,7 @@ async def update_settings(
     if inference_provider_changed:
         try:
             from app.services.classifier_service import get_classifier
-            get_classifier().reload_bird_model()
+            await get_classifier().reload_bird_model()
         except Exception as e:
             log.warning("Failed to reload bird model after inference provider change", error=str(e))
     try:
@@ -1544,7 +1544,7 @@ async def clear_classification_feedback(auth: AuthContext = Depends(require_owne
         deleted_count = await repo.clear_all_classification_feedback()
         
     try:
-        get_classifier().reload_bird_model()
+        await get_classifier().reload_bird_model()
     except Exception as e:
         log.warning("Failed to reload bird model after clearing personalization feedback", error=str(e))
         

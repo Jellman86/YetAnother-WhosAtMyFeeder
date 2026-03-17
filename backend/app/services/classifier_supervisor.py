@@ -207,6 +207,33 @@ class ClassifierSupervisor:
             except asyncio.CancelledError:
                 pass
 
+    async def restart_pool(self, priority: WorkPriority | None = None) -> None:
+        """
+        Restart all workers in the pool.
+        Useful for picking up model changes or other configuration updates.
+        """
+        priorities: tuple[WorkPriority, ...]
+        if priority is None:
+            priorities = ("live", "background", "video")
+        else:
+            priorities = (priority,)
+
+        for p in priorities:
+            async with self._start_locks[p]:
+                for index, slot in enumerate(list(self._slots[p])):
+                    if slot.worker is not None:
+                        # Replacing the worker will terminate the old one and spawn a new one.
+                        # This picks up new model configuration from active_model.json.
+                        await self._replace_worker(
+                            p,
+                            index,
+                            reason="pool_restart",
+                            assignment_error=ClassifierWorkerExitedError(
+                                "Worker restarted due to configuration change"
+                            ),
+                            kill=True,
+                        )
+
     def get_metrics(self) -> dict[str, Any]:
         return {
             "live": dict(self._metrics["live"]),

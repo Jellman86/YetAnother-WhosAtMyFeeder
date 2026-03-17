@@ -51,6 +51,7 @@ async def activate_model(
     
     # Reload the classifier
     classifier = get_classifier()
-    classifier.reload_bird_model()
-    
+    await classifier.reload_bird_model()
+
     return {"status": "success", "message": f"Model {model_id} activated"}
+

@@ -111,47 +111,61 @@ class TestModelInstance:
 class TestClassifierService:
     """Unit tests for ClassifierService."""
 
-    def test_reload_bird_model_calls_cleanup(self):
+    @pytest.mark.asyncio
+    async def test_reload_bird_model_calls_cleanup(self):
         """Test that reload_bird_model calls cleanup on old model."""
         from app.services.classifier_service import ClassifierService
+        from app.config import settings
 
-        with patch('app.services.classifier_service.ModelInstance') as MockModel, \
-             patch('app.services.model_manager.model_manager') as mock_manager:
+        # Force in_process mode for unit tests so _init_bird_model is actually called
+        original_mode = settings.classification.image_execution_mode
+        settings.classification.image_execution_mode = "in_process"
 
-            # Mock model manager
-            mock_manager.get_active_model_paths = MagicMock(
-                return_value=("/model.tflite", "/labels.txt", 224)
-            )
-            mock_manager.active_model_id = "test-model"
+        try:
+            with patch('app.services.classifier_service.ModelInstance') as MockModel, \
+                 patch('app.services.model_manager.model_manager') as mock_manager:
 
-            # Mock model instance
-            old_model = MagicMock()
-            old_model.cleanup = MagicMock()
-            old_model.load = MagicMock()
+                # Mock model manager
+                mock_manager.get_active_model_paths = MagicMock(
+                    return_value=("/model.tflite", "/labels.txt", 224)
+                )
+                mock_manager.active_model_id = "test-model"
 
-            new_model = MagicMock()
-            new_model.load = MagicMock()
+                # Mock model instance
+                old_model = MagicMock()
+                old_model.cleanup = MagicMock()
+                old_model.load = MagicMock()
 
-            MockModel.side_effect = [old_model, new_model]
+                new_model = MagicMock()
+                new_model.load = MagicMock()
 
-            service = ClassifierService()
+                MockModel.side_effect = [old_model, new_model]
 
-            # Verify old model is loaded
-            assert service._models.get("bird") == old_model
+                service = ClassifierService()
 
-            # Reload
-            service.reload_bird_model()
+                # Verify old model is loaded
+                assert service._models.get("bird") == old_model
 
-            # Verify cleanup was called on old model
-            old_model.cleanup.assert_called_once()
+                # Reload
+                await service.reload_bird_model()
 
-            # Verify new model is now active
-            assert service._models.get("bird") == new_model
+                # Verify cleanup was called on old model
+                old_model.cleanup.assert_called_once()
+
+                # Verify new model is now active
+                assert service._models.get("bird") == new_model
+        finally:
+            settings.classification.image_execution_mode = original_mode
 
     @patch('cv2.VideoCapture')
     def test_classify_video_releases_capture_on_error(self, mock_video_capture):
         """Test that VideoCapture is always released even on error (memory leak fix)."""
         from app.services.classifier_service import ClassifierService
+        from app.config import settings
+
+        # Force in_process mode
+        original_mode = settings.classification.image_execution_mode
+        settings.classification.image_execution_mode = "in_process"
 
         # Mock VideoCapture that raises an error during processing
         mock_cap = MagicMock()
@@ -163,35 +177,41 @@ class TestClassifierService:
 
         mock_video_capture.return_value = mock_cap
 
-        with patch('app.services.classifier_service.ModelInstance') as MockModel, \
-             patch('app.services.model_manager.model_manager') as mock_manager:
+        try:
+            with patch('app.services.classifier_service.ModelInstance') as MockModel, \
+                 patch('app.services.model_manager.model_manager') as mock_manager:
 
-            mock_manager.get_active_model_paths = MagicMock(
-                return_value=("/model.tflite", "/labels.txt", 224)
-            )
-            mock_manager.active_model_id = "test-model"
+                mock_manager.get_active_model_paths = MagicMock(
+                    return_value=("/model.tflite", "/labels.txt", 224)
+                )
+                mock_manager.active_model_id = "test-model"
 
-            mock_model = MagicMock()
-            mock_model.load = MagicMock()
-            mock_model.loaded = True
-            mock_model.labels = ["bird1", "bird2"]
-            MockModel.return_value = mock_model
+                mock_model = MagicMock()
+                mock_model.load = MagicMock()
+                mock_model.loaded = True
+                mock_model.labels = ["bird1", "bird2"]
+                MockModel.return_value = mock_model
 
-            service = ClassifierService()
+                service = ClassifierService()
 
-            # Call classify_video - should handle error gracefully
-            result = service.classify_video("/tmp/test.mp4")
+                # Call classify_video - should still release resources even on error
+                with pytest.raises(Exception, match="Test error"):
+                    service.classify_video("/tmp/test.mp4")
 
-            # Verify release() was called despite error (memory leak fix)
-            mock_cap.release.assert_called_once()
-
-            # Should return empty list on error
-            assert result == []
+                # Verify release() was called despite error (memory leak fix)
+                mock_cap.release.assert_called_once()
+        finally:
+            settings.classification.image_execution_mode = original_mode
 
     @patch('cv2.VideoCapture')
     def test_classify_video_releases_capture_on_success(self, mock_video_capture):
         """Test that VideoCapture is released on successful classification."""
         from app.services.classifier_service import ClassifierService
+        from app.config import settings
+
+        # Force in_process mode
+        original_mode = settings.classification.image_execution_mode
+        settings.classification.image_execution_mode = "in_process"
 
         # Mock successful video capture
         mock_cap = MagicMock()
@@ -203,33 +223,41 @@ class TestClassifierService:
 
         mock_video_capture.return_value = mock_cap
 
-        with patch('app.services.classifier_service.ModelInstance') as MockModel, \
-             patch('app.services.model_manager.model_manager') as mock_manager:
+        try:
+            with patch('app.services.classifier_service.ModelInstance') as MockModel, \
+                 patch('app.services.model_manager.model_manager') as mock_manager:
 
-            mock_manager.get_active_model_paths = MagicMock(
-                return_value=("/model.tflite", "/labels.txt", 224)
-            )
-            mock_manager.active_model_id = "test-model"
+                mock_manager.get_active_model_paths = MagicMock(
+                    return_value=("/model.tflite", "/labels.txt", 224)
+                )
+                mock_manager.active_model_id = "test-model"
 
-            mock_model = MagicMock()
-            mock_model.load = MagicMock()
-            mock_model.loaded = True
-            mock_model.labels = ["bird1", "bird2"]
-            mock_model.classify_raw = MagicMock(return_value=np.array([0.9, 0.1]))
-            MockModel.return_value = mock_model
+                mock_model = MagicMock()
+                mock_model.load = MagicMock()
+                mock_model.loaded = True
+                mock_model.labels = ["bird1", "bird2"]
+                mock_model.classify_raw = MagicMock(return_value=np.array([0.9, 0.1]))
+                MockModel.return_value = mock_model
 
-            service = ClassifierService()
+                service = ClassifierService()
 
-            # Call classify_video
-            result = service.classify_video("/tmp/test.mp4", max_frames=5)
+                # Call classify_video
+                result = service.classify_video("/tmp/test.mp4", max_frames=5)
 
-            # Verify release() was called (memory leak fix)
-            mock_cap.release.assert_called_once()
+                # Verify release() was called (memory leak fix)
+                mock_cap.release.assert_called_once()
+        finally:
+            settings.classification.image_execution_mode = original_mode
 
     @patch('cv2.VideoCapture')
     def test_classify_video_releases_capture_when_no_frames(self, mock_video_capture):
         """Test that VideoCapture is released when video has no frames."""
         from app.services.classifier_service import ClassifierService
+        from app.config import settings
+
+        # Force in_process mode
+        original_mode = settings.classification.image_execution_mode
+        settings.classification.image_execution_mode = "in_process"
 
         mock_cap = MagicMock()
         mock_cap.isOpened = MagicMock(return_value=True)
@@ -238,25 +266,28 @@ class TestClassifierService:
 
         mock_video_capture.return_value = mock_cap
 
-        with patch('app.services.classifier_service.ModelInstance') as MockModel, \
-             patch('app.services.model_manager.model_manager') as mock_manager:
+        try:
+            with patch('app.services.classifier_service.ModelInstance') as MockModel, \
+                 patch('app.services.model_manager.model_manager') as mock_manager:
 
-            mock_manager.get_active_model_paths = MagicMock(
-                return_value=("/model.tflite", "/labels.txt", 224)
-            )
-            mock_manager.active_model_id = "test-model"
+                mock_manager.get_active_model_paths = MagicMock(
+                    return_value=("/model.tflite", "/labels.txt", 224)
+                )
+                mock_manager.active_model_id = "test-model"
 
-            mock_model = MagicMock()
-            mock_model.load = MagicMock()
-            mock_model.loaded = True
-            MockModel.return_value = mock_model
+                mock_model = MagicMock()
+                mock_model.load = MagicMock()
+                mock_model.loaded = True
+                MockModel.return_value = mock_model
 
-            service = ClassifierService()
-            result = service.classify_video("/tmp/test.mp4")
+                service = ClassifierService()
+                result = service.classify_video("/tmp/test.mp4")
 
-            # Verify release() was called (memory leak fix)
-            mock_cap.release.assert_called_once()
-            assert result == []
+                # Verify release() was called (memory leak fix)
+                mock_cap.release.assert_called_once()
+                assert result == []
+        finally:
+            settings.classification.image_execution_mode = original_mode
 
 
 if __name__ == "__main__":

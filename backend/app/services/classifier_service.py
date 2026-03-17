@@ -2334,7 +2334,7 @@ class ClassifierService:
         self._inference_backend = "tflite"
         self._active_inference_provider = "tflite"
 
-    def reload_bird_model(self):
+    async def reload_bird_model(self):
         """Reload the bird model (e.g., after switching models)."""
         with self._models_lock:
             if "bird" in self._models:
@@ -2343,7 +2343,19 @@ class ClassifierService:
                 if hasattr(old_model, 'cleanup'):
                     old_model.cleanup()
                 del old_model
-            self._init_bird_model()
+            
+            # 1. Initialize locally ONLY if we are a worker or NOT in subprocess mode.
+            # This prevents the main process from loading large models into RAM when it
+            # should be using supervisor workers instead.
+            if self._worker_process_mode or self._image_execution_mode != "subprocess":
+                self._init_bird_model()
+        
+        # 2. If we have a supervisor (main process in subprocess mode), 
+        # tell it to restart all workers to pick up the new model.
+        if self._classifier_supervisor is not None:
+            log.info("Requesting supervisor worker restart for model change")
+            await self._classifier_supervisor.restart_pool()
+
         log.info("Reloaded bird model")
 
     def _get_wildlife_model(self) -> ModelInstance:

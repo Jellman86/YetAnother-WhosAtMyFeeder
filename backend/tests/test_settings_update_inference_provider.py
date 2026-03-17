@@ -10,7 +10,7 @@ class _DummyClassifier:
     def __init__(self) -> None:
         self.reload_calls = 0
 
-    def reload_bird_model(self) -> None:
+    async def reload_bird_model(self) -> None:
         self.reload_calls += 1
 
 
