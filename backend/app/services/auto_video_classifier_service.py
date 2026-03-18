@@ -192,38 +192,58 @@ class AutoVideoClassifierService:
                 await asyncio.sleep(5)
 
     def _get_mqtt_throttle_state(self, configured_max: int) -> dict:
-        """Reduce background concurrency when MQTT ingest pressure rises."""
+        """Reduce background concurrency when MQTT ingest pressure or Live Classifier pressure rises."""
         configured = max(1, int(configured_max or 1))
+        
+        # 1. Check MQTT Pressure
         try:
             from app.services.mqtt_service import mqtt_service
-
             mqtt_status = mqtt_service.get_status()
-            level = str(mqtt_status.get("pressure_level") or "normal")
+            mqtt_level = str(mqtt_status.get("pressure_level") or "normal")
             in_flight = int(mqtt_status.get("in_flight") or 0)
             capacity = int(mqtt_status.get("in_flight_capacity") or 0)
         except Exception:
             mqtt_status = {}
-            level = "unknown"
+            mqtt_level = "unknown"
             in_flight = 0
             capacity = 0
 
+        # 2. Check Live Classifier Pressure
+        live_pressure_active = False
+        try:
+            from app.services.classifier_service import get_classifier
+            classifier_status = get_classifier().get_status()
+            # If live events are in flight or queued, we should throttle video to free up GPU/RAM
+            live_pressure_active = bool(classifier_status.get("background_throttled", False))
+        except Exception:
+            live_pressure_active = False
+
         effective = configured
-        if level == "critical":
+        
+        # Priority 1: MQTT ingest pressure (system-wide safety)
+        if mqtt_level == "critical":
             effective = 0
-        elif level == "high":
+        elif mqtt_level == "high":
             effective = min(effective, 1)
-        elif level == "elevated":
+        elif mqtt_level == "elevated":
             effective = min(effective, max(1, configured // 2))
+            
+        # Priority 2: Live event pressure (UI responsiveness)
+        # If live detections are active, pause video analysis entirely to prevent 
+        # crashing heavy models due to GPU/RAM OOM or timeouts.
+        if live_pressure_active:
+            effective = 0
 
         throttled = effective < configured
         return {
             "throttled": throttled,
             "configured_max_concurrent": configured,
             "effective_max_concurrent": effective,
-            "mqtt_pressure_level": level,
+            "mqtt_pressure_level": mqtt_level,
             "mqtt_in_flight": in_flight,
             "mqtt_capacity": capacity,
             "mqtt_status": mqtt_status,
+            "live_pressure_active": live_pressure_active,
         }
 
     async def _stale_watchdog_loop(self):

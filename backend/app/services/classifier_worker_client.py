@@ -212,6 +212,8 @@ class ClassifierWorkerClient:
 
     async def _spawn_process(self, *, worker_name: str, worker_generation: int) -> Any:
         backend_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+        # Use a large limit (512KB) for the StreamReader to prevent LimitOverrunError
+        # if a worker dumps a massive JSON payload or large GPU error stack trace.
         return await asyncio.create_subprocess_exec(
             sys.executable,
             "-m",
@@ -222,4 +224,5 @@ class ClassifierWorkerClient:
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             cwd=backend_root,
+            limit=512 * 1024,
         )
