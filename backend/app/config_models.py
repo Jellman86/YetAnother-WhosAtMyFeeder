@@ -6,6 +6,8 @@ from typing import Literal, Optional
 import structlog
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+from app.services.bird_model_region_resolver import normalize_bird_model_region
+
 log = structlog.get_logger()
 
 LEGACY_DEFAULT_AI_ANALYSIS_PROMPT = """
@@ -231,6 +233,10 @@ class ClassificationSettings(BaseModel):
     live_event_stale_drop_seconds: float = Field(default=30.0, ge=1.0, le=3600.0, description="Drop live events older than this before classifier admission")
     live_event_coalescing_enabled: bool = Field(default=True, description="Coalesce duplicate live image classification requests before admission")
     ai_pricing_json: str = Field(default="[]", description="JSON string containing AI pricing overrides")
+    bird_model_region_override: str = Field(
+        default="auto",
+        description="Bird model region override: auto|eu|na",
+    )
 
     # Classification output settings
     max_classification_results: int = Field(default=5, ge=1, le=20, description="Maximum number of top results to return from classifier")
@@ -257,6 +263,14 @@ class ClassificationSettings(BaseModel):
         if normalized not in allowed:
             log.warning("Invalid image_execution_mode in config; falling back to in_process", value=v)
             return "in_process"
+        return normalized
+
+    @field_validator("bird_model_region_override")
+    @classmethod
+    def validate_bird_model_region_override(cls, v: str) -> str:
+        normalized = normalize_bird_model_region(v)
+        if normalized != (v or "auto").strip().lower():
+            log.warning("Invalid bird_model_region_override in config; falling back to auto", value=v)
         return normalized
 
 class MaintenanceSettings(BaseModel):

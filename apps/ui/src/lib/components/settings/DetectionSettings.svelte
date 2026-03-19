@@ -4,6 +4,7 @@
     import ModelManager from '../../pages/models/ModelManager.svelte';
     import type { ClassifierStatus } from '../../api';
     import { getDetectionModelGuidance } from './detection-model-guidance';
+    import { BIRD_MODEL_REGION_OVERRIDE_VALUES, type BirdModelRegionOverride } from '../../settings/bird-model-region-override';
     const GPU_DOCS_URL = 'https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/blob/dev/docs/troubleshooting/diagnostics.md#-gpu-acceleration-diagnostics-cuda--openvino';
 
     // Props
@@ -18,6 +19,7 @@
         videoClassificationMaxRetries = $bindable(3),
         videoClassificationMaxConcurrent = $bindable(5),
         videoClassificationFrames = $bindable(15),
+        birdModelRegionOverride = $bindable<BirdModelRegionOverride>('auto'),
         imageExecutionMode = $bindable<'in_process' | 'subprocess' | string>('in_process'),
         inferenceProvider = $bindable<'auto' | 'cpu' | 'cuda' | 'intel_gpu' | 'intel_cpu'>('auto'),
         classifierStatus = null,
@@ -39,6 +41,7 @@
         videoClassificationMaxRetries: number;
         videoClassificationMaxConcurrent: number;
         videoClassificationFrames: number;
+        birdModelRegionOverride: BirdModelRegionOverride;
         imageExecutionMode: 'in_process' | 'subprocess' | string;
         inferenceProvider: 'auto' | 'cpu' | 'cuda' | 'intel_gpu' | 'intel_cpu';
         classifierStatus: ClassifierStatus | null;
@@ -84,6 +87,29 @@
             <p class="mt-3 text-[11px] font-bold leading-relaxed text-slate-500 dark:text-slate-400">
                 {$_('settings.detection.model_lineup_advanced_note', { default: modelGuidance.advancedNote })}
             </p>
+        </div>
+        <div class="mb-6 rounded-2xl border border-slate-200/70 bg-slate-50/80 p-5 text-slate-700 shadow-sm dark:border-slate-700/70 dark:bg-slate-900/30 dark:text-slate-200">
+            <label for="bird-model-region-override" class="block text-xs font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                {$_('settings.detection.region_override_title', { default: 'Bird model region' })}
+            </label>
+            <p class="mt-2 text-xs font-medium leading-relaxed text-slate-600 dark:text-slate-300">
+                {$_('settings.detection.region_override_desc', { default: 'Auto uses your configured country. Manual override always wins.' })}
+            </p>
+            <select
+                id="bird-model-region-override"
+                bind:value={birdModelRegionOverride}
+                class="mt-4 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-900 shadow-sm outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 dark:border-slate-700 dark:bg-slate-950/60 dark:text-white"
+            >
+                {#each BIRD_MODEL_REGION_OVERRIDE_VALUES as option}
+                    <option value={option}>
+                        {option === 'auto'
+                            ? $_('settings.detection.region_override_auto', { default: 'Auto' })
+                            : option === 'eu'
+                                ? $_('settings.detection.region_override_eu', { default: 'Europe' })
+                                : $_('settings.detection.region_override_na', { default: 'North America' })}
+                    </option>
+                {/each}
+            </select>
         </div>
         <ModelManager />
     </section>

@@ -20,6 +20,22 @@ async def test_available_models_expose_tiered_metadata():
     assert by_id["convnext_large_inat21"].status == "stable"
     assert by_id["convnext_large_inat21"].sort_order == 20
 
+    assert by_id["small_birds"].tier == "small"
+    assert by_id["small_birds"].taxonomy_scope == "birds_only"
+    assert by_id["small_birds"].region_variants
+    assert {"eu", "na"} <= set(by_id["small_birds"].region_variants.keys())
+    assert by_id["small_birds"].default_region == "na"
+    assert by_id["small_birds"].region_variants["na"]["label_grouping"]["strategy"] == "strip_trailing_parenthetical"
+    assert by_id["small_birds"].region_variants["na"]["supported_inference_providers"] == ["cpu", "intel_cpu"]
+
+    assert by_id["medium_birds"].tier == "medium"
+    assert by_id["medium_birds"].taxonomy_scope == "birds_only"
+    assert by_id["medium_birds"].region_variants
+    assert by_id["medium_birds"].region_variants["eu"]["region_scope"] == "eu"
+    assert by_id["medium_birds"].region_variants["na"]["region_scope"] == "na"
+    assert by_id["medium_birds"].region_variants["na"]["label_grouping"]["strategy"] == "strip_trailing_parenthetical"
+    assert by_id["medium_birds"].region_variants["na"]["supported_inference_providers"] == ["cpu", "intel_cpu"]
+
     assert by_id["hieradet_small_inat21"].tier == "small"
     assert by_id["hieradet_small_inat21"].taxonomy_scope == "wildlife_wide"
     assert by_id["hieradet_small_inat21"].recommended_for

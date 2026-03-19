@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from datetime import datetime
 
 class ModelMetadata(BaseModel):
@@ -24,6 +24,10 @@ class ModelMetadata(BaseModel):
     sort_order: int = 0
     status: str = "stable"
     notes: Optional[str] = None
+    family_id: Optional[str] = None
+    default_region: Optional[str] = None
+    region_variants: Optional[Dict[str, Dict[str, Any]]] = None
+    label_grouping: Optional[Dict[str, Any]] = None
     
 class InstalledModel(BaseModel):
     id: str

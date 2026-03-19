@@ -25,6 +25,7 @@ from app.services.classifier_service import (  # noqa: E402
     InvalidInferenceOutputError,
     LiveImageClassificationOverloadedError,
     ModelInstance,
+    ONNXModelInstance,
     OpenVINOModelInstance,
     VideoClassificationWorkerError,
     _safe_softmax,
@@ -198,6 +199,31 @@ def test_model_instance_classify(mock_tflite, mock_os_path_exists):
     assert len(results) > 0
     assert results[0]['label'] == "Bird A"
     assert results[0]['score'] == pytest.approx(0.8)
+
+
+def test_onnx_model_instance_aggregates_grouped_nabirds_species_scores():
+    model = ONNXModelInstance("test", "model.onnx", "labels.txt", input_size=224)
+    model.loaded = True
+    model.labels = [
+        "American Goldfinch (Female/Nonbreeding Male)",
+        "American Goldfinch (Male)",
+        "House Sparrow (Female/Juvenile)",
+    ]
+    model.label_grouping = {"strategy": "strip_trailing_parenthetical"}
+    model._preprocess = MagicMock(return_value=np.zeros((1, 3, 224, 224), dtype=np.float32))
+
+    mock_session = MagicMock()
+    mock_session.get_inputs.return_value = [types.SimpleNamespace(name="input")]
+    mock_session.run.return_value = [
+        np.array([[np.log(0.4), np.log(0.35), np.log(0.25)]], dtype=np.float32)
+    ]
+    model.session = mock_session
+
+    results = model.classify(Image.new("RGB", (32, 32), color="white"), top_k=5)
+
+    assert [item["label"] for item in results] == ["American Goldfinch", "House Sparrow"]
+    assert results[0]["score"] == pytest.approx(0.75, rel=1e-3)
+    assert results[1]["score"] == pytest.approx(0.25, rel=1e-3)
 
 
 def test_safe_softmax_sanitizes_non_finite_logits():
@@ -1359,6 +1385,7 @@ async def test_classifier_service_uses_tflite_asset_paths_when_onnx_fallback_rea
             "/tmp/fallback/model.tflite",
             "/tmp/fallback/labels.txt",
             preprocessing={"mean": [0.5, 0.5, 0.5], "std": [0.5, 0.5, 0.5]},
+            label_grouping=None,
         )
         assert service._inference_backend == "tflite"
         assert service._active_inference_provider == "tflite"
@@ -1822,6 +1849,88 @@ def test_resolve_inference_selection_intel_gpu_falls_back_to_intel_cpu_when_poss
     assert sel["backend"] == "openvino"
     assert sel["openvino_device"] == "CPU"
     assert sel["fallback_reason"] is not None
+
+
+def test_resolve_inference_selection_auto_skips_intel_gpu_when_model_disallows_it():
+    caps = {
+        "ort_available": True,
+        "cuda_available": False,
+        "openvino_available": True,
+        "intel_gpu_available": True,
+        "intel_cpu_available": True,
+    }
+
+    sel = _resolve_inference_selection("auto", caps, supported_providers=["cpu", "intel_cpu"])
+
+    assert sel["active_provider"] == "intel_cpu"
+    assert sel["backend"] == "openvino"
+    assert sel["openvino_device"] == "CPU"
+    assert "does not support Intel GPU" in (sel["fallback_reason"] or "")
+
+
+@pytest.mark.asyncio
+async def test_classifier_service_respects_artifact_provider_constraints(mock_os_path_exists):
+    original_provider = settings.classification.inference_provider
+    settings.classification.inference_provider = "auto"
+
+    class _FakeOpenVINOModel:
+        created_devices = []
+
+        def __init__(self, *_args, device_name="CPU", **_kwargs):
+            self.device_name = device_name
+            self.loaded = False
+            self.error = None
+            self.labels = []
+            _FakeOpenVINOModel.created_devices.append(device_name)
+
+        def load(self):
+            self.loaded = True
+            return True
+
+        def cleanup(self):
+            return None
+
+        def current_compile_properties(self):
+            return {}
+
+        def startup_self_test_status(self):
+            return {"enabled": False, "ran": False, "error": None, "diagnostics": {}}
+
+        def get_status(self):
+            return {"loaded": self.loaded, "error": self.error}
+
+    try:
+        with patch.object(
+            classifier_service_module,
+            "_detect_acceleration_capabilities",
+            return_value={
+                "openvino_available": True,
+                "ort_available": True,
+                "intel_cpu_available": True,
+                "intel_gpu_available": True,
+                "cuda_available": False,
+            },
+        ), patch.object(
+            ClassifierService,
+            "_resolve_active_bird_model_spec",
+            return_value={
+                "model_path": "/tmp/active/model.onnx",
+                "labels_path": "/tmp/active/labels.txt",
+                "input_size": 224,
+                "preprocessing": {},
+                "runtime": "onnx",
+                "supported_inference_providers": ["cpu", "intel_cpu"],
+            },
+        ), patch("app.services.classifier_service.OpenVINOModelInstance", _FakeOpenVINOModel):
+            service = ClassifierService()
+    finally:
+        settings.classification.inference_provider = original_provider
+
+    assert service._inference_backend == "openvino"
+    assert service._active_inference_provider == "intel_cpu"
+    assert _FakeOpenVINOModel.created_devices == ["CPU"]
+    assert "does not support Intel GPU" in (service._inference_fallback_reason or "")
+    await service.shutdown()
 
 
 def test_detect_acceleration_capabilities_does_not_report_cuda_available_without_nvidia_device():

@@ -1,4 +1,5 @@
 import { API_BASE, apiFetch, handleResponse } from './core';
+import type { BirdModelRegionOverride } from '../settings/bird-model-region-override';
 
 export interface Settings {
     frigate_url: string;
@@ -26,6 +27,7 @@ export interface Settings {
     video_classification_max_retries: number;
     video_classification_max_concurrent: number;
     video_classification_frames: number;
+    bird_model_region_override?: BirdModelRegionOverride;
     image_execution_mode?: 'in_process' | 'subprocess' | string;
     strict_non_finite_output?: boolean;
     inference_provider: 'auto' | 'cpu' | 'cuda' | 'intel_gpu' | 'intel_cpu' | string;

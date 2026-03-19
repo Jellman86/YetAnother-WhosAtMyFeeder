@@ -21,6 +21,7 @@ from app.services.inaturalist_service import inaturalist_service
 from app.services.frigate_client import frigate_client
 from app.services.media_cache import media_cache
 from app.services.ai_service import AIService
+from app.services.bird_model_region_resolver import normalize_bird_model_region
 from app.utils.enrichment import get_effective_enrichment_settings, is_ebird_active
 
 from fastapi import BackgroundTasks
@@ -289,6 +290,7 @@ class SettingsUpdate(BaseModel):
         description="Reject all-non-finite inference outputs and trigger runtime recovery/fallback",
     )
     inference_provider: Optional[str] = Field("auto", description="Preferred inference provider: auto|cpu|cuda|intel_gpu|intel_cpu")
+    bird_model_region_override: Optional[str] = Field("auto", description="Bird model region override: auto|eu|na")
     # Media cache settings
     media_cache_enabled: bool = Field(True, description="Enable local media caching")
     media_cache_snapshots: bool = Field(True, description="Cache snapshot images locally")
@@ -576,6 +578,7 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "video_classification_frames": settings.classification.video_classification_frames,
         "strict_non_finite_output": settings.classification.strict_non_finite_output,
         "inference_provider": settings.classification.inference_provider,
+        "bird_model_region_override": settings.classification.bird_model_region_override,
         "video_classification_circuit_open": circuit_status.get("open", False),
         "video_classification_circuit_until": circuit_status.get("open_until"),
         "video_classification_circuit_failures": circuit_status.get("failure_count", 0),
@@ -811,6 +814,8 @@ async def update_settings(
         previous_provider = settings.classification.inference_provider
         settings.classification.inference_provider = update.inference_provider
         inference_provider_changed = previous_provider != update.inference_provider
+    if "bird_model_region_override" in fields_set and update.bird_model_region_override is not None:
+        settings.classification.bird_model_region_override = normalize_bird_model_region(update.bird_model_region_override)
 
     # Media cache settings
     if "media_cache_enabled" in fields_set:

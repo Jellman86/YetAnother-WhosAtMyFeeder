@@ -105,7 +105,11 @@ from app.services.classifier_supervisor import (  # noqa: E402
     ClassifierWorkerStartupTimeoutError,
 )
 from app.services.personalization_service import personalization_service  # noqa: E402
-from app.utils.classifier_labels import normalize_classifier_label, normalize_classifier_labels  # noqa: E402
+from app.utils.classifier_labels import (  # noqa: E402
+    build_grouped_classifier_labels,
+    normalize_classifier_label,
+    normalize_classifier_labels,
+)
 
 log = structlog.get_logger()
 
@@ -313,6 +317,66 @@ def _safe_softmax(x: np.ndarray, *, context: str) -> np.ndarray:
     exp_mask = np.isfinite(shifted)
     exp_logits[exp_mask] = np.exp(np.clip(shifted[exp_mask], -80.0, 80.0))
     return _normalize_probability_vector(exp_logits, context=context)
+
+
+def _build_classification_results(
+    probs: np.ndarray,
+    labels: list[str],
+    *,
+    top_k: int,
+    grouped_labels: Optional[list[str]] = None,
+) -> list[dict]:
+    probabilities = np.asarray(probs, dtype=np.float32).reshape(-1)
+    if probabilities.size == 0:
+        return []
+
+    if grouped_labels and len(grouped_labels) == probabilities.size:
+        aggregated: dict[str, dict[str, Any]] = {}
+        for i, score in enumerate(probabilities):
+            label = grouped_labels[i] or (labels[i] if i < len(labels) else f"Class {i}")
+            entry = aggregated.get(label)
+            score_value = float(score)
+            if entry is None:
+                aggregated[label] = {
+                    "index": int(i),
+                    "label": label,
+                    "score": score_value,
+                    "_best_member_score": score_value,
+                }
+                continue
+            entry["score"] += score_value
+            if score_value > float(entry["_best_member_score"]):
+                entry["index"] = int(i)
+                entry["_best_member_score"] = score_value
+
+        ranked = sorted(aggregated.values(), key=lambda item: float(item["score"]), reverse=True)
+        for item in ranked:
+            item.pop("_best_member_score", None)
+        return ranked[:top_k]
+
+    top_indices = np.argsort(probabilities)[::-1][:top_k]
+    return [
+        {
+            "index": int(i),
+            "score": float(probabilities[i]),
+            "label": normalize_classifier_label(labels[i]) if i < len(labels) else f"Class {i}",
+        }
+        for i in top_indices
+    ]
+
+
+def _resolve_grouped_labels(
+    labels: list[str],
+    *,
+    label_grouping: Optional[dict[str, Any]] = None,
+    existing_grouped_labels: Optional[list[str]] = None,
+) -> list[str]:
+    if existing_grouped_labels:
+        return list(existing_grouped_labels)
+    strategy = str((label_grouping or {}).get("strategy") or "").strip()
+    if not strategy:
+        return []
+    return build_grouped_classifier_labels(labels, strategy=strategy)
 
 
 def _summarize_numeric_array(values: np.ndarray, *, name: str) -> dict[str, Any]:
@@ -613,12 +677,32 @@ def _detect_cuda_hardware_available() -> bool:
     return False
 
 
-def _resolve_inference_selection(requested_provider: Optional[str], caps: dict) -> dict:
+def _resolve_inference_selection(
+    requested_provider: Optional[str],
+    caps: dict,
+    supported_providers: Optional[list[str]] = None,
+) -> dict:
     """Resolve desired inference provider to a concrete backend/device with fallback."""
     requested = _normalize_inference_provider(requested_provider)
+    allowed = {
+        _normalize_inference_provider(provider)
+        for provider in (supported_providers or [])
+        if _normalize_inference_provider(provider) != "auto"
+    }
+
+    def _provider_allowed(provider: str) -> bool:
+        return not allowed or provider in allowed
+
+    def _reason_with_constraint(base_reason: Optional[str], provider: str, fallback_target: str) -> str:
+        if _provider_allowed(provider):
+            return base_reason or ""
+        constraint_reason = f"Active model artifact does not support {fallback_target}"
+        if base_reason:
+            return f"{constraint_reason}; {base_reason}"
+        return constraint_reason
 
     def _ort_cpu(reason: Optional[str] = None) -> dict:
-        if caps.get("ort_available"):
+        if caps.get("ort_available") and _provider_allowed("cpu"):
             return {
                 "requested_provider": requested,
                 "active_provider": "cpu",
@@ -627,8 +711,8 @@ def _resolve_inference_selection(requested_provider: Optional[str], caps: dict) 
                 "openvino_device": None,
                 "fallback_reason": reason,
             }
-        if caps.get("openvino_available") and caps.get("intel_cpu_available"):
-            fallback_reason = reason or "ONNX Runtime unavailable; using OpenVINO CPU"
+        if caps.get("openvino_available") and caps.get("intel_cpu_available") and _provider_allowed("intel_cpu"):
+            fallback_reason = reason or "ONNX Runtime unavailable or unsupported; using OpenVINO CPU"
             return {
                 "requested_provider": requested,
                 "active_provider": "intel_cpu",
@@ -650,7 +734,7 @@ def _resolve_inference_selection(requested_provider: Optional[str], caps: dict) 
         return _ort_cpu()
 
     if requested == "cuda":
-        if caps.get("ort_available") and caps.get("cuda_available"):
+        if caps.get("ort_available") and caps.get("cuda_available") and _provider_allowed("cuda"):
             return {
                 "requested_provider": requested,
                 "active_provider": "cuda",
@@ -659,10 +743,10 @@ def _resolve_inference_selection(requested_provider: Optional[str], caps: dict) 
                 "openvino_device": None,
                 "fallback_reason": None,
             }
-        return _ort_cpu("CUDA requested but CUDAExecutionProvider is not available")
+        return _ort_cpu(_reason_with_constraint("CUDA requested but CUDAExecutionProvider is not available", "cuda", "CUDA"))
 
     if requested == "intel_cpu":
-        if caps.get("openvino_available") and caps.get("intel_cpu_available"):
+        if caps.get("openvino_available") and caps.get("intel_cpu_available") and _provider_allowed("intel_cpu"):
             return {
                 "requested_provider": requested,
                 "active_provider": "intel_cpu",
@@ -671,10 +755,16 @@ def _resolve_inference_selection(requested_provider: Optional[str], caps: dict) 
                 "openvino_device": "CPU",
                 "fallback_reason": None,
             }
-        return _ort_cpu("OpenVINO CPU requested but OpenVINO CPU device is not available")
+        return _ort_cpu(
+            _reason_with_constraint(
+                "OpenVINO CPU requested but OpenVINO CPU device is not available",
+                "intel_cpu",
+                "OpenVINO CPU",
+            )
+        )
 
     if requested == "intel_gpu":
-        if caps.get("openvino_available") and caps.get("intel_gpu_available"):
+        if caps.get("openvino_available") and caps.get("intel_gpu_available") and _provider_allowed("intel_gpu"):
             return {
                 "requested_provider": requested,
                 "active_provider": "intel_gpu",
@@ -683,19 +773,29 @@ def _resolve_inference_selection(requested_provider: Optional[str], caps: dict) 
                 "openvino_device": "GPU",
                 "fallback_reason": None,
             }
-        if caps.get("openvino_available") and caps.get("intel_cpu_available"):
+        if caps.get("openvino_available") and caps.get("intel_cpu_available") and _provider_allowed("intel_cpu"):
             return {
                 "requested_provider": requested,
                 "active_provider": "intel_cpu",
                 "backend": "openvino",
                 "ort_providers": [],
                 "openvino_device": "CPU",
-                "fallback_reason": "Intel GPU requested but not available; falling back to OpenVINO CPU",
+                "fallback_reason": _reason_with_constraint(
+                    "Intel GPU requested but not available; falling back to OpenVINO CPU",
+                    "intel_gpu",
+                    "Intel GPU",
+                ),
             }
-        return _ort_cpu("Intel GPU requested but OpenVINO GPU is not available")
+        return _ort_cpu(
+            _reason_with_constraint(
+                "Intel GPU requested but OpenVINO GPU is not available",
+                "intel_gpu",
+                "Intel GPU",
+            )
+        )
 
     # auto: prefer Intel GPU, then CUDA, then CPU
-    if caps.get("openvino_available") and caps.get("intel_gpu_available"):
+    if caps.get("openvino_available") and caps.get("intel_gpu_available") and _provider_allowed("intel_gpu"):
         return {
             "requested_provider": requested,
             "active_provider": "intel_gpu",
@@ -704,7 +804,7 @@ def _resolve_inference_selection(requested_provider: Optional[str], caps: dict) 
             "openvino_device": "GPU",
             "fallback_reason": None,
         }
-    if caps.get("ort_available") and caps.get("cuda_available"):
+    if caps.get("ort_available") and caps.get("cuda_available") and _provider_allowed("cuda"):
         return {
             "requested_provider": requested,
             "active_provider": "cuda",
@@ -713,7 +813,22 @@ def _resolve_inference_selection(requested_provider: Optional[str], caps: dict) 
             "openvino_device": None,
             "fallback_reason": None,
         }
-    return _ort_cpu()
+    if caps.get("openvino_available") and caps.get("intel_cpu_available") and _provider_allowed("intel_cpu"):
+        fallback_reason = None
+        if allowed and "intel_gpu" not in allowed:
+            fallback_reason = "Active model artifact does not support Intel GPU"
+        return {
+            "requested_provider": requested,
+            "active_provider": "intel_cpu",
+            "backend": "openvino",
+            "ort_providers": [],
+            "openvino_device": "CPU",
+            "fallback_reason": fallback_reason,
+        }
+    fallback_reason = None
+    if allowed and "intel_gpu" not in allowed:
+        fallback_reason = "Active model artifact does not support Intel GPU"
+    return _ort_cpu(fallback_reason)
 
 
 def _reconcile_ort_active_provider(
@@ -816,13 +931,22 @@ async def shutdown_classifier() -> None:
 class ModelInstance:
     """Represents a loaded TFLite model with its labels."""
 
-    def __init__(self, name: str, model_path: str, labels_path: str, preprocessing: Optional[dict] = None):
+    def __init__(
+        self,
+        name: str,
+        model_path: str,
+        labels_path: str,
+        preprocessing: Optional[dict] = None,
+        label_grouping: Optional[dict] = None,
+    ):
         self.name = name
         self.model_path = model_path
         self.labels_path = labels_path
         self.preprocessing = preprocessing or {}
+        self.label_grouping = dict(label_grouping or {})
         self.interpreter = None
         self.labels: list[str] = []
+        self.grouped_labels: list[str] = []
         self.loaded = False
         self.error: Optional[str] = None
         self.input_details = None
@@ -840,6 +964,9 @@ class ModelInstance:
                 try:
                     with open(self.labels_path, 'r', encoding='utf-8', errors='replace') as f:
                         self.labels = normalize_classifier_labels(line.strip() for line in f.readlines() if line.strip())
+                    strategy = str(self.label_grouping.get("strategy") or "").strip()
+                    if strategy:
+                        self.grouped_labels = build_grouped_classifier_labels(self.labels, strategy=strategy)
                     log.info(f"Loaded {len(self.labels)} labels for {self.name}")
                 except Exception as e:
                     log.error(f"Failed to load labels for {self.name}", error=str(e))
@@ -996,19 +1123,18 @@ class ModelInstance:
         # Run inference and get probability vector
         results = self._run_inference(image)
 
-        # Convert to classification list
-        classifications = []
-        for i, score in enumerate(results):
-            label = normalize_classifier_label(self.labels[i]) if i < len(self.labels) else f"Class {i}"
-            classifications.append({
-                "index": int(i),
-                "score": float(score),
-                "label": label
-            })
-
-        classifications.sort(key=lambda x: x['score'], reverse=True)
         max_results = settings.classification.max_classification_results
-        return classifications[:max_results]
+        grouped_labels = _resolve_grouped_labels(
+            self.labels,
+            label_grouping=self.label_grouping,
+            existing_grouped_labels=self.grouped_labels,
+        )
+        return _build_classification_results(
+            results,
+            self.labels,
+            top_k=max_results,
+            grouped_labels=grouped_labels,
+        )
 
     def classify_raw(self, image: Image.Image) -> np.ndarray:
         """Classify and return the raw probability vector (for ensemble).
@@ -1040,6 +1166,7 @@ class ModelInstance:
             "loaded": self.loaded,
             "error": self.error,
             "labels_count": len(self.labels),
+            "grouped_labels_count": len(set(self.grouped_labels)) if self.grouped_labels else None,
             "enabled": self.interpreter is not None,
             "model_path": self.model_path,
             "runtime": "tflite",
@@ -1055,6 +1182,7 @@ class ONNXModelInstance:
         model_path: str,
         labels_path: str,
         preprocessing: Optional[dict] = None,
+        label_grouping: Optional[dict] = None,
         input_size: int = 384,
         ort_providers: Optional[list[str]] = None,
     ):
@@ -1062,10 +1190,12 @@ class ONNXModelInstance:
         self.model_path = model_path
         self.labels_path = labels_path
         self.preprocessing = preprocessing or {}
+        self.label_grouping = dict(label_grouping or {})
         self.input_size = input_size
         self.ort_providers = list(ort_providers or ["CPUExecutionProvider"])
         self.session = None
         self.labels: list[str] = []
+        self.grouped_labels: list[str] = []
         self.loaded = False
         self.error: Optional[str] = None
         self._lock = threading.Lock()
@@ -1089,6 +1219,9 @@ class ONNXModelInstance:
             try:
                 with open(self.labels_path, 'r', encoding='utf-8', errors='replace') as f:
                     self.labels = normalize_classifier_labels(line.strip() for line in f.readlines() if line.strip())
+                strategy = str(self.label_grouping.get("strategy") or "").strip()
+                if strategy:
+                    self.grouped_labels = build_grouped_classifier_labels(self.labels, strategy=strategy)
                 log.info(f"Loaded {len(self.labels)} labels for ONNX model {self.name}")
             except Exception as e:
                 log.error(f"Failed to load labels for {self.name}", error=str(e))
@@ -1172,19 +1305,17 @@ class ONNXModelInstance:
                     detail=f"{self.name} inference produced no finite probabilities",
                 )
 
-            # Get top-k results
-            top_indices = np.argsort(probs)[::-1][:top_k]
-
-            classifications = []
-            for i in top_indices:
-                label = normalize_classifier_label(self.labels[i]) if i < len(self.labels) else f"Class {i}"
-                classifications.append({
-                    "index": int(i),
-                    "score": float(probs[i]),
-                    "label": label
-                })
-
-            return classifications
+            grouped_labels = _resolve_grouped_labels(
+                self.labels,
+                label_grouping=self.label_grouping,
+                existing_grouped_labels=self.grouped_labels,
+            )
+            return _build_classification_results(
+                probs,
+                self.labels,
+                top_k=top_k,
+                grouped_labels=grouped_labels,
+            )
 
         except InvalidInferenceOutputError:
             raise
@@ -1232,6 +1363,7 @@ class ONNXModelInstance:
             "loaded": self.loaded,
             "error": self.error,
             "labels_count": len(self.labels),
+            "grouped_labels_count": len(set(self.grouped_labels)) if self.grouped_labels else None,
             "enabled": self.session is not None,
             "model_path": self.model_path,
             "runtime": "onnx",
@@ -1248,6 +1380,7 @@ class OpenVINOModelInstance:
         model_path: str,
         labels_path: str,
         preprocessing: Optional[dict] = None,
+        label_grouping: Optional[dict] = None,
         input_size: int = 384,
         device_name: str = "CPU",
         startup_self_test_enabled: bool | None = None,
@@ -1256,6 +1389,7 @@ class OpenVINOModelInstance:
         self.model_path = model_path
         self.labels_path = labels_path
         self.preprocessing = preprocessing or {}
+        self.label_grouping = dict(label_grouping or {})
         self.input_size = input_size
         self.device_name = device_name
         self._startup_self_test_enabled = (
@@ -1267,6 +1401,7 @@ class OpenVINOModelInstance:
         self.compiled_model = None
         self.input_name: Optional[str] = None
         self.labels: list[str] = []
+        self.grouped_labels: list[str] = []
         self.loaded = False
         self.error: Optional[str] = None
         self._lock = threading.Lock()
@@ -1349,6 +1484,9 @@ class OpenVINOModelInstance:
             try:
                 with open(self.labels_path, 'r', encoding='utf-8', errors='replace') as f:
                     self.labels = normalize_classifier_labels(line.strip() for line in f.readlines() if line.strip())
+                strategy = str(self.label_grouping.get("strategy") or "").strip()
+                if strategy:
+                    self.grouped_labels = build_grouped_classifier_labels(self.labels, strategy=strategy)
                 log.info(f"Loaded {len(self.labels)} labels for OpenVINO model {self.name}")
             except Exception as e:
                 log.error(f"Failed to load labels for {self.name}", error=str(e))
@@ -1500,15 +1638,17 @@ class OpenVINOModelInstance:
                         logits=logits,
                     ),
                 )
-            top_indices = np.argsort(probs)[::-1][:top_k]
-            return [
-                {
-                    "index": int(i),
-                    "score": float(probs[i]),
-                    "label": normalize_classifier_label(self.labels[i]) if i < len(self.labels) else f"Class {i}",
-                }
-                for i in top_indices
-            ]
+            grouped_labels = _resolve_grouped_labels(
+                self.labels,
+                label_grouping=self.label_grouping,
+                existing_grouped_labels=self.grouped_labels,
+            )
+            return _build_classification_results(
+                probs,
+                self.labels,
+                top_k=top_k,
+                grouped_labels=grouped_labels,
+            )
         except InvalidInferenceOutputError:
             raise
         except Exception as e:
@@ -1560,6 +1700,7 @@ class OpenVINOModelInstance:
             "loaded": self.loaded,
             "error": self.error,
             "labels_count": len(self.labels),
+            "grouped_labels_count": len(set(self.grouped_labels)) if self.grouped_labels else None,
             "enabled": self.compiled_model is not None,
             "model_path": self.model_path,
             "runtime": "openvino",
@@ -1696,14 +1837,16 @@ class ClassifierService:
         return model_path, labels_path
 
     def _resolve_active_bird_model_spec(self) -> dict[str, Any]:
-        from app.services.model_manager import model_manager, REMOTE_REGISTRY
+        from app.services.model_manager import model_manager
 
-        model_path, labels_path, input_size = model_manager.get_active_model_paths()
-
-        active_model_id = model_manager.active_model_id
-        model_meta = next((m for m in REMOTE_REGISTRY if m["id"] == active_model_id), None)
-        preprocessing = model_meta.get("preprocessing") if model_meta else None
-        runtime = model_meta.get("runtime", "tflite") if model_meta else "tflite"
+        spec = model_manager.get_active_model_spec()
+        model_path = str(spec.get("model_path") or "")
+        labels_path = str(spec.get("labels_path") or "")
+        input_size = int(spec.get("input_size") or 224)
+        preprocessing = spec.get("preprocessing")
+        label_grouping = spec.get("label_grouping")
+        supported_inference_providers = list(spec.get("supported_inference_providers") or [])
+        runtime = str(spec.get("runtime") or "tflite")
 
         if not os.path.exists(model_path):
             model_path, labels_path = self._get_model_paths(
@@ -1717,7 +1860,10 @@ class ClassifierService:
             "labels_path": labels_path,
             "input_size": input_size,
             "preprocessing": preprocessing,
+            "label_grouping": dict(label_grouping or {}),
             "runtime": runtime,
+            "resolved_region": spec.get("resolved_region"),
+            "supported_inference_providers": supported_inference_providers,
         }
 
     def _classify_model_artifact_type(self, model_path: str) -> str:
@@ -1737,6 +1883,7 @@ class ClassifierService:
             "labels_path": str(spec.get("labels_path") or ""),
             "input_size": int(spec.get("input_size") or 0),
             "preprocessing": dict(spec.get("preprocessing") or {}),
+            "label_grouping": dict(spec.get("label_grouping") or {}),
             "declared_runtime": str(spec.get("runtime") or ""),
             "model_type": self._classify_model_artifact_type(str(spec.get("model_path") or "")),
         }
@@ -1836,6 +1983,7 @@ class ClassifierService:
         labels_path = str(spec.get("labels_path") or "")
         input_size = int(spec.get("input_size") or 384)
         preprocessing = spec.get("preprocessing")
+        label_grouping = spec.get("label_grouping")
 
         if backend == "openvino":
             device_name = "GPU" if provider == "intel_gpu" else "CPU"
@@ -1844,6 +1992,7 @@ class ClassifierService:
                 model_path,
                 labels_path,
                 preprocessing=preprocessing,
+                label_grouping=label_grouping,
                 input_size=input_size,
                 device_name=device_name,
                 startup_self_test_enabled=not self._worker_process_mode,
@@ -1861,6 +2010,7 @@ class ClassifierService:
                 model_path,
                 labels_path,
                 preprocessing=preprocessing,
+                label_grouping=label_grouping,
                 input_size=input_size,
                 ort_providers=ort_providers,
             )
@@ -1876,6 +2026,7 @@ class ClassifierService:
                 tflite_model_path,
                 tflite_labels_path,
                 preprocessing=preprocessing,
+                label_grouping=label_grouping,
             )
             return model if model.load() else None
 
@@ -2128,6 +2279,7 @@ class ClassifierService:
         input_size = int(spec["input_size"])
         preprocessing = spec.get("preprocessing")
         runtime = str(spec["runtime"])
+        supported_inference_providers = list(spec.get("supported_inference_providers") or [])
 
         log.info("Initializing bird model",
                  path=model_path,
@@ -2179,7 +2331,11 @@ class ClassifierService:
 
         # Create appropriate model instance based on runtime
         if runtime == 'onnx':
-            selection = _resolve_inference_selection(self._selected_inference_provider, self._accel_caps)
+            selection = _resolve_inference_selection(
+                self._selected_inference_provider,
+                self._accel_caps,
+                supported_providers=supported_inference_providers,
+            )
             self._inference_fallback_reason = selection.get("fallback_reason")
             self._active_inference_provider = selection.get("active_provider", "unavailable")
             self._inference_backend = selection.get("backend", "unavailable")

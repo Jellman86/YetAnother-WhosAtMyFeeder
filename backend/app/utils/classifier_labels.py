@@ -1,3 +1,4 @@
+import re
 from collections.abc import Iterable
 
 
@@ -27,3 +28,20 @@ def normalize_classifier_label(label: str | None) -> str:
 
 def normalize_classifier_labels(labels: Iterable[str]) -> list[str]:
     return [normalize_classifier_label(label) for label in labels]
+
+
+def collapse_classifier_label(label: str | None, *, strategy: str | None = None) -> str:
+    normalized = normalize_classifier_label(label)
+    strategy_name = str(strategy or "").strip().lower()
+    if strategy_name == "strip_trailing_parenthetical":
+        collapsed = re.sub(r"\s*\([^)]*\)\s*$", "", normalized).strip()
+        return collapsed or normalized
+    return normalized
+
+
+def build_grouped_classifier_labels(
+    labels: Iterable[str],
+    *,
+    strategy: str | None = None,
+) -> list[str]:
+    return [collapse_classifier_label(label, strategy=strategy) for label in labels]

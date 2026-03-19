@@ -5,8 +5,10 @@ import aiofiles
 import httpx
 import structlog
 from datetime import datetime, UTC
-from typing import List, Optional, Dict
+from typing import Any, List, Optional, Dict
 from app.models.ai_models import ModelMetadata, InstalledModel, DownloadProgress
+from app.config import settings
+from app.services.bird_model_region_resolver import resolve_bird_model_region
 
 log = structlog.get_logger()
 
@@ -38,6 +40,50 @@ REMOTE_REGISTRY = [
         "sort_order": 10,
         "status": "stable",
         "notes": "Fastest option for the default bird classifier."
+    },
+    {
+        "id": "small_birds",
+        "name": "Small Birds",
+        "description": "Regional birds-only small-tier family with automatic location-based selection.",
+        "architecture": "Regional Birds Family",
+        "file_size_mb": 0,
+        "accuracy_tier": "High",
+        "inference_speed": "Medium",
+        "runtime": "onnx",
+        "supported_inference_providers": ["cpu", "intel_cpu", "intel_gpu"],
+        "download_url": "pending",
+        "labels_url": "pending",
+        "input_size": 224,
+        "tier": "small",
+        "taxonomy_scope": "birds_only",
+        "recommended_for": "Regional birds-only small model with auto region selection.",
+        "estimated_ram_mb": 768,
+        "advanced_only": False,
+        "sort_order": 14,
+        "status": "planned",
+        "family_id": "small_birds",
+        "default_region": "na",
+        "region_variants": {
+            "eu": {
+                "region_scope": "eu",
+                "name": "Europe",
+                "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/small_birds_eu_mobilenet_v4_l_candidate.onnx",
+                "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/small_birds_eu_mobilenet_v4_l_candidate_labels.txt",
+                "input_size": 384,
+            },
+            "na": {
+                "region_scope": "na",
+                "name": "North America",
+                "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/n2b8_efficientnet_b0_nabirds.onnx",
+                "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/n2b8_class_labels.txt",
+                "input_size": 224,
+                "supported_inference_providers": ["cpu", "intel_cpu"],
+                "label_grouping": {
+                    "strategy": "strip_trailing_parenthetical",
+                },
+            },
+        },
+        "notes": "Regional birds-only family. Assets pending validation and release upload."
     },
     {
         "id": "convnext_large_inat21",
@@ -96,6 +142,51 @@ REMOTE_REGISTRY = [
         "sort_order": 15,
         "status": "experimental",
         "notes": "ONNX Runtime CPU, OpenVINO CPU, and Intel GPU validated locally; CUDA unverified and best-effort only in this environment. Candidate remains experimental until broader runtime coverage is confirmed."
+    },
+    {
+        "id": "medium_birds",
+        "name": "Medium Birds",
+        "description": "Regional birds-only medium-tier family with automatic location-based selection.",
+        "architecture": "Regional Birds Family",
+        "file_size_mb": 0,
+        "accuracy_tier": "Very High",
+        "inference_speed": "Medium-Slow",
+        "runtime": "onnx",
+        "supported_inference_providers": ["cpu", "intel_cpu", "intel_gpu"],
+        "download_url": "pending",
+        "labels_url": "pending",
+        "input_size": 224,
+        "tier": "medium",
+        "taxonomy_scope": "birds_only",
+        "recommended_for": "Regional birds-only medium model with auto region selection.",
+        "estimated_ram_mb": 1536,
+        "advanced_only": False,
+        "sort_order": 17,
+        "status": "planned",
+        "family_id": "medium_birds",
+        "default_region": "na",
+        "region_variants": {
+            "eu": {
+                "region_scope": "eu",
+                "name": "Europe",
+                "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/medium_birds_eu_convnext_v2_tiny_256_candidate.onnx",
+                "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/medium_birds_eu_convnext_v2_tiny_256_candidate_labels.txt",
+                "input_size": 256,
+            },
+            "na": {
+                "region_scope": "na",
+                "name": "North America",
+                "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/medium_birds_na_binocular_candidate.onnx",
+                "weights_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/medium_birds_na_binocular_candidate.onnx.data",
+                "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/medium_birds_na_binocular_candidate_labels.txt",
+                "input_size": 224,
+                "supported_inference_providers": ["cpu", "intel_cpu"],
+                "label_grouping": {
+                    "strategy": "strip_trailing_parenthetical",
+                },
+            },
+        },
+        "notes": "Regional birds-only family. Assets pending validation and release upload."
     },
     {
         "id": "rope_vit_b14_inat21",
@@ -196,9 +287,195 @@ class ModelManager:
             )
         self.active_model_id = model_id
 
+    def _get_registry_model_meta(self, model_id: str) -> Optional[dict[str, Any]]:
+        return next((m for m in REMOTE_REGISTRY if m["id"] == model_id), None)
+
+    def _is_family_model(self, model_meta: Optional[dict[str, Any]]) -> bool:
+        return bool((model_meta or {}).get("region_variants"))
+
+    def _resolve_region_inputs(
+        self,
+        *,
+        country: Optional[str] = None,
+        override: Optional[str] = None,
+    ) -> tuple[Optional[str], Optional[str]]:
+        resolved_country = settings.location.country if country is None else country
+        resolved_override = (
+            settings.classification.bird_model_region_override
+            if override is None
+            else override
+        )
+        return resolved_country, resolved_override
+
+    def _model_filename_for_runtime(self, runtime: str) -> str:
+        model_ext = ".onnx" if runtime == "onnx" else ".tflite"
+        return f"model{model_ext}"
+
+    def _merge_family_variant_meta(
+        self,
+        model_meta: dict[str, Any],
+        *,
+        region: str,
+    ) -> dict[str, Any]:
+        variant = dict((model_meta.get("region_variants") or {}).get(region) or {})
+        merged = dict(model_meta)
+        merged.update(variant)
+        merged["resolved_region"] = region
+        merged["family_id"] = model_meta.get("family_id") or model_meta.get("id")
+        merged["runtime"] = variant.get("runtime", model_meta.get("runtime", "tflite"))
+        merged["input_size"] = int(variant.get("input_size", model_meta.get("input_size", 224)) or 224)
+        merged["preprocessing"] = dict(variant.get("preprocessing") or model_meta.get("preprocessing") or {})
+        merged["label_grouping"] = dict(variant.get("label_grouping") or model_meta.get("label_grouping") or {})
+        merged["supported_inference_providers"] = list(
+            variant.get("supported_inference_providers")
+            or model_meta.get("supported_inference_providers")
+            or []
+        )
+        merged["download_url"] = variant.get("download_url", model_meta.get("download_url"))
+        merged["weights_url"] = variant.get("weights_url", model_meta.get("weights_url"))
+        merged["labels_url"] = variant.get("labels_url", model_meta.get("labels_url"))
+        return merged
+
+    def _resolve_family_variant_meta(
+        self,
+        model_meta: dict[str, Any],
+        *,
+        country: Optional[str] = None,
+        override: Optional[str] = None,
+    ) -> dict[str, Any]:
+        country, override = self._resolve_region_inputs(country=country, override=override)
+        variants = model_meta.get("region_variants") or {}
+        effective_region = resolve_bird_model_region(country=country, override=override)
+        selected_region = effective_region if effective_region in variants else None
+        if selected_region is None:
+            default_region = str(model_meta.get("default_region") or "").strip()
+            if default_region in variants:
+                selected_region = default_region
+        if selected_region is None and variants:
+            selected_region = next(iter(variants.keys()))
+        if selected_region is None:
+            return dict(model_meta)
+        return self._merge_family_variant_meta(model_meta, region=selected_region)
+
+    def _resolve_installed_family_variant(
+        self,
+        target_dir: str,
+        model_meta: dict[str, Any],
+        *,
+        country: Optional[str] = None,
+        override: Optional[str] = None,
+    ) -> Optional[dict[str, Any]]:
+        variants = model_meta.get("region_variants") or {}
+        preferred = self._resolve_family_variant_meta(model_meta, country=country, override=override)
+        candidate_regions: list[str] = []
+        preferred_region = str(preferred.get("resolved_region") or "").strip()
+        if preferred_region:
+            candidate_regions.append(preferred_region)
+        default_region = str(model_meta.get("default_region") or "").strip()
+        if default_region and default_region not in candidate_regions:
+            candidate_regions.append(default_region)
+        for region in variants.keys():
+            if region not in candidate_regions:
+                candidate_regions.append(region)
+
+        for region in candidate_regions:
+            merged = self._merge_family_variant_meta(model_meta, region=region)
+            variant_dir = os.path.join(target_dir, region)
+            model_path = os.path.join(variant_dir, self._model_filename_for_runtime(str(merged.get("runtime") or "tflite")))
+            labels_path = os.path.join(variant_dir, "labels.txt")
+            if os.path.exists(model_path):
+                return {
+                    "model_path": model_path,
+                    "labels_path": labels_path,
+                    "input_size": int(merged.get("input_size", 224) or 224),
+                    "preprocessing": dict(merged.get("preprocessing") or {}),
+                    "runtime": str(merged.get("runtime") or "tflite"),
+                    "label_grouping": dict(merged.get("label_grouping") or {}),
+                    "supported_inference_providers": list(merged.get("supported_inference_providers") or []),
+                    "weights_url": merged.get("weights_url"),
+                    "resolved_region": region,
+                }
+        return None
+
+    def get_active_model_spec(
+        self,
+        *,
+        country: Optional[str] = None,
+        override: Optional[str] = None,
+    ) -> dict[str, Any]:
+        model_id = self.active_model_id
+        model_meta = self._get_registry_model_meta(model_id)
+        target_dir = os.path.join(MODELS_DIR, model_id)
+
+        if model_meta and self._is_family_model(model_meta):
+            resolved = self._resolve_installed_family_variant(
+                target_dir,
+                model_meta,
+                country=country,
+                override=override,
+            )
+            if resolved:
+                resolved["model_id"] = model_id
+                return resolved
+
+        if model_meta:
+            runtime = str(model_meta.get("runtime", "tflite") or "tflite")
+            model_path = os.path.join(target_dir, self._model_filename_for_runtime(runtime))
+            labels_path = os.path.join(target_dir, "labels.txt")
+            if os.path.exists(model_path):
+                return {
+                    "model_id": model_id,
+                    "model_path": model_path,
+                    "labels_path": labels_path,
+                    "input_size": int(model_meta.get("input_size", 224) or 224),
+                    "preprocessing": dict(model_meta.get("preprocessing") or {}),
+                    "runtime": runtime,
+                    "label_grouping": dict(model_meta.get("label_grouping") or {}),
+                    "supported_inference_providers": list(model_meta.get("supported_inference_providers") or []),
+                    "weights_url": model_meta.get("weights_url"),
+                }
+
+        return {
+            "model_id": "mobilenet_v2_birds",
+            "model_path": "model.tflite",
+            "labels_path": "labels.txt",
+            "input_size": 224,
+            "preprocessing": {},
+            "runtime": "tflite",
+            "label_grouping": {},
+            "supported_inference_providers": ["cpu"],
+            "weights_url": None,
+        }
+
     async def list_available_models(self) -> List[ModelMetadata]:
         """Fetch list of available models from remote registry."""
         return [ModelMetadata(**m) for m in sorted(REMOTE_REGISTRY, key=lambda model: model.get("sort_order", 0))]
+
+    async def get_resolved_bird_model_families(
+        self,
+        *,
+        country: str | None,
+        override: str | None,
+    ) -> dict[str, dict]:
+        available = await self.list_available_models()
+        by_id = {model.id: model for model in available}
+        effective_region = resolve_bird_model_region(country=country, override=override)
+        selection_source = "manual" if (override or "auto").strip().lower() != "auto" else "auto"
+
+        resolved: dict[str, dict] = {}
+        for family_id in ("small_birds", "medium_birds"):
+            family = by_id.get(family_id)
+            if not family:
+                continue
+            region_variants = family.region_variants or {}
+            variant = region_variants.get(effective_region) or region_variants.get(family.default_region or "") or {}
+            resolved[family_id] = {
+                "effective_region": effective_region,
+                "selection_source": selection_source,
+                "family_id": family.id,
+                "variant": variant,
+            }
+        return resolved
 
     async def list_installed_models(self) -> List[InstalledModel]:
         """List models currently present in the models directory or bundled assets."""
@@ -229,12 +506,28 @@ class ModelManager:
                     
                 model_dir = os.path.join(base_dir, item)
                 if os.path.isdir(model_dir):
+                    metadata = available_map.get(item)
+                    if metadata and self._is_family_model(metadata.model_dump()):
+                        resolved = self._resolve_installed_family_variant(
+                            model_dir,
+                            metadata.model_dump(),
+                        )
+                        if resolved:
+                            installed.append(InstalledModel(
+                                id=item,
+                                path=str(resolved["model_path"]),
+                                labels_path=str(resolved["labels_path"]),
+                                is_active=(item == self.active_model_id),
+                                metadata=metadata,
+                            ))
+                            seen_ids.add(item)
+                            continue
+
                     tflite_path = os.path.join(model_dir, "model.tflite")
                     onnx_path = os.path.join(model_dir, "model.onnx")
                     labels_path = os.path.join(model_dir, "labels.txt")
                     
                     if os.path.exists(tflite_path) or os.path.exists(onnx_path):
-                        metadata = available_map.get(item)
                         installed.append(InstalledModel(
                             id=item,
                             path=tflite_path if os.path.exists(tflite_path) else onnx_path,
@@ -346,9 +639,89 @@ class ModelManager:
             if had_existing and os.path.isdir(backup_dir):
                 shutil.rmtree(backup_dir, ignore_errors=True)
 
+    def _scale_progress(self, value: float, *, start: float, end: float) -> float:
+        clamped = max(0.0, min(100.0, float(value)))
+        return start + ((end - start) * (clamped / 100.0))
+
+    async def _download_payload_to_dir(
+        self,
+        *,
+        client: httpx.AsyncClient,
+        model_meta: dict[str, Any],
+        staged_dir: str,
+        progress: DownloadProgress,
+        progress_model_id: str,
+        progress_start: float,
+        progress_end: float,
+    ) -> None:
+        runtime = str(model_meta.get("runtime", "tflite") or "tflite")
+        model_filename = self._model_filename_for_runtime(runtime)
+        has_weights = runtime == "onnx" and bool(model_meta.get("weights_url"))
+
+        # 1. Download model file
+        log.info("Downloading model", url=model_meta["download_url"], runtime=runtime, staged_dir=staged_dir)
+        async with client.stream("GET", model_meta["download_url"], follow_redirects=True) as response:
+            response.raise_for_status()
+            total_header = response.headers.get("content-length")
+            total = int(total_header) if total_header else 0
+            downloaded = 0
+            async with aiofiles.open(os.path.join(staged_dir, model_filename), 'wb') as f:
+                async for chunk in response.aiter_bytes():
+                    await f.write(chunk)
+                    downloaded += len(chunk)
+                    if total > 0:
+                        raw_progress = self._build_download_progress('model', downloaded, total, has_weights=has_weights)
+                        progress.progress = self._scale_progress(raw_progress, start=progress_start, end=progress_end)
+                        self._update_download_status(progress_model_id, progress)
+        progress.progress = self._scale_progress(
+            self._build_download_progress('model', 1, 1, has_weights=has_weights),
+            start=progress_start,
+            end=progress_end,
+        )
+        self._update_download_status(progress_model_id, progress)
+
+        # 2. Download weights (optional)
+        if has_weights:
+            weights_filename = f"{model_filename}.data"
+            log.info("Downloading model weights", url=model_meta["weights_url"], staged_dir=staged_dir)
+            async with client.stream("GET", model_meta["weights_url"], follow_redirects=True) as response:
+                response.raise_for_status()
+                total_header = response.headers.get("content-length")
+                total = int(total_header) if total_header else 0
+                downloaded = 0
+                async with aiofiles.open(os.path.join(staged_dir, weights_filename), 'wb') as f:
+                    async for chunk in response.aiter_bytes():
+                        await f.write(chunk)
+                        downloaded += len(chunk)
+                        if total > 0:
+                            raw_progress = self._build_download_progress('weights', downloaded, total)
+                            progress.progress = self._scale_progress(raw_progress, start=progress_start, end=progress_end)
+                            self._update_download_status(progress_model_id, progress)
+            progress.progress = self._scale_progress(
+                self._build_download_progress('weights', 1, 1),
+                start=progress_start,
+                end=progress_end,
+            )
+            self._update_download_status(progress_model_id, progress)
+
+        # 3. Download labels
+        log.info("Downloading labels", url=model_meta["labels_url"], staged_dir=staged_dir)
+        resp = await client.get(model_meta["labels_url"], follow_redirects=True)
+        resp.raise_for_status()
+        async with aiofiles.open(os.path.join(staged_dir, "labels.txt"), 'wb') as f:
+            await f.write(resp.content)
+        progress.progress = self._scale_progress(
+            self._build_download_progress('labels', 1, 1, has_weights=has_weights),
+            start=progress_start,
+            end=progress_end,
+        )
+        self._update_download_status(progress_model_id, progress)
+
+        self._validate_download_payload(model_meta, staged_dir, model_filename)
+
     async def download_model(self, model_id: str) -> bool:
         """Download a model from the registry (supports TFLite and ONNX)."""
-        model_meta = next((m for m in REMOTE_REGISTRY if m['id'] == model_id), None)
+        model_meta = self._get_registry_model_meta(model_id)
         if not model_meta:
             log.error("Model ID not found in registry", model_id=model_id)
             return False
@@ -358,24 +731,33 @@ class ModelManager:
             log.warning("Model download already in progress", model_id=model_id)
             return False
 
-        # Check if download URLs are configured
-        if model_meta.get('download_url') == 'pending':
-            log.error("Model download URL not configured yet", model_id=model_id)
-            # Report error to UI immediately
-            progress = DownloadProgress(
-                model_id=model_id,
-                status="error",
-                progress=0.0,
-                error="Model download URL not configured yet"
-            )
-            self._update_download_status(model_id, progress)
-            return False
-
-        # Determine file extension based on runtime
-        runtime = model_meta.get('runtime', 'tflite')
-        model_ext = '.onnx' if runtime == 'onnx' else '.tflite'
-        model_filename = f"model{model_ext}"
-        has_weights = runtime == 'onnx' and bool(model_meta.get('weights_url'))
+        download_units: list[tuple[str, dict[str, Any]]] = []
+        if self._is_family_model(model_meta):
+            for region in (model_meta.get("region_variants") or {}).keys():
+                variant_meta = self._merge_family_variant_meta(model_meta, region=region)
+                if variant_meta.get("download_url") == "pending" or variant_meta.get("labels_url") == "pending":
+                    log.error("Family variant download URL not configured yet", model_id=model_id, region=region)
+                    progress = DownloadProgress(
+                        model_id=model_id,
+                        status="error",
+                        progress=0.0,
+                        error=f"Model download URL not configured yet for region {region}",
+                    )
+                    self._update_download_status(model_id, progress)
+                    return False
+                download_units.append((region, variant_meta))
+        else:
+            if model_meta.get('download_url') == 'pending':
+                log.error("Model download URL not configured yet", model_id=model_id)
+                progress = DownloadProgress(
+                    model_id=model_id,
+                    status="error",
+                    progress=0.0,
+                    error="Model download URL not configured yet"
+                )
+                self._update_download_status(model_id, progress)
+                return False
+            download_units.append(("", dict(model_meta)))
 
         # Initialize progress
         progress = DownloadProgress(
@@ -389,63 +771,33 @@ class ModelManager:
         staged_dir = self._create_staging_dir(model_id)
 
         try:
-            # Use longer timeout for large ONNX models
-            timeout = httpx.Timeout(30.0, read=300.0) if runtime == 'onnx' else httpx.Timeout(30.0)
+            max_runtime = "onnx" if any(str(meta.get("runtime", "")) == "onnx" for _, meta in download_units) else "tflite"
+            timeout = httpx.Timeout(30.0, read=300.0) if max_runtime == 'onnx' else httpx.Timeout(30.0)
 
             async with httpx.AsyncClient(timeout=timeout) as client:
-                # 1. Download model file
-                log.info("Downloading model", url=model_meta['download_url'], runtime=runtime)
-                async with client.stream("GET", model_meta['download_url'], follow_redirects=True) as response:
-                    response.raise_for_status()
-                    total_header = response.headers.get("content-length")
-                    total = int(total_header) if total_header else 0
-                    downloaded = 0
-                    async with aiofiles.open(os.path.join(staged_dir, model_filename), 'wb') as f:
-                        async for chunk in response.aiter_bytes():
-                            await f.write(chunk)
-                            downloaded += len(chunk)
-                            if total > 0:
-                                progress.progress = self._build_download_progress('model', downloaded, total, has_weights=has_weights)
-                                self._update_download_status(model_id, progress)
-                progress.progress = self._build_download_progress('model', 1, 1, has_weights=has_weights)
-                self._update_download_status(model_id, progress)
+                total_units = max(1, len(download_units))
+                for idx, (region, unit_meta) in enumerate(download_units):
+                    unit_start = (100.0 * idx) / total_units
+                    unit_end = (100.0 * (idx + 1)) / total_units
+                    unit_dir = os.path.join(staged_dir, region) if region else staged_dir
+                    os.makedirs(unit_dir, exist_ok=True)
+                    await self._download_payload_to_dir(
+                        client=client,
+                        model_meta=unit_meta,
+                        staged_dir=unit_dir,
+                        progress=progress,
+                        progress_model_id=model_id,
+                        progress_start=unit_start,
+                        progress_end=unit_end,
+                    )
 
-                # 2. Download Weights (Optional, for large ONNX models)
-                if has_weights:
-                    weights_filename = f"{model_filename}.data"
-                    log.info("Downloading model weights", url=model_meta['weights_url'])
-                    async with client.stream("GET", model_meta['weights_url'], follow_redirects=True) as response:
-                        response.raise_for_status()
-                        total_header = response.headers.get("content-length")
-                        total = int(total_header) if total_header else 0
-                        downloaded = 0
-                        async with aiofiles.open(os.path.join(staged_dir, weights_filename), 'wb') as f:
-                            async for chunk in response.aiter_bytes():
-                                await f.write(chunk)
-                                downloaded += len(chunk)
-                                if total > 0:
-                                    progress.progress = self._build_download_progress('weights', downloaded, total)
-                                    self._update_download_status(model_id, progress)
-                    progress.progress = self._build_download_progress('weights', 1, 1)
-                    self._update_download_status(model_id, progress)
-
-                # 3. Download Labels
-                log.info("Downloading labels", url=model_meta['labels_url'])
-                resp = await client.get(model_meta['labels_url'], follow_redirects=True)
-                resp.raise_for_status()
-                async with aiofiles.open(os.path.join(staged_dir, "labels.txt"), 'wb') as f:
-                    await f.write(resp.content)
-                progress.progress = self._build_download_progress('labels', 1, 1, has_weights=has_weights)
-                self._update_download_status(model_id, progress)
-
-                self._validate_download_payload(model_meta, staged_dir, model_filename)
                 self._swap_model_dirs(staged_dir, target_dir)
 
                 progress.progress = 100.0
                 progress.status = "completed"
                 self._update_download_status(model_id, progress)
 
-            log.info("Model downloaded successfully", model_id=model_id, runtime=runtime)
+            log.info("Model downloaded successfully", model_id=model_id, runtime=max_runtime)
             return True
         except Exception as e:
             log.error("Failed to download model", model_id=model_id, error=str(e))
@@ -482,24 +834,11 @@ class ModelManager:
 
     def get_active_model_paths(self) -> tuple[str, str, int]:
         """Get the paths and input size for the currently active model."""
-        model_id = self.active_model_id
-        target_dir = os.path.join(MODELS_DIR, model_id)
-
-        meta = next((m for m in REMOTE_REGISTRY if m['id'] == model_id), None)
-        input_size = meta['input_size'] if meta else 224
-        runtime = meta.get('runtime', 'tflite') if meta else 'tflite'
-
-        # Determine model file extension
-        model_ext = '.onnx' if runtime == 'onnx' else '.tflite'
-        model_filename = f"model{model_ext}"
-
-        if not os.path.exists(target_dir):
-            # Fallback to default TFLite model
-            return "model.tflite", "labels.txt", 224
-
-        model_path = os.path.join(target_dir, model_filename)
-        labels_path = os.path.join(target_dir, "labels.txt")
-
-        return model_path, labels_path, input_size
+        spec = self.get_active_model_spec()
+        return (
+            str(spec.get("model_path") or "model.tflite"),
+            str(spec.get("labels_path") or "labels.txt"),
+            int(spec.get("input_size") or 224),
+        )
 
 model_manager = ModelManager()

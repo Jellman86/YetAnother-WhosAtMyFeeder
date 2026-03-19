@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends
 from typing import List, Optional
+from app.config import settings
 from app.services.model_manager import model_manager
 from app.models.ai_models import ModelMetadata, InstalledModel, DownloadProgress
 from app.services.classifier_service import get_classifier
@@ -16,6 +17,14 @@ async def get_available_models(auth: AuthContext = Depends(require_owner)):
 async def get_installed_models(auth: AuthContext = Depends(require_owner)):
     """List all currently installed models. Owner only."""
     return await model_manager.list_installed_models()
+
+@router.get("/models/families/resolved")
+async def get_resolved_model_families(auth: AuthContext = Depends(require_owner)):
+    """Resolve regional bird-model families from settings. Owner only."""
+    return await model_manager.get_resolved_bird_model_families(
+        country=settings.location.country,
+        override=settings.classification.bird_model_region_override,
+    )
 
 @router.post("/models/{model_id}/download")
 async def download_model(
@@ -56,4 +65,3 @@ async def activate_model(
     background_tasks.add_task(classifier.reload_bird_model)
 
     return {"status": "success", "message": f"Model {model_id} activated"}
-
