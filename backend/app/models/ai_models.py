@@ -16,6 +16,14 @@ class ModelMetadata(BaseModel):
     input_size: int = 224
     runtime: Optional[str] = None
     supported_inference_providers: Optional[List[str]] = None
+    tier: str
+    taxonomy_scope: str
+    recommended_for: str
+    estimated_ram_mb: Optional[int] = None
+    advanced_only: bool = False
+    sort_order: int = 0
+    status: str = "stable"
+    notes: Optional[str] = None
     
 class InstalledModel(BaseModel):
     id: str

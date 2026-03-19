@@ -29,7 +29,15 @@ REMOTE_REGISTRY = [
         "preprocessing": {
             "padding_color": 128,
             "normalization": "uint8"
-        }
+        },
+        "tier": "cpu_only",
+        "taxonomy_scope": "birds_only",
+        "recommended_for": "Default bird-only inference on CPU and low-RAM devices.",
+        "estimated_ram_mb": 128,
+        "advanced_only": False,
+        "sort_order": 10,
+        "status": "stable",
+        "notes": "Fastest option for the default bird classifier."
     },
     {
         "id": "convnext_large_inat21",
@@ -50,7 +58,15 @@ REMOTE_REGISTRY = [
             "std": [0.229, 0.224, 0.225],
             "normalization": "float32"
         },
-        "license": "CC-BY-NC-4.0"
+        "license": "CC-BY-NC-4.0",
+        "tier": "large",
+        "taxonomy_scope": "wildlife_wide",
+        "recommended_for": "General-purpose wildlife classification with strong accuracy across birds, mammals, and insects.",
+        "estimated_ram_mb": 2048,
+        "advanced_only": False,
+        "sort_order": 20,
+        "status": "stable",
+        "notes": "Higher-accuracy broad model."
     },
     {
         "id": "eva02_large_inat21",
@@ -71,7 +87,15 @@ REMOTE_REGISTRY = [
             "std": [0.26862954, 0.26130258, 0.27577711],
             "normalization": "float32"
         },
-        "license": "CC-BY-NC-4.0"
+        "license": "CC-BY-NC-4.0",
+        "tier": "advanced",
+        "taxonomy_scope": "wildlife_wide",
+        "recommended_for": "Highest-accuracy wildlife classification for advanced users with more compute and RAM.",
+        "estimated_ram_mb": 3072,
+        "advanced_only": True,
+        "sort_order": 30,
+        "status": "stable",
+        "notes": "Elite accuracy model."
     }
 ]
 
