@@ -3,8 +3,10 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from app.services.auto_video_classifier_service import AutoVideoClassifierService
+from app.services import auto_video_classifier_service as auto_video_classifier_module
 from app.config import settings
+
+AutoVideoClassifierService = auto_video_classifier_module.AutoVideoClassifierService
 
 
 @pytest.mark.asyncio
@@ -35,7 +37,7 @@ async def test_queue_classification_records_skip_delay_flag_per_job():
 
 @pytest.mark.asyncio
 async def test_queue_classification_respects_bounded_capacity(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr("app.services.auto_video_classifier_service.MAX_PENDING_QUEUE", 2)
+    monkeypatch.setattr(auto_video_classifier_module, "MAX_PENDING_QUEUE", 2)
     service = AutoVideoClassifierService()
 
     first = await service.queue_classification("evt-capacity-1", "cam1")
@@ -97,7 +99,7 @@ async def test_trigger_classification_uses_bounded_queue_path(monkeypatch: pytes
 async def test_wait_for_clip_stops_retrying_on_terminal_clip_not_retained(monkeypatch: pytest.MonkeyPatch):
     service = AutoVideoClassifierService()
     fetch = AsyncMock(return_value=(None, "clip_not_retained"))
-    monkeypatch.setattr("app.services.auto_video_classifier_service.frigate_client.get_clip_with_error", fetch)
+    monkeypatch.setattr(auto_video_classifier_module.frigate_client, "get_clip_with_error", fetch)
     monkeypatch.setattr(settings.classification, "video_classification_delay", 0)
     monkeypatch.setattr(settings.classification, "video_classification_max_retries", 4)
     monkeypatch.setattr(settings.classification, "video_classification_retry_interval", 0)

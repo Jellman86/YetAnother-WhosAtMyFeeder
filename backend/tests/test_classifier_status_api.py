@@ -83,7 +83,9 @@ async def test_classifier_status_includes_personalization_summary(client: httpx.
 @pytest.mark.asyncio
 async def test_classifier_test_endpoint_uses_supervised_path_in_subprocess_mode(client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch):
     original_mode = settings.classification.image_execution_mode
+    original_execution_mode = classifier_router.classifier_service._image_execution_mode
     settings.classification.image_execution_mode = "subprocess"
+    classifier_router.classifier_service._image_execution_mode = "subprocess"
     app.dependency_overrides[require_owner] = lambda: AuthContext(auth_level=AuthLevel.OWNER, username="owner")
 
     async def _fake_background_classify(_image, camera_name=None, model_id=None):
@@ -112,6 +114,7 @@ async def test_classifier_test_endpoint_uses_supervised_path_in_subprocess_mode(
         assert payload["status"] == "ok"
         assert payload["results"][0]["label"] == "Robin"
     finally:
+        classifier_router.classifier_service._image_execution_mode = original_execution_mode
         settings.classification.image_execution_mode = original_mode
 
 

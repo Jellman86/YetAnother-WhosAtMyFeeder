@@ -3,7 +3,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from app.config import settings
-from app.services.auto_video_classifier_service import AutoVideoClassifierService
+from app.services import auto_video_classifier_service as auto_video_classifier_module
+
+AutoVideoClassifierService = auto_video_classifier_module.AutoVideoClassifierService
 from app.services.classifier_service import VideoClassificationWorkerError
 from app.services.error_diagnostics import error_diagnostics_history
 
@@ -26,9 +28,9 @@ async def test_process_event_triggers_snapshot_upgrade_when_clip_valid():
     service._wait_for_clip = AsyncMock(return_value=(b"clip-bytes", None))  # type: ignore[method-assign]
     settings.media_cache.high_quality_event_snapshots = True
 
-    with patch("app.services.auto_video_classifier_service.frigate_client.get_event_with_error", new=AsyncMock(return_value=({"has_clip": True}, None))), \
-         patch("app.services.auto_video_classifier_service.broadcaster.broadcast", new=AsyncMock()), \
-         patch("app.services.auto_video_classifier_service.high_quality_snapshot_service", create=True) as mock_hq:
+    with patch.object(auto_video_classifier_module.frigate_client, "get_event_with_error", new=AsyncMock(return_value=({"has_clip": True}, None))), \
+         patch.object(auto_video_classifier_module.broadcaster, "broadcast", new=AsyncMock()), \
+         patch.object(auto_video_classifier_module, "high_quality_snapshot_service") as mock_hq:
         mock_hq.replace_from_clip_bytes = AsyncMock(return_value="replaced")
 
         await service._process_event("evt-auto-video-upgrade", "cam1", skip_delay=True)
@@ -48,9 +50,9 @@ async def test_process_event_still_classifies_when_snapshot_upgrade_fails():
     service._wait_for_clip = AsyncMock(return_value=(b"clip-bytes", None))  # type: ignore[method-assign]
     settings.media_cache.high_quality_event_snapshots = True
 
-    with patch("app.services.auto_video_classifier_service.frigate_client.get_event_with_error", new=AsyncMock(return_value=({"has_clip": True}, None))), \
-         patch("app.services.auto_video_classifier_service.broadcaster.broadcast", new=AsyncMock()), \
-         patch("app.services.auto_video_classifier_service.high_quality_snapshot_service", create=True) as mock_hq:
+    with patch.object(auto_video_classifier_module.frigate_client, "get_event_with_error", new=AsyncMock(return_value=({"has_clip": True}, None))), \
+         patch.object(auto_video_classifier_module.broadcaster, "broadcast", new=AsyncMock()), \
+         patch.object(auto_video_classifier_module, "high_quality_snapshot_service") as mock_hq:
         mock_hq.replace_from_clip_bytes = AsyncMock(return_value="frame_extract_failed")
 
         await service._process_event("evt-auto-video-upgrade-failure", "cam1", skip_delay=True)
@@ -69,10 +71,10 @@ async def test_process_event_falls_back_to_snapshot_when_clip_not_retained_for_b
     service._auto_delete_if_missing = AsyncMock()  # type: ignore[method-assign]
     service._wait_for_clip = AsyncMock(return_value=(None, "clip_not_retained"))  # type: ignore[method-assign]
 
-    with patch("app.services.auto_video_classifier_service.frigate_client.get_event_with_error", new=AsyncMock(return_value=({"has_clip": True}, None))), \
-         patch("app.services.auto_video_classifier_service.frigate_client.get_snapshot", new=AsyncMock(return_value=b"snapshot-bytes")), \
-         patch("app.services.auto_video_classifier_service.broadcaster.broadcast", new=AsyncMock()), \
-         patch("app.services.auto_video_classifier_service.Image.open", return_value=MagicMock()):
+    with patch.object(auto_video_classifier_module.frigate_client, "get_event_with_error", new=AsyncMock(return_value=({"has_clip": True}, None))), \
+         patch.object(auto_video_classifier_module.frigate_client, "get_snapshot", new=AsyncMock(return_value=b"snapshot-bytes")), \
+         patch.object(auto_video_classifier_module.broadcaster, "broadcast", new=AsyncMock()), \
+         patch.object(auto_video_classifier_module.Image, "open", return_value=MagicMock()):
         await service._process_event("evt-batch-fallback", "cam1", skip_delay=True, fallback_to_snapshot=True)
 
     service._save_results.assert_awaited_once_with("evt-batch-fallback", {"label": "Robin", "score": 0.88, "index": 1})
@@ -88,8 +90,8 @@ async def test_process_event_marks_failed_when_clip_not_retained_for_auto_mode()
     service._auto_delete_if_missing = AsyncMock()  # type: ignore[method-assign]
     service._wait_for_clip = AsyncMock(return_value=(None, "clip_not_retained"))  # type: ignore[method-assign]
 
-    with patch("app.services.auto_video_classifier_service.frigate_client.get_event_with_error", new=AsyncMock(return_value=({"has_clip": True}, None))), \
-         patch("app.services.auto_video_classifier_service.broadcaster.broadcast", new=AsyncMock()):
+    with patch.object(auto_video_classifier_module.frigate_client, "get_event_with_error", new=AsyncMock(return_value=({"has_clip": True}, None))), \
+         patch.object(auto_video_classifier_module.broadcaster, "broadcast", new=AsyncMock()):
         await service._process_event("evt-auto-no-recordings", "cam1", skip_delay=True, fallback_to_snapshot=False)
 
     service._save_results.assert_not_awaited()
@@ -110,8 +112,8 @@ async def test_process_event_records_backend_diagnostic_for_worker_failure():
     error_diagnostics_history.clear()
 
     try:
-        with patch("app.services.auto_video_classifier_service.frigate_client.get_event_with_error", new=AsyncMock(return_value=({"has_clip": True}, None))), \
-             patch("app.services.auto_video_classifier_service.broadcaster.broadcast", new=AsyncMock()):
+        with patch.object(auto_video_classifier_module.frigate_client, "get_event_with_error", new=AsyncMock(return_value=({"has_clip": True}, None))), \
+             patch.object(auto_video_classifier_module.broadcaster, "broadcast", new=AsyncMock()):
             await service._process_event("evt-video-worker-deadline", "cam1", skip_delay=True)
 
         snapshot = error_diagnostics_history.snapshot(limit=20)
@@ -149,8 +151,8 @@ async def test_process_event_diagnostic_includes_inference_provider_context():
     error_diagnostics_history.clear()
 
     try:
-        with patch("app.services.auto_video_classifier_service.frigate_client.get_event_with_error", new=AsyncMock(return_value=({"has_clip": True}, None))), \
-             patch("app.services.auto_video_classifier_service.broadcaster.broadcast", new=AsyncMock()):
+        with patch.object(auto_video_classifier_module.frigate_client, "get_event_with_error", new=AsyncMock(return_value=({"has_clip": True}, None))), \
+             patch.object(auto_video_classifier_module.broadcaster, "broadcast", new=AsyncMock()):
             await service._process_event("evt-video-provider-context", "cam1", skip_delay=True)
 
         snapshot = error_diagnostics_history.snapshot(limit=20)
