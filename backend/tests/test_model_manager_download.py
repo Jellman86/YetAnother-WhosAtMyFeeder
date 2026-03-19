@@ -93,7 +93,9 @@ async def test_list_available_models_returns_models_sorted_by_sort_order(monkeyp
 
     assert [model.id for model in models] == [
         "mobilenet_v2_birds",
+        "hieradet_small_inat21",
+        "rope_vit_b14_inat21",
         "convnext_large_inat21",
         "eva02_large_inat21",
     ]
-    assert [model.sort_order for model in models] == [10, 20, 30]
+    assert [model.sort_order for model in models] == [10, 15, 18, 20, 30]
