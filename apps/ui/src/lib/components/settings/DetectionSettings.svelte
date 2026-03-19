@@ -3,6 +3,7 @@
     import { formatDateTime } from '../../utils/datetime';
     import ModelManager from '../../pages/models/ModelManager.svelte';
     import type { ClassifierStatus } from '../../api';
+    import { getDetectionModelGuidance } from './detection-model-guidance';
     const GPU_DOCS_URL = 'https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/blob/dev/docs/troubleshooting/diagnostics.md#-gpu-acceleration-diagnostics-cuda--openvino';
 
     // Props
@@ -58,6 +59,7 @@
     const recommendedFallbackProvider = $derived(
         (classifierStatus?.cuda_available ?? false) ? 'NVIDIA CUDA' : 'CPU'
     );
+    const modelGuidance = getDetectionModelGuidance();
 </script>
 
 <div class="space-y-6">
@@ -68,6 +70,20 @@
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>
             </div>
             <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">{$_('settings.detection.classification_engine')}</h3>
+        </div>
+        <div class="mb-6 rounded-2xl border border-slate-200/70 bg-white/70 p-5 text-slate-700 shadow-sm dark:border-slate-700/70 dark:bg-slate-900/40 dark:text-slate-200">
+            <p class="text-[10px] font-black uppercase tracking-[0.2em] text-teal-600 dark:text-teal-400">
+                {$_('settings.detection.model_lineup_eyebrow', { default: modelGuidance.eyebrow })}
+            </p>
+            <h4 class="mt-2 text-sm font-black text-slate-900 dark:text-white">
+                {$_('settings.detection.model_lineup_title', { default: modelGuidance.title })}
+            </h4>
+            <p class="mt-2 text-xs font-medium leading-relaxed text-slate-600 dark:text-slate-300">
+                {$_('settings.detection.model_lineup_description', { default: modelGuidance.description })}
+            </p>
+            <p class="mt-3 text-[11px] font-bold leading-relaxed text-slate-500 dark:text-slate-400">
+                {$_('settings.detection.model_lineup_advanced_note', { default: modelGuidance.advancedNote })}
+            </p>
         </div>
         <ModelManager />
     </section>
