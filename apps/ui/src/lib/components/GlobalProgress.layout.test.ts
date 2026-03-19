@@ -5,11 +5,10 @@ import headerSource from './Header.svelte?raw';
 import mobileTopBarSource from './MobileTopBar.svelte?raw';
 
 describe('Global progress layout', () => {
-    it('uses the shared app chrome height contract and only enables sticky positioning after scroll begins', () => {
+    it('uses the shared app chrome height contract with a stable sticky offset', () => {
         expect(appSource).toContain('--app-chrome-height: 4rem;');
-        expect(appSource).toContain('window.scrollY > 0');
-        expect(appSource).toContain("? 'sticky top-[var(--app-chrome-height)] z-30 shrink-0'");
-        expect(appSource).toContain(": 'relative z-30 shrink-0 mb-2'");
+        expect(appSource).toContain('class="sticky top-[var(--app-chrome-height)] z-30 shrink-0"');
+        expect(appSource).not.toContain('window.scrollY > 0');
         expect(appSource).toContain('<GlobalProgress onNavigate={navigate} />');
         expect(headerSource).toContain('h-[var(--app-chrome-height,4rem)]');
         expect(mobileTopBarSource).toContain('h-[var(--app-chrome-height,4rem)]');
