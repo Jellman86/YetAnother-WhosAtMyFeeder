@@ -41,6 +41,9 @@ function makeRow(overrides: Partial<JobPipelineKindRow> = {}): JobPipelineKindRo
         maxConcurrentEffective: 2,
         mqttPressureLevel: null,
         throttledForMqttPressure: false,
+        throttledForLivePressure: false,
+        liveInFlight: null,
+        liveQueued: null,
         mqttInFlight: null,
         mqttInFlightCapacity: null,
         ...overrides
@@ -84,6 +87,27 @@ describe('jobs presenter', () => {
         expect(presented.detailLabel).toBe('MQTT pressure reduced background capacity');
         expect(presented.determinate).toBe(false);
         expect(presented.percent).toBeNull();
+    });
+
+    it('surfaces live-priority throttling without blaming MQTT pressure', () => {
+        const presented = presentActiveJob(
+            makeJob({ current: 0, total: 0 }),
+            makeRow({
+                running: 1,
+                maxConcurrentConfigured: 4,
+                maxConcurrentEffective: 0,
+                throttledForLivePressure: true,
+                liveInFlight: 1,
+                liveQueued: 2
+            }),
+            null,
+            125_000,
+            t
+        );
+
+        expect(presented.activityLabel).toBe('Waiting for live detections');
+        expect(presented.blockerLabel).toBe('Live detections have priority');
+        expect(presented.detailLabel).toBe('Live detections have priority');
     });
 
     it('surfaces circuit-open pause state for queue rows', () => {

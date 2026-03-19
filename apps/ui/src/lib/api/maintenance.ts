@@ -75,6 +75,10 @@ export interface AnalysisStatus {
     max_concurrent_effective?: number;
     mqtt_pressure_level?: string;
     throttled_for_mqtt_pressure?: boolean;
+    throttled_for_live_pressure?: boolean;
+    live_pressure_active?: boolean;
+    live_in_flight?: number;
+    live_queued?: number;
     mqtt_in_flight?: number;
     mqtt_in_flight_capacity?: number;
 }

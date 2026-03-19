@@ -125,10 +125,14 @@ class AutoVideoClassifierService:
                     if now - self._last_mqtt_throttle_log_ts >= 15:
                         self._last_mqtt_throttle_log_ts = now
                         log.info(
-                            "Throttling background video classification due to MQTT pressure",
+                            "Throttling background video classification",
+                            throttled_for_mqtt_pressure=throttle_state["throttled_for_mqtt_pressure"],
+                            throttled_for_live_pressure=throttle_state["throttled_for_live_pressure"],
                             mqtt_pressure_level=throttle_state["mqtt_pressure_level"],
                             mqtt_in_flight=throttle_state["mqtt_in_flight"],
                             mqtt_capacity=throttle_state["mqtt_capacity"],
+                            live_in_flight=throttle_state["live_in_flight"],
+                            live_queued=throttle_state["live_queued"],
                             configured_max=max_concurrent,
                             effective_max=effective_max,
                         )
@@ -209,17 +213,23 @@ class AutoVideoClassifierService:
             capacity = 0
 
         # 2. Check Live Classifier Pressure
+        live_in_flight = 0
+        live_queued = 0
         live_pressure_active = False
         try:
-            from app.services.classifier_service import get_classifier
-            classifier_status = get_classifier().get_status()
-            # If live events are in flight or queued, we should throttle video to free up GPU/RAM
-            live_pressure_active = bool(classifier_status.get("background_throttled", False))
+            admission_status = self._classifier.get_admission_status()
+            live_status = admission_status.get("live") or {}
+            live_in_flight = int(live_status.get("running") or 0)
+            live_queued = int(live_status.get("queued") or 0)
+            # Drain existing video work but stop starting new work whenever any live work exists.
+            live_pressure_active = live_in_flight > 0 or live_queued > 0
         except Exception:
+            live_in_flight = 0
+            live_queued = 0
             live_pressure_active = False
 
         effective = configured
-        
+
         # Priority 1: MQTT ingest pressure (system-wide safety)
         if mqtt_level == "critical":
             effective = 0
@@ -227,16 +237,19 @@ class AutoVideoClassifierService:
             effective = min(effective, 1)
         elif mqtt_level == "elevated":
             effective = min(effective, max(1, configured // 2))
-            
+
+        mqtt_throttled = effective < configured
+
         # Priority 2: Live event pressure (UI responsiveness)
-        # If live detections are active, pause video analysis entirely to prevent 
-        # crashing heavy models due to GPU/RAM OOM or timeouts.
+        # Drain in-flight video work, but do not start new video jobs while live work exists.
         if live_pressure_active:
             effective = 0
 
         throttled = effective < configured
         return {
             "throttled": throttled,
+            "throttled_for_mqtt_pressure": mqtt_throttled,
+            "throttled_for_live_pressure": live_pressure_active,
             "configured_max_concurrent": configured,
             "effective_max_concurrent": effective,
             "mqtt_pressure_level": mqtt_level,
@@ -244,6 +257,8 @@ class AutoVideoClassifierService:
             "mqtt_capacity": capacity,
             "mqtt_status": mqtt_status,
             "live_pressure_active": live_pressure_active,
+            "live_in_flight": live_in_flight,
+            "live_queued": live_queued,
         }
 
     async def _stale_watchdog_loop(self):
@@ -348,7 +363,11 @@ class AutoVideoClassifierService:
             "max_concurrent_configured": configured_max,
             "max_concurrent_effective": throttle_state["effective_max_concurrent"],
             "mqtt_pressure_level": throttle_state["mqtt_pressure_level"],
-            "throttled_for_mqtt_pressure": throttle_state["throttled"],
+            "throttled_for_mqtt_pressure": throttle_state["throttled_for_mqtt_pressure"],
+            "throttled_for_live_pressure": throttle_state["throttled_for_live_pressure"],
+            "live_pressure_active": throttle_state["live_pressure_active"],
+            "live_in_flight": throttle_state["live_in_flight"],
+            "live_queued": throttle_state["live_queued"],
             "mqtt_in_flight": throttle_state["mqtt_in_flight"],
             "mqtt_in_flight_capacity": throttle_state["mqtt_capacity"],
         }

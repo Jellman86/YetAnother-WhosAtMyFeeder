@@ -115,6 +115,9 @@ function resolveActivityLabel(
         if (analysisStatus?.circuit_open) {
             return t('jobs.activity_circuit_open', undefined, 'Paused by circuit breaker');
         }
+        if (row?.throttledForLivePressure && job.current <= 0) {
+            return t('jobs.activity_waiting_live_priority', undefined, 'Waiting for live detections');
+        }
         if (row?.throttledForMqttPressure && job.current <= 0) {
             return t('jobs.activity_waiting_slots', undefined, 'Waiting for classifier slots');
         }
@@ -150,6 +153,9 @@ function resolveBlockerLabel(
 ): string | null {
     if (row && supportsReclassifyQueueStatus(row.kind) && analysisStatus?.circuit_open) {
         return t('jobs.blocker_circuit_open', undefined, 'Recent failures paused reclassification work');
+    }
+    if (row && supportsReclassifyQueueStatus(row.kind) && row.throttledForLivePressure) {
+        return t('jobs.blocker_live_priority', undefined, 'Live detections have priority');
     }
     if (row && supportsReclassifyQueueStatus(row.kind) && row.throttledForMqttPressure) {
         return t('jobs.blocker_mqtt_pressure', undefined, 'MQTT pressure reduced background capacity');

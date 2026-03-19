@@ -9,6 +9,9 @@ export interface QueueTelemetrySnapshot {
     maxConcurrentEffective?: number;
     mqttPressureLevel?: string;
     throttledForMqttPressure?: boolean;
+    throttledForLivePressure?: boolean;
+    liveInFlight?: number;
+    liveQueued?: number;
     mqttInFlight?: number;
     mqttInFlightCapacity?: number;
 }
@@ -28,6 +31,9 @@ export interface JobPipelineKindRow {
     maxConcurrentEffective: number | null;
     mqttPressureLevel: string | null;
     throttledForMqttPressure: boolean;
+    throttledForLivePressure: boolean;
+    liveInFlight: number | null;
+    liveQueued: number | null;
     mqttInFlight: number | null;
     mqttInFlightCapacity: number | null;
 }
@@ -164,6 +170,9 @@ export function buildJobsPipelineModel(
                 ? queue.mqttPressureLevel.trim().toLowerCase()
                 : null,
             throttledForMqttPressure: queue?.throttledForMqttPressure === true,
+            throttledForLivePressure: queue?.throttledForLivePressure === true,
+            liveInFlight: queue ? normalizeCount(queue.liveInFlight) || null : null,
+            liveQueued: queue ? normalizeCount(queue.liveQueued) || null : null,
             mqttInFlight: queue ? normalizeCount(queue.mqttInFlight) || null : null,
             mqttInFlightCapacity: queue ? normalizeCount(queue.mqttInFlightCapacity) || null : null
         };

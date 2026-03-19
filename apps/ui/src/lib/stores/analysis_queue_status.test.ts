@@ -19,7 +19,10 @@ describe('AnalysisQueueStatusStore', () => {
             pending_capacity: 200,
             pending_available: 188,
             max_concurrent_configured: 4,
-            max_concurrent_effective: 2
+            max_concurrent_effective: 2,
+            throttled_for_live_pressure: true,
+            live_in_flight: 1,
+            live_queued: 3
         }));
         const recordError = vi.fn();
         const store = new AnalysisQueueStatusStore({
@@ -36,6 +39,9 @@ describe('AnalysisQueueStatusStore', () => {
         expect(fetchAnalysisStatus).toHaveBeenCalledTimes(1);
         expect(store.analysisStatus?.pending).toBe(12);
         expect(store.queueByKind.reclassify?.maxConcurrentConfigured).toBe(4);
+        expect(store.queueByKind.reclassify?.throttledForLivePressure).toBe(true);
+        expect(store.queueByKind.reclassify?.liveInFlight).toBe(1);
+        expect(store.queueByKind.reclassify?.liveQueued).toBe(3);
 
         await vi.advanceTimersByTimeAsync(5000);
         expect(fetchAnalysisStatus).toHaveBeenCalledTimes(2);

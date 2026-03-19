@@ -82,6 +82,10 @@ export class AnalysisQueueStatusStore {
                 status.max_concurrent_effective ?? '',
                 status.mqtt_pressure_level ?? '',
                 status.throttled_for_mqtt_pressure ? 1 : 0,
+                status.throttled_for_live_pressure ? 1 : 0,
+                status.live_pressure_active ? 1 : 0,
+                status.live_in_flight ?? '',
+                status.live_queued ?? '',
                 status.mqtt_in_flight ?? '',
                 status.mqtt_in_flight_capacity ?? ''
             ].join('|');
@@ -100,6 +104,9 @@ export class AnalysisQueueStatusStore {
                     maxConcurrentEffective: normalizeCount(status.max_concurrent_effective),
                     mqttPressureLevel: typeof status.mqtt_pressure_level === 'string' ? status.mqtt_pressure_level : undefined,
                     throttledForMqttPressure: status.throttled_for_mqtt_pressure === true,
+                    throttledForLivePressure: status.throttled_for_live_pressure === true,
+                    liveInFlight: normalizeCount(status.live_in_flight),
+                    liveQueued: normalizeCount(status.live_queued),
                     mqttInFlight: normalizeCount(status.mqtt_in_flight),
                     mqttInFlightCapacity: normalizeCount(status.mqtt_in_flight_capacity)
                 }
