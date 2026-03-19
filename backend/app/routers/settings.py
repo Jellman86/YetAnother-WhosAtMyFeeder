@@ -281,7 +281,7 @@ class SettingsUpdate(BaseModel):
     video_classification_max_concurrent: Optional[int] = Field(5, ge=1, le=20, description="Maximum concurrent video classification jobs")
     video_classification_frames: Optional[int] = Field(15, ge=5, le=100, description="Number of frames to sample for video classification")
     image_execution_mode: Optional[str] = Field(
-        "subprocess",
+        "in_process",
         description="Image inference execution mode: in_process|subprocess",
     )
     strict_non_finite_output: Optional[bool] = Field(

@@ -226,7 +226,7 @@ def test_safe_softmax_non_strict_mode_coerces_all_non_finite_logits(monkeypatch)
 def test_classifier_supervisor_config_defaults():
     config = ClassificationSettings()
 
-    assert config.image_execution_mode == "subprocess"
+    assert config.image_execution_mode == "in_process"
     assert config.live_worker_count == 2
     assert config.background_worker_count == 1
     assert config.worker_heartbeat_timeout_seconds == pytest.approx(5.0)

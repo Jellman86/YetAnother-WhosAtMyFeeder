@@ -140,7 +140,7 @@ def load_settings_instance(settings_cls: type[Any], config_path: Path) -> Any:
             ).lower() == 'true'
         ),
         'inference_provider': default_inference_provider,
-        'image_execution_mode': os.environ.get('CLASSIFICATION__IMAGE_EXECUTION_MODE', 'subprocess'),
+        'image_execution_mode': os.environ.get('CLASSIFICATION__IMAGE_EXECUTION_MODE', 'in_process'),
         'live_worker_count': int(os.environ.get('CLASSIFICATION__LIVE_WORKER_COUNT', '2')),
         'background_worker_count': int(os.environ.get('CLASSIFICATION__BACKGROUND_WORKER_COUNT', '1')),
         'worker_heartbeat_timeout_seconds': float(os.environ.get('CLASSIFICATION__WORKER_HEARTBEAT_TIMEOUT_SECONDS', '5.0')),

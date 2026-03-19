@@ -681,7 +681,7 @@
       "selected_provider_label": "Sélectionné",
       "openvino_status": "OpenVINO",
       "execution_mode": "Mode d'exécution",
-      "execution_mode_desc": "Subprocess offre isolation et stabilité (recommandé). In-Process économise beaucoup de RAM en partageant le modèle, mais un crash peut arrêter tout le backend.",
+      "execution_mode_desc": "In-Process utilise bien moins de RAM en partageant les poids du modèle, surtout avec les modèles volumineux. Subprocess offre une isolation et une stabilité plus fortes, mais consomme nettement plus de mémoire.",
       "mode_subprocess": "Subprocess (Isolé)",
       "mode_in_process": "In-Process (RAM partagée)"
     },

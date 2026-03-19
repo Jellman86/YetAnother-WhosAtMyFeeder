@@ -113,7 +113,7 @@
     let videoClassificationMaxRetries = $state(3);
     let videoClassificationMaxConcurrent = $state(5);
     let videoClassificationFrames = $state(15);
-    let imageExecutionMode = $state<'in_process' | 'subprocess' | string>('subprocess');
+    let imageExecutionMode = $state<'in_process' | 'subprocess' | string>('in_process');
     let inferenceProvider = $state<'auto' | 'cpu' | 'cuda' | 'intel_gpu' | 'intel_cpu'>('auto');
     let videoCircuitOpen = $state(false);
     let videoCircuitUntil = $state<string | null>(null);
@@ -1603,7 +1603,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'videoClassificationMaxRetries', val: videoClassificationMaxRetries, store: s.video_classification_max_retries ?? 3 },
             { key: 'videoClassificationMaxConcurrent', val: videoClassificationMaxConcurrent, store: s.video_classification_max_concurrent ?? 5 },
             { key: 'videoClassificationFrames', val: videoClassificationFrames, store: s.video_classification_frames ?? 15 },
-            { key: 'imageExecutionMode', val: imageExecutionMode, store: s.image_execution_mode ?? 'subprocess' },
+            { key: 'imageExecutionMode', val: imageExecutionMode, store: s.image_execution_mode ?? 'in_process' },
             { key: 'strictNonFiniteOutput', val: strictNonFiniteOutput, store: (s as any).strict_non_finite_output ?? true },
             { key: 'inferenceProvider', val: inferenceProvider, store: (s.inference_provider as any) ?? 'auto' },
             { key: 'selectedCameras', val: JSON.stringify(selectedCameras), store: JSON.stringify(s.cameras || []) },
@@ -2393,7 +2393,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             videoClassificationMaxRetries = settings.video_classification_max_retries ?? 3;
             videoClassificationMaxConcurrent = settings.video_classification_max_concurrent ?? 5;
             videoClassificationFrames = settings.video_classification_frames ?? 15;
-            imageExecutionMode = settings.image_execution_mode ?? 'subprocess';
+            imageExecutionMode = settings.image_execution_mode ?? 'in_process';
             strictNonFiniteOutput = (settings as any).strict_non_finite_output ?? true;
             inferenceProvider = (settings.inference_provider as any) ?? 'auto';
             videoCircuitOpen = settings.video_classification_circuit_open ?? false;

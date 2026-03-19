@@ -681,7 +681,7 @@
       "selected_provider_label": "選択",
       "openvino_status": "OpenVINO",
       "execution_mode": "実行モード",
-      "execution_mode_desc": "Subprocess は隔離と安定性を提供します（推奨）。In-Process はモデルの重みを共有することで RAM を大幅に節約しますが、クラッシュするとバックエンド全体が停止します。",
+      "execution_mode_desc": "In-Process はモデルの重みを共有するため、特に大きなモデルで RAM 使用量を大きく抑えられます。Subprocess はより強い分離性と安定性を提供しますが、使用メモリは大幅に増えます。",
       "mode_subprocess": "Subprocess（隔離）",
       "mode_in_process": "In-Process（共有 RAM）"
     },

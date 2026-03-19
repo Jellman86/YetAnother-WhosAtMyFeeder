@@ -681,7 +681,7 @@
       "selected_provider_label": "已选择",
       "openvino_status": "OpenVINO",
       "execution_mode": "执行模式",
-      "execution_mode_desc": "Subprocess 提供隔离和稳定性（推荐）。In-Process 通过共享模型权重显著节省 RAM，但如果崩溃会导致整个后端停止运行。",
+      "execution_mode_desc": "In-Process 通过共享模型权重可显著降低 RAM 占用，尤其是在较大模型下。Subprocess 提供更强的隔离性和稳定性，但会明显占用更多内存。",
       "mode_subprocess": "Subprocess（隔离）",
       "mode_in_process": "In-Process（共享 RAM）"
     },

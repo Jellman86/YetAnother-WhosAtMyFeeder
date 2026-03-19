@@ -723,7 +723,7 @@
       "inference_backend_label": "Backend",
       "provider_fallback_reason": "Fallback:",
       "execution_mode": "Execution Mode",
-      "execution_mode_desc": "Subprocess provides isolation and stability (recommended). In-Process saves significant RAM by sharing model weights, but a crash will take down the entire backend.",
+      "execution_mode_desc": "In-Process uses much less RAM by sharing model weights, especially with larger models. Subprocess provides stronger isolation and stability, but uses significantly more memory.",
       "mode_subprocess": "Subprocess (Isolated)",
       "mode_in_process": "In-Process (Shared RAM)"
     },

@@ -18,7 +18,7 @@
         videoClassificationMaxRetries = $bindable(3),
         videoClassificationMaxConcurrent = $bindable(5),
         videoClassificationFrames = $bindable(15),
-        imageExecutionMode = $bindable<'in_process' | 'subprocess' | string>('subprocess'),
+        imageExecutionMode = $bindable<'in_process' | 'subprocess' | string>('in_process'),
         inferenceProvider = $bindable<'auto' | 'cpu' | 'cuda' | 'intel_gpu' | 'intel_cpu'>('auto'),
         classifierStatus = null,
         videoCircuitOpen = false,
@@ -344,7 +344,7 @@
                             {$_('settings.detection.execution_mode', { default: 'Execution Mode' })}
                         </span>
                         <span class="block text-[10px] text-slate-500 font-bold leading-tight mt-1">
-                            {$_('settings.detection.execution_mode_desc', { default: 'Subprocess provides isolation and stability (recommended). In-Process saves significant RAM by sharing model weights, but a crash will take down the entire backend.' })}
+                            {$_('settings.detection.execution_mode_desc', { default: 'In-Process uses much less RAM by sharing model weights, especially with larger models. Subprocess provides stronger isolation and stability, but uses significantly more memory.' })}
                         </span>
                     </div>
                     <select
