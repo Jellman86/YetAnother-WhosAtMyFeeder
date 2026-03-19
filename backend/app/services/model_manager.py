@@ -70,15 +70,16 @@ REMOTE_REGISTRY = [
     },
     {
         "id": "hieradet_small_inat21",
-        "name": "HieraDet Small (Balanced)",
-        "description": "Compact iNat21 classifier tuned for broad wildlife coverage with a smaller ONNX footprint than the large models.",
-        "architecture": "HieraDet-Small-DINOv2",
-        "file_size_mb": 168,
-        "accuracy_tier": "High (88%+)",
-        "inference_speed": "Medium (~120-250ms)",
+        "name": "ViT Small (Balanced)",
+        "description": "Compact iNat21 classifier tuned for broad wildlife coverage with a smaller ONNX footprint than the medium and large models.",
+        "architecture": "ViT Reg4 M16 RMS Avg (I-JEPA)",
+        "file_size_mb": 167,
+        "accuracy_tier": "High (83%+)",
+        "inference_speed": "Medium (~150-300ms)",
         "runtime": "onnx",
         "supported_inference_providers": ["cpu", "cuda", "intel_cpu", "intel_gpu"],
         "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/hieradet_small_inat21.onnx",
+        "weights_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/hieradet_small_inat21.onnx.data",
         "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/hieradet_small_inat21_labels.txt",
         "input_size": 256,
         "preprocessing": {
@@ -89,12 +90,12 @@ REMOTE_REGISTRY = [
         "license": "Apache-2.0",
         "tier": "small",
         "taxonomy_scope": "wildlife_wide",
-        "recommended_for": "Broad wildlife classification on systems that need a smaller model before stepping up to ConvNeXt.",
+        "recommended_for": "Broad wildlife classification on CPU or Intel GPU when you want a lighter recommendation before stepping up to RoPE or ConvNeXt.",
         "estimated_ram_mb": 1024,
         "advanced_only": False,
         "sort_order": 15,
         "status": "experimental",
-        "notes": "CPU and OpenVINO CPU validated locally; CUDA unverified in this environment. Candidate remains experimental until broader runtime coverage is confirmed."
+        "notes": "ONNX Runtime CPU, OpenVINO CPU, and Intel GPU validated locally; CUDA unverified and best-effort only in this environment. Candidate remains experimental until broader runtime coverage is confirmed."
     },
     {
         "id": "rope_vit_b14_inat21",

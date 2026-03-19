@@ -25,10 +25,13 @@ async def test_available_models_expose_tiered_metadata():
     assert by_id["hieradet_small_inat21"].recommended_for
     assert by_id["hieradet_small_inat21"].status == "experimental"
     assert by_id["hieradet_small_inat21"].sort_order == 15
+    assert by_id["hieradet_small_inat21"].name == "ViT Small (Balanced)"
+    assert by_id["hieradet_small_inat21"].architecture == "ViT Reg4 M16 RMS Avg (I-JEPA)"
     assert by_id["hieradet_small_inat21"].download_url != "pending"
+    assert by_id["hieradet_small_inat21"].weights_url != "pending"
     assert by_id["hieradet_small_inat21"].labels_url != "pending"
-    assert "CPU and OpenVINO CPU validated" in by_id["hieradet_small_inat21"].notes
-    assert "CUDA unverified" in by_id["hieradet_small_inat21"].notes
+    assert "Intel GPU validated" in by_id["hieradet_small_inat21"].notes
+    assert "CUDA unverified and best-effort only" in by_id["hieradet_small_inat21"].notes
 
     assert by_id["rope_vit_b14_inat21"].tier == "medium"
     assert by_id["rope_vit_b14_inat21"].taxonomy_scope == "wildlife_wide"

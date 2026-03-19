@@ -111,3 +111,12 @@ def test_build_download_progress_is_monotonic_across_onnx_phases():
     assert model_progress == 80.0
     assert weights_progress == 80.0
     assert labels_progress == 99.0
+
+
+def test_small_slot_registry_entry_requires_external_data_weights_url():
+    from app.services import model_manager as model_manager_module
+
+    model_meta = next(model for model in model_manager_module.REMOTE_REGISTRY if model["id"] == "hieradet_small_inat21")
+
+    assert model_meta["runtime"] == "onnx"
+    assert model_meta["weights_url"].endswith("hieradet_small_inat21.onnx.data")

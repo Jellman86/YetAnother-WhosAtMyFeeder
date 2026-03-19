@@ -9,14 +9,18 @@ except ImportError:  # pragma: no cover - exercised only in lightweight test env
     torch = None
 
 
+_SMALL_VIT_MODEL_ID = 'vit_reg4_m16_rms_avg_i-jepa-inat21-256px'
+
+
 def normalize_birder_model_id(model_id: str) -> str:
     if model_id.startswith('birder-project/'):
         return model_id.split('/', 1)[1]
     return model_id
 
 
-def default_birder_cache_dir(output_dir: str | Path) -> Path:
-    return Path(output_dir).parent / '.birder-cache'
+def default_birder_cache_path(output_dir: str | Path, model_id: str) -> Path:
+    normalized = normalize_birder_model_id(model_id)
+    return Path(output_dir).parent / '.birder-cache' / f'{normalized}.pt'
 
 
 def load_birder_model(model_id: str, *, cache_dir: str | Path | None = None):
@@ -59,6 +63,26 @@ def _build_dummy_input(input_size: int):
     return DummyInput()
 
 
+def _build_export_kwargs(model_id: str) -> dict:
+    normalized = normalize_birder_model_id(model_id)
+    if normalized == _SMALL_VIT_MODEL_ID:
+        return {
+            'input_names': ['input'],
+            'output_names': ['output'],
+            'opset_version': 20,
+            'dynamo': True,
+            'external_data': True,
+        }
+
+    return {
+        'input_names': ['input'],
+        'output_names': ['output'],
+        'opset_version': 18,
+        'dynamo': False,
+        'dynamic_axes': {'input': {0: 'batch'}, 'output': {0: 'batch'}},
+    }
+
+
 def export_birder_model(
     model_id: str,
     output_dir: str | Path,
@@ -73,9 +97,9 @@ def export_birder_model(
     labels_path = output_path / 'labels.txt'
 
     normalized_model_id = normalize_birder_model_id(model_id)
-    cache_dir = default_birder_cache_dir(output_path)
-    cache_dir.mkdir(parents=True, exist_ok=True)
-    model, labels = loader(normalized_model_id, cache_dir=cache_dir)
+    cache_path = default_birder_cache_path(output_path, normalized_model_id)
+    cache_path.parent.mkdir(parents=True, exist_ok=True)
+    model, labels = loader(normalized_model_id, cache_dir=cache_path)
     if hasattr(model, 'eval'):
         model = model.eval()
 
@@ -93,17 +117,18 @@ def export_birder_model(
         model,
         dummy_input,
         str(model_path),
-        input_names=['input'],
-        output_names=['output'],
-        opset_version=18,
-        dynamo=False,
-        dynamic_axes={'input': {0: 'batch'}, 'output': {0: 'batch'}},
+        **_build_export_kwargs(normalized_model_id),
     )
 
-    return {
+    report = {
         'model_path': str(model_path),
         'labels_path': str(labels_path),
     }
+    external_data_path = Path(f'{model_path}.data')
+    if external_data_path.exists():
+        report['external_data_path'] = str(external_data_path)
+
+    return report
 
 
 def main() -> int:

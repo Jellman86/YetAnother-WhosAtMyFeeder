@@ -31,7 +31,7 @@ def test_export_birder_model_writes_labels_and_onnx_paths(tmp_path):
     )
 
     assert calls["model_id"] == "hieradet_d_small_dino-v2-inat21-256px"
-    assert calls["cache_dir"] == tmp_path.parent / ".birder-cache"
+    assert calls["cache_dir"] == tmp_path.parent / ".birder-cache" / "hieradet_d_small_dino-v2-inat21-256px.pt"
     assert calls["dummy_shape"] == (1, 3, 256, 256)
     assert report["model_path"] == str(tmp_path / "model.onnx")
     assert report["labels_path"] == str(tmp_path / "labels.txt")
@@ -44,7 +44,7 @@ def test_export_birder_model_writes_labels_and_onnx_paths(tmp_path):
     assert calls["kwargs"]["output_names"] == ["output"]
     assert calls["kwargs"]["opset_version"] == 18
     assert calls["kwargs"]["dynamo"] is False
-    assert calls["cache_dir"] == tmp_path.parent / ".birder-cache"
+    assert calls["cache_dir"] == tmp_path.parent / ".birder-cache" / "hieradet_d_small_dino-v2-inat21-256px.pt"
 
 
 def test_export_birder_model_normalizes_birder_repo_prefix(tmp_path):
@@ -67,3 +67,22 @@ def test_export_birder_model_normalizes_birder_repo_prefix(tmp_path):
     )
 
     assert calls["model_id"] == "hieradet_d_small_dino-v2-inat21-256px"
+
+
+def test_export_birder_model_reports_external_data_sidecar(tmp_path):
+    def fake_loader(model_id: str, *, cache_dir=None):
+        return FakeModel(), ["label"]
+
+    def fake_export(model, dummy_input, output_path, **kwargs):
+        Path(output_path).write_bytes(b"fake-onnx")
+        Path(f"{output_path}.data").write_bytes(b"fake-weights")
+
+    report = export_birder_model(
+        model_id="birder-project/vit_reg4_m16_rms_avg_i-jepa-inat21-256px",
+        output_dir=tmp_path,
+        input_size=256,
+        loader=fake_loader,
+        export_fn=fake_export,
+    )
+
+    assert report["external_data_path"] == str(tmp_path / "model.onnx.data")
