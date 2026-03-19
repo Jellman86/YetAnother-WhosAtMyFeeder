@@ -53,6 +53,12 @@
 
   // Router state
   let currentRoute = $state('/');
+  let globalProgressHasScrolled = $state(false);
+
+  function syncGlobalProgressSticky() {
+      if (typeof window === 'undefined') return;
+      globalProgressHasScrolled = window.scrollY > 0;
+  }
 
   function normalizeRouteForCurrentAccess(path: string): string {
       if (!authStore.statusLoaded) {
@@ -199,6 +205,8 @@
               mediaQuery = window.matchMedia('(max-width: 767px)');
               updateMobile();
               mediaQuery.addEventListener('change', updateMobile);
+              syncGlobalProgressSticky();
+              window.addEventListener('scroll', syncGlobalProgressSticky, { passive: true });
           }
 
           // Register auth error callback
@@ -319,6 +327,7 @@
               if (mediaQuery) {
                   mediaQuery.removeEventListener('change', updateMobile);
               }
+              window.removeEventListener('scroll', syncGlobalProgressSticky);
               if (evtSource) {
                   evtSource.close();
                   evtSource = null;
@@ -520,10 +529,12 @@
       <!-- Main Content Wrapper -->
       <div
           class="flex-1 flex flex-col transition-all duration-300 {effectiveLayout === 'vertical' ? (isSidebarCollapsed ? 'md:pl-20' : 'md:pl-64') : ''}"
-          style="--app-chrome-height: 4rem;"
+          style="--app-chrome-height: {effectiveLayout === 'horizontal' || isMobile ? '4rem' : '0rem'};"
       >
           {#if !isNotificationRoute(currentRoute) && !authStore.isGuest}
-              <div class="sticky top-[var(--app-chrome-height)] z-30 shrink-0">
+              <div class={globalProgressHasScrolled
+                  ? 'sticky top-[var(--app-chrome-height)] z-30 shrink-0'
+                  : 'relative z-30 shrink-0 mb-2'}>
                   <GlobalProgress onNavigate={navigate} />
               </div>
           {/if}
