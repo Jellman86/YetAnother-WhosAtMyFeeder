@@ -276,15 +276,14 @@ class TaxonomyService:
                 "error": None
             }
 
-            # 1. Find all unique species names that don't have scientific_name or common_name populated
+            # 1. Find all detections that still need canonical taxonomy enrichment.
             async with get_db() as db:
                 async with db.execute("""
-                    SELECT DISTINCT display_name 
-                    FROM detections 
+                    SELECT rowid, display_name, category_name, scientific_name, common_name, taxa_id
+                    FROM detections
                     WHERE scientific_name IS NULL OR common_name IS NULL
                 """) as cursor:
                     rows = await cursor.fetchall()
-                    raw_names = [row[0] for row in rows if row and isinstance(row[0], str) and row[0].strip()]
 
                 # Unknown-bird buckets are intentionally unresolved and should
                 # not be treated as taxonomy-repair work items.
@@ -296,42 +295,108 @@ class TaxonomyService:
                         if str(label).strip()
                     )
                 }
-                unique_names = [name for name in raw_names if name.strip().lower() not in unknown_labels]
-                skipped_unknown_labels = len(raw_names) - len(unique_names)
 
-                self._sync_status["total"] = len(unique_names)
+                repair_rows = []
+                for row in rows:
+                    rowid, display_name, category_name, scientific_name, common_name, taxa_id = row
+                    lookup_candidates = []
+                    for candidate in (scientific_name, category_name, display_name):
+                        if not isinstance(candidate, str):
+                            continue
+                        normalized = candidate.strip()
+                        if not normalized or normalized.lower() in unknown_labels or normalized in lookup_candidates:
+                            continue
+                        lookup_candidates.append(normalized)
+
+                    if taxa_id is None and not lookup_candidates:
+                        continue
+
+                    repair_rows.append(
+                        {
+                            "rowid": rowid,
+                            "display_name": display_name,
+                            "category_name": category_name,
+                            "scientific_name": scientific_name,
+                            "common_name": common_name,
+                            "taxa_id": taxa_id,
+                            "lookup_candidates": lookup_candidates,
+                        }
+                    )
+
+                skipped_unknown_labels = len(rows) - len(repair_rows)
+                self._sync_status["total"] = len(repair_rows)
                 log.info(
                     "Starting taxonomy background sync",
-                    unique_species=len(unique_names),
+                    unique_species=len(repair_rows),
                     skipped_unknown_labels=skipped_unknown_labels
                 )
 
-                if not unique_names:
+                if not repair_rows:
                     self._sync_status["current_item"] = "Database Healthy: No missing taxonomy found"
                     self._sync_status["is_running"] = False
                     return
 
-                for name in unique_names:
-                    self._sync_status["current_item"] = name
-                    
-                    # Get names (passing existing db connection)
-                    taxonomy = await self.get_names(name, db=db)
-                    
-                    if taxonomy and (taxonomy.get("scientific_name") or taxonomy.get("common_name")):
-                        scientific_name = taxonomy.get("scientific_name")
-                        common_name = taxonomy.get("common_name")
-                        taxa_id = taxonomy.get("taxa_id")
+                for row in repair_rows:
+                    current_label = (
+                        row["scientific_name"]
+                        or row["category_name"]
+                        or row["display_name"]
+                        or f"taxa:{row['taxa_id']}"
+                    )
+                    self._sync_status["current_item"] = current_label
 
-                        await db.execute("""
-                            UPDATE detections 
-                            SET scientific_name = ?, common_name = ?, taxa_id = ?
-                            WHERE display_name = ?
-                        """, (scientific_name, common_name, taxa_id, name))
-                        # Commit every few items or at the end for performance
+                    taxonomy = None
+                    if row["taxa_id"] is not None:
+                        async with db.execute(
+                            "SELECT scientific_name, common_name, taxa_id, is_not_found, thumbnail_url FROM taxonomy_cache WHERE taxa_id = ? LIMIT 1",
+                            (row["taxa_id"],),
+                        ) as cursor:
+                            cached = await cursor.fetchone()
+                        if cached and not bool(cached[3]):
+                            taxonomy = {
+                                "scientific_name": cached[0],
+                                "common_name": cached[1],
+                                "taxa_id": cached[2],
+                                "thumbnail_url": cached[4],
+                            }
+
+                    def improves(candidate_taxonomy):
+                        if not candidate_taxonomy:
+                            return False
+                        return (
+                            (not row["scientific_name"] and bool(candidate_taxonomy.get("scientific_name")))
+                            or (not row["common_name"] and bool(candidate_taxonomy.get("common_name")))
+                            or (row["taxa_id"] is None and candidate_taxonomy.get("taxa_id") is not None)
+                        )
+
+                    if not improves(taxonomy):
+                        taxonomy = None
+                        for lookup_name in row["lookup_candidates"]:
+                            candidate_taxonomy = await self.get_names(lookup_name, db=db)
+                            if improves(candidate_taxonomy):
+                                taxonomy = candidate_taxonomy
+                                break
+
+                    if taxonomy and improves(taxonomy):
+                        await db.execute(
+                            """
+                            UPDATE detections
+                            SET scientific_name = COALESCE(?, scientific_name),
+                                common_name = COALESCE(?, common_name),
+                                taxa_id = COALESCE(?, taxa_id)
+                            WHERE rowid = ?
+                            """,
+                            (
+                                taxonomy.get("scientific_name"),
+                                taxonomy.get("common_name"),
+                                taxonomy.get("taxa_id"),
+                                row["rowid"],
+                            ),
+                        )
                         await db.commit()
-                    
+
                     self._sync_status["processed"] += 1
-                    
+
                     # Rate limiting: 1 second delay to be kind to iNaturalist
                     await asyncio.sleep(1.0)
 

@@ -1185,15 +1185,16 @@ async def update_event(
         com_name = taxonomy.get("common_name") or resolved_aliases.get("common_name")
         t_id = taxonomy.get("taxa_id") if taxonomy.get("taxa_id") is not None else resolved_aliases.get("taxa_id")
 
-        # Avoid persisting localized display names when taxonomy refresh fails:
-        # prefer canonical cache names for storage and let UI localization render translations.
-        if t_id is not None and (not taxonomy or taxonomy.get("common_name") is None):
+        # Avoid persisting localized or partial taxonomy when refresh fails:
+        # once we know the scientific name, prefer canonical cache names for storage
+        # and let UI localization render translations.
+        if sci_name and (not com_name or t_id is None):
             canonical_cache_names = await repo.get_taxonomy_names(sci_name)
             if canonical_cache_names.get("scientific_name"):
                 sci_name = canonical_cache_names["scientific_name"]
-            if canonical_cache_names.get("common_name"):
+            if not com_name and canonical_cache_names.get("common_name"):
                 com_name = canonical_cache_names["common_name"]
-            if canonical_cache_names.get("taxa_id") is not None:
+            if t_id is None and canonical_cache_names.get("taxa_id") is not None:
                 t_id = canonical_cache_names["taxa_id"]
 
         stored_category_name = sci_name or normalized_label

@@ -184,3 +184,67 @@ async def test_manual_update_writes_classification_feedback_row(client: httpx.As
         assert feedback_row[5] == "manual_tag"
     finally:
         await _cleanup_detection_and_taxonomy(event_id=event_id, taxa_id=taxa_id)
+
+
+@pytest.mark.asyncio
+async def test_manual_update_backfills_canonical_common_name_from_cache_when_taxonomy_is_partial(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+
+    event_id = f"manual-{uuid.uuid4().hex[:10]}"
+    taxa_id = 930000 + int(uuid.uuid4().hex[:4], 16)
+    replacement_taxa_id = 145252
+    await _seed_detection_and_taxonomy(event_id=event_id, taxa_id=taxa_id)
+
+    try:
+        async with get_db() as db:
+            await db.execute(
+                "INSERT OR REPLACE INTO taxonomy_cache (scientific_name, common_name, taxa_id) VALUES (?, ?, ?)",
+                ("Parus major", "Great Tit", replacement_taxa_id),
+            )
+            await db.commit()
+
+        with patch(
+            "app.routers.events.DetectionRepository.resolve_species_aliases",
+            new=AsyncMock(return_value={}),
+        ), patch(
+            "app.routers.events.taxonomy_service.get_names",
+            new=AsyncMock(return_value={"scientific_name": "Parus major", "common_name": None, "taxa_id": None}),
+        ) as mock_get_names, patch(
+            "app.routers.events.audio_service.correlate_species",
+            new=AsyncMock(return_value=(False, None, None)),
+        ), patch(
+            "app.routers.events.broadcaster.broadcast",
+            new=AsyncMock(),
+        ):
+            response = await client.patch(
+                f"/api/events/{event_id}",
+                json={"display_name": "Parus major"},
+                headers={"Accept-Language": "en"},
+            )
+
+        assert response.status_code == 200, response.text
+        payload = response.json()
+        assert payload["status"] == "updated"
+        assert payload["new_species"] == "Great Tit"
+        mock_get_names.assert_awaited_once_with("Parus major", force_refresh=True)
+
+        async with get_db() as db:
+            async with db.execute(
+                "SELECT display_name, category_name, scientific_name, common_name, taxa_id, manual_tagged FROM detections WHERE frigate_event = ?",
+                (event_id,),
+            ) as cursor:
+                row = await cursor.fetchone()
+
+        assert row is not None
+        assert row[0] == "Great Tit"
+        assert row[1] == "Parus major"
+        assert row[2] == "Parus major"
+        assert row[3] == "Great Tit"
+        assert row[4] == replacement_taxa_id
+        assert row[5] == 1
+    finally:
+        async with get_db() as db:
+            await db.execute("DELETE FROM taxonomy_cache WHERE taxa_id = ?", (replacement_taxa_id,))
+            await db.commit()
+        await _cleanup_detection_and_taxonomy(event_id=event_id, taxa_id=taxa_id)

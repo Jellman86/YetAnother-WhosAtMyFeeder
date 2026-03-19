@@ -63,6 +63,7 @@ async def test_run_background_sync_skips_unknown_bird_rows(taxonomy_service):
     await db.execute(
         """
         CREATE TABLE detections (
+            category_name TEXT,
             display_name TEXT,
             scientific_name TEXT,
             common_name TEXT,
@@ -71,12 +72,12 @@ async def test_run_background_sync_skips_unknown_bird_rows(taxonomy_service):
         """
     )
     await db.execute(
-        "INSERT INTO detections (display_name, scientific_name, common_name, taxa_id) VALUES (?, ?, ?, ?)",
-        ("Unknown Bird", None, None, None)
+        "INSERT INTO detections (category_name, display_name, scientific_name, common_name, taxa_id) VALUES (?, ?, ?, ?, ?)",
+        ("Unknown Bird", "Unknown Bird", None, None, None)
     )
     await db.execute(
-        "INSERT INTO detections (display_name, scientific_name, common_name, taxa_id) VALUES (?, ?, ?, ?)",
-        ("Blue Jay", None, None, None)
+        "INSERT INTO detections (category_name, display_name, scientific_name, common_name, taxa_id) VALUES (?, ?, ?, ?, ?)",
+        ("Blue Jay", "Blue Jay", None, None, None)
     )
     await db.commit()
 
@@ -115,4 +116,63 @@ async def test_run_background_sync_skips_unknown_bird_rows(taxonomy_service):
         unknown_row = await cursor.fetchone()
     assert unknown_row == (None, None, None)
 
+    await db.close()
+
+
+@pytest.mark.asyncio
+async def test_run_background_sync_prefers_stored_scientific_name_for_repair(taxonomy_service):
+    db = await aiosqlite.connect(":memory:")
+    await db.execute(
+        """
+        CREATE TABLE detections (
+            category_name TEXT,
+            display_name TEXT,
+            scientific_name TEXT,
+            common_name TEXT,
+            taxa_id INTEGER
+        )
+        """
+    )
+    await db.execute(
+        """
+        INSERT INTO detections (category_name, display_name, scientific_name, common_name, taxa_id)
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        ("Cyanistes caeruleus", "Herrerillo común", "Cyanistes caeruleus", None, None),
+    )
+    await db.commit()
+
+    @asynccontextmanager
+    async def fake_get_db():
+        yield db
+
+    async def lookup(name: str, db=None):
+        if name == "Cyanistes caeruleus":
+            return {
+                "scientific_name": "Cyanistes caeruleus",
+                "common_name": "Blue Tit",
+                "taxa_id": 303,
+            }
+        return {
+            "scientific_name": name,
+            "common_name": None,
+            "taxa_id": None,
+        }
+
+    with patch("app.services.taxonomy.taxonomy_service.get_db", fake_get_db), patch.object(
+        taxonomy_service,
+        "get_names",
+        AsyncMock(side_effect=lookup),
+    ) as mock_get_names:
+        await taxonomy_service.run_background_sync()
+
+    mock_get_names.assert_awaited_once_with("Cyanistes caeruleus", db=db)
+
+    async with db.execute(
+        "SELECT scientific_name, common_name, taxa_id FROM detections WHERE display_name = ?",
+        ("Herrerillo común",),
+    ) as cursor:
+        row = await cursor.fetchone()
+
+    assert row == ("Cyanistes caeruleus", "Blue Tit", 303)
     await db.close()
