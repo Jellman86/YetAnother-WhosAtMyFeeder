@@ -10,6 +10,97 @@
     let error = $state<string | null>(null);
     let downloadStatuses = $state<Record<string, DownloadProgress>>({});
     let activating = $state<string | null>(null); 
+    let showAdvancedModels = $state(false);
+
+    const tierPriority: Record<string, number> = {
+        cpu_only: 0,
+        large: 1,
+        advanced: 2
+    };
+
+    function compareModels(a: ModelMetadata, b: ModelMetadata): number {
+        return (
+            (tierPriority[a.tier] ?? 99) - (tierPriority[b.tier] ?? 99) ||
+            a.sort_order - b.sort_order ||
+            a.name.localeCompare(b.name)
+        );
+    }
+
+    function sortModels(models: ModelMetadata[]): ModelMetadata[] {
+        return [...models].sort(compareModels);
+    }
+
+    function getRecommendedModels(): ModelMetadata[] {
+        return sortModels(availableModels.filter((model) => !model.advanced_only));
+    }
+
+    function getAdvancedModels(): ModelMetadata[] {
+        return sortModels(availableModels.filter((model) => model.advanced_only));
+    }
+
+    function tierLabel(tier: string): string {
+        switch (tier) {
+            case 'cpu_only':
+                return 'CPU only';
+            case 'large':
+                return 'Large';
+            case 'advanced':
+                return 'Advanced';
+            default:
+                return tier.replace(/_/g, ' ');
+        }
+    }
+
+    function scopeLabel(scope: string): string {
+        switch (scope) {
+            case 'birds_only':
+                return 'Birds only';
+            case 'wildlife_wide':
+                return 'Broad wildlife';
+            default:
+                return scope.replace(/_/g, ' ');
+        }
+    }
+
+    function statusLabel(status: string): string {
+        return status.replace(/_/g, ' ');
+    }
+
+    function tierChipClass(tier: string): string {
+        switch (tier) {
+            case 'cpu_only':
+                return 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/20';
+            case 'large':
+                return 'bg-sky-500/10 text-sky-700 dark:text-sky-300 border-sky-500/20';
+            case 'advanced':
+                return 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/20';
+            default:
+                return 'bg-slate-500/10 text-slate-700 dark:text-slate-300 border-slate-500/20';
+        }
+    }
+
+    function statusChipClass(status: string): string {
+        switch (status) {
+            case 'stable':
+                return 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/20';
+            case 'beta':
+                return 'bg-sky-500/10 text-sky-700 dark:text-sky-300 border-sky-500/20';
+            case 'experimental':
+                return 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/20';
+            default:
+                return 'bg-slate-500/10 text-slate-700 dark:text-slate-300 border-slate-500/20';
+        }
+    }
+
+    function formatRamLabel(model: ModelMetadata): string | null {
+        if (model.estimated_ram_mb == null) return null;
+        if (model.estimated_ram_mb >= 1024) {
+            const ramGb = model.estimated_ram_mb / 1024;
+            const formatted = Number.isInteger(ramGb) ? ramGb.toFixed(0) : ramGb.toFixed(1);
+            return `~${formatted} GB RAM`;
+        }
+        return `~${model.estimated_ram_mb} MB RAM`;
+    }
 
     let pollInterval: any;
 
@@ -36,7 +127,7 @@
                     return null;
                 })
             ]);
-            availableModels = available;
+            availableModels = sortModels(available);
             installedModels = installed;
             health = healthData;
             classifierStatus = classifierData;
@@ -227,7 +318,7 @@
 
 <div class="space-y-6">
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <h2 class="text-2xl font-bold text-slate-900 dark:text-white">Model Manager</h2>
+        <div class="flex flex-col gap-1"><h2 class="text-2xl font-bold text-slate-900 dark:text-white">Model Manager</h2><p class="text-sm text-slate-500 dark:text-slate-400">Tiered models are sorted by readiness, with advanced options collapsed by default.</p></div>
         
         {#if health}
             <div class="flex items-center gap-2">
@@ -261,9 +352,40 @@
             {error}
         </div>
     {:else}
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {#each availableModels as model}
-                {@const installed = isInstalled(model.id)}
+        {@const visibleModels = showAdvancedModels ? sortModels(availableModels) : getRecommendedModels()}
+        {@const advancedCount = getAdvancedModels().length}
+        <div class="space-y-6">
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                    <h3 class="text-sm font-black uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">Tiered model lineup</h3>
+                    <p class="text-sm text-slate-500 dark:text-slate-400">
+                        Recommended models are shown first. Advanced options stay collapsed until you open them.
+                    </p>
+                </div>
+                <div class="flex items-center gap-2 flex-wrap justify-end">
+                    {#if advancedCount > 0}
+                        <button
+                            onclick={() => showAdvancedModels = !showAdvancedModels}
+                            class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+                        >
+                            {showAdvancedModels ? 'Hide advanced models' : `Show advanced models (${advancedCount})`}
+                        </button>
+                    {/if}
+                    <span class="shrink-0 px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300">
+                        {visibleModels.length} model{visibleModels.length === 1 ? '' : 's'}
+                    </span>
+                </div>
+            </div>
+
+            {#if !showAdvancedModels && advancedCount > 0}
+                <div class="rounded-lg border border-amber-200 dark:border-amber-900/50 bg-amber-50/40 dark:bg-amber-900/10 px-4 py-3 text-sm text-amber-900 dark:text-amber-200">
+                    Advanced models are hidden by default. Reveal them when you need the larger ONNX options.
+                </div>
+            {/if}
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {#each visibleModels as model}
+{@const installed = isInstalled(model.id)}
                 {@const active = isActive(model.id)}
                 {@const download = downloadStatuses[model.id]}
                 {@const inProgress = download?.status === 'downloading' || download?.status === 'pending'}
@@ -418,6 +540,7 @@
                     </div>
                 </div>
             {/each}
+            </div>
         </div>
     {/if}
 </div>
