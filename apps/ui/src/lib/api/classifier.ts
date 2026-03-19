@@ -112,6 +112,14 @@ export interface ModelMetadata {
     input_size: number;
     runtime?: string;
     supported_inference_providers?: string[];
+    tier: string;
+    taxonomy_scope: string;
+    recommended_for: string;
+    estimated_ram_mb?: number;
+    advanced_only: boolean;
+    sort_order: number;
+    status: string;
+    notes?: string;
 }
 
 export interface InstalledModel {
