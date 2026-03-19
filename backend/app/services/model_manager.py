@@ -69,6 +69,7 @@ REMOTE_REGISTRY = [
                 "name": "Europe",
                 "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/small_birds_eu_mobilenet_v4_l_candidate.onnx",
                 "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/small_birds_eu_mobilenet_v4_l_candidate_labels.txt",
+                "file_size_mb": 122.7,
                 "input_size": 384,
             },
             "na": {
@@ -76,6 +77,7 @@ REMOTE_REGISTRY = [
                 "name": "North America",
                 "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/n2b8_efficientnet_b0_nabirds.onnx",
                 "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/n2b8_class_labels.txt",
+                "file_size_mb": 18.0,
                 "input_size": 224,
                 "supported_inference_providers": ["cpu", "intel_cpu"],
                 "label_grouping": {
@@ -171,6 +173,7 @@ REMOTE_REGISTRY = [
                 "name": "Europe",
                 "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/medium_birds_eu_convnext_v2_tiny_256_candidate.onnx",
                 "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/medium_birds_eu_convnext_v2_tiny_256_candidate_labels.txt",
+                "file_size_mb": 108.5,
                 "input_size": 256,
             },
             "na": {
@@ -179,6 +182,7 @@ REMOTE_REGISTRY = [
                 "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/medium_birds_na_binocular_candidate.onnx",
                 "weights_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/medium_birds_na_binocular_candidate.onnx.data",
                 "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/medium_birds_na_binocular_candidate_labels.txt",
+                "file_size_mb": 333.0,
                 "input_size": 224,
                 "supported_inference_providers": ["cpu", "intel_cpu"],
                 "label_grouping": {
@@ -323,6 +327,7 @@ class ModelManager:
         merged["resolved_region"] = region
         merged["family_id"] = model_meta.get("family_id") or model_meta.get("id")
         merged["runtime"] = variant.get("runtime", model_meta.get("runtime", "tflite"))
+        merged["file_size_mb"] = float(variant.get("file_size_mb", model_meta.get("file_size_mb", 0.0)) or 0.0)
         merged["input_size"] = int(variant.get("input_size", model_meta.get("input_size", 224)) or 224)
         merged["preprocessing"] = dict(variant.get("preprocessing") or model_meta.get("preprocessing") or {})
         merged["label_grouping"] = dict(variant.get("label_grouping") or model_meta.get("label_grouping") or {})
@@ -449,7 +454,15 @@ class ModelManager:
 
     async def list_available_models(self) -> List[ModelMetadata]:
         """Fetch list of available models from remote registry."""
-        return [ModelMetadata(**m) for m in sorted(REMOTE_REGISTRY, key=lambda model: model.get("sort_order", 0))]
+        resolved_models: list[ModelMetadata] = []
+        for model in sorted(REMOTE_REGISTRY, key=lambda item: item.get("sort_order", 0)):
+            payload = (
+                self._resolve_family_variant_meta(model)
+                if self._is_family_model(model)
+                else dict(model)
+            )
+            resolved_models.append(ModelMetadata(**payload))
+        return resolved_models
 
     async def get_resolved_bird_model_families(
         self,

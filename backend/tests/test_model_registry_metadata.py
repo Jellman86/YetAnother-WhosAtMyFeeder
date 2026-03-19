@@ -1,5 +1,6 @@
 import pytest
 
+from app.config import settings
 from app.services.model_manager import ModelManager
 
 
@@ -66,3 +67,34 @@ async def test_available_models_expose_tiered_metadata():
     assert by_id["eva02_large_inat21"].status == "stable"
     assert by_id["eva02_large_inat21"].sort_order == 30
     assert by_id["eva02_large_inat21"].advanced_only is True
+
+
+@pytest.mark.asyncio
+async def test_available_models_resolve_family_variant_sizes_from_settings():
+    manager = ModelManager()
+
+    original_country = settings.location.country
+    original_override = settings.classification.bird_model_region_override
+    try:
+        settings.location.country = "GB"
+        settings.classification.bird_model_region_override = "auto"
+        eu_models = await manager.list_available_models()
+        eu_by_id = {model.id: model for model in eu_models}
+
+        assert eu_by_id["small_birds"].file_size_mb == pytest.approx(122.7, abs=0.1)
+        assert eu_by_id["medium_birds"].file_size_mb == pytest.approx(108.5, abs=0.1)
+        assert "intel_gpu" in (eu_by_id["small_birds"].supported_inference_providers or [])
+        assert "intel_gpu" in (eu_by_id["medium_birds"].supported_inference_providers or [])
+
+        settings.location.country = "US"
+        settings.classification.bird_model_region_override = "auto"
+        na_models = await manager.list_available_models()
+        na_by_id = {model.id: model for model in na_models}
+
+        assert na_by_id["small_birds"].file_size_mb == pytest.approx(18.0, abs=0.1)
+        assert na_by_id["medium_birds"].file_size_mb == pytest.approx(333.0, abs=0.1)
+        assert na_by_id["small_birds"].supported_inference_providers == ["cpu", "intel_cpu"]
+        assert na_by_id["medium_birds"].supported_inference_providers == ["cpu", "intel_cpu"]
+    finally:
+        settings.location.country = original_country
+        settings.classification.bird_model_region_override = original_override
