@@ -9,7 +9,7 @@
     export let switchThemeLabel: string = 'Switch theme';
 </script>
 
-<div class="md:hidden sticky top-0 z-40 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border-b border-slate-200/80 dark:border-slate-700/50 h-16 flex items-center px-4 justify-between">
+<div class="md:hidden sticky top-0 z-40 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border-b border-slate-200/80 dark:border-slate-700/50 h-[var(--app-chrome-height,4rem)] flex items-center px-4 justify-between">
     <button
         class="p-2 -ml-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
         onclick={onToggleMenu}

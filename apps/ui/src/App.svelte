@@ -518,9 +518,12 @@
       <TelemetryBanner />
 
       <!-- Main Content Wrapper -->
-      <div class="flex-1 flex flex-col transition-all duration-300 {effectiveLayout === 'vertical' ? (isSidebarCollapsed ? 'md:pl-20' : 'md:pl-64') : ''}">
+      <div
+          class="flex-1 flex flex-col transition-all duration-300 {effectiveLayout === 'vertical' ? (isSidebarCollapsed ? 'md:pl-20' : 'md:pl-64') : ''}"
+          style="--app-chrome-height: 4rem;"
+      >
           {#if !isNotificationRoute(currentRoute) && !authStore.isGuest}
-              <div class="sticky top-0 z-30 shrink-0">
+              <div class="sticky top-[var(--app-chrome-height)] z-30 shrink-0">
                   <GlobalProgress onNavigate={navigate} />
               </div>
           {/if}

@@ -12,14 +12,22 @@
 
     let nowTs = $state(Date.now());
     let showDetails = $state(false);
+    let canHoverExpand = $state(false);
     const detailLimit = 4;
     onMount(() => {
         const tick = setInterval(() => {
             nowTs = Date.now();
         }, 1000);
         const release = analysisQueueStatusStore.retain();
+        const hoverQuery = window.matchMedia('(hover: hover) and (pointer: fine)');
+        const syncHoverCapability = () => {
+            canHoverExpand = hoverQuery.matches;
+        };
+        syncHoverCapability();
+        hoverQuery.addEventListener?.('change', syncHoverCapability);
 
         return () => {
+            hoverQuery.removeEventListener?.('change', syncHoverCapability);
             release();
             clearInterval(tick);
         };
@@ -75,8 +83,8 @@
                     <button
                         type="button"
                         class="flex items-center gap-3 min-w-0 flex-1 text-left bg-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500 rounded-lg"
-                        onmouseenter={() => showDetails = true}
-                        onmouseleave={() => showDetails = false}
+                        onmouseenter={() => { if (canHoverExpand) showDetails = true; }}
+                        onmouseleave={() => { if (canHoverExpand) showDetails = false; }}
                         onclick={() => showDetails = !showDetails}
                         aria-expanded={showDetails}
                         aria-controls="global-progress-details"
