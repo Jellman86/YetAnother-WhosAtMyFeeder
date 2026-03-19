@@ -693,6 +693,62 @@ async def test_classifier_service_init(mock_tflite, mock_os_path_exists):
 
 
 @pytest.mark.asyncio
+async def test_classify_video_normalizes_birder_taxonomy_labels(mock_tflite, mock_os_path_exists):
+    class _FakeBirdModel:
+        loaded = True
+        labels = [
+            "04853_Animalia_Chordata_Mammalia_Carnivora_Felidae_Panthera_tigris",
+            "00004_Animalia_Arthropoda_Arachnida_Araneae_Agelenidae_Eratigena_duellica",
+        ]
+
+    class _FakeCapture:
+        def __init__(self, _path):
+            self._index = 0
+
+        def isOpened(self):
+            return True
+
+        def get(self, prop):
+            if prop == classifier_service_module.cv2.CAP_PROP_FRAME_COUNT:
+                return 3
+            if prop == classifier_service_module.cv2.CAP_PROP_FPS:
+                return 30
+            return 0
+
+        def set(self, *_args):
+            return True
+
+        def read(self):
+            if self._index >= 3:
+                return False, None
+            self._index += 1
+            return True, np.zeros((16, 16, 3), dtype=np.uint8)
+
+        def release(self):
+            return None
+
+    fake_model = _FakeBirdModel()
+    seen_progress_labels = []
+
+    with patch.object(ClassifierService, "_init_bird_model", return_value=None), \
+         patch("app.services.classifier_service.cv2.VideoCapture", _FakeCapture), \
+         patch("app.services.classifier_service.cv2.cvtColor", side_effect=lambda frame, _code: frame), \
+         patch.object(ClassifierService, "_classify_raw_with_runtime_recovery", return_value=(np.array([0.91, 0.09]), fake_model)):
+        service = ClassifierService()
+        service._models["bird"] = fake_model
+
+        def _progress_callback(**kwargs):
+            seen_progress_labels.append(kwargs.get("top_label"))
+
+        results = service.classify_video("/tmp/demo.mp4", max_frames=3, progress_callback=_progress_callback)
+
+    assert results[0]["label"] == "Panthera tigris"
+    assert seen_progress_labels
+    assert all(label == "Panthera tigris" for label in seen_progress_labels if label)
+    await service.shutdown()
+
+
+@pytest.mark.asyncio
 async def test_classify_video_returns_empty_for_degenerate_uniform_confidence(mock_tflite, mock_os_path_exists):
     class _FakeBirdModel:
         loaded = True

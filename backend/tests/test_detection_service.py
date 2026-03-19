@@ -108,6 +108,42 @@ async def test_apply_video_result_re_evaluates_audio(mock_deps):
 
 
 @pytest.mark.asyncio
+async def test_apply_video_result_normalizes_birder_taxonomy_labels(mock_deps):
+    classifier = MagicMock()
+    service = DetectionService(classifier)
+
+    existing = MagicMock(spec=Detection)
+    existing.score = 0.1
+    existing.display_name = "Unknown Bird"
+    existing.category_name = "Unknown Bird"
+    existing.sub_label = None
+    existing.frigate_score = 0.0
+    existing.detection_time = datetime.now()
+    existing.camera_name = "cam1"
+    existing.is_hidden = False
+    existing.audio_species = None
+    existing.audio_score = None
+    existing.audio_confirmed = False
+    existing.video_classification_label = None
+    existing.video_classification_score = None
+    existing.video_classification_status = "pending"
+
+    mock_deps["repo"].get_by_frigate_event = AsyncMock(return_value=existing)
+    mock_deps["taxonomy"].get_names = AsyncMock(return_value={"scientific_name": "Panthera tigris", "common_name": "Tiger", "taxa_id": 321})
+
+    await service.apply_video_result(
+        "event1",
+        "04853_Animalia_Chordata_Mammalia_Carnivora_Felidae_Panthera_tigris",
+        0.9,
+        5,
+    )
+
+    mock_deps["repo"].update_video_classification.assert_called_once()
+    assert mock_deps["repo"].update_video_classification.call_args.kwargs["label"] == "Panthera tigris"
+    mock_deps["taxonomy"].get_names.assert_called_with("Panthera tigris")
+
+
+@pytest.mark.asyncio
 async def test_apply_video_result_does_not_override_known_species_with_lower_score(mock_deps):
     classifier = MagicMock()
     service = DetectionService(classifier)

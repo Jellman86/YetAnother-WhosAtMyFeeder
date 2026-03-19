@@ -105,6 +105,7 @@ from app.services.classifier_supervisor import (  # noqa: E402
     ClassifierWorkerStartupTimeoutError,
 )
 from app.services.personalization_service import personalization_service  # noqa: E402
+from app.utils.classifier_labels import normalize_classifier_label, normalize_classifier_labels  # noqa: E402
 
 log = structlog.get_logger()
 
@@ -838,7 +839,7 @@ class ModelInstance:
             if os.path.exists(self.labels_path):
                 try:
                     with open(self.labels_path, 'r', encoding='utf-8', errors='replace') as f:
-                        self.labels = [line.strip() for line in f.readlines() if line.strip()]
+                        self.labels = normalize_classifier_labels(line.strip() for line in f.readlines() if line.strip())
                     log.info(f"Loaded {len(self.labels)} labels for {self.name}")
                 except Exception as e:
                     log.error(f"Failed to load labels for {self.name}", error=str(e))
@@ -998,7 +999,7 @@ class ModelInstance:
         # Convert to classification list
         classifications = []
         for i, score in enumerate(results):
-            label = self.labels[i] if i < len(self.labels) else f"Class {i}"
+            label = normalize_classifier_label(self.labels[i]) if i < len(self.labels) else f"Class {i}"
             classifications.append({
                 "index": int(i),
                 "score": float(score),
@@ -1087,7 +1088,7 @@ class ONNXModelInstance:
         if os.path.exists(self.labels_path):
             try:
                 with open(self.labels_path, 'r', encoding='utf-8', errors='replace') as f:
-                    self.labels = [line.strip() for line in f.readlines() if line.strip()]
+                    self.labels = normalize_classifier_labels(line.strip() for line in f.readlines() if line.strip())
                 log.info(f"Loaded {len(self.labels)} labels for ONNX model {self.name}")
             except Exception as e:
                 log.error(f"Failed to load labels for {self.name}", error=str(e))
@@ -1176,7 +1177,7 @@ class ONNXModelInstance:
 
             classifications = []
             for i in top_indices:
-                label = self.labels[i] if i < len(self.labels) else f"Class {i}"
+                label = normalize_classifier_label(self.labels[i]) if i < len(self.labels) else f"Class {i}"
                 classifications.append({
                     "index": int(i),
                     "score": float(probs[i]),
@@ -1347,7 +1348,7 @@ class OpenVINOModelInstance:
         if os.path.exists(self.labels_path):
             try:
                 with open(self.labels_path, 'r', encoding='utf-8', errors='replace') as f:
-                    self.labels = [line.strip() for line in f.readlines() if line.strip()]
+                    self.labels = normalize_classifier_labels(line.strip() for line in f.readlines() if line.strip())
                 log.info(f"Loaded {len(self.labels)} labels for OpenVINO model {self.name}")
             except Exception as e:
                 log.error(f"Failed to load labels for {self.name}", error=str(e))
@@ -1504,7 +1505,7 @@ class OpenVINOModelInstance:
                 {
                     "index": int(i),
                     "score": float(probs[i]),
-                    "label": self.labels[i] if i < len(self.labels) else f"Class {i}",
+                    "label": normalize_classifier_label(self.labels[i]) if i < len(self.labels) else f"Class {i}",
                 }
                 for i in top_indices
             ]
@@ -2639,7 +2640,7 @@ class ClassifierService:
                 labels_path = str(spec.get("labels_path") or "")
                 if labels_path and os.path.exists(labels_path):
                     with open(labels_path, "r", encoding="utf-8", errors="replace") as handle:
-                        return [line.strip() for line in handle.readlines() if line.strip()]
+                        return normalize_classifier_labels(line.strip() for line in handle.readlines() if line.strip())
             except Exception:
                 return []
         return []
@@ -3411,7 +3412,7 @@ class ClassifierService:
                     # Update last valid result metadata
                     top_idx = int(np.argmax(scores))
                     last_top_score = float(scores[top_idx])
-                    last_top_label = bird_model.labels[top_idx] if top_idx < len(bird_model.labels) else f"Class {top_idx}"
+                    last_top_label = normalize_classifier_label(bird_model.labels[top_idx]) if top_idx < len(bird_model.labels) else f"Class {top_idx}"
                     
                     try:
                         from io import BytesIO
@@ -3462,7 +3463,7 @@ class ClassifierService:
             classifications = []
             for i in top_indices:
                 score = float(representative_scores[i])
-                label = bird_model.labels[i] if i < len(bird_model.labels) else f"Class {i}"
+                label = normalize_classifier_label(bird_model.labels[i]) if i < len(bird_model.labels) else f"Class {i}"
                 classifications.append({
                     "index": int(i),
                     "score": score,

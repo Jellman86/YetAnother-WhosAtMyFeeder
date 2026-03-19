@@ -86,3 +86,27 @@ def test_export_birder_model_reports_external_data_sidecar(tmp_path):
     )
 
     assert report["external_data_path"] == str(tmp_path / "model.onnx.data")
+
+
+def test_export_birder_model_normalizes_birder_taxonomy_labels(tmp_path):
+    def fake_loader(model_id: str, *, cache_dir=None):
+        return FakeModel(), [
+            "04853_Animalia_Chordata_Mammalia_Carnivora_Felidae_Panthera_tigris",
+            "00004_Animalia_Arthropoda_Arachnida_Araneae_Agelenidae_Eratigena_duellica",
+        ]
+
+    def fake_export(model, dummy_input, output_path, **kwargs):
+        Path(output_path).write_bytes(b"fake-onnx")
+
+    export_birder_model(
+        model_id="birder-project/vit_reg4_m16_rms_avg_i-jepa-inat21-256px",
+        output_dir=tmp_path,
+        input_size=256,
+        loader=fake_loader,
+        export_fn=fake_export,
+    )
+
+    assert (tmp_path / "labels.txt").read_text(encoding="utf-8").splitlines() == [
+        "Panthera tigris",
+        "Eratigena duellica",
+    ]

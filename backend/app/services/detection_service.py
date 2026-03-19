@@ -9,6 +9,7 @@ from app.services.classifier_service import ClassifierService
 from app.services.broadcaster import broadcaster
 from app.services.taxonomy.taxonomy_service import taxonomy_service
 from app.services.birdweather_service import birdweather_service
+from app.utils.classifier_labels import normalize_classifier_label
 from app.utils.frigate import normalize_sub_label
 from app.utils.tasks import create_background_task
 from app.database import get_db
@@ -48,7 +49,8 @@ class DetectionService:
             log.warning("Non-finite classification score", event_id=frigate_event, score=score, label=top.get("label"))
             return None, "invalid_score"
         top = {**top, 'score': score}
-        label = top['label']
+        label = normalize_classifier_label(top['label'])
+        top = {**top, 'label': label}
         original_label = label
         normalized_label = str(label or "").strip().casefold()
         normalized_frigate_sub_label = frigate_sub_label.casefold() if frigate_sub_label else None
@@ -319,10 +321,12 @@ class DetectionService:
                 log.warning("Cannot apply video result: event not found", event_id=frigate_event)
                 return
 
+            normalized_video_label = normalize_classifier_label(video_label)
+
             # 1. Update video-specific columns first
             await repo.update_video_classification(
                 frigate_event=frigate_event,
-                label=video_label,
+                label=normalized_video_label,
                 score=video_score,
                 index=video_index,
                 status='completed',
@@ -346,7 +350,7 @@ class DetectionService:
             threshold = float(settings.classification.threshold or 0.0)
             base_required_score = max(current_score, threshold)
 
-            normalized_video_label = str(video_label or "").strip().casefold()
+            normalized_video_label = str(normalized_video_label or "").strip().casefold()
             normalized_sub_label = normalize_sub_label(getattr(existing, "sub_label", None))
             normalized_sub_label = normalized_sub_label.casefold() if normalized_sub_label else None
             sublabel_disagrees = bool(
@@ -378,7 +382,7 @@ class DetectionService:
                 should_override = bool(video_score >= required_score)
 
             if should_override:
-                new_species = video_label
+                new_species = normalize_classifier_label(video_label)
                 # Relabel unknown birds consistently
                 if new_species in settings.classification.unknown_bird_labels:
                     new_species = "Unknown Bird"

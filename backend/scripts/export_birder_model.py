@@ -2,6 +2,8 @@ import argparse
 from pathlib import Path
 from typing import Callable, Iterable
 
+from app.utils.classifier_labels import normalize_classifier_labels
+
 
 try:
     import torch
@@ -103,7 +105,7 @@ def export_birder_model(
     if hasattr(model, 'eval'):
         model = model.eval()
 
-    labels = [str(label).strip() for label in labels if str(label).strip()]
+    labels = normalize_classifier_labels(str(label).strip() for label in labels if str(label).strip())
     if not labels:
         raise RuntimeError(f"No labels were provided for Birder model: {model_id}")
 
