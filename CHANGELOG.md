@@ -8,6 +8,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 - **Added:** Detection Settings now presents a tiered model lineup with downloadable small, medium, large, and advanced wildlife models, plus guidance that keeps advanced options collapsed by default for most installs.
 - **Added:** Model downloads now appear in the global progress system so owners can track long-running ONNX artifact downloads from anywhere in the UI.
+- **Changed:** The new model picker, download progress messaging, and adjacent Detection Settings guidance are now localized across all supported UI languages instead of falling back to English outside the default locale.
 - **Fixed:** Birder wildlife model labels are now normalized to canonical scientific names instead of leaking raw taxonomy-path strings like `04853_Animalia_...` into detections, video analysis, and release label assets.
 - **Fixed:** Taxonomy repair and manual species updates now backfill canonical scientific/common names more robustly by preferring stored taxonomy identifiers and scientific names over localized display labels.
 
