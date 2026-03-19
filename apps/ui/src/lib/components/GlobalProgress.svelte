@@ -122,7 +122,7 @@
                 </div>
 
                 {#if showDetails}
-                    <div id="global-progress-details" class="pt-2 border-t border-slate-100 dark:border-slate-800/50 mt-1 grid grid-cols-1 gap-2">
+                    <div id="global-progress-details" class="pt-2 border-t border-slate-100 dark:border-slate-800/50 mt-1 grid grid-cols-1 gap-2 max-h-[40vh] overflow-auto pr-1">
                         {#each detailJobs as item (item.job.id)}
                             {@const job = item.job}
                             {@const presentation = item.presentation}
