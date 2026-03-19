@@ -132,8 +132,10 @@ export interface ModelMetadataSummary {
 
 const MODEL_TIER_PRIORITY: Record<string, number> = {
     cpu_only: 0,
-    large: 1,
-    advanced: 2,
+    small: 1,
+    medium: 2,
+    large: 3,
+    advanced: 4,
 };
 
 export function compareTieredModelMetadata(a: ModelMetadata, b: ModelMetadata): number {

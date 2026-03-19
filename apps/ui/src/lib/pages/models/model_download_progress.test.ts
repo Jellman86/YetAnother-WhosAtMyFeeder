@@ -73,6 +73,32 @@ describe('model download progress', () => {
         expect(jobProgressStore.historyJobs).toHaveLength(0);
     });
 
+
+    it('marks start and polling failures as failed global jobs', () => {
+        startModelDownloadProgress(jobProgressStore, MODEL, 1000);
+        syncModelDownloadProgress(jobProgressStore, MODEL, makeStatus({ status: 'error', progress: 0, error: 'start rejected' }), 2000);
+
+        let item = jobProgressStore.historyJobs.find((entry) => entry.id === modelDownloadJobId(MODEL.id));
+        expect(item).toMatchObject({
+            status: 'failed',
+            current: 0,
+            total: 100,
+            message: 'start rejected'
+        });
+
+        jobProgressStore.clearAll();
+        startModelDownloadProgress(jobProgressStore, MODEL, 3000);
+        syncModelDownloadProgress(jobProgressStore, MODEL, makeStatus({ status: 'error', progress: 42, error: 'status polling failed' }), 4000);
+
+        item = jobProgressStore.historyJobs.find((entry) => entry.id === modelDownloadJobId(MODEL.id));
+        expect(item).toMatchObject({
+            status: 'failed',
+            current: 42,
+            total: 100,
+            message: 'status polling failed'
+        });
+    });
+
     it('marks model downloads completed and failed in the global history', () => {
         startModelDownloadProgress(jobProgressStore, MODEL, 1000);
         syncModelDownloadProgress(jobProgressStore, MODEL, makeStatus({ status: 'completed', progress: 100, message: 'Download complete' }), 2000);

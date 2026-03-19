@@ -288,6 +288,22 @@ class ModelManager:
     def _update_download_status(self, model_id: str, progress: DownloadProgress) -> None:
         self.active_downloads[model_id] = (progress, datetime.now())
 
+    def _build_download_progress(self, phase: str, downloaded: int, total: int, *, has_weights: bool = True) -> float:
+        if phase == 'model':
+            start, end = 0.0, (80.0 if has_weights else 98.0)
+        elif phase == 'weights':
+            start, end = 80.0, 98.0
+        elif phase == 'labels':
+            return 99.0
+        else:
+            raise ValueError(f'Unknown download phase: {phase}')
+
+        if total <= 0:
+            return start
+
+        fraction = max(0.0, min(1.0, downloaded / total))
+        return start + ((end - start) * fraction)
+
     def _create_staging_dir(self, model_id: str) -> str:
         stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S%fZ")
         staged_dir = os.path.join(MODELS_DIR, f".{model_id}.download-{stamp}")
@@ -358,6 +374,7 @@ class ModelManager:
         runtime = model_meta.get('runtime', 'tflite')
         model_ext = '.onnx' if runtime == 'onnx' else '.tflite'
         model_filename = f"model{model_ext}"
+        has_weights = runtime == 'onnx' and bool(model_meta.get('weights_url'))
 
         # Initialize progress
         progress = DownloadProgress(
@@ -387,11 +404,13 @@ class ModelManager:
                             await f.write(chunk)
                             downloaded += len(chunk)
                             if total > 0:
-                                progress.progress = (downloaded / total) * 90  # Model is 90% of total job
+                                progress.progress = self._build_download_progress('model', downloaded, total, has_weights=has_weights)
                                 self._update_download_status(model_id, progress)
+                progress.progress = self._build_download_progress('model', 1, 1, has_weights=has_weights)
+                self._update_download_status(model_id, progress)
 
                 # 2. Download Weights (Optional, for large ONNX models)
-                if runtime == 'onnx' and model_meta.get('weights_url'):
+                if has_weights:
                     weights_filename = f"{model_filename}.data"
                     log.info("Downloading model weights", url=model_meta['weights_url'])
                     async with client.stream("GET", model_meta['weights_url'], follow_redirects=True) as response:
@@ -404,9 +423,10 @@ class ModelManager:
                                 await f.write(chunk)
                                 downloaded += len(chunk)
                                 if total > 0:
-                                    # Weights are usually the bulk of the download
-                                    progress.progress = 10 + (downloaded / total) * 80 
+                                    progress.progress = self._build_download_progress('weights', downloaded, total)
                                     self._update_download_status(model_id, progress)
+                    progress.progress = self._build_download_progress('weights', 1, 1)
+                    self._update_download_status(model_id, progress)
 
                 # 3. Download Labels
                 log.info("Downloading labels", url=model_meta['labels_url'])
@@ -414,6 +434,8 @@ class ModelManager:
                 resp.raise_for_status()
                 async with aiofiles.open(os.path.join(staged_dir, "labels.txt"), 'wb') as f:
                     await f.write(resp.content)
+                progress.progress = self._build_download_progress('labels', 1, 1, has_weights=has_weights)
+                self._update_download_status(model_id, progress)
 
                 self._validate_download_payload(model_meta, staged_dir, model_filename)
                 self._swap_model_dirs(staged_dir, target_dir)

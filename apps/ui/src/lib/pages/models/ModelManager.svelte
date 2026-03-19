@@ -15,16 +15,20 @@
     let showAdvancedModels = $state(false);
 
 
+    function formatMetadataLabel(value: string): string {
+        return value
+            .split(/[_-]+/g)
+            .filter(Boolean)
+            .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1).toLowerCase())
+            .join(' ');
+    }
+
     function tierLabel(tier: string): string {
         switch (tier) {
             case 'cpu_only':
                 return 'CPU only';
-            case 'large':
-                return 'Large';
-            case 'advanced':
-                return 'Advanced';
             default:
-                return tier.replace(/_/g, ' ');
+                return formatMetadataLabel(tier);
         }
     }
 
@@ -35,12 +39,12 @@
             case 'wildlife_wide':
                 return 'Broad wildlife';
             default:
-                return scope.replace(/_/g, ' ');
+                return formatMetadataLabel(scope);
         }
     }
 
     function statusLabel(status: string): string {
-        return status.replace(/_/g, ' ');
+        return formatMetadataLabel(status);
     }
 
     function tierChipClass(tier: string): string {
@@ -124,9 +128,9 @@
         for (const id of activeIds) {
             try {
                 const status = await fetchDownloadStatus(id);
+                const model = availableModels.find((entry) => entry.id === id);
                 if (status) {
                     downloadStatuses[id] = status;
-                    const model = availableModels.find((entry) => entry.id === id);
                     if (model) {
                         syncModelDownloadProgress(jobProgressStore, model, status);
                     }
@@ -134,9 +138,32 @@
                         // Refresh installed list
                         installedModels = await fetchInstalledModels();
                     }
+                } else {
+                    const errorStatus = {
+                        model_id: id,
+                        status: 'error' as const,
+                        progress: downloadStatuses[id]?.progress ?? 0,
+                        error: 'Download status unavailable'
+                    };
+                    downloadStatuses[id] = errorStatus;
+                    if (model) {
+                        syncModelDownloadProgress(jobProgressStore, model, errorStatus);
+                    }
                 }
             } catch (e) {
                 console.error(`Failed to poll status for ${id}`, e);
+                const model = availableModels.find((entry) => entry.id === id);
+                const message = e instanceof Error ? e.message : 'Failed to refresh download status';
+                const errorStatus = {
+                    model_id: id,
+                    status: 'error' as const,
+                    progress: downloadStatuses[id]?.progress ?? 0,
+                    error: message
+                };
+                downloadStatuses[id] = errorStatus;
+                if (model) {
+                    syncModelDownloadProgress(jobProgressStore, model, errorStatus);
+                }
             }
         }
     }
@@ -269,7 +296,18 @@
         if (downloadStatuses[model.id]?.status === 'downloading' || downloadStatuses[model.id]?.status === 'pending') return;
 
         try {
-            await downloadModel(model.id);
+            const result = await downloadModel(model.id);
+            if (result.status !== 'pending') {
+                const errorStatus = {
+                    model_id: model.id,
+                    status: 'error' as const,
+                    progress: 0,
+                    error: result.message || 'Failed to start download'
+                };
+                downloadStatuses[model.id] = errorStatus;
+                syncModelDownloadProgress(jobProgressStore, model, errorStatus);
+                return;
+            }
             startModelDownloadProgress(jobProgressStore, model);
             // Initialize local status to trigger polling
             downloadStatuses[model.id] = {
@@ -279,7 +317,15 @@
             };
         } catch (e) {
             console.error(e);
-            alert("Failed to start download");
+            const message = e instanceof Error ? e.message : 'Failed to start download';
+            const errorStatus = {
+                model_id: model.id,
+                status: 'error' as const,
+                progress: 0,
+                error: message
+            };
+            downloadStatuses[model.id] = errorStatus;
+            syncModelDownloadProgress(jobProgressStore, model, errorStatus);
         }
     }
 
@@ -386,9 +432,39 @@
                             {/if}
                         </div>
                         
-                        <p class="text-sm text-slate-500 dark:text-slate-400 mb-4 h-10 line-clamp-2">
+                        <p class="text-sm text-slate-500 dark:text-slate-400 mb-3 h-10 line-clamp-2">
                             {model.description}
                         </p>
+
+                        <div class="mb-4 flex flex-wrap gap-2">
+                            <span class={`px-2.5 py-1 rounded-full border text-[10px] font-black tracking-tight ${tierChipClass(model.tier)}`}>
+                                {tierLabel(model.tier)}
+                            </span>
+                            <span class="px-2.5 py-1 rounded-full border border-slate-300 dark:border-slate-600 text-[10px] font-black tracking-tight text-slate-700 dark:text-slate-200">
+                                {scopeLabel(model.taxonomy_scope)}
+                            </span>
+                            <span class={`px-2.5 py-1 rounded-full border text-[10px] font-black tracking-tight ${statusChipClass(model.status)}`}>
+                                {statusLabel(model.status)}
+                            </span>
+                            {#if formatRamLabel(model)}
+                                <span class="px-2.5 py-1 rounded-full border border-slate-300 dark:border-slate-600 text-[10px] font-black tracking-tight text-slate-700 dark:text-slate-200">
+                                    {formatRamLabel(model)}
+                                </span>
+                            {/if}
+                        </div>
+
+                        <div class="mb-4 space-y-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-700/30 p-3">
+                            <div>
+                                <p class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Recommended For</p>
+                                <p class="mt-1 text-xs font-medium text-slate-700 dark:text-slate-200">{model.recommended_for}</p>
+                            </div>
+                            {#if model.notes}
+                                <div>
+                                    <p class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Notes</p>
+                                    <p class="mt-1 text-[11px] font-medium leading-relaxed text-slate-600 dark:text-slate-300">{model.notes}</p>
+                                </div>
+                            {/if}
+                        </div>
 
                         <div class="grid grid-cols-2 gap-2 text-xs text-slate-600 dark:text-slate-400 mb-4">
                             <div class="flex flex-col p-2 bg-slate-50 dark:bg-slate-700/50 rounded-lg">

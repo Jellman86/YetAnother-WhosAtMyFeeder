@@ -99,3 +99,15 @@ async def test_list_available_models_returns_models_sorted_by_sort_order(monkeyp
         "eva02_large_inat21",
     ]
     assert [model.sort_order for model in models] == [10, 15, 18, 20, 30]
+
+
+def test_build_download_progress_is_monotonic_across_onnx_phases():
+    manager = ModelManager()
+
+    model_progress = manager._build_download_progress('model', downloaded=100, total=100)
+    weights_progress = manager._build_download_progress('weights', downloaded=0, total=100)
+    labels_progress = manager._build_download_progress('labels', downloaded=1, total=1)
+
+    assert model_progress == 80.0
+    assert weights_progress == 80.0
+    assert labels_progress == 99.0
