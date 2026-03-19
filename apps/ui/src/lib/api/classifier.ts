@@ -122,6 +122,47 @@ export interface ModelMetadata {
     notes?: string;
 }
 
+export interface ModelMetadataSummary {
+    tierLabel: string;
+    taxonomyScopeLabel: string;
+    advancedStateLabel: string;
+    statusLabel: string;
+    labels: string[];
+}
+
+function formatModelMetadataLabel(value: string): string {
+    return value
+        .split(/[_-]+/g)
+        .filter(Boolean)
+        .map((segment) => {
+            const lower = segment.toLowerCase();
+            if (lower === 'cpu') return 'CPU';
+            if (lower === 'cuda') return 'CUDA';
+            if (lower === 'onnx') return 'ONNX';
+            if (lower === 'tflite') return 'TFLite';
+            if (lower === 'intel') return 'Intel';
+            return segment.slice(0, 1).toUpperCase() + segment.slice(1).toLowerCase();
+        })
+        .join(' ');
+}
+
+export function summarizeModelMetadata(metadata?: ModelMetadata | null): ModelMetadataSummary | null {
+    if (!metadata) return null;
+
+    const tierLabel = formatModelMetadataLabel(metadata.tier);
+    const taxonomyScopeLabel = formatModelMetadataLabel(metadata.taxonomy_scope);
+    const advancedStateLabel = metadata.advanced_only ? 'Advanced only' : 'Standard';
+    const statusLabel = formatModelMetadataLabel(metadata.status);
+
+    return {
+        tierLabel,
+        taxonomyScopeLabel,
+        advancedStateLabel,
+        statusLabel,
+        labels: [tierLabel, taxonomyScopeLabel, advancedStateLabel, statusLabel],
+    };
+}
+
 export interface InstalledModel {
     id: string;
     path: string;

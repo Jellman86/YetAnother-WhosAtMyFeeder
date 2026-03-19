@@ -12,7 +12,7 @@ vi.mock('./core', () => ({
     fetchWithAbort: vi.fn(),
 }));
 
-import { fetchAvailableModels, type InstalledModel, type ModelMetadata } from './classifier';
+import { fetchAvailableModels, summarizeModelMetadata, type InstalledModel, type ModelMetadata } from './classifier';
 
 describe('fetchAvailableModels', () => {
     beforeEach(() => {
@@ -65,5 +65,14 @@ describe('fetchAvailableModels', () => {
 
         expect(installed.metadata?.status).toBe('stable');
         expect(installed.metadata?.notes).toBe('Elite accuracy model.');
+
+        const summary = summarizeModelMetadata(installed.metadata);
+        expect(summary).toEqual({
+            tierLabel: 'Advanced',
+            taxonomyScopeLabel: 'Wildlife Wide',
+            advancedStateLabel: 'Advanced only',
+            statusLabel: 'Stable',
+            labels: ['Advanced', 'Wildlife Wide', 'Advanced only', 'Stable'],
+        });
     });
 });
