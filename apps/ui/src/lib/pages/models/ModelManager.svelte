@@ -1,4 +1,6 @@
 <script lang="ts">
+    import { get } from 'svelte/store';
+    import { _ } from 'svelte-i18n';
     import { onMount, onDestroy } from 'svelte';
     import { fetchAvailableModels, fetchInstalledModels, downloadModel, fetchDownloadStatus, activateModel, checkHealth, fetchClassifierStatus, getVisibleTieredModelLineup, type ModelMetadata, type InstalledModel, type DownloadProgress, type ClassifierStatus } from '../../api';
     import { jobProgressStore } from '../../stores/job_progress.svelte';
@@ -14,6 +16,9 @@
     let activating = $state<string | null>(null); 
     let showAdvancedModels = $state(false);
 
+    function t(key: string, fallback: string, values?: Record<string, string | number>): string {
+        return get(_)(key, values ? { values, default: fallback } : { default: fallback });
+    }
 
     function formatMetadataLabel(value: string): string {
         return value
@@ -26,7 +31,7 @@
     function tierLabel(tier: string): string {
         switch (tier) {
             case 'cpu_only':
-                return 'CPU only';
+                return t('settings.detection.model_manager_tier_cpu_only', 'CPU only');
             default:
                 return formatMetadataLabel(tier);
         }
@@ -35,9 +40,9 @@
     function scopeLabel(scope: string): string {
         switch (scope) {
             case 'birds_only':
-                return 'Birds only';
+                return t('settings.detection.model_manager_scope_birds_only', 'Birds only');
             case 'wildlife_wide':
-                return 'Broad wildlife';
+                return t('settings.detection.model_manager_scope_wildlife_wide', 'Broad wildlife');
             default:
                 return formatMetadataLabel(scope);
         }
@@ -114,7 +119,7 @@
             classifierStatus = classifierData;
         } catch (e) {
             console.error(e);
-            error = "Failed to load models";
+            error = t('settings.detection.model_manager_load_error', 'Failed to load models');
         } finally {
             loading = false;
         }
@@ -143,7 +148,7 @@
                         model_id: id,
                         status: 'error' as const,
                         progress: downloadStatuses[id]?.progress ?? 0,
-                        error: 'Download status unavailable'
+                        error: t('settings.detection.model_manager_status_unavailable', 'Download status unavailable')
                     };
                     downloadStatuses[id] = errorStatus;
                     if (model) {
@@ -153,7 +158,7 @@
             } catch (e) {
                 console.error(`Failed to poll status for ${id}`, e);
                 const model = availableModels.find((entry) => entry.id === id);
-                const message = e instanceof Error ? e.message : 'Failed to refresh download status';
+                const message = e instanceof Error ? e.message : t('settings.detection.model_manager_status_refresh_failed', 'Failed to refresh download status');
                 const errorStatus = {
                     model_id: id,
                     status: 'error' as const,
@@ -188,13 +193,13 @@
     function providerLabel(provider: string): string {
         switch (provider) {
             case 'cpu':
-                return 'CPU';
+                return t('settings.detection.model_manager_provider_cpu', 'CPU');
             case 'cuda':
-                return 'NVIDIA CUDA';
+                return t('settings.detection.model_manager_provider_cuda', 'NVIDIA CUDA');
             case 'intel_cpu':
-                return 'Intel CPU (OpenVINO)';
+                return t('settings.detection.model_manager_provider_intel_cpu', 'Intel CPU (OpenVINO)');
             case 'intel_gpu':
-                return 'Intel GPU (OpenVINO)';
+                return t('settings.detection.model_manager_provider_intel_gpu', 'Intel GPU (OpenVINO)');
             default:
                 return provider;
         }
@@ -231,63 +236,63 @@
 
                 if (isActive) {
                     return {
-                        label: `${baseLabel}: Active`,
+                        label: `${baseLabel}: ${t('settings.detection.model_manager_provider_active_suffix', 'Active')}`,
                         className: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/20',
-                        title: 'Currently active inference provider'
+                        title: t('settings.detection.active_provider_label', 'Active')
                     };
                 }
 
                 if (provider === 'cpu') {
                     return {
-                        label: `${baseLabel}: Available`,
+                        label: `${baseLabel}: ${t('settings.detection.model_manager_provider_available_suffix', 'Available')}`,
                         className: 'bg-slate-500/10 text-slate-700 dark:text-slate-300 border-slate-500/20',
-                        title: 'CPU fallback path is available'
+                        title: t('settings.detection.model_manager_provider_cpu_fallback_title', 'CPU fallback path is available')
                     };
                 }
 
                 if (provider === 'cuda') {
                     const available = classifierStatus?.cuda_available ?? false;
                     return {
-                        label: `${baseLabel}: ${available ? 'Available' : 'Unavailable'}`,
+                        label: `${baseLabel}: ${available ? t('settings.detection.model_manager_provider_available_suffix', 'Available') : t('settings.detection.model_manager_provider_unavailable_suffix', 'Unavailable')}`,
                         className: available
                             ? 'bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-500/20'
                             : 'bg-rose-500/10 text-rose-700 dark:text-rose-300 border-rose-500/20',
-                        title: available ? 'CUDA provider is available on this host' : 'CUDA provider is not available on this host'
+                        title: available ? t('settings.detection.model_manager_provider_cuda_available_title', 'CUDA provider is available on this host') : t('settings.detection.model_manager_provider_cuda_unavailable_title', 'CUDA provider is not available on this host')
                     };
                 }
 
                 if (provider === 'intel_cpu') {
                     if (compileForIntelCpuFailed) {
                         return {
-                            label: `${baseLabel}: Fallback`,
+                            label: `${baseLabel}: ${t('settings.detection.model_manager_provider_fallback_suffix', 'Fallback')}`,
                             className: 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/20',
-                            title: 'OpenVINO CPU compile failed and fallback is active'
+                            title: t('settings.detection.model_manager_provider_openvino_cpu_fallback_title', 'OpenVINO CPU compile failed and fallback is active')
                         };
                     }
                     const available = classifierStatus?.intel_cpu_available ?? false;
                     return {
-                        label: `${baseLabel}: ${available ? 'Available' : 'Unavailable'}`,
+                        label: `${baseLabel}: ${available ? t('settings.detection.model_manager_provider_available_suffix', 'Available') : t('settings.detection.model_manager_provider_unavailable_suffix', 'Unavailable')}`,
                         className: available
                             ? 'bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 border-cyan-500/20'
                             : 'bg-rose-500/10 text-rose-700 dark:text-rose-300 border-rose-500/20',
-                        title: available ? 'OpenVINO CPU is available on this host' : 'OpenVINO CPU is not available on this host'
+                        title: available ? t('settings.detection.model_manager_provider_openvino_cpu_available_title', 'OpenVINO CPU is available on this host') : t('settings.detection.model_manager_provider_openvino_cpu_unavailable_title', 'OpenVINO CPU is not available on this host')
                     };
                 }
 
                 if (compileForIntelGpuFailed) {
                     return {
-                        label: `${baseLabel}: Fallback`,
+                        label: `${baseLabel}: ${t('settings.detection.model_manager_provider_fallback_suffix', 'Fallback')}`,
                         className: 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/20',
-                        title: 'OpenVINO GPU compile failed and fallback is active'
+                        title: t('settings.detection.model_manager_provider_openvino_gpu_fallback_title', 'OpenVINO GPU compile failed and fallback is active')
                     };
                 }
                 const available = classifierStatus?.intel_gpu_available ?? false;
                 return {
-                    label: `${baseLabel}: ${available ? 'Available' : 'Unavailable'}`,
+                    label: `${baseLabel}: ${available ? t('settings.detection.model_manager_provider_available_suffix', 'Available') : t('settings.detection.model_manager_provider_unavailable_suffix', 'Unavailable')}`,
                     className: available
                         ? 'bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 border-cyan-500/20'
                         : 'bg-rose-500/10 text-rose-700 dark:text-rose-300 border-rose-500/20',
-                    title: available ? 'OpenVINO GPU is available on this host' : 'OpenVINO GPU is not available on this host'
+                    title: available ? t('settings.detection.model_manager_provider_openvino_gpu_available_title', 'OpenVINO GPU is available on this host') : t('settings.detection.model_manager_provider_openvino_gpu_unavailable_title', 'OpenVINO GPU is not available on this host')
                 };
             });
     }
@@ -302,7 +307,7 @@
                     model_id: model.id,
                     status: 'error' as const,
                     progress: 0,
-                    error: result.message || 'Failed to start download'
+                    error: result.message || t('settings.detection.model_manager_start_failed', 'Failed to start download')
                 };
                 downloadStatuses[model.id] = errorStatus;
                 syncModelDownloadProgress(jobProgressStore, model, errorStatus);
@@ -317,7 +322,7 @@
             };
         } catch (e) {
             console.error(e);
-            const message = e instanceof Error ? e.message : 'Failed to start download';
+            const message = e instanceof Error ? e.message : t('settings.detection.model_manager_start_failed', 'Failed to start download');
             const errorStatus = {
                 model_id: model.id,
                 status: 'error' as const,
@@ -337,7 +342,7 @@
             installedModels = await fetchInstalledModels();
         } catch (e) {
             console.error(e);
-            alert("Failed to activate model");
+            alert(t('settings.detection.model_manager_activate_error', 'Failed to activate model'));
         } finally {
             activating = null;
         }
@@ -346,22 +351,22 @@
 
 <div class="space-y-6">
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div class="flex flex-col gap-1"><h2 class="text-2xl font-bold text-slate-900 dark:text-white">Model Manager</h2><p class="text-sm text-slate-500 dark:text-slate-400">Tiered models are sorted by readiness, with advanced options collapsed by default.</p></div>
+        <div class="flex flex-col gap-1"><h2 class="text-2xl font-bold text-slate-900 dark:text-white">{$_('settings.detection.model_manager_title', { default: 'Model Manager' })}</h2><p class="text-sm text-slate-500 dark:text-slate-400">{$_('settings.detection.model_manager_subtitle', { default: 'Tiered models are sorted by readiness, with advanced options collapsed by default.' })}</p></div>
         
         {#if health}
             <div class="flex items-center gap-2">
-                <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700" title="TFLite Runtime Status">
+                <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700" title={$_('settings.detection.model_manager_runtime_tflite', { default: 'TFLite Runtime Status' })}>
                     <span class="w-2 h-2 rounded-full {health.ml.runtimes.tflite.installed ? 'bg-emerald-500' : 'bg-red-500'}"></span>
                     <span class="text-xs font-bold text-slate-600 dark:text-slate-400">TFLite</span>
                 </div>
-                <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700" title="ONNX Runtime Status">
+                <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700" title={$_('settings.detection.model_manager_runtime_onnx', { default: 'ONNX Runtime Status' })}>
                     <span class="w-2 h-2 rounded-full {health.ml.runtimes.onnx.installed ? 'bg-emerald-500' : 'bg-red-500'}"></span>
                     <span class="text-xs font-bold text-slate-600 dark:text-slate-400">ONNX</span>
                 </div>
                 <button 
                     onclick={loadData}
                     class="p-2 text-slate-500 hover:text-teal-500 transition-colors"
-                    title="Refresh"
+                    title={$_('settings.detection.model_manager_refresh', { default: 'Refresh' })}
                 >
                     <svg class="w-5 h-5 {loading ? 'animate-spin' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -385,9 +390,9 @@
         <div class="space-y-6">
             <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                 <div>
-                    <h3 class="text-sm font-black uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">Tiered model lineup</h3>
+                    <h3 class="text-sm font-black uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">{$_('settings.detection.model_manager_lineup_title', { default: 'Tiered model lineup' })}</h3>
                     <p class="text-sm text-slate-500 dark:text-slate-400">
-                        Recommended models are shown first. Advanced options stay collapsed until you open them.
+                        {$_('settings.detection.model_manager_lineup_desc', { default: 'Recommended models are shown first. Advanced options stay collapsed until you open them.' })}
                     </p>
                 </div>
                 <div class="flex items-center gap-2 flex-wrap justify-end">
@@ -396,18 +401,20 @@
                             onclick={() => showAdvancedModels = !showAdvancedModels}
                             class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
                         >
-                            {showAdvancedModels ? 'Hide advanced models' : `Show advanced models (${advancedCount})`}
+                            {showAdvancedModels
+                                ? $_('settings.detection.model_manager_hide_advanced', { default: 'Hide advanced models' })
+                                : $_('settings.detection.model_manager_show_advanced', { values: { count: advancedCount }, default: 'Show advanced models ({count})' })}
                         </button>
                     {/if}
                     <span class="shrink-0 px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300">
-                        {visibleModels.length} model{visibleModels.length === 1 ? '' : 's'}
+                        {$_('settings.detection.model_manager_count', { values: { count: visibleModels.length }, default: '{count} visible' })}
                     </span>
                 </div>
             </div>
 
             {#if !showAdvancedModels && advancedCount > 0}
                 <div class="rounded-lg border border-amber-200 dark:border-amber-900/50 bg-amber-50/40 dark:bg-amber-900/10 px-4 py-3 text-sm text-amber-900 dark:text-amber-200">
-                    Advanced models are hidden by default. Reveal them when you need the larger ONNX options.
+{$_('settings.detection.model_manager_advanced_hidden', { default: 'Advanced models are hidden by default. Reveal them when you need the larger ONNX options.' })}
                 </div>
             {/if}
 
@@ -427,7 +434,7 @@
                             <h3 class="min-w-0 text-lg font-bold text-slate-900 dark:text-white break-words leading-tight">{model.name}</h3>
                             {#if active}
                                 <span class="shrink-0 px-2 py-1 text-xs font-bold bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 rounded-full">
-                                    ACTIVE
+                                    {$_('settings.detection.model_manager_active', { default: 'ACTIVE' })}
                                 </span>
                             {/if}
                         </div>
@@ -455,12 +462,12 @@
 
                         <div class="mb-4 space-y-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-700/30 p-3">
                             <div>
-                                <p class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Recommended For</p>
+                                <p class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">{$_('settings.detection.model_manager_recommended_for', { default: 'Recommended For' })}</p>
                                 <p class="mt-1 text-xs font-medium text-slate-700 dark:text-slate-200">{model.recommended_for}</p>
                             </div>
                             {#if model.notes}
                                 <div>
-                                    <p class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Notes</p>
+                                    <p class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">{$_('settings.detection.model_manager_notes', { default: 'Notes' })}</p>
                                     <p class="mt-1 text-[11px] font-medium leading-relaxed text-slate-600 dark:text-slate-300">{model.notes}</p>
                                 </div>
                             {/if}
@@ -468,21 +475,21 @@
 
                         <div class="grid grid-cols-2 gap-2 text-xs text-slate-600 dark:text-slate-400 mb-4">
                             <div class="flex flex-col p-2 bg-slate-50 dark:bg-slate-700/50 rounded-lg">
-                                <span class="text-slate-400 dark:text-slate-500">Architecture</span>
+<span class="text-slate-400 dark:text-slate-500">{$_('settings.detection.model_manager_architecture', { default: 'Architecture' })}</span>
                                 <span class="font-medium">{model.architecture}</span>
                             </div>
                             <div class="flex flex-col p-2 bg-slate-50 dark:bg-slate-700/50 rounded-lg">
-                                <span class="text-slate-400 dark:text-slate-500">Size</span>
+<span class="text-slate-400 dark:text-slate-500">{$_('settings.detection.model_manager_size', { default: 'Size' })}</span>
                                 <span class="font-medium">{model.file_size_mb} MB</span>
                             </div>
                             <div class="flex flex-col p-2 bg-slate-50 dark:bg-slate-700/50 rounded-lg">
-                                <span class="text-slate-400 dark:text-slate-500">Accuracy</span>
+<span class="text-slate-400 dark:text-slate-500">{$_('settings.detection.model_manager_accuracy', { default: 'Accuracy' })}</span>
                                 <span class="font-medium {model.accuracy_tier === 'High' ? 'text-emerald-600 dark:text-emerald-400' : ''}">
                                     {model.accuracy_tier}
                                 </span>
                             </div>
                             <div class="flex flex-col p-2 bg-slate-50 dark:bg-slate-700/50 rounded-lg">
-                                <span class="text-slate-400 dark:text-slate-500">Speed</span>
+<span class="text-slate-400 dark:text-slate-500">{$_('settings.detection.model_manager_speed', { default: 'Speed' })}</span>
                                 <span class="font-medium {model.inference_speed === 'Fast' ? 'text-emerald-600 dark:text-emerald-400' : ''}">
                                     {model.inference_speed}
                                 </span>
@@ -491,13 +498,13 @@
 
                         <div class="mb-4 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-700/30 p-2.5">
                             <div class="flex items-center justify-between gap-2 mb-2">
-                                <span class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Runtime</span>
+<span class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">{$_('settings.detection.model_manager_runtime', { default: 'Runtime' })}</span>
                                 <span class="text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200">
                                     {(model.runtime || 'cpu').toUpperCase()}
                                 </span>
                             </div>
                             <div class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-2">
-                                Inference Provider Pills
+{$_('settings.detection.model_manager_provider_pills', { default: 'Inference Provider Pills' })}
                             </div>
                             {#if active}
                                 {#if dynamicProviderChips.length > 0}
@@ -510,7 +517,7 @@
                                     </div>
                                 {:else}
                                     <p class="text-[10px] font-bold text-slate-500 dark:text-slate-400">
-                                        OpenVINO host verification is shown for the active ONNX model.
+{$_('settings.detection.model_manager_host_verification', { default: 'OpenVINO host verification is shown for the active ONNX model.' })}
                                     </p>
                                 {/if}
                             {:else}
@@ -528,7 +535,9 @@
                             <div class="mt-4">
                                 <div class="flex justify-between text-xs mb-1">
                                     <span class="text-teal-600 dark:text-teal-400 font-medium">
-                                        {installed ? 'Re-downloading...' : 'Downloading...'}
+                                        {installed
+                                            ? $_('settings.detection.model_manager_redownloading', { default: 'Re-downloading...' })
+                                            : $_('settings.detection.model_manager_downloading', { default: 'Downloading...' })}
                                     </span>
                                     <span class="text-slate-500">{download.progress.toFixed(0)}%</span>
                                 </div>
@@ -554,7 +563,9 @@
                                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                 </svg>
-                                {installed ? 'Re-downloading...' : 'Downloading...'}
+                                {installed
+                                    ? $_('settings.detection.model_manager_redownloading', { default: 'Re-downloading...' })
+                                    : $_('settings.detection.model_manager_downloading', { default: 'Downloading...' })}
                             </button>
                         {:else if installed}
                             <div class="space-y-2">
@@ -563,7 +574,7 @@
                                         disabled
                                         class="w-full px-4 py-2 text-sm font-medium text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-900/20 rounded-lg opacity-75 cursor-default"
                                     >
-                                        Currently Active
+                                        {$_('settings.detection.model_manager_currently_active', { default: 'Currently Active' })}
                                     </button>
                                 {:else}
                                     <button
@@ -571,7 +582,9 @@
                                         disabled={activating !== null}
                                         class="w-full px-4 py-2 text-sm font-medium text-white bg-teal-500 hover:bg-teal-600 rounded-lg transition-colors disabled:opacity-50"
                                     >
-                                        {activating === model.id ? 'Activating...' : 'Activate'}
+                                        {activating === model.id
+                                            ? $_('settings.detection.model_manager_activating', { default: 'Activating...' })
+                                            : $_('settings.detection.model_manager_activate', { default: 'Activate' })}
                                     </button>
                                 {/if}
                                 <button
@@ -581,7 +594,7 @@
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                                     </svg>
-                                    Re-download
+                                    {$_('settings.detection.model_manager_redownload', { default: 'Re-download' })}
                                 </button>
                             </div>
                         {:else}
@@ -592,7 +605,7 @@
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                                 </svg>
-                                Download
+                                {$_('settings.detection.model_manager_download', { default: 'Download' })}
                             </button>
                         {/if}
                     </div>

@@ -1,3 +1,5 @@
+import { get } from 'svelte/store';
+import { _ } from 'svelte-i18n';
 import type { DownloadProgress, ModelMetadata } from '../../api/classifier';
 import type { JobProgressTerminalInput, JobProgressUpdateInput } from '../../stores/job_progress.svelte';
 
@@ -13,12 +15,27 @@ interface JobProgressWriter {
 
 type ModelDownloadDescriptor = Pick<ModelMetadata, 'id' | 'name'>;
 
+function interpolateFallback(template: string, values?: Record<string, string | number>): string {
+    if (!values) return template;
+    return Object.entries(values).reduce((result, [key, value]) => {
+        return result.replaceAll(`{${key}}`, String(value));
+    }, template);
+}
+
+function t(key: string, fallback: string, values?: Record<string, string | number>): string {
+    try {
+        return get(_)(key, values ? { values, default: fallback } : { default: fallback });
+    } catch {
+        return interpolateFallback(fallback, values);
+    }
+}
+
 export function modelDownloadJobId(modelId: string): string {
     return `model-download:${modelId}`;
 }
 
 function modelDownloadTitle(model: ModelDownloadDescriptor): string {
-    return `Download ${model.name}`;
+    return t('jobs.model_download_title', `Download ${model.name}`, { model: model.name });
 }
 
 function normalizeProgress(progress: number | undefined): number {
@@ -31,9 +48,9 @@ function resolveRunningMessage(status?: DownloadProgress | null): string {
         return status.message.trim();
     }
     if (status?.status === 'pending') {
-        return 'Preparing download';
+        return t('jobs.model_download_preparing', 'Preparing download');
     }
-    return 'Downloading model';
+    return t('jobs.model_download_running', 'Downloading model');
 }
 
 function resolveTerminalMessage(status: DownloadProgress): string {
@@ -44,12 +61,12 @@ function resolveTerminalMessage(status: DownloadProgress): string {
         if (typeof status.message === 'string' && status.message.trim().length > 0) {
             return status.message.trim();
         }
-        return 'Download failed';
+        return t('jobs.model_download_failed', 'Download failed');
     }
     if (typeof status.message === 'string' && status.message.trim().length > 0) {
         return status.message.trim();
     }
-    return 'Download complete';
+    return t('jobs.model_download_complete', 'Download complete');
 }
 
 export function startModelDownloadProgress(store: JobProgressWriter, model: ModelDownloadDescriptor, timestamp?: number): void {
@@ -59,7 +76,7 @@ export function startModelDownloadProgress(store: JobProgressWriter, model: Mode
         id,
         kind: MODEL_DOWNLOAD_JOB_KIND,
         title: modelDownloadTitle(model),
-        message: 'Preparing download',
+        message: t('jobs.model_download_preparing', 'Preparing download'),
         route: MODEL_DOWNLOAD_ROUTE,
         current: 0,
         total: 100,

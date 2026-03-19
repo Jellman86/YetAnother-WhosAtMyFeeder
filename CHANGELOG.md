@@ -6,6 +6,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- **Added:** Detection Settings now presents a tiered model lineup with downloadable small, medium, large, and advanced wildlife models, plus guidance that keeps advanced options collapsed by default for most installs.
+- **Added:** Model downloads now appear in the global progress system so owners can track long-running ONNX artifact downloads from anywhere in the UI.
+- **Fixed:** Birder wildlife model labels are now normalized to canonical scientific names instead of leaking raw taxonomy-path strings like `04853_Animalia_...` into detections, video analysis, and release label assets.
+- **Fixed:** Taxonomy repair and manual species updates now backfill canonical scientific/common names more robustly by preferring stored taxonomy identifiers and scientific names over localized display labels.
+
 - **Fixed:** Selecting a new classification model (e.g., EVA-02 Large) now immediately restarts the subprocess worker pool. Previously, workers would continue using the old model until they crashed or were manually restarted, causing a mismatch between the UI and actual inference results.
 - **Fixed:** Removed legacy "safety" remapping that automatically downgraded EVA-02 Large to ConvNeXt Large when not explicitly flagged. The system now strictly respects the user's active model selection.
 - **Fixed:** Improved system stability when using large models (EVA-02) by increasing default classification timeouts to 60s (from 30s) and worker ready timeouts to 60s (from 20s). This prevents "classify_snapshot_timeout" errors during the initial heavy model load phase and reduces unnecessary OOM-related worker restarts.
