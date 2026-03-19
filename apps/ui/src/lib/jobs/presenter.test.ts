@@ -233,6 +233,32 @@ describe('jobs presenter', () => {
         expect(summary.subline).toBe('Reclassification analyzing clips');
     });
 
+
+    it('uses the model download title for the global banner summary', () => {
+        const summary = buildGlobalProgressSummary(
+            [
+                makeJob({
+                    id: 'model-download:hieradet_small_inat21',
+                    kind: 'model_download',
+                    title: 'Download HieraDet Small',
+                    message: 'Downloading model weights',
+                    current: 42,
+                    total: 100
+                })
+            ],
+            new Map(),
+            null,
+            125_000,
+            t,
+            (kind) => kind === 'model_download' ? 'Model Download' : kind
+        );
+
+        expect(summary.headline).toBe('1 job running');
+        expect(summary.subline).toBe('Download HieraDet Small');
+        expect(summary.progressLabel).toBe('42 / 100 items');
+        expect(summary.percent).toBe(42);
+    });
+
     it('builds a determinate banner summary when active jobs share a unit', () => {
         const summary = buildGlobalProgressSummary(
             [

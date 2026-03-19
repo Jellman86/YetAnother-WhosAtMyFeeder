@@ -97,6 +97,9 @@ function resolveSummarySubline(
     if (supportsReclassifyQueueStatus(job.kind) && analysisStatus?.circuit_open) {
         return t('jobs.global_summary_circuit_open', { kind: label }, '{kind} paused by circuit breaker');
     }
+    if (job.kind === 'model_download' && job.title.trim().length > 0) {
+        return job.title;
+    }
     const activityLabel = resolveActivityLabel(job, row, analysisStatus, t);
     return t(
         'jobs.global_summary_basic',

@@ -1,6 +1,8 @@
 <script lang="ts">
     import { onMount, onDestroy } from 'svelte';
     import { fetchAvailableModels, fetchInstalledModels, downloadModel, fetchDownloadStatus, activateModel, checkHealth, fetchClassifierStatus, getVisibleTieredModelLineup, type ModelMetadata, type InstalledModel, type DownloadProgress, type ClassifierStatus } from '../../api';
+    import { jobProgressStore } from '../../stores/job_progress.svelte';
+    import { startModelDownloadProgress, syncModelDownloadProgress } from './model_download_progress';
 
     let availableModels = $state<ModelMetadata[]>([]);
     let installedModels = $state<InstalledModel[]>([]);
@@ -124,6 +126,10 @@
                 const status = await fetchDownloadStatus(id);
                 if (status) {
                     downloadStatuses[id] = status;
+                    const model = availableModels.find((entry) => entry.id === id);
+                    if (model) {
+                        syncModelDownloadProgress(jobProgressStore, model, status);
+                    }
                     if (status.status === 'completed') {
                         // Refresh installed list
                         installedModels = await fetchInstalledModels();
@@ -264,6 +270,7 @@
 
         try {
             await downloadModel(model.id);
+            startModelDownloadProgress(jobProgressStore, model);
             // Initialize local status to trigger polling
             downloadStatuses[model.id] = {
                 model_id: model.id,
