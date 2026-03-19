@@ -77,3 +77,23 @@ def test_load_active_model_id_respects_selection(tmp_path, monkeypatch):
 
     manager = ModelManager()
     assert manager.active_model_id == "eva02_large_inat21"
+
+
+@pytest.mark.asyncio
+async def test_list_available_models_returns_models_sorted_by_sort_order(monkeypatch):
+    from app.services import model_manager as model_manager_module
+
+    monkeypatch.setattr(
+        model_manager_module,
+        "REMOTE_REGISTRY",
+        list(reversed(model_manager_module.REMOTE_REGISTRY)),
+    )
+
+    models = await ModelManager().list_available_models()
+
+    assert [model.id for model in models] == [
+        "mobilenet_v2_birds",
+        "convnext_large_inat21",
+        "eva02_large_inat21",
+    ]
+    assert [model.sort_order for model in models] == [10, 20, 30]

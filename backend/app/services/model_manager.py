@@ -141,7 +141,7 @@ class ModelManager:
 
     async def list_available_models(self) -> List[ModelMetadata]:
         """Fetch list of available models from remote registry."""
-        return [ModelMetadata(**m) for m in REMOTE_REGISTRY]
+        return [ModelMetadata(**m) for m in sorted(REMOTE_REGISTRY, key=lambda model: model.get("sort_order", 0))]
 
     async def list_installed_models(self) -> List[InstalledModel]:
         """List models currently present in the models directory or bundled assets."""
