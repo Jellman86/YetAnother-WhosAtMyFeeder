@@ -1014,6 +1014,74 @@ async def test_classifier_service_auto_restores_gpu_after_cpu_fallback_cooldown(
 
 
 @pytest.mark.asyncio
+async def test_classifier_service_auto_restore_gpu_skips_artifacts_that_disallow_intel_gpu(
+    mock_tflite, mock_os_path_exists
+):
+    with patch.object(ClassifierService, "_init_bird_model", return_value=None):
+        service = ClassifierService()
+        cpu_model = _FallbackReadyModel([{"label": "CPU Bird", "score": 0.2, "index": 0}])
+        service._models["bird"] = cpu_model
+        service._inference_backend = "openvino"
+        service._active_inference_provider = "intel_cpu"
+        service._gpu_restore_not_before_monotonic = 0.0
+        service._accel_caps = {
+            "openvino_available": True,
+            "intel_gpu_available": True,
+            "intel_cpu_available": True,
+            "ort_available": True,
+        }
+
+        original_provider = settings.classification.inference_provider
+        settings.classification.inference_provider = "auto"
+        try:
+            with patch.object(
+                service,
+                "_build_bird_model_for_backend",
+            ) as mock_build, patch.object(
+                service,
+                "_resolve_active_bird_model_spec",
+                return_value={
+                    "model_path": "/tmp/model.onnx",
+                    "labels_path": "/tmp/labels.txt",
+                    "input_size": 224,
+                    "preprocessing": None,
+                    "runtime": "onnx",
+                    "supported_inference_providers": ["cpu", "intel_cpu"],
+                },
+            ):
+                results = service.classify(Image.new("RGB", (32, 32), color="white"))
+        finally:
+            settings.classification.inference_provider = original_provider
+
+        assert results == [{"label": "CPU Bird", "score": 0.2, "index": 0}]
+        assert service._models["bird"] is cpu_model
+        assert service._active_inference_provider == "intel_cpu"
+        assert service._runtime_gpu_restore_attempts == 0
+        mock_build.assert_not_called()
+        await service.shutdown()
+
+
+def test_build_bird_model_for_backend_rejects_unsupported_provider():
+    with patch.object(ClassifierService, "_init_bird_model", return_value=None):
+        service = ClassifierService()
+
+    spec = {
+        "model_path": "/tmp/model.onnx",
+        "labels_path": "/tmp/labels.txt",
+        "input_size": 224,
+        "preprocessing": {},
+        "label_grouping": {},
+        "supported_inference_providers": ["cpu", "intel_cpu"],
+    }
+
+    try:
+        assert service._build_bird_model_for_backend(spec, backend="openvino", provider="intel_gpu") is None
+        assert service._build_bird_model_for_backend(spec, backend="onnxruntime", provider="cuda") is None
+    finally:
+        asyncio.run(service.shutdown())
+
+
+@pytest.mark.asyncio
 async def test_classifier_service_recovers_raw_classification_from_invalid_openvino_gpu_output(
     mock_tflite, mock_os_path_exists
 ):

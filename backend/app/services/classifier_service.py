@@ -379,6 +379,16 @@ def _resolve_grouped_labels(
     return build_grouped_classifier_labels(labels, strategy=strategy)
 
 
+def _provider_supported_for_spec(spec: Optional[dict[str, Any]], provider: str) -> bool:
+    normalized = _normalize_inference_provider(provider)
+    allowed = {
+        _normalize_inference_provider(item)
+        for item in (spec or {}).get("supported_inference_providers") or []
+    }
+    allowed.discard("auto")
+    return not allowed or normalized in allowed
+
+
 def _summarize_numeric_array(values: np.ndarray, *, name: str) -> dict[str, Any]:
     arr = np.asarray(values)
     finite_mask = np.isfinite(arr)
@@ -1979,6 +1989,9 @@ class ClassifierService:
         backend: str,
         provider: str,
     ) -> ModelType | None:
+        if not _provider_supported_for_spec(spec, provider):
+            return None
+
         model_path = str(spec.get("model_path") or "")
         labels_path = str(spec.get("labels_path") or "")
         input_size = int(spec.get("input_size") or 384)
@@ -2093,6 +2106,9 @@ class ClassifierService:
         if self._inference_backend != "openvino" or self._active_inference_provider != "intel_cpu":
             return False
         if time.monotonic() < self._gpu_restore_not_before_monotonic:
+            return False
+        spec = self._resolve_active_bird_model_spec()
+        if not _provider_supported_for_spec(spec, "intel_gpu"):
             return False
         requested_provider = _normalize_inference_provider(
             getattr(settings.classification, "inference_provider", "auto")
