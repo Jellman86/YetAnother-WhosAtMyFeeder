@@ -12,7 +12,13 @@ vi.mock('./core', () => ({
     fetchWithAbort: vi.fn(),
 }));
 
-import { fetchAvailableModels, summarizeModelMetadata, type InstalledModel, type ModelMetadata } from './classifier';
+import {
+    fetchAvailableModels,
+    getVisibleTieredModelLineup,
+    summarizeModelMetadata,
+    type InstalledModel,
+    type ModelMetadata
+} from './classifier';
 
 describe('fetchAvailableModels', () => {
     beforeEach(() => {
@@ -74,5 +80,91 @@ describe('fetchAvailableModels', () => {
             statusLabel: 'Stable',
             labels: ['Advanced', 'Wildlife Wide', 'Advanced only', 'Stable'],
         });
+    });
+});
+
+
+describe('getVisibleTieredModelLineup', () => {
+    it('sorts by tier and sort order and hides advanced-only models by default', () => {
+        const models: ModelMetadata[] = [
+            {
+                id: 'eva02_large_inat21',
+                name: 'EVA-02 Large (Elite Accuracy)',
+                description: 'Advanced option',
+                architecture: 'EVA-02-Large',
+                file_size_mb: 1200,
+                accuracy_tier: 'Elite (91%+)',
+                inference_speed: 'Slow (~1s)',
+                download_url: 'https://example.com/models/eva02_large_inat21.onnx',
+                weights_url: 'https://example.com/models/eva02_large_inat21.onnx.data',
+                labels_url: 'https://example.com/models/eva02_large_inat21_labels.txt',
+                input_size: 336,
+                runtime: 'onnx',
+                supported_inference_providers: ['cpu', 'cuda'],
+                tier: 'advanced',
+                taxonomy_scope: 'wildlife_wide',
+                recommended_for: 'Advanced users',
+                estimated_ram_mb: 3072,
+                advanced_only: true,
+                sort_order: 30,
+                status: 'stable',
+                notes: 'Elite accuracy model.',
+            },
+            {
+                id: 'convnext_large_inat21',
+                name: 'ConvNeXt Large (High Accuracy)',
+                description: 'Broad wildlife option',
+                architecture: 'ConvNeXt-Large-MLP',
+                file_size_mb: 760,
+                accuracy_tier: 'Very High (90%+)',
+                inference_speed: 'Slow (~500-800ms)',
+                download_url: 'https://example.com/models/convnext_large_inat21.onnx',
+                weights_url: 'https://example.com/models/convnext_large_inat21.onnx.data',
+                labels_url: 'https://example.com/models/convnext_large_inat21_labels.txt',
+                input_size: 384,
+                runtime: 'onnx',
+                supported_inference_providers: ['cpu', 'cuda'],
+                tier: 'large',
+                taxonomy_scope: 'wildlife_wide',
+                recommended_for: 'General wildlife',
+                estimated_ram_mb: 2048,
+                advanced_only: false,
+                sort_order: 20,
+                status: 'stable',
+                notes: 'Higher-accuracy broad model.',
+            },
+            {
+                id: 'mobilenet_v2_birds',
+                name: 'MobileNet V2 (Fast)',
+                description: 'Default model',
+                architecture: 'MobileNetV2',
+                file_size_mb: 3.4,
+                accuracy_tier: 'Medium',
+                inference_speed: 'Fast (~30ms)',
+                download_url: 'https://example.com/models/mobilenet_v2_birds.tflite',
+                labels_url: 'https://example.com/models/mobilenet_v2_birds_labels.txt',
+                input_size: 224,
+                runtime: 'tflite',
+                supported_inference_providers: ['cpu'],
+                tier: 'cpu_only',
+                taxonomy_scope: 'birds_only',
+                recommended_for: 'Default bird-only inference',
+                estimated_ram_mb: 128,
+                advanced_only: false,
+                sort_order: 10,
+                status: 'stable',
+                notes: 'Fastest option.',
+            },
+        ];
+
+        expect(getVisibleTieredModelLineup(models)).toMatchObject([
+            { id: 'mobilenet_v2_birds' },
+            { id: 'convnext_large_inat21' },
+        ]);
+        expect(getVisibleTieredModelLineup(models, true)).toMatchObject([
+            { id: 'mobilenet_v2_birds' },
+            { id: 'convnext_large_inat21' },
+            { id: 'eva02_large_inat21' },
+        ]);
     });
 });

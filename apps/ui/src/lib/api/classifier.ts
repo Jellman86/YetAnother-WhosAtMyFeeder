@@ -130,6 +130,26 @@ export interface ModelMetadataSummary {
     labels: string[];
 }
 
+const MODEL_TIER_PRIORITY: Record<string, number> = {
+    cpu_only: 0,
+    large: 1,
+    advanced: 2,
+};
+
+export function compareTieredModelMetadata(a: ModelMetadata, b: ModelMetadata): number {
+    return (
+        (MODEL_TIER_PRIORITY[a.tier] ?? 99) - (MODEL_TIER_PRIORITY[b.tier] ?? 99) ||
+        a.sort_order - b.sort_order ||
+        a.name.localeCompare(b.name)
+    );
+}
+
+export function getVisibleTieredModelLineup(models: ModelMetadata[], showAdvanced: boolean = false): ModelMetadata[] {
+    return [...models]
+        .sort(compareTieredModelMetadata)
+        .filter((model) => showAdvanced || !model.advanced_only);
+}
+
 function formatModelMetadataLabel(value: string): string {
     return value
         .split(/[_-]+/g)

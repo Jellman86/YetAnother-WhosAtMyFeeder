@@ -1,6 +1,6 @@
 <script lang="ts">
     import { onMount, onDestroy } from 'svelte';
-    import { fetchAvailableModels, fetchInstalledModels, downloadModel, fetchDownloadStatus, activateModel, checkHealth, fetchClassifierStatus, type ModelMetadata, type InstalledModel, type DownloadProgress, type ClassifierStatus } from '../../api';
+    import { fetchAvailableModels, fetchInstalledModels, downloadModel, fetchDownloadStatus, activateModel, checkHealth, fetchClassifierStatus, getVisibleTieredModelLineup, type ModelMetadata, type InstalledModel, type DownloadProgress, type ClassifierStatus } from '../../api';
 
     let availableModels = $state<ModelMetadata[]>([]);
     let installedModels = $state<InstalledModel[]>([]);
@@ -12,31 +12,6 @@
     let activating = $state<string | null>(null); 
     let showAdvancedModels = $state(false);
 
-    const tierPriority: Record<string, number> = {
-        cpu_only: 0,
-        large: 1,
-        advanced: 2
-    };
-
-    function compareModels(a: ModelMetadata, b: ModelMetadata): number {
-        return (
-            (tierPriority[a.tier] ?? 99) - (tierPriority[b.tier] ?? 99) ||
-            a.sort_order - b.sort_order ||
-            a.name.localeCompare(b.name)
-        );
-    }
-
-    function sortModels(models: ModelMetadata[]): ModelMetadata[] {
-        return [...models].sort(compareModels);
-    }
-
-    function getRecommendedModels(): ModelMetadata[] {
-        return sortModels(availableModels.filter((model) => !model.advanced_only));
-    }
-
-    function getAdvancedModels(): ModelMetadata[] {
-        return sortModels(availableModels.filter((model) => model.advanced_only));
-    }
 
     function tierLabel(tier: string): string {
         switch (tier) {
@@ -127,7 +102,7 @@
                     return null;
                 })
             ]);
-            availableModels = sortModels(available);
+            availableModels = getVisibleTieredModelLineup(available, true);
             installedModels = installed;
             health = healthData;
             classifierStatus = classifierData;
@@ -352,8 +327,8 @@
             {error}
         </div>
     {:else}
-        {@const visibleModels = showAdvancedModels ? sortModels(availableModels) : getRecommendedModels()}
-        {@const advancedCount = getAdvancedModels().length}
+        {@const visibleModels = getVisibleTieredModelLineup(availableModels, showAdvancedModels)}
+        {@const advancedCount = availableModels.filter((model) => model.advanced_only).length}
         <div class="space-y-6">
             <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                 <div>
