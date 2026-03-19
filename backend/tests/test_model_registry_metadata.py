@@ -25,6 +25,8 @@ async def test_available_models_expose_tiered_metadata():
     assert by_id["hieradet_small_inat21"].recommended_for
     assert by_id["hieradet_small_inat21"].status == "experimental"
     assert by_id["hieradet_small_inat21"].sort_order == 15
+    assert by_id["hieradet_small_inat21"].download_url != "pending"
+    assert by_id["hieradet_small_inat21"].labels_url != "pending"
     assert "CPU and OpenVINO CPU validated" in by_id["hieradet_small_inat21"].notes
     assert "CUDA unverified" in by_id["hieradet_small_inat21"].notes
 
@@ -33,6 +35,8 @@ async def test_available_models_expose_tiered_metadata():
     assert by_id["rope_vit_b14_inat21"].recommended_for
     assert by_id["rope_vit_b14_inat21"].status == "experimental"
     assert by_id["rope_vit_b14_inat21"].sort_order == 18
+    assert by_id["rope_vit_b14_inat21"].download_url != "pending"
+    assert by_id["rope_vit_b14_inat21"].labels_url != "pending"
     assert by_id["rope_vit_b14_inat21"].advanced_only is False
     assert "CPU and OpenVINO CPU validated" in by_id["rope_vit_b14_inat21"].notes
     assert "CUDA unverified" in by_id["rope_vit_b14_inat21"].notes

@@ -78,8 +78,8 @@ REMOTE_REGISTRY = [
         "inference_speed": "Medium (~120-250ms)",
         "runtime": "onnx",
         "supported_inference_providers": ["cpu", "cuda", "intel_cpu", "intel_gpu"],
-        "download_url": "pending",
-        "labels_url": "pending",
+        "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/hieradet_small_inat21.onnx",
+        "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/hieradet_small_inat21_labels.txt",
         "input_size": 256,
         "preprocessing": {
             "mean": [0.485, 0.456, 0.406],
@@ -106,8 +106,8 @@ REMOTE_REGISTRY = [
         "inference_speed": "Medium-Slow (~220-400ms)",
         "runtime": "onnx",
         "supported_inference_providers": ["cpu", "cuda", "intel_cpu", "intel_gpu"],
-        "download_url": "pending",
-        "labels_url": "pending",
+        "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/rope_vit_b14_inat21.onnx",
+        "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/rope_vit_b14_inat21_labels.txt",
         "input_size": 224,
         "preprocessing": {
             "mean": [0.485, 0.456, 0.406],
