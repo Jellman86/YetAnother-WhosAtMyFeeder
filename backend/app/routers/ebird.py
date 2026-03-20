@@ -36,7 +36,7 @@ def _format_ebird_row(
     video_classification_provider: str | None,
     video_classification_backend: str | None,
 ) -> list[str]:
-    date_str = detection_time.strftime("%Y-%m-%d")
+    date_str = detection_time.strftime("%m/%d/%Y")
     time_str = detection_time.strftime("%H:%M")
 
     genus = ""
@@ -117,23 +117,38 @@ def _resolve_export_common_name(
     english_common_name: str | None,
     scientific_name: str | None,
 ) -> str:
+    # Pre-compute the scientific name in lowercase for comparison.
+    # This guards against the case where the scientific name was stored verbatim
+    # in the common_name or display_name field (e.g. "Parus major" as common name),
+    # which happens with manual tags by scientific name or taxonomy cache corruption.
+    sci_lower = str(scientific_name or "").strip().lower()
+
+    def is_usable_common_name(val: str | None) -> bool:
+        if not _is_english_safe_name(val):
+            return False
+        # Reject if the value IS the scientific name — it is not a common name.
+        if sci_lower and str(val).strip().lower() == sci_lower:
+            return False
+        return True
+
     # 1. Prefer the resolved English common name from taxonomy cache
-    if _is_english_safe_name(english_common_name):
+    if is_usable_common_name(english_common_name):
         return str(english_common_name).strip()
-    
-    # 2. Try the stored common name if it's English-safe (e.g. from model labels)
-    if _is_english_safe_name(common_name):
+
+    # 2. Try the stored common name (e.g. from model labels)
+    if is_usable_common_name(common_name):
         return str(common_name).strip()
-        
-    # 3. Try the display name if it's English-safe
-    if _is_english_safe_name(display_name):
+
+    # 3. Try the display name
+    if is_usable_common_name(display_name):
         return str(display_name).strip()
-        
-    # 4. As a last resort for eBird compatibility, use the scientific name.
-    # eBird import accepts scientific names in the Common Name column if they match their taxonomy.
+
+    # 4. Fall back to the scientific name.
+    # eBird import accepts scientific names in the Common Name column when matched
+    # against their taxonomy, so this is safe as a last resort.
     if scientific_name and scientific_name.strip():
         return str(scientific_name).strip()
-        
+
     return ""
 
 
@@ -230,6 +245,9 @@ async def export_ebird_csv(
                             FROM taxonomy_cache tc_by_name
                             WHERE d.scientific_name IS NOT NULL
                               AND LOWER(tc_by_name.scientific_name) = LOWER(d.scientific_name)
+                              -- Exclude broken cache entries where scientific name was
+                              -- stored verbatim as the common name
+                              AND LOWER(tc_by_name.common_name) != LOWER(tc_by_name.scientific_name)
                             ORDER BY tc_by_name.id ASC
                             LIMIT 1
                         ),
@@ -238,6 +256,7 @@ async def export_ebird_csv(
                             FROM taxonomy_cache tc_by_taxa
                             WHERE d.taxa_id IS NOT NULL
                               AND tc_by_taxa.taxa_id = d.taxa_id
+                              AND LOWER(tc_by_taxa.common_name) != LOWER(tc_by_taxa.scientific_name)
                             ORDER BY tc_by_taxa.id ASC
                             LIMIT 1
                         )
