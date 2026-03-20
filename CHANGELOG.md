@@ -6,6 +6,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- **Fixed:** `_resolve_color_space` in the classifier pipeline had inverted conditional logic that always returned `"RGB"` regardless of the value in the model spec, making it impossible to use any other color space (e.g. `"L"` for grayscale models). The function now correctly returns the spec value when it is a valid PIL classification mode and falls back to `"RGB"` otherwise. All current models use `"RGB"` so there is no runtime behavior change, but future models requesting a different color space will now be handled correctly.
+- **Fixed:** TFLite float32 model normalisation was hardcoded to the MobileNet-style `(x - 127.5) / 127.5` formula regardless of the model spec. The classifier now reads `mean` and `std` from the preprocessing block and applies ImageNet-style per-channel normalisation when those values are present, falling back to the corrected MobileNet constant (`127.5 / 127.5`, previously the slightly-off `127.0 / 128.0`) for legacy float32 TFLite models without explicit stats. The only current TFLite model (`mobilenet_v2_birds`) is `uint8`-quantised and is not affected.
+- **Fixed:** Taxonomy background sync was unconditionally forwarding `force_refresh=False` to `get_names` even when a forced refresh was not required. `AsyncMock` captured the keyword argument and caused two CI test assertions to fail. The kwarg is now only passed when `must_refresh` is `True`.
+
 - **Added:** Reclassification overlay UI now dynamically displays the active inference provider icon and real-time backend RAM usage.
 - **Changed:** Regional birds-only model variants now use generic functional names ("Small Birds", "Medium Birds") instead of strict geographic labels in the model manager.
 - **Changed:** Removed the generic "Tiered model lineup" explanatory block from Detection Settings to reclaim vertical space.
