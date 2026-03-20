@@ -3160,6 +3160,92 @@ class ClassifierService:
         configured_model = str(getattr(settings.classification, "model", "") or "").strip()
         return configured_model or "unknown"
 
+    def _resolve_bird_classification_image(
+        self,
+        image: Image.Image,
+        *,
+        input_context: Any | None = None,
+    ) -> tuple[Image.Image, dict[str, Any]]:
+        normalized_input_context = _normalize_classification_input_context(input_context)
+        diagnostics: dict[str, Any] = {
+            "crop_attempted": False,
+            "crop_applied": False,
+            "crop_reason": "crop_disabled",
+        }
+
+        try:
+            spec = dict(self._resolve_active_bird_model_spec() or {})
+        except Exception as exc:
+            diagnostics["crop_reason"] = "spec_resolution_failed"
+            log.debug(
+                "Bird crop resolution skipped",
+                crop_attempted=False,
+                crop_applied=False,
+                crop_reason=diagnostics["crop_reason"],
+                error=_summarize_runtime_exception(exc),
+            )
+            return image, diagnostics
+
+        crop_generator = dict(spec.get("crop_generator") or {})
+        crop_enabled = bool(crop_generator.get("enabled"))
+        if not crop_enabled:
+            diagnostics["crop_reason"] = "crop_disabled"
+            log.debug(
+                "Bird crop resolution skipped",
+                crop_attempted=False,
+                crop_applied=False,
+                crop_reason=diagnostics["crop_reason"],
+            )
+            return image, diagnostics
+
+        if bool(normalized_input_context.is_cropped):
+            diagnostics["crop_reason"] = "input_already_cropped"
+            log.debug(
+                "Bird crop resolution skipped",
+                crop_attempted=False,
+                crop_applied=False,
+                crop_reason=diagnostics["crop_reason"],
+            )
+            return image, diagnostics
+
+        diagnostics["crop_attempted"] = True
+        crop_result: dict[str, Any] | None = None
+        try:
+            crop_result = self._bird_crop_service.generate_crop(image) if self._bird_crop_service is not None else None
+        except Exception as exc:
+            diagnostics["crop_reason"] = "crop_service_error"
+            log.warning(
+                "Bird crop generation failed",
+                crop_attempted=True,
+                crop_applied=False,
+                crop_reason=diagnostics["crop_reason"],
+                error=_summarize_runtime_exception(exc),
+            )
+            return image, diagnostics
+
+        crop_image = crop_result.get("crop_image") if isinstance(crop_result, dict) else None
+        crop_reason = str((crop_result or {}).get("reason") or "no_crop")
+        if isinstance(crop_image, Image.Image):
+            diagnostics["crop_applied"] = True
+            diagnostics["crop_reason"] = crop_reason
+            log.debug(
+                "Bird crop applied",
+                crop_attempted=True,
+                crop_applied=True,
+                crop_reason=diagnostics["crop_reason"],
+                crop_box=(crop_result or {}).get("box") if isinstance(crop_result, dict) else None,
+            )
+            return crop_image, diagnostics
+
+        diagnostics["crop_reason"] = crop_reason
+        log.debug(
+            "Bird crop unavailable; using original image",
+            crop_attempted=True,
+            crop_applied=False,
+            crop_reason=diagnostics["crop_reason"],
+        )
+        return image, diagnostics
+
     def classify(
         self,
         image: Image.Image,
@@ -3179,7 +3265,11 @@ class ClassifierService:
                 return []
             attempted_models.add(model_identity)
             try:
-                results = _invoke_model_classify(bird, image, input_context=input_context)
+                crop_image, _crop_diagnostics = self._resolve_bird_classification_image(
+                    image,
+                    input_context=input_context,
+                )
+                results = _invoke_model_classify(bird, crop_image, input_context=input_context)
                 if self._inference_backend == "openvino" and self._active_inference_provider == "intel_gpu":
                     self._record_gpu_success()
                 return results
