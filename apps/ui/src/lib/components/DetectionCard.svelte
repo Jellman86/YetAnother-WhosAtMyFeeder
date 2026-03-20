@@ -226,7 +226,10 @@
     );
     const weatherUnitSystem = $derived(
         resolveWeatherUnitSystem(
-            settingsStore.settings?.location_weather_unit_system,
+            // authStore.locationWeatherUnitSystem is already correctly resolved (including
+            // "british") from /api/auth/status for all users. Without it as a middle
+            // fallback, "british" collapses to metric via locationTemperatureUnit → "celsius".
+            settingsStore.settings?.location_weather_unit_system ?? authStore.locationWeatherUnitSystem,
             settingsStore.settings?.location_temperature_unit ?? authStore.locationTemperatureUnit
         )
     );

@@ -773,7 +773,7 @@
 
     const weatherUnitSystem = $derived(
         resolveWeatherUnitSystem(
-            settingsStore.settings?.location_weather_unit_system,
+            settingsStore.settings?.location_weather_unit_system ?? authStore.locationWeatherUnitSystem,
             settingsStore.settings?.location_temperature_unit ?? authStore.locationTemperatureUnit
         )
     );
