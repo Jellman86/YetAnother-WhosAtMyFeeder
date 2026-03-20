@@ -855,11 +855,65 @@ class DetectionRepository:
             return [row[0] for row in rows]
 
     async def get_unique_species_with_taxonomy(self) -> list[tuple[str, str | None, str | None, int | None]]:
-        """Get list of unique species names with taxonomy info."""
+        """Get unique species, pre-grouped to avoid duplicates from display_name variants.
+
+        Strategy:
+        1. Join detections with taxonomy_cache to fill in missing taxa_id wherever
+           scientific_name is known, so rows that share a scientific name but have
+           inconsistent taxa_id storage are treated as the same species.
+        2. Collect DISTINCT (display_name, scientific_name, common_name, taxa_id)
+           combinations to keep the working set small before ranking.
+        3. Use a window function to pick one canonical row per species group, ranked
+           by: taxa_id present > scientific_name present > common_name present, then
+           alphabetically by display_name for determinism.
+
+        This means "Great tit", "Great tit (Parus major)", "Parus major (Great tit)"
+        all collapse to a single row before Python taxonomy resolution runs, removing
+        the source of duplicate entries in the Explorer species filter.
+        """
         async with self.db.execute(
-            """SELECT DISTINCT display_name, scientific_name, common_name, taxa_id
-               FROM detections
-               ORDER BY display_name ASC"""
+            """
+            WITH species_distinct AS (
+                -- Enrich taxa_id from taxonomy_cache when the detection is missing it
+                -- but has a known scientific_name we can join on.
+                SELECT DISTINCT
+                    d.display_name,
+                    d.scientific_name,
+                    d.common_name,
+                    COALESCE(d.taxa_id, tc.taxa_id) AS taxa_id
+                FROM detections d
+                LEFT JOIN taxonomy_cache tc
+                    ON d.scientific_name IS NOT NULL
+                    AND LOWER(tc.scientific_name) = LOWER(d.scientific_name)
+            ),
+            ranked AS (
+                SELECT
+                    display_name,
+                    scientific_name,
+                    common_name,
+                    taxa_id,
+                    ROW_NUMBER() OVER (
+                        -- Group all name variants for the same species together:
+                        -- first by taxa_id (most canonical), then by scientific_name,
+                        -- then by the raw display_name as a last resort.
+                        PARTITION BY COALESCE(
+                            CAST(taxa_id AS TEXT),
+                            LOWER(scientific_name),
+                            LOWER(display_name)
+                        )
+                        ORDER BY
+                            (taxa_id IS NOT NULL) DESC,
+                            (scientific_name IS NOT NULL) DESC,
+                            (common_name IS NOT NULL) DESC,
+                            display_name ASC
+                    ) AS rn
+                FROM species_distinct
+            )
+            SELECT display_name, scientific_name, common_name, taxa_id
+            FROM ranked
+            WHERE rn = 1
+            ORDER BY display_name ASC
+            """
         ) as cursor:
             return await cursor.fetchall()
 

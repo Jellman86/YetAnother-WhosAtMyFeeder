@@ -356,10 +356,19 @@ async def get_event_filters(
         else:
             resolved = []
 
-        # Deduplicate by taxa_id when available; fallback to display_name
+        # Deduplicate: taxa_id is most canonical, then scientific_name, then raw value.
+        # The SQL query already collapses most variants, but taxonomy resolution in
+        # resolve_species() may surface a taxa_id or scientific_name for rows that
+        # the SQL could not group (e.g. parenthetical display names with no stored
+        # scientific_name), so a second pass here catches any residual duplicates.
         seen: set[str] = set()
         for item in resolved:
-            key = f"taxa:{item.taxa_id}" if item.taxa_id else item.value.lower()
+            if item.taxa_id:
+                key = f"taxa:{item.taxa_id}"
+            elif item.scientific_name:
+                key = f"sci:{item.scientific_name.strip().lower()}"
+            else:
+                key = item.value.lower()
             if key in seen:
                 continue
             seen.add(key)
