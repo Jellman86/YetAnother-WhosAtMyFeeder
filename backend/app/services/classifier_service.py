@@ -91,6 +91,7 @@ OpenVINOCore = _OPENVINO_SUPPORT["core_class"]
 OPENVINO_AVAILABLE = bool(_OPENVINO_SUPPORT["available"])
 
 from app.config import settings  # noqa: E402
+from app.models.ai_models import ClassificationInputContext  # noqa: E402
 from app.services.classification_admission import (  # noqa: E402
     ClassificationAdmissionCoordinator,
     ClassificationAdmissionTimeoutError,
@@ -194,6 +195,65 @@ class InvalidInferenceOutputError(RuntimeError):
         self.detail = str(detail)
         self.diagnostics = dict(diagnostics or {})
         super().__init__(f"{self.backend}:{self.provider}: {self.detail}")
+
+
+def _normalize_classification_input_context(input_context: Any | None) -> ClassificationInputContext:
+    if isinstance(input_context, ClassificationInputContext):
+        return input_context
+    if input_context is None:
+        return ClassificationInputContext()
+
+    payload: dict[str, Any] = {}
+    if isinstance(input_context, dict):
+        payload = dict(input_context)
+    else:
+        model_dump = getattr(input_context, "model_dump", None)
+        if callable(model_dump):
+            try:
+                dumped = model_dump()
+            except Exception:
+                dumped = None
+            if isinstance(dumped, dict):
+                payload = dumped
+        elif hasattr(input_context, "__dict__"):
+            payload = {key: value for key, value in vars(input_context).items() if not key.startswith("_")}
+
+    try:
+        return ClassificationInputContext.model_validate(payload)
+    except Exception:
+        return ClassificationInputContext()
+
+
+def _invoke_model_classify(
+    model: Any,
+    image: Image.Image,
+    *,
+    input_context: ClassificationInputContext | None = None,
+) -> list[dict]:
+    classify_fn = getattr(model, "classify", None)
+    if not callable(classify_fn):
+        return []
+
+    normalized_input_context = _normalize_classification_input_context(input_context)
+    try:
+        signature = inspect.signature(classify_fn)
+        accepts_input_context = any(
+            param.kind == inspect.Parameter.VAR_KEYWORD or param.name == "input_context"
+            for param in signature.parameters.values()
+        )
+    except (TypeError, ValueError):
+        accepts_input_context = False
+
+    if accepts_input_context:
+        return classify_fn(image, input_context=normalized_input_context)
+
+    try:
+        return classify_fn(image, input_context=normalized_input_context)
+    except TypeError as exc:
+        error_text = str(exc)
+        if "unexpected keyword argument 'input_context'" not in error_text and 'unexpected keyword argument "input_context"' not in error_text:
+            raise
+        return classify_fn(image)
 
 
 def _strict_non_finite_output_enabled() -> bool:
@@ -1194,7 +1254,7 @@ class ModelInstance:
 
         return results
 
-    def classify(self, image: Image.Image) -> list[dict]:
+    def classify(self, image: Image.Image, input_context: Any | None = None) -> list[dict]:
         """Classify an image using this model.
 
         Args:
@@ -1354,7 +1414,7 @@ class ONNXModelInstance:
         """Apply softmax to convert logits to probabilities."""
         return _safe_softmax(x, context=f"{self.name}:onnx")
 
-    def classify(self, image: Image.Image, top_k: int = 5) -> list[dict]:
+    def classify(self, image: Image.Image, top_k: int = 5, input_context: Any | None = None) -> list[dict]:
         """Classify an image using this ONNX model."""
         if not self.loaded or not self.session:
             log.warning(f"{self.name} ONNX model not loaded, cannot classify")
@@ -1688,7 +1748,7 @@ class OpenVINOModelInstance:
             return raw[0]
         return raw
 
-    def classify(self, image: Image.Image, top_k: int = 5) -> list[dict]:
+    def classify(self, image: Image.Image, top_k: int = 5, input_context: Any | None = None) -> list[dict]:
         if not self.loaded or self.compiled_model is None:
             log.warning(f"{self.name} OpenVINO model not loaded, cannot classify")
             return []
@@ -3103,6 +3163,7 @@ class ClassifierService:
         image: Image.Image,
         camera_name: Optional[str] = None,
         model_id: Optional[str] = None,
+        input_context: Any | None = None,
     ) -> list[dict]:
         """Classify an image using the bird model."""
         attempted_models: set[int] = set()
@@ -3116,7 +3177,7 @@ class ClassifierService:
                 return []
             attempted_models.add(model_identity)
             try:
-                results = bird.classify(image)
+                results = _invoke_model_classify(bird, image, input_context=input_context)
                 if self._inference_backend == "openvino" and self._active_inference_provider == "intel_gpu":
                     self._record_gpu_success()
                 return results
@@ -3159,6 +3220,7 @@ class ClassifierService:
         image: Image.Image,
         camera_name: Optional[str],
         model_id: Optional[str],
+        input_context: ClassificationInputContext | None = None,
         *,
         work_id: str | None = None,
         lease_token: int | None = None,
@@ -3310,6 +3372,7 @@ class ClassifierService:
         image: Image.Image,
         camera_name: Optional[str],
         model_id: Optional[str],
+        input_context: ClassificationInputContext | None = None,
     ) -> list[dict]:
         async def _runner(work_id: str, lease_token: int) -> list[dict]:
             return await self._run_supervised_inference(
@@ -3317,6 +3380,7 @@ class ClassifierService:
                 image,
                 camera_name,
                 model_id,
+                input_context,
                 work_id=work_id,
                 lease_token=lease_token,
             )
@@ -3348,6 +3412,7 @@ class ClassifierService:
                 args[0],
                 args[1] if len(args) > 1 else None,
                 args[2] if len(args) > 2 else None,
+                args[3] if len(args) > 3 else None,
             )
         return await self._run_coordinated_executor_inference(
             "background",
@@ -3369,6 +3434,7 @@ class ClassifierService:
                 args[0],
                 args[1] if len(args) > 1 else None,
                 args[2] if len(args) > 2 else None,
+                args[3] if len(args) > 3 else None,
             )
         return await self._run_coordinated_executor_inference(
             "live",
@@ -3383,10 +3449,12 @@ class ClassifierService:
         image: Image.Image,
         camera_name: Optional[str] = None,
         model_id: Optional[str] = None,
+        input_context: Any | None = None,
     ) -> list[dict]:
         """Async wrapper for classify to prevent blocking the event loop."""
+        normalized_input_context = _normalize_classification_input_context(input_context)
         try:
-            base_results = await self._run_image_inference(self.classify, image, camera_name, model_id)
+            base_results = await self._run_image_inference(self.classify, image, camera_name, model_id, normalized_input_context)
         except BackgroundImageClassificationUnavailableError:
             return []
 
@@ -3421,9 +3489,11 @@ class ClassifierService:
         image: Image.Image,
         camera_name: Optional[str] = None,
         model_id: Optional[str] = None,
+        input_context: Any | None = None,
     ) -> list[dict]:
         """Live image-classification path with bounded admission and accurate in-flight tracking."""
-        base_results = await self._run_live_image_inference(self.classify, image, camera_name, model_id)
+        normalized_input_context = _normalize_classification_input_context(input_context)
+        base_results = await self._run_live_image_inference(self.classify, image, camera_name, model_id, normalized_input_context)
 
         if not base_results:
             return base_results
@@ -3456,12 +3526,14 @@ class ClassifierService:
         image: Image.Image,
         camera_name: Optional[str] = None,
         model_id: Optional[str] = None,
+        input_context: Any | None = None,
     ) -> list[dict]:
         """Background image-classification path using low-priority workers.
 
         Intended for backfill/batch-style work so live MQTT classification
         remains responsive under sustained load.
         """
+        normalized_input_context = _normalize_classification_input_context(input_context)
         if self._image_execution_mode == "subprocess":
             base_results = await self._run_coordinated_supervised_inference(
                 "background",
@@ -3469,6 +3541,7 @@ class ClassifierService:
                 image,
                 camera_name,
                 model_id,
+                normalized_input_context,
             )
         else:
             base_results = await self._run_coordinated_executor_inference(
@@ -3479,6 +3552,7 @@ class ClassifierService:
                 image,
                 camera_name,
                 model_id,
+                normalized_input_context,
             )
 
         if not base_results:
@@ -3507,12 +3581,12 @@ class ClassifierService:
             )
             return base_results
 
-    def classify_wildlife(self, image: Image.Image) -> list[dict]:
+    def classify_wildlife(self, image: Image.Image, input_context: Any | None = None) -> list[dict]:
         """Classify an image using the wildlife model."""
         wildlife = self._get_wildlife_model()
-        return wildlife.classify(image)
+        return _invoke_model_classify(wildlife, image, input_context=input_context)
 
-    async def classify_wildlife_async(self, image: Image.Image) -> list[dict]:
+    async def classify_wildlife_async(self, image: Image.Image, input_context: Any | None = None) -> list[dict]:
         """Async wrapper for wildlife classification."""
         return await self._run_image_inference(self.classify_wildlife, image)
 

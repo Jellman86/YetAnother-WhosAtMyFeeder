@@ -177,6 +177,36 @@ def test_get_active_model_spec_prefers_installed_model_config(tmp_path, monkeypa
     assert spec["label_grouping"]["strategy"] == "strip_trailing_parenthetical"
 
 
+def test_get_active_model_spec_preserves_crop_generator_from_installed_model_config(tmp_path, monkeypatch):
+    monkeypatch.setattr("app.services.model_manager.MODELS_DIR", str(tmp_path))
+
+    model_dir = tmp_path / "convnext_large_inat21"
+    model_dir.mkdir(parents=True, exist_ok=True)
+    (model_dir / "model.onnx").write_bytes(b"onnx")
+    (model_dir / "labels.txt").write_text("label\n", encoding="utf-8")
+    (model_dir / "model_config.json").write_text(
+        json.dumps(
+            {
+                "runtime": "onnx",
+                "input_size": 512,
+                "crop_generator": {
+                    "enabled": True,
+                    "input_context": {"is_cropped": True},
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    manager = ModelManager()
+    manager.active_model_id = "convnext_large_inat21"
+
+    spec = manager.get_active_model_spec()
+
+    assert spec["crop_generator"]["enabled"] is True
+    assert spec["crop_generator"]["input_context"]["is_cropped"] is True
+
+
 def test_get_active_model_spec_ignores_invalid_installed_model_config_fields(tmp_path, monkeypatch):
     monkeypatch.setattr("app.services.model_manager.MODELS_DIR", str(tmp_path))
 
@@ -207,6 +237,35 @@ def test_get_active_model_spec_ignores_invalid_installed_model_config_fields(tmp
     assert spec["preprocessing"]["resize_mode"] == "center_crop"
     assert spec["supported_inference_providers"] == ["cpu", "cuda", "intel_cpu", "intel_gpu"]
     assert spec["label_grouping"] == {}
+
+
+def test_get_active_model_spec_disables_invalid_crop_generator_in_installed_model_config(tmp_path, monkeypatch):
+    monkeypatch.setattr("app.services.model_manager.MODELS_DIR", str(tmp_path))
+
+    model_dir = tmp_path / "convnext_large_inat21"
+    model_dir.mkdir(parents=True, exist_ok=True)
+    (model_dir / "model.onnx").write_bytes(b"onnx")
+    (model_dir / "labels.txt").write_text("label\n", encoding="utf-8")
+    (model_dir / "model_config.json").write_text(
+        json.dumps(
+            {
+                "runtime": "onnx",
+                "input_size": 512,
+                "crop_generator": {
+                    "enabled": "nope",
+                    "input_context": "bad",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    manager = ModelManager()
+    manager.active_model_id = "convnext_large_inat21"
+
+    spec = manager.get_active_model_spec()
+
+    assert spec["crop_generator"]["enabled"] is False
 
 
 @pytest.mark.asyncio

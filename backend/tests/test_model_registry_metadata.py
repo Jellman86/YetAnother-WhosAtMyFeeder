@@ -27,6 +27,8 @@ async def test_available_models_expose_tiered_metadata():
     assert by_id["convnext_large_inat21"].preprocessing["crop_pct"] == pytest.approx(0.95)
     assert by_id["convnext_large_inat21"].preprocessing["mean"] == pytest.approx([0.48145466, 0.4578275, 0.40821073])
     assert by_id["convnext_large_inat21"].preprocessing["std"] == pytest.approx([0.26862954, 0.26130258, 0.27577711])
+    assert by_id["convnext_large_inat21"].crop_generator.enabled is True
+    assert by_id["convnext_large_inat21"].crop_generator.input_context.is_cropped is True
 
     assert by_id["small_birds"].tier == "small"
     assert by_id["small_birds"].taxonomy_scope == "birds_only"
@@ -94,6 +96,27 @@ async def test_available_models_expose_tiered_metadata():
     assert by_id["eva02_large_inat21"].model_config_url
     assert by_id["eva02_large_inat21"].preprocessing["resize_mode"] == "center_crop"
     assert by_id["eva02_large_inat21"].preprocessing["crop_pct"] == pytest.approx(1.0)
+
+
+@pytest.mark.asyncio
+async def test_available_models_disable_invalid_crop_generator_metadata(monkeypatch):
+    from app.services import model_manager as model_manager_module
+
+    monkeypatch.setattr(
+        model_manager_module,
+        "REMOTE_REGISTRY",
+        [
+            dict(
+                model_manager_module.REMOTE_REGISTRY[0],
+                crop_generator={"enabled": "not-a-bool", "input_context": {"is_cropped": "also-bad"}},
+            )
+        ],
+    )
+
+    models = await ModelManager().list_available_models()
+
+    assert models[0].crop_generator.enabled is False
+    assert models[0].crop_generator.input_context is None
 
 
 @pytest.mark.asyncio

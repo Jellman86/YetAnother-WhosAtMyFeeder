@@ -1947,6 +1947,35 @@ async def test_classifier_service_uses_separate_executors_for_image_and_video_wo
 
 
 @pytest.mark.asyncio
+async def test_classifier_service_accepts_input_context_and_normalizes_is_cropped(mock_tflite, mock_os_path_exists):
+    class _InputContextAwareBirdModel:
+        def __init__(self):
+            self.loaded = True
+            self.error = None
+            self.labels = ["Robin"]
+            self.seen_input_contexts = []
+
+        def classify(self, image, input_context=None):
+            self.seen_input_contexts.append(input_context)
+            return [{"label": "Robin", "score": 0.91, "index": 0}]
+
+    with patch.object(ClassifierService, "_init_bird_model", return_value=None):
+        service = ClassifierService()
+        bird_model = _InputContextAwareBirdModel()
+        service._models["bird"] = bird_model
+        image = Image.new("RGB", (32, 32))
+
+        sync_results = service.classify(image, input_context={"is_cropped": True})
+        async_results = await service.classify_async(image, input_context={"is_cropped": "not-a-bool"})
+
+        assert sync_results[0]["label"] == "Robin"
+        assert async_results[0]["label"] == "Robin"
+        assert bird_model.seen_input_contexts[0].is_cropped is True
+        assert bird_model.seen_input_contexts[1].is_cropped is False
+        await service.shutdown()
+
+
+@pytest.mark.asyncio
 async def test_classifier_service_video_progress_callback_failure_does_not_drop_results(mock_tflite, mock_os_path_exists):
     original_toggle = settings.classification.personalized_rerank_enabled
     settings.classification.personalized_rerank_enabled = False

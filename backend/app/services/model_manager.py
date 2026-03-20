@@ -6,7 +6,7 @@ import httpx
 import structlog
 from datetime import datetime, UTC
 from typing import Any, List, Optional, Dict
-from app.models.ai_models import ModelMetadata, InstalledModel, DownloadProgress
+from app.models.ai_models import CropGeneratorConfig, ModelMetadata, InstalledModel, DownloadProgress
 from app.config import settings
 from app.services.bird_model_region_resolver import resolve_bird_model_region
 
@@ -133,6 +133,12 @@ REMOTE_REGISTRY = [
             "mean": [0.48145466, 0.4578275, 0.40821073],
             "std": [0.26862954, 0.26130258, 0.27577711],
             "normalization": "float32"
+        },
+        "crop_generator": {
+            "enabled": True,
+            "input_context": {
+                "is_cropped": True,
+            },
         },
         "license": "CC-BY-NC-4.0",
         "tier": "large",
@@ -267,6 +273,12 @@ REMOTE_REGISTRY = [
             "std": [0.2135, 0.2103, 0.2622],
             "normalization": "float32"
         },
+        "crop_generator": {
+            "enabled": True,
+            "input_context": {
+                "is_cropped": True,
+            },
+        },
         "license": "Apache-2.0",
         "tier": "medium",
         "taxonomy_scope": "wildlife_wide",
@@ -300,6 +312,12 @@ REMOTE_REGISTRY = [
             "mean": [0.48145466, 0.4578275, 0.40821073],
             "std": [0.26862954, 0.26130258, 0.27577711],
             "normalization": "float32"
+        },
+        "crop_generator": {
+            "enabled": True,
+            "input_context": {
+                "is_cropped": True,
+            },
         },
         "license": "CC-BY-NC-4.0",
         "tier": "advanced",
@@ -377,6 +395,13 @@ class ModelManager:
         model_ext = ".onnx" if runtime == "onnx" else ".tflite"
         return f"model{model_ext}"
 
+    def _normalize_crop_generator_block(self, raw_value: Any) -> dict[str, Any]:
+        try:
+            config = CropGeneratorConfig.model_validate(raw_value or {})
+        except Exception:
+            config = CropGeneratorConfig()
+        return config.model_dump(exclude_none=True)
+
     def _merge_family_variant_meta(
         self,
         model_meta: dict[str, Any],
@@ -398,6 +423,10 @@ class ModelManager:
             or model_meta.get("supported_inference_providers")
             or []
         )
+        if "crop_generator" in variant:
+            merged["crop_generator"] = self._normalize_crop_generator_block(variant.get("crop_generator"))
+        else:
+            merged["crop_generator"] = self._normalize_crop_generator_block(model_meta.get("crop_generator"))
         merged["download_url"] = variant.get("download_url", model_meta.get("download_url"))
         merged["weights_url"] = variant.get("weights_url", model_meta.get("weights_url"))
         merged["labels_url"] = variant.get("labels_url", model_meta.get("labels_url"))
@@ -412,6 +441,7 @@ class ModelManager:
             "preprocessing": dict(model_meta.get("preprocessing") or {}),
             "label_grouping": dict(model_meta.get("label_grouping") or {}),
             "supported_inference_providers": list(model_meta.get("supported_inference_providers") or []),
+            "crop_generator": self._normalize_crop_generator_block(model_meta.get("crop_generator")),
         }
         region_scope = str(model_meta.get("region_scope") or "").strip()
         if region_scope:
@@ -471,6 +501,10 @@ class ModelManager:
         elif raw_label_grouping is not None:
             log.warning("Ignoring invalid label_grouping block in installed model config", model_dir=model_dir)
         merged["label_grouping"] = label_grouping
+        if "crop_generator" in config:
+            merged["crop_generator"] = self._normalize_crop_generator_block(config.get("crop_generator"))
+        else:
+            merged["crop_generator"] = self._normalize_crop_generator_block(spec.get("crop_generator"))
         providers = config.get("supported_inference_providers")
         if isinstance(providers, list) and providers:
             merged["supported_inference_providers"] = list(providers)
@@ -535,6 +569,7 @@ class ModelManager:
                     "weights_url": merged.get("weights_url"),
                     "resolved_region": region,
                     "model_config_url": merged.get("model_config_url"),
+                    "crop_generator": self._normalize_crop_generator_block(merged.get("crop_generator")),
                 }
                 return self._apply_installed_model_config(spec, model_dir=variant_dir)
         return None
@@ -576,6 +611,7 @@ class ModelManager:
                     "supported_inference_providers": list(model_meta.get("supported_inference_providers") or []),
                     "weights_url": model_meta.get("weights_url"),
                     "model_config_url": model_meta.get("model_config_url"),
+                    "crop_generator": self._normalize_crop_generator_block(model_meta.get("crop_generator")),
                 }
                 return self._apply_installed_model_config(spec, model_dir=target_dir)
 
@@ -589,6 +625,7 @@ class ModelManager:
             "label_grouping": {},
             "supported_inference_providers": ["cpu"],
             "weights_url": None,
+            "crop_generator": self._normalize_crop_generator_block(None),
         }
 
     async def list_available_models(self) -> List[ModelMetadata]:

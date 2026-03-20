@@ -1,9 +1,20 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, field_validator
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 
 class YAWAMFBaseModel(BaseModel):
     model_config = ConfigDict(protected_namespaces=())
+
+
+class ClassificationInputContext(YAWAMFBaseModel):
+    model_config = ConfigDict(protected_namespaces=(), extra="allow")
+    is_cropped: StrictBool = False
+
+
+class CropGeneratorConfig(YAWAMFBaseModel):
+    model_config = ConfigDict(protected_namespaces=(), extra="allow")
+    enabled: StrictBool = False
+    input_context: Optional[ClassificationInputContext] = None
 
 
 class ModelMetadata(YAWAMFBaseModel):
@@ -34,6 +45,19 @@ class ModelMetadata(YAWAMFBaseModel):
     default_region: Optional[str] = None
     region_variants: Optional[Dict[str, Dict[str, Any]]] = None
     label_grouping: Optional[Dict[str, Any]] = None
+    crop_generator: CropGeneratorConfig = Field(default_factory=CropGeneratorConfig)
+
+    @field_validator("crop_generator", mode="before")
+    @classmethod
+    def _normalize_crop_generator(cls, value: Any) -> CropGeneratorConfig:
+        if isinstance(value, CropGeneratorConfig):
+            return value
+        if value is None:
+            return CropGeneratorConfig()
+        try:
+            return CropGeneratorConfig.model_validate(value)
+        except Exception:
+            return CropGeneratorConfig()
     
 class InstalledModel(YAWAMFBaseModel):
     id: str
